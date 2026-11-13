@@ -411,7 +411,7 @@ The payment edge cases the brief lists are handled by this shape:
 | Time | `TIMESTAMPTZ` in UTC; business dates in Africa/Accra from the kernel `Clock`; `occurred_at` and `recorded_at` kept apart | DATA_MODEL |
 | Configuration | Typed, validated at boot, failing with the name of the missing key; business settings in `platform.setting` | B2 |
 | Text | Every user-facing string from the API (error messages, notification templates, document labels) goes through a translation layer; English ships first | B2 |
-| API style | Versioned REST under `/v1`, OpenAPI 3.1 generated from code, one error envelope, cursor pagination, money as `{ amount, currency }` | B1 `docs/API.md` |
+| API style | Versioned REST under `/v1`, OpenAPI 3.1 generated from code, one error envelope, cursor pagination, money as integer `...Pesewas` fields with `currency` on the object (ADR-0029) | B1 `docs/API.md` |
 
 ### External calls
 
@@ -557,3 +557,4 @@ The full amended schedule, with the gate for every session and three further ass
 | [0026](adr/0026-session-schedule-amendment.md) | Session schedule amendment: order core before POS, and B9 split in two |
 | [0027](adr/0027-offline-sync-principles.md) | Offline sync principles |
 | [0028](adr/0028-investor-distribution-allocation.md) | Investor distributions are allocated by unit-days with largest-remainder rounding |
+| [0029](adr/0029-api-contract-conventions.md) | API contract conventions: money fields, decimal strings, one error envelope, approvals as 202 |

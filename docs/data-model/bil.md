@@ -33,7 +33,7 @@ Posted statuses: `ISSUED`. An issued document is immutable; it is corrected by a
 | `certified_gross_pesewas` | `pesewas` | NULL | |
 | `certification_ref` | `text` | NULL | The authority's reference |
 | `reason_code` | `text` | NULL, FK `mdm.reason_code`; required for credit and debit notes | |
-| `content_hash` | `bytea` | NULL; required when `ISSUED` | Hash of the rendered document: tamper evidence |
+| `content_hash` | `bytea` | NULL; set once, by the DOC module after it renders and archives the document | Hash of the rendered document: tamper evidence. Rendering happens after the issuing transaction commits (ADR-0010), so an issued document is briefly without its hash; the nightly numbering check reports any issued document still without one |
 | `archived_document_id` | `uuid` | NULL, FK `doc.archived_document` | The stored PDF |
 | `issued_at` | `timestamptz` | NULL | |
 | `occurred_at` | `timestamptz` | NULL | When the sale happened, if earlier than issue (offline) |

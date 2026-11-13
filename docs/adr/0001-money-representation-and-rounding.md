@@ -26,7 +26,7 @@ Option 3.
 - Every monetary amount is stored in a column of the PostgreSQL domain `platform.pesewas`, defined as `BIGINT CHECK (VALUE >= 0 AND VALUE <= 9007199254740991)`. The upper bound is the largest integer JSON and JavaScript can carry exactly.
 - Amounts are never negative. Direction is carried by a `side` (`D` or `C`), a `direction` (`IN`, `OUT`, `OVER`, `SHORT`) or the document type.
 - Column names end in `_pesewas`.
-- Every document header and journal header carries `currency CHAR(3) NOT NULL DEFAULT 'GHS' CHECK (currency = 'GHS')`. The API carries money as `{ "amount": <integer pesewas>, "currency": "GHS" }`.
+- Every document header and journal header carries `currency CHAR(3) NOT NULL DEFAULT 'GHS' CHECK (currency = 'GHS')`. The API carries money as integer fields named `...Pesewas`, with one `currency` field on each object that carries money (amended in B1 by ADR-0029, which replaced an earlier `{ amount, currency }` object form before any code existed).
 - Unit prices are integer pesewas per pricing unit (per head, per kilogram, per crate, per pack).
 - No cost rate is stored. Stock value is held as a total value and a quantity (ADR-0018).
 

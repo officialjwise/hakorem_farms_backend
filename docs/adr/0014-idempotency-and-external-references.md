@@ -29,7 +29,7 @@ Option 3.
   - existing row with a different request hash: reject with a conflict error;
   - a concurrent duplicate hits the unique key, waits for the first transaction and then sees its result.
 - Rows are kept for at least 72 hours, longer than the longest offline window, and then purged.
-- Records created offline use their client-generated id as the key (ADR-0013).
+- Records created offline use their client-generated id as the key (ADR-0013). The two batch sync operations (`syncOfflineSales`, `syncDriverEvents`) therefore take no `Idempotency-Key` header: each record in the batch carries its own client id, and a resubmitted record returns its first outcome. The other operations without the header are login and token endpoints, inbound webhooks (which use the provider's event id), and POSTs that change nothing (price resolution, tax calculation, previews, signed links, status lookups). `docs/API.md` lists them.
 
 **Inbound webhooks**
 
