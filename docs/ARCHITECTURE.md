@@ -523,7 +523,7 @@ The backend is built in fifteen sessions. The schedule in the shared brief was a
 | B9a | Order core (the order record, its state machine, sale posting) and payments |
 | B9b | Point of sale, shifts and offline sync |
 
-The full amended schedule, with the gate for every session and three further assignments proposed for the owner's decision, is in ADR-0026 and is reflected in `docs/BUILD_PROMPT.md`.
+The full amended schedule, with the gate for every session and three further assignments the owner confirmed on 2026-11-13, is in ADR-0026 and is reflected in `docs/BUILD_PROMPT.md`.
 
 ## 12. Decision index
 

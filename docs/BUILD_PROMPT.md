@@ -107,7 +107,7 @@ Close the session by writing the exact login flow into your report, including th
 
 These ten sessions all follow one recipe, so this section is the whole of their instruction. The table says what each covers and what has to be true before it closes.
 
-> **Amended 2026-11-13 by `docs/adr/0026-session-schedule-amendment.md`, approved by the owner.** B9 is two sessions. B9a builds the order core (the sales order record, its state machine and sale posting) and payments, because POS and quotations both need the order record before B11. B9b builds POS, shifts and offline sync on top of it. B11 keeps order fulfilment. The ADR also lists three proposed assignments (online store, audit administration, daily exception report) that the B0 gate settles; read it before opening B7, B9a, B11, B12 or B13.
+> **Amended 2026-11-13 by `docs/adr/0026-session-schedule-amendment.md`, approved by the owner.** B9 is two sessions. B9a builds the order core (the sales order record, its state machine and sale posting) and payments, because POS and quotations both need the order record before B11. B9b builds POS, shifts and offline sync on top of it. B11 keeps order fulfilment. The ADR also assigns the online store, audit administration and the daily exception report, confirmed by the owner on 2026-11-13; read it before opening B7, B9a, B11, B12 or B13.
 
 | Session | Modules | What proves it |
 | --- | --- | --- |

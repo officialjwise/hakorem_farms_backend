@@ -15,13 +15,13 @@ Replace each field in section 2 with the values from the row for your session. N
 | B4 | MDM: catalogue, pricing, promotions, tax configuration | `mdm` | 0001, 0004, 0020, 0021 | A price resolves for every band, channel and customer tier; an unresolvable request becomes a quote, not an error |
 | B5 | INV | `inv` | 0002, 0005, 0018, 0019, 0027 (stock exception) | On-hand from movements matches a hand count; stock cannot go negative outside the allowed movement types; a lot traces in both directions |
 | B6 | LIV, PRC | `liv`, `prc` | 0018, 0019, 0002 | A processing order consumes an animal and produces lots whose costs sum exactly to input cost plus direct processing cost |
-| B7 | PUR; and, proposed, SHP (catalogue, cart, checkout reservation) | `pur`, `shp` | 0019, 0020, 0026 | Three-way match blocks payment on disagreement; checkout reserves stock and releases it on timeout |
+| B7 | PUR; and SHP (catalogue, cart, checkout reservation) | `pur`, `shp` | 0019, 0020, 0026 | Three-way match blocks payment on disagreement; checkout reserves stock and releases it on timeout |
 | B8 | FIN, BIL, DOC | `fin`, `bil`, `doc` | 0001, 0003, 0005, 0015, 0020 | Trial balance sums to zero on a seeded day; an unbalanced journal is rejected by the database; numbering is gap-free under concurrent load |
-| B9a | ORD (core), PAY; and, proposed, online order placement | `ord`, `pay` | 0010, 0014, 0021, 0026, 0003 | Every payment edge case in the brief passes; an order on any channel posts stock, document, payment and ledger in one transaction |
+| B9a | ORD (core), PAY; and online order placement | `ord`, `pay` | 0010, 0014, 0021, 0026, 0003 | Every payment edge case in the brief passes; an order on any channel posts stock, document, payment and ledger in one transaction |
 | B9b | POS, offline sync | `pos` (and the offline columns in `ord`, `inv`) | 0015, 0027 | Shift close reconciles; 500 queued offline transactions sync exactly once |
 | B10 | QUO, WHL | `quo`, `whl` | 0004, 0017, 0019 | Quote revisions are versioned; conversion to invoice preserves every link; a credit limit blocks with an audited override |
-| B11 | ORD (fulfilment), DEL, NTF; and, proposed, abandoned-cart messaging | `ord`, `del`, `ntf`, `shp` | 0010, 0021, 0026 | A catch-weight order re-prices at pick; cash on delivery lands against the driver; the outbox guarantees the customer notification |
-| B12 | CAP, CST, RPT, API; and, proposed, the daily exception report | `cap`, `cst`, `rpt`, `api` | 0018, 0023, 0028, 0026 | A distribution matches a hand calculation on unit-days and ties exactly to the ledger |
+| B11 | ORD (fulfilment), DEL, NTF; and abandoned-cart messaging | `ord`, `del`, `ntf`, `shp` | 0010, 0021, 0026 | A catch-weight order re-prices at pick; cash on delivery lands against the driver; the outbox guarantees the customer notification |
+| B12 | CAP, CST, RPT, API; and the daily exception report | `cap`, `cst`, `rpt`, `api` | 0018, 0023, 0028, 0026 | A distribution matches a hand calculation on unit-days and ties exactly to the ledger |
 
 Note for B9a: the recipe applies unchanged. B9a builds the order core and payments only; point of sale, shifts and offline sync are B9b. Note for B13: it is not a module session and has its own section in `docs/BUILD_PROMPT.md`.
 

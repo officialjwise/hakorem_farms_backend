@@ -1,9 +1,9 @@
 # ADR-0026: Session schedule amendment: order core before POS, and B9 split in two
 
-- **Status:** Accepted for the order core and the B9 split (owner, 2026-11-13). Proposed for the three further assignments marked below, awaiting the B0 gate
+- **Status:** Accepted. The order core and the B9 split were approved by the owner on 2026-11-13 at B0; the three further assignments were confirmed by the owner, exactly as proposed, on 2026-11-13 after the B1 gate (A-040 resolved)
 - **Date:** 2026-11-13
 - **Session:** B0
-- **Deciders:** owner approved the first two items; backend track proposes the rest
+- **Deciders:** owner; backend track proposed the three further assignments
 
 ## Context
 
@@ -29,11 +29,11 @@ Option 3.
 - **B9b: point of sale, shifts and offline sync.** Built on the order core: a counter sale is an order that is placed and completed in one step.
 - **B11** keeps the rest of the order module: pick lists, picking with weight capture, packing, dispatch, partial fulfilment, substitution and cancellation after confirmation, with delivery and notifications.
 
-**Proposed, for the gate**
+**Further assignments, confirmed by the owner on 2026-11-13 exactly as proposed**
 
-1. **Online store (SHP).** No backend session in the build prompt names it, yet the slot 8 gate requires that checkout reserves stock and releases it on timeout. Proposal: public catalogue, cart and checkout reservation in B7; order placement and online payment in B9a, when orders and payments exist; abandoned-cart messaging in B11 with notifications.
-2. **Audit and administration (AUD), second part.** The audit trail is built in B3. Retention jobs and data-subject request handling are proposed for B13 with the other compliance work.
-3. **Daily exception report.** It draws on every module. Proposed for B12 with reporting.
+1. **Online store (SHP).** No backend session in the build prompt names it, yet the slot 8 gate requires that checkout reserves stock and releases it on timeout. Public catalogue, cart and checkout reservation in B7; order placement and online payment in B9a, when orders and payments exist; abandoned-cart messaging in B11 with notifications.
+2. **Audit and administration (AUD), second part.** The audit trail is built in B3. Retention jobs and data-subject request handling are built in B13 with the other compliance work.
+3. **Daily exception report.** It draws on every module. Built in B12 with reporting.
 
 **Amended backend schedule**
 
@@ -46,14 +46,14 @@ Option 3.
 | B4 | Master data, pricing engine, promotions, tax configuration | A price resolves for every band, channel and tier; an unresolvable request becomes a quote |
 | B5 | Inventory: movements, balances, reservations, holds, valuation, stock take | On-hand from movements matches a hand count; stock cannot go negative outside allowed types; a lot traces both ways |
 | B6 | Livestock, processing | A processing order produces lots whose costs sum exactly to input cost plus direct processing cost |
-| B7 | Procurement and suppliers; *proposed:* storefront catalogue, cart and checkout reservation | Three-way match blocks payment on disagreement; checkout reserves stock and releases it on timeout |
+| B7 | Procurement and suppliers; storefront catalogue, cart and checkout reservation | Three-way match blocks payment on disagreement; checkout reserves stock and releases it on timeout |
 | B8 | General ledger, billing, document generation | Trial balance sums to zero on a seeded day; an unbalanced journal is rejected by the database; numbering is gap-free under concurrent load |
-| **B9a** | **Order core, payments;** *proposed:* online order placement and payment | Every payment edge case in the brief passes; an order on any channel posts stock, document, payment and ledger in one transaction |
+| **B9a** | **Order core, payments;** online order placement and payment | Every payment edge case in the brief passes; an order on any channel posts stock, document, payment and ledger in one transaction |
 | **B9b** | **Point of sale, shifts, offline sync** | Shift close reconciles; 500 queued offline transactions sync exactly once |
 | B10 | Quotations, wholesale, credit control | Quote revisions are versioned; conversion to invoice preserves every link; a credit limit blocks with an audited override |
-| B11 | Order fulfilment, delivery, notifications; *proposed:* abandoned-cart messaging | A catch-weight order re-prices at pick; cash on delivery lands against the driver; the outbox guarantees the customer notification |
-| B12 | Capital and investors, costing, reporting, public API; *proposed:* daily exception report | A distribution matches a hand calculation on unit-days and ties exactly to the ledger |
-| B13 | Load test, security review, smoke suite, runbooks, data migration, deploy; *proposed:* retention and data-subject requests | Every non-functional target met and evidenced on the live server |
+| B11 | Order fulfilment, delivery, notifications; abandoned-cart messaging | A catch-weight order re-prices at pick; cash on delivery lands against the driver; the outbox guarantees the customer notification |
+| B12 | Capital and investors, costing, reporting, public API; daily exception report | A distribution matches a hand calculation on unit-days and ties exactly to the ledger |
+| B13 | Load test, security review, smoke suite, runbooks, data migration, deploy; retention and data-subject requests | Every non-functional target met and evidenced on the live server |
 
 **Effect on the frontend track**
 
@@ -74,5 +74,5 @@ Option 3.
 
 ## Verification
 
-- B0 gate: the owner accepts or changes the three proposed assignments.
+- Owner decision on the three further assignments: confirmed as proposed on 2026-11-13 (A-040).
 - B8's session report names B9a as the next session, with its opening message.

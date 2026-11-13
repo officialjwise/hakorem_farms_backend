@@ -1452,7 +1452,7 @@ Default session: B10. Brief bullets: public form and internal creation (001 to 0
 
 ### 4.10 SHP: Online store
 
-Default session: B7 (proposed, ADR-0026). No backend session in the build prompt names the online store; ADR-0026 proposes the catalogue, cart and checkout reservation in B7, order placement and online payment in B9a, and abandoned-cart messaging in B11, all awaiting owner confirmation (A-040). Each requirement states its own session. Brief bullets: catalogue (001, 002); cart, checkout, zone fee, slot picker (003, 005, 008 to 011); customer accounts (012 to 014); catch-weight (007); reservation with timed release (005, 006); promotions and coupons (004); abandoned-cart messaging (015). Assumption SA-13: the delivery slot picker needs the delivery module, so slots arrive in B11 and checkout before then offers zone and fee only.
+Default session: B7 (ADR-0026). No backend session in the build prompt names the online store; ADR-0026 assigns the catalogue, cart and checkout reservation to B7, order placement and online payment to B9a, and abandoned-cart messaging to B11, confirmed by the owner on 2026-11-13 (A-040). Each requirement states its own session. Brief bullets: catalogue (001, 002); cart, checkout, zone fee, slot picker (003, 005, 008 to 011); customer accounts (012 to 014); catch-weight (007); reservation with timed release (005, 006); promotions and coupons (004); abandoned-cart messaging (015). Assumption SA-13: the delivery slot picker needs the delivery module, so slots arrive in B11 and checkout before then offers zone and fee only.
 
 **FR-SHP-001** Public catalogue listing
 - Actor: Visitor
@@ -2372,7 +2372,7 @@ Default session: B12. CST owns no cost of record: it analyses cost that inventor
 
 ### 4.18 RPT: Reporting and dashboards
 
-Default session: B12. Reports read a separate reporting schema fed by events, under a restricted database role with a statement timeout (ADR-0023); figures of record come from the owning module. The daily exception report is proposed for B12 in ADR-0026. Brief bullets: owner dashboard (001); operational reports (002); financial reports plus daily sales (003, and FIN-011 to FIN-013); scheduled reports and exports (004 to 006); separate read model (009, 010). The exception report requirements (007, 008) serve the threat model.
+Default session: B12. Reports read a separate reporting schema fed by events, under a restricted database role with a statement timeout (ADR-0023); figures of record come from the owning module. The daily exception report is built in B12 (ADR-0026, confirmed by the owner, A-040). Brief bullets: owner dashboard (001); operational reports (002); financial reports plus daily sales (003, and FIN-011 to FIN-013); scheduled reports and exports (004 to 006); separate read model (009, 010). The exception report requirements (007, 008) serve the threat model.
 
 **FR-RPT-001** Owner dashboard
 - Actor: Owner
@@ -2584,7 +2584,7 @@ Default session: B8. The file store, upload pipeline and signed URLs are platfor
 
 ### 4.21 AUD: Audit, compliance and administration
 
-Default session: B3. The audit trail itself is a platform mechanism built in B3 so identity can write to it; administration of settings and numbering is audited. Retention, data-subject requests and the restore procedure are proposed for B13 (ADR-0026). Brief bullets: immutable audit log and its fields (001 to 003, 006); read access (005); append-only at the database level (002 to 004); settings, flags, numbering, tax configuration and business profile (007, 008, FR-MDM-012); retention, export, deletion, backup and restore (009 to 012).
+Default session: B3. The audit trail itself is a platform mechanism built in B3 so identity can write to it; administration of settings and numbering is audited. Retention, data-subject requests and the restore procedure are built in B13 (ADR-0026, confirmed by the owner, A-040). Brief bullets: immutable audit log and its fields (001 to 003, 006); read access (005); append-only at the database level (002 to 004); settings, flags, numbering, tax configuration and business profile (007, 008, FR-MDM-012); retention, export, deletion, backup and restore (009 to 012).
 
 **FR-AUD-001** Audit event for every significant action
 - Actor: System
@@ -3226,7 +3226,7 @@ Each row carries a target and a way to verify it. "In CI" says whether a pipelin
 
 ### 7.1 How to read the matrix
 
-One row per requirement. Rows are grouped by module; security requirements and the non-functional requirements that belong to a module (POS interaction, storefront) follow its functional requirements, and the remaining cross-cutting requirements are in the last group, PLT. The session column names the session whose gate proves the requirement. The 18 abuse-case requirements are proven in B13, which also depends on the daily exception report that ADR-0026 proposes for B12 (FR-RPT-007), so they move with that proposal. The test column names the layer and stable test name under the convention `test/<layer>/<module>/<subject>.<layer>.spec.ts › <behaviour>`; non-functional rows name the k6 script, Lighthouse budget, Playwright test or drill. The operations column lists the operationIds in `contract/openapi.yaml` 1.0.0 that the requirement touches; a dash means the requirement is not exposed as an operation. Assignments marked "(proposed, ADR-0026)" are not yet confirmed by the owner (assumption A-040) and move with that decision.
+One row per requirement. Rows are grouped by module; security requirements and the non-functional requirements that belong to a module (POS interaction, storefront) follow its functional requirements, and the remaining cross-cutting requirements are in the last group, PLT. The session column names the session whose gate proves the requirement. The 18 abuse-case requirements are proven in B13, which also depends on the daily exception report that ADR-0026 assigns to B12 (FR-RPT-007). The test column names the layer and stable test name under the convention `test/<layer>/<module>/<subject>.<layer>.spec.ts › <behaviour>`; non-functional rows name the k6 script, Lighthouse budget, Playwright test or drill. The operations column lists the operationIds in `contract/openapi.yaml` 1.0.0 that the requirement touches; a dash means the requirement is not exposed as an operation. Assignments marked "(ADR-0026)" come from the amended schedule, confirmed by the owner on 2026-11-13 (A-040).
 
 ### 7.2 Matrix
 
@@ -3455,21 +3455,21 @@ One row per requirement. Rows are grouped by module; security requirements and t
 
 | Id | Session | Proving test | Operations |
 | --- | --- | --- | --- |
-| FR-SHP-001 | B7 (proposed, ADR-0026) | `test/contract/shp/shop-catalogue.contract.spec.ts › exposes only public fields` | listCatalogue, listShopCategories |
-| FR-SHP-002 | B7 (proposed, ADR-0026) | `test/contract/shp/shop-product.contract.spec.ts › derives availability without exposing quantity` | getCatalogueProduct |
-| FR-SHP-003 | B7 (proposed, ADR-0026) | `test/int/shp/cart.int.spec.ts › re-resolves prices and refuses request-to-buy products` | createCart, getCart, addCartLine, updateCartLine, removeCartLine |
-| FR-SHP-004 | B7 (proposed, ADR-0026) | `test/int/shp/cart-promotions.int.spec.ts › applies stacking rules and one coupon` | applyCartCoupon, removeCartCoupon, validateCoupon |
-| FR-SHP-005 | B7 (proposed, ADR-0026) | `test/int/shp/checkout-reservation.int.spec.ts › reserves all lines or none` | startCheckout, getCheckout |
-| FR-SHP-006 | B7 (proposed, ADR-0026) | `test/int/shp/checkout-expiry.int.spec.ts › releases stock and handles a late payment` | getCheckout |
-| FR-SHP-007 | B9a (proposed, ADR-0026) | `test/int/shp/checkout-catch-weight.int.spec.ts › shows estimate maximum and rule` | getCheckout, updateCheckout |
-| FR-SHP-008 | B7 (proposed, ADR-0026) | `test/int/shp/checkout-delivery-fee.int.spec.ts › applies the zone fee or collection only` | quoteDelivery, updateCheckout |
+| FR-SHP-001 | B7 (ADR-0026) | `test/contract/shp/shop-catalogue.contract.spec.ts › exposes only public fields` | listCatalogue, listShopCategories |
+| FR-SHP-002 | B7 (ADR-0026) | `test/contract/shp/shop-product.contract.spec.ts › derives availability without exposing quantity` | getCatalogueProduct |
+| FR-SHP-003 | B7 (ADR-0026) | `test/int/shp/cart.int.spec.ts › re-resolves prices and refuses request-to-buy products` | createCart, getCart, addCartLine, updateCartLine, removeCartLine |
+| FR-SHP-004 | B7 (ADR-0026) | `test/int/shp/cart-promotions.int.spec.ts › applies stacking rules and one coupon` | applyCartCoupon, removeCartCoupon, validateCoupon |
+| FR-SHP-005 | B7 (ADR-0026) | `test/int/shp/checkout-reservation.int.spec.ts › reserves all lines or none` | startCheckout, getCheckout |
+| FR-SHP-006 | B7 (ADR-0026) | `test/int/shp/checkout-expiry.int.spec.ts › releases stock and handles a late payment` | getCheckout |
+| FR-SHP-007 | B9a (ADR-0026) | `test/int/shp/checkout-catch-weight.int.spec.ts › shows estimate maximum and rule` | getCheckout, updateCheckout |
+| FR-SHP-008 | B7 (ADR-0026) | `test/int/shp/checkout-delivery-fee.int.spec.ts › applies the zone fee or collection only` | quoteDelivery, updateCheckout |
 | FR-SHP-009 | B11 | `test/int/shp/checkout-slot.int.spec.ts › books capacity inside the checkout` | listDeliverySlotOptions, updateCheckout |
-| FR-SHP-010 | B9a (proposed, ADR-0026) | `test/int/shp/guest-checkout.int.spec.ts › tracks by token without exposing internals` | updateCheckout, trackOrder |
-| FR-SHP-011 | B9a (proposed, ADR-0026) | `test/int/shp/online-order.int.spec.ts › re-prices before payment and confirms on cleared payment` | placeOrder, initiateMobileMoneyCharge, getOrder |
-| FR-SHP-012 | B9a (proposed, ADR-0026) | `test/int/shp/customer-profile.int.spec.ts › manages only the caller's own data` | getMyProfile, updateMyProfile, listMyAddresses, createMyAddress, updateMyAddress, archiveMyAddress |
-| FR-SHP-013 | B9a (proposed, ADR-0026) | `test/contract/shp/customer-order.contract.spec.ts › omits cost and variance fields` | listMyOrders, getMyOrder, reorderMyOrder, answerMyOrderConsent |
-| FR-SHP-014 | B9a (proposed, ADR-0026) | `test/int/shp/customer-documents.int.spec.ts › serves only own documents by signed url` | listMyDocuments, downloadMyDocument |
-| FR-SHP-015 | B11 (proposed, ADR-0026) | `test/int/shp/abandoned-cart.int.spec.ts › sends at most one reminder per cart` | createCart, getCart |
+| FR-SHP-010 | B9a (ADR-0026) | `test/int/shp/guest-checkout.int.spec.ts › tracks by token without exposing internals` | updateCheckout, trackOrder |
+| FR-SHP-011 | B9a (ADR-0026) | `test/int/shp/online-order.int.spec.ts › re-prices before payment and confirms on cleared payment` | placeOrder, initiateMobileMoneyCharge, getOrder |
+| FR-SHP-012 | B9a (ADR-0026) | `test/int/shp/customer-profile.int.spec.ts › manages only the caller's own data` | getMyProfile, updateMyProfile, listMyAddresses, createMyAddress, updateMyAddress, archiveMyAddress |
+| FR-SHP-013 | B9a (ADR-0026) | `test/contract/shp/customer-order.contract.spec.ts › omits cost and variance fields` | listMyOrders, getMyOrder, reorderMyOrder, answerMyOrderConsent |
+| FR-SHP-014 | B9a (ADR-0026) | `test/int/shp/customer-documents.int.spec.ts › serves only own documents by signed url` | listMyDocuments, downloadMyDocument |
+| FR-SHP-015 | B11 (ADR-0026) | `test/int/shp/abandoned-cart.int.spec.ts › sends at most one reminder per cart` | createCart, getCart |
 | NFR-004 | B13 | `lighthouse/storefront-lcp.json › lcp under 2500 ms on slow 3G` | - |
 | NFR-005 | B13 | `lighthouse/catalogue-weight.json › listing transfer size under 300 KB` | - |
 | NFR-013 | B13 | `playwright/axe-wcag22aa.spec.ts › no serious or critical axe violations on key screens` | - |
@@ -3621,8 +3621,8 @@ One row per requirement. Rows are grouped by module; security requirements and t
 | FR-RPT-004 | B12 | `test/int/rpt/report-runs.int.spec.ts › records every run and cancels slow queries` | listReportDefinitions, runReport, listReportRuns, getReportRun |
 | FR-RPT-005 | B12 | `test/int/rpt/report-export.int.spec.ts › audits rows and demands step-up above 100` | runReport, getReportRun |
 | FR-RPT-006 | B12 | `test/int/rpt/report-schedule.int.spec.ts › delivers once per occurrence` | listReportSchedules, createReportSchedule, updateReportSchedule |
-| FR-RPT-007 | B12 (proposed, ADR-0026) | `test/int/rpt/exception-report.int.spec.ts › covers every abuse case through its kind` | getDailyExceptionReport, listExceptions |
-| FR-RPT-008 | B12 (proposed, ADR-0026) | `test/int/rpt/detection-rates.int.spec.ts › computes rates by user and approval pairs` | getDailyExceptionReport |
+| FR-RPT-007 | B12 (ADR-0026) | `test/int/rpt/exception-report.int.spec.ts › covers every abuse case through its kind` | getDailyExceptionReport, listExceptions |
+| FR-RPT-008 | B12 (ADR-0026) | `test/int/rpt/detection-rates.int.spec.ts › computes rates by user and approval pairs` | getDailyExceptionReport |
 | FR-RPT-009 | B12 | `test/int/rpt/read-model.int.spec.ts › isolates heavy reports from the transactional tables` | runReport, getHealth |
 | FR-RPT-010 | B12 | `test/int/rpt/projection-drift.int.spec.ts › detects and reports a difference` | getHealth |
 | SEC-009 | B13 | `test/e2e/rpt/abuse-09-bulk-export.e2e.spec.ts › refuses a bulk export without step-up`<br>`test/e2e/rpt/abuse-09-bulk-export.e2e.spec.ts › reports the export as BULK_EXPORT with abuse case 9` | createExportJob, runReport, getDailyExceptionReport |
@@ -3665,9 +3665,9 @@ One row per requirement. Rows are grouped by module; security requirements and t
 | FR-AUD-006 | B3 | `test/int/aud/audit-payload.int.spec.ts › excludes secrets and encrypts personal data per subject` | getAuditEvent, getAuditIntegrity |
 | FR-AUD-007 | B3 | `test/int/aud/settings.int.spec.ts › validates audits and applies a change without deployment` | listSettings, updateSetting |
 | FR-AUD-008 | B3 | `test/int/aud/administration.int.spec.ts › edits prefix and profile but not the sequence value` | listNumberSeries, updateNumberSeries, getBusinessProfile, updateBusinessProfile |
-| FR-AUD-009 | B13 (proposed, ADR-0026) | `test/int/aud/retention.int.spec.ts › applies the policy without touching statutory documents` | listRetentionPolicies, updateRetentionPolicy |
-| FR-AUD-010 | B13 (proposed, ADR-0026) | `test/int/aud/data-export-request.int.spec.ts › verifies identity and releases only the subject's data` | listDataSubjectRequests, createDataSubjectRequest, getDataSubjectRequest, verifyDataSubjectIdentity, processDataSubjectRequest, rejectDataSubjectRequest, createMyDataRequest |
-| FR-AUD-011 | B13 (proposed, ADR-0026) | `test/int/aud/data-deletion.int.spec.ts › destroys the subject key and keeps statutory documents` | processDataSubjectRequest, rejectDataSubjectRequest, approveRequest |
+| FR-AUD-009 | B13 (ADR-0026) | `test/int/aud/retention.int.spec.ts › applies the policy without touching statutory documents` | listRetentionPolicies, updateRetentionPolicy |
+| FR-AUD-010 | B13 (ADR-0026) | `test/int/aud/data-export-request.int.spec.ts › verifies identity and releases only the subject's data` | listDataSubjectRequests, createDataSubjectRequest, getDataSubjectRequest, verifyDataSubjectIdentity, processDataSubjectRequest, rejectDataSubjectRequest, createMyDataRequest |
+| FR-AUD-011 | B13 (ADR-0026) | `test/int/aud/data-deletion.int.spec.ts › destroys the subject key and keeps statutory documents` | processDataSubjectRequest, rejectDataSubjectRequest, approveRequest |
 | FR-AUD-012 | B13 | `test/smoke/aud/restore-drill.smoke.spec.ts › restores last night's backup and reproduces the trial balance` | getTrialBalance, getAuditIntegrity |
 | FR-AUD-013 | B3 | `test/int/aud/health.int.spec.ts › reports sealing lag backlog and reconciliation outcomes` | getHealth |
 | SEC-015 | B13 | `test/e2e/aud/abuse-15-ledger-tamper.e2e.spec.ts › refuses direct changes and detects a rewrite`<br>`test/e2e/aud/abuse-15-ledger-tamper.e2e.spec.ts › reports tampering as AUDIT_INTEGRITY and RECONCILIATION_BREAK with abuse case 15` | getAuditIntegrity, getTrialBalance, getDailyExceptionReport |
