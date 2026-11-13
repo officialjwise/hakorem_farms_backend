@@ -27,9 +27,9 @@ The owner answered the open questions in the shared brief with "everything else 
 
 | ID | Date | Assumption | Needs confirming by | Needed before | Status |
 | --- | --- | --- | --- | --- | --- |
-| A-020 | 2026-11-13 | The real tax structure: which levies exist, their rates, their bases, which are reclaimable, and the treatment of each product category. In particular whether raw produce and live animals are zero-rated or exempt, which changes input tax recovery | Accountant | B8 | Open |
-| A-021 | 2026-11-13 | Standard rates of VAT 15 percent, NHIL 2.5 percent and GETFund 2.5 percent on one base, as reported on the Ghana Revenue Authority's website on 2026-11-13 for the regime from 1 January 2026. Not verified against primary sources by this project | Accountant; verified with source and date in `docs/security/COMPLIANCE.md` | B1 for verification, B8 for use | Open |
-| A-022 | 2026-11-13 | Whether the business is registered for VAT. The setting `tax.registered` switches all charging and recovery off if it is not | Accountant | B8 | Open |
+| A-020 | 2026-11-13 | The tax structure: which levies exist, their bases, which are reclaimable, and the treatment of each product category. Confirmed by the owner on 2026-11-13 as modelled in ADR-0020 (raw produce, live animals and eggs zero-rated; processed meat standard-rated), except the two points in A-033 and A-034 | Owner (confirmed); accountant for A-033 and A-034 | B8 | Confirmed |
+| A-021 | 2026-11-13 | Standard rates of VAT 15 percent, NHIL 2.5 percent and GETFund 2.5 percent on one base, no compounding, no COVID-19 levy, for the regime from 1 January 2026. Confirmed by the owner on 2026-11-13 as correct against the VAT Act 2025 regime; recorded in `docs/security/COMPLIANCE.md` | Owner | B8 | Confirmed |
+| A-022 | 2026-11-13 | Whether the business is registered for VAT. Replaced by A-033, which asks the prior question of the threshold | Accountant | B8 | Replaced |
 | A-023 | 2026-11-13 | Retail and online price lists are tax-inclusive; wholesale lists are tax-exclusive. It is a flag per price list | Accountant and owner | B4 | Open |
 | A-024 | 2026-11-13 | Livestock is carried at accumulated cost, not fair value | Accountant | B8 | Open |
 | A-025 | 2026-11-13 | Animals born on the farm enter at nil cost. Feed and veterinary cost is capitalised onto growing stock and expensed for breeding stock | Accountant | B6 | Open |
@@ -40,12 +40,14 @@ The owner answered the open questions in the shared brief with "everything else 
 | A-030 | 2026-11-13 | Tax withheld on investor distributions defaults to zero | Accountant | B12 | Open |
 | A-031 | 2026-11-13 | Units are issued at GHS 1.00 per unit unless the owner sets another price for a transaction | Owner and accountant | B12 | Open |
 | A-032 | 2026-11-13 | One legal entity and one set of books. Branch is a dimension, not a company | Owner and accountant | B8 | Open |
+| A-033 | 2026-11-13 | Whether the business is above the GHS 750,000 VAT registration threshold at all. If it is not, the setting `tax.registered` is false from its effective date: no levy is charged on sales and none is reclaimed on purchases, and billing documents carry no levy lines. No code changes either way | Accountant (raised by the owner, 2026-11-13) | B8 | Open |
+| A-034 | 2026-11-13 | Whether imported farm inputs still cascade where domestic supply does not. If they do, a tax category for imported inputs is added with its own levy cells (non-reclaimable, or with a NET_PLUS_LEVIES base), as data in a new tax scheme version (ADR-0020). No billing or ledger change | Accountant (raised by the owner, 2026-11-13) | B7 | Open |
 
 ## Open: for the owner
 
 | ID | Date | Assumption | Needs confirming by | Needed before | Status |
 | --- | --- | --- | --- | --- | --- |
-| A-040 | 2026-11-13 | Three further schedule assignments proposed in ADR-0026: online store split across B7, B9a and B11; retention and data-subject requests in B13; the daily exception report in B12 | Owner | B0 gate | Open |
+| A-040 | 2026-11-13 | Three further schedule assignments proposed in ADR-0026: online store split across B7, B9a and B11; retention and data-subject requests in B13; the daily exception report in B12. Not addressed in the owner's gate notes of 2026-11-13; B1 proceeds on them as proposed | Owner | B7 | Open |
 | A-041 | 2026-11-13 | Offline, the counter takes cash only. Mobile money cannot be verified without a connection. A setting can allow a manager-approved unverified mobile money tender | Owner | B9b | Open |
 | A-042 | 2026-11-13 | At least two people hold approving roles at each branch, so that maker and checker can always differ | Owner | B3 | Open |
 | A-043 | 2026-11-13 | Approval thresholds (mortality value, adjustment value, refund, price override, purchase order) are settings whose starting values the owner sets before go-live. Seeds use illustrative values clearly marked as seed | Owner | B13 | Open |

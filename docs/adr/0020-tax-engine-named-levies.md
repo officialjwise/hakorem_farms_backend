@@ -1,6 +1,6 @@
 # ADR-0020: Tax is a matrix of named levies per category, each with its own base and reclaimable flag
 
-- **Status:** Accepted for the shape (owner, 2026-11-13). Seed values Proposed until the accountant confirms the real structure before B8
+- **Status:** Accepted (owner, 2026-11-13): the shape, and the seed rates and structure, confirmed against the VAT Act 2025 regime. Two points remain for the accountant before B8: the registration threshold (ASSUMPTIONS A-033) and imported farm inputs (A-034)
 - **Date:** 2026-11-13
 - **Session:** B0
 - **Deciders:** owner set the shape; backend track designed the tables
@@ -81,7 +81,7 @@ None of these touches billing code, ledger code, or any table definition.
 | `PROCESSED_MEAT`, `OTHER_GOODS`, `DELIVERY_SERVICE` | `STANDARD` | 15 | 2.5 | 2.5 |
 | `FARM_INPUTS` | `ZERO_RATED` | 0 | 0 | 0 |
 
-All bases `NET`, all levies reclaimable. The standard rates are those reported on the Ghana Revenue Authority's website on 2026-11-13 for the regime in force from 1 January 2026. They have not been verified against primary sources by this project. B1 records the verification, with source and date, in `docs/security/COMPLIANCE.md`. Whether raw produce and live animals are zero-rated or exempt is the open point for the accountant; it changes only the `treatment` and `is_reclaimable` cells.
+All bases `NET`, all levies reclaimable. The standard rates are those reported on the Ghana Revenue Authority's website on 2026-11-13 for the regime in force from 1 January 2026. On 2026-11-13 the owner confirmed them, and this structure, as correct against the VAT Act 2025 regime; the confirmation and the sources checked are in `docs/security/COMPLIANCE.md`. Two questions remain for the accountant, and both are answered as data: whether the business is above the GHS 750,000 registration threshold at all (if not, `tax.registered` is false), and whether imported farm inputs still cascade where domestic supply does not (if so, a category for imported inputs with its own cells). Whether raw produce and live animals are zero-rated or exempt is the open point for the accountant; it changes only the `treatment` and `is_reclaimable` cells.
 
 ## Consequences
 
