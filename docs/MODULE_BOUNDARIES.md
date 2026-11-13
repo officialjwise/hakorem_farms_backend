@@ -143,10 +143,10 @@ Each card gives: what the module owns, its public interface (the services export
 
 ### BIL: invoicing, receipts and credit notes (layer 6)
 
-- **Owns:** schema `bil`. Billing documents, lines, levy rows, reprint log.
+- **Owns:** schema `bil`. Billing documents, lines, levy rows, reprint log, and a read-only settlement summary per document.
 - **Public interface:** `Billing` (issue, credit, debit, fetch, reprint). Published view: `bil.pub_document`.
 - **Imports:** platform, IAM, MDM, DOC.
-- **Subscribes:** nothing.
+- **Subscribes (A):** `pay.PaymentCleared`, `pay.DepositAllocated`, `pay.PaymentReversed`, `pay.RefundPaid`, to keep the settlement summary on its documents (`bil.document_settlement`). The figure of record stays in PAY.
 
 ### PAY: payments and reconciliation (layer 7)
 

@@ -106,6 +106,20 @@ Every reprint or resend. A reprint is the archived bytes with a marker, never a 
 
 Standard columns: `LEDGER`. UNIQUE (`billing_document_id`, `copy_no`).
 
+### `bil.document_settlement` · PROJECTION
+
+What has been paid and credited on each issued document, so an invoice screen needs one request. Maintained by an asynchronous subscriber to `pay.PaymentCleared`, `pay.DepositAllocated`, `pay.PaymentReversed`, `pay.RefundPaid` and `bil.CreditNoteIssued`, a few seconds behind the payments ledger. The figure of record is `pay.invoice_settlement`; a nightly check compares the two. Added in B1 with the contract (field `settlement` on `BillingDocument`).
+
+| Column | Type | Constraints | Why |
+| --- | --- | --- | --- |
+| `billing_document_id` | `uuid` | PK, FK `bil.billing_document` | |
+| `allocated_pesewas` | `pesewas` | NOT NULL DEFAULT 0 | Payments applied |
+| `credited_pesewas` | `pesewas` | NOT NULL DEFAULT 0 | Credit notes issued against it |
+| `outstanding_pesewas` | `pesewas` | NOT NULL | Gross less allocated less credited |
+| `payment_status` | `text` | NOT NULL, CHECK in (`UNPAID`, `PART_PAID`, `PAID`, `CREDITED`, `NOT_APPLICABLE`) | Shown on the document list |
+| `settled_at` | `timestamptz` | NULL | When outstanding reached zero |
+| `as_of` | `timestamptz` | NOT NULL | Time of the last event applied |
+
 ### `bil.pub_document` · view
 
 Published for costing and reporting: document id, kind, number, branch, customer, issue date, net, tax, gross, credited, order reference. No names or addresses.
