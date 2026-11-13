@@ -40,7 +40,7 @@ A business setting, `tax.registered`, with an effective date, switches charging 
 For a line with category `c` on date `d`, take the levies of the active version in `calc_order`. `r_i` is the rate of levy `i`.
 
 - *Tax-exclusive price.* The anchor is the line net (ADR-0001). For each levy in order: `base_i = net + sum of the amounts of its base components`, `amount_i = half_up(base_i × r_i)`. Gross is net plus the amounts.
-- *Tax-inclusive price.* The anchor is the line gross. Each levy's effective rate relative to net is `e_i = r_i × (1 + sum of e_j for its base components)`, computed exactly. The gross is split across net and the levies by `allocate` with weights `1 : e_1 : … : e_n`, so the parts sum to the gross exactly.
+- *Tax-inclusive price.* The anchor is the line gross. Each levy's effective rate relative to net is `e_i = r_i × (1 + sum of e_j for its base components)`, computed exactly. The gross is split across net and the levies by `allocate` with weights `1 : e_1 : … : e_n`, so the parts sum to the gross exactly. When two remainders tie, the leftover pesewa goes to net first and then to the levies in `calc_order`; a tax-inclusive GHS 30.00 delivery fee therefore splits into net 25.00, VAT 3.75, NHIL 0.63 and GETFund 0.62.
 - A row is produced for every levy, including those at zero, so a document can state that a line is zero-rated or exempt.
 
 **Billing (BIL module)**

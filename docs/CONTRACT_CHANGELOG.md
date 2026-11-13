@@ -4,6 +4,17 @@ Every change to `contract/openapi.yaml`, newest first. A breaking change needs a
 
 Version numbers follow semantic versioning: a major bump breaks an existing client, a minor bump adds operations or optional fields, a patch fixes descriptions or examples.
 
+## 1.0.1 (2026-11-13, B1)
+
+Examples and one description only. No operation, field or schema changed; a client generated from 1.0.0 needs no change.
+
+- Catalogue and product page: catch-weight prices are per kilogram, as `priceBasis` says (goat meat GHS 26.00 per kg, not a pack price).
+- Quotes: the standard-rated delivery fee carries its levies (GHS 12.00 on GHS 60.00); the quote list no longer repeats one total.
+- Animals and stock on hand: an animal's `priceBand` is the band for its weight band; processed animals in processing and trace examples are no longer animals shown alive elsewhere.
+- Receivables: Royal Palm Hotel's overdue invoice is 24 days late (1 to 30 bucket), consistent with its account not being on hold.
+- Exceptions: the stock exception item carries abuse case 11 only; case 10 is a device counter gap.
+- `CapitalTransactionCreate.unitPricePesewas`: the default is GHS 100.00 per unit, matching every example and ASSUMPTIONS A-031.
+
 ## 1.0.0 (2026-11-13, B1)
 
 First version, written by hand before any endpoint exists so the frontend can build against a mock server.
