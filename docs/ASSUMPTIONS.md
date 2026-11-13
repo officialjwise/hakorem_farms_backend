@@ -79,6 +79,35 @@ The owner answered the open questions in the shared brief with "everything else 
 | A-068 | 2026-11-13 | No table needs partitioning at year-one volumes | The seeded performance dataset and load test | B13 | Open |
 | A-069 | 2026-11-13 | The hosting plan's disk can be encrypted, or the risk is accepted with column encryption and encrypted backups as the controls | Checked at provisioning | B13 | Open |
 
+
+## Open: settings and definitions introduced by the SRS
+
+Written in B1 with `docs/SRS.md` section 7.4, which cites them by these ids. Each is a setting or a definition: changing it changes data, not code.
+
+| ID | Date | Assumption | Needs confirming by | Needed before | Status |
+| --- | --- | --- | --- | --- | --- |
+| SA-01 | 2026-11-13 | Login lockout after 5 consecutive failures; lock 1 minute, doubling per further failure, capped at 60 minutes (used by FR-IAM-017) | Owner | B3 | Open |
+| SA-02 | 2026-11-13 | A bulk export is more than 1,000 rows and needs step-up (as the contract's `rpt.report.export.bulk` permission states) (used by FR-MDM-020, FR-RPT-005, SEC-009) | Owner | B4 | Open |
+| SA-03 | 2026-11-13 | Webhook timestamp window of 5 minutes either side (used by FR-PAY-004, SEC-005) | Backend lead | B9a | Open |
+| SA-04 | 2026-11-13 | Signed URLs for private files live 15 minutes for confidential files and 5 minutes for restricted ones (`docs/security/DATA_CLASSIFICATION.md`, A-050) (used by FR-DOC-007) | Backend lead | B8 | Open |
+| SA-05 | 2026-11-13 | An account goes on hold when any invoice is more than 30 days past due (used by FR-WHL-008) | Owner | B10 | Open |
+| SA-06 | 2026-11-13 | Quote validity 14 days; margin floor 10 percent over cost (used by FR-QUO-004, FR-QUO-005) | Owner | B10 | Open |
+| SA-07 | 2026-11-13 | Yield variance flag when actual differs from expected by more than 5 percent of expected (used by FR-PRC-005) | Owner | B6 | Open |
+| SA-08 | 2026-11-13 | Three-way match tolerance: price 1 percent, quantity zero beyond the receipt (used by FR-PUR-009) | Accountant | B7 | Open |
+| SA-09 | 2026-11-13 | Quiet hours 21:00 to 07:00 Africa/Accra; security codes and delivery-day messages exempt (used by FR-NTF-006) | Owner | B11 | Open |
+| SA-10 | 2026-11-13 | Webhook delivery: 8 attempts, exponential backoff from 1 minute with jitter, capped at 6 hours (used by FR-API-009) | Backend lead | B12 | Open |
+| SA-11 | 2026-11-13 | Upload caps: images 5 MB; PDF and spreadsheets 10 MB (used by FR-DOC-006) | Backend lead | B8 | Open |
+| SA-12 | 2026-11-13 | Default page size 25, maximum 100, as the contract's `PageLimit` (used by FR-API-003) | Backend lead | B12 | Open |
+| SA-13 | 2026-11-13 | The delivery slot picker needs the delivery module, so it arrives in B11; before then checkout offers zone and fee only (used by FR-SHP-009) | Owner (with A-040) | B7 | Open |
+| SA-14 | 2026-11-13 | IRR uses the investor's share of total equity at the as-at date as closing value, actual/365; ROI is distributions paid over net contributions (used by FR-CAP-014) | Accountant | B12 | Open |
+| SA-15 | 2026-11-13 | Seed rate limits: login 10 per minute per address and per account; password reset 5 per hour per account; quote request 5 per hour per address and per phone; checkout 10 per minute per address; API key 60 per minute unless set. All are settings recorded in `docs/OPERATIONS.md` (SECURITY_ARCHITECTURE section 5) (used by SEC-026, FR-QUO-001, FR-SHP-010, FR-API-007) | Backend lead | B7 | Open |
+| SA-16 | 2026-11-13 | Application and security logs are kept 365 days (used by SEC-033) | Owner | B13 | Open |
+| SA-17 | 2026-11-13 | Exception report thresholds: a price-override item once a user reaches 80 percent of the shift limit; an unverified tender pending 15 minutes; a handler's mortality rate over twice the pen average in 30 days; refunds in a day over 3 times the branch average; 1,000 exported rows in a day; an adjustment within 7 days before a stock take of the location; 5 authorisation refusals by one principal in an hour; a supplier payment within 24 hours after a payout detail change (used by SEC-002, SEC-003, SEC-004, SEC-007, SEC-008, SEC-009, SEC-012, SEC-013) | Owner | B13 | Open |
+| SA-18 | 2026-11-13 | Retention and subject-request seeds: notification bodies 12 months, carts and expired checkouts 30 days (as A-050), subject export within 30 days; statutory documents follow A-063 (used by FR-AUD-009, FR-AUD-010) | Owner, after the compliance check | B3 | Open |
+| SA-19 | 2026-11-13 | Operational seeds: expiring-stock alert 3 days before expiry; storefront availability `LOW` at 5 or fewer; gestation days goat 150, sheep 147, pig 114, rabbit 31 (used by FR-INV-016, FR-SHP-002, FR-LIV-010) | Owner and vet | B5 | Open |
+| SA-20 | 2026-11-13 | Customer phone verification: 6-digit code, 10 minutes, 5 attempts; password reset token 30 minutes; password minimum 12 characters (used by FR-IAM-005, FR-IAM-019, FR-IAM-020) | Backend lead | B3 | Open |
+| SA-21 | 2026-11-13 | Definitions where the brief is silent: credit exposure is outstanding invoiced balance plus confirmed uninvoiced orders; ageing buckets are days past due (Current, 1 to 30, 31 to 60, 61 to 90, over 90); mortality rate is deaths per 1,000 head-days; average daily gain and feed conversion as in FR-LIV-005 and FR-LIV-016; in a tax-inclusive split the leftover pesewa goes to net first and then to levies in calculation order (used by FR-WHL-006, FR-WHL-010, FR-RPT-002, FR-MDM-014) | Accountant | B4 | Open |
+
 ## Notes for the frontend track
 
 These follow from backend decisions and affect what the frontend builds. They are repeated in the B0 session report.

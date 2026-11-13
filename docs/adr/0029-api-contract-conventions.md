@@ -27,7 +27,7 @@ Option 2, and these conventions, all written into `contract/openapi.yaml` and ex
 - **A business refusal is 422 with a code**; a version mismatch or a reused idempotency key with a different body is 409.
 - **An action that needs a second person returns 202** with `ApprovalPending`; nothing takes effect until a different user approves.
 - **Cursor pagination** with `cursor` and `limit`; responses carry `page.nextCursor` and `page.hasMore`.
-- **Every state-changing request sends `Idempotency-Key`**; cookie-authenticated ones also send `X-CSRF-Token`. Records created offline carry a client-generated UUIDv7 id, which is their idempotency identity.
+- **Every state-changing request sends `Idempotency-Key`**, except the operations ADR-0014 lists (login and token endpoints, inbound webhooks, batch syncs whose records carry their own ids, and POSTs that change nothing); cookie-authenticated ones also send `X-CSRF-Token`. Records created offline carry a client-generated UUIDv7 id, which is their idempotency identity.
 - **Optimistic locking**: updates send the `version` they read.
 - **Customers and investors get their own shapes.** A customer's order (`CustomerOrder`) carries no cost, floor, ceiling or variance; investor endpoints live under `/investor/` and return only the caller's own data.
 - **Times** are UTC RFC 3339; business dates are calendar dates in Africa/Accra.
