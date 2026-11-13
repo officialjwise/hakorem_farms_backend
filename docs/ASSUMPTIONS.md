@@ -38,7 +38,7 @@ The owner answered the open questions in the shared brief with "everything else 
 | A-028 | 2026-11-13 | The fiscal year is the calendar year, with twelve monthly periods | Accountant | B8 | Open |
 | A-029 | 2026-11-13 | The seeded chart of accounts and the event-to-posting matrix in ADR-0003 | Accountant | B8 | Open |
 | A-030 | 2026-11-13 | Tax withheld on investor distributions defaults to zero | Accountant | B12 | Open |
-| A-031 | 2026-11-13 | Units are issued at GHS 1.00 per unit unless the owner sets another price for a transaction | Owner and accountant | B12 | Open |
+| A-031 | 2026-11-13 | Units are issued at GHS 100.00 per unit (10,000 pesewas) unless the owner sets another price for a transaction. Changed in B1 from GHS 1.00 to match the contract examples and UAT | Owner and accountant | B12 | Open |
 | A-032 | 2026-11-13 | One legal entity and one set of books. Branch is a dimension, not a company | Owner and accountant | B8 | Open |
 | A-033 | 2026-11-13 | Whether the business is above the GHS 750,000 VAT registration threshold at all. If it is not, the setting `tax.registered` is false from its effective date: no levy is charged on sales and none is reclaimed on purchases, and billing documents carry no levy lines. No code changes either way | Accountant (raised by the owner, 2026-11-13) | B8 | Open |
 | A-034 | 2026-11-13 | Whether imported farm inputs still cascade where domestic supply does not. If they do, a tax category for imported inputs is added with its own levy cells (non-reclaimable, or with a NET_PLUS_LEVIES base), as data in a new tax scheme version (ADR-0020). No billing or ledger change | Accountant (raised by the owner, 2026-11-13) | B7 | Open |
@@ -48,6 +48,11 @@ The owner answered the open questions in the shared brief with "everything else 
 | A-038 | 2026-11-13 | ADR-0016 lets a cashier unlock an offline till with a PIN, but no table stores a PIN verifier. B9b adds it (hashed, per cashier, cached in the offline pack) | Backend lead | B9b | Open |
 | A-039 | 2026-11-13 | If E-VAT certification applies (A-062), each invoice and receipt needs a certification call returning a QR code and signature to print. That call cannot run inside the issuing transaction (ADR-0010) and does not fit offline provisional receipts as designed (ADR-0015). Needs an ADR before B8 | Backend lead, accountant | B8 | Open |
 | A-050 | 2026-11-13 | Retention periods that are not statutory are design defaults set in `aud.retention_policy` (customer inactivity 36 months, message bodies 12 months, logs 13 months, idempotency keys 7 days, carts 30 days, closed requests for quote 24 months), as are signed-URL lifetimes (15 minutes confidential, 5 minutes restricted) and a 72-hour internal breach-notification target | Owner | B13 | Open |
+| A-051 | 2026-11-13 | A customer's deposit does not reduce credit exposure until it is allocated to an invoice (as the contract's credit-override example implies). UAT scenario 2 tests this | Owner and accountant | B10 | Open |
+| A-052 | 2026-11-13 | On a partly dispatched order, the delivery fee is billed with the first dispatch | Owner | B11 | Open |
+| A-053 | 2026-11-13 | No user may grant a role to themselves. A holder of `iam.grant.manage` may grant roles to others with step-up; every grant is audited and appears on the daily exception report as PERMISSION_CHANGE | Owner | B3 | Open |
+| A-054 | 2026-11-13 | Abuse cases 5, 10 and 15 and the restore drill (UAT scenarios 5 and 7) need a technical person to stage. B13 provides a drill page for staging them on staging so a non-developer can run the checks | Owner | B13 | Open |
+| A-055 | 2026-11-13 | The seed baseline in `docs/UAT.md` section 3 (goats, egg stock, open purchase order, credit limits, users, Q3 2026 net profit of GHS 41,666.70, the illustrative approval limits under A-043) is what the seed script reaches by B12; each module session extends it | Backend lead | B4 | Open |
 
 ## Open: for the owner
 
