@@ -458,7 +458,7 @@ No table is partitioned in version one. At the capacity targets in the shared br
 
 ## 3. Entity relationship diagrams
 
-The diagrams show tables and their principal relationships. Columns are in the dictionaries. Entity names are `schema_table`. Standard actor and branch references are omitted, since almost every table has them.
+The diagrams show every table and its principal relationships. Columns are in the dictionaries. Entity names are `schema_table`. Standard actor and branch references are omitted, since almost every table has them.
 
 ### 3.1 Catalogue, pricing and tax
 
@@ -490,6 +490,10 @@ erDiagram
   mdm_tax_category_levy ||--o{ mdm_tax_levy_base_component : "base includes"
   mdm_branch ||--o{ mdm_location : contains
   mdm_branch ||--o{ mdm_delivery_zone : serves
+  mdm_uom ||--o{ mdm_product : measures
+  mdm_import_job ||--o{ mdm_import_job_error : reports
+  mdm_payment_method
+  mdm_reason_code
 ```
 
 ### 3.2 Stock, livestock and processing
@@ -530,6 +534,11 @@ erDiagram
   prc_processing_input }o--|| inv_stock_unit : "the animal"
   prc_processing_output }o--o| inv_stock_unit : "the new lot"
   prc_processing_output ||--o{ prc_pack : "packed as"
+  mdm_location ||--o{ inv_temperature_reading : "monitored by"
+  mdm_product ||--o{ inv_reorder_rule : "replenished by"
+  inv_stock_unit ||--o{ inv_stock_balance_snapshot : "snapshotted in"
+  liv_ration ||--o{ liv_feed_consumption : guides
+  mdm_product ||--o{ prc_yield_standard : "expected to yield"
 ```
 
 ### 3.3 Procure to pay
@@ -551,6 +560,7 @@ erDiagram
   pur_supplier_payment ||--o{ pur_supplier_payment_allocation : "applied by"
   pur_supplier_payment_allocation }o--|| pur_supplier_invoice : settles
   mdm_supplier ||--o{ pur_supplier_score : scored
+  mdm_supplier ||--o{ pur_supplier_category : supplies
 ```
 
 ### 3.4 Order to cash
@@ -600,6 +610,25 @@ erDiagram
   del_delivery ||--o| del_proof_of_delivery : "proved by"
   del_route ||--o{ del_route_stop : visits
   del_proof_of_delivery }o--o| pay_payment : "cash on delivery"
+  mdm_customer ||--o| whl_business_account : "has credit terms"
+  whl_standing_order ||--o{ whl_standing_order_line : has
+  mdm_customer ||--o{ whl_statement : receives
+  whl_dunning_policy ||--o{ whl_dunning_notice : "at level"
+  bil_billing_document ||--o{ whl_dunning_notice : "chased by"
+  mdm_customer ||--o{ whl_ageing_snapshot : "aged in"
+  pos_register ||--o{ pos_device_enrolment : "runs on"
+  pos_register ||--o{ pos_held_sale : parks
+  pos_shift ||--o{ pos_shift_tender_count : "counted in"
+  pos_shift ||--o{ pos_shift_report : "reported by"
+  ord_order_return ||--o{ ord_order_return_line : has
+  pay_provider_transaction ||--o{ pay_webhook_event : "confirmed by"
+  mdm_customer ||--o{ pay_store_credit_entry : "earns and spends"
+  mdm_customer ||--o| pay_store_credit_balance : "has balance"
+  pay_bank_statement ||--o{ pay_bank_statement_line : has
+  pay_payment ||--o{ pay_reconciliation_break : "flagged in"
+  del_route ||--o| del_driver_cash_reconciliation : "closed by"
+  shp_cart ||--o{ shp_abandoned_cart_notice : "reminded by"
+  mdm_product ||--o{ shp_product_listing : "listed as"
 ```
 
 ### 3.5 Ledger and capital
@@ -624,6 +653,7 @@ erDiagram
   fin_accounting_period ||--o{ fin_period_balance : "summarised in"
   fin_bank_account }o--|| fin_account : "is ledger account"
   cap_investor ||--o{ cap_capital_transaction : "contributes in"
+  cap_investor ||--o{ cap_investor_document : files
   cap_investor ||--o| cap_unit_holding : holds
   cap_distribution_run ||--o{ cap_distribution_line : "allocates to"
   cap_distribution_line }o--|| cap_investor : "for"
@@ -659,6 +689,53 @@ erDiagram
   platform_audit_chain ||--o{ platform_audit_anchor : "anchored at"
   platform_subject_key ||--o{ platform_audit_event : encrypts
   iam_principal ||--o{ platform_audit_event : "acts in"
+  iam_principal ||--o{ iam_recovery_code : "recovers with"
+  iam_principal ||--o{ iam_verification_token : "verifies with"
+  iam_principal ||--o{ platform_idempotency_key : sends
+  platform_outbox_message ||--o{ platform_inbox_message : "consumed as"
+  platform_setting
+  platform_job_run
+```
+
+### 3.7 Supporting modules: documents, notifications, integrations, compliance, costing and reporting
+
+Projection tables in `cst` and `rpt` hold references without foreign keys; the lines to them show what each is projected from.
+
+```mermaid
+erDiagram
+  doc_template ||--o{ doc_template_version : "has versions"
+  doc_template_version ||--o{ doc_archived_document : renders
+  platform_business_document ||--o{ doc_archived_document : "archived as"
+  platform_business_document ||--o{ doc_render_job : "queued in"
+  platform_stored_file ||--o{ doc_archived_document : stores
+  ntf_trigger_rule }o--|| ntf_template : selects
+  ntf_template ||--o{ ntf_message : renders
+  ntf_message ||--o{ ntf_message_attempt : "tried in"
+  ntf_message ||--o| ntf_in_app_notification : "shown as"
+  mdm_customer ||--o{ ntf_preference : sets
+  ntf_opt_out
+  api_integration ||--o{ api_webhook_endpoint : "receives at"
+  api_webhook_endpoint ||--o{ api_webhook_delivery : "delivered to"
+  platform_outbox_message ||--o{ api_webhook_delivery : carries
+  fin_accounting_period ||--o{ api_accounting_export : "exported in"
+  aud_retention_policy ||--o{ aud_retention_run : "applied in"
+  platform_subject_key ||--o{ aud_data_subject_request : "destroyed by"
+  cst_overhead_allocation_run ||--o{ cst_overhead_allocation_line : allocates
+  inv_stock_unit ||--o{ cst_overhead_allocation_line : receives
+  inv_stock_unit ||--o| cst_cost_object_summary : "summarised in"
+  bil_billing_document_line ||--o| cst_margin_fact : "analysed as"
+  inv_stock_movement ||--o| cst_loss_fact : "analysed as"
+  rpt_report_definition ||--o{ rpt_report_schedule : "scheduled as"
+  rpt_report_definition ||--o{ rpt_report_run : "run as"
+  bil_billing_document_line ||--o| rpt_sales_fact : "projected to"
+  pay_payment ||--o| rpt_payment_fact : "projected to"
+  inv_stock_balance ||--o{ rpt_stock_position_fact : "projected to"
+  bil_billing_document ||--o| rpt_receivable_fact : "projected to"
+  del_delivery ||--o| rpt_delivery_fact : "projected to"
+  quo_quote ||--o| rpt_quote_fact : "projected to"
+  mdm_location ||--o{ rpt_livestock_fact : "projected to"
+  platform_outbox_message ||--o{ rpt_exception_item : raises
+  rpt_projection_checkpoint
 ```
 
 ## 4. Rules the database enforces
