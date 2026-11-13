@@ -24,7 +24,7 @@ Option 2. Seven roles.
 | `hk_migrator` | The one-shot migration container | Member of `hk_owner` for the duration of a migration. The only login that can run DDL. Its credential exists only in the deployment secrets |
 | `hk_app` | The API | Per table class: `LEDGER` insert and select; `DOCUMENT` and `MASTER` insert, select, update; `PROJECTION` and `LOOKUP` select; `WORK` insert, select, update, delete. No DDL, no `TRUNCATE`, no `DELETE` outside `WORK` tables |
 | `hk_worker` | The worker process | As `hk_app`, plus the write access projectors need on `rpt` and `cst` fact tables |
-| `hk_sealer` | The audit sealer | Select on `aud.audit_event`; insert and select on `aud.audit_chain` and `aud.audit_anchor`. Nothing else |
+| `hk_sealer` | The audit sealer | Select on `platform.audit_event`; insert and select on `platform.audit_chain` and `platform.audit_anchor`. Nothing else |
 | `hk_report` | Report queries | Select on `rpt` and on published `pub_` views only. Statement timeout and a low connection limit |
 | `hk_backup` | Backup and WAL archiving | Replication and read access for dumps. No writes |
 

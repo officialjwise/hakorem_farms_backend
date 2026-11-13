@@ -33,7 +33,7 @@ Option 3.
 
 **Per-subject keys and erasure**
 
-- `aud.subject_key` holds one wrapped DEK per data subject (customer, supplier contact, investor, staff member).
+- `platform.subject_key` holds one wrapped DEK per data subject (customer, supplier contact, investor, staff member).
 - Anything written to an immutable store that contains a subject's personal data is encrypted with that subject's key before it is written. This applies to the `before` and `after` values of audit events.
 - The audit content hash is computed over the stored bytes, which are ciphertext for those fields. The chain therefore verifies whether or not the key still exists.
 - An approved deletion request destroys the subject's wrapped key (the row keeps `destroyed_at`, who and why). The personal data in every audit event becomes permanently unreadable. Nothing in the audit log is updated or deleted.
@@ -62,7 +62,7 @@ Option 3.
 - A deletion request can be honoured without breaking audit integrity.
 - Losing the KEK loses every encrypted value. The KEK is backed up separately from the database, and the restore drill proves that both can be brought back.
 - Reports cannot filter or sort on encrypted fields. This is intended.
-- Binds: `docs/security/SECURITY_ARCHITECTURE.md`, `docs/data-model/aud.md`, B1's data classification and compliance documents, the `hakorem-security-review` skill.
+- Binds: `docs/security/SECURITY_ARCHITECTURE.md`, `docs/data-model/platform.md`, B1's data classification and compliance documents, the `hakorem-security-review` skill.
 
 ## Verification
 

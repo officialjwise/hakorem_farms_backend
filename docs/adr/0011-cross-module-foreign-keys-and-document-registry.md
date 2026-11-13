@@ -23,6 +23,7 @@ Option 3. A foreign key is a database integrity rule. The module boundary is a c
 
 - Allowed only to tables on the published-key allow-list in `docs/MODULE_BOUNDARIES.md`. These are aggregate roots whose identity other modules legitimately hold: for example `iam.principal`, `mdm.product`, `mdm.customer`, `mdm.supplier`, `mdm.branch`, `mdm.location`, `inv.stock_unit`, `bil.billing_document`, `platform.business_document`, `platform.stored_file`.
 - Always to the primary key, always `ON DELETE RESTRICT`, and only from a higher layer to a lower one.
+- Three keys are universal and may be referenced from any schema, including a lower layer: `iam.principal` (who), `mdm.branch` and `mdm.location` (where). Actor and place appear on almost every row in the system, including platform tables such as the audit trail and number series. These are constraints only; no code import follows from them. B3 creates all three tables so the constraints exist from the first module.
 - Declared in the SQL migration of the referencing module. They are not declared as relations in Drizzle table objects, so no TypeScript import crosses a boundary and no ORM join is possible.
 - Application code never joins across schemas. A module that needs another module's data asks through that module's public interface.
 
