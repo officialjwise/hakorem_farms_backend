@@ -1,0 +1,54 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Test and coverage output
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment files (never commit real values; .env.example holds the key names only)
+.env
+.env.*
+!.env.example
+
+# Secrets, keys and data dumps (see docs/BUILD_PROMPT.md, "Committing and pushing")
+infra/secrets/
+*.pem
+*.key
+*.p12
+*.dump
+*.pgdump
+backups/
+
+# Caches and temporary files
+.cache/
+.eslintcache
+tmp/
+*.tmp
+
+# Operating system and editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+
+# Claude Code local settings (skills under .claude/skills/ are committed)
+.claude/settings.local.json
