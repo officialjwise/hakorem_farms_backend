@@ -53,6 +53,10 @@ The owner answered the open questions in the shared brief with "everything else 
 | A-053 | 2026-11-13 | No user may grant a role to themselves. A holder of `iam.grant.manage` may grant roles to others with step-up; every grant is audited and appears on the daily exception report as PERMISSION_CHANGE | Owner | B3 | Open |
 | A-054 | 2026-11-13 | Abuse cases 5, 10 and 15 and the restore drill (UAT scenarios 5 and 7) need a technical person to stage. B13 provides a drill page for staging them on staging so a non-developer can run the checks | Owner | B13 | Open |
 | A-055 | 2026-11-13 | The seed baseline in `docs/UAT.md` section 3 (goats, egg stock, open purchase order, credit limits, users, Q3 2026 net profit of GHS 41,666.70, the illustrative approval limits under A-043) is what the seed script reaches by B12; each module session extends it | Backend lead | B4 | Open |
+| A-056 | 2026-11-13 | The quarterly restore drill restores production backups into an isolated temporary database on the staging server, destroyed after the drill, so production data never enters staging itself (`docs/OPERATIONS.md` 9.5) | Owner | B13 | Open |
+| A-057 | 2026-11-13 | The deployment needs containers ADR-0025 does not list: a malware scanner (ClamAV) for uploads, Alertmanager and Prometheus exporters; traces go to Sentry. The scanner is needed from B3, when uploads start | Backend lead | B3 | Open |
+| A-058 | 2026-11-13 | An offline sale posted on a later date than it happened carries a "posted late" flag on the order, and the over or short of a force-closed shift posts through the shift close event once its count is entered. Both are added to `docs/data-model/ord.md` and ADR-0003's matrix in B9b | Backend lead | B9b | Open |
+| A-059 | 2026-11-13 | Opening fixed assets come in at net book value; opening receivables and payables as opening-journal lines settled by hand; an opening capital contribution posts on the opening date while its value date governs units (`docs/DATA_MIGRATION.md`) | Accountant | B8 | Open |
 
 ## Open: for the owner
 

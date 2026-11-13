@@ -48,7 +48,10 @@ and ADR-0001, ADR-0008, ADR-0012, ADR-0013, ADR-0024 and ADR-0025.
 Do not read any other document unless this phase needs it.
 
 Confirm in three lines: the phase, its scope, and its gate.
-Then execute B02 only, on branch b02-foundation: the kernel first (Money, Weight, Quantity,
+First, because this is a fresh session, run Run 2 of docs/prompts/SKILLS_VERIFICATION.md (tasks T01 to T32,
+one at a time) and record which skill loads for each.
+Then execute B02 only, on branch b02-foundation, including the two-session advisory-lock test that ADR-0005
+and ASSUMPTIONS A-060 require: the kernel first (Money, Weight, Quantity,
 Result, UUIDv7, Clock, and allocate, with the ADR-0028 tests 1, 2 and 4 named exactly as the ADR
 gives them), then the workspace, typed configuration, Docker Compose, migrations runner, the error
 envelope with correlation id, logging and tracing, the test harness and the four test scripts, CI,
