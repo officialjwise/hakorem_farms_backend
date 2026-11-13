@@ -29,7 +29,7 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B12 | `B12-capital-costing-reporting.md` | `b12-capital-costing-reporting` | B4 to B12 | A distribution matches a hand calculation on unit-days and ties exactly to the ledger |
 | B13 | `B13-hardening-deploy.md` | `b13-hardening-deploy` | B13 — Hardening, smoke suite and deploy | Every non-functional target met and evidenced on the live server |
 
-The gates come from the amended schedule in `docs/adr/0026-session-schedule-amendment.md`. Three of its assignments are still **proposed** (A-040 in `docs/ASSUMPTIONS.md`): the online store split across B7, B9a and B11; the daily exception report in B12; retention and data-subject requests in B13. The openers below build them as proposed. If the owner has changed any of them, ADR-0026 will say so and the opener must be edited before it is used.
+The gates come from the amended schedule in `docs/adr/0026-session-schedule-amendment.md`. Its three further assignments were **confirmed by the owner on 2026-11-13, exactly as proposed** (A-040 in `docs/ASSUMPTIONS.md`, resolved): the online store split across B7, B9a and B11; the daily exception report in B12; retention and data-subject requests in B13. The openers below build them that way.
 
 A session takes as long as its phase takes.
 
@@ -47,9 +47,17 @@ docs/TEST_STRATEGY.md, docs/ENGINEERING_STANDARDS.md, docs/ONBOARDING.md section
 and ADR-0001, ADR-0008, ADR-0012, ADR-0013, ADR-0024 and ADR-0025.
 Do not read any other document unless this phase needs it.
 
+Owner decision of 2026-11-13, so you need not go back through docs/ASSUMPTIONS.md: A-040 is resolved.
+All three further assignments in ADR-0026 are confirmed exactly as proposed, with no changes: the online
+store in B7 (catalogue, cart, checkout reservation), with order placement and online payment in B9a and
+abandoned-cart messaging in B11; retention and data-subject requests in B13; the daily exception report in B12.
+
 Confirm in three lines: the phase, its scope, and its gate.
 First, because this is a fresh session, run Run 2 of docs/prompts/SKILLS_VERIFICATION.md (tasks T01 to T32,
 one at a time) and record which skill loads for each.
+Try once more to verify the Prism mock, bounded rather than as a long-running server: start it in the
+background, wait a few seconds, curl one endpoint, then kill it. If that is refused too, say so and
+leave it. The frontend verifies it in F2.
 Then execute B02 only, on branch b02-foundation, including the two-session advisory-lock test that ADR-0005
 and ASSUMPTIONS A-060 require: the kernel first (Money, Weight, Quantity,
 Result, UUIDv7, Clock, and allocate, with the ADR-0028 tests 1, 2 and 4 named exactly as the ADR
@@ -154,7 +162,7 @@ allocated costs sum exactly to input cost plus direct cost, including an awkward
 Stop at the gate and write docs/sessions/B06-livestock-processing.md.
 ```
 
-## B7 — Procurement and suppliers, and the storefront cart (proposed)
+## B7 — Procurement and suppliers, and the storefront cart
 
 Branch `b07-procurement-suppliers`. Report `docs/sessions/B07-procurement-suppliers.md`. Gate: three-way match blocks payment where receipt and supplier invoice disagree, and checkout reserves stock and releases it on timeout.
 
@@ -165,7 +173,7 @@ Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reaso
 report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the PUR and SHP requirement blocks of docs/SRS.md (nothing else from the SRS),
 docs/data-model/pur.md and docs/data-model/shp.md, the PUR and SHP cards in docs/MODULE_BOUNDARIES.md,
-and ADR-0019, ADR-0020, ADR-0026 (the proposed online-store assignment) and A-034 in docs/ASSUMPTIONS.md.
+and ADR-0019, ADR-0020, ADR-0026 (the online-store assignment) and A-034 in docs/ASSUMPTIONS.md.
 Use docs/prompts/module-build-prompt.md as the recipe.
 Do not read any other document unless this phase needs it.
 
@@ -207,7 +215,7 @@ seeded movement has its journal. End the report with B09a's opening message (ADR
 Stop at the gate and write docs/sessions/B08-ledger-billing.md.
 ```
 
-## B9a — Order core and payments (and online order placement, proposed)
+## B9a — Order core and payments, and online order placement
 
 Branch `b09a-order-core-payments`. Report `docs/sessions/B09a-order-core-payments.md`. Gate: every payment edge case in the shared brief passes, and an order on any channel posts stock, document, payment and ledger in one transaction.
 
@@ -299,7 +307,7 @@ Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reaso
 report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the ORD (fulfilment), DEL and NTF requirement blocks of docs/SRS.md (nothing else
 from the SRS), docs/data-model/ord.md, del.md and ntf.md, the ORD, DEL and NTF cards in
-docs/MODULE_BOUNDARIES.md, and ADR-0010, ADR-0021, ADR-0026 (the proposed abandoned-cart assignment)
+docs/MODULE_BOUNDARIES.md, and ADR-0010, ADR-0021, ADR-0026 (the abandoned-cart assignment)
 and the abuse case 6 in docs/security/THREAT_MODEL.md. Use docs/prompts/module-build-prompt.md as the recipe.
 Do not read any other document unless this phase needs it.
 
@@ -315,7 +323,7 @@ dry run and record any difference.
 Stop at the gate and write docs/sessions/B11-fulfilment-delivery.md.
 ```
 
-## B12 — Capital, costing, reporting and the public API (and the daily exception report, proposed)
+## B12 — Capital, costing, reporting and the public API, and the daily exception report
 
 Branch `b12-capital-costing-reporting`. Report `docs/sessions/B12-capital-costing-reporting.md`. Gate: a distribution matches a hand calculation on unit-days and ties exactly to the ledger.
 
@@ -326,7 +334,7 @@ Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reaso
 report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the CAP, CST, RPT and API requirement blocks of docs/SRS.md (nothing else from
 the SRS), docs/data-model/cap.md, cst.md, rpt.md and api.md, the CAP, CST, RPT and API cards in
-docs/MODULE_BOUNDARIES.md, and ADR-0018, ADR-0023, ADR-0028 and ADR-0026 (the proposed daily
+docs/MODULE_BOUNDARIES.md, and ADR-0018, ADR-0023, ADR-0028 and ADR-0026 (the daily
 exception report), and section 4 of docs/security/THREAT_MODEL.md (the eighteen abuse cases and the
 exception kind each names). Use docs/prompts/module-build-prompt.md as the recipe.
 Do not read any other document unless this phase needs it.

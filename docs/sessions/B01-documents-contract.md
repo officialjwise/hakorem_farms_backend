@@ -155,6 +155,16 @@ For you, before or at the start of B2:
 - **Offline:** offline sales use the 1.1.0 fields. The rules are in `docs/OFFLINE_SYNC.md`; tenders are cash only unless the setting allows otherwise.
 - **Delivery slots:** the slot picker has endpoints, but the backend builds them in B11.
 
+## Owner answers after the gate (2026-11-13)
+
+Recorded after this report was first written; nothing was built.
+
+- **A-040: confirmed and resolved.** All three ADR-0026 assignments stand exactly as proposed: the online store in B7 (with order placement and payment in B9a and abandoned-cart messaging in B11), retention and data-subject requests in B13, the daily exception report in B12. ADR-0026 is now Accepted in full; the SRS, `BUILD_PROMPT.md`, the module build prompt and the session openers no longer say "proposed".
+- **CR-002 (weights as decimal strings): already satisfied; no action.** `Kilograms` has been a three-decimal string, never a JSON number, since 1.0.0. The frontend raised it before re-syncing. Noted in `docs/CONTRACT_CHANGELOG.md` so it is not reopened.
+- **A-036:** ADR in B3. **A-039:** ADR before B8. Both as proposed.
+- **Kept flagged and unresolved for the accountant:** A-033 (GHS 750,000 threshold), A-034 (imported inputs), A-035 (customers who withhold VAT), A-039 (E-VAT certification), A-061 (offline provisional receipts).
+- **B2 opener amended:** it now carries the A-040 confirmation, and a bounded Prism check (start in the background, wait, curl one endpoint, kill it; if refused, say so and leave it to the frontend's F2).
+
 ## Next session
 
 B02 — Foundation. Open it with the message in `docs/prompts/session-openers.md`, section "B2 — Foundation", which begins:
