@@ -1452,7 +1452,7 @@ Default session: B10. Brief bullets: public form and internal creation (001 to 0
 
 ### 4.10 SHP: Online store
 
-Default session: B7 (ADR-0026). No backend session in the build prompt names the online store; ADR-0026 assigns the catalogue, cart and checkout reservation to B7, order placement and online payment to B9a, and abandoned-cart messaging to B11, confirmed by the owner on 2026-11-13 (A-040). Each requirement states its own session. Brief bullets: catalogue (001, 002); cart, checkout, zone fee, slot picker (003, 005, 008 to 011); customer accounts (012 to 014); catch-weight (007); reservation with timed release (005, 006); promotions and coupons (004); abandoned-cart messaging (015). Assumption SA-13: the delivery slot picker needs the delivery module, so slots arrive in B11 and checkout before then offers zone and fee only.
+Default session: B7 (ADR-0026). No backend session in the build prompt names the online store; ADR-0026 assigns the catalogue, cart and checkout reservation to B7, order placement and online payment to B9a, and abandoned-cart messaging to B11, confirmed by the owner on 2026-11-13 (A-040). Each requirement states its own session. Brief bullets: catalogue (001, 002); cart, checkout, zone fee, slot picker (003, 005, 008 to 011); customer accounts (012 to 014); catch-weight (007); reservation with timed release (005, 006); promotions and coupons (004); abandoned-cart messaging (015). Assumption SA-13 (confirmed by the owner on 2026-11-13): delivery zones and fees are master data built in B4 (FR-MDM-010); B7 creates `del.delivery_slot` and slot generation, and its checkout accepts a slot without enforcing capacity; slot capacity, cut-offs and scheduling stay in B11 (ADR-0026).
 
 **FR-SHP-001** Public catalogue listing
 - Actor: Visitor
@@ -1521,7 +1521,7 @@ Default session: B7 (ADR-0026). No backend session in the build prompt names the
 **FR-SHP-009** Delivery slot picker
 - Actor: Customer
 - Trigger: `listDeliverySlotOptions`
-- Rule: The customer picks a slot from slots with free capacity before the zone's cut-off. Choosing a slot books one unit of capacity inside the checkout reservation. This depends on the delivery module (SA-13).
+- Rule: The customer picks a slot from slots with free capacity before the zone's cut-off. Choosing a slot books one unit of capacity inside the checkout reservation. Capacity and cut-off enforcement arrive with the delivery module in B11; until then B7's checkout accepts and stores a chosen slot without checking capacity (SA-13).
 - Outcome: Full or cut-off slots are not offered.
 - Acceptance: A slot with capacity 5 and 5 booked is not offered; picking a slot after the cut-off is refused.
 - Test: `test/int/shp/checkout-slot.int.spec.ts › books capacity inside the checkout`
@@ -1713,7 +1713,7 @@ Default session: B11. Brief bullets: zones, fees, cut-off, slots and capacity (0
 **FR-DEL-001** Delivery slots with capacity
 - Actor: Manager
 - Trigger: `generateDeliverySlots`, `updateDeliverySlot`
-- Rule: Slots are generated per zone and date from a template (for example 08:00 to 10:00 and 14:00 to 16:00) with a capacity. Bookings in a slot never exceed its capacity; the check runs under a row lock so concurrent bookings cannot oversell.
+- Rule: Slots are generated per zone and date from a template (for example 08:00 to 10:00 and 14:00 to 16:00) with a capacity. Bookings in a slot never exceed its capacity; the check runs under a row lock so concurrent bookings cannot oversell. B7 creates the slot table and generation so that checkout's foreign key exists; B11 adds the capacity rule (ADR-0026, SA-13).
 - Outcome: A full slot is closed.
 - Acceptance: A slot with capacity 5 booked by 8 concurrent checkouts accepts exactly 5; reducing capacity below bookings is refused.
 - Test: `test/int/del/slot-capacity.int.spec.ts › never exceeds capacity under concurrent booking`
@@ -3501,7 +3501,7 @@ One row per requirement. Rows are grouped by module; security requirements and t
 
 | Id | Session | Proving test | Operations |
 | --- | --- | --- | --- |
-| FR-DEL-001 | B11 | `test/int/del/slot-capacity.int.spec.ts › never exceeds capacity under concurrent booking` | listDeliverySlots, generateDeliverySlots, updateDeliverySlot |
+| FR-DEL-001 | B7 (table, generation), B11 (capacity) (ADR-0026) | `test/int/del/slot-capacity.int.spec.ts › never exceeds capacity under concurrent booking` | listDeliverySlots, generateDeliverySlots, updateDeliverySlot |
 | FR-DEL-002 | B11 | `test/unit/del/cut-off.unit.spec.ts › picks the earliest slot after the cut-off` | listDeliverySlotOptions |
 | FR-DEL-003 | B11 | `test/int/del/delivery-reschedule.int.spec.ts › moves a booking atomically` | listDeliveries, getDelivery, rescheduleDelivery, cancelDelivery |
 | FR-DEL-004 | B11 | `test/int/del/delivery-assignment.int.spec.ts › limits a driver to their own deliveries` | assignDelivery, getMyDelivery |
@@ -3774,7 +3774,7 @@ These fill gaps the shared brief and the existing documents leave open. Each is 
 | SA-10 | Webhook delivery: 8 attempts, exponential backoff from 1 minute with jitter, capped at 6 hours | FR-API-009 | Backend lead |
 | SA-11 | Upload caps: images 5 MB; PDF and spreadsheets 10 MB | FR-DOC-006 | Backend lead |
 | SA-12 | Default page size 25, maximum 100, as the contract's `PageLimit` | FR-API-003 | Backend lead |
-| SA-13 | The delivery slot picker needs the delivery module, so it arrives in B11; before then checkout offers zone and fee only | FR-SHP-009 | Owner (with A-040) |
+| SA-13 | Delivery zones and fees are master data in B4 (FR-MDM-010); slot capacity and scheduling stay in B11; B7's checkout accepts a slot without enforcing capacity; F7 builds the picker against the mock. Confirmed 2026-11-13 | FR-SHP-008, FR-SHP-009 | Owner |
 | SA-14 | IRR uses the investor's share of total equity at the as-at date as closing value, actual/365; ROI is distributions paid over net contributions | FR-CAP-014 | Accountant |
 | SA-15 | Seed rate limits: login 10 per minute per address and per account; password reset 5 per hour per account; quote request 5 per hour per address and per phone; checkout 10 per minute per address; API key 60 per minute unless set. All are settings recorded in `docs/OPERATIONS.md` (SECURITY_ARCHITECTURE section 5) | SEC-026, FR-QUO-001, FR-SHP-010, FR-API-007 | Backend lead |
 | SA-16 | Application and security logs are kept 365 days | SEC-033 | Owner |

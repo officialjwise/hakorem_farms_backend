@@ -51,6 +51,9 @@ Owner decision of 2026-11-13, so you need not go back through docs/ASSUMPTIONS.m
 All three further assignments in ADR-0026 are confirmed exactly as proposed, with no changes: the online
 store in B7 (catalogue, cart, checkout reservation), with order placement and online payment in B9a and
 abandoned-cart messaging in B11; retention and data-subject requests in B13; the daily exception report in B12.
+SA-13 is also confirmed, with a delivery split recorded in ADR-0026: zones and fees in B4, the slot table and
+slot generation in B7, slot capacity and the rest of DEL in B11. The B01 report's "zone and fee only" text
+about checkout is stale; ADR-0026 and docs/ASSUMPTIONS.md are current.
 
 Confirm in three lines: the phase, its scope, and its gate.
 First, because this is a fresh session, run Run 2 of docs/prompts/SKILLS_VERIFICATION.md (tasks T01 to T32,
@@ -172,8 +175,9 @@ List docs/sessions/ and read only the most recent report (docs/sessions/B06-live
 Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
 report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the PUR and SHP requirement blocks of docs/SRS.md (nothing else from the SRS),
-docs/data-model/pur.md and docs/data-model/shp.md, the PUR and SHP cards in docs/MODULE_BOUNDARIES.md,
-and ADR-0019, ADR-0020, ADR-0026 (the online-store assignment) and A-034 in docs/ASSUMPTIONS.md.
+docs/data-model/pur.md, shp.md and del.md, the PUR, SHP and DEL cards in docs/MODULE_BOUNDARIES.md,
+FR-DEL-001, and ADR-0011, ADR-0019, ADR-0020, ADR-0026 (the online-store assignment and the delivery
+split) and A-034 and SA-13 in docs/ASSUMPTIONS.md.
 Use docs/prompts/module-build-prompt.md as the recipe.
 Do not read any other document unless this phase needs it.
 
@@ -182,7 +186,9 @@ Then execute B07 only, on branch b07-procurement-suppliers: suppliers' terms and
 the different-approver rule, requisitions, purchase orders with approval limits, supplier invoices with
 the three-way match that blocks payment on disagreement, supplier payments, supplier scores, and, as
 ADR-0026 proposes, the public catalogue, cart and checkout reservation with the 15-minute release
-(order placement and online payment are B09a). Use input levies from ADR-0020 and a reclaimable flag
+(order placement and online payment are B09a), and, as the ADR-0026 delivery split decides, the
+del.delivery_slot table and slot generation, with checkout storing a chosen slot through its foreign key
+but not enforcing capacity (capacity and cut-offs are B11). Use input levies from ADR-0020 and a reclaimable flag
 on the supplier invoice lines. Extend the seed.
 Stop at the gate and write docs/sessions/B07-procurement-suppliers.md.
 ```
@@ -315,7 +321,8 @@ Confirm in three lines: the phase, its scope, and its gate.
 Then execute B11 only, on branch b11-fulfilment-delivery: pick lists and picking with weight capture,
 catch-weight re-pricing and customer consent beyond tolerance, packing, dispatch with the invoice on the
 weighed quantity, partial fulfilment and backorders, substitutions, cancellation after confirmation,
-delivery slots, routes, drivers, proof of delivery, cash on delivery with the amount due fixed at
+delivery slot capacity and booking, zone cut-offs and rescheduling (the slot table and generation
+exist from B7, per ADR-0026), routes, drivers, proof of delivery, cash on delivery with the amount due fixed at
 dispatch and the driver reconciliation by someone else, the driver's offline sync, notifications through
 the outbox (SMS, WhatsApp, email, in-app) with opt-out and templates, and, as ADR-0026 proposes,
 abandoned-cart messaging. Run steps 1.11 to 1.16 of docs/UAT.md and the driver case in scenario 5 as a
