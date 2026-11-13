@@ -4,6 +4,18 @@ Every change to `contract/openapi.yaml`, newest first. A breaking change needs a
 
 Version numbers follow semantic versioning: a major bump breaks an existing client, a minor bump adds operations or optional fields, a patch fixes descriptions or examples.
 
+## 1.1.0 (2026-11-13, B1)
+
+Additive only: new optional fields and enum values. A client generated from 1.0.x keeps working; the POS offline queue should adopt the new fields.
+
+- `TenderInput.unverifiedMobileMoney` (optional): an offline mobile money tender taken under the setting `pos.offline.allow_unverified_mobile_money`, with payer phone, network, any reference shown, and the approving manager.
+- `ShiftClose.lastDeviceCounter` (optional): so a gap after the last synced sale is detected at close.
+- `OfflineSyncBatch.sales`: at most 500 per batch. `OfflineSyncResult.cashMovementResults`: an outcome per synced cash movement.
+- `DriverSyncItem.outcome`: adds `APPLIED_WITH_EXCEPTION`.
+- `GoodsReceiptCreate.kind`: adds `OPENING` for opening stock (`docs/DATA_MIGRATION.md`).
+- `ExceptionKind`: adds `SYNC_REJECTED` and `LATE_POSTING`.
+- Example: the opening balance manual journal now shows bank against opening balance equity.
+
 ## 1.0.1 (2026-11-13, B1)
 
 Examples and one description only. No operation, field or schema changed; a client generated from 1.0.0 needs no change.
