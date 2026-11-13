@@ -88,6 +88,8 @@ Not verified:
 
 Not yet passed. The gate is the owner reading and approving the architecture and the data model.
 
+Review surface: pull request 1, https://github.com/officialjwise/hakorem_farms_backend/pull/1 (branch `b00-architecture`). Merging it is the approval.
+
 Suggested reading order: `docs/ARCHITECTURE.md`, then ADRs 0001 to 0007, then `docs/DATA_MODEL.md` sections 1 and 4, then the dictionaries for `inv`, `fin` and `ord`.
 
 Three things need a decision at this gate (ADR-0026, proposed part):
