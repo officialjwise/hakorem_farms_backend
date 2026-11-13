@@ -32,7 +32,7 @@ A production system for a livestock, poultry, meat and fresh produce business in
 2. One phase per session. Confirm phase, scope and gate in three lines, then work that phase only and stop at the gate.
 3. Write the failing test first for anything touching money, stock, weight or permissions; build domain, then application, infrastructure, interface.
 4. End by writing `docs/sessions/<ID>-<slug>.md`: built, decided, assumed, deferred, contract changes, gate result, and the exact opening message for the next session.
-5. Run `git remote -v` and confirm it shows `hakorem_farms_backend`, then commit (Conventional Commits, one concern each) and push before closing.
+5. Run `git remote -v` and confirm it shows `hakorem_farms_backend`, then commit (Conventional Commits, one concern each) and push before closing. Run `git add`, `git commit` and `git push` as three separate commands: the permission classifier refuses them chained with `&&` or `;`.
 
 ## Skills: read the one that fires before you write code
 
