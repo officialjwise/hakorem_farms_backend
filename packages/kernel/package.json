@@ -1,0 +1,13 @@
+{
+  "name": "@hakorem/kernel",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Money, Weight, Quantity, Rate, allocate, Result, UUIDv7 and Clock. Imports nothing (ADR-0001, ADR-0008, ADR-0013).",
+  "license": "UNLICENSED",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  }
+}
