@@ -110,6 +110,8 @@ Promotions and coupons applied, recorded separately from the price.
 
 ### `ord.order_status_history` · LEDGER
 
+Every status change of an order.
+
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `id` | `uuid` | PK | |
@@ -140,6 +142,8 @@ A pick, pack and dispatch of all or part of an order. Built in B11. Posted statu
 Standard columns: `DOCUMENT` (`status` in `PICK_LIST`, `PICKING`, `PACKED`, `DISPATCHED`, `COLLECTED`, `CANCELLED`).
 
 ### `ord.fulfilment_line` · DOCUMENT
+
+What was picked for an order line, with weight.
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
@@ -173,6 +177,8 @@ A return or exchange against an original order. Posted statuses: `COMPLETED`, `R
 Standard columns: `DOCUMENT` (`status` in `REQUESTED`, `PENDING_APPROVAL`, `COMPLETED`, `REJECTED`).
 
 ### `ord.order_return_line` · DOCUMENT
+
+The lines and quantities being returned.
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |

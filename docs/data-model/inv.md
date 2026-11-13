@@ -268,6 +268,8 @@ Standard columns: `DOCUMENT` (`status` in `DRAFT`, `DISPATCHED`, `RECEIVED`, `CA
 
 ### `inv.stock_transfer_line` · DOCUMENT
 
+What a transfer carries, dispatched and received.
+
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `id` | `uuid` | PK | |
@@ -303,6 +305,8 @@ Standard columns: `DOCUMENT` (`status` in `DRAFT`, `PENDING_APPROVAL`, `POSTED`,
 
 ### `inv.stock_adjustment_line` · DOCUMENT
 
+One gain or loss within an adjustment.
+
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `id` | `uuid` | PK | |
@@ -337,6 +341,8 @@ Standard columns: `DOCUMENT` (`status` in `DRAFT`, `COUNTING`, `REVIEW`, `PENDIN
 
 ### `inv.stock_take_line` · DOCUMENT
 
+Expected and counted quantity for one item in a stock take.
+
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `id` | `uuid` | PK | |
@@ -354,6 +360,8 @@ Standard columns: `DOCUMENT` (`status` in `DRAFT`, `COUNTING`, `REVIEW`, `PENDIN
 - UNIQUE NULLS NOT DISTINCT (`stock_take_id`, `product_id`, `stock_unit_id`).
 
 ### `inv.reorder_rule` · MASTER
+
+Minimum, reorder point and maximum levels, and expiry alert lead time.
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |

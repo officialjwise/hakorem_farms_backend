@@ -139,6 +139,8 @@ Standard columns: `MASTER`.
 
 ### `fin.journal_entry` · LEDGER
 
+Header of a posted journal. Insert-only.
+
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `id` | `uuid` | PK, FK `platform.business_document` | A journal is itself a numbered document |
@@ -161,6 +163,8 @@ Standard columns: `LEDGER`.
 - Indexes: (`period_id`, `posting_date`); (`source_document_id`); (`posting_group_id`).
 
 ### `fin.journal_line` · LEDGER
+
+A debit or credit line of a journal. Insert-only.
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
@@ -198,6 +202,8 @@ Standard columns: `DOCUMENT` (`status` in `DRAFT`, `PENDING_APPROVAL`, `POSTED`,
 
 ### `fin.manual_journal_line` · DOCUMENT
 
+Lines of a manual journal while it is drafted and approved.
+
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `id` | `uuid` | PK | |
@@ -228,6 +234,8 @@ Totals per period, account, branch and subledger party. Computed when a period i
 - UNIQUE NULLS NOT DISTINCT (`period_id`, `account_id`, `branch_id`, `subledger_party_id`).
 
 ### `fin.fixed_asset` · MASTER
+
+The fixed asset register.
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
@@ -261,6 +269,8 @@ Posted status: `POSTED`.
 Standard columns: `DOCUMENT` (`status` in `DRAFT`, `POSTED`).
 
 ### `fin.depreciation_line` · LEDGER
+
+Depreciation charged to one asset in one run.
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |

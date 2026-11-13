@@ -24,6 +24,8 @@ Standard columns: `MASTER`.
 
 ### `mdm.uom` · LOOKUP
 
+Units of measure.
+
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `code` | `text` | PK | `HEAD`, `KG`, `CRATE`, `BUNCH`, `TUBER`, `PACK`, `UNIT`, `BAG`, `LITRE` |
@@ -31,6 +33,8 @@ Standard columns: `MASTER`.
 | `kind` | `text` | NOT NULL, CHECK in (`COUNT`, `WEIGHT`, `VOLUME`) | Whether fractions are allowed |
 
 ### `mdm.species` · MASTER
+
+Species of livestock.
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
@@ -42,6 +46,8 @@ Standard columns: `MASTER`.
 Standard columns: `MASTER`.
 
 ### `mdm.grade` · MASTER
+
+Quality grades within a species, used by pricing and quoting.
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
@@ -56,6 +62,8 @@ Standard columns: `MASTER`. UNIQUE (`species_id`, `code`) among live rows.
 
 ### `mdm.weight_band` · MASTER
 
+Live-weight ranges within a species, used by pricing and quoting.
+
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `id` | `uuid` | PK | |
@@ -69,6 +77,8 @@ Standard columns: `MASTER`.
 - EXCLUDE: for one `species_id`, the ranges `[min_kg, max_kg)` of live rows do not overlap. A weight maps to at most one band.
 
 ### `mdm.product` · MASTER
+
+The catalogue. One abstraction for all three stock archetypes.
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
@@ -104,6 +114,8 @@ Standard columns: `MASTER`.
 
 ### `mdm.product_uom_conversion` · MASTER
 
+Exact conversion between two units for a product.
+
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `product_id` | `uuid` | NOT NULL, FK `mdm.product` | |
@@ -115,6 +127,8 @@ Standard columns: `MASTER`.
 Standard columns: `MASTER`. PK (`product_id`, `from_uom`, `to_uom`).
 
 ### `mdm.product_image` · MASTER
+
+Photographs of a product.
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
@@ -130,6 +144,8 @@ Standard columns: `MASTER`.
 
 ### `mdm.customer_tier` · MASTER
 
+Customer tiers, an input to pricing.
+
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `id` | `uuid` | PK | |
@@ -139,6 +155,8 @@ Standard columns: `MASTER`.
 Standard columns: `MASTER`.
 
 ### `mdm.customer` · MASTER
+
+Customer identity. Credit terms are in `whl.business_account`.
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
@@ -158,6 +176,8 @@ Standard columns: `MASTER`.
 Standard columns: `MASTER`.
 
 ### `mdm.customer_address` · MASTER
+
+Saved delivery addresses.
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
@@ -245,6 +265,8 @@ Standard columns: `MASTER`.
 ## Pricing and promotions
 
 ### `mdm.price_list` · MASTER
+
+A price list occupying one slot in the resolution order.
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
@@ -350,6 +372,8 @@ Standard columns: `DOCUMENT`.
 
 ### `mdm.promotion_target` · MASTER
 
+The products or categories a promotion applies to.
+
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `id` | `uuid` | PK | |
@@ -361,6 +385,8 @@ Standard columns: `DOCUMENT`.
 - CHECK: exactly one of `product_id`, `category_id` is set. Frozen with its promotion.
 
 ### `mdm.coupon` · MASTER
+
+A code that unlocks a promotion.
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
@@ -374,6 +400,8 @@ Standard columns: `DOCUMENT`.
 Standard columns: `MASTER`.
 
 ### `mdm.coupon_redemption` · LEDGER
+
+Each use, or release, of a coupon.
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
@@ -531,6 +559,8 @@ A spreadsheet import or export of master data. Posted statuses: `APPLIED`, `FAIL
 Standard columns: `DOCUMENT`.
 
 ### `mdm.import_job_error` · WORK
+
+Row-level validation errors of an import.
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |

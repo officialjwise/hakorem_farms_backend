@@ -22,6 +22,8 @@ Standard columns: `MASTER`. A change to payout details needs approval by a diffe
 
 ### `pur.supplier_category` · MASTER
 
+The categories a supplier supplies.
+
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `supplier_id` | `uuid` | NOT NULL, FK `mdm.supplier` | |
@@ -30,6 +32,8 @@ Standard columns: `MASTER`. A change to payout details needs approval by a diffe
 - PK (`supplier_id`, `category_id`).
 
 ### `pur.supplier_document` · MASTER
+
+Documents held for a supplier.
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
@@ -57,6 +61,8 @@ Posted statuses: `CONVERTED`, `REJECTED`, `CANCELLED`.
 Standard columns: `DOCUMENT` (`status` in `DRAFT`, `SUBMITTED`, `CONVERTED`, `REJECTED`, `CANCELLED`).
 
 ### `pur.purchase_requisition_line` · DOCUMENT
+
+Lines of a requisition.
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
@@ -92,6 +98,8 @@ Posted statuses: `APPROVED`, `PARTIALLY_RECEIVED`, `RECEIVED`, `CLOSED`, `CANCEL
 Standard columns: `DOCUMENT` (`status` in `DRAFT`, `PENDING_APPROVAL`, `APPROVED`, `PARTIALLY_RECEIVED`, `RECEIVED`, `CLOSED`, `CANCELLED`).
 
 ### `pur.purchase_order_line` · DOCUMENT
+
+Lines of a purchase order, with received and invoiced progress.
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
@@ -138,6 +146,8 @@ Standard columns: `DOCUMENT` (`status` in `DRAFT`, `MATCHED`, `MISMATCH`, `APPRO
 - UNIQUE (`supplier_id`, `supplier_invoice_no`): the same invoice cannot be entered twice.
 
 ### `pur.supplier_invoice_line` · DOCUMENT
+
+Lines of a supplier invoice, with the three-way match result.
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
@@ -199,6 +209,8 @@ Standard columns: `DOCUMENT` (`status` in `DRAFT`, `PENDING_APPROVAL`, `APPROVED
 
 ### `pur.supplier_payment_allocation` · LEDGER
 
+A supplier payment applied to an invoice.
+
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `id` | `uuid` | PK | |
@@ -211,6 +223,8 @@ Standard columns: `LEDGER`.
 - Trigger: the invoice's `match_status` is `MATCHED` or `NOT_REQUIRED` (three-way match blocks payment); allocations of a payment do not exceed its amount; allocations to an invoice do not exceed its unpaid amount. Maintains `paid_pesewas`.
 
 ### `pur.supplier_score` · PROJECTION
+
+Supplier performance per period.
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |

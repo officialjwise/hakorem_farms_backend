@@ -271,7 +271,7 @@ A foreign key may cross schemas only if it points at one of these primary keys, 
 
 | Schema | Tables whose primary key is published |
 | --- | --- |
-| `platform` | `business_document`, `stored_file`, `number_series` |
+| `platform` | `business_document`, `document_type`, `stored_file`, `number_series` |
 | `iam` | `principal`, `approval_request` |
 | `mdm` | `branch`, `location`, `category`, `product`, `uom`, `species`, `grade`, `weight_band`, `customer`, `customer_address`, `customer_tier`, `supplier`, `price_list`, `price_list_entry`, `promotion`, `coupon`, `tax_levy`, `tax_category`, `tax_scheme_version`, `payment_method`, `delivery_zone`, `reason_code` |
 | `doc` | `archived_document`, `template_version` |

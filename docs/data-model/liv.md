@@ -51,6 +51,8 @@ Standard columns: `MASTER`.
 
 ### `liv.weight_record` · LEDGER
 
+Weights captured over time, for growth tracking.
+
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `id` | `uuid` | PK | May be generated on the device |
@@ -130,6 +132,8 @@ Standard columns: `DOCUMENT` (`status` in `REPORTED`, `PENDING_APPROVAL`, `POSTE
 - CHECK: `status = 'POSTED'` with `value_pesewas` at or above the policy threshold requires both `photo_file_id` and `approval_request_id`. The posting function supplies the threshold comparison.
 
 ### `liv.ration` · MASTER
+
+A feeding standard: how much of which feed per head per day.
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |

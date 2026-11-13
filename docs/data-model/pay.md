@@ -126,6 +126,8 @@ Standard columns: `DOCUMENT` (`status` in `REQUESTED`, `PENDING_APPROVAL`, `APPR
 
 ### `pay.store_credit_entry` · LEDGER
 
+Store credit issued, redeemed and expired.
+
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `id` | `uuid` | PK | |
@@ -137,6 +139,8 @@ Standard columns: `DOCUMENT` (`status` in `REQUESTED`, `PENDING_APPROVAL`, `APPR
 Standard columns: `LEDGER`.
 
 ### `pay.store_credit_balance` · PROJECTION
+
+Current store credit per customer.
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
@@ -182,6 +186,8 @@ Standard columns: `DOCUMENT` (`status` in `IMPORTED`, `MATCHED`, `POSTED`, `HAS_
 
 ### `pay.settlement_line` · DOCUMENT
 
+One transaction within a provider settlement.
+
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `id` | `uuid` | PK | |
@@ -193,6 +199,8 @@ Standard columns: `DOCUMENT` (`status` in `IMPORTED`, `MATCHED`, `POSTED`, `HAS_
 | `match_status` | `text` | NOT NULL, CHECK in (`MATCHED`, `AMOUNT_DIFFERS`, `NOT_FOUND`) | |
 
 ### `pay.bank_statement` · DOCUMENT
+
+An imported bank or mobile money statement.
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
@@ -207,6 +215,8 @@ Standard columns: `DOCUMENT` (`status` in `IMPORTED`, `MATCHED`, `POSTED`, `HAS_
 Standard columns: `DOCUMENT` (`status` in `IMPORTED`, `RECONCILED`, `HAS_BREAKS`).
 
 ### `pay.bank_statement_line` · DOCUMENT
+
+One line of a statement, and what it matched.
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |

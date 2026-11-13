@@ -44,6 +44,8 @@ Standard columns: `MASTER`.
 
 ### `iam.totp_credential` · MASTER
 
+A user’s TOTP secret.
+
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `principal_id` | `uuid` | PK, FK `iam.principal` | |
@@ -54,6 +56,8 @@ Standard columns: `MASTER`.
 Standard columns: `MASTER`.
 
 ### `iam.recovery_code` · WORK
+
+Single-use codes for a user who has lost their TOTP device.
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
@@ -136,6 +140,8 @@ Standard columns: `MASTER`.
 
 ### `iam.permission` · LOOKUP
 
+The fixed list of permission codes.
+
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `code` | `text` | PK | `<module>.<resource>.<action>` |
@@ -144,6 +150,8 @@ Standard columns: `MASTER`.
 | `requires_step_up` | `boolean` | NOT NULL DEFAULT `false` | Fresh TOTP needed to use it |
 
 ### `iam.role` · MASTER
+
+A named set of permissions.
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
@@ -156,6 +164,8 @@ Standard columns: `MASTER`.
 Standard columns: `MASTER`.
 
 ### `iam.role_permission` · MASTER
+
+Which permissions a role contains.
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
