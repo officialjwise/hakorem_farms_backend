@@ -19,7 +19,10 @@ export function schemaNameProblems(file: string, ownSchema: string, text: string
   const problems: string[] = [];
   const lines = text.split('\n');
   lines.forEach((line, index) => {
-    const code = line.replace(/--.*$/, '').replace(/^\s*(\/\/|\*|\/\*).*$/, '');
+    // In a migration, a quoted literal is not an object reference: a permission code such as 'mdm.product.read'
+    // only looks like a schema-qualified name. In TypeScript the literals are the SQL, so they are kept.
+    const uncommented = line.replace(/--.*$/, '').replace(/^\s*(\/\/|\*|\/\*).*$/, '');
+    const code = file.endsWith('.sql') ? uncommented.replace(/'(?:[^']|'')*'/g, "''") : uncommented;
     for (const match of code.matchAll(reference)) {
       const isForeignKey = match[1] !== undefined;
       const schema = (match[2] as string).toLowerCase();

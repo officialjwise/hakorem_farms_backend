@@ -42,6 +42,13 @@ describe('schema names in code (MODULE_BOUNDARIES section 7, data check 2)', () 
     ]);
   });
 
+  it('ignores names inside quoted literals of a migration, and keeps them in TypeScript, where literals are SQL', () => {
+    const migration = "INSERT INTO iam.permission (code) VALUES ('mdm.product.read');";
+    expect(schemaNameProblems('migrations/0007_iam_seed.sql', 'iam', migration, architecture)).toEqual([]);
+    const repository = "await tx.query('SELECT * FROM inv.stock_balance');";
+    expect(schemaNameProblems('src/modules/mdm/infrastructure/x.ts', 'mdm', repository, architecture)).toHaveLength(1);
+  });
+
   it('ignores names in comments', () => {
     expect(schemaNameProblems('0045_inv_ok.sql', 'inv', '-- unlike ord.sales_order, this stays in inv', architecture)).toEqual([]);
   });
