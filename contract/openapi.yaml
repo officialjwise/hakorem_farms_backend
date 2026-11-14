@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.1.0"
+  version: "1.2.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -155,7 +155,10 @@ paths:
       tags:
         - platform
       summary: "Report system health"
-      description: "Read by the deploy pipeline, the smoke suite and the uptime monitor. Reports database, WAL archiving, Redis, queue depth, outbox backlog, dead letters, audit sealing lag, projection lag and the last run of each reconciliation job. Returns 503 when any check is DOWN."
+      description: "Read by the deploy pipeline, the smoke suite and the uptime monitor. Reports the database, Redis and each mechanism built so far: outbox backlog, dead letters and audit sealing lag from 1.2.0; WAL archiving, queue depth, projection lag and the last run of each reconciliation job join as they are built. A mechanism that needs attention is DEGRADED (dead letters, a stale outbox or sealing lag) and the answer is still 200. Returns 503 when any check is DOWN."
+      x-error-codes:
+        - RATE_LIMITED
+        - SERVICE_UNAVAILABLE
       security: []
       responses:
         "200":
@@ -378,6 +381,11 @@ paths:
         - auth
       summary: "Log in as staff"
       description: "Owner, Accountant and Manager always need a TOTP code next. Failures give the same message and take the same time whether or not the account exists. Repeated failures back off exponentially."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - INVALID_CREDENTIALS
+        - RATE_LIMITED
+        - SERVICE_UNAVAILABLE
       security: []
       requestBody:
         required: true
@@ -413,12 +421,19 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   "/auth/customer/login":
     post:
       operationId: loginCustomer
       tags:
         - auth
       summary: "Log in as a customer"
+      x-error-codes:
+        - VALIDATION_FAILED
+        - INVALID_CREDENTIALS
+        - RATE_LIMITED
+        - SERVICE_UNAVAILABLE
       security: []
       requestBody:
         required: true
@@ -468,12 +483,19 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   "/auth/investor/login":
     post:
       operationId: loginInvestor
       tags:
         - auth
       summary: "Log in as an investor"
+      x-error-codes:
+        - VALIDATION_FAILED
+        - INVALID_CREDENTIALS
+        - RATE_LIMITED
+        - SERVICE_UNAVAILABLE
       security: []
       requestBody:
         required: true
@@ -508,12 +530,21 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   "/auth/totp/verify":
     post:
       operationId: verifyTotp
       tags:
         - auth
       summary: "Complete login with a TOTP code"
+      description: "Completes a login that answered TOTP_REQUIRED. The code is six digits, or one of the single-use recovery codes. A code is accepted once; five wrong codes spend the challenge."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - TOTP_INVALID
+        - CHALLENGE_EXPIRED
+        - RATE_LIMITED
+        - SERVICE_UNAVAILABLE
       security: []
       requestBody:
         required: true
@@ -570,13 +601,28 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   "/auth/refresh":
     post:
       operationId: refreshSession
       tags:
         - auth
       summary: "Rotate the refresh token and issue a new access token"
-      description: "Reads the refresh cookie. A refresh token that was already used revokes the whole session and raises an alert."
+      description: "Reads the refresh cookie of the realm in `realm`, or of the only realm with one. A refresh token that was already used revokes the whole session and raises an alert. The Origin must be on the allow-list."
+      x-error-codes:
+        - UNAUTHENTICATED
+        - ORIGIN_NOT_ALLOWED
+        - VALIDATION_FAILED
+        - RATE_LIMITED
+        - SERVICE_UNAVAILABLE
+      parameters:
+        - name: realm
+          in: query
+          required: false
+          description: "Which session to use when the browser holds sessions in more than one realm. Leave it out when there is only one."
+          schema:
+            $ref: "#/components/schemas/Realm"
       security: []
       responses:
         "200":
@@ -619,19 +665,35 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "422":
           $ref: "#/components/responses/BusinessRuleViolation"
         "429":
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   "/auth/logout":
     post:
       operationId: logout
       tags:
         - auth
       summary: "End the current session"
+      x-error-codes:
+        - UNAUTHENTICATED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - VALIDATION_FAILED
+        - RATE_LIMITED
       parameters:
+        - name: realm
+          in: query
+          required: false
+          description: "Which session to use when the browser holds sessions in more than one realm. Leave it out when there is only one."
+          schema:
+            $ref: "#/components/schemas/Realm"
         - $ref: "#/components/parameters/CsrfToken"
       security:
         - staffSession: []
@@ -663,6 +725,17 @@ paths:
       tags:
         - auth
       summary: "Get the current session, permissions and CSRF token"
+      x-error-codes:
+        - UNAUTHENTICATED
+        - VALIDATION_FAILED
+        - RATE_LIMITED
+      parameters:
+        - name: realm
+          in: query
+          required: false
+          description: "Which session to use when the browser holds sessions in more than one realm. Leave it out when there is only one."
+          schema:
+            $ref: "#/components/schemas/Realm"
       security:
         - staffSession: []
         - customerSession: []
@@ -720,12 +793,24 @@ paths:
       tags:
         - auth
       summary: "Change my password"
+      description: "With a session, send the X-CSRF-Token. During login, after PASSWORD_CHANGE_REQUIRED, send no cookie and put the `challengeToken` in the body instead; then log in again with the new password. Other sessions of the account are revoked. The new password is at least 12 characters and is checked against a breached-password list."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - INVALID_CREDENTIALS
+        - CHALLENGE_EXPIRED
+        - PASSWORD_BREACHED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - RATE_LIMITED
+        - SERVICE_UNAVAILABLE
       parameters:
-        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/CsrfTokenOptional"
       security:
         - staffSession: []
         - customerSession: []
         - investorSession: []
+        - {}
       requestBody:
         required: true
         content:
@@ -827,12 +912,30 @@ paths:
       tags:
         - auth
       summary: "Start TOTP enrolment"
+      description: "With a session, send no body and the X-CSRF-Token. During login, after TOTP_ENROLMENT_REQUIRED, send no cookie and the `challengeToken` in the body. The secret is shown once; confirm it with POST /auth/totp/confirm."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - CHALLENGE_EXPIRED
+        - TOTP_ALREADY_ENROLLED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - RATE_LIMITED
       parameters:
-        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/CsrfTokenOptional"
       security:
         - staffSession: []
         - customerSession: []
         - investorSession: []
+        - {}
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TotpEnrolmentStart"
+            example:
+              challengeToken: hk1.ch.eyJzdWIiOiIwMTlhN2MifQ.d2Fp
       responses:
         "200":
           description: OK
@@ -866,12 +969,24 @@ paths:
       tags:
         - auth
       summary: "Confirm TOTP enrolment with a first code"
+      description: "Activates the authenticator with a first code and returns single-use recovery codes, shown once. During login (with the `challengeToken` in the body and no cookie) it also completes the login: the session cookies are set on this response, and the client then calls GET /auth/session."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - CHALLENGE_EXPIRED
+        - TOTP_INVALID
+        - TOTP_ENROLMENT_REQUIRED
+        - TOTP_ALREADY_ENROLLED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - RATE_LIMITED
       parameters:
-        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/CsrfTokenOptional"
       security:
         - staffSession: []
         - customerSession: []
         - investorSession: []
+        - {}
       requestBody:
         required: true
         content:
@@ -921,6 +1036,14 @@ paths:
         - auth
       summary: "Enter a fresh TOTP code for a sensitive action"
       description: "Sets the session step-up time. Distributions, bulk exports, role, grant, tax and posting rule changes accept a step-up made within the last five minutes."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - TOTP_INVALID
+        - TOTP_ENROLMENT_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
       security:
@@ -1075,6 +1198,12 @@ paths:
       summary: "List sessions (the device list)"
       description: "Permission: `iam.session.read`. Ownership: without `iam.session.read.any`, only the caller's own sessions."
       x-permission: iam.session.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: principalId
           in: query
@@ -1206,6 +1335,17 @@ paths:
       summary: "Revoke a session (forced logout)"
       description: "Takes effect on the next request made with that session.\n\nPermission: `iam.session.revoke`. Ownership: own sessions always; anyone's with `iam.session.revoke.any`."
       x-permission: iam.session.revoke
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - NOT_FOUND
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -6623,6 +6763,12 @@ paths:
       summary: "List products"
       description: "Permission: `mdm.product.read`."
       x-permission: mdm.product.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: q
           in: query
@@ -7038,6 +7184,19 @@ paths:
       summary: "Create a product"
       description: "Permission: `mdm.product.create`."
       x-permission: mdm.product.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - DUPLICATE_VALUE
+        - REFERENCE_NOT_FOUND
+        - STOCK_POLICY_CONFLICT
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -7153,6 +7312,13 @@ paths:
       summary: "Get a product"
       description: "Permission: `mdm.product.read`."
       x-permission: mdm.product.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - NOT_FOUND
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -67335,7 +67501,7 @@ components:
       name: X-CSRF-Token
       in: header
       required: false
-      description: "Required when the caller has a customer session; not used by guests."
+      description: "Required when the caller has a session; not used by guests, or during login when a challenge token is sent instead."
       schema:
         type: string
       example: c3f1a0b2e5d94c7f8a61b0e2d4c9f7a3
@@ -67617,7 +67783,7 @@ components:
       properties:
         code:
           type: string
-          description: "Stable machine code. See docs/API.md for the catalogue."
+          description: "Stable machine code. See docs/API.md for the catalogue. Each implemented operation lists the codes it can raise in `x-error-codes`; INTERNAL can come from any operation."
         message:
           type: string
           description: "A sentence safe to show to a user. Never contains internal detail."
@@ -68379,6 +68545,9 @@ components:
         newPassword:
           type: string
           description: "Checked against a breached-password list. Minimum 12 characters."
+        challengeToken:
+          type: string
+          description: "During login only: the challenge token from the login response, instead of a session."
       required:
         - currentPassword
         - newPassword
@@ -68417,11 +68586,22 @@ components:
       required:
         - otpauthUri
         - secretBase32
+    TotpEnrolmentStart:
+      type: object
+      description: "Empty with a session. During login, after TOTP_ENROLMENT_REQUIRED, the challenge token."
+      properties:
+        challengeToken:
+          type: string
+          description: "During login only: the challenge token from the login response, instead of a session."
+      additionalProperties: false
     TotpCodeRequest:
       type: object
       properties:
         code:
           type: string
+        challengeToken:
+          type: string
+          description: "During login only: the challenge token from the login response, instead of a session."
       required:
         - code
       additionalProperties: false

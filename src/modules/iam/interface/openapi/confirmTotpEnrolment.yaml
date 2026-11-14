@@ -1,0 +1,64 @@
+operationId: confirmTotpEnrolment
+tags:
+  - auth
+summary: "Confirm TOTP enrolment with a first code"
+description: "Activates the authenticator with a first code and returns single-use recovery codes, shown once. During login (with the `challengeToken` in the body and no cookie) it also completes the login: the session cookies are set on this response, and the client then calls GET /auth/session."
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - CHALLENGE_EXPIRED
+  - TOTP_INVALID
+  - TOTP_ENROLMENT_REQUIRED
+  - TOTP_ALREADY_ENROLLED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/CsrfTokenOptional"
+security:
+  - staffSession: []
+  - customerSession: []
+  - investorSession: []
+  - {}
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/TotpCodeRequest"
+      example:
+        code: "481205"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/RecoveryCodes"
+        example:
+          recoveryCodes:
+            - "7KQ2-M9XD"
+            - P4TR-2W8N
+            - H6CJ-QF3L
+            - Z8VB-1KMS
+            - R3YN-T7EP
+            - D5LG-9HWA
+            - N2FU-X4QC
+            - B9SE-6JRK
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

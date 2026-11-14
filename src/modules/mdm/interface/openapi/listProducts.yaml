@@ -1,0 +1,420 @@
+operationId: listProducts
+tags:
+  - mdm
+summary: "List products"
+description: "Permission: `mdm.product.read`."
+x-permission: mdm.product.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: q
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: categoryId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: stockPolicy
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/StockPolicy"
+  - name: onlineMode
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/OnlineMode"
+  - name: status
+    in: query
+    required: false
+    schema:
+      type: string
+      enum:
+        - DRAFT
+        - ACTIVE
+        - DISCONTINUED
+  - name: barcode
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ProductPage"
+        example:
+          data:
+            - id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+              sku: LIV-GOAT
+              name: Goat
+              category:
+                id: "019a7a89-737b-7c17-9150-ca4d5fa2432b"
+                code: LIVE
+                name: "Live animals"
+              stockPolicy: SERIALISED
+              tracking: SERIAL
+              species:
+                id: "019a7a8b-a049-7e16-b34e-ea33ee146311"
+                code: GOAT
+                name: Goat
+              baseUom: HEAD
+              saleUom: HEAD
+              nominalPackKg: null
+              weightTolerancePercent: "10.00"
+              taxCategory:
+                id: "019a7a8a-6af3-7b33-906b-bc092d2a34e7"
+                code: LIVE_ANIMALS
+                name: "Live Animals"
+              glGroup: LIVE_ANIMALS
+              shelfLifeDays: null
+              storageTempClass: null
+              withdrawalDays: null
+              barcode: null
+              description: "Individually tagged and weighed. Priced by size and weight."
+              onlineMode: REQUEST_TO_BUY
+              seo:
+                slug: goat
+                title: "Goat | HaKorem Farms"
+                description: null
+              isPurchasable: true
+              isSellable: true
+              status: ACTIVE
+              images:
+                - id: "019a7aa1-4166-7822-ad5b-8afe04d703db"
+                  fileId: "019a7aa1-6055-7206-b73e-29357e88a213"
+                  altText: "Front view"
+                  sortOrder: 0
+                  variants:
+                    - variant: thumb
+                      url: "https://media.hakoremfarms.com/p/019a7aa1-6055-7206-b73e-29357e88a213/thumb.webp"
+                      width: 160
+                      height: 160
+                    - variant: card
+                      url: "https://media.hakoremfarms.com/p/019a7aa1-6055-7206-b73e-29357e88a213/card.webp"
+                      width: 480
+                      height: 480
+                    - variant: full
+                      url: "https://media.hakoremfarms.com/p/019a7aa1-6055-7206-b73e-29357e88a213/full.webp"
+                      width: 1200
+                      height: 1200
+              version: 2
+              createdAt: "2026-11-02T08:00:00Z"
+              updatedAt: "2026-11-10T14:00:00Z"
+            - id: "019a7a8d-326c-7ea3-83db-f3051c116be3"
+              sku: LIV-SHEEP
+              name: Sheep
+              category:
+                id: "019a7a89-737b-7c17-9150-ca4d5fa2432b"
+                code: LIVE
+                name: "Live animals"
+              stockPolicy: SERIALISED
+              tracking: SERIAL
+              species:
+                id: "019a7a8b-bf38-77f9-8d31-886b67c50149"
+                code: SHEEP
+                name: Sheep
+              baseUom: HEAD
+              saleUom: HEAD
+              nominalPackKg: null
+              weightTolerancePercent: "10.00"
+              taxCategory:
+                id: "019a7a8a-6af3-7b33-906b-bc092d2a34e7"
+                code: LIVE_ANIMALS
+                name: "Live Animals"
+              glGroup: LIVE_ANIMALS
+              shelfLifeDays: null
+              storageTempClass: null
+              withdrawalDays: null
+              barcode: null
+              description: "Individually tagged and weighed. Priced by size and weight."
+              onlineMode: REQUEST_TO_BUY
+              seo:
+                slug: sheep
+                title: "Sheep | HaKorem Farms"
+                description: null
+              isPurchasable: true
+              isSellable: true
+              status: ACTIVE
+              images:
+                - id: "019a7aa1-7f44-7be9-8122-c76cf839404a"
+                  fileId: "019a7aa1-9e33-75cd-9b05-65a471eade82"
+                  altText: "Front view"
+                  sortOrder: 1
+                  variants:
+                    - variant: thumb
+                      url: "https://media.hakoremfarms.com/p/019a7aa1-9e33-75cd-9b05-65a471eade82/thumb.webp"
+                      width: 160
+                      height: 160
+                    - variant: card
+                      url: "https://media.hakoremfarms.com/p/019a7aa1-9e33-75cd-9b05-65a471eade82/card.webp"
+                      width: 480
+                      height: 480
+                    - variant: full
+                      url: "https://media.hakoremfarms.com/p/019a7aa1-9e33-75cd-9b05-65a471eade82/full.webp"
+                      width: 1200
+                      height: 1200
+              version: 3
+              createdAt: "2026-11-02T08:01:00Z"
+              updatedAt: "2026-11-11T14:01:00Z"
+            - id: "019a7a8d-515b-7886-9dbe-913c95c20a1a"
+              sku: LIV-PIGLET
+              name: "Baby pig"
+              category:
+                id: "019a7a89-737b-7c17-9150-ca4d5fa2432b"
+                code: LIVE
+                name: "Live animals"
+              stockPolicy: SERIALISED
+              tracking: SERIAL
+              species:
+                id: "019a7a8b-de27-71dd-9715-26a2e1769f80"
+                code: PIG
+                name: Pig
+              baseUom: HEAD
+              saleUom: HEAD
+              nominalPackKg: null
+              weightTolerancePercent: "10.00"
+              taxCategory:
+                id: "019a7a8a-6af3-7b33-906b-bc092d2a34e7"
+                code: LIVE_ANIMALS
+                name: "Live Animals"
+              glGroup: LIVE_ANIMALS
+              shelfLifeDays: null
+              storageTempClass: null
+              withdrawalDays: null
+              barcode: null
+              description: "Individually tagged and weighed. Priced by size and weight."
+              onlineMode: REQUEST_TO_BUY
+              seo:
+                slug: baby-pig
+                title: "Baby pig | HaKorem Farms"
+                description: null
+              isPurchasable: true
+              isSellable: true
+              status: ACTIVE
+              images:
+                - id: "019a7aa1-bd22-7fb0-a4e8-03dbeb9b7cb9"
+                  fileId: "019a7aa1-dc11-7994-becc-a213654c1af1"
+                  altText: "Front view"
+                  sortOrder: 2
+                  variants:
+                    - variant: thumb
+                      url: "https://media.hakoremfarms.com/p/019a7aa1-dc11-7994-becc-a213654c1af1/thumb.webp"
+                      width: 160
+                      height: 160
+                    - variant: card
+                      url: "https://media.hakoremfarms.com/p/019a7aa1-dc11-7994-becc-a213654c1af1/card.webp"
+                      width: 480
+                      height: 480
+                    - variant: full
+                      url: "https://media.hakoremfarms.com/p/019a7aa1-dc11-7994-becc-a213654c1af1/full.webp"
+                      width: 1200
+                      height: 1200
+              version: 4
+              createdAt: "2026-11-02T08:02:00Z"
+              updatedAt: "2026-11-12T14:02:00Z"
+            - id: "019a7a8d-704a-726a-a7a2-2f740f73a851"
+              sku: LIV-BROILER
+              name: "Broiler chicken"
+              category:
+                id: "019a7a89-926a-75fb-ab33-6884d953e162"
+                code: POULTRY
+                name: "Live poultry"
+              stockPolicy: COUNTABLE
+              tracking: LOT
+              species:
+                id: "019a7a8b-fd16-7bc0-a0f8-c4da5b273db8"
+                code: BROILER
+                name: "Broiler chicken"
+              baseUom: HEAD
+              saleUom: HEAD
+              nominalPackKg: null
+              weightTolerancePercent: "10.00"
+              taxCategory:
+                id: "019a7a8a-6af3-7b33-906b-bc092d2a34e7"
+                code: LIVE_ANIMALS
+                name: "Live Animals"
+              glGroup: LIVE_ANIMALS
+              shelfLifeDays: null
+              storageTempClass: null
+              withdrawalDays: null
+              barcode: "6034123757"
+              description: null
+              onlineMode: LISTED
+              seo:
+                slug: broiler-chicken
+                title: "Broiler chicken | HaKorem Farms"
+                description: null
+              isPurchasable: true
+              isSellable: true
+              status: ACTIVE
+              images:
+                - id: "019a7aa1-fb00-7377-88af-404adefdb928"
+                  fileId: "019a7aa2-19ef-7d5b-9293-de8258ae5760"
+                  altText: "Front view"
+                  sortOrder: 3
+                  variants:
+                    - variant: thumb
+                      url: "https://media.hakoremfarms.com/p/019a7aa2-19ef-7d5b-9293-de8258ae5760/thumb.webp"
+                      width: 160
+                      height: 160
+                    - variant: card
+                      url: "https://media.hakoremfarms.com/p/019a7aa2-19ef-7d5b-9293-de8258ae5760/card.webp"
+                      width: 480
+                      height: 480
+                    - variant: full
+                      url: "https://media.hakoremfarms.com/p/019a7aa2-19ef-7d5b-9293-de8258ae5760/full.webp"
+                      width: 1200
+                      height: 1200
+              version: 2
+              createdAt: "2026-11-02T08:03:00Z"
+              updatedAt: "2026-11-10T14:03:00Z"
+            - id: "019a7a8d-8f39-7c4d-b185-cdab89244689"
+              sku: LIV-LOCALCHK
+              name: "Local chicken"
+              category:
+                id: "019a7a89-926a-75fb-ab33-6884d953e162"
+                code: POULTRY
+                name: "Live poultry"
+              stockPolicy: COUNTABLE
+              tracking: LOT
+              species:
+                id: "019a7a8c-1c05-75a4-badc-6311d4d8dbef"
+                code: LOCAL_CHICKEN
+                name: "Local chicken"
+              baseUom: HEAD
+              saleUom: HEAD
+              nominalPackKg: null
+              weightTolerancePercent: "10.00"
+              taxCategory:
+                id: "019a7a8a-6af3-7b33-906b-bc092d2a34e7"
+                code: LIVE_ANIMALS
+                name: "Live Animals"
+              glGroup: LIVE_ANIMALS
+              shelfLifeDays: null
+              storageTempClass: null
+              withdrawalDays: null
+              barcode: "6034131676"
+              description: null
+              onlineMode: LISTED
+              seo:
+                slug: local-chicken
+                title: "Local chicken | HaKorem Farms"
+                description: null
+              isPurchasable: true
+              isSellable: true
+              status: ACTIVE
+              images:
+                - id: "019a7aa2-38de-773e-ac76-7cb9d25ff597"
+                  fileId: "019a7aa2-57cd-7122-b65a-1af14c1093cf"
+                  altText: "Front view"
+                  sortOrder: 4
+                  variants:
+                    - variant: thumb
+                      url: "https://media.hakoremfarms.com/p/019a7aa2-57cd-7122-b65a-1af14c1093cf/thumb.webp"
+                      width: 160
+                      height: 160
+                    - variant: card
+                      url: "https://media.hakoremfarms.com/p/019a7aa2-57cd-7122-b65a-1af14c1093cf/card.webp"
+                      width: 480
+                      height: 480
+                    - variant: full
+                      url: "https://media.hakoremfarms.com/p/019a7aa2-57cd-7122-b65a-1af14c1093cf/full.webp"
+                      width: 1200
+                      height: 1200
+              version: 3
+              createdAt: "2026-11-02T08:04:00Z"
+              updatedAt: "2026-11-11T14:04:00Z"
+            - id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+              sku: EGG-BIG
+              name: "Eggs, big, crate of 30"
+              category:
+                id: "019a7a89-d048-79c2-8efa-a4f3ccb51dd1"
+                code: EGGS
+                name: Eggs
+              stockPolicy: COUNTABLE
+              tracking: LOT
+              species: null
+              baseUom: CRATE
+              saleUom: CRATE
+              nominalPackKg: null
+              weightTolerancePercent: "10.00"
+              taxCategory:
+                id: "019a7a8a-a8d1-7efa-b432-f878208c7156"
+                code: EGGS
+                name: Eggs
+              glGroup: PRODUCE_EGGS
+              shelfLifeDays: 21
+              storageTempClass: AMBIENT
+              withdrawalDays: null
+              barcode: "6034139595"
+              description: null
+              onlineMode: LISTED
+              seo:
+                slug: eggs-big-crate-of-30
+                title: "Eggs, big, crate of 30 | HaKorem Farms"
+                description: null
+              isPurchasable: true
+              isSellable: true
+              status: ACTIVE
+              images:
+                - id: "019a7aa2-76bc-7b05-803d-b928c5c13206"
+                  fileId: "019a7aa2-95ab-74e8-9a21-57603f72d03e"
+                  altText: "Front view"
+                  sortOrder: 5
+                  variants:
+                    - variant: thumb
+                      url: "https://media.hakoremfarms.com/p/019a7aa2-95ab-74e8-9a21-57603f72d03e/thumb.webp"
+                      width: 160
+                      height: 160
+                    - variant: card
+                      url: "https://media.hakoremfarms.com/p/019a7aa2-95ab-74e8-9a21-57603f72d03e/card.webp"
+                      width: 480
+                      height: 480
+                    - variant: full
+                      url: "https://media.hakoremfarms.com/p/019a7aa2-95ab-74e8-9a21-57603f72d03e/full.webp"
+                      width: 1200
+                      height: 1200
+              version: 4
+              createdAt: "2026-11-02T08:05:00Z"
+              updatedAt: "2026-11-12T14:05:00Z"
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -1,0 +1,78 @@
+operationId: stepUp
+tags:
+  - auth
+summary: "Enter a fresh TOTP code for a sensitive action"
+description: "Sets the session step-up time. Distributions, bulk exports, role, grant, tax and posting rule changes accept a step-up made within the last five minutes."
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - TOTP_INVALID
+  - TOTP_ENROLMENT_REQUIRED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - customerSession: []
+  - investorSession: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/TotpCodeRequest"
+      example:
+        code: "481205"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/SessionInfo"
+        example:
+          sessionId: "019a7a96-0493-7080-95b8-10d6cf8a89b4"
+          realm: STAFF
+          principal:
+            id: "019a7a86-3046-711a-a652-1a7389f79351"
+            displayName: "Akua Mensah"
+          csrfToken: c3f1a0b2e5d94c7f8a61b0e2d4c9f7a3
+          accessExpiresAt: "2026-11-13T09:10:00Z"
+          refreshExpiresAt: "2026-11-13T21:00:00Z"
+          steppedUpAt: "2026-11-13T09:02:00Z"
+          mustChangePassword: false
+          totpEnrolled: true
+          grants:
+            - roleCode: CASHIER
+              roleName: Cashier
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              branchCode: DDW
+              locationId: "019a7a84-7f34-76a9-8be1-736ae249ec48"
+              locationCode: SHOP
+          permissions:
+            - pos.sale.create
+            - pos.shift.open
+            - pos.shift.close
+            - mdm.product.read
+            - inv.stock.read
+            - pay.payment.create
+            - ord.order.read
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

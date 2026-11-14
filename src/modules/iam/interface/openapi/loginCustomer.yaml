@@ -1,0 +1,60 @@
+operationId: loginCustomer
+tags:
+  - auth
+summary: "Log in as a customer"
+x-error-codes:
+  - VALIDATION_FAILED
+  - INVALID_CREDENTIALS
+  - RATE_LIMITED
+  - SERVICE_UNAVAILABLE
+security: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/LoginRequest"
+      example:
+        identifier: "+233244512876"
+        password: Kelewele-and-Shito-9
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/LoginResult"
+        example:
+          status: AUTHENTICATED
+          challengeToken: null
+          session:
+            sessionId: "019a7a96-0493-7080-95b8-10d6cf8a89b4"
+            realm: CUSTOMER
+            principal:
+              id: "019a7a87-659c-73fc-8935-489e4ae1c17c"
+              displayName: "Ama Serwaa Ofori"
+            csrfToken: c3f1a0b2e5d94c7f8a61b0e2d4c9f7a3
+            accessExpiresAt: "2026-11-13T09:10:00Z"
+            refreshExpiresAt: "2026-11-13T21:00:00Z"
+            steppedUpAt: null
+            mustChangePassword: false
+            totpEnrolled: false
+            grants: []
+            permissions:
+              - shp.order.read.own
+              - shp.checkout.create
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
+  "503":
+    $ref: "#/components/responses/ServiceUnavailable"

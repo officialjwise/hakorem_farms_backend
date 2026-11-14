@@ -1,0 +1,70 @@
+operationId: refreshSession
+tags:
+  - auth
+summary: "Rotate the refresh token and issue a new access token"
+description: "Reads the refresh cookie of the realm in `realm`, or of the only realm with one. A refresh token that was already used revokes the whole session and raises an alert. The Origin must be on the allow-list."
+x-error-codes:
+  - UNAUTHENTICATED
+  - ORIGIN_NOT_ALLOWED
+  - VALIDATION_FAILED
+  - RATE_LIMITED
+  - SERVICE_UNAVAILABLE
+parameters:
+  - name: realm
+    in: query
+    required: false
+    description: "Which session to use when the browser holds sessions in more than one realm. Leave it out when there is only one."
+    schema:
+      $ref: "#/components/schemas/Realm"
+security: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/SessionInfo"
+        example:
+          sessionId: "019a7a96-0493-7080-95b8-10d6cf8a89b4"
+          realm: STAFF
+          principal:
+            id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+            displayName: "Adwoa Darko"
+          csrfToken: c3f1a0b2e5d94c7f8a61b0e2d4c9f7a3
+          accessExpiresAt: "2026-11-13T09:10:00Z"
+          refreshExpiresAt: "2026-11-13T21:00:00Z"
+          steppedUpAt: null
+          mustChangePassword: false
+          totpEnrolled: false
+          grants:
+            - roleCode: CASHIER
+              roleName: Cashier
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              branchCode: DDW
+              locationId: "019a7a84-7f34-76a9-8be1-736ae249ec48"
+              locationCode: SHOP
+          permissions:
+            - pos.sale.create
+            - pos.shift.open
+            - pos.shift.close
+            - mdm.product.read
+            - inv.stock.read
+            - pay.payment.create
+            - ord.order.read
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
+  "503":
+    $ref: "#/components/responses/ServiceUnavailable"

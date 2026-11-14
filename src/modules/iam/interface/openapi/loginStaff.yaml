@@ -1,0 +1,47 @@
+operationId: loginStaff
+tags:
+  - auth
+summary: "Log in as staff"
+description: "Owner, Accountant and Manager always need a TOTP code next. Failures give the same message and take the same time whether or not the account exists. Repeated failures back off exponentially."
+x-error-codes:
+  - VALIDATION_FAILED
+  - INVALID_CREDENTIALS
+  - RATE_LIMITED
+  - SERVICE_UNAVAILABLE
+security: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/LoginRequest"
+      example:
+        identifier: "adwoa.darko@hakoremfarms.com"
+        password: "Mango-Season-2026!"
+        deviceLabel: "Shop till tablet"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/LoginResult"
+        example:
+          status: TOTP_REQUIRED
+          challengeToken: hk1.ch.eyJzdWIiOiIwMTlhN2MifQ.d2Fp
+          session: null
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
+  "503":
+    $ref: "#/components/responses/ServiceUnavailable"

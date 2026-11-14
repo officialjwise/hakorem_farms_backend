@@ -1,0 +1,126 @@
+operationId: createProduct
+tags:
+  - mdm
+summary: "Create a product"
+description: "Permission: `mdm.product.create`."
+x-permission: mdm.product.create
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - DUPLICATE_VALUE
+  - REFERENCE_NOT_FOUND
+  - STOCK_POLICY_CONFLICT
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ProductCreate"
+      example:
+        sku: MEAT-GOAT-5KG
+        name: "Goat meat, 5 kg pack"
+        categoryId: "019a7a89-b159-7fde-b516-06bc53047f9a"
+        stockPolicy: CATCH_WEIGHT
+        baseUom: KG
+        saleUom: PACK
+        nominalPackKg: "5.000"
+        weightTolerancePercent: "10.00"
+        shelfLifeDays: 30
+        storageTempClass: FROZEN
+        onlineMode: LISTED
+        seo:
+          slug: goat-meat-5-kg-pack
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Product"
+        example:
+          id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+          sku: LIV-GOAT
+          name: Goat
+          category:
+            id: "019a7a89-737b-7c17-9150-ca4d5fa2432b"
+            code: LIVE
+            name: "Live animals"
+          stockPolicy: SERIALISED
+          tracking: SERIAL
+          species:
+            id: "019a7a8b-a049-7e16-b34e-ea33ee146311"
+            code: GOAT
+            name: Goat
+          baseUom: HEAD
+          saleUom: HEAD
+          nominalPackKg: null
+          weightTolerancePercent: "10.00"
+          taxCategory:
+            id: "019a7a8a-6af3-7b33-906b-bc092d2a34e7"
+            code: LIVE_ANIMALS
+            name: "Live Animals"
+          glGroup: LIVE_ANIMALS
+          shelfLifeDays: null
+          storageTempClass: null
+          withdrawalDays: null
+          barcode: null
+          description: "Individually tagged and weighed. Priced by size and weight."
+          onlineMode: REQUEST_TO_BUY
+          seo:
+            slug: goat
+            title: "Goat | HaKorem Farms"
+            description: null
+          isPurchasable: true
+          isSellable: true
+          status: ACTIVE
+          images:
+            - id: "019a7aa1-4166-7822-ad5b-8afe04d703db"
+              fileId: "019a7aa1-6055-7206-b73e-29357e88a213"
+              altText: "Front view"
+              sortOrder: 0
+              variants:
+                - variant: thumb
+                  url: "https://media.hakoremfarms.com/p/019a7aa1-6055-7206-b73e-29357e88a213/thumb.webp"
+                  width: 160
+                  height: 160
+                - variant: card
+                  url: "https://media.hakoremfarms.com/p/019a7aa1-6055-7206-b73e-29357e88a213/card.webp"
+                  width: 480
+                  height: 480
+                - variant: full
+                  url: "https://media.hakoremfarms.com/p/019a7aa1-6055-7206-b73e-29357e88a213/full.webp"
+                  width: 1200
+                  height: 1200
+          version: 2
+          createdAt: "2026-11-02T08:00:00Z"
+          updatedAt: "2026-11-10T14:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

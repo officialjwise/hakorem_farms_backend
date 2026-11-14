@@ -1,0 +1,69 @@
+operationId: verifyTotp
+tags:
+  - auth
+summary: "Complete login with a TOTP code"
+description: "Completes a login that answered TOTP_REQUIRED. The code is six digits, or one of the single-use recovery codes. A code is accepted once; five wrong codes spend the challenge."
+x-error-codes:
+  - VALIDATION_FAILED
+  - TOTP_INVALID
+  - CHALLENGE_EXPIRED
+  - RATE_LIMITED
+  - SERVICE_UNAVAILABLE
+security: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/TotpVerifyRequest"
+      example:
+        challengeToken: hk1.ch.eyJzdWIiOiIwMTlhN2MifQ.d2Fp
+        code: "481205"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/LoginResult"
+        example:
+          status: AUTHENTICATED
+          challengeToken: null
+          session:
+            sessionId: "019a7a96-0493-7080-95b8-10d6cf8a89b4"
+            realm: STAFF
+            principal:
+              id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+              displayName: "Kwabena Owusu"
+            csrfToken: c3f1a0b2e5d94c7f8a61b0e2d4c9f7a3
+            accessExpiresAt: "2026-11-13T09:10:00Z"
+            refreshExpiresAt: "2026-11-13T21:00:00Z"
+            steppedUpAt: null
+            mustChangePassword: false
+            totpEnrolled: true
+            grants:
+              - roleCode: MANAGER
+                roleName: Manager
+                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                branchCode: DDW
+                locationId: null
+                locationCode: null
+            permissions:
+              - inv.adjustment.approve
+              - ord.order.void.approve
+              - mdm.price_list.approve
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
+  "503":
+    $ref: "#/components/responses/ServiceUnavailable"
