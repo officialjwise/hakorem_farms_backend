@@ -26,8 +26,10 @@ export interface Transaction {
 /** SQLSTATEs that mean "run the whole command again": serialization failure and deadlock. */
 const RETRYABLE_SQLSTATES: ReadonlySet<string> = new Set(['40001', '40P01']);
 export const SERIALIZATION_RETRY_LIMIT = 5;
-const RETRY_BASE_DELAY_MS = 10;
-const RETRY_MAX_DELAY_MS = 250;
+// Full jitter up to 25 ms doubling per attempt, capped at one second: wide enough that two symmetric transactions
+// that keep colliding drift apart under load instead of meeting again on every retry.
+const RETRY_BASE_DELAY_MS = 25;
+const RETRY_MAX_DELAY_MS = 1_000;
 
 /** The command failed with a serialization failure or deadlock on every one of its attempts. */
 export class SerializationRetriesExhaustedError extends Error {
