@@ -1,7 +1,7 @@
 import pg from 'pg';
 import { z } from 'zod';
 import { parseEnvironment, postgresUrl } from '../platform/config/app-config';
-import { SEED_UNITS } from '../seed/seed-units';
+import { seedUnits } from '../seed/seed-units';
 import { runCli } from './run-cli';
 
 const SEEDABLE_DATABASES: ReadonlySet<string> = new Set(['development', 'test', 'staging']);
@@ -10,6 +10,7 @@ const schema = z.object({
   APP_ENV: z.enum(['development', 'test', 'staging', 'production']),
   SEED_ALLOWED: z.enum(['true', 'false']).default('false'),
   DATABASE_URL_APP: postgresUrl,
+  SEED_STAFF_PASSWORD: z.string().min(12).optional(),
 });
 
 export class SeedRefusedError extends Error {
@@ -39,7 +40,8 @@ runCli('db:seed', async () => {
       throw new SeedRefusedError(`the database is marked ${databaseEnvironment ?? 'with no environment'}`);
     }
     let records = 0;
-    for (const unit of SEED_UNITS) {
+    const units = seedUnits(env);
+    for (const unit of units) {
       const client = await pool.connect();
       try {
         await client.query('BEGIN');
@@ -53,7 +55,7 @@ runCli('db:seed', async () => {
       }
     }
     process.stdout.write(
-      `db:seed: database marked ${databaseEnvironment}; ran ${SEED_UNITS.length} seed units, ${records} records\n`,
+      `db:seed: database marked ${databaseEnvironment}; ran ${units.length} seed units, ${records} records\n`,
     );
   } finally {
     await pool.end();

@@ -65,9 +65,10 @@ set +a
 check_port "${POSTGRES_HOST_PORT:-55432}" postgres
 check_port "${REDIS_HOST_PORT:-56379}" redis
 check_port "${API_HOST_PORT:-3000}" api
+check_port "${OBJECT_STORE_HOST_PORT:-57070}" objectstore
 
-step '5/9 Starting PostgreSQL 17 and Redis 7'
-docker compose up --detach --wait postgres redis
+step '5/9 Starting PostgreSQL 17, Redis 7 and the object store'
+docker compose up --detach --wait postgres redis objectstore
 
 step '6/9 Creating the database roles and running the migrations'
 "${PNPM[@]}" -s db:bootstrap
@@ -76,8 +77,8 @@ step '6/9 Creating the database roles and running the migrations'
 step '7/9 Seeding the farm'
 "${PNPM[@]}" -s db:seed
 
-step '8/9 Building and starting the API'
-docker compose --profile app up --detach --wait --build api
+step '8/9 Building and starting the API and the worker'
+docker compose --profile app up --detach --wait --build api worker
 health_url="http://127.0.0.1:${API_HOST_PORT:-3000}${HEALTH_URL_PATH}"
 curl --silent --show-error --fail --retry 20 --retry-connrefused --retry-delay 1 "$health_url" >/dev/null \
   || fail "the API did not answer $health_url" 'run: docker compose --profile app logs api'
@@ -86,10 +87,18 @@ printf 'GET %s -> %s\n' "$HEALTH_URL_PATH" "$(curl --silent "$health_url")"
 step '9/9 Ready'
 cat <<EOF
 The API is running at http://127.0.0.1:${API_HOST_PORT:-3000}/v1 (health: $health_url).
-No staff logins exist yet: authentication and the seeded users arrive in session B3.
+The worker is delivering the outbox and sealing the audit chain (docker compose --profile app logs worker).
+
+Seeded staff at the Dodowa branch, one per role, all with the password SEED_STAFF_PASSWORD in .env:
+  adwoa.darko@seed.hakoremfarms.invalid      Cashier (shop floor)
+  kofi.mensah@seed.hakoremfarms.invalid      Storekeeper (cold room)
+  esi.appiah@seed.hakoremfarms.invalid       Sales
+  akosua.boateng@seed.hakoremfarms.invalid   Manager (sets up an authenticator app at first login)
+  kwabena.owusu@seed.hakoremfarms.invalid    Owner (likewise); the rest are listed in src/seed/farm-b3.ts
+The console and storefront may call the API from the origins in CORS_ALLOWED_ORIGINS.
 
 Next:
-  pnpm dev                 API with reload on the host (stops the API container first)
+  pnpm dev                 API and worker with reload on the host (stops their containers first)
   pnpm test:unit           kernel and domain rules, no containers
   pnpm test:integration    against real PostgreSQL and Redis in Testcontainers
   pnpm lint && pnpm typecheck

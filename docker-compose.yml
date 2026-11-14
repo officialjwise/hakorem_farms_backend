@@ -1,5 +1,5 @@
-# Local development and CI stack (ADR-0025): PostgreSQL 17 and Redis 7, plus the API built from the same
-# image that production runs. Ports are bound to 127.0.0.1 only. Secrets come from .env, which pnpm setup
+# Local development and CI stack (ADR-0025): PostgreSQL 17, Redis 7 and an S3-compatible object store (Versity
+# Gateway, ADR-0031), plus the API and the worker built from the same image that production runs. Ports are bound to 127.0.0.1 only. Secrets come from .env, which pnpm setup
 # generates for development; nothing here is a real credential. Production compose files live in infra/ (B13).
 name: hakorem
 
@@ -40,6 +40,25 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
     networks: [data]
 
+  objectstore:
+    image: versity/versitygw:v1.10.0
+    # Versioning is on so object lock works: the audit anchors are written once and cannot be deleted (ADR-0006).
+    entrypoint: ["sh", "-c"]
+    command: ["mkdir -p /srv/data /srv/versions && exec versitygw posix --versioning-dir /srv/versions /srv/data"]
+    environment:
+      ROOT_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?run pnpm run setup to create .env}
+      ROOT_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?run pnpm run setup to create .env}
+    ports:
+      - "127.0.0.1:${OBJECT_STORE_HOST_PORT:-57070}:7070"
+    volumes:
+      - hk_objectdata:/srv
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 7070"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    networks: [data]
+
   api:
     profiles: [app]
     build:
@@ -51,7 +70,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    environment:
+    environment: &app-environment
       NODE_ENV: production
       APP_ENV: ${APP_ENV:-development}
       APP_ROLE: api
@@ -60,7 +79,22 @@ services:
       TRUST_PROXY_HOPS: 0
       DATABASE_URL_APP: postgres://hk_app:${HK_APP_PASSWORD}@postgres:5432/hakorem
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      REDIS_KEY_PREFIX: ${REDIS_KEY_PREFIX:-hk:}
       OTEL_SERVICE_NAME: hakorem-api
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      KEK_ACTIVE_VERSION: ${KEK_ACTIVE_VERSION:-1}
+      KEK_V1: ${KEK_V1}
+      LOOKUP_HMAC_KEY: ${LOOKUP_HMAC_KEY}
+      JWT_ACTIVE_KEY_ID: ${JWT_ACTIVE_KEY_ID}
+      JWT_SIGNING_KEYS: ${JWT_SIGNING_KEYS}
+      HIBP_ENABLED: ${HIBP_ENABLED:-false}
+      S3_ENDPOINT: http://objectstore:7070
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_FORCE_PATH_STYLE: "true"
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
+      S3_BUCKET_PUBLIC_MEDIA: ${S3_BUCKET_PUBLIC_MEDIA}
+      S3_BUCKET_PRIVATE: ${S3_BUCKET_PRIVATE}
     ports:
       - "127.0.0.1:${API_HOST_PORT:-3000}:3000"
     healthcheck:
@@ -70,9 +104,42 @@ services:
       retries: 40
     networks: [data, edge]
 
+  worker:
+    profiles: [app]
+    image: hakorem-backend:local
+    command: ["node", "dist/worker.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      objectstore:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    environment:
+      <<: *app-environment
+      APP_ROLE: worker
+      OTEL_SERVICE_NAME: hakorem-worker
+      DATABASE_URL_WORKER: postgres://hk_worker:${HK_WORKER_PASSWORD}@postgres:5432/hakorem
+      DATABASE_URL_SEALER: postgres://hk_sealer:${HK_SEALER_PASSWORD}@postgres:5432/hakorem
+      DB_POOL_MAX: 10
+      S3_BUCKET_ANCHORS: ${S3_BUCKET_ANCHORS}
+      S3_ANCHOR_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
+      S3_ANCHOR_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
+      AUDIT_ANCHOR_KEY_ID: ${AUDIT_ANCHOR_KEY_ID}
+      AUDIT_ANCHOR_SIGNING_KEY: ${AUDIT_ANCHOR_SIGNING_KEY}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:9464/metrics || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+    networks: [data]
+
 volumes:
   hk_pgdata:
   hk_redisdata:
+  hk_objectdata:
 
 networks:
   data:
