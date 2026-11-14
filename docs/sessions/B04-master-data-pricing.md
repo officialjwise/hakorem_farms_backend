@@ -97,6 +97,19 @@ The pull-request run's contract check failed on every commit from `cf739b7` to `
 
 Owner's decision: refine the check rather than loosen the field or bump to 2.0.0 (ADR-0038, accepted). A newly required property is now breaking only on a schema a client sends: a request body or a parameter, followed through every reference. Tests first in `test/contract/api/versioning.contract.spec.ts`. `docs/API.md` section 1 says the same. The contract stays 1.4.0 with the field required.
 
+## Did this affect earlier reports? (2026-11-14, checked against every run on each branch)
+
+**`cf739b7` is inside B4's branch**, after B3's merge (`2d151a5`) and PR #5 (`3062d39`). The contract check started failing with the QR commit `bc17a24`, which was pushed together with `5814cfc` and `cf739b7`, so `cf739b7` is the first commit CI ran on. B2 and B3 are not affected in that way: **no earlier session reported green while its pull-request run was red.** Their greens were partial in a different way, and the record is as follows.
+
+| Session | Report cited | Branch head | Every run on the head | Gap in the report |
+| --- | --- | --- | --- | --- |
+| B2 (PR #3) | push 43537557972 on `1a316ef` | `4d5e68d` | push 43537779443 green; pull request 43538111757 green | Cited a push run on a commit before the head. Said pull-request events start no run, but pull-request runs did run on the last two commits (`1f47738` cancelled, superseded by `4d5e68d`) |
+| B3 (PR #4) | push 43594300920 on `5f5e7a9` | `e9eaa85` | push 43595618308 green; pull request 43595623022 green | Cited a push run on a commit before the head. Repeated B2's statement that pull-request events start no run, while pull-request runs had been running since `8795a88`, all green |
+| PR #5 | (no session report) | `b567aed` | pull request 43614347464 green | None |
+| B4 (PR #6) | push 43620103368 on `1948ab1` | `32192c4` | push 43652550795 green; pull request 43652555097 green | Pull-request runs red on `cf739b7`, `841d53e` and `cc8b60e` while green was reported from push runs (section above) |
+
+So the substance of B2's and B3's greens holds: the final commit of each branch was green on both run types. What the owner could not verify from either report is that, because neither named the head's runs. One more record, already disclosed in PR #5: `main` went red after B3's merge (run 43610049174 on `2d151a5`, a write-skew retry test racing on a loaded runner), and PR #5 fixed it (run 43614577850 on `3062d39`, green). From now on the rule is in `CLAUDE.md`, session protocol step 6.
+
 ## Security review (hakorem-security-review, the parts this change touches)
 
 - **Authorisation** in every handler (SC-02): `mdm.price.resolve`, `mdm.price_list.read`, `.create`, `.update`; the checker needs `mdm.price_list.approve` with step-up, at the version's branch. Tests: the cashier and driver refused on `createPriceList`, the cashier refused on `getPriceList`, the driver refused on `resolvePrices`, and the handler walk refusing a user with no grant on all 24 routes.
@@ -113,7 +126,7 @@ Owner's decision: refine the check rather than loosen the field or bump to 2.0.0
 
 **An unresolvable request becomes a quote rather than an error: passed.** Every one answers 200 with `outcome: QUOTE_REQUIRED`: a 65.000 kg goat above every band (`NO_RULE`), a goat with no weight (`MISSING_GRADE_OR_WEIGHT`), a 70.000 kg festival ram (`QUOTE_ONLY`, though smaller sheep have prices), and lettuce, unpriced this season (`NO_RULE` on every channel).
 
-**CI green: passed.** [Run 43620103368](https://github.com/officialjwise/hakorem_farms_backend/actions/runs/43620103368) on commit `1948ab1`, all six jobs successful: lint and type check; unit and integration with the coverage gate; contract; image build and scan; the fresh-clone job (`pnpm run setup` on a clean runner, then the e2e suite including the new pricing test); secret scan, dependency audit and static analysis. The run before it failed lint on one untyped alias in the new e2e test, fixed in `1948ab1`.
+**CI green: passed, on both run types.** On the branch head `32192c4`: [push run 43652550795](https://github.com/officialjwise/hakorem_farms_backend/actions/runs/43652550795) and [pull-request run 43652555097](https://github.com/officialjwise/hakorem_farms_backend/actions/runs/43652555097), each with all six jobs green: lint and type check; unit and integration with the coverage gate; contract; image build and scan; the fresh-clone job (`pnpm run setup` on a clean runner, then the e2e suite including the new pricing test); secret scan, dependency audit and static analysis. On `main` after the merge (`debe84f`): [push run 43652769293](https://github.com/officialjwise/hakorem_farms_backend/actions/runs/43652769293), all six green. The first version of this line cited only push run 43620103368 on `1948ab1`; its pull-request run 43620108153 was green too, but later commits were not (see "A CI failure missed, then fixed" above).
 
 ## Notes for the frontend track (for when it resumes)
 
