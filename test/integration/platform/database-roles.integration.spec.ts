@@ -155,9 +155,8 @@ describe('table classes (ADR-0012)', () => {
 describe('cross-schema foreign keys (ADR-0011)', () => {
   beforeAll(async () => {
     const admin = database.pool('admin');
-    await admin.query('CREATE SCHEMA iam AUTHORIZATION hk_owner');
+    // iam.principal is the real, migrated table; iam.session_note is an unpublished stand-in.
     await admin.query('CREATE SCHEMA ord AUTHORIZATION hk_owner');
-    await admin.query('CREATE TABLE iam.principal (id uuid PRIMARY KEY)');
     await admin.query('CREATE TABLE iam.session_note (id uuid PRIMARY KEY)');
     await admin.query('CREATE TABLE ord.sales_order (id uuid PRIMARY KEY)');
   });
