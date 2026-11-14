@@ -1,0 +1,47 @@
+{
+  "$comment": "Copied from docs/MODULE_BOUNDARIES.md sections 2 and 5; the document wins if they disagree. Read by eslint.config.js (import layers) and scripts/check (cross-schema foreign keys, schema names). Adding a module is one line in layers.",
+  "layers": {
+    "iam": 2,
+    "aud": 3,
+    "mdm": 3,
+    "doc": 3,
+    "fin": 4,
+    "inv": 5,
+    "liv": 6,
+    "prc": 6,
+    "bil": 6,
+    "pay": 7,
+    "pur": 7,
+    "del": 8,
+    "ord": 9,
+    "pos": 10,
+    "shp": 10,
+    "quo": 10,
+    "whl": 10,
+    "cap": 11,
+    "cst": 11,
+    "rpt": 11,
+    "ntf": 11,
+    "api": 11
+  },
+  "platformLayer": 1,
+  "publishedKeys": {
+    "platform": ["business_document", "document_type", "stored_file", "number_series"],
+    "iam": ["principal", "approval_request"],
+    "mdm": [
+      "branch", "location", "category", "product", "uom", "species", "grade", "weight_band", "customer",
+      "customer_address", "customer_tier", "supplier", "price_list", "price_list_entry", "promotion", "coupon",
+      "tax_levy", "tax_category", "tax_scheme_version", "payment_method", "delivery_zone", "reason_code"
+    ],
+    "doc": ["archived_document", "template_version"],
+    "fin": ["bank_account", "accounting_period"],
+    "inv": ["stock_unit", "stock_movement", "stock_reservation", "stock_hold", "stock_exception", "goods_receipt", "goods_receipt_line"],
+    "bil": ["billing_document", "billing_document_line"],
+    "pay": ["payment", "refund"],
+    "del": ["delivery", "delivery_slot"],
+    "ord": ["sales_order", "sales_order_line"]
+  },
+  "universalKeys": ["iam.principal", "mdm.branch", "mdm.location"],
+  "platformSharedObjects": ["pesewas", "qty", "kg", "percent", "reject_change", "touch_version", "freeze_posted", "allocate_number"],
+  "publishedViewReaders": ["cst", "rpt"]
+}

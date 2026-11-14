@@ -558,3 +558,4 @@ The full amended schedule, with the gate for every session and three further ass
 | [0027](adr/0027-offline-sync-principles.md) | Offline sync principles |
 | [0028](adr/0028-investor-distribution-allocation.md) | Investor distributions are allocated by unit-days with largest-remainder rounding |
 | [0029](adr/0029-api-contract-conventions.md) | API contract conventions: money fields, decimal strings, one error envelope, approvals as 202 |
+| [0030](adr/0030-foundation-tooling.md) | Foundation tooling: the migration runner, the contract generated from code plus the planned contract, and exact kernel rates |

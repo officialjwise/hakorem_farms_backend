@@ -1,0 +1,32 @@
+# Secret scanning (SEC-034): gitleaks' default rules, plus an allowlist of the exact example values in the
+# documentation and the contract, reviewed in B2 on 2026-11-14 (A-077). Each entry is a literal example value,
+# not a path, so a real secret on the same line or in the same file still fails the scan.
+title = "hakorem backend"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Reviewed documentation and contract examples; none is a credential"
+regexTarget = "match"
+regexes = [
+  # docs/OPERATIONS.md: the shape of JWT_SIGNING_KEYS, truncated after the PEM header
+  '''-----BEGIN PRIVATE KEY-----\.\.\.''',
+  # contract examples: login challenge and session tokens whose payloads decode to {"sub":"019a7c"}, {"phone":"233"}
+  '''hk1\.ch\.eyJzdWIiOiIwMTlhN2MifQ\.d2Fp''',
+  '''hk1\.ch\.eyJwaG9uZSI6IjIzMyJ9\.dmVy''',
+  '''hk1\.eyJzdWIiOiIwMTlhN2MifQ\.c2lnbmF0dXJl''',
+  # contract examples: login request passwords
+  '''Kelewele-and-Shito-9''',
+  '''Shea-Butter-Grove-44''',
+  # contract examples: an API key labelled as fake, and an order tracking token
+  '''hk_live_R8xT\.EXAMPLE-NOT-A-REAL-KEY''',
+  '''trk_9Xq2LmA7cV4nR8sT''',
+  # an earlier B1 version of the same two examples (commit 9e2c166), replaced later in B1. hk_live_ and whsec_ are
+  # this platform's own key and webhook-secret formats; no running system has ever issued one.
+  '''hk_live_R8xT\.9f8c2b7e41d6a3c05b9e7f1a2d4c6e8b''',
+  '''whsec_4c1f9e27b0a85d63e2f17c9a0b4d68e1''',
+  # contract examples: UUIDv7 identifiers of example records
+  '''019a7a86-ac02-78a8-ade0-935170bb0c2f''',
+  '''019a7a86-caf1-728b-b7c3-3188ea6caa66''',
+]

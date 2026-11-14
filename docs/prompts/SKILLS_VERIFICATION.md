@@ -57,6 +57,47 @@ The two order differences are acceptable: in both, the expected skill still load
 
 **Gap noted:** no skill is specific to procurement's three-way match. It is covered by hakorem-tests for its tests and by the SRS and ADRs for its rules; a dedicated skill is not planned.
 
-## Run 2: fresh-session test (not yet run)
+## Run 2: fresh-session test (B2, 2026-11-14)
 
-The brief's method, opening a fresh Claude Code session in `backend/` and describing a triggering task for each skill, has not been run, because a session cannot restart itself. Run it at the start of B2: open a new session in `backend/`, give it T01 to T32 above one at a time, and record here which skill it loads. Correct any description that fails, and record the change.
+**Method.** Each task was given to a new, separate Claude Code session opened in `backend/` (`claude -p`, Claude Code 2.1.312), one session per task, with read-only tools (Skill, Read, Grep, Glob) so it could not change the repository, and at most four turns. The skills it invoked were read from its event stream. Task wording is in the B2 session's scratchpad and follows the Run 1 labels as plain requests ("Lock the October 2026 accounting period.").
+
+**Finding before the run.** The B2 session itself was opened at the workspace root, as `docs/prompts/session-openers.md` instructs, and **none of the sixteen skills was available in it**: Claude Code discovers `.claude/skills/` in the directory a session opens in, and the skills live in `backend/.claude/skills/`. A session opened at `~/Desktop/hakorem-farms/` therefore never loads them. Run 2 opened its sessions in `backend/`, where all sixteen are listed. Recommendation for the owner: open backend sessions in `backend/` (they can still read `../frontend/docs/` by path), or accept that the skills do not load; the openers are unchanged until you decide (A-079).
+
+**Result.** First pass: 27 of 32 loaded the expected skill, 26 of them first (T07 loaded migration before stock, as in Run 1). Five loaded nothing (T06, T18, T20, T23, T24): with no code in the repository yet, the session explored the documents or declined the task without loading a skill, because the descriptions said "use when writing or changing code". The four descriptions involved (ledger, offline, frontend, security-review) gained one sentence: "Load it first for a question, plan or estimate on these too, even before the code exists." The five tasks were then rerun in fresh sessions and all five loaded the expected skill. The 27 passing tasks were not rerun after the change.
+
+| Task | Expected first | First pass | After the fix | Result |
+| --- | --- | --- | --- | --- |
+| T01 | module | module |  | Pass |
+| T02 | module | module |  | Pass |
+| T03 | money | money |  | Pass |
+| T04 | money | money |  | Pass |
+| T05 | ledger | ledger |  | Pass |
+| T06 | ledger | none | ledger | Pass after fix |
+| T07 | stock | migration, stock |  | Pass, order differs |
+| T08 | stock | stock |  | Pass |
+| T09 | pricing | pricing |  | Pass |
+| T10 | pricing | pricing |  | Pass |
+| T11 | endpoint | endpoint |  | Pass |
+| T12 | endpoint | endpoint, frontend |  | Pass |
+| T13 | migration | migration, stock |  | Pass |
+| T14 | migration | migration |  | Pass |
+| T15 | tests | tests |  | Pass |
+| T16 | tests | tests |  | Pass |
+| T17 | security-review | security-review |  | Pass |
+| T18 | security-review | none | endpoint, security-review | Pass after fix, order differs |
+| T19 | offline | offline |  | Pass |
+| T20 | offline | none | offline | Pass after fix |
+| T21 | documents | documents |  | Pass |
+| T22 | documents | documents |  | Pass |
+| T23 | frontend | none | frontend | Pass after fix |
+| T24 | frontend | none | frontend | Pass after fix |
+| T25 | adr | adr |  | Pass |
+| T26 | adr | adr |  | Pass |
+| T27 | runbook | runbook |  | Pass |
+| T28 | runbook | runbook |  | Pass |
+| T29 | seed | seed |  | Pass |
+| T30 | seed | seed |  | Pass |
+| T31 | release | release |  | Pass |
+| T32 | release | release |  | Pass |
+
+T07 and T13 load migration and stock together, and T12 endpoint and frontend, as Run 1 found and accepted. T18 loads endpoint before security-review, the order Run 1 also recorded.

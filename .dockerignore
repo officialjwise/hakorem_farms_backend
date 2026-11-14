@@ -1,0 +1,16 @@
+node_modules
+**/node_modules
+dist
+**/dist
+coverage
+.env
+.env.*
+!.env.example
+.git
+docs
+test
+tooling
+contract
+scripts
+.claude
+*.log

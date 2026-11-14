@@ -1,0 +1,12 @@
+packages:
+  - packages/*
+
+# Supply chain (SC-20): never install a version published less than 14 days ago.
+minimumReleaseAge: 20160
+
+# Packages allowed to run install scripts; every other dependency's scripts are blocked.
+onlyBuiltDependencies:
+  - esbuild
+  - cpu-features
+  - ssh2
+  - protobufjs

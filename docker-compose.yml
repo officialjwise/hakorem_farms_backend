@@ -1,0 +1,79 @@
+# Local development and CI stack (ADR-0025): PostgreSQL 17 and Redis 7, plus the API built from the same
+# image that production runs. Ports are bound to 127.0.0.1 only. Secrets come from .env, which pnpm setup
+# generates for development; nothing here is a real credential. Production compose files live in infra/ (B13).
+name: hakorem
+
+services:
+  postgres:
+    image: postgres:17.6-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run pnpm run setup to create .env}
+      POSTGRES_DB: hakorem
+      TZ: UTC
+      PGTZ: UTC
+    command: ["postgres", "-c", "timezone=UTC", "-c", "log_timezone=UTC"]
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-55432}:5432"
+    volumes:
+      - hk_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d hakorem"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    networks: [data]
+
+  redis:
+    image: redis:7.4.6-alpine
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?run pnpm run setup to create .env}", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:${REDIS_HOST_PORT:-56379}:6379"
+    volumes:
+      - hk_redisdata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    networks: [data]
+
+  api:
+    profiles: [app]
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+    image: hakorem-backend:local
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      APP_ENV: ${APP_ENV:-development}
+      APP_ROLE: api
+      PORT: 3000
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      TRUST_PROXY_HOPS: 0
+      DATABASE_URL_APP: postgres://hk_app:${HK_APP_PASSWORD}@postgres:5432/hakorem
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      OTEL_SERVICE_NAME: hakorem-api
+    ports:
+      - "127.0.0.1:${API_HOST_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/v1/health || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+    networks: [data, edge]
+
+volumes:
+  hk_pgdata:
+  hk_redisdata:
+
+networks:
+  data:
+  edge:
