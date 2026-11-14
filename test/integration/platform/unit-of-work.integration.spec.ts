@@ -76,27 +76,36 @@ describe('the unit of work (ADR-0005)', () => {
   });
 
   it('re-runs the whole command on a real write-skew conflict, so the retry sees the committed state', async () => {
-    // Two vets on duty; each command lets its vet go off duty only if someone else stays on. Run concurrently at
-    // serializable, both read "two on duty", both write: PostgreSQL aborts one with 40001. Its retry re-reads,
-    // sees only one vet left, and refuses. Exactly one vet goes off duty.
+    // Two vets on duty; each command lets its vet go off duty only if someone else stays on. The contention is
+    // ordered, not raced, so the outcome never depends on machine load:
+    //   1. the loser reads "two on duty" and waits;
+    //   2. the winner runs its whole command and commits;
+    //   3. the loser writes on its stale snapshot: write skew, which PostgreSQL must abort with 40001;
+    //   4. the production retry path backs off (real sleep, no test double) and re-runs the whole command, which
+    //      re-reads, sees one vet left and refuses.
     const admin = database.pool('admin');
     await admin.query("INSERT INTO uow_probe.on_call (vet, on_duty) VALUES ('Yaw Darko', true), ('Akosua Ofori', true)");
-    let release!: () => void;
-    const bothHaveRead = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    let readers = 0;
-    const attempts: Record<string, number> = {};
-    const goOffDuty = (vet: string) =>
-      uow.run({ isolation: 'serializable' }, async (tx) => {
-        attempts[vet] = (attempts[vet] ?? 0) + 1;
+    const warnings: Array<{ msg: string; attempt: number; sqlState: string }> = [];
+    const logger = pino({ level: 'warn' }, { write: (line: string) => warnings.push(JSON.parse(line) as (typeof warnings)[number]) });
+    const productionUow = new UnitOfWork(database.pool('app'), logger);
+
+    const deferred = () => {
+      let resolve!: () => void;
+      const promise = new Promise<void>((done) => {
+        resolve = done;
+      });
+      return { promise, resolve };
+    };
+    const loserHasRead = deferred();
+    const winnerHasCommitted = deferred();
+    const attempts = { loser: 0, winner: 0 };
+    const goOffDuty = (vet: string, role: keyof typeof attempts) =>
+      productionUow.run({ isolation: 'serializable' }, async (tx) => {
+        attempts[role] += 1;
         const { rows } = await tx.query<{ n: number }>('SELECT count(*)::int AS n FROM uow_probe.on_call WHERE on_duty');
-        if (tx.attempt === 1) {
-          readers += 1;
-          if (readers === 2) {
-            release();
-          }
-          await bothHaveRead;
+        if (role === 'loser' && tx.attempt === 1) {
+          loserHasRead.resolve();
+          await winnerHasCommitted.promise;
         }
         if (rows[0]!.n < 2) {
           return 'REFUSED';
@@ -105,15 +114,23 @@ describe('the unit of work (ADR-0005)', () => {
         return 'OFF_DUTY';
       });
 
-    const outcomes = await Promise.all([goOffDuty('Yaw Darko'), goOffDuty('Akosua Ofori')]);
-    expect([...outcomes].sort()).toEqual(['OFF_DUTY', 'REFUSED']);
-    // The winner runs once. The loser runs at least twice: PostgreSQL may abort it before the winner commits, and
-    // then its first retry still sees two vets on duty and is aborted again, so more than one retry is correct.
-    const [winnerAttempts, loserAttempts] = Object.values(attempts).sort((a, b) => a - b);
-    expect(winnerAttempts).toBe(1);
-    expect(loserAttempts).toBeGreaterThanOrEqual(2);
-    const { rows } = await admin.query<{ n: number }>('SELECT count(*)::int AS n FROM uow_probe.on_call WHERE on_duty');
-    expect(rows[0]!.n).toBe(1);
+    const loser = goOffDuty('Akosua Ofori', 'loser');
+    await loserHasRead.promise;
+    // run() resolves only after COMMIT, so the winner is durable before the loser is allowed to write.
+    const winnerOutcome = await goOffDuty('Yaw Darko', 'winner');
+    winnerHasCommitted.resolve();
+    const loserOutcome = await loser;
+
+    expect(winnerOutcome).toBe('OFF_DUTY');
+    expect(attempts.winner).toBe(1);
+    // Exactly one serialization failure, retried once, and the retry succeeded with the committed state.
+    expect(loserOutcome).toBe('REFUSED');
+    expect(attempts.loser).toBe(2);
+    expect(warnings.filter((line) => line.msg === 'transaction retried').map(({ attempt, sqlState }) => ({ attempt, sqlState }))).toEqual([
+      { attempt: 1, sqlState: '40001' },
+    ]);
+    const { rows } = await admin.query<{ vet: string }>('SELECT vet FROM uow_probe.on_call WHERE on_duty');
+    expect(rows).toEqual([{ vet: 'Akosua Ofori' }]);
   });
 
   it('holds each declared series lock for the transaction and releases it afterwards', async () => {
