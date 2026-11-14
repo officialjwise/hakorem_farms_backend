@@ -71,7 +71,7 @@ async function enrolOwner(name: string) {
   expect(started.body.otpauthUri).toMatch(/^otpauth:\/\/totp\/HaKorem%20Farms:/);
   // CR-006: the QR code is the same URI, drawn; read back by an independent renderer and decoder.
   const svg = Buffer.from((started.body.qrCodeDataUri as string).replace(/^data:image\/svg\+xml;base64,/, ''), 'base64').toString('utf8');
-  const image = new Resvg(svg, { fitTo: { mode: 'width', value: 600 }, background: 'white' }).render();
+  const image = new Resvg(svg, { fitTo: { mode: 'width', value: 600 }, background: 'white', font: { loadSystemFonts: false } }).render();
   expect(jsQR(new Uint8ClampedArray(image.pixels), image.width, image.height)?.data).toBe(started.body.otpauthUri);
   const secret = base32Decode(started.body.secretBase32 as string);
   const confirmed = await post('/v1/auth/totp/confirm', { challengeToken, code: totpAt(secret, unixNow()) });

@@ -14,7 +14,9 @@ const PREFIX = 'data:image/svg+xml;base64,';
 function decode(dataUri: string, widthPx: number): string | null {
   expect(dataUri.startsWith(PREFIX)).toBe(true);
   const svg = Buffer.from(dataUri.slice(PREFIX.length), 'base64').toString('utf8');
-  const image = new Resvg(svg, { fitTo: { mode: 'width', value: widthPx }, background: 'white' }).render();
+  // The SVG has no text, so no fonts: by default resvg loads every system font on each call, about two seconds,
+  // which took these tests past the five-second timeout under coverage.
+  const image = new Resvg(svg, { fitTo: { mode: 'width', value: widthPx }, background: 'white', font: { loadSystemFonts: false } }).render();
   return jsQR(new Uint8ClampedArray(image.pixels), image.width, image.height)?.data ?? null;
 }
 

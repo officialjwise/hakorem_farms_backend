@@ -62,7 +62,7 @@ describe('the TotpEnrolment example (CR-006)', () => {
     const example = (((operation['responses'] as JsonObject)['200'] as JsonObject)['content'] as JsonObject)['application/json'] as JsonObject;
     const { otpauthUri, qrCodeDataUri } = example['example'] as { otpauthUri: string; qrCodeDataUri: string };
     const svg = Buffer.from(qrCodeDataUri.replace(/^data:image\/svg\+xml;base64,/, ''), 'base64').toString('utf8');
-    const image = new Resvg(svg, { fitTo: { mode: 'width', value: 600 }, background: 'white' }).render();
+    const image = new Resvg(svg, { fitTo: { mode: 'width', value: 600 }, background: 'white', font: { loadSystemFonts: false } }).render();
     expect(jsQR(new Uint8ClampedArray(image.pixels), image.width, image.height)?.data).toBe(otpauthUri);
   });
 });
