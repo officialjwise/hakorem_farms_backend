@@ -6,7 +6,8 @@ name: ci
 on:
   pull_request:
   push:
-    branches: [main]
+    # main, and each session branch (b02-foundation, b09a-...), so a stacked branch is checked on every push too.
+    branches: [main, 'b[0-9]*-*']
 
 permissions:
   contents: read
