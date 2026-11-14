@@ -33,6 +33,7 @@ A production system for a livestock, poultry, meat and fresh produce business in
 3. Write the failing test first for anything touching money, stock, weight or permissions; build domain, then application, infrastructure, interface.
 4. End by writing `docs/sessions/<ID>-<slug>.md`: built, decided, assumed, deferred, contract changes, gate result, and the exact opening message for the next session.
 5. Run `git remote -v` and confirm it shows `hakorem_farms_backend`, then commit (Conventional Commits, one concern each) and push before closing. Run `git add`, `git commit` and `git push` as three separate commands: the permission classifier refuses them chained with `&&` or `;`.
+6. **CI is green only when every run for the commit is green.** Each push to a branch with an open pull request starts two runs, `push` and `pull_request`, and only the `pull_request` run compares the contract with `main`. Before reporting CI green, list every run for the head commit (`gh run list --branch <branch> --json databaseId,event,headSha,conclusion`, or `gh pr checks <n>`), check that each one is green, and name the run ids and the commit in the report. A green from one run type is not a green. Never merge on a partial green.
 
 ## Skills: read the one that fires before you write code
 
