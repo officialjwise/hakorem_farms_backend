@@ -72,7 +72,7 @@ Date: 2026-11-14 · Branch `b04-master-data-pricing`, from `main` at `3062d39` (
 | Unit | 287 passed, including 35 for the engine and 26 for price list rules |
 | Integration (Testcontainers PostgreSQL 17.6, Redis 7.4.6, Versity Gateway 1.10.0) | 221 passed (508 with unit), including the gate (30), the price list lifecycle (17), the pricing schema rules (12) and the step-up consistency check |
 | Contract | 24 passed (drift, versioning, request examples, response shapes of the seven new operations, CR-007 and CR-008 checks); Redocly lint clean |
-| End to end | `test/e2e/mdm/pricing.e2e.spec.ts` added; runs in CI's fresh-clone job on the stack built from the image. Not run locally: it needs a freshly set-up stack, and I did not rebuild or reseed the local one |
+| End to end | `test/e2e/mdm/pricing.e2e.spec.ts` passed in CI's fresh-clone job, on the stack built from the image and seeded by `pnpm run setup`. Not run locally: it needs a freshly set-up stack, and I did not rebuild or reseed the local one |
 | Coverage, unit and integration merged | 91.50 percent statements, 82.88 percent branches (gate 80); `pricing-engine.ts` and `price-list.ts` 100 percent branches |
 | Lint, type check | Clean, including the money arithmetic rule, the boundary fixtures and the schema-names check |
 
@@ -90,7 +90,7 @@ Date: 2026-11-14 · Branch `b04-master-data-pricing`, from `main` at `3062d39` (
 
 **An unresolvable request becomes a quote rather than an error: passed.** Every one answers 200 with `outcome: QUOTE_REQUIRED`: a 65.000 kg goat above every band (`NO_RULE`), a goat with no weight (`MISSING_GRADE_OR_WEIGHT`), a 70.000 kg festival ram (`QUOTE_ONLY`, though smaller sheep have prices), and lettuce, unpriced this season (`NO_RULE` on every channel).
 
-CI: SEE_CI.
+**CI green: passed.** [Run 43620103368](https://github.com/officialjwise/hakorem_farms_backend/actions/runs/43620103368) on commit `1948ab1`, all six jobs successful: lint and type check; unit and integration with the coverage gate; contract; image build and scan; the fresh-clone job (`pnpm run setup` on a clean runner, then the e2e suite including the new pricing test); secret scan, dependency audit and static analysis. The run before it failed lint on one untyped alias in the new e2e test, fixed in `1948ab1`.
 
 ## Notes for the frontend track (for when it resumes)
 
