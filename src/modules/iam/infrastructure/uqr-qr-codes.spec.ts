@@ -40,7 +40,8 @@ describe('the TOTP enrolment QR code (CR-006)', () => {
   });
 
   it('is an SVG with no script, no external reference and a white quiet zone', () => {
-    const svg = Buffer.from(qr.svgDataUri('otpauth://totp/x?secret=JBSWY3DP').slice(PREFIX.length), 'base64').toString('utf8');
+    const uri = otpauthUri('HaKorem Farms', 'esi.appiah@seed.hakoremfarms.invalid', 'MFRGGZDFMZTWQ2LKNNWG23TPOBYXE43U');
+    const svg = Buffer.from(qr.svgDataUri(uri).slice(PREFIX.length), 'base64').toString('utf8');
     expect(svg.startsWith('<svg xmlns="http://www.w3.org/2000/svg"')).toBe(true);
     expect(svg).not.toMatch(/<script|href|xlink|url\(|on[a-z]+=/i);
   });
