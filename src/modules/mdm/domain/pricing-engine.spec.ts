@@ -198,6 +198,21 @@ describe('quote required, never an error and never zero (FR-MDM-016, FR-MDM-017)
     expect(resolvePrice(query({ kg: '52.500' }), BANDS, lists)).toEqual({ kind: 'QuoteRequired', reason: 'NO_RULE', stoppedAt: null });
   });
 
+  it('says NO_RULE, not MISSING_GRADE_OR_WEIGHT, when supplying the missing grade would still not match', () => {
+    // Grade A is priced only in the medium band: a 52.500 kg goat with no grade cannot be priced by any grade.
+    const lists: PriceListCandidate[] = [{ list: BASE_LIST, entries: [entry({ gradeId: GRADE_A, weightBandId: GOAT_M.id, listPricePesewas: 72_000n })] }];
+    expect(resolvePrice(query({ kg: '52.500' }), BANDS, lists)).toEqual({ kind: 'QuoteRequired', reason: 'NO_RULE', stoppedAt: null });
+    expect(resolvePrice(query({ kg: '20.000' }), BANDS, lists)).toEqual({ kind: 'QuoteRequired', reason: 'MISSING_GRADE_OR_WEIGHT', stoppedAt: null });
+    // A missing weight cannot be judged against the band, so an entry that needs it still asks for it.
+    expect(resolvePrice(query({ grade: GRADE_B }), BANDS, lists)).toEqual({ kind: 'QuoteRequired', reason: 'NO_RULE', stoppedAt: null });
+    expect(resolvePrice(query({ grade: GRADE_A }), BANDS, lists)).toEqual({ kind: 'QuoteRequired', reason: 'MISSING_GRADE_OR_WEIGHT', stoppedAt: null });
+  });
+
+  it('does not ask for a missing attribute on an entry whose quantity break is above the quantity', () => {
+    const lists: PriceListCandidate[] = [{ list: BASE_LIST, entries: [entry({ weightBandId: GOAT_M.id, listPricePesewas: 60_000n, minQty: Quantity.parse('10.000') })] }];
+    expect(resolvePrice(query({ qty: '2.000' }), BANDS, lists)).toEqual({ kind: 'QuoteRequired', reason: 'NO_RULE', stoppedAt: null });
+  });
+
   it('asks for a quote, reason NO_RULE, when no list prices the product at all', () => {
     expect(resolvePrice(query(), [], [])).toEqual({ kind: 'QuoteRequired', reason: 'NO_RULE', stoppedAt: null });
     expect(resolvePrice(query(), [], [{ list: BASE_LIST, entries: [] }])).toEqual({ kind: 'QuoteRequired', reason: 'NO_RULE', stoppedAt: null });

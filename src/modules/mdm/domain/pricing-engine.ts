@@ -71,8 +71,9 @@ function specificity(entry: PriceEntry): number {
 /**
  * Walks the candidates in the order given and stops at the first list with a matching entry; inside a list the
  * most specific entry wins, then the largest quantity break not above the quantity. A matching `quote_only` entry
- * stops the walk. With no match anywhere, the reason is MISSING_GRADE_OR_WEIGHT if some entry would have needed a
- * grade or a weight the request did not carry, otherwise NO_RULE (a weight outside every band is NO_RULE).
+ * stops the walk. With no match anywhere, the reason is MISSING_GRADE_OR_WEIGHT if some entry would have matched
+ * once given the grade or weight the request lacks, otherwise NO_RULE: a weight outside every band is NO_RULE, and so
+ * is a missing grade that no grade could fix.
  */
 export function resolvePrice(query: PricingQuery, bands: readonly WeightBand[], candidates: readonly PriceListCandidate[]): PriceResolution {
   const band = query.weight === null ? null : weightBandFor(bands, query.weight);
@@ -80,15 +81,17 @@ export function resolvePrice(query: PricingQuery, bands: readonly WeightBand[], 
   for (const candidate of candidates) {
     let best: PriceEntry | null = null;
     for (const entry of candidate.entries) {
-      if ((entry.gradeId !== null && query.gradeId === null) || (entry.weightBandId !== null && query.weight === null)) {
-        lackedAttribute = true;
+      const gradeMissing = entry.gradeId !== null && query.gradeId === null;
+      const weightMissing = entry.weightBandId !== null && query.weight === null;
+      const gradeFits = entry.gradeId === null || gradeMissing || entry.gradeId === query.gradeId;
+      const bandFits = entry.weightBandId === null || weightMissing || entry.weightBandId === band?.id;
+      if (!gradeFits || !bandFits || entry.minQty.compareTo(query.quantity) > 0) {
         continue;
       }
-      const matches =
-        (entry.gradeId === null || entry.gradeId === query.gradeId) &&
-        (entry.weightBandId === null || entry.weightBandId === band?.id) &&
-        entry.minQty.compareTo(query.quantity) <= 0;
-      if (matches && (best === null || outranks(entry, best))) {
+      if (gradeMissing || weightMissing) {
+        // It would match if the request carried the grade or weight it lacks.
+        lackedAttribute = true;
+      } else if (best === null || outranks(entry, best)) {
         best = entry;
       }
     }
@@ -102,8 +105,9 @@ export function resolvePrice(query: PricingQuery, bands: readonly WeightBand[], 
 }
 
 function outranks(entry: PriceEntry, other: PriceEntry): boolean {
-  const bySpecificity = specificity(entry) - specificity(other);
-  return bySpecificity !== 0 ? bySpecificity > 0 : entry.minQty.compareTo(other.minQty) > 0;
+  const mine = specificity(entry);
+  const theirs = specificity(other);
+  return mine !== theirs ? mine > theirs : entry.minQty.compareTo(other.minQty) > 0;
 }
 
 export interface PriceBand {
