@@ -27,7 +27,7 @@ export const APP_PRIVILEGES: Readonly<Record<TableClass, readonly string[]>> = {
 
 const CLASS_COMMENT = /(?:^|;)\s*class=([A-Z]+)\s*(?:;|$)/;
 /**
- * `writer=hk_sealer` marks a LEDGER table that only the audit sealer writes (ADR-0006, ADR-0031): the application
+ * `writer=hk_sealer` marks a LEDGER table that only the audit sealer writes (ADR-0006, ADR-0034): the application
  * roles may read it and nothing else.
  */
 const WRITER_COMMENT = /(?:^|;)\s*writer=(hk_[a-z]+)\s*(?:;|$)/;

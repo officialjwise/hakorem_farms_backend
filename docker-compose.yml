@@ -1,5 +1,5 @@
 # Local development and CI stack (ADR-0025): PostgreSQL 17, Redis 7 and an S3-compatible object store (Versity
-# Gateway, ADR-0031), plus the API and the worker built from the same image that production runs. Ports are bound to 127.0.0.1 only. Secrets come from .env, which pnpm setup
+# Gateway, ADR-0032), plus the API and the worker built from the same image that production runs. Ports are bound to 127.0.0.1 only. Secrets come from .env, which pnpm setup
 # generates for development; nothing here is a real credential. Production compose files live in infra/ (B13).
 name: hakorem
 

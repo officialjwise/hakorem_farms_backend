@@ -100,7 +100,7 @@ export interface AuthenticatedRequest {
   readonly accessExpiresAt: Date;
 }
 
-/** The B3 ScopeNames registration point: MDM registers its implementation at start-up (ADR-0031). */
+/** The B3 ScopeNames registration point: MDM registers its implementation at start-up (ADR-0033). */
 export class ScopeNamesRegistry {
   private implementation: ScopeNames | undefined;
 

@@ -3,7 +3,7 @@ import type { Transaction } from '../../../platform/database/unit-of-work';
 import type { ScopeNames } from '../../iam';
 import { branch, location } from './tables';
 
-/** MDM's answer to IAM's ScopeNames port: the codes of branches and locations a session's grants name (ADR-0031). */
+/** MDM's answer to IAM's ScopeNames port: the codes of branches and locations a session's grants name (ADR-0033). */
 export class MdmScopeNames implements ScopeNames {
   async codes(
     tx: Transaction,

@@ -41,7 +41,7 @@ export interface LoginThrottle {
 
 /**
  * Branch and location codes for the grants a session shows (GrantSummary). IAM is below MDM, so it cannot read
- * them; MDM registers this port's implementation at start-up (ADR-0031, MODULE_BOUNDARIES section 6).
+ * them; MDM registers this port's implementation at start-up (ADR-0033, MODULE_BOUNDARIES section 6).
  */
 export interface ScopeNames {
   codes(tx: Transaction, branchIds: readonly string[], locationIds: readonly string[]): Promise<{

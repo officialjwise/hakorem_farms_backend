@@ -20,7 +20,7 @@ export interface S3Settings {
 }
 
 /**
- * The one storage adapter (ADR-0031): the AWS SDK against any S3-compatible service. Development and CI run it
+ * The one storage adapter (ADR-0032): the AWS SDK against any S3-compatible service. Development and CI run it
  * against Versity Gateway; production uses the provider chosen at provisioning (A-067).
  */
 export class S3ObjectStorage implements ObjectStorage {

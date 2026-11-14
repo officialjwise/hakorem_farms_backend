@@ -45,7 +45,7 @@ export class MdmModule implements OnModuleInit {
     @Inject(MdmScopeNames) private readonly implementation: MdmScopeNames,
   ) {}
 
-  /** Registers MDM's implementation of IAM's ScopeNames port (MODULE_BOUNDARIES section 6, ADR-0031). */
+  /** Registers MDM's implementation of IAM's ScopeNames port (MODULE_BOUNDARIES section 6, ADR-0033). */
   onModuleInit(): void {
     this.scopeNames.register(this.implementation);
   }

@@ -11,7 +11,7 @@ import { roleUrl, TEMPLATE_DATABASE, type ProvidedDatabase } from './database-se
 /** The same images docker-compose.yml runs, so tests see the production engine versions. */
 const POSTGRES_IMAGE = 'postgres:17.6-alpine';
 const REDIS_IMAGE = 'redis:7.4.6-alpine';
-/** The S3-compatible store of development and CI (ADR-0031, A-070), with versioning so object lock works. */
+/** The S3-compatible store of development and CI (ADR-0032, A-070), with versioning so object lock works. */
 export const OBJECT_STORE_IMAGE = 'versity/versitygw:v1.10.0';
 const OBJECT_STORE_PORT = 7070;
 
