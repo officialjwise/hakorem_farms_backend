@@ -107,7 +107,11 @@ describe('the unit of work (ADR-0005)', () => {
 
     const outcomes = await Promise.all([goOffDuty('Yaw Darko'), goOffDuty('Akosua Ofori')]);
     expect([...outcomes].sort()).toEqual(['OFF_DUTY', 'REFUSED']);
-    expect(Object.values(attempts).sort()).toEqual([1, 2]);
+    // The winner runs once. The loser runs at least twice: PostgreSQL may abort it before the winner commits, and
+    // then its first retry still sees two vets on duty and is aborted again, so more than one retry is correct.
+    const [winnerAttempts, loserAttempts] = Object.values(attempts).sort((a, b) => a - b);
+    expect(winnerAttempts).toBe(1);
+    expect(loserAttempts).toBeGreaterThanOrEqual(2);
     const { rows } = await admin.query<{ n: number }>('SELECT count(*)::int AS n FROM uow_probe.on_call WHERE on_duty');
     expect(rows[0]!.n).toBe(1);
   });
