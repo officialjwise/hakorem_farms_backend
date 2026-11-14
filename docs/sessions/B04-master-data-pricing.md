@@ -4,18 +4,19 @@ Date: 2026-11-14 · Branch `b04-master-data-pricing`, from `main` at `3062d39` (
 
 ## Contract changes
 
-**Version 1.3.0, additive only** (`docs/CONTRACT_CHANGELOG.md`). No existing shape changed: no field, schema, parameter or response was removed, renamed, retyped or made required. A client generated from 1.2.x keeps working. The frontend track is paused, so nothing reviewed this; the changelog entry is written to be read cold when it resumes.
+**Versions 1.3.0 and 1.4.0, both additive only** (`docs/CONTRACT_CHANGELOG.md`). No existing shape changed: no field, schema, parameter or response was removed, renamed, retyped or made required. A client generated from 1.2.x keeps working. The frontend track is paused, so nothing reviewed this; the changelog entry is written to be read cold when it resumes.
 
 - Seven operations now answer from the real API (24 in all): `resolvePrices`, `createPriceList`, `getPriceList`, `createPriceListVersion`, `getPriceListVersion`, `replacePriceListEntries`, `submitPriceListVersion`. Their schemas are the ones 1.2.0 already published.
 - `x-requires-step-up: true` on 30 operations (CR-007). `x-error-codes` on the seven new operations; one new code, `PRICE_ENTRY_INVALID`.
 - Example fixes (CR-008): `listBranches`, `listSpeciesList`, `listDeliveryZones` no longer repeat rows; the `submitPriceListVersion` 202 example names the right document type.
+- **1.4.0:** `TotpEnrolment.qrCodeDataUri`, always present (CR-006 point 2, ADR-0037).
 - Behaviour without a shape change: `submitPriceListVersion` always answers 202; `promotions` is always `[]`; `couponCode` and `stockUnitId` answer 422 `REFERENCE_NOT_FOUND` until coupons and stock units exist; a late approval moves `validFrom` to the approval time.
 
 ## Contract requests (`../frontend/docs/CONTRACT_REQUESTS.md`)
 
 | Request | Answer |
 | --- | --- |
-| **CR-006** TOTP enrolment during first sign-in | **Point 1: answered in B3, option (b)**: `startTotpEnrolment` and `confirmTotpEnrolment` take the `challengeToken` in the body with no cookie and `CsrfTokenOptional`; `confirmTotpEnrolment` sets the session cookies (contract 1.2.0, B3 report "The login flow"). **Point 2, the QR code as a data URI: accepted, not built (A-094).** It needs a QR encoder on the server. I chose `uqr` 0.1.3 (no dependencies of its own, CommonJS build, from the unjs organisation, published 2026-04-03, past the 14-day floor) over `qrcode` 1.5.4 (pulls in yargs and pngjs). The session's permission check refused installing it, and I did not hand-write an encoder instead: one I cannot verify against a decoder is the wrong thing to put between a user and their authenticator secret. **Owner decision needed** (see "Decision needed"). Until then the response carries `otpauthUri` and `secretBase32` only |
+| **CR-006** TOTP enrolment during first sign-in | **Point 1: answered in B3, option (b)**: `startTotpEnrolment` and `confirmTotpEnrolment` take the `challengeToken` in the body with no cookie and `CsrfTokenOptional`; `confirmTotpEnrolment` sets the session cookies (contract 1.2.0, B3 report "The login flow"). **Point 2: implemented in contract 1.4.0.** `qrCodeDataUri` is the `otpauthUri` as an SVG data URI, drawn with `uqr` 0.1.3 (pinned exactly, approved by the owner) behind IAM's `QrCodes` port. Proved by an independent renderer (`@resvg/resvg-js`) and decoder (`jsqr`), both devDependencies, decoding to the URI exactly, in a unit test, on a real enrolment through the API, and on the contract's own example (ADR-0037) |
 | **CR-007** machine-readable step-up | **Implemented.** `x-requires-step-up: true` beside `x-permission` on the 30 operations whose description says "Requires step-up". A contract test keeps the flag and the prose in step; an integration test keeps it equal to `iam.permission.requires_step_up` for all 17 operations whose permission is seeded so far. Approval decisions carry no flag (step-up depends on the kind's policy), so the screen still handles 403 for those |
 | **CR-008** repeated example ids | **Implemented** for `listBranches` (the request) and the two other lists the same scan found, `listSpeciesList` and `listDeliveryZones`. A contract test now refuses any response example list that repeats an id |
 | CR-001 stock valuation at cost | **Declined for B4, scheduled for B5**, the inventory session that owns stock valuation. Pricing already keeps prices in their own named fields (`listPricePesewas`, `floorPricePesewas`, `ceilingPricePesewas`), never a cost |
@@ -23,9 +24,12 @@ Date: 2026-11-14 · Branch `b04-master-data-pricing`, from `main` at `3062d39` (
 | CR-004 sign-in gaps | Points 1 and 2 **answered in B3**: `changePassword` takes the `challengeToken` (option (b)), and after it the caller signs in again with the new password. Point 3 (reset token error codes) **scheduled for B04 continued** with password reset (A-087) |
 | CR-005 named empty examples | **Declined for B4.** The frontend is paused, so no screen uses the mock now, and the conversion to `examples` maps is best done in one scripted pass when it resumes. Proposed for the first backend session after the frontend restarts |
 
-## Decision needed
+## Owner decisions (2026-11-14, after the first report)
 
-**CR-006 point 2: may the backend add `uqr@0.1.3` as a dependency?** It renders the `otpauth://` URI as an SVG, returned as `qrCodeDataUri: "data:image/svg+xml;base64,..."` beside `otpauthUri` and `secretBase32` (an additive field on `TotpEnrolment`, contract 1.4.0, with an ADR for the dependency). If yes, B04 continued builds it first. If no, the alternatives are `qrcode` 1.5.4 (three dependencies) or a hand-written encoder verified against a decoder in the tests.
+- **QR library approved:** `uqr@0.1.3`, pinned exactly. Built, with a round-trip test against an independent decoder (ADR-0037). The ADR records the real reason for drawing on the server: not security, since `secretBase32` already reaches the browser, but one implementation instead of two and no dependency on the till.
+- **ADR-0036 accepted**, both decisions, including the late-approval rule: sales already made keep their price.
+- **Logged, not fixed:** price lookup checks the permission but not branch or shop scope, so a counter login can read wholesale and contract prices. Nothing can be sold wrongly, but the pricing leaks. **Residual risk R16** in `docs/security/THREAT_MODEL.md`, and an item in B13's opener.
+- **A-089 to A-094:** proceed as recorded unless the owner says otherwise.
 
 ## Built
 
@@ -40,7 +44,8 @@ Date: 2026-11-14 · Branch `b04-master-data-pricing`, from `main` at `3062d39` (
 
 ## Decisions
 
-- **ADR-0036** (Proposed): branch lists come first inside a slot and fall through to the all-branch list; `MISSING_GRADE_OR_WEIGHT` only when the missing attribute could price the line; activation starts no earlier than the approval (the database lets `valid_from` move later, never earlier); activation ends earlier versions and supersedes later overlapping ones; draft entries are cleared by one definer function; `resolvePrices` checks the permission without a location scope.
+- **ADR-0036** (accepted by the owner): branch lists come first inside a slot and fall through to the all-branch list; `MISSING_GRADE_OR_WEIGHT` only when the missing attribute could price the line; activation starts no earlier than the approval (the database lets `valid_from` move later, never earlier); activation ends earlier versions and supersedes later overlapping ones; draft entries are cleared by one definer function; `resolvePrices` checks the permission without a location scope.
+- **ADR-0037** (accepted by the owner): the TOTP QR code is drawn on the server with `uqr`, pinned exactly, proved by an independent decoder.
 - **The split.** Recorded in ADR-0026 (Amendments) and the openers. Pricing first because it is this phase's gate; the A-087 items moved with the rest.
 - **A bug the gate found:** a 65 kg goat with no grade was answered `MISSING_GRADE_OR_WEIGHT` because grade A was priced for smaller bands. Fixed test-first (`f98cc93`).
 - **Money in responses** is a JSON integer from `Money.toJsonInteger`, which refuses anything beyond the exact range; Express cannot serialise a `bigint`.
@@ -54,7 +59,7 @@ Date: 2026-11-14 · Branch `b04-master-data-pricing`, from `main` at `3062d39` (
 | A-091 | A walk-in buyer gets no tier list; walk-ins are not the RETAIL tier | Owner |
 | A-092 | The seeded prices are SEED values spanning the brief's indicative bands, not the farm's prices | Owner |
 | A-093 | Broilers, local chickens and ducks are countable flocks priced per head by weight band; goats, sheep, pigs and rabbits are serialised | Owner |
-| A-094 | CR-006 point 2 waits for the dependency decision | Owner |
+| A-094 | CR-006 point 2 built with `uqr` 0.1.3 as approved: resolved | — |
 | A-076 | Checked again: `@nestjs/platform-express` 11.2.10 is two days old, so the multer override stays | B04 continued |
 | A-083, A-085, A-087 | Moved to B04 continued | — |
 
@@ -69,11 +74,11 @@ Date: 2026-11-14 · Branch `b04-master-data-pricing`, from `main` at `3062d39` (
 
 | Layer | Result (local, 2026-11-14) |
 | --- | --- |
-| Unit | 287 passed, including 35 for the engine and 26 for price list rules |
-| Integration (Testcontainers PostgreSQL 17.6, Redis 7.4.6, Versity Gateway 1.10.0) | 221 passed (508 with unit), including the gate (30), the price list lifecycle (17), the pricing schema rules (12) and the step-up consistency check |
-| Contract | 24 passed (drift, versioning, request examples, response shapes of the seven new operations, CR-007 and CR-008 checks); Redocly lint clean |
+| Unit | 289 passed, including 35 for the engine, 26 for price list rules and 4 QR round trips (the first report said 287; the true figure then was 285) |
+| Integration (Testcontainers PostgreSQL 17.6, Redis 7.4.6, Versity Gateway 1.10.0) | 223 passed (512 with unit), including the enrolment QR round trip through the API, the gate (30), the price list lifecycle (17), the pricing schema rules (12) and the step-up consistency check |
+| Contract | 25 passed (drift, versioning 1.3.0 to 1.4.0, request examples, response shapes of the seven new operations, CR-007 and CR-008 checks, the TotpEnrolment example decoding to its own URI); Redocly lint clean |
 | End to end | `test/e2e/mdm/pricing.e2e.spec.ts` passed in CI's fresh-clone job, on the stack built from the image and seeded by `pnpm run setup`. Not run locally: it needs a freshly set-up stack, and I did not rebuild or reseed the local one |
-| Coverage, unit and integration merged | 91.50 percent statements, 82.88 percent branches (gate 80); `pricing-engine.ts` and `price-list.ts` 100 percent branches |
+| Coverage, unit and integration merged | 91.52 percent statements, 82.94 percent branches (gate 80); `pricing-engine.ts` and `price-list.ts` 100 percent branches |
 | Lint, type check | Clean, including the money arithmetic rule, the boundary fixtures and the schema-names check |
 
 ## Security review (hakorem-security-review, the parts this change touches)
@@ -82,6 +87,8 @@ Date: 2026-11-14 · Branch `b04-master-data-pricing`, from `main` at `3062d39` (
 - **Maker-checker:** the maker approving their own version is refused by the domain and the database (`MAKER_CANNOT_CHECK`, tested). A version cannot become ACTIVE without an approval request (CHECK). Its entries cannot change once submitted, so the payload hash holds.
 - **Never a zero price:** a priced entry needs a floor above zero (domain and CHECK); the engine never returns zero.
 - **Parameterised SQL only** (SC-03); the entry insert uses arrays with `unnest`, no SQL built from values. The one definer function has a fixed `search_path` and can empty only a draft.
+- **TOTP enrolment QR code (TB1, TB2):** the image carries exactly the `otpauthUri` already in the same response, so no secret travels anywhere new. It is drawn in-process (no outside call, so nothing is held open in the transaction, SC-14), the SVG holds no script or external reference (tested), and the code is shown once like the rest of the enrolment response. The dependency is pinned exactly and its decoder tests use devDependencies that stay out of the image.
+- **Residual risk R16 (owner, 2026-11-14):** a counter login can read wholesale, tier and contract prices through `resolvePrices`, because lookup is not scoped. Nothing sells at the wrong price, since selling operations check scope; the leak is logged for B13's security review.
 - **No new abuse path** reaches the exception report yet: price overrides (abuse case 3) are judged by `judgeAgreedPrice`, and their recording and approval are B9a and B9b.
 
 ## Gate
@@ -98,7 +105,7 @@ Date: 2026-11-14 · Branch `b04-master-data-pricing`, from `main` at `3062d39` (
 - Use `x-requires-step-up` to ask for the TOTP code before those writes, and keep handling 403 `STEP_UP_REQUIRED` for approvals.
 - `resolvePrices` takes `X-CSRF-Token` and no idempotency key. Show `QUOTE_REQUIRED` as "Request a quote", never as an error, and ask for the weight or grade on `MISSING_GRADE_OR_WEIGHT`. Weights are three-place strings.
 - Seeded prices to try after `pnpm run setup`: log in as the seeded Cashier and price `LIV-GOAT` at 22.400 kg on POS (65,000) and at 65.000 kg (a quote).
-- CR-006 point 2, the QR code, waits for the owner's decision; render `otpauthUri` or show `secretBase32` until then.
+- Show `qrCodeDataUri` (contract 1.4.0) in an `<img>` with a text alternative on the enrolment screen, and keep `secretBase32` on screen; no QR library is needed.
 
 ## Next session
 
@@ -115,7 +122,7 @@ docs/data-model/mdm.md, the MDM card in docs/MODULE_BOUNDARIES.md, and ADR-0020,
 Do not read any other document unless this phase needs it.
 
 Confirm in three lines: the phase, its scope, and its gate.
-Before building: settle CR-006 point 2 (A-094) as the owner decided, and remove the multer override if
+Before building: remove the multer override if
 @nestjs/platform-express 11.2.10 has passed the 14-day floor (A-076). Copy the B3 Product slice's shape
 for every endpoint, with the fragment moved from the planned file (scripts/contract/move-to-code.ts).
 Then execute B04 continued only, on branch b04c-master-data-continued: the A-087 items (the file store
@@ -130,4 +137,4 @@ B4's, through the new services (A-085), keeping src/seed/reference-pricing.ts as
 Stop at the gate and write docs/sessions/B04c-master-data-continued.md.
 ```
 
-Add at the top of that message the owner's answer to "Decision needed" above. B04 continued carries a lot; if it cannot finish, split again at a module boundary (the A-087 IAM items in one session, MDM in the next).
+B04 continued carries a lot; if it cannot finish, split again at a module boundary (the A-087 IAM items in one session, MDM in the next).
