@@ -105,7 +105,9 @@ Close the session by writing the exact login flow into your report, including th
 
 ## B4 to B12 — The module sessions
 
-These nine sessions all follow one recipe, so this section is the whole of their instruction. The table says what each covers and what has to be true before it closes.
+These ten sessions all follow one recipe, so this section is the whole of their instruction. The table says what each covers and what has to be true before it closes.
+
+> **Amended 2026-11-13 by `docs/adr/0026-session-schedule-amendment.md`, approved by the owner.** B9 is two sessions. B9a builds the order core (the sales order record, its state machine and sale posting) and payments, because POS and quotations both need the order record before B11. B9b builds POS, shifts and offline sync on top of it. B11 keeps order fulfilment. The ADR also lists three proposed assignments (online store, audit administration, daily exception report) that the B0 gate settles; read it before opening B7, B9a, B11, B12 or B13.
 
 | Session | Modules | What proves it |
 | --- | --- | --- |
@@ -114,9 +116,10 @@ These nine sessions all follow one recipe, so this section is the whole of their
 | **B6** | Livestock, processing | A processing order consumes an animal and produces lots whose costs sum exactly to the input cost plus direct processing cost |
 | **B7** | Procurement, suppliers | Three-way match blocks payment where receipt and supplier invoice disagree |
 | **B8** | Ledger, billing, document generation | Trial balance sums to zero on a seeded trading day, an unbalanced journal is rejected by the database itself, and numbering stays gap-free under concurrent load |
-| **B9** | Payments, POS, shifts, offline sync | Every payment edge case in the shared brief passes, shift close reconciles, and 500 queued offline transactions sync exactly once |
+| **B9a** | Order core, payments | Every payment edge case in the shared brief passes, and an order on any channel posts stock, document, payment and ledger in one transaction |
+| **B9b** | POS, shifts, offline sync | Shift close reconciles, and 500 queued offline transactions sync exactly once |
 | **B10** | Quotations, wholesale, credit control | Quote revisions are versioned, conversion to invoice preserves every link, and a credit limit blocks with an audited override |
-| **B11** | Orders, fulfilment, delivery, notifications | A catch-weight order re-prices at pick, cash on delivery lands against the driver, and the outbox guarantees the customer notification |
+| **B11** | Order fulfilment, delivery, notifications | A catch-weight order re-prices at pick, cash on delivery lands against the driver, and the outbox guarantees the customer notification |
 | **B12** | Capital and investors, costing, reporting, public API | A distribution matches a hand calculation on weighted average shareholding and ties exactly to the ledger |
 
 ### The recipe every module session follows
