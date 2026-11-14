@@ -18,6 +18,7 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B2 | `B02-foundation.md` | `b02-foundation` | B2 — Foundation | One-command setup works on a clean machine; CI green |
 | B3 | `B03-platform-slice.md` | `b03-platform-slice` | B3 — Platform and the first vertical slice | The slice passes all four test layers; the frontend logs in against the real API |
 | B4 | `B04-master-data-pricing.md` | `b04-master-data-pricing` | B4 to B12 | A price resolves for every band, channel and tier; an unresolvable request becomes a quote |
+| B4 continued | `B04c-master-data-continued.md` | `b04c-master-data-continued` | B4 to B12 | The tax calculator's exact cases pass; promotions stack by their rules and a coupon limit holds under concurrency; the A-087 operations are live with wrong-role refusals; the seed is written through services |
 | B5 | `B05-inventory-ledger.md` | `b05-inventory-ledger` | B4 to B12 | On-hand from movements matches a hand count; stock cannot go negative outside allowed types; a lot traces both ways |
 | B6 | `B06-livestock-processing.md` | `b06-livestock-processing` | B4 to B12 | A processing order produces lots whose costs sum exactly to input cost plus direct processing cost |
 | B7 | `B07-procurement-suppliers.md` | `b07-procurement-suppliers` | B4 to B12 | Three-way match blocks payment on disagreement; checkout reserves stock and releases it on timeout |
@@ -125,13 +126,43 @@ categories, and an incomplete scheme version that cannot be activated). Seed the
 Stop at the gate and write docs/sessions/B04-master-data-pricing.md.
 ```
 
+## B4 continued — The rest of master data, tax, promotions and the B3 carry-overs
+
+Branch `b04c-master-data-continued`. Report `docs/sessions/B04c-master-data-continued.md`. B4 built the pricing sub-domain and passed its gate (`docs/sessions/B04-master-data-pricing.md`); this session finishes MDM and the items B3 left. Gate: the tax calculator's exact cases pass (exclusive and inclusive prices, the GHS 459.00 beef split into 382.50, 57.38, 9.56 and 9.56, a compounding levy, zero-rated and exempt categories, an incomplete scheme version refused); promotions apply only to tier, channel and base prices and stack by their rules, and a coupon limited to 100 refuses the 101st under 20 concurrent redemptions; the A-087 operations are live, each with a wrong-role refusal; the seeded farm is written through the MDM and IAM services.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B04-master-data-pricing.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
+report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the MDM requirement block of docs/SRS.md (nothing else from the SRS),
+docs/data-model/mdm.md, the MDM card in docs/MODULE_BOUNDARIES.md, and ADR-0020, ADR-0036 and ADR-0004
+(the promotions part). Use docs/prompts/module-build-prompt.md as the recipe.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Before building: settle CR-006 point 2 (A-094) as the owner decided, and remove the multer override if
+@nestjs/platform-express 11.2.10 has passed the 14-day floor (A-076). Copy the B3 Product slice's shape
+for every endpoint, with the fragment moved from the planned file (scripts/contract/move-to-code.ts).
+Then execute B04 continued only, on branch b04c-master-data-continued: the A-087 items (the file store
+with uploads, the malware scanner and evidence_file_id on iam.approval_request; user and grant
+administration; customer registration and phone verification; password reset; approveRequest,
+rejectRequest, listApprovals and getApproval over the existing mechanism); the rest of master data
+(categories, species, grades, weight bands, customers and addresses, tiers, suppliers, branches,
+locations, payment methods, delivery zones, reason codes, assignCustomerPriceList, updateProduct, the
+price list listings); promotions and coupons in the engine after the base price; and the tax calculator
+with named levies per ADR-0020 with the exact tests above. Regenerate the seeded farm, B3's slice and
+B4's, through the new services (A-085), keeping src/seed/reference-pricing.ts as the price definition.
+Stop at the gate and write docs/sessions/B04c-master-data-continued.md.
+```
+
 ## B5 — Inventory and the stock movement ledger
 
 Branch `b05-inventory-ledger`. Report `docs/sessions/B05-inventory-ledger.md`. Gate: on-hand derived from movements matches a hand count, stock cannot go negative outside the allowed movement types, and a lot traces in both directions.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
-List docs/sessions/ and read only the most recent report (docs/sessions/B04-master-data-pricing.md).
+List docs/sessions/ and read only the most recent report (docs/sessions/B04c-master-data-continued.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
 report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the INV requirement block of docs/SRS.md (nothing else from the SRS),
