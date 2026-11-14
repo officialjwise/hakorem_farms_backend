@@ -37,10 +37,51 @@ describe('contract versioning (FR-API-001)', () => {
   it('fails on a breaking change that bumps only the minor version', () => {
     const previous = committed();
     const next = withVersion(structuredClone(previous), NEXT_MINOR);
-    (schema(next, 'HealthCheck')['required'] as string[]).push('since');
+    delete (schema(next, 'Health')['properties'] as JsonObject)['version'];
     expect(versioningProblems(previous, next)).toEqual([
-      `breaking changes need a new major version (still ${MAJOR}.x): schema HealthCheck now requires since`,
+      `breaking changes need a new major version (still ${MAJOR}.x): schema Health lost property version`,
     ]);
+  });
+
+  // ADR-0038: a newly required property breaks a client only on a schema the client sends.
+  it('fails when a request body schema starts requiring a property, under a minor version', () => {
+    const previous = committed();
+    const next = withVersion(structuredClone(previous), NEXT_MINOR);
+    (schema(next, 'LoginRequest')['required'] as string[]).push('deviceLabel');
+    expect(versioningProblems(previous, next)).toEqual([
+      `breaking changes need a new major version (still ${MAJOR}.x): schema LoginRequest now requires deviceLabel`,
+    ]);
+  });
+
+  it('fails when a schema the client sends only through a reference starts requiring a property', () => {
+    const previous = committed();
+    const next = withVersion(structuredClone(previous), NEXT_MINOR);
+    // RoleLimit is reached from the createRole body through RoleCreate's properties, never named by an operation.
+    const roleLimit = schema(next, 'RoleLimit');
+    roleLimit['required'] = [...((roleLimit['required'] as string[] | undefined) ?? []), 'note'];
+    expect(versioningProblems(previous, next)).toEqual([
+      `breaking changes need a new major version (still ${MAJOR}.x): schema RoleLimit now requires note`,
+    ]);
+  });
+
+  it('fails when a schema the client sends as a parameter starts requiring a property', () => {
+    const document = (required: string[]): JsonObject => ({
+      openapi: '3.1.0',
+      info: { title: 't', version: required.length === 0 ? '1.0.0' : '1.1.0' },
+      paths: { '/things': { get: { parameters: [{ name: 'filter', in: 'query', schema: { $ref: '#/components/schemas/Filter' } }] } } },
+      components: { schemas: { Filter: { type: 'object', properties: { from: { type: 'string' } }, required } } },
+    });
+    expect(versioningProblems(document([]), document(['from']))).toEqual([
+      'breaking changes need a new major version (still 1.x): schema Filter now requires from',
+    ]);
+  });
+
+  it('passes a response-only schema that starts requiring a property, under a minor version', () => {
+    const previous = committed();
+    const next = withVersion(structuredClone(previous), NEXT_MINOR);
+    (schema(next, 'HealthCheck')['required'] as string[]).push('since');
+    (schema(next, 'TotpEnrolment')['required'] as string[]).push('extra');
+    expect(versioningProblems(previous, next)).toEqual([]);
   });
 
   it('passes a breaking change with a new major version', () => {
