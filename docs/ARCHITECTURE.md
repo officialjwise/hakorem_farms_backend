@@ -565,3 +565,4 @@ The full amended schedule, with the gate for every session and three further ass
 | [0034](adr/0034-authentication-and-authorisation-as-built.md) | How B3 built authentication and authorisation where ADR-0016 and ADR-0017 left a choice |
 | [0035](adr/0035-authorisation-in-the-application-layer.md) | Authorisation is checked in the application layer, never only in the controller (a correction to the brief's wording) |
 | [0036](adr/0036-pricing-engine-as-built.md) | How B4 built the pricing engine where ADR-0004 left a choice: branch lists in a slot, the missing-attribute reason, activation no earlier than approval, supersession, draft entry removal, resolution scope |
+| [0037](adr/0037-totp-qr-code-drawn-on-the-server.md) | The TOTP enrolment QR code is drawn on the server with `uqr` 0.1.3, pinned exactly, and proved by an independent decoder |

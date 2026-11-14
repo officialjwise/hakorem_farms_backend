@@ -1,6 +1,6 @@
 # ADR-0036: The pricing engine as built: where ADR-0004 left a choice
 
-- **Status:** Proposed (accepted by merging the B4 pull request)
+- **Status:** Accepted (owner, 2026-11-14). Decision 6 is accepted with its leak logged as residual risk R16 (`docs/security/THREAT_MODEL.md`), to be treated in B13's security review
 - **Date:** 2026-11-14
 - **Session:** B4
 - **Deciders:** backend track; owner approves by merging
@@ -16,7 +16,7 @@ ADR-0004 fixes the resolution order, the typed `QuoteRequired` result, maker-che
 3. **Activation starts no earlier than the approval.** A version approved after its `validFrom` becomes `ACTIVE` from the moment of approval; the trigger on `mdm.price_list_version` lets activation move `valid_from` later, never earlier. A version whose whole window passed before approval cannot be activated (`INVALID_STATE_TRANSITION`, detail `WINDOW_PASSED`). Otherwise a late approval would rewrite which price was in force for sales already made.
 4. **What activation does to the versions it overlaps.** An active version that started earlier is ended where the new one starts (`valid_to`, the only column of an active version that may change, and only to an earlier value); one that starts at or after the new one is `SUPERSEDED`. A new version with an end date does not revive anything after it: the list has no price after that end until another version is activated, and the walk goes on to the next list. The exclusion constraint on `ACTIVE` windows is the backstop.
 5. **Replacing draft entries.** `docs/data-model/mdm.md` says a draft entry is removed outright, but `hk_app` holds no `DELETE` on a `MASTER` table (ADR-0024). The one removal is `mdm.clear_draft_price_list_entries(uuid)`, `SECURITY DEFINER`, owned by `hk_owner` with a fixed `search_path`; the entry guard trigger refuses any insert, update or delete of an entry whose version is not `DRAFT`, so the function can empty only a draft. One open version per list at a time (`uq_price_list_version_draft`), matching the contract's single `draftVersionId`.
-6. **`resolvePrices` checks the permission without a branch or location scope.** A cashier's grant is scoped to the shop floor location, and a location-scoped grant does not satisfy a branch-scoped check (ADR-0034). Prices are INTERNAL, not confidential, and every operation that sells at a price (counter sale, order, quote) checks its own location scope when it records the sale. A list that applies everywhere registers its versions as business documents under the farm's first active, non-test branch (A-090); the approval is decided there.
+6. **`resolvePrices` checks the permission without a branch or location scope.** A cashier's grant is scoped to the shop floor location, and a location-scoped grant does not satisfy a branch-scoped check (ADR-0034). Prices are INTERNAL, not confidential, and every operation that sells at a price (counter sale, order, quote) checks its own location scope when it records the sale. The cost, accepted by the owner: a counter login can read wholesale, tier and contract prices (residual risk R16). A list that applies everywhere registers its versions as business documents under the farm's first active, non-test branch (A-090); the approval is decided there.
 
 Also recorded:
 

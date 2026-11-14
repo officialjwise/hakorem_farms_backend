@@ -141,7 +141,7 @@ docs/data-model/mdm.md, the MDM card in docs/MODULE_BOUNDARIES.md, and ADR-0020,
 Do not read any other document unless this phase needs it.
 
 Confirm in three lines: the phase, its scope, and its gate.
-Before building: settle CR-006 point 2 (A-094) as the owner decided, and remove the multer override if
+Before building: remove the multer override if
 @nestjs/platform-express 11.2.10 has passed the 14-day floor (A-076). Copy the B3 Product slice's shape
 for every endpoint, with the fragment moved from the planned file (scripts/contract/move-to-code.ts).
 Then execute B04 continued only, on branch b04c-master-data-continued: the A-087 items (the file store
@@ -415,6 +415,9 @@ docs/TEST_STRATEGY.md and ADR-0025, and docs/security/COMPLIANCE.md. Do not read
 unless this phase needs it.
 
 Confirm in three lines: the phase, its scope, and its gate.
+In the security review, treat residual risk R16 in docs/security/THREAT_MODEL.md: price lookup reads
+wholesale and contract prices without branch or location scope (ADR-0036); decide with the owner between
+scoping lookups to what the caller's role may sell and auditing bulk price reads, and test the choice.
 Then execute B13 only, on branch b13-hardening-deploy: load tests with k6 against every target in the
 non-functional table, with the actual numbers recorded in docs/OPERATIONS.md; every one of the eighteen
 abuse cases turned into two tests, one that the control blocks or makes it visible and one that the
