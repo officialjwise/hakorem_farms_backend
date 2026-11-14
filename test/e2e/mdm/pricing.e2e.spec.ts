@@ -24,6 +24,7 @@ function seededPassword(): string {
 }
 
 /** A response body read by path; the contract tests assert the shapes. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Json = any;
 let cookie = '';
 let csrf = '';
