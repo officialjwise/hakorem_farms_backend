@@ -37,6 +37,12 @@ import { AuthController } from './interface/auth.controller';
 import { AuthenticationGuard } from './interface/authentication.guard';
 import { SessionsController } from './interface/sessions.controller';
 
+/** The worker serves no HTTP and holds no signing key: anything that asks it for a token is a programming error. */
+const WORKER_HAS_NO_TOKENS: AccessTokens = {
+  issue: () => Promise.reject(new Error('access tokens are issued by the API only, never by the worker')),
+  verify: () => Promise.reject(new Error('access tokens are verified by the API only, never by the worker')),
+};
+
 /** Milliseconds the breached-password range query may take before the bundled list is used. */
 const BREACHED_LOOKUP_TIMEOUT_MS = 2_000;
 
@@ -58,13 +64,15 @@ const BREACHED_LOOKUP_TIMEOUT_MS = 2_000;
     },
     {
       provide: ACCESS_TOKENS,
-      useFactory: (config: AppConfig) =>
-        new JwtAccessTokens({
-          activeKeyId: config.JWT_ACTIVE_KEY_ID ?? '',
-          signingKeys: config.JWT_SIGNING_KEYS ?? '{}',
-          publicKeys: config.JWT_PUBLIC_KEYS,
-          ttlSeconds: config.AUTH_ACCESS_TTL_SECONDS,
-        }),
+      useFactory: (config: AppConfig): AccessTokens =>
+        config.APP_ROLE === 'worker'
+          ? WORKER_HAS_NO_TOKENS
+          : new JwtAccessTokens({
+              activeKeyId: config.JWT_ACTIVE_KEY_ID ?? '',
+              signingKeys: config.JWT_SIGNING_KEYS ?? '{}',
+              publicKeys: config.JWT_PUBLIC_KEYS,
+              ttlSeconds: config.AUTH_ACCESS_TTL_SECONDS,
+            }),
       inject: [APP_CONFIG],
     },
     {
