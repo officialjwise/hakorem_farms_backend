@@ -30,6 +30,7 @@ export function buildContract(planned: JsonObject, code: JsonObject): JsonObject
 
   for (const [path, item] of Object.entries(asObject(code['paths']))) {
     const target = asObject(resultPaths[path]);
+    const mixed = Object.keys(target).some((key) => (HTTP_METHODS as readonly string[]).includes(key));
     for (const [method, operation] of Object.entries(asObject(item))) {
       if (!(HTTP_METHODS as readonly string[]).includes(method)) {
         continue;
@@ -40,7 +41,10 @@ export function buildContract(planned: JsonObject, code: JsonObject): JsonObject
       }
       target[method] = operation;
     }
-    resultPaths[path] = target;
+    // A path whose operations are split between the code and the planned file keeps the usual method order, so an
+    // operation moving into code does not reorder the published file. A planned path whose operations have all
+    // moved stays in the planned file as an empty item, which keeps its place in the published order.
+    resultPaths[path] = mixed ? withMethodsInOrder(target) : target;
   }
 
   const resultComponents = asObject(result['components']);
@@ -62,6 +66,19 @@ export function buildContract(planned: JsonObject, code: JsonObject): JsonObject
     throw new ContractMergeError(problems);
   }
   return result;
+}
+
+function withMethodsInOrder(item: JsonObject): JsonObject {
+  const ordered: JsonObject = {};
+  for (const key of Object.keys(item).filter((k) => !(HTTP_METHODS as readonly string[]).includes(k))) {
+    ordered[key] = item[key]!;
+  }
+  for (const method of HTTP_METHODS) {
+    if (item[method] !== undefined) {
+      ordered[method] = item[method]!;
+    }
+  }
+  return ordered;
 }
 
 /** The operations of a document, as `METHOD /path`, for reports and checks. */

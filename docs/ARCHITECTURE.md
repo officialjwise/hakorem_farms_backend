@@ -402,7 +402,7 @@ The payment edge cases the brief lists are handled by this shape:
 | Idempotency | Key table and unique references | ADR-0014 |
 | Numbering | Row-locked series, gap-free, provisional references offline | ADR-0015 |
 | Authentication | Short access token, rotating refresh token, TOTP, host-bound cookies | ADR-0016 |
-| Authorisation | Policy engine in the domain layer, one maker-checker mechanism | ADR-0017 |
+| Authorisation | Policy engine called by every application-layer handler, one maker-checker mechanism | ADR-0017, ADR-0035 |
 | Tax | Named levies per category in effective-dated versions | ADR-0020 |
 | Catch-weight | Estimate, tolerance, invoice on weighed quantity | ADR-0021 |
 | Encryption | Application-side envelope encryption, per-subject keys | ADR-0022 |
@@ -509,7 +509,7 @@ The deploy sequence, the backup scheme and the reasons for a single server are i
 | 10,000 products, 150,000 orders, 2 million movements, 5 years of ledger | Indexed ledgers, month-end snapshots, a reporting schema; no partitioning needed at this size |
 | Heavy reports cannot slow the counter | Reports read `rpt` under a restricted role with a statement timeout, in the worker |
 | 100 percent branch coverage on pricing, ledger, valuation, distribution | Those rules are pure domain functions with no framework or database in the way |
-| One-command local setup | The same compose topology locally, with MinIO for object storage |
+| One-command local setup | The same compose topology locally, with Versity Gateway for object storage (ADR-0032) |
 | Infrastructure under 150 US dollars a month | One production server, one small staging server, object storage, no managed services |
 | No module imports another's internals | Lint rule and two data checks, all failing the build |
 | Every failure mode has a runbook | The failure modes are named in section 8 and in the threat model; runbooks are written in B1 and B13 |
@@ -545,7 +545,7 @@ The full amended schedule, with the gate for every session and three further ass
 | [0014](adr/0014-idempotency-and-external-references.md) | Idempotency keys and external references are unique keys in the database |
 | [0015](adr/0015-gap-free-numbering-and-offline-provisional-references.md) | Gap-free document numbers, and provisional references for offline receipts |
 | [0016](adr/0016-authentication.md) | Authentication design |
-| [0017](adr/0017-authorisation-and-maker-checker.md) | Authorisation in the domain layer, and one maker-checker mechanism |
+| [0017](adr/0017-authorisation-and-maker-checker.md) | Authorisation in the application layer, and one maker-checker mechanism |
 | [0018](adr/0018-valuation-and-cost-accumulation.md) | Stock valuation and cost accumulation live in the inventory module |
 | [0019](adr/0019-reservations-and-holds.md) | Stock reservations and holds |
 | [0020](adr/0020-tax-engine-named-levies.md) | Tax is a matrix of named levies per category, each with its own base and reclaimable flag |
@@ -559,3 +559,8 @@ The full amended schedule, with the gate for every session and three further ass
 | [0028](adr/0028-investor-distribution-allocation.md) | Investor distributions are allocated by unit-days with largest-remainder rounding |
 | [0029](adr/0029-api-contract-conventions.md) | API contract conventions: money fields, decimal strings, one error envelope, approvals as 202 |
 | [0030](adr/0030-foundation-tooling.md) | Foundation tooling: the migration runner, the contract generated from code plus the planned contract, and exact kernel rates |
+| [0031](adr/0031-operation-fragments-beside-controllers.md) | An implemented operation's contract text lives beside its controller and is checked against the route |
+| [0032](adr/0032-versity-gateway-for-development-object-storage.md) | Versity Gateway is the S3-compatible object store of development and CI |
+| [0033](adr/0033-scope-names-port.md) | IAM asks MDM for branch and location codes through a ScopeNames port |
+| [0034](adr/0034-authentication-and-authorisation-as-built.md) | How B3 built authentication and authorisation where ADR-0016 and ADR-0017 left a choice |
+| [0035](adr/0035-authorisation-in-the-application-layer.md) | Authorisation is checked in the application layer, never only in the controller (a correction to the brief's wording) |

@@ -8,6 +8,17 @@ Version numbers follow semantic versioning: a major bump breaks an existing clie
 
 - **CR-002 (frontend, raised 2026-11-13): weights as decimal strings, never JSON numbers.** Already satisfied by 1.0.0 and 1.1.0, so no version change. `components.schemas.Kilograms` is `type: string` with the pattern `^(0|[1-9][0-9]{0,6})\.[0-9]{3}$` (exactly three decimal places), and its description says it is never a JSON number. The request was raised against a copy taken before re-syncing; re-run `./scripts/sync-contract.sh`. The owner closed it on 2026-11-13: do not reopen it.
 
+## 1.2.0 (2026-11-14, B3)
+
+Additive only. A client generated from 1.1.x keeps working. Seventeen operations are now implemented in code and answer from the real API; their published text is the code's (ADR-0031). The frontend should regenerate its client and switch these operations off its stub: `getHealth`, `loginStaff`, `loginCustomer`, `loginInvestor`, `verifyTotp`, `refreshSession`, `logout`, `getCurrentSession`, `changePassword`, `startTotpEnrolment`, `confirmTotpEnrolment`, `stepUp`, `listSessions`, `revokeSession`, `listProducts`, `createProduct`, `getProduct`. The login flow, token lifetimes and cookie attributes are in `docs/sessions/B03-platform-slice.md`.
+
+- **Login challenges carry the steps between password and session.** `PasswordChangeRequest` and `TotpCodeRequest` gain an optional `challengeToken`; `startTotpEnrolment` gains an optional request body, the new schema `TotpEnrolmentStart` (`challengeToken`). During login these three operations take the challenge in the body and no cookie, so they use `CsrfTokenOptional` and list an empty security requirement beside the session schemes. `confirmTotpEnrolment` during login also completes the login: the session cookies are set on its response.
+- **`realm` query parameter (optional)** on `refreshSession`, `getCurrentSession` and `logout`: which session to use when one browser holds sessions in more than one realm. Leave it out with one session. With several and no `realm`, the API answers 400 `VALIDATION_FAILED` naming `/realm` (refresh: 401).
+- **`x-error-codes`** on every implemented operation lists the codes it can raise, adopting the "Added" codes of `docs/API.md` operation by operation (A-074). New codes, also in `docs/API.md` section 10.3: `TOTP_ALREADY_ENROLLED`, `APPROVAL_SUBJECT_CHANGED`, `DUPLICATE_VALUE`, `REFERENCE_NOT_FOUND`, `STOCK_POLICY_CONFLICT`.
+- **New responses:** 503 `ServiceUnavailable` on the login operations, `verifyTotp` and `refreshSession` (the login rate limit fails closed when Redis is down); 403 `Forbidden` on `refreshSession` (`ORIGIN_NOT_ALLOWED`).
+- **Descriptions:** `getHealth` names the checks reported so far (database, Redis, outbox backlog, dead letters, audit sealing lag) and says DEGRADED still answers 200; `verifyTotp`, `refreshSession`, `changePassword`, `startTotpEnrolment` and `confirmTotpEnrolment` describe the challenge and realm rules. `ErrorBody.code` and `CsrfTokenOptional` describe the above.
+- **Not yet accepted:** API keys (`apiKey` security) on the implemented operations answer 401 until integrations arrive (A-084); the schemes stay in the contract as the target.
+
 ## 1.1.0 (2026-11-13, B1)
 
 Additive only: new optional fields and enum values. A client generated from 1.0.x keeps working; the POS offline queue should adopt the new fields.

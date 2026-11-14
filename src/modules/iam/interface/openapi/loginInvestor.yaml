@@ -1,0 +1,45 @@
+operationId: loginInvestor
+tags:
+  - auth
+summary: "Log in as an investor"
+x-error-codes:
+  - VALIDATION_FAILED
+  - INVALID_CREDENTIALS
+  - RATE_LIMITED
+  - SERVICE_UNAVAILABLE
+security: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/LoginRequest"
+      example:
+        identifier: "esi.bonsu@example.com"
+        password: Shea-Butter-Grove-44
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/LoginResult"
+        example:
+          status: TOTP_REQUIRED
+          challengeToken: hk1.ch.eyJzdWIiOiIwMTlhN2MifQ.d2Fp
+          session: null
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
+  "503":
+    $ref: "#/components/responses/ServiceUnavailable"

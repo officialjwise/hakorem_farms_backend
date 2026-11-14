@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 const BASE_URL = (process.env['E2E_BASE_URL'] ?? 'http://127.0.0.1:3000').replace(/\/$/, '');
 
 describe('the full stack in Docker Compose', () => {
-  it('answers health from the built image with the database and Redis up', async () => {
+  it('answers health from the built image with the database, Redis, the outbox and audit sealing up', async () => {
     const response = await fetch(`${BASE_URL}/v1/health`);
     expect(response.status).toBe(200);
     expect(response.headers.get('x-correlation-id')).toMatch(/^[0-9a-f-]{36}$/);
@@ -16,6 +16,9 @@ describe('the full stack in Docker Compose', () => {
     expect(body.checks.map((check) => [check.name, check.status])).toEqual([
       ['database', 'OK'],
       ['redis', 'OK'],
+      ['outbox_backlog', 'OK'],
+      ['dead_letters', 'OK'],
+      ['audit_sealing_lag', 'OK'],
     ]);
   });
 

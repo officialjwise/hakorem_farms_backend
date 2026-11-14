@@ -94,7 +94,7 @@ The gate is a slice that passes all four test layers and a frontend that can log
 Build the platform services first. These are cross-cutting and owned by no domain module.
 
 - **auth** — Argon2id hashing, short-lived access token with a rotating refresh token in an httpOnly `SameSite=Strict` cookie, TOTP for Owner, Manager and Accountant, device and session list, forced logout, lockout with exponential backoff, and no account enumeration in any error message.
-- **authorization** — a policy engine called from the domain layer rather than the controller, deny by default, object-level ownership checks, and the seeded roles from the shared brief. Separation of duties is enforced here, not by convention.
+- **authorization** — a policy engine called from the application layer (every command and query handler), never only from the controller, deny by default, object-level ownership checks, and the seeded roles from the shared brief. Separation of duties is enforced here, not by convention.
 - **audit** — an append-only writer and an interceptor recording actor, timestamp, IP, and before and after values. Revoke `UPDATE` and `DELETE` on the audit table from the application role, and hash-chain the rows.
 - **outbox** — written in the same transaction as the business change, dispatched by a worker with backoff and a dead letter queue.
 - **observability, storage, queue, notifications and payments** — ports with one adapter each and no business logic in any of them.

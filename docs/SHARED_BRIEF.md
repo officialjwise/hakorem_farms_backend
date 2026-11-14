@@ -404,14 +404,14 @@ These abuse cases are mandatory, each with its control and its detection:
 | Forged webhook marks an order paid | Signature verification, timestamp window, replay cache, and re-verification of amount against the provider API | Webhook rejection log |
 | Driver collects cash on delivery and under-declares | Proof of delivery with amount, driver cash reconciliation at end of day | Driver variance report |
 | Stock adjustment used to hide a shortage | Adjustments above a threshold need approval, reason codes are a fixed list | Adjustment value by user, variance trend |
-| Investor read-only account reaches finance data | Deny-by-default authorisation checked in the domain layer, object-level ownership checks | Authorisation failure alerts |
+| Investor read-only account reaches finance data | Deny-by-default authorisation checked in the application layer, object-level ownership checks | Authorisation failure alerts |
 | Insider exports the customer list | Exports are a permission, every export is audited with row counts | Export volume alerts |
 
 ### Required controls
 
 **Identity and authorisation**
 
-- Deny by default. Authorisation is checked in the domain layer, not only in the controller, and includes object-level ownership checks on every record a user can reach.
+- Deny by default. Authorisation is checked in the application layer (every command and query handler), never only in the controller, and includes object-level ownership checks on every record a user can reach (ADR-0035).
 - Separation of duties enforced in code: maker and checker cannot be the same user on stock write-offs, refunds, price list activation, manual journals, supplier payments and investor distributions.
 - TOTP multi-factor for Owner, Accountant and Manager. Step-up authentication for distributions and for any bulk export.
 - Argon2id password hashing, breached-password check at set time, account lockout with exponential backoff, and no account enumeration in any error message.
@@ -529,7 +529,7 @@ Generate these as folders under `.claude/skills/` in the backend repository, eac
 | `hakorem-ledger` | Any code writing a journal entry or touching the chart of accounts | Balanced posting, correct account selection, period lock check, reversal rather than edit |
 | `hakorem-stock` | Any code changing stock, lots, weights or locations | Append-only movements, reason codes, lot traceability, no quantity updates in place |
 | `hakorem-pricing` | Any work on the pricing engine, price lists, grades or quotes | Resolution order, effective dating, variance capture, approval thresholds |
-| `hakorem-endpoint` | Adding or changing an API endpoint | Schema validation, authorisation at domain level, idempotency key, error envelope, OpenAPI annotation, rate limit |
+| `hakorem-endpoint` | Adding or changing an API endpoint | Schema validation, authorisation in the application layer, idempotency key, error envelope, OpenAPI annotation, rate limit |
 | `hakorem-migration` | Writing a database migration | Expand then contract, backward compatibility for one release, constraint placement, rollback or forward fix |
 | `hakorem-tests` | Writing or fixing tests | Naming, Testcontainers setup, factories over fixtures, coverage gates, no mocked database |
 | `hakorem-security-review` | Changing auth, payments, exports, uploads, webhooks or permissions | The secure coding checklist run item by item, with the finding written into the pull request |
@@ -642,7 +642,7 @@ A piece of work is done when all of the following are true, not when the feature
 
 - The functional requirement it implements is referenced by id in the commit or pull request.
 - Every test layer that applies to it passes: unit, integration against a real Postgres, contract, end to end, and the smoke path if it is a critical flow.
-- Authorisation is checked at the domain layer and there is a test proving the wrong role is refused.
+- Authorisation is checked in the application layer, never only in the controller, with a test proving the wrong role is refused (ADR-0035).
 - The error paths are implemented, not just the happy path, and failure responses carry a correlation id.
 - Any money, stock or weight calculation has a test asserting an exact value, including a rounding edge case.
 - The audit trail records the action with actor, timestamp and before and after values.

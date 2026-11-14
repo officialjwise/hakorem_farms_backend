@@ -9,6 +9,11 @@ const SENSITIVE_KEY = /pass(word)?|secret|token|authori[sz]ation|cookie|otp|totp
 const PHONE_NUMBER = /(?:\+233|\b0)(?:[\s-]?\d){9}\b/g;
 
 export const REDACTED = '[redacted]';
+
+/** Whether a field of this name holds a secret that is never logged, audited or published (ADR-0022). */
+export function isSensitiveKey(key: string): boolean {
+  return SENSITIVE_KEY.test(key);
+}
 const MAX_DEPTH = 8;
 
 function maskPhone(match: string): string {
@@ -34,7 +39,7 @@ export function scrub(value: unknown, depth = 0): unknown {
   }
   const out: Record<string, unknown> = {};
   for (const [key, item] of Object.entries(value)) {
-    out[key] = SENSITIVE_KEY.test(key) ? REDACTED : scrub(item, depth + 1);
+    out[key] = isSensitiveKey(key) ? REDACTED : scrub(item, depth + 1);
   }
   return out;
 }

@@ -1,0 +1,55 @@
+operationId: startTotpEnrolment
+tags:
+  - auth
+summary: "Start TOTP enrolment"
+description: "With a session, send no body and the X-CSRF-Token. During login, after TOTP_ENROLMENT_REQUIRED, send no cookie and the `challengeToken` in the body. The secret is shown once; confirm it with POST /auth/totp/confirm."
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - CHALLENGE_EXPIRED
+  - TOTP_ALREADY_ENROLLED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/CsrfTokenOptional"
+security:
+  - staffSession: []
+  - customerSession: []
+  - investorSession: []
+  - {}
+requestBody:
+  required: false
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/TotpEnrolmentStart"
+      example:
+        challengeToken: hk1.ch.eyJzdWIiOiIwMTlhN2MifQ.d2Fp
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/TotpEnrolment"
+        example:
+          otpauthUri: "otpauth://totp/HaKorem%20Farms:kwabena.owusu?secret=JBSWY3DPEHPK3PXP&issuer=HaKorem%20Farms"
+          secretBase32: JBSWY3DPEHPK3PXP
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

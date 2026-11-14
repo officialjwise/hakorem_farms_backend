@@ -55,7 +55,7 @@ THE RECIPE. Do these in order and do not reorder them.
    The domain layer imports nothing from the framework or the database.
 5. Wire audit, authorisation and the outbox. A module without all three is not finished: every
    state change writes its audit event with before and after values; every handler checks its
-   permission in the domain layer, deny by default, with a test that the wrong role is refused;
+   permission in the application layer (the handler), never only in the controller, deny by default, with a test that the wrong role is refused;
    every event that others react to is written to the outbox in the same transaction as the change.
 6. Regenerate the OpenAPI specification and diff it against contract/openapi.yaml. Anything that
    moved is versioned: bump the version, add an entry to docs/CONTRACT_CHANGELOG.md, and name the
@@ -111,7 +111,7 @@ A piece of work is done when all of the following are true, not when the feature
 
 - [ ] The functional requirement it implements is referenced by id in the commit or pull request (`feat(inventory): post stock take variance (FR-INV-031)`).
 - [ ] Every test layer that applies passes: unit, integration against a real PostgreSQL, contract, end to end, and the smoke path if it is a critical flow.
-- [ ] Authorisation is checked at the domain layer, and a test proves the wrong role is refused.
+- [ ] Authorisation is checked in the application layer, never only in the controller, with a test proving the wrong role is refused (ADR-0035).
 - [ ] The error paths are implemented, not just the happy path, and failure responses carry a correlation id.
 - [ ] Any money, stock or weight calculation has a test asserting an exact value, including a rounding edge case.
 - [ ] The audit trail records the action with actor, timestamp and before and after values.

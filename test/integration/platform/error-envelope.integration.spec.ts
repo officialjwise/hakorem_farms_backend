@@ -2,6 +2,7 @@ import { Controller, Get, Module } from '@nestjs/common';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { BusinessRuleError } from '../../../src/platform/errors/api-error';
+import { Operation } from '../../../src/platform/http/operation';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
 import { startTestApp, type TestApp } from '../../support/test-app';
 
@@ -15,11 +16,13 @@ class ProbeRefusedError extends BusinessRuleError {
 @Controller('probe')
 class ProbeController {
   @Get('refusal')
+  @Operation({ operationId: 'probeRefusal', access: 'PUBLIC', realms: [], permission: null, idempotent: false, csrf: false, rateLimit: 'public' })
   refusal(): never {
     throw new ProbeRefusedError('animal G-0142 is under a withdrawal hold');
   }
 
   @Get('crash')
+  @Operation({ operationId: 'probeCrash', access: 'PUBLIC', realms: [], permission: null, idempotent: false, csrf: false, rateLimit: 'public' })
   crash(): never {
     throw new Error('connection to 10.0.0.7:5432 refused for user hk_app with password hunter2');
   }

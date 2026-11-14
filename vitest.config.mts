@@ -69,8 +69,9 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'json-summary'],
       include: ['packages/kernel/src/**/*.ts', 'src/**/*.ts'],
-      // Excluded by docs/TEST_STRATEGY.md section 6: entry points, the migration runner and test files.
-      exclude: ['**/*.spec.ts', '**/index.ts', 'src/main.ts', 'src/cli/**', 'src/platform/database/migration-runner.ts'],
+      // Excluded by docs/TEST_STRATEGY.md section 6: entry points (the API's and the worker's), the migration runner and
+      // test files.
+      exclude: ['**/*.spec.ts', '**/index.ts', 'src/main.ts', 'src/worker.ts', 'src/cli/**', 'src/platform/database/migration-runner.ts'],
       thresholds: {
         lines: 80,
         statements: 80,

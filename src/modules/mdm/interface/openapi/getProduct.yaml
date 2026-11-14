@@ -1,0 +1,102 @@
+operationId: getProduct
+tags:
+  - mdm
+summary: "Get a product"
+description: "Permission: `mdm.product.read`."
+x-permission: mdm.product.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - NOT_FOUND
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Product"
+        example:
+          id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+          sku: LIV-GOAT
+          name: Goat
+          category:
+            id: "019a7a89-737b-7c17-9150-ca4d5fa2432b"
+            code: LIVE
+            name: "Live animals"
+          stockPolicy: SERIALISED
+          tracking: SERIAL
+          species:
+            id: "019a7a8b-a049-7e16-b34e-ea33ee146311"
+            code: GOAT
+            name: Goat
+          baseUom: HEAD
+          saleUom: HEAD
+          nominalPackKg: null
+          weightTolerancePercent: "10.00"
+          taxCategory:
+            id: "019a7a8a-6af3-7b33-906b-bc092d2a34e7"
+            code: LIVE_ANIMALS
+            name: "Live Animals"
+          glGroup: LIVE_ANIMALS
+          shelfLifeDays: null
+          storageTempClass: null
+          withdrawalDays: null
+          barcode: null
+          description: "Individually tagged and weighed. Priced by size and weight."
+          onlineMode: REQUEST_TO_BUY
+          seo:
+            slug: goat
+            title: "Goat | HaKorem Farms"
+            description: null
+          isPurchasable: true
+          isSellable: true
+          status: ACTIVE
+          images:
+            - id: "019a7aa1-4166-7822-ad5b-8afe04d703db"
+              fileId: "019a7aa1-6055-7206-b73e-29357e88a213"
+              altText: "Front view"
+              sortOrder: 0
+              variants:
+                - variant: thumb
+                  url: "https://media.hakoremfarms.com/p/019a7aa1-6055-7206-b73e-29357e88a213/thumb.webp"
+                  width: 160
+                  height: 160
+                - variant: card
+                  url: "https://media.hakoremfarms.com/p/019a7aa1-6055-7206-b73e-29357e88a213/card.webp"
+                  width: 480
+                  height: 480
+                - variant: full
+                  url: "https://media.hakoremfarms.com/p/019a7aa1-6055-7206-b73e-29357e88a213/full.webp"
+                  width: 1200
+                  height: 1200
+          version: 2
+          createdAt: "2026-11-02T08:00:00Z"
+          updatedAt: "2026-11-10T14:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

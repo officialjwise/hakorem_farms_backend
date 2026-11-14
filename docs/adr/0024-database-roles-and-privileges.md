@@ -34,7 +34,7 @@ Rules:
 - Every `LEDGER` table also has triggers that reject `UPDATE`, `DELETE` and `TRUNCATE` for all roles, so the rule does not depend on privileges alone.
 - `PUBLIC` has no privileges on any schema.
 - No application process connects as a superuser. Superuser access is for the server administrator, over SSH, and is an event for the incident log.
-- Row-level security is not used in version one. Branch and ownership scoping is enforced in the domain layer (ADR-0017) and tested per module.
+- Row-level security is not used in version one. Branch and ownership scoping is enforced in the application layer (ADR-0017, ADR-0035) and tested per module.
 - Staging and production have separate databases, roles and credentials.
 - Connections go directly from the application to PostgreSQL. No transaction-mode pooler is placed between them, because the unit of work relies on session-level advisory locks (ADR-0005).
 

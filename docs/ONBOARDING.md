@@ -108,7 +108,7 @@ One command takes a fresh clone to a running, seeded API. B2's gate is that this
 2. **Enable Corepack** and fetch the pinned pnpm.
 3. **Install packages** with `pnpm install --frozen-lockfile`.
 4. **Create `.env`** from `.env.example`, generating development-only secrets (signing keys, cookie secrets, a local key-encryption key). It never overwrites an existing `.env`, and never writes a real secret anywhere that is committed.
-5. **Start the stack** with `docker compose up --detach --wait`: PostgreSQL 17, Redis 7 and MinIO, and wait for each health check to pass.
+5. **Start the stack** with `docker compose up --detach --wait`: PostgreSQL 17, Redis 7 and the object store (Versity Gateway, ADR-0032), and wait for each health check to pass.
 6. **Create the database roles and run the migrations** (`pnpm db:migrate`), as the migration role, in order.
 7. **Seed the farm** (`pnpm db:seed`): the Dodowa branch, the catalogue, price lists, tax scheme, chart of accounts, staff and roles, customers, suppliers, investors, stock and some trading history. The seed refuses to run against production and every seeded record is marked as seed. Each module session extends it, so later sessions inherit a realistic farm.
 8. **Start the API and worker** and wait for `GET /v1/health` to answer.
@@ -125,7 +125,7 @@ To start again from nothing: `docker compose down --volumes`, delete `node_modul
 After B2:
 
 ```bash
-pnpm dev          # API and worker with reload; Postgres, Redis and MinIO in Docker
+pnpm dev          # API and worker with reload; Postgres, Redis and the object store in Docker
 ```
 
 - The API listens on `http://localhost:3000/v1` (the local server listed in the contract).

@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -9,6 +9,23 @@ let database: TestDatabase;
 let directory: string;
 
 const REPOSITORY_MIGRATIONS = resolve(__dirname, '../../../migrations');
+/** Every repository migration, by name, in the order the runner applies them. */
+const REPOSITORY_NAMES = readdirSync(REPOSITORY_MIGRATIONS)
+  .filter((file) => file.endsWith('.sql'))
+  .sort()
+  .map((file) => file.replace(/\.sql$/, ''));
+
+/** Rolls back every applied migration, newest first, and returns what it rolled back. */
+async function rollbackAll(url: string): Promise<string[]> {
+  const rolledBack: string[] = [];
+  for (;;) {
+    const outcome = await rollback(url, REPOSITORY_MIGRATIONS);
+    if (outcome.kind !== 'ROLLED_BACK') {
+      return rolledBack;
+    }
+    rolledBack.push(outcome.name);
+  }
+}
 
 beforeAll(async () => {
   database = await createTestDatabase();
@@ -30,16 +47,16 @@ describe('the migration runner (ADR-0030)', () => {
   it('finds the repository migrations already applied to the template and reapplies nothing', async () => {
     const outcome = await migrate(database.url('migrator'), REPOSITORY_MIGRATIONS);
     expect(outcome.applied).toEqual([]);
-    expect(await appliedVersions()).toEqual(['0001:hk_migrator']);
+    expect(await appliedVersions()).toEqual(REPOSITORY_NAMES.map((name) => `${name.slice(0, 4)}:hk_migrator`));
   });
 
-  it('rolls back the last migration and applies it again, leaving the same schema', async () => {
-    expect(await rollback(database.url('migrator'), REPOSITORY_MIGRATIONS)).toEqual({ kind: 'ROLLED_BACK', name: '0001_platform_create_schema' });
-    const gone = await database.pool('admin').query("SELECT 1 FROM pg_namespace WHERE nspname = 'platform'");
+  it('rolls back every migration, newest first, and applies them all again, leaving the same schema', async () => {
+    expect(await rollbackAll(database.url('migrator'))).toEqual([...REPOSITORY_NAMES].reverse());
+    const gone = await database.pool('admin').query("SELECT 1 FROM pg_namespace WHERE nspname IN ('platform', 'iam', 'mdm')");
     expect(gone.rowCount).toBe(0);
     expect(await rollback(database.url('migrator'), REPOSITORY_MIGRATIONS)).toEqual({ kind: 'NOTHING_APPLIED' });
 
-    expect((await migrate(database.url('migrator'), REPOSITORY_MIGRATIONS)).applied).toEqual(['0001_platform_create_schema']);
+    expect((await migrate(database.url('migrator'), REPOSITORY_MIGRATIONS)).applied).toEqual(REPOSITORY_NAMES);
     const owner = await database
       .pool('admin')
       .query<{ owner: string }>("SELECT pg_get_userbyid(nspowner) AS owner FROM pg_namespace WHERE nspname = 'platform'");
@@ -49,7 +66,7 @@ describe('the migration runner (ADR-0030)', () => {
   it('refuses a migration that was edited after it was applied', async () => {
     const fresh = await createTestDatabase();
     try {
-      await rollback(fresh.url('migrator'), REPOSITORY_MIGRATIONS);
+      await rollbackAll(fresh.url('migrator'));
       const probeDir = mkdtempSync(join(tmpdir(), 'hk-edited-'));
       const file = join(probeDir, '0001_platform_create_schema.sql');
       writeFileSync(file, '-- migrate:up\nCREATE SCHEMA platform AUTHORIZATION hk_owner;\n-- migrate:down\nDROP SCHEMA platform;\n');
@@ -71,7 +88,7 @@ describe('the migration runner (ADR-0030)', () => {
     );
     const fresh = await createTestDatabase();
     try {
-      await rollback(fresh.url('migrator'), REPOSITORY_MIGRATIONS);
+      await rollbackAll(fresh.url('migrator'));
       await fresh.pool('admin').query('CREATE SCHEMA platform AUTHORIZATION hk_owner');
       await migrate(fresh.url('migrator'), directory);
       expect(await rollback(fresh.url('migrator'), directory)).toEqual({
@@ -95,7 +112,7 @@ describe('the migration runner (ADR-0030)', () => {
     );
     const fresh = await createTestDatabase();
     try {
-      await rollback(fresh.url('migrator'), REPOSITORY_MIGRATIONS);
+      await rollbackAll(fresh.url('migrator'));
       await fresh.pool('admin').query('CREATE SCHEMA platform AUTHORIZATION hk_owner');
       const failure = await migrate(fresh.url('migrator'), dir).catch((error: unknown) => error);
       expect(failure).toBeInstanceOf(MigrationError);

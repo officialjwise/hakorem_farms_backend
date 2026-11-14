@@ -17,6 +17,11 @@ function withVersion(document: JsonObject, version: string): JsonObject {
   return { ...document, info: { ...(document['info'] as JsonObject), version } };
 }
 
+/** The committed version and the next minor one, read from the file so the tests outlive each version bump. */
+const CURRENT = String((committed()['info'] as JsonObject)['version']);
+const [MAJOR, MINOR] = CURRENT.split('.').map(Number) as [number, number];
+const NEXT_MINOR = `${MAJOR}.${MINOR + 1}.0`;
+
 describe('contract versioning (FR-API-001)', () => {
   it('fails on an unversioned breaking change', () => {
     const previous = committed();
@@ -24,17 +29,17 @@ describe('contract versioning (FR-API-001)', () => {
     // Remove a required response field from Health without a version bump.
     delete (schema(next, 'Health')['properties'] as JsonObject)['version'];
     expect(versioningProblems(previous, next)).toEqual([
-      'the contract changed but info.version stayed 1.1.0',
-      'breaking changes need a new major version (still 1.x): schema Health lost property version',
+      `the contract changed but info.version stayed ${CURRENT}`,
+      `breaking changes need a new major version (still ${MAJOR}.x): schema Health lost property version`,
     ]);
   });
 
   it('fails on a breaking change that bumps only the minor version', () => {
     const previous = committed();
-    const next = withVersion(structuredClone(previous), '1.2.0');
+    const next = withVersion(structuredClone(previous), NEXT_MINOR);
     (schema(next, 'HealthCheck')['required'] as string[]).push('since');
     expect(versioningProblems(previous, next)).toEqual([
-      'breaking changes need a new major version (still 1.x): schema HealthCheck now requires since',
+      `breaking changes need a new major version (still ${MAJOR}.x): schema HealthCheck now requires since`,
     ]);
   });
 
@@ -49,8 +54,8 @@ describe('contract versioning (FR-API-001)', () => {
     const previous = committed();
     const additive = structuredClone(previous);
     (schema(additive, 'Health')['properties'] as JsonObject)['region'] = { type: 'string' };
-    expect(versioningProblems(previous, withVersion(additive, '1.2.0'))).toEqual([]);
-    expect(versioningProblems(previous, additive)).toEqual(['the contract changed but info.version stayed 1.1.0']);
+    expect(versioningProblems(previous, withVersion(additive, NEXT_MINOR))).toEqual([]);
+    expect(versioningProblems(previous, additive)).toEqual([`the contract changed but info.version stayed ${CURRENT}`]);
   });
 
   it('passes an unchanged contract', () => {

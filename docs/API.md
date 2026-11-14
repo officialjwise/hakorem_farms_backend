@@ -58,7 +58,7 @@ Integrations authenticate with an API key (section 3.8). A POS device adds a dev
 
 ### 3.1 Staff login, exact flow
 
-Lifetimes below are the design defaults of ADR-0016. B3 finalises them and records the final values in its session report; the response fields `accessExpiresAt` and `refreshExpiresAt` are always authoritative, and a client must use them and not hard-code a duration.
+Lifetimes below are the design defaults of ADR-0016, which B3 kept as the values (A-065, `docs/sessions/B03-platform-slice.md`); the response fields `accessExpiresAt` and `refreshExpiresAt` are always authoritative, and a client must use them and not hard-code a duration.
 
 | Token | Design lifetime |
 | --- | --- |
@@ -95,12 +95,12 @@ sequenceDiagram
 1. **`POST /auth/staff/login`** with `identifier` (email, or phone in E.164 form), `password` and an optional `deviceLabel` that appears in the user's device list. No cookie, CSRF token or idempotency key is needed. The `status` in the 200 response says what happens next:
    - `AUTHENTICATED`: cookies are set and `session` is returned.
    - `TOTP_REQUIRED`: a `challengeToken` is returned. TOTP is mandatory for Owner, Accountant and Manager and optional for others who have enrolled.
-   - `TOTP_ENROLMENT_REQUIRED`: a privileged user who has no second factor yet. The client calls the enrolment endpoints with the challenge (3.4) before a session exists.
-   - `PASSWORD_CHANGE_REQUIRED`: a temporary password (new staff account, or after a reset by a manager). The client asks for a new password and calls `POST /auth/password/change`.
+   - `TOTP_ENROLMENT_REQUIRED`: a privileged user who has no second factor yet. The client calls `POST /auth/totp/enrol` with `{ "challengeToken" }` and no cookie, shows the secret, then `POST /auth/totp/confirm` with `{ "challengeToken", "code" }`. Confirming completes the login: the cookies are set on that response and the client calls `GET /auth/session` (3.4).
+   - `PASSWORD_CHANGE_REQUIRED`: a temporary password (new staff account, or after a reset by a manager). The client asks for a new password and calls `POST /auth/password/change` with `{ "challengeToken", "currentPassword", "newPassword" }` and no cookie (204), then logs in again with the new password, which may lead to the TOTP steps.
    - `VERIFICATION_REQUIRED`: used by customers (3.2).
    Failures use one message and take the same time whether or not the account exists (401 `INVALID_CREDENTIALS`). Repeated failures back off exponentially per account and per address (429 `RATE_LIMITED` with `Retry-After`). A client must not reveal which part was wrong.
-2. **`POST /auth/totp/verify`** with the `challengeToken` and a six-digit code (or a recovery code). On success it behaves as the `AUTHENTICATED` branch above.
-3. **`GET /auth/session`** returns the current session: `sessionId`, `realm`, `principal`, `csrfToken`, `accessExpiresAt`, `refreshExpiresAt`, `steppedUpAt`, `mustChangePassword`, `totpEnrolled` and `grants` (role, branch, location). Call it after login and after a page reload. The CSRF token is bound to the session, not to the page, so a reload gets the same token.
+2. **`POST /auth/totp/verify`** with the `challengeToken` and a six-digit code (or a recovery code). On success it behaves as the `AUTHENTICATED` branch above. A code is accepted once (the next code is needed for the next login); five wrong codes spend the challenge (401 `CHALLENGE_EXPIRED`); a challenge lasts five minutes.
+3. **`GET /auth/session`** returns the current session: `sessionId`, `realm`, `principal`, `csrfToken`, `accessExpiresAt`, `refreshExpiresAt`, `steppedUpAt`, `mustChangePassword`, `totpEnrolled` and `grants` (role, branch, location). Call it after login and after a page reload. The CSRF token is bound to the session, not to the page, so a reload gets the same token; it stays the same for the session's life, refresh included (ADR-0034).
 4. Roles and grants are not in the token. They are read on each request from a cache that is invalidated on any grant change, so a permission change takes effect on the next request. A client uses `grants` to decide what to show; the server enforces regardless.
 
 ### 3.2 Customer and investor flows
@@ -111,14 +111,15 @@ sequenceDiagram
 
 ### 3.3 Refresh and rotation
 
-- Call **`POST /auth/refresh`** (no body; it reads the refresh cookie) when a request returns 401 `UNAUTHENTICATED` and the session has not been logged out, and shortly before `accessExpiresAt`. The response is the new session object, with new `accessExpiresAt` and a new `csrfToken`, and new cookies. Only one refresh should be in flight at a time: the client serialises calls, and queued requests wait for it.
+- Call **`POST /auth/refresh`** (no body; it reads the refresh cookie; the `Origin` header must be on the allow-list) when a request returns 401 `UNAUTHENTICATED` and the session has not been logged out, and shortly before `accessExpiresAt`. The response is the new session object, with new `accessExpiresAt` and a new `csrfToken`, and new cookies. Only one refresh should be in flight at a time: the client serialises calls, and queued requests wait for it.
 - **Every refresh rotates the refresh token.** The previous token stops working. If a token that was already rotated is presented again (a copied token, or two tabs racing without coordination), the whole session is revoked and an alert is raised, and every later request returns 401. The client then shows the login screen. Because of this, the console coordinates refreshes across tabs (a lock in the browser), and never retries a refresh with a stale response.
 - A session also ends at the absolute lifetime, when the user or a manager revokes it (`revokeSession`), when a manager disables the account, and at logout. Revocation takes effect on the next request.
 - If the refresh itself fails with 401, there is no session: send the user to login.
+- **Two realms in one browser.** All three realms share the API host, so a browser that holds a staff and a customer session sends both. `refreshSession`, `getCurrentSession` and `logout` then need `?realm=STAFF` (or `CUSTOMER`, `INVESTOR`); without it they answer 400 `VALIDATION_FAILED` naming `/realm` (refresh: 401). With one session, leave it out.
 
 ### 3.4 TOTP and step-up
 
-- **Enrol:** `POST /auth/totp/enrol` (needs a session or, during first login, the challenge) returns `otpauthUri` and `secretBase32`, shown once. The client renders the URI as a QR code. `POST /auth/totp/confirm` with the first code activates it and returns single-use recovery codes, shown once and stored hashed.
+- **Enrol:** `POST /auth/totp/enrol` (with a session and the CSRF token, or during first login with `{ "challengeToken" }` in the body and no cookie) returns `otpauthUri` and `secretBase32`, shown once. The client renders the URI as a QR code. `POST /auth/totp/confirm` with the first code activates it and returns single-use recovery codes, shown once and stored hashed.
 - **Step-up:** some operations need a TOTP code entered within the last five minutes on the same session. The operation description says "Requires step-up", for example posting a distribution run, bulk export, role and grant changes, tax scheme and posting rule changes, creating an API key. If the step-up is missing or stale the API returns **403 `STEP_UP_REQUIRED`**. The client then asks for a code, calls **`POST /auth/step-up`** with it (the response is the session with a new `steppedUpAt`), and repeats the original request with the same `Idempotency-Key`. A user who has no TOTP enrolled gets 403 `TOTP_ENROLMENT_REQUIRED`.
 
 ### 3.5 CSRF
@@ -318,6 +319,7 @@ The "Source" column says where the code comes from. **Contract** means the code 
 | `PASSWORD_CHANGE_REQUIRED` | 403 | The account has a temporary password; change it first |
 | `DEVICE_CREDENTIAL_INVALID` | 401 | The `X-Device-Credential` is missing or unknown |
 | `DEVICE_REVOKED` | 403 | The device was revoked by a manager |
+| `TOTP_ALREADY_ENROLLED` | 422 | An authenticator is already confirmed for this account (B3) |
 
 #### Requests, idempotency and size (Added)
 
@@ -336,6 +338,15 @@ The "Source" column says where the code comes from. **Contract** means the code 
 | --- | --- | --- |
 | `APPROVAL_ALREADY_DECIDED` | 422 | The approval request was already approved, rejected or cancelled |
 | `APPROVAL_EXPIRED` | 422 | The approval request lapsed before it was decided |
+| `APPROVAL_SUBJECT_CHANGED` | 422 | The record changed after approval was requested; the approval is void. Request approval again (B3) |
+
+#### Master data (Added in B3)
+
+| Code | HTTP | Meaning |
+| --- | --- | --- |
+| `DUPLICATE_VALUE` | 422 | A unique value (SKU, barcode, storefront slug) is already used by another live record. `details` names each field |
+| `REFERENCE_NOT_FOUND` | 422 | An id in the request names no record (an unknown category, species, tax category or unit). `details` names each field |
+| `STOCK_POLICY_CONFLICT` | 422 | The product's fields contradict its stock-keeping policy, for example a serialised animal without a species or listed for the cart, or catch-weight stock not held in kilograms. `details` names each field and rule |
 
 #### Stock, livestock and processing (Added)
 
@@ -430,7 +441,7 @@ An action that needs a second person returns **202** with this body, and **nothi
 
 ## 12. Rate limits
 
-Counted per address, per account and per API key in Redis. Over the limit: 429 `RATE_LIMITED` with `Retry-After`. The numbers below are the design defaults; B3 sets the final values as settings and records them in `docs/OPERATIONS.md`. When Redis is unavailable the sensitive endpoints fail closed (the request is refused) and the rest fail open.
+Counted per address, per account and per API key in Redis. Over the limit: 429 `RATE_LIMITED` with `Retry-After`. B3 kept the design defaults below as the values (A-088); each is a setting the owner can change without a deployment (`rate_limit.auth.per_address_15m`, `rate_limit.console.per_account_1m`, `rate_limit.public.per_address_1m`, `rate_limit.health.per_address_1m`), listed in `docs/OPERATIONS.md`. A sensitive group that fails closed answers 503 `SERVICE_UNAVAILABLE` while Redis is down. When Redis is unavailable the sensitive endpoints fail closed (the request is refused) and the rest fail open.
 
 | Group | Limit by | Design default | If Redis is down |
 | --- | --- | --- | --- |
@@ -488,7 +499,7 @@ Integrations subscribe to events with `POST /integrations/{id}/webhook-endpoints
 
 ## 15. Extensions: `x-permission` and `x-owner-module`
 
-- **`x-permission`** is on every staff operation (535 of 600). It names the permission code the domain layer checks, for example `pos.sale.create`. The frontend uses it with the session's `grants` to decide which actions to offer. It is a hint: the server checks regardless, and a missing permission is 403 `FORBIDDEN`. A new permission is granted to no role until someone adds it. Operations for customers, investors, guests and providers carry no `x-permission`; their access rules are ownership ("the caller's own").
+- **`x-permission`** is on every staff operation (535 of 600). It names the permission code the application layer checks in the handler, for example `pos.sale.create`. The frontend uses it with the session's `grants` to decide which actions to offer. It is a hint: the server checks regardless, and a missing permission is 403 `FORBIDDEN`. A new permission is granted to no role until someone adds it. Operations for customers, investors, guests and providers carry no `x-permission`; their access rules are ownership ("the caller's own").
 - **`x-owner-module`** appears on 13 operations where the module that owns the behaviour differs from the tag the operation is filed under. Example: `POST /pos/sales` is tagged `pos` and owned by `ord`, because one code path posts a sale on every channel (ADR-0026). The tag is the module a person would look under; `x-owner-module` is the module whose tables the operation changes and whose domain rules answer. It matters for support and for tracing, not for the client.
 
 ## 16. Files

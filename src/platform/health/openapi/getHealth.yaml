@@ -1,0 +1,70 @@
+operationId: getHealth
+tags:
+  - platform
+summary: "Report system health"
+description: "Read by the deploy pipeline, the smoke suite and the uptime monitor. Reports the database, Redis and each mechanism built so far: outbox backlog, dead letters and audit sealing lag from 1.2.0; WAL archiving, queue depth, projection lag and the last run of each reconciliation job join as they are built. A mechanism that needs attention is DEGRADED (dead letters, a stale outbox or sealing lag) and the answer is still 200. Returns 503 when any check is DOWN."
+x-error-codes:
+  - RATE_LIMITED
+  - SERVICE_UNAVAILABLE
+security: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Health"
+        example:
+          status: OK
+          version: "1.0.0+9f3c2a1"
+          checkedAt: "2026-11-13T09:30:00Z"
+          checks:
+            - name: database
+              status: OK
+              observed: "3 ms"
+              detail: null
+            - name: wal_archive_age
+              status: OK
+              observed: "41 s"
+              detail: null
+            - name: redis
+              status: OK
+              observed: "1 ms"
+              detail: null
+            - name: queue_depth
+              status: OK
+              observed: "4"
+              detail: null
+            - name: outbox_backlog
+              status: OK
+              observed: "2"
+              detail: "Oldest undelivered 0.8 s"
+            - name: dead_letters
+              status: OK
+              observed: "0"
+              detail: null
+            - name: audit_sealing_lag
+              status: OK
+              observed: "1.2 s"
+              detail: null
+            - name: projection_lag
+              status: OK
+              observed: "3 s"
+              detail: null
+            - name: last_stock_recompute
+              status: OK
+              observed: "2026-11-13T02:14:00Z"
+              detail: SUCCESS
+            - name: last_trial_balance_check
+              status: OK
+              observed: "2026-11-13T02:21:00Z"
+              detail: SUCCESS
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
+  "503":
+    $ref: "#/components/responses/ServiceUnavailable"

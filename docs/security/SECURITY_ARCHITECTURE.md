@@ -107,8 +107,8 @@ The design is recorded in ADR-0016. In summary:
 | Access token | Signed JWT, 10 minutes, cookie `__Host-hk_s_at`, `__Host-hk_c_at` or `__Host-hk_i_at` by realm |
 | Refresh token | Opaque, rotating, hashed at rest, cookie `__Host-hk_s_rt`, `__Host-hk_c_rt` or `__Host-hk_i_rt`; reuse revokes the session |
 | Cookie attributes | `HttpOnly`, `Secure`, `SameSite=Strict`, host-bound to the API host by the `__Host-` prefix |
-| CSRF | Session-bound token in `X-CSRF-Token` on every state-changing request, plus an origin check |
-| Sessions | Listed per user as devices; revocable by the user or a manager; revocation is immediate |
+| CSRF | Session-bound token in `X-CSRF-Token` on every state-changing request, plus an origin check. The token is derived from the session id with a server key and stored hashed, so a reload gets the same one (ADR-0034) |
+| Sessions | Listed per user as devices; revocable by the user or a manager; revocation is immediate: the session row and the grants are read on every request, with no cache (ADR-0034) |
 | Lockout | Exponential backoff per account, rate limit per address |
 | Enumeration | Identical response and timing for known and unknown accounts on login and reset |
 | Step-up | Fresh TOTP within five minutes for distributions, bulk exports, role, grant and posting rule changes |

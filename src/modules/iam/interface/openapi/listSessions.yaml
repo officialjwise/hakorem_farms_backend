@@ -1,0 +1,135 @@
+operationId: listSessions
+tags:
+  - iam
+summary: "List sessions (the device list)"
+description: "Permission: `iam.session.read`. Ownership: without `iam.session.read.any`, only the caller's own sessions."
+x-permission: iam.session.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: principalId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: active
+    in: query
+    required: false
+    schema:
+      type: boolean
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/SessionRecordPage"
+        example:
+          data:
+            - id: "019a7a96-2382-7a63-af9c-af0e493b27ec"
+              principal:
+                id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                displayName: "Adwoa Darko"
+              realm: STAFF
+              deviceLabel: "Shop till tablet"
+              userAgent: "Mozilla/5.0 (Linux; Android 11; SM-T225)"
+              ipAddress: "102.176.94.21"
+              createdAt: "2026-11-13T06:30:00Z"
+              lastSeenAt: "2026-11-13T09:10:00Z"
+              current: true
+              revokedAt: null
+            - id: "019a7a96-0493-7080-95b8-10d6cf8a89b4"
+              principal:
+                id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                displayName: "Adwoa Darko"
+              realm: STAFF
+              deviceLabel: "Adwoa phone"
+              userAgent: "Mozilla/5.0 (Linux; Android 9; TECNO KC8)"
+              ipAddress: "41.66.212.8"
+              createdAt: "2026-11-13T06:31:00Z"
+              lastSeenAt: "2026-11-13T09:11:00Z"
+              current: false
+              revokedAt: null
+            - id: "019a7a96-4271-7447-b97f-4d45c2ecc623"
+              principal:
+                id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                displayName: "Kwabena Owusu"
+              realm: STAFF
+              deviceLabel: "Office laptop"
+              userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+              ipAddress: "154.160.3.77"
+              createdAt: "2026-11-13T06:32:00Z"
+              lastSeenAt: "2026-11-13T09:12:00Z"
+              current: false
+              revokedAt: null
+            - id: "019a7a96-6160-7e2a-8363-eb7d3c9d645b"
+              principal:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              realm: STAFF
+              deviceLabel: "Store tablet"
+              userAgent: "Mozilla/5.0 (Linux; Android 11; SM-T225)"
+              ipAddress: "102.176.94.21"
+              createdAt: "2026-11-13T06:33:00Z"
+              lastSeenAt: "2026-11-13T09:13:00Z"
+              current: false
+              revokedAt: null
+            - id: "019a7a96-804f-780e-9d46-89b4b64e0292"
+              principal:
+                id: "019a7a86-caf1-728b-b7c3-3188ea6caa66"
+                displayName: "Nana Yeboah"
+              realm: STAFF
+              deviceLabel: "Shop till tablet 2"
+              userAgent: "Mozilla/5.0 (Linux; Android 9; TECNO KC8)"
+              ipAddress: "41.66.212.8"
+              createdAt: "2026-11-13T06:34:00Z"
+              lastSeenAt: "2026-11-13T09:14:00Z"
+              current: false
+              revokedAt: null
+            - id: "019a7a96-9f3e-71f1-a729-27ec2fffa0ca"
+              principal:
+                id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+                displayName: "Kwesi Appiah"
+              realm: STAFF
+              deviceLabel: "Kwesi phone"
+              userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+              ipAddress: "154.160.3.77"
+              createdAt: "2026-11-13T06:35:00Z"
+              lastSeenAt: "2026-11-13T09:15:00Z"
+              current: false
+              revokedAt: "2026-11-12T18:02:00Z"
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

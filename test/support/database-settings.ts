@@ -16,6 +16,7 @@ declare module 'vitest' {
   export interface ProvidedContext {
     database: ProvidedDatabase;
     redisUrl: string;
+    objectStore: { endpoint: string; accessKeyId: string; secretAccessKey: string };
   }
 }
 

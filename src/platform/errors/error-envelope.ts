@@ -1,6 +1,6 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
 import type { Logger } from 'pino';
-import { translate, type MessageKey } from '../i18n/messages';
+import { hasMessage, translate } from '../i18n/messages';
 import { ApiError, type ErrorDetail } from './api-error';
 
 export interface ErrorEnvelope {
@@ -15,10 +15,11 @@ export interface ErrorEnvelope {
 export interface MappedError {
   readonly status: number;
   readonly envelope: ErrorEnvelope;
+  readonly headers: Readonly<Record<string, string>>;
 }
 
 /** Generic codes for statuses raised by the framework rather than by our own errors (docs/API.md 10.3). */
-const GENERIC_BY_STATUS: Readonly<Record<number, { code: string; messageKey: MessageKey }>> = {
+const GENERIC_BY_STATUS: Readonly<Record<number, { code: string; messageKey: string }>> = {
   [HttpStatus.BAD_REQUEST]: { code: 'VALIDATION_FAILED', messageKey: 'error.validation_failed' },
   [HttpStatus.UNAUTHORIZED]: { code: 'UNAUTHENTICATED', messageKey: 'error.unauthenticated' },
   [HttpStatus.FORBIDDEN]: { code: 'FORBIDDEN', messageKey: 'error.forbidden' },
@@ -42,7 +43,11 @@ export function toErrorEnvelope(error: unknown, correlationId: string, logger: L
     if (error.status >= HttpStatus.INTERNAL_SERVER_ERROR) {
       logger.error({ err: error, status: error.status, code: error.code }, 'request failed');
     }
-    return build(error.status, error.code, error.messageKey, error.details, correlationId);
+    if (!hasMessage(error.messageKey)) {
+      logger.error({ code: error.code, messageKey: error.messageKey }, 'error has no registered message');
+      return build(error.status, error.code, 'error.internal', error.details, correlationId, error.headers);
+    }
+    return build(error.status, error.code, error.messageKey, error.details, correlationId, error.headers);
   }
   if (error instanceof HttpException) {
     const status = error.getStatus();
@@ -58,9 +63,10 @@ export function toErrorEnvelope(error: unknown, correlationId: string, logger: L
 function build(
   status: number,
   code: string,
-  messageKey: MessageKey,
+  messageKey: string,
   details: readonly ErrorDetail[],
   correlationId: string,
+  headers: Readonly<Record<string, string>> = {},
 ): MappedError {
-  return { status, envelope: { error: { code, message: translate(messageKey), correlationId, details } } };
+  return { status, headers, envelope: { error: { code, message: translate(messageKey), correlationId, details } } };
 }

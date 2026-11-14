@@ -26,6 +26,12 @@ export const APP_PRIVILEGES: Readonly<Record<TableClass, readonly string[]>> = {
 };
 
 const CLASS_COMMENT = /(?:^|;)\s*class=([A-Z]+)\s*(?:;|$)/;
+/**
+ * `writer=hk_sealer` marks a LEDGER table that only the audit sealer writes (ADR-0006, ADR-0034): the application
+ * roles may read it and nothing else.
+ */
+const WRITER_COMMENT = /(?:^|;)\s*writer=(hk_[a-z]+)\s*(?:;|$)/;
+export const SEALER_ONLY_APP_PRIVILEGES: readonly string[] = ['SELECT'];
 
 // pg_trigger.tgtype bits
 const TRIGGER_ROW = 1;
@@ -90,10 +96,15 @@ export async function checkTableClasses(client: Queryable, architecture: Archite
       continue;
     }
     const tableClass = declared as TableClass;
-    const expected = [...APP_PRIVILEGES[tableClass]].sort();
+    const writer = WRITER_COMMENT.exec(table.comment ?? '')?.[1];
+    if (writer !== undefined && (writer !== 'hk_sealer' || tableClass !== 'LEDGER')) {
+      problems.push(`${name} declares writer=${writer}; only LEDGER tables may name a writer, and only hk_sealer`);
+      continue;
+    }
+    const expected = [...(writer === undefined ? APP_PRIVILEGES[tableClass] : SEALER_ONLY_APP_PRIVILEGES)].sort();
     const actual = await privilegesOf(client, 'hk_app', table.oid);
     if (expected.join(',') !== actual.join(',')) {
-      problems.push(`${name} is ${tableClass}: hk_app should hold ${expected.join(', ')} but holds ${actual.join(', ') || 'nothing'}`);
+      problems.push(`${name} is ${tableClass}${writer === undefined ? '' : ` written by ${writer}`}: hk_app should hold ${expected.join(', ')} but holds ${actual.join(', ') || 'nothing'}`);
     }
     const publicHolds = await privilegesOf(client, 'public', table.oid);
     if (publicHolds.length > 0) {

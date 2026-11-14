@@ -79,7 +79,7 @@ One row per login: the device list.
 | `device_label` | `text` | NULL | Shown in the device list |
 | `user_agent` | `text` | NULL | |
 | `ip_created` | `inet` | NULL | |
-| `csrf_token_hash` | `bytea` | NOT NULL | CSRF token bound to the session |
+| `csrf_token_hash` | `bytea` | NOT NULL | SHA-256 of the CSRF token, which is derived from the session id with a server key so a reload gets the same one (ADR-0034) |
 | `created_at` | `timestamptz` | NOT NULL DEFAULT `now()` | |
 | `last_seen_at` | `timestamptz` | NOT NULL | Idle timeout |
 | `idle_expires_at` | `timestamptz` | NOT NULL | |
@@ -90,6 +90,7 @@ One row per login: the device list.
 | `revoke_reason` | `text` | NULL | |
 
 - Never deleted. Index (`principal_id`) where `revoked_at IS NULL`.
+- Carries only the columns listed: a session has no branch, status or version. Trigger: a revoked session cannot change (SQLSTATE HK003).
 
 ### `iam.refresh_token` · WORK
 
@@ -109,14 +110,15 @@ Rotating refresh tokens. Kept after use so that reuse is detectable.
 
 ### `iam.verification_token` · WORK
 
-One-time tokens for password reset, phone and email verification and login codes.
+One-time tokens for password reset, phone and email verification and login codes, and the challenge between login steps (ADR-0034).
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `id` | `uuid` | PK | |
 | `principal_id` | `uuid` | NOT NULL, FK `iam.principal` | |
-| `purpose` | `text` | NOT NULL, CHECK in (`PASSWORD_RESET`, `PHONE_VERIFY`, `EMAIL_VERIFY`, `LOGIN_CODE`) | |
-| `token_hash` | `bytea` | NOT NULL | |
+| `purpose` | `text` | NOT NULL, CHECK in (`PASSWORD_RESET`, `PHONE_VERIFY`, `EMAIL_VERIFY`, `LOGIN_CODE`, `LOGIN_TOTP`, `LOGIN_TOTP_ENROLMENT`, `LOGIN_PASSWORD_CHANGE`) | The `LOGIN_*` purposes are the steps between password and session (B3) |
+| `token_hash` | `bytea` | NOT NULL, UNIQUE | |
+| `device_label` | `text` | NULL | The login's device label, carried to the session the challenge ends in (B3) |
 | `expires_at` | `timestamptz` | NOT NULL | |
 | `attempts` | `integer` | NOT NULL DEFAULT 0 | Caps guessing |
 | `consumed_at` | `timestamptz` | NULL | Single use |
@@ -248,8 +250,10 @@ One maker-checker request. Posted statuses: `APPROVED`, `REJECTED`, `CANCELLED`,
 | `decision_reason` | `text` | NULL; required for `REJECTED` | |
 | `expires_at` | `timestamptz` | NULL | Stale requests lapse |
 | `version` | `integer` | NOT NULL DEFAULT 1 | Optimistic lock |
+| `updated_at` | `timestamptz` | NOT NULL DEFAULT `now()` | Set by `platform.touch_version()` |
 
 - **CHECK (`decided_by IS NULL OR decided_by <> requested_by`)**: the maker cannot be the checker.
 - CHECK: `decided_by` and `decided_at` are set exactly when status is `APPROVED` or `REJECTED`.
 - Partial UNIQUE (`subject_document_id`, `kind`) where status is `PENDING`: one open request per subject and kind.
-- Frozen once decided.
+- Frozen once decided (`platform.freeze_posted`).
+- `evidence_file_id` is added, with its foreign key to `platform.stored_file`, by the B4 migration that creates the file store (docs/DATA_MODEL.md, Migrations).
