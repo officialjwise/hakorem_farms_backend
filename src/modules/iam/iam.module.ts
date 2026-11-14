@@ -32,6 +32,8 @@ import { RangeQueryBreachedPasswords } from './infrastructure/breached-passwords
 import { JwtAccessTokens } from './infrastructure/jwt-access-tokens';
 import { PgApprovalStore } from './infrastructure/pg-approval-store';
 import { PgIamStore } from './infrastructure/pg-iam-store';
+import { PgPrincipalNames } from './infrastructure/pg-principal-names';
+import { PRINCIPAL_NAMES } from './application/principal-names';
 import { RedisLoginThrottle } from './infrastructure/redis-login-throttle';
 import { AuthController } from './interface/auth.controller';
 import { AuthenticationGuard } from './interface/authentication.guard';
@@ -56,6 +58,7 @@ const BREACHED_LOOKUP_TIMEOUT_MS = 2_000;
   providers: [
     { provide: IAM_STORE, useClass: PgIamStore },
     { provide: APPROVAL_STORE, useClass: PgApprovalStore },
+    { provide: PRINCIPAL_NAMES, useClass: PgPrincipalNames },
     {
       provide: PASSWORD_HASHER,
       useFactory: (config: AppConfig) =>
@@ -133,6 +136,6 @@ const BREACHED_LOOKUP_TIMEOUT_MS = 2_000;
     AuthenticationGuard,
     { provide: APP_GUARD, useExisting: AuthenticationGuard },
   ],
-  exports: [Authoriser, Approvals, ScopeNamesRegistry],
+  exports: [Authoriser, Approvals, ScopeNamesRegistry, PRINCIPAL_NAMES],
 })
 export class IamModule {}
