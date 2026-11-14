@@ -88,7 +88,7 @@ Each card gives: what the module owns, its public interface (the services export
 ### IAM: identity, access and roles (layer 2)
 
 - **Owns:** schema `iam`. Principals, user accounts, credentials, TOTP, sessions, refresh tokens, API credentials, roles, permissions, grants, approval policies and requests.
-- **Public interface:** `Authoriser` (the policy check every handler calls), `Approvals` (request, decide, register a handler for a kind), `Identity` (principal lookup, display names), `Authentication` (guards that set the actor context), `ApiCredentials`.
+- **Public interface:** `Authoriser` (the policy check every handler calls), `Approvals` (request, decide, register a handler for a kind), `Identity` (principal lookup, display names; B4 built the display names as `PrincipalNames`, token `PRINCIPAL_NAMES`), `Authentication` (guards that set the actor context), `ApiCredentials`.
 - **Imports:** platform.
 - **Subscribes:** nothing.
 
@@ -102,7 +102,7 @@ Each card gives: what the module owns, its public interface (the services export
 ### MDM: master data, pricing and tax (layer 3)
 
 - **Owns:** schema `mdm`. Products, categories, units, species, grades, weight bands, customers, suppliers, branches, locations, price lists, promotions and coupons, tax levies and scheme versions, payment methods, delivery zones, reason codes, import jobs.
-- **Public interface:** `Catalogue`, `Parties`, `Locations`, `PricingEngine`, `Promotions`, `TaxCalculator`, `ReferenceData`, `Imports`. Port: `ProductUsageCheck`.
+- **Public interface:** `Catalogue`, `Parties`, `Locations`, `PricingEngine` (built in B4: `PricingService.resolveIn` in the caller's transaction, `judgeAgreedPrice`, `extendPrice`), `Promotions`, `TaxCalculator`, `ReferenceData`, `Imports`. Port: `ProductUsageCheck`.
 - **Imports:** platform, IAM.
 - **Subscribes:** nothing.
 

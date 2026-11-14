@@ -181,7 +181,17 @@ export interface IamStore {
   permissionRequiresStepUp(tx: Transaction, permission: string): Promise<boolean | null>;
 }
 
+/**
+ * Renders text as a QR code image for the TOTP enrolment screen (CR-006, ADR-0037), so the browser and the till
+ * need no QR library of their own. Pure and synchronous: no input or output, nothing stored.
+ */
+export interface QrCodes {
+  /** A `data:image/svg+xml;base64,...` URI of the QR code for the text. */
+  svgDataUri(text: string): string;
+}
+
 export const IAM_STORE = Symbol('IAM_STORE');
+export const QR_CODES = Symbol('QR_CODES');
 export const PASSWORD_HASHER = Symbol('PASSWORD_HASHER');
 export const ACCESS_TOKENS = Symbol('ACCESS_TOKENS');
 export const BREACHED_PASSWORDS = Symbol('BREACHED_PASSWORDS');

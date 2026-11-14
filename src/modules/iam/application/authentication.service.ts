@@ -26,6 +26,7 @@ import type {
   IamStore,
   LoginThrottle,
   PasswordHasher,
+  QrCodes,
   ScopeNames,
   SessionRecord,
 } from './ports';
@@ -121,6 +122,13 @@ export class ScopeNamesRegistry {
  * no account enumeration, the login challenge for TOTP, TOTP enrolment and a temporary password, rotating refresh
  * tokens with reuse detection, logout, password change, and step-up. Every event is audited.
  */
+/** The contract's `TotpEnrolment`: shown once. */
+export interface TotpEnrolmentView {
+  readonly otpauthUri: string;
+  readonly secretBase32: string;
+  readonly qrCodeDataUri: string;
+}
+
 export class AuthenticationService {
   private readonly nextId: () => string;
   private readonly csrfKey: Buffer;
@@ -131,6 +139,7 @@ export class AuthenticationService {
     private readonly hasher: PasswordHasher,
     private readonly tokens: AccessTokens,
     private readonly breached: BreachedPasswords,
+    private readonly qrCodes: QrCodes,
     private readonly throttle: LoginThrottle,
     private readonly scopeNames: ScopeNamesRegistry,
     private readonly subjectKeys: SubjectKeys,
@@ -409,9 +418,9 @@ export class AuthenticationService {
     await this.throttle.reset(account.realm, `principal:${account.principalId}`);
   }
 
-  async startTotpEnrolment(caller: AccountCaller): Promise<{ otpauthUri: string; secretBase32: string }> {
+  async startTotpEnrolment(caller: AccountCaller): Promise<TotpEnrolmentView> {
     return unwrap(
-      this.uow.run({ isolation: 'serializable' }, async (tx): Promise<Committed<{ otpauthUri: string; secretBase32: string }>> => {
+      this.uow.run({ isolation: 'serializable' }, async (tx): Promise<Committed<TotpEnrolmentView>> => {
         const resolved = await this.resolveCaller(tx, caller, ['LOGIN_TOTP_ENROLMENT']);
         if ('error' in resolved) {
           return resolved;
@@ -426,7 +435,9 @@ export class AuthenticationService {
         const key = await this.subjectKeys.keyFor(tx, { type: SUBJECT_OF_REALM[account.realm], id: account.principalId }, account.principalId);
         await this.store.savePendingTotp(tx, account.principalId, sealWithSubjectKey(key, secretBase32, totpPlace(account.principalId)), account.principalId);
         await this.audit.record(tx, { module: 'iam', action: 'TOTP_ENROLMENT_STARTED', entityType: 'UserAccount', entityId: account.principalId, actorId: account.principalId });
-        return { value: { otpauthUri: otpauthUri(this.settings.totpIssuer, account.email ?? account.phone ?? account.displayName, secretBase32), secretBase32 } };
+        const uri = otpauthUri(this.settings.totpIssuer, account.email ?? account.phone ?? account.displayName, secretBase32);
+        // The QR code carries nothing the response does not already show: it is the same URI, drawn (ADR-0037).
+        return { value: { otpauthUri: uri, secretBase32, qrCodeDataUri: this.qrCodes.svgDataUri(uri) } };
       }),
     );
   }

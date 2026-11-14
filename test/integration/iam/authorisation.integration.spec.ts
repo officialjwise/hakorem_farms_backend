@@ -58,6 +58,10 @@ function registeredRoutes(): RouteInfo[] {
 const VALID_BODY: Readonly<Record<string, object>> = {
   createProduct: { sku: 'MEAT-GOAT-5KG', name: 'Goat meat, 5 kg pack', categoryId: randomUUID(), stockPolicy: 'CATCH_WEIGHT', baseUom: 'KG', saleUom: 'PACK', onlineMode: 'LISTED' },
   revokeSession: { reason: 'Tablet left unattended overnight' },
+  resolvePrices: { channel: 'POS', branchId: randomUUID(), lines: [{ lineRef: '1', productId: randomUUID(), quantity: '1.000' }] },
+  createPriceList: { code: 'BASE', name: 'Base prices', kind: 'BASE', taxInclusive: true },
+  createPriceListVersion: { validFrom: '2026-12-01T00:00:00Z' },
+  replacePriceListEntries: { version: 1, entries: [] },
 };
 
 beforeAll(async () => {
@@ -75,11 +79,12 @@ afterAll(async () => {
 });
 
 describe('deny by default: the handler walk (ADR-0017, security architecture section 14)', () => {
-  it('finds the B3 routes, and every one declares its operation', () => {
+  it('finds the B3 and B4 routes, and every one declares its operation', () => {
     expect(routes.map((route) => route.spec?.operationId).sort()).toEqual(
       [
         'changePassword', 'confirmTotpEnrolment', 'createProduct', 'getCurrentSession', 'getHealth', 'getProduct', 'listProducts', 'listSessions',
         'loginCustomer', 'loginInvestor', 'loginStaff', 'logout', 'refreshSession', 'revokeSession', 'startTotpEnrolment', 'stepUp', 'verifyTotp',
+        'resolvePrices', 'createPriceList', 'getPriceList', 'createPriceListVersion', 'getPriceListVersion', 'replacePriceListEntries', 'submitPriceListVersion',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);
@@ -104,10 +109,19 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
     expect(guarded.length).toBeGreaterThanOrEqual(5);
     for (const route of guarded) {
       const path = route.path.replace(/:[a-zA-Z]+/g, randomUUID());
+      const body = VALID_BODY[route.spec!.operationId] ?? {};
       const response =
         route.method === 'GET'
           ? await consoleGet(api.server, session, path)
-          : await consolePost(api.server, session, path).send(VALID_BODY[route.spec!.operationId] ?? {});
+          : route.method === 'PUT'
+            ? await request(api.server)
+                .put(path)
+                .set('Cookie', session.jar.header())
+                .set('X-CSRF-Token', session.csrfToken)
+                .set('Origin', TEST_ORIGIN)
+                .set('Idempotency-Key', randomUUID())
+                .send(body)
+            : await consolePost(api.server, session, path).send(body);
       expect(response.status, `${route.method} ${route.path}`).toBe(403);
       expect(response.body.error.code, route.path).toBe('FORBIDDEN');
     }

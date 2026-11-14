@@ -6,7 +6,7 @@ import { UnauthenticatedError } from '../../../platform/errors/api-error';
 import { Operation } from '../../../platform/http/operation';
 import { zodPipe } from '../../../platform/http/validation';
 import { CLOCK } from '../../../platform/platform.module';
-import { AuthenticationService, type AccountCaller } from '../application/authentication.service';
+import { AuthenticationService, type AccountCaller, type TotpEnrolmentView } from '../application/authentication.service';
 import type { IssuedSession, LoginOutcome, SessionInfoView } from '../application/session-view';
 import { clearSessionCookies, readCookies, REALMS, refreshCookieName, setSessionCookies } from './cookies';
 import { requestedRealm, type GuardedRequest } from './authentication.guard';
@@ -121,7 +121,7 @@ export class AuthController {
   startTotpEnrolment(
     @Req() req: GuardedRequest,
     @Body(zodPipe(TotpEnrolmentStart)) body: z.infer<typeof TotpEnrolmentStart>,
-  ): Promise<{ otpauthUri: string; secretBase32: string }> {
+  ): Promise<TotpEnrolmentView> {
     return this.authentication.startTotpEnrolment(callerOf(req, body?.challengeToken));
   }
 

@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.2.0"
+  version: "1.4.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -657,6 +657,7 @@ paths:
       summary: "Create a staff or investor account"
       description: "Permission: `iam.user.create`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: iam.user.create
+      x-requires-step-up: true
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -1094,6 +1095,7 @@ paths:
       summary: "Issue a temporary password for a staff member"
       description: "Permission: `iam.user.reset_password`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: iam.user.reset_password
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -1285,6 +1287,7 @@ paths:
       summary: "Create a role"
       description: "Permission: `iam.role.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: iam.role.manage
+      x-requires-step-up: true
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -1418,6 +1421,7 @@ paths:
       summary: "Change a role's permissions or limits"
       description: "Permission: `iam.role.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: iam.role.manage
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -1761,6 +1765,7 @@ paths:
       summary: "Grant a role at a branch or location"
       description: "Permission: `iam.grant.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: iam.grant.manage
+      x-requires-step-up: true
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -1831,6 +1836,7 @@ paths:
       summary: "Revoke a role grant"
       description: "Permission: `iam.grant.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: iam.grant.manage
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -2507,6 +2513,7 @@ paths:
       summary: "Change an approval threshold"
       description: "Permission: `iam.approval_policy.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: iam.approval_policy.manage
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -2680,6 +2687,7 @@ paths:
       summary: "Create an API key"
       description: "Permission: `iam.api_credential.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: iam.api_credential.manage
+      x-requires-step-up: true
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -2740,6 +2748,7 @@ paths:
       summary: "Rotate an API key"
       description: "Issues a new key and revokes the old one after a 24-hour overlap.\n\nPermission: `iam.api_credential.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: iam.api_credential.manage
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -3303,6 +3312,7 @@ paths:
       summary: "Change a setting"
       description: "Every change is audited with before and after values. Settings with legal effect are effective-dated.\n\nPermission: `aud.setting.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: aud.setting.manage
+      x-requires-step-up: true
       parameters:
         - name: key
           in: path
@@ -3500,6 +3510,7 @@ paths:
       summary: "Change a series prefix or padding"
       description: "Allowed only before the first number of the year is allocated.\n\nPermission: `aud.number_series.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: aud.number_series.manage
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -3609,6 +3620,7 @@ paths:
       summary: "Update the business profile"
       description: "Permission: `aud.setting.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: aud.setting.manage
+      x-requires-step-up: true
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -3767,6 +3779,7 @@ paths:
       summary: "Change a retention policy"
       description: "Permission: `aud.retention.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: aud.retention.manage
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -4958,15 +4971,6 @@ paths:
                     version: 3
                     createdAt: "2026-11-02T08:04:00Z"
                     updatedAt: "2026-11-11T14:04:00Z"
-                  - id: "019a7a8b-a049-7e16-b34e-ea33ee146311"
-                    code: GOAT
-                    name: Goat
-                    trackingDefault: SERIAL
-                    gradeCount: 2
-                    weightBandCount: 3
-                    version: 4
-                    createdAt: "2026-11-02T08:05:00Z"
-                    updatedAt: "2026-11-12T14:05:00Z"
                 page:
                   nextCursor: null
                   limit: 25
@@ -7776,36 +7780,6 @@ paths:
                     version: 4
                     createdAt: "2026-11-02T08:02:00Z"
                     updatedAt: "2026-11-12T14:02:00Z"
-                  - id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                    code: DDW
-                    name: "HaKorem Farms, Dodowa"
-                    address: "Off Dodowa–Afienya Road, Dodowa"
-                    phone: "+233302900111"
-                    isTest: false
-                    status: ACTIVE
-                    version: 2
-                    createdAt: "2026-11-02T08:03:00Z"
-                    updatedAt: "2026-11-10T14:03:00Z"
-                  - id: "019a7a83-49de-73c6-a8ff-4540215fbe1e"
-                    code: TST
-                    name: "Smoke test branch"
-                    address: "Not a real location"
-                    phone: "+233302900111"
-                    isTest: true
-                    status: ACTIVE
-                    version: 3
-                    createdAt: "2026-11-02T08:04:00Z"
-                    updatedAt: "2026-11-11T14:04:00Z"
-                  - id: "019a7aa3-cb01-77cb-bd03-858b005cfe68"
-                    code: KSI
-                    name: "HaKorem Farms, Kumasi (planned)"
-                    address: "Ahodwo, Kumasi"
-                    phone: "+233302900111"
-                    isTest: false
-                    status: CLOSED
-                    version: 4
-                    createdAt: "2026-11-02T08:05:00Z"
-                    updatedAt: "2026-11-12T14:05:00Z"
                 page:
                   nextCursor: null
                   limit: 25
@@ -8629,132 +8603,7 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
-    post:
-      operationId: createPriceList
-      tags:
-        - pricing
-      summary: "Create a price list"
-      description: "Permission: `mdm.price_list.create`."
-      x-permission: mdm.price_list.create
-      parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/PriceListCreate"
-            example:
-              code: CUST-ASANTEWAA
-              name: "Asantewaa Chop Bar prices"
-              kind: CUSTOMER
-              taxInclusive: false
-      responses:
-        "201":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PriceList"
-              example:
-                id: "019a7a94-5381-760f-bb48-69ce27dce2ac"
-                code: BASE
-                name: "Base prices"
-                kind: BASE
-                channel: null
-                customerTier: null
-                branch: null
-                taxInclusive: true
-                currency: GHS
-                activeVersion:
-                  id: "019a7aa3-e9f0-71af-86e7-23c27a0d9ca0"
-                  versionNo: 3
-                  validFrom: "2026-11-01T00:00:00Z"
-                  validTo: null
-                draftVersionId: "019a7aa4-08df-7b92-90ca-c1f9f3be3ad7"
-                version: 2
-                createdAt: "2026-11-02T08:00:00Z"
-                updatedAt: "2026-11-10T14:00:00Z"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
   "/price-lists/{id}":
-    get:
-      operationId: getPriceList
-      tags:
-        - pricing
-      summary: "Get a price list"
-      description: "Permission: `mdm.price_list.read`."
-      x-permission: mdm.price_list.read
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PriceList"
-              example:
-                id: "019a7a94-5381-760f-bb48-69ce27dce2ac"
-                code: BASE
-                name: "Base prices"
-                kind: BASE
-                channel: null
-                customerTier: null
-                branch: null
-                taxInclusive: true
-                currency: GHS
-                activeVersion:
-                  id: "019a7aa3-e9f0-71af-86e7-23c27a0d9ca0"
-                  versionNo: 3
-                  validFrom: "2026-11-01T00:00:00Z"
-                  validTo: null
-                draftVersionId: "019a7aa4-08df-7b92-90ca-c1f9f3be3ad7"
-                version: 2
-                createdAt: "2026-11-02T08:00:00Z"
-                updatedAt: "2026-11-10T14:00:00Z"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
     patch:
       operationId: updatePriceList
       tags:
@@ -9061,135 +8910,7 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
-    post:
-      operationId: createPriceListVersion
-      tags:
-        - pricing
-      summary: "Draft a new price list version"
-      description: "Permission: `mdm.price_list.update`."
-      x-permission: mdm.price_list.update
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/PriceListVersionCreate"
-            example:
-              validFrom: "2026-12-01T00:00:00Z"
-              copyFromVersionId: "019a7aa4-46bd-7f59-b491-fe68e7207746"
-              notes: "Christmas season goat prices"
-      responses:
-        "201":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PriceListVersion"
-              example:
-                id: "019a7aa3-e9f0-71af-86e7-23c27a0d9ca0"
-                priceListId: "019a7a94-5381-760f-bb48-69ce27dce2ac"
-                versionNo: 5
-                status: DRAFT
-                validFrom: "2026-12-01T00:00:00Z"
-                validTo: null
-                approvalRequestId: null
-                activatedAt: null
-                activatedBy: null
-                notes: "Christmas season goat prices"
-                entryCount: 38
-                version: 1
-                createdAt: "2026-11-10T11:00:00Z"
-                createdBy:
-                  id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
-                  displayName: "Kwabena Owusu"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/price-list-versions/{id}":
-    get:
-      operationId: getPriceListVersion
-      tags:
-        - pricing
-      summary: "Get a price list version"
-      description: "Permission: `mdm.price_list.read`."
-      x-permission: mdm.price_list.read
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PriceListVersion"
-              example:
-                id: "019a7aa3-e9f0-71af-86e7-23c27a0d9ca0"
-                priceListId: "019a7a94-5381-760f-bb48-69ce27dce2ac"
-                versionNo: 5
-                status: DRAFT
-                validFrom: "2026-12-01T00:00:00Z"
-                validTo: null
-                approvalRequestId: null
-                activatedAt: null
-                activatedBy: null
-                notes: "Christmas season goat prices"
-                entryCount: 38
-                version: 1
-                createdAt: "2026-11-10T11:00:00Z"
-                createdBy:
-                  id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
-                  displayName: "Kwabena Owusu"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+  "/price-list-versions/{id}": {}
   "/price-list-versions/{id}/entries":
     get:
       operationId: listPriceListEntries
@@ -9383,285 +9104,8 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
-    put:
-      operationId: replacePriceListEntries
-      tags:
-        - pricing
-      summary: "Replace the entries of a draft version"
-      description: "Two entries for the same product, grade, band and quantity break are refused.\n\nPermission: `mdm.price_list.update`."
-      x-permission: mdm.price_list.update
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/PriceListEntriesReplace"
-            example:
-              version: 1
-              entries:
-                - productId: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                  weightBandId: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
-                  basis: PER_HEAD
-                  listPricePesewas: 95000
-                  floorPricePesewas: 80000
-                  ceilingPricePesewas: 110000
-                - productId: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                  weightBandId: "019a7a8c-78d2-734e-a886-3db841ebb696"
-                  basis: PER_HEAD
-                  listPricePesewas: 155000
-                  floorPricePesewas: 130000
-                  ceilingPricePesewas: 195000
-                - productId: "019a7a8d-515b-7886-9dbe-913c95c20a1a"
-                  basis: PER_HEAD
-                  listPricePesewas: 0
-                  floorPricePesewas: 0
-                  ceilingPricePesewas: 0
-                  quoteOnly: true
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PriceListVersion"
-              example:
-                id: "019a7aa3-e9f0-71af-86e7-23c27a0d9ca0"
-                priceListId: "019a7a94-5381-760f-bb48-69ce27dce2ac"
-                versionNo: 5
-                status: DRAFT
-                validFrom: "2026-12-01T00:00:00Z"
-                validTo: null
-                approvalRequestId: null
-                activatedAt: null
-                activatedBy: null
-                notes: "Christmas season goat prices"
-                entryCount: 38
-                version: 1
-                createdAt: "2026-11-10T11:00:00Z"
-                createdBy:
-                  id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
-                  displayName: "Kwabena Owusu"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/price-list-versions/{id}/submit":
-    post:
-      operationId: submitPriceListVersion
-      tags:
-        - pricing
-      summary: "Submit a draft version for activation"
-      description: "Always needs approval by a different user. On approval the version becomes ACTIVE from its valid-from time and the previous version is superseded.\n\nPermission: `mdm.price_list.update`.\n\nMay require approval of kind `PRICE_LIST_ACTIVATION`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
-      x-permission: mdm.price_list.update
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PriceListVersion"
-              example:
-                id: "019a7aa3-e9f0-71af-86e7-23c27a0d9ca0"
-                priceListId: "019a7a94-5381-760f-bb48-69ce27dce2ac"
-                versionNo: 5
-                status: PENDING_APPROVAL
-                validFrom: "2026-12-01T00:00:00Z"
-                validTo: null
-                approvalRequestId: "019a7aa6-ef47-78e5-9e1e-972d5c56100b"
-                activatedAt: null
-                activatedBy: null
-                notes: "Christmas season goat prices"
-                entryCount: 38
-                version: 1
-                createdAt: "2026-11-10T11:00:00Z"
-                createdBy:
-                  id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
-                  displayName: "Kwabena Owusu"
-        "202":
-          description: "Accepted for approval. Nothing has taken effect yet."
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApprovalPending"
-              example:
-                status: PENDING_APPROVAL
-                approvalRequestId: "019a7aa7-0e36-72c9-a801-3564d607ae42"
-                kind: PRICE_LIST_ACTIVATION
-                subject:
-                  id: "019a7aa7-2d25-7cac-b1e4-d39c4fb84c7a"
-                  docType: STOCK_ADJUSTMENT
-                  number: null
-                summary: "Awaiting approval by a different user with the approving permission"
-                requestedAt: "2026-11-13T10:12:00Z"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/pricing/resolve":
-    post:
-      operationId: resolvePrices
-      tags:
-        - pricing
-      summary: "Resolve prices for one or more lines"
-      description: "Walks the customer list, then tier and channel, then channel, then base, and stops at the first hit; inside a list the most specific entry wins. A line that cannot be priced returns outcome QUOTE_REQUIRED with a reason, never an error and never a zero. Promotions apply only to tier, channel and base prices. Read-only: nothing is stored.\n\nPermission: `mdm.price.resolve`."
-      x-permission: mdm.price.resolve
-      parameters:
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/PriceResolveRequest"
-            example:
-              channel: POS
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-              lines:
-                - lineRef: "1"
-                  productId: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                  stockUnitId: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
-                  quantity: "1.000"
-                - lineRef: "2"
-                  productId: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                  weightKg: "15.000"
-                  quantity: "15.000"
-                - lineRef: "3"
-                  productId: "019a7a8d-515b-7886-9dbe-913c95c20a1a"
-                  quantity: "1.000"
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PriceResolveResult"
-              example:
-                channel: POS
-                resolvedAt: "2026-11-13T09:14:00Z"
-                currency: GHS
-                lines:
-                  - lineRef: "1"
-                    outcome: RESOLVED
-                    resolved:
-                      priceListEntryId: "019a7aa6-16be-73ad-a8e5-43a9087fbc86"
-                      priceList:
-                        id: "019a7aa4-27ce-7576-aaae-60316d6fd90f"
-                        code: POS
-                        name: "Counter prices"
-                        kind: CHANNEL
-                      basis: PER_HEAD
-                      listPricePesewas: 85000
-                      floorPricePesewas: 70000
-                      ceilingPricePesewas: 98000
-                      grade:
-                        id: "019a7a8c-d59f-70f8-9631-185eaefe913c"
-                        code: A
-                        name: "Grade A, well finished"
-                      weightBand:
-                        id: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
-                        code: GOAT-M
-                        minKg: "18.000"
-                        maxKg: "28.000"
-                    quoteRequiredReason: null
-                    promotions: []
-                  - lineRef: "2"
-                    outcome: RESOLVED
-                    resolved:
-                      priceListEntryId: "019a7aa6-738b-7157-9690-1e4f7592972d"
-                      priceList:
-                        id: "019a7a94-5381-760f-bb48-69ce27dce2ac"
-                        code: BASE
-                        name: "Base prices"
-                        kind: BASE
-                      basis: PER_KG
-                      listPricePesewas: 2000
-                      floorPricePesewas: 1467
-                      ceilingPricePesewas: 2333
-                      grade: null
-                      weightBand: null
-                    quoteRequiredReason: null
-                    promotions:
-                      - promotionId: "019a7aa7-4c14-7690-8bc8-71d3c969eab1"
-                        code: XMAS-CHICKEN
-                        name: "Christmas chicken 5% off"
-                        discountPesewas: 1500
-                  - lineRef: "3"
-                    outcome: QUOTE_REQUIRED
-                    resolved: null
-                    quoteRequiredReason: QUOTE_ONLY
-                    promotions: []
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+  "/price-list-versions/{id}/submit": {}
+  "/pricing/resolve": {}
   "/promotions":
     get:
       operationId: listPromotions
@@ -10579,6 +10023,7 @@ paths:
       summary: "Add a levy"
       description: "A new levy becomes chargeable only through a new tax scheme version that gives it a rate for every category.\n\nPermission: `mdm.tax.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: mdm.tax.manage
+      x-requires-step-up: true
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -10715,6 +10160,7 @@ paths:
       summary: "Add a tax category"
       description: "Permission: `mdm.tax.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: mdm.tax.manage
+      x-requires-step-up: true
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -12255,6 +11701,7 @@ paths:
       summary: "Submit a tax scheme version for activation"
       description: "Refused with 422 `TAX_MATRIX_INCOMPLETE` unless every category has a cell for every levy.\n\nPermission: `mdm.tax.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session.\n\nMay require approval of kind `TAX_SCHEME_ACTIVATION`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
       x-permission: mdm.tax.manage
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -13033,24 +12480,6 @@ paths:
                       - Cantonments
                       - Labone
                     feePesewas: 4500
-                    freeOverPesewas: 50000
-                    cutoffTime: "14:00"
-                    isActive: true
-                    currency: GHS
-                    version: 1
-                  - id: "019a7a93-5c09-76f4-bc2c-78125a54f0f0"
-                    branch:
-                      id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                      code: DDW
-                      name: "HaKorem Farms, Dodowa"
-                    code: ACC-EAST
-                    name: "Accra East: Madina, Adenta, East Legon"
-                    areas:
-                      - Madina
-                      - Adenta
-                      - "East Legon"
-                      - "Ashaley Botwe"
-                    feePesewas: 3000
                     freeOverPesewas: 50000
                     cutoffTime: "14:00"
                     isActive: true
@@ -13855,6 +13284,7 @@ paths:
       summary: "Export master data to a spreadsheet"
       description: "Export is a permission and every export is audited with its row count. Customer exports need step-up.\n\nPermission: `mdm.export.create`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: mdm.export.create
+      x-requires-step-up: true
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -31103,6 +30533,7 @@ paths:
       summary: "Add a bank account or wallet"
       description: "Permission: `fin.bank_account.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: fin.bank_account.manage
+      x-requires-step-up: true
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -31435,6 +30866,7 @@ paths:
       summary: "Reopen a locked period"
       description: "Owner only. A closed period can never be reopened.\n\nPermission: `fin.period.reopen`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session.\n\nMay require approval of kind `PERIOD_REOPEN`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
       x-permission: fin.period.reopen
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -31517,6 +30949,7 @@ paths:
       summary: "Close a locked period permanently"
       description: "Permission: `fin.period.close`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: fin.period.close
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -32946,6 +32379,7 @@ paths:
       summary: "Change how an event posts, from a date"
       description: "Permission: `fin.posting_rule.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session.\n\nMay require approval of kind `POSTING_RULE_CHANGE`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
       x-permission: fin.posting_rule.manage
+      x-requires-step-up: true
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -33139,6 +32573,7 @@ paths:
       summary: "Map a product group, method or levy to an account"
       description: "For example, to post one levy to its own account the accountant adds a TAX_LEVY row. No billing or ledger code changes.\n\nPermission: `fin.posting_rule.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session.\n\nMay require approval of kind `POSTING_RULE_CHANGE`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
       x-permission: fin.posting_rule.manage
+      x-requires-step-up: true
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -58165,6 +57600,7 @@ paths:
       summary: "Register an investor"
       description: "Permission: `cap.investor.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: cap.investor.manage
+      x-requires-step-up: true
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -58296,6 +57732,7 @@ paths:
       summary: "Update an investor"
       description: "Permission: `cap.investor.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: cap.investor.manage
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -58738,6 +58175,7 @@ paths:
       summary: "Record a capital contribution or withdrawal"
       description: "A contribution issues units at its value date and posts to the investor's capital account. A withdrawal cannot redeem more units than the investor holds, and always needs approval by a different user.\n\nPermission: `cap.capital.record`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session.\n\nMay require approval of kind `CAPITAL_WITHDRAWAL`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
       x-permission: cap.capital.record
+      x-requires-step-up: true
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -59753,6 +59191,7 @@ paths:
       summary: "Post an approved distribution to the ledger"
       description: "Debits distributions declared and credits distributions payable per investor, exactly the allocated amounts.\n\nPermission: `cap.distribution.post`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: cap.distribution.post
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -60140,6 +59579,7 @@ paths:
       summary: "Record a loan or grant"
       description: "The repayment schedule's last instalment takes the remainder, so it sums exactly to the principal.\n\nPermission: `cap.financing.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: cap.financing.manage
+      x-requires-step-up: true
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -64831,6 +64271,7 @@ paths:
       summary: "Register an integration"
       description: "Permission: `api.integration.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: api.integration.manage
+      x-requires-step-up: true
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -64944,6 +64385,7 @@ paths:
       summary: "Change an integration"
       description: "Permission: `api.integration.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: api.integration.manage
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -65819,6 +65261,7 @@ paths:
       summary: "Export a period's journals for an external accounting package"
       description: "Audited with its row count. The format is an adapter behind the accounting export port.\n\nPermission: `api.accounting_export.create`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: api.accounting_export.create
+      x-requires-step-up: true
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -67007,9 +66450,14 @@ components:
         secretBase32:
           type: string
           description: "For manual entry. Shown once."
+        qrCodeDataUri:
+          type: string
+          pattern: "^data:image/svg\\+xml;base64,[A-Za-z0-9+/]+={0,2}$"
+          description: "The same otpauthUri as a QR code: an SVG image as a data URI, for an <img> with a text alternative. Shown once. Drawn on the server so neither the console nor the till needs a QR library (ADR-0037); keep secretBase32 on screen for a phone that cannot scan."
       required:
         - otpauthUri
         - secretBase32
+        - qrCodeDataUri
     TotpEnrolmentStart:
       type: object
       description: "Empty with a session. During login, after TOTP_ENROLMENT_REQUIRED, the challenge token."

@@ -1,3 +1,4 @@
+import { globSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
@@ -9,6 +10,18 @@ const shared = {
 /** Container start, role bootstrap and migrations can take a while on a cold machine. */
 const CONTAINER_HOOK_TIMEOUT_MS = 180_000;
 const DATABASE_TEST_TIMEOUT_MS = 60_000;
+
+/**
+ * A 100 percent gate (docs/TEST_STRATEGY.md section 6, NFR-015). Vitest passes a threshold whose glob matches no file,
+ * so a renamed or moved folder would drop its gate in silence; this refuses to load the configuration instead.
+ */
+function fullCoverage(glob: string): Record<string, { branches: 100; functions: 100; lines: 100; statements: 100 }> {
+  const sources = globSync(glob, { cwd: fileURLToPath(new URL('.', import.meta.url)) }).filter((file) => !file.endsWith('.spec.ts'));
+  if (sources.length === 0) {
+    throw new Error(`coverage gate ${glob} matches no source file: move the gate with the code, never drop it`);
+  }
+  return { [glob]: { branches: 100, functions: 100, lines: 100, statements: 100 } };
+}
 
 // One project per test layer (docs/TEST_STRATEGY.md section 4). A file in the wrong place does not run, and
 // `pnpm lint` fails if a spec under test/ has no layer suffix. No retries anywhere: a flaky test is a failing test.
@@ -77,7 +90,14 @@ export default defineConfig({
         statements: 80,
         functions: 80,
         branches: 80,
-        'packages/kernel/src/**/*.ts': { branches: 100, functions: 100, lines: 100, statements: 100 },
+        // 100 percent on the money paths (docs/TEST_STRATEGY.md section 6, NFR-015). Each session that creates one of
+        // the folders below adds its gate here, uncommented, before its gate passes.
+        ...fullCoverage('packages/kernel/src/**/*.ts'),
+        ...fullCoverage('src/modules/mdm/domain/pricing/**/*.ts'), // B4: the ADR-0004 walk and price list rules
+        // ...fullCoverage('src/modules/mdm/domain/tax/**/*.ts'),          // B4 continued: the tax calculator (ADR-0020)
+        // ...fullCoverage('src/modules/inv/domain/valuation/**/*.ts'),    // B5: stock valuation, cost pool and average cost (ADR-0018)
+        // ...fullCoverage('src/modules/fin/domain/**/*.ts'),              // B8: the ledger, posting rules, journals, periods (ADR-0003)
+        // ...fullCoverage('src/modules/cap/domain/distribution/**/*.ts'), // B12: distribution, unit-days and allocation (ADR-0028)
       },
     },
   },

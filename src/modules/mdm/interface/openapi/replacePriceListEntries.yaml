@@ -1,0 +1,104 @@
+operationId: replacePriceListEntries
+tags:
+  - pricing
+summary: "Replace the entries of a draft version"
+description: "Two entries for the same product, grade, band and quantity break are refused.\n\nPermission: `mdm.price_list.update`."
+x-permission: mdm.price_list.update
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - VERSION_CONFLICT
+  - INVALID_STATE_TRANSITION
+  - REFERENCE_NOT_FOUND
+  - PRICE_ENTRY_INVALID
+  - PRICE_ENTRY_DUPLICATE
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/PriceListEntriesReplace"
+      example:
+        version: 1
+        entries:
+          - productId: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+            weightBandId: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
+            basis: PER_HEAD
+            listPricePesewas: 95000
+            floorPricePesewas: 80000
+            ceilingPricePesewas: 110000
+          - productId: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+            weightBandId: "019a7a8c-78d2-734e-a886-3db841ebb696"
+            basis: PER_HEAD
+            listPricePesewas: 155000
+            floorPricePesewas: 130000
+            ceilingPricePesewas: 195000
+          - productId: "019a7a8d-515b-7886-9dbe-913c95c20a1a"
+            basis: PER_HEAD
+            listPricePesewas: 0
+            floorPricePesewas: 0
+            ceilingPricePesewas: 0
+            quoteOnly: true
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/PriceListVersion"
+        example:
+          id: "019a7aa3-e9f0-71af-86e7-23c27a0d9ca0"
+          priceListId: "019a7a94-5381-760f-bb48-69ce27dce2ac"
+          versionNo: 5
+          status: DRAFT
+          validFrom: "2026-12-01T00:00:00Z"
+          validTo: null
+          approvalRequestId: null
+          activatedAt: null
+          activatedBy: null
+          notes: "Christmas season goat prices"
+          entryCount: 38
+          version: 1
+          createdAt: "2026-11-10T11:00:00Z"
+          createdBy:
+            id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+            displayName: "Kwabena Owusu"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

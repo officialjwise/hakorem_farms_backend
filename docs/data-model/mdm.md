@@ -306,6 +306,9 @@ Standard columns: `DOCUMENT` (its `branch_id` is that of the list, or the head-o
 - UNIQUE (`price_list_id`, `version_no`).
 - EXCLUDE: for one `price_list_id`, the validity ranges of `ACTIVE` versions do not overlap.
 - Frozen once `ACTIVE`: only `status` (to `SUPERSEDED`) and `valid_to` may change. Its entries are frozen with it.
+- Lifecycle guard (trigger `mdm.price_list_version_guard`, B4): `DRAFT` to `PENDING_APPROVAL` to `ACTIVE` or `REJECTED`, `ACTIVE` to `SUPERSEDED`; once submitted only the lifecycle columns move. `valid_to` of an `ACTIVE` version may only become earlier. Activation may move `valid_from` later, to the moment of approval, never earlier (ADR-0036).
+- CHECK: `PENDING_APPROVAL`, `ACTIVE` and `SUPERSEDED` need `approval_request_id`; `ACTIVE` and `SUPERSEDED` need `activated_at` and `activated_by`.
+- UNIQUE (`price_list_id`) where `status` is `DRAFT` or `PENDING_APPROVAL`: one open version per list.
 
 ### `mdm.price_list_entry` · MASTER
 
@@ -327,7 +330,8 @@ Mutable while its version is a draft; frozen by trigger afterwards. Published ke
 
 - UNIQUE NULLS NOT DISTINCT (`version_id`, `product_id`, `grade_id`, `weight_band_id`, `min_qty`): no two entries can match the same request.
 - CHECK: `floor_price_pesewas <= list_price_pesewas <= ceiling_price_pesewas`.
-- Created and changed columns as `MASTER`, without soft delete: a draft entry is removed outright, an active one never.
+- CHECK: `quote_only` or `floor_price_pesewas > 0`: a priced entry never lets a sale be agreed at nothing (B4).
+- Created and changed columns as `MASTER`, without soft delete: a draft entry is removed outright, an active one never. `hk_app` holds no `DELETE`; the removal is `mdm.clear_draft_price_list_entries(version_id)`, `SECURITY DEFINER`, and the guard trigger `mdm.price_list_entry_guard` refuses any insert, update or delete of an entry whose version is not `DRAFT` (ADR-0036).
 
 ### `mdm.customer_price_list` · MASTER
 
@@ -341,7 +345,7 @@ The price list assigned to a customer. Set by the wholesale module through MDM's
 | `valid_from` | `timestamptz` | NOT NULL | |
 | `valid_to` | `timestamptz` | NULL | |
 
-Standard columns: `MASTER`. EXCLUDE: one customer has at most one assignment at a time.
+Standard columns: `MASTER`. EXCLUDE: one customer has at most one assignment at a time. A trigger refuses a list whose `kind` is not `CUSTOMER` (SQLSTATE 23514).
 
 ### `mdm.promotion` · DOCUMENT
 
