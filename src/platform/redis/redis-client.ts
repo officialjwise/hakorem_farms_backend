@@ -10,10 +10,12 @@ const RECONNECT_MAX_MS = 5_000;
 /**
  * A command issued before the connection is ready waits in the offline queue rather than failing at once, so the
  * first health probe after start-up does not report Redis down; `commandTimeout` still bounds every command.
+ * `keyPrefix` namespaces every key (REDIS_KEY_PREFIX): one per environment, and one per test app.
  */
-export function createRedis(url: string, connectionName: string): Redis {
+export function createRedis(url: string, connectionName: string, keyPrefix = ''): Redis {
   return new Redis(url, {
     connectionName,
+    keyPrefix,
     commandTimeout: COMMAND_TIMEOUT_MS,
     connectTimeout: CONNECT_TIMEOUT_MS,
     maxRetriesPerRequest: 1,

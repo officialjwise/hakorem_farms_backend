@@ -12,7 +12,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost): void {
     const response = host.switchToHttp().getResponse<Response>();
     const correlationId = currentRequestContext()?.correlationId ?? String(response.getHeader('X-Correlation-Id'));
-    const { status, envelope } = toErrorEnvelope(exception, correlationId, this.logger);
-    response.status(status).json(envelope);
+    const { status, envelope, headers } = toErrorEnvelope(exception, correlationId, this.logger);
+    response.set(headers).status(status).json(envelope);
   }
 }

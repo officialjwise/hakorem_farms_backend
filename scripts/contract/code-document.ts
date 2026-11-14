@@ -16,6 +16,11 @@ const PREVIEW_ENVIRONMENT = {
   APP_ENV: 'development',
   DATABASE_URL_APP: 'postgres://contract-preview@127.0.0.1:1/contract_preview',
   REDIS_URL: 'redis://127.0.0.1:1/0',
+  // Validated by the configuration, never used: preview mode builds no provider, so nothing signs or decrypts.
+  LOOKUP_HMAC_KEY: Buffer.alloc(32).toString('base64'),
+  JWT_ACTIVE_KEY_ID: 'preview',
+  JWT_SIGNING_KEYS: '{"preview":"not-a-key"}',
+  CORS_ALLOWED_ORIGINS: 'http://localhost:5173',
 };
 
 /** The OpenAPI document of every operation a module graph documents with @nestjs/swagger decorators. */

@@ -1,4 +1,3 @@
-import type { MessageKey } from '../i18n/messages';
 
 /** One offending input, as in the contract's `ErrorDetail`. `field` is a JSON pointer, or null. */
 export interface ErrorDetail {
@@ -14,7 +13,10 @@ export interface ErrorDetail {
 export abstract class ApiError extends Error {
   abstract readonly status: number;
   abstract readonly code: string;
-  abstract readonly messageKey: MessageKey;
+  /** A key in the translation layer: platform's catalogue or the raising module's own. */
+  abstract readonly messageKey: string;
+  /** Response headers the error needs, such as Retry-After on 429. */
+  readonly headers: Readonly<Record<string, string>> = {};
 
   constructor(
     internalMessage: string,
@@ -68,4 +70,62 @@ export class ServiceUnavailableError extends ApiError {
   readonly status = 503;
   readonly code = 'SERVICE_UNAVAILABLE';
   readonly messageKey = 'error.service_unavailable';
+}
+
+export class UnauthenticatedError extends ApiError {
+  readonly status = 401;
+  readonly code = 'UNAUTHENTICATED';
+  readonly messageKey = 'error.unauthenticated';
+}
+
+/** 403. Also answers a record that exists but belongs to someone else, so existence is not revealed. */
+export class ForbiddenError extends ApiError {
+  readonly status = 403;
+  readonly code = 'FORBIDDEN';
+  readonly messageKey = 'error.forbidden';
+}
+
+export class NotFoundError extends ApiError {
+  readonly status = 404;
+  readonly code = 'NOT_FOUND';
+  readonly messageKey = 'error.not_found';
+}
+
+export class VersionConflictError extends ApiError {
+  readonly status = 409;
+  readonly code = 'VERSION_CONFLICT';
+  readonly messageKey = 'error.version_conflict';
+}
+
+export class IdempotencyKeyRequiredError extends ApiError {
+  readonly status = 400;
+  readonly code = 'IDEMPOTENCY_KEY_REQUIRED';
+  readonly messageKey = 'error.idempotency_key_required';
+}
+
+export class OriginNotAllowedError extends ApiError {
+  readonly status = 403;
+  readonly code = 'ORIGIN_NOT_ALLOWED';
+  readonly messageKey = 'error.origin_not_allowed';
+}
+
+export class InvalidStateTransitionError extends BusinessRuleError {
+  readonly code = 'INVALID_STATE_TRANSITION';
+  readonly messageKey = 'error.invalid_state_transition';
+}
+
+/** 429 with Retry-After in whole seconds (docs/API.md section 12). */
+export class RateLimitedError extends ApiError {
+  readonly status = 429;
+  readonly code = 'RATE_LIMITED';
+  readonly messageKey = 'error.rate_limited';
+  override readonly headers: Readonly<Record<string, string>>;
+
+  constructor(
+    readonly retryAfterSeconds: number,
+    internalMessage = 'rate limit reached',
+  ) {
+    super(internalMessage);
+    this.headers = { 'Retry-After': String(Math.max(1, Math.ceil(retryAfterSeconds))) };
+  }
 }

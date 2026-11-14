@@ -1,23 +1,22 @@
 import { Controller, Get, Inject } from '@nestjs/common';
-import { ApiExcludeController } from '@nestjs/swagger';
 import { ServiceUnavailableError } from '../errors/api-error';
 import { translate } from '../i18n/messages';
+import { Operation } from '../http/operation';
 import { HealthService, type HealthReport } from './health.service';
 
 /** A dependency the health report found down, listed in the 503 envelope's details. */
 export class DependencyDownError extends ServiceUnavailableError {}
 
 /**
- * `GET /v1/health` (operationId `getHealth`). Its contract definition stays in the planned contract until
- * B3 adds the outbox, audit and reconciliation checks the definition describes (ADR-0030); the response
- * shape is checked against the committed contract by the contract test.
+ * `GET /v1/health` (operationId `getHealth`): public, in the health rate-limit group, answered from a short cache.
+ * From B3 its contract definition is the code's (ADR-0031); the response shape is checked against the contract.
  */
-@ApiExcludeController()
 @Controller('health')
 export class HealthController {
   constructor(@Inject(HealthService) private readonly health: HealthService) {}
 
   @Get()
+  @Operation({ operationId: 'getHealth', access: 'PUBLIC', realms: [], permission: null, idempotent: false, csrf: false, rateLimit: 'health' })
   async getHealth(): Promise<HealthReport> {
     const report = await this.health.report();
     if (report.status === 'DOWN') {

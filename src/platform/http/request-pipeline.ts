@@ -11,6 +11,8 @@ export const CORRELATION_ID_HEADER = 'X-Correlation-Id';
 export const JSON_BODY_LIMIT = '256kb';
 const ANY_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const NANOSECONDS_PER_MILLISECOND = 1_000_000n;
+/** Longest user agent kept for the audit trail (platform.audit_event.user_agent). */
+const MAX_USER_AGENT = 512;
 
 const nextCorrelationId = createUuidV7Generator(systemClock);
 
@@ -24,7 +26,10 @@ export function correlationId(): RequestHandler {
     const id = incoming !== undefined && ANY_UUID.test(incoming) ? incoming.toLowerCase() : nextCorrelationId();
     res.setHeader(CORRELATION_ID_HEADER, id);
     trace.getActiveSpan()?.setAttribute('hk.correlation_id', id);
-    runWithRequestContext({ correlationId: id }, () => next());
+    const userAgent = req.header('User-Agent');
+    runWithRequestContext({ correlationId: id, ip: req.ip ?? null, userAgent: userAgent === undefined ? null : userAgent.slice(0, MAX_USER_AGENT) }, () =>
+      next(),
+    );
   };
 }
 
