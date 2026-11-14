@@ -160,7 +160,7 @@ Finish by running the seven acceptance scenarios from the shared brief against s
 Every script does exactly what its name says, with no hidden steps. Build them in B2 and keep them working.
 
 ```bash
-pnpm setup              # fresh clone to a running, seeded API
+pnpm run setup              # fresh clone to a running, seeded API
 pnpm dev                # API with reload, Postgres and Redis in Docker
 pnpm test:unit          # fast, no containers
 pnpm test:integration   # Testcontainers Postgres and Redis

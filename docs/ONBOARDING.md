@@ -4,7 +4,7 @@ From clone to a running system in under thirty minutes, and where to start readi
 
 ## Read this first: what exists today
 
-**The commands in this document arrive in session B2.** Until B2 is merged, this repository holds documents and the API contract and nothing else: no `package.json`, no `src/`, no Docker files, no migrations. `pnpm setup`, `pnpm dev` and every `pnpm test:*` command below will fail with "no package.json" if you run them now. That is correct, not a fault.
+**The commands in this document arrive in session B2.** Until B2 is merged, this repository holds documents and the API contract and nothing else: no `package.json`, no `src/`, no Docker files, no migrations. `pnpm run setup`, `pnpm dev` and every `pnpm test:*` command below will fail with "no package.json" if you run them now. That is correct, not a fault.
 
 What you can run today, with only Node installed:
 
@@ -14,13 +14,13 @@ npx @redocly/cli lint contract/openapi.yaml              # must print no errors 
 npx @stoplight/prism-cli mock contract/openapi.yaml --port 4010   # the mock server (see section 6)
 ```
 
-Everything else is reading. The reading order in section 8 is the real onboarding until B2 lands; section 4 describes what `pnpm setup` will do when it does.
+Everything else is reading. The reading order in section 8 is the real onboarding until B2 lands; section 4 describes what `pnpm run setup` will do when it does.
 
 | Phase | Status on 2026-11-13 |
 | --- | --- |
 | B0 architecture, domain, data model, threat model, ADRs | Written |
 | B1 documents, skills, `CLAUDE.md`, hand-written contract (version 1.0.0) | Written |
-| B2 foundation: workspace, Docker, CI, migrations, kernel, test harness, `pnpm setup` | Not started. Opens next |
+| B2 foundation: workspace, Docker, CI, migrations, kernel, test harness, `pnpm run setup` | Built 2026-11-14 (`docs/sessions/B02-foundation.md`); awaiting merge |
 | B3 onward: platform and modules | Not started |
 
 ## 1. The thirty-minute path
@@ -31,11 +31,11 @@ Once B2 is merged, a new machine goes from nothing to a seeded, running API in a
 | --- | --- | --- |
 | 0 to 8 | Install the prerequisites, if they are not already there | 2 |
 | 8 to 11 | Create the workspace folder and clone the two repositories | 3 |
-| 11 to 22 | `pnpm setup` (first run pulls images and installs packages) | 4 |
+| 11 to 22 | `pnpm run setup` (first run pulls images and installs packages) | 4 |
 | 22 to 25 | Check the API answers; open the contract documentation | 5 |
 | 25 to 30 | Run `pnpm test:unit`; run the mock server | 6, 7 |
 
-A second run of `pnpm setup` on the same machine takes under two minutes.
+A second run of `pnpm run setup` on the same machine takes under two minutes.
 
 ## 2. Prerequisites
 
@@ -98,7 +98,9 @@ Rules of the workspace:
 - **The contract is the only link between the two repositories.** The frontend copies `backend/contract/openapi.yaml` into its own tree with a script. There is no shared package and no cross-repository import.
 - **Check `git remote -v` before you push**, every time. Pushing backend work to the frontend remote is the mistake this rule exists to prevent.
 
-## 4. `pnpm setup` (built in B2)
+## 4. `pnpm run setup` (built in B2)
+
+The command is `pnpm run setup`, not `pnpm setup`: `pnpm setup` is a built-in pnpm command that edits your shell start-up files (A-071). `bash scripts/setup.sh` does the same as `pnpm run setup`. Where B2 differs from the list below, the B2 report says so: there is no object store yet (A-070), no seed data yet (A-075), and no worker until B3.
 
 One command takes a fresh clone to a running, seeded API. B2's gate is that this works on a clean machine, and a CI job repeats it from a fresh checkout on every pull request so the claim stays true. It will:
 
@@ -114,9 +116,9 @@ One command takes a fresh clone to a running, seeded API. B2's gate is that this
 
 This list is the specification B2 builds to; the B2 session report records any difference and is authoritative once it exists.
 
-If anything fails halfway, running `pnpm setup` again is safe: each step checks before it acts.
+If anything fails halfway, running `pnpm run setup` again is safe: each step checks before it acts.
 
-To start again from nothing: `docker compose down --volumes`, delete `node_modules`, run `pnpm setup`. That is also exactly what the gate check does.
+To start again from nothing: `docker compose down --volumes`, delete `node_modules`, run `pnpm run setup`. That is also exactly what the gate check does.
 
 ## 5. Running the API
 
@@ -274,7 +276,7 @@ Tasks that work before B2 are marked **now**. The rest need B2.
 | Day | Task | Done when |
 | --- | --- | --- |
 | 1 | **Now.** Install the prerequisites. Clone both repositories into the workspace and check both remotes. Lint the contract and start the mock server. `curl http://localhost:4010/health`, `/animals` and `/exceptions/daily-report` and read the answers | Lint is clean; the mock answers; you can name the three fields of the animal that tell you what it costs the farm and what it would sell for |
-| 1 | After B2: `pnpm setup`, `pnpm dev`, `curl http://localhost:3000/v1/health`, `pnpm test:unit`, then `docker compose down --volumes` and set up again | The second setup works with no help |
+| 1 | After B2: `pnpm run setup`, `pnpm dev`, `curl http://localhost:3000/v1/health`, `pnpm test:unit`, then `docker compose down --volumes` and set up again | The second setup works with no help |
 | 2 | **Now.** Read documents 1 to 5 in section 8 | You can explain, without looking, why stock has no quantity column, why the ledger subscribes instead of being called, and what a stock exception is |
 | 3 | **Now.** Do two calculations by hand. First, GHS 459.00 tax-inclusive across VAT, NHIL and GETFund by largest remainder. Second, test 1 of `docs/adr/0028-investor-distribution-allocation.md`. Then find both in `contract/openapi.yaml` and in the UAT script and compare | Both calculations match the documents to the pesewa |
 | 3 | After B2: break the boundary rule on purpose (import another module's internals) and watch `pnpm lint` fail; undo it. Do the same for a float in a file that imports `Money` | You have seen both rules fire |
@@ -290,7 +292,7 @@ Ask in the pull request, not in private: a question that needed answering once w
 | Symptom | First thing to check |
 | --- | --- |
 | `pnpm: command not found` | `corepack enable`, then open a new terminal |
-| `pnpm setup` reports a port in use | Another Postgres or Redis on the machine. Stop it, or change the port in `.env` as the message explains |
+| `pnpm run setup` reports a port in use | Another Postgres or Redis on the machine. Stop it, or change the port in `.env` as the message explains |
 | Docker cannot start the database on Windows | The repository is under `/mnt/c`. Move it into the WSL home |
 | Containers are killed or very slow | Docker's memory limit is below 6 GB. Raise it in Docker Desktop settings |
 | `pnpm lint` fails with a boundary message | Read the card for the importing module in `docs/MODULE_BOUNDARIES.md`. The fix is almost never to change the rule |

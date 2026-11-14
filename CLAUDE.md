@@ -60,7 +60,7 @@ A production system for a livestock, poultry, meat and fresh produce business in
 The `pnpm` scripts arrive in B2; until then only the contract lint runs.
 
 ```bash
-pnpm setup                      # fresh clone to running API with seeded database, one command
+pnpm run setup                  # fresh clone to running API with seeded database, one command
 pnpm dev                        # API and worker with Postgres and Redis in Docker
 pnpm lint && pnpm typecheck     # includes the module boundary rule; CI blocks on both
 pnpm test:unit                  # pure domain rules
