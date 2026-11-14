@@ -365,6 +365,7 @@ The "Source" column says where the code comes from. **Contract** means the code 
 | --- | --- | --- |
 | `PRICE_OUTSIDE_BAND` | 422 | An agreed price is outside the product's floor and ceiling |
 | `PRICE_ENTRY_DUPLICATE` | 422 | Two price list entries for the same product, grade, band and quantity break |
+| `PRICE_ENTRY_INVALID` | 422 | A price list entry breaks a price rule: floor above list, list above ceiling, a zero floor on a priced entry, or a grade or band of another species than the product's. `details` names each field (B4) |
 | `CREDIT_LIMIT_EXCEEDED` | 422 | The order would take the business account over its credit limit. Without an override approval the order cannot be confirmed |
 | `ACCOUNT_ON_HOLD` | 422 | The business account is on hold; credit orders are refused |
 | `QUOTE_EXPIRED` | 422 | The quote version's validity ended |
@@ -497,9 +498,10 @@ Integrations subscribe to events with `POST /integrations/{id}/webhook-endpoints
 
 **Retries and dead letter.** Failed attempts are retried with exponential backoff and jitter at about these delays after the previous attempt: 1 minute, 5 minutes, 30 minutes, 2 hours, 6 hours, 12 hours, 24 hours. That is 8 attempts over about 45 hours. After the last failure the delivery is `DEAD` (the dead letter queue) and `api.WebhookDeliveryDead` is published. `GET /webhook-deliveries?status=DEAD` lists them, and `POST /webhook-deliveries/{id}/redeliver` sends the same delivery id again. An endpoint whose last 20 deliveries all died is set to `DISABLED_FAILING` automatically and the integration's owner contact is notified. `POST /webhook-endpoints/{id}/test` sends a test event. Deliveries for one subject are ordered, but a receiver must tolerate out-of-order arrival after retries and reconcile by `occurredAt`.
 
-## 15. Extensions: `x-permission` and `x-owner-module`
+## 15. Extensions: `x-permission`, `x-requires-step-up` and `x-owner-module`
 
 - **`x-permission`** is on every staff operation (535 of 600). It names the permission code the application layer checks in the handler, for example `pos.sale.create`. The frontend uses it with the session's `grants` to decide which actions to offer. It is a hint: the server checks regardless, and a missing permission is 403 `FORBIDDEN`. A new permission is granted to no role until someone adds it. Operations for customers, investors, guests and providers carry no `x-permission`; their access rules are ownership ("the caller's own").
+- **`x-requires-step-up: true`** (from 1.3.0, CR-007) sits beside `x-permission` on every operation whose permission requires step-up, so a screen can ask for the TOTP code before the write instead of after a 403 `STEP_UP_REQUIRED`. It is absent, never `false`, elsewhere. Tests keep it equal to the operation's description and to `iam.permission.requires_step_up`. Approval decisions (`approveRequest`, `rejectRequest`) carry no flag, because step-up there depends on the approval kind's policy; handle the 403 for them.
 - **`x-owner-module`** appears on 13 operations where the module that owns the behaviour differs from the tag the operation is filed under. Example: `POST /pos/sales` is tagged `pos` and owned by `ord`, because one code path posts a sale on every channel (ADR-0026). The tag is the module a person would look under; `x-owner-module` is the module whose tables the operation changes and whose domain rules answer. It matters for support and for tracing, not for the client.
 
 ## 16. Files
@@ -547,6 +549,15 @@ Categories, units of measure, species, grades, weight bands, products (with imag
 ### Pricing (`pricing`, 22)
 
 Price lists in approved, effective-dated versions: draft with `createPriceListVersion`, fill with `replacePriceListEntries` (replaces the whole set), `submitPriceListVersion` (maker-checker, `PRICE_LIST_ACTIVATION`, may return 202). **`POST /pricing/resolve`** prices lines: customer list, then tier and channel, then channel, then base. A line that cannot be priced returns outcome `QUOTE_REQUIRED` with a reason: this is a result, not an error, and never a zero. Promotions and coupons (`submitPromotion` may return 202; `validateCoupon`). A price is always a selling price band: list, floor and ceiling.
+
+**Implemented in B4** (contract 1.3.0): `resolvePrices`, `createPriceList`, `getPriceList`, `createPriceListVersion`, `getPriceListVersion`, `replacePriceListEntries`, `submitPriceListVersion`. What a screen needs to know:
+
+- **The walk** (ADR-0004, ADR-0036): the customer's assigned list, then the list for their tier on this channel, then the channel's list, then the base list. Inside each slot, the list for the request's branch comes before the list for every branch, and the walk falls through from one to the other. Inside a list the most specific entry wins (grade and band, band, grade, product alone), then the largest quantity break not above the quantity. A walk-in buyer (no `customerId`) skips the customer and tier slots.
+- **Reasons for `QUOTE_REQUIRED`:** `QUOTE_ONLY` (the first matching entry says so; the walk stops even if a later list has a price), `MISSING_GRADE_OR_WEIGHT` (an entry would have priced the line given the grade or weight it lacks: ask for it and resolve again), `NO_RULE` (nothing prices it, including a weight outside every band: offer a quote).
+- **`weightKg`** maps to the species' half-open band: 18.000 kg is in an 18 to 28 band, not a 8 to 18 one. It must have exactly three decimals; anything else is a 400, never rounded.
+- **Resolving is read-only** and takes `X-CSRF-Token` but no idempotency key. It needs `mdm.price.resolve` only; no branch or location scope is applied, because prices are internal and every selling operation checks its own scope.
+- **A version's life:** `DRAFT` (one per list at a time; entries replaced whole with the version's `version` number, 409 when stale), then `submitPriceListVersion` answers 202 `ApprovalPending` (`PRICE_LIST_ACTIVATION`) and freezes it as `PENDING_APPROVAL`, then a different user with `mdm.price_list.approve` and a fresh step-up approves it. It becomes `ACTIVE` from its `validFrom`, or from the moment of approval if that has passed; an earlier active version is ended there, a later overlapping one is `SUPERSEDED`. A rejected version is `REJECTED` and the list keeps its prices.
+- **Not yet:** promotions are always `[]`; `couponCode` and `stockUnitId` answer 422 `REFERENCE_NOT_FOUND` until coupons (B04 continued) and stock units (B5) exist. The approval endpoints (`approveRequest`, `rejectRequest`) and the price list listings are B04 continued.
 
 ### Tax (`tax`, 10)
 
