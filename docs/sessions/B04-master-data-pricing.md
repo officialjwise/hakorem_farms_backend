@@ -46,6 +46,7 @@ Date: 2026-11-14 · Branch `b04-master-data-pricing`, from `main` at `3062d39` (
 
 - **ADR-0036** (accepted by the owner): branch lists come first inside a slot and fall through to the all-branch list; `MISSING_GRADE_OR_WEIGHT` only when the missing attribute could price the line; activation starts no earlier than the approval (the database lets `valid_from` move later, never earlier); activation ends earlier versions and supersedes later overlapping ones; draft entries are cleared by one definer function; `resolvePrices` checks the permission without a location scope.
 - **ADR-0037** (accepted by the owner): the TOTP QR code is drawn on the server with `uqr`, pinned exactly, proved by an independent decoder.
+- **ADR-0038** (accepted by the owner): a newly required property breaks a client only on a schema the client sends; the contract versioning check follows request bodies and parameters through every reference.
 - **The split.** Recorded in ADR-0026 (Amendments) and the openers. Pricing first because it is this phase's gate; the A-087 items moved with the rest.
 - **A bug the gate found:** a 65 kg goat with no grade was answered `MISSING_GRADE_OR_WEIGHT` because grade A was priced for smaller bands. Fixed test-first (`f98cc93`).
 - **Money in responses** is a JSON integer from `Money.toJsonInteger`, which refuses anything beyond the exact range; Express cannot serialise a `bigint`.
@@ -89,6 +90,12 @@ Date: 2026-11-14 · Branch `b04-master-data-pricing`, from `main` at `3062d39` (
 - **Found on the way:** the strategy says a gate whose glob matches no file fails the build. Vitest in fact passes it silently (tried with an empty `fin` glob). Every gate is now written through `fullCoverage`, which refuses to load the configuration when its glob matches no source file.
 - **A slow test found by the merged run:** the QR round trips took 2 to 7 seconds each, because resvg loads every system font on each call. Two of them passed the five-second timeout under coverage and failed. The SVG has no text, so the three specs that draw it now pass `loadSystemFonts: false`: 5 to 177 ms each, the same decode asserted exactly. After both fixes: 512 passed, coverage unchanged at 91.52 percent statements and 82.94 percent branches, contract 25 passed.
 - **Made visible:** commented placeholders in the thresholds block for the tax calculator (B4 continued, also a 100 percent gate in the strategy), stock valuation (B5), the ledger (B8) and distribution (B12); a line in `docs/TEST_STRATEGY.md` section 6 saying each of those sessions adds its own path before its gate passes; the same instruction in each of those four openers in `docs/prompts/session-openers.md`.
+
+## A CI failure missed, then fixed (2026-11-14, at merge)
+
+The pull-request run's contract check failed on every commit from `cf739b7` to `cc8b60e`: `schema TotpEnrolment now requires qrCodeDataUri` was called breaking under a minor version. The session watched only the `push` runs, which were green, because the check compares against `main` and runs only on `pull_request`. Earlier statements here and in chat that CI was green on all jobs held for the push runs only.
+
+Owner's decision: refine the check rather than loosen the field or bump to 2.0.0 (ADR-0038, accepted). A newly required property is now breaking only on a schema a client sends: a request body or a parameter, followed through every reference. Tests first in `test/contract/api/versioning.contract.spec.ts`. `docs/API.md` section 1 says the same. The contract stays 1.4.0 with the field required.
 
 ## Security review (hakorem-security-review, the parts this change touches)
 

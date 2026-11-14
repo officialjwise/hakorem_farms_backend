@@ -19,8 +19,8 @@ All paths in the contract are relative to the base URL, including `/v1`. There i
 
 | Bump | What it is | Example |
 | --- | --- | --- |
-| Major (`/v2`) | A change that can break an existing client | Removing or renaming a field, path or enum value; making an optional field required; changing a type, a unit or a status code; tightening a pattern or a length limit; changing the meaning of an existing code |
-| Minor (1.1.0) | Additions that cannot break a client that follows the rules below | A new operation, a new optional request field, a new response field, a new error code on an existing operation, a new enum value on a response |
+| Major (`/v2`) | A change that can break an existing client | Removing or renaming a field, path or enum value; making a field required on anything a client sends (a request body or a parameter, ADR-0038); changing a type, a unit or a status code; tightening a pattern or a length limit; changing the meaning of an existing code |
+| Minor (1.1.0) | Additions that cannot break a client that follows the rules below | A new operation, a new optional request field, a new response field (required or not, ADR-0038), a new error code on an existing operation, a new enum value on a response |
 | Patch (1.0.1) | No change in behaviour | Descriptions, examples, summaries |
 
 **Rules a client must follow so that minor changes never break it:** ignore response fields it does not know; treat every response enum as open (an unknown value is displayed as unknown, never a crash); treat an unknown error `code` by its HTTP status; never depend on key order; never depend on the number of items in a page.

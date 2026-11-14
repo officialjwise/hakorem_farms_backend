@@ -13,6 +13,7 @@ Version numbers follow semantic versioning: a major bump breaks an existing clie
 **Additive only.** A client generated from 1.3.x keeps working; it simply does not read the new field.
 
 - **`TotpEnrolment.qrCodeDataUri` (CR-006 point 2)**, always present, in the response of `startTotpEnrolment`: the `otpauthUri` drawn as a QR code, an SVG image as a data URI (`data:image/svg+xml;base64,…`). Show it in an `<img>` with a text alternative, and keep `secretBase32` on screen for a phone that cannot scan. The QR code carries nothing the response did not already carry: it is the same URI, drawn. The example in the contract is a real code that decodes to the example's own `otpauthUri`, so the mock serves one that scans (ADR-0037).
+- **Required in a minor version (ADR-0038).** `qrCodeDataUri` is in `TotpEnrolment.required` because the server always sends it. A new required field in a response is minor: it breaks no reader. Making a field required is breaking only on a request body or a parameter. A hand-built test fixture of this response needs the field to compile.
 
 ## 1.3.0 (2026-11-14, B4)
 
