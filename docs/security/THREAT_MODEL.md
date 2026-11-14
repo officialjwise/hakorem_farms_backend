@@ -224,7 +224,7 @@ flowchart TB
 
 ## 4. Abuse cases
 
-The first nine are mandatory in the shared brief. The rest were identified in this session. Each becomes a test in B13, and each is either blocked outright or lands on the daily exception report with enough detail to act on.
+The first nine are mandatory in the shared brief. The rest were identified in B0. B13 turns each into two tests: that the primary control blocks it or makes it visible, and that the attempt, blocked or not, appears on the daily exception report (`GET /exceptions/daily-report`) under the exception kind in the last column, with enough detail to act on. The second test was added to B13's scope by the owner on 2026-11-13. Each exception item carries the numbers of the abuse cases it detects, so B13 can assert that every case below appears on at least one kind.
 
 | # | Abuse case | Primary control | Detection | Exception kind |
 | --- | --- | --- | --- | --- |
@@ -240,12 +240,12 @@ The first nine are mandatory in the shared brief. The rest were identified in th
 | 10 | Offline sale made and deleted from the device before sync | Gap-free device counter per shift, checked at sync | Counter gap exception | `DEVICE_COUNTER_GAP` |
 | 11 | Animal sold at the counter while reserved, on hold or already sold | The stock movement is refused by the database; the sale and money are still recorded; the conflict becomes a stock exception | Stock exception queue | `STOCK_EXCEPTION` |
 | 12 | False return to obtain a refund | A return references the original order and cannot exceed what was sold; refund tied to the original payment and approved | Refund report by user | `REFUND` |
-| 13 | Supplier payout details changed to divert a payment | Details encrypted; a change needs a different approver; payment needs a different approver | Payout change report | `AUTHORISATION_FAILURE` or audit review |
+| 13 | Supplier payout details changed to divert a payment | Details encrypted; a change needs a different approver; payment needs a different approver | Payout change report | `PAYOUT_DETAIL_CHANGE` |
 | 14 | Credit sale beyond the limit to a favoured customer | Limit enforced at order confirmation; override needs approval and is audited | Credit override report; ageing | `CREDIT_OVERRIDE` |
 | 15 | Audit log or ledger altered directly in the database | Insert-only by trigger; hash chain; off-box signed anchor; nightly reconciliation | Chain verification; drift alerts | `AUDIT_INTEGRITY`, `RECONCILIATION_BREAK` |
-| 16 | Manager grants themselves or a friend a higher role | Role and grant changes need step-up and are audited | Permission-change report to the owner | Audit review |
+| 16 | Manager grants themselves or a friend a higher role | Role and grant changes need step-up and are audited | Permission-change report to the owner | `PERMISSION_CHANGE` |
 | 17 | Shift closed short | Blind close; supervisor sign-off; over and short posted to the ledger | Over and short by cashier | `SHIFT_OVER_SHORT` |
-| 18 | Under-recorded processing yield, with the difference taken | Yield recorded against a standard, with a variance flag | Yield variance report | Operational report |
+| 18 | Under-recorded processing yield, with the difference taken | Yield recorded against a standard, with a variance flag | Yield variance report | `YIELD_VARIANCE` |
 
 ## 5. Residual risk register
 

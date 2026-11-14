@@ -107,7 +107,7 @@ Close the session by writing the exact login flow into your report, including th
 
 These ten sessions all follow one recipe, so this section is the whole of their instruction. The table says what each covers and what has to be true before it closes.
 
-> **Amended 2026-11-13 by `docs/adr/0026-session-schedule-amendment.md`, approved by the owner.** B9 is two sessions. B9a builds the order core (the sales order record, its state machine and sale posting) and payments, because POS and quotations both need the order record before B11. B9b builds POS, shifts and offline sync on top of it. B11 keeps order fulfilment. The ADR also lists three proposed assignments (online store, audit administration, daily exception report) that the B0 gate settles; read it before opening B7, B9a, B11, B12 or B13.
+> **Amended 2026-11-13 by `docs/adr/0026-session-schedule-amendment.md`, approved by the owner.** B9 is two sessions. B9a builds the order core (the sales order record, its state machine and sale posting) and payments, because POS and quotations both need the order record before B11. B9b builds POS, shifts and offline sync on top of it. B11 keeps order fulfilment. The ADR also assigns the online store, audit administration and the daily exception report, confirmed by the owner on 2026-11-13; read it before opening B7, B9a, B11, B12 or B13.
 
 | Session | Modules | What proves it |
 | --- | --- | --- |
@@ -146,7 +146,8 @@ If a session's modules prove too large for one context, split at a module bounda
 The gate is every non-functional target met and evidenced on the live VPS.
 
 - **Load.** Run k6 against every target in the shared brief's non-functional table and record the actual numbers in `docs/OPERATIONS.md`. A missed target is either fixed or renegotiated in writing. It is never quietly skipped.
-- **Security.** Turn every abuse case in the threat model into a test. Each one is either blocked outright or lands on the daily exception report with enough detail to act on. Run an OWASP ZAP baseline against staging, and clear every high-severity dependency and image finding.
+- **Security.** Turn every abuse case in the threat model into a test. Each one is either blocked outright or lands on the daily exception report with enough detail to act on.
+- **Exception report coverage** (added by the owner on 2026-11-13). For every abuse case, also confirm that the attempt lands on the daily exception report, not only that the control blocks it: run the attempt, then read `GET /exceptions/daily-report` and assert an item of the kind the threat model names, carrying that case's number in `abuseCases`, with the actor, amount and subject document. A case that is blocked but leaves no trace on the report is a failing test. Run an OWASP ZAP baseline against staging, and clear every high-severity dependency and image finding.
 - **Smoke suite.** This is the deployment gate, so it has to be fast and safe to run against production repeatedly: health endpoint, login, catalogue read, create and void a sale in a dedicated smoke location, a payment webhook with a bad signature rejected, one document generated, and the trial balance endpoint answering. Under 60 seconds, exits non-zero on any failure.
 - **Runbooks.** One per failure mode in `docs/runbooks/`: payment provider down, database failover, restore from backup, reconciliation break, queue backlog, incident response.
 - **Data migration.** `docs/DATA_MIGRATION.md` plus the import scripts and a dry-run mode that validates without writing.

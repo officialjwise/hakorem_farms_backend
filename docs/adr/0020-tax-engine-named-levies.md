@@ -1,6 +1,6 @@
 # ADR-0020: Tax is a matrix of named levies per category, each with its own base and reclaimable flag
 
-- **Status:** Accepted for the shape (owner, 2026-11-13). Seed values Proposed until the accountant confirms the real structure before B8
+- **Status:** Accepted (owner, 2026-11-13): the shape, and the seed rates and structure, confirmed against the VAT Act 2025 regime. Two points remain for the accountant before B8: the registration threshold (ASSUMPTIONS A-033) and imported farm inputs (A-034)
 - **Date:** 2026-11-13
 - **Session:** B0
 - **Deciders:** owner set the shape; backend track designed the tables
@@ -40,7 +40,7 @@ A business setting, `tax.registered`, with an effective date, switches charging 
 For a line with category `c` on date `d`, take the levies of the active version in `calc_order`. `r_i` is the rate of levy `i`.
 
 - *Tax-exclusive price.* The anchor is the line net (ADR-0001). For each levy in order: `base_i = net + sum of the amounts of its base components`, `amount_i = half_up(base_i × r_i)`. Gross is net plus the amounts.
-- *Tax-inclusive price.* The anchor is the line gross. Each levy's effective rate relative to net is `e_i = r_i × (1 + sum of e_j for its base components)`, computed exactly. The gross is split across net and the levies by `allocate` with weights `1 : e_1 : … : e_n`, so the parts sum to the gross exactly.
+- *Tax-inclusive price.* The anchor is the line gross. Each levy's effective rate relative to net is `e_i = r_i × (1 + sum of e_j for its base components)`, computed exactly. The gross is split across net and the levies by `allocate` with weights `1 : e_1 : … : e_n`, so the parts sum to the gross exactly. When two remainders tie, the leftover pesewa goes to net first and then to the levies in `calc_order`; a tax-inclusive GHS 30.00 delivery fee therefore splits into net 25.00, VAT 3.75, NHIL 0.63 and GETFund 0.62.
 - A row is produced for every levy, including those at zero, so a document can state that a line is zero-rated or exempt.
 
 **Billing (BIL module)**
@@ -81,7 +81,7 @@ None of these touches billing code, ledger code, or any table definition.
 | `PROCESSED_MEAT`, `OTHER_GOODS`, `DELIVERY_SERVICE` | `STANDARD` | 15 | 2.5 | 2.5 |
 | `FARM_INPUTS` | `ZERO_RATED` | 0 | 0 | 0 |
 
-All bases `NET`, all levies reclaimable. The standard rates are those reported on the Ghana Revenue Authority's website on 2026-11-13 for the regime in force from 1 January 2026. They have not been verified against primary sources by this project. B1 records the verification, with source and date, in `docs/security/COMPLIANCE.md`. Whether raw produce and live animals are zero-rated or exempt is the open point for the accountant; it changes only the `treatment` and `is_reclaimable` cells.
+All bases `NET`, all levies reclaimable. The standard rates are those reported on the Ghana Revenue Authority's website on 2026-11-13 for the regime in force from 1 January 2026. On 2026-11-13 the owner confirmed them, and this structure, as correct against the VAT Act 2025 regime; the confirmation and the sources checked are in `docs/security/COMPLIANCE.md`. Two questions remain for the accountant, and both are answered as data: whether the business is above the GHS 750,000 registration threshold at all (if not, `tax.registered` is false), and whether imported farm inputs still cascade where domestic supply does not (if so, a category for imported inputs with its own cells). Whether raw produce and live animals are zero-rated or exempt is the open point for the accountant; it changes only the `treatment` and `is_reclaimable` cells.
 
 ## Consequences
 

@@ -205,7 +205,8 @@ The daily exception report: one row per thing a manager must look at. This is th
 | `event_ref` | `uuid` | NOT NULL, UNIQUE | The outbox message that raised it |
 | `exception_date` | `date` | NOT NULL | |
 | `branch_id` | `uuid` | NOT NULL, FK `mdm.branch` | |
-| `kind` | `text` | NOT NULL, CHECK in (`SALE_VOID`, `PRICE_OVERRIDE`, `REFUND`, `MORTALITY`, `STOCK_ADJUSTMENT`, `STOCK_EXCEPTION`, `UNMATCHED_PAYMENT`, `WEBHOOK_REJECTED`, `DRIVER_VARIANCE`, `SHIFT_OVER_SHORT`, `DEVICE_COUNTER_GAP`, `AUTHORISATION_FAILURE`, `BULK_EXPORT`, `CREDIT_OVERRIDE`, `AUDIT_INTEGRITY`, `RECONCILIATION_BREAK`) | |
+| `kind` | `text` | NOT NULL, CHECK in (`SALE_VOID`, `PRICE_OVERRIDE`, `REFUND`, `MORTALITY`, `STOCK_ADJUSTMENT`, `STOCK_EXCEPTION`, `UNMATCHED_PAYMENT`, `WEBHOOK_REJECTED`, `DRIVER_VARIANCE`, `SHIFT_OVER_SHORT`, `DEVICE_COUNTER_GAP`, `AUTHORISATION_FAILURE`, `BULK_EXPORT`, `CREDIT_OVERRIDE`, `AUDIT_INTEGRITY`, `RECONCILIATION_BREAK`, `PAYOUT_DETAIL_CHANGE`, `PERMISSION_CHANGE`, `YIELD_VARIANCE`, `SYNC_REJECTED`, `LATE_POSTING`) | One kind per detection in the threat model |
+| `abuse_cases` | `integer[]` | NOT NULL DEFAULT `'{}'` | Numbers of the threat model's abuse cases this item helps detect. B13 asserts every case appears on at least one kind |
 | `severity` | `text` | NOT NULL, CHECK in (`INFO`, `REVIEW`, `URGENT`) | |
 | `actor_ref` | `uuid` | NULL | Who did it |
 | `subject_document_ref` | `uuid` | NULL | The sale, adjustment or payment |

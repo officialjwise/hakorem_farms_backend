@@ -1,0 +1,9 @@
+# Lint configuration for contract/openapi.yaml.
+# Run: npx @redocly/cli lint contract/openapi.yaml
+extends:
+  - recommended
+rules:
+  # The local development server (http://localhost:3000/v1) and the Prism mock
+  # server (http://localhost:4010) are listed on purpose, so the frontend can
+  # point its generated client at either. Every other recommended rule applies.
+  no-server-example.com: off

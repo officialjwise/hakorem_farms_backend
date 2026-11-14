@@ -33,7 +33,7 @@ Posted statuses: `ISSUED`. An issued document is immutable; it is corrected by a
 | `certified_gross_pesewas` | `pesewas` | NULL | |
 | `certification_ref` | `text` | NULL | The authority's reference |
 | `reason_code` | `text` | NULL, FK `mdm.reason_code`; required for credit and debit notes | |
-| `content_hash` | `bytea` | NULL; required when `ISSUED` | Hash of the rendered document: tamper evidence |
+| `content_hash` | `bytea` | NULL; set once, by the DOC module after it renders and archives the document | Hash of the rendered document: tamper evidence. Rendering happens after the issuing transaction commits (ADR-0010), so an issued document is briefly without its hash; the nightly numbering check reports any issued document still without one |
 | `archived_document_id` | `uuid` | NULL, FK `doc.archived_document` | The stored PDF |
 | `issued_at` | `timestamptz` | NULL | |
 | `occurred_at` | `timestamptz` | NULL | When the sale happened, if earlier than issue (offline) |
@@ -105,6 +105,20 @@ Every reprint or resend. A reprint is the archived bytes with a marker, never a 
 | `channel` | `text` | NOT NULL, CHECK in (`THERMAL`, `PDF`, `SMS`, `WHATSAPP`, `EMAIL`) | |
 
 Standard columns: `LEDGER`. UNIQUE (`billing_document_id`, `copy_no`).
+
+### `bil.document_settlement` · PROJECTION
+
+What has been paid and credited on each issued document, so an invoice screen needs one request. Maintained by an asynchronous subscriber to `pay.PaymentCleared`, `pay.DepositAllocated`, `pay.PaymentReversed`, `pay.RefundPaid` and `bil.CreditNoteIssued`, a few seconds behind the payments ledger. The figure of record is `pay.invoice_settlement`; a nightly check compares the two. Added in B1 with the contract (field `settlement` on `BillingDocument`).
+
+| Column | Type | Constraints | Why |
+| --- | --- | --- | --- |
+| `billing_document_id` | `uuid` | PK, FK `bil.billing_document` | |
+| `allocated_pesewas` | `pesewas` | NOT NULL DEFAULT 0 | Payments applied |
+| `credited_pesewas` | `pesewas` | NOT NULL DEFAULT 0 | Credit notes issued against it |
+| `outstanding_pesewas` | `pesewas` | NOT NULL | Gross less allocated less credited |
+| `payment_status` | `text` | NOT NULL, CHECK in (`UNPAID`, `PART_PAID`, `PAID`, `CREDITED`, `NOT_APPLICABLE`) | Shown on the document list |
+| `settled_at` | `timestamptz` | NULL | When outstanding reached zero |
+| `as_of` | `timestamptz` | NOT NULL | Time of the last event applied |
 
 ### `bil.pub_document` · view
 

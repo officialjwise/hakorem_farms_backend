@@ -104,8 +104,8 @@ The design is recorded in ADR-0016. In summary:
 | Password hashing | Argon2id, per-password salt, parameters tuned to about 250 ms |
 | Password rules | Minimum length, breached-password check at set time, forced change on first staff login |
 | Second factor | TOTP mandatory for Owner, Accountant, Manager; optional for others |
-| Access token | Signed JWT, 10 minutes, cookie `__Host-hk_at` |
-| Refresh token | Opaque, rotating, hashed at rest, cookie `__Host-hk_rt`; reuse revokes the session |
+| Access token | Signed JWT, 10 minutes, cookie `__Host-hk_s_at`, `__Host-hk_c_at` or `__Host-hk_i_at` by realm |
+| Refresh token | Opaque, rotating, hashed at rest, cookie `__Host-hk_s_rt`, `__Host-hk_c_rt` or `__Host-hk_i_rt`; reuse revokes the session |
 | Cookie attributes | `HttpOnly`, `Secure`, `SameSite=Strict`, host-bound to the API host by the `__Host-` prefix |
 | CSRF | Session-bound token in `X-CSRF-Token` on every state-changing request, plus an origin check |
 | Sessions | Listed per user as devices; revocable by the user or a manager; revocation is immediate |

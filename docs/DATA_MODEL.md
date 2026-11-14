@@ -81,7 +81,7 @@ No table is partitioned in version one. At the capacity targets in the shared br
 
 ## 2. Schema index
 
-231 tables in 23 schemas: 77 `DOCUMENT`, 67 `MASTER`, 45 `LEDGER`, 22 `PROJECTION`, 13 `WORK`, 7 `LOOKUP`. Plus the published views named in the dictionaries.
+232 tables in 23 schemas: 77 `DOCUMENT`, 67 `MASTER`, 45 `LEDGER`, 23 `PROJECTION`, 13 `WORK`, 7 `LOOKUP`. Plus the published views named in the dictionaries.
 
 | Schema | Module | Tables | Dictionary |
 | --- | --- | --- | --- |
@@ -94,7 +94,7 @@ No table is partitioned in version one. At the capacity targets in the shared br
 | `inv` | Inventory | 20 | [`data-model/inv.md`](data-model/inv.md) |
 | `liv` | Livestock | 9 | [`data-model/liv.md`](data-model/liv.md) |
 | `prc` | Processing | 6 | [`data-model/prc.md`](data-model/prc.md) |
-| `bil` | Billing | 4 | [`data-model/bil.md`](data-model/bil.md) |
+| `bil` | Billing | 5 | [`data-model/bil.md`](data-model/bil.md) |
 | `pay` | Payments | 13 | [`data-model/pay.md`](data-model/pay.md) |
 | `pur` | Procurement | 13 | [`data-model/pur.md`](data-model/pur.md) |
 | `del` | Delivery | 7 | [`data-model/del.md`](data-model/del.md) |
@@ -282,6 +282,7 @@ No table is partitioned in version one. At the capacity targets in the shared br
 | `bil.billing_document` | `DOCUMENT` | Posted statuses: `ISSUED` |
 | `bil.billing_document_line` | `DOCUMENT` | Frozen with its header |
 | `bil.billing_document_line_tax` | `DOCUMENT` | One row per line and levy, including levies at zero (ADR-0020) |
+| `bil.document_settlement` | `PROJECTION` | What has been paid and credited on each issued document, so an invoice screen needs one request |
 | `bil.reprint_log` | `LEDGER` | Every reprint or resend |
 | `bil.pub_document` | view | Published for costing and reporting: document id, kind, number, branch, customer, issue date, net, tax, gross, credited, order reference |
 
@@ -598,6 +599,7 @@ erDiagram
   bil_billing_document ||--o{ bil_billing_document : "credited by"
   bil_billing_document ||--o{ bil_reprint_log : reprinted
   bil_billing_document ||--o| pay_invoice_settlement : "settled as"
+  bil_billing_document ||--o| bil_document_settlement : "summarised as"
   pay_payment ||--o{ pay_payment_allocation : "applied by"
   pay_payment_allocation }o--|| bil_billing_document : settles
   pay_payment ||--o{ pay_provider_transaction : "collected by"

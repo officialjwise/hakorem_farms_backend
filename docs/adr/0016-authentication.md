@@ -27,8 +27,8 @@ Option 3.
 
 | Token | Form | Lifetime (design default) | Stored |
 | --- | --- | --- | --- |
-| Access | Signed JWT (EdDSA) with principal, session id, realm and step-up time | 10 minutes | Cookie `__Host-hk_at`, httpOnly, secure, `SameSite=Strict`, path `/` |
-| Refresh | 256-bit random, opaque | Staff: 12 hours idle, 7 days absolute. Customer: 30 days idle, 90 days absolute | Cookie `__Host-hk_rt`, httpOnly, secure, `SameSite=Strict`; SHA-256 hash in `iam.refresh_token` |
+| Access | Signed JWT (EdDSA) with principal, session id, realm and step-up time | 10 minutes | Cookie `__Host-hk_s_at` (staff), `__Host-hk_c_at` (customer) or `__Host-hk_i_at` (investor); httpOnly, secure, `SameSite=Strict`, path `/` |
+| Refresh | 256-bit random, opaque | Staff: 12 hours idle, 7 days absolute. Customer: 30 days idle, 90 days absolute | Cookie `__Host-hk_s_rt`, `__Host-hk_c_rt` or `__Host-hk_i_rt`, httpOnly, secure, `SameSite=Strict`; SHA-256 hash in `iam.refresh_token` |
 
 - The API host sets both cookies with the `__Host-` prefix, so they are bound to `api.hakoremfarms.com` and never sent to another subdomain. The console and storefront call the API from the browser with credentials. All three hosts share one registrable domain, so `SameSite=Strict` cookies are sent.
 - Storefront pages that need the customer's identity fetch that data in the browser. Server-rendered catalogue pages are anonymous.
@@ -46,6 +46,8 @@ Option 3.
 **API keys.** Integrations authenticate with a key shown once and stored as a SHA-256 hash in `iam.api_credential`, with expiry, rotation and per-key rate limits. A key is a principal with role grants like any other.
 
 **Offline counter.** A register device is enrolled by a manager and holds a device credential. Offline, the cashier unlocks the device with a PIN against a locally cached shift. At sync, the server authenticates the device credential and the batch names the cashier and shift. The server is authoritative and re-checks every permission. The detail is specified in `docs/OFFLINE_SYNC.md` in B1.
+
+Amended in B1 (2026-11-13), before acceptance: cookie names carry the realm, so that one browser can hold a staff and a customer session without either being presented as the other. The names are fixed in `contract/openapi.yaml` under `securitySchemes`.
 
 ## Consequences
 
