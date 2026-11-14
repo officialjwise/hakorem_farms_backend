@@ -33,7 +33,7 @@ Also recorded:
 
 ## Verification
 
-- `src/modules/mdm/domain/pricing-engine.spec.ts` and `price-list.spec.ts`: 100 percent branch coverage, exact pesewas, the half-pesewa rounding case and a weight outside every band.
+- `src/modules/mdm/domain/pricing/pricing-engine.spec.ts` and `price-list.spec.ts`: 100 percent branch coverage, gated in `vitest.config.mts`, exact pesewas, the half-pesewa rounding case and a weight outside every band.
 - `test/integration/mdm/pricing-schema.integration.spec.ts`: every database rule violated once.
 - `test/integration/mdm/price-lists.integration.spec.ts`: the lifecycle through the API, maker refused as checker, a backdated version starting at approval, the branch list falling through, wrong roles refused.
 - `test/integration/mdm/pricing-gate.integration.spec.ts`: the B4 gate over the seeded catalogue.

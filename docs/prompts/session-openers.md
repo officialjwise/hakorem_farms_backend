@@ -153,6 +153,10 @@ locations, payment methods, delivery zones, reason codes, assignCustomerPriceLis
 price list listings); promotions and coupons in the engine after the base price; and the tax calculator
 with named levies per ADR-0020 with the exact tests above. Regenerate the seeded farm, B3's slice and
 B4's, through the new services (A-085), keeping src/seed/reference-pricing.ts as the price definition.
+Coverage (NFR-015, docs/TEST_STRATEGY.md section 6): put the tax calculator under
+src/modules/mdm/domain/tax/ and uncomment its 100 percent gate in vitest.config.mts; put the promotion
+rules under src/modules/mdm/domain/pricing/, where B4's gate already covers them. Fill every branch the
+gates expose; the gate does not pass on a lowered number.
 Stop at the gate and write docs/sessions/B04c-master-data-continued.md.
 ```
 
@@ -177,6 +181,9 @@ cost pools with specific identification and weighted average, reservations and h
 transfers, adjustments with approval, stock take, stock exceptions, and the tests ADR-0002 requires,
 each rejection path as its own integration test (negative stock, double sale of a serial unit, sale
 under hold, update and delete refused). Extend the seed with stock.
+Coverage (NFR-015, docs/TEST_STRATEGY.md section 6): put stock valuation under
+src/modules/inv/domain/valuation/ and uncomment its 100 percent gate in vitest.config.mts before the
+gate passes. Fill every branch it exposes; the gate does not pass on a lowered number.
 Stop at the gate and write docs/sessions/B05-inventory-ledger.md.
 ```
 
@@ -257,6 +264,9 @@ billing documents with levy lines, gap-free numbering, document rendering and ar
 marker, financial statements. Include the test that adds a fourth levy as data only, and the test that
 every row of the ADR-0003 matrix posts exact debit and credit amounts. Regenerate the seed so every
 seeded movement has its journal. End the report with B09a's opening message (ADR-0026 verification).
+Coverage (NFR-015, docs/TEST_STRATEGY.md section 6): uncomment the 100 percent gate for
+src/modules/fin/domain/ in vitest.config.mts before the gate passes. Fill every branch it exposes;
+the gate does not pass on a lowered number.
 Stop at the gate and write docs/sessions/B08-ledger-billing.md.
 ```
 
@@ -397,6 +407,9 @@ carrying its abuse case numbers, actor, amount and subject document, so that B13
 Write the five tests of ADR-0028 under the names the ADR gives them, and run scenario 4 of
 docs/UAT.md as a dry run: the net profit for July to September 2026 in the seed is GHS 41,666.70 and
 the hand calculation must match the run to the pesewa.
+Coverage (NFR-015, docs/TEST_STRATEGY.md section 6): put the distribution rules under
+src/modules/cap/domain/distribution/ and uncomment its 100 percent gate in vitest.config.mts before
+the gate passes. Fill every branch it exposes; the gate does not pass on a lowered number.
 Stop at the gate and write docs/sessions/B12-capital-costing-reporting.md.
 ```
 
