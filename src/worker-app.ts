@@ -31,7 +31,7 @@ export async function startWorker(config: AppConfig, logger: Logger, clock: Cloc
     applicationName: 'hakorem-sealer',
     max: SEALER_POOL_MAX,
     statementTimeoutMs: config.DB_STATEMENT_TIMEOUT_MS,
-  });
+  }, logger);
   const redis = new URL(config.REDIS_URL);
   const queue = new BullmqJobQueue(
     {

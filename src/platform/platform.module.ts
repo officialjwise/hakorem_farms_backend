@@ -60,7 +60,7 @@ export class PlatformModule {
               applicationName: `hakorem-${config.APP_ROLE}`,
               max: config.DB_POOL_MAX,
               statementTimeoutMs: config.DB_STATEMENT_TIMEOUT_MS,
-            }),
+            }, logger),
         },
         { provide: REDIS, useFactory: () => createRedis(config.REDIS_URL, `hakorem-${config.APP_ROLE}`, config.REDIS_KEY_PREFIX) },
         { provide: UnitOfWork, useFactory: (pool: pg.Pool) => new UnitOfWork(pool, logger), inject: [PG_POOL] },

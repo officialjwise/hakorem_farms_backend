@@ -1,4 +1,5 @@
 import pg from 'pg';
+import type { Logger } from 'pino';
 
 export interface PoolSettings {
   readonly connectionString: string;
@@ -17,10 +18,11 @@ const LOCK_TIMEOUT_MS = 10_000;
 /**
  * A direct pool to PostgreSQL. No transaction-mode pooler sits in between, because the unit of work holds a
  * session-level advisory lock across BEGIN and COMMIT on one connection (ADR-0005, ADR-0024).
- * Every session runs in UTC; Africa/Accra is a rendering concern.
+ * Every session runs in UTC; Africa/Accra is a rendering concern. An idle connection that PostgreSQL drops (a restart,
+ * a failover, an administrator) is logged and discarded: without a listener the pool's error would end the process.
  */
-export function createPool(settings: PoolSettings): pg.Pool {
-  return new pg.Pool({
+export function createPool(settings: PoolSettings, logger: Logger): pg.Pool {
+  const pool = new pg.Pool({
     connectionString: settings.connectionString,
     application_name: settings.applicationName,
     max: settings.max,
@@ -28,4 +30,6 @@ export function createPool(settings: PoolSettings): pg.Pool {
     idleTimeoutMillis: IDLE_TIMEOUT_MS,
     options: `-c TimeZone=UTC -c statement_timeout=${settings.statementTimeoutMs} -c lock_timeout=${LOCK_TIMEOUT_MS}`,
   });
+  pool.on('error', (error) => logger.warn({ err: error, pool: settings.applicationName }, 'idle database connection lost; the pool replaces it'));
+  return pool;
 }
