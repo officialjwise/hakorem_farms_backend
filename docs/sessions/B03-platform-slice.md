@@ -102,11 +102,11 @@ Base URL `http://localhost:3000/v1` locally. Call with `credentials: "include"` 
 | Layer | Result (local, 2026-11-14) |
 | --- | --- |
 | Unit | 236 passed |
-| Integration (Testcontainers PostgreSQL 17.6, Redis 7.4.6, Versity Gateway 1.10.0) | 162 passed, twice in a row on the full suite |
+| Integration (Testcontainers PostgreSQL 17.6, Redis 7.4.6, Versity Gateway 1.10.0) | 163 passed (CI); the full suite passed twice in a row locally |
 | Contract | 20 passed |
 | End to end (stack from the built image, with the worker) | 7 passed |
 | Smoke (local stack) | 1 passed |
-| Coverage, unit and integration merged | 90.28 percent statements, 80.63 percent branches (gate 80); kernel 100 percent |
+| Coverage, unit and integration merged | 90.29 percent statements, 80.63 percent branches (gate 80); kernel 100 percent |
 | Lint, type check | Clean; 20 of 20 boundary fixtures fire |
 | Security | `pnpm audit --audit-level high` passes (5 moderate, unchanged from B2); gitleaks over the 17 B3 commits: no leaks; Trivy and Semgrep run in CI |
 
@@ -118,7 +118,7 @@ Boundaries crossed: TB1 (public login), TB2 (console), TB6 (investor login), TB7
 
 - Passed: SC-01 (strict schemas; list queries ignore unknown parameters as API.md says), SC-02 (policy engine in every handler, handler walk), SC-03 and SC-04 (parameters only; interpolated SQL is constant fragments), SC-05 (no float money; approval amounts are bigint), SC-06, SC-07 (no secret in logs, events refuse secret-named fields, audit redacts them), SC-08, SC-09, SC-10, SC-11 (login fails closed with 503), SC-14 (the breached-password query, Redis and storage calls are outside transactions), SC-15, SC-16, SC-17, SC-18 (TOTP secrets encrypted under the user's subject key, decrypted only in IAM), SC-20 and SC-21 (local audit and gitleaks clean; CI runs the rest), SC-22, SC-23 (the slice's write is serializable), SC-24.
 - Not applicable, with reason: SC-12 (no upload endpoint in B3, A-087), SC-13 (the Paystack adapter verifies signatures; webhook handling is B9a), SC-19 (no user-supplied outbound URL yet).
-- Findings fixed during the session: the deny-by-default guard first refused health and test routes (they now declare operations); refresh now requires an allowed Origin.
+- Findings fixed during the session: the deny-by-default guard first refused health and test routes (they now declare operations); refresh now requires an allowed Origin. Two found by CI on this branch: a `pg.Pool` without an error listener would have ended the API or the worker when PostgreSQL dropped an idle connection (a restart), now logged and replaced, with a test; and Semgrep's hard-coded-secret rule flagged a TOTP parameter named `secret`, a false positive cleared by renaming it, not by a suppression.
 - Abuse paths: authorisation refusals (an investor's logged as an error) and token reuse are audited with their actor and reason, ready for the daily exception report's `AUTHORISATION_FAILURE` item in B12. No new abuse case.
 
 ## Gate
@@ -127,7 +127,7 @@ Boundaries crossed: TB1 (public login), TB2 (console), TB6 (investor login), TB7
 
 **The frontend can log in against the real API.** Performed with `pnpm run setup` on this machine (exit 0; API and worker healthy; health OK with all five checks). The e2e suite then did exactly what the console will do, from the console's origin `http://localhost:5173`: the seeded Manager's first login through TOTP enrolment, `GET /auth/session` with the CSRF token, a product created with `Idempotency-Key` and `X-CSRF-Token`, read and listed by the cashier, the cashier refused, logout ending the session. The CORS preflight from that origin is answered with credentials (integration test). What this cannot show is the frontend's own code switching off its stub: that is the frontend track's next session, with the flow above.
 
-**CI:** the push of this branch runs the workflow (pull_request events start no run on this repository, as B2 found). The run's result is linked on the pull request.
+**CI green: passed.** [Run 43594300920](https://github.com/officialjwise/hakorem_farms_backend/actions/runs/43594300920) on commit `5f5e7a9`, all six jobs successful: lint and type check; unit and integration (399 tests) with the coverage gate; contract (drift check, responses, Redocly, versioning tests); image build and Trivy; the fresh-clone job (`pnpm run setup` on a clean runner, then e2e 7 of 7, which includes the Product flow, smoke, rollback and a second setup); secret scan, dependency audit and Semgrep. The two runs before it failed on the findings described in the security review, both fixed. Pull request events still start no run on this repository (B2's finding), so the push runs are the record.
 
 ## Notes for the frontend track
 
