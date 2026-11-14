@@ -402,7 +402,7 @@ The payment edge cases the brief lists are handled by this shape:
 | Idempotency | Key table and unique references | ADR-0014 |
 | Numbering | Row-locked series, gap-free, provisional references offline | ADR-0015 |
 | Authentication | Short access token, rotating refresh token, TOTP, host-bound cookies | ADR-0016 |
-| Authorisation | Policy engine in the domain layer, one maker-checker mechanism | ADR-0017 |
+| Authorisation | Policy engine called by every application-layer handler, one maker-checker mechanism | ADR-0017, ADR-0035 |
 | Tax | Named levies per category in effective-dated versions | ADR-0020 |
 | Catch-weight | Estimate, tolerance, invoice on weighed quantity | ADR-0021 |
 | Encryption | Application-side envelope encryption, per-subject keys | ADR-0022 |
@@ -545,7 +545,7 @@ The full amended schedule, with the gate for every session and three further ass
 | [0014](adr/0014-idempotency-and-external-references.md) | Idempotency keys and external references are unique keys in the database |
 | [0015](adr/0015-gap-free-numbering-and-offline-provisional-references.md) | Gap-free document numbers, and provisional references for offline receipts |
 | [0016](adr/0016-authentication.md) | Authentication design |
-| [0017](adr/0017-authorisation-and-maker-checker.md) | Authorisation in the domain layer, and one maker-checker mechanism |
+| [0017](adr/0017-authorisation-and-maker-checker.md) | Authorisation in the application layer, and one maker-checker mechanism |
 | [0018](adr/0018-valuation-and-cost-accumulation.md) | Stock valuation and cost accumulation live in the inventory module |
 | [0019](adr/0019-reservations-and-holds.md) | Stock reservations and holds |
 | [0020](adr/0020-tax-engine-named-levies.md) | Tax is a matrix of named levies per category, each with its own base and reclaimable flag |
@@ -563,3 +563,4 @@ The full amended schedule, with the gate for every session and three further ass
 | [0032](adr/0032-versity-gateway-for-development-object-storage.md) | Versity Gateway is the S3-compatible object store of development and CI |
 | [0033](adr/0033-scope-names-port.md) | IAM asks MDM for branch and location codes through a ScopeNames port |
 | [0034](adr/0034-authentication-and-authorisation-as-built.md) | How B3 built authentication and authorisation where ADR-0016 and ADR-0017 left a choice |
+| [0035](adr/0035-authorisation-in-the-application-layer.md) | Authorisation is checked in the application layer, never only in the controller (a correction to the brief's wording) |

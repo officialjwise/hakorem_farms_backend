@@ -218,7 +218,7 @@ Default session: B3. Brief bullets: staff accounts, login and TOTP (001 to 007, 
 - Acceptance: A fresh database lists exactly 10 system roles; deleting or archiving one returns 422; every `x-permission` value in the contract exists in `iam.permission`.
 - Test: `test/int/iam/roles-seed.int.spec.ts › seeds ten system roles and every contract permission`
 
-**FR-IAM-009** Deny by default, checked in the domain layer
+**FR-IAM-009** Deny by default, checked in the application layer
 - Actor: Any principal
 - Trigger: Any command or query
 - Rule: Every handler calls the policy engine `authorise(actor, permission, scope)` before doing work. A handler or route with no declared permission fails the build. No path grants access by absence of a rule.
@@ -2877,7 +2877,7 @@ Each of the 18 abuse cases in section 4 of `docs/security/THREAT_MODEL.md` has o
 - Owning module: IAM
 - Actor: Investor
 - Trigger: A read-only investor account calls finance or other investors' endpoints
-- Control: Deny-by-default authorisation checked in the domain layer; object-level ownership on every investor permission (FR-IAM-009, FR-IAM-010, FR-IAM-013).
+- Control: Deny-by-default authorisation checked in the application layer; object-level ownership on every investor permission (FR-IAM-009, FR-IAM-010, FR-IAM-013).
 - Detection and exception report: Exception kind `AUTHORISATION_FAILURE`: every authorisation refusal with principal, operation and object; an alert at 5 refusals by one principal in an hour.
 - Acceptance: Investor 001 requesting the trial balance, investor 002's statement id, and a customer list gets 403 each; no data leaks in the body; the report has three `AUTHORISATION_FAILURE` items with `abuseCases` [8] naming investor 001.
 - Tests: `test/e2e/iam/abuse-08-investor-access.e2e.spec.ts › refuses finance and other investors' data`; `test/e2e/iam/abuse-08-investor-access.e2e.spec.ts › reports each refusal as AUTHORISATION_FAILURE with abuse case 8`
@@ -2976,7 +2976,7 @@ Each of the 18 abuse cases in section 4 of `docs/security/THREAT_MODEL.md` has o
 - Owning module: IAM
 - Actor: Any principal
 - Trigger: Any request
-- Control: Authorisation is checked in the domain layer as well as the controller, and includes object-level ownership on every record a user can reach; a handler without a declared permission fails the build (FR-IAM-009, FR-IAM-010).
+- Control: Authorisation is checked in the application layer (every command and query handler), never only in the controller, and includes object-level ownership on every record a user can reach; a handler without a declared permission fails the build (FR-IAM-009, FR-IAM-010).
 - Detection and exception report: Refusals are recorded as `AUTHORISATION_FAILURE`.
 - Acceptance: The handler-walk test fails when a handler has no permission; each module has a test that the wrong role and the wrong owner are refused.
 - Tests: `test/unit/iam/authorisation-coverage.unit.spec.ts › fails the build for a handler without a declared permission`; `test/int/iam/ownership.int.spec.ts › refuses every module's records to a non-owner`

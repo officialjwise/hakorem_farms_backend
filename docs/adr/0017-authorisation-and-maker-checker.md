@@ -1,19 +1,21 @@
-# ADR-0017: Authorisation in the domain layer, and one maker-checker mechanism
+# ADR-0017: Authorisation in the application layer, and one maker-checker mechanism
 
 - **Status:** Proposed (awaiting B0 gate)
 - **Date:** 2026-11-13
 - **Session:** B0
 - **Deciders:** backend track; owner approves at the B0 gate
 
+Amended in B3 (2026-11-14), before acceptance: the shared brief's "domain layer" was a wording error; the check is in the application layer, because `domain/` may import only the kernel (ADR-0035). The decision is unchanged.
+
 ## Context
 
-The shared brief requires deny-by-default authorisation checked in the domain layer and not only in the controller, object-level ownership checks on every record a user can reach, branch and location scoping, and separation of duties enforced in code: maker and checker cannot be the same user on stock write-offs, refunds, price list activation, manual journals, supplier payments and investor distributions. The threat model's primary adversary is an insider with a valid login.
+The shared brief requires deny-by-default authorisation checked in the application layer and never only in the controller, object-level ownership checks on every record a user can reach, branch and location scoping, and separation of duties enforced in code: maker and checker cannot be the same user on stock write-offs, refunds, price list activation, manual journals, supplier payments and investor distributions. The threat model's primary adversary is an insider with a valid login.
 
 ## Options considered
 
 1. **Role checks on controllers.** Easy, but any second entry point (a job, another module's call, an offline sync) skips the check.
 2. **Each module builds its own approval tables.** Works, but ten slightly different maker-checker implementations is ten places to get the "not the same user" rule wrong.
-3. **One policy engine called from application and domain code, and one approval mechanism shared by all modules.**
+3. **One policy engine called from every application-layer handler, and one approval mechanism shared by all modules.**
 
 ## Decision
 

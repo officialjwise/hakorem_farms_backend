@@ -12,7 +12,7 @@ A production system for a livestock, poultry, meat and fresh produce business in
 - Rules live in the database (balanced journals, gap-free numbers, stock sign, unique idempotency keys), not only in code.
 - Stock and ledger writes run at serializable isolation with retry; one business operation is one transaction; side effects go through the outbox.
 - The counter keeps working offline; the server is authoritative and a synced sale is always recorded.
-- Authorisation is checked in the domain layer, deny by default; maker and checker are never the same user.
+- Authorisation is checked in the application layer, never only in the controller, deny by default, with a test proving the wrong role is refused (ADR-0035); maker and checker are never the same user.
 - Every timestamp is `TIMESTAMPTZ` in UTC, shown in Africa/Accra. Every state-changing call carries an idempotency key.
 - No secrets and no production data in this repository, in any seed, fixture or example.
 - Correctness over features; stay in scope (new ideas go to `docs/BACKLOG.md`); every decision is an ADR in `docs/adr/`.

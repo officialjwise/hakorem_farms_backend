@@ -52,6 +52,7 @@ Date: 2026-11-14 · Branch `b03-platform-slice` · Pull request #4, stacked on #
 
 ## Decisions
 
+- **A correction to the brief, not a deviation from it (owner, at the B3 review).** The brief said authorisation is checked "in the domain layer". That cannot be built: `domain/` may import only the kernel, so it cannot call IAM's policy engine. The rule now reads, everywhere: **authorisation is checked in the application layer, never only in the controller, with a test proving the wrong role is refused** (ADR-0035, accepted by the owner). B3 already built it that way: every handler calls the policy engine. It is corrected in `docs/SHARED_BRIEF.md` (including the definition of done), `docs/BUILD_PROMPT.md`, `CLAUDE.md`, the SRS, the threat model, `docs/prompts/module-build-prompt.md` (the recipe the openers point to), ADR-0007, ADR-0017 and ADR-0024, `docs/API.md` and the `hakorem-endpoint` skill. The openers themselves never carried the wrong wording. B4 should read "domain layer" in an older record as meaning this. The frontend's copy of the shared brief needs the same edit by the frontend track.
 - ADR-0031 (contract fragments, amends ADR-0030), ADR-0032 (Versity), ADR-0033 (ScopeNames port), ADR-0034 (authentication and authorisation as built). All Proposed, accepted by merging.
 - No grant or revocation cache: both are read per request (ADR-0034, BL-042 if the load test says otherwise).
 - The sealer keeps ADR-0006's cluster-wide horizon; a per-database horizon is BL-043.
