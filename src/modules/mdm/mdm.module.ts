@@ -71,6 +71,7 @@ import { ProductsController } from './interface/products.controller';
       inject: [UnitOfWork, PRODUCT_STORE, Authoriser, Idempotency, AuditTrail, DomainEvents, Cursors, CLOCK],
     },
   ],
+  exports: [PricingService],
 })
 export class MdmModule implements OnModuleInit {
   constructor(
