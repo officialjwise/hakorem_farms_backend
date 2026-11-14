@@ -134,6 +134,18 @@ export function defineEntries(inputs: readonly EntryInput[], refs: EntryReferenc
   return problems.length > 0 ? err(problems) : ok(entries);
 }
 
+/**
+ * The window a version is activated with: from its valid-from, or from the moment of approval if that is later, so
+ * a late approval never reprices sales already made. A version whose whole window passed before approval cannot
+ * be activated; the maker drafts a new one (ADR-0036).
+ */
+export function activationWindow(window: VersionWindow, now: Date): Result<VersionWindow, 'WINDOW_PASSED'> {
+  if (window.validTo !== null && window.validTo.getTime() <= now.getTime()) {
+    return err('WINDOW_PASSED');
+  }
+  return ok(window.validFrom.getTime() >= now.getTime() ? window : { validFrom: now, validTo: window.validTo });
+}
+
 export interface ActiveWindow extends VersionWindow {
   readonly id: string;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defineEntries, definePriceList, defineVersionWindow, planActivation, type EntryInput, type EntryReferences } from './price-list';
+import { activationWindow, defineEntries, definePriceList, defineVersionWindow, planActivation, type EntryInput, type EntryReferences } from './price-list';
 
 const GOAT = 'species-goat';
 const SHEEP = 'species-sheep';
@@ -132,5 +132,26 @@ describe('activation supersedes what it overlaps (ADR-0036)', () => {
 
   it('supersedes a later version that a new open-ended version covers', () => {
     expect(planActivation({ validFrom: d('2026-11-15'), validTo: null }, [{ id: 'later', validFrom: d('2027-01-01'), validTo: null }])).toEqual([{ id: 'later', action: 'SUPERSEDE' }]);
+  });
+});
+
+describe('activation starts no earlier than the approval (ADR-0036)', () => {
+  const d = (iso: string) => new Date(iso);
+  const now = d('2026-11-14T10:00:00Z');
+
+  it('keeps a future start as drafted', () => {
+    const window = { validFrom: d('2026-12-01T00:00:00Z'), validTo: null };
+    expect(activationWindow(window, now)).toEqual({ ok: true, value: window });
+  });
+
+  it('starts a version whose start has passed at the moment of approval, so the past is not repriced', () => {
+    expect(activationWindow({ validFrom: d('2026-11-14T08:00:00Z'), validTo: d('2026-12-01T00:00:00Z') }, now)).toEqual({
+      ok: true,
+      value: { validFrom: now, validTo: d('2026-12-01T00:00:00Z') },
+    });
+  });
+
+  it('refuses a version whose whole window passed before approval', () => {
+    expect(activationWindow({ validFrom: d('2026-11-01T00:00:00Z'), validTo: now }, now)).toEqual({ ok: false, error: 'WINDOW_PASSED' });
   });
 });
