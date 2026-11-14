@@ -53,3 +53,85 @@ export const ListProductsQuery = z.object({
 });
 
 export const ProductIdParam = z.uuid();
+
+/** The contract's `Quantity`: three decimal places, a string. */
+const Quantity = z.string().regex(/^(0|[1-9][0-9]{0,10})\.[0-9]{3}$/);
+/** The contract's `Pesewas`: a JSON integer, carried inward as a bigint so no float touches it. */
+const Pesewas = z
+  .number()
+  .int()
+  .min(0)
+  .max(Number.MAX_SAFE_INTEGER)
+  .transform((value) => BigInt(value));
+const Channel = z.enum(['POS', 'ONLINE', 'WHOLESALE', 'QUOTE']);
+const PriceListKind = z.enum(['BASE', 'CHANNEL', 'TIER', 'CUSTOMER']);
+const PriceBasis = z.enum(['PER_HEAD', 'PER_KG', 'PER_UNIT']);
+const DateTime = z.iso.datetime({ offset: true }).transform((value) => new Date(value));
+
+/** The most lines one resolvePrices call prices: a large wholesale order. */
+export const MAX_RESOLVE_LINES = 200;
+/** The most entries one version holds: the whole catalogue in every band, with room to spare. */
+export const MAX_PRICE_LIST_ENTRIES = 5_000;
+
+/** The contract's `PriceResolveRequest`, strict. */
+export const PriceResolveRequest = z.strictObject({
+  channel: Channel,
+  branchId: z.uuid(),
+  customerId: z.uuid().optional(),
+  at: DateTime.optional(),
+  couponCode: z.string().trim().min(1).max(40).optional(),
+  lines: z
+    .array(
+      z.strictObject({
+        lineRef: z.string().min(1).max(40),
+        productId: z.uuid(),
+        stockUnitId: z.uuid().optional(),
+        gradeId: z.uuid().optional(),
+        weightKg: Kilograms.optional(),
+        quantity: Quantity,
+      }),
+    )
+    .min(1)
+    .max(MAX_RESOLVE_LINES),
+});
+
+/** The contract's `PriceListCreate`, strict. Slot rules (which kinds take a channel or tier) are the domain's. */
+export const PriceListCreate = z.strictObject({
+  code: z.string().regex(/^[A-Z0-9][A-Z0-9_-]{1,39}$/),
+  name: z.string().trim().min(1).max(120),
+  kind: PriceListKind,
+  channel: Channel.optional(),
+  customerTierId: z.uuid().optional(),
+  branchId: z.uuid().optional(),
+  taxInclusive: z.boolean(),
+});
+
+/** The contract's `PriceListVersionCreate`, strict. */
+export const PriceListVersionCreate = z.strictObject({
+  validFrom: DateTime,
+  validTo: DateTime.optional(),
+  copyFromVersionId: z.uuid().optional(),
+  notes: z.string().trim().min(1).max(500).optional(),
+});
+
+/** The contract's `PriceListEntriesReplace`, strict. */
+export const PriceListEntriesReplace = z.strictObject({
+  version: z.number().int().min(1),
+  entries: z
+    .array(
+      z.strictObject({
+        productId: z.uuid(),
+        gradeId: z.uuid().optional(),
+        weightBandId: z.uuid().optional(),
+        basis: PriceBasis,
+        listPricePesewas: Pesewas,
+        floorPricePesewas: Pesewas,
+        ceilingPricePesewas: Pesewas,
+        quoteOnly: z.boolean().optional(),
+        minQty: Quantity.optional(),
+      }),
+    )
+    .max(MAX_PRICE_LIST_ENTRIES),
+});
+
+export const IdParam = z.uuid();

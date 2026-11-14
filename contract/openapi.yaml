@@ -10212,6 +10212,18 @@ paths:
       summary: "Create a price list"
       description: "Permission: `mdm.price_list.create`."
       x-permission: mdm.price_list.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - DUPLICATE_VALUE
+        - REFERENCE_NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -10280,6 +10292,13 @@ paths:
       summary: "Get a price list"
       description: "Permission: `mdm.price_list.read`."
       x-permission: mdm.price_list.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - NOT_FOUND
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -10644,6 +10663,19 @@ paths:
       summary: "Draft a new price list version"
       description: "Permission: `mdm.price_list.update`."
       x-permission: mdm.price_list.update
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - REFERENCE_NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -10717,6 +10749,13 @@ paths:
       summary: "Get a price list version"
       description: "Permission: `mdm.price_list.read`."
       x-permission: mdm.price_list.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - NOT_FOUND
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -10966,6 +11005,22 @@ paths:
       summary: "Replace the entries of a draft version"
       description: "Two entries for the same product, grade, band and quantity break are refused.\n\nPermission: `mdm.price_list.update`."
       x-permission: mdm.price_list.update
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - INVALID_STATE_TRANSITION
+        - REFERENCE_NOT_FOUND
+        - PRICE_ENTRY_INVALID
+        - PRICE_ENTRY_DUPLICATE
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -11056,6 +11111,18 @@ paths:
       summary: "Submit a draft version for activation"
       description: "Always needs approval by a different user. On approval the version becomes ACTIVE from its valid-from time and the previous version is superseded.\n\nPermission: `mdm.price_list.update`.\n\nMay require approval of kind `PRICE_LIST_ACTIVATION`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
       x-permission: mdm.price_list.update
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -11106,10 +11173,10 @@ paths:
                 approvalRequestId: "019a7aa7-0e36-72c9-a801-3564d607ae42"
                 kind: PRICE_LIST_ACTIVATION
                 subject:
-                  id: "019a7aa7-2d25-7cac-b1e4-d39c4fb84c7a"
-                  docType: STOCK_ADJUSTMENT
+                  id: "019a7aa3-e9f0-71af-86e7-23c27a0d9ca0"
+                  docType: PRICE_LIST_VERSION
                   number: null
-                summary: "Awaiting approval by a different user with the approving permission"
+                summary: "Activate BASE version 5 (38 entries) from 2026-12-01T00:00:00.000Z"
                 requestedAt: "2026-11-13T10:12:00Z"
         "400":
           $ref: "#/components/responses/BadRequest"
@@ -11135,6 +11202,15 @@ paths:
       summary: "Resolve prices for one or more lines"
       description: "Walks the customer list, then tier and channel, then channel, then base, and stops at the first hit; inside a list the most specific entry wins. A line that cannot be priced returns outcome QUOTE_REQUIRED with a reason, never an error and never a zero. Promotions apply only to tier, channel and base prices. Read-only: nothing is stored.\n\nPermission: `mdm.price.resolve`."
       x-permission: mdm.price.resolve
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - REFERENCE_NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
       security:

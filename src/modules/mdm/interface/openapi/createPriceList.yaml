@@ -1,0 +1,78 @@
+operationId: createPriceList
+tags:
+  - pricing
+summary: "Create a price list"
+description: "Permission: `mdm.price_list.create`."
+x-permission: mdm.price_list.create
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - DUPLICATE_VALUE
+  - REFERENCE_NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/PriceListCreate"
+      example:
+        code: CUST-ASANTEWAA
+        name: "Asantewaa Chop Bar prices"
+        kind: CUSTOMER
+        taxInclusive: false
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/PriceList"
+        example:
+          id: "019a7a94-5381-760f-bb48-69ce27dce2ac"
+          code: BASE
+          name: "Base prices"
+          kind: BASE
+          channel: null
+          customerTier: null
+          branch: null
+          taxInclusive: true
+          currency: GHS
+          activeVersion:
+            id: "019a7aa3-e9f0-71af-86e7-23c27a0d9ca0"
+            versionNo: 3
+            validFrom: "2026-11-01T00:00:00Z"
+            validTo: null
+          draftVersionId: "019a7aa4-08df-7b92-90ca-c1f9f3be3ad7"
+          version: 2
+          createdAt: "2026-11-02T08:00:00Z"
+          updatedAt: "2026-11-10T14:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

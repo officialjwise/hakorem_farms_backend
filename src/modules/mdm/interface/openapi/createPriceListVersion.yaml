@@ -1,0 +1,84 @@
+operationId: createPriceListVersion
+tags:
+  - pricing
+summary: "Draft a new price list version"
+description: "Permission: `mdm.price_list.update`."
+x-permission: mdm.price_list.update
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - REFERENCE_NOT_FOUND
+  - INVALID_STATE_TRANSITION
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/PriceListVersionCreate"
+      example:
+        validFrom: "2026-12-01T00:00:00Z"
+        copyFromVersionId: "019a7aa4-46bd-7f59-b491-fe68e7207746"
+        notes: "Christmas season goat prices"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/PriceListVersion"
+        example:
+          id: "019a7aa3-e9f0-71af-86e7-23c27a0d9ca0"
+          priceListId: "019a7a94-5381-760f-bb48-69ce27dce2ac"
+          versionNo: 5
+          status: DRAFT
+          validFrom: "2026-12-01T00:00:00Z"
+          validTo: null
+          approvalRequestId: null
+          activatedAt: null
+          activatedBy: null
+          notes: "Christmas season goat prices"
+          entryCount: 38
+          version: 1
+          createdAt: "2026-11-10T11:00:00Z"
+          createdBy:
+            id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+            displayName: "Kwabena Owusu"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
