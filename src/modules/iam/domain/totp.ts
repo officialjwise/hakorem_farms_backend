@@ -10,10 +10,10 @@ const SIX_DIGITS = /^\d{6}$/;
 const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 
 /** RFC 4226 HOTP: HMAC-SHA-1 of the counter, dynamically truncated to six digits. */
-function hotp(secret: Buffer, counter: number): string {
+function hotp(sharedKey: Buffer, counter: number): string {
   const message = Buffer.alloc(8);
   message.writeBigUInt64BE(BigInt(counter));
-  const digest = createHmac('sha1', secret).update(message).digest();
+  const digest = createHmac('sha1', sharedKey).update(message).digest();
   const offset = digest[digest.length - 1]! & 0x0f;
   const binary = ((digest[offset]! & 0x7f) << 24) | (digest[offset + 1]! << 16) | (digest[offset + 2]! << 8) | digest[offset + 3]!;
   return String(binary % MODULUS).padStart(DIGITS, '0');
@@ -24,15 +24,15 @@ export function stepAt(unixSeconds: number): number {
 }
 
 /** The code an authenticator shows at this instant (unix seconds). */
-export function totpAt(secret: Buffer, unixSeconds: number): string {
-  return hotp(secret, stepAt(unixSeconds));
+export function totpAt(sharedKey: Buffer, unixSeconds: number): string {
+  return hotp(sharedKey, stepAt(unixSeconds));
 }
 
 /**
  * Checks a six-digit code against the current step and one either side, in constant time per comparison. Returns
  * the step it matched, or null. A step at or before `lastUsedStep` is refused, so a code cannot be replayed.
  */
-export function verifyTotp(secret: Buffer, code: string, unixSeconds: number, lastUsedStep: number | null): number | null {
+export function verifyTotp(sharedKey: Buffer, code: string, unixSeconds: number, lastUsedStep: number | null): number | null {
   if (!SIX_DIGITS.test(code)) {
     return null;
   }
@@ -40,7 +40,7 @@ export function verifyTotp(secret: Buffer, code: string, unixSeconds: number, la
   const given = Buffer.from(code, 'ascii');
   let matched: number | null = null;
   for (let step = current - DRIFT_STEPS; step <= current + DRIFT_STEPS; step += 1) {
-    const expected = Buffer.from(hotp(secret, step), 'ascii');
+    const expected = Buffer.from(hotp(sharedKey, step), 'ascii');
     if (timingSafeEqual(expected, given) && matched === null && (lastUsedStep === null || step > lastUsedStep)) {
       matched = step;
     }
