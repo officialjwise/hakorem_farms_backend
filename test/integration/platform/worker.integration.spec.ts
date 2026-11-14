@@ -12,7 +12,7 @@ const prefix = `tw${randomBytes(3).toString('hex')}:`;
 let database: TestDatabase;
 let worker: { close(): Promise<void> };
 
-async function waitFor(check: () => Promise<boolean>, timeoutMs = 10_000): Promise<void> {
+async function waitFor(check: () => Promise<boolean>, timeoutMs = 30_000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (await check()) return;

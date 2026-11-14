@@ -43,6 +43,23 @@ afterAll(async () => {
   await database.drop();
 });
 
+/**
+ * The sealer's horizon is the oldest transaction still running anywhere on the server (ADR-0006), and the test server
+ * runs every test file's databases at once, so an event may wait for another file's transaction. Seal until the
+ * expected events are chained, within a deadline; production runs one database per server.
+ */
+async function sealUntilChained(ids: readonly string[], timeoutMs = 15_000): Promise<number> {
+  const deadline = Date.now() + timeoutMs;
+  let sealed = 0;
+  for (;;) {
+    sealed += await sealer.sealOnce();
+    const { rows } = await database.pool('admin').query<{ n: number }>('SELECT count(*)::int AS n FROM platform.audit_chain WHERE audit_event_id = ANY($1::uuid[])', [ids]);
+    if (rows[0]!.n === ids.length) return sealed;
+    if (Date.now() > deadline) throw new Error(`only ${rows[0]!.n} of ${ids.length} events sealed in time`);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+}
+
 const record = (entityType = 'Probe') =>
   runAsSystem(SYSTEM, randomUUID(), () =>
     uow.run({ isolation: 'read committed' }, (tx) => audit.record(tx, { module: 'mdm', action: 'CREATE', entityType, entityId: randomUUID() })),
@@ -59,7 +76,7 @@ async function chain(): Promise<Array<{ seq: string; audit_event_id: string; pre
 describe('the audit sealer (ADR-0006, stage two)', () => {
   it('chains committed events with gap-free positions, each holding the hash of the one before', async () => {
     const ids = [await record(), await record(), await record()];
-    expect(await sealer.sealOnce()).toBe(3);
+    expect(await sealUntilChained(ids)).toBe(3);
     const rows = await chain();
     expect(rows.map((row) => row.seq)).toEqual(['1', '2', '3']);
     expect(rows.map((row) => row.audit_event_id)).toEqual(ids);
@@ -84,9 +101,11 @@ describe('the audit sealer (ADR-0006, stage two)', () => {
         [olderEvent, SYSTEM.principalId, randomUUID()],
       );
       const newerEvent = await record();
+      // The newer event has committed, but the older transaction is still open: nothing after it may be sealed.
       expect(await sealer.sealOnce()).toBe(0);
+      expect((await database.pool('admin').query('SELECT 1 FROM platform.audit_chain WHERE audit_event_id = $1', [newerEvent])).rowCount).toBe(0);
       await client.query('COMMIT');
-      expect(await sealer.sealOnce()).toBe(2);
+      expect(await sealUntilChained([olderEvent, newerEvent])).toBe(2);
       const rows = await chain();
       expect(rows.slice(-2).map((row) => row.audit_event_id)).toEqual([olderEvent, newerEvent]);
     } finally {
@@ -94,19 +113,20 @@ describe('the audit sealer (ADR-0006, stage two)', () => {
     }
   });
 
-  it('runs one sealer at a time', async () => {
-    await record();
-    await record();
+  it('runs one sealer at a time, so the chain stays one gap-free sequence', async () => {
+    const ids = [await record(), await record()];
     const [a, b] = await Promise.all([sealer.sealOnce(), sealer.sealOnce()]);
-    expect(a + b).toBe(2);
+    // The second call finds the lock taken and seals nothing, whatever the first could seal.
     expect(Math.min(a, b)).toBe(0);
+    await sealUntilChained(ids);
+    const seqs = (await chain()).map((row) => Number(row.seq));
+    expect(seqs).toEqual(seqs.map((_, index) => index + 1));
   });
 });
 
 describe('the verifier and the anchor (ADR-0006, stage three)', () => {
   it('finds nothing wrong in an untouched chain and records SUCCESS', async () => {
-    await record();
-    await sealer.sealOnce();
+    await sealUntilChained([await record()]);
     const report = await verifier.verify();
     expect(report).toMatchObject({ outcome: 'SUCCESS', tamperedSeqs: [], gaps: [], unsealedOlderThanAlert: 0 });
     const { rows } = await database.pool('admin').query<{ outcome: string }>("SELECT outcome FROM platform.job_run WHERE job_name = 'audit-verify' ORDER BY finished_at DESC LIMIT 1");
@@ -127,7 +147,7 @@ describe('the verifier and the anchor (ADR-0006, stage three)', () => {
 
   it('reports the exact position of an event a superuser altered behind the triggers', async () => {
     const victim = await record('Payment');
-    await sealer.sealOnce();
+    await sealUntilChained([victim]);
     const { rows } = await database.pool('admin').query<{ seq: string }>('SELECT seq::text AS seq FROM platform.audit_chain WHERE audit_event_id = $1', [victim]);
     const admin = await database.pool('admin').connect();
     try {
