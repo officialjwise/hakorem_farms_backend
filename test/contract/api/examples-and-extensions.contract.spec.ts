@@ -1,3 +1,5 @@
+import { Resvg } from '@resvg/resvg-js';
+import jsQR from 'jsqr';
 import { describe, expect, it } from 'vitest';
 import { HTTP_METHODS } from '../../../scripts/contract/build-contract';
 import { PUBLISHED_PATH, readYaml } from '../../../scripts/contract/generate';
@@ -51,5 +53,16 @@ describe('x-requires-step-up (CR-007)', () => {
     });
     expect(problems).toEqual([]);
     expect(operations().filter(({ operation }) => operation['x-requires-step-up'] === true).length).toBeGreaterThan(0);
+  });
+});
+
+describe('the TotpEnrolment example (CR-006)', () => {
+  it('carries a QR code that an independent renderer and decoder read back as exactly its otpauthUri', () => {
+    const operation = operations().find(({ operation: o }) => o['operationId'] === 'startTotpEnrolment')!.operation;
+    const example = (((operation['responses'] as JsonObject)['200'] as JsonObject)['content'] as JsonObject)['application/json'] as JsonObject;
+    const { otpauthUri, qrCodeDataUri } = example['example'] as { otpauthUri: string; qrCodeDataUri: string };
+    const svg = Buffer.from(qrCodeDataUri.replace(/^data:image\/svg\+xml;base64,/, ''), 'base64').toString('utf8');
+    const image = new Resvg(svg, { fitTo: { mode: 'width', value: 600 }, background: 'white' }).render();
+    expect(jsQR(new Uint8ClampedArray(image.pixels), image.width, image.height)?.data).toBe(otpauthUri);
   });
 });

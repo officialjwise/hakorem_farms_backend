@@ -8,6 +8,12 @@ Version numbers follow semantic versioning: a major bump breaks an existing clie
 
 - **CR-002 (frontend, raised 2026-11-13): weights as decimal strings, never JSON numbers.** Already satisfied by 1.0.0 and 1.1.0, so no version change. `components.schemas.Kilograms` is `type: string` with the pattern `^(0|[1-9][0-9]{0,6})\.[0-9]{3}$` (exactly three decimal places), and its description says it is never a JSON number. The request was raised against a copy taken before re-syncing; re-run `./scripts/sync-contract.sh`. The owner closed it on 2026-11-13: do not reopen it.
 
+## 1.4.0 (2026-11-14, B4)
+
+**Additive only.** A client generated from 1.3.x keeps working; it simply does not read the new field.
+
+- **`TotpEnrolment.qrCodeDataUri` (CR-006 point 2)**, always present, in the response of `startTotpEnrolment`: the `otpauthUri` drawn as a QR code, an SVG image as a data URI (`data:image/svg+xml;base64,…`). Show it in an `<img>` with a text alternative, and keep `secretBase32` on screen for a phone that cannot scan. The QR code carries nothing the response did not already carry: it is the same URI, drawn. The example in the contract is a real code that decodes to the example's own `otpauthUri`, so the mock serves one that scans (ADR-0037).
+
 ## 1.3.0 (2026-11-14, B4)
 
 **Additive only. No existing shape changed: no field, schema, parameter or response was removed, renamed, retyped or made required.** A client generated from 1.2.x keeps working unchanged. The frontend track is paused; when it resumes it should read this entry first, because nothing reviewed it when it was made.
@@ -21,7 +27,7 @@ Seven more operations now answer from the real API (24 in all), and their publis
   - `submitPriceListVersion` always answers **202 `ApprovalPending`**; activation is always maker-checker. Its documented 200 response is never returned in this version and stays only so the published shape does not change.
   - `resolvePrices` returns `promotions: []` on every line until promotions are built (B04 continued); a `couponCode`, and a line's `stockUnitId` until inventory exists (B5), name no record and answer 422 `REFERENCE_NOT_FOUND` naming the field. A line the engine cannot price is still a 200 with `outcome: QUOTE_REQUIRED`, never an error.
   - A version whose `validFrom` has passed when it is approved starts at the moment of approval, so `getPriceListVersion` can show a later `validFrom` than was drafted (ADR-0036).
-- **Not in this version (CR-006 point 2):** `TotpEnrolment.qrCodeDataUri` is accepted but not yet added. It needs a QR encoder on the server, and adding the dependency was held for the owner's decision in B4 (session report). Until then the enrolment screen renders `otpauthUri` itself or shows `secretBase32` for manual entry.
+- **Not in this version (CR-006 point 2):** `TotpEnrolment.qrCodeDataUri` waited for the owner's decision on the dependency; it is in 1.4.0.
 
 ## 1.2.0 (2026-11-14, B3)
 

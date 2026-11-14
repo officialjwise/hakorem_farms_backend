@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.3.0"
+  version: "1.4.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -66450,9 +66450,14 @@ components:
         secretBase32:
           type: string
           description: "For manual entry. Shown once."
+        qrCodeDataUri:
+          type: string
+          pattern: "^data:image/svg\\+xml;base64,[A-Za-z0-9+/]+={0,2}$"
+          description: "The same otpauthUri as a QR code: an SVG image as a data URI, for an <img> with a text alternative. Shown once. Drawn on the server so neither the console nor the till needs a QR library (ADR-0037); keep secretBase32 on screen for a phone that cannot scan."
       required:
         - otpauthUri
         - secretBase32
+        - qrCodeDataUri
     TotpEnrolmentStart:
       type: object
       description: "Empty with a session. During login, after TOTP_ENROLMENT_REQUIRED, the challenge token."
