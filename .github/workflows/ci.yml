@@ -1,0 +1,159 @@
+# Every pull request and every push to main (docs/BUILD_PROMPT.md "Commands, CI and pushing", docs/TEST_STRATEGY.md
+# section 14). Every job must pass to merge; a high or critical security finding fails its job (SEC-034).
+# Actions are pinned by commit SHA and scanner images by digest, so a moved tag cannot change what runs.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22'
+  GITLEAKS_IMAGE: zricethezav/gitleaks:v8.28.0@sha256:cdbb7c955abce02001a9f6c9f602fb195b7fadc1e812065883f695d1eeaba854
+  TRIVY_IMAGE: aquasec/trivy:0.67.2@sha256:e2b22eac59c02003d8749f5b8d9bd073b62e30fefaef5b7c8371204e0a4b0c08
+  SEMGREP_IMAGE: semgrep/semgrep:1.140.0@sha256:4372a1de903521f9f10f877b6caf15d150d17e1ca592582682c8d02b77cbd4f6
+
+jobs:
+  lint-typecheck:
+    name: lint and type check (NFR-018, NFR-022)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: corepack enable pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: lint, the boundary rule and its fixtures, test placement, schema names
+        run: pnpm lint
+      - run: pnpm typecheck
+
+  test:
+    name: unit and integration with the coverage gate (NFR-015)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: corepack enable pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: unit and integration against PostgreSQL 17 and Redis 7 in Testcontainers, coverage merged
+        run: pnpm test:coverage
+
+  contract:
+    name: contract (FR-API-001, FR-API-002)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: corepack enable pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: the committed contract is what the code generates
+        run: pnpm contract:generate --check
+      - name: responses against the contract
+        run: pnpm test:contract
+      - name: Redocly lint, no errors and no warnings
+        run: pnpm exec redocly lint contract/openapi.yaml
+      - name: a breaking change needs a major version, any change a new version
+        if: github.event_name == 'pull_request'
+        run: |
+          git show "origin/${{ github.base_ref }}:contract/openapi.yaml" > "$RUNNER_TEMP/base-openapi.yaml"
+          pnpm exec tsx scripts/contract/versioning.ts "$RUNNER_TEMP/base-openapi.yaml" contract/openapi.yaml
+
+  build-image:
+    name: build and scan the image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: corepack enable pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: docker build -f infra/docker/api.Dockerfile -t hakorem-backend:ci .
+      - name: container image scan, high and critical block
+        run: docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "$TRIVY_IMAGE" image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 hakorem-backend:ci
+
+  fresh-clone:
+    name: setup script brings the stack up on a clean checkout (NFR-017)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: nothing installed, no .env, no volumes
+        run: |
+          test ! -e node_modules
+          test ! -e .env
+          docker volume ls --quiet --filter name=hakorem_ | (! grep .)
+      - name: pnpm setup, exactly as a new developer runs it
+        run: bash scripts/setup.sh
+      - name: end to end against the stack from the built image
+        run: corepack pnpm test:e2e
+      - name: smoke against the running stack
+        run: corepack pnpm test:smoke -- --base-url=http://127.0.0.1:3000
+      - name: the last migration rolls back and applies again
+        run: |
+          corepack pnpm db:rollback
+          corepack pnpm db:migrate
+      - name: running setup again is safe
+        run: bash scripts/setup.sh
+      - if: failure()
+        run: docker compose --profile app logs --no-color
+
+  security:
+    name: secret scan, dependency audit, static analysis (SEC-034)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: corepack enable pnpm
+      - name: secret scan over the whole history
+        run: docker run --rm -v "$PWD:/repo" "$GITLEAKS_IMAGE" git /repo --config /repo/.gitleaks.toml --redact --no-banner
+      - name: dependency audit, high and critical block
+        run: pnpm audit --audit-level high
+      - name: static analysis, errors block
+        run: docker run --rm -v "$PWD:/src" "$SEMGREP_IMAGE" semgrep scan --config p/typescript --config p/nodejsscan --severity ERROR --error --metrics off --exclude tooling/lint-fixtures --exclude contract
+      - name: the gates fire on a planted secret and a vulnerable dependency
+        run: |
+          set -u
+          planted="$RUNNER_TEMP/planted-secret"
+          mkdir -p "$planted"
+          # Generated here, never committed: a private key block in an ordinary file.
+          { echo '-----BEGIN RSA PRIVATE KEY-----'; openssl rand -base64 600; echo '-----END RSA PRIVATE KEY-----'; } > "$planted/config.txt"
+          if docker run --rm -v "$planted:/scan" "$GITLEAKS_IMAGE" dir /scan --no-banner; then
+            echo 'the secret scan did not fail on a planted private key'; exit 1
+          fi
+          vulnerable="$RUNNER_TEMP/vulnerable-dependency"
+          mkdir -p "$vulnerable" && cd "$vulnerable"
+          echo '{"name":"audit-probe","version":"1.0.0","private":true,"dependencies":{"lodash":"4.17.15"}}' > package.json
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund >/dev/null
+          if npm audit --audit-level=high >/dev/null; then
+            echo 'the dependency audit did not fail on lodash 4.17.15'; exit 1
+          fi
+          echo 'both gates fail as they should'
