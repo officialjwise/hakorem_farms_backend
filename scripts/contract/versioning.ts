@@ -23,12 +23,63 @@ function versionOf(document: JsonObject): [number, number, number] {
   return [Number(match[1]), Number(match[2]), Number(match[3])];
 }
 
+const COMPONENT_REF = /^#\/components\/(schemas|parameters|requestBodies)\/([^/]+)$/;
+
+/** Every component reference under a value: `$ref`s, and discriminator mappings, which name schemas as plain strings. */
+function referencesIn(value: Json | undefined, into: string[]): void {
+  if (typeof value === 'string') {
+    if (COMPONENT_REF.test(value)) {
+      into.push(value);
+    }
+  } else if (Array.isArray(value)) {
+    value.forEach((item) => referencesIn(item, into));
+  } else if (typeof value === 'object' && value !== null) {
+    Object.values(value).forEach((item) => referencesIn(item, into));
+  }
+}
+
+/**
+ * The schemas a client sends (ADR-0038): reachable, through any chain of references, from an operation's request body
+ * or from a parameter of an operation or its path. A schema reached from both a request and a response is here.
+ */
+export function schemasSentByClients(document: JsonObject): Set<string> {
+  const pending: string[] = [];
+  for (const item of Object.values(obj(document['paths']))) {
+    const pathItem = obj(item);
+    referencesIn(pathItem['parameters'], pending);
+    for (const [method, operation] of Object.entries(pathItem)) {
+      if ((HTTP_METHODS as readonly string[]).includes(method)) {
+        referencesIn(obj(operation)['requestBody'], pending);
+        referencesIn(obj(operation)['parameters'], pending);
+      }
+    }
+  }
+  const components = obj(document['components']);
+  const seen = new Set<string>();
+  const sent = new Set<string>();
+  for (let ref = pending.pop(); ref !== undefined; ref = pending.pop()) {
+    if (seen.has(ref)) {
+      continue;
+    }
+    seen.add(ref);
+    const [, kind = '', name = ''] = COMPONENT_REF.exec(ref) ?? [];
+    if (kind === 'schemas') {
+      sent.add(name);
+    }
+    referencesIn(obj(components[kind])[name], pending);
+  }
+  return sent;
+}
+
 /**
  * Changes a client generated from the old contract cannot survive (docs/API.md section 1): a removed operation or
- * schema, a removed property, a property that became required, a removed enumeration value, or a changed type.
+ * schema, a removed property, a property that became required on a schema the client sends (ADR-0038), a removed
+ * enumeration value, or a changed type. A newly required property on a schema only the server sends is a new
+ * response field: a reader gains a guarantee and loses nothing.
  */
 export function breakingChanges(previous: JsonObject, next: JsonObject): string[] {
   const found: string[] = [];
+  const sentByClients = new Set([...schemasSentByClients(previous), ...schemasSentByClients(next)]);
   for (const [path, item] of Object.entries(obj(previous['paths']))) {
     for (const method of Object.keys(obj(item))) {
       if ((HTTP_METHODS as readonly string[]).includes(method) && obj(obj(next['paths'])[path])[method] === undefined) {
@@ -55,7 +106,7 @@ export function breakingChanges(previous: JsonObject, next: JsonObject): string[
     }
     const wasRequired = new Set(strings(before['required']));
     for (const property of strings(afterObj['required'])) {
-      if (!wasRequired.has(property)) {
+      if (!wasRequired.has(property) && sentByClients.has(name)) {
         found.push(`schema ${name} now requires ${property}`);
       }
     }

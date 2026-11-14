@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { SEED_PRODUCTS } from '../../../src/seed/reference-pricing';
 import { seedUnits } from '../../../src/seed/seed-units';
 import { startTestApp, TEST_ORIGIN, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
@@ -59,7 +60,9 @@ describe('the seeded farm (hakorem-seed)', () => {
     const virtual = await admin.query<{ n: number }>('SELECT count(*)::int AS n FROM mdm.location WHERE is_virtual');
     expect(virtual.rows[0]!.n).toBe(16);
     const products = await admin.query<{ sku: string }>('SELECT sku FROM mdm.product ORDER BY sku');
-    expect(products.rows.map((row) => row.sku)).toEqual(['EGG-CRATE-BIG', 'LIV-GOAT', 'LIV-SHEEP', 'MEAT-CHICKEN-WINGS-15KG', 'MEAT-GOAT-15KG', 'PRD-YAM-TUBER']);
+    // B3's six products, and from B4 the rest of the reference catalogue.
+    expect(products.rows.map((row) => row.sku)).toEqual(SEED_PRODUCTS.map((product) => product.sku).sort());
+    expect(products.rows.map((row) => row.sku)).toEqual(expect.arrayContaining(['EGG-CRATE-BIG', 'LIV-GOAT', 'LIV-SHEEP', 'MEAT-CHICKEN-WINGS-15KG', 'MEAT-GOAT-15KG', 'PRD-YAM-TUBER']));
   });
 
   it('lets the seeded cashier log in with the generated password and see the catalogue', async () => {
@@ -71,7 +74,7 @@ describe('the seeded farm (hakorem-seed)', () => {
     expect(login.body.session.grants).toEqual([expect.objectContaining({ roleCode: 'CASHIER', branchCode: 'DDW', locationCode: 'SHOP' })]);
     const cookies = (login.headers['set-cookie'] as unknown as string[]).map((c) => c.split(';')[0]).join('; ');
     const products = await request(api.server).get('/v1/products').set('Cookie', cookies);
-    expect(products.body.data).toHaveLength(6);
+    expect(products.body.data).toHaveLength(SEED_PRODUCTS.length);
     const owner = await request(api.server).post('/v1/auth/staff/login').set('Origin', TEST_ORIGIN).send({ identifier: 'kwabena.owusu@seed.hakoremfarms.invalid', password });
     expect(owner.body.status).toBe('TOTP_ENROLMENT_REQUIRED');
   });

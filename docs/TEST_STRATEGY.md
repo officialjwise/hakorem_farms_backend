@@ -136,7 +136,8 @@ Coverage is measured with V8 coverage in Vitest, with unit and integration resul
 | Kernel | **100 percent branch** | `packages/kernel/**`: `Money`, `Weight`, `Quantity`, `allocate` (ADR-0001, `docs/BUILD_PROMPT.md` B2) |
 | Tax calculator | **100 percent branch** | `src/modules/mdm/domain/tax/**` (ADR-0020). Not named in the shared brief; added here because tax arithmetic is on the money path |
 
-- The paths are globs in the Vitest configuration. The module session that creates the folder keeps the glob true; a gate whose glob matches no file fails the build, so a rename cannot silently drop a gate.
+- The paths are globs in the Vitest configuration, each written through `fullCoverage` in `vitest.config.mts`. The module session that creates the folder keeps the glob true; `fullCoverage` refuses to load the configuration when a glob matches no source file (Vitest itself would pass it), so a rename cannot silently drop a gate.
+- A gate whose folder does not exist yet sits in `vitest.config.mts` as a commented placeholder. Each session that creates one of those folders adds its own 100 percent path, uncommented, before its gate passes: B4 continued the tax calculator, B5 stock valuation, B8 the ledger, B12 distribution. The kernel and pricing (B4) are live.
 - A line is excluded from coverage only with a comment stating why, in review. Excluding to meet a gate is a review blocker.
 - Coverage is a floor, not a goal. A test that executes a branch without asserting its outcome does not count in review.
 - The session report records the figures (`docs/BUILD_PROMPT.md`, "The session report").

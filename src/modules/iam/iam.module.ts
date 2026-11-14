@@ -19,12 +19,14 @@ import {
   BREACHED_PASSWORDS,
   IAM_STORE,
   LOGIN_THROTTLE,
+  QR_CODES,
   PASSWORD_HASHER,
   type AccessTokens,
   type BreachedPasswords,
   type IamStore,
   type LoginThrottle,
   type PasswordHasher,
+  type QrCodes,
 } from './application/ports';
 import { SessionsService } from './application/sessions.service';
 import { Argon2PasswordHasher } from './infrastructure/argon2-password-hasher';
@@ -32,6 +34,9 @@ import { RangeQueryBreachedPasswords } from './infrastructure/breached-passwords
 import { JwtAccessTokens } from './infrastructure/jwt-access-tokens';
 import { PgApprovalStore } from './infrastructure/pg-approval-store';
 import { PgIamStore } from './infrastructure/pg-iam-store';
+import { PgPrincipalNames } from './infrastructure/pg-principal-names';
+import { UqrQrCodes } from './infrastructure/uqr-qr-codes';
+import { PRINCIPAL_NAMES } from './application/principal-names';
 import { RedisLoginThrottle } from './infrastructure/redis-login-throttle';
 import { AuthController } from './interface/auth.controller';
 import { AuthenticationGuard } from './interface/authentication.guard';
@@ -56,6 +61,8 @@ const BREACHED_LOOKUP_TIMEOUT_MS = 2_000;
   providers: [
     { provide: IAM_STORE, useClass: PgIamStore },
     { provide: APPROVAL_STORE, useClass: PgApprovalStore },
+    { provide: PRINCIPAL_NAMES, useClass: PgPrincipalNames },
+    { provide: QR_CODES, useClass: UqrQrCodes },
     {
       provide: PASSWORD_HASHER,
       useFactory: (config: AppConfig) =>
@@ -97,6 +104,7 @@ const BREACHED_LOOKUP_TIMEOUT_MS = 2_000;
         hasher: PasswordHasher,
         tokens: AccessTokens,
         breached: BreachedPasswords,
+        qrCodes: QrCodes,
         throttle: LoginThrottle,
         scopeNames: ScopeNamesRegistry,
         subjectKeys: SubjectKeys,
@@ -105,7 +113,7 @@ const BREACHED_LOOKUP_TIMEOUT_MS = 2_000;
         logger: Logger,
         config: AppConfig,
       ) =>
-        new AuthenticationService(uow, store, hasher, tokens, breached, throttle, scopeNames, subjectKeys, audit, clock, logger, {
+        new AuthenticationService(uow, store, hasher, tokens, breached, qrCodes, throttle, scopeNames, subjectKeys, audit, clock, logger, {
           accessTtlSeconds: config.AUTH_ACCESS_TTL_SECONDS,
           challengeTtlSeconds: config.AUTH_CHALLENGE_TTL_SECONDS,
           totpIssuer: config.AUTH_TOTP_ISSUER,
@@ -116,7 +124,7 @@ const BREACHED_LOOKUP_TIMEOUT_MS = 2_000;
             INVESTOR: { idleSeconds: config.AUTH_CUSTOMER_REFRESH_IDLE_SECONDS, absoluteSeconds: config.AUTH_CUSTOMER_REFRESH_ABSOLUTE_SECONDS },
           },
         }),
-      inject: [UnitOfWork, IAM_STORE, PASSWORD_HASHER, ACCESS_TOKENS, BREACHED_PASSWORDS, LOGIN_THROTTLE, ScopeNamesRegistry, SubjectKeys, AuditTrail, CLOCK, LOGGER, APP_CONFIG],
+      inject: [UnitOfWork, IAM_STORE, PASSWORD_HASHER, ACCESS_TOKENS, BREACHED_PASSWORDS, QR_CODES, LOGIN_THROTTLE, ScopeNamesRegistry, SubjectKeys, AuditTrail, CLOCK, LOGGER, APP_CONFIG],
     },
     {
       provide: SessionsService,
@@ -133,6 +141,6 @@ const BREACHED_LOOKUP_TIMEOUT_MS = 2_000;
     AuthenticationGuard,
     { provide: APP_GUARD, useExisting: AuthenticationGuard },
   ],
-  exports: [Authoriser, Approvals, ScopeNamesRegistry],
+  exports: [Authoriser, Approvals, ScopeNamesRegistry, PRINCIPAL_NAMES],
 })
 export class IamModule {}

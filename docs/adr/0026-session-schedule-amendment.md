@@ -91,3 +91,7 @@ The frontend is unaffected: F7 builds the slot picker against the contract mock.
 - B8's session report names B9a as the next session, with its opening message.
 - Owner decision on the delivery split: 2026-11-13 (SA-13 confirmed).
 - B7's report shows `del.delivery_slot` created with slot generation, and `shp.checkout.delivery_slot_id` declared with its foreign key.
+
+## Amendments
+
+- **2026-11-14, B4 split (B4 session).** B4 carried more than one session holds: master data, the pricing engine, promotions, the tax calculator and the five items B3 left (A-087). It split at a sub-domain boundary inside MDM, as "If a session cannot finish" in `docs/prompts/session-openers.md` allows. **B4** built the pricing sub-domain and passed the B4 gate; **B04 continued** (`b04c-master-data-continued`, report `B04c-master-data-continued.md`) builds the rest of MDM, the tax calculator, promotions and coupons, the A-087 items and the seed through services, with its own gate. B5 opens after it, unchanged except that it reads that report.

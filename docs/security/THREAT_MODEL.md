@@ -268,6 +268,7 @@ Risks that remain after the controls above. Likelihood and impact are low, mediu
 | R13 | Tax treatment or invoicing rules differ from the seeded assumption | Medium | Medium | Tax is data in effective-dated versions; accountant confirms before B8; compliance verified in B1 | Accountant |
 | R14 | Personal data kept in statutory documents after a deletion request | Low | Low | Stated to the data subject; retention periods documented in B1 | Owner |
 | R15 | A small team means the same two people approve everything | High | Medium | Approval-pair frequency report to the owner; owner reviews a sample monthly | Owner |
+| R16 | Price lookup (`resolvePrices`) checks the permission but not branch or location scope (ADR-0036, decision 6), so anyone with a counter login can read every list a request can reach, including wholesale, reseller-tier and customer contract prices, and so leak the farm's wholesale pricing. Nothing can be sold at the wrong price: every selling operation checks its own scope and re-resolves on the server | Medium | Medium | Logged by the owner on 2026-11-14 to treat later, not fixed in B4. Reviewed in B13's security review: either scope lookups by channel and tier to what the caller's role may sell, or audit and report bulk price reads. Until then, `mdm.price.resolve` is granted only to roles that sell (A-089) | Owner |
 
 ## 6. Keeping this document true
 

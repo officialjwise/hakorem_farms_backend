@@ -1,0 +1,89 @@
+operationId: submitPriceListVersion
+tags:
+  - pricing
+summary: "Submit a draft version for activation"
+description: "Always needs approval by a different user. On approval the version becomes ACTIVE from its valid-from time and the previous version is superseded.\n\nPermission: `mdm.price_list.update`.\n\nMay require approval of kind `PRICE_LIST_ACTIVATION`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+x-permission: mdm.price_list.update
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - INVALID_STATE_TRANSITION
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/PriceListVersion"
+        example:
+          id: "019a7aa3-e9f0-71af-86e7-23c27a0d9ca0"
+          priceListId: "019a7a94-5381-760f-bb48-69ce27dce2ac"
+          versionNo: 5
+          status: PENDING_APPROVAL
+          validFrom: "2026-12-01T00:00:00Z"
+          validTo: null
+          approvalRequestId: "019a7aa6-ef47-78e5-9e1e-972d5c56100b"
+          activatedAt: null
+          activatedBy: null
+          notes: "Christmas season goat prices"
+          entryCount: 38
+          version: 1
+          createdAt: "2026-11-10T11:00:00Z"
+          createdBy:
+            id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+            displayName: "Kwabena Owusu"
+  "202":
+    description: "Accepted for approval. Nothing has taken effect yet."
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ApprovalPending"
+        example:
+          status: PENDING_APPROVAL
+          approvalRequestId: "019a7aa7-0e36-72c9-a801-3564d607ae42"
+          kind: PRICE_LIST_ACTIVATION
+          subject:
+            id: "019a7aa3-e9f0-71af-86e7-23c27a0d9ca0"
+            docType: PRICE_LIST_VERSION
+            number: null
+          summary: "Activate BASE version 5 (38 entries) from 2026-12-01T00:00:00.000Z"
+          requestedAt: "2026-11-13T10:12:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

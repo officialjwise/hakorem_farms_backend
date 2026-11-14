@@ -1,0 +1,118 @@
+operationId: resolvePrices
+tags:
+  - pricing
+summary: "Resolve prices for one or more lines"
+description: "Walks the customer list, then tier and channel, then channel, then base, and stops at the first hit; inside a list the most specific entry wins. A line that cannot be priced returns outcome QUOTE_REQUIRED with a reason, never an error and never a zero. Promotions apply only to tier, channel and base prices. Read-only: nothing is stored.\n\nPermission: `mdm.price.resolve`."
+x-permission: mdm.price.resolve
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - REFERENCE_NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/PriceResolveRequest"
+      example:
+        channel: POS
+        branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+        lines:
+          - lineRef: "1"
+            productId: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+            stockUnitId: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
+            quantity: "1.000"
+          - lineRef: "2"
+            productId: "019a7a8d-ec06-79f8-af30-a851f637212f"
+            weightKg: "15.000"
+            quantity: "15.000"
+          - lineRef: "3"
+            productId: "019a7a8d-515b-7886-9dbe-913c95c20a1a"
+            quantity: "1.000"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/PriceResolveResult"
+        example:
+          channel: POS
+          resolvedAt: "2026-11-13T09:14:00Z"
+          currency: GHS
+          lines:
+            - lineRef: "1"
+              outcome: RESOLVED
+              resolved:
+                priceListEntryId: "019a7aa6-16be-73ad-a8e5-43a9087fbc86"
+                priceList:
+                  id: "019a7aa4-27ce-7576-aaae-60316d6fd90f"
+                  code: POS
+                  name: "Counter prices"
+                  kind: CHANNEL
+                basis: PER_HEAD
+                listPricePesewas: 85000
+                floorPricePesewas: 70000
+                ceilingPricePesewas: 98000
+                grade:
+                  id: "019a7a8c-d59f-70f8-9631-185eaefe913c"
+                  code: A
+                  name: "Grade A, well finished"
+                weightBand:
+                  id: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
+                  code: GOAT-M
+                  minKg: "18.000"
+                  maxKg: "28.000"
+              quoteRequiredReason: null
+              promotions: []
+            - lineRef: "2"
+              outcome: RESOLVED
+              resolved:
+                priceListEntryId: "019a7aa6-738b-7157-9690-1e4f7592972d"
+                priceList:
+                  id: "019a7a94-5381-760f-bb48-69ce27dce2ac"
+                  code: BASE
+                  name: "Base prices"
+                  kind: BASE
+                basis: PER_KG
+                listPricePesewas: 2000
+                floorPricePesewas: 1467
+                ceilingPricePesewas: 2333
+                grade: null
+                weightBand: null
+              quoteRequiredReason: null
+              promotions:
+                - promotionId: "019a7aa7-4c14-7690-8bc8-71d3c969eab1"
+                  code: XMAS-CHICKEN
+                  name: "Christmas chicken 5% off"
+                  discountPesewas: 1500
+            - lineRef: "3"
+              outcome: QUOTE_REQUIRED
+              resolved: null
+              quoteRequiredReason: QUOTE_ONLY
+              promotions: []
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

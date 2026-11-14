@@ -13,3 +13,19 @@ export interface ProductCreated {
   readonly onlineMode: 'HIDDEN' | 'LISTED' | 'REQUEST_TO_BUY';
   readonly status: 'DRAFT' | 'ACTIVE' | 'DISCONTINUED';
 }
+
+/**
+ * `mdm.PriceListVersionActivated` v1: a price list version was approved and is in force from `validFrom`. Offline
+ * price packs and the storefront catalogue cache subscribe (B9b, B7) so a device never prices from a stale list.
+ */
+export interface PriceListVersionActivated {
+  readonly priceListId: string;
+  readonly versionId: string;
+  readonly versionNo: number;
+  readonly validFrom: string;
+  readonly validTo: string | null;
+  /** Earlier versions now ending where this one starts. */
+  readonly endedVersionIds: readonly string[];
+  /** Versions this one replaced outright. */
+  readonly supersededVersionIds: readonly string[];
+}

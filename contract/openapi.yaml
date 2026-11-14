@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.2.0"
+  version: "1.4.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -949,6 +949,7 @@ paths:
               example:
                 otpauthUri: "otpauth://totp/HaKorem%20Farms:kwabena.owusu?secret=JBSWY3DPEHPK3PXP&issuer=HaKorem%20Farms"
                 secretBase32: JBSWY3DPEHPK3PXP
+                qrCodeDataUri: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0OSA0OSI+PHJlY3QgZmlsbD0id2hpdGUiIHdpZHRoPSI0OSIgaGVpZ2h0PSI0OSIvPjxwYXRoIGZpbGw9ImJsYWNrIiBkPSJNNCw0aDF2MWgtMXpNNSw0aDF2MWgtMXpNNiw0aDF2MWgtMXpNNyw0aDF2MWgtMXpNOCw0aDF2MWgtMXpNOSw0aDF2MWgtMXpNMTAsNGgxdjFoLTF6TTE0LDRoMXYxaC0xek0xNiw0aDF2MWgtMXpNMTcsNGgxdjFoLTF6TTE4LDRoMXYxaC0xek0xOSw0aDF2MWgtMXpNMjEsNGgxdjFoLTF6TTIyLDRoMXYxaC0xek0yMyw0aDF2MWgtMXpNMjQsNGgxdjFoLTF6TTI1LDRoMXYxaC0xek0yNiw0aDF2MWgtMXpNMjcsNGgxdjFoLTF6TTI5LDRoMXYxaC0xek0zMCw0aDF2MWgtMXpNMzEsNGgxdjFoLTF6TTMyLDRoMXYxaC0xek0zNiw0aDF2MWgtMXpNMzgsNGgxdjFoLTF6TTM5LDRoMXYxaC0xek00MCw0aDF2MWgtMXpNNDEsNGgxdjFoLTF6TTQyLDRoMXYxaC0xek00Myw0aDF2MWgtMXpNNDQsNGgxdjFoLTF6TTQsNWgxdjFoLTF6TTEwLDVoMXYxaC0xek0xMyw1aDF2MWgtMXpNMTYsNWgxdjFoLTF6TTE4LDVoMXYxaC0xek0yMCw1aDF2MWgtMXpNMjEsNWgxdjFoLTF6TTI1LDVoMXYxaC0xek0yOSw1aDF2MWgtMXpNMzAsNWgxdjFoLTF6TTMxLDVoMXYxaC0xek0zMyw1aDF2MWgtMXpNMzQsNWgxdjFoLTF6TTM4LDVoMXYxaC0xek00NCw1aDF2MWgtMXpNNCw2aDF2MWgtMXpNNiw2aDF2MWgtMXpNNyw2aDF2MWgtMXpNOCw2aDF2MWgtMXpNMTAsNmgxdjFoLTF6TTEyLDZoMXYxaC0xek0xNCw2aDF2MWgtMXpNMTYsNmgxdjFoLTF6TTE3LDZoMXYxaC0xek0xOSw2aDF2MWgtMXpNMjAsNmgxdjFoLTF6TTIxLDZoMXYxaC0xek0yMiw2aDF2MWgtMXpNMjUsNmgxdjFoLTF6TTI2LDZoMXYxaC0xek0yNyw2aDF2MWgtMXpNMjgsNmgxdjFoLTF6TTI5LDZoMXYxaC0xek0zMSw2aDF2MWgtMXpNMzQsNmgxdjFoLTF6TTM4LDZoMXYxaC0xek00MCw2aDF2MWgtMXpNNDEsNmgxdjFoLTF6TTQyLDZoMXYxaC0xek00NCw2aDF2MWgtMXpNNCw3aDF2MWgtMXpNNiw3aDF2MWgtMXpNNyw3aDF2MWgtMXpNOCw3aDF2MWgtMXpNMTAsN2gxdjFoLTF6TTEyLDdoMXYxaC0xek0xNCw3aDF2MWgtMXpNMTYsN2gxdjFoLTF6TTIzLDdoMXYxaC0xek0yNCw3aDF2MWgtMXpNMjUsN2gxdjFoLTF6TTMwLDdoMXYxaC0xek0zMiw3aDF2MWgtMXpNMzMsN2gxdjFoLTF6TTM1LDdoMXYxaC0xek0zOCw3aDF2MWgtMXpNNDAsN2gxdjFoLTF6TTQxLDdoMXYxaC0xek00Miw3aDF2MWgtMXpNNDQsN2gxdjFoLTF6TTQsOGgxdjFoLTF6TTYsOGgxdjFoLTF6TTcsOGgxdjFoLTF6TTgsOGgxdjFoLTF6TTEwLDhoMXYxaC0xek0xMiw4aDF2MWgtMXpNMTMsOGgxdjFoLTF6TTE0LDhoMXYxaC0xek0xOCw4aDF2MWgtMXpNMjIsOGgxdjFoLTF6TTIzLDhoMXYxaC0xek0yNCw4aDF2MWgtMXpNMjYsOGgxdjFoLTF6TTI3LDhoMXYxaC0xek0zMiw4aDF2MWgtMXpNMzMsOGgxdjFoLTF6TTM0LDhoMXYxaC0xek0zNSw4aDF2MWgtMXpNMzYsOGgxdjFoLTF6TTM4LDhoMXYxaC0xek00MCw4aDF2MWgtMXpNNDEsOGgxdjFoLTF6TTQyLDhoMXYxaC0xek00NCw4aDF2MWgtMXpNNCw5aDF2MWgtMXpNMTAsOWgxdjFoLTF6TTEyLDloMXYxaC0xek0xMyw5aDF2MWgtMXpNMTQsOWgxdjFoLTF6TTE1LDloMXYxaC0xek0xNiw5aDF2MWgtMXpNMTcsOWgxdjFoLTF6TTIxLDloMXYxaC0xek0yMiw5aDF2MWgtMXpNMjQsOWgxdjFoLTF6TTI2LDloMXYxaC0xek0zMSw5aDF2MWgtMXpNMzIsOWgxdjFoLTF6TTMzLDloMXYxaC0xek0zOCw5aDF2MWgtMXpNNDQsOWgxdjFoLTF6TTQsMTBoMXYxaC0xek01LDEwaDF2MWgtMXpNNiwxMGgxdjFoLTF6TTcsMTBoMXYxaC0xek04LDEwaDF2MWgtMXpNOSwxMGgxdjFoLTF6TTEwLDEwaDF2MWgtMXpNMTIsMTBoMXYxaC0xek0xNCwxMGgxdjFoLTF6TTE2LDEwaDF2MWgtMXpNMTgsMTBoMXYxaC0xek0yMCwxMGgxdjFoLTF6TTIyLDEwaDF2MWgtMXpNMjQsMTBoMXYxaC0xek0yNiwxMGgxdjFoLTF6TTI4LDEwaDF2MWgtMXpNMzAsMTBoMXYxaC0xek0zMiwxMGgxdjFoLTF6TTM0LDEwaDF2MWgtMXpNMzYsMTBoMXYxaC0xek0zOCwxMGgxdjFoLTF6TTM5LDEwaDF2MWgtMXpNNDAsMTBoMXYxaC0xek00MSwxMGgxdjFoLTF6TTQyLDEwaDF2MWgtMXpNNDMsMTBoMXYxaC0xek00NCwxMGgxdjFoLTF6TTEyLDExaDF2MWgtMXpNMTUsMTFoMXYxaC0xek0xNywxMWgxdjFoLTF6TTE4LDExaDF2MWgtMXpNMTksMTFoMXYxaC0xek0yMCwxMWgxdjFoLTF6TTIyLDExaDF2MWgtMXpNMjQsMTFoMXYxaC0xek0yNSwxMWgxdjFoLTF6TTI2LDExaDF2MWgtMXpNMjcsMTFoMXYxaC0xek0zMiwxMWgxdjFoLTF6TTM1LDExaDF2MWgtMXpNNCwxMmgxdjFoLTF6TTYsMTJoMXYxaC0xek03LDEyaDF2MWgtMXpNOCwxMmgxdjFoLTF6TTksMTJoMXYxaC0xek0xMCwxMmgxdjFoLTF6TTE0LDEyaDF2MWgtMXpNMTYsMTJoMXYxaC0xek0xNywxMmgxdjFoLTF6TTE5LDEyaDF2MWgtMXpNMjAsMTJoMXYxaC0xek0yMSwxMmgxdjFoLTF6TTIyLDEyaDF2MWgtMXpNMjQsMTJoMXYxaC0xek0yNiwxMmgxdjFoLTF6TTI3LDEyaDF2MWgtMXpNMjgsMTJoMXYxaC0xek0yOSwxMmgxdjFoLTF6TTMyLDEyaDF2MWgtMXpNMzMsMTJoMXYxaC0xek0zNCwxMmgxdjFoLTF6TTM4LDEyaDF2MWgtMXpNMzksMTJoMXYxaC0xek00MCwxMmgxdjFoLTF6TTQxLDEyaDF2MWgtMXpNNDIsMTJoMXYxaC0xek04LDEzaDF2MWgtMXpNOSwxM2gxdjFoLTF6TTEyLDEzaDF2MWgtMXpNMTQsMTNoMXYxaC0xek0xNiwxM2gxdjFoLTF6TTIzLDEzaDF2MWgtMXpNMjUsMTNoMXYxaC0xek0yNiwxM2gxdjFoLTF6TTI3LDEzaDF2MWgtMXpNMzIsMTNoMXYxaC0xek0zNCwxM2gxdjFoLTF6TTM1LDEzaDF2MWgtMXpNMzcsMTNoMXYxaC0xek0zOSwxM2gxdjFoLTF6TTQwLDEzaDF2MWgtMXpNNDEsMTNoMXYxaC0xek00MiwxM2gxdjFoLTF6TTQzLDEzaDF2MWgtMXpNNDQsMTNoMXYxaC0xek01LDE0aDF2MWgtMXpNNiwxNGgxdjFoLTF6TTksMTRoMXYxaC0xek0xMCwxNGgxdjFoLTF6TTE0LDE0aDF2MWgtMXpNMTcsMTRoMXYxaC0xek0yMCwxNGgxdjFoLTF6TTI0LDE0aDF2MWgtMXpNMjksMTRoMXYxaC0xek0zMCwxNGgxdjFoLTF6TTMxLDE0aDF2MWgtMXpNMzcsMTRoMXYxaC0xek0zOSwxNGgxdjFoLTF6TTQxLDE0aDF2MWgtMXpNNDIsMTRoMXYxaC0xek02LDE1aDF2MWgtMXpNNywxNWgxdjFoLTF6TTgsMTVoMXYxaC0xek0xNCwxNWgxdjFoLTF6TTE2LDE1aDF2MWgtMXpNMjAsMTVoMXYxaC0xek0yMiwxNWgxdjFoLTF6TTI0LDE1aDF2MWgtMXpNMjUsMTVoMXYxaC0xek0yNiwxNWgxdjFoLTF6TTI3LDE1aDF2MWgtMXpNMjgsMTVoMXYxaC0xek0zMCwxNWgxdjFoLTF6TTMxLDE1aDF2MWgtMXpNMzIsMTVoMXYxaC0xek0zNSwxNWgxdjFoLTF6TTM3LDE1aDF2MWgtMXpNMzgsMTVoMXYxaC0xek00MCwxNWgxdjFoLTF6TTQxLDE1aDF2MWgtMXpNNDMsMTVoMXYxaC0xek00NCwxNWgxdjFoLTF6TTQsMTZoMXYxaC0xek03LDE2aDF2MWgtMXpNOCwxNmgxdjFoLTF6TTEwLDE2aDF2MWgtMXpNMTEsMTZoMXYxaC0xek0xMiwxNmgxdjFoLTF6TTE3LDE2aDF2MWgtMXpNMTgsMTZoMXYxaC0xek0xOSwxNmgxdjFoLTF6TTIxLDE2aDF2MWgtMXpNMjIsMTZoMXYxaC0xek0yNCwxNmgxdjFoLTF6TTI2LDE2aDF2MWgtMXpNMjcsMTZoMXYxaC0xek0yOCwxNmgxdjFoLTF6TTI5LDE2aDF2MWgtMXpNMzAsMTZoMXYxaC0xek0zMSwxNmgxdjFoLTF6TTMyLDE2aDF2MWgtMXpNMzMsMTZoMXYxaC0xek0zNSwxNmgxdjFoLTF6TTM2LDE2aDF2MWgtMXpNMzcsMTZoMXYxaC0xek00MSwxNmgxdjFoLTF6TTQyLDE2aDF2MWgtMXpNNDMsMTZoMXYxaC0xek03LDE3aDF2MWgtMXpNMTEsMTdoMXYxaC0xek0xNiwxN2gxdjFoLTF6TTE3LDE3aDF2MWgtMXpNMTgsMTdoMXYxaC0xek0yMCwxN2gxdjFoLTF6TTI1LDE3aDF2MWgtMXpNMzAsMTdoMXYxaC0xek0zMSwxN2gxdjFoLTF6TTM0LDE3aDF2MWgtMXpNMzUsMTdoMXYxaC0xek0zNiwxN2gxdjFoLTF6TTM4LDE3aDF2MWgtMXpNMzksMTdoMXYxaC0xek00MCwxN2gxdjFoLTF6TTQsMThoMXYxaC0xek02LDE4aDF2MWgtMXpNOCwxOGgxdjFoLTF6TTEwLDE4aDF2MWgtMXpNMTEsMThoMXYxaC0xek0xMiwxOGgxdjFoLTF6TTEzLDE4aDF2MWgtMXpNMTUsMThoMXYxaC0xek0xNywxOGgxdjFoLTF6TTIwLDE4aDF2MWgtMXpNMjIsMThoMXYxaC0xek0yNCwxOGgxdjFoLTF6TTI1LDE4aDF2MWgtMXpNMjYsMThoMXYxaC0xek0yNywxOGgxdjFoLTF6TTI4LDE4aDF2MWgtMXpNMzEsMThoMXYxaC0xek0zMiwxOGgxdjFoLTF6TTM0LDE4aDF2MWgtMXpNMzYsMThoMXYxaC0xek00MiwxOGgxdjFoLTF6TTUsMTloMXYxaC0xek02LDE5aDF2MWgtMXpNMTEsMTloMXYxaC0xek0xMywxOWgxdjFoLTF6TTE1LDE5aDF2MWgtMXpNMTgsMTloMXYxaC0xek0yMCwxOWgxdjFoLTF6TTI1LDE5aDF2MWgtMXpNMjYsMTloMXYxaC0xek0yNywxOWgxdjFoLTF6TTMxLDE5aDF2MWgtMXpNMzQsMTloMXYxaC0xek00MSwxOWgxdjFoLTF6TTQzLDE5aDF2MWgtMXpNNDQsMTloMXYxaC0xek00LDIwaDF2MWgtMXpNNiwyMGgxdjFoLTF6TTksMjBoMXYxaC0xek0xMCwyMGgxdjFoLTF6TTEzLDIwaDF2MWgtMXpNMTQsMjBoMXYxaC0xek0xNSwyMGgxdjFoLTF6TTE2LDIwaDF2MWgtMXpNMTgsMjBoMXYxaC0xek0xOSwyMGgxdjFoLTF6TTIwLDIwaDF2MWgtMXpNMjYsMjBoMXYxaC0xek0yNywyMGgxdjFoLTF6TTI5LDIwaDF2MWgtMXpNMzEsMjBoMXYxaC0xek0zMiwyMGgxdjFoLTF6TTM5LDIwaDF2MWgtMXpNNDIsMjBoMXYxaC0xek00MywyMGgxdjFoLTF6TTQsMjFoMXYxaC0xek01LDIxaDF2MWgtMXpNNiwyMWgxdjFoLTF6TTgsMjFoMXYxaC0xek0xMiwyMWgxdjFoLTF6TTE0LDIxaDF2MWgtMXpNMTcsMjFoMXYxaC0xek0yMCwyMWgxdjFoLTF6TTIyLDIxaDF2MWgtMXpNMjQsMjFoMXYxaC0xek0yNywyMWgxdjFoLTF6TTMxLDIxaDF2MWgtMXpNMzIsMjFoMXYxaC0xek0zMywyMWgxdjFoLTF6TTM0LDIxaDF2MWgtMXpNMzYsMjFoMXYxaC0xek0zOCwyMWgxdjFoLTF6TTM5LDIxaDF2MWgtMXpNNDAsMjFoMXYxaC0xek00NCwyMWgxdjFoLTF6TTQsMjJoMXYxaC0xek01LDIyaDF2MWgtMXpNNiwyMmgxdjFoLTF6TTgsMjJoMXYxaC0xek05LDIyaDF2MWgtMXpNMTAsMjJoMXYxaC0xek0xMiwyMmgxdjFoLTF6TTE1LDIyaDF2MWgtMXpNMTcsMjJoMXYxaC0xek0xOCwyMmgxdjFoLTF6TTIwLDIyaDF2MWgtMXpNMjIsMjJoMXYxaC0xek0yNCwyMmgxdjFoLTF6TTI2LDIyaDF2MWgtMXpNMzEsMjJoMXYxaC0xek0zNiwyMmgxdjFoLTF6TTM3LDIyaDF2MWgtMXpNMzgsMjJoMXYxaC0xek0zOSwyMmgxdjFoLTF6TTQwLDIyaDF2MWgtMXpNNDEsMjJoMXYxaC0xek00MiwyMmgxdjFoLTF6TTQsMjNoMXYxaC0xek03LDIzaDF2MWgtMXpNMTMsMjNoMXYxaC0xek0xNiwyM2gxdjFoLTF6TTI0LDIzaDF2MWgtMXpNMjcsMjNoMXYxaC0xek0yOCwyM2gxdjFoLTF6TTMwLDIzaDF2MWgtMXpNMzEsMjNoMXYxaC0xek0zNiwyM2gxdjFoLTF6TTM4LDIzaDF2MWgtMXpNNDAsMjNoMXYxaC0xek00MSwyM2gxdjFoLTF6TTUsMjRoMXYxaC0xek03LDI0aDF2MWgtMXpNOCwyNGgxdjFoLTF6TTksMjRoMXYxaC0xek0xMCwyNGgxdjFoLTF6TTE2LDI0aDF2MWgtMXpNMTgsMjRoMXYxaC0xek0xOSwyNGgxdjFoLTF6TTIyLDI0aDF2MWgtMXpNMjMsMjRoMXYxaC0xek0yNSwyNGgxdjFoLTF6TTI2LDI0aDF2MWgtMXpNMzEsMjRoMXYxaC0xek0zMywyNGgxdjFoLTF6TTM5LDI0aDF2MWgtMXpNNDEsMjRoMXYxaC0xek00MywyNGgxdjFoLTF6TTcsMjVoMXYxaC0xek04LDI1aDF2MWgtMXpNOSwyNWgxdjFoLTF6TTE1LDI1aDF2MWgtMXpNMjAsMjVoMXYxaC0xek0yMywyNWgxdjFoLTF6TTI0LDI1aDF2MWgtMXpNMjUsMjVoMXYxaC0xek0yNywyNWgxdjFoLTF6TTI4LDI1aDF2MWgtMXpNMjksMjVoMXYxaC0xek0zMCwyNWgxdjFoLTF6TTMyLDI1aDF2MWgtMXpNMzMsMjVoMXYxaC0xek0zNSwyNWgxdjFoLTF6TTM2LDI1aDF2MWgtMXpNMzgsMjVoMXYxaC0xek00MCwyNWgxdjFoLTF6TTQxLDI1aDF2MWgtMXpNNDMsMjVoMXYxaC0xek00NCwyNWgxdjFoLTF6TTQsMjZoMXYxaC0xek02LDI2aDF2MWgtMXpNOCwyNmgxdjFoLTF6TTksMjZoMXYxaC0xek0xMCwyNmgxdjFoLTF6TTExLDI2aDF2MWgtMXpNMTIsMjZoMXYxaC0xek0xNCwyNmgxdjFoLTF6TTIyLDI2aDF2MWgtMXpNMjksMjZoMXYxaC0xek0zMCwyNmgxdjFoLTF6TTMxLDI2aDF2MWgtMXpNMzMsMjZoMXYxaC0xek0zNiwyNmgxdjFoLTF6TTM5LDI2aDF2MWgtMXpNNDAsMjZoMXYxaC0xek00MSwyNmgxdjFoLTF6TTUsMjdoMXYxaC0xek03LDI3aDF2MWgtMXpNMTEsMjdoMXYxaC0xek0xNiwyN2gxdjFoLTF6TTE3LDI3aDF2MWgtMXpNMTgsMjdoMXYxaC0xek0xOSwyN2gxdjFoLTF6TTIwLDI3aDF2MWgtMXpNMjIsMjdoMXYxaC0xek0yMywyN2gxdjFoLTF6TTI1LDI3aDF2MWgtMXpNMzAsMjdoMXYxaC0xek0zMiwyN2gxdjFoLTF6TTM3LDI3aDF2MWgtMXpNMzksMjdoMXYxaC0xek00MCwyN2gxdjFoLTF6TTQxLDI3aDF2MWgtMXpNNDQsMjdoMXYxaC0xek00LDI4aDF2MWgtMXpNOCwyOGgxdjFoLTF6TTEwLDI4aDF2MWgtMXpNMTMsMjhoMXYxaC0xek0xNiwyOGgxdjFoLTF6TTIwLDI4aDF2MWgtMXpNMjYsMjhoMXYxaC0xek0yOCwyOGgxdjFoLTF6TTMwLDI4aDF2MWgtMXpNMzIsMjhoMXYxaC0xek0zMywyOGgxdjFoLTF6TTM2LDI4aDF2MWgtMXpNMzksMjhoMXYxaC0xek00MiwyOGgxdjFoLTF6TTQzLDI4aDF2MWgtMXpNNDQsMjhoMXYxaC0xek01LDI5aDF2MWgtMXpNNiwyOWgxdjFoLTF6TTExLDI5aDF2MWgtMXpNMTQsMjloMXYxaC0xek0xNiwyOWgxdjFoLTF6TTE4LDI5aDF2MWgtMXpNMTksMjloMXYxaC0xek0yMSwyOWgxdjFoLTF6TTIyLDI5aDF2MWgtMXpNMjMsMjloMXYxaC0xek0yNSwyOWgxdjFoLTF6TTMyLDI5aDF2MWgtMXpNMzMsMjloMXYxaC0xek0zNSwyOWgxdjFoLTF6TTQwLDI5aDF2MWgtMXpNNDEsMjloMXYxaC0xek00NCwyOWgxdjFoLTF6TTgsMzBoMXYxaC0xek0xMCwzMGgxdjFoLTF6TTExLDMwaDF2MWgtMXpNMTIsMzBoMXYxaC0xek0xMywzMGgxdjFoLTF6TTE0LDMwaDF2MWgtMXpNMTUsMzBoMXYxaC0xek0xNiwzMGgxdjFoLTF6TTE5LDMwaDF2MWgtMXpNMjAsMzBoMXYxaC0xek0yNCwzMGgxdjFoLTF6TTI1LDMwaDF2MWgtMXpNMjYsMzBoMXYxaC0xek0zMCwzMGgxdjFoLTF6TTMxLDMwaDF2MWgtMXpNMzIsMzBoMXYxaC0xek0zMywzMGgxdjFoLTF6TTM3LDMwaDF2MWgtMXpNMzksMzBoMXYxaC0xek00MCwzMGgxdjFoLTF6TTQsMzFoMXYxaC0xek01LDMxaDF2MWgtMXpNMTEsMzFoMXYxaC0xek0xMiwzMWgxdjFoLTF6TTEzLDMxaDF2MWgtMXpNMTUsMzFoMXYxaC0xek0xNywzMWgxdjFoLTF6TTE5LDMxaDF2MWgtMXpNMjAsMzFoMXYxaC0xek0yNCwzMWgxdjFoLTF6TTI1LDMxaDF2MWgtMXpNMjYsMzFoMXYxaC0xek0yOCwzMWgxdjFoLTF6TTMwLDMxaDF2MWgtMXpNMzIsMzFoMXYxaC0xek0zNCwzMWgxdjFoLTF6TTM3LDMxaDF2MWgtMXpNNDEsMzFoMXYxaC0xek00NCwzMWgxdjFoLTF6TTYsMzJoMXYxaC0xek0xMCwzMmgxdjFoLTF6TTExLDMyaDF2MWgtMXpNMTMsMzJoMXYxaC0xek0xNSwzMmgxdjFoLTF6TTIwLDMyaDF2MWgtMXpNMjMsMzJoMXYxaC0xek0yNiwzMmgxdjFoLTF6TTI5LDMyaDF2MWgtMXpNMzAsMzJoMXYxaC0xek0zMywzMmgxdjFoLTF6TTM1LDMyaDF2MWgtMXpNMzksMzJoMXYxaC0xek00MSwzMmgxdjFoLTF6TTQyLDMyaDF2MWgtMXpNNDQsMzJoMXYxaC0xek00LDMzaDF2MWgtMXpNNSwzM2gxdjFoLTF6TTYsMzNoMXYxaC0xek04LDMzaDF2MWgtMXpNMTMsMzNoMXYxaC0xek0xNSwzM2gxdjFoLTF6TTE2LDMzaDF2MWgtMXpNMTcsMzNoMXYxaC0xek0yMCwzM2gxdjFoLTF6TTIxLDMzaDF2MWgtMXpNMjIsMzNoMXYxaC0xek0yNCwzM2gxdjFoLTF6TTI1LDMzaDF2MWgtMXpNMjgsMzNoMXYxaC0xek0zMCwzM2gxdjFoLTF6TTMxLDMzaDF2MWgtMXpNMzIsMzNoMXYxaC0xek0zMywzM2gxdjFoLTF6TTM0LDMzaDF2MWgtMXpNMzUsMzNoMXYxaC0xek0zNiwzM2gxdjFoLTF6TTM3LDMzaDF2MWgtMXpNNDAsMzNoMXYxaC0xek00MSwzM2gxdjFoLTF6TTQyLDMzaDF2MWgtMXpNNDMsMzNoMXYxaC0xek00LDM0aDF2MWgtMXpNNiwzNGgxdjFoLTF6TTgsMzRoMXYxaC0xek05LDM0aDF2MWgtMXpNMTAsMzRoMXYxaC0xek0xMSwzNGgxdjFoLTF6TTEyLDM0aDF2MWgtMXpNMTMsMzRoMXYxaC0xek0xNCwzNGgxdjFoLTF6TTE1LDM0aDF2MWgtMXpNMjAsMzRoMXYxaC0xek0yMSwzNGgxdjFoLTF6TTIyLDM0aDF2MWgtMXpNMjMsMzRoMXYxaC0xek0yNSwzNGgxdjFoLTF6TTI2LDM0aDF2MWgtMXpNMjksMzRoMXYxaC0xek0zMCwzNGgxdjFoLTF6TTMzLDM0aDF2MWgtMXpNMzQsMzRoMXYxaC0xek0zOSwzNGgxdjFoLTF6TTQxLDM0aDF2MWgtMXpNNCwzNWgxdjFoLTF6TTYsMzVoMXYxaC0xek03LDM1aDF2MWgtMXpNMTEsMzVoMXYxaC0xek0xMywzNWgxdjFoLTF6TTE0LDM1aDF2MWgtMXpNMTUsMzVoMXYxaC0xek0yMCwzNWgxdjFoLTF6TTIzLDM1aDF2MWgtMXpNMjQsMzVoMXYxaC0xek0yNSwzNWgxdjFoLTF6TTI2LDM1aDF2MWgtMXpNMjgsMzVoMXYxaC0xek0zMiwzNWgxdjFoLTF6TTM1LDM1aDF2MWgtMXpNMzYsMzVoMXYxaC0xek0zNywzNWgxdjFoLTF6TTQwLDM1aDF2MWgtMXpNNDEsMzVoMXYxaC0xek00MywzNWgxdjFoLTF6TTQ0LDM1aDF2MWgtMXpNNCwzNmgxdjFoLTF6TTcsMzZoMXYxaC0xek04LDM2aDF2MWgtMXpNOSwzNmgxdjFoLTF6TTEwLDM2aDF2MWgtMXpNMTEsMzZoMXYxaC0xek0xMiwzNmgxdjFoLTF6TTEzLDM2aDF2MWgtMXpNMTQsMzZoMXYxaC0xek0xNSwzNmgxdjFoLTF6TTE3LDM2aDF2MWgtMXpNMTgsMzZoMXYxaC0xek0yMSwzNmgxdjFoLTF6TTIzLDM2aDF2MWgtMXpNMjQsMzZoMXYxaC0xek0yNiwzNmgxdjFoLTF6TTI5LDM2aDF2MWgtMXpNMzAsMzZoMXYxaC0xek0zMiwzNmgxdjFoLTF6TTMzLDM2aDF2MWgtMXpNMzQsMzZoMXYxaC0xek0zNiwzNmgxdjFoLTF6TTM3LDM2aDF2MWgtMXpNMzgsMzZoMXYxaC0xek0zOSwzNmgxdjFoLTF6TTQwLDM2aDF2MWgtMXpNNDEsMzZoMXYxaC0xek00MiwzNmgxdjFoLTF6TTQzLDM2aDF2MWgtMXpNNDQsMzZoMXYxaC0xek0xMiwzN2gxdjFoLTF6TTEzLDM3aDF2MWgtMXpNMTUsMzdoMXYxaC0xek0xNiwzN2gxdjFoLTF6TTE3LDM3aDF2MWgtMXpNMTgsMzdoMXYxaC0xek0xOSwzN2gxdjFoLTF6TTIxLDM3aDF2MWgtMXpNMjIsMzdoMXYxaC0xek0yMywzN2gxdjFoLTF6TTI1LDM3aDF2MWgtMXpNMjYsMzdoMXYxaC0xek0yNywzN2gxdjFoLTF6TTI5LDM3aDF2MWgtMXpNMzEsMzdoMXYxaC0xek0zMiwzN2gxdjFoLTF6TTM2LDM3aDF2MWgtMXpNNDAsMzdoMXYxaC0xek00MSwzN2gxdjFoLTF6TTQzLDM3aDF2MWgtMXpNNDQsMzdoMXYxaC0xek00LDM4aDF2MWgtMXpNNSwzOGgxdjFoLTF6TTYsMzhoMXYxaC0xek03LDM4aDF2MWgtMXpNOCwzOGgxdjFoLTF6TTksMzhoMXYxaC0xek0xMCwzOGgxdjFoLTF6TTE0LDM4aDF2MWgtMXpNMTUsMzhoMXYxaC0xek0xNywzOGgxdjFoLTF6TTE4LDM4aDF2MWgtMXpNMjAsMzhoMXYxaC0xek0yMSwzOGgxdjFoLTF6TTI1LDM4aDF2MWgtMXpNMjksMzhoMXYxaC0xek0zMCwzOGgxdjFoLTF6TTMxLDM4aDF2MWgtMXpNMzIsMzhoMXYxaC0xek0zMywzOGgxdjFoLTF6TTM0LDM4aDF2MWgtMXpNMzYsMzhoMXYxaC0xek0zOCwzOGgxdjFoLTF6TTQwLDM4aDF2MWgtMXpNNDEsMzhoMXYxaC0xek00MiwzOGgxdjFoLTF6TTQsMzloMXYxaC0xek0xMCwzOWgxdjFoLTF6TTEyLDM5aDF2MWgtMXpNMTQsMzloMXYxaC0xek0xNSwzOWgxdjFoLTF6TTE2LDM5aDF2MWgtMXpNMTcsMzloMXYxaC0xek0xOCwzOWgxdjFoLTF6TTE5LDM5aDF2MWgtMXpNMjEsMzloMXYxaC0xek0yMiwzOWgxdjFoLTF6TTIzLDM5aDF2MWgtMXpNMjUsMzloMXYxaC0xek0yNiwzOWgxdjFoLTF6TTI4LDM5aDF2MWgtMXpNMjksMzloMXYxaC0xek0zNSwzOWgxdjFoLTF6TTM2LDM5aDF2MWgtMXpNNDAsMzloMXYxaC0xek00MSwzOWgxdjFoLTF6TTQzLDM5aDF2MWgtMXpNNDQsMzloMXYxaC0xek00LDQwaDF2MWgtMXpNNiw0MGgxdjFoLTF6TTcsNDBoMXYxaC0xek04LDQwaDF2MWgtMXpNMTAsNDBoMXYxaC0xek0xMiw0MGgxdjFoLTF6TTEzLDQwaDF2MWgtMXpNMTQsNDBoMXYxaC0xek0xNSw0MGgxdjFoLTF6TTE3LDQwaDF2MWgtMXpNMTgsNDBoMXYxaC0xek0yNCw0MGgxdjFoLTF6TTI1LDQwaDF2MWgtMXpNMjcsNDBoMXYxaC0xek0zMCw0MGgxdjFoLTF6TTMxLDQwaDF2MWgtMXpNMzQsNDBoMXYxaC0xek0zNiw0MGgxdjFoLTF6TTM3LDQwaDF2MWgtMXpNMzgsNDBoMXYxaC0xek0zOSw0MGgxdjFoLTF6TTQwLDQwaDF2MWgtMXpNNDEsNDBoMXYxaC0xek00LDQxaDF2MWgtMXpNNiw0MWgxdjFoLTF6TTcsNDFoMXYxaC0xek04LDQxaDF2MWgtMXpNMTAsNDFoMXYxaC0xek0xMiw0MWgxdjFoLTF6TTE1LDQxaDF2MWgtMXpNMTcsNDFoMXYxaC0xek0xOSw0MWgxdjFoLTF6TTIwLDQxaDF2MWgtMXpNMjEsNDFoMXYxaC0xek0yMiw0MWgxdjFoLTF6TTIzLDQxaDF2MWgtMXpNMjQsNDFoMXYxaC0xek0yNSw0MWgxdjFoLTF6TTI2LDQxaDF2MWgtMXpNMjcsNDFoMXYxaC0xek0yOSw0MWgxdjFoLTF6TTM0LDQxaDF2MWgtMXpNNDEsNDFoMXYxaC0xek00Miw0MWgxdjFoLTF6TTQsNDJoMXYxaC0xek02LDQyaDF2MWgtMXpNNyw0MmgxdjFoLTF6TTgsNDJoMXYxaC0xek0xMCw0MmgxdjFoLTF6TTEyLDQyaDF2MWgtMXpNMTcsNDJoMXYxaC0xek0yMSw0MmgxdjFoLTF6TTI0LDQyaDF2MWgtMXpNMjUsNDJoMXYxaC0xek0yNiw0MmgxdjFoLTF6TTMxLDQyaDF2MWgtMXpNMzIsNDJoMXYxaC0xek0zNyw0MmgxdjFoLTF6TTM4LDQyaDF2MWgtMXpNMzksNDJoMXYxaC0xek00MCw0MmgxdjFoLTF6TTQxLDQyaDF2MWgtMXpNNCw0M2gxdjFoLTF6TTEwLDQzaDF2MWgtMXpNMTcsNDNoMXYxaC0xek0xOSw0M2gxdjFoLTF6TTIyLDQzaDF2MWgtMXpNMjMsNDNoMXYxaC0xek0yNSw0M2gxdjFoLTF6TTI2LDQzaDF2MWgtMXpNMjcsNDNoMXYxaC0xek0yOCw0M2gxdjFoLTF6TTMxLDQzaDF2MWgtMXpNMzQsNDNoMXYxaC0xek0zNiw0M2gxdjFoLTF6TTQwLDQzaDF2MWgtMXpNNDMsNDNoMXYxaC0xek00LDQ0aDF2MWgtMXpNNSw0NGgxdjFoLTF6TTYsNDRoMXYxaC0xek03LDQ0aDF2MWgtMXpNOCw0NGgxdjFoLTF6TTksNDRoMXYxaC0xek0xMCw0NGgxdjFoLTF6TTEyLDQ0aDF2MWgtMXpNMTMsNDRoMXYxaC0xek0xNCw0NGgxdjFoLTF6TTE1LDQ0aDF2MWgtMXpNMTcsNDRoMXYxaC0xek0xOCw0NGgxdjFoLTF6TTIwLDQ0aDF2MWgtMXpNMjEsNDRoMXYxaC0xek0yNiw0NGgxdjFoLTF6TTI4LDQ0aDF2MWgtMXpNMjksNDRoMXYxaC0xek0zMCw0NGgxdjFoLTF6TTMxLDQ0aDF2MWgtMXpNMzMsNDRoMXYxaC0xek0zNSw0NGgxdjFoLTF6TTM4LDQ0aDF2MWgtMXpNNDAsNDRoMXYxaC0xek00Miw0NGgxdjFoLTF6Ii8+PC9zdmc+"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -1582,6 +1583,7 @@ paths:
       summary: "Create a staff or investor account"
       description: "Permission: `iam.user.create`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: iam.user.create
+      x-requires-step-up: true
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -2019,6 +2021,7 @@ paths:
       summary: "Issue a temporary password for a staff member"
       description: "Permission: `iam.user.reset_password`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: iam.user.reset_password
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -2210,6 +2213,7 @@ paths:
       summary: "Create a role"
       description: "Permission: `iam.role.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: iam.role.manage
+      x-requires-step-up: true
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -2343,6 +2347,7 @@ paths:
       summary: "Change a role's permissions or limits"
       description: "Permission: `iam.role.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: iam.role.manage
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -2686,6 +2691,7 @@ paths:
       summary: "Grant a role at a branch or location"
       description: "Permission: `iam.grant.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: iam.grant.manage
+      x-requires-step-up: true
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -2756,6 +2762,7 @@ paths:
       summary: "Revoke a role grant"
       description: "Permission: `iam.grant.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: iam.grant.manage
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -3432,6 +3439,7 @@ paths:
       summary: "Change an approval threshold"
       description: "Permission: `iam.approval_policy.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: iam.approval_policy.manage
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -3605,6 +3613,7 @@ paths:
       summary: "Create an API key"
       description: "Permission: `iam.api_credential.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: iam.api_credential.manage
+      x-requires-step-up: true
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -3665,6 +3674,7 @@ paths:
       summary: "Rotate an API key"
       description: "Issues a new key and revokes the old one after a 24-hour overlap.\n\nPermission: `iam.api_credential.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: iam.api_credential.manage
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -4228,6 +4238,7 @@ paths:
       summary: "Change a setting"
       description: "Every change is audited with before and after values. Settings with legal effect are effective-dated.\n\nPermission: `aud.setting.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: aud.setting.manage
+      x-requires-step-up: true
       parameters:
         - name: key
           in: path
@@ -4425,6 +4436,7 @@ paths:
       summary: "Change a series prefix or padding"
       description: "Allowed only before the first number of the year is allocated.\n\nPermission: `aud.number_series.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: aud.number_series.manage
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -4534,6 +4546,7 @@ paths:
       summary: "Update the business profile"
       description: "Permission: `aud.setting.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: aud.setting.manage
+      x-requires-step-up: true
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -4692,6 +4705,7 @@ paths:
       summary: "Change a retention policy"
       description: "Permission: `aud.retention.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: aud.retention.manage
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -5883,15 +5897,6 @@ paths:
                     version: 3
                     createdAt: "2026-11-02T08:04:00Z"
                     updatedAt: "2026-11-11T14:04:00Z"
-                  - id: "019a7a8b-a049-7e16-b34e-ea33ee146311"
-                    code: GOAT
-                    name: Goat
-                    trackingDefault: SERIAL
-                    gradeCount: 2
-                    weightBandCount: 3
-                    version: 4
-                    createdAt: "2026-11-02T08:05:00Z"
-                    updatedAt: "2026-11-12T14:05:00Z"
                 page:
                   nextCursor: null
                   limit: 25
@@ -9352,36 +9357,6 @@ paths:
                     version: 4
                     createdAt: "2026-11-02T08:02:00Z"
                     updatedAt: "2026-11-12T14:02:00Z"
-                  - id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                    code: DDW
-                    name: "HaKorem Farms, Dodowa"
-                    address: "Off Dodowa–Afienya Road, Dodowa"
-                    phone: "+233302900111"
-                    isTest: false
-                    status: ACTIVE
-                    version: 2
-                    createdAt: "2026-11-02T08:03:00Z"
-                    updatedAt: "2026-11-10T14:03:00Z"
-                  - id: "019a7a83-49de-73c6-a8ff-4540215fbe1e"
-                    code: TST
-                    name: "Smoke test branch"
-                    address: "Not a real location"
-                    phone: "+233302900111"
-                    isTest: true
-                    status: ACTIVE
-                    version: 3
-                    createdAt: "2026-11-02T08:04:00Z"
-                    updatedAt: "2026-11-11T14:04:00Z"
-                  - id: "019a7aa3-cb01-77cb-bd03-858b005cfe68"
-                    code: KSI
-                    name: "HaKorem Farms, Kumasi (planned)"
-                    address: "Ahodwo, Kumasi"
-                    phone: "+233302900111"
-                    isTest: false
-                    status: CLOSED
-                    version: 4
-                    createdAt: "2026-11-02T08:05:00Z"
-                    updatedAt: "2026-11-12T14:05:00Z"
                 page:
                   nextCursor: null
                   limit: 25
@@ -10212,6 +10187,18 @@ paths:
       summary: "Create a price list"
       description: "Permission: `mdm.price_list.create`."
       x-permission: mdm.price_list.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - DUPLICATE_VALUE
+        - REFERENCE_NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -10280,6 +10267,13 @@ paths:
       summary: "Get a price list"
       description: "Permission: `mdm.price_list.read`."
       x-permission: mdm.price_list.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - NOT_FOUND
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -10644,6 +10638,19 @@ paths:
       summary: "Draft a new price list version"
       description: "Permission: `mdm.price_list.update`."
       x-permission: mdm.price_list.update
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - REFERENCE_NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -10717,6 +10724,13 @@ paths:
       summary: "Get a price list version"
       description: "Permission: `mdm.price_list.read`."
       x-permission: mdm.price_list.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - NOT_FOUND
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -10966,6 +10980,22 @@ paths:
       summary: "Replace the entries of a draft version"
       description: "Two entries for the same product, grade, band and quantity break are refused.\n\nPermission: `mdm.price_list.update`."
       x-permission: mdm.price_list.update
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - INVALID_STATE_TRANSITION
+        - REFERENCE_NOT_FOUND
+        - PRICE_ENTRY_INVALID
+        - PRICE_ENTRY_DUPLICATE
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -11056,6 +11086,18 @@ paths:
       summary: "Submit a draft version for activation"
       description: "Always needs approval by a different user. On approval the version becomes ACTIVE from its valid-from time and the previous version is superseded.\n\nPermission: `mdm.price_list.update`.\n\nMay require approval of kind `PRICE_LIST_ACTIVATION`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
       x-permission: mdm.price_list.update
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -11106,10 +11148,10 @@ paths:
                 approvalRequestId: "019a7aa7-0e36-72c9-a801-3564d607ae42"
                 kind: PRICE_LIST_ACTIVATION
                 subject:
-                  id: "019a7aa7-2d25-7cac-b1e4-d39c4fb84c7a"
-                  docType: STOCK_ADJUSTMENT
+                  id: "019a7aa3-e9f0-71af-86e7-23c27a0d9ca0"
+                  docType: PRICE_LIST_VERSION
                   number: null
-                summary: "Awaiting approval by a different user with the approving permission"
+                summary: "Activate BASE version 5 (38 entries) from 2026-12-01T00:00:00.000Z"
                 requestedAt: "2026-11-13T10:12:00Z"
         "400":
           $ref: "#/components/responses/BadRequest"
@@ -11135,6 +11177,15 @@ paths:
       summary: "Resolve prices for one or more lines"
       description: "Walks the customer list, then tier and channel, then channel, then base, and stops at the first hit; inside a list the most specific entry wins. A line that cannot be priced returns outcome QUOTE_REQUIRED with a reason, never an error and never a zero. Promotions apply only to tier, channel and base prices. Read-only: nothing is stored.\n\nPermission: `mdm.price.resolve`."
       x-permission: mdm.price.resolve
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - REFERENCE_NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
       security:
@@ -12155,6 +12206,7 @@ paths:
       summary: "Add a levy"
       description: "A new levy becomes chargeable only through a new tax scheme version that gives it a rate for every category.\n\nPermission: `mdm.tax.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: mdm.tax.manage
+      x-requires-step-up: true
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -12291,6 +12343,7 @@ paths:
       summary: "Add a tax category"
       description: "Permission: `mdm.tax.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: mdm.tax.manage
+      x-requires-step-up: true
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -13831,6 +13884,7 @@ paths:
       summary: "Submit a tax scheme version for activation"
       description: "Refused with 422 `TAX_MATRIX_INCOMPLETE` unless every category has a cell for every levy.\n\nPermission: `mdm.tax.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session.\n\nMay require approval of kind `TAX_SCHEME_ACTIVATION`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
       x-permission: mdm.tax.manage
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -14609,24 +14663,6 @@ paths:
                       - Cantonments
                       - Labone
                     feePesewas: 4500
-                    freeOverPesewas: 50000
-                    cutoffTime: "14:00"
-                    isActive: true
-                    currency: GHS
-                    version: 1
-                  - id: "019a7a93-5c09-76f4-bc2c-78125a54f0f0"
-                    branch:
-                      id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                      code: DDW
-                      name: "HaKorem Farms, Dodowa"
-                    code: ACC-EAST
-                    name: "Accra East: Madina, Adenta, East Legon"
-                    areas:
-                      - Madina
-                      - Adenta
-                      - "East Legon"
-                      - "Ashaley Botwe"
-                    feePesewas: 3000
                     freeOverPesewas: 50000
                     cutoffTime: "14:00"
                     isActive: true
@@ -15431,6 +15467,7 @@ paths:
       summary: "Export master data to a spreadsheet"
       description: "Export is a permission and every export is audited with its row count. Customer exports need step-up.\n\nPermission: `mdm.export.create`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: mdm.export.create
+      x-requires-step-up: true
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -32679,6 +32716,7 @@ paths:
       summary: "Add a bank account or wallet"
       description: "Permission: `fin.bank_account.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: fin.bank_account.manage
+      x-requires-step-up: true
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -33011,6 +33049,7 @@ paths:
       summary: "Reopen a locked period"
       description: "Owner only. A closed period can never be reopened.\n\nPermission: `fin.period.reopen`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session.\n\nMay require approval of kind `PERIOD_REOPEN`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
       x-permission: fin.period.reopen
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -33093,6 +33132,7 @@ paths:
       summary: "Close a locked period permanently"
       description: "Permission: `fin.period.close`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: fin.period.close
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -34522,6 +34562,7 @@ paths:
       summary: "Change how an event posts, from a date"
       description: "Permission: `fin.posting_rule.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session.\n\nMay require approval of kind `POSTING_RULE_CHANGE`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
       x-permission: fin.posting_rule.manage
+      x-requires-step-up: true
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -34715,6 +34756,7 @@ paths:
       summary: "Map a product group, method or levy to an account"
       description: "For example, to post one levy to its own account the accountant adds a TAX_LEVY row. No billing or ledger code changes.\n\nPermission: `fin.posting_rule.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session.\n\nMay require approval of kind `POSTING_RULE_CHANGE`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
       x-permission: fin.posting_rule.manage
+      x-requires-step-up: true
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -59741,6 +59783,7 @@ paths:
       summary: "Register an investor"
       description: "Permission: `cap.investor.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: cap.investor.manage
+      x-requires-step-up: true
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -59872,6 +59915,7 @@ paths:
       summary: "Update an investor"
       description: "Permission: `cap.investor.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: cap.investor.manage
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -60314,6 +60358,7 @@ paths:
       summary: "Record a capital contribution or withdrawal"
       description: "A contribution issues units at its value date and posts to the investor's capital account. A withdrawal cannot redeem more units than the investor holds, and always needs approval by a different user.\n\nPermission: `cap.capital.record`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session.\n\nMay require approval of kind `CAPITAL_WITHDRAWAL`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
       x-permission: cap.capital.record
+      x-requires-step-up: true
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -61329,6 +61374,7 @@ paths:
       summary: "Post an approved distribution to the ledger"
       description: "Debits distributions declared and credits distributions payable per investor, exactly the allocated amounts.\n\nPermission: `cap.distribution.post`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: cap.distribution.post
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -61716,6 +61762,7 @@ paths:
       summary: "Record a loan or grant"
       description: "The repayment schedule's last instalment takes the remainder, so it sums exactly to the principal.\n\nPermission: `cap.financing.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: cap.financing.manage
+      x-requires-step-up: true
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -66407,6 +66454,7 @@ paths:
       summary: "Register an integration"
       description: "Permission: `api.integration.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: api.integration.manage
+      x-requires-step-up: true
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -66520,6 +66568,7 @@ paths:
       summary: "Change an integration"
       description: "Permission: `api.integration.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: api.integration.manage
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -67395,6 +67444,7 @@ paths:
       summary: "Export a period's journals for an external accounting package"
       description: "Audited with its row count. The format is an adapter behind the accounting export port.\n\nPermission: `api.accounting_export.create`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: api.accounting_export.create
+      x-requires-step-up: true
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -68583,9 +68633,14 @@ components:
         secretBase32:
           type: string
           description: "For manual entry. Shown once."
+        qrCodeDataUri:
+          type: string
+          pattern: "^data:image/svg\\+xml;base64,[A-Za-z0-9+/]+={0,2}$"
+          description: "The same otpauthUri as a QR code: an SVG image as a data URI, for an <img> with a text alternative. Shown once. Drawn on the server so neither the console nor the till needs a QR library (ADR-0037); keep secretBase32 on screen for a phone that cannot scan."
       required:
         - otpauthUri
         - secretBase32
+        - qrCodeDataUri
     TotpEnrolmentStart:
       type: object
       description: "Empty with a session. During login, after TOTP_ENROLMENT_REQUIRED, the challenge token."

@@ -13,7 +13,7 @@ import {
   TotpEnrolmentStart,
   TotpVerifyRequest,
 } from '../../../src/modules/iam/interface/schemas';
-import { ProductCreate } from '../../../src/modules/mdm/interface/schemas';
+import { PriceListCreate, PriceListEntriesReplace, PriceListVersionCreate, PriceResolveRequest, ProductCreate } from '../../../src/modules/mdm/interface/schemas';
 import { createCatalogue, type TestCatalogue } from '../../support/catalogue';
 import { contractSchema } from '../../support/contract-schemas';
 import { consoleGet, consolePost, createBranch, createUser, enrolAndLogin, login, relaxRateLimits, testStartTime, type TestSession } from '../../support/iam';
@@ -120,6 +120,10 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     stepUp: StepUpRequest,
     revokeSession: ReasonRequest,
     createProduct: ProductCreate,
+    createPriceList: PriceListCreate,
+    createPriceListVersion: PriceListVersionCreate,
+    replacePriceListEntries: PriceListEntriesReplace,
+    resolvePrices: PriceResolveRequest,
   };
 
   it('parses every request example of an implemented operation with the schema its route validates with', () => {
