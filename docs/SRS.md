@@ -3214,7 +3214,7 @@ Each row carries a target and a way to verify it. "In CI" says whether a pipelin
 
 **NFR-020** Operability: runbooks. At minimum: payment provider down, database failover, restore from backup, reconciliation break, queue backlog, incident response. The check lists the failure modes from the architecture and fails on a missing file.
 
-**NFR-021** Portability. Development and CI use MinIO; the check starts the stack with no cloud credentials.
+**NFR-021** Portability. Development and CI use an S3-compatible object store in a container (Versity Gateway, ADR-0032); the check starts the stack with no cloud credentials.
 
 **NFR-022** Localisation readiness. The API's error messages, notification templates and document labels come from message catalogues; a pseudo-locale run shows no untranslated string.
 

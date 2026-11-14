@@ -1,12 +1,12 @@
 # Session openers
 
-The exact opening message for each remaining backend session, B2 to B13. Paste one into a fresh Claude Code session opened at the workspace root (`~/Desktop/hakorem-farms/`), after the previous session's pull request is merged.
+The exact opening message for each remaining backend session, B2 to B13. Paste one into a fresh Claude Code session **opened in `backend/`** (`~/Desktop/hakorem-farms/backend/`), after the previous session's pull request is merged. Opened there, the session loads the sixteen `hakorem-*` skills from `backend/.claude/skills/`; opened at the workspace root it does not (A-079, confirmed by the owner on 2026-11-14). Every path in an opener is relative to `backend/`; the frontend's contract requests are at `../frontend/docs/CONTRACT_REQUESTS.md`.
 
 Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("Next session") and the session protocol in `docs/SHARED_BRIEF.md`: read `CLAUDE.md`, the shared brief and only the session's section of `docs/BUILD_PROMPT.md`; read only the latest report in `docs/sessions/`; from B4 onward read the frontend's contract requests; confirm phase, scope and gate in three lines; execute that session only; stop at the gate; write `docs/sessions/<ID>-<slug>.md`.
 
 ## How to use this file
 
-1. Check that the previous session's report exists in `docs/sessions/` and its pull request is merged.
+1. Open the Claude Code session in `backend/`. Check that the previous session's report exists in `docs/sessions/` and its pull request is merged.
 2. Open `docs/sessions/<previous>.md`, section "Next session". **If it differs from the opener here, the report wins**: the previous session knew what actually happened. Update this file afterwards so the two agree.
 3. Paste the message from the fenced block, nothing before or after it.
 4. When the session ends, check its report's "Next session" message against the next opener here.
@@ -106,7 +106,15 @@ docs/data-model/mdm.md, the MDM card in docs/MODULE_BOUNDARIES.md, and ADR-0004,
 and ADR-0001. Use docs/prompts/module-build-prompt.md as the recipe.
 Do not read any other document unless this phase needs it.
 
-Confirm in three lines: the phase, its scope, and its gate.
+Confirm in three lines: the phase, its scope, and its gate. Confirm that all sixteen hakorem skills are loaded.
+Before building: remove the multer override if @nestjs/platform-express 11.2.10 has passed the 14-day floor
+(A-076). Copy the B3 Product slice's shape for every endpoint: domain, application with the policy engine and
+idempotency, infrastructure, interface with @Operation, and the operation moved from the planned file into
+openapi/<operationId>.yaml (ADR-0031).
+Also build what B3 left to B4 (A-087): the file store with uploads, the malware scanner and evidence_file_id on
+iam.approval_request; user and grant administration; customer registration and phone verification; password
+reset; and the approval endpoints over the existing mechanism. Regenerate the seeded farm through the new MDM and
+IAM services (A-085).
 Then execute B04 only, on branch b04-master-data-pricing: master data (catalogue, categories, units,
 species, grades, weight bands, customers, suppliers, branches, locations, payment methods, delivery
 zones, reason codes), price lists in approved effective-dated versions, the pricing engine with the

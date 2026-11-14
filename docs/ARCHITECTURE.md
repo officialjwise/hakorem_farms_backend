@@ -509,7 +509,7 @@ The deploy sequence, the backup scheme and the reasons for a single server are i
 | 10,000 products, 150,000 orders, 2 million movements, 5 years of ledger | Indexed ledgers, month-end snapshots, a reporting schema; no partitioning needed at this size |
 | Heavy reports cannot slow the counter | Reports read `rpt` under a restricted role with a statement timeout, in the worker |
 | 100 percent branch coverage on pricing, ledger, valuation, distribution | Those rules are pure domain functions with no framework or database in the way |
-| One-command local setup | The same compose topology locally, with MinIO for object storage |
+| One-command local setup | The same compose topology locally, with Versity Gateway for object storage (ADR-0032) |
 | Infrastructure under 150 US dollars a month | One production server, one small staging server, object storage, no managed services |
 | No module imports another's internals | Lint rule and two data checks, all failing the build |
 | Every failure mode has a runbook | The failure modes are named in section 8 and in the threat model; runbooks are written in B1 and B13 |
@@ -559,3 +559,7 @@ The full amended schedule, with the gate for every session and three further ass
 | [0028](adr/0028-investor-distribution-allocation.md) | Investor distributions are allocated by unit-days with largest-remainder rounding |
 | [0029](adr/0029-api-contract-conventions.md) | API contract conventions: money fields, decimal strings, one error envelope, approvals as 202 |
 | [0030](adr/0030-foundation-tooling.md) | Foundation tooling: the migration runner, the contract generated from code plus the planned contract, and exact kernel rates |
+| [0031](adr/0031-operation-fragments-beside-controllers.md) | An implemented operation's contract text lives beside its controller and is checked against the route |
+| [0032](adr/0032-versity-gateway-for-development-object-storage.md) | Versity Gateway is the S3-compatible object store of development and CI |
+| [0033](adr/0033-scope-names-port.md) | IAM asks MDM for branch and location codes through a ScopeNames port |
+| [0034](adr/0034-authentication-and-authorisation-as-built.md) | How B3 built authentication and authorisation where ADR-0016 and ADR-0017 left a choice |

@@ -17,7 +17,8 @@ Owner: `src/platform`. Mechanisms only, no business rules (ADR-0009). Convention
 | --- | --- |
 | `platform.allocate_number(series_id uuid, document_id uuid) RETURNS text` | Increments the series, inserts the allocation row and returns the formatted number, inside the caller's transaction (ADR-0015) |
 | `platform.reject_change() RETURNS trigger` | Raises an error. Attached `BEFORE UPDATE OR DELETE` and `BEFORE TRUNCATE` to every `LEDGER` table in every schema |
-| `platform.freeze_posted() RETURNS trigger` | Generic document freeze: once `status` is in the table's posted set, rejects changes outside the column list given as trigger arguments (ADR-0012) |
+| `platform.freeze_posted() RETURNS trigger` | Generic document freeze: once `status` is in the table's posted set, rejects changes outside the column list given as trigger arguments (ADR-0012). The first argument is the comma-separated posted statuses, the rest the columns that may still change. SQLSTATE HK004 |
+| `platform.audit_event_content_hash(e) RETURNS bytea` | SHA-256 of an audit event's canonical bytes, independent of session settings; used by the insert trigger and the verifier (ADR-0006) |
 | `platform.touch_version() RETURNS trigger` | On update of a `MASTER` or `DOCUMENT` row, requires `NEW.version = OLD.version + 1` and sets `updated_at` |
 
 ---
@@ -45,6 +46,7 @@ Registry with one row per business document of any kind, so that any table can r
 | `owner_module` | `text` | NOT NULL | Denormalised from the type for cheap filtering |
 | `branch_id` | `uuid` | NOT NULL, FK `mdm.branch` | Scoping without a call to the owner |
 | `created_at` | `timestamptz` | NOT NULL DEFAULT `now()` | When registered |
+| `actor_id` | `uuid` | NOT NULL, FK `iam.principal` | Who registered it (LEDGER standard column) |
 
 - Inserted by the owning module in the same transaction as its own row. Never updated or deleted.
 
@@ -130,6 +132,7 @@ Delivery state per message and consumer. `DEAD` rows are the dead letter queue.
 | --- | --- | --- | --- |
 | `message_id` | `uuid` | NOT NULL, FK `platform.outbox_message` | |
 | `consumer` | `text` | NOT NULL | Subscriber name |
+| `subject_id` | `uuid` | NOT NULL | Copied from the message, so ordered delivery per subject reads one table (B3) |
 | `status` | `text` | NOT NULL, CHECK in (`PENDING`, `DELIVERED`, `FAILED`, `DEAD`) | |
 | `attempts` | `integer` | NOT NULL DEFAULT 0 | For backoff |
 | `next_attempt_at` | `timestamptz` | NULL | When to retry |
@@ -147,6 +150,8 @@ Makes asynchronous consumers idempotent.
 | `consumer` | `text` | NOT NULL | |
 | `message_id` | `uuid` | NOT NULL | The outbox message handled |
 | `processed_at` | `timestamptz` | NOT NULL DEFAULT `now()` | |
+
+Standard columns: `LEDGER` (`actor_id` is the dispatcher's SYSTEM principal).
 
 - PK (`consumer`, `message_id`), inserted in the same transaction as the consumer's effect.
 
@@ -258,6 +263,8 @@ The hash chain, one row per audit event, written only by the sealer.
 | `chain_hash` | `bytea` | NOT NULL | `sha256(prev_hash || content_hash || seq)` |
 | `sealed_at` | `timestamptz` | NOT NULL DEFAULT `now()` | |
 
+Standard columns: `LEDGER`, `actor_id` defaulting to the sealer's SYSTEM principal. Class comment `class=LEDGER;writer=hk_sealer`: `hk_app` and `hk_worker` hold SELECT only (ADR-0034).
+
 ### `platform.audit_anchor` · LEDGER
 
 Signed copies of the chain head, also stored off the server.
@@ -272,6 +279,8 @@ Signed copies of the chain head, also stored off the server.
 | `storage_uri` | `text` | NOT NULL | Off-box location of the copy |
 | `reason` | `text` | NOT NULL, CHECK in (`DAILY`, `SHIFT_CLOSE`, `MANUAL`) | |
 | `anchored_at` | `timestamptz` | NOT NULL DEFAULT `now()` | |
+
+Standard columns: `LEDGER`, as `platform.audit_chain`, and written by `hk_sealer` only. The copy is a JSON document under `anchors/YYYY/MM/DD/` in the anchor bucket, with seven years of object lock.
 
 ### `platform.subject_key` · MASTER
 
@@ -305,4 +314,6 @@ Outcome of every scheduled job, read by the health endpoint for "last successful
 | `outcome` | `text` | NOT NULL, CHECK in (`SUCCESS`, `DRIFT`, `FAILED`) | `DRIFT` means the check ran and found a difference |
 | `summary` | `jsonb` | NOT NULL | Counts and the offending record ids |
 
-- Index (`job_name`, `finished_at` DESC).
+Standard columns: `LEDGER`.
+
+- Index (`job_name`, `finished_at` DESC). Jobs from B3: `audit-verify`, `idempotency-purge`.

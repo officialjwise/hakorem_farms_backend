@@ -294,6 +294,7 @@ Any other reference upward, from a lower layer to a document in a higher one, us
 | `OrderConfirmationPolicy` | ORD | WHL | ORD asks registered policies whether an order may be confirmed; WHL answers for credit limit and account hold |
 | Approval handlers | IAM | Every module with an approval kind | IAM calls the owning module's handler when a request is approved, in the same transaction |
 | Health contributors | platform | Any module | A module reports its own health item, such as last successful reconciliation |
+| `ScopeNames` | IAM | MDM | IAM asks for the codes of the branches and locations a session's grants name (ADR-0033) |
 
 Adding a port needs an ADR. Ports are the exception, not a way round the layer rule.
 

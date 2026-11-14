@@ -25,6 +25,13 @@ Each item says why it is parked and what would bring it back.
 | BL-015 | Listing individual live animals for direct purchase online | Request to buy is the owner's default. The reservation mechanism already supports it; it is a product setting | The owner wants it for a species or a season | ADR-0019 |
 | BL-016 | Central log aggregation and dashboards beyond Prometheus and Sentry | Logs are JSON with correlation ids on the server with rotation, which is enough to start | Diagnosing an incident from server logs proves too slow | ADR-0025 |
 
+## Parked in B3
+
+| ID | Item | Why it is not in version one yet | What would bring it back | Related |
+| --- | --- | --- | --- | --- |
+| BL-042 | A short-lived cache of grants and revoked sessions (ADR-0016's design) | B3 reads both from PostgreSQL on every request, by primary key or index, so a change takes effect at once with no invalidation to get wrong | The B13 load test shows the reads as a bottleneck against the NFR targets | ADR-0034 |
+| BL-043 | Sealing the audit chain with a horizon of the current database only | The sealer's horizon is the oldest transaction on the whole server (ADR-0006); with one database per server that is exact, and it is always safe | Production shares its PostgreSQL server with another busy database, and sealing lag shows on the health report | ADR-0006 |
+
 ## Explicitly outside the brief
 
 These are not mentioned in the shared brief, or are mentioned only conditionally. They are listed so that nobody builds them by accident.
