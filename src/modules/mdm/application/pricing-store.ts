@@ -1,5 +1,5 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
-import type { Channel, PriceEntry, PriceListRef, WeightBand } from '../domain/pricing-engine';
+import type { Channel, PriceEntry, PriceListRef, WeightBand } from '../domain/pricing/pricing-engine';
 
 export interface PricingProduct {
   readonly id: string;

@@ -1,6 +1,6 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
-import type { ActiveWindow, EntryDefinition, EntryReferences, EntryInput, PriceListSlot, VersionWindow } from '../domain/price-list';
-import type { Channel, PriceListKind } from '../domain/pricing-engine';
+import type { ActiveWindow, EntryDefinition, EntryReferences, EntryInput, PriceListSlot, VersionWindow } from '../domain/pricing/price-list';
+import type { Channel, PriceListKind } from '../domain/pricing/pricing-engine';
 
 export type VersionStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'ACTIVE' | 'SUPERSEDED' | 'REJECTED';
 

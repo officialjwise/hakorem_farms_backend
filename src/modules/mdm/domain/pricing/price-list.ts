@@ -1,5 +1,5 @@
 import { err, ok, Quantity, type Result } from '@hakorem/kernel';
-import type { FieldRule } from './product';
+import type { FieldRule } from '../product';
 import type { Channel, PriceBasis, PriceListKind } from './pricing-engine';
 
 /** Price lists, versions and entries (FR-MDM-015, ADR-0004, ADR-0036). Pure rules; the database repeats them. */

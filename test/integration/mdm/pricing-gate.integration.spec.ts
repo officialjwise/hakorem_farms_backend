@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Quantity, Weight } from '@hakorem/kernel';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { extendPrice } from '../../../src/modules/mdm/domain/pricing-engine';
+import { extendPrice } from '../../../src/modules/mdm/domain/pricing/pricing-engine';
 import { SEED_CUSTOMERS, SEED_PRICE_LISTS, SEED_PRODUCTS, SEED_SPECIES, type SeedChannel, type SeedEntry, type SeedPriceList } from '../../../src/seed/reference-pricing';
 import { seedUnits } from '../../../src/seed/seed-units';
 import { CookieJar, relaxRateLimits, type TestSession } from '../../support/iam';

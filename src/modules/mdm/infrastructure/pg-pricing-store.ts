@@ -1,6 +1,6 @@
 import { Quantity, Weight } from '@hakorem/kernel';
 import type { Transaction } from '../../../platform/database/unit-of-work';
-import type { PriceBasis, PriceListKind } from '../domain/pricing-engine';
+import type { PriceBasis, PriceListKind } from '../domain/pricing/pricing-engine';
 import type { BandRow, GradeRow, ListInForce, PricingCustomer, PricingProduct, PricingStore, WalkSlots } from '../application/pricing-store';
 
 interface ListRow {

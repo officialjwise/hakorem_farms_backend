@@ -6,5 +6,5 @@
  */
 export { MdmModule } from './mdm.module';
 export { PricingService, type PriceResolutionView, type PriceResolveResultView, type ResolveLine, type ResolveRequest } from './application/pricing';
-export { extendPrice, judgeAgreedPrice, type AgreedPriceVerdict, type Channel, type PriceBasis, type QuoteRequiredReason } from './domain/pricing-engine';
+export { extendPrice, judgeAgreedPrice, type AgreedPriceVerdict, type Channel, type PriceBasis, type QuoteRequiredReason } from './domain/pricing/pricing-engine';
 export type { PriceListVersionActivated, ProductCreated } from './events';

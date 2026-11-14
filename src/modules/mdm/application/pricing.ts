@@ -2,7 +2,7 @@ import { Money, Quantity, Weight, type Clock } from '@hakorem/kernel';
 import type { Actor } from '../../../platform/context/request-context';
 import type { Transaction, UnitOfWork } from '../../../platform/database/unit-of-work';
 import type { Authoriser } from '../../iam';
-import { PRICE_LIST_KINDS, resolvePrice, type Channel, type PriceBasis, type PriceListCandidate, type PriceListRef, type QuoteRequiredReason } from '../domain/pricing-engine';
+import { PRICE_LIST_KINDS, resolvePrice, type Channel, type PriceBasis, type PriceListCandidate, type PriceListRef, type QuoteRequiredReason } from '../domain/pricing/pricing-engine';
 import { referencesNotFound } from './errors';
 import type { BandRow, GradeRow, ListInForce, PricingStore } from './pricing-store';
 
