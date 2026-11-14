@@ -14,6 +14,7 @@ import { auditSealingLagContributor, deadLettersContributor, HealthService, outb
 import { HealthController } from './health/health.controller';
 import { Cursors } from './http/cursor';
 import { RateLimiter } from './http/rate-limiter';
+import { DocumentRegistry } from './documents/document-registry';
 import { Idempotency } from './idempotency/idempotency';
 import { createRedis } from './redis/redis-client';
 import { Settings } from './settings/settings';
@@ -69,6 +70,7 @@ export class PlatformModule {
         { provide: AuditTrail, useFactory: (keys: SubjectKeys, pool: pg.Pool) => new AuditTrail(keys, clock, pool), inject: [SubjectKeys, PG_POOL] },
         { provide: DomainEvents, useFactory: () => new DomainEvents(clock) },
         { provide: Idempotency, useFactory: () => new Idempotency(clock) },
+        DocumentRegistry,
         { provide: Settings, useFactory: (pool: pg.Pool) => new Settings(pool, clock, logger), inject: [PG_POOL] },
         { provide: RateLimiter, useFactory: (redis: Redis) => new RateLimiter(redis, logger), inject: [REDIS] },
         { provide: Cursors, useFactory: () => new Cursors(Buffer.from(config.LOOKUP_HMAC_KEY, 'base64'), clock) },
@@ -96,6 +98,7 @@ export class PlatformModule {
         AuditTrail,
         DomainEvents,
         Idempotency,
+        DocumentRegistry,
         Settings,
         RateLimiter,
         Cursors,
