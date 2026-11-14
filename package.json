@@ -9,12 +9,78 @@
     "node": ">=22 <23"
   },
   "scripts": {
-    "test:unit": "vitest run --project unit"
+    "setup": "bash scripts/setup.sh",
+    "dev": "bash scripts/dev.sh",
+    "build": "pnpm --filter @hakorem/kernel build && tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "typecheck": "tsc -p tsconfig.json && tsc -p packages/kernel/tsconfig.json",
+    "lint": "eslint . --max-warnings 0 && tsx scripts/check/lint-fixtures.ts && tsx scripts/check/test-placement.ts && tsx scripts/check/schema-names.ts",
+    "db:bootstrap": "tsx --env-file-if-exists=.env src/cli/db-bootstrap.ts",
+    "db:migrate": "tsx --env-file-if-exists=.env src/cli/db-migrate.ts",
+    "db:rollback": "tsx --env-file-if-exists=.env src/cli/db-rollback.ts",
+    "db:seed": "tsx --env-file-if-exists=.env src/cli/db-seed.ts",
+    "test:unit": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
+    "test:contract": "vitest run --project contract",
+    "test:e2e": "vitest run --project e2e",
+    "test:smoke": "tsx scripts/test-smoke.ts",
+    "test:coverage": "vitest run --project unit --project integration --coverage",
+    "contract:generate": "tsx scripts/contract/generate.ts"
   },
   "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@redocly/cli": "2.72.1",
+    "@testcontainers/postgresql": "11.14.0",
+    "@testcontainers/redis": "11.14.0",
+    "@types/express": "5.0.6",
     "@types/node": "22.20.5",
-    "@vitest/coverage-v8": "3.2.7",
+    "@types/pg": "8.23.1",
+    "@types/supertest": "7.2.1",
+    "@vitest/coverage-v8": "4.1.12",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
+    "eslint": "9.39.5",
+    "eslint-import-resolver-typescript": "4.4.5",
+    "eslint-plugin-boundaries": "5.4.0",
+    "eslint-plugin-import-x": "4.17.1",
+    "globals": "17.13.0",
+    "supertest": "7.3.1",
+    "testcontainers": "11.14.0",
+    "tsx": "4.23.15",
     "typescript": "5.9.3",
-    "vitest": "3.2.7"
+    "typescript-eslint": "8.72.1",
+    "vitest": "4.1.12",
+    "yaml": "2.9.1"
+  },
+  "dependencies": {
+    "@hakorem/kernel": "workspace:*",
+    "@nestjs/common": "11.2.8",
+    "@nestjs/core": "11.2.8",
+    "@nestjs/platform-express": "11.2.8",
+    "@nestjs/swagger": "11.4.7",
+    "@opentelemetry/api": "1.10.0",
+    "@opentelemetry/exporter-trace-otlp-http": "0.300.0",
+    "@opentelemetry/instrumentation-express": "0.72.0",
+    "@opentelemetry/instrumentation-http": "0.300.0",
+    "@opentelemetry/instrumentation-ioredis": "0.72.0",
+    "@opentelemetry/instrumentation-pg": "0.77.0",
+    "@opentelemetry/resources": "3.0.0",
+    "@opentelemetry/sdk-node": "0.300.0",
+    "@opentelemetry/sdk-trace-base": "2.12.0",
+    "@opentelemetry/semantic-conventions": "1.44.0",
+    "drizzle-orm": "0.45.4",
+    "express": "5.2.1",
+    "ioredis": "5.11.1",
+    "pg": "8.23.1",
+    "pino": "9.14.0",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2",
+    "zod": "4.6.7"
+  },
+  "pnpm": {
+    "overrides": {
+      "multer": "2.5.0",
+      "handlebars": "4.7.10"
+    }
   }
 }

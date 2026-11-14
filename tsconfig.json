@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "baseUrl": ".",
+    "paths": {
+      "@hakorem/kernel": ["packages/kernel/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.ts", "packages/*/src/**/*.ts", "vitest.config.mts", "tooling/**/*.ts"],
+  "exclude": ["node_modules", "dist", "**/dist", "tooling/lint-fixtures"]
+}

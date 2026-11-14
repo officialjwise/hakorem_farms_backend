@@ -57,7 +57,7 @@ describe('Money', () => {
     });
 
     it('refuses a JSON number above the safe range', () => {
-      expect(() => Money.fromJsonInteger(2 ** 53)).toThrow(MoneyNotIntegerError);
+      expect(() => Money.fromJsonInteger(9_007_199_254_740_992)).toThrow(MoneyNotIntegerError);
     });
 
     it('refuses NaN and infinity', () => {
