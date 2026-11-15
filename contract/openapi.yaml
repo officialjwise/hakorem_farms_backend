@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.5.0"
+  version: "1.6.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -11175,7 +11175,7 @@ paths:
       tags:
         - pricing
       summary: "Resolve prices for one or more lines"
-      description: "Walks the customer list, then tier and channel, then channel, then base, and stops at the first hit; inside a list the most specific entry wins. A line that cannot be priced returns outcome QUOTE_REQUIRED with a reason, never an error and never a zero. Promotions apply only to tier, channel and base prices. Read-only: nothing is stored.\n\nPermission: `mdm.price.resolve`."
+      description: "Walks the customer list, then tier and channel, then channel, then base, and stops at the first hit; inside a list the most specific entry wins. A line that cannot be priced returns outcome QUOTE_REQUIRED with a reason, never an error and never a zero. Promotions apply only to tier, channel and base prices: each resolved line lists the active line promotions that discount it, each `discountPesewas` taken from the line extended at list price and rounded half-up once; one per stack group, the larger; an exclusive promotion alone. A per-kilogram line without a weight takes no promotion until it is weighed. A coupon promotion applies only with its `couponCode`; a code that exists but cannot be used is 422 `COUPON_UNAVAILABLE`, with the reason as `details[0].code`. Read-only: nothing is stored.\n\nPermission: `mdm.price.resolve`."
       x-permission: mdm.price.resolve
       x-error-codes:
         - VALIDATION_FAILED
@@ -11185,6 +11185,7 @@ paths:
         - ORIGIN_NOT_ALLOWED
         - PASSWORD_CHANGE_REQUIRED
         - REFERENCE_NOT_FOUND
+        - COUPON_UNAVAILABLE
         - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
@@ -11297,6 +11298,12 @@ paths:
       summary: "List promotions"
       description: "Permission: `mdm.promotion.read`."
       x-permission: mdm.promotion.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: status
           in: query
@@ -11508,8 +11515,21 @@ paths:
       tags:
         - pricing
       summary: "Create a promotion"
-      description: "Permission: `mdm.promotion.create`."
+      description: "The promotion is created as a `DRAFT`. A line promotion (`PERCENT_OFF` or `AMOUNT_OFF` on `LINE`) needs at least one target, each naming one product or one category; a category covers the categories below it. `FREE_DELIVERY` applies to the whole order. Refused with 422 `PROMOTION_INVALID` when a value does not fit the kind, the window ends before it starts, or a target is malformed.\n\nPermission: `mdm.promotion.create`."
       x-permission: mdm.promotion.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - DUPLICATE_VALUE
+        - REFERENCE_NOT_FOUND
+        - PROMOTION_INVALID
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -11595,6 +11615,13 @@ paths:
       summary: "Get a promotion"
       description: "Permission: `mdm.promotion.read`."
       x-permission: mdm.promotion.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -11662,8 +11689,23 @@ paths:
       tags:
         - pricing
       summary: "Update a promotion"
-      description: "Send the `version` you read; a stale version is refused with 409.\n\nPermission: `mdm.promotion.update`."
+      description: "Only a DRAFT promotion can be changed. Send the `version` you read; a stale version is refused with 409. `targets`, when sent, replace the promotion's targets.\n\nPermission: `mdm.promotion.update`."
       x-permission: mdm.promotion.update
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - INVALID_STATE_TRANSITION
+        - REFERENCE_NOT_FOUND
+        - PROMOTION_INVALID
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -11746,8 +11788,20 @@ paths:
       tags:
         - pricing
       summary: "Submit a promotion for activation"
-      description: "Permission: `mdm.promotion.update`.\n\nMay require approval of kind `PROMOTION_ACTIVATION`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+      description: "Always answers `202`: activation is maker-checker. Once approved by a different user holding `mdm.promotion.approve`, the promotion is `ACTIVE` from its `validFrom`, or from the moment of approval if that is later. A promotion whose window has passed is refused with `INVALID_STATE_TRANSITION` (`WINDOW_PASSED`).\n\nPermission: `mdm.promotion.update`.\n\nMay require approval of kind `PROMOTION_ACTIVATION`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
       x-permission: mdm.promotion.update
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -11838,8 +11892,20 @@ paths:
       tags:
         - pricing
       summary: "End an active promotion now"
-      description: "Permission: `mdm.promotion.update`."
+      description: "Ends an `ACTIVE` promotion now: `validTo` becomes the moment it was ended, and from then it discounts nothing. The reason is audited.\n\nPermission: `mdm.promotion.update`."
       x-permission: mdm.promotion.update
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -11924,6 +11990,13 @@ paths:
       summary: "List the coupons of a promotion"
       description: "Permission: `mdm.promotion.read`."
       x-permission: mdm.promotion.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -12019,8 +12092,22 @@ paths:
       tags:
         - pricing
       summary: "Create a coupon code for a promotion"
-      description: "Permission: `mdm.promotion.update`."
+      description: "Only a promotion with `requiresCoupon` takes coupons, and not once it is `ENDED` or `REJECTED`. The code is stored trimmed and upper-case. Refused with 422 `COUPON_INVALID` for a malformed code or a per-customer limit above `maxUses`.\n\nPermission: `mdm.promotion.update`."
       x-permission: mdm.promotion.update
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - DUPLICATE_VALUE
+        - COUPON_INVALID
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -12083,11 +12170,13 @@ paths:
       tags:
         - pricing
       summary: "Check a coupon code"
-      parameters:
-        - $ref: "#/components/parameters/CsrfTokenOptional"
+      description: "Says whether a code could be used now. It never reveals who has used a coupon: `customerId` is ignored here, and the per-customer limit is checked when the coupon is redeemed with the order. No cart exists yet, so a `cartId` is refused with 422 `REFERENCE_NOT_FOUND`."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - REFERENCE_NOT_FOUND
+        - RATE_LIMITED
       security:
         - {}
-        - customerSession: []
       requestBody:
         required: true
         content:
@@ -12096,7 +12185,6 @@ paths:
               $ref: "#/components/schemas/CouponValidationRequest"
             example:
               code: WELCOME20
-              cartId: "019a7aa9-1c15-7ae4-b01c-b713eac82ff1"
       responses:
         "200":
           description: OK

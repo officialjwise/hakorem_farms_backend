@@ -4,6 +4,8 @@ import type { Channel, PriceEntry, PriceListRef, WeightBand } from '../domain/pr
 export interface PricingProduct {
   readonly id: string;
   readonly speciesId: string | null;
+  /** The product's category and every category above it, for promotions that target a category (FR-MDM-018). */
+  readonly categoryIds: readonly string[];
 }
 
 export interface GradeRow {

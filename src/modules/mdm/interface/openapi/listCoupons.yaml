@@ -1,0 +1,103 @@
+operationId: listCoupons
+tags:
+  - pricing
+summary: "List the coupons of a promotion"
+description: "Permission: `mdm.promotion.read`."
+x-permission: mdm.promotion.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/CouponPage"
+        example:
+          data:
+            - id: "019a7aa8-627b-7f8f-94c7-01c710a27aa4"
+              promotionId: "019a7aa7-a8e1-743a-b972-4c7a367cc558"
+              code: WELCOME20
+              maxUses: 500
+              perCustomerLimit: 1
+              usedCount: 61
+              version: 1
+            - id: "019a7aa8-816a-7972-aeab-9ffe8a5318dc"
+              promotionId: "019a7aa7-a8e1-743a-b972-4c7a367cc558"
+              code: MADINA20
+              maxUses: 100
+              perCustomerLimit: 1
+              usedCount: 14
+              version: 1
+            - id: "019a7aa8-a059-7356-b88e-3e360404b713"
+              promotionId: "019a7aa7-a8e1-743a-b972-4c7a367cc558"
+              code: TEMA20
+              maxUses: 100
+              perCustomerLimit: 1
+              usedCount: 9
+              version: 1
+            - id: "019a7aa8-bf48-7d39-8272-dc6d7db5554b"
+              promotionId: "019a7aa7-a8e1-743a-b972-4c7a367cc558"
+              code: CHURCH20
+              maxUses: 50
+              perCustomerLimit: 1
+              usedCount: 22
+              version: 1
+            - id: "019a7aa8-de37-771d-9c55-7aa4f766f382"
+              promotionId: "019a7aa7-a8e1-743a-b972-4c7a367cc558"
+              code: RADIO20
+              maxUses: 200
+              perCustomerLimit: 1
+              usedCount: 40
+              version: 1
+            - id: "019a7aa8-fd26-7100-a638-18dc711791ba"
+              promotionId: "019a7aa7-a8e1-743a-b972-4c7a367cc558"
+              code: STAFF20
+              maxUses: 20
+              perCustomerLimit: 1
+              usedCount: 3
+              version: 1
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

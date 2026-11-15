@@ -8,6 +8,18 @@ Version numbers follow semantic versioning: a major bump breaks an existing clie
 
 - **CR-002 (frontend, raised 2026-11-13): weights as decimal strings, never JSON numbers.** Already satisfied by 1.0.0 and 1.1.0, so no version change. `components.schemas.Kilograms` is `type: string` with the pattern `^(0|[1-9][0-9]{0,6})\.[0-9]{3}$` (exactly three decimal places), and its description says it is never a JSON number. The request was raised against a copy taken before re-syncing; re-run `./scripts/sync-contract.sh`. The owner closed it on 2026-11-13: do not reopen it.
 
+## 1.6.0 (2026-11-15, B04d)
+
+**Additive, with one relaxation on a public operation.** No schema, field or response was removed, renamed or retyped, and nothing a client sends was made required. A client generated from 1.5.x compiles unchanged. The frontend track is paused, so nothing reviewed this entry; read it before resuming.
+
+Nine promotion operations now answer from the real API (43 in all), with the schemas 1.2.0 already published: `listPromotions`, `createPromotion`, `getPromotion`, `updatePromotion`, `submitPromotion`, `endPromotion`, `listCoupons`, `createCoupon`, `validateCoupon`.
+
+- **`resolvePrices` fills `promotions`** on each resolved line (it was always `[]`): the line promotions that discount it, each `discountPesewas` taken from the line extended at list price and rounded half-up once; never on a `CUSTOMER` list price; one per stack group, an exclusive one alone (ADR-0040). `couponCode` now names a real coupon; an unknown code is still 422 `REFERENCE_NOT_FOUND`, and one that cannot be used is the new 422 **`COUPON_UNAVAILABLE`** (`details[0].code`: `EXPIRED`, `LIMIT_REACHED`, `NOT_APPLICABLE`, `ALREADY_USED`).
+- **`validateCoupon` is public, without the optional customer session or CSRF header** the planned contract offered (`security: [{}]`, no `X-CSRF-Token` parameter). A client that sends the cookie or the header is not refused; they are ignored. It ignores `customerId` (it never reveals who used a coupon) and refuses a `cartId` with 422 `REFERENCE_NOT_FOUND` until carts exist (B7). Descriptions say so.
+- **Descriptions** of `createPromotion`, `updatePromotion`, `submitPromotion`, `endPromotion` and `createCoupon` now state their rules; `submitPromotion` always answers 202.
+- **`x-error-codes`** on the nine operations. Three new codes, also in `docs/API.md` section 10.3: `PROMOTION_INVALID`, `COUPON_INVALID`, `COUPON_UNAVAILABLE`.
+- **Example:** the `validateCoupon` request example no longer carries a `cartId`.
+
 ## 1.5.0 (2026-11-15, B04 continued)
 
 **Additive, with one behaviour change on two operations nothing implemented before.** No schema, field, parameter or response was removed, renamed, retyped or made required. A client generated from 1.4.x compiles unchanged. The frontend track is paused, so nothing reviewed this entry; read it before resuming.

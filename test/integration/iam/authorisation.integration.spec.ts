@@ -67,6 +67,10 @@ const VALID_BODY: Readonly<Record<string, object>> = {
   createTaxSchemeVersion: { validFrom: '2026-12-01', sourceNote: 'Rates from the accountant' },
   replaceTaxSchemeCells: { version: 1, cells: [] },
   calculateTax: { taxInclusive: false, taxDate: '2026-12-01', lines: [{ lineRef: '1', taxCategoryId: randomUUID(), amountPesewas: 100 }] },
+  createPromotion: { code: 'XMAS-CHICKEN', name: 'Christmas chicken', kind: 'PERCENT_OFF', percentOff: '5', appliesTo: 'LINE', validFrom: '2026-12-01T00:00:00Z', validTo: '2027-01-01T00:00:00Z', targets: [{ productId: randomUUID() }] },
+  updatePromotion: { version: 1, name: 'Christmas chicken' },
+  endPromotion: { reason: 'Stock ran out' },
+  createCoupon: { code: 'XMAS-26' },
 };
 
 beforeAll(async () => {
@@ -84,7 +88,7 @@ afterAll(async () => {
 });
 
 describe('deny by default: the handler walk (ADR-0017, security architecture section 14)', () => {
-  it('finds the B3, B4 and B04 continued routes, and every one declares its operation', () => {
+  it('finds the B3, B4, B04 continued and B04d routes, and every one declares its operation', () => {
     expect(routes.map((route) => route.spec?.operationId).sort()).toEqual(
       [
         'changePassword', 'confirmTotpEnrolment', 'createProduct', 'getCurrentSession', 'getHealth', 'getProduct', 'listProducts', 'listSessions',
@@ -92,6 +96,7 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'resolvePrices', 'createPriceList', 'getPriceList', 'createPriceListVersion', 'getPriceListVersion', 'replacePriceListEntries', 'submitPriceListVersion',
         'listTaxLevies', 'createTaxLevy', 'listTaxCategories', 'createTaxCategory', 'listTaxSchemeVersions', 'createTaxSchemeVersion', 'getTaxSchemeVersion',
         'replaceTaxSchemeCells', 'submitTaxSchemeVersion', 'calculateTax',
+        'listPromotions', 'createPromotion', 'getPromotion', 'updatePromotion', 'submitPromotion', 'endPromotion', 'listCoupons', 'createCoupon', 'validateCoupon',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);
@@ -120,9 +125,8 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
       const response =
         route.method === 'GET'
           ? await consoleGet(api.server, session, path)
-          : route.method === 'PUT'
-            ? await request(api.server)
-                .put(path)
+          : route.method === 'PUT' || route.method === 'PATCH'
+            ? await (route.method === 'PUT' ? request(api.server).put(path) : request(api.server).patch(path))
                 .set('Cookie', session.jar.header())
                 .set('X-CSRF-Token', session.csrfToken)
                 .set('Origin', TEST_ORIGIN)

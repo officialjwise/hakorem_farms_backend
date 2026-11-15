@@ -32,10 +32,20 @@ export class PgPricingStore implements PricingStore {
   }
 
   async products(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, PricingProduct>> {
-    const { rows } = await tx.query<{ id: string; species_id: string | null }>('SELECT id, species_id FROM mdm.product WHERE id = ANY($1::uuid[]) AND deleted_at IS NULL', [
-      [...new Set(ids)],
-    ]);
-    return new Map(rows.map((row) => [row.id, { id: row.id, speciesId: row.species_id }]));
+    // The category and its ancestors; the tree is shallow, and the depth bound stops a cycle a bad row could make.
+    const { rows } = await tx.query<{ id: string; species_id: string | null; category_ids: string[] }>(
+      `WITH RECURSIVE up (product_id, category_id, depth) AS (
+         SELECT p.id, p.category_id, 1 FROM mdm.product p WHERE p.id = ANY($1::uuid[]) AND p.deleted_at IS NULL
+         UNION ALL
+         SELECT up.product_id, c.parent_id, up.depth + 1 FROM up JOIN mdm.category c ON c.id = up.category_id
+          WHERE c.parent_id IS NOT NULL AND up.depth < 20
+       )
+       SELECT p.id, p.species_id, array_agg(up.category_id ORDER BY up.depth) AS category_ids
+         FROM mdm.product p JOIN up ON up.product_id = p.id
+        GROUP BY p.id, p.species_id`,
+      [[...new Set(ids)]],
+    );
+    return new Map(rows.map((row) => [row.id, { id: row.id, speciesId: row.species_id, categoryIds: row.category_ids }]));
   }
 
   async grades(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, GradeRow>> {

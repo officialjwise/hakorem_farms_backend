@@ -206,3 +206,65 @@ export const TaxCalculationRequest = z.strictObject({
     .min(1)
     .max(MAX_TAX_LINES),
 });
+
+/** The most targets one promotion names: a season's worth of products and categories. */
+export const MAX_PROMOTION_TARGETS = 200;
+
+const PromotionTargetInput = z.strictObject({
+  productId: z.uuid().optional(),
+  categoryId: z.uuid().optional(),
+  bundleQty: Quantity.optional(),
+});
+
+/** The contract's `PromotionCreate`, strict. Patterns are migration 0017's; the rules between fields are the domain's. */
+export const PromotionCreate = z.strictObject({
+  code: z.string().trim().toUpperCase().regex(/^[A-Z0-9][A-Z0-9-]{2,39}$/),
+  name: z.string().trim().min(1).max(120),
+  kind: z.enum(['PERCENT_OFF', 'AMOUNT_OFF', 'BUNDLE_PRICE', 'FREE_DELIVERY']),
+  percentOff: Percent.optional(),
+  amountOffPesewas: Pesewas.optional(),
+  bundlePricePesewas: Pesewas.optional(),
+  appliesTo: z.enum(['LINE', 'ORDER']),
+  channel: Channel.optional(),
+  minOrderPesewas: Pesewas.optional(),
+  stackGroup: z.string().regex(/^[A-Z][A-Z0-9_]{0,39}$/).optional(),
+  isExclusive: z.boolean().optional(),
+  requiresCoupon: z.boolean().optional(),
+  maxRedemptions: z.number().int().min(1).max(1_000_000_000).optional(),
+  validFrom: DateTime,
+  validTo: DateTime,
+  targets: z.array(PromotionTargetInput).max(MAX_PROMOTION_TARGETS).optional(),
+});
+
+/** The contract's `PromotionUpdate`, strict: a draft's name, value, end and targets. */
+export const PromotionUpdate = z.strictObject({
+  version: z.number().int().min(1),
+  name: z.string().trim().min(1).max(120).optional(),
+  percentOff: Percent.optional(),
+  amountOffPesewas: Pesewas.optional(),
+  validTo: DateTime.optional(),
+  targets: z.array(PromotionTargetInput).max(MAX_PROMOTION_TARGETS).optional(),
+});
+
+/** listPromotions query. */
+export const ListPromotionsQuery = PageQuery.extend({
+  status: z.enum(['DRAFT', 'PENDING_APPROVAL', 'ACTIVE', 'ENDED', 'REJECTED']).optional(),
+  channel: Channel.optional(),
+});
+
+/** The contract's `ReasonRequest`. */
+export const ReasonRequest = z.strictObject({ reason: z.string().trim().min(1).max(500) });
+
+/** The contract's `CouponCreate`, strict. The code is normalised by the domain. */
+export const CouponCreate = z.strictObject({
+  code: z.string().min(1).max(60),
+  maxUses: z.number().int().min(1).max(1_000_000_000).optional(),
+  perCustomerLimit: z.number().int().min(1).max(1_000_000_000).optional(),
+});
+
+/** The contract's `CouponValidationRequest`, strict. */
+export const CouponValidationRequest = z.strictObject({
+  code: z.string().min(1).max(60),
+  cartId: z.uuid().optional(),
+  customerId: z.uuid().optional(),
+});

@@ -14,11 +14,16 @@ import {
   TotpVerifyRequest,
 } from '../../../src/modules/iam/interface/schemas';
 import {
+  CouponCreate,
+  CouponValidationRequest,
   PriceListCreate,
   PriceListEntriesReplace,
   PriceListVersionCreate,
   PriceResolveRequest,
   ProductCreate,
+  PromotionCreate,
+  PromotionUpdate,
+  ReasonRequest as MdmReasonRequest,
   TaxCalculationRequest,
   TaxCategoryCreate,
   TaxCellsReplace,
@@ -140,6 +145,11 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     createTaxSchemeVersion: TaxSchemeVersionCreate,
     replaceTaxSchemeCells: TaxCellsReplace,
     calculateTax: TaxCalculationRequest,
+    createPromotion: PromotionCreate,
+    updatePromotion: PromotionUpdate,
+    endPromotion: MdmReasonRequest,
+    createCoupon: CouponCreate,
+    validateCoupon: CouponValidationRequest,
   };
 
   it('parses every request example of an implemented operation with the schema its route validates with', () => {

@@ -130,3 +130,41 @@ export class TaxSchemeNotInForceError extends BusinessRuleError {
     super(`no tax scheme version is in force on ${taxDate}`, [{ field: '/taxDate', code: 'NOT_IN_FORCE', message: translate('mdm.tax_scheme_not_in_force') }]);
   }
 }
+
+registerMessages({
+  'mdm.promotion_invalid': 'This promotion is not valid.',
+  'mdm.promotion_rule': 'This value breaks a promotion rule.',
+  'mdm.coupon_invalid': 'This coupon is not valid.',
+  'mdm.coupon_rule': 'This value breaks a coupon rule.',
+  'mdm.coupon_unavailable': 'This coupon cannot be used.',
+});
+
+/** 422: a promotion breaks a rule of FR-MDM-018: a value that does not fit its kind, a window, a target. */
+export class PromotionInvalidError extends BusinessRuleError {
+  readonly code = 'PROMOTION_INVALID';
+  readonly messageKey = 'mdm.promotion_invalid';
+
+  constructor(fields: readonly FieldRule[]) {
+    super('a promotion breaks a promotion rule', details(fields, 'mdm.promotion_rule'));
+  }
+}
+
+/** 422: a coupon breaks a rule: its code's form, or limits that are not positive or exceed one another. */
+export class CouponInvalidError extends BusinessRuleError {
+  readonly code = 'COUPON_INVALID';
+  readonly messageKey = 'mdm.coupon_invalid';
+
+  constructor(fields: readonly FieldRule[]) {
+    super('a coupon breaks a coupon rule', details(fields, 'mdm.coupon_rule'));
+  }
+}
+
+/** 422: a coupon exists but cannot be used now; `details[0].code` says why (EXPIRED, LIMIT_REACHED, NOT_APPLICABLE, ALREADY_USED). */
+export class CouponUnavailableError extends BusinessRuleError {
+  readonly code = 'COUPON_UNAVAILABLE';
+  readonly messageKey = 'mdm.coupon_unavailable';
+
+  constructor(field: string, reason: string) {
+    super(`the coupon cannot be used: ${reason}`, [{ field, code: reason, message: translate('mdm.coupon_unavailable') }]);
+  }
+}

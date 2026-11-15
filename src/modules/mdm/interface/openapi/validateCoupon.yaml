@@ -1,0 +1,48 @@
+operationId: validateCoupon
+tags:
+  - pricing
+summary: "Check a coupon code"
+description: "Says whether a code could be used now. It never reveals who has used a coupon: `customerId` is ignored here, and the per-customer limit is checked when the coupon is redeemed with the order. No cart exists yet, so a `cartId` is refused with 422 `REFERENCE_NOT_FOUND`."
+x-error-codes:
+  - VALIDATION_FAILED
+  - REFERENCE_NOT_FOUND
+  - RATE_LIMITED
+security:
+  - {}
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/CouponValidationRequest"
+      example:
+        code: WELCOME20
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/CouponValidation"
+        example:
+          valid: true
+          reason: null
+          promotion:
+            id: "019a7aa7-a8e1-743a-b972-4c7a367cc558"
+            code: WELCOME20
+            name: "GHS 20 off your first order"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

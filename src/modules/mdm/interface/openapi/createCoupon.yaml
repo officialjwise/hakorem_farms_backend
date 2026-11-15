@@ -1,0 +1,76 @@
+operationId: createCoupon
+tags:
+  - pricing
+summary: "Create a coupon code for a promotion"
+description: "Only a promotion with `requiresCoupon` takes coupons, and not once it is `ENDED` or `REJECTED`. The code is stored trimmed and upper-case. Refused with 422 `COUPON_INVALID` for a malformed code or a per-customer limit above `maxUses`.\n\nPermission: `mdm.promotion.update`."
+x-permission: mdm.promotion.update
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - INVALID_STATE_TRANSITION
+  - DUPLICATE_VALUE
+  - COUPON_INVALID
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/CouponCreate"
+      example:
+        code: KASOA20
+        maxUses: 100
+        perCustomerLimit: 1
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Coupon"
+        example:
+          id: "019a7aa8-627b-7f8f-94c7-01c710a27aa4"
+          promotionId: "019a7aa7-a8e1-743a-b972-4c7a367cc558"
+          code: WELCOME20
+          maxUses: 500
+          perCustomerLimit: 1
+          usedCount: 61
+          version: 1
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

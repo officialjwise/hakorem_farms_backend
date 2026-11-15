@@ -2,8 +2,21 @@ import { Money, Quantity, Weight, type Clock } from '@hakorem/kernel';
 import type { Actor } from '../../../platform/context/request-context';
 import type { Transaction, UnitOfWork } from '../../../platform/database/unit-of-work';
 import type { Authoriser } from '../../iam';
-import { PRICE_LIST_KINDS, resolvePrice, type Channel, type PriceBasis, type PriceListCandidate, type PriceListRef, type QuoteRequiredReason } from '../domain/pricing/pricing-engine';
-import { referencesNotFound } from './errors';
+import {
+  extendPrice,
+  PRICE_LIST_KINDS,
+  resolvePrice,
+  type Channel,
+  type PriceBasis,
+  type PriceListCandidate,
+  type PriceListRef,
+  type PriceResolution,
+  type QuoteRequiredReason,
+} from '../domain/pricing/pricing-engine';
+import { applyLinePromotions, judgeCoupon } from '../domain/pricing/promotions';
+import { CouponUnavailableError, referencesNotFound } from './errors';
+import type { CouponRow, PromotionStore } from './promotion-store';
+import { promotionRule } from './promotions';
 import type { BandRow, GradeRow, ListInForce, PricingStore } from './pricing-store';
 
 export const RESOLVE_PRICES = 'resolvePrices';
@@ -39,7 +52,15 @@ export interface WeightBandRefView {
   readonly maxKg: string;
 }
 
-/** The contract's `PriceResolution`. Promotions arrive with B04 continued; until a promotion can exist the list is empty. */
+/** The contract's `AppliedPromotion`: a discount recorded beside the price, on the line extended at list (ADR-0040). */
+export interface AppliedPromotionView {
+  readonly promotionId: string;
+  readonly code: string;
+  readonly name: string;
+  readonly discountPesewas: number;
+}
+
+/** The contract's `PriceResolution`. */
 export interface PriceResolutionView {
   readonly lineRef: string;
   readonly outcome: 'RESOLVED' | 'QUOTE_REQUIRED';
@@ -54,7 +75,7 @@ export interface PriceResolutionView {
     readonly weightBand: WeightBandRefView | null;
   } | null;
   readonly quoteRequiredReason: QuoteRequiredReason | null;
-  readonly promotions: readonly never[];
+  readonly promotions: readonly AppliedPromotionView[];
 }
 
 export interface PriceResolveResultView {
@@ -92,6 +113,7 @@ export class PricingService {
   constructor(
     private readonly uow: UnitOfWork,
     private readonly store: PricingStore,
+    private readonly promotions: PromotionStore,
     private readonly authoriser: Authoriser,
     private readonly clock: Clock,
   ) {}
@@ -120,9 +142,9 @@ export class PricingService {
     const unknown: string[] = [];
     if (!branchFound) unknown.push('/branchId');
     if (request.customerId !== undefined && customer === null) unknown.push('/customerId');
-    // No coupon can exist until coupons are built (B04 continued), and no stock unit until inventory (B5): an id for
-    // either names no record.
-    if (request.couponCode !== undefined) unknown.push('/couponCode');
+    // No stock unit can exist until inventory (B5): an id names no record.
+    const coupon = request.couponCode === undefined ? null : await this.promotions.couponByCode(tx, request.couponCode.toUpperCase());
+    if (request.couponCode !== undefined && coupon === null) unknown.push('/couponCode');
     request.lines.forEach((line, index) => {
       const product = products.get(line.productId);
       if (product === undefined) unknown.push(`/lines/${index}/productId`);
@@ -143,37 +165,73 @@ export class PricingService {
     ]);
     const ordered = walkOrder(lists);
 
-    const lines = request.lines.map((line): PriceResolutionView => {
+    const couponPromotionId = coupon === null ? null : await this.usableCoupon(tx, coupon, customer?.id ?? null, at);
+    const results = request.lines.map((line) => {
       const product = products.get(line.productId)!;
       const speciesBands = bands.filter((band) => band.speciesId === product.speciesId);
       const candidates: PriceListCandidate[] = ordered.map((entry) => ({ list: entry.list, entries: entry.entries.filter((e) => e.productId === line.productId) }));
-      const result = resolvePrice(
-        { gradeId: line.gradeId ?? null, weight: line.weightKg === undefined ? null : Weight.parseKg(line.weightKg), quantity: Quantity.parse(line.quantity) },
-        speciesBands,
-        candidates,
-      );
+      const weight = line.weightKg === undefined ? null : Weight.parseKg(line.weightKg);
+      const quantity = Quantity.parse(line.quantity);
+      const result = resolvePrice({ gradeId: line.gradeId ?? null, weight, quantity }, speciesBands, candidates);
+      // The line extended at list price, the anchor a discount is taken from; a per-kilogram line without a weight has
+      // none, so it takes no promotion until it is weighed.
+      const extended = result.kind === 'Resolved' ? extendPrice(result.entry.listPricePesewas, result.entry.basis, { quantity, weight }) : null;
+      return { line, product, speciesBands, result, lineAmount: extended?.ok === true ? extended.value : null };
+    });
+    const rules = (await this.promotions.inForce(tx, request.channel, at)).map(promotionRule);
+    const orderAmountPesewas = results.reduce((sum, item) => sum + (item.lineAmount ?? 0n), 0n);
+
+    const lines = results.map(({ line, product, speciesBands, result, lineAmount }): PriceResolutionView => {
       if (result.kind === 'QuoteRequired') {
         return { lineRef: line.lineRef, outcome: 'QUOTE_REQUIRED', resolved: null, quoteRequiredReason: result.reason, promotions: [] };
       }
+      const applied =
+        lineAmount === null
+          ? []
+          : applyLinePromotions(
+              { productId: line.productId, categoryIds: product.categoryIds, channel: request.channel, priceListKind: result.list.kind, lineAmountPesewas: lineAmount, at },
+              rules,
+              { orderAmountPesewas, couponPromotionId },
+            );
       return {
         lineRef: line.lineRef,
         outcome: 'RESOLVED',
-        resolved: {
-          priceListEntryId: result.entry.id,
-          priceList: result.list,
-          basis: result.entry.basis,
-          listPricePesewas: Money.ofPesewas(result.entry.listPricePesewas).toJsonInteger(),
-          floorPricePesewas: Money.ofPesewas(result.entry.floorPricePesewas).toJsonInteger(),
-          ceilingPricePesewas: Money.ofPesewas(result.entry.ceilingPricePesewas).toJsonInteger(),
-          grade: gradeRef(result.entry.gradeId, grades),
-          weightBand: bandRef(result.weightBand?.id ?? null, speciesBands),
-        },
+        resolved: resolvedView(result, grades, speciesBands),
         quoteRequiredReason: null,
-        promotions: [],
+        promotions: applied.map((item) => ({
+          promotionId: item.promotion.id,
+          code: item.promotion.code,
+          name: item.promotion.name,
+          discountPesewas: Money.ofPesewas(item.discountPesewas).toJsonInteger(),
+        })),
       };
     });
     return { channel: request.channel, resolvedAt: at.toISOString(), currency: 'GHS', lines };
   }
+
+  /** The promotion a coupon unlocks, if it may be used now by this customer; a coupon that may not is a 422 that says why. */
+  private async usableCoupon(tx: Transaction, coupon: CouponRow, customerId: string | null, at: Date): Promise<string> {
+    const promotion = (await this.promotions.promotion(tx, coupon.promotionId, false))!;
+    const uses = customerId === null ? 0 : await this.promotions.customerUses(tx, coupon.id, customerId);
+    const refusal = judgeCoupon({ ...coupon, promotionStatus: promotion.status, validFrom: promotion.validFrom, validTo: promotion.validTo }, uses, at);
+    if (refusal !== null) {
+      throw new CouponUnavailableError('/couponCode', refusal);
+    }
+    return promotion.id;
+  }
+}
+
+function resolvedView(result: Extract<PriceResolution, { kind: 'Resolved' }>, grades: ReadonlyMap<string, GradeRow>, bands: readonly BandRow[]): PriceResolutionView['resolved'] {
+  return {
+    priceListEntryId: result.entry.id,
+    priceList: result.list,
+    basis: result.entry.basis,
+    listPricePesewas: Money.ofPesewas(result.entry.listPricePesewas).toJsonInteger(),
+    floorPricePesewas: Money.ofPesewas(result.entry.floorPricePesewas).toJsonInteger(),
+    ceilingPricePesewas: Money.ofPesewas(result.entry.ceilingPricePesewas).toJsonInteger(),
+    grade: gradeRef(result.entry.gradeId, grades),
+    weightBand: bandRef(result.weightBand?.id ?? null, bands),
+  };
 }
 
 function gradeRef(id: string | null, grades: ReadonlyMap<string, GradeRow>): Ref | null {

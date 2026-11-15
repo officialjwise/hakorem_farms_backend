@@ -1,0 +1,75 @@
+operationId: getPromotion
+tags:
+  - pricing
+summary: "Get a promotion"
+description: "Permission: `mdm.promotion.read`."
+x-permission: mdm.promotion.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Promotion"
+        example:
+          id: "019a7aa7-4c14-7690-8bc8-71d3c969eab1"
+          code: XMAS-CHICKEN
+          name: "Christmas chicken 5% off"
+          kind: PERCENT_OFF
+          percentOff: "5.00"
+          amountOffPesewas: null
+          bundlePricePesewas: null
+          appliesTo: LINE
+          channel: ONLINE
+          minOrderPesewas: null
+          stackGroup: PRICE
+          isExclusive: false
+          requiresCoupon: false
+          maxRedemptions: null
+          redemptions: 44
+          validFrom: "2026-11-01T00:00:00Z"
+          validTo: "2026-12-31T23:59:00Z"
+          status: ACTIVE
+          approvalRequestId: null
+          targets:
+            - product:
+                id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                sku: MEAT-CHK-FULL
+                name: "Full chicken, 15 kg pack"
+              category: null
+              bundleQty: null
+          currency: GHS
+          version: 1
+          createdAt: "2026-11-01T09:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
