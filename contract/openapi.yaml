@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.27.0"
+  version: "1.28.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -20985,7 +20985,7 @@ paths:
       tags:
         - inv
       summary: "Post a goods receipt to stock"
-      description: "Registers a stock unit for each animal and each lot, writes one receipt movement per unit or untracked line from the branch's virtual supplier (or production, for a harvest) into the location, and publishes `inv.StockUnitRegistered` and, per movement, `inv.GoodsReceived` or `inv.ProductionReceived` for the ledger, all in one transaction. A serialised line's value is split equally across its animals by largest remainder. A tag or batch already active for the product is refused (`TAG_IN_USE`, `BATCH_IN_USE`). A posted receipt is frozen. The receipt number is allocated once document numbering exists; until then `receiptNo` is null.\n\nPermission: `inv.goods_receipt.post`, scoped to the receiving location."
+      description: "Registers a stock unit for each animal and each lot, writes one receipt movement per unit or untracked line from the branch's virtual supplier (or production, for a harvest) into the location, and publishes `inv.StockUnitRegistered` and, per movement, `inv.GoodsReceived` or `inv.ProductionReceived` for the ledger, all in one transaction. A serialised line's value is split equally across its animals by largest remainder. A tag or batch already active for the product is refused (`TAG_IN_USE`, `BATCH_IN_USE`). A posted receipt is frozen. The receipt number is allocated once document numbering exists; until then `receiptNo` is null. A line naming a purchase order line adds its accepted quantity to that line (FR-PUR-007): past the ordered quantity and the line's tolerance the whole receipt is refused with 422 `RECEIPT_EXCEEDS_ORDER`, and a line not on an open order of the receipt's supplier with 422 `RECEIPT_ORDER_MISMATCH` (1.28.0).\n\nPermission: `inv.goods_receipt.post`, scoped to the receiving location."
       x-permission: inv.goods_receipt.post
       x-error-codes:
         - VALIDATION_FAILED
@@ -21000,6 +21000,8 @@ paths:
         - INVALID_STATE_TRANSITION
         - GOODS_RECEIPT_INVALID
         - REFERENCE_NOT_FOUND
+        - RECEIPT_EXCEEDS_ORDER
+        - RECEIPT_ORDER_MISMATCH
         - RATE_LIMITED
       parameters:
         - name: id
@@ -33898,8 +33900,15 @@ paths:
       tags:
         - pur
       summary: "List purchase orders"
-      description: "Permission: `pur.purchase_order.read`."
+      description: "Purchase orders newest first, within the branches (and, for a location grant, the delivery locations) the caller holds the permission at. Filters: `status`, `supplierId`, and an order date from `from` to `to` inclusive.\n\nPermission: `pur.purchase_order.read`."
       x-permission: pur.purchase_order.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - INVALID_CURSOR
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: status
           in: query
@@ -33968,7 +33977,7 @@ paths:
                     taxPesewas: 0
                     grossPesewas: 228000
                     currency: GHS
-                    approvalRequestId: null
+                    approvalRequestId: "019a7ab3-a1c2-7d40-8b6e-3f2a9c41d0e7"
                     sentAt: "2026-11-10T11:00:00Z"
                     lines:
                       - id: "019a7ab3-fc1b-74dc-9a14-5694b302cf72"
@@ -33982,6 +33991,9 @@ paths:
                         qtyReceived: "4.000"
                         qtyInvoiced: "4.000"
                         uom: HEAD
+                        baseUom: HEAD
+                        qtyOrderedBase: "4.000"
+                        qtyOutstanding: "0.000"
                         unitPricePesewas: 57000
                         lineNetPesewas: 228000
                         overReceiptTolerancePercent: "0.00"
@@ -34025,6 +34037,9 @@ paths:
                         qtyReceived: "20.000"
                         qtyInvoiced: "20.000"
                         uom: BAG
+                        baseUom: BAG
+                        qtyOrderedBase: "20.000"
+                        qtyOutstanding: "0.000"
                         unitPricePesewas: 52000
                         lineNetPesewas: 1040000
                         overReceiptTolerancePercent: "0.00"
@@ -34068,6 +34083,9 @@ paths:
                         qtyReceived: "500.000"
                         qtyInvoiced: "500.000"
                         uom: HEAD
+                        baseUom: HEAD
+                        qtyOrderedBase: "500.000"
+                        qtyOutstanding: "0.000"
                         unitPricePesewas: 1250
                         lineNetPesewas: 625000
                         overReceiptTolerancePercent: "2.00"
@@ -34111,6 +34129,9 @@ paths:
                         qtyReceived: "0.000"
                         qtyInvoiced: "0.000"
                         uom: UNIT
+                        baseUom: UNIT
+                        qtyOrderedBase: "10.000"
+                        qtyOutstanding: "10.000"
                         unitPricePesewas: 8500
                         lineNetPesewas: 85000
                         overReceiptTolerancePercent: "0.00"
@@ -34154,6 +34175,9 @@ paths:
                         qtyReceived: "12.000"
                         qtyInvoiced: "12.000"
                         uom: CRATE
+                        baseUom: CRATE
+                        qtyOrderedBase: "12.000"
+                        qtyOutstanding: "0.000"
                         unitPricePesewas: 51500
                         lineNetPesewas: 618000
                         overReceiptTolerancePercent: "0.00"
@@ -34197,6 +34221,9 @@ paths:
                         qtyReceived: "0.000"
                         qtyInvoiced: "0.000"
                         uom: BAG
+                        baseUom: BAG
+                        qtyOrderedBase: "40.000"
+                        qtyOutstanding: "40.000"
                         unitPricePesewas: 52000
                         lineNetPesewas: 2080000
                         overReceiptTolerancePercent: "0.00"
@@ -34226,8 +34253,21 @@ paths:
       tags:
         - pur
       summary: "Draft a purchase order"
-      description: "Permission: `pur.purchase_order.create`."
+      description: "Drafts an order to a supplier for delivery to a physical location (FR-PUR-005). Each line's net is its quantity times its unit price, rounded half-up once; its levies come from the tax calculator on the order date by the product's tax category; the totals are the sums. A line bought by another unit than the product's base unit names it in `uom` (feed by the 50 kg `BAG`) and converts by the product's exact conversion, or is refused (`NO_CONVERSION`, `INEXACT_QUANTITY`). Refused with 422 `PURCHASE_ORDER_INVALID`: `NO_LINES`, `LINE_REPEATED`, `PRODUCT_NOT_ACTIVE`, `NOT_PURCHASABLE`, `SUPPLIER_NOT_ACTIVE`, `NOT_A_RECEIVING_LOCATION`, `EXPECTED_BEFORE_ORDER`, and `TAX_INCLUSIVE_NOT_AVAILABLE` (orders are tax-exclusive for now, A-164). Order numbers are allocated once numbering exists (B8); until then `orderNo` is null.\n\nPermission: `pur.purchase_order.create`."
       x-permission: pur.purchase_order.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - REFERENCE_NOT_FOUND
+        - PURCHASE_ORDER_INVALID
+        - TAX_SCHEME_NOT_IN_FORCE
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -34293,6 +34333,9 @@ paths:
                     qtyReceived: "0.000"
                     qtyInvoiced: "0.000"
                     uom: BAG
+                    baseUom: BAG
+                    qtyOrderedBase: "40.000"
+                    qtyOutstanding: "40.000"
                     unitPricePesewas: 52000
                     lineNetPesewas: 2080000
                     overReceiptTolerancePercent: "0.00"
@@ -34323,8 +34366,15 @@ paths:
       tags:
         - pur
       summary: "Get a purchase order"
-      description: "Permission: `pur.purchase_order.read`."
+      description: "One order with its lines: what was ordered in the unit it was bought by, and what was received, invoiced and is outstanding in the base unit.\n\nPermission: `pur.purchase_order.read`."
       x-permission: pur.purchase_order.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -34365,7 +34415,7 @@ paths:
                 taxPesewas: 0
                 grossPesewas: 228000
                 currency: GHS
-                approvalRequestId: null
+                approvalRequestId: "019a7ab3-a1c2-7d40-8b6e-3f2a9c41d0e7"
                 sentAt: "2026-11-10T11:00:00Z"
                 lines:
                   - id: "019a7ab3-fc1b-74dc-9a14-5694b302cf72"
@@ -34379,6 +34429,9 @@ paths:
                     qtyReceived: "4.000"
                     qtyInvoiced: "4.000"
                     uom: HEAD
+                    baseUom: HEAD
+                    qtyOrderedBase: "4.000"
+                    qtyOutstanding: "0.000"
                     unitPricePesewas: 57000
                     lineNetPesewas: 228000
                     overReceiptTolerancePercent: "0.00"
@@ -34406,8 +34459,24 @@ paths:
       tags:
         - pur
       summary: "Change a draft purchase order"
-      description: "Permission: `pur.purchase_order.create`."
+      description: "Changes a DRAFT order: its expected date, or its lines, which replace the old ones and are priced and taxed again. Any other status is 422 `INVALID_STATE_TRANSITION`.\n\nPermission: `pur.purchase_order.create`."
       x-permission: pur.purchase_order.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - INVALID_STATE_TRANSITION
+        - REFERENCE_NOT_FOUND
+        - PURCHASE_ORDER_INVALID
+        - TAX_SCHEME_NOT_IN_FORCE
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -34459,7 +34528,7 @@ paths:
                 taxPesewas: 0
                 grossPesewas: 228000
                 currency: GHS
-                approvalRequestId: null
+                approvalRequestId: "019a7ab3-a1c2-7d40-8b6e-3f2a9c41d0e7"
                 sentAt: "2026-11-10T11:00:00Z"
                 lines:
                   - id: "019a7ab3-fc1b-74dc-9a14-5694b302cf72"
@@ -34473,6 +34542,9 @@ paths:
                     qtyReceived: "4.000"
                     qtyInvoiced: "4.000"
                     uom: HEAD
+                    baseUom: HEAD
+                    qtyOrderedBase: "4.000"
+                    qtyOutstanding: "0.000"
                     unitPricePesewas: 57000
                     lineNetPesewas: 228000
                     overReceiptTolerancePercent: "0.00"
@@ -34505,8 +34577,22 @@ paths:
       tags:
         - pur
       summary: "Submit a purchase order"
-      description: "Approves at once within the requester's limit; above it, waits for a different approver.\n\nPermission: `pur.purchase_order.create`.\n\nMay require approval of kind `PURCHASE_ORDER`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+      description: "Approves at once within the requester's limit; above it, waits for a different approver. The limit is the `PURCHASE_ORDER` approval policy at the order's branch (seeded so that above 200,000 pesewas needs approval, FR-PUR-005, A-164): 20 broilers at 5,500 (110,000) is approved on submit; 250,000 answers 202. The database refuses an order approved, sent or received at or above its threshold without an approval request. A refused or withdrawn request returns the order to DRAFT.\n\nPermission: `pur.purchase_order.create`."
       x-permission: pur.purchase_order.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - INVALID_STATE_TRANSITION
+        - PURCHASE_ORDER_INVALID
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -34563,6 +34649,9 @@ paths:
                     qtyReceived: "0.000"
                     qtyInvoiced: "0.000"
                     uom: UNIT
+                    baseUom: UNIT
+                    qtyOrderedBase: "10.000"
+                    qtyOutstanding: "10.000"
                     unitPricePesewas: 8500
                     lineNetPesewas: 85000
                     overReceiptTolerancePercent: "0.00"
@@ -34611,8 +34700,21 @@ paths:
       tags:
         - pur
       summary: "Send an approved purchase order to the supplier"
-      description: "Permission: `pur.purchase_order.send`."
+      description: "Sends an APPROVED order to its supplier: records when and by whom and publishes `pur.PurchaseOrderSent`, which the notification module delivers on the channels asked (B11). The order document is rendered and archived once document rendering exists (B8). An order waiting for approval is 422 `INVALID_STATE_TRANSITION`.\n\nPermission: `pur.purchase_order.send`."
       x-permission: pur.purchase_order.send
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - INVALID_STATE_TRANSITION
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -34678,6 +34780,9 @@ paths:
                     qtyReceived: "0.000"
                     qtyInvoiced: "0.000"
                     uom: UNIT
+                    baseUom: UNIT
+                    qtyOrderedBase: "10.000"
+                    qtyOutstanding: "10.000"
                     unitPricePesewas: 8500
                     lineNetPesewas: 85000
                     overReceiptTolerancePercent: "0.00"
@@ -34710,8 +34815,22 @@ paths:
       tags:
         - pur
       summary: "Close a purchase order with nothing more to receive"
-      description: "Permission: `pur.purchase_order.close`."
+      description: "Closes an order once something was received against it, fully or short (FR-PUR-006): closing 15 of 20 received leaves 5 outstanding on the line, recorded with the reason in the audit trail. With nothing received it is 422 `PURCHASE_ORDER_INVALID` (`NOTHING_RECEIVED`): cancel it instead.\n\nPermission: `pur.purchase_order.close`."
       x-permission: pur.purchase_order.close
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - INVALID_STATE_TRANSITION
+        - PURCHASE_ORDER_INVALID
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -34776,6 +34895,9 @@ paths:
                     qtyReceived: "12.000"
                     qtyInvoiced: "12.000"
                     uom: CRATE
+                    baseUom: CRATE
+                    qtyOrderedBase: "12.000"
+                    qtyOutstanding: "0.000"
                     unitPricePesewas: 51500
                     lineNetPesewas: 618000
                     overReceiptTolerancePercent: "0.00"
@@ -34808,8 +34930,22 @@ paths:
       tags:
         - pur
       summary: "Cancel a purchase order with nothing received"
-      description: "Permission: `pur.purchase_order.close`."
+      description: "Cancels an order before anything is received against it (FR-PUR-006); after a receipt it is 422 `PURCHASE_ORDER_INVALID` (`RECEIVED_ALREADY`), and the database refuses it too. Close it instead.\n\nPermission: `pur.purchase_order.close`."
       x-permission: pur.purchase_order.close
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - INVALID_STATE_TRANSITION
+        - PURCHASE_ORDER_INVALID
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -34860,7 +34996,7 @@ paths:
                 taxPesewas: 0
                 grossPesewas: 228000
                 currency: GHS
-                approvalRequestId: null
+                approvalRequestId: "019a7ab3-a1c2-7d40-8b6e-3f2a9c41d0e7"
                 sentAt: "2026-11-10T11:00:00Z"
                 lines:
                   - id: "019a7ab3-fc1b-74dc-9a14-5694b302cf72"
@@ -34874,6 +35010,9 @@ paths:
                     qtyReceived: "4.000"
                     qtyInvoiced: "4.000"
                     uom: HEAD
+                    baseUom: HEAD
+                    qtyOrderedBase: "4.000"
+                    qtyOutstanding: "0.000"
                     unitPricePesewas: 57000
                     lineNetPesewas: 228000
                     overReceiptTolerancePercent: "0.00"
@@ -34977,6 +35116,9 @@ paths:
                     qtyReceived: "4.000"
                     qtyInvoiced: "4.000"
                     uom: HEAD
+                    baseUom: HEAD
+                    qtyOrderedBase: "4.000"
+                    qtyOutstanding: "4.000"
                     unitPricePesewas: 57000
                     lineNetPesewas: 228000
                     overReceiptTolerancePercent: "0.00"
@@ -35009,8 +35151,15 @@ paths:
       tags:
         - pur
       summary: "List supplier invoices and credit notes"
-      description: "Permission: `pur.supplier_invoice.read`."
+      description: "Supplier invoices newest first, within the branches the caller holds the permission at as a whole. Filters: `status`, `supplierId`, `matchStatus`, `dueBefore` (due before that date) and `outstandingOnly` (not paid in full, not cancelled).\n\nPermission: `pur.supplier_invoice.read`."
       x-permission: pur.supplier_invoice.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - INVALID_CURSOR
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: status
           in: query
@@ -35101,6 +35250,7 @@ paths:
                         purchaseOrderLineId: "019a7ab3-fc1b-74dc-9a14-5694b302cf72"
                         goodsReceiptLineId: "019a7ab3-dd2c-7af8-8031-b85d3951313b"
                         qty: "20.000"
+                        uom: BAG
                         unitPricePesewas: 52000
                         lineNetPesewas: 1040000
                         taxCategory:
@@ -35156,6 +35306,7 @@ paths:
                         purchaseOrderLineId: "019a7ab4-d4a4-7a14-8f4c-aa1906d922f6"
                         goodsReceiptLineId: "019a7ab4-b5b5-7031-b569-0be18d2884bf"
                         qty: "4.000"
+                        uom: HEAD
                         unitPricePesewas: 57000
                         lineNetPesewas: 228000
                         taxCategory:
@@ -35211,6 +35362,7 @@ paths:
                         purchaseOrderLineId: "019a7ab5-5060-71a2-86da-22f6ed9d9bd4"
                         goodsReceiptLineId: "019a7ab5-3171-77be-bcf7-84bf73ecfd9d"
                         qty: "500.000"
+                        uom: HEAD
                         unitPricePesewas: 1290
                         lineNetPesewas: 645000
                         taxCategory:
@@ -35223,7 +35375,7 @@ paths:
                         priceVarianceDirection: OVER
                         matchStatus: MISMATCH
                         matchReasons:
-                          - "Invoiced at GHS 12.90 per bird; ordered at GHS 12.50"
+                          - PRICE_OUTSIDE_TOLERANCE
                     branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                     version: 2
                     createdAt: "2026-11-10T09:02:00Z"
@@ -35267,6 +35419,7 @@ paths:
                         purchaseOrderLineId: "019a7acb-2f5b-7f75-94ae-002ff7c2790d"
                         goodsReceiptLineId: "019a7ab5-8e3e-7569-aaa1-5f65e0ffd843"
                         qty: "12.000"
+                        uom: CRATE
                         unitPricePesewas: 51500
                         lineNetPesewas: 618000
                         taxCategory:
@@ -35322,6 +35475,7 @@ paths:
                         purchaseOrderLineId: "019a7ab5-eb0b-7313-984b-3a0c4e12b2ea"
                         goodsReceiptLineId: "019a7ab5-cc1c-7930-8e68-9bd4d46114b2"
                         qty: "10.000"
+                        uom: UNIT
                         unitPricePesewas: 8500
                         lineNetPesewas: 85000
                         taxCategory:
@@ -35371,6 +35525,7 @@ paths:
                         purchaseOrderLineId: null
                         goodsReceiptLineId: null
                         qty: "400.000"
+                        uom: null
                         unitPricePesewas: 150
                         lineNetPesewas: 60000
                         taxCategory:
@@ -35384,6 +35539,7 @@ paths:
                             ratePercent: "15.00"
                             basePesewas: 60000
                             amountPesewas: 9000
+                            calculatedAmountPesewas: 9000
                             isReclaimable: true
                           - levyCode: NHIL
                             levyName: "National Health Insurance Levy"
@@ -35391,6 +35547,7 @@ paths:
                             ratePercent: "2.50"
                             basePesewas: 60000
                             amountPesewas: 1500
+                            calculatedAmountPesewas: 1500
                             isReclaimable: true
                           - levyCode: GETFUND
                             levyName: "GETFund Levy"
@@ -35398,6 +35555,7 @@ paths:
                             ratePercent: "2.50"
                             basePesewas: 60000
                             amountPesewas: 1500
+                            calculatedAmountPesewas: 1500
                             isReclaimable: true
                         qtyVariance: null
                         priceVariancePesewas: null
@@ -35429,8 +35587,22 @@ paths:
       tags:
         - pur
       summary: "Capture a supplier invoice or credit note"
-      description: "The same supplier invoice number cannot be entered twice for one supplier.\n\nPermission: `pur.supplier_invoice.create`."
+      description: "Enters a supplier's invoice as DRAFT (FR-PUR-008). The same supplier invoice number cannot be entered twice for one supplier (422 `DUPLICATE_SUPPLIER_INVOICE`; another supplier may use it). Each line names its order line, takes that line's unit and converts to the base unit by the product's exact conversion; a pure expense line names no product. Every levy of the line's tax category is calculated on the invoice date and stored with its reclaimable flag; `leviesCharged` records what the supplier actually charged where it differs, and the difference fails the match. When `statedGrossPesewas` is given the lines must add up to it exactly. Refused with 422 `SUPPLIER_INVOICE_INVALID`: `NO_LINES`, `ORDER_OF_ANOTHER_SUPPLIER`, `ORDER_NOT_RECEIVABLE`, `ORDER_REQUIRED`, `ORDER_LINE_NOT_ON_ORDER`, `PRODUCT_DIFFERS`, `NO_CONVERSION`, `INEXACT_QUANTITY`, `BRANCH_REQUIRED`, `BRANCH_DIFFERS`, `DUE_BEFORE_INVOICE`, `STATED_TOTAL_DIFFERS`, `LEVY_NOT_IN_SCHEME`, `LEVY_REPEATED`, `FILE_NOT_USABLE`, and `CREDIT_NOTE_NOT_AVAILABLE` (credit notes arrive with B07 continued). The due date defaults to the invoice date until supplier terms exist.\n\nPermission: `pur.supplier_invoice.create`."
       x-permission: pur.supplier_invoice.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - REFERENCE_NOT_FOUND
+        - SUPPLIER_INVOICE_INVALID
+        - DUPLICATE_SUPPLIER_INVOICE
+        - TAX_SCHEME_NOT_IN_FORCE
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -35505,6 +35677,7 @@ paths:
                     purchaseOrderLineId: "019a7ab5-eb0b-7313-984b-3a0c4e12b2ea"
                     goodsReceiptLineId: "019a7ab5-cc1c-7930-8e68-9bd4d46114b2"
                     qty: "10.000"
+                    uom: UNIT
                     unitPricePesewas: 8500
                     lineNetPesewas: 85000
                     taxCategory:
@@ -35543,8 +35716,15 @@ paths:
       tags:
         - pur
       summary: "Get a supplier invoice"
-      description: "Permission: `pur.supplier_invoice.read`."
+      description: "One invoice with its lines, levy rows and match results, and what is paid and outstanding.\n\nPermission: `pur.supplier_invoice.read`."
       x-permission: pur.supplier_invoice.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -35603,6 +35783,7 @@ paths:
                     purchaseOrderLineId: "019a7ab3-fc1b-74dc-9a14-5694b302cf72"
                     goodsReceiptLineId: "019a7ab3-dd2c-7af8-8031-b85d3951313b"
                     qty: "20.000"
+                    uom: BAG
                     unitPricePesewas: 52000
                     lineNetPesewas: 1040000
                     taxCategory:
@@ -35638,8 +35819,25 @@ paths:
       tags:
         - pur
       summary: "Change a draft supplier invoice"
-      description: "Permission: `pur.supplier_invoice.create`."
+      description: "Corrects an invoice that is not yet approved: the header, or the lines, which replace the old ones. The invoice returns to DRAFT and UNMATCHED and must be matched again; correcting it is how a mismatch is resolved.\n\nPermission: `pur.supplier_invoice.create`."
       x-permission: pur.supplier_invoice.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - INVALID_STATE_TRANSITION
+        - REFERENCE_NOT_FOUND
+        - SUPPLIER_INVOICE_INVALID
+        - DUPLICATE_SUPPLIER_INVOICE
+        - TAX_SCHEME_NOT_IN_FORCE
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -35709,6 +35907,7 @@ paths:
                     purchaseOrderLineId: "019a7ab3-fc1b-74dc-9a14-5694b302cf72"
                     goodsReceiptLineId: "019a7ab3-dd2c-7af8-8031-b85d3951313b"
                     qty: "20.000"
+                    uom: BAG
                     unitPricePesewas: 52000
                     lineNetPesewas: 1040000
                     taxCategory:
@@ -35749,8 +35948,21 @@ paths:
       tags:
         - pur
       summary: "Run the three-way match"
-      description: "Compares each line with its purchase order line and goods receipt line. A MISMATCH blocks payment; the database refuses a payment allocation to an unmatched invoice.\n\nPermission: `pur.supplier_invoice.match`."
+      description: "Compares each line with its purchase order line and what was received (FR-PUR-009, SA-08). A line matches when its quantity in the base unit is no more than received less what other live invoices hold, its unit price is within 1 percent of the order price either way, and its levies are as calculated; 20 at 5,550 against an order at 5,500 matches (0.91 percent), 20 at 5,600 does not (1.82 percent), and 22 against 20 received does not. Each line carries `matchReasons`; the invoice is `MATCHED` only if every payable line matches, `NOT_REQUIRED` when no line needs a match (expenses). A MISMATCH blocks payment and publishes `pur.SupplierInvoiceMismatched`; the database refuses a payment allocation to an unmatched invoice.\n\nPermission: `pur.supplier_invoice.match`."
       x-permission: pur.supplier_invoice.match
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - INVALID_STATE_TRANSITION
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -35811,6 +36023,7 @@ paths:
                     purchaseOrderLineId: "019a7ab5-5060-71a2-86da-22f6ed9d9bd4"
                     goodsReceiptLineId: "019a7ab5-3171-77be-bcf7-84bf73ecfd9d"
                     qty: "500.000"
+                    uom: HEAD
                     unitPricePesewas: 1290
                     lineNetPesewas: 645000
                     taxCategory:
@@ -35823,7 +36036,7 @@ paths:
                     priceVarianceDirection: OVER
                     matchStatus: MISMATCH
                     matchReasons:
-                      - "Invoiced at GHS 12.90 per bird; ordered at GHS 12.50"
+                      - PRICE_OUTSIDE_TOLERANCE
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                 version: 2
                 createdAt: "2026-11-10T09:02:00Z"
@@ -35852,8 +36065,22 @@ paths:
       tags:
         - pur
       summary: "Approve a matched invoice for payment"
-      description: "Publishes pur.SupplierInvoiceMatched (or ExpenseInvoiceApproved) for the ledger. Refused with 422 THREE_WAY_MATCH_FAILED while any line is a mismatch.\n\nPermission: `pur.supplier_invoice.approve`."
+      description: "Matches the invoice again as things are now and approves it for payment: publishes pur.SupplierInvoiceMatched (or ExpenseInvoiceApproved) for the ledger. Refused with 422 THREE_WAY_MATCH_FAILED while any line is a mismatch, or before the invoice is matched (`UNMATCHED`); each detail names the line and its reason.\n\nPermission: `pur.supplier_invoice.approve`."
       x-permission: pur.supplier_invoice.approve
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - INVALID_STATE_TRANSITION
+        - THREE_WAY_MATCH_FAILED
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -35914,6 +36141,7 @@ paths:
                     purchaseOrderLineId: "019a7ab3-fc1b-74dc-9a14-5694b302cf72"
                     goodsReceiptLineId: "019a7ab3-dd2c-7af8-8031-b85d3951313b"
                     qty: "20.000"
+                    uom: BAG
                     unitPricePesewas: 52000
                     lineNetPesewas: 1040000
                     taxCategory:
@@ -35954,8 +36182,22 @@ paths:
       tags:
         - pur
       summary: "Cancel a supplier invoice entered in error"
-      description: "Permission: `pur.supplier_invoice.create`."
+      description: "Cancels an invoice entered in error, until it is paid. With a live payment allocated to it the answer is 422 `SUPPLIER_INVOICE_INVALID` (`PAYMENT_ALLOCATED`), and the database refuses it too. A cancelled invoice's number may be entered again.\n\nPermission: `pur.supplier_invoice.create`."
       x-permission: pur.supplier_invoice.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - INVALID_STATE_TRANSITION
+        - SUPPLIER_INVOICE_INVALID
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -36024,6 +36266,7 @@ paths:
                     purchaseOrderLineId: "019a7ab3-fc1b-74dc-9a14-5694b302cf72"
                     goodsReceiptLineId: "019a7ab3-dd2c-7af8-8031-b85d3951313b"
                     qty: "20.000"
+                    uom: BAG
                     unitPricePesewas: 52000
                     lineNetPesewas: 1040000
                     taxCategory:
@@ -36064,8 +36307,15 @@ paths:
       tags:
         - pur
       summary: "List supplier payments"
-      description: "Permission: `pur.supplier_payment.read`."
+      description: "Supplier payments newest first, within the branches the caller holds the permission at as a whole. Filters: `status`, `supplierId`, `scheduledBefore`.\n\nPermission: `pur.supplier_payment.read`."
       x-permission: pur.supplier_payment.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - INVALID_CURSOR
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: status
           in: query
@@ -36308,8 +36558,22 @@ paths:
       tags:
         - pur
       summary: "Prepare a supplier payment"
-      description: "Permission: `pur.supplier_payment.create`."
+      description: "Prepares a payment as DRAFT, its amount the sum of its allocations (FR-PUR-012). Each allocation is to an APPROVED invoice of the same supplier that matched or needed no match, and never more than the invoice has left after other live payments: paying 110,000 across invoices of 60,000 and 50,000 allocates exactly, and 60,001 against the first is 422 `ALLOCATION_EXCEEDS_AVAILABLE`. An unmatched invoice is 422 `THREE_WAY_MATCH_FAILED` (FR-PUR-010), and the database refuses the allocation too. Other refusals are 422 `SUPPLIER_PAYMENT_INVALID`: `NO_ALLOCATIONS`, `OTHER_SUPPLIER`, `DUPLICATE_INVOICE`, `NOT_APPROVED`, `BRANCH_DIFFERS` and `BANK_ACCOUNT_NOT_AVAILABLE` (`bankAccountId` is taken once bank accounts exist, B8).\n\nPermission: `pur.supplier_payment.create`."
       x-permission: pur.supplier_payment.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - REFERENCE_NOT_FOUND
+        - THREE_WAY_MATCH_FAILED
+        - ALLOCATION_EXCEEDS_AVAILABLE
+        - SUPPLIER_PAYMENT_INVALID
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -36391,8 +36655,15 @@ paths:
       tags:
         - pur
       summary: "Get a supplier payment"
-      description: "Permission: `pur.supplier_payment.read`."
+      description: "One payment with its allocations.\n\nPermission: `pur.supplier_payment.read`."
       x-permission: pur.supplier_payment.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -36462,8 +36733,21 @@ paths:
       tags:
         - pur
       summary: "Submit a supplier payment for approval"
-      description: "Always needs a different approver: the maker of a supplier payment cannot be its checker.\n\nPermission: `pur.supplier_payment.create`.\n\nMay require approval of kind `SUPPLIER_PAYMENT`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+      description: "Always needs a different approver: the maker of a supplier payment cannot be its checker. A rejected payment is REJECTED and a withdrawn one CANCELLED; either frees the invoices it allocated to.\n\nPermission: `pur.supplier_payment.create`."
       x-permission: pur.supplier_payment.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - INVALID_STATE_TRANSITION
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -36555,8 +36839,22 @@ paths:
       tags:
         - pur
       summary: "Record that an approved payment was made"
-      description: "Publishes pur.SupplierPaymentMade for the ledger and archives the remittance advice.\n\nPermission: `pur.supplier_payment.pay`."
+      description: "Records an APPROVED payment as paid, with the time and the bank or mobile money reference, which is unique per method so a replayed confirmation collides. Each invoice it allocates to carries the amount as paid, and is PAID once settled. Publishes pur.SupplierPaymentMade for the ledger. The remittance advice is rendered and archived once document rendering exists (B8).\n\nPermission: `pur.supplier_payment.pay`."
       x-permission: pur.supplier_payment.pay
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - INVALID_STATE_TRANSITION
+        - DUPLICATE_VALUE
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -36641,8 +36939,21 @@ paths:
       tags:
         - pur
       summary: "Cancel an unpaid supplier payment"
-      description: "Permission: `pur.supplier_payment.create`."
+      description: "Cancels a DRAFT or APPROVED payment that has not been paid; its allocations stop counting against its invoices. A payment waiting for approval is withdrawn through the approval inbox instead.\n\nPermission: `pur.supplier_payment.create`."
       x-permission: pur.supplier_payment.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - INVALID_STATE_TRANSITION
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -84495,10 +84806,22 @@ components:
           $ref: "#/components/schemas/Quantity"
         qtyReceived:
           $ref: "#/components/schemas/Quantity"
+          description: "Received so far, in the product's base unit (`baseUom`), as goods receipts book it."
         qtyInvoiced:
           $ref: "#/components/schemas/Quantity"
+          description: "Held by matched, approved or paid supplier invoices, in the product's base unit."
         uom:
           type: string
+          description: "The unit the line was ordered in: `qtyOrdered` and `unitPricePesewas` are in this unit."
+        baseUom:
+          type: string
+          description: "The product's base unit, which `qtyOrderedBase`, `qtyReceived`, `qtyInvoiced` and `qtyOutstanding` are in (1.28.0)."
+        qtyOrderedBase:
+          $ref: "#/components/schemas/Quantity"
+          description: "`qtyOrdered` in the base unit, by the product's exact conversion (1.28.0)."
+        qtyOutstanding:
+          $ref: "#/components/schemas/Quantity"
+          description: "Ordered less received in the base unit, never below zero; what a short-closed order left unreceived (1.28.0)."
         unitPricePesewas:
           $ref: "#/components/schemas/Pesewas"
         lineNetPesewas:
@@ -84518,6 +84841,9 @@ components:
         - qtyReceived
         - qtyInvoiced
         - uom
+        - baseUom
+        - qtyOrderedBase
+        - qtyOutstanding
         - unitPricePesewas
         - lineNetPesewas
         - overReceiptTolerancePercent
@@ -84617,6 +84943,10 @@ components:
           format: uuid
         description:
           type: string
+        uom:
+          type: string
+          pattern: "^[A-Z]{2,10}$"
+          description: "The unit the line is bought by, for example `BAG` for feed bought by the 50 kg bag. `qtyOrdered` and `unitPricePesewas` are in this unit; the quantity converts to the product's base unit by its exact conversion (`listUomConversions`), or the line is refused. Absent means the product's base unit (1.28.0)."
         qtyOrdered:
           $ref: "#/components/schemas/Quantity"
         unitPricePesewas:
@@ -84715,6 +85045,9 @@ components:
           $ref: "#/components/schemas/Pesewas"
         amountPesewas:
           $ref: "#/components/schemas/Pesewas"
+        calculatedAmountPesewas:
+          $ref: "#/components/schemas/Pesewas"
+          description: "What the tax calculator makes of the line on the invoice date. A difference from `amountPesewas`, what the supplier charged, fails the three-way match with `LEVY_DIFFERS` (1.28.0)."
         isReclaimable:
           type: boolean
       required:
@@ -84724,6 +85057,7 @@ components:
         - ratePercent
         - basePesewas
         - amountPesewas
+        - calculatedAmountPesewas
         - isReclaimable
     SupplierInvoiceLine:
       type: object
@@ -84751,6 +85085,11 @@ components:
           format: uuid
         qty:
           $ref: "#/components/schemas/Quantity"
+        uom:
+          type:
+            - string
+            - "null"
+          description: "The unit `qty` and `unitPricePesewas` are in: the order line's unit, else the product's base unit; null for a pure expense line with no product (1.28.0)."
         unitPricePesewas:
           $ref: "#/components/schemas/Pesewas"
         lineNetPesewas:
@@ -84788,6 +85127,7 @@ components:
           type: array
           items:
             type: string
+          description: "Why the line does not match, as codes in this fixed order: `NO_ORDER_LINE`, `PRODUCT_DIFFERS`, `QTY_EXCEEDS_RECEIVED`, `PRICE_OUTSIDE_TOLERANCE` (more than 1 percent from the order price, SA-08), `LEVY_DIFFERS`. Empty unless `matchStatus` is `MISMATCH` (1.28.0)."
       required:
         - id
         - lineNo
@@ -84796,6 +85136,7 @@ components:
         - purchaseOrderLineId
         - goodsReceiptLineId
         - qty
+        - uom
         - unitPricePesewas
         - lineNetPesewas
         - taxCategory
@@ -84976,9 +85317,16 @@ components:
         originalInvoiceId:
           type: string
           format: uuid
+        branchId:
+          type: string
+          format: uuid
+          description: "The branch an invoice with no purchase order belongs to; required then. With an order, the order's branch, and it must agree if given (1.28.0)."
         fileId:
           type: string
           format: uuid
+        statedGrossPesewas:
+          $ref: "#/components/schemas/Pesewas"
+          description: "The total printed on the supplier's invoice. When given, the lines and levies must add up to it exactly, or the invoice is refused with `STATED_TOTAL_DIFFERS` (1.28.0)."
         lines:
           type: array
           items:
@@ -85006,6 +85354,9 @@ components:
         fileId:
           type: string
           format: uuid
+        statedGrossPesewas:
+          $ref: "#/components/schemas/Pesewas"
+          description: "The total printed on the supplier's invoice; the lines and levies must add up to it (1.28.0)."
         lines:
           type: array
           items:

@@ -92,6 +92,24 @@ const VALID_BODY: Readonly<Record<string, object>> = {
   archiveWeightBand: { version: 1, reason: 'No longer used' },
   createUomConversion: { productId: randomUUID(), fromUom: 'BAG', numerator: 50, denominator: 1 },
   archiveUomConversion: { version: 1, reason: 'Supplier now packs 25 kg bags' },
+  createPurchaseOrder: { supplierId: randomUUID(), deliverToLocationId: randomUUID(), orderDate: '2026-11-15', lines: [{ productId: randomUUID(), qtyOrdered: '20.000', unitPricePesewas: 5500 }] },
+  updatePurchaseOrder: { version: 1, expectedOn: '2026-11-20' },
+  sendPurchaseOrder: { channels: ['WHATSAPP'] },
+  closePurchaseOrder: { reason: 'Supplier ran short' },
+  cancelPurchaseOrder: { reason: 'Supplier ran short' },
+  createSupplierInvoice: {
+    kind: 'INVOICE',
+    supplierId: randomUUID(),
+    supplierInvoiceNo: 'APF-0088',
+    invoiceDate: '2026-11-15',
+    branchId: randomUUID(),
+    lines: [{ description: 'Broilers', qty: '20.000', unitPricePesewas: 5500, taxCategoryId: randomUUID() }],
+  },
+  updateSupplierInvoice: { version: 1, dueDate: '2026-11-30' },
+  cancelSupplierInvoice: { reason: 'Entered twice' },
+  createSupplierPayment: { supplierId: randomUUID(), method: 'MOBILE_MONEY', allocations: [{ supplierInvoiceId: randomUUID(), amountPesewas: 110000 }] },
+  markSupplierPaymentPaid: { paidAt: '2026-11-15T10:00:00Z', externalReference: 'MOMO-7781' },
+  cancelSupplierPayment: { reason: 'Paid in cash instead' },
   updateProduct: { version: 1, name: 'Goat' },
   createBranch: { code: 'KSI', name: 'Kumasi' },
   updateBranch: { version: 1, name: 'Kumasi' },
@@ -189,7 +207,7 @@ afterAll(async () => {
 });
 
 describe('deny by default: the handler walk (ADR-0017, security architecture section 14)', () => {
-  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued, B05 continued 3, B05x, B6, B06m, B06 continued, B06 continued 2, B06 continued 3 and B06u routes, and every one declares its operation', () => {
+  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued, B05 continued 3, B05x, B6, B06m, B06 continued, B06 continued 2, B06 continued 3, B06u and B7 routes, and every one declares its operation', () => {
     expect(routes.map((route) => route.spec?.operationId).sort()).toEqual(
       [
         'changePassword', 'confirmTotpEnrolment', 'createProduct', 'getCurrentSession', 'getHealth', 'getProduct', 'listProducts', 'listSessions',
@@ -238,6 +256,10 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'reportCareMortality', 'submitCareMortalityRecord', 'listCareRations', 'recordCareFeedConsumption', 'listCareBatches', 'createCareBatch', 'getCareBatch',
         'updateCareBatch', 'closeCareBatch', 'listPacks', 'createPacks', 'printPackLabels',
         'listUomConversions', 'createUomConversion', 'archiveUomConversion',
+        'listPurchaseOrders', 'createPurchaseOrder', 'getPurchaseOrder', 'updatePurchaseOrder', 'submitPurchaseOrder', 'sendPurchaseOrder', 'closePurchaseOrder',
+        'cancelPurchaseOrder', 'listSupplierInvoices', 'createSupplierInvoice', 'getSupplierInvoice', 'updateSupplierInvoice', 'matchSupplierInvoice',
+        'approveSupplierInvoice', 'cancelSupplierInvoice', 'listSupplierPayments', 'createSupplierPayment', 'getSupplierPayment', 'submitSupplierPayment',
+        'markSupplierPaymentPaid', 'cancelSupplierPayment',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);

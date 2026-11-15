@@ -1,0 +1,111 @@
+operationId: createPurchaseOrder
+tags:
+  - pur
+summary: "Draft a purchase order"
+description: "Drafts an order to a supplier for delivery to a physical location (FR-PUR-005). Each line's net is its quantity times its unit price, rounded half-up once; its levies come from the tax calculator on the order date by the product's tax category; the totals are the sums. A line bought by another unit than the product's base unit names it in `uom` (feed by the 50 kg `BAG`) and converts by the product's exact conversion, or is refused (`NO_CONVERSION`, `INEXACT_QUANTITY`). Refused with 422 `PURCHASE_ORDER_INVALID`: `NO_LINES`, `LINE_REPEATED`, `PRODUCT_NOT_ACTIVE`, `NOT_PURCHASABLE`, `SUPPLIER_NOT_ACTIVE`, `NOT_A_RECEIVING_LOCATION`, `EXPECTED_BEFORE_ORDER`, and `TAX_INCLUSIVE_NOT_AVAILABLE` (orders are tax-exclusive for now, A-164). Order numbers are allocated once numbering exists (B8); until then `orderNo` is null.\n\nPermission: `pur.purchase_order.create`."
+x-permission: pur.purchase_order.create
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - REFERENCE_NOT_FOUND
+  - PURCHASE_ORDER_INVALID
+  - TAX_SCHEME_NOT_IN_FORCE
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/PurchaseOrderCreate"
+      example:
+        supplierId: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
+        deliverToLocationId: "019a7a84-6045-7cc6-b1fe-d53368984e11"
+        orderDate: "2026-11-13"
+        expectedOn: "2026-11-16"
+        lines:
+          - productId: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+            qtyOrdered: "40.000"
+            unitPricePesewas: 52000
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/PurchaseOrder"
+        example:
+          id: "019a7ab6-09fa-7cf7-a22f-d843c7c35121"
+          orderNo: null
+          status: DRAFT
+          supplier:
+            id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
+            supplierNo: S-0007
+            name: "Ashanti Feeds Ltd"
+          deliverToLocation:
+            id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
+            code: STORE-1
+            name: "Feed and produce store"
+            kind: STORE
+          orderDate: "2026-11-05"
+          expectedOn: "2026-11-10"
+          taxInclusive: false
+          netPesewas: 2080000
+          taxPesewas: 0
+          grossPesewas: 2080000
+          currency: GHS
+          approvalRequestId: null
+          sentAt: null
+          lines:
+            - id: "019a7ab6-47d8-70be-85f6-14b2bb258d90"
+              lineNo: 1
+              product:
+                id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                sku: FD-BRL-FIN
+                name: "Broiler finisher feed, 50 kg bag"
+              description: null
+              qtyOrdered: "40.000"
+              qtyReceived: "0.000"
+              qtyInvoiced: "0.000"
+              uom: BAG
+              baseUom: BAG
+              qtyOrderedBase: "40.000"
+              qtyOutstanding: "40.000"
+              unitPricePesewas: 52000
+              lineNetPesewas: 2080000
+              overReceiptTolerancePercent: "0.00"
+              expenseCategory: null
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 2
+          createdAt: "2026-11-10T09:05:00Z"
+          createdBy:
+            id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+            displayName: "Efua Asante"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

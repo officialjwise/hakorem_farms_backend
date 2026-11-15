@@ -1,0 +1,250 @@
+operationId: listSupplierPayments
+tags:
+  - pur
+summary: "List supplier payments"
+description: "Supplier payments newest first, within the branches the caller holds the permission at as a whole. Filters: `status`, `supplierId`, `scheduledBefore`.\n\nPermission: `pur.supplier_payment.read`."
+x-permission: pur.supplier_payment.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - INVALID_CURSOR
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: status
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: supplierId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: scheduledBefore
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/SupplierPaymentPage"
+        example:
+          data:
+            - id: "019a7acd-f6d4-72e5-881d-372be6a9b009"
+              paymentNo: null
+              status: PENDING_APPROVAL
+              supplier:
+                id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
+                supplierNo: S-0007
+                name: "Ashanti Feeds Ltd"
+              method: BANK
+              bankAccount:
+                id: "019a7a92-6491-77d8-bd10-86568cccff34"
+                name: "GCB current account"
+                kind: BANK
+                last4: "4821"
+              amountPesewas: 1040000
+              currency: GHS
+              scheduledFor: "2026-11-14"
+              paidAt: null
+              externalReference: null
+              approvalRequestId: "019a7ace-15c3-7cc9-9201-d563605a4e41"
+              allocations:
+                - supplierInvoiceId: "019a7acb-ca06-70e7-a61f-174558379023"
+                  supplierInvoiceNo: "88120"
+                  amountPesewas: 1040000
+              remittanceDocumentId: null
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-10T09:00:00Z"
+              createdBy:
+                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                displayName: "Efua Asante"
+            - id: "019a7ace-34b2-76ac-abe4-739ada0bec78"
+              paymentNo: SPY-2026-DDW-000021
+              status: PAID
+              supplier:
+                id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
+                supplierNo: S-0012
+                name: "Kpone Livestock Traders"
+              method: MOBILE_MONEY
+              bankAccount:
+                id: "019a7a92-8380-71bb-86f4-248e067d9d6b"
+                name: "MTN MoMo merchant wallet"
+                kind: MOBILE_MONEY
+                last4: "7310"
+              amountPesewas: 228000
+              currency: GHS
+              scheduledFor: "2026-11-15"
+              paidAt: "2026-11-10T14:00:00Z"
+              externalReference: MTN-7731049912
+              approvalRequestId: "019a7ace-53a1-7090-b5c8-11d253bc8ab0"
+              allocations:
+                - supplierInvoiceId: "019a7acc-26d3-7e91-93c9-f1ebc54a6ac9"
+                  supplierInvoiceNo: KLT-1193
+                  amountPesewas: 228000
+              remittanceDocumentId: "019a7ace-7290-7a73-8fab-b009cd6d28e7"
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-10T09:01:00Z"
+              createdBy:
+                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                displayName: "Efua Asante"
+            - id: "019a7ace-917f-7457-998f-4e41471ec71f"
+              paymentNo: SPY-2026-DDW-000022
+              status: PAID
+              supplier:
+                id: "019a7a89-359d-7850-bd89-8dde6c4006bc"
+                supplierNo: S-0021
+                name: "Dodowa Vegetable Growers Cooperative"
+              method: MOBILE_MONEY
+              bankAccount:
+                id: "019a7a92-8380-71bb-86f4-248e067d9d6b"
+                name: "MTN MoMo merchant wallet"
+                kind: MOBILE_MONEY
+                last4: "7310"
+              amountPesewas: 618000
+              currency: GHS
+              scheduledFor: "2026-11-16"
+              paidAt: "2026-11-11T14:00:00Z"
+              externalReference: MTN-7730881204
+              approvalRequestId: "019a7ace-b06e-7e3a-a372-ec78c0cf6556"
+              allocations:
+                - supplierInvoiceId: "019a7acc-83a0-7c3c-8174-cc92325d4570"
+                  supplierInvoiceNo: DVG-221
+                  amountPesewas: 618000
+              remittanceDocumentId: "019a7ace-cf5d-781d-bd56-8ab03a80038e"
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-10T09:02:00Z"
+              createdBy:
+                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                displayName: "Efua Asante"
+            - id: "019a7ace-ee4c-7201-8739-28e7b431a1c5"
+              paymentNo: SPY-2026-DDW-000023
+              status: APPROVED
+              supplier:
+                id: "019a7a89-548c-7234-876c-2c15e5f1a4f3"
+                supplierNo: S-0025
+                name: "Tema Packaging Supplies"
+              method: BANK
+              bankAccount:
+                id: "019a7a92-6491-77d8-bd10-86568cccff34"
+                name: "GCB current account"
+                kind: BANK
+                last4: "4821"
+              amountPesewas: 72000
+              currency: GHS
+              scheduledFor: "2026-11-17"
+              paidAt: null
+              externalReference: null
+              approvalRequestId: "019a7acf-0d3b-7be4-911d-c71f2de23ffd"
+              allocations:
+                - supplierInvoiceId: "019a7acc-e06d-79e6-bf1e-a7389f702016"
+                  supplierInvoiceNo: TPS-3310
+                  amountPesewas: 72000
+              remittanceDocumentId: null
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-10T09:03:00Z"
+              createdBy:
+                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                displayName: "Efua Asante"
+            - id: "019a7acf-2c2a-75c8-ab00-6556a793de34"
+              paymentNo: SPY-2026-DDW-000024
+              status: PAID
+              supplier:
+                id: "019a7a89-16ae-7e6d-a3a5-efa6f28f6884"
+                supplierNo: S-0019
+                name: "Awutu Poultry Farm"
+              method: BANK
+              bankAccount:
+                id: "019a7a92-6491-77d8-bd10-86568cccff34"
+                name: "GCB current account"
+                kind: BANK
+                last4: "4821"
+              amountPesewas: 625000
+              currency: GHS
+              scheduledFor: "2026-11-18"
+              paidAt: "2026-11-13T14:00:00Z"
+              externalReference: GCB-TRF-20261113-0042
+              approvalRequestId: "019a7acf-4b19-7fab-b4e4-038e21447c6c"
+              allocations:
+                - supplierInvoiceId: "019a7acd-3d3a-7790-acc9-81df0c83fabc"
+                  supplierInvoiceNo: AWT-0441
+                  amountPesewas: 625000
+              remittanceDocumentId: "019a7acf-6a08-798f-8ec7-a1c59af51aa3"
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-10T09:04:00Z"
+              createdBy:
+                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                displayName: "Efua Asante"
+            - id: "019a7acf-88f7-7372-98ab-3ffd14a6b8da"
+              paymentNo: SPY-2026-DDW-000025
+              status: REJECTED
+              supplier:
+                id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
+                supplierNo: S-0007
+                name: "Ashanti Feeds Ltd"
+              method: BANK
+              bankAccount:
+                id: "019a7a92-8380-71bb-86f4-248e067d9d6b"
+                name: "MTN MoMo merchant wallet"
+                kind: MOBILE_MONEY
+                last4: "7310"
+              amountPesewas: 1040000
+              currency: GHS
+              scheduledFor: "2026-11-19"
+              paidAt: null
+              externalReference: null
+              approvalRequestId: "019a7acf-a7e6-7d56-a28e-de348e575712"
+              allocations:
+                - supplierInvoiceId: "019a7acd-9a07-753b-9a73-5c857996d563"
+                  supplierInvoiceNo: "88120"
+                  amountPesewas: 1040000
+              remittanceDocumentId: null
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-10T09:05:00Z"
+              createdBy:
+                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                displayName: "Efua Asante"
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

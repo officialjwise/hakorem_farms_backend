@@ -1,0 +1,352 @@
+operationId: listPurchaseOrders
+tags:
+  - pur
+summary: "List purchase orders"
+description: "Purchase orders newest first, within the branches (and, for a location grant, the delivery locations) the caller holds the permission at. Filters: `status`, `supplierId`, and an order date from `from` to `to` inclusive.\n\nPermission: `pur.purchase_order.read`."
+x-permission: pur.purchase_order.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - INVALID_CURSOR
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: status
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: supplierId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: from
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date
+  - name: to
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/PurchaseOrderPage"
+        example:
+          data:
+            - id: "019a7ab3-be3d-7115-b64d-1a25bfa09303"
+              orderNo: PO-2026-DDW-000040
+              status: RECEIVED
+              supplier:
+                id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
+                supplierNo: S-0012
+                name: "Kpone Livestock Traders"
+              deliverToLocation:
+                id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                code: PEN-G2
+                name: "Goat pen 2"
+                kind: PEN
+              orderDate: "2026-11-10"
+              expectedOn: "2026-11-15"
+              taxInclusive: false
+              netPesewas: 228000
+              taxPesewas: 0
+              grossPesewas: 228000
+              currency: GHS
+              approvalRequestId: "019a7ab3-a1c2-7d40-8b6e-3f2a9c41d0e7"
+              sentAt: "2026-11-10T11:00:00Z"
+              lines:
+                - id: "019a7ab3-fc1b-74dc-9a14-5694b302cf72"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                    sku: LIV-GOAT
+                    name: Goat
+                  description: null
+                  qtyOrdered: "4.000"
+                  qtyReceived: "4.000"
+                  qtyInvoiced: "4.000"
+                  uom: HEAD
+                  baseUom: HEAD
+                  qtyOrderedBase: "4.000"
+                  qtyOutstanding: "0.000"
+                  unitPricePesewas: 57000
+                  lineNetPesewas: 228000
+                  overReceiptTolerancePercent: "0.00"
+                  expenseCategory: null
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-10T09:00:00Z"
+              createdBy:
+                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                displayName: "Efua Asante"
+            - id: "019a7ab4-96c6-764d-ab85-6daa1377e687"
+              orderNo: PO-2026-DDW-000041
+              status: RECEIVED
+              supplier:
+                id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
+                supplierNo: S-0007
+                name: "Ashanti Feeds Ltd"
+              deliverToLocation:
+                id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
+                code: STORE-1
+                name: "Feed and produce store"
+                kind: STORE
+              orderDate: "2026-11-09"
+              expectedOn: "2026-11-14"
+              taxInclusive: false
+              netPesewas: 1040000
+              taxPesewas: 0
+              grossPesewas: 1040000
+              currency: GHS
+              approvalRequestId: "019a7aca-d28e-71cb-a703-25898aaf9e67"
+              sentAt: "2026-11-09T11:00:00Z"
+              lines:
+                - id: "019a7ab4-d4a4-7a14-8f4c-aa1906d922f6"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                    sku: FD-BRL-FIN
+                    name: "Broiler finisher feed, 50 kg bag"
+                  description: null
+                  qtyOrdered: "20.000"
+                  qtyReceived: "20.000"
+                  qtyInvoiced: "20.000"
+                  uom: BAG
+                  baseUom: BAG
+                  qtyOrderedBase: "20.000"
+                  qtyOutstanding: "0.000"
+                  unitPricePesewas: 52000
+                  lineNetPesewas: 1040000
+                  overReceiptTolerancePercent: "0.00"
+                  expenseCategory: null
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-10T09:01:00Z"
+              createdBy:
+                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                displayName: "Efua Asante"
+            - id: "019a7ab5-1282-7ddb-a313-e687fa3b5f65"
+              orderNo: PO-2026-DDW-000042
+              status: RECEIVED
+              supplier:
+                id: "019a7a89-16ae-7e6d-a3a5-efa6f28f6884"
+                supplierNo: S-0019
+                name: "Awutu Poultry Farm"
+              deliverToLocation:
+                id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+                code: HSE-B1
+                name: "Broiler house 1"
+                kind: PEN
+              orderDate: "2026-11-08"
+              expectedOn: "2026-11-13"
+              taxInclusive: false
+              netPesewas: 625000
+              taxPesewas: 0
+              grossPesewas: 625000
+              currency: GHS
+              approvalRequestId: "019a7aca-f17d-7bae-b0e7-c3c104603c9e"
+              sentAt: "2026-11-08T11:00:00Z"
+              lines:
+                - id: "019a7ab5-5060-71a2-86da-22f6ed9d9bd4"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8d-704a-726a-a7a2-2f740f73a851"
+                    sku: LIV-BROILER
+                    name: "Broiler chicken"
+                  description: null
+                  qtyOrdered: "500.000"
+                  qtyReceived: "500.000"
+                  qtyInvoiced: "500.000"
+                  uom: HEAD
+                  baseUom: HEAD
+                  qtyOrderedBase: "500.000"
+                  qtyOutstanding: "0.000"
+                  unitPricePesewas: 1250
+                  lineNetPesewas: 625000
+                  overReceiptTolerancePercent: "2.00"
+                  expenseCategory: null
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-10T09:02:00Z"
+              createdBy:
+                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                displayName: "Efua Asante"
+            - id: "019a7acb-106c-7592-8aca-61f87e11dad6"
+              orderNo: PO-2026-DDW-000043
+              status: SENT
+              supplier:
+                id: "019a7a88-f7bf-7489-99c2-516f78deca4d"
+                supplierNo: S-0003
+                name: "Agrivet Ghana Ltd"
+              deliverToLocation:
+                id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
+                code: STORE-1
+                name: "Feed and produce store"
+                kind: STORE
+              orderDate: "2026-11-07"
+              expectedOn: "2026-11-12"
+              taxInclusive: false
+              netPesewas: 85000
+              taxPesewas: 0
+              grossPesewas: 85000
+              currency: GHS
+              approvalRequestId: null
+              sentAt: "2026-11-07T11:00:00Z"
+              lines:
+                - id: "019a7acb-2f5b-7f75-94ae-002ff7c2790d"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8f-026d-72f7-b82f-38453d70b123"
+                    sku: VET-OXYTET
+                    name: "Oxytetracycline 20% injection, 100 ml"
+                  description: null
+                  qtyOrdered: "10.000"
+                  qtyReceived: "0.000"
+                  qtyInvoiced: "0.000"
+                  uom: UNIT
+                  baseUom: UNIT
+                  qtyOrderedBase: "10.000"
+                  qtyOutstanding: "10.000"
+                  unitPricePesewas: 8500
+                  lineNetPesewas: 85000
+                  overReceiptTolerancePercent: "0.00"
+                  expenseCategory: null
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-10T09:03:00Z"
+              createdBy:
+                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                displayName: "Efua Asante"
+            - id: "019a7ab5-ad2d-7f4c-b485-fd9d5ab0767b"
+              orderNo: PO-2026-DDW-000044
+              status: CLOSED
+              supplier:
+                id: "019a7a89-359d-7850-bd89-8dde6c4006bc"
+                supplierNo: S-0021
+                name: "Dodowa Vegetable Growers Cooperative"
+              deliverToLocation:
+                id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
+                code: STORE-1
+                name: "Feed and produce store"
+                kind: STORE
+              orderDate: "2026-11-06"
+              expectedOn: "2026-11-11"
+              taxInclusive: false
+              netPesewas: 618000
+              taxPesewas: 0
+              grossPesewas: 618000
+              currency: GHS
+              approvalRequestId: "019a7acb-4e4a-7959-ae91-9e6771731745"
+              sentAt: "2026-11-06T11:00:00Z"
+              lines:
+                - id: "019a7ab5-eb0b-7313-984b-3a0c4e12b2ea"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8e-86b1-7b69-b0a1-bf6756ac3845"
+                    sku: PRD-TOMATO
+                    name: "Tomatoes, crate"
+                  description: null
+                  qtyOrdered: "12.000"
+                  qtyReceived: "12.000"
+                  qtyInvoiced: "12.000"
+                  uom: CRATE
+                  baseUom: CRATE
+                  qtyOrderedBase: "12.000"
+                  qtyOutstanding: "0.000"
+                  unitPricePesewas: 51500
+                  lineNetPesewas: 618000
+                  overReceiptTolerancePercent: "0.00"
+                  expenseCategory: null
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-10T09:04:00Z"
+              createdBy:
+                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                displayName: "Efua Asante"
+            - id: "019a7ab6-09fa-7cf7-a22f-d843c7c35121"
+              orderNo: null
+              status: PENDING_APPROVAL
+              supplier:
+                id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
+                supplierNo: S-0007
+                name: "Ashanti Feeds Ltd"
+              deliverToLocation:
+                id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
+                code: STORE-1
+                name: "Feed and produce store"
+                kind: STORE
+              orderDate: "2026-11-05"
+              expectedOn: "2026-11-10"
+              taxInclusive: false
+              netPesewas: 2080000
+              taxPesewas: 0
+              grossPesewas: 2080000
+              currency: GHS
+              approvalRequestId: "019a7acb-6d39-733c-b875-3c9eeb24b57c"
+              sentAt: null
+              lines:
+                - id: "019a7ab6-47d8-70be-85f6-14b2bb258d90"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                    sku: FD-BRL-FIN
+                    name: "Broiler finisher feed, 50 kg bag"
+                  description: null
+                  qtyOrdered: "40.000"
+                  qtyReceived: "0.000"
+                  qtyInvoiced: "0.000"
+                  uom: BAG
+                  baseUom: BAG
+                  qtyOrderedBase: "40.000"
+                  qtyOutstanding: "40.000"
+                  unitPricePesewas: 52000
+                  lineNetPesewas: 2080000
+                  overReceiptTolerancePercent: "0.00"
+                  expenseCategory: null
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-10T09:05:00Z"
+              createdBy:
+                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                displayName: "Efua Asante"
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

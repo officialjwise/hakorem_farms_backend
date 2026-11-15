@@ -115,6 +115,16 @@ import {
   ReasonRequest as LivReasonRequest,
   WeightRecordBatch,
 } from '../../../src/modules/liv/interface/schemas';
+import {
+  PurchaseOrderCreate,
+  PurchaseOrderSend,
+  PurchaseOrderUpdate,
+  ReasonBody as PurReasonBody,
+  SupplierInvoiceCreate,
+  SupplierInvoiceUpdate,
+  SupplierPaymentCreate,
+  SupplierPaymentMarkPaid,
+} from '../../../src/modules/pur/interface/schemas';
 import { createCatalogue, type TestCatalogue } from '../../support/catalogue';
 import { contractSchema } from '../../support/contract-schemas';
 import { consoleGet, consolePost, createBranch, createUser, enrolAndLogin, login, relaxRateLimits, testStartTime, type TestSession } from '../../support/iam';
@@ -342,6 +352,17 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     createCareBatch: BatchCreate,
     updateCareBatch: BatchUpdate,
     closeCareBatch: LivReasonRequest,
+    createPurchaseOrder: PurchaseOrderCreate,
+    updatePurchaseOrder: PurchaseOrderUpdate,
+    sendPurchaseOrder: PurchaseOrderSend,
+    closePurchaseOrder: PurReasonBody,
+    cancelPurchaseOrder: PurReasonBody,
+    createSupplierInvoice: SupplierInvoiceCreate,
+    updateSupplierInvoice: SupplierInvoiceUpdate,
+    cancelSupplierInvoice: PurReasonBody,
+    createSupplierPayment: SupplierPaymentCreate,
+    markSupplierPaymentPaid: SupplierPaymentMarkPaid,
+    cancelSupplierPayment: PurReasonBody,
   };
 
   it('parses every request example of an implemented operation with the schema its route validates with', () => {
