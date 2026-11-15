@@ -1,6 +1,6 @@
 import { Money, Quantity } from '@hakorem/kernel';
 import { describe, expect, it } from 'vitest';
-import { capitalise, CostPoolError, emptyPool, issue, receive, type CostPool } from './cost-pool';
+import { capitalise, CostPoolError, emptyPool, issue, receive, valueAtAverage, type CostPool } from './cost-pool';
 
 const units = (n: bigint) => Quantity.ofUnits(n);
 const pesewas = (n: bigint) => Money.ofPesewas(n);
@@ -96,5 +96,28 @@ describe('an allowed-negative issue (FR-INV-019, ADR-0018)', () => {
 
   it('refuses a negative issue quantity', () => {
     expect(() => issue(pool('3.000', 9n), Quantity.parse('-1.000'))).toThrow(CostPoolError);
+  });
+});
+
+describe('a gain valued at the pool average (FR-INV-012, A-139)', () => {
+  it('values 1 found crate from a pool of 3 crates worth 100,001 at 33,334, half-up', () => {
+    expect(valueAtAverage(pool('3.000', 100_001n), units(1n)).pesewas).toBe(33_334n);
+  });
+
+  it('values a gain larger than the pool at the same average, never at the whole pool: 4 crates from 3 worth 10,500 carry 14,000', () => {
+    expect(valueAtAverage(pool('3.000', 10_500n), units(4n)).pesewas).toBe(14_000n);
+  });
+
+  it('rounds half a pesewa up: 0.500 kg from 1.000 kg worth 3 pesewas carries 2', () => {
+    expect(valueAtAverage(pool('1.000', 3n), Quantity.parse('0.500')).pesewas).toBe(2n);
+  });
+
+  it('carries nothing from an empty pool or one below zero, since there is no cost to copy', () => {
+    expect(valueAtAverage(emptyPool(), units(5n)).pesewas).toBe(0n);
+    expect(valueAtAverage(pool('-2.000', 0n), units(5n)).pesewas).toBe(0n);
+  });
+
+  it('refuses a quantity that is not above zero', () => {
+    expect(() => valueAtAverage(pool('3.000', 9_000n), Quantity.zero())).toThrow(CostPoolError);
   });
 });

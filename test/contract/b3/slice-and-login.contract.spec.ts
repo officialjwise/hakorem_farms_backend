@@ -4,7 +4,15 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { z } from 'zod';
 import { loadFragments } from '../../../scripts/contract/code-document';
-import { GoodsReceiptCreate, GoodsReceiptUpdate, ReasonBody as InvReasonBody } from '../../../src/modules/inv/interface/schemas';
+import {
+  GoodsReceiptCreate,
+  GoodsReceiptUpdate,
+  MovementReversal,
+  ReasonBody as InvReasonBody,
+  StockAdjustmentCreate,
+  StockTransferCreate,
+  TransferReceive,
+} from '../../../src/modules/inv/interface/schemas';
 import {
   ApprovalDecision,
   CustomerRegistration,
@@ -249,6 +257,11 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     createGoodsReceipt: GoodsReceiptCreate,
     updateGoodsReceipt: GoodsReceiptUpdate,
     cancelGoodsReceipt: InvReasonBody,
+    reverseStockMovement: MovementReversal,
+    createStockTransfer: StockTransferCreate,
+    receiveStockTransfer: TransferReceive,
+    cancelStockTransfer: InvReasonBody,
+    createStockAdjustment: StockAdjustmentCreate,
   };
 
   it('parses every request example of an implemented operation with the schema its route validates with', () => {

@@ -96,3 +96,68 @@ export const ListStockOnHandQuery = z.object({
   cursor: Cursor,
   limit: Limit,
 });
+
+/** The most lines one transfer or adjustment carries. */
+export const MAX_DOCUMENT_LINES = 100;
+const PositiveQuantity = Quantity.refine((value) => value !== '0.000', 'must be above zero');
+const ReasonCode = z.string().regex(/^[A-Z][A-Z_]{1,39}$/);
+
+/** The contract's `StockTransferCreate`, strict. */
+export const StockTransferCreate = z.strictObject({
+  fromLocationId: z.uuid(),
+  toLocationId: z.uuid(),
+  lines: z.array(z.strictObject({ productId: z.uuid(), stockUnitId: z.uuid().optional(), qty: PositiveQuantity })).max(MAX_DOCUMENT_LINES),
+});
+
+/** The contract's `TransferReceive`, strict. */
+export const TransferReceive = z.strictObject({
+  lines: z.array(z.strictObject({ lineId: z.uuid(), qtyReceived: Quantity, varianceReasonCode: ReasonCode.optional() })).max(MAX_DOCUMENT_LINES),
+});
+
+/** The contract's `StockAdjustmentCreate`, strict. */
+export const StockAdjustmentCreate = z.strictObject({
+  locationId: z.uuid(),
+  reasonCode: ReasonCode,
+  note: z.string().trim().min(1).max(1_000).optional(),
+  exceptionId: z.uuid().optional(),
+  lines: z
+    .array(z.strictObject({ productId: z.uuid(), stockUnitId: z.uuid().optional(), direction: z.enum(['GAIN', 'LOSS']), qty: PositiveQuantity, weightKg: Kilograms.optional() }))
+    .max(MAX_DOCUMENT_LINES),
+});
+
+/** The contract's `MovementReversalRequest`, strict. */
+export const MovementReversal = z.strictObject({ reasonCode: ReasonCode, note: z.string().trim().min(1).max(1_000) });
+
+export const PageQuery = z.object({ cursor: Cursor, limit: Limit });
+
+/** listStockMovements query. */
+export const ListStockMovementsQuery = z.object({
+  productId: z.uuid().optional(),
+  stockUnitId: z.uuid().optional(),
+  locationId: z.uuid().optional(),
+  movementType: z.string().regex(/^[A-Z][A-Z_]{2,39}$/).optional(),
+  sourceDocumentId: z.uuid().optional(),
+  from: DateTime.optional(),
+  to: DateTime.optional(),
+  cursor: Cursor,
+  limit: Limit,
+});
+
+/** listStockTransfers query. */
+export const ListStockTransfersQuery = z.object({
+  status: z.enum(['DRAFT', 'DISPATCHED', 'RECEIVED', 'CANCELLED']).optional(),
+  fromLocationId: z.uuid().optional(),
+  toLocationId: z.uuid().optional(),
+  cursor: Cursor,
+  limit: Limit,
+});
+
+/** listStockAdjustments query. */
+export const ListStockAdjustmentsQuery = z.object({
+  status: z.enum(['DRAFT', 'PENDING_APPROVAL', 'POSTED', 'REJECTED']).optional(),
+  locationId: z.uuid().optional(),
+  reasonCode: ReasonCode.optional(),
+  createdBy: z.uuid().optional(),
+  cursor: Cursor,
+  limit: Limit,
+});

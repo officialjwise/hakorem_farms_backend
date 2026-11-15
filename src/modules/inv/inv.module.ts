@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Inject, Module, type OnModuleInit } from '@nestjs/common';
 import type { Clock } from '@hakorem/kernel';
 import type { Logger } from 'pino';
 import { AuditTrail } from '../../platform/audit/audit-trail';
@@ -8,34 +8,42 @@ import { DomainEvents } from '../../platform/events/domain-events';
 import { Cursors } from '../../platform/http/cursor';
 import { Idempotency } from '../../platform/idempotency/idempotency';
 import { CLOCK, LOGGER } from '../../platform/platform.module';
-import { Authoriser, IamModule, PRINCIPAL_NAMES, type PrincipalNames } from '../iam';
+import { Approvals, Authoriser, IamModule, PRINCIPAL_NAMES, type PrincipalNames } from '../iam';
 import { MasterDataRefs, MdmModule } from '../mdm';
 import { GOODS_RECEIPT_STORE, type GoodsReceiptStore } from './application/goods-receipt-store';
 import { GoodsReceipts } from './application/goods-receipts';
 import { Lineage } from './application/lineage';
 import { BalanceReconciliation } from './application/reconciliation';
 import { Stock } from './application/stock';
+import { STOCK_DOCUMENTS_STORE, type StockDocumentsStore } from './application/stock-documents-store';
+import { STOCK_WRITE_OFF, StockAdjustments } from './application/stock-adjustments';
+import { STOCK_REVERSAL, StockMovements } from './application/stock-movements';
 import { StockQueries } from './application/stock-queries';
+import { StockTransfers } from './application/stock-transfers';
 import { STOCK_READ_STORE, type StockReadStore } from './application/stock-read-store';
 import { STOCK_STORE, type StockStore } from './application/stock-store';
 import { PgGoodsReceiptStore } from './infrastructure/pg-goods-receipt-store';
+import { PgStockDocumentsStore } from './infrastructure/pg-stock-documents-store';
 import { PgStockReadStore } from './infrastructure/pg-stock-read-store';
 import { PgStockStore } from './infrastructure/pg-stock-store';
 import { GoodsReceiptsController } from './interface/goods-receipts.controller';
+import { StockControlController } from './interface/stock-control.controller';
 import { StockController } from './interface/stock.controller';
 
 /**
  * INV (layer 5): the stock movement ledger (ADR-0002) whose invariants live in migration 0044's triggers, the
  * in-transaction `Stock.postIn` other modules post through, lineage and its trace, and the nightly balance
- * recompute (B5); goods receipts, stock on hand at cost, stock units and the trace over HTTP (B05 continued).
+ * recompute (B5); goods receipts, stock on hand at cost, stock units and the trace over HTTP (B05 continued); the
+ * movement reads and reversal, transfers and adjustments, and their two approval handlers (B05 continued 2).
  */
 @Module({
   imports: [IamModule, MdmModule],
-  controllers: [GoodsReceiptsController, StockController],
+  controllers: [GoodsReceiptsController, StockController, StockControlController],
   providers: [
     { provide: STOCK_STORE, useClass: PgStockStore },
     { provide: GOODS_RECEIPT_STORE, useClass: PgGoodsReceiptStore },
     { provide: STOCK_READ_STORE, useClass: PgStockReadStore },
+    { provide: STOCK_DOCUMENTS_STORE, useClass: PgStockDocumentsStore },
     {
       provide: Stock,
       useFactory: (store: StockStore, events: DomainEvents, clock: Clock) => new Stock(store, events, clock),
@@ -75,7 +83,72 @@ import { StockController } from './interface/stock.controller';
         new StockQueries(uow, store, refs, lineage, authoriser, documents, cursors, clock),
       inject: [UnitOfWork, STOCK_READ_STORE, MasterDataRefs, Lineage, Authoriser, DocumentRegistry, Cursors, CLOCK],
     },
+    {
+      provide: StockMovements,
+      useFactory: (
+        uow: UnitOfWork,
+        store: StockDocumentsStore,
+        refs: MasterDataRefs,
+        stock: Stock,
+        authoriser: Authoriser,
+        approvals: Approvals,
+        idempotency: Idempotency,
+        audit: AuditTrail,
+        documents: DocumentRegistry,
+        principals: PrincipalNames,
+        cursors: Cursors,
+        clock: Clock,
+      ) => new StockMovements(uow, store, refs, stock, authoriser, approvals, idempotency, audit, documents, principals, cursors, clock),
+      inject: [UnitOfWork, STOCK_DOCUMENTS_STORE, MasterDataRefs, Stock, Authoriser, Approvals, Idempotency, AuditTrail, DocumentRegistry, PRINCIPAL_NAMES, Cursors, CLOCK],
+    },
+    {
+      provide: StockAdjustments,
+      useFactory: (
+        uow: UnitOfWork,
+        store: StockDocumentsStore,
+        refs: MasterDataRefs,
+        stock: Stock,
+        authoriser: Authoriser,
+        approvals: Approvals,
+        idempotency: Idempotency,
+        audit: AuditTrail,
+        documents: DocumentRegistry,
+        principals: PrincipalNames,
+        cursors: Cursors,
+        clock: Clock,
+      ) => new StockAdjustments(uow, store, refs, stock, authoriser, approvals, idempotency, audit, documents, principals, cursors, clock),
+      inject: [UnitOfWork, STOCK_DOCUMENTS_STORE, MasterDataRefs, Stock, Authoriser, Approvals, Idempotency, AuditTrail, DocumentRegistry, PRINCIPAL_NAMES, Cursors, CLOCK],
+    },
+    {
+      provide: StockTransfers,
+      useFactory: (
+        uow: UnitOfWork,
+        store: StockDocumentsStore,
+        refs: MasterDataRefs,
+        stock: Stock,
+        authoriser: Authoriser,
+        idempotency: Idempotency,
+        audit: AuditTrail,
+        documents: DocumentRegistry,
+        principals: PrincipalNames,
+        cursors: Cursors,
+        clock: Clock,
+      ) => new StockTransfers(uow, store, refs, stock, authoriser, idempotency, audit, documents, principals, cursors, clock),
+      inject: [UnitOfWork, STOCK_DOCUMENTS_STORE, MasterDataRefs, Stock, Authoriser, Idempotency, AuditTrail, DocumentRegistry, PRINCIPAL_NAMES, Cursors, CLOCK],
+    },
   ],
-  exports: [Stock, Lineage, BalanceReconciliation, GoodsReceipts, StockQueries],
+  exports: [Stock, Lineage, BalanceReconciliation, GoodsReceipts, StockQueries, StockMovements, StockTransfers, StockAdjustments],
 })
-export class InvModule {}
+export class InvModule implements OnModuleInit {
+  constructor(
+    @Inject(Approvals) private readonly approvals: Approvals,
+    @Inject(StockAdjustments) private readonly adjustments: StockAdjustments,
+    @Inject(StockMovements) private readonly movements: StockMovements,
+  ) {}
+
+  /** Registers INV's approval handlers (ADR-0017): a stock write-off (an adjustment) and a movement reversal. */
+  onModuleInit(): void {
+    this.approvals.registerHandler(STOCK_WRITE_OFF, this.adjustments);
+    this.approvals.registerHandler(STOCK_REVERSAL, this.movements);
+  }
+}

@@ -16,8 +16,8 @@ import { createTestDatabase, type TestDatabase } from '../../support/test-databa
  * role in the application layer (ADR-0035), nobody changes a role they hold or beyond what they hold, the maker never
  * checks, an approval binds to the subject's payload, and only the maker withdraws a request.
  */
-const KIND = 'STOCK_WRITE_OFF';
-const APPROVER = 'inv.adjustment.approve';
+const KIND = 'SALE_VOID';
+const APPROVER = 'iam.probe.approve';
 let database: TestDatabase;
 let api: TestApp;
 let clock: ManualClock;
@@ -74,7 +74,7 @@ beforeAll(async () => {
   kasoa = await createBranch(database, 'KSA');
   await admin().query('CREATE TABLE platform.approval_probe (id uuid PRIMARY KEY, note text NOT NULL, applied boolean NOT NULL DEFAULT false)');
   await admin().query('GRANT SELECT, INSERT, UPDATE ON platform.approval_probe TO hk_app');
-  await admin().query(`INSERT INTO iam.permission (code, module, description) VALUES ('${APPROVER}', 'inv', 'Approve a stock adjustment')`);
+  await admin().query(`INSERT INTO iam.permission (code, module, description) VALUES ('${APPROVER}', 'iam', 'Approve a test probe request')`);
   await admin().query(`INSERT INTO iam.role_permission (role_id, permission_code, created_by) VALUES ($1, '${APPROVER}', $2)`, [ROLE_IDS.MANAGER, SYSTEM_PRINCIPAL]);
   await admin().query(`INSERT INTO iam.approval_policy (id, kind, approver_permission, created_by, updated_by) VALUES ($1, $2, '${APPROVER}', $3, $3)`, [randomUUID(), KIND, SYSTEM_PRINCIPAL]);
   approvals.registerHandler(KIND, {

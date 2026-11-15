@@ -1,0 +1,84 @@
+operationId: getStockAdjustment
+tags:
+  - inv
+summary: "Get a stock adjustment"
+description: "Permission: `inv.adjustment.read`, scoped to the adjustment's location."
+x-permission: inv.adjustment.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/StockAdjustment"
+        example:
+          id: "019a7ab7-d9fb-714b-9683-1d83e9229661"
+          adjustmentNo: ADJ-2026-DDW-000038
+          status: POSTED
+          location:
+            id: "019a7a84-7f34-76a9-8be1-736ae249ec48"
+            code: SHOP
+            name: "Shop floor"
+            kind: SHOP_FLOOR
+          reasonCode: COUNT_ERROR
+          note: null
+          totalValuePesewas: 12000
+          currency: GHS
+          approvalRequestId: null
+          exceptionId: null
+          lines:
+            - id: "019a7ab7-f8ea-7b2e-a066-bbbb62d33499"
+              lineNo: 1
+              product:
+                id: "019a7a8e-a5a0-754c-8a85-5d9ed05dd67c"
+                sku: PRD-YAM
+                name: "Yam, tuber"
+              stockUnit: null
+              direction: LOSS
+              qty: "6.000"
+              uom: TUBER
+              weightKg: null
+              valuePesewas: 12000
+              movementId: "019a7ab8-17d9-7512-ba4a-59f2dc84d2d0"
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 2
+          createdAt: "2026-11-12T08:00:00Z"
+          createdBy:
+            id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+            displayName: "Yaw Boateng"
+          postedAt: "2026-11-12T09:00:00Z"
+          postedBy:
+            id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+            displayName: "Yaw Boateng"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

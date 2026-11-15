@@ -72,3 +72,18 @@ export function issue(pool: CostPool, qty: Quantity): IssueResult {
   }
   return { carried, uncovered, pool: { qty: pool.qty.minus(qty), value: pool.value.minus(carried) } };
 }
+
+/**
+ * The value a gain brings into a pool at its current average (A-139): `half_up(V x q / Q)` for any `q`, larger than
+ * the pool or not, so found stock is booked at what the same stock already costs. A pool at or below zero has no
+ * average, and the gain carries nothing.
+ */
+export function valueAtAverage(pool: CostPool, qty: Quantity): Money {
+  if (qty.compareTo(Quantity.zero()) <= 0) {
+    throw new CostPoolError('a gain moves a positive quantity');
+  }
+  if (pool.qty.compareTo(Quantity.zero()) <= 0) {
+    return Money.zero();
+  }
+  return Money.ofPesewas(halfUpDivide(pool.value.pesewas * qty.thousandths, pool.qty.thousandths));
+}
