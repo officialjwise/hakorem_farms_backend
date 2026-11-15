@@ -32,3 +32,8 @@ export function roleView(role: RoleRecord): RoleView {
     updatedAt: role.updatedAt.toISOString(),
   };
 }
+
+/** An optional amount as the contract's JSON integer of pesewas (ADR-0001). */
+export function pesewasJson(amount: bigint | null): number | null {
+  return amount === null ? null : Money.ofPesewas(amount).toJsonInteger();
+}

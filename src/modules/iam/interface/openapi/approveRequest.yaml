@@ -1,0 +1,93 @@
+operationId: approveRequest
+tags:
+  - iam
+summary: "Approve a request"
+description: "You need `iam.approval.read` and the permission the kind's policy names at the request's branch (403 `FORBIDDEN`), and a step-up when the policy or that permission asks for one (403 `STEP_UP_REQUIRED`). Refused with 422 `MAKER_CANNOT_CHECK` when the caller made the request; the database enforces the same rule. A decided or withdrawn request is 422 `APPROVAL_ALREADY_DECIDED`, a lapsed one 422 `APPROVAL_EXPIRED`, and one whose subject changed since it was asked 422 `APPROVAL_SUBJECT_CHANGED`. The subject action takes effect in the same transaction as the approval, and the decision is audited and published as `iam.ApprovalDecided` (1.11.0).\n\nPermission: `the approving permission named by the approval policy for the kind`."
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - TOTP_ENROLMENT_REQUIRED
+  - STEP_UP_REQUIRED
+  - NOT_FOUND
+  - MAKER_CANNOT_CHECK
+  - APPROVAL_ALREADY_DECIDED
+  - APPROVAL_EXPIRED
+  - APPROVAL_SUBJECT_CHANGED
+  - RATE_LIMITED
+x-permission: "the approving permission named by the approval policy for the kind"
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ApprovalDecision"
+      example:
+        reason: "Checked the carcass photograph with the vet"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ApprovalRequest"
+        example:
+          id: "019a7a98-6f3f-7645-9b7d-6d2c515ee60a"
+          kind: STOCK_WRITE_OFF
+          status: APPROVED
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          subject:
+            id: "019a7a98-8e2e-7029-a561-0b63cb0f8441"
+            docType: MORTALITY_RECORD
+            number: null
+          summary: "Mortality: goat G-0171, found dead in pen 2, accumulated cost GHS 589.00"
+          amountPesewas: 58900
+          currency: GHS
+          evidenceFileId: "019a7a98-ad1d-7a0c-bf44-a99b44c02279"
+          requestedBy:
+            id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+            displayName: "Abena Quaye"
+          requestedAt: "2026-11-13T08:05:00Z"
+          decidedBy:
+            id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+            displayName: "Kwabena Owusu"
+          decidedAt: "2026-11-13T09:12:00Z"
+          decisionReason: "Checked the carcass photograph with the vet"
+          expiresAt: "2026-11-14T18:00:00Z"
+          canDecide: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

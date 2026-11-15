@@ -91,3 +91,50 @@ export const ListRolesQuery = z.object(page);
 export const ListPermissionsQuery = z.object({ module: z.string().regex(/^[a-z]{2,4}$/).optional(), ...page });
 export const ListGrantsQuery = z.object({ principalId: z.uuid().optional(), roleId: z.uuid().optional(), branchId: z.uuid().optional(), ...page });
 export const IdParam = z.uuid();
+
+const roleCode = z.string().regex(/^[A-Z][A-Z_]{1,39}$/);
+const roleName = z.string().trim().min(1).max(80);
+const permissionCode = z.string().regex(/^[a-z]+\.[a-z_]+\.[a-z_.]+$/).max(80);
+
+/** The contract's `RoleLimit`. */
+export const RoleLimit = z.strictObject({
+  limitKind: z.enum(['PRICE_OVERRIDE_PER_LINE', 'PRICE_OVERRIDE_PER_SHIFT', 'REFUND_WITHOUT_APPROVAL', 'PURCHASE_ORDER_APPROVAL', 'STOCK_ADJUSTMENT_WITHOUT_APPROVAL']),
+  amountPesewas: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+});
+
+/** `RoleCreate`. */
+export const RoleCreate = z.strictObject({
+  code: roleCode,
+  name: roleName,
+  requiresTotp: z.boolean(),
+  permissions: z.array(permissionCode).max(500),
+  limits: z.array(RoleLimit).max(5).optional(),
+});
+
+/** `RoleUpdate`. */
+export const RoleUpdate = z.strictObject({
+  version: z.number().int().min(1),
+  name: roleName.optional(),
+  requiresTotp: z.boolean().optional(),
+  permissions: z.array(permissionCode).max(500).optional(),
+  limits: z.array(RoleLimit).max(5).optional(),
+});
+
+const APPROVAL_KINDS = [
+  'STOCK_WRITE_OFF', 'STOCK_REVERSAL', 'SALE_VOID', 'PRICE_OVERRIDE', 'QUOTE_BELOW_MARGIN', 'CREDIT_OVERRIDE', 'REFUND', 'RETURN',
+  'PRICE_LIST_ACTIVATION', 'PROMOTION_ACTIVATION', 'TAX_SCHEME_ACTIVATION', 'PURCHASE_ORDER', 'SUPPLIER_PAYMENT', 'SUPPLIER_PAYOUT_CHANGE',
+  'MANUAL_JOURNAL', 'POSTING_RULE_CHANGE', 'CAPITAL_WITHDRAWAL', 'INVESTOR_DISTRIBUTION', 'DATA_DELETION', 'BAD_DEBT_WRITE_OFF', 'CREDIT_NOTE',
+  'PAYMENT_REVERSAL', 'PERIOD_REOPEN',
+] as const;
+
+/** listApprovals query. */
+export const ListApprovalsQuery = z.object({
+  status: z.enum(['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED', 'EXPIRED']).optional(),
+  kind: z.enum(APPROVAL_KINDS).optional(),
+  decidableByMe: booleanQuery.optional(),
+  requestedByMe: booleanQuery.optional(),
+  ...page,
+});
+
+/** `ApprovalDecision`: the reason is optional on an approval, required on a rejection (`ReasonRequest`). */
+export const ApprovalDecision = z.strictObject({ reason: z.string().trim().min(1).max(500).optional() });

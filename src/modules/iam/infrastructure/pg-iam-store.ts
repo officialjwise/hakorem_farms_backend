@@ -341,7 +341,7 @@ export class PgIamStore implements IamStore {
   async currentPermissions(tx: Transaction, principalId: string, now: Date): Promise<string[]> {
     const { rows } = await tx.query<{ code: string }>(
       `SELECT DISTINCT rp.permission_code AS code
-         FROM iam.role_grant g JOIN iam.role r ON r.id = g.role_id JOIN iam.role_permission rp ON rp.role_id = r.id
+         FROM iam.role_grant g JOIN iam.role r ON r.id = g.role_id JOIN iam.role_permission rp ON rp.role_id = r.id AND rp.deleted_at IS NULL
         WHERE g.principal_id = $1 AND ${CURRENT_GRANT}
         ORDER BY 1`,
       [principalId, now],
@@ -352,7 +352,7 @@ export class PgIamStore implements IamStore {
   async grantsWithPermission(tx: Transaction, principalId: string, permission: string, now: Date): Promise<GrantScope[]> {
     const { rows } = await tx.query<{ branch_id: string; location_id: string | null }>(
       `SELECT g.branch_id, g.location_id
-         FROM iam.role_grant g JOIN iam.role r ON r.id = g.role_id JOIN iam.role_permission rp ON rp.role_id = r.id
+         FROM iam.role_grant g JOIN iam.role r ON r.id = g.role_id JOIN iam.role_permission rp ON rp.role_id = r.id AND rp.deleted_at IS NULL
          JOIN iam.principal p ON p.id = g.principal_id
         WHERE g.principal_id = $1 AND ${CURRENT_GRANT} AND rp.permission_code = $3 AND p.status = 'ACTIVE' AND p.deleted_at IS NULL`,
       [principalId, now, permission],

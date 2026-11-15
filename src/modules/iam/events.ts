@@ -23,3 +23,15 @@ export interface GrantChanged {
   readonly branchId: string;
   readonly locationId: string | null;
 }
+
+/**
+ * `iam.RoleChanged` v1: a role was created, or its permissions, limits, name or TOTP flag changed (FR-IAM-022, A-122).
+ * Read by the daily exception report as a `PERMISSION_CHANGE` item (B12); the actor is the event's actor.
+ */
+export interface RoleChanged {
+  readonly roleId: string;
+  readonly roleCode: string;
+  readonly change: 'CREATED' | 'UPDATED';
+  readonly added: readonly string[];
+  readonly removed: readonly string[];
+}

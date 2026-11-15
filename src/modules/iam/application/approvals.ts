@@ -4,9 +4,9 @@ import type { Actor } from '../../../platform/context/request-context';
 import type { Transaction } from '../../../platform/database/unit-of-work';
 import { NotFoundError, UnauthenticatedError } from '../../../platform/errors/api-error';
 import type { DomainEvents } from '../../../platform/events/domain-events';
-import { decideApproval, type ApprovalRefusal, type ApprovalStatus } from '../domain/approval';
+import { cancelApproval, decideApproval, type ApprovalRefusal, type ApprovalStatus } from '../domain/approval';
 import type { Authoriser } from './authoriser';
-import { ApprovalAlreadyDecidedError, ApprovalExpiredError, ApprovalSubjectChangedError, MakerCannotCheckError } from './errors';
+import { ApprovalAlreadyDecidedError, ApprovalExpiredError, ApprovalNotRequesterError, ApprovalSubjectChangedError, MakerCannotCheckError } from './errors';
 
 /** What the owning module of an approval kind provides (MODULE_BOUNDARIES section 6, "Approval handlers"). */
 export interface ApprovalHandler {
@@ -44,13 +44,48 @@ export interface NewApproval {
   readonly expiresAt?: Date | null;
 }
 
+/** A request as the inbox shows it (B04e continued). */
+export interface ApprovalListing extends ApprovalRecord {
+  readonly requestedByName: string;
+  readonly decidedByName: string | null;
+  readonly decidedAt: Date | null;
+  readonly decisionReason: string | null;
+}
+
+export interface ApprovalFilter {
+  readonly viewerId: string;
+  readonly status: ApprovalStatus | null;
+  readonly kind: string | null;
+  readonly decidableByMe: boolean;
+  readonly requestedByMe: boolean;
+  /** Newest first: only ids below this one. */
+  readonly beforeId: string | null;
+  readonly limit: number;
+  readonly now: Date;
+}
+
+/** What a kind's policy asks of the checker at a branch. */
+export interface ApproverRule {
+  readonly permission: string;
+  readonly requiresStepUp: boolean;
+}
+
 /** IAM's approval tables. */
 export interface ApprovalStore {
   insert(tx: Transaction, record: ApprovalRecord): Promise<void>;
   byIdForUpdate(tx: Transaction, id: string): Promise<ApprovalRecord | null>;
   decide(tx: Transaction, id: string, status: ApprovalStatus, decidedBy: string | null, reason: string | null, now: Date): Promise<void>;
-  /** The permission the checker must hold for this kind at this branch (`iam.approval_policy`), or null if none. */
-  approverPermission(tx: Transaction, kind: string, branchId: string): Promise<string | null>;
+  /** What the checker must hold for this kind at this branch (`iam.approval_policy`), or null if no policy names it. */
+  approverRule(tx: Transaction, kind: string, branchId: string): Promise<ApproverRule | null>;
+  /**
+   * The requests the viewer may see: at a branch where a branch-wide grant gives them `iam.approval.read`. Newest
+   * first. `decidableByMe` keeps the pending, unlapsed requests of others that a current grant of the viewer's lets
+   * them decide (the policy's permission at the request's branch).
+   */
+  list(tx: Transaction, filter: ApprovalFilter): Promise<ApprovalListing[]>;
+  listing(tx: Transaction, id: string): Promise<ApprovalListing | null>;
+  /** The ids among `ids` that the viewer could decide now, by the same rule as `decidableByMe`. */
+  decidableBy(tx: Transaction, viewerId: string, ids: readonly string[], now: Date): Promise<Set<string>>;
 }
 
 export const APPROVAL_STORE = Symbol('APPROVAL_STORE');
@@ -131,11 +166,11 @@ export class Approvals {
     if (request === null) {
       throw new NotFoundError('no such approval request');
     }
-    const permission = await this.store.approverPermission(tx, request.kind, request.branchId);
-    if (permission === null) {
+    const rule = await this.store.approverRule(tx, request.kind, request.branchId);
+    if (rule === null) {
       throw new Error(`approval kind ${request.kind} has no policy naming the approver's permission`);
     }
-    await this.authoriser.authorise(tx, actor, permission, { branchId: request.branchId });
+    await this.authoriser.authorise(tx, actor, rule.permission, { branchId: request.branchId, stepUp: rule.requiresStepUp });
     const handler = this.handlers.get(request.kind);
     if (handler === undefined) {
       throw new Error(`approval kind ${request.kind} has no registered handler`);
@@ -175,5 +210,48 @@ export class Approvals {
       payload: { kind: request.kind, decision, requestedBy: request.requestedBy, decidedBy: actor.principalId, subjectDocumentId: request.subjectDocumentId },
     });
     return decided;
+  }
+
+  /**
+   * The maker withdraws their own pending request (A-122). The owning module's `onRejected` undoes any pending
+   * effect in the same transaction, as for a rejection. Nobody else may withdraw it.
+   */
+  async cancel(tx: Transaction, actor: Actor | undefined, id: string, reason: string): Promise<ApprovalRecord> {
+    if (actor === undefined) {
+      throw new UnauthenticatedError('a withdrawal needs an actor');
+    }
+    const request = await this.store.byIdForUpdate(tx, id);
+    if (request === null) {
+      throw new NotFoundError('no such approval request');
+    }
+    const verdict = cancelApproval(request, actor.principalId, this.clock.now());
+    if (!verdict.ok) {
+      if (verdict.code === 'NOT_REQUESTER') {
+        await this.audit.recordDetached({
+          module: 'iam',
+          action: 'AUTHORISATION_FAILURE',
+          entityType: 'ApprovalRequest',
+          entityId: id,
+          branchId: request.branchId,
+          metadata: { permission: 'iam.approval.cancel.own', reason: 'NOT_OWNER', ownerPrincipalId: request.requestedBy },
+        });
+        throw new ApprovalNotRequesterError(`approval ${id} was requested by someone else`);
+      }
+      throw REFUSALS[verdict.code](`approval ${id}: ${verdict.code}`);
+    }
+    await this.store.decide(tx, id, 'CANCELLED', null, reason, this.clock.now());
+    const cancelled: ApprovalRecord = { ...request, status: 'CANCELLED', version: request.version + 1 };
+    await this.handlers.get(request.kind)?.onRejected?.(tx, cancelled);
+    await this.audit.record(tx, {
+      module: 'iam',
+      action: 'APPROVAL_CANCELLED',
+      entityType: 'ApprovalRequest',
+      entityId: id,
+      branchId: request.branchId,
+      before: { status: request.status },
+      after: { status: 'CANCELLED', reason },
+      metadata: { kind: request.kind, subjectDocumentId: request.subjectDocumentId },
+    });
+    return cancelled;
   }
 }

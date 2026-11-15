@@ -25,7 +25,34 @@ registerMessages({
   'iam.user_rule': 'This change to the account is not allowed.',
   'iam.self_administration': 'You cannot change your own access. Ask another manager or the owner.',
   'iam.role_exceeds_granter': 'You can only give a role whose every permission you hold yourself at that branch.',
+  'iam.role_rule': 'This change to the role is not allowed.',
+  'iam.role_beyond_actor': 'You can only add or remove a permission you hold yourself.',
+  'iam.approval_not_requester': 'Only the person who made this request can withdraw it.',
 });
+
+/** 422 `ROLE_INVALID`: `details[].code` names the rule (A-122). */
+export class RoleInvalidError extends BusinessRuleError {
+  readonly code = 'ROLE_INVALID';
+  readonly messageKey = 'iam.role_rule';
+
+  constructor(rules: ReadonlyArray<{ readonly field: string | null; readonly rule: string }>) {
+    super('the role change breaks a role rule', rules.map((rule) => ({ field: rule.field, code: rule.rule, message: translate('iam.role_rule') })));
+  }
+}
+
+/** 403: a role change adds or removes a permission the actor does not hold (FR-IAM-022, A-122). */
+export class RoleBeyondActorError extends ApiError {
+  readonly status = 403;
+  readonly code = 'FORBIDDEN';
+  readonly messageKey = 'iam.role_beyond_actor';
+}
+
+/** 403: only the maker withdraws a request (A-122). */
+export class ApprovalNotRequesterError extends ApiError {
+  readonly status = 403;
+  readonly code = 'FORBIDDEN';
+  readonly messageKey = 'iam.approval_not_requester';
+}
 
 export class IamDuplicateValueError extends BusinessRuleError {
   readonly code = 'DUPLICATE_VALUE';

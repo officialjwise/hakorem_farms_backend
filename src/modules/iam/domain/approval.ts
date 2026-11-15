@@ -40,3 +40,25 @@ export function decideApproval(state: ApprovalState, input: ApprovalDecisionInpu
   }
   return { ok: true };
 }
+
+export type CancelRefusal = 'NOT_REQUESTER' | 'APPROVAL_ALREADY_DECIDED' | 'APPROVAL_EXPIRED';
+
+function lapsed(state: Pick<ApprovalState, 'expiresAt'>, now: Date): boolean {
+  return state.expiresAt !== null && now.getTime() >= state.expiresAt.getTime();
+}
+
+/** Whether a request may be withdrawn (A-122): only by its maker, and only while it is pending and has not lapsed. */
+export function cancelApproval(state: ApprovalState, by: string, now: Date): { readonly ok: true } | { readonly ok: false; readonly code: CancelRefusal } {
+  if (by !== state.requestedBy) {
+    return { ok: false, code: 'NOT_REQUESTER' };
+  }
+  if (state.status !== 'PENDING') {
+    return { ok: false, code: 'APPROVAL_ALREADY_DECIDED' };
+  }
+  return lapsed(state, now) ? { ok: false, code: 'APPROVAL_EXPIRED' } : { ok: true };
+}
+
+/** A pending request past its expiry has lapsed, whether or not anything has yet marked it so. */
+export function shownStatus(state: Pick<ApprovalState, 'status' | 'expiresAt'>, now: Date): ApprovalStatus {
+  return state.status === 'PENDING' && lapsed(state, now) ? 'EXPIRED' : state.status;
+}

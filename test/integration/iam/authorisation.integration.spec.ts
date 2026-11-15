@@ -113,6 +113,10 @@ const VALID_BODY: Readonly<Record<string, object>> = {
   updatePaymentMethod: { version: 1, isEnabled: false },
   createDeliveryZone: { branchId: randomUUID(), code: 'DODOWA', name: 'Dodowa', areas: ['Dodowa'], feePesewas: 1500, cutoffTime: '14:00' },
   updateDeliveryZone: { version: 1, feePesewas: 1500 },
+  createRole: { code: 'SHOP_SUPERVISOR', name: 'Shop supervisor', requiresTotp: false, permissions: [] },
+  updateRole: { version: 1, name: 'Shop supervisor' },
+  rejectRequest: { reason: 'Not a mortality' },
+  cancelApprovalRequest: { reason: 'Counted twice' },
 };
 
 beforeAll(async () => {
@@ -150,6 +154,7 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'listPriceLists', 'updatePriceList', 'archivePriceList', 'listPriceListVersions', 'listPriceListEntries', 'archiveProduct',
         'listUsers', 'createUser', 'getUser', 'updateUser', 'disableUser', 'enableUser', 'unlockUser', 'resetUserPassword',
         'listRoles', 'getRole', 'listPermissions', 'listGrants', 'createGrant', 'revokeGrant',
+        'createRole', 'updateRole', 'listApprovals', 'getApproval', 'approveRequest', 'rejectRequest', 'cancelApprovalRequest',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);
@@ -159,8 +164,9 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
     const own = new Set(['logout', 'getCurrentSession', 'changePassword', 'startTotpEnrolment', 'confirmTotpEnrolment', 'stepUp']);
     for (const route of routes) {
       const spec = route.spec!;
-      if (spec.access === 'PUBLIC' || own.has(spec.operationId)) {
+      if (spec.access === 'PUBLIC' || own.has(spec.operationId) || spec.permissionByPolicy === true) {
         expect(spec.permission, spec.operationId).toBeNull();
+        expect(spec.permissionByPolicy === true, spec.operationId).toBe(['approveRequest', 'rejectRequest'].includes(spec.operationId));
       } else {
         expect(spec.permission, spec.operationId).toMatch(/^[a-z]+\.[a-z_]+\.[a-z_.]+$/);
       }
@@ -170,7 +176,7 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
   it('refuses a staff user who holds no grant on every permissioned operation, with 403 FORBIDDEN', async () => {
     const nobody = await createUser(database, { name: 'Kwame Nkansah' });
     const session = await login(api.server, nobody);
-    const guarded = routes.filter((route) => route.spec?.permission !== null && route.spec?.permission !== undefined);
+    const guarded = routes.filter((route) => (route.spec?.permission !== null && route.spec?.permission !== undefined) || route.spec?.permissionByPolicy === true);
     expect(guarded.length).toBeGreaterThanOrEqual(5);
     for (const route of guarded) {
       const path = route.path.replace(/:[a-zA-Z]+/g, randomUUID());

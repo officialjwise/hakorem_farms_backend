@@ -1,0 +1,90 @@
+operationId: rejectRequest
+tags:
+  - iam
+summary: "Reject a request"
+description: "The same checker rules as `approveRequest`; the reason is required. The owning module undoes any pending effect in the same transaction (1.11.0).\n\nPermission: `the approving permission named by the approval policy for the kind`."
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - TOTP_ENROLMENT_REQUIRED
+  - STEP_UP_REQUIRED
+  - NOT_FOUND
+  - MAKER_CANNOT_CHECK
+  - APPROVAL_ALREADY_DECIDED
+  - APPROVAL_EXPIRED
+  - RATE_LIMITED
+x-permission: "the approving permission named by the approval policy for the kind"
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ReasonRequest"
+      example:
+        reason: "The goat was sold on 12 November; this is not a mortality"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ApprovalRequest"
+        example:
+          id: "019a7a98-3161-727e-b7b7-30bd5dfca99b"
+          kind: SALE_VOID
+          status: PENDING
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          subject:
+            id: "019a7a98-5050-7c62-819a-cef4d7ad47d2"
+            docType: SALES_ORDER
+            number: SO-2026-DDW-004198
+          summary: "Void sale of GHS 1,275.00: customer changed mind, goat returned to pen"
+          amountPesewas: 127500
+          currency: GHS
+          evidenceFileId: null
+          requestedBy:
+            id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+            displayName: "Adwoa Darko"
+          requestedAt: "2026-11-13T08:00:00Z"
+          decidedBy: null
+          decidedAt: null
+          decisionReason: null
+          expiresAt: "2026-11-14T18:00:00Z"
+          canDecide: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

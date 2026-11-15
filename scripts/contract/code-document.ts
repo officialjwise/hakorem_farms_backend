@@ -8,7 +8,7 @@ import pino from 'pino';
 import { parse } from 'yaml';
 import { AppModule } from '../../src/app.module';
 import { loadConfig } from '../../src/platform/config/app-config';
-import { OPERATION_METADATA, type OperationSpec } from '../../src/platform/http/operation';
+import { OPERATION_METADATA, POLICY_PERMISSION, type OperationSpec } from '../../src/platform/http/operation';
 import type { Json } from './yaml-emitter';
 
 type JsonObject = { [key: string]: Json };
@@ -114,8 +114,9 @@ function mismatches(route: Route, spec: OperationSpec, fragment: JsonObject, fil
   if (fragment['operationId'] !== spec.operationId) {
     problems.push(`${where}: operationId is ${String(fragment['operationId'])}`);
   }
-  if ((fragment['x-permission'] ?? null) !== spec.permission) {
-    problems.push(`${where}: x-permission is ${String(fragment['x-permission'] ?? null)} but the route checks ${String(spec.permission)}`);
+  const checked = spec.permissionByPolicy === true ? POLICY_PERMISSION : spec.permission;
+  if ((fragment['x-permission'] ?? null) !== checked) {
+    problems.push(`${where}: x-permission is ${String(fragment['x-permission'] ?? null)} but the route checks ${String(checked)}`);
   }
   const refs = parameterRefs(fragment);
   if (refs.includes('#/components/parameters/IdempotencyKey') !== spec.idempotent) {

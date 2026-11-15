@@ -1,0 +1,207 @@
+operationId: listApprovals
+tags:
+  - iam
+summary: "List approval requests (the approval inbox)"
+description: "Newest first. Lists the requests at the branches where a branch-wide grant gives you `iam.approval.read` (1.11.0). `decidableByMe=true` keeps the pending, unlapsed requests of others whose policy permission you hold at their branch; `requestedByMe=true` keeps your own. A pending request past `expiresAt` shows as `EXPIRED`. `subject.number` is null until the document registry carries numbers (B8), and `evidenceFileId` until the file store exists.\n\nPermission: `iam.approval.read`."
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - TOTP_ENROLMENT_REQUIRED
+  - RATE_LIMITED
+x-permission: iam.approval.read
+parameters:
+  - name: status
+    in: query
+    required: false
+    schema:
+      type: string
+      enum:
+        - PENDING
+        - APPROVED
+        - REJECTED
+        - CANCELLED
+        - EXPIRED
+  - name: kind
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/ApprovalKind"
+  - name: decidableByMe
+    in: query
+    required: false
+    schema:
+      type: boolean
+  - name: requestedByMe
+    in: query
+    required: false
+    schema:
+      type: boolean
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ApprovalRequestPage"
+        example:
+          data:
+            - id: "019a7a98-3161-727e-b7b7-30bd5dfca99b"
+              kind: SALE_VOID
+              status: PENDING
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              subject:
+                id: "019a7a98-5050-7c62-819a-cef4d7ad47d2"
+                docType: SALES_ORDER
+                number: SO-2026-DDW-004198
+              summary: "Void sale of GHS 1,275.00: customer changed mind, goat returned to pen"
+              amountPesewas: 127500
+              currency: GHS
+              evidenceFileId: null
+              requestedBy:
+                id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                displayName: "Adwoa Darko"
+              requestedAt: "2026-11-13T08:00:00Z"
+              decidedBy: null
+              decidedAt: null
+              decisionReason: null
+              expiresAt: "2026-11-14T18:00:00Z"
+              canDecide: true
+            - id: "019a7a98-6f3f-7645-9b7d-6d2c515ee60a"
+              kind: STOCK_WRITE_OFF
+              status: PENDING
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              subject:
+                id: "019a7a98-8e2e-7029-a561-0b63cb0f8441"
+                docType: MORTALITY_RECORD
+                number: null
+              summary: "Mortality: goat G-0171, found dead in pen 2, accumulated cost GHS 589.00"
+              amountPesewas: 58900
+              currency: GHS
+              evidenceFileId: "019a7a98-ad1d-7a0c-bf44-a99b44c02279"
+              requestedBy:
+                id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                displayName: "Abena Quaye"
+              requestedAt: "2026-11-13T08:05:00Z"
+              decidedBy: null
+              decidedAt: null
+              decisionReason: null
+              expiresAt: "2026-11-14T18:00:00Z"
+              canDecide: true
+            - id: "019a7a98-cc0c-73f0-8928-47d2be71c0b0"
+              kind: PRICE_OVERRIDE
+              status: APPROVED
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              subject:
+                id: "019a7a98-eafb-7dd3-930b-e60a38225ee8"
+                docType: SALES_ORDER
+                number: SO-2026-DDW-004215
+              summary: "Goat G-0157 at GHS 650.00 against a floor of GHS 700.00"
+              amountPesewas: 5000
+              currency: GHS
+              evidenceFileId: null
+              requestedBy:
+                id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                displayName: "Kojo Antwi"
+              requestedAt: "2026-11-13T08:10:00Z"
+              decidedBy:
+                id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                displayName: "Kwabena Owusu"
+              decidedAt: "2026-11-13T08:40:00Z"
+              decisionReason: "Customer is a regular buyer; within band agreed by the owner"
+              expiresAt: "2026-11-14T18:00:00Z"
+              canDecide: false
+            - id: "019a7a99-09ea-77b7-acef-8441b1d3fd1f"
+              kind: REFUND
+              status: PENDING
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              subject:
+                id: "019a7a99-28d9-719a-b6d2-22792b849b57"
+                docType: REFUND
+                number: null
+              summary: "Refund GHS 96.00 to mobile money: two crates of eggs broken in delivery"
+              amountPesewas: 9600
+              currency: GHS
+              evidenceFileId: null
+              requestedBy:
+                id: "019a7a86-caf1-728b-b7c3-3188ea6caa66"
+                displayName: "Nana Yeboah"
+              requestedAt: "2026-11-13T08:15:00Z"
+              decidedBy: null
+              decidedAt: null
+              decisionReason: null
+              expiresAt: "2026-11-14T18:00:00Z"
+              canDecide: true
+            - id: "019a7a99-47c8-7b7d-80b6-c0b0a535398e"
+              kind: SUPPLIER_PAYMENT
+              status: PENDING
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              subject:
+                id: "019a7a99-66b7-7561-9a99-5ee81ee6d7c6"
+                docType: SUPPLIER_PAYMENT
+                number: null
+              summary: "Pay Ashanti Feeds Ltd GHS 10,400.00 for invoice 88120"
+              amountPesewas: 1040000
+              currency: GHS
+              evidenceFileId: null
+              requestedBy:
+                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                displayName: "Efua Asante"
+              requestedAt: "2026-11-13T08:20:00Z"
+              decidedBy: null
+              decidedAt: null
+              decisionReason: null
+              expiresAt: "2026-11-14T18:00:00Z"
+              canDecide: true
+            - id: "019a7a99-85a6-7f44-a47d-fd1f989775fd"
+              kind: INVESTOR_DISTRIBUTION
+              status: PENDING
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              subject:
+                id: "019a7a99-a495-7928-be60-9b5712481434"
+                docType: DISTRIBUTION_RUN
+                number: DST-2026-DDW-000003
+              summary: "Q3 2026 distribution of GHS 10,000.01 to five investors"
+              amountPesewas: 1000001
+              currency: GHS
+              evidenceFileId: null
+              requestedBy:
+                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                displayName: "Efua Asante"
+              requestedAt: "2026-11-13T08:25:00Z"
+              decidedBy: null
+              decidedAt: null
+              decisionReason: null
+              expiresAt: "2026-11-14T18:00:00Z"
+              canDecide: true
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

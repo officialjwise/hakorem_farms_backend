@@ -42,6 +42,10 @@ import { UqrQrCodes } from './infrastructure/uqr-qr-codes';
 import { PRINCIPAL_NAMES } from './application/principal-names';
 import { RedisLoginThrottle } from './infrastructure/redis-login-throttle';
 import { AccessController } from './interface/access.controller';
+import { ApprovalsController } from './interface/approvals.controller';
+import { ApprovalInbox } from './application/approval-inbox';
+import { RoleAdmin } from './application/role-admin';
+import { DocumentRegistry } from '../../platform/documents/document-registry';
 import { AuthController } from './interface/auth.controller';
 import { AuthenticationGuard } from './interface/authentication.guard';
 import { SessionsController } from './interface/sessions.controller';
@@ -61,7 +65,7 @@ const BREACHED_LOOKUP_TIMEOUT_MS = 2_000;
  * every module passes through it.
  */
 @Module({
-  controllers: [AuthController, SessionsController, AccessController],
+  controllers: [AuthController, SessionsController, AccessController, ApprovalsController],
   providers: [
     { provide: IAM_STORE, useClass: PgIamStore },
     { provide: APPROVAL_STORE, useClass: PgApprovalStore },
@@ -161,6 +165,26 @@ const BREACHED_LOOKUP_TIMEOUT_MS = 2_000;
         clock: Clock,
       ) => new AccessAdmin(uow, store, iamStore, authoriser, idempotency, cursors, audit, events, hasher, throttle, scopeNames, subjectKeys, clock),
       inject: [UnitOfWork, ACCESS_STORE, IAM_STORE, Authoriser, Idempotency, Cursors, AuditTrail, DomainEvents, PASSWORD_HASHER, LOGIN_THROTTLE, ScopeNamesRegistry, SubjectKeys, CLOCK],
+    },
+    {
+      provide: RoleAdmin,
+      useFactory: (uow: UnitOfWork, store: AccessStore, authoriser: Authoriser, idempotency: Idempotency, audit: AuditTrail, events: DomainEvents, clock: Clock) =>
+        new RoleAdmin(uow, store, authoriser, idempotency, audit, events, clock),
+      inject: [UnitOfWork, ACCESS_STORE, Authoriser, Idempotency, AuditTrail, DomainEvents, CLOCK],
+    },
+    {
+      provide: ApprovalInbox,
+      useFactory: (
+        uow: UnitOfWork,
+        approvals: Approvals,
+        store: ApprovalStore,
+        authoriser: Authoriser,
+        idempotency: Idempotency,
+        cursors: Cursors,
+        documents: DocumentRegistry,
+        clock: Clock,
+      ) => new ApprovalInbox(uow, approvals, store, authoriser, idempotency, cursors, documents, clock),
+      inject: [UnitOfWork, Approvals, APPROVAL_STORE, Authoriser, Idempotency, Cursors, DocumentRegistry, CLOCK],
     },
     AuthenticationGuard,
     { provide: APP_GUARD, useExisting: AuthenticationGuard },
