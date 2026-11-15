@@ -55,6 +55,7 @@ export interface UnitMovement {
   readonly stockUnitId: string;
   readonly movementType: string;
   readonly qtyBase: string;
+  readonly weightKg: string | null;
   readonly valuePesewas: bigint;
   readonly costElement: CostElement | null;
   readonly sourceDocumentId: string;

@@ -1,5 +1,5 @@
-import { BusinessRuleError } from '../../../platform/errors/api-error';
-import { registerMessages } from '../../../platform/i18n/messages';
+import { BusinessRuleError, type ErrorDetail } from '../../../platform/errors/api-error';
+import { registerMessages, translate } from '../../../platform/i18n/messages';
 
 /** INV's user-facing messages (docs/API.md section 10). Registered when the module loads. */
 registerMessages({
@@ -8,7 +8,39 @@ registerMessages({
   'inv.stock_unit_on_hold': 'This animal or lot is under a hold and cannot be sold, consumed or transferred.',
   'inv.stock_unit_reserved': 'This stock is reserved for another order.',
   'inv.stock_movement_already_reversed': 'This movement has already been reversed.',
+  'inv.goods_receipt_invalid': 'Some lines of this goods receipt are not valid.',
+  'inv.goods_receipt_rule': 'This value is not valid on a goods receipt.',
+  'inv.reference_not_found': 'Something this record refers to does not exist.',
+  'inv.reference_unknown': 'There is no such record.',
 });
+
+function details(fields: ReadonlyArray<{ readonly field: string; readonly rule: string }>, messageKey: string): ErrorDetail[] {
+  return fields.map((field) => ({ field: field.field, code: field.rule, message: translate(messageKey) }));
+}
+
+/**
+ * 422 GOODS_RECEIPT_INVALID: a receipt breaks a receipt rule (FR-INV-005, FR-INV-009). Each `details[].code` names
+ * the rule: `ONE_ANIMAL_PER_HEAD`, `TAG_REPEATED`, `TAG_IN_USE`, `BATCH_REQUIRED`, `BATCH_IN_USE`, `EXPIRY_REQUIRED`,
+ * `EXPIRED_ON_ARRIVAL`, `NOT_A_RECEIVING_LOCATION`, `SUPPLIER_REQUIRED` and the others in docs/API.md.
+ */
+export class GoodsReceiptInvalidError extends BusinessRuleError {
+  readonly code = 'GOODS_RECEIPT_INVALID';
+  readonly messageKey = 'inv.goods_receipt_invalid';
+
+  constructor(fields: ReadonlyArray<{ readonly field: string; readonly rule: string }>) {
+    super('the goods receipt breaks a receipt rule', details(fields, 'inv.goods_receipt_rule'));
+  }
+}
+
+/** 422 REFERENCE_NOT_FOUND: an id in the request names no record (a product, supplier, location or purchase order). */
+export class InvReferenceNotFoundError extends BusinessRuleError {
+  readonly code = 'REFERENCE_NOT_FOUND';
+  readonly messageKey = 'inv.reference_not_found';
+
+  constructor(fields: readonly string[]) {
+    super('the request refers to records that do not exist', details(fields.map((field) => ({ field, rule: 'NOT_FOUND' })), 'inv.reference_unknown'));
+  }
+}
 
 /** 422 INSUFFICIENT_STOCK: the movement would take a physical location below zero (FR-INV-019). */
 export class InsufficientStockError extends BusinessRuleError {

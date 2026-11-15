@@ -54,28 +54,31 @@ export class Lineage {
   }
 
   trace(actor: Actor | undefined, unitId: string): Promise<Trace> {
-    return this.uow.run({ isolation: 'read committed' }, async (tx) => {
-      const backward = await this.store.lineage(tx, unitId, 'BACKWARD');
-      const self = backward[0];
-      await this.authoriser.authorise(tx, actor, 'inv.trace.read', { branchId: self?.branchId ?? null });
-      if (self === undefined) {
-        throw new NotFoundError(`no stock unit ${unitId}`);
-      }
-      const forward = await this.store.lineage(tx, unitId, 'FORWARD');
-      const units = [...backward, ...forward.slice(1)];
-      const movements = await this.store.movementsOf(tx, units.map((u) => u.unitId));
-      const traced = (link: UnitLink): TracedUnit => {
-        const own = movements.filter((m) => m.stockUnitId === link.unitId);
-        return { ...link, costByElement: costByElement(own), movements: own };
-      };
-      const downstream = new Set(forward.map((u) => u.unitId));
-      const reversedSales = new Set(movements.filter((m) => m.reversesMovementId !== null).map((m) => m.reversesMovementId!));
-      return {
-        unit: traced(self),
-        backward: backward.slice(1).map(traced),
-        forward: forward.slice(1).map(traced),
-        sales: movements.filter((m) => downstream.has(m.stockUnitId) && SALE_TYPES.has(m.movementType) && m.reversesMovementId === null && !reversedSales.has(m.id)),
-      };
-    });
+    return this.uow.run({ isolation: 'read committed' }, (tx) => this.traceIn(tx, actor, unitId));
+  }
+
+  /** The trace in the caller's transaction, authorised here (`inv.trace.read` at the unit's branch). */
+  async traceIn(tx: Transaction, actor: Actor | undefined, unitId: string): Promise<Trace> {
+    const backward = await this.store.lineage(tx, unitId, 'BACKWARD');
+    const self = backward[0];
+    await this.authoriser.authorise(tx, actor, 'inv.trace.read', { branchId: self?.branchId ?? null });
+    if (self === undefined) {
+      throw new NotFoundError(`no stock unit ${unitId}`);
+    }
+    const forward = await this.store.lineage(tx, unitId, 'FORWARD');
+    const units = [...backward, ...forward.slice(1)];
+    const movements = await this.store.movementsOf(tx, units.map((u) => u.unitId));
+    const traced = (link: UnitLink): TracedUnit => {
+      const own = movements.filter((m) => m.stockUnitId === link.unitId);
+      return { ...link, costByElement: costByElement(own), movements: own };
+    };
+    const downstream = new Set(forward.map((u) => u.unitId));
+    const reversedSales = new Set(movements.filter((m) => m.reversesMovementId !== null).map((m) => m.reversesMovementId!));
+    return {
+      unit: traced(self),
+      backward: backward.slice(1).map(traced),
+      forward: forward.slice(1).map(traced),
+      sales: movements.filter((m) => downstream.has(m.stockUnitId) && SALE_TYPES.has(m.movementType) && m.reversesMovementId === null && !reversedSales.has(m.id)),
+    };
   }
 }

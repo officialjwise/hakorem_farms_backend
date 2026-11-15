@@ -1,0 +1,118 @@
+operationId: traceStockUnit
+tags:
+  - inv
+summary: "Trace a lot or animal backward and forward"
+description: "Answers UAT scenario 3 in one request: a sold meat lot back to the individual animal, its supplier, its feed and veterinary cost, and forward to every sale. `costByElement` is what the origins of the trace cost (the animals, or the unit itself when it came from nowhere else). `healthEvents` is empty until the livestock register exists; `customer` and `billingDocument` on a sale are null until orders and billing exist.\n\nPermission: `inv.trace.read`."
+x-permission: inv.trace.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/StockTrace"
+        example:
+          unit:
+            id: "019a7a90-f15d-712e-b666-1bbcd880949a"
+            identifier: MEAT-GOAT-261109-01
+            tracking: LOT
+          product:
+            id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
+            sku: MEAT-GOAT
+            name: "Goat meat, 15 kg pack"
+          ancestors:
+            - unit:
+                id: "019a7a90-37c3-75d9-9b12-666ffe5adf4d"
+                identifier: G-0098
+                tracking: SERIAL
+              product:
+                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                sku: LIV-GOAT
+                name: Goat
+              linkType: PROCESSING
+              sourceDocument:
+                id: "019a7aac-7e39-7fc5-b4fd-05253a247e03"
+                docType: PROCESSING_ORDER
+                number: PRC-2026-DDW-000012
+              depth: 1
+          descendants: []
+          supplier:
+            id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
+            supplierNo: S-0012
+            name: "Kpone Livestock Traders"
+          sales:
+            - order:
+                id: "019a7aae-ab07-71c3-96fb-250bc8969de9"
+                docType: SALES_ORDER
+                number: SO-2026-DDW-004202
+              billingDocument:
+                id: "019a7aae-c9f6-7ba7-a0df-c34342473c21"
+                docType: INVOICE
+                number: INV-2026-DDW-001190
+              customer:
+                id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+                customerNo: C-00042
+                name: "Royal Palm Hotel Ltd"
+              soldAt: "2026-11-12T11:00:00Z"
+              qty: "15.200"
+              weightKg: "15.200"
+            - order:
+                id: "019a7aae-e8e5-758a-bac2-617abbf8da58"
+                docType: SALES_ORDER
+                number: SO-2026-DDW-004209
+              billingDocument:
+                id: "019a7aaf-07d4-7f6e-84a6-ffb235a97890"
+                docType: RECEIPT
+                number: RCP-2026-DDW-T1-018820
+              customer: null
+              soldAt: "2026-11-13T08:20:00Z"
+              qty: "14.850"
+              weightKg: "14.850"
+          costByElement:
+            - costElement: PURCHASE
+              valuePesewas: 52000
+            - costElement: FEED
+              valuePesewas: 9800
+            - costElement: VETERINARY
+              valuePesewas: 4300
+            - costElement: PROCESSING
+              valuePesewas: 6000
+          healthEvents:
+            - id: "019a7aaf-26c3-7951-9e89-9de9af5a16c7"
+              kind: DEWORMING
+              productName: "Albendazole 10% oral"
+              occurredAt: "2026-10-20T08:00:00Z"
+              withdrawalEndsAt: "2026-11-03T08:00:00Z"
+          currency: GHS
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -95,6 +95,9 @@ const VALID_BODY: Readonly<Record<string, object>> = {
   updateBranch: { version: 1, name: 'Kumasi' },
   createLocation: { branchId: '01900000-0000-7000-8000-00000000f001', code: 'PEN2', name: 'Pen', kind: 'PEN' },
   updateLocation: { version: 1, name: 'Pen' },
+  createGoodsReceipt: { kind: 'HARVEST', locationId: randomUUID(), receivedAt: '2026-11-10T07:00:00Z', lines: [] },
+  updateGoodsReceipt: { version: 1, notes: 'Two birds died on the road' },
+  cancelGoodsReceipt: { reason: 'Delivery turned back at the gate' },
   archiveLocation: { version: 1, reason: 'Closed' },
   createCustomer: { kind: 'INDIVIDUAL', name: 'Ama' },
   updateCustomer: { version: 1, name: 'Ama' },
@@ -137,7 +140,7 @@ afterAll(async () => {
 });
 
 describe('deny by default: the handler walk (ADR-0017, security architecture section 14)', () => {
-  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3 and B04e continued 4 routes, and every one declares its operation', () => {
+  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4 and B05 continued routes, and every one declares its operation', () => {
     expect(routes.map((route) => route.spec?.operationId).sort()).toEqual(
       [
         'changePassword', 'confirmTotpEnrolment', 'createProduct', 'getCurrentSession', 'getHealth', 'getProduct', 'listProducts', 'listSessions',
@@ -162,6 +165,8 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'uploadFile', 'getFile', 'createFileSignedUrl',
         'addProductImage', 'removeProductImage',
         'listImportJobs', 'createImportJob', 'getImportJob', 'listImportErrors', 'applyImportJob', 'cancelImportJob', 'createExportJob',
+        'listStockOnHand', 'getStockUnit', 'traceStockUnit',
+        'listGoodsReceipts', 'createGoodsReceipt', 'getGoodsReceipt', 'updateGoodsReceipt', 'postGoodsReceipt', 'cancelGoodsReceipt',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);

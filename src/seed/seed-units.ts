@@ -1,4 +1,5 @@
 import { farmSeedIam, seedLocationGrantsIam } from './farm-iam';
+import { farmSeedInv } from './farm-inv';
 import { farmSeedMdm, farmSeedMdmBootstrap } from './farm-mdm';
 import type { SeedUnit } from './seed-unit';
 
@@ -12,8 +13,9 @@ export interface SeedEnvironment {
  * realistic farm. MDM's bootstrap writes the first branch (ADR-0042); IAM's service unit bootstraps the Owner there
  * (ADR-0043), who creates one staff member per role; the MDM service unit then writes, as the seeded staff, the test branch, Dodowa's locations, the customers,
  * the catalogue, the tax scheme, the approved price lists, the caterer's contract list and the promotions through
- * MDM's services; last, the Owner grants the staff scoped to a location once the locations exist.
+ * MDM's services; then the Owner grants the staff scoped to a location once the locations exist; last, the Manager
+ * registers the suppliers and receives the farm's stock through INV's goods receipts (B05 continued).
  */
 export function seedUnits(env: SeedEnvironment): readonly SeedUnit[] {
-  return [farmSeedMdmBootstrap(), farmSeedIam(env.SEED_STAFF_PASSWORD), farmSeedMdm(), seedLocationGrantsIam()];
+  return [farmSeedMdmBootstrap(), farmSeedIam(env.SEED_STAFF_PASSWORD), farmSeedMdm(), seedLocationGrantsIam(), farmSeedInv()];
 }

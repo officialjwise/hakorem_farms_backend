@@ -1,0 +1,128 @@
+operationId: createGoodsReceipt
+tags:
+  - inv
+summary: "Draft a goods receipt"
+description: "Receiving twenty broilers or four goats. A purchase names its supplier; a harvest names none. For a serialised product list every animal with its tag, one per head; a lot needs a batch number, and an expiry date when the product has a shelf life (422 `GOODS_RECEIPT_INVALID`, each `details[].code` naming the rule). The receiving location is a physical location that holds stock, never in-transit. A receipt of kind `OPENING` is refused (`OPENING_NOT_AVAILABLE`) until the opening stock workflow is built.\n\nPermission: `inv.goods_receipt.create`, scoped to the receiving location."
+x-permission: inv.goods_receipt.create
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - GOODS_RECEIPT_INVALID
+  - REFERENCE_NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/GoodsReceiptCreate"
+      example:
+        kind: PURCHASE
+        supplierId: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
+        locationId: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+        purchaseOrderId: "019a7ab3-be3d-7115-b64d-1a25bfa09303"
+        deliveryNoteRef: DN-8812
+        receivedAt: "2026-11-13T10:00:00Z"
+        lines:
+          - productId: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+            purchaseOrderLineId: "019a7ab3-fc1b-74dc-9a14-5694b302cf72"
+            qtyReceived: "2.000"
+            weightKg: "48.500"
+            weightSource: SCALE
+            valuePesewas: 114000
+            animals:
+              - tagNo: G-0175
+                sex: MALE
+                breed: "West African Dwarf"
+                weightKg: "24.100"
+                weightSource: SCALE
+              - tagNo: G-0176
+                sex: FEMALE
+                breed: "West African Dwarf"
+                weightKg: "24.400"
+                weightSource: SCALE
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/GoodsReceipt"
+        example:
+          id: "019a7aae-6d29-7dfc-b334-e89cd534617a"
+          receiptNo: null
+          kind: PURCHASE
+          status: DRAFT
+          supplier:
+            id: "019a7a88-f7bf-7489-99c2-516f78deca4d"
+            supplierNo: S-0003
+            name: "Agrivet Ghana Ltd"
+          location:
+            id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
+            code: STORE-1
+            name: "Feed and produce store"
+            kind: STORE
+          purchaseOrder:
+            id: "019a7ab6-09fa-7cf7-a22f-d843c7c35121"
+            docType: PURCHASE_ORDER
+            number: PO-2026-DDW-000045
+          deliveryNoteRef: DN-8817
+          receivedAt: "2026-11-07T10:00:00Z"
+          notes: null
+          lines:
+            - id: "019a7ab6-28e9-76da-bc12-767b4174ef59"
+              lineNo: 1
+              product:
+                id: "019a7a8f-026d-72f7-b82f-38453d70b123"
+                sku: VET-OXYTET
+                name: "Oxytetracycline 20% injection, 100 ml"
+              purchaseOrderLineId: "019a7ab6-47d8-70be-85f6-14b2bb258d90"
+              qtyReceived: "10.000"
+              qtyRejected: "0.000"
+              uom: UNIT
+              weightKg: null
+              weightSource: null
+              valuePesewas: 85000
+              stockUnit: null
+              batchNo: null
+              expiresOn: null
+              animals: []
+          totalValuePesewas: 85000
+          currency: GHS
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 2
+          createdAt: "2026-11-12T08:05:00Z"
+          createdBy:
+            id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+            displayName: "Yaw Boateng"
+          postedAt: null
+          postedBy: null
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

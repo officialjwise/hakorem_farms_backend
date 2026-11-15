@@ -1,0 +1,415 @@
+operationId: listGoodsReceipts
+tags:
+  - inv
+summary: "List goods receipts"
+description: "Permission: `inv.goods_receipt.read`."
+x-permission: inv.goods_receipt.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: status
+    in: query
+    required: false
+    schema:
+      type: string
+      enum:
+        - DRAFT
+        - POSTED
+        - CANCELLED
+  - name: supplierId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: purchaseOrderId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: from
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date
+  - name: to
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/GoodsReceiptPage"
+        example:
+          data:
+            - id: "019a7ab3-9f4e-7731-ac6a-7bee45eff4cc"
+              receiptNo: GRN-2026-DDW-000072
+              kind: PURCHASE
+              status: POSTED
+              supplier:
+                id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
+                supplierNo: S-0012
+                name: "Kpone Livestock Traders"
+              location:
+                id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                code: PEN-G2
+                name: "Goat pen 2"
+                kind: PEN
+              purchaseOrder:
+                id: "019a7ab3-be3d-7115-b64d-1a25bfa09303"
+                docType: PURCHASE_ORDER
+                number: PO-2026-DDW-000040
+              deliveryNoteRef: DN-8812
+              receivedAt: "2026-11-12T10:00:00Z"
+              notes: null
+              lines:
+                - id: "019a7ab3-dd2c-7af8-8031-b85d3951313b"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                    sku: LIV-GOAT
+                    name: Goat
+                  purchaseOrderLineId: "019a7ab3-fc1b-74dc-9a14-5694b302cf72"
+                  qtyReceived: "4.000"
+                  qtyRejected: "0.000"
+                  uom: HEAD
+                  weightKg: "98.600"
+                  weightSource: SCALE
+                  valuePesewas: 228000
+                  stockUnit: null
+                  batchNo: null
+                  expiresOn: null
+                  animals:
+                    - tagNo: G-0171
+                      sex: MALE
+                      breed: "West African Dwarf"
+                      weightKg: "24.900"
+                      weightSource: SCALE
+                      dateOfBirth: null
+                      purpose: GROWING
+                      stockUnitId: "019a7a8f-bc07-7e4c-9384-ed921796666f"
+                    - tagNo: G-0172
+                      sex: MALE
+                      breed: "West African Dwarf"
+                      weightKg: "23.600"
+                      weightSource: SCALE
+                      dateOfBirth: null
+                      purpose: GROWING
+                      stockUnitId: "019a7ab4-1b0a-7ebf-a3f7-f4cc2cb36daa"
+                    - tagNo: G-0173
+                      sex: FEMALE
+                      breed: "West African Dwarf"
+                      weightKg: "25.300"
+                      weightSource: SCALE
+                      dateOfBirth: null
+                      purpose: GROWING
+                      stockUnitId: "019a7ab4-39f9-78a3-bddb-9303a6640be1"
+                    - tagNo: G-0174
+                      sex: FEMALE
+                      breed: "West African Dwarf"
+                      weightKg: "24.800"
+                      weightSource: SCALE
+                      dateOfBirth: null
+                      purpose: GROWING
+                      stockUnitId: "019a7ab4-58e8-7286-87be-313b2015aa19"
+              totalValuePesewas: 228000
+              currency: GHS
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-12T08:00:00Z"
+              createdBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              postedAt: "2026-11-12T09:00:00Z"
+              postedBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+            - id: "019a7ab4-77d7-7c6a-91a2-cf7299c64850"
+              receiptNo: GRN-2026-DDW-000073
+              kind: PURCHASE
+              status: POSTED
+              supplier:
+                id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
+                supplierNo: S-0007
+                name: "Ashanti Feeds Ltd"
+              location:
+                id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
+                code: STORE-1
+                name: "Feed and produce store"
+                kind: STORE
+              purchaseOrder:
+                id: "019a7ab4-96c6-764d-ab85-6daa1377e687"
+                docType: PURCHASE_ORDER
+                number: PO-2026-DDW-000041
+              deliveryNoteRef: DN-8813
+              receivedAt: "2026-11-11T10:00:00Z"
+              notes: null
+              lines:
+                - id: "019a7ab4-b5b5-7031-b569-0be18d2884bf"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                    sku: FD-BRL-FIN
+                    name: "Broiler finisher feed, 50 kg bag"
+                  purchaseOrderLineId: "019a7ab4-d4a4-7a14-8f4c-aa1906d922f6"
+                  qtyReceived: "20.000"
+                  qtyRejected: "0.000"
+                  uom: BAG
+                  weightKg: null
+                  weightSource: null
+                  valuePesewas: 1040000
+                  stockUnit: null
+                  batchNo: null
+                  expiresOn: null
+                  animals: []
+              totalValuePesewas: 1040000
+              currency: GHS
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-12T08:01:00Z"
+              createdBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              postedAt: "2026-11-12T09:01:00Z"
+              postedBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+            - id: "019a7ab4-f393-73f7-9930-4850808ac12e"
+              receiptNo: GRN-2026-DDW-000074
+              kind: PURCHASE
+              status: POSTED
+              supplier:
+                id: "019a7a89-16ae-7e6d-a3a5-efa6f28f6884"
+                supplierNo: S-0019
+                name: "Awutu Poultry Farm"
+              location:
+                id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+                code: HSE-B1
+                name: "Broiler house 1"
+                kind: PEN
+              purchaseOrder:
+                id: "019a7ab5-1282-7ddb-a313-e687fa3b5f65"
+                docType: PURCHASE_ORDER
+                number: PO-2026-DDW-000042
+              deliveryNoteRef: DN-8814
+              receivedAt: "2026-11-10T10:00:00Z"
+              notes: "Six birds dead on arrival, counted and photographed with the driver"
+              lines:
+                - id: "019a7ab5-3171-77be-bcf7-84bf73ecfd9d"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8d-704a-726a-a7a2-2f740f73a851"
+                    sku: LIV-BROILER
+                    name: "Broiler chicken"
+                  purchaseOrderLineId: "019a7ab5-5060-71a2-86da-22f6ed9d9bd4"
+                  qtyReceived: "500.000"
+                  qtyRejected: "6.000"
+                  uom: HEAD
+                  weightKg: null
+                  weightSource: null
+                  valuePesewas: 6237000
+                  stockUnit:
+                    id: "019a7a91-4e2a-7ed9-a411-f66345936f41"
+                    identifier: BRL-2610-01
+                    tracking: LOT
+                  batchNo: AWT-DOC-2610
+                  expiresOn: null
+                  animals: []
+              totalValuePesewas: 6237000
+              currency: GHS
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-12T08:02:00Z"
+              createdBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              postedAt: "2026-11-12T09:02:00Z"
+              postedBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+            - id: "019a7ab5-6f4f-7b85-90be-c12e674e3a0c"
+              receiptNo: GRN-2026-DDW-000075
+              kind: HARVEST
+              status: POSTED
+              supplier: null
+              location:
+                id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
+                code: STORE-1
+                name: "Feed and produce store"
+                kind: STORE
+              purchaseOrder: null
+              deliveryNoteRef: null
+              receivedAt: "2026-11-09T10:00:00Z"
+              notes: null
+              lines:
+                - id: "019a7ab5-8e3e-7569-aaa1-5f65e0ffd843"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                    sku: EGG-BIG
+                    name: "Eggs, big, crate of 30"
+                  purchaseOrderLineId: null
+                  qtyReceived: "48.000"
+                  qtyRejected: "2.000"
+                  uom: CRATE
+                  weightKg: null
+                  weightSource: null
+                  valuePesewas: 0
+                  stockUnit:
+                    id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
+                    identifier: EGG-261112-L1
+                    tracking: LOT
+                  batchNo: null
+                  expiresOn: "2026-12-03"
+                  animals: []
+              totalValuePesewas: 0
+              currency: GHS
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-12T08:03:00Z"
+              createdBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              postedAt: "2026-11-12T09:03:00Z"
+              postedBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+            - id: "019a7aae-4e3a-7419-a951-4a655b83c343"
+              receiptNo: GRN-2026-DDW-000076
+              kind: PURCHASE
+              status: POSTED
+              supplier:
+                id: "019a7a89-359d-7850-bd89-8dde6c4006bc"
+                supplierNo: S-0021
+                name: "Dodowa Vegetable Growers Cooperative"
+              location:
+                id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
+                code: STORE-1
+                name: "Feed and produce store"
+                kind: STORE
+              purchaseOrder:
+                id: "019a7ab5-ad2d-7f4c-b485-fd9d5ab0767b"
+                docType: PURCHASE_ORDER
+                number: PO-2026-DDW-000044
+              deliveryNoteRef: DN-8816
+              receivedAt: "2026-11-08T10:00:00Z"
+              notes: null
+              lines:
+                - id: "019a7ab5-cc1c-7930-8e68-9bd4d46114b2"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8e-86b1-7b69-b0a1-bf6756ac3845"
+                    sku: PRD-TOMATO
+                    name: "Tomatoes, crate"
+                  purchaseOrderLineId: "019a7ab5-eb0b-7313-984b-3a0c4e12b2ea"
+                  qtyReceived: "12.000"
+                  qtyRejected: "1.000"
+                  uom: CRATE
+                  weightKg: null
+                  weightSource: null
+                  valuePesewas: 618000
+                  stockUnit: null
+                  batchNo: null
+                  expiresOn: null
+                  animals: []
+              totalValuePesewas: 618000
+              currency: GHS
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-12T08:04:00Z"
+              createdBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              postedAt: "2026-11-12T09:04:00Z"
+              postedBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+            - id: "019a7aae-6d29-7dfc-b334-e89cd534617a"
+              receiptNo: null
+              kind: PURCHASE
+              status: DRAFT
+              supplier:
+                id: "019a7a88-f7bf-7489-99c2-516f78deca4d"
+                supplierNo: S-0003
+                name: "Agrivet Ghana Ltd"
+              location:
+                id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
+                code: STORE-1
+                name: "Feed and produce store"
+                kind: STORE
+              purchaseOrder:
+                id: "019a7ab6-09fa-7cf7-a22f-d843c7c35121"
+                docType: PURCHASE_ORDER
+                number: PO-2026-DDW-000045
+              deliveryNoteRef: DN-8817
+              receivedAt: "2026-11-07T10:00:00Z"
+              notes: null
+              lines:
+                - id: "019a7ab6-28e9-76da-bc12-767b4174ef59"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8f-026d-72f7-b82f-38453d70b123"
+                    sku: VET-OXYTET
+                    name: "Oxytetracycline 20% injection, 100 ml"
+                  purchaseOrderLineId: "019a7ab6-47d8-70be-85f6-14b2bb258d90"
+                  qtyReceived: "10.000"
+                  qtyRejected: "0.000"
+                  uom: UNIT
+                  weightKg: null
+                  weightSource: null
+                  valuePesewas: 85000
+                  stockUnit: null
+                  batchNo: null
+                  expiresOn: null
+                  animals: []
+              totalValuePesewas: 85000
+              currency: GHS
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-12T08:05:00Z"
+              createdBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              postedAt: null
+              postedBy: null
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
