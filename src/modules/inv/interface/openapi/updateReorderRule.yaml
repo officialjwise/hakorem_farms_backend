@@ -1,0 +1,80 @@
+operationId: updateReorderRule
+tags:
+  - inv
+summary: "Change a reorder rule"
+description: "Changes the levels and the lead time; the product, branch and location never change. Send the `version` read; a stale one is 409 `VERSION_CONFLICT`. The rule is judged again at once: an open alert whose level is no longer crossed is cleared, a newly crossed level raises its alert.\n\nPermission: `inv.reorder_rule.manage`, scoped to the rule's branch and location."
+x-permission: inv.reorder_rule.manage
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - NOT_FOUND
+  - VERSION_CONFLICT
+  - REORDER_RULE_INVALID
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ReorderRuleUpdate"
+      example:
+        version: 1
+        reorderPointQty: "20.000"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ReorderRule"
+        example:
+          id: "019a7abb-98ec-73d6-890e-463ba591bf19"
+          product:
+            id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+            sku: FD-BRL-FIN
+            name: "Broiler finisher feed, 50 kg bag"
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          location: null
+          uom: BAG
+          minQty: "10.000"
+          reorderPointQty: "15.000"
+          maxQty: "60.000"
+          expiryAlertDays: null
+          version: 1
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

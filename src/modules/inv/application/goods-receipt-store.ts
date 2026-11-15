@@ -101,6 +101,8 @@ export interface GoodsReceiptStore {
   insertAnimal(tx: Transaction, lineId: string, animal: Omit<AnimalRecord, 'stockUnitId'>): Promise<void>;
   receipt(tx: Transaction, id: string): Promise<ReceiptRecord | null>;
   receipts(tx: Transaction, filters: ReceiptFilters, scopes: readonly ReadScope[], afterId: string | null, limit: number): Promise<ReceiptRecord[]>;
+  /** Whether the product has ever had a balance in the branch, at any of its locations: it has stock history there. */
+  hasStockHistory(tx: Transaction, productId: string, branchId: string): Promise<boolean>;
   /** Which of these identifiers an ACTIVE stock unit of the product already carries. */
   activeIdentifiers(tx: Transaction, productId: string, identifiers: readonly string[]): Promise<string[]>;
   insertStockUnit(tx: Transaction, unit: NewStockUnit, actorId: string): Promise<void>;

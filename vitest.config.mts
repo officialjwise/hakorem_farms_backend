@@ -113,6 +113,9 @@ export default defineConfig({
         ...fullCoverage('src/modules/inv/domain/stock-exception.ts'), // B05 continued 3b: exception resolution kinds and summaries (ADR-0048)
         ...fullCoverage('src/modules/inv/domain/reservation.ts'), // B05 continued 3b: what may be promised, and what the expiry job ends
         ...fullCoverage('src/modules/inv/domain/availability.ts'), // B05 continued 3b: available to promise and its level
+        ...fullCoverage('src/modules/inv/domain/stock-alert.ts'), // B05 continued 4: reorder levels, one alert per crossing, expiry
+        ...fullCoverage('src/modules/inv/domain/temperature.ts'), // B05 continued 4: a reading against its range, in tenths of a degree
+        ...fullCoverage('src/modules/inv/domain/opening-stock.ts'), // B05 continued 4: an opening stock row, read exactly
         // ...fullCoverage('src/modules/fin/domain/**/*.ts'),              // B8: the ledger, posting rules, journals, periods (ADR-0003)
         // ...fullCoverage('src/modules/cap/domain/distribution/**/*.ts'), // B12: distribution, unit-days and allocation (ADR-0028)
       },

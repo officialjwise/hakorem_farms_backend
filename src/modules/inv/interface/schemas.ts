@@ -259,3 +259,57 @@ export const ListStockUnitsQuery = z.object({
   cursor: Cursor,
   limit: Limit,
 });
+
+/** The contract's `Celsius`: one decimal place, as a string. */
+const Celsius = z.string().regex(/^-?[0-9]{1,2}\.[0-9]$/);
+const ExpiryAlertDays = z.number().int().min(1).max(365);
+
+/** The contract's `ReorderRuleCreate`, strict. */
+export const ReorderRuleCreate = z.strictObject({
+  productId: z.uuid(),
+  branchId: z.uuid(),
+  locationId: z.uuid().optional(),
+  minQty: Quantity,
+  reorderPointQty: Quantity,
+  maxQty: Quantity,
+  expiryAlertDays: ExpiryAlertDays.optional(),
+});
+
+/** The contract's `ReorderRuleUpdate`, strict. */
+export const ReorderRuleUpdate = z.strictObject({
+  version: z.number().int().min(1),
+  minQty: Quantity.optional(),
+  reorderPointQty: Quantity.optional(),
+  maxQty: Quantity.optional(),
+  expiryAlertDays: ExpiryAlertDays.optional(),
+});
+
+/** listReorderRules query. */
+export const ListReorderRulesQuery = z.object({ productId: z.uuid().optional(), branchId: z.uuid().optional(), cursor: Cursor, limit: Limit });
+
+/** listStockAlerts query. */
+export const ListStockAlertsQuery = z.object({
+  branchId: z.uuid().optional(),
+  kind: z.enum(['LOW_STOCK', 'BELOW_MINIMUM', 'EXPIRING', 'EXPIRED']).optional(),
+  cursor: Cursor,
+  limit: Limit,
+});
+
+/** The contract's `TemperatureReadingCreate`, strict. */
+export const TemperatureReadingCreate = z.strictObject({
+  id: z.uuid().optional(),
+  locationId: z.uuid(),
+  readingC: Celsius,
+  measuredAt: DateTime,
+  source: z.enum(['MANUAL', 'SENSOR']),
+});
+
+/** listTemperatureReadings query. */
+export const ListTemperatureReadingsQuery = z.object({
+  locationId: z.uuid().optional(),
+  from: DateTime.optional(),
+  to: DateTime.optional(),
+  excursionsOnly: Bool.optional(),
+  cursor: Cursor,
+  limit: Limit,
+});

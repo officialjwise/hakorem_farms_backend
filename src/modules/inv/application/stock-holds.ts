@@ -12,6 +12,7 @@ import { checkHoldPlacement, judgeRelease, type HoldKind } from '../domain/stock
 import { pageProbe } from './counting';
 import { InvReferenceNotFoundError, StockHoldInvalidError, WithdrawalCannotBeReleasedError } from './errors';
 import { principalRef, readScopes, runStockCommand, unitRef, type Page, type StockUnitRefView } from './stock-command';
+import type { AvailabilityWatch } from './stock';
 import type { StockDocumentsStore, UnitRecord } from './stock-documents-store';
 import type { StockHoldFilters, StockHoldRecord, StockHoldStore } from './stock-hold-store';
 
@@ -78,6 +79,7 @@ export class StockHolds {
     private readonly principals: PrincipalNames,
     private readonly cursors: Cursors,
     private readonly clock: Clock,
+    private readonly watch: AvailabilityWatch,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -130,6 +132,7 @@ export class StockHolds {
       actorId,
     );
     await this.audit.record(tx, { module: 'inv', action: 'PLACE', entityType: 'StockHold', entityId: id, branchId: unit.branchId, before: null, after: { ...(await this.store.hold(tx, id))! } });
+    await this.watch.evaluateIn(tx, actorId, [unit.productId]);
     return id;
   }
 
@@ -164,6 +167,7 @@ export class StockHolds {
         const after = (await this.store.hold(tx, id))!;
         const unit = await this.unit(tx, before.stockUnitId);
         await this.audit.record(tx, { module: 'inv', action: 'RELEASE', entityType: 'StockHold', entityId: id, branchId: unit.branchId, before: { ...before }, after: { ...after } });
+        await this.watch.evaluateIn(tx, actor!.principalId, [unit.productId]);
         return { status: 200, body: (await this.views(tx, [after]))[0]! };
       },
     );

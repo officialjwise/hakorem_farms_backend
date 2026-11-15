@@ -28,6 +28,11 @@ registerMessages({
   'inv.stock_hold_rule': 'This value is not valid on a stock hold.',
   'inv.stock_exception_invalid': 'This stock exception cannot be resolved like this.',
   'inv.stock_exception_rule': 'This value is not valid for resolving this stock exception.',
+  'inv.reorder_rule_invalid': 'This reorder rule is not valid.',
+  'inv.reorder_rule_rule': 'This value is not valid on a reorder rule.',
+  'inv.temperature_reading_invalid': 'This temperature reading cannot be recorded.',
+  'inv.temperature_reading_rule': 'This value is not valid on a temperature reading.',
+  'inv.stock_unit_expired': 'This lot is past its expiry date and cannot be sold. Write it off instead.',
   'inv.withdrawal_cannot_be_released': 'A veterinary withdrawal hold cannot be released early by anyone. It ends on its own date.',
 });
 
@@ -156,6 +161,38 @@ export class StockExceptionInvalidError extends BusinessRuleError {
   }
 }
 
+/**
+ * 422 REORDER_RULE_INVALID: a reorder rule breaks a rule (FR-INV-015, A-147): `BELOW_MINIMUM`, `BELOW_REORDER_POINT`,
+ * `MAXIMUM_REQUIRED`, `OUT_OF_RANGE`, `NOT_A_STOCK_PRODUCT`, `NOT_A_STOCK_LOCATION`, `NOT_IN_THE_BRANCH` and
+ * `RULE_EXISTS`.
+ */
+export class ReorderRuleInvalidError extends BusinessRuleError {
+  readonly code = 'REORDER_RULE_INVALID';
+  readonly messageKey = 'inv.reorder_rule_invalid';
+  constructor(fields: ReadonlyArray<{ readonly field: string; readonly rule: string }>) {
+    super('the reorder rule breaks a rule', details(fields, 'inv.reorder_rule_rule'));
+  }
+}
+
+/**
+ * 422 TEMPERATURE_READING_INVALID: a reading cannot be recorded (FR-INV-007, A-147): `NO_TEMPERATURE_RANGE` (the
+ * location has no permitted range), `NOT_A_STOCK_LOCATION`, `IN_THE_FUTURE`, or `ID_IN_USE` for a client id another
+ * location's reading already holds.
+ */
+export class TemperatureReadingInvalidError extends BusinessRuleError {
+  readonly code = 'TEMPERATURE_READING_INVALID';
+  readonly messageKey = 'inv.temperature_reading_invalid';
+  constructor(fields: ReadonlyArray<{ readonly field: string; readonly rule: string }>) {
+    super('the temperature reading breaks a rule', details(fields, 'inv.temperature_reading_rule'));
+  }
+}
+
+/** 422 STOCK_UNIT_EXPIRED: a sale of a lot after its expiry date (FR-INV-016, A-134 (j); migration 0064). */
+export class StockUnitExpiredError extends BusinessRuleError {
+  readonly code = 'STOCK_UNIT_EXPIRED';
+  readonly messageKey = 'inv.stock_unit_expired';
+}
+
 /** 422 WITHDRAWAL_CANNOT_BE_RELEASED: a veterinary withdrawal hold only ends by time (FR-INV-022, ADR-0019). */
 export class WithdrawalCannotBeReleasedError extends BusinessRuleError {
   readonly code = 'WITHDRAWAL_CANNOT_BE_RELEASED';
@@ -229,6 +266,8 @@ const BY_RULE: Readonly<Record<string, new (message: string) => Error>> = {
   ck_stock_reservation: InsufficientStockError,
   ck_stock_reservation_place: StockUnitNotAvailableError,
   ck_stock_reservation_held: StockUnitOnHoldError,
+  // Migration 0064 (FR-INV-016): an expired lot is never sold.
+  ck_stock_expired: StockUnitExpiredError,
 };
 
 /** Translates a stock trigger's refusal into its API error; anything else is rethrown unchanged. */

@@ -65,6 +65,13 @@ describe('what holds a variance, and how an exception is summed up', () => {
     expect(exceptionSummary({ kind: 'RESERVATION_CONFLICT', movementId: 'm', qty: '1.000', details: { movementType: 'SALE_ISSUE_OFFLINE', onHandAfter: '2.000', reserved: '3.000' } })).toBe(
       'SALE_ISSUE_OFFLINE left 2.000 on hand against 3.000 reserved',
     );
+    const excursion = { readingC: '-9.5', locationCode: 'COLD', minC: '-25.0', maxC: '-18.0' };
+    expect(exceptionSummary({ kind: 'TEMPERATURE_EXCURSION', movementId: null, qty: '45.000', details: { ...excursion, holdId: 'h' } })).toBe(
+      '-9.5 °C at COLD, outside -25.0 to -18.0 °C; 45.000 quarantined',
+    );
+    expect(exceptionSummary({ kind: 'TEMPERATURE_EXCURSION', movementId: null, qty: '6.000', details: { ...excursion, holdId: null } })).toBe(
+      '-9.5 °C at COLD, outside -25.0 to -18.0 °C; 6.000 on hand, not tracked by lot, so not held',
+    );
     expect(exceptionSummary({ kind: 'BALANCE_DRIFT', movementId: null, qty: '2.000', details: { projection: 'BALANCE', projectedQty: '48.000', ledgerQty: '46.000' } })).toBe(
       'Nightly recompute: BALANCE 48.000, ledger 46.000; nothing was corrected',
     );

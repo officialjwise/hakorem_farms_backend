@@ -11,7 +11,7 @@ function line(overrides: Partial<ReceiptLineDraft> = {}): ReceiptLineDraft {
   return { qtyReceived: Quantity.parse('1'), value: Money.ofPesewas(1_000n), batchNo: null, expiresOn: null, animalTags: [], ...overrides };
 }
 
-const check = (kind: 'PURCHASE' | 'HARVEST', lines: Array<[ReceiptLineDraft, ReceiptProductFacts, string?]>) =>
+const check = (kind: 'PURCHASE' | 'HARVEST' | 'OPENING', lines: Array<[ReceiptLineDraft, ReceiptProductFacts, string?]>) =>
   checkReceiptLines({ kind, receivedOn: '2026-11-13', lines: lines.map(([draft, product, productId], index) => ({ draft, product, productId: productId ?? `p${index}` })) });
 
 describe('goods receipt line rules (FR-INV-005, FR-INV-009)', () => {
@@ -81,5 +81,10 @@ describe('goods receipt line rules (FR-INV-005, FR-INV-009)', () => {
       { field: '/lines/0/valuePesewas', rule: 'VALUE_REQUIRED' },
     ]);
     expect(check('HARVEST', [[line({ value: Money.zero() }), { ...yam, isPurchasable: false }]])).toEqual([]);
+  });
+
+  it('values every opening balance line, purchasable or not, since opening stock with no value would understate it (A-147)', () => {
+    expect(check('OPENING', [[line({ value: Money.zero() }), { ...yam, isPurchasable: false }]])).toEqual([{ field: '/lines/0/valuePesewas', rule: 'VALUE_REQUIRED' }]);
+    expect(check('OPENING', [[line({ value: Money.ofPesewas(1n) }), { ...yam, isPurchasable: false }]])).toEqual([]);
   });
 });

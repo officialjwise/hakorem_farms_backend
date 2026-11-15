@@ -158,6 +158,11 @@ export class PgGoodsReceiptStore implements GoodsReceiptStore {
     return this.assemble(tx, rows);
   }
 
+  async hasStockHistory(tx: Transaction, productId: string, branchId: string): Promise<boolean> {
+    const { rows } = await tx.query<{ found: boolean }>('SELECT EXISTS (SELECT 1 FROM inv.stock_balance WHERE product_id = $1 AND branch_id = $2) AS found', [productId, branchId]);
+    return rows[0]!.found;
+  }
+
   async activeIdentifiers(tx: Transaction, productId: string, identifiers: readonly string[]): Promise<string[]> {
     if (identifiers.length === 0) return [];
     const { rows } = await tx.query<{ identifier: string }>(

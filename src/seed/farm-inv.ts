@@ -1,6 +1,6 @@
 import type { INestApplicationContext } from '@nestjs/common';
 import type pg from 'pg';
-import { GoodsReceipts, type ReceiptLineInput } from '../modules/inv';
+import { ColdChain, GoodsReceipts, StockAlerts, type ReceiptLineInput } from '../modules/inv';
 import { ReferenceDataAdmin } from '../modules/mdm';
 import { PG_POOL } from '../platform/platform.module';
 import { SeedStaff } from './seed-staff';
@@ -108,6 +108,22 @@ export const SEED_HAND_COUNT = {
   totalValueAtCostPesewas: 1_595_501,
 } as const;
 
+/**
+ * Reorder rules at Dodowa (FR-INV-015), whole branch. The eggs' reorder point is the 30 crates the seed receives, so
+ * the seeded farm opens with one low-stock alert, suggesting 50 crates to reach the maximum; yam and beef are above.
+ */
+export const SEED_REORDER_RULES = [
+  { sku: 'EGG-CRATE-BIG', minQty: '20.000', reorderPointQty: '30.000', maxQty: '80.000', expiryAlertDays: 5 },
+  { sku: 'PRD-YAM-TUBER', minQty: '15.000', reorderPointQty: '25.000', maxQty: '80.000' },
+  { sku: 'MEAT-BEEF-15KG', minQty: '10.000', reorderPointQty: '20.000', maxQty: '90.000', expiryAlertDays: 5 },
+] as const;
+
+/** Two readings of the frozen cold room after the delivery, both in its -25.0 to -18.0 range, with fixed client ids. */
+export const SEED_TEMPERATURE_READINGS = [
+  { id: '019a6c5a-6dc0-7000-8000-00000000c001', readingC: '-19.5', measuredAt: new Date('2026-11-10T08:00:00Z') },
+  { id: '019a6c5a-6dc0-7000-8000-00000000c002', readingC: '-18.5', measuredAt: new Date('2026-11-10T12:00:00Z') },
+] as const;
+
 const key = (...parts: string[]): string => `seed:inv:${parts.join(':')}`;
 
 async function idsByCode(pool: pg.Pool, sql: string): Promise<Map<string, string>> {
@@ -184,6 +200,28 @@ export function farmSeedInv(): ServiceSeedUnit {
         });
         records += 1 + receipt.lines.length;
       }
+
+      // Reorder rules and the cold room log (B05 continued 4), through their services as the Manager.
+      const branchId = required(await idsByCode(pool, "SELECT code, id FROM mdm.branch WHERE code = 'DDW'"), 'DDW', 'branch');
+      const ruled = new Set((await pool.query<{ product_id: string }>('SELECT product_id FROM inv.reorder_rule WHERE branch_id = $1 AND location_id IS NULL AND deleted_at IS NULL', [branchId])).rows.map((r) => r.product_id));
+      const logged = new Set((await pool.query<{ id: string }>('SELECT id FROM inv.temperature_reading WHERE id = ANY($1::uuid[])', [SEED_TEMPERATURE_READINGS.map((r) => r.id)])).rows.map((r) => r.id));
+      const alerts = app.get(StockAlerts);
+      const coldChain = app.get(ColdChain);
+      records += await staff.as('manager', async (manager) => {
+        let written = 0;
+        for (const rule of SEED_REORDER_RULES) {
+          const productId = required(products, rule.sku, 'product');
+          if (ruled.has(productId)) continue;
+          await alerts.createRule(manager, { ...rule, productId, branchId }, key('reorder-rule', rule.sku));
+          written += 1;
+        }
+        for (const reading of SEED_TEMPERATURE_READINGS) {
+          if (logged.has(reading.id)) continue;
+          await coldChain.record(manager, { ...reading, locationId: required(locations, 'COLD', 'location'), source: 'MANUAL' }, key('temperature', reading.id));
+          written += 1;
+        }
+        return written;
+      });
       return { records };
     },
   };

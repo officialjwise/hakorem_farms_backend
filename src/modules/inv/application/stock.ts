@@ -48,12 +48,18 @@ export interface StockPostingPayload {
   readonly reversesMovementId: string | null;
 }
 
+/** What is told when available stock of products may have changed, in the same transaction (FR-INV-015). */
+export interface AvailabilityWatch {
+  evaluateIn(tx: Transaction, actorId: string, productIds: readonly string[]): Promise<unknown>;
+}
+
 /**
  * INV's `Stock` interface (MODULE_BOUNDARIES, INV card): post movements for a document inside the caller's
  * transaction. The caller has authorised its own command; this checks only what a stock entry point must (ADR-0005):
  * that the transaction is serializable. Every invariant is the trigger's; a refusal comes back as the API error the
  * rule names. A movement whose type posts to the ledger publishes that event through the outbox, in the same
- * transaction, with the value the database decided.
+ * transaction, with the value the database decided. Every movement then has the product's reorder rules judged in
+ * the same transaction, so a low-stock alert is raised once, when available stock crosses its level (FR-INV-015).
  */
 export class Stock {
   private readonly nextId: () => string;
@@ -62,6 +68,7 @@ export class Stock {
     private readonly store: StockStore,
     private readonly events: DomainEvents,
     clock: Clock,
+    private readonly watch: AvailabilityWatch,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -118,6 +125,12 @@ export class Stock {
         },
       });
     }
+    await this.watch.evaluateIn(tx, actorId, [request.productId]);
     return { id, value };
+  }
+
+  /** Reservations and holds change what is available without a movement; they tell the watch through here. */
+  availabilityChangedIn(tx: Transaction, actorId: string, productIds: readonly string[]): Promise<unknown> {
+    return this.watch.evaluateIn(tx, actorId, productIds);
   }
 }

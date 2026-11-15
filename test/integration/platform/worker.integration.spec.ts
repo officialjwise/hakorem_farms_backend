@@ -109,4 +109,26 @@ describe('the worker process (ADR-0006, ADR-0010)', () => {
     const run = (await admin.query<{ outcome: string; summary: unknown; actor_id: string }>("SELECT outcome, summary, actor_id FROM platform.job_run WHERE job_name = 'reservation-expiry'")).rows[0];
     expect(run).toEqual({ outcome: 'SUCCESS', summary: { expired: 0 }, actor_id: '01900000-0000-7000-8000-000000000004' });
   });
+
+  it('runs the nightly stock recompute and the daily stock alerts INV contributes (ADR-0049), each recording its summary', async () => {
+    const admin = database.pool('admin');
+    const url = new URL(inject('redisUrl'));
+    const queue = new BullmqJobQueue({ host: url.hostname, port: Number(url.port) }, `${prefix}bull`, silent);
+    try {
+      await queue.add('stock-balance-recompute', {});
+      await queue.add('stock-alerts', {});
+      await waitFor(async () => (await admin.query("SELECT 1 FROM platform.job_run WHERE job_name IN ('stock-balance-recompute', 'stock-alerts')")).rowCount === 2);
+    } finally {
+      await queue.close();
+    }
+    const runs = (
+      await admin.query<{ job_name: string; outcome: string; summary: unknown; actor_id: string }>(
+        "SELECT job_name, outcome, summary, actor_id FROM platform.job_run WHERE job_name IN ('stock-balance-recompute', 'stock-alerts') ORDER BY job_name",
+      )
+    ).rows;
+    expect(runs).toEqual([
+      { job_name: 'stock-alerts', outcome: 'SUCCESS', summary: { levelRaised: 0, levelCleared: 0, expiryRaised: 0, expiryCleared: 0 }, actor_id: '01900000-0000-7000-8000-000000000004' },
+      { job_name: 'stock-balance-recompute', outcome: 'SUCCESS', summary: { drift: 0, exceptionIds: [] }, actor_id: '01900000-0000-7000-8000-000000000004' },
+    ]);
+  });
 });

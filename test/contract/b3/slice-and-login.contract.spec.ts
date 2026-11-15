@@ -13,6 +13,9 @@ import {
   StockHoldCreate,
   StockHoldRelease,
   StockExceptionResolve,
+  ReorderRuleCreate,
+  ReorderRuleUpdate,
+  TemperatureReadingCreate,
   StockTakeCounts,
   StockTakeCreate,
   StockTransferCreate,
@@ -274,6 +277,9 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     releaseStockHold: StockHoldRelease,
     resolveStockException: StockExceptionResolve,
     releaseStockReservation: InvReasonBody,
+    createReorderRule: ReorderRuleCreate,
+    updateReorderRule: ReorderRuleUpdate,
+    recordTemperatureReading: TemperatureReadingCreate,
   };
 
   it('parses every request example of an implemented operation with the schema its route validates with', () => {

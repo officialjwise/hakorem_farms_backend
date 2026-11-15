@@ -236,4 +236,32 @@ describe('inventory operations answer in the contract shapes', () => {
     expect(invalid.status).toBe(400);
     expectShape('Error', invalid.body);
   });
+
+  it('reorder rules, stock alerts and temperature readings, and their refusals', async () => {
+    const rule = await post('/reorder-rules', { productId: id('product:PRD-CABBAGE-HEAD'), branchId: id('branch:DDW'), minQty: '30.000', reorderPointQty: '40.000', maxQty: '80.000' });
+    expect(rule.status).toBe(201);
+    expectShape('ReorderRule', rule.body);
+    expectShape('ReorderRulePage', (await get('/reorder-rules')).body);
+    const changed = await patch(`/reorder-rules/${rule.body.id as string}`, { version: 1, maxQty: '90.000' });
+    expect(changed.status).toBe(200);
+    expectShape('ReorderRule', changed.body);
+    const stale = await patch(`/reorder-rules/${rule.body.id as string}`, { version: 1, maxQty: '95.000' });
+    expect(stale.status).toBe(409);
+    expectShape('Error', stale.body);
+    const bad = await post('/reorder-rules', { productId: id('product:PRD-YAM-TUBER'), branchId: id('branch:DDW'), minQty: '9.000', reorderPointQty: '8.000', maxQty: '20.000' });
+    expect(bad.status).toBe(422);
+    expectShape('Error', bad.body);
+    const alerts = await get('/stock/alerts');
+    expect(alerts.status).toBe(200);
+    expectShape('StockAlertPage', alerts.body);
+    expect(alerts.body.data.length).toBeGreaterThan(0);
+    const reading = await post('/temperature-readings', { id: randomUUID(), locationId: id('location:COLD'), readingC: '-12.0', measuredAt: new Date().toISOString(), source: 'SENSOR' });
+    expect(reading.status).toBe(201);
+    expectShape('TemperatureReading', reading.body);
+    expect(reading.body.isExcursion).toBe(true);
+    expectShape('TemperatureReadingPage', (await get('/temperature-readings?excursionsOnly=true')).body);
+    const noRange = await post('/temperature-readings', { locationId: id('location:SHOP'), readingC: '24.0', measuredAt: new Date().toISOString(), source: 'MANUAL' });
+    expect(noRange.status).toBe(422);
+    expectShape('Error', noRange.body);
+  });
 });

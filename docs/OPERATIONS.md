@@ -413,7 +413,7 @@ One worker instance runs the scheduler (`SCHEDULER_ENABLED=true`); jobs are Bull
 | Daily 00:30 | `balance-snapshot` | On the first day of a month, writes the previous month-end stock balances | `inv.stock_balance_snapshot` |
 | Daily 01:00 | `backup-base` | Base backup with pgBackRest, encrypted, uploaded | ADR-0025 |
 | Daily 01:30 | `backup-dump` | Logical dump (`pg_dump -Fc`), encrypted with the backup key, uploaded, 30 days kept | Shared brief |
-| Daily 02:00 | `stock-balance-recompute` | Recomputes every `inv.stock_balance` and `inv.cost_pool` from the movement ledger and compares | ARCHITECTURE section 8 |
+| Daily 02:00 | `stock-balance-recompute` | Recomputes every `inv.stock_balance` and `inv.cost_pool` from the movement ledger and compares; each difference raises a `BALANCE_DRIFT` exception and `inv.BalanceDriftDetected`, never a correction; the run's summary carries the drift count and exception ids. Contributed by INV through `ScheduledJob` (B05 continued 4) | ARCHITECTURE section 8, ADR-0049 |
 | Daily 02:15 | `trial-balance-check` | Debits equal credits overall and per entry | ARCHITECTURE section 8 |
 | Daily 02:25 | `subledger-reconcile` | Each control account against its subledger or module (inventory against cost pools, receivables against open items, provider clearing against unsettled payments) | ARCHITECTURE section 8 |
 | Daily 02:35 | `period-balance-refresh` | Refreshes `fin.period_balance` for open periods | `fin` |
@@ -427,7 +427,7 @@ One worker instance runs the scheduler (`SCHEDULER_ENABLED=true`); jobs are Bull
 | Daily 04:20 | `heartbeat` | Calls `UPTIME_MONITOR_PING_URL` after the nightly jobs | Section 6.3 |
 | Daily 05:00 | `standing-orders` | Creates the orders due today from active standing orders and records the runs | `whl` |
 | Daily 06:00 | `overdue-holds` | Places accounts past the overdue threshold on hold | DOMAIN_MODEL |
-| Daily 06:30 | `stock-alerts` | Low stock and expiring lots alerts | `inv` |
+| Daily 06:30 | `stock-alerts` | Judges every reorder rule again (raising or clearing `LOW_STOCK` and `BELOW_MINIMUM`, which the stock transactions also raise as they cross), and raises `EXPIRING` and `EXPIRED` lot alerts in Africa/Accra dates; each raise publishes `inv.StockAlertRaised`. Contributed by INV through `ScheduledJob` (B05 continued 4, A-147) | `inv`, ADR-0049 |
 | Daily 07:30 | `dunning` | Sends reminder and dunning notices by policy level, after 07:00 so customers are not woken | `whl` |
 | Daily 08:00 | `dsr-reminders` | Warns when a data subject request is within 5 days of its due date | `aud` |
 | Daily 23:55 | `audit-anchor` | Signs the chain head, writes the anchor to the anchor bucket with object lock, records `platform.audit_anchor` (also done at every shift close) | ADR-0006 |

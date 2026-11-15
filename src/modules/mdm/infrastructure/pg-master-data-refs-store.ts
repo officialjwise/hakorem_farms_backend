@@ -41,11 +41,33 @@ export class PgMasterDataRefsStore implements MasterDataRefsStore {
   }
 
   async locations(tx: Transaction, ids: readonly string[]): Promise<LocationFacts[]> {
-    const { rows } = await tx.query<{ id: string; branch_id: string; code: string; name: string; kind: string; is_virtual: boolean; is_live: boolean }>(
-      'SELECT id, branch_id, code, name, kind, is_virtual, deleted_at IS NULL AS is_live FROM mdm.location WHERE id = ANY($1::uuid[])',
+    const { rows } = await tx.query<{
+      id: string;
+      branch_id: string;
+      code: string;
+      name: string;
+      kind: string;
+      is_virtual: boolean;
+      is_live: boolean;
+      temp_class: LocationFacts['tempClass'];
+      temp_min_c: string | null;
+      temp_max_c: string | null;
+    }>(
+      `SELECT id, branch_id, code, name, kind, is_virtual, deleted_at IS NULL AS is_live, temp_class, temp_min_c::text AS temp_min_c, temp_max_c::text AS temp_max_c
+         FROM mdm.location WHERE id = ANY($1::uuid[])`,
       [ids],
     );
-    return rows.map((r) => ({ id: r.id, branchId: r.branch_id, code: r.code, name: r.name, kind: r.kind, isVirtual: r.is_virtual, isLive: r.is_live }));
+    return rows.map((r) => ({
+      id: r.id,
+      branchId: r.branch_id,
+      code: r.code,
+      name: r.name,
+      kind: r.kind,
+      isVirtual: r.is_virtual,
+      isLive: r.is_live,
+      tempClass: r.temp_class,
+      tempRange: r.temp_min_c === null || r.temp_max_c === null ? null : { minC: r.temp_min_c, maxC: r.temp_max_c },
+    }));
   }
 
   async virtualLocation(tx: Transaction, branchId: string, kind: string): Promise<string | null> {
@@ -84,6 +106,21 @@ export class PgMasterDataRefsStore implements MasterDataRefsStore {
       'SELECT id FROM mdm.location WHERE branch_id = $1 AND kind = $2 AND NOT is_virtual AND deleted_at IS NULL ORDER BY created_at, id LIMIT 1',
       [branchId, kind],
     );
+    return rows[0]?.id ?? null;
+  }
+
+  async branchIdByCode(tx: Transaction, code: string): Promise<string | null> {
+    const { rows } = await tx.query<{ id: string }>('SELECT id FROM mdm.branch WHERE code = upper($1) AND deleted_at IS NULL', [code]);
+    return rows[0]?.id ?? null;
+  }
+
+  async locationIdByCode(tx: Transaction, branchId: string, code: string): Promise<string | null> {
+    const { rows } = await tx.query<{ id: string }>('SELECT id FROM mdm.location WHERE branch_id = $1 AND code = upper($2) AND deleted_at IS NULL', [branchId, code]);
+    return rows[0]?.id ?? null;
+  }
+
+  async productIdBySku(tx: Transaction, sku: string): Promise<string | null> {
+    const { rows } = await tx.query<{ id: string }>('SELECT id FROM mdm.product WHERE sku = upper($1) AND deleted_at IS NULL', [sku]);
     return rows[0]?.id ?? null;
   }
 }

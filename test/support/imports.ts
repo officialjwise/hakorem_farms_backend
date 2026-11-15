@@ -14,7 +14,7 @@ import { startTestApp, TEST_ORIGIN, TEST_PUBLIC_BUCKET, type TestApp } from './t
 import { createTestDatabase, type TestDatabase } from './test-database';
 
 /** The scanner port, answering CLEAN: the verdict path itself is ClamAV's, proved in file-store.integration.spec.ts. */
-class CleanScanner implements MalwareScanner {
+export class CleanScanner implements MalwareScanner {
   scan(): Promise<ScanVerdict> {
     return Promise.resolve({ outcome: 'CLEAN' });
   }

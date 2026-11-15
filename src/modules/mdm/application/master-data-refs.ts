@@ -26,6 +26,9 @@ export interface LocationFacts {
   readonly kind: string;
   readonly isVirtual: boolean;
   readonly isLive: boolean;
+  /** The cold chain class and permitted range of a cold room or vehicle (FR-INV-007), one decimal place; null if none. */
+  readonly tempClass: 'AMBIENT' | 'CHILLED' | 'FROZEN' | null;
+  readonly tempRange: { readonly minC: string; readonly maxC: string } | null;
 }
 
 export interface SupplierFacts {
@@ -66,6 +69,10 @@ export interface MasterDataRefsStore {
   branches(tx: Transaction, ids: readonly string[]): Promise<BranchFacts[]>;
   reasonCodes(tx: Transaction, codes: readonly string[]): Promise<ReasonCodeFacts[]>;
   physicalLocationOfKind(tx: Transaction, branchId: string, kind: string): Promise<string | null>;
+  /** Ids of live records by their codes, for a higher module's import sheet (ADR-0050). */
+  branchIdByCode(tx: Transaction, code: string): Promise<string | null>;
+  locationIdByCode(tx: Transaction, branchId: string, code: string): Promise<string | null>;
+  productIdBySku(tx: Transaction, sku: string): Promise<string | null>;
 }
 
 function byId<T extends { readonly id: string }>(rows: readonly T[]): ReadonlyMap<string, T> {
@@ -119,5 +126,23 @@ export class MasterDataRefs {
   /** The branch's live physical location of a kind (its in-transit location, for a transfer), or null if it has none. */
   physicalLocationOfKindIn(tx: Transaction, branchId: string, kind: string): Promise<string | null> {
     return this.store.physicalLocationOfKind(tx, branchId, kind);
+  }
+
+  /** A live branch by its code, for an import sheet a higher module owns (ADR-0050); null if there is none. */
+  async branchByCodeIn(tx: Transaction, code: string): Promise<BranchFacts | null> {
+    const id = await this.store.branchIdByCode(tx, code);
+    return id === null ? null : ((await this.branchesIn(tx, [id])).get(id) ?? null);
+  }
+
+  /** A live location of a branch by its code; null if there is none. */
+  async locationByCodeIn(tx: Transaction, branchId: string, code: string): Promise<LocationFacts | null> {
+    const id = await this.store.locationIdByCode(tx, branchId, code);
+    return id === null ? null : ((await this.locationsIn(tx, [id])).get(id) ?? null);
+  }
+
+  /** A live product by its SKU; null if there is none. */
+  async productBySkuIn(tx: Transaction, sku: string): Promise<ProductFacts | null> {
+    const id = await this.store.productIdBySku(tx, sku);
+    return id === null ? null : ((await this.productsIn(tx, [id])).get(id) ?? null);
   }
 }

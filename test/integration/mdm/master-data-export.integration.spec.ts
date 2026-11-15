@@ -92,7 +92,7 @@ describe('FR-MDM-020: audits row counts and demands step-up above 100 rows', () 
     expect((await get(world, world.refused['CASHIER']!, `/files/${fileId}`)).status).toBe(403);
   });
 
-  it('lets the accountant export to XLSX with a step-up, and refuses an entity whose sheet is not built', async () => {
+  it('lets the accountant export to XLSX with a step-up, and lists only exports when asked', async () => {
     await stepUp(world, world.accountant);
     const exported = await post(world, world.accountant, '/exports', { entity: 'CUSTOMER', format: 'XLSX' });
     expect(exported.status).toBe(202);
@@ -102,11 +102,6 @@ describe('FR-MDM-020: audits row counts and demands step-up above 100 rows', () 
     const rows = readSheet(Buffer.from(await (await fetch(linked.body.url as string)).arrayBuffer()), XLSX, 1_000);
     expect(rows).toHaveLength(151);
     expect(rows[1]![3]).toBe('+233240005000');
-    for (const entity of ['OPENING_STOCK']) {
-      const response = await post(world, world.accountant, '/exports', { entity, format: 'CSV' });
-      expect(response.status, entity).toBe(422);
-      expect(response.body.error.code, entity).toBe('IMPORT_ENTITY_NOT_AVAILABLE');
-    }
     const listed = await get(world, world.accountant, '/imports?direction=EXPORT');
     expect(listed.body.data.every((job: { direction: string }) => job.direction === 'EXPORT')).toBe(true);
   });

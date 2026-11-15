@@ -110,6 +110,9 @@ const VALID_BODY: Readonly<Record<string, object>> = {
   releaseStockHold: { reasonCode: 'INVESTIGATION_CLOSED', note: 'Refused' },
   resolveStockException: { resolutionKind: 'WRITE_OFF', note: 'Refused' },
   releaseStockReservation: { reason: 'Refused' },
+  createReorderRule: { productId: '019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb', branchId: '019a7a83-2aef-79e3-9f1b-a708a7ae1fe6', minQty: '10.000', reorderPointQty: '15.000', maxQty: '60.000' },
+  updateReorderRule: { version: 1, reorderPointQty: '20.000' },
+  recordTemperatureReading: { locationId: '019a7a84-4156-72e2-a81a-36fbeee7afd9', readingC: '-18.0', measuredAt: '2026-11-13T10:00:00Z', source: 'MANUAL' },
   archiveLocation: { version: 1, reason: 'Closed' },
   createCustomer: { kind: 'INDIVIDUAL', name: 'Ama' },
   updateCustomer: { version: 1, name: 'Ama' },
@@ -187,6 +190,7 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'listStockHolds', 'createStockHold', 'releaseStockHold',
         'listStockExceptions', 'getStockException', 'resolveStockException',
         'listStockReservations', 'releaseStockReservation', 'listStockAvailability', 'listStockUnits',
+        'listReorderRules', 'createReorderRule', 'updateReorderRule', 'listStockAlerts', 'listTemperatureReadings', 'recordTemperatureReading',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);

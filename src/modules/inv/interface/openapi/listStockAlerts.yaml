@@ -1,0 +1,177 @@
+operationId: listStockAlerts
+tags:
+  - inv
+summary: "List low-stock and expiring-stock alerts"
+description: "Open alerts within the caller's grants, newest first. `LOW_STOCK` (available at or below the reorder point) and `BELOW_MINIMUM` (under the minimum) belong to a reorder rule and are raised once per crossing, in the transaction of the movement, reservation or hold that crossed it, and cleared once stock rises above the level again; `onHandQty` is what is available now, `thresholdQty` the level crossed and `suggestedQty` what brings it back to the maximum. `EXPIRING` (within the lead time of the product's rule, default 3 days) and `EXPIRED` (past the expiry date, and refused to any sale with `STOCK_UNIT_EXPIRED`, so flagged for write-off) belong to a lot where it stands and are raised by the daily job; `onHandQty` is its on hand there and `daysToExpiry` counts from today in Africa/Accra. Each alert is also published as `inv.StockAlertRaised`.\n\nPermission: `inv.stock.read`."
+x-permission: inv.stock.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: branchId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: kind
+    in: query
+    required: false
+    schema:
+      type: string
+      enum:
+        - LOW_STOCK
+        - BELOW_MINIMUM
+        - EXPIRING
+        - EXPIRED
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/StockAlertPage"
+        example:
+          data:
+            - kind: LOW_STOCK
+              product:
+                id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                sku: FD-BRL-FIN
+                name: "Broiler finisher feed, 50 kg bag"
+              location: null
+              stockUnit: null
+              uom: BAG
+              onHandQty: "12.000"
+              thresholdQty: "15.000"
+              suggestedQty: "48.000"
+              expiresOn: null
+              daysToExpiry: null
+              raisedAt: "2026-11-13T05:00:00Z"
+            - kind: EXPIRING
+              product:
+                id: "019a7a8e-86b1-7b69-b0a1-bf6756ac3845"
+                sku: PRD-TOMATO
+                name: "Tomatoes, crate"
+              location:
+                id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
+                code: STORE-1
+                name: "Feed and produce store"
+                kind: STORE
+              stockUnit:
+                id: "019a7a91-8c08-72a0-87d8-32d238f5abb0"
+                identifier: TOM-261111-COOP
+                tracking: LOT
+              uom: CRATE
+              onHandQty: "12.000"
+              thresholdQty: null
+              suggestedQty: null
+              expiresOn: "2026-11-18"
+              daysToExpiry: 5
+              raisedAt: "2026-11-13T05:01:00Z"
+            - kind: BELOW_MINIMUM
+              product:
+                id: "019a7a8f-026d-72f7-b82f-38453d70b123"
+                sku: VET-OXYTET
+                name: "Oxytetracycline 20% injection, 100 ml"
+              location: null
+              stockUnit: null
+              uom: UNIT
+              onHandQty: "2.000"
+              thresholdQty: "3.000"
+              suggestedQty: "18.000"
+              expiresOn: null
+              daysToExpiry: null
+              raisedAt: "2026-11-13T05:02:00Z"
+            - kind: EXPIRING
+              product:
+                id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                sku: EGG-BIG
+                name: "Eggs, big, crate of 30"
+              location:
+                id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
+                code: STORE-1
+                name: "Feed and produce store"
+                kind: STORE
+              stockUnit:
+                id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
+                identifier: EGG-261112-L1
+                tracking: LOT
+              uom: CRATE
+              onHandQty: "48.000"
+              thresholdQty: null
+              suggestedQty: null
+              expiresOn: "2026-12-03"
+              daysToExpiry: 20
+              raisedAt: "2026-11-13T05:03:00Z"
+            - kind: LOW_STOCK
+              product:
+                id: "019a7a8e-a5a0-754c-8a85-5d9ed05dd67c"
+                sku: PRD-YAM
+                name: "Yam, tuber"
+              location:
+                id: "019a7a84-7f34-76a9-8be1-736ae249ec48"
+                code: SHOP
+                name: "Shop floor"
+                kind: SHOP_FLOOR
+              stockUnit: null
+              uom: TUBER
+              onHandQty: "22.000"
+              thresholdQty: "25.000"
+              suggestedQty: "58.000"
+              expiresOn: null
+              daysToExpiry: null
+              raisedAt: "2026-11-13T05:04:00Z"
+            - kind: EXPIRED
+              product:
+                id: "019a7a8e-0af5-73db-b913-46896fe8bf67"
+                sku: MEAT-CHK-WING
+                name: "Chicken wings, 15 kg pack"
+              location:
+                id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+                code: COLD-1
+                name: "Cold room"
+                kind: COLD_ROOM
+              stockUnit:
+                id: "019a7a91-aaf7-7c83-91bb-d109b2a649e7"
+                identifier: MEAT-WING-261108-01
+                tracking: LOT
+              uom: KG
+              onHandQty: "15.000"
+              thresholdQty: null
+              suggestedQty: null
+              expiresOn: "2026-11-12"
+              daysToExpiry: -1
+              raisedAt: "2026-11-13T05:05:00Z"
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

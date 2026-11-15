@@ -699,7 +699,8 @@ Then execute B05x only, on branch b05x-dashboard-branches-labels, branched from 
 1. Dashboard tiles in RPT, one operation per tile, each reading only published views (ADR-0011, ADR-0023),
    scoped to the branches the caller holds rpt permissions at, money as integer pesewas, with asOf:
    stock value at cost, animals on hand (serialised live stock units on hand, by species), low stock count
-   (products at or below their reorder point), and a purchases time series over a period (posted goods
+   (products at or below their reorder point, from INV's published view inv.pub_reorder_level, built in
+   B05 continued 4), and a purchases time series over a period (posted goods
    receipts at cost, per day in Africa/Accra) - all built now over INV's published views; and, in the
    contract only, today's sales, cash position, outstanding receivables and a sales time series, whose
    sources are BIL (B8), ORD and PAY (B9a) and POS (B9b). Never answer one of those from code before its

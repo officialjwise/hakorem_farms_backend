@@ -40,7 +40,7 @@ const UNIT = 1_000n;
  * The rules a goods receipt's lines must keep before it is saved or posted (FR-INV-005, FR-INV-009): an animal for
  * every head of a serialised product, each tag once in the receipt; a batch number for a lot, once per product in
  * the receipt, and an expiry date when the product has a shelf life, not before the stock arrives; nothing tracked
- * on an untracked product; a value on every purchase line. The database refuses the same shapes again.
+ * on an untracked product; a value on every purchase and opening balance line. The database refuses the same shapes again.
  */
 export function checkReceiptLines(input: ReceiptLinePlanInput): ReceiptRuleBroken[] {
   const broken: ReceiptRuleBroken[] = [];
@@ -52,7 +52,7 @@ export function checkReceiptLines(input: ReceiptLinePlanInput): ReceiptRuleBroke
     if (!product.isLive) fail('/productId', 'PRODUCT_NOT_ACTIVE');
     if (product.stockPolicy === 'NON_STOCK') fail('/productId', 'PRODUCT_NOT_STOCKED');
     if (input.kind === 'PURCHASE' && !product.isPurchasable) fail('/productId', 'PRODUCT_NOT_PURCHASABLE');
-    if (input.kind === 'PURCHASE' && draft.value.isZero()) fail('/valuePesewas', 'VALUE_REQUIRED');
+    if (input.kind !== 'HARVEST' && draft.value.isZero()) fail('/valuePesewas', 'VALUE_REQUIRED');
 
     if (product.tracking === 'SERIAL') {
       if (draft.qtyReceived.thousandths % UNIT !== 0n) fail('/qtyReceived', 'WHOLE_ANIMALS_ONLY');

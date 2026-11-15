@@ -81,7 +81,7 @@ No table is partitioned in version one. At the capacity targets in the shared br
 
 ## 2. Schema index
 
-234 tables in 23 schemas: 79 `DOCUMENT`, 67 `MASTER`, 45 `LEDGER`, 23 `PROJECTION`, 13 `WORK`, 7 `LOOKUP`. Plus the published views named in the dictionaries.
+235 tables in 23 schemas: 80 `DOCUMENT`, 67 `MASTER`, 45 `LEDGER`, 23 `PROJECTION`, 13 `WORK`, 7 `LOOKUP`. Plus the published views named in the dictionaries.
 
 | Schema | Module | Tables | Dictionary |
 | --- | --- | --- | --- |
@@ -251,6 +251,7 @@ No table is partitioned in version one. At the capacity targets in the shared br
 | `inv.stock_take_product` | `DOCUMENT` | The products a cycle count covers (B05 continued 3, A-141) |
 | `inv.reorder_rule` | `MASTER` | Minimum, reorder point and maximum levels, and expiry alert lead time |
 | `inv.temperature_reading` | `LEDGER` | Cold chain log |
+| `inv.stock_alert` | `DOCUMENT` | A low-stock, below-minimum, expiring or expired alert, raised once per crossing and cleared once (B05 continued 4) |
 | `inv.stock_balance_snapshot` | `LEDGER` | Month-end balances, for as-of reporting and five-year history |
 
 ### `liv`: Livestock
@@ -774,6 +775,9 @@ The shared brief requires that the rules are put in the database, because applic
 | One goat cannot be promised twice | Partial unique index on `inv.stock_reservation` |
 | Reserved never exceeds on-hand; unreserved issues cannot eat reserved stock | Triggers `inv.apply_reservation()` and `inv.apply_movement()` |
 | A cost pool with no quantity has no value | `CHECK` on `inv.cost_pool` |
+| An expired lot is never sold | Trigger `inv.protect_expired()` and `inv.movement_type.blocked_when_expired` (migration 0064) |
+| A temperature excursion is judged against the range it was recorded with | `CHECK` `ck_temperature_reading_excursion` on `inv.temperature_reading` |
+| A stock alert is raised once per crossing | Partial unique indexes on open `inv.stock_alert` rows |
 | Processing output costs sum exactly to input plus direct cost | Deferred trigger on `prc.processing_order` |
 | Feed, overhead and distribution allocations sum exactly to the amount allocated | Deferred triggers on `liv.feed_cost_allocation`, `cst.overhead_allocation_run`, `cap.distribution_run` |
 | Document totals equal line sums; net plus levies equals gross | `CHECK` on lines; deferred trigger on `bil.billing_document` |
