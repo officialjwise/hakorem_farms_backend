@@ -1,6 +1,14 @@
+import 'reflect-metadata';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { NestFactory } from '@nestjs/core';
 import pg from 'pg';
 import { z } from 'zod';
-import { parseEnvironment, postgresUrl } from '../platform/config/app-config';
+import { AppModule } from '../app.module';
+import { loadConfig, parseEnvironment, postgresUrl } from '../platform/config/app-config';
+import { createLogger } from '../platform/logging/logger';
+import { NestPinoLogger } from '../platform/logging/nest-logger';
+import { runSeedUnits } from '../seed/run-seed';
 import { seedUnits } from '../seed/seed-units';
 import { runCli } from './run-cli';
 
@@ -23,6 +31,9 @@ export class SeedRefusedError extends Error {
 /**
  * `pnpm db:seed`: loads the seeded farm. Refuses production three ways, so a wrong environment variable alone
  * cannot seed a live database: APP_ENV, SEED_ALLOWED, and the environment the database itself was marked with.
+ * Only then does it start the application's module graph (no HTTP) on the real clock, so the service units write
+ * through the same services the API runs, at the time they run: a seeded version asked to start at the seed instant
+ * starts at its approval instead (ADR-0036, ADR-0039), as a late approval in production would.
  */
 runCli('db:seed', async () => {
   const env = parseEnvironment(schema, process.env);
@@ -39,24 +50,20 @@ runCli('db:seed', async () => {
     if (databaseEnvironment === null || !SEEDABLE_DATABASES.has(databaseEnvironment)) {
       throw new SeedRefusedError(`the database is marked ${databaseEnvironment ?? 'with no environment'}`);
     }
-    let records = 0;
-    const units = seedUnits(env);
-    for (const unit of units) {
-      const client = await pool.connect();
-      try {
-        await client.query('BEGIN');
-        records += (await unit.run(client)).records;
-        await client.query('COMMIT');
-      } catch (error) {
-        await client.query('ROLLBACK');
-        throw new Error(`seed unit ${unit.name} failed`, { cause: error });
-      } finally {
-        client.release();
-      }
+    const manifest = JSON.parse(readFileSync(resolve(process.cwd(), 'package.json'), 'utf8')) as { version: string };
+    const config = loadConfig(process.env, manifest.version);
+    const logger = createLogger({ level: 'warn', service: 'hakorem-seed', version: config.version });
+    const app = await NestFactory.createApplicationContext(AppModule.forRoot(config, logger), {
+      logger: new NestPinoLogger(logger),
+      abortOnError: false,
+    });
+    try {
+      const units = seedUnits(env);
+      const records = await runSeedUnits(pool, app, units);
+      process.stdout.write(`db:seed: database marked ${databaseEnvironment}; ran ${units.length} seed units, ${records} records\n`);
+    } finally {
+      await app.close();
     }
-    process.stdout.write(
-      `db:seed: database marked ${databaseEnvironment}; ran ${units.length} seed units, ${records} records\n`,
-    );
   } finally {
     await pool.end();
   }

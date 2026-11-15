@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { hash } from '@node-rs/argon2';
 import { createUuidV7Generator, ManualClock } from '@hakorem/kernel';
 import type pg from 'pg';
-import type { SeedUnit } from './seed-unit';
+import type { SqlSeedUnit } from './seed-unit';
 
 /**
  * B3's slice of the seeded farm (hakorem-seed): the Dodowa farm and shop and the smoke-suite test branch with
@@ -65,8 +65,9 @@ const STAFF: readonly StaffMember[] = [
 ];
 
 /** The seeded farm in B3. Requires SEED_STAFF_PASSWORD: staff passwords are generated per machine, never fixed. */
-export function farmSeedB3(staffPassword: string | undefined): SeedUnit {
+export function farmSeedB3(staffPassword: string | undefined): SqlSeedUnit {
   return {
+    kind: 'SQL',
     name: 'b3-scope-staff-catalogue',
     async run(client: pg.PoolClient) {
       if (staffPassword === undefined || staffPassword.length < 12) {

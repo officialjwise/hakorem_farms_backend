@@ -4,6 +4,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { extendPrice } from '../../../src/modules/mdm/domain/pricing/pricing-engine';
 import { SEED_CUSTOMERS, SEED_PRICE_LISTS, SEED_PRODUCTS, SEED_SPECIES, type SeedChannel, type SeedEntry, type SeedPriceList } from '../../../src/seed/reference-pricing';
+import { runSeedUnits } from '../../../src/seed/run-seed';
 import { seedUnits } from '../../../src/seed/seed-units';
 import { CookieJar, relaxRateLimits, type TestSession } from '../../support/iam';
 import { startTestApp, TEST_ORIGIN, type TestApp } from '../../support/test-app';
@@ -125,17 +126,8 @@ function resolve(channel: SeedChannel, buyer: Buyer, lines: readonly Case[]) {
 beforeAll(async () => {
   database = await createTestDatabase();
   await relaxRateLimits(database);
-  for (const unit of seedUnits({ SEED_STAFF_PASSWORD: password })) {
-    const client = await database.pool('app').connect();
-    try {
-      await client.query('BEGIN');
-      await unit.run(client);
-      await client.query('COMMIT');
-    } finally {
-      client.release();
-    }
-  }
   api = await startTestApp(database);
+  await runSeedUnits(database.pool('app'), api.app, seedUnits({ SEED_STAFF_PASSWORD: password }));
   const admin = database.pool('admin');
   const collect = async (map: Map<string, string>, sql: string) => {
     for (const row of (await admin.query<{ code: string; id: string }>(sql)).rows) map.set(row.code, row.id);
