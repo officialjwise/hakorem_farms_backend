@@ -117,3 +117,12 @@ export function paymentApprovalReason(firstAfterPayoutChange: boolean, policyReq
   if (firstAfterPayoutChange) return 'FIRST_PAYMENT_AFTER_PAYOUT_CHANGE';
   return policyRequires ? 'PAYMENT_POLICY' : null;
 }
+
+/**
+ * Who may approve the first payment to a supplier after its payout details changed (owner, 2026-11-15, A-171): anyone
+ * with the approver permission except the person who made that change. They may still prepare it; the change's
+ * approver is not barred. `changeMakerId` is null for a payment that is not the first after a change.
+ */
+export function judgeFirstPaymentApprover(facts: { readonly changeMakerId: string | null; readonly approverId: string }): Result<void, 'PAYOUT_MAKER_CANNOT_APPROVE'> {
+  return facts.changeMakerId !== null && facts.changeMakerId === facts.approverId ? err('PAYOUT_MAKER_CANNOT_APPROVE') : ok(undefined);
+}

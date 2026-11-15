@@ -163,6 +163,8 @@ export interface PaymentRecord {
   readonly payoutChangeId: string | null;
   /** The first payment prepared for the supplier since its payout details changed, as the database decided (A-170). */
   readonly payoutFirstUse: boolean;
+  /** The approved payout change a first payment follows; its maker may not approve the payment (A-171). */
+  readonly payoutFirstUseChangeId: string | null;
   readonly payeeMasked: string | null;
   readonly allocations: readonly { readonly supplierInvoiceId: string; readonly supplierInvoiceNo: string; readonly amountPesewas: bigint }[];
 }

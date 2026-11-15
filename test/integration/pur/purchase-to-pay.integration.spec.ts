@@ -165,7 +165,7 @@ describe('wrong roles are refused on every purchase-to-pay write (ADR-0035)', ()
     expect((await get(investor, '/purchase-orders')).status).toBe(403);
   });
 
-  it('refuses supplier invoices and payments to the Storekeeper, Manager (writes), Cashier, Sales, Driver, Farm hand and Investor', async () => {
+  it('refuses supplier invoices and payments to the Storekeeper, Manager (invoice writes and paying), Cashier, Sales, Driver, Farm hand and Investor', async () => {
     const order = await sentOrder();
     for (const session of [pensStorekeeper, cashier, sales, driver, farmHand, investor]) {
       expect((await post(session, '/supplier-invoices', invoiceAgainst(order))).status).toBe(403);
@@ -174,7 +174,8 @@ describe('wrong roles are refused on every purchase-to-pay write (ADR-0035)', ()
       expect((await get(session, '/supplier-payments')).status).toBe(403);
     }
     expect((await post(manager, '/supplier-invoices', invoiceAgainst(order))).status).toBe(403);
-    expect((await post(manager, '/supplier-payments', { supplierId: supplier('Awutu Poultry Farm'), method: 'CASH', allocations: [{ supplierInvoiceId: randomUUID(), amountPesewas: 1 }] })).status).toBe(403);
+    // The Manager may prepare a payment since the owner's cross-approval (A-171); an unknown invoice is refused, not the role.
+    expect((await post(manager, '/supplier-payments', { supplierId: supplier('Awutu Poultry Farm'), method: 'CASH', allocations: [{ supplierInvoiceId: randomUUID(), amountPesewas: 1 }] })).status).toBe(422);
     expect((await post(manager, `/supplier-invoices/${randomUUID()}/match`)).status).toBe(403);
     expect((await post(manager, `/supplier-invoices/${randomUUID()}/approve`)).status).toBe(403);
     expect((await post(manager, `/supplier-payments/${randomUUID()}/mark-paid`, { paidAt: clock.now().toISOString(), externalReference: 'MOMO-1' })).status).toBe(403);

@@ -158,7 +158,7 @@ interface LevyRow {
 }
 
 const PAYMENT_COLUMNS = `p.id, p.payment_no, p.status, p.supplier_id, p.method, p.amount_pesewas::text AS amount, p.scheduled_for::text AS scheduled_for,
-  p.paid_at, p.external_reference, p.approval_request_id, p.branch_id, p.version, p.created_at, p.created_by, p.payout_change_id, p.payout_first_use,
+  p.paid_at, p.external_reference, p.approval_request_id, p.branch_id, p.version, p.created_at, p.created_by, p.payout_change_id, p.payout_first_use, p.payout_first_use_change_id,
   (SELECT c.payout_masked FROM pur.supplier_payout_change c WHERE c.id = p.payout_change_id) AS payee_masked`;
 
 interface PaymentRow {
@@ -178,6 +178,7 @@ interface PaymentRow {
   created_by: string;
   payout_change_id: string | null;
   payout_first_use: boolean;
+  payout_first_use_change_id: string | null;
   payee_masked: string | null;
 }
 
@@ -616,6 +617,7 @@ export class PgPurchasingStore implements PurchasingStore {
       createdBy: r.created_by,
       payoutChangeId: r.payout_change_id,
       payoutFirstUse: r.payout_first_use,
+      payoutFirstUseChangeId: r.payout_first_use_change_id,
       payeeMasked: r.payee_masked,
       allocations: allocations
         .filter((a) => a.supplier_payment_id === r.id)

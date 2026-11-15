@@ -57,7 +57,7 @@ describe('B07 continued operations answer in the contract shapes', () => {
     const kpone = ids.get('supplier:Kpone Livestock Traders (SEED)')!;
     const profile = await get(accountant, `/suppliers/${kpone}/profile`);
     expectShape('SupplierProfile', profile.body);
-    expect(profile.body).toMatchObject({ paymentTermsDays: 14, payoutDetailsMasked: null });
+    expect(profile.body).toMatchObject({ paymentTermsDays: 14, payoutDetailsMasked: 'MTN MoMo, ****0211' });
     const full = await get(accountant, `/suppliers/${kpone}/payout-details`);
     expect(full.status).toBe(200);
     expectShape('SupplierPayoutDetails', full.body);

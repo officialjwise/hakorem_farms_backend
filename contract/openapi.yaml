@@ -3363,7 +3363,7 @@ paths:
       tags:
         - iam
       summary: "Approve a request"
-      description: "You need `iam.approval.read` and the permission the kind's policy names at the request's branch (403 `FORBIDDEN`), and a step-up when the policy or that permission asks for one (403 `STEP_UP_REQUIRED`). Refused with 422 `MAKER_CANNOT_CHECK` when the caller made the request; the database enforces the same rule. A decided or withdrawn request is 422 `APPROVAL_ALREADY_DECIDED`, a lapsed one 422 `APPROVAL_EXPIRED`, and one whose subject changed since it was asked 422 `APPROVAL_SUBJECT_CHANGED`. The subject action takes effect in the same transaction as the approval, and the decision is audited and published as `iam.ApprovalDecided` (1.11.0).\n\nPermission: `the approving permission named by the approval policy for the kind`."
+      description: "You need `iam.approval.read` and the permission the kind's policy names at the request's branch (403 `FORBIDDEN`), and a step-up when the policy or that permission asks for one (403 `STEP_UP_REQUIRED`). Refused with 422 `MAKER_CANNOT_CHECK` when the caller made the request; the database enforces the same rule. A decided or withdrawn request is 422 `APPROVAL_ALREADY_DECIDED`, a lapsed one 422 `APPROVAL_EXPIRED`, and one whose subject changed since it was asked 422 `APPROVAL_SUBJECT_CHANGED`. A `SUPPLIER_PAYMENT` that is the first to a supplier since its payout details changed is refused with 422 `PAYOUT_MAKER_CANNOT_APPROVE` to the person who made that change (1.29.0, A-171). The subject action takes effect in the same transaction as the approval, and the decision is audited and published as `iam.ApprovalDecided` (1.11.0).\n\nPermission: `the approving permission named by the approval policy for the kind`."
       x-error-codes:
         - VALIDATION_FAILED
         - IDEMPOTENCY_KEY_REQUIRED
@@ -3380,6 +3380,7 @@ paths:
         - APPROVAL_ALREADY_DECIDED
         - APPROVAL_EXPIRED
         - APPROVAL_SUBJECT_CHANGED
+        - PAYOUT_MAKER_CANNOT_APPROVE
         - RATE_LIMITED
       x-permission: "the approving permission named by the approval policy for the kind"
       parameters:

@@ -157,13 +157,13 @@ describe('wrong roles are refused on every supplier register and requisition wri
     expect(await count("SELECT count(*)::int AS n FROM pur.supplier_payout_change WHERE supplier_id = $1 AND status = 'PENDING_APPROVAL'", [awutu])).toBe(0);
   });
 
-  it('refuses the full payout details to the Manager, who may change terms but holds no payout permission', async () => {
-    expect((await get(manager, `/suppliers/${supplier('Awutu Poultry Farm')}/payout-details`)).status).toBe(403);
+  it('refuses the full payout details to the Storekeeper, who holds no payout permission', async () => {
+    expect((await get(pensStorekeeper, `/suppliers/${supplier('Awutu Poultry Farm')}/payout-details`)).status).toBe(403);
   });
 
-  it('refuses a payout change to the Accountant and the Manager, who prepare and approve payments (A-169), but lets them change terms', async () => {
+  it('refuses a payout change to the Storekeeper (A-169, A-171)', async () => {
     const ashaiman = supplier('Ashaiman Cold Store Ltd');
-    for (const session of [accountant, manager, pensStorekeeper]) {
+    for (const session of [pensStorekeeper]) {
       const refused = await put(session, `/suppliers/${ashaiman}/profile`, { version: await profileVersion(ashaiman), payoutDetails: NEW_WALLET });
       expect(refused.status).toBe(403);
     }
@@ -214,9 +214,11 @@ describe('a supplier profile (FR-PUR-001)', () => {
     expect(invoice.body.dueDate).toBe('2026-12-04');
   });
 
-  it('shows the seeded terms of Kpone, and no seeded payout details', async () => {
+  it('shows the seeded terms and wallet of Kpone, made by the Owner and approved by the Manager', async () => {
     const kpone = await get(manager, `/suppliers/${supplier('Kpone Livestock Traders')}/profile`);
-    expect(kpone.body).toMatchObject({ paymentTermsDays: 14, leadTimeDays: 3, payoutMethod: null, payoutDetailsMasked: null, pendingPayoutChangeApprovalId: null });
+    expect(kpone.body).toMatchObject({ paymentTermsDays: 14, leadTimeDays: 3, payoutMethod: 'MOBILE_MONEY', payoutDetailsMasked: 'MTN MoMo, ****0211', pendingPayoutChangeApprovalId: null });
+    const { rows } = await admin().query<{ n: number }>("SELECT count(*)::int AS n FROM pur.supplier_payout_change WHERE status = 'APPROVED' AND posted_by <> created_by");
+    expect(rows[0]!.n).toBe(2);
   });
 
   it('shows bank details only as the bank, the account name and the last four characters', async () => {
@@ -249,12 +251,11 @@ describe('payout details are encrypted and a change needs a second person (FR-PU
     expect(second.status).toBe(422);
     expect(second.body.error).toMatchObject({ code: 'SUPPLIER_PROFILE_INVALID', details: [{ field: '/payoutDetails', code: 'PAYOUT_CHANGE_PENDING' }] });
 
-    // The maker (an Owner) cannot approve their own change; another Owner can. The Manager holds no approver permission.
+    // The maker (an Owner) cannot approve their own change; another Owner can. The Storekeeper holds no approver permission.
     const own = await approve(owner, asked.body.approvalRequestId);
     expect(own.status).toBe(422);
     expect(own.body.error.code).toBe('MAKER_CANNOT_CHECK');
-    await stepUp(manager);
-    expect((await post(manager, `/iam/approvals/${asked.body.approvalRequestId}/approve`, { reason: 'Looks right' })).status).toBe(403);
+    expect((await post(pensStorekeeper, `/iam/approvals/${asked.body.approvalRequestId}/approve`, { reason: 'Looks right' })).status).toBe(403);
     expect((await get(accountant, `/suppliers/${awutu}/profile`)).body.payoutDetailsMasked).toBe('MTN MoMo, ****0014');
 
     expect((await approve(secondOwner, asked.body.approvalRequestId)).status).toBe(200);
@@ -480,6 +481,94 @@ describe('the first payment after a payout change waits for a second person what
     expect((await post(manager, `/iam/approvals/${held.body.approvalRequestId}/reject`, { reason: 'Not the wallet on the letter' })).status).toBe(200);
     const again = await post(accountant, '/supplier-payments', { supplierId: dodowa, method: 'MOBILE_MONEY', allocations: [{ supplierInvoiceId: await approvedExpenseInvoice(dodowa, 700), amountPesewas: 700 }] });
     expect((await admin().query<{ f: boolean }>('SELECT payout_first_use AS f FROM pur.supplier_payment WHERE id = $1', [again.body.id])).rows[0]!.f).toBe(true);
+  });
+});
+
+describe('cross-approval of payout changes and the person-level bar on the first payment (owner, 2026-11-15, A-171)', () => {
+  // Fresh sessions: the approvals here step up often, and the sessions opened at the start would lapse.
+  let owner: TotpSession;
+  let manager: TotpSession;
+  let accountant: TotpSession;
+
+  beforeAll(async () => {
+    const branchId = id('branch:DDW');
+    owner = await enrolAndLogin(api.server, await createUser(database, { name: 'Kofi Owusu-Ansah', grants: [{ role: 'OWNER', branchId }] }), () => clock.now());
+    manager = await enrolAndLogin(api.server, await createUser(database, { name: 'Ama Boakye', grants: [{ role: 'MANAGER', branchId }] }), () => clock.now());
+    accountant = await enrolAndLogin(api.server, await createUser(database, { name: 'Kwame Asare', grants: [{ role: 'ACCOUNTANT', branchId }] }), () => clock.now());
+  });
+
+  async function invoiceOf(supplierId: string, amount: number): Promise<string> {
+    const created = await post(accountant, '/supplier-invoices', {
+      kind: 'INVOICE',
+      supplierId,
+      supplierInvoiceNo: `TR-${randomUUID().slice(0, 6)}`,
+      invoiceDate: today(),
+      branchId: id('branch:DDW'),
+      lines: [{ description: 'Transport of produce from the farm gate', qty: '1.000', unitPricePesewas: amount, taxCategoryId: id('tax:LIVE_ANIMALS') }],
+    });
+    expect(created.status).toBe(201);
+    await post(accountant, `/supplier-invoices/${created.body.id}/match`);
+    expect((await post(accountant, `/supplier-invoices/${created.body.id}/approve`)).status).toBe(200);
+    return created.body.id as string;
+  }
+
+  /** A new supplier, its first payout details made by `maker` and approved by `checker`, and an approved invoice of `amount`. */
+  async function supplierWithWallet(name: string, phone: string, maker: TotpSession, checker: TotpSession, amount: number) {
+    const created = await post(manager, '/suppliers', { name: `${name} (SEED)`, phone });
+    expect(created.status).toBe(201);
+    const supplierId = created.body.id as string;
+    const version = (await get(accountant, `/suppliers/${supplierId}/profile`)).body.version as number;
+    const asked = await put(maker, `/suppliers/${supplierId}/profile`, { version, payoutDetails: { method: 'MOBILE_MONEY', momoNetwork: 'MTN', momoNumber: phone } });
+    expect(asked.status, JSON.stringify(asked.body)).toBe(202);
+    expect((await approve(checker, asked.body.approvalRequestId)).status).toBe(200);
+    return { supplierId, invoice: await invoiceOf(supplierId, amount) };
+  }
+
+  async function prepared(session: TestSession, supplierId: string, invoice: string, amount: number) {
+    const payment = await post(session, '/supplier-payments', { supplierId, method: 'MOBILE_MONEY', allocations: [{ supplierInvoiceId: invoice, amountPesewas: amount }] });
+    expect(payment.status, JSON.stringify(payment.body)).toBe(201);
+    const submitted = await post(session, `/supplier-payments/${payment.body.id}/submit`);
+    expect(submitted.status).toBe(202);
+    return { id: payment.body.id as string, approvalRequestId: submitted.body.approvalRequestId as string };
+  }
+
+  it('lets the smallest team pay: the Owner makes the change, the Manager approves it, the Owner prepares the first payment and the Manager approves it', async () => {
+    const { supplierId, invoice } = await supplierWithWallet('Nsawam Egg Farm', '+233240000401', owner, manager, 3_000);
+    const payment = await prepared(owner, supplierId, invoice, 3_000);
+    expect((await approve(manager, payment.approvalRequestId)).status).toBe(200);
+    expect((await get(accountant, `/supplier-payments/${payment.id}`)).body.status).toBe('APPROVED');
+  });
+
+  it('refuses the Owner who made the change approving the first payment after it, with PAYOUT_MAKER_CANNOT_APPROVE', async () => {
+    const { supplierId, invoice } = await supplierWithWallet('Akuse Fish Ponds', '+233240000402', owner, manager, 2_500);
+    const payment = await prepared(accountant, supplierId, invoice, 2_500);
+    const refused = await approve(owner, payment.approvalRequestId);
+    expect([refused.status, refused.body.error.code]).toEqual([422, 'PAYOUT_MAKER_CANNOT_APPROVE']);
+    expect((await get(accountant, `/supplier-payments/${payment.id}`)).body.status).toBe('PENDING_APPROVAL');
+    // The change's approver is not barred.
+    expect((await approve(manager, payment.approvalRequestId)).status).toBe(200);
+  });
+
+  it('works the mirror way: the Manager makes the change and the Owner approves it, the Manager prepares and the Owner approves; the Manager approving their own change\'s first payment is refused', async () => {
+    const mirror = await supplierWithWallet('Somanya Mango Growers', '+233240000403', manager, owner, 4_000);
+    const payment = await prepared(manager, mirror.supplierId, mirror.invoice, 4_000);
+    expect((await approve(owner, payment.approvalRequestId)).status).toBe(200);
+
+    const barred = await supplierWithWallet('Asutsuare Rice Mill', '+233240000404', manager, owner, 1_000);
+    const first = await prepared(accountant, barred.supplierId, barred.invoice, 1_000);
+    const refused = await approve(manager, first.approvalRequestId);
+    expect([refused.status, refused.body.error.code]).toEqual([422, 'PAYOUT_MAKER_CANNOT_APPROVE']);
+  });
+
+  it('lets the Accountant make a change the Owner approves', async () => {
+    await supplierWithWallet('Adidome Cassava Traders', '+233240000405', accountant, owner, 1_000);
+  });
+
+  it('is held by the database: the first payment after a change is never approved by the change\'s maker', async () => {
+    const { supplierId, invoice } = await supplierWithWallet('Kasoa Feed Mill', '+233240000406', owner, manager, 1_500);
+    const payment = await prepared(accountant, supplierId, invoice, 1_500);
+    const maker = (await admin().query<{ id: string }>("SELECT created_by AS id FROM pur.supplier_payout_change WHERE supplier_id = $1 AND status = 'APPROVED'", [supplierId])).rows[0]!.id;
+    expect(await sqlStateOf(database.pool('app').query("UPDATE pur.supplier_payment SET version = version + 1, status = 'APPROVED', updated_by = $2 WHERE id = $1", [payment.id, maker]))).toBe('HK010');
   });
 });
 

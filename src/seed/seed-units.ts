@@ -22,8 +22,8 @@ export interface SeedEnvironment {
  * registers the suppliers and receives the farm's stock through INV's goods receipts (B05 continued), weighs the animals the receipts opened in the register through
  * LIV (B06 continued), gives the feed bags and the cabbage crate their exact conversions through MDM (B06u), and sets the
  * goat's yield standards through PRC (B6); then the Manager orders feed by the bag and sends the order, and the Accountant
- * enters and approves the goats' transport invoice through PUR (B7); last, Kpone's terms and a feed requisition go
- * in through PUR (B07 continued).
+ * enters and approves the goats' transport invoice through PUR (B7); last, Kpone's terms, two suppliers' payout details
+ * (made by the Owner, approved by the Manager) and a feed requisition go in through PUR (B07 continued).
  */
 export function seedUnits(env: SeedEnvironment): readonly SeedUnit[] {
   return [farmSeedMdmBootstrap(), farmSeedIam(env.SEED_STAFF_PASSWORD), farmSeedMdm(), seedLocationGrantsIam(), farmSeedInv(), farmSeedLiv(), farmSeedMdmUnits(), farmSeedPrc(), farmSeedPur(), farmSeedPurRegister()];

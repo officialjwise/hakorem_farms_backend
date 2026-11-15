@@ -11,10 +11,11 @@ import type { Idempotency, StoredResponse } from '../../../platform/idempotency/
 import type { ApprovalHandler, ApprovalRecord, Approvals, Authoriser, PrincipalNames } from '../../iam';
 import type { MasterDataRefs } from '../../mdm';
 import { judgePayee } from '../domain/payout-details';
-import { judgeAllocations, paymentApprovalReason, type AllocationRule } from '../domain/purchasing';
+import { judgeAllocations, judgeFirstPaymentApprover, paymentApprovalReason, type AllocationRule } from '../domain/purchasing';
 import type { SupplierPaymentMade } from '../events';
 import {
   AllocationExceedsAvailableError,
+  PayoutMakerCannotApproveError,
   PurReferenceNotFoundError,
   SupplierPaymentInvalidError,
   ThreeWayMatchFailedError,
@@ -276,6 +277,9 @@ export class SupplierPayments implements ApprovalHandler {
   /** ApprovalHandler: approves the payment in the approval's transaction; marking it paid is a separate step. */
   async onApproved(tx: Transaction, request: ApprovalRecord): Promise<void> {
     const before = await this.locked(tx, request.subjectDocumentId, ['PENDING_APPROVAL']);
+    // The person who made the payout change this payment is the first to use never approves it (owner, A-171).
+    const change = before.payoutFirstUseChangeId === null ? null : await this.register.payoutChange(tx, before.payoutFirstUseChangeId, false);
+    if (!judgeFirstPaymentApprover({ changeMakerId: change?.createdBy ?? null, approverId: request.decidedBy! }).ok) throw new PayoutMakerCannotApproveError();
     await this.store.markPaymentDecided(tx, before.id, 'APPROVED', null, request.decidedBy!);
     await this.audited(tx, 'APPROVE', before, { approvalRequestId: request.id });
   }

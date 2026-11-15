@@ -19,6 +19,7 @@ registerMessages({
   'pur.rule': 'This value breaks a rule.',
   'pur.supplier_profile_invalid': 'These supplier terms or payout details cannot be saved like this.',
   'pur.supplier_document_invalid': 'This document cannot be filed for the supplier.',
+  'pur.payout_maker_cannot_approve': 'You made the payout change this payment is the first to use, so someone else must approve it.',
   'pur.purchase_requisition_invalid': 'This purchase requisition cannot be made or changed like this.',
 });
 
@@ -179,6 +180,19 @@ export class PurchaseRequisitionInvalidError extends BusinessRuleError {
   }
 }
 
+/**
+ * 422 PAYOUT_MAKER_CANNOT_APPROVE (owner, 2026-11-15, A-171): the person who made a supplier's payout change approving
+ * the first payment to that supplier after it. Raised from approveRequest.
+ */
+export class PayoutMakerCannotApproveError extends BusinessRuleError {
+  readonly code = 'PAYOUT_MAKER_CANNOT_APPROVE';
+  readonly messageKey = 'pur.payout_maker_cannot_approve';
+
+  constructor() {
+    super('the maker of the payout change may not approve the first payment after it', [{ field: '/approvalRequestId', code: 'PAYOUT_MAKER_CANNOT_APPROVE', message: translate('pur.payout_maker_cannot_approve') }]);
+  }
+}
+
 /** 422 REFERENCE_NOT_FOUND: an id in the request names no record. */
 export class PurReferenceNotFoundError extends BusinessRuleError {
   readonly code = 'REFERENCE_NOT_FOUND';
@@ -208,6 +222,7 @@ export function translatePurRefusal(error: unknown): never {
   if (failure?.code === 'HK004' && failure.constraint === 'ck_supplier_invoice_cancel_unpaid') throw new SupplierInvoiceInvalidError([{ field: '/status', rule: 'PAYMENT_ALLOCATED' }]);
   if (failure?.code === '23505' && failure.constraint === 'uq_supplier_payout_change_pending') throw new SupplierProfileInvalidError([{ field: '/payoutDetails', rule: 'PAYOUT_CHANGE_PENDING' }]);
   if (failure?.code === '23505' && failure.constraint === 'uq_supplier_document_file') throw new SupplierDocumentInvalidError([{ field: '/fileId', rule: 'FILE_ALREADY_FILED' }]);
+  if (failure?.code === 'HK010' && failure.constraint === 'ck_supplier_payment_first_use_approver') throw new PayoutMakerCannotApproveError();
   if (failure?.code === 'HK010' && failure.constraint === 'ck_supplier_payment_payee') throw new SupplierPaymentInvalidError([{ field: '/method', rule: 'PAYOUT_DETAILS_MISSING' }]);
   if (failure?.code === 'HK004' && failure.constraint === 'ck_purchase_order_cancel_unreceived') throw new PurchaseOrderInvalidError([{ field: '/status', rule: 'RECEIVED_ALREADY' }]);
   throw error;

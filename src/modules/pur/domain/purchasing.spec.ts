@@ -1,6 +1,6 @@
 import { Money, Quantity, Rate } from '@hakorem/kernel';
 import { describe, expect, it } from 'vitest';
-import { judgeAllocations, judgeOrderAction, judgeReceipt, orderLimitJudgement, orderLineNet, outstanding, paymentApprovalReason, receivedStatus, type AllocationFacts } from './purchasing';
+import { judgeAllocations, judgeFirstPaymentApprover, judgeOrderAction, judgeReceipt, orderLimitJudgement, orderLineNet, outstanding, paymentApprovalReason, receivedStatus, type AllocationFacts } from './purchasing';
 
 describe('a purchase order line (FR-PUR-005)', () => {
   it('prices 20 broilers at 5,500 as exactly 110,000', () => {
@@ -147,5 +147,16 @@ describe('the first payment after a payout change (owner, 2026-11-15)', () => {
     expect(paymentApprovalReason(true, true)).toBe('FIRST_PAYMENT_AFTER_PAYOUT_CHANGE');
     expect(paymentApprovalReason(false, true)).toBe('PAYMENT_POLICY');
     expect(paymentApprovalReason(false, false)).toBeNull();
+  });
+});
+
+describe('who may approve the first payment after a payout change (owner, 2026-11-15, A-171)', () => {
+  it('refuses the person who made the change, and lets anyone else, the change approver included', () => {
+    expect(judgeFirstPaymentApprover({ changeMakerId: 'kwabena', approverId: 'kwabena' })).toEqual({ ok: false, error: 'PAYOUT_MAKER_CANNOT_APPROVE' });
+    expect(judgeFirstPaymentApprover({ changeMakerId: 'kwabena', approverId: 'akosua' })).toEqual({ ok: true, value: undefined });
+  });
+
+  it('places no bar on a payment that is not the first after a change', () => {
+    expect(judgeFirstPaymentApprover({ changeMakerId: null, approverId: 'kwabena' })).toEqual({ ok: true, value: undefined });
   });
 });
