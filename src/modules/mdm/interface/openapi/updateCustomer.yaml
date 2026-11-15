@@ -1,0 +1,89 @@
+operationId: updateCustomer
+tags:
+  - mdm
+summary: "Update a customer"
+description: "Send the `version` you read; a stale version is refused with 409. The phone is normalised and unique as on create. An anonymised customer cannot be changed (422 `INVALID_STATE_TRANSITION`).\n\nPermission: `mdm.customer.update`."
+x-permission: mdm.customer.update
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - VERSION_CONFLICT
+  - REFERENCE_NOT_FOUND
+  - DUPLICATE_VALUE
+  - INVALID_STATE_TRANSITION
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/CustomerUpdate"
+      example:
+        version: 2
+        phone: "+233540672239"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Customer"
+        example:
+          id: "019a7a87-659c-73fc-8935-489e4ae1c17c"
+          customerNo: C-00118
+          kind: INDIVIDUAL
+          name: "Ama Serwaa Ofori"
+          phone: "+233244512876"
+          email: null
+          tier:
+            id: "019a7a88-5d14-7318-8850-3a5a1869b337"
+            code: RETAIL
+            name: Retail
+          hasLogin: true
+          tinMasked: null
+          marketingConsentAt: "2026-11-03T12:00:00Z"
+          status: ACTIVE
+          priceList: null
+          hasBusinessAccount: false
+          defaultArea: Madina
+          version: 2
+          createdAt: "2026-11-02T08:00:00Z"
+          updatedAt: "2026-11-10T14:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

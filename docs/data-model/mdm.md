@@ -177,6 +177,10 @@ Customer identity. Credit terms are in `whl.business_account`.
 
 Standard columns: `MASTER`.
 
+- UNIQUE (`phone_hash`) among live rows: the keyed hash (HMAC of the E.164 number under a key derived from `LOOKUP_HMAC_KEY`) finds a customer by phone without indexing the number (B4).
+- `customer_no` comes from the sequence `mdm.customer_no_seq` as `C-00001` onward (migration 0021); a customer number is not a financial document, so a gap is harmless (A-112).
+- `tin_enc` is sealed with the customer's subject key, bound to `mdm.customer.tin_enc:<id>` (ADR-0022); responses show its last four characters.
+
 ### `mdm.customer_address` · MASTER
 
 Saved delivery addresses.
@@ -196,10 +200,13 @@ Saved delivery addresses.
 | `directions` | `text` | NULL | Free-text directions for the driver |
 | `latitude` | `numeric(9,6)` | NULL | |
 | `longitude` | `numeric(9,6)` | NULL | |
-| `delivery_zone_id` | `uuid` | NULL, FK `mdm.delivery_zone` | Resolved at save |
+| `delivery_zone_id` | `uuid` | NULL, FK `mdm.delivery_zone` | Resolved at save. Added by B04d continued 3's expand migration with `mdm.delivery_zone` (A-112); not in migration 0021 |
 | `is_default` | `boolean` | NOT NULL DEFAULT `false` | |
 
-Standard columns: `MASTER`.
+Standard columns: `MASTER`. Created in B04d continued 2 (migration 0021).
+
+- CHECK: `region` is one of Ghana's sixteen regions; `digital_address` matches GhanaPostGPS `^[A-Z]{2}-[0-9]{3,4}-[0-9]{4}$`; `line1` is not blank unless `digital_address` is set (FR-MDM-008); latitude and longitude are both set or both null.
+- UNIQUE (`customer_id`) where `is_default` among live rows: one default address per customer.
 
 ### `mdm.supplier` · MASTER
 
@@ -262,7 +269,8 @@ Standard columns: `MASTER`.
 - UNIQUE (`branch_id`, `code`) among live rows.
 - CHECK: `is_virtual` agrees with `kind`.
 - Trigger: `parent_id`, when set, is in the same branch.
-- Each branch is seeded with one location of each virtual kind.
+- Each branch is given one location of each virtual kind (`V-<KIND>`) in the transaction that creates it (`createBranch`, or the first-branch bootstrap of ADR-0042).
+- Trigger `mdm.location_virtual_fixed` (migration 0021): a virtual location cannot be updated or archived (SQLSTATE 23514).
 
 ## Pricing and promotions
 

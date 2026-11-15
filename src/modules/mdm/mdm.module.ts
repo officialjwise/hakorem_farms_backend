@@ -35,16 +35,27 @@ import { CatalogueAdmin } from './application/catalogue-admin';
 import { CATALOGUE_STORE, type CatalogueStore } from './application/catalogue-store';
 import { PgCatalogueStore } from './infrastructure/pg-catalogue-store';
 import { CatalogueController } from './interface/catalogue.controller';
+import { LocationsAdmin } from './application/locations-admin';
+import { LOCATIONS_STORE, type LocationsStore } from './application/locations-store';
+import { PartiesAdmin } from './application/parties-admin';
+import { PARTIES_STORE, type PartiesStore } from './application/parties-store';
+import { PgLocationsStore } from './infrastructure/pg-locations-store';
+import { PgPartiesStore } from './infrastructure/pg-parties-store';
+import { LocationsController } from './interface/locations.controller';
+import { PartiesController } from './interface/parties.controller';
+import { SubjectKeys } from '../../platform/crypto/subject-keys';
+import { APP_CONFIG, type AppConfig } from '../../platform/config/app-config';
 
 /**
- * MDM (layer 3): the Product slice and the catalogue's reference data (categories, units, species, grades, bands), the pricing sub-domain (price lists with maker-checker activation and the
+ * MDM (layer 3): the Product slice and the catalogue's reference data (categories, units, species, grades, bands), branches and
+ * locations, customers with their tiers, addresses and assigned price list (B04d continued 2), the pricing sub-domain (price lists with maker-checker activation and the
  * engine, ADR-0004), the tax sub-domain (levies, scheme versions with maker-checker activation and the calculator,
  * ADR-0020), promotions and coupons (FR-MDM-018), IAM's ScopeNames port and the PRICE_LIST_ACTIVATION,
  * TAX_SCHEME_ACTIVATION and PROMOTION_ACTIVATION approval handlers.
  */
 @Module({
   imports: [IamModule],
-  controllers: [ProductsController, CatalogueController, PricingController, PriceListsController, PromotionsController, TaxController],
+  controllers: [ProductsController, CatalogueController, LocationsController, PartiesController, PricingController, PriceListsController, PromotionsController, TaxController],
   providers: [
     { provide: PRODUCT_STORE, useClass: DrizzleProductStore },
     { provide: PRICING_STORE, useClass: PgPricingStore },
@@ -89,6 +100,20 @@ import { CatalogueController } from './interface/catalogue.controller';
     },
     { provide: TAX_STORE, useClass: PgTaxStore },
     { provide: CATALOGUE_STORE, useClass: PgCatalogueStore },
+    { provide: LOCATIONS_STORE, useClass: PgLocationsStore },
+    { provide: PARTIES_STORE, useClass: PgPartiesStore },
+    {
+      provide: LocationsAdmin,
+      useFactory: (uow: UnitOfWork, store: LocationsStore, authoriser: Authoriser, idempotency: Idempotency, audit: AuditTrail, cursors: Cursors, clock: Clock) =>
+        new LocationsAdmin(uow, store, authoriser, idempotency, audit, cursors, clock),
+      inject: [UnitOfWork, LOCATIONS_STORE, Authoriser, Idempotency, AuditTrail, Cursors, CLOCK],
+    },
+    {
+      provide: PartiesAdmin,
+      useFactory: (uow: UnitOfWork, store: PartiesStore, authoriser: Authoriser, idempotency: Idempotency, audit: AuditTrail, keys: SubjectKeys, cursors: Cursors, clock: Clock, config: AppConfig) =>
+        new PartiesAdmin(uow, store, authoriser, idempotency, audit, keys, cursors, clock, Buffer.from(config.LOOKUP_HMAC_KEY, 'base64')),
+      inject: [UnitOfWork, PARTIES_STORE, Authoriser, Idempotency, AuditTrail, SubjectKeys, Cursors, CLOCK, APP_CONFIG],
+    },
     {
       provide: CatalogueAdmin,
       useFactory: (uow: UnitOfWork, store: CatalogueStore, authoriser: Authoriser, idempotency: Idempotency, audit: AuditTrail, cursors: Cursors, clock: Clock) =>

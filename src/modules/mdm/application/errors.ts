@@ -1,4 +1,4 @@
-import { BusinessRuleError, type ErrorDetail } from '../../../platform/errors/api-error';
+import { BusinessRuleError, ValidationFailedError, type ErrorDetail } from '../../../platform/errors/api-error';
 import { registerMessages, translate } from '../../../platform/i18n/messages';
 import type { FieldRule } from '../domain/product';
 
@@ -194,4 +194,40 @@ export class WeightBandInvalidError extends BusinessRuleError {
   constructor(rules: ReadonlyArray<{ readonly field: string | null; readonly rule: string }>) {
     super('the weight band is not valid', rules.map((rule) => ({ field: rule.field, code: rule.rule, message: translate('mdm.weight_band_rule') })));
   }
+}
+
+registerMessages({
+  'mdm.location_invalid': 'This location does not fit the rules for locations.',
+  'mdm.location_rule': 'Not allowed for this location.',
+  'mdm.price_list_assignment_invalid': 'This price list cannot be assigned this way.',
+  'mdm.price_list_assignment_rule': 'Not allowed for a customer price list.',
+  'mdm.field_format': 'Not in a format we accept.',
+});
+
+/** 422: a location's parent is in another branch or virtual, a virtual location is created or changed, or a cold room lacks its range. */
+export class LocationInvalidError extends BusinessRuleError {
+  readonly code = 'LOCATION_INVALID';
+  readonly messageKey = 'mdm.location_invalid';
+
+  constructor(rules: ReadonlyArray<{ readonly field: string | null; readonly rule: string }>) {
+    super('the location breaks a location rule', rules.map((rule) => ({ field: rule.field, code: rule.rule, message: translate('mdm.location_rule') })));
+  }
+}
+
+/** 422: the list assigned to a customer is not a live CUSTOMER list, or the window ends before it starts. */
+export class PriceListAssignmentInvalidError extends BusinessRuleError {
+  readonly code = 'PRICE_LIST_ASSIGNMENT_INVALID';
+  readonly messageKey = 'mdm.price_list_assignment_invalid';
+
+  constructor(rules: ReadonlyArray<{ readonly field: string | null; readonly rule: string }>) {
+    super('the price list cannot be assigned', rules.map((rule) => ({ field: rule.field, code: rule.rule, message: translate('mdm.price_list_assignment_rule') })));
+  }
+}
+
+/** 400: a value the contract's pattern admits but MDM cannot store, such as a phone number that is no Ghanaian or E.164 number. */
+export function invalidFormat(rules: ReadonlyArray<{ readonly field: string | null; readonly rule: string }>): ValidationFailedError {
+  return new ValidationFailedError(
+    'a value is not in an accepted format',
+    rules.map((rule) => ({ field: rule.field, code: rule.rule, message: translate('mdm.field_format') })),
+  );
 }

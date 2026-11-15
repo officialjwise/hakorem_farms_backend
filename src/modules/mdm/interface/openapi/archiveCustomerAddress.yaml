@@ -1,0 +1,85 @@
+operationId: archiveCustomerAddress
+tags:
+  - mdm
+summary: "Archive a customer address"
+description: "Soft delete with a reason. The address stays readable on documents that used it.\n\nPermission: `mdm.customer.update`."
+x-permission: mdm.customer.update
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - VERSION_CONFLICT
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ArchiveRequest"
+      example:
+        version: 1
+        reason: "Customer moved"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/CustomerAddress"
+        example:
+          id: "019a7a95-88d7-78f2-9e2a-97f8e8c610d6"
+          customerId: "019a7a87-659c-73fc-8935-489e4ae1c17c"
+          label: Home
+          recipientName: "Ama Serwaa Ofori"
+          recipientPhone: "+233244512876"
+          line1: "House 14, Ashaley Botwe Road, near the Methodist church"
+          area: Madina
+          city: Accra
+          region: "Greater Accra"
+          digitalAddress: GM-091-4471
+          directions: "Blue gate opposite Sika Pharmacy"
+          latitude: "5.687214"
+          longitude: "-0.166402"
+          deliveryZone:
+            id: "019a7a93-5c09-76f4-bc2c-78125a54f0f0"
+            code: ACC-EAST
+            name: "Accra East: Madina, Adenta, East Legon"
+          isDefault: true
+          version: 1
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

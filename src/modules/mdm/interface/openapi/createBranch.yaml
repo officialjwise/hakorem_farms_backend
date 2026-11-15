@@ -1,0 +1,69 @@
+operationId: createBranch
+tags:
+  - mdm
+summary: "Create a branch"
+description: "The branch is created with one virtual location of each virtual kind (supplier, customer, production, processing, consumption, loss, adjustment, opening), which can never be changed. A phone typed the Ghanaian way (`0244123456`) is stored as `+233244123456`; one that is no Ghanaian or E.164 number is 400 with `details[].code` `INVALID_PHONE`. A taken code is 422 `DUPLICATE_VALUE`.\n\nPermission: `mdm.branch.create`."
+x-permission: mdm.branch.create
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - DUPLICATE_VALUE
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/BranchCreate"
+      example:
+        code: KSI
+        name: "HaKorem Farms, Kumasi"
+        address: "Ahodwo, Kumasi"
+        phone: "+233322090111"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Branch"
+        example:
+          id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          code: DDW
+          name: "HaKorem Farms, Dodowa"
+          address: "Off Dodowa–Afienya Road, Dodowa"
+          phone: "+233302900111"
+          isTest: false
+          status: ACTIVE
+          version: 2
+          createdAt: "2026-11-02T08:00:00Z"
+          updatedAt: "2026-11-10T14:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

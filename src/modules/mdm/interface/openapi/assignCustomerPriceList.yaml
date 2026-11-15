@@ -1,0 +1,75 @@
+operationId: assignCustomerPriceList
+tags:
+  - pricing
+summary: "Assign a contract price list to a customer"
+description: "A customer has at most one assigned list at a time, and the pricing engine uses it first. The list must be a live `CUSTOMER` list (422 `PRICE_LIST_ASSIGNMENT_INVALID`, `NOT_A_CUSTOMER_LIST`) and `validTo`, when sent, after `validFrom` (`NOT_AFTER_VALID_FROM`). The new window replaces what it meets: an assignment that started earlier ends at `validFrom`, one that starts inside the window is archived. To return a customer to their tier's prices, assign with a `validTo`; prices after it come from the tier.\n\nPermission: `mdm.price_list.assign`."
+x-permission: mdm.price_list.assign
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - VERSION_CONFLICT
+  - REFERENCE_NOT_FOUND
+  - PRICE_LIST_ASSIGNMENT_INVALID
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/PriceListAssignmentInput"
+      example:
+        priceListId: "019a7aa2-d389-78af-bde8-93cf32d40cad"
+        validFrom: "2026-12-01T00:00:00Z"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/PriceListAssignment"
+        example:
+          customerId: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+          priceList:
+            id: "019a7aa2-d389-78af-bde8-93cf32d40cad"
+            code: CUST-ROYALPALM
+            name: "Royal Palm Hotel contract prices"
+          validFrom: "2026-11-01T00:00:00Z"
+          validTo: null
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

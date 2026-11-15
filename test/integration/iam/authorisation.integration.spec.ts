@@ -83,6 +83,19 @@ const VALID_BODY: Readonly<Record<string, object>> = {
   updateWeightBand: { version: 1, maxKg: '19.000' },
   archiveWeightBand: { version: 1, reason: 'No longer used' },
   updateProduct: { version: 1, name: 'Goat' },
+  createBranch: { code: 'KSI', name: 'Kumasi' },
+  updateBranch: { version: 1, name: 'Kumasi' },
+  createLocation: { branchId: '01900000-0000-7000-8000-00000000f001', code: 'PEN2', name: 'Pen', kind: 'PEN' },
+  updateLocation: { version: 1, name: 'Pen' },
+  archiveLocation: { version: 1, reason: 'Closed' },
+  createCustomer: { kind: 'INDIVIDUAL', name: 'Ama' },
+  updateCustomer: { version: 1, name: 'Ama' },
+  archiveCustomer: { version: 1, reason: 'Duplicate' },
+  createCustomerTier: { code: 'CATERING', name: 'Catering' },
+  createCustomerAddress: { label: 'Home', recipientName: 'Ama', recipientPhone: '0244123456', line1: 'Market', area: 'Dodowa', city: 'Dodowa', region: 'Greater Accra' },
+  updateCustomerAddress: { version: 1, label: 'Home' },
+  archiveCustomerAddress: { version: 1, reason: 'Moved' },
+  assignCustomerPriceList: { priceListId: '01900000-0000-7000-8000-00000000f002', validFrom: '2026-12-01T00:00:00Z' },
 };
 
 beforeAll(async () => {
@@ -100,7 +113,7 @@ afterAll(async () => {
 });
 
 describe('deny by default: the handler walk (ADR-0017, security architecture section 14)', () => {
-  it('finds the B3, B4, B04 continued, B04d and B04d continued routes, and every one declares its operation', () => {
+  it('finds the B3, B4, B04 continued, B04d, B04d continued and B04d continued 2 routes, and every one declares its operation', () => {
     expect(routes.map((route) => route.spec?.operationId).sort()).toEqual(
       [
         'changePassword', 'confirmTotpEnrolment', 'createProduct', 'getCurrentSession', 'getHealth', 'getProduct', 'listProducts', 'listSessions',
@@ -112,6 +125,9 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'listCategories', 'createCategory', 'getCategory', 'updateCategory', 'archiveCategory', 'listUnitsOfMeasure', 'listSpeciesList', 'createSpecies',
         'updateSpecies', 'listGrades', 'createGrade', 'updateGrade', 'archiveGrade', 'listWeightBands', 'createWeightBand', 'updateWeightBand',
         'archiveWeightBand', 'updateProduct',
+        'listBranches', 'createBranch', 'getBranch', 'updateBranch', 'listLocations', 'createLocation', 'getLocation', 'updateLocation', 'archiveLocation',
+        'listCustomers', 'createCustomer', 'getCustomer', 'updateCustomer', 'archiveCustomer', 'listCustomerTiers', 'createCustomerTier',
+        'listCustomerAddresses', 'createCustomerAddress', 'updateCustomerAddress', 'archiveCustomerAddress', 'assignCustomerPriceList',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);

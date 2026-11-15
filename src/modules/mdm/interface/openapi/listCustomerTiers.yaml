@@ -1,0 +1,67 @@
+operationId: listCustomerTiers
+tags:
+  - mdm
+summary: "List customer tiers"
+description: "Permission: `mdm.customer.read`."
+x-permission: mdm.customer.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/CustomerTierPage"
+        example:
+          data:
+            - id: "019a7a88-5d14-7318-8850-3a5a1869b337"
+              code: RETAIL
+              name: Retail
+            - id: "019a7a88-7c03-7cfc-9234-d891921a516f"
+              code: WHOLESALE
+              name: Wholesale
+            - id: "019a7a88-9af2-76df-ac17-76c90bcbefa6"
+              code: RESELLER
+              name: Reseller
+            - id: "019a7aa2-f278-7293-87cb-3206ac85aae4"
+              code: STAFF
+              name: "Staff purchase"
+            - id: "019a7aa3-1167-7c76-91af-d03e2636491c"
+              code: INSTITUTION
+              name: "Churches and schools"
+          page:
+            nextCursor: null
+            limit: 25
+            hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

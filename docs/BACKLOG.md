@@ -56,6 +56,7 @@ These are not mentioned in the shared brief, or are mentioned only conditionally
 | BL-039 | Specific accounting package integrations | The accounting export port is in scope; an adapter for a named package is built when one is chosen |
 | BL-040 | Customer-facing live delivery map | Delivery notifications at dispatch, on the way and delivered are in scope |
 | BL-041 | Multi-language interface beyond English | All strings go through the translation layer from day one; other languages are data |
+| BL-042 | An unassign operation for a customer's price list (`DELETE /customers/{id}/price-list`) | FR-MDM-021's "unassigning returns to tier" is met by an assignment with a `validTo` (A-113); a separate operation needs a contract addition, worth it when the wholesale screens (F10) ask for it |
 
 ## How to add to this list
 

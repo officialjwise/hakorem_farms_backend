@@ -1,0 +1,83 @@
+operationId: createLocation
+tags:
+  - mdm
+summary: "Create a stock location"
+description: "A physical location of one branch, scoped to that branch. Its parent is a live physical location of the same branch (422 `LOCATION_INVALID`, `PARENT_IN_OTHER_BRANCH` or `PARENT_IS_VIRTUAL`); the database refuses another branch too. A virtual kind is refused (`VIRTUAL_KIND_FIXED`): each branch is given its virtual locations when it is created. A cold room needs `tempClass` `CHILLED` or `FROZEN` and a rising `tempMinC` to `tempMaxC` range (`COLD_ROOM_NEEDS_TEMPERATURE`, `NOT_ABOVE_MIN`). The code is unique among the branch's live locations (`DUPLICATE_VALUE`).\n\nPermission: `mdm.location.create`."
+x-permission: mdm.location.create
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - REFERENCE_NOT_FOUND
+  - DUPLICATE_VALUE
+  - LOCATION_INVALID
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/LocationCreate"
+      example:
+        branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+        parentId: "019a7a83-68cd-7daa-b2e2-e3779b105c55"
+        code: PEN-G3
+        name: "Goat pen 3"
+        kind: PEN
+        isSellable: true
+        capacityHead: 40
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Location"
+        example:
+          id: "019a7a83-68cd-7daa-b2e2-e3779b105c55"
+          branch:
+            id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+            code: DDW
+            name: "HaKorem Farms, Dodowa"
+          parentId: null
+          code: DDW-SITE
+          name: "Dodowa farm"
+          kind: SITE
+          isVirtual: false
+          isSellable: false
+          allowsNegative: false
+          tempClass: null
+          tempMinC: null
+          tempMaxC: null
+          capacityHead: null
+          version: 2
+          createdAt: "2026-11-02T08:00:00Z"
+          updatedAt: "2026-11-10T14:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

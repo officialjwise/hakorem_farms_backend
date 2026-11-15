@@ -65,8 +65,11 @@ describe('staff login (ADR-0016, docs/API.md section 3.1)', () => {
     expect(session.permissions).toEqual([
       'iam.session.read',
       'iam.session.revoke',
+      'mdm.branch.read',
       'mdm.category.read',
+      'mdm.customer.read',
       'mdm.grade.read',
+      'mdm.location.read',
       'mdm.price.resolve',
       'mdm.product.read',
       'mdm.species.read',

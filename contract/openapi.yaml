@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.7.0"
+  version: "1.8.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -8002,8 +8002,14 @@ paths:
       tags:
         - mdm
       summary: "List customers"
-      description: "Permission: `mdm.customer.read`."
+      description: "Live customers in creation order. `q` that reads as a phone number (`0244123456`, `+233244123456`) finds the customer with that number; any other `q` matches part of the name, ignoring case.\n\nPermission: `mdm.customer.read`."
       x-permission: mdm.customer.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: q
           in: query
@@ -8200,8 +8206,20 @@ paths:
       tags:
         - mdm
       summary: "Create a customer"
-      description: "Permission: `mdm.customer.create`."
+      description: "A phone typed the Ghanaian way (`0244123456`, `024 412 3456`, `233244123456`) is stored as `+233244123456`; one that is no Ghanaian or E.164 number is 400 with `details[].code` `INVALID_PHONE`. The phone is unique among live customers (422 `DUPLICATE_VALUE`). Without `tierId` the customer joins the `RETAIL` tier. A `tin` is stored encrypted and shown only as `tinMasked`, its last four characters. `hasBusinessAccount` is false until wholesale accounts exist (B10).\n\nPermission: `mdm.customer.create`."
       x-permission: mdm.customer.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - REFERENCE_NOT_FOUND
+        - DUPLICATE_VALUE
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -8272,6 +8290,13 @@ paths:
       summary: "Get a customer"
       description: "Permission: `mdm.customer.read`."
       x-permission: mdm.customer.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -8330,8 +8355,23 @@ paths:
       tags:
         - mdm
       summary: "Update a customer"
-      description: "Send the `version` you read; a stale version is refused with 409.\n\nPermission: `mdm.customer.update`."
+      description: "Send the `version` you read; a stale version is refused with 409. The phone is normalised and unique as on create. An anonymised customer cannot be changed (422 `INVALID_STATE_TRANSITION`).\n\nPermission: `mdm.customer.update`."
       x-permission: mdm.customer.update
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - REFERENCE_NOT_FOUND
+        - DUPLICATE_VALUE
+        - INVALID_STATE_TRANSITION
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -8408,6 +8448,18 @@ paths:
       summary: "Archive a customer"
       description: "Soft delete with a reason. The record stays in history and on documents that used it.\n\nPermission: `mdm.customer.archive`."
       x-permission: mdm.customer.archive
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -8484,6 +8536,12 @@ paths:
       summary: "List customer tiers"
       description: "Permission: `mdm.customer.read`."
       x-permission: mdm.customer.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: cursor
           in: query
@@ -8544,8 +8602,19 @@ paths:
       tags:
         - mdm
       summary: "Create a customer tier"
-      description: "Permission: `mdm.customer.create`."
+      description: "The code is unique among live tiers (422 `DUPLICATE_VALUE`).\n\nPermission: `mdm.customer.create`."
       x-permission: mdm.customer.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - DUPLICATE_VALUE
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -8597,6 +8666,13 @@ paths:
       summary: "List a customer's addresses"
       description: "Permission: `mdm.customer.read`."
       x-permission: mdm.customer.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -8764,8 +8840,19 @@ paths:
       tags:
         - mdm
       summary: "Add an address to a customer"
-      description: "The delivery zone is resolved from the area and coordinates.\n\nPermission: `mdm.customer.update`."
+      description: "An address in Ghana format: `region` is one of the sixteen regions, `line1` a landmark or `digitalAddress` a GhanaPostGPS code (`GA-123-4567`), and `recipientPhone` is normalised like a customer's phone. Otherwise 400 with `details[].code` `UNKNOWN_REGION`, `INVALID_DIGITAL_ADDRESS`, `LANDMARK_OR_DIGITAL_ADDRESS` or `INVALID_PHONE`. A default address replaces the customer's previous default. `deliveryZone` is null until delivery zones exist (B04d continued 3).\n\nThe delivery zone is resolved from the area and coordinates.\n\nPermission: `mdm.customer.update`."
       x-permission: mdm.customer.update
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -8846,8 +8933,20 @@ paths:
       tags:
         - mdm
       summary: "Update a customer address"
-      description: "Permission: `mdm.customer.update`."
+      description: "Send the `version` you read; a stale version is refused with 409. The create rules apply to the address as changed.\n\nPermission: `mdm.customer.update`."
       x-permission: mdm.customer.update
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -8921,8 +9020,20 @@ paths:
       tags:
         - mdm
       summary: "Archive a customer address"
-      description: "Permission: `mdm.customer.update`."
+      description: "Soft delete with a reason. The address stays readable on documents that used it.\n\nPermission: `mdm.customer.update`."
       x-permission: mdm.customer.update
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -8996,8 +9107,22 @@ paths:
       tags:
         - pricing
       summary: "Assign a contract price list to a customer"
-      description: "Permission: `mdm.price_list.assign`."
+      description: "A customer has at most one assigned list at a time, and the pricing engine uses it first. The list must be a live `CUSTOMER` list (422 `PRICE_LIST_ASSIGNMENT_INVALID`, `NOT_A_CUSTOMER_LIST`) and `validTo`, when sent, after `validFrom` (`NOT_AFTER_VALID_FROM`). The new window replaces what it meets: an assignment that started earlier ends at `validFrom`, one that starts inside the window is archived. To return a customer to their tier's prices, assign with a `validTo`; prices after it come from the tier.\n\nPermission: `mdm.price_list.assign`."
       x-permission: mdm.price_list.assign
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - REFERENCE_NOT_FOUND
+        - PRICE_LIST_ASSIGNMENT_INVALID
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -9500,6 +9625,12 @@ paths:
       summary: "List branchs"
       description: "Permission: `mdm.branch.read`."
       x-permission: mdm.branch.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: cursor
           in: query
@@ -9575,8 +9706,19 @@ paths:
       tags:
         - mdm
       summary: "Create a branch"
-      description: "Permission: `mdm.branch.create`."
+      description: "The branch is created with one virtual location of each virtual kind (supplier, customer, production, processing, consumption, loss, adjustment, opening), which can never be changed. A phone typed the Ghanaian way (`0244123456`) is stored as `+233244123456`; one that is no Ghanaian or E.164 number is 400 with `details[].code` `INVALID_PHONE`. A taken code is 422 `DUPLICATE_VALUE`.\n\nPermission: `mdm.branch.create`."
       x-permission: mdm.branch.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - DUPLICATE_VALUE
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -9637,6 +9779,13 @@ paths:
       summary: "Get a branch"
       description: "Permission: `mdm.branch.read`."
       x-permission: mdm.branch.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -9685,8 +9834,20 @@ paths:
       tags:
         - mdm
       summary: "Update a branch"
-      description: "Send the `version` you read; a stale version is refused with 409.\n\nPermission: `mdm.branch.update`."
+      description: "Send the `version` you read; a stale version is refused with 409. Scoped to the branch: a grant at another branch does not reach it. Closing a branch sets `status` to `CLOSED`.\n\nPermission: `mdm.branch.update`."
       x-permission: mdm.branch.update
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -9750,8 +9911,14 @@ paths:
       tags:
         - mdm
       summary: "List stock locations"
-      description: "Permission: `mdm.location.read`."
+      description: "Live locations in creation order. Virtual locations are left out unless `includeVirtual=true`.\n\nPermission: `mdm.location.read`."
       x-permission: mdm.location.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: branchId
           in: query
@@ -9933,8 +10100,21 @@ paths:
       tags:
         - mdm
       summary: "Create a stock location"
-      description: "Permission: `mdm.location.create`."
+      description: "A physical location of one branch, scoped to that branch. Its parent is a live physical location of the same branch (422 `LOCATION_INVALID`, `PARENT_IN_OTHER_BRANCH` or `PARENT_IS_VIRTUAL`); the database refuses another branch too. A virtual kind is refused (`VIRTUAL_KIND_FIXED`): each branch is given its virtual locations when it is created. A cold room needs `tempClass` `CHILLED` or `FROZEN` and a rising `tempMinC` to `tempMaxC` range (`COLD_ROOM_NEEDS_TEMPERATURE`, `NOT_ABOVE_MIN`). The code is unique among the branch's live locations (`DUPLICATE_VALUE`).\n\nPermission: `mdm.location.create`."
       x-permission: mdm.location.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - REFERENCE_NOT_FOUND
+        - DUPLICATE_VALUE
+        - LOCATION_INVALID
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -10007,6 +10187,13 @@ paths:
       summary: "Get a stock location"
       description: "Permission: `mdm.location.read`."
       x-permission: mdm.location.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -10064,8 +10251,22 @@ paths:
       tags:
         - mdm
       summary: "Update a stock location"
-      description: "Send the `version` you read; a stale version is refused with 409.\n\nPermission: `mdm.location.update`."
+      description: "Send the `version` you read; a stale version is refused with 409. A virtual location is never changed (422 `LOCATION_INVALID`, `VIRTUAL_LOCATION_FIXED`). A new parent obeys the create rules and is not the location itself or below it (`PARENT_IS_SELF_OR_BELOW`).\n\nPermission: `mdm.location.update`."
       x-permission: mdm.location.update
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - REFERENCE_NOT_FOUND
+        - LOCATION_INVALID
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -10138,8 +10339,22 @@ paths:
       tags:
         - mdm
       summary: "Archive a stock location"
-      description: "Soft delete with a reason. The record stays in history and on documents that used it.\n\nPermission: `mdm.location.archive`."
+      description: "Soft delete with a reason. Refused with 422 `RECORD_IN_USE` (`HAS_LIVE_CHILDREN`) while live locations sit below it, and with `LOCATION_INVALID` (`VIRTUAL_LOCATION_FIXED`) for a virtual location. Refusing a location that holds stock arrives with inventory (B5).\n\nPermission: `mdm.location.archive`."
       x-permission: mdm.location.archive
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - RECORD_IN_USE
+        - LOCATION_INVALID
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -68165,6 +68380,12 @@ components:
       description: "A time of day in Africa/Accra, HH:MM."
       examples:
         - "09:00"
+    PhoneInput:
+      type: string
+      pattern: "^\\+?[0-9][0-9 -]{6,22}$"
+      description: "A phone number as a person types it (1.8.0). It is stored in E.164: a Ghanaian number typed locally, `0244123456`, `024 412 3456` or `233244123456`, becomes `+233244123456`. A value that is no Ghanaian or E.164 number is refused with 400 and `details[].code` `INVALID_PHONE`."
+      examples:
+        - "0244512876"
     PhoneNumber:
       type: string
       pattern: "^\\+[1-9][0-9]{7,14}$"
@@ -71270,7 +71491,7 @@ components:
         name:
           type: string
         phone:
-          $ref: "#/components/schemas/PhoneNumber"
+          $ref: "#/components/schemas/PhoneInput"
         email:
           type: string
           format: email
@@ -71293,7 +71514,7 @@ components:
         name:
           type: string
         phone:
-          $ref: "#/components/schemas/PhoneNumber"
+          $ref: "#/components/schemas/PhoneInput"
         email:
           type: string
           format: email
@@ -71435,7 +71656,7 @@ components:
         recipientName:
           type: string
         recipientPhone:
-          $ref: "#/components/schemas/PhoneNumber"
+          $ref: "#/components/schemas/PhoneInput"
         line1:
           type: string
         area:
@@ -71465,7 +71686,7 @@ components:
         recipientName:
           type: string
         recipientPhone:
-          $ref: "#/components/schemas/PhoneNumber"
+          $ref: "#/components/schemas/PhoneInput"
         line1:
           type: string
         area:
@@ -71695,7 +71916,7 @@ components:
         address:
           type: string
         phone:
-          $ref: "#/components/schemas/PhoneNumber"
+          $ref: "#/components/schemas/PhoneInput"
       required:
         - code
         - name
@@ -71710,7 +71931,7 @@ components:
         address:
           type: string
         phone:
-          $ref: "#/components/schemas/PhoneNumber"
+          $ref: "#/components/schemas/PhoneInput"
         status:
           type: string
           enum:
