@@ -9,7 +9,7 @@ import { consoleGet, consolePost, consolePut, createUser, enrolAndLogin, relaxRa
 import { startTestApp, TEST_ORIGIN, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
 
-/** The B05 continued to B05 continued 3 operations answer in the shapes of contract/openapi.yaml 1.18.0, over the seeded farm. */
+/** The B05 continued to B05 continued 3 operations answer in the shapes of contract/openapi.yaml 1.19.0, over the seeded farm. */
 let database: TestDatabase;
 let api: TestApp;
 let manager: TestSession;
@@ -194,6 +194,29 @@ describe('inventory operations answer in the contract shapes', () => {
     expect(self.status).toBe(422);
     expectShape('Error', self.body);
     const missing = await post(`/stock/holds/${randomUUID()}/release`, { reasonCode: 'INVESTIGATION_CLOSED', note: 'None' });
+    expect(missing.status).toBe(404);
+    expectShape('Error', missing.body);
+  });
+
+  it('a held transfer variance listed, read and resolved, and its refusals', async () => {
+    const transfer = await post('/stock-transfers', {
+      fromLocationId: id('location:COLD'),
+      toLocationId: id('location:SHOP'),
+      lines: [{ productId: id('product:MEAT-BEEF-15KG'), stockUnitId: id('unit:LOT-BEEF-2026-1110'), qty: '1.000' }],
+    });
+    await post(`/stock-transfers/${transfer.body.id as string}/dispatch`);
+    await post(`/stock-transfers/${transfer.body.id as string}/receive`, { lines: [{ lineId: transfer.body.lines[0].id, qtyReceived: '0.900', varianceReasonCode: 'DAMAGED' }] });
+    const page = await get('/stock/exceptions?status=OPEN&kind=TRANSFER_VARIANCE');
+    expectShape('StockExceptionPage', page.body);
+    const exceptionId = page.body.data[0].id as string;
+    expectShape('StockException', (await get(`/stock/exceptions/${exceptionId}`)).body);
+    const refused = await post(`/stock/exceptions/${exceptionId}/resolve`, { note: 'No kind' });
+    expect(refused.status).toBe(422);
+    expectShape('Error', refused.body);
+    const resolved = await post(`/stock/exceptions/${exceptionId}/resolve`, { resolutionKind: 'WRITE_OFF', note: 'Drip loss' });
+    expect(resolved.status).toBe(200);
+    expectShape('StockException', resolved.body);
+    const missing = await get(`/stock/exceptions/${randomUUID()}`);
     expect(missing.status).toBe(404);
     expectShape('Error', missing.body);
   });

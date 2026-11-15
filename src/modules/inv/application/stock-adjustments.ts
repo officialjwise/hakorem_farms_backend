@@ -10,6 +10,7 @@ import type { Idempotency, StoredResponse } from '../../../platform/idempotency/
 import type { ApprovalHandler, ApprovalRecord, Approvals, Authoriser, PrincipalNames, PrincipalRef } from '../../iam';
 import type { LocationFacts, MasterDataRefs } from '../../mdm';
 import { checkAdjustmentLines, type AdjustmentDirection, type StockRuleBroken } from '../domain/stock-documents';
+import { isHeldVariance } from '../domain/stock-exception';
 import { issue, valueAtAverage, type CostPool } from '../domain/valuation/cost-pool';
 import { ordinal, pageProbe } from './counting';
 import { InvReferenceNotFoundError, StockAdjustmentInvalidError } from './errors';
@@ -142,12 +143,17 @@ export class StockAdjustments implements ApprovalHandler {
     );
   }
 
-  /** Drafts an adjustment in the caller's transaction, every rule of createStockAdjustment applied and audited. */
-  async createIn(tx: Transaction, actor: Actor, body: AdjustmentCreateRequest): Promise<StockAdjustmentView> {
+  /**
+   * Drafts an adjustment in the caller's transaction, every rule of createStockAdjustment applied and audited. Only
+   * `StockExceptions` drafts the write-off of a held transfer variance (`forHeldVariance`): the one adjustment made in
+   * transit, where the held stock waits (ADR-0048); by hand, a held variance is never named and transit never adjusted.
+   */
+  async createIn(tx: Transaction, actor: Actor, body: AdjustmentCreateRequest, options: { readonly forHeldVariance?: boolean } = {}): Promise<StockAdjustmentView> {
     const location = (await this.refs.locationsIn(tx, [body.locationId])).get(body.locationId);
     if (location === undefined || !location.isLive) throw new InvReferenceNotFoundError(['/locationId']);
     const broken: StockRuleBroken[] = [];
-    if (location.isVirtual || NOT_ADJUSTED_AT.has(location.kind)) broken.push({ field: '/locationId', rule: 'NOT_A_STOCK_LOCATION' });
+    const heldWriteOff = options.forHeldVariance === true && location.kind === 'IN_TRANSIT';
+    if (!heldWriteOff && (location.isVirtual || NOT_ADJUSTED_AT.has(location.kind))) broken.push({ field: '/locationId', rule: 'NOT_A_STOCK_LOCATION' });
     const reason = (await this.refs.reasonCodesIn(tx, [body.reasonCode])).get(body.reasonCode);
     if (reason === undefined) throw new InvReferenceNotFoundError(['/reasonCode']);
     if (!ADJUSTMENT_REASON_DOMAINS.has(reason.domain)) broken.push({ field: '/reasonCode', rule: 'REASON_NOT_ALLOWED' });
@@ -156,6 +162,7 @@ export class StockAdjustments implements ApprovalHandler {
       const exception = await this.store.exceptionState(tx, body.exceptionId);
       if (exception === null) throw new InvReferenceNotFoundError(['/exceptionId']);
       if (exception.status !== 'OPEN' || exception.branchId !== location.branchId) broken.push({ field: '/exceptionId', rule: 'EXCEPTION_NOT_OPEN' });
+      else if (isHeldVariance(exception) !== heldWriteOff) broken.push({ field: '/exceptionId', rule: 'RESOLVED_THROUGH_THE_EXCEPTION' });
     }
     broken.push(...(await this.lineRules(tx, location, body.lines)));
     if (broken.length > 0) throw new StockAdjustmentInvalidError(broken);
@@ -290,8 +297,27 @@ export class StockAdjustments implements ApprovalHandler {
     await this.audited(tx, 'REJECT', before, { approvalRequestId: request.id, decision: request.status });
   }
 
-  /** One movement per line through `Stock.postIn`: a loss to the branch's virtual LOSS, a gain from ADJUSTMENT. */
+  /**
+   * One movement per line through `Stock.postIn`: a loss to the branch's virtual LOSS, a gain from ADJUSTMENT. The
+   * write-off of a held transfer variance resolves its exception first, as whoever lets the loss post, because the
+   * database keeps held stock in transit until its exception is resolved (`ck_stock_held`, migration 0060).
+   */
   private async postLines(tx: Transaction, actorId: string, adjustment: AdjustmentRecord, location: LocationFacts): Promise<void> {
+    if (adjustment.exceptionId !== null) {
+      const exception = await this.store.exceptionState(tx, adjustment.exceptionId);
+      if (exception !== null && isHeldVariance(exception)) {
+        await this.store.resolveException(tx, adjustment.exceptionId, { kind: 'WRITE_OFF', note: adjustment.note!, documentId: adjustment.id, at: this.clock.now() }, actorId);
+        await this.audit.record(tx, {
+          module: 'inv',
+          action: 'RESOLVE',
+          entityType: 'StockException',
+          entityId: adjustment.exceptionId,
+          branchId: adjustment.branchId,
+          before: { status: 'OPEN' },
+          after: { status: 'RESOLVED', resolutionKind: 'WRITE_OFF', resolutionDocumentId: adjustment.id, resolutionNote: adjustment.note },
+        });
+      }
+    }
     const loss = await this.refs.virtualLocationIn(tx, location.branchId, 'LOSS');
     const gain = await this.refs.virtualLocationIn(tx, location.branchId, 'ADJUSTMENT');
     if (loss === null || gain === null) throw new Error(`branch ${location.branchId} lacks its virtual LOSS or ADJUSTMENT location; every branch is created with them (ADR-0042)`);

@@ -1,5 +1,6 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
 import type { AdjustmentDirection } from '../domain/stock-documents';
+import type { ResolutionKind } from '../domain/stock-exception';
 import type { CostElement, WeightSource } from './stock-store';
 
 export const STOCK_DOCUMENTS_STORE = Symbol('STOCK_DOCUMENTS_STORE');
@@ -168,7 +169,8 @@ export interface NewStockException {
   readonly productId: string;
   readonly stockUnitId: string | null;
   readonly locationId: string;
-  readonly movementId: string;
+  /** Null for a shortfall held in transit (ADR-0048): the exception itself holds it until it is resolved. */
+  readonly movementId: string | null;
   readonly sourceDocumentId: string;
   readonly qty: string;
   readonly details: Record<string, unknown>;
@@ -185,8 +187,10 @@ export interface StockDocumentsStore {
   reversedBy(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, string>>;
   units(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, UnitRecord>>;
   pool(tx: Transaction, productId: string, stockUnitId: string | null, branchId: string): Promise<PoolRecord | null>;
-  exceptionState(tx: Transaction, id: string): Promise<{ readonly status: string; readonly branchId: string } | null>;
+  exceptionState(tx: Transaction, id: string): Promise<{ readonly status: string; readonly branchId: string; readonly kind: string; readonly movementId: string | null } | null>;
   insertException(tx: Transaction, exception: NewStockException): Promise<string>;
+  /** Resolves an OPEN exception once (the database's guard refuses a second resolution). */
+  resolveException(tx: Transaction, id: string, resolution: { readonly kind: ResolutionKind; readonly note: string; readonly documentId: string | null; readonly at: Date }, actorId: string): Promise<void>;
 
   // Transfers.
   insertTransfer(tx: Transaction, transfer: { readonly id: string; readonly fromLocationId: string; readonly toLocationId: string; readonly toBranchId: string; readonly branchId: string }, actorId: string): Promise<void>;

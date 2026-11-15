@@ -38,6 +38,10 @@ import { StockControlController } from './interface/stock-control.controller';
 import { StockController } from './interface/stock.controller';
 import { StockTakesController } from './interface/stock-takes.controller';
 import { StockHoldsController } from './interface/stock-holds.controller';
+import { StockExceptionsController } from './interface/stock-exceptions.controller';
+import { STOCK_EXCEPTION_STORE, type StockExceptionStore } from './application/stock-exception-store';
+import { StockExceptions } from './application/stock-exceptions';
+import { PgStockExceptionStore } from './infrastructure/pg-stock-exception-store';
 
 /**
  * INV (layer 5): the stock movement ledger (ADR-0002) whose invariants live in migration 0044's triggers, the
@@ -48,7 +52,7 @@ import { StockHoldsController } from './interface/stock-holds.controller';
  */
 @Module({
   imports: [IamModule, MdmModule],
-  controllers: [GoodsReceiptsController, StockController, StockControlController, StockTakesController, StockHoldsController],
+  controllers: [GoodsReceiptsController, StockController, StockControlController, StockTakesController, StockHoldsController, StockExceptionsController],
   providers: [
     { provide: STOCK_STORE, useClass: PgStockStore },
     { provide: GOODS_RECEIPT_STORE, useClass: PgGoodsReceiptStore },
@@ -56,6 +60,7 @@ import { StockHoldsController } from './interface/stock-holds.controller';
     { provide: STOCK_DOCUMENTS_STORE, useClass: PgStockDocumentsStore },
     { provide: STOCK_TAKE_STORE, useClass: PgStockTakeStore },
     { provide: STOCK_HOLD_STORE, useClass: PgStockHoldStore },
+    { provide: STOCK_EXCEPTION_STORE, useClass: PgStockExceptionStore },
     {
       provide: Stock,
       useFactory: (store: StockStore, events: DomainEvents, clock: Clock) => new Stock(store, events, clock),
@@ -184,8 +189,27 @@ import { StockHoldsController } from './interface/stock-holds.controller';
       ) => new StockHolds(uow, store, documentsStore, refs, authoriser, idempotency, audit, documents, principals, cursors, clock),
       inject: [UnitOfWork, STOCK_HOLD_STORE, STOCK_DOCUMENTS_STORE, MasterDataRefs, Authoriser, Idempotency, AuditTrail, DocumentRegistry, PRINCIPAL_NAMES, Cursors, CLOCK],
     },
+    {
+      provide: StockExceptions,
+      useFactory: (
+        uow: UnitOfWork,
+        store: StockExceptionStore,
+        documentsStore: StockDocumentsStore,
+        refs: MasterDataRefs,
+        adjustments: StockAdjustments,
+        stock: Stock,
+        authoriser: Authoriser,
+        idempotency: Idempotency,
+        audit: AuditTrail,
+        documents: DocumentRegistry,
+        principals: PrincipalNames,
+        cursors: Cursors,
+        clock: Clock,
+      ) => new StockExceptions(uow, store, documentsStore, refs, adjustments, stock, authoriser, idempotency, audit, documents, principals, cursors, clock),
+      inject: [UnitOfWork, STOCK_EXCEPTION_STORE, STOCK_DOCUMENTS_STORE, MasterDataRefs, StockAdjustments, Stock, Authoriser, Idempotency, AuditTrail, DocumentRegistry, PRINCIPAL_NAMES, Cursors, CLOCK],
+    },
   ],
-  exports: [Stock, Lineage, BalanceReconciliation, GoodsReceipts, StockQueries, StockMovements, StockTransfers, StockAdjustments, StockTakes, StockHolds],
+  exports: [Stock, Lineage, BalanceReconciliation, GoodsReceipts, StockQueries, StockMovements, StockTransfers, StockAdjustments, StockTakes, StockHolds, StockExceptions],
 })
 export class InvModule implements OnModuleInit {
   constructor(

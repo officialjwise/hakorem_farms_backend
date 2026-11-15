@@ -1,0 +1,79 @@
+operationId: getStockException
+tags:
+  - inv
+summary: "Get a stock exception"
+description: "One stock exception, scoped to its branch and, when it names one, its location.\n\nPermission: `inv.exception.read`."
+x-permission: inv.exception.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/StockException"
+        example:
+          id: "019a7ab1-7280-7533-8a6b-5c07b77dd4e5"
+          kind: SERIAL_CONFLICT
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          product:
+            id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+            sku: LIV-GOAT
+            name: Goat
+          stockUnit:
+            id: "019a7a8f-bc07-7e4c-9384-ed921796666f"
+            identifier: G-0171
+            tracking: SERIAL
+          location:
+            id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+            code: PEN-G2
+            name: "Goat pen 2"
+            kind: PEN
+          movementId: null
+          sourceDocument:
+            id: "019a7ab1-916f-7f16-944f-fa3f312e731d"
+            docType: SALES_ORDER
+            number: SO-2026-DDW-004180
+          qty: null
+          summary: "Goat G-0171 sold offline at till T2 at 10:14 but had been sold at till T1 at 09:52"
+          details:
+            register: T2
+            shiftNo: SHF-2026-DDW-000311
+          raisedAt: "2026-11-13T03:00:00Z"
+          status: OPEN
+          resolvedAt: null
+          resolvedBy: null
+          resolutionDocument: null
+          resolutionNote: null
+          resolutionKind: null
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

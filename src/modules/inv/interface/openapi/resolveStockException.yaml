@@ -1,0 +1,125 @@
+operationId: resolveStockException
+tags:
+  - inv
+summary: "Mark a stock exception resolved"
+description: "Resolves an open exception once, with a `resolutionKind` and a note, audited. A transfer shortfall held in transit (a `TRANSFER_VARIANCE` with no `movementId`, ADR-0048) takes `WRITE_OFF` or `FOUND` and no `resolutionDocumentId`: `WRITE_OFF` drafts and submits a stock adjustment in transit with the variance's reason, valued from the cost pool, so at or above the `STOCK_WRITE_OFF` threshold (seed 50,000 pesewas, copied onto the adjustment) it answers 202 `ApprovalPending` and the exception stays open until a different person holding `inv.adjustment.approve` approves with step-up; below it the loss posts at once. `FOUND` names `foundLocationId`, a stock location of either branch of the transfer, and returns the held quantity there as a `TRANSFER_RECEIPT` against the transfer, with no expense; the resolution document is the transfer. While a write-off waits for approval nothing else is decided (`WRITE_OFF_PENDING`); a rejected write-off leaves the variance held. Any other exception takes `ADJUSTED` with the posted adjustment that names it, or `NO_CORRECTION`; with no `resolutionKind`, a `resolutionDocumentId` means `ADJUSTED` and none means `NO_CORRECTION`. A resolved exception is refused (`INVALID_STATE_TRANSITION`).\n\nPermission: `inv.exception.resolve`, scoped to the exception's branch and location, and to the found location."
+x-permission: inv.exception.resolve
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - NOT_FOUND
+  - INVALID_STATE_TRANSITION
+  - STOCK_EXCEPTION_INVALID
+  - STOCK_ADJUSTMENT_INVALID
+  - REFERENCE_NOT_FOUND
+  - INSUFFICIENT_STOCK
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/StockExceptionResolve"
+      example:
+        resolutionKind: ADJUSTED
+        note: "Second sale reversed; customer at T2 refunded and given goat G-0142 instead"
+        resolutionDocumentId: "019a7ab3-805f-7d4e-9286-ddb6cc3e5694"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/StockException"
+        example:
+          id: "019a7ab1-7280-7533-8a6b-5c07b77dd4e5"
+          kind: SERIAL_CONFLICT
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          product:
+            id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+            sku: LIV-GOAT
+            name: Goat
+          stockUnit:
+            id: "019a7a8f-bc07-7e4c-9384-ed921796666f"
+            identifier: G-0171
+            tracking: SERIAL
+          location:
+            id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+            code: PEN-G2
+            name: "Goat pen 2"
+            kind: PEN
+          movementId: null
+          sourceDocument:
+            id: "019a7ab1-916f-7f16-944f-fa3f312e731d"
+            docType: SALES_ORDER
+            number: SO-2026-DDW-004180
+          qty: null
+          summary: "Goat G-0171 sold offline at till T2 at 10:14 but had been sold at till T1 at 09:52"
+          details:
+            register: T2
+            shiftNo: SHF-2026-DDW-000311
+          raisedAt: "2026-11-13T03:00:00Z"
+          status: RESOLVED
+          resolvedAt: "2026-11-13T11:00:00Z"
+          resolvedBy:
+            id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+            displayName: "Kwabena Owusu"
+          resolutionDocument:
+            id: "019a7ab3-805f-7d4e-9286-ddb6cc3e5694"
+            docType: STOCK_ADJUSTMENT
+            number: null
+          resolutionNote: "Second sale reversed; customer at T2 refunded and given goat G-0142 instead"
+          resolutionKind: ADJUSTED
+  "202":
+    description: "A write-off at or above the threshold, accepted for approval. Nothing has moved and the exception stays open."
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ApprovalPending"
+        example:
+          status: PENDING_APPROVAL
+          approvalRequestId: "019a7ab9-c8eb-7f82-94ba-00fb843279d9"
+          kind: STOCK_WRITE_OFF
+          subject:
+            id: "019a7ab9-e7da-7966-ae9e-9f32fde31810"
+            docType: STOCK_ADJUSTMENT
+            number: null
+          summary: "Awaiting approval by a different user with the approving permission"
+          requestedAt: "2026-11-13T10:12:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

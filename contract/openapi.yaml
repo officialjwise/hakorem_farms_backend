@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.18.0"
+  version: "1.19.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -19332,8 +19332,14 @@ paths:
       tags:
         - inv
       summary: "List stock exceptions that need a person"
-      description: "Permission: `inv.exception.read`."
+      description: "Stock exceptions that need a person, newest first: negative stock, an offline conflict, a hold or reservation conflict, a temperature excursion, balance drift, or a transfer shortfall held in transit (ADR-0048). `summary` names the two conflicting facts. Narrowed to the branches the reader's grants reach and, for a grant at one location, the exceptions at that location.\n\nPermission: `inv.exception.read`."
       x-permission: inv.exception.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: status
           in: query
@@ -19411,6 +19417,7 @@ paths:
                     resolvedBy: null
                     resolutionDocument: null
                     resolutionNote: null
+                    resolutionKind: null
                   - id: "019a7ab1-b05e-78fa-ae32-9876aadf1154"
                     kind: NEGATIVE_STOCK
                     branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
@@ -19440,6 +19447,7 @@ paths:
                     resolvedBy: null
                     resolutionDocument: null
                     resolutionNote: null
+                    resolutionKind: null
                   - id: "019a7ab2-0d2b-76a4-9bdd-731d17f2ebfa"
                     kind: HOLD_CONFLICT
                     branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
@@ -19472,6 +19480,7 @@ paths:
                     resolvedBy: null
                     resolutionDocument: null
                     resolutionNote: null
+                    resolutionKind: null
                   - id: "019a7ab2-4b09-7a6b-bfa3-af8c0b542869"
                     kind: TEMPERATURE_EXCURSION
                     branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
@@ -19504,6 +19513,7 @@ paths:
                     resolvedBy: null
                     resolutionDocument: null
                     resolutionNote: null
+                    resolutionKind: null
                   - id: "019a7ab2-a7d6-7816-ad4e-8a3278670310"
                     kind: TRANSFER_VARIANCE
                     branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
@@ -19541,6 +19551,7 @@ paths:
                       docType: STOCK_ADJUSTMENT
                       number: ADJ-2026-DDW-000041
                     resolutionNote: "Weighed again: drip loss in transit, posted as shrinkage"
+                    resolutionKind: WRITE_OFF
                   - id: "019a7ab3-2392-7fa3-a4dc-03105f2b7bee"
                     kind: BALANCE_DRIFT
                     branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
@@ -19573,6 +19584,7 @@ paths:
                     resolvedBy: null
                     resolutionDocument: null
                     resolutionNote: null
+                    resolutionKind: null
                 page:
                   nextCursor: eyJpZCI6IjAxOWE3YyJ9
                   limit: 25
@@ -19593,8 +19605,15 @@ paths:
       tags:
         - inv
       summary: "Get a stock exception"
-      description: "Permission: `inv.exception.read`."
+      description: "One stock exception, scoped to its branch and, when it names one, its location.\n\nPermission: `inv.exception.read`."
       x-permission: inv.exception.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -19648,6 +19667,7 @@ paths:
                 resolvedBy: null
                 resolutionDocument: null
                 resolutionNote: null
+                resolutionKind: null
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -19666,8 +19686,24 @@ paths:
       tags:
         - inv
       summary: "Mark a stock exception resolved"
-      description: "Permission: `inv.exception.resolve`."
+      description: "Resolves an open exception once, with a `resolutionKind` and a note, audited. A transfer shortfall held in transit (a `TRANSFER_VARIANCE` with no `movementId`, ADR-0048) takes `WRITE_OFF` or `FOUND` and no `resolutionDocumentId`: `WRITE_OFF` drafts and submits a stock adjustment in transit with the variance's reason, valued from the cost pool, so at or above the `STOCK_WRITE_OFF` threshold (seed 50,000 pesewas, copied onto the adjustment) it answers 202 `ApprovalPending` and the exception stays open until a different person holding `inv.adjustment.approve` approves with step-up; below it the loss posts at once. `FOUND` names `foundLocationId`, a stock location of either branch of the transfer, and returns the held quantity there as a `TRANSFER_RECEIPT` against the transfer, with no expense; the resolution document is the transfer. While a write-off waits for approval nothing else is decided (`WRITE_OFF_PENDING`); a rejected write-off leaves the variance held. Any other exception takes `ADJUSTED` with the posted adjustment that names it, or `NO_CORRECTION`; with no `resolutionKind`, a `resolutionDocumentId` means `ADJUSTED` and none means `NO_CORRECTION`. A resolved exception is refused (`INVALID_STATE_TRANSITION`).\n\nPermission: `inv.exception.resolve`, scoped to the exception's branch and location, and to the found location."
       x-permission: inv.exception.resolve
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - STOCK_EXCEPTION_INVALID
+        - STOCK_ADJUSTMENT_INVALID
+        - REFERENCE_NOT_FOUND
+        - INSUFFICIENT_STOCK
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -19687,6 +19723,7 @@ paths:
             schema:
               $ref: "#/components/schemas/StockExceptionResolve"
             example:
+              resolutionKind: ADJUSTED
               note: "Second sale reversed; customer at T2 refunded and given goat G-0142 instead"
               resolutionDocumentId: "019a7ab3-805f-7d4e-9286-ddb6cc3e5694"
       responses:
@@ -19727,11 +19764,33 @@ paths:
                   register: T2
                   shiftNo: SHF-2026-DDW-000311
                 raisedAt: "2026-11-13T03:00:00Z"
-                status: OPEN
-                resolvedAt: null
-                resolvedBy: null
-                resolutionDocument: null
-                resolutionNote: null
+                status: RESOLVED
+                resolvedAt: "2026-11-13T11:00:00Z"
+                resolvedBy:
+                  id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                  displayName: "Kwabena Owusu"
+                resolutionDocument:
+                  id: "019a7ab3-805f-7d4e-9286-ddb6cc3e5694"
+                  docType: STOCK_ADJUSTMENT
+                  number: null
+                resolutionNote: "Second sale reversed; customer at T2 refunded and given goat G-0142 instead"
+                resolutionKind: ADJUSTED
+        "202":
+          description: "A write-off at or above the threshold, accepted for approval. Nothing has moved and the exception stays open."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalPending"
+              example:
+                status: PENDING_APPROVAL
+                approvalRequestId: "019a7ab9-c8eb-7f82-94ba-00fb843279d9"
+                kind: STOCK_WRITE_OFF
+                subject:
+                  id: "019a7ab9-e7da-7966-ae9e-9f32fde31810"
+                  docType: STOCK_ADJUSTMENT
+                  number: null
+                summary: "Awaiting approval by a different user with the approving permission"
+                requestedAt: "2026-11-13T10:12:00Z"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -75731,6 +75790,17 @@ components:
           type:
             - string
             - "null"
+        resolutionKind:
+          type:
+            - string
+            - "null"
+          enum:
+            - WRITE_OFF
+            - FOUND
+            - ADJUSTED
+            - NO_CORRECTION
+            - null
+          description: "How it was settled (1.19.0); null while open."
       required:
         - id
         - kind
@@ -75749,6 +75819,7 @@ components:
         - resolvedBy
         - resolutionDocument
         - resolutionNote
+        - resolutionKind
     StockExceptionPage:
       type: object
       description: "A page of `StockException` results."
@@ -75765,12 +75836,24 @@ components:
     StockExceptionResolve:
       type: object
       properties:
+        resolutionKind:
+          type: string
+          enum:
+            - WRITE_OFF
+            - FOUND
+            - ADJUSTED
+            - NO_CORRECTION
+          description: "How it is settled (1.19.0). A transfer shortfall held in transit takes `WRITE_OFF` or `FOUND`; any other exception `ADJUSTED` or `NO_CORRECTION`, and without it the presence of `resolutionDocumentId` decides between those two."
         note:
           type: string
         resolutionDocumentId:
           type: string
           format: uuid
-          description: "The adjustment or transfer that settled it, if any."
+          description: "The posted adjustment that settled it, for `ADJUSTED`. Not sent for a held transfer shortfall: the write-off makes its own adjustment and found is posted against the transfer."
+        foundLocationId:
+          type: string
+          format: uuid
+          description: "For `FOUND` only (1.19.0): the stock location, in either branch of the transfer, where the held quantity was found."
       required:
         - note
       additionalProperties: false

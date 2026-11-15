@@ -206,3 +206,22 @@ export const ListStockHoldsQuery = z.object({
   cursor: Cursor,
   limit: Limit,
 });
+
+const EXCEPTION_KINDS = ['NEGATIVE_STOCK', 'SERIAL_CONFLICT', 'HOLD_CONFLICT', 'RESERVATION_CONFLICT', 'TEMPERATURE_EXCURSION', 'BALANCE_DRIFT', 'TRANSFER_VARIANCE'] as const;
+
+/** listStockExceptions query. */
+export const ListStockExceptionsQuery = z.object({
+  status: z.enum(['OPEN', 'RESOLVED']).optional(),
+  kind: z.enum(EXCEPTION_KINDS).optional(),
+  branchId: z.uuid().optional(),
+  cursor: Cursor,
+  limit: Limit,
+});
+
+/** The contract's `StockExceptionResolve`, strict (ADR-0048, A-144). */
+export const StockExceptionResolve = z.strictObject({
+  resolutionKind: z.enum(['WRITE_OFF', 'FOUND', 'ADJUSTED', 'NO_CORRECTION']).optional(),
+  note: z.string().trim().min(1).max(1_000),
+  resolutionDocumentId: z.uuid().optional(),
+  foundLocationId: z.uuid().optional(),
+});

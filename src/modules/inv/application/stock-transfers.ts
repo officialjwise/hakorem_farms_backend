@@ -1,4 +1,4 @@
-import { createUuidV7Generator, Quantity, type Clock } from '@hakorem/kernel';
+import { createUuidV7Generator, Money, Quantity, type Clock } from '@hakorem/kernel';
 import type { AuditTrail } from '../../../platform/audit/audit-trail';
 import type { Actor } from '../../../platform/context/request-context';
 import type { Transaction, UnitOfWork } from '../../../platform/database/unit-of-work';
@@ -9,6 +9,7 @@ import type { Idempotency, StoredResponse } from '../../../platform/idempotency/
 import type { Authoriser, PrincipalNames, PrincipalRef } from '../../iam';
 import type { LocationFacts, MasterDataRefs } from '../../mdm';
 import { checkStockLines, planTransferReceipt, type StockRuleBroken } from '../domain/stock-documents';
+import { issue } from '../domain/valuation/cost-pool';
 import { ordinal, pageProbe } from './counting';
 import { InvReferenceNotFoundError, StockTransferInvalidError, TransferVarianceError } from './errors';
 import type { Stock } from './stock';
@@ -67,8 +68,8 @@ export interface StockTransferView {
  * Stock transfers (FR-INV-010, FR-INV-011). A transfer is drafted at its source, dispatched into the source branch's
  * in-transit location (still the farm's stock, still valued, never sellable), and received at its destination, where
  * what arrived plus the recorded variance must equal what was dispatched. A shortfall needs a reason from the fixed
- * list, leaves in-transit as a loss movement, and raises a `TRANSFER_VARIANCE` stock exception for a person to look
- * at (A-139). Every movement is posted through `Stock.postIn` in the command's serializable transaction; a transfer
+ * list and stays held in transit with a `TRANSFER_VARIANCE` stock exception, never a loss at receipt (ADR-0048): a
+ * person clears it later through `StockExceptions.resolve`, by a write-off with approval at the threshold or as found. Every movement is posted through `Stock.postIn` in the command's serializable transaction; a transfer
  * between branches moves the issue value to the receiving branch's pool (the trigger, ADR-0018). Drafting,
  * dispatching and cancelling are scoped to the source location; receiving to the destination.
  */
@@ -241,32 +242,33 @@ export class StockTransfers {
 
         const inTransit = transfer.inTransitLocationId!;
         const transitBranch = transfer.branchId;
-        const loss = await this.refs.virtualLocationIn(tx, transitBranch, 'LOSS');
-        if (loss === null) throw new Error(`branch ${transitBranch} has no virtual LOSS location; every branch is created with one (ADR-0042)`);
         const now = this.clock.now();
         for (const planned of plan.lines) {
           const line = transfer.lines.find((l) => l.id === planned.lineId)!;
           const base = { productId: line.productId, stockUnitId: line.stockUnitId, branchId: transitBranch, fromLocationId: inTransit, sourceDocumentId: id, sourceLineRef: line.id, occurredAt: now };
           const received = planned.received.isZero() ? null : await this.stock.postIn(tx, actor!.principalId, { ...base, movementType: 'TRANSFER_RECEIPT', toLocationId: transfer.toLocationId, qty: planned.received });
-          let varianceMovement: string | null = null;
           if (!planned.variance.isZero()) {
-            const posted = await this.stock.postIn(tx, actor!.principalId, { ...base, movementType: 'ADJUST_LOSS', toLocationId: loss, qty: planned.variance, reasonCode: planned.reasonCode });
-            varianceMovement = posted.id;
+            // ADR-0048: the shortfall stays in transit, still the farm's stock at its value, held by its exception
+            // until a person writes it off (with approval at the threshold) or records it found. No loss at receipt.
+            const unit = line.stockUnitId === null ? undefined : units.get(line.stockUnitId);
+            const pool = await this.store.pool(tx, line.productId, line.stockUnitId, unit?.branchId ?? transitBranch);
+            const heldValue = pool === null ? Money.zero() : issue({ qty: Quantity.parse(pool.qty), value: Money.ofPesewas(pool.valuePesewas) }, planned.variance).carried;
             await this.store.insertException(tx, {
               kind: 'TRANSFER_VARIANCE',
               branchId: transitBranch,
               productId: line.productId,
               stockUnitId: line.stockUnitId,
               locationId: inTransit,
-              movementId: posted.id,
+              movementId: null,
               sourceDocumentId: id,
               qty: planned.variance.toDecimalString(),
               details: {
+                lineId: line.id,
                 qtyDispatched: line.qtyDispatched,
                 qtyReceived: planned.received.toDecimalString(),
                 varianceQty: planned.variance.toDecimalString(),
                 reasonCode: planned.reasonCode,
-                valuePesewas: posted.value.toJsonInteger(),
+                heldValuePesewas: heldValue.toJsonInteger(),
                 receivedBy: actor!.principalId,
               },
             });
@@ -276,7 +278,7 @@ export class StockTransfers {
             variance: planned.variance.toDecimalString(),
             reasonCode: planned.reasonCode,
             receiptMovementId: received?.id ?? null,
-            varianceMovementId: varianceMovement,
+            varianceMovementId: null,
           });
         }
         await this.store.markReceived(tx, id, now, actor!.principalId);
