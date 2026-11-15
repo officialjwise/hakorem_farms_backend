@@ -24,7 +24,7 @@ A production system for a livestock, poultry, meat and fresh produce business in
 - Security: `docs/security/` (architecture, threat model, secure coding standards, data classification, compliance). Standards: `docs/ENGINEERING_STANDARDS.md`, `docs/TEST_STRATEGY.md`, `docs/API.md`, `docs/OFFLINE_SYNC.md`.
 - Running it: `docs/OPERATIONS.md`, `docs/DEPLOYMENT.md`, `docs/runbooks/`, `docs/ONBOARDING.md`. Acceptance: `docs/UAT.md`. Terms: `docs/GLOSSARY.md`.
 - The contract: `contract/openapi.yaml` (3 MB: grep it, never read it whole). Session handoffs: `docs/sessions/`. Build plan: `docs/BUILD_PROMPT.md` and `docs/adr/0026-session-schedule-amendment.md`.
-- From B4 onward read `../frontend/docs/CONTRACT_REQUESTS.md` at the start of a session and implement or decline each request in the report. Never edit it, and never open frontend source.
+- From B4 onward read `../frontend/docs/CONTRACT_REQUESTS.md` **as committed on the frontend's `main`** (`git -C ../frontend fetch origin main`, then `git -C ../frontend show origin/main:docs/CONTRACT_REQUESTS.md`; a fetch changes no file there) at the start of a session, and implement or decline each request in the report. The frontend commits each request to `main` in its own small PR (owner, 2026-11-15); one on an unmerged branch is not yet a request. Never edit it, and never open frontend source.
 
 ## Session protocol
 
