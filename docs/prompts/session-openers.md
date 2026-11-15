@@ -36,7 +36,8 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B05 continued 3b | `B05d2-inventory-reservations-exceptions.md` | `b05d2-inventory-reservations-exceptions` | B4 to B12 | An expired reservation is released by the job exactly as reserved, under concurrency; one active reservation per animal; an exception is resolved through the adjustment path; each write with a wrong-role refusal (built; ADR-0048 built with it, A-145) |
 | B05 continued 4 | `B05e-inventory-cold-chain-opening.md` | `b05e-inventory-cold-chain-opening` | B4 to B12 | The B5 gate in full: on-hand from movements matches a hand count of the seeded farm; stock cannot go negative outside allowed types; a lot traces both ways; every INV write refuses the wrong role |
 | B05x | `B05x-dashboard-branches-labels.md` | `b05x-dashboard-branches-labels` | B4 to B12 | getOwnerDashboard answers in one request with its sourceless figures null and listed; every tile whose data exists answers exactly on the seeded farm, the rest are contract-only and scheduled; a branch deactivates with its refusals and lists stay within grants; lot and product label data answers; every operation refuses the wrong role (built) |
-| B6 | `B06-livestock-processing.md` | `b06-livestock-processing` | B4 to B12 | A processing order produces lots whose costs sum exactly to input cost plus direct processing cost |
+| B6 | `B06-livestock-processing.md` | `b06-livestock-processing` | B4 to B12 | A processing order produces lots whose costs sum exactly to input cost plus direct processing cost (built; the session split, A-154) |
+| B06 continued | `B06b-livestock-packs.md` | `b06b-livestock-packs` | B4 to B12 | Every LIV write refuses the wrong role; a withdrawal hold blocks sale and processing and nobody releases it early; mortality at or above the threshold waits for a photograph and a different approver; feed and veterinary cost spread by head-days sum exactly; pack weights equal the lot weight and a pack label encodes lot and weight |
 | B7 | `B07-procurement-suppliers.md` | `b07-procurement-suppliers` | B4 to B12 | Three-way match blocks payment on disagreement; checkout reserves stock and releases it on timeout |
 | B8 | `B08-ledger-billing.md` | `b08-ledger-billing` | B4 to B12 | Trial balance sums to zero on a seeded day; an unbalanced journal is rejected by the database; numbering is gap-free under concurrent load |
 | B9a | `B09a-order-core-payments.md` | `b09a-order-core-payments` | B4 to B12 | Every payment edge case in the brief passes; an order on any channel posts stock, document, payment and ledger in one transaction |
@@ -751,13 +752,40 @@ allocated costs sum exactly to input cost plus direct cost, including an awkward
 Stop at the gate and write docs/sessions/B06-livestock-processing.md.
 ```
 
+## B06 continued — Livestock management, packs and labels
+
+Branch `b06b-livestock-packs`, from `main` (ADR-0026 Amendments). Report `docs/sessions/B06b-livestock-packs.md`. Gate: every LIV write refuses the wrong role; a withdrawal hold blocks sale and processing and nobody releases it early; mortality at or above the threshold waits for a photograph and a different approver; feed and veterinary cost spread by head-days sum exactly to the value issued; pack weights equal the lot weight and a pack label encodes the lot and the weight.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B06-livestock-processing.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the LIV block and FR-PRC-009 to FR-PRC-011 of docs/SRS.md (nothing else from the SRS),
+docs/data-model/liv.md and docs/data-model/prc.md, the LIV and PRC cards in docs/MODULE_BOUNDARIES.md,
+and ADR-0018 and ADR-0019. Use docs/prompts/module-build-prompt.md as the recipe.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B06 continued only, on branch b06b-livestock-packs, branched from main: the animal register (an animal
+record per serialised stock unit, opened from inv.StockUnitRegistered), batches, weights with their source and growth,
+health events with veterinary withdrawal holds placed through INV's StockHolds.placeIn that nobody can release early,
+breeding and births, mortality and culls with photograph and second approver at or above the threshold (maker never
+the checker, threat model abuse case 2), rations and feed with head-days allocation through the kernel's allocate,
+the animal's status kept in step with its stock unit (a goat consumed by a B6 processing order becomes SLAUGHTERED),
+then PRC's packs and labels (createPacks, listPacks, printPackLabels, whose barcodes follow B05x's LabelBarcode:
+CODE_128, A-151) and the reversing order of FR-PRC-011. Decide the Farm hand's PRC access (A-153). Write the money,
+weight and permission tests first. Extend the seed. If this does not fit one context, split at the LIV and PRC
+boundary as B6 did. Stop at the gate and write docs/sessions/B06b-livestock-packs.md.
+```
+
 ## B7 — Procurement and suppliers, and the storefront cart
 
 Branch `b07-procurement-suppliers`. Report `docs/sessions/B07-procurement-suppliers.md`. Gate: three-way match blocks payment where receipt and supplier invoice disagree, and checkout reserves stock and releases it on timeout.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
-List docs/sessions/ and read only the most recent report (docs/sessions/B06-livestock-processing.md).
+List docs/sessions/ and read only the most recent report (docs/sessions/B06b-livestock-packs.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
 report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the PUR and SHP requirement blocks of docs/SRS.md (nothing else from the SRS),

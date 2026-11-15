@@ -43,7 +43,9 @@ Posted statuses: `COMPLETED`, `CANCELLED`.
 
 Standard columns: `DOCUMENT` (`status` in `PLANNED`, `IN_PROGRESS`, `COMPLETED`, `CANCELLED`).
 
-- Deferred trigger on completion: the sum of `prc.processing_output.allocated_cost_pesewas` equals `total_cost_pesewas`, and `total_cost_pesewas = input_cost_pesewas + direct_cost_pesewas`.
+Built in B6 (migration 0072, A-153) with these additions: `cancel_reason` (required exactly when `CANCELLED`), `branch_id`, `posted_at` and `posted_by` (set with `completed_at` on completion), and `output_weight_kg + waste_weight_kg <= input_weight_kg`. A guard trigger allows only `PLANNED -> IN_PROGRESS -> COMPLETED` and cancellation from `PLANNED` or `IN_PROGRESS`; `freeze_posted` freezes `COMPLETED` and `CANCELLED`. Nothing moves before completion.
+
+- Deferred trigger on completion (`ck_processing_order_costs`): the sum of `prc.processing_output.allocated_cost_pesewas` equals `total_cost_pesewas`, `total_cost_pesewas = input_cost_pesewas + direct_cost_pesewas`, `direct_cost_pesewas` equals the sum of `prc.processing_cost`, `input_cost_pesewas` equals the sum of the inputs' `cost_pesewas`, every input is consumed and every saleable output received.
 
 ### `prc.processing_input` · DOCUMENT
 
@@ -61,7 +63,7 @@ Frozen with its order.
 | `cost_pesewas` | `pesewas` | NULL | Value carried by the consuming movement |
 | `movement_id` | `uuid` | NULL, FK `inv.stock_movement` | |
 
-- UNIQUE (`processing_order_id`, `stock_unit_id`).
+- UNIQUE (`processing_order_id`, `stock_unit_id`). B6 adds `line_no` (UNIQUE per order) and CHECK `cost_pesewas` and `movement_id` are set together, once, by completion. Inputs change only while the order is `PLANNED`.
 
 ### `prc.processing_output` · DOCUMENT
 
@@ -84,7 +86,7 @@ Frozen with its order.
 | `movement_id` | `uuid` | NULL, FK `inv.stock_movement` | |
 
 - UNIQUE (`processing_order_id`, `line_no`).
-- CHECK: `output_kind = 'WASTE'` implies `allocation_weight = 0` and `allocated_cost_pesewas = 0`.
+- CHECK: `output_kind = 'WASTE'` implies `allocation_weight = 0`, `allocated_cost_pesewas = 0`, a zero reference price and no lot or movement. B6 adds `expires_on` (the lot's expiry, recorded or from the product's shelf life) and CHECK `stock_unit_id` and `movement_id` are set together. Until completion the reference price, allocation weight and allocated cost are 0. Outputs and direct costs change only while the order is `PLANNED` or `IN_PROGRESS`.
 
 ### `prc.processing_cost` · DOCUMENT
 
@@ -101,6 +103,8 @@ Direct costs of a processing run.
 | `created_by` | `uuid` | NOT NULL, FK `iam.principal` | |
 
 ### `prc.pack` · MASTER
+
+Not yet built: packs and labels are B06 continued's (A-154).
 
 A labelled, weighed pack within a meat lot.
 

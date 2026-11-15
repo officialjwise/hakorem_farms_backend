@@ -386,6 +386,8 @@ The "Source" column says where the code comes from. **Contract** means the code 
 | `STOCK_EXCEPTION_INVALID` | 422 | A resolution breaks a rule: `RESOLUTION_KIND_REQUIRED`, `NOT_FOR_A_HELD_VARIANCE`, `ONLY_FOR_A_HELD_VARIANCE`, `WRITE_OFF_PENDING`, `DOCUMENT_REQUIRED`, `NOT_FOR_NO_CORRECTION`, `NOT_A_SETTLING_ADJUSTMENT`, `FOUND_LOCATION_REQUIRED`, `ONLY_FOR_FOUND`, `NOT_A_STOCK_LOCATION`, `NOT_IN_THE_TRANSFER_BRANCHES` (1.19.0) |
 | `REORDER_RULE_INVALID` | 422 | A reorder rule breaks a rule: `BELOW_MINIMUM`, `BELOW_REORDER_POINT`, `MAXIMUM_REQUIRED`, `OUT_OF_RANGE`, `NOT_A_STOCK_PRODUCT`, `NOT_A_STOCK_LOCATION`, `NOT_IN_THE_BRANCH`, `RULE_EXISTS` (1.20.0) |
 | `BRANCH_INVALID` | 422 | Closing a branch is refused, every reason in `details[].code`: `FARM_BRANCH`, `LAST_ACTIVE_BRANCH`, `HOLDS_STOCK`, `OPEN_DOCUMENTS` (1.21.0, ADR-0051) |
+| `PROCESSING_ORDER_INVALID` | 422 | A processing order breaks a rule, every one in `details[].code`: `NO_INPUTS`, `TOO_MANY_INPUTS`, `INPUT_REPEATED`, `INPUT_NOT_AN_ANIMAL`, `INPUT_NOT_AVAILABLE`, `INPUT_NOT_HERE`, `WEIGHT_ZERO`, `NOT_A_PROCESSING_LOCATION`, `NOT_AN_OUTPUT_LOCATION`, `WRONG_BRANCH`, `SAME_AS_PROCESSING_LOCATION`, `TOO_MANY_OUTPUTS`, `OUTPUT_NOT_A_LOT`, `OUTPUT_NOT_BY_WEIGHT`, `PRODUCT_NOT_ACTIVE`, `NOT_FOR_WASTE`, `EXPIRY_BEFORE_PRODUCTION`, `OUTPUT_WEIGHT_ABOVE_INPUT`, `REFERENCE_PRICE_MISSING`, `WASTE_CARRIES_NO_PRICE`, `NO_SALEABLE_OUTPUT`, `LINE_NUMBER_REPEATED`, `AMOUNT_ZERO` (1.22.0, A-153) |
+| `YIELD_STANDARD_INVALID` | 422 | A yield standard breaks a rule: `SAME_PRODUCT`, `STANDARD_EXISTS`, `EXPECTED_ZERO` (1.22.0) |
 | `REPORT_PERIOD_INVALID` | 422 | A dashboard date or a series period cannot be reported: `IN_THE_FUTURE`, `FROM_AFTER_TO`, `PERIOD_TOO_LONG` (more than 92 days) (1.21.0) |
 | `TEMPERATURE_READING_INVALID` | 422 | A reading cannot be recorded: `NO_TEMPERATURE_RANGE`, `NOT_A_STOCK_LOCATION`, `IN_THE_FUTURE`, `ID_IN_USE` (1.20.0) |
 | `STOCK_UNIT_EXPIRED` | 422 | The lot is past its expiry date and cannot be sold; write it off instead (1.20.0) |
@@ -719,6 +721,13 @@ Animals (tag, species, sex, status, cost accumulated), timelines, moves, weight 
 ### Processing (`prc`, 15)
 
 Processing orders turn animals into meat lots, offal and waste: create, start, `recordProcessingOutputs`, `addProcessingCost`, complete (yield against the standard, with a variance flag), packs and `printPackLabels`, yield standards. An input under a hold or quarantine is refused with `STOCK_UNIT_ON_HOLD`.
+
+**Built in B6 (1.22.0, A-153):** the order's list, read, create, change, start, outputs, direct costs, completion and cancellation, and the yield standards answer from code; packs and labels are still mock only (B06 continued).
+
+- **Lifecycle:** `PLANNED` (inputs may change) → `IN_PROGRESS` (`startProcessingOrder` checks the inputs again and moves nothing) → `COMPLETED`, or `CANCELLED` from either earlier status with no stock or cost effect. A completed order is frozen by the database.
+- **Inputs:** live animals (SERIAL stock units) standing at the processing location, any physical location of the branch that holds stock; refused as sold or consumed (`INPUT_NOT_AVAILABLE`), elsewhere (`INPUT_NOT_HERE`), a lot (`INPUT_NOT_AN_ANIMAL`), or under a hold (`STOCK_UNIT_ON_HOLD`, at create, start and completion). Until completion an input's `costPesewas` is its whole pool now.
+- **Completion, in one transaction:** PROCESS_CONSUME per input carrying its whole pool; the reference price per kilogram of each saleable output from the counter's price list at the branch (`REFERENCE_PRICE_MISSING` if none); the total (input cost plus direct cost) split by `allocate` over grams times reference price, largest remainder, ties to the lowest line, waste zero; a new lot per saleable output in the output location, received by PROCESS_OUTPUT at its allocated cost, with lineage to every input; yield per output product against the input product's standards, flagged beyond the tolerance (`yieldVarianceFlag`, `prc.YieldVarianceFlagged` with abuse case 18); `prc.DirectCostIncurred` per direct cost and `prc.ProcessingOrderCompleted`. The database checks the sums again at commit (`ck_processing_order_costs`).
+- **Permissions:** `prc.order.read` (Owner, Manager, Storekeeper, Accountant), `prc.order.create` and `prc.order.process` (Owner, Manager, Storekeeper), `prc.yield_standard.read` (the same four), `prc.yield_standard.manage` (Owner, Manager). Each order operation is scoped to the order's branch and processing location.
 
 ### Procurement (`pur`, 33)
 
