@@ -41,6 +41,7 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B06 continued | `B06b-livestock-packs.md` | `b06b-livestock-packs` | B4 to B12 | Every LIV write built refuses the wrong role; a withdrawal hold blocks sale and processing and nobody releases it early; mortality at or above the threshold waits for a photograph and a different approver; feed and veterinary cost spread by head-days sum exactly to the value issued (built; the session split, A-158) |
 | B06 continued 2 | `B06c-livestock-growth-breeding.md` | `b06c-livestock-growth-breeding` | B4 to B12 | Every remaining LIV write refuses the wrong role; a move starts only where the animal is; average daily gain and feed conversion match a hand calculation; a batch closes only when empty; a birth registers its offspring at nil cost linked to the dam; the feed, medicine and ration seed is counted by hand (built) |
 | B06 continued 3 | `B06d-packs-labels.md` | `b06d-packs-labels` | B4 to B12 | Pack weights equal the lot weight and a pack label encodes the lot and the weight; a completed order reverses only while its outputs are unsold; every pack write refuses the wrong role |
+| B06u | `B06u-uom-conversions.md` | `b06u-uom-conversions` | B4 to B12 | Alternative units convert exactly, an inexact factor is refused by the database, conversions list in the contract, writes refuse the wrong role |
 | B7 | `B07-procurement-suppliers.md` | `b07-procurement-suppliers` | B4 to B12 | Three-way match blocks payment on disagreement; checkout reserves stock and releases it on timeout |
 | B8 | `B08-ledger-billing.md` | `b08-ledger-billing` | B4 to B12 | Trial balance sums to zero on a seeded day; an unbalanced journal is rejected by the database; numbering is gap-free under concurrent load |
 | B9a | `B09a-order-core-payments.md` | `b09a-order-core-payments` | B4 to B12 | Every payment edge case in the brief passes; an order on any channel posts stock, document, payment and ledger in one transaction |
@@ -846,7 +847,7 @@ first. Stop at the gate and write docs/sessions/B06c-livestock-growth-breeding.m
 
 ## B06 continued 3 — Packs, labels and the reversing order
 
-Branch `b06d-packs-labels`, from `main` (ADR-0026 Amendments). Report `docs/sessions/B06d-packs-labels.md`. Inserted on 2026-11-15 with B06 continued 2 (A-158). Gate: pack weights equal the lot weight and a pack label encodes the lot and the weight; a completed processing order is frozen and reverses only while its outputs are unsold, restoring the animal to its pen at its prior cost; every pack write refuses the wrong role; the Farm hand's PRC access is decided (A-153).
+Branch `b06d-packs-labels`, from `main` (ADR-0026 Amendments). Report `docs/sessions/B06d-packs-labels.md`. Inserted on 2026-11-15 with B06 continued 2 (A-158). Gate: first, a Farm hand sees the animal register, rations and health events with their withdrawal holds and never a cost, on every LIV and PRC operation the role can reach (owner, 2026-11-15); then pack weights equal the lot weight and a pack label encodes the lot and the weight; a completed processing order is frozen and reverses only while its outputs are unsold, restoring the animal to its pen at its prior cost; every pack write refuses the wrong role; the Farm hand's PRC access is decided (A-153).
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
@@ -854,10 +855,20 @@ List docs/sessions/ and read only the most recent report (docs/sessions/B06c-liv
 Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
 reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
 For this phase, read FR-PRC-009 to FR-PRC-011 of docs/SRS.md (nothing else from the SRS), docs/data-model/prc.md,
-the PRC card in docs/MODULE_BOUNDARIES.md, and ADR-0018. Use docs/prompts/module-build-prompt.md as the recipe.
+the PRC card in docs/MODULE_BOUNDARIES.md, and ADR-0018, and A-153, A-158 and A-159 in docs/ASSUMPTIONS.md. Use docs/prompts/module-build-prompt.md as the recipe.
 Do not read any other document unless this phase needs it.
 
 Confirm in three lines: the phase, its scope, and its gate.
+First, before packs (owner, 2026-11-15, replacing A-158's Farm hand line): the Farm hand reads what animal
+work and food safety need, the animal register, feed rations and above all health events with their withdrawal
+holds, so a treated animal is never sent to slaughter or sale; and never a cost. Use the codebase's pattern for
+cost visibility if there is one; otherwise give that role cost-free read shapes (a separate response shape
+without the cost fields), never nullable cost fields. Main today leaks cost to the role: B06 continued 2 granted
+liv.animal.update, liv.animal.move, liv.batch.read, liv.batch.create and liv.batch.update (migration 0082), whose
+answers carry cost, so close those first. Death records and anything only about money stay refused. Tests,
+written first: a Farm hand reads a treated goat's withdrawal hold and its end; and one test that walks every
+LIV and PRC route the role's grants reach and asserts no response schema, example or live response carries a
+cost or pesewa field. Record the matrix in the assumption that holds it (A-158) as the owner's decision.
 Then execute B06 continued 3 only, on branch b06d-packs-labels, branched from main: PRC's packs and labels (prc.pack;
 createPacks, listPacks, printPackLabels, whose barcodes follow B05x's LabelBarcode: CODE_128, A-151; the payload
 <lot>/<grams, six digits>), the reversing order of FR-PRC-011 (cancelProcessingOrder on a COMPLETED order, reversing
@@ -866,13 +877,40 @@ LIV's register already follows), and the Farm hand's PRC access (A-153). Write t
 Extend the seed. Stop at the gate and write docs/sessions/B06d-packs-labels.md.
 ```
 
+## B06u — Units of measure and their conversions
+
+Branch `b06u-uom-conversions`, from `main`. Report `docs/sessions/B06u-uom-conversions.md`. Inserted by the owner on 2026-11-15 (A-157): FR-MDM-003's alternative units were never built, and they belong before anything sells by a unit other than a product's base unit, not inside B9a. Small and additive. Gate: a product's alternative units convert to its base unit by an exact numerator and denominator, FR-MDM-003's unit test passes, a conversion that is not exact is refused by the database, the conversions list answers in the contract, and every write refuses the wrong role.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report.
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md), CR-011 above all:
+implement what is reasonable, record in the report what you declined and why, never edit that file and never
+open frontend source.
+For this phase, read FR-MDM-003 of docs/SRS.md (nothing else from the SRS), the units and product_uom_conversion
+parts of docs/data-model/mdm.md, the MDM card in docs/MODULE_BOUNDARIES.md and A-157. Use
+docs/prompts/module-build-prompt.md as the recipe. Load hakorem-money and hakorem-stock: a conversion changes a
+quantity, and a quantity times a price is money.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B06u only, on branch b06u-uom-conversions, branched from main: mdm.product_uom_conversion with
+numerator and denominator and the exact-factor rule in the database, FR-MDM-003's unit test, the operations to
+list (CR-011's listUomConversions or conversions on Uom, whichever the contract can carry additively) and to
+manage a product's conversions with wrong-role refusals, read by other modules through MasterDataRefs. A catch-
+weight line is charged by the weighed kilograms, so a pack-to-kilogram factor is never a conversion (A-157).
+Write the conversion and permission tests first; examples in farm terms; changelog and cold-read summary.
+Stop at the gate, write docs/sessions/B06u-uom-conversions.md, and merge into main when every run on the pull
+request is green.
+```
+
 ## B7 — Procurement and suppliers, and the storefront cart
 
 Branch `b07-procurement-suppliers`. Report `docs/sessions/B07-procurement-suppliers.md`. Gate: three-way match blocks payment where receipt and supplier invoice disagree, and checkout reserves stock and releases it on timeout.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
-List docs/sessions/ and read only the most recent report (docs/sessions/B06d-packs-labels.md).
+List docs/sessions/ and read only the most recent report (docs/sessions/B06u-uom-conversions.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
 report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the PUR and SHP requirement blocks of docs/SRS.md (nothing else from the SRS),
@@ -958,10 +996,8 @@ Make the owner dashboard's B9a figures live (B05x, A-149): remove `salesTodayPes
 `salesMonthToDatePesewas`, `salesByChannel`, `salesSeries` and `topMovers` from RPT's PENDING_FIGURES and answer them
 from completed orders through a published view, and build the planned tiles getSalesTodayTile and getSalesSeries,
 each test-first with its wrong-role refusal.
-Unit conversions (B06m, A-157): FR-MDM-003's alternative units were never built. Before an order line may carry a
-unit other than the product's base unit, build them in MDM (mdm.product_uom_conversion with numerator and
-denominator, the exact-factor rule and FR-MDM-003's unit test, read through MasterDataRefs); if no order line needs
-one, say so in the report and ask the owner to park them.
+Unit conversions are built in B06u (A-157): an order line in a unit other than the product's base unit
+converts through MasterDataRefs, never with a factor of its own.
 Stop at the gate and write docs/sessions/B09a-order-core-payments.md.
 ```
 
