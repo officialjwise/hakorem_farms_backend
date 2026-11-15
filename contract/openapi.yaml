@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.22.0"
+  version: "1.23.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -10890,24 +10890,20 @@ paths:
               schema:
                 $ref: "#/components/schemas/PriceList"
               example:
-                id: "019a7a94-5381-760f-bb48-69ce27dce2ac"
-                code: BASE
-                name: "Base prices"
-                kind: BASE
+                id: "019a7ab1-2c40-7d1e-a6b3-5f0c8e2d4a11"
+                code: CUST-ASANTEWAA
+                name: "Asantewaa Chop Bar prices"
+                kind: CUSTOMER
                 channel: null
                 customerTier: null
                 branch: null
-                taxInclusive: true
+                taxInclusive: false
                 currency: GHS
-                activeVersion:
-                  id: "019a7aa3-e9f0-71af-86e7-23c27a0d9ca0"
-                  versionNo: 3
-                  validFrom: "2026-11-01T00:00:00Z"
-                  validTo: null
-                draftVersionId: "019a7aa4-08df-7b92-90ca-c1f9f3be3ad7"
-                version: 2
-                createdAt: "2026-11-02T08:00:00Z"
-                updatedAt: "2026-11-10T14:00:00Z"
+                activeVersion: null
+                draftVersionId: null
+                version: 1
+                createdAt: "2026-11-14T10:05:00Z"
+                updatedAt: "2026-11-14T10:05:00Z"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -10981,11 +10977,11 @@ paths:
                     taxInclusive: true
                     currency: GHS
                     activeVersion:
-                      id: "019a7aa3-e9f0-71af-86e7-23c27a0d9ca0"
-                      versionNo: 3
+                      id: "019a7aa4-46bd-7f59-b491-fe68e7207746"
+                      versionNo: 4
                       validFrom: "2026-11-01T00:00:00Z"
                       validTo: null
-                    draftVersionId: "019a7aa4-08df-7b92-90ca-c1f9f3be3ad7"
+                    draftVersionId: "019a7aa3-e9f0-71af-86e7-23c27a0d9ca0"
                     version: 2
                     createdAt: "2026-11-02T08:00:00Z"
                     updatedAt: "2026-11-10T14:00:00Z"
@@ -10999,7 +10995,7 @@ paths:
                     taxInclusive: true
                     currency: GHS
                     activeVersion:
-                      id: "019a7aa4-46bd-7f59-b491-fe68e7207746"
+                      id: "019a7ab1-0b11-7a2e-8c41-2e6f9d3b5c01"
                       versionNo: 4
                       validFrom: "2026-11-01T00:00:00Z"
                       validTo: null
@@ -11017,7 +11013,7 @@ paths:
                     taxInclusive: true
                     currency: GHS
                     activeVersion:
-                      id: "019a7aa4-849b-7320-9858-3ad7da82b3b5"
+                      id: "019a7ab1-0b12-7a2e-8c41-2e6f9d3b5c02"
                       versionNo: 3
                       validFrom: "2026-11-01T00:00:00Z"
                       validTo: null
@@ -11038,7 +11034,7 @@ paths:
                     taxInclusive: false
                     currency: GHS
                     activeVersion:
-                      id: "019a7aa4-c279-76e7-bc1f-7746cde4f024"
+                      id: "019a7ab1-0b13-7a2e-8c41-2e6f9d3b5c03"
                       versionNo: 4
                       validFrom: "2026-11-01T00:00:00Z"
                       validTo: null
@@ -11056,7 +11052,7 @@ paths:
                     taxInclusive: false
                     currency: GHS
                     activeVersion:
-                      id: "019a7aa5-0057-7aae-9fe6-b3b5c1462c93"
+                      id: "019a7ab1-0b14-7a2e-8c41-2e6f9d3b5c04"
                       versionNo: 3
                       validFrom: "2026-11-01T00:00:00Z"
                       validTo: null
@@ -11145,11 +11141,11 @@ paths:
                 taxInclusive: true
                 currency: GHS
                 activeVersion:
-                  id: "019a7aa3-e9f0-71af-86e7-23c27a0d9ca0"
-                  versionNo: 3
+                  id: "019a7aa4-46bd-7f59-b491-fe68e7207746"
+                  versionNo: 4
                   validFrom: "2026-11-01T00:00:00Z"
                   validTo: null
-                draftVersionId: "019a7aa4-08df-7b92-90ca-c1f9f3be3ad7"
+                draftVersionId: "019a7aa3-e9f0-71af-86e7-23c27a0d9ca0"
                 version: 2
                 createdAt: "2026-11-02T08:00:00Z"
                 updatedAt: "2026-11-10T14:00:00Z"
@@ -11204,7 +11200,8 @@ paths:
             schema:
               $ref: "#/components/schemas/PriceListUpdate"
             example:
-              version: 3
+              version: 2
+              name: "Base prices, all branches"
       responses:
         "200":
           description: OK
@@ -11218,7 +11215,7 @@ paths:
               example:
                 id: "019a7a94-5381-760f-bb48-69ce27dce2ac"
                 code: BASE
-                name: "Base prices"
+                name: "Base prices, all branches"
                 kind: BASE
                 channel: null
                 customerTier: null
@@ -11226,14 +11223,14 @@ paths:
                 taxInclusive: true
                 currency: GHS
                 activeVersion:
-                  id: "019a7aa3-e9f0-71af-86e7-23c27a0d9ca0"
-                  versionNo: 3
+                  id: "019a7aa4-46bd-7f59-b491-fe68e7207746"
+                  versionNo: 4
                   validFrom: "2026-11-01T00:00:00Z"
                   validTo: null
-                draftVersionId: "019a7aa4-08df-7b92-90ca-c1f9f3be3ad7"
-                version: 2
+                draftVersionId: "019a7aa3-e9f0-71af-86e7-23c27a0d9ca0"
+                version: 3
                 createdAt: "2026-11-02T08:00:00Z"
-                updatedAt: "2026-11-10T14:00:00Z"
+                updatedAt: "2026-11-15T09:30:00Z"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -11291,7 +11288,7 @@ paths:
               $ref: "#/components/schemas/ArchiveRequest"
             example:
               version: 3
-              reason: "No longer used"
+              reason: "The chop bar now buys at the wholesale tier price"
       responses:
         "200":
           description: OK
@@ -11303,24 +11300,20 @@ paths:
               schema:
                 $ref: "#/components/schemas/PriceList"
               example:
-                id: "019a7a94-5381-760f-bb48-69ce27dce2ac"
-                code: BASE
-                name: "Base prices"
-                kind: BASE
+                id: "019a7ab1-2c40-7d1e-a6b3-5f0c8e2d4a11"
+                code: CUST-ASANTEWAA
+                name: "Asantewaa Chop Bar prices"
+                kind: CUSTOMER
                 channel: null
                 customerTier: null
                 branch: null
-                taxInclusive: true
+                taxInclusive: false
                 currency: GHS
-                activeVersion:
-                  id: "019a7aa3-e9f0-71af-86e7-23c27a0d9ca0"
-                  versionNo: 3
-                  validFrom: "2026-11-01T00:00:00Z"
-                  validTo: null
-                draftVersionId: "019a7aa4-08df-7b92-90ca-c1f9f3be3ad7"
-                version: 2
-                createdAt: "2026-11-02T08:00:00Z"
-                updatedAt: "2026-11-10T14:00:00Z"
+                activeVersion: null
+                draftVersionId: null
+                version: 4
+                createdAt: "2026-11-14T10:05:00Z"
+                updatedAt: "2026-11-15T09:40:00Z"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -11401,7 +11394,7 @@ paths:
                 activatedAt: null
                 activatedBy: null
                 notes: "Christmas season goat prices"
-                entryCount: 38
+                entryCount: 36
                 version: 1
                 createdAt: "2026-11-10T11:00:00Z"
                 createdBy:
@@ -11480,7 +11473,7 @@ paths:
                     activatedBy: null
                     notes: "Christmas season goat prices"
                     entryCount: 38
-                    version: 1
+                    version: 2
                     createdAt: "2026-11-10T11:00:00Z"
                     createdBy:
                       id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
@@ -11492,14 +11485,14 @@ paths:
                     validFrom: "2026-11-01T00:00:00Z"
                     validTo: null
                     approvalRequestId: "019a7aa5-5d24-7858-8d90-8e5c2e59073a"
-                    activatedAt: "2026-11-01T00:00:00Z"
+                    activatedAt: "2026-10-29T15:20:00Z"
                     activatedBy:
                       id: "019a7a86-3046-711a-a652-1a7389f79351"
                       displayName: "Akua Mensah"
                     notes: null
                     entryCount: 36
                     version: 1
-                    createdAt: "2026-11-10T11:00:00Z"
+                    createdAt: "2026-10-26T09:00:00Z"
                     createdBy:
                       id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
                       displayName: "Kwabena Owusu"
@@ -11510,14 +11503,14 @@ paths:
                     validFrom: "2026-10-01T00:00:00Z"
                     validTo: "2026-11-01T00:00:00Z"
                     approvalRequestId: "019a7aa5-7c13-723c-9774-2c93a80aa571"
-                    activatedAt: "2026-11-01T00:00:00Z"
+                    activatedAt: "2026-09-28T16:00:00Z"
                     activatedBy:
                       id: "019a7a86-3046-711a-a652-1a7389f79351"
                       displayName: "Akua Mensah"
                     notes: "Feed price rise passed through to broilers"
                     entryCount: 36
                     version: 1
-                    createdAt: "2026-11-10T11:00:00Z"
+                    createdAt: "2026-09-24T10:30:00Z"
                     createdBy:
                       id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
                       displayName: "Kwabena Owusu"
@@ -11528,14 +11521,14 @@ paths:
                     validFrom: "2026-08-15T00:00:00Z"
                     validTo: "2026-10-01T00:00:00Z"
                     approvalRequestId: "019a7aa5-9b02-7c1f-a157-cacb21bb43a9"
-                    activatedAt: "2026-11-01T00:00:00Z"
+                    activatedAt: "2026-08-13T11:45:00Z"
                     activatedBy:
                       id: "019a7a86-3046-711a-a652-1a7389f79351"
                       displayName: "Akua Mensah"
-                    notes: "Christmas season goat prices"
+                    notes: "Mid-year review of egg and broiler prices"
                     entryCount: 34
                     version: 1
-                    createdAt: "2026-11-10T11:00:00Z"
+                    createdAt: "2026-08-10T08:15:00Z"
                     createdBy:
                       id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
                       displayName: "Kwabena Owusu"
@@ -11546,37 +11539,21 @@ paths:
                     validFrom: "2026-07-01T00:00:00Z"
                     validTo: "2026-08-15T00:00:00Z"
                     approvalRequestId: "019a7aa5-b9f1-7603-bb3b-69029b6ce1e0"
-                    activatedAt: "2026-11-01T00:00:00Z"
+                    activatedAt: "2026-06-29T14:00:00Z"
                     activatedBy:
                       id: "019a7a86-3046-711a-a652-1a7389f79351"
                       displayName: "Akua Mensah"
                     notes: null
                     entryCount: 34
                     version: 1
-                    createdAt: "2026-11-10T11:00:00Z"
-                    createdBy:
-                      id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
-                      displayName: "Kwabena Owusu"
-                  - id: "019a7aa5-3e35-7e75-b3ad-f024b4a86902"
-                    priceListId: "019a7a94-5381-760f-bb48-69ce27dce2ac"
-                    versionNo: 0
-                    status: REJECTED
-                    validFrom: "2026-06-20T00:00:00Z"
-                    validTo: null
-                    approvalRequestId: "019a7aa5-d8e0-7fe6-851e-073a151d8017"
-                    activatedAt: null
-                    activatedBy: null
-                    notes: "Feed price rise passed through to broilers"
-                    entryCount: 35
-                    version: 1
-                    createdAt: "2026-11-10T11:00:00Z"
+                    createdAt: "2026-06-25T09:00:00Z"
                     createdBy:
                       id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
                       displayName: "Kwabena Owusu"
                 page:
-                  nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                  nextCursor: null
                   limit: 25
-                  hasMore: true
+                  hasMore: false
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -11636,7 +11613,7 @@ paths:
                 activatedBy: null
                 notes: "Christmas season goat prices"
                 entryCount: 38
-                version: 1
+                version: 2
                 createdAt: "2026-11-10T11:00:00Z"
                 createdBy:
                   id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
@@ -11738,7 +11715,7 @@ paths:
                 activatedBy: null
                 notes: "Christmas season goat prices"
                 entryCount: 38
-                version: 1
+                version: 2
                 createdAt: "2026-11-10T11:00:00Z"
                 createdBy:
                   id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
@@ -11809,143 +11786,292 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PriceListEntryPage"
-              example:
-                data:
-                  - id: "019a7aa5-f7cf-79ca-9f02-a5718ece1e4f"
-                    product:
-                      id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                      sku: LIV-GOAT
-                      name: Goat
-                    grade: null
-                    weightBand:
-                      id: "019a7a8c-3af4-7f87-84bf-01494e897a27"
-                      code: GOAT-S
-                      minKg: "10.000"
-                      maxKg: "18.000"
-                    basis: PER_HEAD
-                    listPricePesewas: 45000
-                    floorPricePesewas: 32000
-                    ceilingPricePesewas: 52000
-                    quoteOnly: false
-                    minQty: "0.000"
-                    currency: GHS
-                  - id: "019a7aa6-16be-73ad-a8e5-43a9087fbc86"
-                    product:
-                      id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                      sku: LIV-GOAT
-                      name: Goat
-                    grade:
-                      id: "019a7a8c-d59f-70f8-9631-185eaefe913c"
-                      code: A
-                      name: "Grade A, well finished"
-                    weightBand:
-                      id: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
-                      code: GOAT-M
-                      minKg: "18.000"
-                      maxKg: "28.000"
-                    basis: PER_HEAD
-                    listPricePesewas: 85000
-                    floorPricePesewas: 70000
-                    ceilingPricePesewas: 98000
-                    quoteOnly: false
-                    minQty: "0.000"
-                    currency: GHS
-                  - id: "019a7aa6-35ad-7d90-b2c9-e1e082305abe"
-                    product:
-                      id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                      sku: LIV-GOAT
-                      name: Goat
-                    grade: null
-                    weightBand:
-                      id: "019a7a8c-78d2-734e-a886-3db841ebb696"
-                      code: GOAT-L
-                      minKg: "28.000"
-                      maxKg: "45.000"
-                    basis: PER_HEAD
-                    listPricePesewas: 140000
-                    floorPricePesewas: 120000
-                    ceilingPricePesewas: 195000
-                    quoteOnly: false
-                    minQty: "0.000"
-                    currency: GHS
-                  - id: "019a7aa6-549c-7774-8cac-8017fbe1f8f5"
-                    product:
-                      id: "019a7a8d-326c-7ea3-83db-f3051c116be3"
-                      sku: LIV-SHEEP
-                      name: Sheep
-                    grade: null
-                    weightBand:
-                      id: "019a7a8c-b6b0-7715-8c4d-7a27354df305"
-                      code: SHEEP-L
-                      minKg: "40.000"
-                      maxKg: "70.000"
-                    basis: PER_HEAD
-                    listPricePesewas: 220000
-                    floorPricePesewas: 180000
-                    ceilingPricePesewas: 300000
-                    quoteOnly: false
-                    minQty: "0.000"
-                    currency: GHS
-                  - id: "019a7aa6-738b-7157-9690-1e4f7592972d"
-                    product:
-                      id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
-                      name: "Full chicken, 15 kg pack"
-                    grade: null
-                    weightBand: null
-                    basis: PER_KG
-                    listPricePesewas: 2000
-                    floorPricePesewas: 1467
-                    ceilingPricePesewas: 2333
-                    quoteOnly: false
-                    minQty: "0.000"
-                    currency: GHS
-                  - id: "019a7aa6-927a-7b3b-a073-bc86ef433564"
-                    product:
-                      id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                      sku: EGG-BIG
-                      name: "Eggs, big, crate of 30"
-                    grade: null
-                    weightBand: null
-                    basis: PER_UNIT
-                    listPricePesewas: 6000
-                    floorPricePesewas: 6000
-                    ceilingPricePesewas: 6000
-                    quoteOnly: false
-                    minQty: "0.000"
-                    currency: GHS
-                  - id: "019a7aa6-b169-751e-ba57-5abe68f4d39c"
-                    product:
-                      id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                      sku: MEAT-BEEF
-                      name: "Beef, 15 kg pack"
-                    grade: null
-                    weightBand: null
-                    basis: PER_KG
-                    listPricePesewas: 3000
-                    floorPricePesewas: 2200
-                    ceilingPricePesewas: 4333
-                    quoteOnly: false
-                    minQty: "0.000"
-                    currency: GHS
-                  - id: "019a7aa6-d058-7f02-843a-f8f5e2a571d3"
-                    product:
-                      id: "019a7a8d-515b-7886-9dbe-913c95c20a1a"
-                      sku: LIV-PIGLET
-                      name: "Baby pig"
-                    grade: null
-                    weightBand: null
-                    basis: PER_HEAD
-                    listPricePesewas: 0
-                    floorPricePesewas: 0
-                    ceilingPricePesewas: 0
-                    quoteOnly: true
-                    minQty: "0.000"
-                    currency: GHS
-                page:
-                  nextCursor: eyJpZCI6IjAxOWE3YyJ9
-                  limit: 25
-                  hasMore: true
+              examples:
+                activeVersion4:
+                  summary: "Version 4 of the base list, ACTIVE since 1 November 2026"
+                  value:
+                    data:
+                      - id: "019a7aa5-f7cf-79ca-9f02-a5718ece1e4f"
+                        product:
+                          id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                          sku: LIV-GOAT
+                          name: Goat
+                        grade: null
+                        weightBand:
+                          id: "019a7a8c-3af4-7f87-84bf-01494e897a27"
+                          code: GOAT-S
+                          minKg: "10.000"
+                          maxKg: "18.000"
+                        basis: PER_HEAD
+                        listPricePesewas: 45000
+                        floorPricePesewas: 32000
+                        ceilingPricePesewas: 52000
+                        quoteOnly: false
+                        minQty: "0.000"
+                        currency: GHS
+                      - id: "019a7aa6-16be-73ad-a8e5-43a9087fbc86"
+                        product:
+                          id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                          sku: LIV-GOAT
+                          name: Goat
+                        grade:
+                          id: "019a7a8c-d59f-70f8-9631-185eaefe913c"
+                          code: A
+                          name: "Grade A, well finished"
+                        weightBand:
+                          id: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
+                          code: GOAT-M
+                          minKg: "18.000"
+                          maxKg: "28.000"
+                        basis: PER_HEAD
+                        listPricePesewas: 85000
+                        floorPricePesewas: 70000
+                        ceilingPricePesewas: 98000
+                        quoteOnly: false
+                        minQty: "0.000"
+                        currency: GHS
+                      - id: "019a7aa6-35ad-7d90-b2c9-e1e082305abe"
+                        product:
+                          id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                          sku: LIV-GOAT
+                          name: Goat
+                        grade: null
+                        weightBand:
+                          id: "019a7a8c-78d2-734e-a886-3db841ebb696"
+                          code: GOAT-L
+                          minKg: "28.000"
+                          maxKg: "45.000"
+                        basis: PER_HEAD
+                        listPricePesewas: 140000
+                        floorPricePesewas: 120000
+                        ceilingPricePesewas: 195000
+                        quoteOnly: false
+                        minQty: "0.000"
+                        currency: GHS
+                      - id: "019a7aa6-549c-7774-8cac-8017fbe1f8f5"
+                        product:
+                          id: "019a7a8d-326c-7ea3-83db-f3051c116be3"
+                          sku: LIV-SHEEP
+                          name: Sheep
+                        grade: null
+                        weightBand:
+                          id: "019a7a8c-b6b0-7715-8c4d-7a27354df305"
+                          code: SHEEP-L
+                          minKg: "40.000"
+                          maxKg: "70.000"
+                        basis: PER_HEAD
+                        listPricePesewas: 220000
+                        floorPricePesewas: 180000
+                        ceilingPricePesewas: 300000
+                        quoteOnly: false
+                        minQty: "0.000"
+                        currency: GHS
+                      - id: "019a7aa6-738b-7157-9690-1e4f7592972d"
+                        product:
+                          id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                          sku: MEAT-CHK-FULL
+                          name: "Full chicken, 15 kg pack"
+                        grade: null
+                        weightBand: null
+                        basis: PER_KG
+                        listPricePesewas: 2000
+                        floorPricePesewas: 1467
+                        ceilingPricePesewas: 2333
+                        quoteOnly: false
+                        minQty: "0.000"
+                        currency: GHS
+                      - id: "019a7aa6-927a-7b3b-a073-bc86ef433564"
+                        product:
+                          id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                          sku: EGG-BIG
+                          name: "Eggs, big, crate of 30"
+                        grade: null
+                        weightBand: null
+                        basis: PER_UNIT
+                        listPricePesewas: 6000
+                        floorPricePesewas: 6000
+                        ceilingPricePesewas: 6000
+                        quoteOnly: false
+                        minQty: "0.000"
+                        currency: GHS
+                      - id: "019a7aa6-b169-751e-ba57-5abe68f4d39c"
+                        product:
+                          id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
+                          sku: MEAT-BEEF
+                          name: "Beef, 15 kg pack"
+                        grade: null
+                        weightBand: null
+                        basis: PER_KG
+                        listPricePesewas: 3000
+                        floorPricePesewas: 2200
+                        ceilingPricePesewas: 4333
+                        quoteOnly: false
+                        minQty: "0.000"
+                        currency: GHS
+                      - id: "019a7aa6-d058-7f02-843a-f8f5e2a571d3"
+                        product:
+                          id: "019a7a8d-515b-7886-9dbe-913c95c20a1a"
+                          sku: LIV-PIGLET
+                          name: "Baby pig"
+                        grade: null
+                        weightBand: null
+                        basis: PER_HEAD
+                        listPricePesewas: 0
+                        floorPricePesewas: 0
+                        ceilingPricePesewas: 0
+                        quoteOnly: true
+                        minQty: "0.000"
+                        currency: GHS
+                    page:
+                      nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                      limit: 25
+                      hasMore: true
+                draftVersion5:
+                  summary: "Version 5, the DRAFT Christmas prices: grade A goats of 18 to 28 kg at 92,000 and goats of 28 to 45 kg at 150,000, a new grade A line for 28 to 45 kg, and no piglet line"
+                  value:
+                    data:
+                      - id: "019a7ab0-1a01-7c3e-9d11-4b2f6e8a1001"
+                        product:
+                          id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                          sku: LIV-GOAT
+                          name: Goat
+                        grade: null
+                        weightBand:
+                          id: "019a7a8c-3af4-7f87-84bf-01494e897a27"
+                          code: GOAT-S
+                          minKg: "10.000"
+                          maxKg: "18.000"
+                        basis: PER_HEAD
+                        listPricePesewas: 45000
+                        floorPricePesewas: 32000
+                        ceilingPricePesewas: 52000
+                        quoteOnly: false
+                        minQty: "0.000"
+                        currency: GHS
+                      - id: "019a7ab0-1a02-7c3e-9d11-4b2f6e8a1002"
+                        product:
+                          id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                          sku: LIV-GOAT
+                          name: Goat
+                        grade:
+                          id: "019a7a8c-d59f-70f8-9631-185eaefe913c"
+                          code: A
+                          name: "Grade A, well finished"
+                        weightBand:
+                          id: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
+                          code: GOAT-M
+                          minKg: "18.000"
+                          maxKg: "28.000"
+                        basis: PER_HEAD
+                        listPricePesewas: 92000
+                        floorPricePesewas: 70000
+                        ceilingPricePesewas: 98000
+                        quoteOnly: false
+                        minQty: "0.000"
+                        currency: GHS
+                      - id: "019a7ab0-1a03-7c3e-9d11-4b2f6e8a1003"
+                        product:
+                          id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                          sku: LIV-GOAT
+                          name: Goat
+                        grade: null
+                        weightBand:
+                          id: "019a7a8c-78d2-734e-a886-3db841ebb696"
+                          code: GOAT-L
+                          minKg: "28.000"
+                          maxKg: "45.000"
+                        basis: PER_HEAD
+                        listPricePesewas: 150000
+                        floorPricePesewas: 120000
+                        ceilingPricePesewas: 195000
+                        quoteOnly: false
+                        minQty: "0.000"
+                        currency: GHS
+                      - id: "019a7ab0-1a04-7c3e-9d11-4b2f6e8a1004"
+                        product:
+                          id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                          sku: LIV-GOAT
+                          name: Goat
+                        grade:
+                          id: "019a7a8c-d59f-70f8-9631-185eaefe913c"
+                          code: A
+                          name: "Grade A, well finished"
+                        weightBand:
+                          id: "019a7a8c-78d2-734e-a886-3db841ebb696"
+                          code: GOAT-L
+                          minKg: "28.000"
+                          maxKg: "45.000"
+                        basis: PER_HEAD
+                        listPricePesewas: 165000
+                        floorPricePesewas: 140000
+                        ceilingPricePesewas: 210000
+                        quoteOnly: false
+                        minQty: "0.000"
+                        currency: GHS
+                      - id: "019a7ab0-1a05-7c3e-9d11-4b2f6e8a1005"
+                        product:
+                          id: "019a7a8d-326c-7ea3-83db-f3051c116be3"
+                          sku: LIV-SHEEP
+                          name: Sheep
+                        grade: null
+                        weightBand:
+                          id: "019a7a8c-b6b0-7715-8c4d-7a27354df305"
+                          code: SHEEP-L
+                          minKg: "40.000"
+                          maxKg: "70.000"
+                        basis: PER_HEAD
+                        listPricePesewas: 220000
+                        floorPricePesewas: 180000
+                        ceilingPricePesewas: 300000
+                        quoteOnly: false
+                        minQty: "0.000"
+                        currency: GHS
+                      - id: "019a7ab0-1a06-7c3e-9d11-4b2f6e8a1006"
+                        product:
+                          id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                          sku: MEAT-CHK-FULL
+                          name: "Full chicken, 15 kg pack"
+                        grade: null
+                        weightBand: null
+                        basis: PER_KG
+                        listPricePesewas: 2000
+                        floorPricePesewas: 1467
+                        ceilingPricePesewas: 2333
+                        quoteOnly: false
+                        minQty: "0.000"
+                        currency: GHS
+                      - id: "019a7ab0-1a07-7c3e-9d11-4b2f6e8a1007"
+                        product:
+                          id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                          sku: EGG-BIG
+                          name: "Eggs, big, crate of 30"
+                        grade: null
+                        weightBand: null
+                        basis: PER_UNIT
+                        listPricePesewas: 6000
+                        floorPricePesewas: 6000
+                        ceilingPricePesewas: 6000
+                        quoteOnly: false
+                        minQty: "0.000"
+                        currency: GHS
+                      - id: "019a7ab0-1a08-7c3e-9d11-4b2f6e8a1008"
+                        product:
+                          id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
+                          sku: MEAT-BEEF
+                          name: "Beef, 15 kg pack"
+                        grade: null
+                        weightBand: null
+                        basis: PER_KG
+                        listPricePesewas: 3000
+                        floorPricePesewas: 2200
+                        ceilingPricePesewas: 4333
+                        quoteOnly: false
+                        minQty: "0.000"
+                        currency: GHS
+                    page:
+                      nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                      limit: 25
+                      hasMore: true
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -12007,12 +12133,12 @@ paths:
                 status: PENDING_APPROVAL
                 validFrom: "2026-12-01T00:00:00Z"
                 validTo: null
-                approvalRequestId: "019a7aa6-ef47-78e5-9e1e-972d5c56100b"
+                approvalRequestId: "019a7aa7-0e36-72c9-a801-3564d607ae42"
                 activatedAt: null
                 activatedBy: null
                 notes: "Christmas season goat prices"
                 entryCount: 38
-                version: 1
+                version: 3
                 createdAt: "2026-11-10T11:00:00Z"
                 createdBy:
                   id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
@@ -70829,6 +70955,286 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
+  "/price-list-versions/{id}/preview":
+    get:
+      operationId: previewPriceListVersion
+      tags:
+        - pricing
+      summary: "Preview a price list version against the version in force"
+      description: "Compares a `DRAFT` or `PENDING_APPROVAL` version with the `ACTIVE` version of the same list in force when it would take effect (`comparedAt`: its `validFrom`, or now when that is already past, because activation never starts a version before its approval). Lines are paired by the identity the pricing engine resolves on: product, grade, weight band and quantity break (`minQty`), so a line is `ADDED`, `CHANGED` (the basis, a price or quote-only differs), `REMOVED` or `UNCHANGED`. With no version in force `comparedWith` is null and every line is `ADDED`.\n\nLines come in identity order (product, then grade, then band, a missing grade or band first, then quantity break), in cursor pages of at most 100. `counts` covers the whole comparison and is the same on every page. A cursor belongs to one comparison: once the version's entries change, or another version comes into force, it answers 400 `INVALID_CURSOR` and the screen starts again. Read only; nothing is written or audited.\n\nRefusals: 422 `INVALID_STATE_TRANSITION` for a version that is `ACTIVE`, `SUPERSEDED` or `REJECTED`, with the status in `details[].code`.\n\nPermission: `mdm.price_list.read`, at the version's branch (a list that applies everywhere registers its versions under the farm's first branch)."
+      x-permission: mdm.price_list.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - RATE_LIMITED
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/PageLimit"
+      security:
+        - staffSession: []
+        - apiKey: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriceListPreviewPage"
+              example:
+                comparedWith:
+                  id: "019a7aa4-46bd-7f59-b491-fe68e7207746"
+                  versionNo: 4
+                  validFrom: "2026-11-01T00:00:00Z"
+                  validTo: null
+                comparedAt: "2026-12-01T00:00:00Z"
+                counts:
+                  added: 3
+                  changed: 2
+                  removed: 1
+                  unchanged: 33
+                data:
+                  - kind: UNCHANGED
+                    current:
+                      id: "019a7aa5-f7cf-79ca-9f02-a5718ece1e4f"
+                      product:
+                        id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                        sku: LIV-GOAT
+                        name: Goat
+                      grade: null
+                      weightBand:
+                        id: "019a7a8c-3af4-7f87-84bf-01494e897a27"
+                        code: GOAT-S
+                        minKg: "10.000"
+                        maxKg: "18.000"
+                      basis: PER_HEAD
+                      listPricePesewas: 45000
+                      floorPricePesewas: 32000
+                      ceilingPricePesewas: 52000
+                      quoteOnly: false
+                      minQty: "0.000"
+                      currency: GHS
+                    proposed:
+                      id: "019a7ab0-1a01-7c3e-9d11-4b2f6e8a1001"
+                      product:
+                        id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                        sku: LIV-GOAT
+                        name: Goat
+                      grade: null
+                      weightBand:
+                        id: "019a7a8c-3af4-7f87-84bf-01494e897a27"
+                        code: GOAT-S
+                        minKg: "10.000"
+                        maxKg: "18.000"
+                      basis: PER_HEAD
+                      listPricePesewas: 45000
+                      floorPricePesewas: 32000
+                      ceilingPricePesewas: 52000
+                      quoteOnly: false
+                      minQty: "0.000"
+                      currency: GHS
+                  - kind: CHANGED
+                    current:
+                      id: "019a7aa6-35ad-7d90-b2c9-e1e082305abe"
+                      product:
+                        id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                        sku: LIV-GOAT
+                        name: Goat
+                      grade: null
+                      weightBand:
+                        id: "019a7a8c-78d2-734e-a886-3db841ebb696"
+                        code: GOAT-L
+                        minKg: "28.000"
+                        maxKg: "45.000"
+                      basis: PER_HEAD
+                      listPricePesewas: 140000
+                      floorPricePesewas: 120000
+                      ceilingPricePesewas: 195000
+                      quoteOnly: false
+                      minQty: "0.000"
+                      currency: GHS
+                    proposed:
+                      id: "019a7ab0-1a03-7c3e-9d11-4b2f6e8a1003"
+                      product:
+                        id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                        sku: LIV-GOAT
+                        name: Goat
+                      grade: null
+                      weightBand:
+                        id: "019a7a8c-78d2-734e-a886-3db841ebb696"
+                        code: GOAT-L
+                        minKg: "28.000"
+                        maxKg: "45.000"
+                      basis: PER_HEAD
+                      listPricePesewas: 150000
+                      floorPricePesewas: 120000
+                      ceilingPricePesewas: 195000
+                      quoteOnly: false
+                      minQty: "0.000"
+                      currency: GHS
+                  - kind: CHANGED
+                    current:
+                      id: "019a7aa6-16be-73ad-a8e5-43a9087fbc86"
+                      product:
+                        id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                        sku: LIV-GOAT
+                        name: Goat
+                      grade:
+                        id: "019a7a8c-d59f-70f8-9631-185eaefe913c"
+                        code: A
+                        name: "Grade A, well finished"
+                      weightBand:
+                        id: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
+                        code: GOAT-M
+                        minKg: "18.000"
+                        maxKg: "28.000"
+                      basis: PER_HEAD
+                      listPricePesewas: 85000
+                      floorPricePesewas: 70000
+                      ceilingPricePesewas: 98000
+                      quoteOnly: false
+                      minQty: "0.000"
+                      currency: GHS
+                    proposed:
+                      id: "019a7ab0-1a02-7c3e-9d11-4b2f6e8a1002"
+                      product:
+                        id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                        sku: LIV-GOAT
+                        name: Goat
+                      grade:
+                        id: "019a7a8c-d59f-70f8-9631-185eaefe913c"
+                        code: A
+                        name: "Grade A, well finished"
+                      weightBand:
+                        id: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
+                        code: GOAT-M
+                        minKg: "18.000"
+                        maxKg: "28.000"
+                      basis: PER_HEAD
+                      listPricePesewas: 92000
+                      floorPricePesewas: 70000
+                      ceilingPricePesewas: 98000
+                      quoteOnly: false
+                      minQty: "0.000"
+                      currency: GHS
+                  - kind: ADDED
+                    current: null
+                    proposed:
+                      id: "019a7ab0-1a04-7c3e-9d11-4b2f6e8a1004"
+                      product:
+                        id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                        sku: LIV-GOAT
+                        name: Goat
+                      grade:
+                        id: "019a7a8c-d59f-70f8-9631-185eaefe913c"
+                        code: A
+                        name: "Grade A, well finished"
+                      weightBand:
+                        id: "019a7a8c-78d2-734e-a886-3db841ebb696"
+                        code: GOAT-L
+                        minKg: "28.000"
+                        maxKg: "45.000"
+                      basis: PER_HEAD
+                      listPricePesewas: 165000
+                      floorPricePesewas: 140000
+                      ceilingPricePesewas: 210000
+                      quoteOnly: false
+                      minQty: "0.000"
+                      currency: GHS
+                  - kind: UNCHANGED
+                    current:
+                      id: "019a7aa6-549c-7774-8cac-8017fbe1f8f5"
+                      product:
+                        id: "019a7a8d-326c-7ea3-83db-f3051c116be3"
+                        sku: LIV-SHEEP
+                        name: Sheep
+                      grade: null
+                      weightBand:
+                        id: "019a7a8c-b6b0-7715-8c4d-7a27354df305"
+                        code: SHEEP-L
+                        minKg: "40.000"
+                        maxKg: "70.000"
+                      basis: PER_HEAD
+                      listPricePesewas: 220000
+                      floorPricePesewas: 180000
+                      ceilingPricePesewas: 300000
+                      quoteOnly: false
+                      minQty: "0.000"
+                      currency: GHS
+                    proposed:
+                      id: "019a7ab0-1a05-7c3e-9d11-4b2f6e8a1005"
+                      product:
+                        id: "019a7a8d-326c-7ea3-83db-f3051c116be3"
+                        sku: LIV-SHEEP
+                        name: Sheep
+                      grade: null
+                      weightBand:
+                        id: "019a7a8c-b6b0-7715-8c4d-7a27354df305"
+                        code: SHEEP-L
+                        minKg: "40.000"
+                        maxKg: "70.000"
+                      basis: PER_HEAD
+                      listPricePesewas: 220000
+                      floorPricePesewas: 180000
+                      ceilingPricePesewas: 300000
+                      quoteOnly: false
+                      minQty: "0.000"
+                      currency: GHS
+                  - kind: REMOVED
+                    current:
+                      id: "019a7aa6-d058-7f02-843a-f8f5e2a571d3"
+                      product:
+                        id: "019a7a8d-515b-7886-9dbe-913c95c20a1a"
+                        sku: LIV-PIGLET
+                        name: "Baby pig"
+                      grade: null
+                      weightBand: null
+                      basis: PER_HEAD
+                      listPricePesewas: 0
+                      floorPricePesewas: 0
+                      ceilingPricePesewas: 0
+                      quoteOnly: true
+                      minQty: "0.000"
+                      currency: GHS
+                    proposed: null
+                page:
+                  nextCursor: eyJrZXkiOiIwMTlhN2E4ZCJ9
+                  limit: 25
+                  hasMore: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/BusinessRuleViolation"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     staffSession:
@@ -73461,6 +73867,7 @@ components:
         - page
     Uom:
       type: object
+      description: "A unit of measure from a fixed list seeded by migration: there is no operation that creates, changes or archives one (CR-011). A unit carries no conversion. A product holds its stock in `baseUom` and is sold in `saleUom`, and the price list entry's `basis` says what a price multiplies. A crate of 30 eggs is a product counted in `CRATE`, the 30 being part of what the product is, not a factor; a meat pack is held and priced by the kilogram (`baseUom` `KG`) with `nominalPackKg` as its standard size for estimates only, and the weighed kilograms are what is charged. Exact conversions between units of one product (FR-MDM-003) are not built yet."
       properties:
         code:
           type: string
@@ -73852,12 +74259,15 @@ components:
             - type: "null"
         baseUom:
           type: string
+          description: "The `Uom` code the product's stock is held and counted in: `KG` for a catch-weight product."
         saleUom:
           type: string
+          description: "The `Uom` code shown to a buyer. No factor converts it to `baseUom` (CR-011): for a catch-weight product sold in `PACK` the quantity is still kilograms."
         nominalPackKg:
           anyOf:
             - $ref: "#/components/schemas/Kilograms"
             - type: "null"
+          description: "A catch-weight product's standard pack size, for estimates (a 15 kg pack). Never a conversion: what is charged is the weighed kilograms."
         weightTolerancePercent:
           $ref: "#/components/schemas/Percent"
         taxCategory:
@@ -75124,6 +75534,80 @@ components:
         page:
           $ref: "#/components/schemas/PageInfo"
       required:
+        - data
+        - page
+    PriceListPreviewKind:
+      type: string
+      description: "How a line of a version compares with the version in force: `ADDED` (no entry of that identity is in force), `CHANGED` (the basis, a price or quote-only differs), `REMOVED` (in force, not in the version) or `UNCHANGED`."
+      enum:
+        - ADDED
+        - CHANGED
+        - REMOVED
+        - UNCHANGED
+    PriceListPreviewCounts:
+      type: object
+      description: "Lines of each kind over the whole comparison, not only this page."
+      properties:
+        added:
+          type: integer
+          minimum: 0
+        changed:
+          type: integer
+          minimum: 0
+        removed:
+          type: integer
+          minimum: 0
+        unchanged:
+          type: integer
+          minimum: 0
+      required:
+        - added
+        - changed
+        - removed
+        - unchanged
+    PriceListPreviewLine:
+      type: object
+      description: "One entry identity (product, grade, weight band, quantity break): the entry in force and the entry the version proposes. `current` is null for ADDED, `proposed` null for REMOVED. The two are different rows, so their `id`s differ."
+      properties:
+        kind:
+          $ref: "#/components/schemas/PriceListPreviewKind"
+        current:
+          anyOf:
+            - $ref: "#/components/schemas/PriceListEntry"
+            - type: "null"
+        proposed:
+          anyOf:
+            - $ref: "#/components/schemas/PriceListEntry"
+            - type: "null"
+      required:
+        - kind
+        - current
+        - proposed
+    PriceListPreviewPage:
+      type: object
+      description: "A page of a version compared with the version in force (CR-009). `counts` and `comparedWith` describe the whole comparison and are the same on every page."
+      properties:
+        comparedWith:
+          anyOf:
+            - $ref: "#/components/schemas/PriceListVersionSummary"
+            - type: "null"
+          description: "The ACTIVE version of the same list in force at `comparedAt`; null when none is, and then every line is ADDED."
+        comparedAt:
+          type: string
+          format: date-time
+          description: "When the version would take effect: its `validFrom`, or now when that is already past (activation never starts a version before its approval)."
+        counts:
+          $ref: "#/components/schemas/PriceListPreviewCounts"
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/PriceListPreviewLine"
+        page:
+          $ref: "#/components/schemas/PageInfo"
+      required:
+        - comparedWith
+        - comparedAt
+        - counts
         - data
         - page
     PriceListEntryInput:

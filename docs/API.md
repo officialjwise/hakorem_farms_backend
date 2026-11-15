@@ -624,7 +624,7 @@ Categories, units of measure, species, grades, weight bands, products (with imag
 **Implemented in B04d continued** (contract 1.7.0): `listCategories`, `createCategory`, `getCategory`, `updateCategory`, `archiveCategory`, `listUnitsOfMeasure`, `listSpeciesList`, `createSpecies`, `updateSpecies`, `listGrades`, `createGrade`, `updateGrade`, `archiveGrade`, `listWeightBands`, `createWeightBand`, `updateWeightBand`, `archiveWeightBand`, `updateProduct`. What a screen needs to know:
 
 - **Permissions** (A-105): Owner and Manager write (`mdm.category.*`, `mdm.species.*`, `mdm.grade.*`, `mdm.weight_band.*`, `mdm.product.update`); Accountant, Storekeeper, Cashier, Sales and Farm Hand read categories, species, grades and bands. No catalogue operation needs step-up.
-- **Units** carry `displayDecimals` (0 for counted units, 3 for kilograms and litres, CR-003). Format quantities with it; the wire keeps three places. Units change only by migration.
+- **Units** carry `displayDecimals` (0 for counted units, 3 for kilograms and litres, CR-003). Format quantities with it; the wire keeps three places. Units change only by migration. **No unit carries a conversion (CR-011, A-157):** a product holds stock in `baseUom`, shows `saleUom` to a buyer, and a price entry's `basis` says what its price multiplies. A crate of 30 eggs is a product counted in `CRATE`; a meat pack is held and priced by the kilogram, `nominalPackKg` being its standard size for estimates, never a factor (the weighed kilograms are charged). FR-MDM-003's alternative units with exact factors are not built; B9a owns them if an order line needs one.
 - **Archiving** is a soft delete with a reason, refused with 422 `RECORD_IN_USE` while something live uses the record: a category with live products (`HAS_LIVE_PRODUCTS`) or live children (`HAS_LIVE_CHILDREN`), a grade or band that a pending or active price list version prices with (`USED_BY_LIVE_PRICES`). Move products to another category with `updateProduct` first. Lists show live records only, in creation order; `getCategory` also returns an archived category.
 - **Weight bands** are half-open `[minKg, maxKg)` with exactly three decimals: 10.000 to 20.000 and 20.000 to 30.000 meet at 20.000 without overlapping. A band that meets another live band of the species is 422 `WEIGHT_BAND_INVALID` (`OVERLAPS_BAND:<code>`); the database refuses it too. A band a live price uses keeps its range.
 - **Category names** are unique among siblings, ignoring case and outer spaces (422 `DUPLICATE_VALUE`, `/name`).
@@ -655,7 +655,7 @@ Categories, units of measure, species, grades, weight bands, products (with imag
 - **`archiveProduct`** is refused while a pending or active price list version prices the product (`RECORD_IN_USE`, `USED_BY_LIVE_PRICES`); the stock check arrives in B5. It publishes `mdm.ProductArchived`; the product's history stays readable.
 
 
-### Pricing (`pricing`, 22)
+### Pricing (`pricing`, 23)
 
 Price lists in approved, effective-dated versions: draft with `createPriceListVersion`, fill with `replacePriceListEntries` (replaces the whole set), `submitPriceListVersion` (maker-checker, `PRICE_LIST_ACTIVATION`, may return 202). **`POST /pricing/resolve`** prices lines: customer list, then tier and channel, then channel, then base. A line that cannot be priced returns outcome `QUOTE_REQUIRED` with a reason: this is a result, not an error, and never a zero. Promotions and coupons (`submitPromotion` may return 202; `validateCoupon`). A price is always a selling price band: list, floor and ceiling.
 
@@ -675,6 +675,13 @@ Price lists in approved, effective-dated versions: draft with `createPriceListVe
 - **Not on a line:** `BUNDLE_PRICE`, `FREE_DELIVERY` and `ORDER` promotions are stored and approved here and evaluated on the whole basket by the cart and order (B7, B9a). A per-kilogram line without a weight takes no promotion until it is weighed.
 - **Coupons.** A promotion with `requiresCoupon` applies only when `resolvePrices` carries its `couponCode`. A code that exists but cannot be used is 422 `COUPON_UNAVAILABLE` with the reason (`EXPIRED`, `LIMIT_REACHED`, `NOT_APPLICABLE`, `ALREADY_USED`) as `details[0].code`; an unknown code is 422 `REFERENCE_NOT_FOUND`. `validateCoupon` is public, needs no session and never says who used a coupon: it ignores `customerId`, and the per-customer limit is checked when the order redeems the coupon. A `cartId` is refused until carts exist (B7).
 - **A promotion's life:** `DRAFT` (changed with `updatePromotion` and the `version` you read), then `submitPromotion` answers 202 `ApprovalPending` (`PROMOTION_ACTIVATION`), then a different user with `mdm.promotion.approve` and a fresh step-up approves it. It is `ACTIVE` from its `validFrom`, or from the moment of approval if later. `endPromotion` ends it now, with a reason.
+
+**Implemented in B06m** (contract 1.23.0, CR-009): `previewPriceListVersion` (`GET /price-list-versions/{id}/preview`). What a screen needs to know:
+
+- **What it compares:** a `DRAFT` or `PENDING_APPROVAL` version against the `ACTIVE` version of the same list in force at `comparedAt` (its `validFrom`, or now when that has passed: activation never starts a version before its approval). Nothing in force: `comparedWith` is null and every line is `ADDED`. Other lists are not consulted; it is a preview of one list, not of the engine's walk.
+- **Lines** pair entries by the engine's identity (product, grade, band, `minQty`): `ADDED`, `CHANGED` (basis, list, floor or ceiling price, or quote-only differs), `REMOVED`, `UNCHANGED`, with `current` and `proposed` as `PriceListEntry` (null on the side that has none). Identity order: product, grade, band (a missing grade or band first), then the break.
+- **Pages** of at most 100 by cursor; `counts` covers the whole comparison on every page, so show the totals from the first page. A cursor belongs to one comparison: after the draft's entries change, or another version comes into force, it is 400 `INVALID_CURSOR`; start again without it.
+- **Refusals:** 422 `INVALID_STATE_TRANSITION` for an `ACTIVE`, `SUPERSEDED` or `REJECTED` version (`details[].code` is the status); 403 without `mdm.price_list.read` at the version's branch (an all-branch list's versions belong to the farm's first branch, A-090). Read only: nothing is written or audited (A-156).
 
 ### Tax (`tax`, 10)
 

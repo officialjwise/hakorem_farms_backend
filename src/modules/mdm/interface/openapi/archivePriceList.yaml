@@ -37,7 +37,7 @@ requestBody:
         $ref: "#/components/schemas/ArchiveRequest"
       example:
         version: 3
-        reason: "No longer used"
+        reason: "The chop bar now buys at the wholesale tier price"
 responses:
   "200":
     description: OK
@@ -49,24 +49,20 @@ responses:
         schema:
           $ref: "#/components/schemas/PriceList"
         example:
-          id: "019a7a94-5381-760f-bb48-69ce27dce2ac"
-          code: BASE
-          name: "Base prices"
-          kind: BASE
+          id: "019a7ab1-2c40-7d1e-a6b3-5f0c8e2d4a11"
+          code: CUST-ASANTEWAA
+          name: "Asantewaa Chop Bar prices"
+          kind: CUSTOMER
           channel: null
           customerTier: null
           branch: null
-          taxInclusive: true
+          taxInclusive: false
           currency: GHS
-          activeVersion:
-            id: "019a7aa3-e9f0-71af-86e7-23c27a0d9ca0"
-            versionNo: 3
-            validFrom: "2026-11-01T00:00:00Z"
-            validTo: null
-          draftVersionId: "019a7aa4-08df-7b92-90ca-c1f9f3be3ad7"
-          version: 2
-          createdAt: "2026-11-02T08:00:00Z"
-          updatedAt: "2026-11-10T14:00:00Z"
+          activeVersion: null
+          draftVersionId: null
+          version: 4
+          createdAt: "2026-11-14T10:05:00Z"
+          updatedAt: "2026-11-15T09:40:00Z"
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

@@ -5,7 +5,7 @@ import type { Actor } from '../../../platform/context/request-context';
 import { CurrentActor } from '../../../platform/http/actor-param';
 import { IdempotencyKeyHeader, Operation } from '../../../platform/http/operation';
 import { zodPipe } from '../../../platform/http/validation';
-import { PriceListAdmin, type ApprovalPendingView, type PriceListEntryView, type PriceListVersionView, type PriceListView } from '../application/price-lists';
+import { PriceListAdmin, type ApprovalPendingView, type PriceListEntryView, type PriceListPreviewView, type PriceListVersionView, type PriceListView } from '../application/price-lists';
 import type { Page } from '../application/product-catalogue';
 import { ArchiveBody, IdParam, ListPriceListEntriesQuery, ListPriceListsQuery, PageQuery, PriceListCreate, PriceListEntriesReplace, PriceListUpdate, PriceListVersionCreate } from './schemas';
 
@@ -138,5 +138,15 @@ export class PriceListsController {
     @Query(zodPipe(ListPriceListEntriesQuery)) query: z.infer<typeof ListPriceListEntriesQuery>,
   ): Promise<Page<PriceListEntryView>> {
     return this.admin.listEntries(actor, id, query.productId, query.cursor, query.limit);
+  }
+
+  @Get('price-list-versions/:id/preview')
+  @Operation({ operationId: 'previewPriceListVersion', ...READ, permission: 'mdm.price_list.read' })
+  previewPriceListVersion(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Query(zodPipe(PageQuery)) query: z.infer<typeof PageQuery>,
+  ): Promise<PriceListPreviewView> {
+    return this.admin.previewVersion(actor, id, query.cursor, query.limit);
   }
 }

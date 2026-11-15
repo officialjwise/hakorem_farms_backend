@@ -81,7 +81,7 @@ responses:
           activatedBy: null
           notes: "Christmas season goat prices"
           entryCount: 38
-          version: 1
+          version: 2
           createdAt: "2026-11-10T11:00:00Z"
           createdBy:
             id: "019a7a86-4f35-7afd-b035-b8ab03a83188"

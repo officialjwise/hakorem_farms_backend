@@ -90,6 +90,52 @@ function toVersion(row: VersionRecord): VersionRow {
   };
 }
 
+interface EntryRecord {
+  id: string;
+  version_id: string;
+  product_id: string;
+  sku: string;
+  product_name: string;
+  grade_id: string | null;
+  grade_code: string | null;
+  grade_name: string | null;
+  band_id: string | null;
+  band_code: string | null;
+  min_kg: string | null;
+  max_kg: string | null;
+  basis: string;
+  list_price: string;
+  floor_price: string;
+  ceiling_price: string;
+  quote_only: boolean;
+  min_qty: string;
+}
+
+const ENTRY_SELECT = `
+  SELECT e.id, e.version_id, p.id AS product_id, p.sku, p.name AS product_name, g.id AS grade_id, g.code AS grade_code, g.name AS grade_name,
+         w.id AS band_id, w.code AS band_code, w.min_kg::text AS min_kg, w.max_kg::text AS max_kg, e.basis,
+         e.list_price_pesewas::text AS list_price, e.floor_price_pesewas::text AS floor_price, e.ceiling_price_pesewas::text AS ceiling_price,
+         e.quote_only, e.min_qty::text AS min_qty
+    FROM mdm.price_list_entry e
+    JOIN mdm.product p ON p.id = e.product_id
+    LEFT JOIN mdm.grade g ON g.id = e.grade_id
+    LEFT JOIN mdm.weight_band w ON w.id = e.weight_band_id`;
+
+function toEntry(row: EntryRecord): EntryRow {
+  return {
+    id: row.id,
+    product: { id: row.product_id, sku: row.sku, name: row.product_name },
+    grade: row.grade_id === null ? null : { id: row.grade_id, code: row.grade_code!, name: row.grade_name! },
+    weightBand: row.band_id === null ? null : { id: row.band_id, code: row.band_code!, minKg: row.min_kg!, maxKg: row.max_kg! },
+    basis: row.basis,
+    listPricePesewas: BigInt(row.list_price),
+    floorPricePesewas: BigInt(row.floor_price),
+    ceilingPricePesewas: BigInt(row.ceiling_price),
+    quoteOnly: row.quote_only,
+    minQty: row.min_qty,
+  };
+}
+
 /** MDM's price list tables in plain parameterised SQL over MDM's own schema (ADR-0030). */
 export class PgPriceListStore implements PriceListStore {
   async tierExists(tx: Transaction, id: string): Promise<boolean> {
@@ -176,49 +222,28 @@ export class PgPriceListStore implements PriceListStore {
   }
 
   async entryRows(tx: Transaction, versionId: string, productId: string | null, afterId: string | null, limit: number): Promise<EntryRow[]> {
-    const { rows } = await tx.query<{
-      id: string;
-      product_id: string;
-      sku: string;
-      product_name: string;
-      grade_id: string | null;
-      grade_code: string | null;
-      grade_name: string | null;
-      band_id: string | null;
-      band_code: string | null;
-      min_kg: string | null;
-      max_kg: string | null;
-      basis: string;
-      list_price: string;
-      floor_price: string;
-      ceiling_price: string;
-      quote_only: boolean;
-      min_qty: string;
-    }>(
-      `SELECT e.id, p.id AS product_id, p.sku, p.name AS product_name, g.id AS grade_id, g.code AS grade_code, g.name AS grade_name,
-              w.id AS band_id, w.code AS band_code, w.min_kg::text AS min_kg, w.max_kg::text AS max_kg, e.basis,
-              e.list_price_pesewas::text AS list_price, e.floor_price_pesewas::text AS floor_price, e.ceiling_price_pesewas::text AS ceiling_price,
-              e.quote_only, e.min_qty::text AS min_qty
-         FROM mdm.price_list_entry e
-         JOIN mdm.product p ON p.id = e.product_id
-         LEFT JOIN mdm.grade g ON g.id = e.grade_id
-         LEFT JOIN mdm.weight_band w ON w.id = e.weight_band_id
+    const { rows } = await tx.query<EntryRecord>(
+      `${ENTRY_SELECT}
         WHERE e.version_id = $1 AND ($2::uuid IS NULL OR e.product_id = $2) AND ($3::uuid IS NULL OR e.id > $3)
         ORDER BY e.id LIMIT $4`,
       [versionId, productId, afterId, limit],
     );
-    return rows.map((row) => ({
-      id: row.id,
-      product: { id: row.product_id, sku: row.sku, name: row.product_name },
-      grade: row.grade_id === null ? null : { id: row.grade_id, code: row.grade_code!, name: row.grade_name! },
-      weightBand: row.band_id === null ? null : { id: row.band_id, code: row.band_code!, minKg: row.min_kg!, maxKg: row.max_kg! },
-      basis: row.basis,
-      listPricePesewas: BigInt(row.list_price),
-      floorPricePesewas: BigInt(row.floor_price),
-      ceilingPricePesewas: BigInt(row.ceiling_price),
-      quoteOnly: row.quote_only,
-      minQty: row.min_qty,
-    }));
+    return rows.map(toEntry);
+  }
+
+  async entryRowsOf(tx: Transaction, versionIds: readonly string[]): Promise<ReadonlyMap<string, readonly EntryRow[]>> {
+    const { rows } = await tx.query<EntryRecord>(`${ENTRY_SELECT} WHERE e.version_id = ANY($1::uuid[]) ORDER BY e.id`, [versionIds]);
+    const byVersion = new Map<string, EntryRow[]>(versionIds.map((id) => [id, []]));
+    for (const row of rows) byVersion.get(row.version_id)!.push(toEntry(row));
+    return byVersion;
+  }
+
+  async activeVersionAt(tx: Transaction, listId: string, at: Date): Promise<VersionRow | null> {
+    const { rows } = await tx.query<VersionRecord>(
+      `${VERSION_SELECT} WHERE v.price_list_id = $1 AND v.status = 'ACTIVE' AND v.valid_from <= $2 AND (v.valid_to IS NULL OR v.valid_to > $2)`,
+      [listId, at],
+    );
+    return rows[0] === undefined ? null : toVersion(rows[0]);
   }
 
   async versionsOfInterest(tx: Transaction, listId: string, now: Date): Promise<{ readonly active: VersionRow | null; readonly draftId: string | null }> {

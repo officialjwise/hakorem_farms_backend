@@ -49,6 +49,13 @@ Each item says why it is parked and what would bring it back.
 | BL-051 | A carcass lot as a processing input | B6 processes live animals only (A-153): a carcass lot needs a quantity consumed by weight from the lot at the location, which no requirement exercises yet | A carcass bought in, or a two-stage process (slaughter, then cutting) | FR-PRC-001, A-153 |
 | BL-052 | Reserve a processing order's inputs while it is in progress | An animal can still be sold after its order starts; completion then refuses it, so nothing is corrupted, but the order fails late | The owner reports orders failing at completion because an animal was sold | FR-PRC-001, ADR-0019 |
 
+## Parked in B06m
+
+| ID | Item | Why it is not in version one yet | What would bring it back | Related |
+| --- | --- | --- | --- | --- |
+| BL-053 | `resolvePrices` priced from a named draft version (`priceListVersionId`), so a sample basket shows what the draft would charge | CR-009's optional part. `previewPriceListVersion` already shows every changed price; pricing from a version not in force needs the engine to take a version in place of its walk, a second path through code under a 100 percent gate, for a screen that does not yet exist | The price list screen asks for basket pricing in a new contract request | CR-009, FR-MDM-016, A-156 |
+| BL-054 | A `kind` filter on `previewPriceListVersion` (only the changes) | Not asked for; `counts` tells a screen whether anything changed and the lines are in identity order | A list of several hundred lines where the manager reviews only changes | CR-009, A-156 |
+
 ## Explicitly outside the brief
 
 These are not mentioned in the shared brief, or are mentioned only conditionally. They are listed so that nobody builds them by accident.
