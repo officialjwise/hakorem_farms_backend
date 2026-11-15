@@ -114,16 +114,25 @@ responses:
                   variants:
                     - variant: thumb
                       url: "https://media.hakoremfarms.com/p/019a7aa1-6055-7206-b73e-29357e88a213/thumb.webp"
-                      width: 160
-                      height: 160
+                      width: 320
+                      height: 320
+                      sizeBytes: 9214
+                      fallbackUrl: "https://media.hakoremfarms.com/p/019a7aa1-6055-7206-b73e-29357e88a213/thumb.jpg"
+                      fallbackSizeBytes: 12480
                     - variant: card
                       url: "https://media.hakoremfarms.com/p/019a7aa1-6055-7206-b73e-29357e88a213/card.webp"
-                      width: 480
-                      height: 480
+                      width: 640
+                      height: 640
+                      sizeBytes: 31872
+                      fallbackUrl: "https://media.hakoremfarms.com/p/019a7aa1-6055-7206-b73e-29357e88a213/card.jpg"
+                      fallbackSizeBytes: 41356
                     - variant: full
                       url: "https://media.hakoremfarms.com/p/019a7aa1-6055-7206-b73e-29357e88a213/full.webp"
-                      width: 1200
-                      height: 1200
+                      width: 1280
+                      height: 1280
+                      sizeBytes: 118940
+                      fallbackUrl: "https://media.hakoremfarms.com/p/019a7aa1-6055-7206-b73e-29357e88a213/full.jpg"
+                      fallbackSizeBytes: 152377
               version: 2
               createdAt: "2026-11-02T08:00:00Z"
               updatedAt: "2026-11-10T14:00:00Z"
@@ -170,16 +179,25 @@ responses:
                   variants:
                     - variant: thumb
                       url: "https://media.hakoremfarms.com/p/019a7aa1-9e33-75cd-9b05-65a471eade82/thumb.webp"
-                      width: 160
-                      height: 160
+                      width: 320
+                      height: 320
+                      sizeBytes: 9214
+                      fallbackUrl: "https://media.hakoremfarms.com/p/019a7aa1-9e33-75cd-9b05-65a471eade82/thumb.jpg"
+                      fallbackSizeBytes: 12480
                     - variant: card
                       url: "https://media.hakoremfarms.com/p/019a7aa1-9e33-75cd-9b05-65a471eade82/card.webp"
-                      width: 480
-                      height: 480
+                      width: 640
+                      height: 640
+                      sizeBytes: 31872
+                      fallbackUrl: "https://media.hakoremfarms.com/p/019a7aa1-9e33-75cd-9b05-65a471eade82/card.jpg"
+                      fallbackSizeBytes: 41356
                     - variant: full
                       url: "https://media.hakoremfarms.com/p/019a7aa1-9e33-75cd-9b05-65a471eade82/full.webp"
-                      width: 1200
-                      height: 1200
+                      width: 1280
+                      height: 1280
+                      sizeBytes: 118940
+                      fallbackUrl: "https://media.hakoremfarms.com/p/019a7aa1-9e33-75cd-9b05-65a471eade82/full.jpg"
+                      fallbackSizeBytes: 152377
               version: 3
               createdAt: "2026-11-02T08:01:00Z"
               updatedAt: "2026-11-11T14:01:00Z"
@@ -226,16 +244,25 @@ responses:
                   variants:
                     - variant: thumb
                       url: "https://media.hakoremfarms.com/p/019a7aa1-dc11-7994-becc-a213654c1af1/thumb.webp"
-                      width: 160
-                      height: 160
+                      width: 320
+                      height: 320
+                      sizeBytes: 9214
+                      fallbackUrl: "https://media.hakoremfarms.com/p/019a7aa1-dc11-7994-becc-a213654c1af1/thumb.jpg"
+                      fallbackSizeBytes: 12480
                     - variant: card
                       url: "https://media.hakoremfarms.com/p/019a7aa1-dc11-7994-becc-a213654c1af1/card.webp"
-                      width: 480
-                      height: 480
+                      width: 640
+                      height: 640
+                      sizeBytes: 31872
+                      fallbackUrl: "https://media.hakoremfarms.com/p/019a7aa1-dc11-7994-becc-a213654c1af1/card.jpg"
+                      fallbackSizeBytes: 41356
                     - variant: full
                       url: "https://media.hakoremfarms.com/p/019a7aa1-dc11-7994-becc-a213654c1af1/full.webp"
-                      width: 1200
-                      height: 1200
+                      width: 1280
+                      height: 1280
+                      sizeBytes: 118940
+                      fallbackUrl: "https://media.hakoremfarms.com/p/019a7aa1-dc11-7994-becc-a213654c1af1/full.jpg"
+                      fallbackSizeBytes: 152377
               version: 4
               createdAt: "2026-11-02T08:02:00Z"
               updatedAt: "2026-11-12T14:02:00Z"
@@ -282,16 +309,25 @@ responses:
                   variants:
                     - variant: thumb
                       url: "https://media.hakoremfarms.com/p/019a7aa2-19ef-7d5b-9293-de8258ae5760/thumb.webp"
-                      width: 160
-                      height: 160
+                      width: 320
+                      height: 320
+                      sizeBytes: 9214
+                      fallbackUrl: "https://media.hakoremfarms.com/p/019a7aa2-19ef-7d5b-9293-de8258ae5760/thumb.jpg"
+                      fallbackSizeBytes: 12480
                     - variant: card
                       url: "https://media.hakoremfarms.com/p/019a7aa2-19ef-7d5b-9293-de8258ae5760/card.webp"
-                      width: 480
-                      height: 480
+                      width: 640
+                      height: 640
+                      sizeBytes: 31872
+                      fallbackUrl: "https://media.hakoremfarms.com/p/019a7aa2-19ef-7d5b-9293-de8258ae5760/card.jpg"
+                      fallbackSizeBytes: 41356
                     - variant: full
                       url: "https://media.hakoremfarms.com/p/019a7aa2-19ef-7d5b-9293-de8258ae5760/full.webp"
-                      width: 1200
-                      height: 1200
+                      width: 1280
+                      height: 1280
+                      sizeBytes: 118940
+                      fallbackUrl: "https://media.hakoremfarms.com/p/019a7aa2-19ef-7d5b-9293-de8258ae5760/full.jpg"
+                      fallbackSizeBytes: 152377
               version: 2
               createdAt: "2026-11-02T08:03:00Z"
               updatedAt: "2026-11-10T14:03:00Z"
@@ -338,16 +374,25 @@ responses:
                   variants:
                     - variant: thumb
                       url: "https://media.hakoremfarms.com/p/019a7aa2-57cd-7122-b65a-1af14c1093cf/thumb.webp"
-                      width: 160
-                      height: 160
+                      width: 320
+                      height: 320
+                      sizeBytes: 9214
+                      fallbackUrl: "https://media.hakoremfarms.com/p/019a7aa2-57cd-7122-b65a-1af14c1093cf/thumb.jpg"
+                      fallbackSizeBytes: 12480
                     - variant: card
                       url: "https://media.hakoremfarms.com/p/019a7aa2-57cd-7122-b65a-1af14c1093cf/card.webp"
-                      width: 480
-                      height: 480
+                      width: 640
+                      height: 640
+                      sizeBytes: 31872
+                      fallbackUrl: "https://media.hakoremfarms.com/p/019a7aa2-57cd-7122-b65a-1af14c1093cf/card.jpg"
+                      fallbackSizeBytes: 41356
                     - variant: full
                       url: "https://media.hakoremfarms.com/p/019a7aa2-57cd-7122-b65a-1af14c1093cf/full.webp"
-                      width: 1200
-                      height: 1200
+                      width: 1280
+                      height: 1280
+                      sizeBytes: 118940
+                      fallbackUrl: "https://media.hakoremfarms.com/p/019a7aa2-57cd-7122-b65a-1af14c1093cf/full.jpg"
+                      fallbackSizeBytes: 152377
               version: 3
               createdAt: "2026-11-02T08:04:00Z"
               updatedAt: "2026-11-11T14:04:00Z"
@@ -391,16 +436,25 @@ responses:
                   variants:
                     - variant: thumb
                       url: "https://media.hakoremfarms.com/p/019a7aa2-95ab-74e8-9a21-57603f72d03e/thumb.webp"
-                      width: 160
-                      height: 160
+                      width: 320
+                      height: 320
+                      sizeBytes: 9214
+                      fallbackUrl: "https://media.hakoremfarms.com/p/019a7aa2-95ab-74e8-9a21-57603f72d03e/thumb.jpg"
+                      fallbackSizeBytes: 12480
                     - variant: card
                       url: "https://media.hakoremfarms.com/p/019a7aa2-95ab-74e8-9a21-57603f72d03e/card.webp"
-                      width: 480
-                      height: 480
+                      width: 640
+                      height: 640
+                      sizeBytes: 31872
+                      fallbackUrl: "https://media.hakoremfarms.com/p/019a7aa2-95ab-74e8-9a21-57603f72d03e/card.jpg"
+                      fallbackSizeBytes: 41356
                     - variant: full
                       url: "https://media.hakoremfarms.com/p/019a7aa2-95ab-74e8-9a21-57603f72d03e/full.webp"
-                      width: 1200
-                      height: 1200
+                      width: 1280
+                      height: 1280
+                      sizeBytes: 118940
+                      fallbackUrl: "https://media.hakoremfarms.com/p/019a7aa2-95ab-74e8-9a21-57603f72d03e/full.jpg"
+                      fallbackSizeBytes: 152377
               version: 4
               createdAt: "2026-11-02T08:05:00Z"
               updatedAt: "2026-11-12T14:05:00Z"

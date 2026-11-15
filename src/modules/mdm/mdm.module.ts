@@ -21,11 +21,13 @@ import { PgPricingStore } from './infrastructure/pg-pricing-store';
 import { PriceListsController } from './interface/price-lists.controller';
 import { PricingController } from './interface/pricing.controller';
 import { ProductCatalogue } from './application/product-catalogue';
+import { ProductGallery } from './application/product-gallery';
 import { PRODUCT_STORE, type ProductStore } from './application/product-store';
 import { DrizzleProductStore } from './infrastructure/drizzle-product-store';
 import { MdmScopeNames } from './infrastructure/scope-names';
 import { ProductsController } from './interface/products.controller';
 import { Settings } from '../../platform/settings/settings';
+import { FileStore } from '../../platform/storage/file-store';
 import { TAX_SCHEME_ACTIVATION, TaxAdmin } from './application/tax-admin';
 import { TaxService } from './application/tax-calculation';
 import { TAX_STORE, type TaxStore } from './application/tax-store';
@@ -62,7 +64,7 @@ import { ReferenceDataController } from './interface/reference-data.controller';
   imports: [IamModule],
   controllers: [ProductsController, CatalogueController, LocationsController, PartiesController, ReferenceDataController, PricingController, PriceListsController, PromotionsController, TaxController],
   providers: [
-    { provide: PRODUCT_STORE, useClass: DrizzleProductStore },
+    { provide: PRODUCT_STORE, useFactory: (files: FileStore) => new DrizzleProductStore(files), inject: [FileStore] },
     { provide: PRICING_STORE, useClass: PgPricingStore },
     { provide: PRICE_LIST_STORE, useClass: PgPriceListStore },
     { provide: PROMOTION_STORE, useClass: PgPromotionStore },
@@ -180,6 +182,12 @@ import { ReferenceDataController } from './interface/reference-data.controller';
         clock: Clock,
       ) => new ProductCatalogue(uow, store, authoriser, idempotency, audit, events, cursors, clock),
       inject: [UnitOfWork, PRODUCT_STORE, Authoriser, Idempotency, AuditTrail, DomainEvents, Cursors, CLOCK],
+    },
+    {
+      provide: ProductGallery,
+      useFactory: (uow: UnitOfWork, store: ProductStore, files: FileStore, authoriser: Authoriser, idempotency: Idempotency, audit: AuditTrail, events: DomainEvents, clock: Clock) =>
+        new ProductGallery(uow, store, files, authoriser, idempotency, audit, events, clock),
+      inject: [UnitOfWork, PRODUCT_STORE, FileStore, Authoriser, Idempotency, AuditTrail, DomainEvents, CLOCK],
     },
   ],
   exports: [PricingService, Promotions, TaxService],

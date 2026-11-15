@@ -130,6 +130,23 @@ describe('the Product slice on the running stack', () => {
     expect((await cashier.call('GET', `/v1/files/${stored.body.id}`)).status).toBe(403);
   });
 
+  it('attaches only a clean product photograph and refuses the cashier the gallery (FR-DOC-005)', async () => {
+    const sku = `PRD-OKRA-${randomUUID().slice(0, 6).toUpperCase()}`;
+    const categoryId = (await manager.call('GET', '/v1/products?q=yam')).body.data[0].category.id as string;
+    const created = await manager.call('POST', '/v1/products', { sku, name: 'Okra, per kilogram', categoryId, stockPolicy: 'COUNTABLE', baseUom: 'UNIT', saleUom: 'UNIT', onlineMode: 'LISTED' }, { 'Idempotency-Key': randomUUID() });
+    expect(created.status).toBe(201);
+    const photo = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(4_092, 9)]);
+    const stored = await manager.upload('PRODUCT_IMAGE', photo, 'okra.jpg');
+    expect(stored.status).toBe(201);
+    // Unscanned (the stack runs no ClamAV), or failed as an image that cannot be decoded: never attached.
+    const attach = await manager.call('POST', `/v1/products/${created.body.id}/images`, { fileId: stored.body.id, altText: 'Okra in a basket' }, { 'Idempotency-Key': randomUUID() });
+    expect(attach.status).toBe(422);
+    expect(attach.body.error.code).toBe('FILE_NOT_CLEAN');
+    const refused = await cashier.call('POST', `/v1/products/${created.body.id}/images`, { fileId: stored.body.id, altText: 'Okra in a basket' }, { 'Idempotency-Key': randomUUID() });
+    expect(refused.status).toBe(403);
+    expect((await cashier.call('GET', `/v1/products/${created.body.id}`)).body.images).toEqual([]);
+  });
+
   it('keeps the audit trail sealed by the worker', async () => {
     let lag = '';
     for (let attempt = 0; attempt < 20; attempt += 1) {

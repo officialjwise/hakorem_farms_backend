@@ -2,7 +2,9 @@ import { and, desc, eq, inArray, isNull, lt, ne, or, sql, type SQL } from 'drizz
 import { alias } from 'drizzle-orm/pg-core';
 import type { Transaction } from '../../../platform/database/unit-of-work';
 import type { GlGroup, ProductDefinition, ProductDraft, ProductReferences, UomKind } from '../domain/product';
-import type { ProductListFilter, ProductStore, ProductView, UniqueProductField } from '../application/product-store';
+import type { FileStore } from '../../../platform/storage/file-store';
+import { galleryVariants } from '../domain/product-images';
+import type { ProductImageRow, ProductImageView, ProductListFilter, ProductStore, ProductView, UniqueProductField } from '../application/product-store';
 import { category, product, species, taxCategory, uom } from './tables';
 
 const speciesRef = alias(species, 'species_ref');
@@ -35,7 +37,7 @@ function percent(text: string): string {
   return `${whole}.${trimmed.padEnd(2, '0')}`;
 }
 
-function toView(row: ViewRow): ProductView {
+function toView(row: ViewRow, images: readonly ProductImageView[]): ProductView {
   const p = row.product;
   return {
     id: p.id,
@@ -61,7 +63,7 @@ function toView(row: ViewRow): ProductView {
     isPurchasable: p.isPurchasable,
     isSellable: p.isSellable,
     status: p.status as ProductView['status'],
-    images: [],
+    images,
     version: p.version,
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),
@@ -78,6 +80,56 @@ function likePrefix(text: string): string {
  * own tables. Every statement runs on the caller's transaction connection.
  */
 export class DrizzleProductStore implements ProductStore {
+  /** The file store, for the public variants of each photograph: read through platform, never by a join (ADR-0045). */
+  constructor(private readonly files: FileStore) {}
+
+  async liveImages(tx: Transaction, productId: string): Promise<ProductImageRow[]> {
+    const { rows } = await tx.query<{ id: string; file_id: string; alt_text: string; sort_order: number }>(
+      'SELECT id, file_id, alt_text, sort_order FROM mdm.product_image WHERE product_id = $1 AND deleted_at IS NULL ORDER BY sort_order, id',
+      [productId],
+    );
+    return rows.map((row) => ({ id: row.id, fileId: row.file_id, altText: row.alt_text, sortOrder: row.sort_order }));
+  }
+
+  async insertImage(tx: Transaction, productId: string, image: ProductImageRow, actorId: string, now: Date): Promise<void> {
+    await tx.query(
+      `INSERT INTO mdm.product_image (id, product_id, file_id, alt_text, sort_order, created_at, created_by, updated_at, updated_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $6, $7)`,
+      [image.id, productId, image.fileId, image.altText, image.sortOrder, now, actorId],
+    );
+  }
+
+  async removeImage(tx: Transaction, productId: string, imageId: string, reason: string, actorId: string, now: Date): Promise<boolean> {
+    const result = await tx.query(
+      `UPDATE mdm.product_image SET deleted_at = $5, deleted_by = $4, delete_reason = $3, updated_at = $5, updated_by = $4, version = version + 1
+        WHERE id = $2 AND product_id = $1 AND deleted_at IS NULL`,
+      [productId, imageId, reason, actorId, now],
+    );
+    return result.rowCount === 1;
+  }
+
+  /** Each product's gallery, with the variants the file store has published. */
+  private async galleries(tx: Transaction, productIds: readonly string[]): Promise<Map<string, ProductImageView[]>> {
+    const galleries = new Map<string, ProductImageView[]>(productIds.map((id) => [id, []]));
+    if (productIds.length === 0) return galleries;
+    const { rows } = await tx.query<{ id: string; product_id: string; file_id: string; alt_text: string; sort_order: number }>(
+      `SELECT id, product_id, file_id, alt_text, sort_order FROM mdm.product_image
+        WHERE product_id = ANY($1::uuid[]) AND deleted_at IS NULL ORDER BY product_id, sort_order, id`,
+      [productIds],
+    );
+    const variants = await this.files.publicVariants(tx, [...new Set(rows.map((row) => row.file_id))]);
+    for (const row of rows) {
+      galleries.get(row.product_id)!.push({
+        id: row.id,
+        fileId: row.file_id,
+        altText: row.alt_text,
+        sortOrder: row.sort_order,
+        variants: galleryVariants(variants.get(row.file_id) ?? []),
+      });
+    }
+    return galleries;
+  }
+
   async references(tx: Transaction, draft: ProductDraft): Promise<ProductReferences> {
     const [categoryRow] = await tx.db
       .select({ id: category.id, glGroup: category.glGroup, taxCategoryId: category.taxCategoryId })
@@ -252,6 +304,7 @@ export class DrizzleProductStore implements ProductStore {
       .where(where)
       .orderBy(desc(product.id))
       .limit(limit);
-    return rows.map(toView);
+    const galleries = await this.galleries(tx, rows.map((row) => row.product.id));
+    return rows.map((row) => toView(row, galleries.get(row.product.id)!));
   }
 }

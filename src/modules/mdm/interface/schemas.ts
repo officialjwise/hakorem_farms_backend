@@ -53,6 +53,13 @@ export const ListProductsQuery = z.object({
 });
 
 export const ProductIdParam = z.uuid();
+export const ProductImageIdParam = z.uuid();
+/** The contract's `ProductImageCreate`. */
+export const ProductImageCreateBody = z.strictObject({
+  fileId: z.uuid(),
+  altText: z.string().trim().min(1).max(200),
+  sortOrder: z.number().int().min(0).max(999).optional(),
+});
 
 /** The contract's `Quantity`: three decimal places, a string. */
 const Quantity = z.string().regex(/^(0|[1-9][0-9]{0,10})\.[0-9]{3}$/);

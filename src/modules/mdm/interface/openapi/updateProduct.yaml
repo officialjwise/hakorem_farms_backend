@@ -95,16 +95,25 @@ responses:
               variants:
                 - variant: thumb
                   url: "https://media.hakoremfarms.com/p/019a7aa1-6055-7206-b73e-29357e88a213/thumb.webp"
-                  width: 160
-                  height: 160
+                  width: 320
+                  height: 320
+                  sizeBytes: 9214
+                  fallbackUrl: "https://media.hakoremfarms.com/p/019a7aa1-6055-7206-b73e-29357e88a213/thumb.jpg"
+                  fallbackSizeBytes: 12480
                 - variant: card
                   url: "https://media.hakoremfarms.com/p/019a7aa1-6055-7206-b73e-29357e88a213/card.webp"
-                  width: 480
-                  height: 480
+                  width: 640
+                  height: 640
+                  sizeBytes: 31872
+                  fallbackUrl: "https://media.hakoremfarms.com/p/019a7aa1-6055-7206-b73e-29357e88a213/card.jpg"
+                  fallbackSizeBytes: 41356
                 - variant: full
                   url: "https://media.hakoremfarms.com/p/019a7aa1-6055-7206-b73e-29357e88a213/full.webp"
-                  width: 1200
-                  height: 1200
+                  width: 1280
+                  height: 1280
+                  sizeBytes: 118940
+                  fallbackUrl: "https://media.hakoremfarms.com/p/019a7aa1-6055-7206-b73e-29357e88a213/full.jpg"
+                  fallbackSizeBytes: 152377
           version: 2
           createdAt: "2026-11-02T08:00:00Z"
           updatedAt: "2026-11-10T14:00:00Z"

@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.12.0"
+  version: "1.13.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -2363,167 +2363,6 @@ paths:
   "/products": {}
   "/products/{id}": {}
   "/products/{id}/archive": {}
-  "/products/{id}/images":
-    post:
-      operationId: addProductImage
-      tags:
-        - mdm
-      summary: "Attach an uploaded photograph to a product"
-      description: "Upload with POST /files first. Variants are produced in the background.\n\nPermission: `mdm.product.update`."
-      x-permission: mdm.product.update
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ProductImageCreate"
-            example:
-              fileId: "019a7aa2-b49a-7ecc-a404-f597b9236e75"
-              altText: "Goat meat pack, vacuum sealed"
-              sortOrder: 1
-      responses:
-        "201":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Product"
-              example:
-                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                sku: LIV-GOAT
-                name: Goat
-                category:
-                  id: "019a7a89-737b-7c17-9150-ca4d5fa2432b"
-                  code: LIVE
-                  name: "Live animals"
-                stockPolicy: SERIALISED
-                tracking: SERIAL
-                species:
-                  id: "019a7a8b-a049-7e16-b34e-ea33ee146311"
-                  code: GOAT
-                  name: Goat
-                baseUom: HEAD
-                saleUom: HEAD
-                nominalPackKg: null
-                weightTolerancePercent: "10.00"
-                taxCategory:
-                  id: "019a7a8a-6af3-7b33-906b-bc092d2a34e7"
-                  code: LIVE_ANIMALS
-                  name: "Live Animals"
-                glGroup: LIVE_ANIMALS
-                shelfLifeDays: null
-                storageTempClass: null
-                withdrawalDays: null
-                barcode: null
-                description: "Individually tagged and weighed. Priced by size and weight."
-                onlineMode: REQUEST_TO_BUY
-                seo:
-                  slug: goat
-                  title: "Goat | HaKorem Farms"
-                  description: null
-                isPurchasable: true
-                isSellable: true
-                status: ACTIVE
-                images:
-                  - id: "019a7aa1-4166-7822-ad5b-8afe04d703db"
-                    fileId: "019a7aa1-6055-7206-b73e-29357e88a213"
-                    altText: "Front view"
-                    sortOrder: 0
-                    variants:
-                      - variant: thumb
-                        url: "https://media.hakoremfarms.com/p/019a7aa1-6055-7206-b73e-29357e88a213/thumb.webp"
-                        width: 160
-                        height: 160
-                      - variant: card
-                        url: "https://media.hakoremfarms.com/p/019a7aa1-6055-7206-b73e-29357e88a213/card.webp"
-                        width: 480
-                        height: 480
-                      - variant: full
-                        url: "https://media.hakoremfarms.com/p/019a7aa1-6055-7206-b73e-29357e88a213/full.webp"
-                        width: 1200
-                        height: 1200
-                version: 2
-                createdAt: "2026-11-02T08:00:00Z"
-                updatedAt: "2026-11-10T14:00:00Z"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/products/{id}/images/{imageId}":
-    delete:
-      operationId: removeProductImage
-      tags:
-        - mdm
-      summary: "Remove a photograph from a product"
-      description: "Permission: `mdm.product.update`."
-      x-permission: mdm.product.update
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - name: imageId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "204":
-          description: "Done. No content."
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
   "/customers": {}
   "/customers/{id}": {}
   "/customers/{id}/archive": {}
@@ -36549,12 +36388,18 @@ paths:
                       variants:
                         - variant: thumb
                           url: "https://media.hakoremfarms.com/p/019a7a8d-137d-74bf-b9f8-54cda260cdab/thumb.webp"
-                          width: 160
-                          height: 160
+                          width: 320
+                          height: 320
+                          sizeBytes: 9214
+                          fallbackUrl: "https://media.hakoremfarms.com/p/019a7a8d-137d-74bf-b9f8-54cda260cdab/thumb.jpg"
+                          fallbackSizeBytes: 12480
                         - variant: card
                           url: "https://media.hakoremfarms.com/p/019a7a8d-137d-74bf-b9f8-54cda260cdab/card.webp"
-                          width: 480
-                          height: 480
+                          width: 640
+                          height: 640
+                          sizeBytes: 31872
+                          fallbackUrl: "https://media.hakoremfarms.com/p/019a7a8d-137d-74bf-b9f8-54cda260cdab/card.jpg"
+                          fallbackSizeBytes: 41356
                     currency: GHS
                   - productId: "019a7a8d-326c-7ea3-83db-f3051c116be3"
                     slug: sheep
@@ -36576,12 +36421,18 @@ paths:
                       variants:
                         - variant: thumb
                           url: "https://media.hakoremfarms.com/p/019a7a8d-326c-7ea3-83db-f3051c116be3/thumb.webp"
-                          width: 160
-                          height: 160
+                          width: 320
+                          height: 320
+                          sizeBytes: 9214
+                          fallbackUrl: "https://media.hakoremfarms.com/p/019a7a8d-326c-7ea3-83db-f3051c116be3/thumb.jpg"
+                          fallbackSizeBytes: 12480
                         - variant: card
                           url: "https://media.hakoremfarms.com/p/019a7a8d-326c-7ea3-83db-f3051c116be3/card.webp"
-                          width: 480
-                          height: 480
+                          width: 640
+                          height: 640
+                          sizeBytes: 31872
+                          fallbackUrl: "https://media.hakoremfarms.com/p/019a7a8d-326c-7ea3-83db-f3051c116be3/card.jpg"
+                          fallbackSizeBytes: 41356
                     currency: GHS
                   - productId: "019a7a8d-515b-7886-9dbe-913c95c20a1a"
                     slug: baby-pig
@@ -36603,12 +36454,18 @@ paths:
                       variants:
                         - variant: thumb
                           url: "https://media.hakoremfarms.com/p/019a7a8d-515b-7886-9dbe-913c95c20a1a/thumb.webp"
-                          width: 160
-                          height: 160
+                          width: 320
+                          height: 320
+                          sizeBytes: 9214
+                          fallbackUrl: "https://media.hakoremfarms.com/p/019a7a8d-515b-7886-9dbe-913c95c20a1a/thumb.jpg"
+                          fallbackSizeBytes: 12480
                         - variant: card
                           url: "https://media.hakoremfarms.com/p/019a7a8d-515b-7886-9dbe-913c95c20a1a/card.webp"
-                          width: 480
-                          height: 480
+                          width: 640
+                          height: 640
+                          sizeBytes: 31872
+                          fallbackUrl: "https://media.hakoremfarms.com/p/019a7a8d-515b-7886-9dbe-913c95c20a1a/card.jpg"
+                          fallbackSizeBytes: 41356
                     currency: GHS
                   - productId: "019a7a8d-704a-726a-a7a2-2f740f73a851"
                     slug: broiler-chicken
@@ -36630,12 +36487,18 @@ paths:
                       variants:
                         - variant: thumb
                           url: "https://media.hakoremfarms.com/p/019a7a8d-704a-726a-a7a2-2f740f73a851/thumb.webp"
-                          width: 160
-                          height: 160
+                          width: 320
+                          height: 320
+                          sizeBytes: 9214
+                          fallbackUrl: "https://media.hakoremfarms.com/p/019a7a8d-704a-726a-a7a2-2f740f73a851/thumb.jpg"
+                          fallbackSizeBytes: 12480
                         - variant: card
                           url: "https://media.hakoremfarms.com/p/019a7a8d-704a-726a-a7a2-2f740f73a851/card.webp"
-                          width: 480
-                          height: 480
+                          width: 640
+                          height: 640
+                          sizeBytes: 31872
+                          fallbackUrl: "https://media.hakoremfarms.com/p/019a7a8d-704a-726a-a7a2-2f740f73a851/card.jpg"
+                          fallbackSizeBytes: 41356
                     currency: GHS
                   - productId: "019a7a8d-8f39-7c4d-b185-cdab89244689"
                     slug: local-chicken
@@ -36657,12 +36520,18 @@ paths:
                       variants:
                         - variant: thumb
                           url: "https://media.hakoremfarms.com/p/019a7a8d-8f39-7c4d-b185-cdab89244689/thumb.webp"
-                          width: 160
-                          height: 160
+                          width: 320
+                          height: 320
+                          sizeBytes: 9214
+                          fallbackUrl: "https://media.hakoremfarms.com/p/019a7a8d-8f39-7c4d-b185-cdab89244689/thumb.jpg"
+                          fallbackSizeBytes: 12480
                         - variant: card
                           url: "https://media.hakoremfarms.com/p/019a7a8d-8f39-7c4d-b185-cdab89244689/card.webp"
-                          width: 480
-                          height: 480
+                          width: 640
+                          height: 640
+                          sizeBytes: 31872
+                          fallbackUrl: "https://media.hakoremfarms.com/p/019a7a8d-8f39-7c4d-b185-cdab89244689/card.jpg"
+                          fallbackSizeBytes: 41356
                     currency: GHS
                   - productId: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
                     slug: eggs-big-crate-of-30
@@ -36684,12 +36553,18 @@ paths:
                       variants:
                         - variant: thumb
                           url: "https://media.hakoremfarms.com/p/019a7a8d-ae28-7631-8b69-6be302d5e4c0/thumb.webp"
-                          width: 160
-                          height: 160
+                          width: 320
+                          height: 320
+                          sizeBytes: 9214
+                          fallbackUrl: "https://media.hakoremfarms.com/p/019a7a8d-ae28-7631-8b69-6be302d5e4c0/thumb.jpg"
+                          fallbackSizeBytes: 12480
                         - variant: card
                           url: "https://media.hakoremfarms.com/p/019a7a8d-ae28-7631-8b69-6be302d5e4c0/card.webp"
-                          width: 480
-                          height: 480
+                          width: 640
+                          height: 640
+                          sizeBytes: 31872
+                          fallbackUrl: "https://media.hakoremfarms.com/p/019a7a8d-ae28-7631-8b69-6be302d5e4c0/card.jpg"
+                          fallbackSizeBytes: 41356
                     currency: GHS
                   - productId: "019a7a8d-cd17-7014-954c-0a1a7c8682f8"
                     slug: eggs-small-crate-of-30
@@ -36711,12 +36586,18 @@ paths:
                       variants:
                         - variant: thumb
                           url: "https://media.hakoremfarms.com/p/019a7a8d-cd17-7014-954c-0a1a7c8682f8/thumb.webp"
-                          width: 160
-                          height: 160
+                          width: 320
+                          height: 320
+                          sizeBytes: 9214
+                          fallbackUrl: "https://media.hakoremfarms.com/p/019a7a8d-cd17-7014-954c-0a1a7c8682f8/thumb.jpg"
+                          fallbackSizeBytes: 12480
                         - variant: card
                           url: "https://media.hakoremfarms.com/p/019a7a8d-cd17-7014-954c-0a1a7c8682f8/card.webp"
-                          width: 480
-                          height: 480
+                          width: 640
+                          height: 640
+                          sizeBytes: 31872
+                          fallbackUrl: "https://media.hakoremfarms.com/p/019a7a8d-cd17-7014-954c-0a1a7c8682f8/card.jpg"
+                          fallbackSizeBytes: 41356
                     currency: GHS
                   - productId: "019a7a8d-ec06-79f8-af30-a851f637212f"
                     slug: full-chicken-15-kg-pack
@@ -36738,12 +36619,18 @@ paths:
                       variants:
                         - variant: thumb
                           url: "https://media.hakoremfarms.com/p/019a7a8d-ec06-79f8-af30-a851f637212f/thumb.webp"
-                          width: 160
-                          height: 160
+                          width: 320
+                          height: 320
+                          sizeBytes: 9214
+                          fallbackUrl: "https://media.hakoremfarms.com/p/019a7a8d-ec06-79f8-af30-a851f637212f/thumb.jpg"
+                          fallbackSizeBytes: 12480
                         - variant: card
                           url: "https://media.hakoremfarms.com/p/019a7a8d-ec06-79f8-af30-a851f637212f/card.webp"
-                          width: 480
-                          height: 480
+                          width: 640
+                          height: 640
+                          sizeBytes: 31872
+                          fallbackUrl: "https://media.hakoremfarms.com/p/019a7a8d-ec06-79f8-af30-a851f637212f/card.jpg"
+                          fallbackSizeBytes: 41356
                     currency: GHS
                 page:
                   nextCursor: eyJpZCI6IjAxOWE3YyJ9
@@ -36826,8 +36713,11 @@ paths:
                     variants:
                       - variant: full
                         url: "https://media.hakoremfarms.com/p/019a7a8e-48d3-77a2-9cda-82f8634afbd6/full.webp"
-                        width: 1200
-                        height: 1200
+                        width: 1280
+                        height: 1280
+                        sizeBytes: 118940
+                        fallbackUrl: "https://media.hakoremfarms.com/p/019a7a8e-48d3-77a2-9cda-82f8634afbd6/full.jpg"
+                        fallbackSizeBytes: 152377
                 seo:
                   slug: goat-meat-15-kg-pack
                   title: "Goat meat, 15 kg pack | HaKorem Farms"
@@ -57902,6 +57792,7 @@ components:
       description: "REQUEST_TO_BUY opens a request for quote instead of adding to the cart."
     ImageVariant:
       type: object
+      description: "One width of a product photograph on the public media origin (FR-DOC-005): `thumb` is 320 pixels wide, `card` 640 and `full` 1280, never wider than the original. `url` is the WebP rendition and `fallbackUrl` the JPEG one, for a browser without WebP. The sizes are bytes, for page-weight budgets (NFR-005); no `card` rendition is above 200,000 bytes."
       properties:
         variant:
           type: string
@@ -57916,11 +57807,24 @@ components:
           type: integer
         height:
           type: integer
+        sizeBytes:
+          type: integer
+          description: "Bytes of the WebP rendition."
+        fallbackUrl:
+          type: string
+          format: uri
+          description: "The JPEG rendition of the same width."
+        fallbackSizeBytes:
+          type: integer
+          description: "Bytes of the JPEG rendition."
       required:
         - variant
         - url
         - width
         - height
+        - sizeBytes
+        - fallbackUrl
+        - fallbackSizeBytes
     ProductImage:
       type: object
       properties:

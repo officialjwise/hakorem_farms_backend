@@ -1,0 +1,134 @@
+operationId: addProductImage
+tags:
+  - mdm
+summary: "Attach an uploaded photograph to a product"
+description: "Upload with POST /files first, with purpose `PRODUCT_IMAGE`, and wait until `getFile` shows it `CLEAN`: the worker re-encodes a clean photograph into its public variants (320, 640 and 1280 pixels wide, WebP with a JPEG fallback, none above 200 KB at 640 pixels) before it marks it clean, so an attached photograph always has them. The original is never served publicly. A file that is not a product photograph is 422 `REFERENCE_NOT_FOUND`; one not yet `CLEAN` is 422 `FILE_NOT_CLEAN`; one already in the gallery is 422 `DUPLICATE_VALUE`. Attaching someone else's upload also needs `platform.file.read.any`. With no `sortOrder`, the photograph goes last. Publishes `mdm.ProductChanged` with `images` changed; the product's `version` does not move.\n\nPermission: `mdm.product.update`."
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - REFERENCE_NOT_FOUND
+  - FILE_NOT_CLEAN
+  - DUPLICATE_VALUE
+  - RATE_LIMITED
+x-permission: mdm.product.update
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ProductImageCreate"
+      example:
+        fileId: "019a7aa2-b49a-7ecc-a404-f597b9236e75"
+        altText: "Goat meat pack, vacuum sealed"
+        sortOrder: 1
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Product"
+        example:
+          id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+          sku: LIV-GOAT
+          name: Goat
+          category:
+            id: "019a7a89-737b-7c17-9150-ca4d5fa2432b"
+            code: LIVE
+            name: "Live animals"
+          stockPolicy: SERIALISED
+          tracking: SERIAL
+          species:
+            id: "019a7a8b-a049-7e16-b34e-ea33ee146311"
+            code: GOAT
+            name: Goat
+          baseUom: HEAD
+          saleUom: HEAD
+          nominalPackKg: null
+          weightTolerancePercent: "10.00"
+          taxCategory:
+            id: "019a7a8a-6af3-7b33-906b-bc092d2a34e7"
+            code: LIVE_ANIMALS
+            name: "Live Animals"
+          glGroup: LIVE_ANIMALS
+          shelfLifeDays: null
+          storageTempClass: null
+          withdrawalDays: null
+          barcode: null
+          description: "Individually tagged and weighed. Priced by size and weight."
+          onlineMode: REQUEST_TO_BUY
+          seo:
+            slug: goat
+            title: "Goat | HaKorem Farms"
+            description: null
+          isPurchasable: true
+          isSellable: true
+          status: ACTIVE
+          images:
+            - id: "019a7aa1-4166-7822-ad5b-8afe04d703db"
+              fileId: "019a7aa1-6055-7206-b73e-29357e88a213"
+              altText: "Front view"
+              sortOrder: 0
+              variants:
+                - variant: thumb
+                  url: "https://media.hakoremfarms.com/p/019a7aa1-6055-7206-b73e-29357e88a213/thumb.webp"
+                  width: 320
+                  height: 240
+                  sizeBytes: 9214
+                  fallbackUrl: "https://media.hakoremfarms.com/p/019a7aa1-6055-7206-b73e-29357e88a213/thumb.jpg"
+                  fallbackSizeBytes: 12480
+                - variant: card
+                  url: "https://media.hakoremfarms.com/p/019a7aa1-6055-7206-b73e-29357e88a213/card.webp"
+                  width: 640
+                  height: 480
+                  sizeBytes: 31872
+                  fallbackUrl: "https://media.hakoremfarms.com/p/019a7aa1-6055-7206-b73e-29357e88a213/card.jpg"
+                  fallbackSizeBytes: 41356
+                - variant: full
+                  url: "https://media.hakoremfarms.com/p/019a7aa1-6055-7206-b73e-29357e88a213/full.webp"
+                  width: 1280
+                  height: 960
+                  sizeBytes: 118940
+                  fallbackUrl: "https://media.hakoremfarms.com/p/019a7aa1-6055-7206-b73e-29357e88a213/full.jpg"
+                  fallbackSizeBytes: 152377
+          version: 2
+          createdAt: "2026-11-02T08:00:00Z"
+          updatedAt: "2026-11-10T14:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

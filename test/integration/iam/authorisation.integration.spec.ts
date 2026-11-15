@@ -105,6 +105,7 @@ const VALID_BODY: Readonly<Record<string, object>> = {
   archiveCustomerAddress: { version: 1, reason: 'Moved' },
   assignCustomerPriceList: { priceListId: '01900000-0000-7000-8000-00000000f002', validFrom: '2026-12-01T00:00:00Z' },
   archiveProduct: { version: 1, reason: 'No longer stocked' },
+  addProductImage: { fileId: randomUUID(), altText: 'Front view' },
   updatePriceList: { version: 1, name: 'Base prices' },
   archivePriceList: { version: 1, reason: 'Replaced' },
   createSupplier: { name: 'Ashanti Feeds Ltd' },
@@ -134,7 +135,7 @@ afterAll(async () => {
 });
 
 describe('deny by default: the handler walk (ADR-0017, security architecture section 14)', () => {
-  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued and B04e continued 2 routes, and every one declares its operation', () => {
+  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2 and B04e continued 3 routes, and every one declares its operation', () => {
     expect(routes.map((route) => route.spec?.operationId).sort()).toEqual(
       [
         'changePassword', 'confirmTotpEnrolment', 'createProduct', 'getCurrentSession', 'getHealth', 'getProduct', 'listProducts', 'listSessions',
@@ -157,6 +158,7 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'createRole', 'updateRole', 'listApprovals', 'getApproval', 'approveRequest', 'rejectRequest', 'cancelApprovalRequest',
         'registerCustomer', 'verifyCustomerPhone', 'requestPasswordReset', 'resetPassword',
         'uploadFile', 'getFile', 'createFileSignedUrl',
+        'addProductImage', 'removeProductImage',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);
@@ -186,8 +188,8 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
       const response =
         route.method === 'GET'
           ? await consoleGet(api.server, session, path)
-          : route.method === 'PUT' || route.method === 'PATCH'
-            ? await (route.method === 'PUT' ? request(api.server).put(path) : request(api.server).patch(path))
+          : route.method === 'PUT' || route.method === 'PATCH' || route.method === 'DELETE'
+            ? await (route.method === 'PUT' ? request(api.server).put(path) : route.method === 'PATCH' ? request(api.server).patch(path) : request(api.server).delete(path))
                 .set('Cookie', session.jar.header())
                 .set('X-CSRF-Token', session.csrfToken)
                 .set('Origin', TEST_ORIGIN)
