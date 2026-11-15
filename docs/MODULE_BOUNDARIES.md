@@ -102,7 +102,7 @@ Each card gives: what the module owns, its public interface (the services export
 ### MDM: master data, pricing and tax (layer 3)
 
 - **Owns:** schema `mdm`. Products, categories, units, species, grades, weight bands, customers, suppliers, branches, locations, price lists, promotions and coupons, tax levies and scheme versions, payment methods, delivery zones, reason codes, import jobs.
-- **Public interface:** `Catalogue`, `Parties`, `Locations`, `PricingEngine` (built in B4: `PricingService.resolveIn` in the caller's transaction, `judgeAgreedPrice`, `extendPrice`), `Promotions`, `TaxCalculator`, `ReferenceData`, `Imports`. Port: `ProductUsageCheck`.
+- **Public interface:** `Catalogue`, `Parties`, `Locations`, `PricingEngine` (built in B4: `PricingService.resolveIn` in the caller's transaction, `judgeAgreedPrice`, `extendPrice`), `Promotions` (built in B04d: `resolveIn` returns each line's discounts; `Promotions.redeemIn` and `releaseIn` in the caller's transaction, holding `couponLockKey(code)`, ADR-0040), `TaxCalculator`, `ReferenceData`, `Imports`. Port: `ProductUsageCheck`.
 - **Imports:** platform, IAM.
 - **Subscribes:** nothing.
 
