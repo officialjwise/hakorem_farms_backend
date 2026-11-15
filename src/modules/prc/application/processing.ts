@@ -8,11 +8,11 @@ import type { DomainEvents } from '../../../platform/events/domain-events';
 import type { Cursors } from '../../../platform/http/cursor';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
 import type { Authoriser, PrincipalNames } from '../../iam';
-import type { Lineage, Stock, StockUnitFacts, StockUnits } from '../../inv';
+import { StockMovementAlreadyReversedError, StockReversalNotPossibleError, type Lineage, type Stock, type StockMovements, type StockUnitFacts, type StockUnits } from '../../inv';
 import type { LocationFacts, MasterDataRefs, PricingService, ProductFacts } from '../../mdm';
 import { allocateProcessingCost, type OutputKind, type ProcessingRuleBroken } from '../domain/cost-allocation';
 import { checkOutputWeights, judgeYield, type YieldJudgement } from '../domain/yield';
-import type { DirectCostIncurred, ProcessingOrderCompleted, ProcessingOrderStarted, YieldVarianceFlagged } from '../events';
+import type { DirectCostIncurred, ProcessingOrderCompleted, ProcessingOrderReversed, ProcessingOrderStarted, YieldVarianceFlagged } from '../events';
 import { addDays, ordinal, pageProbe } from './counting';
 import { InputOnHoldError, PrcReferenceNotFoundError, ProcessingOrderInvalidError } from './errors';
 import type { CostKind, OrderFilters, OrderRecord, OrderStatus, ProcessingStore, ReadScope, WeightSource } from './processing-store';
@@ -106,6 +106,7 @@ export interface ProcessingOrderView {
   readonly createdBy: { readonly id: string; readonly displayName: string };
   readonly postedAt: string | null;
   readonly postedBy: { readonly id: string; readonly displayName: string } | null;
+  readonly reversal: { readonly id: string; readonly reason: string; readonly reversedAt: string; readonly reversedBy: { readonly id: string; readonly displayName: string } } | null;
 }
 
 export interface Page<V> {
@@ -160,6 +161,7 @@ export class Processing {
     private readonly principals: PrincipalNames,
     private readonly cursors: Cursors,
     private readonly clock: Clock,
+    private readonly movements: StockMovements,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -294,11 +296,80 @@ export class Processing {
     });
   }
 
+  /**
+   * Cancels an order not yet completed, with no stock effect; or reverses a COMPLETED one (FR-PRC-011, A-162), which
+   * also needs `prc.order.reverse` at the order's scope: every movement the completion posted is reversed through INV,
+   * the outputs first and then the inputs, each carrying the value it carried, so the animals stand where they stood at
+   * the cost they had; refused while any output is not whole where the order put it, reserved, or packed into a pack
+   * that has left the cold room. The order stays COMPLETED and frozen; the reversal is its own document.
+   */
   cancel(actor: Actor | undefined, id: string, body: { readonly reason: string }, idempotencyKey: string): Promise<StoredResponse<ProcessingOrderView>> {
     return this.write(actor, 'prc.order.create', 'cancelProcessingOrder', { id, ...body }, idempotencyKey, (tx) => this.scopeOf(tx, id), async (tx) => {
+      const state = await this.store.lock(tx, id);
+      if (state?.status === 'COMPLETED') {
+        const order = (await this.store.order(tx, id))!;
+        await this.authoriser.authorise(tx, actor, 'prc.order.reverse', { branchId: order.branchId, locationId: order.locationId });
+        await this.reverseIn(tx, actor!, order, body.reason);
+        return this.audited(tx, 'REVERSE', order, 200, { reason: body.reason });
+      }
       const before = await this.locked(tx, id, ['PLANNED', 'IN_PROGRESS'], null);
       await this.store.markCancelled(tx, id, body.reason, actor!.principalId);
       return this.audited(tx, 'CANCEL', before, 200, { reason: body.reason });
+    });
+  }
+
+  // Reversal.
+
+  private async reverseIn(tx: Transaction, actor: Actor, order: OrderRecord, reason: string): Promise<void> {
+    if (order.reversal !== null) throw new ProcessingOrderInvalidError([{ field: '/id', rule: 'ORDER_REVERSED' }]);
+    const saleable = order.outputs.filter((o) => o.stockUnitId !== null);
+    const lots = saleable.map((o) => o.stockUnitId!);
+    const onHand = await this.units.onHandOfIn(tx, lots);
+    const facts = await this.units.factsIn(tx, lots, this.clock.now());
+    const packs = await this.store.packsOf(tx, order.id, null, 1_000_000);
+    for (const output of saleable) {
+      const lot = output.stockUnitId!;
+      const where = onHand.filter((u) => u.id === lot);
+      const here = where.filter((u) => u.locationId === order.outputLocationId).map((u) => Weight.parseKg(u.onHandQty));
+      const whole = where.length === here.length && Weight.sum(here).equals(Weight.parseKg(output.weightKg));
+      const packedAway = packs.some((p) => p.stockUnitId === lot && p.status !== 'IN_STOCK');
+      if (!whole || packedAway) throw new ProcessingOrderInvalidError([{ field: `/outputs/${output.lineNo}`, rule: 'OUTPUT_SOLD' }]);
+      if (facts.get(lot)!.reserved) throw new ProcessingOrderInvalidError([{ field: `/outputs/${output.lineNo}`, rule: 'OUTPUT_RESERVED' }]);
+    }
+    const reversalId = this.nextId();
+    const now = this.clock.now();
+    await this.documents.register(tx, { id: reversalId, docType: 'PROCESSING_REVERSAL', ownerModule: 'prc', branchId: order.branchId, actorId: actor.principalId });
+    await this.store.insertReversal(tx, { id: reversalId, orderId: order.id, branchId: order.branchId, reason, at: now }, actor.principalId);
+    try {
+      for (const output of saleable) await this.movements.reverseForDocumentIn(tx, actor.principalId, output.movementId!, reversalId);
+      for (const input of order.inputs) await this.movements.reverseForDocumentIn(tx, actor.principalId, input.movementId!, reversalId);
+    } catch (error) {
+      if (error instanceof StockReversalNotPossibleError || error instanceof StockMovementAlreadyReversedError) {
+        throw new ProcessingOrderInvalidError([{ field: '/id', rule: 'OUTPUT_CHANGED' }]);
+      }
+      throw error;
+    }
+    await this.store.setPackStatus(tx, packs.map((p) => p.id), 'REVERSED', actor.principalId);
+    await this.events.publish<ProcessingOrderReversed>(tx, {
+      type: 'prc.ProcessingOrderReversed',
+      subjectType: 'ProcessingOrder',
+      subjectId: order.id,
+      branchId: order.branchId,
+      occurredAt: now,
+      payload: {
+        processingOrderId: order.id,
+        processingReversalId: reversalId,
+        branchId: order.branchId,
+        inputCostPesewas: Money.ofPesewas(order.inputCostPesewas!).toJsonInteger(),
+        directCostPesewas: Money.ofPesewas(order.directCostPesewas).toJsonInteger(),
+        totalCostPesewas: Money.ofPesewas(order.totalCostPesewas!).toJsonInteger(),
+        processingCostIds: order.costs.map((c) => c.id),
+        inputStockUnitIds: order.inputs.map((i) => i.stockUnitId),
+        outputStockUnitIds: lots,
+        reason,
+        actorId: actor.principalId,
+        reversedAt: now.toISOString(),
+      },
     });
   }
 
@@ -641,7 +712,7 @@ export class Processing {
     const products = await this.refs.productsIn(tx, records.flatMap((r) => [...r.inputs.map((i) => i.productId), ...r.outputs.map((o) => o.productId)]));
     const locations = await this.refs.locationsIn(tx, records.flatMap((r) => [r.locationId, r.outputLocationId]));
     const units = await this.units.factsIn(tx, records.flatMap((r) => [...r.inputs.map((i) => i.stockUnitId), ...r.outputs.flatMap((o) => (o.stockUnitId === null ? [] : [o.stockUnitId]))]), this.clock.now());
-    const principals = await this.principals.refs(tx, records.flatMap((r) => [r.createdBy, ...(r.postedBy === null ? [] : [r.postedBy])]));
+    const principals = await this.principals.refs(tx, records.flatMap((r) => [r.createdBy, ...(r.postedBy === null ? [] : [r.postedBy]), ...(r.reversal === null ? [] : [r.reversal.by])]));
     const ref = (l: LocationFacts) => ({ id: l.id, code: l.code, name: l.name, kind: l.kind });
     const productRef = (id: string) => {
       const p = products.get(id)!;
@@ -702,6 +773,7 @@ export class Processing {
       createdBy: principals.get(r.createdBy) ?? UNKNOWN_PRINCIPAL,
       postedAt: r.postedAt?.toISOString() ?? null,
       postedBy: r.postedBy === null ? null : (principals.get(r.postedBy) ?? UNKNOWN_PRINCIPAL),
+      reversal: r.reversal === null ? null : { id: r.reversal.id, reason: r.reversal.reason, reversedAt: r.reversal.at.toISOString(), reversedBy: principals.get(r.reversal.by) ?? UNKNOWN_PRINCIPAL },
     }));
   }
 }

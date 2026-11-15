@@ -24,10 +24,15 @@ const ORDER = `SELECT o.id, o.order_no AS "orderNo", o.status, o.location_id AS 
                       o.yield_variance_flag AS "yieldVarianceFlag", o.input_cost_pesewas::text AS "inputCostPesewas",
                       o.direct_cost_pesewas::text AS "directCostPesewas", o.total_cost_pesewas::text AS "totalCostPesewas",
                       o.cancel_reason AS "cancelReason", o.branch_id AS "branchId", o.version, o.created_at AS "createdAt",
-                      o.created_by AS "createdBy", o.posted_at AS "postedAt", o.posted_by AS "postedBy"
-                 FROM prc.processing_order o`;
+                      o.created_by AS "createdBy", o.posted_at AS "postedAt", o.posted_by AS "postedBy",
+                      rv.id AS "reversalId", rv.reason AS "reversalReason", rv.posted_at AS "reversedAt", rv.posted_by AS "reversedBy"
+                 FROM prc.processing_order o LEFT JOIN prc.processing_reversal rv ON rv.processing_order_id = o.id`;
 
-type OrderRow = Omit<OrderRecord, 'inputs' | 'outputs' | 'costs' | 'inputCostPesewas' | 'directCostPesewas' | 'totalCostPesewas'> & {
+type OrderRow = Omit<OrderRecord, 'inputs' | 'outputs' | 'costs' | 'inputCostPesewas' | 'directCostPesewas' | 'totalCostPesewas' | 'reversal'> & {
+  reversalId: string | null;
+  reversalReason: string | null;
+  reversedAt: Date | null;
+  reversedBy: string | null;
   inputCostPesewas: string | null;
   directCostPesewas: string;
   totalCostPesewas: string | null;
@@ -235,8 +240,9 @@ export class PgProcessingStore implements ProcessingStore {
          FROM prc.processing_cost WHERE processing_order_id = ANY($1::uuid[]) ORDER BY created_at, id`,
       [ids],
     );
-    return rows.map((r) => ({
+    return rows.map(({ reversalId, reversalReason, reversedAt, reversedBy, ...r }) => ({
       ...r,
+      reversal: reversalId === null ? null : { id: reversalId, reason: reversalReason!, at: reversedAt!, by: reversedBy! },
       expectedYieldPercent: percent3(r.expectedYieldPercent),
       actualYieldPercent: percent3(r.actualYieldPercent),
       inputCostPesewas: big(r.inputCostPesewas),
@@ -281,8 +287,15 @@ export class PgProcessingStore implements ProcessingStore {
     if (ids.length === 0) return;
     await tx.query('UPDATE prc.pack SET status = $2, version = version + 1, updated_at = now(), updated_by = $3 WHERE id = ANY($1::uuid[]) AND status <> $2', [ids, status, actorId]);
   }
-}
 
+  async insertReversal(tx: Transaction, reversal: { id: string; orderId: string; branchId: string; reason: string; at: Date }, actorId: string): Promise<void> {
+    await tx.query(
+      `INSERT INTO prc.processing_reversal (id, processing_order_id, branch_id, reason, status, posted_at, posted_by, created_by, updated_by)
+       VALUES ($1, $2, $3, $4, 'POSTED', $5, $6, $6, $6)`,
+      [reversal.id, reversal.orderId, reversal.branchId, reversal.reason, reversal.at, actorId],
+    );
+  }
+}
 
 const STANDARD = `SELECT s.id, s.input_product_id AS "inputProductId", s.output_product_id AS "outputProductId", s.expected_percent::text AS "expectedPercent",
                          s.tolerance_percent::text AS "tolerancePercent", s.version

@@ -51746,6 +51746,27 @@ components:
           anyOf:
             - $ref: "#/components/schemas/PrincipalRef"
             - type: "null"
+        reversal:
+          description: "The reversal that corrected this completed order (FR-PRC-011), or null. The order itself stays COMPLETED and frozen; its movements were reversed under the reversal, the source document of the reversing movements."
+          anyOf:
+            - type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                reason:
+                  type: string
+                reversedAt:
+                  type: string
+                  format: date-time
+                reversedBy:
+                  $ref: "#/components/schemas/PrincipalRef"
+              required:
+                - id
+                - reason
+                - reversedAt
+                - reversedBy
+            - type: "null"
       required:
         - id
         - orderNo
@@ -51773,6 +51794,7 @@ components:
         - createdBy
         - postedAt
         - postedBy
+        - reversal
     ProcessingInputInput:
       type: object
       properties:

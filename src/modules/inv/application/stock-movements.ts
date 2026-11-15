@@ -181,6 +181,26 @@ export class StockMovements implements ApprovalHandler {
     return { status: 201, body: view };
   }
 
+  /**
+   * Reverses a movement a higher module's document posted, in the caller's serializable transaction, as that document's
+   * correction (FR-PRC-011: a processing order's reversal): the exact opposite through `Stock.postIn`, carrying the
+   * original's value, with `sourceDocumentId` the correcting document. No reason code and no approval: the caller has
+   * authorised its own command and decided that the correction may be made. A movement already reversed, a reversal,
+   * a transfer leg or a value-only movement is refused, as the HTTP reversal refuses them.
+   */
+  async reverseForDocumentIn(tx: Transaction, actorId: string, movementId: string, sourceDocumentId: string): Promise<string> {
+    const movement = await this.store.movement(tx, movementId);
+    if (movement === null) throw new NotFoundError(`no stock movement ${movementId}`);
+    const type = (await this.store.movementTypes(tx)).find((t) => t.code === movement.movementType)!;
+    if (movement.reversesMovementId !== null) throw new StockReversalNotPossibleError([{ field: '/id', rule: 'REVERSAL_OF_A_REVERSAL' }]);
+    if (NOT_REVERSIBLE.has(movement.movementType)) throw new StockReversalNotPossibleError([{ field: '/id', rule: 'TRANSFER_MOVEMENT' }]);
+    if (type.isValueOnly) throw new StockReversalNotPossibleError([{ field: '/id', rule: 'VALUE_ONLY_MOVEMENT' }]);
+    if ((await this.store.reversedBy(tx, [movementId])).has(movementId) || (await this.store.hasOpenReversal(tx, movementId))) {
+      throw new StockMovementAlreadyReversedError(`movement ${movementId} is reversed, or its reversal waits for approval`);
+    }
+    return this.postReversal(tx, actorId, movement, sourceDocumentId, null);
+  }
+
   /** ApprovalHandler: the reversal as it was asked for; it cannot change while it waits. */
   async currentPayloadHash(tx: Transaction, subjectDocumentId: string): Promise<string> {
     const reversal = await this.store.lockReversal(tx, subjectDocumentId);
@@ -222,7 +242,7 @@ export class StockMovements implements ApprovalHandler {
   }
 
   /** The exact opposite of a movement, through `Stock.postIn`: the trigger checks it and gives it the original's value. */
-  private async postReversal(tx: Transaction, actorId: string, movement: MovementRecord, reversalId: string, reasonCode: string): Promise<string> {
+  private async postReversal(tx: Transaction, actorId: string, movement: MovementRecord, reversalId: string, reasonCode: string | null): Promise<string> {
     try {
       const posted = await this.stock.postIn(tx, actorId, {
         movementType: movement.movementType,

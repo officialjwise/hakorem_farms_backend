@@ -221,6 +221,7 @@ export class Packs {
       if (order === null) throw new NotFoundError(`no processing order ${orderId}`);
       const state = (await this.store.lock(tx, orderId))!;
       if (state.status !== 'COMPLETED') throw new ProcessingOrderInvalidError([{ field: '/id', rule: 'ORDER_NOT_COMPLETED' }]);
+      if (order.reversal !== null) throw new ProcessingOrderInvalidError([{ field: '/id', rule: 'ORDER_REVERSED' }]);
       const response = await work(tx, actor!, order);
       await this.idempotency.complete(tx, claim.id, response);
       return response;

@@ -66,6 +66,8 @@ export interface OrderRecord {
   readonly createdBy: string;
   readonly postedAt: Date | null;
   readonly postedBy: string | null;
+  /** The order's reversal (FR-PRC-011), when it was reversed. */
+  readonly reversal: { readonly id: string; readonly reason: string; readonly at: Date; readonly by: string } | null;
   readonly inputs: readonly InputRecord[];
   readonly outputs: readonly OutputRecord[];
   readonly costs: readonly CostRecord[];
@@ -154,7 +156,7 @@ export interface NewPack {
 
 export const PROCESSING_STORE = Symbol('ProcessingStore');
 
-/** The `prc` schema of migrations 0072 and 0085. */
+/** The `prc` schema of migrations 0072, 0085 and 0087. */
 export interface ProcessingStore {
   insertOrder(tx: Transaction, order: { id: string; locationId: string; outputLocationId: string; branchId: string }, actorId: string): Promise<void>;
   order(tx: Transaction, id: string): Promise<OrderRecord | null>;
@@ -190,4 +192,5 @@ export interface ProcessingStore {
   /** Sets the first print time of each pack that has none. */
   markPrinted(tx: Transaction, ids: readonly string[], at: Date, actorId: string): Promise<void>;
   setPackStatus(tx: Transaction, ids: readonly string[], status: PackStatus, actorId: string): Promise<void>;
+  insertReversal(tx: Transaction, reversal: { id: string; orderId: string; branchId: string; reason: string; at: Date }, actorId: string): Promise<void>;
 }

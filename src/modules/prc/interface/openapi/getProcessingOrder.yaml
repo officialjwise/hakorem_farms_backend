@@ -143,6 +143,7 @@ responses:
           postedBy:
             id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
             displayName: "Yaw Boateng"
+          reversal: null
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

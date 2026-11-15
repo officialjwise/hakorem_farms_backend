@@ -30778,6 +30778,7 @@ paths:
                     postedBy:
                       id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
                       displayName: "Yaw Boateng"
+                    reversal: null
                   - id: "019a7ac4-0e46-7809-ad41-8966ebf70244"
                     orderNo: null
                     status: COMPLETED
@@ -30838,6 +30839,7 @@ paths:
                     postedBy:
                       id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
                       displayName: "Yaw Boateng"
+                    reversal: null
                   - id: "019a7ac4-8a02-7f97-a4cf-0244d2bb7b22"
                     orderNo: null
                     status: IN_PROGRESS
@@ -30896,6 +30898,7 @@ paths:
                       displayName: "Yaw Boateng"
                     postedAt: null
                     postedBy: null
+                    reversal: null
                   - id: "019a7ac5-05be-7725-ac5d-7b22b97ff400"
                     orderNo: null
                     status: PLANNED
@@ -30954,6 +30957,7 @@ paths:
                       displayName: "Yaw Boateng"
                     postedAt: null
                     postedBy: null
+                    reversal: null
                   - id: "019a7ac5-817a-7eb2-a3eb-f400a0436cde"
                     orderNo: null
                     status: COMPLETED
@@ -31014,6 +31018,7 @@ paths:
                     postedBy:
                       id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
                       displayName: "Yaw Boateng"
+                    reversal: null
                   - id: "019a7ac5-fd36-7640-ab79-6cde8707e5bc"
                     orderNo: null
                     status: CANCELLED
@@ -31072,6 +31077,7 @@ paths:
                       displayName: "Yaw Boateng"
                     postedAt: null
                     postedBy: null
+                    reversal: null
                 page:
                   nextCursor: eyJpZCI6IjAxOWE3YyJ9
                   limit: 25
@@ -31186,6 +31192,7 @@ paths:
                   displayName: "Yaw Boateng"
                 postedAt: null
                 postedBy: null
+                reversal: null
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -31347,6 +31354,7 @@ paths:
                 postedBy:
                   id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
                   displayName: "Yaw Boateng"
+                reversal: null
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -31470,6 +31478,7 @@ paths:
                   displayName: "Yaw Boateng"
                 postedAt: null
                 postedBy: null
+                reversal: null
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -31590,6 +31599,7 @@ paths:
                   displayName: "Yaw Boateng"
                 postedAt: null
                 postedBy: null
+                reversal: null
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -31777,6 +31787,7 @@ paths:
                   displayName: "Yaw Boateng"
                 postedAt: null
                 postedBy: null
+                reversal: null
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -31950,6 +31961,7 @@ paths:
                   displayName: "Yaw Boateng"
                 postedAt: null
                 postedBy: null
+                reversal: null
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -32125,6 +32137,7 @@ paths:
                 postedBy:
                   id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
                   displayName: "Yaw Boateng"
+                reversal: null
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -32146,8 +32159,8 @@ paths:
       operationId: cancelProcessingOrder
       tags:
         - prc
-      summary: "Cancel a processing order that has not started"
-      description: "Cancels a PLANNED or IN_PROGRESS order with a reason. Nothing has moved before completion, so cancelling has no stock or cost effect. A completed order is never cancelled.\n\nPermission: `prc.order.create`, scoped to the order's branch and processing location."
+      summary: "Cancel a processing order, or reverse a completed one"
+      description: "Cancels a PLANNED or IN_PROGRESS order with a reason: nothing has moved before completion, so it has no stock or cost effect.\n\nA COMPLETED order is never edited; cancelling it reverses it (FR-PRC-011): every movement its completion posted is reversed through inventory, the outputs first and then the inputs, each carrying the value it carried, so the animal stands in its pen again, ALIVE, at exactly its prior cost, and the output lots are empty. Its packs become REVERSED. The order stays COMPLETED and frozen and answers its `reversal`. This needs `prc.order.reverse` as well (the Owner and the Manager), at the same scope.\n\nRefusals (422 PROCESSING_ORDER_INVALID, `details[].code`): ORDER_REVERSED (reversed already); OUTPUT_SOLD (an output lot is not whole where the order put it, or a pack of it has been picked, sold or written off); OUTPUT_RESERVED; OUTPUT_CHANGED (inventory cannot give back exactly what the order received).\n\nPermission: `prc.order.create`, scoped to the order's branch and processing location; and `prc.order.reverse` to reverse a completed order."
       x-permission: prc.order.create
       x-error-codes:
         - VALIDATION_FAILED
@@ -32160,6 +32173,7 @@ paths:
         - IDEMPOTENCY_KEY_REUSED
         - NOT_FOUND
         - INVALID_STATE_TRANSITION
+        - PROCESSING_ORDER_INVALID
         - RATE_LIMITED
       parameters:
         - name: id
@@ -32242,6 +32256,7 @@ paths:
                   displayName: "Yaw Boateng"
                 postedAt: null
                 postedBy: null
+                reversal: null
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -83252,6 +83267,27 @@ components:
           anyOf:
             - $ref: "#/components/schemas/PrincipalRef"
             - type: "null"
+        reversal:
+          description: "The reversal that corrected this completed order (FR-PRC-011), or null. The order itself stays COMPLETED and frozen; its movements were reversed under the reversal, the source document of the reversing movements."
+          anyOf:
+            - type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                reason:
+                  type: string
+                reversedAt:
+                  type: string
+                  format: date-time
+                reversedBy:
+                  $ref: "#/components/schemas/PrincipalRef"
+              required:
+                - id
+                - reason
+                - reversedAt
+                - reversedBy
+            - type: "null"
       required:
         - id
         - orderNo
@@ -83279,6 +83315,7 @@ components:
         - createdBy
         - postedAt
         - postedBy
+        - reversal
     ProcessingInputInput:
       type: object
       properties:

@@ -8,7 +8,7 @@ import { Cursors } from '../../platform/http/cursor';
 import { Idempotency } from '../../platform/idempotency/idempotency';
 import { CLOCK } from '../../platform/platform.module';
 import { Authoriser, IamModule, PRINCIPAL_NAMES, type PrincipalNames } from '../iam';
-import { InvModule, Lineage, Stock, StockUnits } from '../inv';
+import { InvModule, Lineage, Stock, StockMovements, StockUnits } from '../inv';
 import { MasterDataRefs, MdmModule, PricingService } from '../mdm';
 import { Packs } from './application/packs';
 import { Processing } from './application/processing';
@@ -47,8 +47,9 @@ import { ProcessingController } from './interface/processing.controller';
         principals: PrincipalNames,
         cursors: Cursors,
         clock: Clock,
-      ) => new Processing(uow, store, refs, pricing, units, stock, lineage, authoriser, idempotency, audit, events, documents, principals, cursors, clock),
-      inject: [UnitOfWork, PROCESSING_STORE, MasterDataRefs, PricingService, StockUnits, Stock, Lineage, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, PRINCIPAL_NAMES, Cursors, CLOCK],
+        movements: StockMovements,
+      ) => new Processing(uow, store, refs, pricing, units, stock, lineage, authoriser, idempotency, audit, events, documents, principals, cursors, clock, movements),
+      inject: [UnitOfWork, PROCESSING_STORE, MasterDataRefs, PricingService, StockUnits, Stock, Lineage, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, PRINCIPAL_NAMES, Cursors, CLOCK, StockMovements],
     },
     {
       provide: YieldStandards,

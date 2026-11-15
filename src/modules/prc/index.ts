@@ -7,5 +7,5 @@ export { PrcModule } from './prc.module';
 export { Processing, type ProcessingOrderCreateRequest, type ProcessingOrderView } from './application/processing';
 export { Packs, type PackLabelSheetView, type PackView } from './application/packs';
 export { YieldStandards, type YieldStandardCreateRequest, type YieldStandardView } from './application/yield-standards';
-export type { DirectCostIncurred, ProcessingOrderCompleted, ProcessingOrderStarted, YieldVarianceFlagged } from './events';
+export type { DirectCostIncurred, ProcessingOrderCompleted, ProcessingOrderReversed, ProcessingOrderStarted, YieldVarianceFlagged } from './events';
 export { InputOnHoldError, ProcessingOrderInvalidError, YieldStandardInvalidError } from './application/errors';

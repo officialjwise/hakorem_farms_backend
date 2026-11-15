@@ -53,3 +53,24 @@ export interface YieldVarianceFlagged {
   readonly lines: ReadonlyArray<{ readonly productId: string; readonly expectedKg: string; readonly actualKg: string; readonly varianceKg: string; readonly flagged: boolean }>;
   readonly abuseCases: readonly number[];
 }
+
+/**
+ * ◆ `prc.ProcessingOrderReversed` v1 (FR-PRC-011, A-162): a completed order was corrected by reversing its movements
+ * through INV, which publishes each reversing movement's own event with `reversesMovementId`. This event names what
+ * INV's do not: the direct cost the completion capitalised into the lots, which the reversal takes out of stock and
+ * which B8 must post (the labour was spent; the accountant decides where it lands, A-162), and the costs it came from.
+ */
+export interface ProcessingOrderReversed {
+  readonly processingOrderId: string;
+  readonly processingReversalId: string;
+  readonly branchId: string;
+  readonly inputCostPesewas: number;
+  readonly directCostPesewas: number;
+  readonly totalCostPesewas: number;
+  readonly processingCostIds: readonly string[];
+  readonly inputStockUnitIds: readonly string[];
+  readonly outputStockUnitIds: readonly string[];
+  readonly reason: string;
+  readonly actorId: string;
+  readonly reversedAt: string;
+}
