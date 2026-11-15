@@ -145,3 +145,103 @@ export const FeedConsumptionCreate = z.strictObject({
   rationId: z.uuid().optional(),
   fromLocationId: z.uuid().optional(),
 });
+
+const Sex = z.enum(['MALE', 'FEMALE', 'UNKNOWN']);
+const BatchPurpose = z.enum(['GROWING', 'BREEDING', 'LAYING']);
+/** The largest flock one batch starts with: a whole hatchery run. */
+const MAX_BATCH_HEAD = 100_000;
+/** The largest litter or clutch one birth records. */
+const MAX_LITTER = 30;
+const Tag = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9/_-]{0,39}$/);
+
+/** The contract's `AnimalUpdate`, strict: species, acquisition, source and cost are not fields at all (FR-LIV-002). */
+export const AnimalUpdate = z.strictObject({
+  version: z.number().int().min(1),
+  breed: Text(80).optional(),
+  purpose: z.enum(['GROWING', 'BREEDING']).optional(),
+  gradeId: z.uuid().optional(),
+  sex: Sex.optional(),
+  tagNo: Tag.optional(),
+});
+
+/** The contract's `AnimalMove`, strict. */
+export const AnimalMove = z.strictObject({
+  toLocationId: z.uuid(),
+  note: Text(500).optional(),
+});
+
+export const TimelineQuery = z.strictObject({ cursor: Cursor, limit: Limit });
+
+export const ListGrowthQuery = z.strictObject({
+  groupBy: z.enum(['PEN', 'BATCH']),
+  from: CalendarDate,
+  to: CalendarDate,
+  speciesId: z.uuid().optional(),
+  cursor: Cursor,
+  limit: Limit,
+});
+
+export const ListBatchesQuery = z.strictObject({
+  status: z.enum(['ACTIVE', 'CLOSED']).optional(),
+  speciesId: z.uuid().optional(),
+  cursor: Cursor,
+  limit: Limit,
+});
+
+/** The contract's `BatchCreate`, strict. */
+export const BatchCreate = z.strictObject({
+  batchNo: Tag,
+  speciesId: z.uuid(),
+  startedOn: CalendarDate,
+  initialHead: z.number().int().min(1).max(MAX_BATCH_HEAD),
+  purpose: BatchPurpose,
+  locationId: z.uuid(),
+});
+
+/** The contract's `BatchUpdate`, strict. */
+export const BatchUpdate = z.strictObject({
+  version: z.number().int().min(1),
+  purpose: BatchPurpose.optional(),
+});
+
+/** The contract's `ReasonRequest`, strict. */
+export const ReasonRequest = z.strictObject({ reason: Text(500) });
+
+export const ListBreedingRecordsQuery = z.strictObject({
+  status: z.enum(['MATED', 'CONFIRMED', 'BORN', 'FAILED']).optional(),
+  damId: z.uuid().optional(),
+  dueBefore: CalendarDate.optional(),
+  cursor: Cursor,
+  limit: Limit,
+});
+
+/** The contract's `BreedingRecordCreate`, strict. */
+export const BreedingRecordCreate = z.strictObject({
+  damId: z.uuid(),
+  sireId: z.uuid().optional(),
+  matedOn: CalendarDate,
+  expectedBirthOn: CalendarDate.optional(),
+  notes: Text(1000).optional(),
+});
+
+/** The contract's `BreedingRecordUpdate`, strict. */
+export const BreedingRecordUpdate = z.strictObject({
+  version: z.number().int().min(1),
+  expectedBirthOn: CalendarDate.optional(),
+  status: z.enum(['MATED', 'CONFIRMED']).optional(),
+  notes: Text(1000).optional(),
+});
+
+/** The contract's `BirthRecord`, strict: a weight given carries its source (FR-LIV-004). */
+export const BirthRecord = z.strictObject({
+  actualBirthOn: CalendarDate,
+  litterSize: z.number().int().min(1).max(MAX_LITTER),
+  offspring: z
+    .array(
+      z
+        .strictObject({ tagNo: Tag, sex: Sex, weightKg: Kilograms.optional(), weightSource: WeightSource.optional() })
+        .refine((kid) => (kid.weightKg === undefined) === (kid.weightSource === undefined), { message: 'a weight and its source come together', path: ['weightSource'] }),
+    )
+    .max(MAX_LITTER),
+  notes: Text(1000).optional(),
+});

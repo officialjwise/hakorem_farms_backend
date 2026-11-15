@@ -1,0 +1,91 @@
+operationId: updateBatch
+tags:
+  - liv
+summary: "Update a batch"
+description: "A batch's purpose decides how feed and veterinary cost spread onto its flock is treated: capitalised for GROWING, expensed for BREEDING and LAYING.\n\nPermission: `liv.batch.update`."
+x-permission: liv.batch.update
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - NOT_FOUND
+  - VERSION_CONFLICT
+  - LIVESTOCK_RECORD_INVALID
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/BatchUpdate"
+      example:
+        version: 1
+        purpose: LAYING
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Batch"
+        example:
+          id: "019a7abe-2287-737f-98b7-40c8a116b9a6"
+          batchNo: LAY-2604-01
+          species:
+            id: "019a7a8c-1c05-75a4-badc-6311d4d8dbef"
+            code: LOCAL_CHICKEN
+            name: "Local chicken"
+          stockUnit:
+            id: "019a7a91-2604-7c1d-8e2f-3a4b5c602604"
+            identifier: LAY-2604-01
+            tracking: LOT
+          startedOn: "2026-04-10"
+          initialHead: 800
+          currentHead: 771
+          purpose: LAYING
+          status: ACTIVE
+          location:
+            id: "019a7a84-2267-78ff-9e37-98c4753611a2"
+            code: HSE-L1
+            name: "Layer house"
+            kind: PEN
+          mortalityPercent: "3.63"
+          accumulatedCostPesewas: 2310000
+          currency: GHS
+          version: 2
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

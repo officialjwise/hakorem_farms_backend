@@ -13,6 +13,8 @@ export interface StockUnitFactsRecord {
   readonly lastWeightKg: string | null;
   readonly lastWeighedAt: Date | null;
   readonly gradeId: string | null;
+  /** The document that registered the unit: a goods receipt, a processing order, a hatch or a birth. */
+  readonly sourceDocumentId: string;
   /** The unit's cost pool at its branch: what an issue of the whole unit would carry now. */
   readonly poolValuePesewas: bigint;
   /** The quantity that pool holds (head of an animal or flock, kilograms of a lot), as a decimal string. */
@@ -45,6 +47,10 @@ export interface StockUnitStore {
   onHandOf(tx: Transaction, unitIds: readonly string[]): Promise<UnitOnHandRecord[]>;
   /** The units with stock on hand at any of the locations, in identifier order. */
   onHandAt(tx: Transaction, locationIds: readonly string[]): Promise<UnitOnHandRecord[]>;
+  /** What each unit had at each physical location at the instant `at`, from the movements up to it. */
+  onHandAsOf(tx: Transaction, unitIds: readonly string[], at: Date): Promise<UnitOnHandRecord[]>;
+  /** Sets the unit's grade; true if the unit exists and is active. */
+  setGrade(tx: Transaction, id: string, gradeId: string | null, actorId: string): Promise<boolean>;
   /** Sets the unit's last weight when `at` is not before the one it holds; true if it changed. */
   recordWeight(tx: Transaction, id: string, weightKg: string, at: Date, actorId: string): Promise<boolean>;
 }

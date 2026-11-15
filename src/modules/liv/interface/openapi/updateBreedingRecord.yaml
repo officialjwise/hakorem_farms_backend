@@ -1,0 +1,83 @@
+operationId: updateBreedingRecord
+tags:
+  - liv
+summary: "Update a breeding record"
+description: "Permission: `liv.breeding.record`."
+x-permission: liv.breeding.record
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - NOT_FOUND
+  - VERSION_CONFLICT
+  - LIVESTOCK_RECORD_INVALID
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/BreedingRecordUpdate"
+      example:
+        version: 1
+        status: CONFIRMED
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/BreedingRecord"
+        example:
+          id: "019a7abe-fb10-78b7-8df0-944cf4ed0d2a"
+          dam:
+            id: "019a7a8f-f9e5-7212-b74b-2a010af8a2de"
+            tagNo: G-0118
+          sire:
+            id: "019a7abf-19ff-729b-97d3-32846e9eab62"
+            tagNo: G-0101
+          matedOn: "2026-06-02"
+          expectedBirthOn: "2026-10-29"
+          actualBirthOn: null
+          litterSize: null
+          liveBirths: null
+          status: CONFIRMED
+          notes: null
+          offspring: []
+          version: 2
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -1,0 +1,89 @@
+operationId: closeBatch
+tags:
+  - liv
+summary: "Close a batch once it has no stock left"
+description: "Refused with LIVESTOCK_RECORD_INVALID (BATCH_NOT_EMPTY) while any head is left, whatever the reason: sell, process or write off the birds first. The reason is always recorded.\n\nPermission: `liv.batch.update`."
+x-permission: liv.batch.update
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - NOT_FOUND
+  - LIVESTOCK_RECORD_INVALID
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ReasonRequest"
+      example:
+        reason: "All birds sold or processed"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Batch"
+        example:
+          id: "019a7abe-0398-799b-8ed4-a29127651b6f"
+          batchNo: BRL-2609-02
+          species:
+            id: "019a7a8b-fd16-7bc0-a0f8-c4da5b273db8"
+            code: BROILER
+            name: "Broiler chicken"
+          stockUnit:
+            id: "019a7a91-2609-7a02-8b0c-1d2e3f402609"
+            identifier: BRL-2609-02
+            tracking: LOT
+          startedOn: "2026-09-01"
+          initialHead: 400
+          currentHead: 0
+          purpose: GROWING
+          status: CLOSED
+          location:
+            id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+            code: HSE-B1
+            name: "Broiler house 1"
+            kind: PEN
+          mortalityPercent: "4.25"
+          accumulatedCostPesewas: 0
+          currency: GHS
+          version: 2
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

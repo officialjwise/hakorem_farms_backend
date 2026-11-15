@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.24.0"
+  version: "1.25.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -25036,8 +25036,22 @@ paths:
       tags:
         - liv
       summary: "Update an animal's details"
-      description: "Permission: `liv.animal.update`."
+      description: "Breed, sex, purpose and grade may change; species, acquisition, source and cost are not fields. The sex of a dam with a breeding record is fixed (SEX_FIXED_AS_DAM), and the tag, which is the stock unit's identifier, is accepted only unchanged (TAG_NOT_EDITABLE). Purpose decides whether later feed and veterinary cost is capitalised or expensed.\n\nPermission: `liv.animal.update`."
       x-permission: liv.animal.update
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - LIVESTOCK_RECORD_INVALID
+        - REFERENCE_NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -25092,7 +25106,7 @@ paths:
                 dam: null
                 sire: null
                 batch: null
-                purpose: GROWING
+                purpose: BREEDING
                 status: ALIVE
                 currentLocation:
                   id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
@@ -25119,7 +25133,7 @@ paths:
                   floorPricePesewas: 70000
                   ceilingPricePesewas: 98000
                   basis: PER_HEAD
-                version: 4
+                version: 5
                 createdAt: "2026-11-03T11:00:00Z"
         "400":
           $ref: "#/components/responses/BadRequest"
@@ -25145,6 +25159,13 @@ paths:
       summary: "List everything that happened to an animal"
       description: "Permission: `liv.animal.read`."
       x-permission: liv.animal.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -25177,9 +25198,7 @@ paths:
                 $ref: "#/components/schemas/AnimalEventPage"
               example:
                 data:
-                  - actor:
-                      id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
-                      displayName: "Abena Quaye"
+                  - actor: null
                     at: "2026-10-03T11:00:00Z"
                     kind: ACQUIRED
                     summary: "Bought from Kpone Livestock Traders at GHS 520.00"
@@ -25201,7 +25220,7 @@ paths:
                       displayName: "Abena Quaye"
                     at: "2026-10-20T08:00:00Z"
                     kind: TREATED
-                    summary: "Dewormed, albendazole; withdrawal 14 days"
+                    summary: "Dewormed, Albendazole 10% oral suspension; withdrawal 14 days"
                     document:
                       id: "019a7aaf-26c3-7951-9e89-9de9af5a16c7"
                       docType: HEALTH_EVENT
@@ -25212,7 +25231,7 @@ paths:
                       displayName: "Abena Quaye"
                     at: "2026-11-01T06:00:00Z"
                     kind: COST_ADDED
-                    summary: "Feed for October allocated from pen 1"
+                    summary: "Feed of 2026-10-31 added from Goat pen 1"
                     document:
                       id: "019a7abc-ce42-76b9-abf1-7466667bed44"
                       docType: FEED_CONSUMPTION
@@ -25223,18 +25242,18 @@ paths:
                       displayName: "Abena Quaye"
                     at: "2026-11-04T07:00:00Z"
                     kind: MOVED
-                    summary: "Moved from goat pen 2 to goat pen 1"
+                    summary: "Moved from Goat pen 2 to Goat pen 1"
                     document:
                       id: "019a7ab7-2061-75f6-bb2e-68370efce114"
-                      docType: STOCK_TRANSFER
-                      number: TRF-2026-DDW-000012
+                      docType: ANIMAL_MOVE
+                      number: null
                     valuePesewas: null
                   - actor:
                       id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
                       displayName: "Abena Quaye"
                     at: "2026-11-11T07:00:00Z"
                     kind: WEIGHED
-                    summary: "26.400 kg by scale; average daily gain 0.161 kg"
+                    summary: "26.400 kg by scale; average daily gain 0.159 kg"
                     document: null
                     valuePesewas: null
                 page:
@@ -25261,6 +25280,20 @@ paths:
       summary: "Move an animal to another pen"
       description: "Posts a TRANSFER_INTERNAL movement. Allowed during a withdrawal period.\n\nPermission: `liv.animal.move`."
       x-permission: liv.animal.move
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - NOT_FOUND
+        - LIVESTOCK_RECORD_INVALID
+        - REFERENCE_NOT_FOUND
+        - STOCK_UNIT_NOT_AVAILABLE
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -25610,8 +25643,15 @@ paths:
       tags:
         - liv
       summary: "Growth, feed conversion and mortality by pen or batch"
-      description: "Permission: `liv.report.read`."
+      description: "A pen's figures are over the animals and flocks that stood in it for the whole window; a batch's over its flock. Average daily gain is the weighed head's total gain over their days between first and last weighing in the window; feed conversion is the feed issued in the window over the kilograms gained, to three places; mortality is the deaths in the window over the head at its start. A loss of weight shows no gain, daily gain or conversion.\n\nPermission: `liv.report.read`."
       x-permission: liv.report.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - LIVESTOCK_RECORD_INVALID
+        - RATE_LIMITED
       parameters:
         - name: groupBy
           in: query
@@ -25678,7 +25718,7 @@ paths:
                     endAverageKg: "26.830"
                     averageDailyGainKg: "0.156"
                     feedQty: "1550.000"
-                    feedConversionRatio: "10.65"
+                    feedConversionRatio: "10.661"
                     mortalityPercent: "0.00"
                   - group:
                       id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
@@ -25694,7 +25734,7 @@ paths:
                     endAverageKg: "24.100"
                     averageDailyGainKg: "0.107"
                     feedQty: "1410.000"
-                    feedConversionRatio: "13.62"
+                    feedConversionRatio: "16.319"
                     mortalityPercent: "3.57"
                   - group:
                       id: "019a7a83-c59a-7b54-a08d-be1e082336fb"
@@ -25710,7 +25750,7 @@ paths:
                     endAverageKg: "42.700"
                     averageDailyGainKg: "0.140"
                     feedQty: "620.000"
-                    feedConversionRatio: "16.40"
+                    feedConversionRatio: "16.402"
                     mortalityPercent: "0.00"
                   - group:
                       id: "019a7a91-4e2a-7ed9-a411-f66345936f41"
@@ -25726,7 +25766,7 @@ paths:
                     endAverageKg: "1.842"
                     averageDailyGainKg: "0.047"
                     feedQty: "1240.000"
-                    feedConversionRatio: "1.89"
+                    feedConversionRatio: "1.887"
                     mortalityPercent: "7.60"
                   - group:
                       id: "019a7a83-e489-7538-ba70-5c5581d4d533"
@@ -25742,7 +25782,7 @@ paths:
                     endAverageKg: "14.300"
                     averageDailyGainKg: "0.150"
                     feedQty: "280.000"
-                    feedConversionRatio: "10.37"
+                    feedConversionRatio: "10.370"
                     mortalityPercent: "0.00"
                 page:
                   nextCursor: null
@@ -25766,6 +25806,12 @@ paths:
       summary: "List flocks and batches"
       description: "Permission: `liv.batch.read`."
       x-permission: liv.batch.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: status
           in: query
@@ -25806,6 +25852,102 @@ paths:
                 $ref: "#/components/schemas/BatchPage"
               example:
                 data:
+                  - id: "019a7abe-6065-7746-bc7e-7d379478f615"
+                    batchNo: BRL-2611-01
+                    species:
+                      id: "019a7a8b-fd16-7bc0-a0f8-c4da5b273db8"
+                      code: BROILER
+                      name: "Broiler chicken"
+                    stockUnit:
+                      id: "019a7abe-6a11-7b22-8c33-d44e55f66a77"
+                      identifier: BRL-2611-01
+                      tracking: LOT
+                    startedOn: "2026-11-12"
+                    initialHead: 500
+                    currentHead: 500
+                    purpose: GROWING
+                    status: ACTIVE
+                    location:
+                      id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+                      code: HSE-B1
+                      name: "Broiler house 1"
+                      kind: PEN
+                    mortalityPercent: "0.00"
+                    accumulatedCostPesewas: 0
+                    currency: GHS
+                    version: 1
+                  - id: "019a7abe-4176-7d62-a29b-df001ac757de"
+                    batchNo: LCH-2608-01
+                    species:
+                      id: "019a7a8c-1c05-75a4-badc-6311d4d8dbef"
+                      code: LOCAL_CHICKEN
+                      name: "Local chicken"
+                    stockUnit:
+                      id: "019a7a91-2608-7d2e-9f3a-4b5c6d702608"
+                      identifier: LCH-2608-01
+                      tracking: LOT
+                    startedOn: "2026-08-15"
+                    initialHead: 120
+                    currentHead: 109
+                    purpose: GROWING
+                    status: ACTIVE
+                    location:
+                      id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+                      code: HSE-B1
+                      name: "Broiler house 1"
+                      kind: PEN
+                    mortalityPercent: "9.17"
+                    accumulatedCostPesewas: 1188000
+                    currency: GHS
+                    version: 1
+                  - id: "019a7abe-2287-737f-98b7-40c8a116b9a6"
+                    batchNo: LAY-2604-01
+                    species:
+                      id: "019a7a8c-1c05-75a4-badc-6311d4d8dbef"
+                      code: LOCAL_CHICKEN
+                      name: "Local chicken"
+                    stockUnit:
+                      id: "019a7a91-2604-7c1d-8e2f-3a4b5c602604"
+                      identifier: LAY-2604-01
+                      tracking: LOT
+                    startedOn: "2026-04-10"
+                    initialHead: 800
+                    currentHead: 771
+                    purpose: LAYING
+                    status: ACTIVE
+                    location:
+                      id: "019a7a84-2267-78ff-9e37-98c4753611a2"
+                      code: HSE-L1
+                      name: "Layer house"
+                      kind: PEN
+                    mortalityPercent: "3.63"
+                    accumulatedCostPesewas: 2310000
+                    currency: GHS
+                    version: 2
+                  - id: "019a7abe-0398-799b-8ed4-a29127651b6f"
+                    batchNo: BRL-2609-02
+                    species:
+                      id: "019a7a8b-fd16-7bc0-a0f8-c4da5b273db8"
+                      code: BROILER
+                      name: "Broiler chicken"
+                    stockUnit:
+                      id: "019a7a91-2609-7a02-8b0c-1d2e3f402609"
+                      identifier: BRL-2609-02
+                      tracking: LOT
+                    startedOn: "2026-09-01"
+                    initialHead: 400
+                    currentHead: 0
+                    purpose: GROWING
+                    status: CLOSED
+                    location:
+                      id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+                      code: HSE-B1
+                      name: "Broiler house 1"
+                      kind: PEN
+                    mortalityPercent: "4.25"
+                    accumulatedCostPesewas: 0
+                    currency: GHS
+                    version: 2
                   - id: "019a7abd-e4a9-7fb8-b4f0-0459adb47d37"
                     batchNo: BRL-2610-01
                     species:
@@ -25829,116 +25971,11 @@ paths:
                     mortalityPercent: "7.60"
                     accumulatedCostPesewas: 6237000
                     currency: GHS
-                    version: 3
-                  - id: "019a7abe-0398-799b-8ed4-a29127651b6f"
-                    batchNo: BRL-2609-02
-                    species:
-                      id: "019a7a8b-fd16-7bc0-a0f8-c4da5b273db8"
-                      code: BROILER
-                      name: "Broiler chicken"
-                    stockUnit: null
-                    startedOn: "2026-09-01"
-                    initialHead: 400
-                    currentHead: 0
-                    purpose: GROWING
-                    status: CLOSED
-                    location:
-                      id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
-                      code: HSE-B1
-                      name: "Broiler house 1"
-                      kind: PEN
-                    mortalityPercent: "4.25"
-                    accumulatedCostPesewas: 0
-                    currency: GHS
-                    version: 3
-                  - id: "019a7abe-2287-737f-98b7-40c8a116b9a6"
-                    batchNo: LAY-2604-01
-                    species:
-                      id: "019a7a8b-fd16-7bc0-a0f8-c4da5b273db8"
-                      code: BROILER
-                      name: "Broiler chicken"
-                    stockUnit: null
-                    startedOn: "2026-04-10"
-                    initialHead: 800
-                    currentHead: 771
-                    purpose: LAYING
-                    status: ACTIVE
-                    location:
-                      id: "019a7a84-2267-78ff-9e37-98c4753611a2"
-                      code: HSE-L1
-                      name: "Layer house"
-                      kind: PEN
-                    mortalityPercent: "3.63"
-                    accumulatedCostPesewas: 2310000
-                    currency: GHS
-                    version: 3
-                  - id: "019a7abe-4176-7d62-a29b-df001ac757de"
-                    batchNo: LCH-2608-01
-                    species:
-                      id: "019a7a8c-1c05-75a4-badc-6311d4d8dbef"
-                      code: LOCAL_CHICKEN
-                      name: "Local chicken"
-                    stockUnit: null
-                    startedOn: "2026-08-15"
-                    initialHead: 120
-                    currentHead: 109
-                    purpose: GROWING
-                    status: ACTIVE
-                    location:
-                      id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
-                      code: HSE-B1
-                      name: "Broiler house 1"
-                      kind: PEN
-                    mortalityPercent: "9.17"
-                    accumulatedCostPesewas: 1188000
-                    currency: GHS
-                    version: 3
-                  - id: "019a7abe-6065-7746-bc7e-7d379478f615"
-                    batchNo: BRL-2611-01
-                    species:
-                      id: "019a7a8b-fd16-7bc0-a0f8-c4da5b273db8"
-                      code: BROILER
-                      name: "Broiler chicken"
-                    stockUnit: null
-                    startedOn: "2026-11-12"
-                    initialHead: 500
-                    currentHead: 500
-                    purpose: GROWING
-                    status: ACTIVE
-                    location:
-                      id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
-                      code: HSE-B1
-                      name: "Broiler house 1"
-                      kind: PEN
-                    mortalityPercent: "0.00"
-                    accumulatedCostPesewas: 540000
-                    currency: GHS
-                    version: 3
-                  - id: "019a7abe-7f54-7129-8662-1b6f0e29944c"
-                    batchNo: GOAT-KID-2609
-                    species:
-                      id: "019a7a8b-a049-7e16-b34e-ea33ee146311"
-                      code: GOAT
-                      name: Goat
-                    stockUnit: null
-                    startedOn: "2026-09-20"
-                    initialHead: 7
-                    currentHead: 7
-                    purpose: GROWING
-                    status: ACTIVE
-                    location:
-                      id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
-                      code: PEN-G2
-                      name: "Goat pen 2"
-                      kind: PEN
-                    mortalityPercent: "0.00"
-                    accumulatedCostPesewas: 0
-                    currency: GHS
-                    version: 3
+                    version: 1
                 page:
-                  nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                  nextCursor: null
                   limit: 25
-                  hasMore: true
+                  hasMore: false
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -25954,8 +25991,20 @@ paths:
       tags:
         - liv
       summary: "Start a batch"
-      description: "Purchased flocks are usually created by posting a goods receipt; use this for hatches and groups of animals.\n\nPermission: `liv.batch.create`."
+      description: "Hatches a flock on the farm: registers its lot and brings its head into the pen by a BIRTH movement at nil cost. The species must have exactly one lot-tracked product. A flock bought from a supplier opens its batch when its goods receipt is posted.\n\nPermission: `liv.batch.create`."
       x-permission: liv.batch.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - LIVESTOCK_RECORD_INVALID
+        - REFERENCE_NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -25992,7 +26041,10 @@ paths:
                   id: "019a7a8b-fd16-7bc0-a0f8-c4da5b273db8"
                   code: BROILER
                   name: "Broiler chicken"
-                stockUnit: null
+                stockUnit:
+                  id: "019a7abe-6a11-7b22-8c33-d44e55f66a77"
+                  identifier: BRL-2611-01
+                  tracking: LOT
                 startedOn: "2026-11-12"
                 initialHead: 500
                 currentHead: 500
@@ -26004,9 +26056,9 @@ paths:
                   name: "Broiler house 1"
                   kind: PEN
                 mortalityPercent: "0.00"
-                accumulatedCostPesewas: 540000
+                accumulatedCostPesewas: 0
                 currency: GHS
-                version: 3
+                version: 1
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -26029,6 +26081,13 @@ paths:
       summary: "Get a batch"
       description: "Permission: `liv.batch.read`."
       x-permission: liv.batch.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -26073,7 +26132,7 @@ paths:
                 mortalityPercent: "7.60"
                 accumulatedCostPesewas: 6237000
                 currency: GHS
-                version: 3
+                version: 1
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -26091,8 +26150,21 @@ paths:
       tags:
         - liv
       summary: "Update a batch"
-      description: "Permission: `liv.batch.update`."
+      description: "A batch's purpose decides how feed and veterinary cost spread onto its flock is treated: capitalised for GROWING, expensed for BREEDING and LAYING.\n\nPermission: `liv.batch.update`."
       x-permission: liv.batch.update
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - LIVESTOCK_RECORD_INVALID
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -26112,7 +26184,7 @@ paths:
             schema:
               $ref: "#/components/schemas/BatchUpdate"
             example:
-              version: 3
+              version: 1
               purpose: LAYING
       responses:
         "200":
@@ -26125,30 +26197,30 @@ paths:
               schema:
                 $ref: "#/components/schemas/Batch"
               example:
-                id: "019a7abd-e4a9-7fb8-b4f0-0459adb47d37"
-                batchNo: BRL-2610-01
+                id: "019a7abe-2287-737f-98b7-40c8a116b9a6"
+                batchNo: LAY-2604-01
                 species:
-                  id: "019a7a8b-fd16-7bc0-a0f8-c4da5b273db8"
-                  code: BROILER
-                  name: "Broiler chicken"
+                  id: "019a7a8c-1c05-75a4-badc-6311d4d8dbef"
+                  code: LOCAL_CHICKEN
+                  name: "Local chicken"
                 stockUnit:
-                  id: "019a7a91-4e2a-7ed9-a411-f66345936f41"
-                  identifier: BRL-2610-01
+                  id: "019a7a91-2604-7c1d-8e2f-3a4b5c602604"
+                  identifier: LAY-2604-01
                   tracking: LOT
-                startedOn: "2026-10-02"
-                initialHead: 500
-                currentHead: 462
-                purpose: GROWING
+                startedOn: "2026-04-10"
+                initialHead: 800
+                currentHead: 771
+                purpose: LAYING
                 status: ACTIVE
                 location:
-                  id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
-                  code: HSE-B1
-                  name: "Broiler house 1"
+                  id: "019a7a84-2267-78ff-9e37-98c4753611a2"
+                  code: HSE-L1
+                  name: "Layer house"
                   kind: PEN
-                mortalityPercent: "7.60"
-                accumulatedCostPesewas: 6237000
+                mortalityPercent: "3.63"
+                accumulatedCostPesewas: 2310000
                 currency: GHS
-                version: 3
+                version: 2
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -26171,8 +26243,20 @@ paths:
       tags:
         - liv
       summary: "Close a batch once it has no stock left"
-      description: "Permission: `liv.batch.update`."
+      description: "Refused with LIVESTOCK_RECORD_INVALID (BATCH_NOT_EMPTY) while any head is left, whatever the reason: sell, process or write off the birds first. The reason is always recorded.\n\nPermission: `liv.batch.update`."
       x-permission: liv.batch.update
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - NOT_FOUND
+        - LIVESTOCK_RECORD_INVALID
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -26210,7 +26294,10 @@ paths:
                   id: "019a7a8b-fd16-7bc0-a0f8-c4da5b273db8"
                   code: BROILER
                   name: "Broiler chicken"
-                stockUnit: null
+                stockUnit:
+                  id: "019a7a91-2609-7a02-8b0c-1d2e3f402609"
+                  identifier: BRL-2609-02
+                  tracking: LOT
                 startedOn: "2026-09-01"
                 initialHead: 400
                 currentHead: 0
@@ -26224,7 +26311,7 @@ paths:
                 mortalityPercent: "4.25"
                 accumulatedCostPesewas: 0
                 currency: GHS
-                version: 3
+                version: 2
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -26640,6 +26727,12 @@ paths:
       summary: "List breeding records"
       description: "Permission: `liv.breeding.read`."
       x-permission: liv.breeding.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: status
           in: query
@@ -26683,6 +26776,95 @@ paths:
                 $ref: "#/components/schemas/BreedingRecordPage"
               example:
                 data:
+                  - id: "019a7abf-f288-77d3-8d0b-8608c275fee6"
+                    dam:
+                      id: "019a7a90-0027-7c4e-8b1a-3e5d7f900027"
+                      tagNo: S-0027
+                    sire:
+                      id: "019a7a90-0008-7a2b-9c3d-4e5f6a700008"
+                      tagNo: S-0008
+                    matedOn: "2026-05-19"
+                    expectedBirthOn: "2026-10-12"
+                    actualBirthOn: "2026-10-14"
+                    litterSize: 1
+                    liveBirths: 1
+                    status: BORN
+                    notes: null
+                    offspring:
+                      - id: "019a7ab9-0041-7e8f-a0b1-c2d3e4f50041"
+                        tagNo: S-0041
+                        sex: FEMALE
+                    version: 2
+                  - id: "019a7abf-d399-7df0-b328-e7d148c460af"
+                    dam:
+                      id: "019a7a8f-a122-7d10-9a6e-4c2f0b1d0122"
+                      tagNo: G-0122
+                    sire:
+                      id: "019a7abf-19ff-729b-97d3-32846e9eab62"
+                      tagNo: G-0101
+                    matedOn: "2026-09-01"
+                    expectedBirthOn: "2027-01-28"
+                    actualBirthOn: null
+                    litterSize: null
+                    liveBirths: null
+                    status: FAILED
+                    notes: null
+                    offspring: []
+                    version: 2
+                  - id: "019a7abf-b4aa-740c-a944-4999cf13c277"
+                    dam:
+                      id: "019a7a90-5003-7b6c-8d7e-9f0a1b2c5003"
+                      tagNo: P-0003
+                    sire:
+                      id: "019a7a90-5001-7a5b-8c6d-7e8f9a0b5001"
+                      tagNo: P-0001
+                    matedOn: "2026-08-04"
+                    expectedBirthOn: "2026-11-25"
+                    actualBirthOn: null
+                    litterSize: null
+                    liveBirths: null
+                    status: CONFIRMED
+                    notes: null
+                    offspring: []
+                    version: 2
+                  - id: "019a7abf-95bb-7a29-9f61-ab6255622440"
+                    dam:
+                      id: "019a7a8f-0114-7b3c-8d4e-5f6a7b8c0114"
+                      tagNo: G-0114
+                    sire:
+                      id: "019a7abf-19ff-729b-97d3-32846e9eab62"
+                      tagNo: G-0101
+                    matedOn: "2026-01-20"
+                    expectedBirthOn: "2026-06-18"
+                    actualBirthOn: "2026-06-21"
+                    litterSize: 3
+                    liveBirths: 2
+                    status: BORN
+                    notes: "One kid stillborn"
+                    offspring:
+                      - id: "019a7ab0-0161-7f1e-9d2c-3b4a59680161"
+                        tagNo: G-0161
+                        sex: MALE
+                      - id: "019a7ab0-0162-7a2b-8c3d-4e5f60710162"
+                        tagNo: G-0162
+                        sex: FEMALE
+                    version: 2
+                  - id: "019a7abf-76cc-7045-857d-0d2adbb18608"
+                    dam:
+                      id: "019a7a8f-0109-7e2d-9c1b-0a9f8e7d0109"
+                      tagNo: G-0109
+                    sire:
+                      id: "019a7abf-19ff-729b-97d3-32846e9eab62"
+                      tagNo: G-0101
+                    matedOn: "2026-07-11"
+                    expectedBirthOn: "2026-12-07"
+                    actualBirthOn: null
+                    litterSize: null
+                    liveBirths: null
+                    status: CONFIRMED
+                    notes: null
+                    offspring: []
+                    version: 2
                   - id: "019a7abe-fb10-78b7-8df0-944cf4ed0d2a"
                     dam:
                       id: "019a7a8f-f9e5-7212-b74b-2a010af8a2de"
@@ -26691,7 +26873,7 @@ paths:
                       id: "019a7abf-19ff-729b-97d3-32846e9eab62"
                       tagNo: G-0101
                     matedOn: "2026-06-02"
-                    expectedBirthOn: "2026-10-30"
+                    expectedBirthOn: "2026-10-29"
                     actualBirthOn: "2026-11-02"
                     litterSize: 2
                     liveBirths: 2
@@ -26704,89 +26886,9 @@ paths:
                       - id: "019a7abf-57dd-7662-bb9a-6ef36200e7d1"
                         tagNo: G-0182
                         sex: FEMALE
-                    version: 2
-                  - id: "019a7abf-76cc-7045-857d-0d2adbb18608"
-                    dam:
-                      id: "019a7a8f-f9e5-7212-b74b-2a010af8a2de"
-                      tagNo: G-0109
-                    sire:
-                      id: "019a7abf-19ff-729b-97d3-32846e9eab62"
-                      tagNo: G-0101
-                    matedOn: "2026-07-11"
-                    expectedBirthOn: "2026-12-08"
-                    actualBirthOn: null
-                    litterSize: null
-                    liveBirths: null
-                    status: CONFIRMED
-                    notes: null
-                    offspring: []
-                    version: 2
-                  - id: "019a7abf-95bb-7a29-9f61-ab6255622440"
-                    dam:
-                      id: "019a7a8f-f9e5-7212-b74b-2a010af8a2de"
-                      tagNo: G-0118
-                    sire:
-                      id: "019a7abf-19ff-729b-97d3-32846e9eab62"
-                      tagNo: G-0101
-                    matedOn: "2026-01-20"
-                    expectedBirthOn: "2026-06-19"
-                    actualBirthOn: "2026-06-21"
-                    litterSize: 3
-                    liveBirths: 2
-                    status: BORN
-                    notes: "One kid stillborn"
-                    offspring: []
-                    version: 2
-                  - id: "019a7abf-b4aa-740c-a944-4999cf13c277"
-                    dam:
-                      id: "019a7a8f-f9e5-7212-b74b-2a010af8a2de"
-                      tagNo: P-0003
-                    sire:
-                      id: "019a7abf-19ff-729b-97d3-32846e9eab62"
-                      tagNo: G-0101
-                    matedOn: "2026-08-04"
-                    expectedBirthOn: "2026-11-26"
-                    actualBirthOn: null
-                    litterSize: null
-                    liveBirths: null
-                    status: CONFIRMED
-                    notes: null
-                    offspring: []
-                    version: 2
-                  - id: "019a7abf-d399-7df0-b328-e7d148c460af"
-                    dam:
-                      id: "019a7a8f-f9e5-7212-b74b-2a010af8a2de"
-                      tagNo: G-0122
-                    sire:
-                      id: "019a7abf-19ff-729b-97d3-32846e9eab62"
-                      tagNo: G-0101
-                    matedOn: "2026-09-01"
-                    expectedBirthOn: "2027-01-29"
-                    actualBirthOn: null
-                    litterSize: null
-                    liveBirths: null
-                    status: MATED
-                    notes: null
-                    offspring: []
-                    version: 2
-                  - id: "019a7abf-f288-77d3-8d0b-8608c275fee6"
-                    dam:
-                      id: "019a7a8f-f9e5-7212-b74b-2a010af8a2de"
-                      tagNo: S-0027
-                    sire:
-                      id: "019a7abf-19ff-729b-97d3-32846e9eab62"
-                      tagNo: G-0101
-                    matedOn: "2026-05-19"
-                    expectedBirthOn: "2026-10-16"
-                    actualBirthOn: "2026-10-14"
-                    litterSize: 1
-                    liveBirths: 1
-                    status: BORN
-                    notes: null
-                    offspring: []
-                    version: 2
+                    version: 3
                 page:
-                  nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                  nextCursor: eyJpZCI6IjAxOWE3YWJlLWZiMTAifQ
                   limit: 25
                   hasMore: true
         "400":
@@ -26806,6 +26908,18 @@ paths:
       summary: "Record a mating"
       description: "Permission: `liv.breeding.record`."
       x-permission: liv.breeding.record
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - LIVESTOCK_RECORD_INVALID
+        - REFERENCE_NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -26819,10 +26933,9 @@ paths:
             schema:
               $ref: "#/components/schemas/BreedingRecordCreate"
             example:
-              damId: "019a7a8f-f9e5-7212-b74b-2a010af8a2de"
+              damId: "019a7a8f-a122-7d10-9a6e-4c2f0b1d0122"
               sireId: "019a7abf-19ff-729b-97d3-32846e9eab62"
               matedOn: "2026-11-10"
-              expectedBirthOn: "2027-04-09"
       responses:
         "201":
           description: OK
@@ -26834,22 +26947,22 @@ paths:
               schema:
                 $ref: "#/components/schemas/BreedingRecord"
               example:
-                id: "019a7abf-d399-7df0-b328-e7d148c460af"
+                id: "019a7ac1-1a2b-7c3d-8e4f-50617283a4b5"
                 dam:
-                  id: "019a7a8f-f9e5-7212-b74b-2a010af8a2de"
+                  id: "019a7a8f-a122-7d10-9a6e-4c2f0b1d0122"
                   tagNo: G-0122
                 sire:
                   id: "019a7abf-19ff-729b-97d3-32846e9eab62"
                   tagNo: G-0101
-                matedOn: "2026-09-01"
-                expectedBirthOn: "2027-01-29"
+                matedOn: "2026-11-10"
+                expectedBirthOn: "2027-04-08"
                 actualBirthOn: null
                 litterSize: null
                 liveBirths: null
                 status: MATED
                 notes: null
                 offspring: []
-                version: 2
+                version: 1
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -26872,6 +26985,13 @@ paths:
       summary: "Get a breeding record"
       description: "Permission: `liv.breeding.read`."
       x-permission: liv.breeding.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -26901,7 +27021,7 @@ paths:
                   id: "019a7abf-19ff-729b-97d3-32846e9eab62"
                   tagNo: G-0101
                 matedOn: "2026-06-02"
-                expectedBirthOn: "2026-10-30"
+                expectedBirthOn: "2026-10-29"
                 actualBirthOn: "2026-11-02"
                 litterSize: 2
                 liveBirths: 2
@@ -26914,7 +27034,7 @@ paths:
                   - id: "019a7abf-57dd-7662-bb9a-6ef36200e7d1"
                     tagNo: G-0182
                     sex: FEMALE
-                version: 2
+                version: 3
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -26934,6 +27054,19 @@ paths:
       summary: "Update a breeding record"
       description: "Permission: `liv.breeding.record`."
       x-permission: liv.breeding.record
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - LIVESTOCK_RECORD_INVALID
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -26953,7 +27086,7 @@ paths:
             schema:
               $ref: "#/components/schemas/BreedingRecordUpdate"
             example:
-              version: 2
+              version: 1
               status: CONFIRMED
       responses:
         "200":
@@ -26974,19 +27107,13 @@ paths:
                   id: "019a7abf-19ff-729b-97d3-32846e9eab62"
                   tagNo: G-0101
                 matedOn: "2026-06-02"
-                expectedBirthOn: "2026-10-30"
-                actualBirthOn: "2026-11-02"
-                litterSize: 2
-                liveBirths: 2
-                status: BORN
+                expectedBirthOn: "2026-10-29"
+                actualBirthOn: null
+                litterSize: null
+                liveBirths: null
+                status: CONFIRMED
                 notes: null
-                offspring:
-                  - id: "019a7abf-38ee-7c7e-a1b6-d0bbe84f4999"
-                    tagNo: G-0181
-                    sex: MALE
-                  - id: "019a7abf-57dd-7662-bb9a-6ef36200e7d1"
-                    tagNo: G-0182
-                    sex: FEMALE
+                offspring: []
                 version: 2
         "400":
           $ref: "#/components/responses/BadRequest"
@@ -27012,6 +27139,18 @@ paths:
       summary: "Record a birth and register the offspring"
       description: "Permission: `liv.breeding.record`."
       x-permission: liv.breeding.record
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - NOT_FOUND
+        - LIVESTOCK_RECORD_INVALID
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -27061,7 +27200,7 @@ paths:
                   id: "019a7abf-19ff-729b-97d3-32846e9eab62"
                   tagNo: G-0101
                 matedOn: "2026-06-02"
-                expectedBirthOn: "2026-10-30"
+                expectedBirthOn: "2026-10-29"
                 actualBirthOn: "2026-11-02"
                 litterSize: 2
                 liveBirths: 2
@@ -27074,7 +27213,7 @@ paths:
                   - id: "019a7abf-57dd-7662-bb9a-6ef36200e7d1"
                     tagNo: G-0182
                     sex: FEMALE
-                version: 2
+                version: 3
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -27099,6 +27238,18 @@ paths:
       summary: "Record that a mating did not result in a birth"
       description: "Permission: `liv.breeding.record`."
       x-permission: liv.breeding.record
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - NOT_FOUND
+        - LIVESTOCK_RECORD_INVALID
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -27118,7 +27269,7 @@ paths:
             schema:
               $ref: "#/components/schemas/ReasonRequest"
             example:
-              reason: "Counted twice in error at the morning check"
+              reason: "Came back on heat on 22 September, 21 days after mating"
       responses:
         "200":
           description: OK
@@ -27130,27 +27281,21 @@ paths:
               schema:
                 $ref: "#/components/schemas/BreedingRecord"
               example:
-                id: "019a7abe-fb10-78b7-8df0-944cf4ed0d2a"
+                id: "019a7abf-d399-7df0-b328-e7d148c460af"
                 dam:
-                  id: "019a7a8f-f9e5-7212-b74b-2a010af8a2de"
-                  tagNo: G-0118
+                  id: "019a7a8f-a122-7d10-9a6e-4c2f0b1d0122"
+                  tagNo: G-0122
                 sire:
                   id: "019a7abf-19ff-729b-97d3-32846e9eab62"
                   tagNo: G-0101
-                matedOn: "2026-06-02"
-                expectedBirthOn: "2026-10-30"
-                actualBirthOn: "2026-11-02"
-                litterSize: 2
-                liveBirths: 2
-                status: BORN
+                matedOn: "2026-09-01"
+                expectedBirthOn: "2027-01-28"
+                actualBirthOn: null
+                litterSize: null
+                liveBirths: null
+                status: FAILED
                 notes: null
-                offspring:
-                  - id: "019a7abf-38ee-7c7e-a1b6-d0bbe84f4999"
-                    tagNo: G-0181
-                    sex: MALE
-                  - id: "019a7abf-57dd-7662-bb9a-6ef36200e7d1"
-                    tagNo: G-0182
-                    sex: FEMALE
+                offspring: []
                 version: 2
         "400":
           $ref: "#/components/responses/BadRequest"
@@ -79556,7 +79701,7 @@ components:
           type:
             - string
             - "null"
-          description: "Feed used per kilogram gained, to two decimals."
+          description: "Kilograms of feed issued per kilogram gained, to three decimals (FR-LIV-016). Null when nothing was gained."
         mortalityPercent:
           $ref: "#/components/schemas/Percent"
       required:

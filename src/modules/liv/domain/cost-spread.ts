@@ -47,7 +47,10 @@ export function headOf(tracking: 'SERIAL' | 'LOT', onHandQty: string): bigint {
   return thousandths <= 0n ? 0n : thousandths / THOUSANDTHS_PER_HEAD;
 }
 
-/** Feed and veterinary cost is capitalised onto growing stock and expensed for breeding stock (ADR-0018, A-025). */
-export function treatmentOf(purpose: 'GROWING' | 'BREEDING'): Treatment {
-  return purpose === 'BREEDING' ? 'EXPENSED' : 'CAPITALISED';
+/**
+ * Feed and veterinary cost is capitalised onto growing stock and expensed for breeding stock (ADR-0018, A-025). A laying
+ * flock is kept to produce, not to be sold, so it is treated as breeding stock (A-159).
+ */
+export function treatmentOf(purpose: 'GROWING' | 'BREEDING' | 'LAYING'): Treatment {
+  return purpose === 'GROWING' ? 'CAPITALISED' : 'EXPENSED';
 }

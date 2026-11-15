@@ -1,0 +1,186 @@
+operationId: listBatches
+tags:
+  - liv
+summary: "List flocks and batches"
+description: "Permission: `liv.batch.read`."
+x-permission: liv.batch.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: status
+    in: query
+    required: false
+    schema:
+      type: string
+      enum:
+        - ACTIVE
+        - CLOSED
+  - name: speciesId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/BatchPage"
+        example:
+          data:
+            - id: "019a7abe-6065-7746-bc7e-7d379478f615"
+              batchNo: BRL-2611-01
+              species:
+                id: "019a7a8b-fd16-7bc0-a0f8-c4da5b273db8"
+                code: BROILER
+                name: "Broiler chicken"
+              stockUnit:
+                id: "019a7abe-6a11-7b22-8c33-d44e55f66a77"
+                identifier: BRL-2611-01
+                tracking: LOT
+              startedOn: "2026-11-12"
+              initialHead: 500
+              currentHead: 500
+              purpose: GROWING
+              status: ACTIVE
+              location:
+                id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+                code: HSE-B1
+                name: "Broiler house 1"
+                kind: PEN
+              mortalityPercent: "0.00"
+              accumulatedCostPesewas: 0
+              currency: GHS
+              version: 1
+            - id: "019a7abe-4176-7d62-a29b-df001ac757de"
+              batchNo: LCH-2608-01
+              species:
+                id: "019a7a8c-1c05-75a4-badc-6311d4d8dbef"
+                code: LOCAL_CHICKEN
+                name: "Local chicken"
+              stockUnit:
+                id: "019a7a91-2608-7d2e-9f3a-4b5c6d702608"
+                identifier: LCH-2608-01
+                tracking: LOT
+              startedOn: "2026-08-15"
+              initialHead: 120
+              currentHead: 109
+              purpose: GROWING
+              status: ACTIVE
+              location:
+                id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+                code: HSE-B1
+                name: "Broiler house 1"
+                kind: PEN
+              mortalityPercent: "9.17"
+              accumulatedCostPesewas: 1188000
+              currency: GHS
+              version: 1
+            - id: "019a7abe-2287-737f-98b7-40c8a116b9a6"
+              batchNo: LAY-2604-01
+              species:
+                id: "019a7a8c-1c05-75a4-badc-6311d4d8dbef"
+                code: LOCAL_CHICKEN
+                name: "Local chicken"
+              stockUnit:
+                id: "019a7a91-2604-7c1d-8e2f-3a4b5c602604"
+                identifier: LAY-2604-01
+                tracking: LOT
+              startedOn: "2026-04-10"
+              initialHead: 800
+              currentHead: 771
+              purpose: LAYING
+              status: ACTIVE
+              location:
+                id: "019a7a84-2267-78ff-9e37-98c4753611a2"
+                code: HSE-L1
+                name: "Layer house"
+                kind: PEN
+              mortalityPercent: "3.63"
+              accumulatedCostPesewas: 2310000
+              currency: GHS
+              version: 2
+            - id: "019a7abe-0398-799b-8ed4-a29127651b6f"
+              batchNo: BRL-2609-02
+              species:
+                id: "019a7a8b-fd16-7bc0-a0f8-c4da5b273db8"
+                code: BROILER
+                name: "Broiler chicken"
+              stockUnit:
+                id: "019a7a91-2609-7a02-8b0c-1d2e3f402609"
+                identifier: BRL-2609-02
+                tracking: LOT
+              startedOn: "2026-09-01"
+              initialHead: 400
+              currentHead: 0
+              purpose: GROWING
+              status: CLOSED
+              location:
+                id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+                code: HSE-B1
+                name: "Broiler house 1"
+                kind: PEN
+              mortalityPercent: "4.25"
+              accumulatedCostPesewas: 0
+              currency: GHS
+              version: 2
+            - id: "019a7abd-e4a9-7fb8-b4f0-0459adb47d37"
+              batchNo: BRL-2610-01
+              species:
+                id: "019a7a8b-fd16-7bc0-a0f8-c4da5b273db8"
+                code: BROILER
+                name: "Broiler chicken"
+              stockUnit:
+                id: "019a7a91-4e2a-7ed9-a411-f66345936f41"
+                identifier: BRL-2610-01
+                tracking: LOT
+              startedOn: "2026-10-02"
+              initialHead: 500
+              currentHead: 462
+              purpose: GROWING
+              status: ACTIVE
+              location:
+                id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+                code: HSE-B1
+                name: "Broiler house 1"
+                kind: PEN
+              mortalityPercent: "7.60"
+              accumulatedCostPesewas: 6237000
+              currency: GHS
+              version: 1
+          page:
+            nextCursor: null
+            limit: 25
+            hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

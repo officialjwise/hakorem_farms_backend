@@ -96,7 +96,22 @@ import {
   YieldStandardCreate,
   YieldStandardUpdate,
 } from '../../../src/modules/prc/interface/schemas';
-import { FeedConsumptionCreate, HealthEventCreate, MortalityRecordCreate, RationCreate, RationUpdate, WeightRecordBatch } from '../../../src/modules/liv/interface/schemas';
+import {
+  AnimalMove,
+  AnimalUpdate,
+  BatchCreate,
+  BatchUpdate,
+  BirthRecord,
+  BreedingRecordCreate,
+  BreedingRecordUpdate,
+  FeedConsumptionCreate,
+  HealthEventCreate,
+  MortalityRecordCreate,
+  RationCreate,
+  RationUpdate,
+  ReasonRequest as LivReasonRequest,
+  WeightRecordBatch,
+} from '../../../src/modules/liv/interface/schemas';
 import { createCatalogue, type TestCatalogue } from '../../support/catalogue';
 import { contractSchema } from '../../support/contract-schemas';
 import { consoleGet, consolePost, createBranch, createUser, enrolAndLogin, login, relaxRateLimits, testStartTime, type TestSession } from '../../support/iam';
@@ -303,6 +318,15 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     createRation: RationCreate,
     updateRation: RationUpdate,
     recordFeedConsumption: FeedConsumptionCreate,
+    updateAnimal: AnimalUpdate,
+    moveAnimal: AnimalMove,
+    createBatch: BatchCreate,
+    updateBatch: BatchUpdate,
+    closeBatch: LivReasonRequest,
+    createBreedingRecord: BreedingRecordCreate,
+    updateBreedingRecord: BreedingRecordUpdate,
+    recordBirth: BirthRecord,
+    failBreedingRecord: LivReasonRequest,
   };
 
   it('parses every request example of an implemented operation with the schema its route validates with', () => {

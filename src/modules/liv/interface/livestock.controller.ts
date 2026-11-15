@@ -6,13 +6,29 @@ import { CurrentActor } from '../../../platform/http/actor-param';
 import { IdempotencyKeyHeader, Operation } from '../../../platform/http/operation';
 import { zodPipe } from '../../../platform/http/validation';
 import type { StoredResponse } from '../../../platform/idempotency/idempotency';
+import { AnimalCare, type AnimalEventView } from '../application/animal-care';
 import { Animals, type AnimalView } from '../application/animals';
+import { Batches, type BatchView } from '../application/batches';
+import { Breeding, type BreedingRecordView } from '../application/breeding';
+import { Growth, type GrowthRowView } from '../application/growth';
 import { Feeding, type FeedConsumptionView, type RationView } from '../application/feeding';
 import { HealthRecords, type HealthEventView } from '../application/health';
 import { MortalityRecords, type ApprovalPendingView, type MortalityRecordView } from '../application/mortality';
 import type { Page } from '../application/support';
 import { Weighing, type WeightBatchView, type WeightRecordView } from '../application/weights';
 import {
+  AnimalMove,
+  AnimalUpdate,
+  BatchCreate,
+  BatchUpdate,
+  BirthRecord,
+  BreedingRecordCreate,
+  BreedingRecordUpdate,
+  ListBatchesQuery,
+  ListBreedingRecordsQuery,
+  ListGrowthQuery,
+  ReasonRequest,
+  TimelineQuery,
   FeedConsumptionCreate,
   HealthEventCreate,
   IdParam,
@@ -38,8 +54,9 @@ async function reply<T>(res: Response, pending: Promise<StoredResponse<T>>): Pro
 }
 
 /**
- * The animal register, weights, health events, mortality and feed (FR-LIV-001, FR-LIV-004, FR-LIV-007 to FR-LIV-009,
- * FR-LIV-012, FR-LIV-014, FR-LIV-015). The controller parses and delegates; the handlers authorise and decide.
+ * The animal register, its edits, moves and timeline, weights and growth, health events, mortality, feed, batches,
+ * breeding and births (FR-LIV-001 to FR-LIV-017). The controller parses and delegates; the handlers authorise and
+ * decide.
  */
 @Controller()
 export class LivestockController {
@@ -49,6 +66,10 @@ export class LivestockController {
     @Inject(HealthRecords) private readonly health: HealthRecords,
     @Inject(MortalityRecords) private readonly mortality: MortalityRecords,
     @Inject(Feeding) private readonly feeding: Feeding,
+    @Inject(AnimalCare) private readonly care: AnimalCare,
+    @Inject(Batches) private readonly batches: Batches,
+    @Inject(Breeding) private readonly breeding: Breeding,
+    @Inject(Growth) private readonly growth: Growth,
   ) {}
 
   @Get('animals')
@@ -192,5 +213,150 @@ export class LivestockController {
   @Operation({ operationId: 'getFeedConsumption', ...READ, permission: 'liv.feed.read' })
   getFeedConsumption(@CurrentActor() actor: Actor | undefined, @Param('id', zodPipe(IdParam)) id: string): Promise<FeedConsumptionView> {
     return this.feeding.get(actor, id);
+  }
+
+  @Patch('animals/:id')
+  @Operation({ operationId: 'updateAnimal', ...WRITE, permission: 'liv.animal.update' })
+  updateAnimal(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(AnimalUpdate)) body: z.infer<typeof AnimalUpdate>,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AnimalView> {
+    return reply(res, this.care.update(actor, id, body, key));
+  }
+
+  @Get('animals/:id/timeline')
+  @Operation({ operationId: 'listAnimalTimeline', ...READ, permission: 'liv.animal.read' })
+  listAnimalTimeline(@CurrentActor() actor: Actor | undefined, @Param('id', zodPipe(IdParam)) id: string, @Query(zodPipe(TimelineQuery)) query: z.infer<typeof TimelineQuery>): Promise<Page<AnimalEventView>> {
+    return this.care.timeline(actor, id, query.cursor, query.limit);
+  }
+
+  @Post('animals/:id/move')
+  @Operation({ operationId: 'moveAnimal', ...WRITE, permission: 'liv.animal.move' })
+  moveAnimal(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(AnimalMove)) body: z.infer<typeof AnimalMove>,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AnimalView> {
+    return reply(res, this.care.move(actor, id, body, key));
+  }
+
+  @Get('livestock/growth')
+  @Operation({ operationId: 'listGrowth', ...READ, permission: 'liv.report.read' })
+  listGrowth(@CurrentActor() actor: Actor | undefined, @Query(zodPipe(ListGrowthQuery)) query: z.infer<typeof ListGrowthQuery>): Promise<Page<GrowthRowView>> {
+    const { cursor, limit, ...filters } = query;
+    return this.growth.list(actor, filters, cursor, limit);
+  }
+
+  @Get('batches')
+  @Operation({ operationId: 'listBatches', ...READ, permission: 'liv.batch.read' })
+  listBatches(@CurrentActor() actor: Actor | undefined, @Query(zodPipe(ListBatchesQuery)) query: z.infer<typeof ListBatchesQuery>): Promise<Page<BatchView>> {
+    const { cursor, limit, ...filters } = query;
+    return this.batches.list(actor, filters, cursor, limit);
+  }
+
+  @Post('batches')
+  @Operation({ operationId: 'createBatch', ...WRITE, permission: 'liv.batch.create' })
+  createBatch(
+    @CurrentActor() actor: Actor | undefined,
+    @Body(zodPipe(BatchCreate)) body: z.infer<typeof BatchCreate>,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<BatchView> {
+    return reply(res, this.batches.create(actor, body, key));
+  }
+
+  @Get('batches/:id')
+  @Operation({ operationId: 'getBatch', ...READ, permission: 'liv.batch.read' })
+  getBatch(@CurrentActor() actor: Actor | undefined, @Param('id', zodPipe(IdParam)) id: string): Promise<BatchView> {
+    return this.batches.get(actor, id);
+  }
+
+  @Patch('batches/:id')
+  @Operation({ operationId: 'updateBatch', ...WRITE, permission: 'liv.batch.update' })
+  updateBatch(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(BatchUpdate)) body: z.infer<typeof BatchUpdate>,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<BatchView> {
+    return reply(res, this.batches.update(actor, id, body, key));
+  }
+
+  @Post('batches/:id/close')
+  @Operation({ operationId: 'closeBatch', ...WRITE, permission: 'liv.batch.update' })
+  closeBatch(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(ReasonRequest)) body: z.infer<typeof ReasonRequest>,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<BatchView> {
+    return reply(res, this.batches.close(actor, id, body.reason, key));
+  }
+
+  @Get('breeding-records')
+  @Operation({ operationId: 'listBreedingRecords', ...READ, permission: 'liv.breeding.read' })
+  listBreedingRecords(@CurrentActor() actor: Actor | undefined, @Query(zodPipe(ListBreedingRecordsQuery)) query: z.infer<typeof ListBreedingRecordsQuery>): Promise<Page<BreedingRecordView>> {
+    const { cursor, limit, ...filters } = query;
+    return this.breeding.list(actor, filters, cursor, limit);
+  }
+
+  @Post('breeding-records')
+  @Operation({ operationId: 'createBreedingRecord', ...WRITE, permission: 'liv.breeding.record' })
+  createBreedingRecord(
+    @CurrentActor() actor: Actor | undefined,
+    @Body(zodPipe(BreedingRecordCreate)) body: z.infer<typeof BreedingRecordCreate>,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<BreedingRecordView> {
+    return reply(res, this.breeding.create(actor, body, key));
+  }
+
+  @Get('breeding-records/:id')
+  @Operation({ operationId: 'getBreedingRecord', ...READ, permission: 'liv.breeding.read' })
+  getBreedingRecord(@CurrentActor() actor: Actor | undefined, @Param('id', zodPipe(IdParam)) id: string): Promise<BreedingRecordView> {
+    return this.breeding.get(actor, id);
+  }
+
+  @Patch('breeding-records/:id')
+  @Operation({ operationId: 'updateBreedingRecord', ...WRITE, permission: 'liv.breeding.record' })
+  updateBreedingRecord(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(BreedingRecordUpdate)) body: z.infer<typeof BreedingRecordUpdate>,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<BreedingRecordView> {
+    return reply(res, this.breeding.update(actor, id, body, key));
+  }
+
+  @Post('breeding-records/:id/record-birth')
+  @Operation({ operationId: 'recordBirth', ...WRITE, permission: 'liv.breeding.record' })
+  recordBirth(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(BirthRecord)) body: z.infer<typeof BirthRecord>,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<BreedingRecordView> {
+    return reply(res, this.breeding.recordBirth(actor, id, body, key));
+  }
+
+  @Post('breeding-records/:id/fail')
+  @Operation({ operationId: 'failBreedingRecord', ...WRITE, permission: 'liv.breeding.record' })
+  failBreedingRecord(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(ReasonRequest)) body: z.infer<typeof ReasonRequest>,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<BreedingRecordView> {
+    return reply(res, this.breeding.fail(actor, id, body.reason, key));
   }
 }

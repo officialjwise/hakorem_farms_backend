@@ -84,6 +84,8 @@ export interface MasterDataRefsStore {
   branchIdByCode(tx: Transaction, code: string): Promise<string | null>;
   locationIdByCode(tx: Transaction, branchId: string, code: string): Promise<string | null>;
   productIdBySku(tx: Transaction, sku: string): Promise<string | null>;
+  /** Ids of the live products of a species, in SKU order (LIV's hatch, B06 continued 2). */
+  productIdsOfSpecies(tx: Transaction, speciesId: string): Promise<string[]>;
 }
 
 function byId<T extends { readonly id: string }>(rows: readonly T[]): ReadonlyMap<string, T> {
@@ -160,5 +162,12 @@ export class MasterDataRefs {
   async productBySkuIn(tx: Transaction, sku: string): Promise<ProductFacts | null> {
     const id = await this.store.productIdBySku(tx, sku);
     return id === null ? null : ((await this.productsIn(tx, [id])).get(id) ?? null);
+  }
+
+  /** The live products of a species, in SKU order: what a flock of it hatched on the farm can be held as. */
+  async productsOfSpeciesIn(tx: Transaction, speciesId: string): Promise<ProductFacts[]> {
+    const ids = await this.store.productIdsOfSpecies(tx, speciesId);
+    const facts = await this.productsIn(tx, ids);
+    return ids.map((id) => facts.get(id)!);
   }
 }

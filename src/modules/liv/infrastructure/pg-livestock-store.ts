@@ -45,10 +45,11 @@ class Params {
   }
 }
 
-const ANIMAL_COLUMNS = `stock_unit_id, tag_no, species_id, product_id, branch_id, breed, sex, to_char(date_of_birth, 'YYYY-MM-DD') AS date_of_birth,
-  to_char(acquired_on, 'YYYY-MM-DD') AS acquired_on, source, supplier_id, acquisition_cost_pesewas::text AS acquisition_cost_pesewas, dam_id, sire_id, purpose, status, exit_value_pesewas::text AS exit_value_pesewas, version, created_at`;
+export const ANIMAL_COLUMNS = `stock_unit_id, tag_no, species_id, product_id, branch_id, breed, sex, to_char(date_of_birth, 'YYYY-MM-DD') AS date_of_birth,
+  to_char(acquired_on, 'YYYY-MM-DD') AS acquired_on, source, supplier_id, acquisition_cost_pesewas::text AS acquisition_cost_pesewas, dam_id, sire_id, batch_id, breeding_record_id, purpose, status, status_changed_at,
+  exit_value_pesewas::text AS exit_value_pesewas, version, created_at`;
 
-function animal(r: Row): AnimalRecord {
+export function animalOf(r: Row): AnimalRecord {
   return {
     stockUnitId: r['stock_unit_id'] as string,
     tagNo: r['tag_no'] as string,
@@ -64,8 +65,11 @@ function animal(r: Row): AnimalRecord {
     acquisitionCostPesewas: big(r['acquisition_cost_pesewas']),
     damId: r['dam_id'] as string | null,
     sireId: r['sire_id'] as string | null,
+    batchId: r['batch_id'] as string | null,
+    breedingRecordId: r['breeding_record_id'] as string | null,
     purpose: r['purpose'] as AnimalRecord['purpose'],
     status: r['status'] as AnimalStatus,
+    statusChangedAt: r['status_changed_at'] as Date | null,
     exitValuePesewas: nullableBig(r['exit_value_pesewas']),
     version: Number(r['version']),
     createdAt: r['created_at'] as Date,
@@ -197,22 +201,22 @@ export class PgLivestockStore implements LivestockStore {
   async insertAnimal(tx: Transaction, a: NewAnimal, actorId: string): Promise<void> {
     await tx.query(
       `INSERT INTO liv.animal (stock_unit_id, tag_no, species_id, product_id, branch_id, breed, sex, date_of_birth, acquired_on, source, supplier_id,
-                               acquisition_cost_pesewas, dam_id, sire_id, purpose, status, created_by, updated_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'ALIVE', $16, $16)`,
+                               acquisition_cost_pesewas, dam_id, sire_id, purpose, status, created_by, updated_by, breeding_record_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'ALIVE', $16, $16, $17)`,
       [a.stockUnitId, a.tagNo, a.speciesId, a.productId, a.branchId, a.breed, a.sex, a.dateOfBirth, a.acquiredOn, a.source, a.supplierId,
-        a.acquisitionCostPesewas.toString(), a.damId, a.sireId, a.purpose, actorId],
+        a.acquisitionCostPesewas.toString(), a.damId, a.sireId, a.purpose, actorId, a.breedingRecordId ?? null],
     );
   }
 
   async animals(tx: Transaction, ids: readonly string[]): Promise<AnimalRecord[]> {
     if (ids.length === 0) return [];
     const { rows } = await tx.query<Row>(`SELECT ${ANIMAL_COLUMNS} FROM liv.animal WHERE stock_unit_id = ANY($1::uuid[])`, [[...new Set(ids)]]);
-    return rows.map(animal);
+    return rows.map(animalOf);
   }
 
   async lockAnimal(tx: Transaction, id: string): Promise<AnimalRecord | null> {
     const { rows } = await tx.query<Row>(`SELECT ${ANIMAL_COLUMNS} FROM liv.animal WHERE stock_unit_id = $1 FOR UPDATE`, [id]);
-    return rows[0] === undefined ? null : animal(rows[0]);
+    return rows[0] === undefined ? null : animalOf(rows[0]);
   }
 
   async liveAnimalByTag(tx: Transaction, tagNo: string): Promise<string | null> {
@@ -240,7 +244,7 @@ export class PgLivestockStore implements LivestockStore {
     if (filters.unitIds !== undefined) where.push(`stock_unit_id = ANY(${p.add(filters.unitIds)}::uuid[])`);
     if (after !== null) where.push(`stock_unit_id > ${p.add(after)}`);
     const { rows } = await tx.query<Row>(`SELECT ${ANIMAL_COLUMNS} FROM liv.animal WHERE ${where.join(' AND ')} ORDER BY stock_unit_id LIMIT ${p.add(limit)}`, p.values);
-    return rows.map(animal);
+    return rows.map(animalOf);
   }
 
   async insertWeight(tx: Transaction, w: WeightRecord): Promise<void> {
