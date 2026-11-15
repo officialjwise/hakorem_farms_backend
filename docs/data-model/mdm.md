@@ -464,7 +464,10 @@ An effective-dated version of the whole levy matrix. Posted statuses: `ACTIVE`, 
 Standard columns: `DOCUMENT`.
 
 - EXCLUDE: validity ranges of `ACTIVE` versions do not overlap.
-- Deferred trigger on activation: the version has exactly one `tax_category_levy` row for every live category and levy.
+- Deferred constraint trigger `trg_tax_scheme_version_complete` (B04 continued): a version moving to `PENDING_APPROVAL` or `ACTIVE` has a `tax_category_levy` row for every live category and levy (SQLSTATE 23514, `ck_tax_scheme_version_complete`).
+- Lifecycle guard `mdm.tax_scheme_version_guard` (B04 continued), as for price list versions: `DRAFT` to `PENDING_APPROVAL` to `ACTIVE` or `REJECTED`, `ACTIVE` to `SUPERSEDED`; once submitted only the lifecycle columns move; `valid_to` of an `ACTIVE` version may only become earlier; activation may move `valid_from` later, to the day of approval, never earlier (ADR-0039). `valid_to` is exclusive: the first day the version no longer applies.
+- UNIQUE: at most one version is `DRAFT` or `PENDING_APPROVAL` (`uq_tax_scheme_version_open`, ADR-0039).
+- Also `branch_id` (`DOCUMENT` standard), `activated_at` and `activated_by` (required for `ACTIVE` and `SUPERSEDED`).
 - Frozen once `ACTIVE`, with its rows.
 
 ### `mdm.tax_category_levy` · MASTER
@@ -494,7 +497,8 @@ For a `NET_PLUS_LEVIES` cell: which other levies are added to its base.
 | `tax_category_levy_id` | `uuid` | NOT NULL, FK `mdm.tax_category_levy` | The compounding levy |
 | `included_category_levy_id` | `uuid` | NOT NULL, FK `mdm.tax_category_levy` | A levy in its base |
 
-- PK (both columns). Trigger: both rows belong to the same version and category, and the included row has a lower `calc_order`, so a definition cannot be circular.
+- PK (both columns), plus `created_at` and `created_by`. Trigger `mdm.tax_levy_base_component_rule`: both rows belong to the same version and category, the owning cell is `NET_PLUS_LEVIES`, and the included row has a lower `calc_order`, so a definition cannot be circular.
+- Cells and components change only while their version is `DRAFT` (trigger `mdm.tax_cell_guard`); a draft's matrix is emptied only by `mdm.clear_draft_tax_cells(version_id)`, `SECURITY DEFINER` (B04 continued). `tax_category_levy` also has UNIQUE (`version_id`, `tax_category_id`, `calc_order`), so the inclusive tie-break is never ambiguous.
 
 ## Reference data
 
