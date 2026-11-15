@@ -1,0 +1,435 @@
+operationId: listSupplierInvoices
+tags:
+  - pur
+summary: "List supplier invoices and credit notes"
+description: "Supplier invoices newest first, within the branches the caller holds the permission at as a whole. Filters: `status`, `supplierId`, `matchStatus`, `dueBefore` (due before that date) and `outstandingOnly` (not paid in full, not cancelled).\n\nPermission: `pur.supplier_invoice.read`."
+x-permission: pur.supplier_invoice.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - INVALID_CURSOR
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: status
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: supplierId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: matchStatus
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: dueBefore
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date
+  - name: outstandingOnly
+    in: query
+    required: false
+    schema:
+      type: boolean
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/SupplierInvoicePage"
+        example:
+          data:
+            - id: "019a7acb-ca06-70e7-a61f-174558379023"
+              kind: INVOICE
+              status: APPROVED
+              supplier:
+                id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
+                supplierNo: S-0007
+                name: "Ashanti Feeds Ltd"
+              supplierInvoiceNo: "88120"
+              invoiceDate: "2026-11-11"
+              dueDate: "2026-12-11"
+              purchaseOrder:
+                id: "019a7ab4-96c6-764d-ab85-6daa1377e687"
+                docType: PURCHASE_ORDER
+                number: PO-2026-DDW-000041
+              originalInvoiceId: null
+              netPesewas: 1040000
+              taxPesewas: 0
+              grossPesewas: 1040000
+              paidPesewas: 0
+              outstandingPesewas: 1040000
+              currency: GHS
+              matchStatus: MATCHED
+              file:
+                id: "019a7acb-e8f5-7aca-b002-b57cd1e82e5a"
+                originalName: invoice-88120.pdf
+                contentType: application/pdf
+              lines:
+                - id: "019a7acc-07e4-74ae-89e6-53b44b99cc92"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                    sku: FD-BRL-FIN
+                    name: "Broiler finisher feed, 50 kg bag"
+                  description: "Broiler finisher feed, 50 kg bag"
+                  purchaseOrderLineId: "019a7ab3-fc1b-74dc-9a14-5694b302cf72"
+                  goodsReceiptLineId: "019a7ab3-dd2c-7af8-8031-b85d3951313b"
+                  qty: "20.000"
+                  uom: BAG
+                  unitPricePesewas: 52000
+                  lineNetPesewas: 1040000
+                  taxCategory:
+                    id: "019a7a8a-e6af-72c1-97f9-34e713eeadc4"
+                    code: FARM_INPUTS
+                    name: "Farm Inputs"
+                  levies: []
+                  qtyVariance: "0.000"
+                  priceVariancePesewas: null
+                  priceVarianceDirection: null
+                  matchStatus: MATCHED
+                  matchReasons: []
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-10T09:00:00Z"
+              createdBy:
+                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                displayName: "Efua Asante"
+            - id: "019a7acc-26d3-7e91-93c9-f1ebc54a6ac9"
+              kind: INVOICE
+              status: PAID
+              supplier:
+                id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
+                supplierNo: S-0012
+                name: "Kpone Livestock Traders"
+              supplierInvoiceNo: KLT-1193
+              invoiceDate: "2026-11-10"
+              dueDate: "2026-12-10"
+              purchaseOrder:
+                id: "019a7ab3-be3d-7115-b64d-1a25bfa09303"
+                docType: PURCHASE_ORDER
+                number: PO-2026-DDW-000040
+              originalInvoiceId: null
+              netPesewas: 228000
+              taxPesewas: 0
+              grossPesewas: 228000
+              paidPesewas: 228000
+              outstandingPesewas: 0
+              currency: GHS
+              matchStatus: MATCHED
+              file:
+                id: "019a7acc-45c2-7875-adad-90233efb0901"
+                originalName: invoice-KLT-1193.pdf
+                contentType: application/pdf
+              lines:
+                - id: "019a7acc-64b1-7258-b790-2e5ab8aca738"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                    sku: LIV-GOAT
+                    name: Goat
+                  description: Goat
+                  purchaseOrderLineId: "019a7ab4-d4a4-7a14-8f4c-aa1906d922f6"
+                  goodsReceiptLineId: "019a7ab4-b5b5-7031-b569-0be18d2884bf"
+                  qty: "4.000"
+                  uom: HEAD
+                  unitPricePesewas: 57000
+                  lineNetPesewas: 228000
+                  taxCategory:
+                    id: "019a7a8a-e6af-72c1-97f9-34e713eeadc4"
+                    code: FARM_INPUTS
+                    name: "Farm Inputs"
+                  levies: []
+                  qtyVariance: "0.000"
+                  priceVariancePesewas: null
+                  priceVarianceDirection: null
+                  matchStatus: MATCHED
+                  matchReasons: []
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-10T09:01:00Z"
+              createdBy:
+                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                displayName: "Efua Asante"
+            - id: "019a7acc-83a0-7c3c-8174-cc92325d4570"
+              kind: INVOICE
+              status: MISMATCH
+              supplier:
+                id: "019a7a89-16ae-7e6d-a3a5-efa6f28f6884"
+                supplierNo: S-0019
+                name: "Awutu Poultry Farm"
+              supplierInvoiceNo: AWT-0457
+              invoiceDate: "2026-11-09"
+              dueDate: "2026-12-09"
+              purchaseOrder:
+                id: "019a7ab5-1282-7ddb-a313-e687fa3b5f65"
+                docType: PURCHASE_ORDER
+                number: PO-2026-DDW-000042
+              originalInvoiceId: null
+              netPesewas: 645000
+              taxPesewas: 0
+              grossPesewas: 645000
+              paidPesewas: 0
+              outstandingPesewas: 645000
+              currency: GHS
+              matchStatus: MISMATCH
+              file:
+                id: "019a7acc-a28f-761f-9b57-6ac9ac0ee3a7"
+                originalName: invoice-AWT-0457.pdf
+                contentType: application/pdf
+              lines:
+                - id: "019a7acc-c17e-7002-a53b-090125bf81df"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8d-704a-726a-a7a2-2f740f73a851"
+                    sku: LIV-BROILER
+                    name: "Broiler chicken"
+                  description: "Broiler chicken"
+                  purchaseOrderLineId: "019a7ab5-5060-71a2-86da-22f6ed9d9bd4"
+                  goodsReceiptLineId: "019a7ab5-3171-77be-bcf7-84bf73ecfd9d"
+                  qty: "500.000"
+                  uom: HEAD
+                  unitPricePesewas: 1290
+                  lineNetPesewas: 645000
+                  taxCategory:
+                    id: "019a7a8a-e6af-72c1-97f9-34e713eeadc4"
+                    code: FARM_INPUTS
+                    name: "Farm Inputs"
+                  levies: []
+                  qtyVariance: "0.000"
+                  priceVariancePesewas: 20000
+                  priceVarianceDirection: OVER
+                  matchStatus: MISMATCH
+                  matchReasons:
+                    - PRICE_OUTSIDE_TOLERANCE
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-10T09:02:00Z"
+              createdBy:
+                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                displayName: "Efua Asante"
+            - id: "019a7acc-e06d-79e6-bf1e-a7389f702016"
+              kind: INVOICE
+              status: PAID
+              supplier:
+                id: "019a7a89-359d-7850-bd89-8dde6c4006bc"
+                supplierNo: S-0021
+                name: "Dodowa Vegetable Growers Cooperative"
+              supplierInvoiceNo: DVG-221
+              invoiceDate: "2026-11-08"
+              dueDate: "2026-12-08"
+              purchaseOrder:
+                id: "019a7ab5-ad2d-7f4c-b485-fd9d5ab0767b"
+                docType: PURCHASE_ORDER
+                number: PO-2026-DDW-000044
+              originalInvoiceId: null
+              netPesewas: 618000
+              taxPesewas: 0
+              grossPesewas: 618000
+              paidPesewas: 618000
+              outstandingPesewas: 0
+              currency: GHS
+              matchStatus: MATCHED
+              file:
+                id: "019a7acc-ff5c-73c9-8902-45701921be4d"
+                originalName: invoice-DVG-221.pdf
+                contentType: application/pdf
+              lines:
+                - id: "019a7acd-1e4b-7dad-92e5-e3a792d25c85"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8e-86b1-7b69-b0a1-bf6756ac3845"
+                    sku: PRD-TOMATO
+                    name: "Tomatoes, crate"
+                  description: "Tomatoes, crate"
+                  purchaseOrderLineId: "019a7acb-2f5b-7f75-94ae-002ff7c2790d"
+                  goodsReceiptLineId: "019a7ab5-8e3e-7569-aaa1-5f65e0ffd843"
+                  qty: "12.000"
+                  uom: CRATE
+                  unitPricePesewas: 51500
+                  lineNetPesewas: 618000
+                  taxCategory:
+                    id: "019a7a8a-e6af-72c1-97f9-34e713eeadc4"
+                    code: FARM_INPUTS
+                    name: "Farm Inputs"
+                  levies: []
+                  qtyVariance: "0.000"
+                  priceVariancePesewas: null
+                  priceVarianceDirection: null
+                  matchStatus: MATCHED
+                  matchReasons: []
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-10T09:03:00Z"
+              createdBy:
+                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                displayName: "Efua Asante"
+            - id: "019a7acd-3d3a-7790-acc9-81df0c83fabc"
+              kind: INVOICE
+              status: DRAFT
+              supplier:
+                id: "019a7a88-f7bf-7489-99c2-516f78deca4d"
+                supplierNo: S-0003
+                name: "Agrivet Ghana Ltd"
+              supplierInvoiceNo: AGV-55012
+              invoiceDate: "2026-11-07"
+              dueDate: "2026-12-07"
+              purchaseOrder:
+                id: "019a7acb-106c-7592-8aca-61f87e11dad6"
+                docType: PURCHASE_ORDER
+                number: PO-2026-DDW-000043
+              originalInvoiceId: null
+              netPesewas: 85000
+              taxPesewas: 0
+              grossPesewas: 85000
+              paidPesewas: 0
+              outstandingPesewas: 85000
+              currency: GHS
+              matchStatus: UNMATCHED
+              file:
+                id: "019a7acd-5c29-7174-b6ac-2016863498f4"
+                originalName: invoice-AGV-55012.pdf
+                contentType: application/pdf
+              lines:
+                - id: "019a7acd-7b18-7b57-8090-be4dffe5372b"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8f-026d-72f7-b82f-38453d70b123"
+                    sku: VET-OXYTET
+                    name: "Oxytetracycline 20% injection, 100 ml"
+                  description: "Oxytetracycline 20% injection, 100 ml"
+                  purchaseOrderLineId: "019a7ab5-eb0b-7313-984b-3a0c4e12b2ea"
+                  goodsReceiptLineId: "019a7ab5-cc1c-7930-8e68-9bd4d46114b2"
+                  qty: "10.000"
+                  uom: UNIT
+                  unitPricePesewas: 8500
+                  lineNetPesewas: 85000
+                  taxCategory:
+                    id: "019a7a8a-e6af-72c1-97f9-34e713eeadc4"
+                    code: FARM_INPUTS
+                    name: "Farm Inputs"
+                  levies: []
+                  qtyVariance: "0.000"
+                  priceVariancePesewas: null
+                  priceVarianceDirection: null
+                  matchStatus: UNMATCHED
+                  matchReasons: []
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-10T09:04:00Z"
+              createdBy:
+                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                displayName: "Efua Asante"
+            - id: "019a7acd-9a07-753b-9a73-5c857996d563"
+              kind: INVOICE
+              status: APPROVED
+              supplier:
+                id: "019a7a89-548c-7234-876c-2c15e5f1a4f3"
+                supplierNo: S-0025
+                name: "Tema Packaging Supplies"
+              supplierInvoiceNo: TPS-3310
+              invoiceDate: "2026-11-06"
+              dueDate: "2026-12-06"
+              purchaseOrder: null
+              originalInvoiceId: null
+              netPesewas: 60000
+              taxPesewas: 12000
+              grossPesewas: 72000
+              paidPesewas: 0
+              outstandingPesewas: 72000
+              currency: GHS
+              matchStatus: NOT_REQUIRED
+              file:
+                id: "019a7acd-b8f6-7f1e-a457-fabcf347739a"
+                originalName: invoice-TPS-3310.pdf
+                contentType: application/pdf
+              lines:
+                - id: "019a7acd-d7e5-7902-be3a-98f46cf811d2"
+                  lineNo: 1
+                  product: null
+                  description: "Vacuum bags, 15 kg"
+                  purchaseOrderLineId: null
+                  goodsReceiptLineId: null
+                  qty: "400.000"
+                  uom: null
+                  unitPricePesewas: 150
+                  lineNetPesewas: 60000
+                  taxCategory:
+                    id: "019a7a8b-248d-7688-bbc0-71560750ea33"
+                    code: OTHER_GOODS
+                    name: "Other Goods"
+                  levies:
+                    - levyCode: VAT
+                      levyName: "Value Added Tax"
+                      treatment: STANDARD
+                      ratePercent: "15.00"
+                      basePesewas: 60000
+                      amountPesewas: 9000
+                      calculatedAmountPesewas: 9000
+                      isReclaimable: true
+                    - levyCode: NHIL
+                      levyName: "National Health Insurance Levy"
+                      treatment: STANDARD
+                      ratePercent: "2.50"
+                      basePesewas: 60000
+                      amountPesewas: 1500
+                      calculatedAmountPesewas: 1500
+                      isReclaimable: true
+                    - levyCode: GETFUND
+                      levyName: "GETFund Levy"
+                      treatment: STANDARD
+                      ratePercent: "2.50"
+                      basePesewas: 60000
+                      amountPesewas: 1500
+                      calculatedAmountPesewas: 1500
+                      isReclaimable: true
+                  qtyVariance: null
+                  priceVariancePesewas: null
+                  priceVarianceDirection: null
+                  matchStatus: NOT_REQUIRED
+                  matchReasons: []
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-10T09:05:00Z"
+              createdBy:
+                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                displayName: "Efua Asante"
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -940,7 +940,7 @@ Default session: B6. Brief bullets: processing orders (001 to 003, 011); yield a
 
 ### 4.6 PUR: Procurement and suppliers
 
-Default session: B7. Brief bullets: supplier register (001 to 003); requisition, purchase order, partial receipt and three-way match (004 to 010); supplier invoice, credit notes, payment scheduling, remittance (008, 011 to 013); supplier scoring (014). Ledger postings (015) are proven in B8 when the ledger exists.
+Default session: B7, split (A-165): B7 built 005 to 010 and 012; B07 continued builds 001 to 004, 011, 013 and 014. Brief bullets: supplier register (001 to 003); requisition, purchase order, partial receipt and three-way match (004 to 010); supplier invoice, credit notes, payment scheduling, remittance (008, 011 to 013); supplier scoring (014). Ledger postings (015) are proven in B8 when the ledger exists.
 
 **FR-PUR-001** Supplier profile
 - Actor: Manager, Accountant
@@ -3365,20 +3365,20 @@ One row per requirement. Rows are grouped by module; security requirements and t
 
 | Id | Session | Proving test | Operations |
 | --- | --- | --- | --- |
-| FR-PUR-001 | B7 | `test/int/pur/supplier-profile.int.spec.ts › stores terms and masks payout details` | getSupplierProfile, updateSupplierProfile |
-| FR-PUR-002 | B7 | `test/int/pur/payout-details.int.spec.ts › encrypts and requires a second approver for a change` | updateSupplierProfile, approveRequest |
-| FR-PUR-003 | B7 | `test/int/pur/supplier-documents.int.spec.ts › stores privately and refuses disguised files` | listSupplierDocuments, addSupplierDocument |
-| FR-PUR-004 | B7 | `test/int/pur/requisitions.int.spec.ts › converts or rejects a submitted requisition` | listPurchaseRequisitions, createPurchaseRequisition, getPurchaseRequisition, updatePurchaseRequisition, submitPurchaseRequisition, rejectPurchaseRequisition, convertPurchaseRequisition |
-| FR-PUR-005 | B7 | `test/int/pur/purchase-order-approval.int.spec.ts › needs a second approver above the limit` | listPurchaseOrders, createPurchaseOrder, getPurchaseOrder, updatePurchaseOrder, submitPurchaseOrder, approveRequest |
-| FR-PUR-006 | B7 | `test/int/pur/purchase-order-lifecycle.int.spec.ts › cancels only before receipt` | sendPurchaseOrder, closePurchaseOrder, cancelPurchaseOrder |
-| FR-PUR-007 | B7 | `test/int/pur/partial-receipt.int.spec.ts › tracks outstanding and refuses over-receipt` | postGoodsReceipt, getPurchaseOrder |
-| FR-PUR-008 | B7 | `test/int/pur/supplier-invoice.int.spec.ts › refuses a duplicate number per supplier` | listSupplierInvoices, createSupplierInvoice, getSupplierInvoice, updateSupplierInvoice, cancelSupplierInvoice |
-| FR-PUR-009 | B7 | `test/unit/pur/three-way-match.unit.spec.ts › applies the price and quantity tolerances` | matchSupplierInvoice |
-| FR-PUR-010 | B7 | `test/int/pur/payment-block.int.spec.ts › refuses payment of an unmatched invoice` | approveSupplierInvoice, createSupplierPayment |
-| FR-PUR-011 | B7 | `test/int/pur/supplier-credit-note.int.spec.ts › cannot exceed the invoice` | createSupplierInvoice, getSupplierInvoice |
-| FR-PUR-012 | B7 | `test/int/pur/supplier-payment.int.spec.ts › allocates within limits with a second approver` | listSupplierPayments, createSupplierPayment, getSupplierPayment, submitSupplierPayment, markSupplierPaymentPaid, cancelSupplierPayment |
-| FR-PUR-013 | B7 | `test/int/pur/remittance.int.spec.ts › sends one advice per payment` | markSupplierPaymentPaid, listArchivedDocuments |
-| FR-PUR-014 | B7 | `test/unit/pur/supplier-score.unit.spec.ts › combines the four components with weights` | listSupplierScores |
+| FR-PUR-001 | B07 continued (A-165) | `test/int/pur/supplier-profile.int.spec.ts › stores terms and masks payout details` | getSupplierProfile, updateSupplierProfile |
+| FR-PUR-002 | B07 continued (A-165) | `test/int/pur/payout-details.int.spec.ts › encrypts and requires a second approver for a change` | updateSupplierProfile, approveRequest |
+| FR-PUR-003 | B07 continued (A-165) | `test/int/pur/supplier-documents.int.spec.ts › stores privately and refuses disguised files` | listSupplierDocuments, addSupplierDocument |
+| FR-PUR-004 | B07 continued (A-165) | `test/int/pur/requisitions.int.spec.ts › converts or rejects a submitted requisition` | listPurchaseRequisitions, createPurchaseRequisition, getPurchaseRequisition, updatePurchaseRequisition, submitPurchaseRequisition, rejectPurchaseRequisition, convertPurchaseRequisition |
+| FR-PUR-005 | B7 | `test/integration/pur/purchase-to-pay.integration.spec.ts › holds an order of 250,000 for a different approver, refuses the requester and sending it meanwhile` | listPurchaseOrders, createPurchaseOrder, getPurchaseOrder, updatePurchaseOrder, submitPurchaseOrder, approveRequest |
+| FR-PUR-006 | B7 | `test/integration/pur/purchase-to-pay.integration.spec.ts › refuses to cancel after a partial receipt and short-closes 15 of 20 with 5 outstanding recorded` | sendPurchaseOrder, closePurchaseOrder, cancelPurchaseOrder |
+| FR-PUR-007 | B7 | `test/integration/pur/purchase-to-pay.integration.spec.ts › leaves 8 outstanding after 12 of 20, refuses 9 more and completes with 8` | postGoodsReceipt, getPurchaseOrder |
+| FR-PUR-008 | B7 | `test/integration/pur/purchase-to-pay.integration.spec.ts › refuses a second invoice number from one supplier and takes the same number from another` | listSupplierInvoices, createSupplierInvoice, getSupplierInvoice, updateSupplierInvoice, cancelSupplierInvoice |
+| FR-PUR-009 | B7 | `src/modules/pur/domain/three-way-match.spec.ts › applies the price and quantity tolerances` | matchSupplierInvoice |
+| FR-PUR-010 | B7 | `test/integration/pur/purchase-to-pay.integration.spec.ts › mismatches 20 at 5,600 (1.82 percent) on price, refuses approval and refuses payment, and the database refuses a direct allocation` | approveSupplierInvoice, createSupplierPayment |
+| FR-PUR-011 | B07 continued (A-165) | `test/int/pur/supplier-credit-note.int.spec.ts › cannot exceed the invoice` | createSupplierInvoice, getSupplierInvoice |
+| FR-PUR-012 | B7 | `test/integration/pur/purchase-to-pay.integration.spec.ts › pays 110,000 across invoices of 60,000 and 50,000 exactly, refuses 110,001, and needs a different approver` | listSupplierPayments, createSupplierPayment, getSupplierPayment, submitSupplierPayment, markSupplierPaymentPaid, cancelSupplierPayment |
+| FR-PUR-013 | B07 continued (A-165) | `test/int/pur/remittance.int.spec.ts › sends one advice per payment` | markSupplierPaymentPaid, listArchivedDocuments |
+| FR-PUR-014 | B07 continued (A-165) | `test/unit/pur/supplier-score.unit.spec.ts › combines the four components with weights` | listSupplierScores |
 | FR-PUR-015 | B8 | `test/int/pur/purchase-posting.int.spec.ts › posts receipt invoice and price variance` | getTrialBalance, matchSupplierInvoice |
 | SEC-013 | B13 | `test/e2e/pur/abuse-13-payout-change.e2e.spec.ts › holds a payout change until a different user approves`<br>`test/e2e/pur/abuse-13-payout-change.e2e.spec.ts › reports the change as PAYOUT_DETAIL_CHANGE with abuse case 13` | updateSupplierProfile, approveRequest, createSupplierPayment, getDailyExceptionReport |
 

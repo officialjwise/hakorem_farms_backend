@@ -42,7 +42,9 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B06 continued 2 | `B06c-livestock-growth-breeding.md` | `b06c-livestock-growth-breeding` | B4 to B12 | Every remaining LIV write refuses the wrong role; a move starts only where the animal is; average daily gain and feed conversion match a hand calculation; a batch closes only when empty; a birth registers its offspring at nil cost linked to the dam; the feed, medicine and ration seed is counted by hand (built) |
 | B06 continued 3 | `B06d-packs-labels.md` | `b06d-packs-labels` | B4 to B12 | Pack weights equal the lot weight and a pack label encodes the lot and the weight; a completed order reverses only while its outputs are unsold; every pack write refuses the wrong role; the Farm hand sees no cost on any LIV or PRC operation its grants reach (built) |
 | B06u | `B06u-uom-conversions.md` | `b06u-uom-conversions` | B4 to B12 | Alternative units convert exactly, an inexact factor is refused by the database, conversions list in the contract, writes refuse the wrong role (built) |
-| B7 | `B07-procurement-suppliers.md` | `b07-procurement-suppliers` | B4 to B12 | Three-way match blocks payment on disagreement; checkout reserves stock and releases it on timeout |
+| B7 | `B07-procurement-suppliers.md` | `b07-procurement-suppliers` | B4 to B12 | Three-way match blocks payment on disagreement (built; the session split, A-165) |
+| B07 continued | `B07b-supplier-register.md` | `b07b-supplier-register` | B4 to B12 | A payout change waits for a different approver and the old details stay in force; a disguised document is refused; a rejected requisition cannot be converted; a credit note cannot exceed its invoice; the score matches a hand calculation; every write refuses the wrong role |
+| B07 continued 2 | `B07c-storefront-checkout.md` | `b07c-storefront-checkout` | B4 to B12 | Checkout reserves stock and releases it on timeout; a live animal cannot be added to a cart; the catalogue exposes no cost; every staff write refuses the wrong role |
 | B8 | `B08-ledger-billing.md` | `b08-ledger-billing` | B4 to B12 | Trial balance sums to zero on a seeded day; an unbalanced journal is rejected by the database; numbering is gap-free under concurrent load |
 | B9a | `B09a-order-core-payments.md` | `b09a-order-core-payments` | B4 to B12 | Every payment edge case in the brief passes; an order on any channel posts stock, document, payment and ledger in one transaction |
 | B9b | `B09b-pos-shifts-offline.md` | `b09b-pos-shifts-offline` | B4 to B12 | Shift close reconciles; 500 queued offline transactions sync exactly once |
@@ -908,6 +910,8 @@ request is green.
 
 Branch `b07-procurement-suppliers`. Report `docs/sessions/B07-procurement-suppliers.md`. Gate: three-way match blocks payment where receipt and supplier invoice disagree, and checkout reserves stock and releases it on timeout.
 
+**Built on 2026-11-15 as purchase to pay, and split (A-165, ADR-0026 Amendments):** the rest of procurement is **B07 continued** and the storefront is **B07 continued 2**, both below.
+
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
 List docs/sessions/ and read only the most recent report (docs/sessions/B06u-uom-conversions.md).
@@ -934,13 +938,72 @@ Extend the seed.
 Stop at the gate and write docs/sessions/B07-procurement-suppliers.md.
 ```
 
+## B07 continued — The supplier register and the rest of procurement
+
+Branch `b07b-supplier-register`, from `main`. Report `docs/sessions/B07b-supplier-register.md`. Inserted by the B7 split (A-165, ADR-0026 Amendments). Gate: a payout detail change returns 202 and the old details stay in force until a different person approves, with the stored column ciphertext; a document whose content is not what its name says is refused; a rejected requisition cannot be converted and a converted one links its order; a credit note cannot exceed the invoice's uncredited amount; the supplier score matches FR-PUR-014's hand calculation; every write refuses the wrong role.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B07-procurement-suppliers.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the PUR requirement block of docs/SRS.md (nothing else from the SRS), docs/data-model/pur.md
+(its "As built in B7" note first), the PUR card in docs/MODULE_BOUNDARIES.md, ADR-0020, ADR-0022 and ADR-0044, and
+A-164 and A-165 in docs/ASSUMPTIONS.md. Use docs/prompts/module-build-prompt.md as the recipe. Load hakorem-money,
+hakorem-security-review (payout details, documents, approvals) and hakorem-migration.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B07 continued only, on branch b07b-supplier-register, branched from main: supplier profiles with
+payment terms (and invoice due dates from them), categories supplied and payout details encrypted (ADR-0022),
+decrypted only with a permission and audited, changed only through a SUPPLIER_PAYOUT_CHANGE approval by a different
+person (FR-PUR-001, FR-PUR-002); supplier documents through the file store (FR-PUR-003); requisitions and their
+conversion to a purchase order (FR-PUR-004); supplier credit notes against an invoice's uncredited amount, with a
+supplier-return movement through INV where goods go back (FR-PUR-011); the approved variance that lets a mismatched
+invoice be paid (FR-PUR-010); the data of the remittance advice (FR-PUR-013; rendering waits for B8); supplier
+scores (FR-PUR-014). Write the permission, money and approval tests first; extend the seed; changelog and cold-read
+summary for every contract change. Stop at the gate, write docs/sessions/B07b-supplier-register.md, and merge into
+main when every run on the pull request is green.
+```
+
+## B07 continued 2 — The storefront catalogue, cart and checkout reservation
+
+Branch `b07c-storefront-checkout`, from `main`. Report `docs/sessions/B07c-storefront-checkout.md`. Inserted by the B7 split (A-165, ADR-0026 Amendments). Gate: the second half of B7's: checkout reserves stock and releases it on timeout. Also: a live animal (`REQUEST_TO_BUY`) cannot be added to a cart; the catalogue carries no cost; `del.delivery_slot` exists with slot generation and checkout stores a chosen slot through its foreign key; every staff write refuses the wrong role.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B07b-supplier-register.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the SHP requirement block of docs/SRS.md and FR-DEL-001 (nothing else from the SRS),
+docs/data-model/shp.md and del.md, the SHP and DEL cards in docs/MODULE_BOUNDARIES.md, and ADR-0011, ADR-0019,
+ADR-0020, ADR-0021, ADR-0026 (the online-store assignment and the delivery split) and SA-13 in docs/ASSUMPTIONS.md.
+Use docs/prompts/module-build-prompt.md as the recipe. Load hakorem-money, hakorem-stock, hakorem-pricing and
+hakorem-security-review (the public cart and checkout).
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B07 continued 2 only, on branch b07c-storefront-checkout, branched from main: the public catalogue
+and product page with availability levels and no cost (FR-SHP-001, FR-SHP-002), the cart with server-computed totals
+and prices re-resolved by MDM's PricingService, coupons through Promotions (FR-SHP-003, FR-SHP-004), and checkout
+reservation through INV's Reservations only (serializable, all lines or none, the 15-minute release by the expiry
+job releasing exactly what it reserved, FR-SHP-005, FR-SHP-006), the catch-weight estimate and maximum (FR-SHP-007),
+the zone fee (FR-SHP-008), and, as the ADR-0026 delivery split decides, the del.delivery_slot table and slot
+generation, with checkout storing a chosen slot through its foreign key but not enforcing capacity (capacity and
+cut-offs are B11). A live animal cannot be added to a cart (422 REQUEST_TO_BUY_ONLY). A cart line in a unit other
+than the product's base unit converts through MasterDataRefs.toBaseIn, never with a factor of its own. Order
+placement and online payment are B09a. Write the reservation, money and permission tests first; extend the seed.
+Stop at the gate, write docs/sessions/B07c-storefront-checkout.md, and merge into main when every run on the pull
+request is green.
+```
+
 ## B8 — General ledger, billing and document generation
 
 Branch `b08-ledger-billing`. Report `docs/sessions/B08-ledger-billing.md`. Gate: the trial balance sums to zero on a seeded trading day, an unbalanced journal is rejected by the database itself, and numbering stays gap-free under concurrent load.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
-List docs/sessions/ and read only the most recent report (docs/sessions/B07-procurement-suppliers.md).
+List docs/sessions/ and read only the most recent report (docs/sessions/B07c-storefront-checkout.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
 report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the FIN, BIL and DOC requirement blocks of docs/SRS.md (nothing else from the SRS),
@@ -966,6 +1029,9 @@ Make the owner dashboard's B8 figures live (B05x, A-149): remove `cash`, `receiv
 `receivablesOverduePesewas` from RPT's PENDING_FIGURES (src/modules/rpt/domain/dashboard.ts) and answer them from
 the ledger (accounts 1000 to 1130, account 1200) and billing's due dates through published views, and build the
 planned tiles getCashPositionTile and getReceivablesTile, each test-first with its wrong-role refusal.
+Post PUR's waiting events (pur.SupplierInvoiceMatched, pur.ExpenseInvoiceApproved, pur.SupplierPaymentMade, A-164) and
+add, by an expand migration, pur.supplier_payment.bank_account_id and remittance_document_id with their foreign keys
+(docs/DATA_MODEL.md, Migrations), lifting PUR's BANK_ACCOUNT_NOT_AVAILABLE refusal.
 Stop at the gate and write docs/sessions/B08-ledger-billing.md.
 ```
 

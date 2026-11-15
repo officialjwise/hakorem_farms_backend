@@ -1,0 +1,123 @@
+operationId: cancelSupplierInvoice
+tags:
+  - pur
+summary: "Cancel a supplier invoice entered in error"
+description: "Cancels an invoice entered in error, until it is paid. With a live payment allocated to it the answer is 422 `SUPPLIER_INVOICE_INVALID` (`PAYMENT_ALLOCATED`), and the database refuses it too. A cancelled invoice's number may be entered again.\n\nPermission: `pur.supplier_invoice.create`."
+x-permission: pur.supplier_invoice.create
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - VERSION_CONFLICT
+  - INVALID_STATE_TRANSITION
+  - SUPPLIER_INVOICE_INVALID
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ReasonRequest"
+      example:
+        reason: "Counted twice in error at the morning check"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/SupplierInvoice"
+        example:
+          id: "019a7acb-ca06-70e7-a61f-174558379023"
+          kind: INVOICE
+          status: APPROVED
+          supplier:
+            id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
+            supplierNo: S-0007
+            name: "Ashanti Feeds Ltd"
+          supplierInvoiceNo: "88120"
+          invoiceDate: "2026-11-11"
+          dueDate: "2026-12-11"
+          purchaseOrder:
+            id: "019a7ab4-96c6-764d-ab85-6daa1377e687"
+            docType: PURCHASE_ORDER
+            number: PO-2026-DDW-000041
+          originalInvoiceId: null
+          netPesewas: 1040000
+          taxPesewas: 0
+          grossPesewas: 1040000
+          paidPesewas: 0
+          outstandingPesewas: 1040000
+          currency: GHS
+          matchStatus: MATCHED
+          file:
+            id: "019a7acb-e8f5-7aca-b002-b57cd1e82e5a"
+            originalName: invoice-88120.pdf
+            contentType: application/pdf
+          lines:
+            - id: "019a7acc-07e4-74ae-89e6-53b44b99cc92"
+              lineNo: 1
+              product:
+                id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                sku: FD-BRL-FIN
+                name: "Broiler finisher feed, 50 kg bag"
+              description: "Broiler finisher feed, 50 kg bag"
+              purchaseOrderLineId: "019a7ab3-fc1b-74dc-9a14-5694b302cf72"
+              goodsReceiptLineId: "019a7ab3-dd2c-7af8-8031-b85d3951313b"
+              qty: "20.000"
+              uom: BAG
+              unitPricePesewas: 52000
+              lineNetPesewas: 1040000
+              taxCategory:
+                id: "019a7a8a-e6af-72c1-97f9-34e713eeadc4"
+                code: FARM_INPUTS
+                name: "Farm Inputs"
+              levies: []
+              qtyVariance: "0.000"
+              priceVariancePesewas: null
+              priceVarianceDirection: null
+              matchStatus: MATCHED
+              matchReasons: []
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 2
+          createdAt: "2026-11-10T09:00:00Z"
+          createdBy:
+            id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+            displayName: "Efua Asante"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -1,0 +1,115 @@
+operationId: matchSupplierInvoice
+tags:
+  - pur
+summary: "Run the three-way match"
+description: "Compares each line with its purchase order line and what was received (FR-PUR-009, SA-08). A line matches when its quantity in the base unit is no more than received less what other live invoices hold, its unit price is within 1 percent of the order price either way, and its levies are as calculated; 20 at 5,550 against an order at 5,500 matches (0.91 percent), 20 at 5,600 does not (1.82 percent), and 22 against 20 received does not. Each line carries `matchReasons`; the invoice is `MATCHED` only if every payable line matches, `NOT_REQUIRED` when no line needs a match (expenses). A MISMATCH blocks payment and publishes `pur.SupplierInvoiceMismatched`; the database refuses a payment allocation to an unmatched invoice.\n\nPermission: `pur.supplier_invoice.match`."
+x-permission: pur.supplier_invoice.match
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - VERSION_CONFLICT
+  - INVALID_STATE_TRANSITION
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/SupplierInvoice"
+        example:
+          id: "019a7acc-83a0-7c3c-8174-cc92325d4570"
+          kind: INVOICE
+          status: MISMATCH
+          supplier:
+            id: "019a7a89-16ae-7e6d-a3a5-efa6f28f6884"
+            supplierNo: S-0019
+            name: "Awutu Poultry Farm"
+          supplierInvoiceNo: AWT-0457
+          invoiceDate: "2026-11-09"
+          dueDate: "2026-12-09"
+          purchaseOrder:
+            id: "019a7ab5-1282-7ddb-a313-e687fa3b5f65"
+            docType: PURCHASE_ORDER
+            number: PO-2026-DDW-000042
+          originalInvoiceId: null
+          netPesewas: 645000
+          taxPesewas: 0
+          grossPesewas: 645000
+          paidPesewas: 0
+          outstandingPesewas: 645000
+          currency: GHS
+          matchStatus: MISMATCH
+          file:
+            id: "019a7acc-a28f-761f-9b57-6ac9ac0ee3a7"
+            originalName: invoice-AWT-0457.pdf
+            contentType: application/pdf
+          lines:
+            - id: "019a7acc-c17e-7002-a53b-090125bf81df"
+              lineNo: 1
+              product:
+                id: "019a7a8d-704a-726a-a7a2-2f740f73a851"
+                sku: LIV-BROILER
+                name: "Broiler chicken"
+              description: "Broiler chicken"
+              purchaseOrderLineId: "019a7ab5-5060-71a2-86da-22f6ed9d9bd4"
+              goodsReceiptLineId: "019a7ab5-3171-77be-bcf7-84bf73ecfd9d"
+              qty: "500.000"
+              uom: HEAD
+              unitPricePesewas: 1290
+              lineNetPesewas: 645000
+              taxCategory:
+                id: "019a7a8a-e6af-72c1-97f9-34e713eeadc4"
+                code: FARM_INPUTS
+                name: "Farm Inputs"
+              levies: []
+              qtyVariance: "0.000"
+              priceVariancePesewas: 20000
+              priceVarianceDirection: OVER
+              matchStatus: MISMATCH
+              matchReasons:
+                - PRICE_OUTSIDE_TOLERANCE
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 2
+          createdAt: "2026-11-10T09:02:00Z"
+          createdBy:
+            id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+            displayName: "Efua Asante"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

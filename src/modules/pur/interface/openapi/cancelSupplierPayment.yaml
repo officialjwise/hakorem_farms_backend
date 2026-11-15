@@ -1,0 +1,96 @@
+operationId: cancelSupplierPayment
+tags:
+  - pur
+summary: "Cancel an unpaid supplier payment"
+description: "Cancels a DRAFT or APPROVED payment that has not been paid; its allocations stop counting against its invoices. A payment waiting for approval is withdrawn through the approval inbox instead.\n\nPermission: `pur.supplier_payment.create`."
+x-permission: pur.supplier_payment.create
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - VERSION_CONFLICT
+  - INVALID_STATE_TRANSITION
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ReasonRequest"
+      example:
+        reason: "Counted twice in error at the morning check"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/SupplierPayment"
+        example:
+          id: "019a7acd-f6d4-72e5-881d-372be6a9b009"
+          paymentNo: null
+          status: PENDING_APPROVAL
+          supplier:
+            id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
+            supplierNo: S-0007
+            name: "Ashanti Feeds Ltd"
+          method: BANK
+          bankAccount:
+            id: "019a7a92-6491-77d8-bd10-86568cccff34"
+            name: "GCB current account"
+            kind: BANK
+            last4: "4821"
+          amountPesewas: 1040000
+          currency: GHS
+          scheduledFor: "2026-11-14"
+          paidAt: null
+          externalReference: null
+          approvalRequestId: "019a7ace-15c3-7cc9-9201-d563605a4e41"
+          allocations:
+            - supplierInvoiceId: "019a7acb-ca06-70e7-a61f-174558379023"
+              supplierInvoiceNo: "88120"
+              amountPesewas: 1040000
+          remittanceDocumentId: null
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 2
+          createdAt: "2026-11-10T09:00:00Z"
+          createdBy:
+            id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+            displayName: "Efua Asante"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

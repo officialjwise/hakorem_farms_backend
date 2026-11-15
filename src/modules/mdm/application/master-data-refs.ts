@@ -8,6 +8,8 @@ export interface ProductFacts {
   readonly sku: string;
   readonly name: string;
   readonly categoryId: string;
+  /** The tax category its lines are taxed by (ADR-0020); purchasing reads it for an order line's levies (B7). */
+  readonly taxCategoryId: string;
   readonly stockPolicy: 'SERIALISED' | 'CATCH_WEIGHT' | 'COUNTABLE' | 'NON_STOCK';
   readonly tracking: 'SERIAL' | 'LOT' | 'NONE';
   readonly baseUom: string;
@@ -57,6 +59,13 @@ export interface GradeFacts {
   readonly name: string;
 }
 
+/** A tax category as the contract's `TaxCategoryRef` shows it (B7). */
+export interface TaxCategoryFacts {
+  readonly id: string;
+  readonly code: string;
+  readonly name: string;
+}
+
 export interface BranchFacts {
   readonly id: string;
   readonly code: string;
@@ -80,6 +89,7 @@ export interface MasterDataRefsStore {
   grades(tx: Transaction, ids: readonly string[]): Promise<GradeFacts[]>;
   species(tx: Transaction, ids: readonly string[]): Promise<SpeciesFacts[]>;
   branches(tx: Transaction, ids: readonly string[]): Promise<BranchFacts[]>;
+  taxCategories(tx: Transaction, ids: readonly string[]): Promise<TaxCategoryFacts[]>;
   reasonCodes(tx: Transaction, codes: readonly string[]): Promise<ReasonCodeFacts[]>;
   physicalLocationOfKind(tx: Transaction, branchId: string, kind: string): Promise<string | null>;
   /** Ids of live records by their codes, for a higher module's import sheet (ADR-0050). */
@@ -136,6 +146,10 @@ export class MasterDataRefs {
   /** Species by id, as the contract's `SpeciesRef` (B06 continued). */
   async speciesIn(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, SpeciesFacts>> {
     return ids.length === 0 ? new Map() : byId(await this.store.species(tx, unique(ids)));
+  }
+
+  async taxCategoriesIn(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, TaxCategoryFacts>> {
+    return byId(await this.store.taxCategories(tx, unique(ids)));
   }
 
   async branchesIn(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, BranchFacts>> {

@@ -2,6 +2,15 @@
 
 Owner: PUR module. Supplier terms, requisitions, purchase orders, supplier invoices with three-way match, supplier payments and performance. Goods receipts are inventory's (`inv.goods_receipt`). Conventions are in `docs/DATA_MODEL.md`.
 
+**As built in B7 (migration 0094, A-164):** `purchase_order`, `purchase_order_line`, `supplier_invoice`, `supplier_invoice_line`, `supplier_invoice_line_tax`, `supplier_payment` and `supplier_payment_allocation`. The rest of the schema (profiles, categories, documents, requisitions, scores) arrives with B07 continued. Differences from the dictionary below, each recorded in A-164:
+
+- `purchase_order` adds `tax_scheme_version_id` (the scheme the lines were taxed by), `approval_threshold_pesewas` (the threshold judged on submit, so `ck_purchase_order_approved` holds the approval rule on the row), `sent_by`, `close_reason`, `cancel_reason`, `posted_at`/`posted_by` (approval); the status `SENT` sits between `APPROVED` and `PARTIALLY_RECEIVED`.
+- `purchase_order_line` adds `uom` (the unit bought by), `qty_ordered_base` (by MDM's exact conversion), `tax_category_id` and `tax_pesewas`; `qty_ordered` and `unit_price_pesewas` are in `uom`. **`qty_invoiced` is not stored:** it is derived from the base quantities of matched, approved and paid invoices. `ck_purchase_order_line_net` (line net = round(qty x price)) and `ck_purchase_order_line_tolerance` (received within ordered plus tolerance) are checks.
+- `supplier_invoice` adds `stated_gross_pesewas`, `matched_at`, `cancel_reason`, `posted_at`/`posted_by`; the unique number per supplier is a partial index among invoices not cancelled. A deferred trigger holds net, tax and gross to the lines and levy rows, and `paid_pesewas` to the allocations of PAID payments.
+- `supplier_invoice_line` adds `uom`, `qty_base` and `match_reasons text[]`; `supplier_invoice_line_tax` adds `levy_name`, `calculated_amount_pesewas` (beside the amount charged) and `calc_order`.
+- `supplier_payment` has no `bank_account_id` or `remittance_document_id` yet: both arrive with their target tables in B8 (`docs/DATA_MODEL.md`, Migrations).
+- `supplier_payment_allocation` is written when the payment is prepared; allocations of a `REJECTED` or `CANCELLED` payment stop counting. `paid_pesewas` moves by trigger when the payment becomes `PAID`.
+
 ---
 
 ### `pur.supplier_profile` · MASTER

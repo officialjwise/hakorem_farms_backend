@@ -2,7 +2,7 @@ operationId: postGoodsReceipt
 tags:
   - inv
 summary: "Post a goods receipt to stock"
-description: "Registers a stock unit for each animal and each lot, writes one receipt movement per unit or untracked line from the branch's virtual supplier (or production, for a harvest) into the location, and publishes `inv.StockUnitRegistered` and, per movement, `inv.GoodsReceived` or `inv.ProductionReceived` for the ledger, all in one transaction. A serialised line's value is split equally across its animals by largest remainder. A tag or batch already active for the product is refused (`TAG_IN_USE`, `BATCH_IN_USE`). A posted receipt is frozen. The receipt number is allocated once document numbering exists; until then `receiptNo` is null.\n\nPermission: `inv.goods_receipt.post`, scoped to the receiving location."
+description: "Registers a stock unit for each animal and each lot, writes one receipt movement per unit or untracked line from the branch's virtual supplier (or production, for a harvest) into the location, and publishes `inv.StockUnitRegistered` and, per movement, `inv.GoodsReceived` or `inv.ProductionReceived` for the ledger, all in one transaction. A serialised line's value is split equally across its animals by largest remainder. A tag or batch already active for the product is refused (`TAG_IN_USE`, `BATCH_IN_USE`). A posted receipt is frozen. The receipt number is allocated once document numbering exists; until then `receiptNo` is null. A line naming a purchase order line adds its accepted quantity to that line (FR-PUR-007): past the ordered quantity and the line's tolerance the whole receipt is refused with 422 `RECEIPT_EXCEEDS_ORDER`, and a line not on an open order of the receipt's supplier with 422 `RECEIPT_ORDER_MISMATCH` (1.28.0).\n\nPermission: `inv.goods_receipt.post`, scoped to the receiving location."
 x-permission: inv.goods_receipt.post
 x-error-codes:
   - VALIDATION_FAILED
@@ -17,6 +17,8 @@ x-error-codes:
   - INVALID_STATE_TRANSITION
   - GOODS_RECEIPT_INVALID
   - REFERENCE_NOT_FOUND
+  - RECEIPT_EXCEEDS_ORDER
+  - RECEIPT_ORDER_MISMATCH
   - RATE_LIMITED
 parameters:
   - name: id

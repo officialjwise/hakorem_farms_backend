@@ -1,6 +1,6 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
 import type { UomFactor } from '../domain/unit-conversion';
-import type { BranchFacts, GradeFacts, ReasonCodeFacts, LocationFacts, MasterDataRefsStore, ProductFacts, SpeciesFacts, SupplierFacts } from '../application/master-data-refs';
+import type { BranchFacts, GradeFacts, ReasonCodeFacts, LocationFacts, MasterDataRefsStore, ProductFacts, SpeciesFacts, SupplierFacts, TaxCategoryFacts } from '../application/master-data-refs';
 
 /** MDM's own tables, read by primary key for a higher module's transaction (MasterDataRefs). */
 export class PgMasterDataRefsStore implements MasterDataRefsStore {
@@ -10,6 +10,7 @@ export class PgMasterDataRefsStore implements MasterDataRefsStore {
       sku: string;
       name: string;
       category_id: string;
+      tax_category_id: string;
       stock_policy: ProductFacts['stockPolicy'];
       tracking: ProductFacts['tracking'];
       base_uom: string;
@@ -21,7 +22,7 @@ export class PgMasterDataRefsStore implements MasterDataRefsStore {
       species_id: string | null;
       withdrawal_days: number | null;
     }>(
-      `SELECT p.id, p.sku, p.name, p.category_id, p.stock_policy, p.tracking, p.base_uom, u.display_decimals, p.shelf_life_days,
+      `SELECT p.id, p.sku, p.name, p.category_id, p.tax_category_id, p.stock_policy, p.tracking, p.base_uom, u.display_decimals, p.shelf_life_days,
               p.storage_temp_class, p.is_purchasable, (p.status = 'ACTIVE' AND p.deleted_at IS NULL) AS is_live, p.species_id, p.withdrawal_days
          FROM mdm.product p JOIN mdm.uom u ON u.code = p.base_uom
         WHERE p.id = ANY($1::uuid[])`,
@@ -32,6 +33,7 @@ export class PgMasterDataRefsStore implements MasterDataRefsStore {
       sku: r.sku,
       name: r.name,
       categoryId: r.category_id,
+      taxCategoryId: r.tax_category_id,
       stockPolicy: r.stock_policy,
       tracking: r.tracking,
       baseUom: r.base_uom,
@@ -103,6 +105,11 @@ export class PgMasterDataRefsStore implements MasterDataRefsStore {
 
   async branches(tx: Transaction, ids: readonly string[]): Promise<BranchFacts[]> {
     const { rows } = await tx.query<BranchFacts>('SELECT id, code, name FROM mdm.branch WHERE id = ANY($1::uuid[])', [ids]);
+    return rows;
+  }
+
+  async taxCategories(tx: Transaction, ids: readonly string[]): Promise<TaxCategoryFacts[]> {
+    const { rows } = await tx.query<TaxCategoryFacts>('SELECT id, code, name FROM mdm.tax_category WHERE id = ANY($1::uuid[])', [ids]);
     return rows;
   }
 

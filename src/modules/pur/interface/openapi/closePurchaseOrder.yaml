@@ -1,0 +1,113 @@
+operationId: closePurchaseOrder
+tags:
+  - pur
+summary: "Close a purchase order with nothing more to receive"
+description: "Closes an order once something was received against it, fully or short (FR-PUR-006): closing 15 of 20 received leaves 5 outstanding on the line, recorded with the reason in the audit trail. With nothing received it is 422 `PURCHASE_ORDER_INVALID` (`NOTHING_RECEIVED`): cancel it instead.\n\nPermission: `pur.purchase_order.close`."
+x-permission: pur.purchase_order.close
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - VERSION_CONFLICT
+  - INVALID_STATE_TRANSITION
+  - PURCHASE_ORDER_INVALID
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ReasonRequest"
+      example:
+        reason: "Supplier cannot deliver the balance"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/PurchaseOrder"
+        example:
+          id: "019a7ab5-ad2d-7f4c-b485-fd9d5ab0767b"
+          orderNo: PO-2026-DDW-000044
+          status: CLOSED
+          supplier:
+            id: "019a7a89-359d-7850-bd89-8dde6c4006bc"
+            supplierNo: S-0021
+            name: "Dodowa Vegetable Growers Cooperative"
+          deliverToLocation:
+            id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
+            code: STORE-1
+            name: "Feed and produce store"
+            kind: STORE
+          orderDate: "2026-11-06"
+          expectedOn: "2026-11-11"
+          taxInclusive: false
+          netPesewas: 618000
+          taxPesewas: 0
+          grossPesewas: 618000
+          currency: GHS
+          approvalRequestId: "019a7acb-4e4a-7959-ae91-9e6771731745"
+          sentAt: "2026-11-06T11:00:00Z"
+          lines:
+            - id: "019a7ab5-eb0b-7313-984b-3a0c4e12b2ea"
+              lineNo: 1
+              product:
+                id: "019a7a8e-86b1-7b69-b0a1-bf6756ac3845"
+                sku: PRD-TOMATO
+                name: "Tomatoes, crate"
+              description: null
+              qtyOrdered: "12.000"
+              qtyReceived: "12.000"
+              qtyInvoiced: "12.000"
+              uom: CRATE
+              baseUom: CRATE
+              qtyOrderedBase: "12.000"
+              qtyOutstanding: "0.000"
+              unitPricePesewas: 51500
+              lineNetPesewas: 618000
+              overReceiptTolerancePercent: "0.00"
+              expenseCategory: null
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 2
+          createdAt: "2026-11-10T09:04:00Z"
+          createdBy:
+            id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+            displayName: "Efua Asante"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

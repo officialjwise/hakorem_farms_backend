@@ -11,7 +11,7 @@ import type { Authoriser, PrincipalNames, PrincipalRef } from '../../iam';
 import type { LocationFacts, MasterDataRefs, ProductFacts } from '../../mdm';
 import { checkReceiptLines, type ReceiptKind, type ReceiptRuleBroken } from '../domain/goods-receipt';
 import { splitEvenly } from '../domain/valuation/pool-lines';
-import type { StockUnitRegistered } from '../events';
+import type { GoodsReceiptPosted, StockUnitRegistered } from '../events';
 import { isInTheFuture, ordinal, pageProbe } from './counting';
 import { GoodsReceiptInvalidError, InvReferenceNotFoundError } from './errors';
 import type {
@@ -393,6 +393,23 @@ export class GoodsReceipts {
       });
       if (unitId !== null) await this.publishUnit(tx, receipt, product, unitId, line.batchNo!, line, null);
     }
+    await this.events.publish<GoodsReceiptPosted>(tx, {
+      type: 'inv.GoodsReceiptPosted',
+      subjectType: 'GoodsReceipt',
+      subjectId: id,
+      branchId: receipt.branchId,
+      occurredAt: receipt.receivedAt,
+      payload: {
+        goodsReceiptId: id,
+        kind: receipt.kind,
+        branchId: receipt.branchId,
+        locationId: receipt.locationId,
+        supplierId: receipt.supplierId,
+        purchaseOrderId: receipt.orderDocumentId,
+        receivedAt: receipt.receivedAt.toISOString(),
+        lines: receipt.lines.map((l) => ({ goodsReceiptLineId: l.id, productId: l.productId, purchaseOrderLineId: l.orderLineRef, qtyReceived: l.qtyReceived, qtyRejected: l.qtyRejected })),
+      },
+    });
     await this.store.markPosted(tx, id, now, actor.principalId);
     const beforeView = (await this.views(tx, [receipt]))[0]!;
     const view = await this.view(tx, id);

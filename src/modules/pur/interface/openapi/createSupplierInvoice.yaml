@@ -1,0 +1,127 @@
+operationId: createSupplierInvoice
+tags:
+  - pur
+summary: "Capture a supplier invoice or credit note"
+description: "Enters a supplier's invoice as DRAFT (FR-PUR-008). The same supplier invoice number cannot be entered twice for one supplier (422 `DUPLICATE_SUPPLIER_INVOICE`; another supplier may use it). Each line names its order line, takes that line's unit and converts to the base unit by the product's exact conversion; a pure expense line names no product. Every levy of the line's tax category is calculated on the invoice date and stored with its reclaimable flag; `leviesCharged` records what the supplier actually charged where it differs, and the difference fails the match. When `statedGrossPesewas` is given the lines must add up to it exactly. Refused with 422 `SUPPLIER_INVOICE_INVALID`: `NO_LINES`, `ORDER_OF_ANOTHER_SUPPLIER`, `ORDER_NOT_RECEIVABLE`, `ORDER_REQUIRED`, `ORDER_LINE_NOT_ON_ORDER`, `PRODUCT_DIFFERS`, `NO_CONVERSION`, `INEXACT_QUANTITY`, `BRANCH_REQUIRED`, `BRANCH_DIFFERS`, `DUE_BEFORE_INVOICE`, `STATED_TOTAL_DIFFERS`, `LEVY_NOT_IN_SCHEME`, `LEVY_REPEATED`, `FILE_NOT_USABLE`, and `CREDIT_NOTE_NOT_AVAILABLE` (credit notes arrive with B07 continued). The due date defaults to the invoice date until supplier terms exist.\n\nPermission: `pur.supplier_invoice.create`."
+x-permission: pur.supplier_invoice.create
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - REFERENCE_NOT_FOUND
+  - SUPPLIER_INVOICE_INVALID
+  - DUPLICATE_SUPPLIER_INVOICE
+  - TAX_SCHEME_NOT_IN_FORCE
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/SupplierInvoiceCreate"
+      example:
+        kind: INVOICE
+        supplierId: "019a7a88-f7bf-7489-99c2-516f78deca4d"
+        supplierInvoiceNo: AGV-55012
+        invoiceDate: "2026-11-07"
+        purchaseOrderId: "019a7acb-106c-7592-8aca-61f87e11dad6"
+        fileId: "019a7acd-5c29-7174-b6ac-2016863498f4"
+        lines:
+          - productId: "019a7a8f-026d-72f7-b82f-38453d70b123"
+            description: "Oxytetracycline 20% injection, 100 ml"
+            purchaseOrderLineId: "019a7acb-2f5b-7f75-94ae-002ff7c2790d"
+            qty: "10.000"
+            unitPricePesewas: 8500
+            taxCategoryId: "019a7a8a-e6af-72c1-97f9-34e713eeadc4"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/SupplierInvoice"
+        example:
+          id: "019a7acd-3d3a-7790-acc9-81df0c83fabc"
+          kind: INVOICE
+          status: DRAFT
+          supplier:
+            id: "019a7a88-f7bf-7489-99c2-516f78deca4d"
+            supplierNo: S-0003
+            name: "Agrivet Ghana Ltd"
+          supplierInvoiceNo: AGV-55012
+          invoiceDate: "2026-11-07"
+          dueDate: "2026-12-07"
+          purchaseOrder:
+            id: "019a7acb-106c-7592-8aca-61f87e11dad6"
+            docType: PURCHASE_ORDER
+            number: PO-2026-DDW-000043
+          originalInvoiceId: null
+          netPesewas: 85000
+          taxPesewas: 0
+          grossPesewas: 85000
+          paidPesewas: 0
+          outstandingPesewas: 85000
+          currency: GHS
+          matchStatus: UNMATCHED
+          file:
+            id: "019a7acd-5c29-7174-b6ac-2016863498f4"
+            originalName: invoice-AGV-55012.pdf
+            contentType: application/pdf
+          lines:
+            - id: "019a7acd-7b18-7b57-8090-be4dffe5372b"
+              lineNo: 1
+              product:
+                id: "019a7a8f-026d-72f7-b82f-38453d70b123"
+                sku: VET-OXYTET
+                name: "Oxytetracycline 20% injection, 100 ml"
+              description: "Oxytetracycline 20% injection, 100 ml"
+              purchaseOrderLineId: "019a7ab5-eb0b-7313-984b-3a0c4e12b2ea"
+              goodsReceiptLineId: "019a7ab5-cc1c-7930-8e68-9bd4d46114b2"
+              qty: "10.000"
+              uom: UNIT
+              unitPricePesewas: 8500
+              lineNetPesewas: 85000
+              taxCategory:
+                id: "019a7a8a-e6af-72c1-97f9-34e713eeadc4"
+                code: FARM_INPUTS
+                name: "Farm Inputs"
+              levies: []
+              qtyVariance: "0.000"
+              priceVariancePesewas: null
+              priceVarianceDirection: null
+              matchStatus: UNMATCHED
+              matchReasons: []
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 2
+          createdAt: "2026-11-10T09:04:00Z"
+          createdBy:
+            id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+            displayName: "Efua Asante"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
