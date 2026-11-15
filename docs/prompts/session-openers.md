@@ -37,6 +37,7 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B05 continued 4 | `B05e-inventory-cold-chain-opening.md` | `b05e-inventory-cold-chain-opening` | B4 to B12 | The B5 gate in full: on-hand from movements matches a hand count of the seeded farm; stock cannot go negative outside allowed types; a lot traces both ways; every INV write refuses the wrong role |
 | B05x | `B05x-dashboard-branches-labels.md` | `b05x-dashboard-branches-labels` | B4 to B12 | getOwnerDashboard answers in one request with its sourceless figures null and listed; every tile whose data exists answers exactly on the seeded farm, the rest are contract-only and scheduled; a branch deactivates with its refusals and lists stay within grants; lot and product label data answers; every operation refuses the wrong role (built) |
 | B6 | `B06-livestock-processing.md` | `b06-livestock-processing` | B4 to B12 | A processing order produces lots whose costs sum exactly to input cost plus direct processing cost (built; the session split, A-154) |
+| B06m | `B06m-master-data-requests.md` | `b06m-master-data-requests` | B4 to B12 | The draft price list preview answers exactly by the engine's identity and refuses the wrong role; price list examples agree; CR-011 answered |
 | B06 continued | `B06b-livestock-packs.md` | `b06b-livestock-packs` | B4 to B12 | Every LIV write refuses the wrong role; a withdrawal hold blocks sale and processing and nobody releases it early; mortality at or above the threshold waits for a photograph and a different approver; feed and veterinary cost spread by head-days sum exactly; pack weights equal the lot weight and a pack label encodes lot and weight |
 | B7 | `B07-procurement-suppliers.md` | `b07-procurement-suppliers` | B4 to B12 | Three-way match blocks payment on disagreement; checkout reserves stock and releases it on timeout |
 | B8 | `B08-ledger-billing.md` | `b08-ledger-billing` | B4 to B12 | Trial balance sums to zero on a seeded day; an unbalanced journal is rejected by the database; numbering is gap-free under concurrent load |
@@ -752,13 +753,45 @@ allocated costs sum exactly to input cost plus direct cost, including an awkward
 Stop at the gate and write docs/sessions/B06-livestock-processing.md.
 ```
 
+## B06m — The master data contract requests CR-009 to CR-011
+
+Branch `b06m-master-data-requests`, from `main`. Report `docs/sessions/B06m-master-data-requests.md`. Inserted on 2026-11-15 (A-155): every master data phase had finished, so three frontend requests about master data were declined by each later phase as "not this phase" and had no owner. Small and additive. Gate: `previewPriceListVersion` answers cursor pages comparing a draft with the version in force, by the pricing engine's own entry identity (product, grade, band, quantity break), each line `ADDED`, `CHANGED`, `REMOVED` or `UNCHANGED` with `counts`, exact on a seeded list with one of each, refusing the wrong role; the price list examples agree with one another and show a change; CR-011 is answered in the contract and the report.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report.
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md), CR-009, CR-010
+and CR-011 above all: implement what is reasonable, record in the report what you declined and why, never
+edit that file and never open frontend source.
+For this phase, read the MDM requirement block of docs/SRS.md (units of measure and price lists only;
+nothing else from the SRS), docs/data-model/mdm.md (units, price lists and their entries), the MDM card in
+docs/MODULE_BOUNDARIES.md, ADR-0004 and ADR-0036. Use docs/prompts/module-build-prompt.md as the recipe.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B06m only, on branch b06m-master-data-requests, branched from main:
+1. CR-009: previewPriceListVersion (GET /price-list-versions/{id}/preview, mdm.price_list.read, at the
+   version's branch), comparing the version with the one in force at its validFrom by the same identity the
+   engine resolves on, in cursor pages of at most 100 with counts for the four kinds and the version
+   compared against. Read-only; test-first, including a version with nothing in force (every line ADDED).
+2. CR-010: make the price list examples agree (getPriceList.activeVersion the ACTIVE version 4, the draft
+   version 5 with one changed price), so the mock shows a preview with a change.
+3. CR-011: answer it. Say in the contract whether units are seeded only, and how a conversion is held
+   today (a crate of 30 eggs, a pack's nominal kilograms), from what the data model actually has. If the
+   brief's "units of measure with conversions" is not built, do not build a new subsystem here: record it
+   honestly in docs/BACKLOG.md or as an assumption naming the phase that owns it, and say so in the report.
+Every contract change goes in docs/CONTRACT_CHANGELOG.md and the cold-read summary at its top; examples in
+farm terms. Stop at the gate, write docs/sessions/B06m-master-data-requests.md, and merge into main when
+every run on the pull request is green.
+```
+
 ## B06 continued — Livestock management, packs and labels
 
 Branch `b06b-livestock-packs`, from `main` (ADR-0026 Amendments). Report `docs/sessions/B06b-livestock-packs.md`. Gate: every LIV write refuses the wrong role; a withdrawal hold blocks sale and processing and nobody releases it early; mortality at or above the threshold waits for a photograph and a different approver; feed and veterinary cost spread by head-days sum exactly to the value issued; pack weights equal the lot weight and a pack label encodes the lot and the weight.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
-List docs/sessions/ and read only the most recent report (docs/sessions/B06-livestock-processing.md).
+List docs/sessions/ and read only the most recent report (docs/sessions/B06m-master-data-requests.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
 reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the LIV block and FR-PRC-009 to FR-PRC-011 of docs/SRS.md (nothing else from the SRS),
