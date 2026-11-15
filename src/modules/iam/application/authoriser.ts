@@ -4,7 +4,7 @@ import type { AuditTrail } from '../../../platform/audit/audit-trail';
 import type { Actor } from '../../../platform/context/request-context';
 import type { Transaction } from '../../../platform/database/unit-of-work';
 import { ForbiddenError, UnauthenticatedError } from '../../../platform/errors/api-error';
-import { decideAccess } from '../domain/authorisation-policy';
+import { decideAccess, type GrantScope } from '../domain/authorisation-policy';
 import { StepUpRequiredError, TotpEnrolmentRequiredError } from './errors';
 import type { IamStore } from './ports';
 
@@ -84,6 +84,14 @@ export class Authoriser {
   /** Whether the actor holds the permission anywhere, without auditing a refusal: for what a screen may offer. */
   async holds(tx: Transaction, actor: Actor, permission: string): Promise<boolean> {
     return (await this.store.grantsWithPermission(tx, actor.principalId, permission, this.clock.now())).length > 0;
+  }
+
+  /**
+   * The branches and locations where the actor holds the permission now (a null location covers the whole branch),
+   * so a list read after `authorise` shows only what the grants reach (ADR-0017). Not audited: it refuses nothing.
+   */
+  async scopes(tx: Transaction, actor: Actor, permission: string): Promise<readonly GrantScope[]> {
+    return this.store.grantsWithPermission(tx, actor.principalId, permission, this.clock.now());
   }
 
   private async refuse(actor: Actor, permission: string, reason: string, scope: AuthoriseScope): Promise<void> {

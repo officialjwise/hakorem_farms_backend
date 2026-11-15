@@ -30,7 +30,8 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B04e continued 4 | `B04e5-mdm-imports-exports.md` | `b04e5-mdm-imports-exports` | B4 to B12 | MDM's imports and exports run with a dry run that writes nothing, apply all or none, and audit exports with their row count, step-up above the bulk threshold and a signed expiring link, each write with a wrong-role refusal (built for the customer sheet; the session split, A-129) |
 | B04e continued 5 | `B04e6-mdm-import-sheets.md` | `b04e6-mdm-import-sheets` | B4 to B12 | The product, supplier, location and price list entry sheets import with a dry run that writes nothing and apply all or none through each entity's own service, and export audited with their row count, each with a wrong-role refusal (built) |
 | B5 | `B05-inventory-ledger.md` | `b05-inventory-ledger` | B4 to B12 | The movement ledger and its database invariants, each proved by its own test; valuation at 100 percent; a lot traces both ways (built; the session split, A-131) |
-| B05 continued | `B05b-inventory-documents.md` | `b05b-inventory-documents` | B4 to B12 | On-hand from movements matches a hand count of the seeded farm; stock cannot go negative outside allowed types; a lot traces both ways; every INV write refuses the wrong role |
+| B05 continued | `B05b-inventory-documents.md` | `b05b-inventory-documents` | B4 to B12 | On-hand from movements matches a hand count of the seeded farm; a lot traces both ways over the API; every goods receipt write refuses the wrong role (built; the session split, A-138) |
+| B05 continued 2 | `B05c-inventory-control.md` | `b05c-inventory-control` | B4 to B12 | The B5 gate in full: on-hand from movements matches a hand count of the seeded farm; stock cannot go negative outside allowed types; a lot traces both ways; every INV write refuses the wrong role |
 | B6 | `B06-livestock-processing.md` | `b06-livestock-processing` | B4 to B12 | A processing order produces lots whose costs sum exactly to input cost plus direct processing cost |
 | B7 | `B07-procurement-suppliers.md` | `b07-procurement-suppliers` | B4 to B12 | Three-way match blocks payment on disagreement; checkout reserves stock and releases it on timeout |
 | B8 | `B08-ledger-billing.md` | `b08-ledger-billing` | B4 to B12 | Trial balance sums to zero on a seeded day; an unbalanced journal is rejected by the database; numbering is gap-free under concurrent load |
@@ -501,6 +502,8 @@ Stop at the gate and write docs/sessions/B05-inventory-ledger.md.
 
 ## B05 continued — Stock documents, the INV endpoints, opening stock and the seed
 
+**Built in part; the session split** (A-138, ADR-0026 Amendments): goods receipts (migration 0047, permissions 0048 and 0049, six operations), stock on hand at cost, a stock unit and the trace over HTTP, CR-001 and CR-003 point 2 (contract 1.16.0), and the seed with stock through the services; the hand count of the seeded farm and the two-way trace over the API pass. The rest is B05 continued 2, below. The opener is kept as it was run.
+
 Branch `b05b-inventory-documents`, from `b05-inventory-ledger` (stacked). Report `docs/sessions/B05b-inventory-documents.md`. B5 built the ledger core (A-131): migrations 0042 to 0046, schema `inv` with every stock invariant in the triggers of 0044 (SQLSTATE HK010, the rule as the constraint name), MDM's published functions `location_stock_facts` and `product_tracking` (ADR-0047), `src/modules/inv/domain/valuation/` under its gate, `Stock.postIn` (serializable only; refusals arrive as `INSUFFICIENT_STOCK`, `STOCK_UNIT_NOT_AVAILABLE`, `STOCK_UNIT_ON_HOLD`, `STOCK_UNIT_RESERVED`, `STOCK_MOVEMENT_ALREADY_REVERSED`; the ADR-0003 posting event through the outbox), `Lineage.linkIn` and `trace`, and `BalanceReconciliation.run` (raises `BALANCE_DRIFT`, corrects nothing; not yet scheduled). Gate: the B5 gate in full: on-hand derived from movements matches a hand count of the seeded farm, stock cannot go negative outside the allowed movement types, and a lot traces in both directions over the API, with every INV write refusing the wrong role.
 
 ```text
@@ -530,13 +533,46 @@ with stock through the services. Keep the valuation gate at 100 percent. Stop at
 docs/sessions/B05b-inventory-documents.md.
 ```
 
+## B05 continued 2 — Transfers, adjustments, stock takes, holds, cold chain, alerts and opening stock
+
+Branch `b05c-inventory-control`, from `b05b-inventory-documents` (stacked). Report `docs/sessions/B05c-inventory-control.md`. B05 continued built goods receipts (migration 0047: `inv.goods_receipt`, its lines and `inv.goods_receipt_animal`, frozen once posted; `GoodsReceipts.createIn` and `postIn` posting through `Stock.postIn`), stock on hand at cost with each line's exact share of its pool (`domain/valuation/pool-lines.ts`, under the 100 percent gate), `getStockUnit`, `traceStockUnit`, MDM's `MasterDataRefs`, `Authoriser.scopes` for narrowing lists to a reader's grants, the permissions `inv.stock.read` and `inv.goods_receipt.*` (A-135), contract 1.16.0, and the seed with stock (`src/seed/farm-inv.ts`, its hand count in `SEED_HAND_COUNT`). Gate: the B5 gate in full: on-hand derived from movements matches a hand count of the seeded farm, stock cannot go negative outside the allowed movement types, and a lot traces in both directions over the API, with every INV write refusing the wrong role.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B05b-inventory-documents.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
+report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the INV requirement block of docs/SRS.md (nothing else from the SRS),
+docs/data-model/inv.md, the INV card in docs/MODULE_BOUNDARIES.md, ADR-0002, ADR-0005, ADR-0017,
+ADR-0018, ADR-0019, ADR-0027 (the stock exception part), ADR-0046 and ADR-0047, A-128, A-131 to A-138
+in docs/ASSUMPTIONS.md, and migrations 0044 and 0047. Use docs/prompts/module-build-prompt.md as the
+recipe, and run hakorem-security-review on adjustments, write-offs and the opening stock import.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B05 continued 2 only, on branch b05c-inventory-control, branched from b05b-inventory-documents:
+transfers with in-transit and receipt variance, adjustments with approval at the threshold (maker and
+checker differ), stock takes with blind counts and cycle counts that refuse overlapping scopes, the hold,
+reservation and exception services with the reservation expiry job, temperature readings with automatic
+quarantine, reorder and expiry alerts (and the refusal to sell an expired lot), the scheduling of the
+nightly recompute, and the remaining INV endpoints of the contract (movements and their reversal, stock
+units and their movements, availability, holds, reservations, exceptions, transfers, adjustments, stock
+takes, reorder rules, alerts, temperature readings) with their permissions, each write with a wrong-role
+refusal. Post every movement through Stock.postIn; never write a projection. Build the OPENING_STOCK
+import sheet (A-128): the sheet is INV's, registered with MdmImports through a port MDM defines and INV
+implements (a new port needs an ADR), posting OPENING_BALANCE movements in the import's transaction; then
+decide whether a goods receipt of kind OPENING stays refused (A-136). Extend the seed through the services
+where these documents need it. Keep the valuation gate at 100 percent. Run the B5 gate in full, stop at
+it and write docs/sessions/B05c-inventory-control.md.
+```
+
 ## B6 — Livestock and processing
 
 Branch `b06-livestock-processing`. Report `docs/sessions/B06-livestock-processing.md`. Gate: a processing order consumes an animal and produces lots whose costs sum exactly to the input cost plus the direct processing cost.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
-List docs/sessions/ and read only the most recent report (docs/sessions/B05b-inventory-documents.md).
+List docs/sessions/ and read only the most recent report (docs/sessions/B05c-inventory-control.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
 report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the LIV and PRC requirement blocks of docs/SRS.md (nothing else from the SRS),

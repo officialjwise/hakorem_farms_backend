@@ -69,10 +69,10 @@ export class PgStockStore implements StockStore {
 
   async movementsOf(tx: Transaction, unitIds: readonly string[]): Promise<UnitMovement[]> {
     const { rows } = await tx.query<{
-      id: string; stock_unit_id: string; movement_type: string; qty_base: string; value_pesewas: string; cost_element: UnitMovement['costElement'];
+      id: string; stock_unit_id: string; movement_type: string; qty_base: string; weight_kg: string | null; value_pesewas: string; cost_element: UnitMovement['costElement'];
       source_document_id: string; reverses_movement_id: string | null; occurred_at: Date;
     }>(
-      `SELECT id, stock_unit_id, movement_type, qty_base, value_pesewas, cost_element, source_document_id, reverses_movement_id, occurred_at
+      `SELECT id, stock_unit_id, movement_type, qty_base, weight_kg, value_pesewas, cost_element, source_document_id, reverses_movement_id, occurred_at
          FROM inv.stock_movement WHERE stock_unit_id = ANY ($1::uuid[]) ORDER BY occurred_at, recorded_at, id`,
       [unitIds],
     );
@@ -81,6 +81,7 @@ export class PgStockStore implements StockStore {
       stockUnitId: r.stock_unit_id,
       movementType: r.movement_type,
       qtyBase: r.qty_base,
+      weightKg: r.weight_kg,
       valuePesewas: BigInt(r.value_pesewas),
       costElement: r.cost_element,
       sourceDocumentId: r.source_document_id,

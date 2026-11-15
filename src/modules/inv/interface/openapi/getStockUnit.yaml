@@ -1,0 +1,85 @@
+operationId: getStockUnit
+tags:
+  - inv
+summary: "Get a stock unit"
+description: "Permission: `inv.stock.read`."
+x-permission: inv.stock.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/StockUnit"
+        example:
+          id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
+          product:
+            id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+            sku: LIV-GOAT
+            name: Goat
+          tracking: SERIAL
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          identifier: G-0142
+          currentLocation:
+            id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+            code: PEN-G1
+            name: "Goat pen 1"
+            kind: PEN
+          status: ACTIVE
+          producedOn: null
+          expiresOn: null
+          storageTempClass: null
+          supplier:
+            id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
+            supplierNo: S-0012
+            name: "Kpone Livestock Traders"
+          grade:
+            id: "019a7a8c-d59f-70f8-9631-185eaefe913c"
+            code: A
+            name: "Grade A, well finished"
+          lastWeightKg: "26.400"
+          lastWeighedAt: "2026-11-11T07:00:00Z"
+          onHandQty: "1.000"
+          uom: HEAD
+          uomDisplayDecimals: 0
+          valueAtCostPesewas: 61250
+          currency: GHS
+          activeHolds: []
+          activeReservation: null
+          sourceDocument:
+            id: "019a7aad-f16d-766e-bba7-6fbeee70e89c"
+            docType: GOODS_RECEIPT
+            number: GRN-2026-DDW-000070
+          createdAt: "2026-11-03T11:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

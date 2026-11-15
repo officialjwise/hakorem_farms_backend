@@ -223,8 +223,9 @@ Stock received from a supplier, or from harvest or lay. Posted status: `POSTED`.
 | `delivery_note_ref` | `text` | NULL | Supplier's delivery note |
 | `received_at` | `timestamptz` | NOT NULL | |
 | `notes` | `text` | NULL | |
+| `cancel_reason` | `text` | NULL; set exactly when `CANCELLED` | Why a draft was set aside (A-136) |
 
-Standard columns: `DOCUMENT` (`status` in `DRAFT`, `POSTED`, `CANCELLED`).
+Standard columns: `DOCUMENT` (`status` in `DRAFT`, `POSTED`, `CANCELLED`), with `posted_at` and `posted_by` set exactly when `POSTED`. Built in migration 0047: `POSTED` and `CANCELLED` are final and frozen (`platform.freeze_posted`, HK004); a purchase names its supplier and nothing else does (`ck_goods_receipt_supplier`).
 
 ### `inv.goods_receipt_line` · DOCUMENT
 
@@ -246,7 +247,27 @@ Frozen with its header. Published key (three-way match).
 | `batch_no` | `text` | NULL | Supplier batch |
 | `expires_on` | `date` | NULL | |
 
-- UNIQUE (`goods_receipt_id`, `line_no`).
+- UNIQUE (`goods_receipt_id`, `line_no`). Lines change only while their receipt is a `DRAFT` (`inv.goods_receipt_part_guard`, HK004); a draft's lines are replaced through `inv.clear_draft_goods_receipt_lines`, a `SECURITY DEFINER` function, because `hk_app` holds no DELETE on a DOCUMENT table.
+
+### `inv.goods_receipt_animal` · DOCUMENT
+
+One animal of a serialised receipt line: its tag and what the livestock register takes from the arrival (B6). Added in B05 continued (A-136); frozen with its receipt.
+
+| Column | Type | Constraints | Why |
+| --- | --- | --- | --- |
+| `id` | `uuid` | PK | |
+| `goods_receipt_line_id` | `uuid` | NOT NULL, FK `inv.goods_receipt_line` | |
+| `seq_no` | `integer` | NOT NULL, CHECK `> 0` | Order on the line; the value split follows it |
+| `tag_no` | `text` | NOT NULL | Becomes the stock unit's identifier |
+| `sex` | `text` | NOT NULL, CHECK in (`MALE`, `FEMALE`, `UNKNOWN`) | |
+| `breed` | `text` | NULL | |
+| `weight_kg` | `kg` | NULL, with `weight_source` | Arrival weight; the unit's `last_weight_kg` |
+| `weight_source` | `text` | NULL, CHECK in (`SCALE`, `MANUAL`, `ESTIMATE`) | |
+| `date_of_birth` | `date` | NULL | |
+| `purpose` | `text` | NOT NULL, CHECK in (`GROWING`, `BREEDING`) | Capitalised or expensed upkeep (ADR-0018) |
+| `stock_unit_id` | `uuid` | NULL, FK `inv.stock_unit` | Set on posting |
+
+- UNIQUE (`goods_receipt_line_id`, `seq_no`); UNIQUE (`goods_receipt_line_id`, `tag_no`).
 
 ### `inv.stock_transfer` · DOCUMENT
 

@@ -1,0 +1,190 @@
+import type { INestApplicationContext } from '@nestjs/common';
+import type pg from 'pg';
+import { GoodsReceipts, type ReceiptLineInput } from '../modules/inv';
+import { ReferenceDataAdmin } from '../modules/mdm';
+import { PG_POOL } from '../platform/platform.module';
+import { SeedStaff } from './seed-staff';
+import type { ServiceSeedUnit } from './seed-unit';
+
+/** When the seeded stock arrived at Dodowa: a Tuesday morning delivery, before the shop opened. */
+export const SEED_STOCK_RECEIVED_AT = new Date('2026-11-10T07:00:00Z');
+
+/** The suppliers the seeded farm buys from (FR-MDM-007), written by the Manager. */
+export const SEED_SUPPLIERS = [
+  { name: 'Kpone Livestock Traders (SEED)', contactName: 'Nii Armah Tetteh', phone: '+233200000201' },
+  { name: 'Awutu Poultry Farm (SEED)', contactName: 'Efua Mensah', phone: '+233200000202' },
+  { name: 'Ashaiman Cold Store Ltd (SEED)', contactName: 'Kojo Asante', phone: '+233200000203' },
+] as const;
+
+type SeedSupplier = (typeof SEED_SUPPLIERS)[number]['name'];
+
+interface SeedLine {
+  readonly sku: string;
+  readonly qty: string;
+  readonly valuePesewas: bigint;
+  readonly weightKg?: string;
+  readonly batchNo?: string;
+  readonly expiresOn?: string;
+  readonly tags?: readonly string[];
+}
+
+interface SeedReceipt {
+  /** The supplier's delivery note number: also how a second run knows the receipt is there. */
+  readonly deliveryNoteRef: string;
+  readonly kind: 'PURCHASE' | 'HARVEST';
+  readonly supplier: SeedSupplier | null;
+  readonly location: 'PENS' | 'COLD' | 'SHOP';
+  readonly lines: readonly SeedLine[];
+}
+
+/**
+ * The seeded farm's stock (B05 continued), every figure chosen so a person can count it by hand. The hand count the
+ * B5 gate checks against is SEED_HAND_COUNT below, written out separately rather than derived from these receipts.
+ */
+export const SEED_RECEIPTS: readonly SeedReceipt[] = [
+  {
+    deliveryNoteRef: 'SEED-KLT-0457',
+    kind: 'PURCHASE',
+    supplier: 'Kpone Livestock Traders (SEED)',
+    location: 'PENS',
+    lines: [
+      { sku: 'LIV-GOAT', qty: '4.000', valuePesewas: 240_000n, tags: ['G-0142', 'G-0143', 'G-0144', 'G-0145'] },
+      // GHS 1,500.01 for two sheep: largest remainder gives the first 75,001 and the second 75,000.
+      { sku: 'LIV-SHEEP', qty: '2.000', valuePesewas: 150_001n, tags: ['S-0031', 'S-0032'] },
+    ],
+  },
+  {
+    deliveryNoteRef: 'SEED-APF-1182',
+    kind: 'PURCHASE',
+    supplier: 'Awutu Poultry Farm (SEED)',
+    location: 'PENS',
+    lines: [{ sku: 'LIV-BROILER', qty: '20.000', valuePesewas: 110_000n, batchNo: 'BR-2026-1110' }],
+  },
+  {
+    deliveryNoteRef: 'SEED-ACS-0093',
+    kind: 'PURCHASE',
+    supplier: 'Ashaiman Cold Store Ltd (SEED)',
+    location: 'COLD',
+    lines: [
+      { sku: 'MEAT-BEEF-15KG', qty: '45.000', valuePesewas: 540_000n, weightKg: '45.000', batchNo: 'LOT-BEEF-2026-1110', expiresOn: '2027-02-08' },
+      { sku: 'MEAT-GOAT-15KG', qty: '30.000', valuePesewas: 390_000n, weightKg: '30.000', batchNo: 'LOT-GOAT-0001', expiresOn: '2027-02-08' },
+    ],
+  },
+  {
+    deliveryNoteRef: 'SEED-APF-1183',
+    kind: 'PURCHASE',
+    supplier: 'Awutu Poultry Farm (SEED)',
+    location: 'SHOP',
+    lines: [{ sku: 'EGG-CRATE-BIG', qty: '30.000', valuePesewas: 105_000n, batchNo: 'EGG-BIG-2026-1110', expiresOn: '2026-12-01' }],
+  },
+  {
+    deliveryNoteRef: 'SEED-HARVEST-1110',
+    kind: 'HARVEST',
+    supplier: null,
+    location: 'SHOP',
+    lines: [
+      { sku: 'PRD-YAM-TUBER', qty: '40.000', valuePesewas: 48_000n },
+      { sku: 'PRD-CABBAGE-HEAD', qty: '25.000', valuePesewas: 12_500n },
+    ],
+  },
+];
+
+/**
+ * The seeded farm counted by hand: what stands at each Dodowa location after the seed, and the value at cost of all
+ * of it. GHS 2,400.00 of goats, 1,500.01 of sheep, 1,100.00 of broilers, 5,400.00 of beef, 3,900.00 of goat meat,
+ * 1,050.00 of eggs, 480.00 of yam and 125.00 of cabbage: GHS 15,955.01.
+ */
+export const SEED_HAND_COUNT = {
+  lines: [
+    { location: 'PENS', sku: 'LIV-GOAT', onHand: '4.000' },
+    { location: 'PENS', sku: 'LIV-SHEEP', onHand: '2.000' },
+    { location: 'PENS', sku: 'LIV-BROILER', onHand: '20.000' },
+    { location: 'COLD', sku: 'MEAT-BEEF-15KG', onHand: '45.000' },
+    { location: 'COLD', sku: 'MEAT-GOAT-15KG', onHand: '30.000' },
+    { location: 'SHOP', sku: 'EGG-CRATE-BIG', onHand: '30.000' },
+    { location: 'SHOP', sku: 'PRD-YAM-TUBER', onHand: '40.000' },
+    { location: 'SHOP', sku: 'PRD-CABBAGE-HEAD', onHand: '25.000' },
+  ],
+  totalValueAtCostPesewas: 1_595_501,
+} as const;
+
+const key = (...parts: string[]): string => `seed:inv:${parts.join(':')}`;
+
+async function idsByCode(pool: pg.Pool, sql: string): Promise<Map<string, string>> {
+  const { rows } = await pool.query<{ code: string; id: string }>(sql);
+  return new Map(rows.map((row) => [row.code, row.id]));
+}
+
+function required(map: ReadonlyMap<string, string>, code: string, what: string): string {
+  const value = map.get(code);
+  if (value === undefined) {
+    throw new Error(`the INV seed needs ${what} ${code}, which an earlier seed unit creates; run the seed units in order`);
+  }
+  return value;
+}
+
+/**
+ * The INV slice of the seeded farm, written through the services as the seeded Manager (A-085): the three
+ * suppliers through `ReferenceDataAdmin`, then each goods receipt drafted and posted through `GoodsReceipts`, so
+ * every stock unit, movement, cost pool, audit event and outbox message is the one production writes. A receipt
+ * already there (found by its delivery note) is left alone, and every call carries a fixed idempotency key.
+ */
+export function farmSeedInv(): ServiceSeedUnit {
+  return {
+    kind: 'SERVICE',
+    name: 'inv-services',
+    async run(app: INestApplicationContext) {
+      const staff = await SeedStaff.load(app);
+      const pool = app.get<pg.Pool>(PG_POOL);
+      let records = 0;
+
+      const reference = app.get(ReferenceDataAdmin);
+      const suppliers = await idsByCode(pool, 'SELECT name AS code, id FROM mdm.supplier WHERE deleted_at IS NULL');
+      records += await staff.as('manager', async (manager) => {
+        let written = 0;
+        for (const supplier of SEED_SUPPLIERS) {
+          if (suppliers.has(supplier.name)) continue;
+          suppliers.set(supplier.name, (await reference.createSupplier(manager, supplier, key('supplier', supplier.phone))).body.id);
+          written += 1;
+        }
+        return written;
+      });
+
+      const locations = await idsByCode(pool, "SELECT l.code, l.id FROM mdm.location l JOIN mdm.branch b ON b.id = l.branch_id WHERE b.code = 'DDW' AND l.deleted_at IS NULL");
+      const products = await idsByCode(pool, 'SELECT sku AS code, id FROM mdm.product WHERE deleted_at IS NULL');
+      const done = new Set((await pool.query<{ ref: string }>('SELECT delivery_note_ref AS ref FROM inv.goods_receipt WHERE delivery_note_ref IS NOT NULL')).rows.map((r) => r.ref));
+      const receipts = app.get(GoodsReceipts);
+      for (const receipt of SEED_RECEIPTS) {
+        if (done.has(receipt.deliveryNoteRef)) continue;
+        await staff.as('manager', async (manager) => {
+          const lines: ReceiptLineInput[] = receipt.lines.map((line) => ({
+            productId: required(products, line.sku, 'product'),
+            qtyReceived: line.qty,
+            valuePesewas: line.valuePesewas,
+            weightKg: line.weightKg,
+            weightSource: line.weightKg === undefined ? undefined : 'SCALE',
+            batchNo: line.batchNo,
+            expiresOn: line.expiresOn,
+            animals: line.tags?.map((tagNo) => ({ tagNo, sex: 'MALE' as const, breed: line.sku === 'LIV-SHEEP' ? 'Djallonke' : 'West African Dwarf', purpose: 'GROWING' as const })),
+          }));
+          const draft = await receipts.create(
+            manager,
+            {
+              kind: receipt.kind,
+              supplierId: receipt.supplier === null ? undefined : required(suppliers, receipt.supplier, 'supplier'),
+              locationId: required(locations, receipt.location, 'location'),
+              deliveryNoteRef: receipt.deliveryNoteRef,
+              receivedAt: SEED_STOCK_RECEIVED_AT,
+              notes: 'SEED stock',
+              lines,
+            },
+            key('receipt', receipt.deliveryNoteRef),
+          );
+          await receipts.post(manager, draft.body.id, key('receipt', receipt.deliveryNoteRef, 'post'));
+        });
+        records += 1 + receipt.lines.length;
+      }
+      return { records };
+    },
+  };
+}

@@ -8,6 +8,8 @@
  * publishes the administration services so the seeded farm is written through them (A-085); no module calls them.
  * B04d continued 2 adds the branch, location and party administration for the seed on the same terms (ADR-0042).
  * B04d continued 3 adds suppliers and the reference data (payment methods, delivery zones) on the same terms.
+ * B05 continued adds `MasterDataRefs`: products, locations, suppliers and grades by id in the caller's transaction,
+ * the read side of `Catalogue`, `Parties` and `Locations` that inventory needs to post and show stock.
  */
 export { MdmModule } from './mdm.module';
 export { PricingService, type AppliedPromotionView, type PriceResolutionView, type PriceResolveResultView, type ResolveLine, type ResolveRequest } from './application/pricing';
@@ -24,3 +26,4 @@ export { ProductCatalogue } from './application/product-catalogue';
 export { LocationsAdmin } from './application/locations-admin';
 export { PartiesAdmin } from './application/parties-admin';
 export { ReferenceDataAdmin } from './application/reference-data-admin';
+export { MasterDataRefs, type GradeFacts, type LocationFacts, type ProductFacts, type SupplierFacts } from './application/master-data-refs';

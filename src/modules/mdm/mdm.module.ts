@@ -58,6 +58,8 @@ import { PriceEntrySheet } from './application/price-entry-sheet';
 import { ProductSheet } from './application/product-sheet';
 import { SupplierSheet } from './application/supplier-sheet';
 import { IMPORT_STORE, SHEET_LOOKUPS, type ImportStore, type SheetLookups } from './application/import-store';
+import { MASTER_DATA_REFS_STORE, MasterDataRefs, type MasterDataRefsStore } from './application/master-data-refs';
+import { PgMasterDataRefsStore } from './infrastructure/pg-master-data-refs-store';
 import { PgImportStore, PgSheetLookups } from './infrastructure/pg-import-store';
 import { ImportsController } from './interface/imports.controller';
 
@@ -254,8 +256,10 @@ import { ImportsController } from './interface/imports.controller';
         PRICE_LIST_STORE,
       ],
     },
+    { provide: MASTER_DATA_REFS_STORE, useClass: PgMasterDataRefsStore },
+    { provide: MasterDataRefs, useFactory: (store: MasterDataRefsStore) => new MasterDataRefs(store), inject: [MASTER_DATA_REFS_STORE] },
   ],
-  exports: [PricingService, Promotions, TaxService],
+  exports: [PricingService, Promotions, TaxService, MasterDataRefs],
 })
 export class MdmModule implements OnModuleInit {
   constructor(

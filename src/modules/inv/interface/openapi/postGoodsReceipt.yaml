@@ -1,0 +1,141 @@
+operationId: postGoodsReceipt
+tags:
+  - inv
+summary: "Post a goods receipt to stock"
+description: "Registers a stock unit for each animal and each lot, writes one receipt movement per unit or untracked line from the branch's virtual supplier (or production, for a harvest) into the location, and publishes `inv.StockUnitRegistered` and, per movement, `inv.GoodsReceived` or `inv.ProductionReceived` for the ledger, all in one transaction. A serialised line's value is split equally across its animals by largest remainder. A tag or batch already active for the product is refused (`TAG_IN_USE`, `BATCH_IN_USE`). A posted receipt is frozen. The receipt number is allocated once document numbering exists; until then `receiptNo` is null.\n\nPermission: `inv.goods_receipt.post`, scoped to the receiving location."
+x-permission: inv.goods_receipt.post
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - NOT_FOUND
+  - INVALID_STATE_TRANSITION
+  - GOODS_RECEIPT_INVALID
+  - REFERENCE_NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/GoodsReceipt"
+        example:
+          id: "019a7ab3-9f4e-7731-ac6a-7bee45eff4cc"
+          receiptNo: GRN-2026-DDW-000072
+          kind: PURCHASE
+          status: POSTED
+          supplier:
+            id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
+            supplierNo: S-0012
+            name: "Kpone Livestock Traders"
+          location:
+            id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+            code: PEN-G2
+            name: "Goat pen 2"
+            kind: PEN
+          purchaseOrder:
+            id: "019a7ab3-be3d-7115-b64d-1a25bfa09303"
+            docType: PURCHASE_ORDER
+            number: PO-2026-DDW-000040
+          deliveryNoteRef: DN-8812
+          receivedAt: "2026-11-12T10:00:00Z"
+          notes: null
+          lines:
+            - id: "019a7ab3-dd2c-7af8-8031-b85d3951313b"
+              lineNo: 1
+              product:
+                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                sku: LIV-GOAT
+                name: Goat
+              purchaseOrderLineId: "019a7ab3-fc1b-74dc-9a14-5694b302cf72"
+              qtyReceived: "4.000"
+              qtyRejected: "0.000"
+              uom: HEAD
+              weightKg: "98.600"
+              weightSource: SCALE
+              valuePesewas: 228000
+              stockUnit: null
+              batchNo: null
+              expiresOn: null
+              animals:
+                - tagNo: G-0171
+                  sex: MALE
+                  breed: "West African Dwarf"
+                  weightKg: "24.900"
+                  weightSource: SCALE
+                  dateOfBirth: null
+                  purpose: GROWING
+                  stockUnitId: "019a7a8f-bc07-7e4c-9384-ed921796666f"
+                - tagNo: G-0172
+                  sex: MALE
+                  breed: "West African Dwarf"
+                  weightKg: "23.600"
+                  weightSource: SCALE
+                  dateOfBirth: null
+                  purpose: GROWING
+                  stockUnitId: "019a7ab4-1b0a-7ebf-a3f7-f4cc2cb36daa"
+                - tagNo: G-0173
+                  sex: FEMALE
+                  breed: "West African Dwarf"
+                  weightKg: "25.300"
+                  weightSource: SCALE
+                  dateOfBirth: null
+                  purpose: GROWING
+                  stockUnitId: "019a7ab4-39f9-78a3-bddb-9303a6640be1"
+                - tagNo: G-0174
+                  sex: FEMALE
+                  breed: "West African Dwarf"
+                  weightKg: "24.800"
+                  weightSource: SCALE
+                  dateOfBirth: null
+                  purpose: GROWING
+                  stockUnitId: "019a7ab4-58e8-7286-87be-313b2015aa19"
+          totalValuePesewas: 228000
+          currency: GHS
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 2
+          createdAt: "2026-11-12T08:00:00Z"
+          createdBy:
+            id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+            displayName: "Yaw Boateng"
+          postedAt: "2026-11-12T09:00:00Z"
+          postedBy:
+            id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+            displayName: "Yaw Boateng"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
