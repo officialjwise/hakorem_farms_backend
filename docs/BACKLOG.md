@@ -38,6 +38,15 @@ Each item says why it is parked and what would bring it back.
 | --- | --- | --- | --- | --- |
 | BL-044 | Promotions targeted at a customer tier | The SRS names tiers among a promotion's targets, but the contract and `mdm.promotion` carry none; a tier already has its own price list, and channel and coupon restrict a promotion | The owner wants a discount for one tier that a tier price list cannot express | ADR-0040, A-101 |
 
+## Parked in B05x
+
+| ID | Item | Why it is not in version one yet | What would bring it back | Related |
+| --- | --- | --- | --- | --- |
+| BL-047 | A closed branch refuses new stock documents and movements at its locations | Closing a branch is refused while stock or open documents remain (ADR-0051), but nothing yet stops a new receipt or movement there afterwards; that is a rule on every INV document and on the movement trigger, outside B05x's three items | The owner closes a selling point, or the next session that opens INV's documents | A-150 |
+| BL-048 | A `branchId` filter on `listStockTransfers`, `listStockAdjustments`, `listGoodsReceipts` and `listStockTakes` (CR-015) | INV list filters, not branch management; the lists are already narrowed to the reader's grants | The next session that opens INV's lists; payments, billing and audit lists take it when they are built | A-152 |
+| BL-049 | Server-rendered label PDFs for products and lots (`POST /labels`, CR-016) | B05x returns label data only; rendering, archiving and auditing printed documents is DOC's, with document generation | B8's document generation, or B6 with `printPackLabels` | A-151 |
+| BL-050 | The owner dashboard's further figures from CR-013 (change arrows, stock health counts, stock by category, alert lists, near-expiry by month, invoices, recent payments, payment method split) | Most need sources not built (BIL, PAY, ORD); the rest need definitions the owner has not given (what "available" and "out of stock" count, which change compares with what) | B8, B9a and B9b add their figures; B12 composes the rest with the read model | A-149, A-152 |
+
 ## Explicitly outside the brief
 
 These are not mentioned in the shared brief, or are mentioned only conditionally. They are listed so that nobody builds them by accident.

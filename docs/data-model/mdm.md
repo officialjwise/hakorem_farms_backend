@@ -144,6 +144,10 @@ Standard columns: `MASTER`.
 
 Created in B04e continued 3 (migration 0037, ADR-0045). `alt_text` is 1 to 200 characters and `sort_order` 0 to 999. A partial unique index keeps one live image per (`product_id`, `file_id`). `mdm.product_image_guard()` (SQLSTATE HK008) asks `platform.require_clean_file(file_id, 'PRODUCT_IMAGE')` on insert, so only a CLEAN product photograph is attached, and refuses a change to an image's product or file. Removing an image is a soft delete with the reason "Removed from the product gallery".
 
+### `mdm.pub_product` · published view (B05x, migration 0067)
+
+For RPT only (ADR-0011, ADR-0023): `product_id`, `sku`, `name`, `tracking`, `stock_policy`, `species_id`, `species_code`, `species_name`, archived products included. The animals on hand tile counts serialised stock by species through it. `hk_report` gains `USAGE` on `mdm` for it and nothing else in the schema.
+
 ## Parties
 
 ### `mdm.customer_tier` · MASTER
