@@ -16,6 +16,10 @@ export interface ProductFacts {
   readonly isPurchasable: boolean;
   /** ACTIVE, not archived. */
   readonly isLive: boolean;
+  /** The species of a live animal product (every serialised product has one); null for anything else. */
+  readonly speciesId: string | null;
+  /** Days a treated animal may not be sold or slaughtered after this medication (FR-LIV-008); null if none. */
+  readonly withdrawalDays: number | null;
 }
 
 export interface LocationFacts {
@@ -37,6 +41,12 @@ export interface SupplierFacts {
   readonly name: string;
   /** ACTIVE, not archived and not blocked. */
   readonly isLive: boolean;
+}
+
+export interface SpeciesFacts {
+  readonly id: string;
+  readonly code: string;
+  readonly name: string;
 }
 
 export interface GradeFacts {
@@ -66,6 +76,7 @@ export interface MasterDataRefsStore {
   virtualLocation(tx: Transaction, branchId: string, kind: string): Promise<string | null>;
   suppliers(tx: Transaction, ids: readonly string[]): Promise<SupplierFacts[]>;
   grades(tx: Transaction, ids: readonly string[]): Promise<GradeFacts[]>;
+  species(tx: Transaction, ids: readonly string[]): Promise<SpeciesFacts[]>;
   branches(tx: Transaction, ids: readonly string[]): Promise<BranchFacts[]>;
   reasonCodes(tx: Transaction, codes: readonly string[]): Promise<ReasonCodeFacts[]>;
   physicalLocationOfKind(tx: Transaction, branchId: string, kind: string): Promise<string | null>;
@@ -111,6 +122,11 @@ export class MasterDataRefs {
 
   async gradesIn(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, GradeFacts>> {
     return ids.length === 0 ? new Map() : byId(await this.store.grades(tx, unique(ids)));
+  }
+
+  /** Species by id, as the contract's `SpeciesRef` (B06 continued). */
+  async speciesIn(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, SpeciesFacts>> {
+    return ids.length === 0 ? new Map() : byId(await this.store.species(tx, unique(ids)));
   }
 
   async branchesIn(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, BranchFacts>> {

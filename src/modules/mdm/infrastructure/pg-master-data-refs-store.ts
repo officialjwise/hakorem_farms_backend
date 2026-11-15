@@ -1,5 +1,5 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
-import type { BranchFacts, GradeFacts, ReasonCodeFacts, LocationFacts, MasterDataRefsStore, ProductFacts, SupplierFacts } from '../application/master-data-refs';
+import type { BranchFacts, GradeFacts, ReasonCodeFacts, LocationFacts, MasterDataRefsStore, ProductFacts, SpeciesFacts, SupplierFacts } from '../application/master-data-refs';
 
 /** MDM's own tables, read by primary key for a higher module's transaction (MasterDataRefs). */
 export class PgMasterDataRefsStore implements MasterDataRefsStore {
@@ -17,9 +17,11 @@ export class PgMasterDataRefsStore implements MasterDataRefsStore {
       storage_temp_class: ProductFacts['storageTempClass'];
       is_purchasable: boolean;
       is_live: boolean;
+      species_id: string | null;
+      withdrawal_days: number | null;
     }>(
       `SELECT p.id, p.sku, p.name, p.category_id, p.stock_policy, p.tracking, p.base_uom, u.display_decimals, p.shelf_life_days,
-              p.storage_temp_class, p.is_purchasable, (p.status = 'ACTIVE' AND p.deleted_at IS NULL) AS is_live
+              p.storage_temp_class, p.is_purchasable, (p.status = 'ACTIVE' AND p.deleted_at IS NULL) AS is_live, p.species_id, p.withdrawal_days
          FROM mdm.product p JOIN mdm.uom u ON u.code = p.base_uom
         WHERE p.id = ANY($1::uuid[])`,
       [ids],
@@ -37,6 +39,8 @@ export class PgMasterDataRefsStore implements MasterDataRefsStore {
       storageTempClass: r.storage_temp_class,
       isPurchasable: r.is_purchasable,
       isLive: r.is_live,
+      speciesId: r.species_id,
+      withdrawalDays: r.withdrawal_days,
     }));
   }
 
@@ -84,6 +88,11 @@ export class PgMasterDataRefsStore implements MasterDataRefsStore {
       [ids],
     );
     return rows.map((r) => ({ id: r.id, supplierNo: r.supplier_no, name: r.name, isLive: r.is_live }));
+  }
+
+  async species(tx: Transaction, ids: readonly string[]): Promise<SpeciesFacts[]> {
+    const { rows } = await tx.query<SpeciesFacts>('SELECT id, code, name FROM mdm.species WHERE id = ANY($1::uuid[])', [ids]);
+    return rows;
   }
 
   async grades(tx: Transaction, ids: readonly string[]): Promise<GradeFacts[]> {

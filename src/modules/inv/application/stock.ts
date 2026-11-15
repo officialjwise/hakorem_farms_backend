@@ -1,6 +1,7 @@
 import { Money, createUuidV7Generator, type Clock, type Quantity, type Weight } from '@hakorem/kernel';
 import { IsolationLevelError, type Transaction } from '../../../platform/database/unit-of-work';
 import type { DomainEvents } from '../../../platform/events/domain-events';
+import type { UpkeepExpensed } from '../events';
 import { translateStockRefusal } from './errors';
 import type { CostElement, StockStore, WeightSource } from './stock-store';
 
@@ -127,6 +128,36 @@ export class Stock {
     }
     await this.watch.evaluateIn(tx, actorId, [request.productId]);
     return { id, value };
+  }
+
+  /**
+   * Records feed or veterinary cost spent on a breeding animal or flock (ADR-0018: expensed, not capitalised): no pool
+   * changes, so no movement is written; the ledger event is published in the caller's transaction for B8 to post.
+   */
+  async expenseIn(
+    tx: Transaction,
+    request: { readonly stockUnitId: string; readonly productId: string; readonly branchId: string; readonly locationId: string; readonly value: Money; readonly costElement: 'FEED' | 'VETERINARY'; readonly sourceDocumentId: string; readonly sourceLineRef?: string | null; readonly occurredAt: Date },
+  ): Promise<void> {
+    if (tx.isolation !== 'serializable') {
+      throw new IsolationLevelError(tx.isolation);
+    }
+    await this.events.publish<UpkeepExpensed>(tx, {
+      type: 'inv.UpkeepExpensed',
+      subjectType: 'StockUnit',
+      subjectId: request.stockUnitId,
+      branchId: request.branchId,
+      occurredAt: request.occurredAt,
+      payload: {
+        stockUnitId: request.stockUnitId,
+        productId: request.productId,
+        branchId: request.branchId,
+        locationId: request.locationId,
+        valuePesewas: request.value.toJsonInteger(),
+        costElement: request.costElement,
+        sourceDocumentId: request.sourceDocumentId,
+        sourceLineRef: request.sourceLineRef ?? null,
+      },
+    });
   }
 
   /** Reservations and holds change what is available without a movement; they tell the watch through here. */

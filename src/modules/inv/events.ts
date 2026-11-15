@@ -42,3 +42,19 @@ export interface ReservationEnded {
   readonly expiresAt: string | null;
   readonly reason: string;
 }
+
+/**
+ * ◆ `inv.UpkeepExpensed` v1 (ADR-0003, ADR-0018, A-134 (i)): feed or veterinary cost spent on breeding stock, which is
+ * expensed rather than capitalised onto the animal, so no cost pool changes and no movement carries it. The feed or
+ * medication itself left the store by its own FEED_ISSUE or MEDICATION_ISSUE. B8 posts 5200 debit, 1300 credit.
+ */
+export interface UpkeepExpensed {
+  readonly stockUnitId: string;
+  readonly productId: string;
+  readonly branchId: string;
+  readonly locationId: string;
+  readonly valuePesewas: number;
+  readonly costElement: 'FEED' | 'VETERINARY';
+  readonly sourceDocumentId: string;
+  readonly sourceLineRef: string | null;
+}

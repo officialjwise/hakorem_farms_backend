@@ -17,7 +17,7 @@
 export { InvModule } from './inv.module';
 export { Stock, type MovementRequest, type PostedMovement, type StockPostingPayload } from './application/stock';
 export { Lineage, type Trace, type TracedUnit } from './application/lineage';
-export { StockUnits, type LotRegistration, type StockUnitFacts } from './application/stock-units';
+export { StockUnits, type LotRegistration, type StockUnitFacts, type UnitOnHand } from './application/stock-units';
 export { BalanceReconciliation, type DriftFound } from './application/reconciliation';
 export { GoodsReceipts, type GoodsReceiptCreateRequest, type GoodsReceiptView, type ReceiptLineInput } from './application/goods-receipts';
 export { StockQueries, type StockOnHandPageView, type StockTraceView, type StockUnitView } from './application/stock-queries';
@@ -30,7 +30,7 @@ export { StockExceptions, type StockExceptionView } from './application/stock-ex
 export { StockAlerts, StockAlertSweep, type ReorderRuleView, type StockAlertRaised, type StockAlertView } from './application/stock-alerts';
 export { ColdChain, type TemperatureExcursionRecorded, type TemperatureReadingView } from './application/cold-chain';
 export { ReservationExpiry, Reservations, reservationLockKey, type ConsumeRequest, type ReservationRequest, type StockReservationView } from './application/reservations';
-export type { ReservationEnded, StockUnitRegistered } from './events';
+export type { ReservationEnded, StockUnitRegistered, UpkeepExpensed } from './events';
 export type { CostElement, LinkType, WeightSource } from './application/stock-store';
 export {
   InsufficientStockError,
