@@ -92,6 +92,8 @@ import {
   ProcessingOrderCreate,
   ProcessingOrderUpdate,
   ProcessingOutputsReplace,
+  LabelPrintRequest,
+  PacksCreate,
   ReasonBody as PrcReasonBody,
   YieldStandardCreate,
   YieldStandardUpdate,
@@ -310,6 +312,8 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     recordProcessingOutputs: ProcessingOutputsReplace,
     addProcessingCost: ProcessingCostCreate,
     cancelProcessingOrder: PrcReasonBody,
+    createPacks: PacksCreate,
+    printPackLabels: LabelPrintRequest,
     createYieldStandard: YieldStandardCreate,
     updateYieldStandard: YieldStandardUpdate,
     recordWeights: WeightRecordBatch,
@@ -327,6 +331,14 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     updateBreedingRecord: BreedingRecordUpdate,
     recordBirth: BirthRecord,
     failBreedingRecord: LivReasonRequest,
+    recordCareHealthEvent: HealthEventCreate,
+    reportCareMortality: MortalityRecordCreate,
+    recordCareFeedConsumption: FeedConsumptionCreate,
+    updateCareAnimal: AnimalUpdate,
+    moveCareAnimal: AnimalMove,
+    createCareBatch: BatchCreate,
+    updateCareBatch: BatchUpdate,
+    closeCareBatch: LivReasonRequest,
   };
 
   it('parses every request example of an implemented operation with the schema its route validates with', () => {

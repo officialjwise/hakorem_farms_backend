@@ -2,8 +2,9 @@ operationId: reportMortality
 tags:
   - liv
 summary: "Report a death or cull"
-description: "Permission: `liv.mortality.report`.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result."
+description: "Permission: `liv.mortality.report`.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result. The answer carries the value written off, so the caller also needs `liv.mortality.read` at the same scope (`x-answer-permission`, ADR-0052); the Farm hand, who holds the write but not the read, uses `reportCareMortality`."
 x-permission: liv.mortality.report
+x-answer-permission: liv.mortality.read
 x-error-codes:
   - VALIDATION_FAILED
   - UNAUTHENTICATED

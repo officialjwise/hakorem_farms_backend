@@ -252,7 +252,8 @@ describe('a withdrawal hold blocks sale and processing, and nobody releases it e
 
   it('treats G-0143 with 0.005 l of oxytetracycline: issues it at 150 pesewas and holds the goat for 28 days', async () => {
     treatedAt = new Date(clock.now().getTime() - 27 * 86_400_000);
-    const treated = await post(farmHand, '/health-events', {
+    // The Farm hand records it through the care door, which answers without cost (A-160); the manager reads the cost.
+    const treated = await post(farmHand, '/care/health-events', {
       kind: 'TREATMENT',
       stockUnitId: id('unit:G-0143'),
       productId: id('product:MED-OXYTET-L'),
@@ -262,7 +263,9 @@ describe('a withdrawal hold blocks sale and processing, and nobody releases it e
       occurredAt: treatedAt.toISOString(),
     });
     expect(treated.status, JSON.stringify(treated.body)).toBe(201);
-    expect(treated.body).toMatchObject({ kind: 'TREATMENT', withdrawalDays: 28, withdrawalEndsAt: new Date(treatedAt.getTime() + 28 * 86_400_000).toISOString(), holdsPlaced: 1, costPesewas: 150 });
+    expect(treated.body).toMatchObject({ kind: 'TREATMENT', withdrawalDays: 28, withdrawalEndsAt: new Date(treatedAt.getTime() + 28 * 86_400_000).toISOString(), holdsPlaced: 1 });
+    expect(treated.body).not.toHaveProperty('costPesewas');
+    expect((await get(manager, `/health-events/${treated.body.id as string}`)).body).toMatchObject({ costPesewas: 150, currency: 'GHS' });
     expect(await poolOf('G-0143')).toBe('60150');
     const hold = await admin().query<{ id: string; kind: string; ends_at: Date }>('SELECT id, kind, ends_at FROM inv.stock_hold WHERE source_document_id = $1', [treated.body.id]);
     expect(hold.rows).toEqual([expect.objectContaining({ kind: 'WITHDRAWAL' })]);
@@ -335,8 +338,11 @@ describe('veterinary and feed cost spread by head-days, exactly (FR-LIV-009, FR-
   });
 
   it('issues 10.000 kg of feed valued 10,001 to flocks of 10, 10 and 5: 4,001, 4,000 and 2,000', async () => {
-    const fed = await post(farmHand, '/feed-consumption', { locationId: id('location:PEN-F'), feedProductId: id('product:FEED-GROWER-KG'), qty: '10.000', consumedOn: clock.now().toISOString().slice(0, 10) });
-    expect(fed.status, JSON.stringify(fed.body)).toBe(201);
+    const recorded = await post(farmHand, '/care/feed-consumption', { locationId: id('location:PEN-F'), feedProductId: id('product:FEED-GROWER-KG'), qty: '10.000', consumedOn: clock.now().toISOString().slice(0, 10) });
+    expect(recorded.status, JSON.stringify(recorded.body)).toBe(201);
+    expect(recorded.body.allocations.map((a: { stockUnit: { identifier: string }; headDays: number }) => [a.stockUnit.identifier, a.headDays])).toEqual([['BRF-A', 10], ['BRF-B', 10], ['BRF-C', 5]]);
+    expect(recorded.body).not.toHaveProperty('valuePesewas');
+    const fed = await get(accountant, `/feed-consumption/${recorded.body.id as string}`);
     expect(fed.body).toMatchObject({ status: 'POSTED', valuePesewas: 10_001, qty: '10.000', uom: 'KG', location: { code: 'PEN-F' } });
     expect(fed.body.allocations.map((a: { stockUnit: { identifier: string }; headDays: number; amountPesewas: number; treatment: string }) => [a.stockUnit.identifier, a.headDays, a.amountPesewas, a.treatment])).toEqual([
       ['BRF-A', 10, 4_001, 'CAPITALISED'],
@@ -378,9 +384,9 @@ describe('veterinary and feed cost spread by head-days, exactly (FR-LIV-009, FR-
   });
 
   it('refuses feed for a pen with no animals, and anything that is not feed', async () => {
-    const empty = await post(farmHand, '/feed-consumption', { locationId: id('location:COLD'), feedProductId: id('product:FEED-GROWER-KG'), qty: '1.000', consumedOn: clock.now().toISOString().slice(0, 10) });
+    const empty = await post(farmHand, '/care/feed-consumption', { locationId: id('location:COLD'), feedProductId: id('product:FEED-GROWER-KG'), qty: '1.000', consumedOn: clock.now().toISOString().slice(0, 10) });
     expect(empty.body.error.details).toEqual([expect.objectContaining({ code: 'NO_ANIMALS_HERE' })]);
-    const meat = await post(farmHand, '/feed-consumption', { locationId: id('location:PEN-F'), feedProductId: id('product:MEAT-BEEF-15KG'), qty: '1.000', consumedOn: clock.now().toISOString().slice(0, 10) });
+    const meat = await post(farmHand, '/care/feed-consumption', { locationId: id('location:PEN-F'), feedProductId: id('product:MEAT-BEEF-15KG'), qty: '1.000', consumedOn: clock.now().toISOString().slice(0, 10) });
     expect(meat.body.error.details).toEqual([expect.objectContaining({ code: 'NOT_FEED' })]);
   });
 });
@@ -401,12 +407,15 @@ describe('rations (FR-LIV-014)', () => {
 
 describe('mortality waits for a photograph and a different approver at or above 50,000 (FR-LIV-012, abuse case 2)', () => {
   it('writes off a kid with accumulated cost 12,000 on submit, and the register shows it DEAD', async () => {
-    const reported = await post(farmHand, '/mortality-records', { kind: 'DEATH', stockUnitId: id('unit:K-0301'), reasonCode: 'UNKNOWN_CAUSE', foundAt: hoursAgo(1), disposalNote: 'Buried behind the pens' });
+    const reported = await post(farmHand, '/care/mortality-records', { kind: 'DEATH', stockUnitId: id('unit:K-0301'), reasonCode: 'UNKNOWN_CAUSE', foundAt: hoursAgo(1), disposalNote: 'Buried behind the pens' });
     expect(reported.status, JSON.stringify(reported.body)).toBe(201);
-    expect(reported.body).toMatchObject({ status: 'REPORTED', valuePesewas: 12_000, animal: { tagNo: 'K-0301' }, location: { code: 'PENS' }, reportedBy: { displayName: 'Abena Quaye' } });
-    const submitted = await post(farmHand, `/mortality-records/${reported.body.id as string}/submit`);
+    expect(reported.body).toMatchObject({ status: 'REPORTED', animal: { tagNo: 'K-0301' }, location: { code: 'PENS' }, reportedBy: { displayName: 'Abena Quaye' } });
+    expect(reported.body).not.toHaveProperty('valuePesewas');
+    expect((await get(manager, `/mortality-records/${reported.body.id as string}`)).body).toMatchObject({ status: 'REPORTED', valuePesewas: 12_000 });
+    const submitted = await post(farmHand, `/care/mortality-records/${reported.body.id as string}/submit`);
     expect(submitted.status).toBe(200);
-    expect(submitted.body).toMatchObject({ status: 'POSTED', valuePesewas: 12_000, approvalRequestId: null });
+    expect(submitted.body).toMatchObject({ status: 'POSTED', approvalRequestId: null });
+    expect((await get(manager, `/mortality-records/${reported.body.id as string}`)).body).toMatchObject({ status: 'POSTED', valuePesewas: 12_000 });
     expect(await statusOf('K-0301')).toBe('DEAD');
     expect(await poolOf('K-0301')).toBe('0');
     expect((await get(manager, `/animals/${id('unit:K-0301')}`)).body).toMatchObject({ status: 'DEAD', accumulatedCostPesewas: 12_000, currentLocation: null, sellable: false });
@@ -488,11 +497,15 @@ describe('every LIV write refuses the wrong role, and reads stay with the roles 
     }
   });
 
-  it('refuses the Farm hand the reads that show a cost they did not enter, and every read to the Cashier', async () => {
+  it('refuses the Farm hand every read that shows a cost and lets it read the care shapes, and refuses every read to the Cashier', async () => {
     for (const path of ['/animals', `/animals/${id('unit:G-0142')}`, '/health-events', '/mortality-records', '/feed-consumption', '/rations']) {
       expect((await get(farmHand, path)).status, path).toBe(403);
     }
     expect((await get(farmHand, '/weight-records')).status).toBe(200);
+    // The owner's decision (2026-11-15, A-160): the register, the rations and the health events, without cost.
+    for (const path of ['/care/animals', `/care/animals/${id('unit:G-0142')}`, '/care/health-events', '/care/rations', '/care/batches']) {
+      expect((await get(farmHand, path)).status, path).toBe(200);
+    }
     for (const path of ['/animals', '/weight-records', '/health-events', '/mortality-records', '/feed-consumption', '/rations']) {
       expect((await get(wrong.get('CASHIER')!, path)).status, path).toBe(403);
     }

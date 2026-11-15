@@ -2,8 +2,9 @@ operationId: closeBatch
 tags:
   - liv
 summary: "Close a batch once it has no stock left"
-description: "Refused with LIVESTOCK_RECORD_INVALID (BATCH_NOT_EMPTY) while any head is left, whatever the reason: sell, process or write off the birds first. The reason is always recorded.\n\nPermission: `liv.batch.update`."
+description: "Refused with LIVESTOCK_RECORD_INVALID (BATCH_NOT_EMPTY) while any head is left, whatever the reason: sell, process or write off the birds first. The reason is always recorded.\n\nPermission: `liv.batch.update`. The answer carries the batch's accumulated cost, so the caller also needs `liv.batch.read` at the same scope (`x-answer-permission`, ADR-0052); the Farm hand, who holds the write but not the read, uses `closeCareBatch`."
 x-permission: liv.batch.update
+x-answer-permission: liv.batch.read
 x-error-codes:
   - VALIDATION_FAILED
   - UNAUTHENTICATED

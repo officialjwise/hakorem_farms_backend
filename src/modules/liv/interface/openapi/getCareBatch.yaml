@@ -1,0 +1,68 @@
+operationId: getCareBatch
+tags:
+  - liv
+summary: "Get a batch without cost"
+description: "The Farm hand's cost-free read of a batch (ADR-0052): the same rules, filters and scope as `getBatch`, answered in a shape that carries no cost and no price.\n\nPermission: `liv.batch.read`.\n\nPermission: `liv.care.read`, scoped as `getBatch` is."
+x-permission: liv.care.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/CareBatch"
+        example:
+          id: "019a7abd-e4a9-7fb8-b4f0-0459adb47d37"
+          batchNo: BRL-2610-01
+          species:
+            id: "019a7a8b-fd16-7bc0-a0f8-c4da5b273db8"
+            code: BROILER
+            name: "Broiler chicken"
+          stockUnit:
+            id: "019a7a91-4e2a-7ed9-a411-f66345936f41"
+            identifier: BRL-2610-01
+            tracking: LOT
+          startedOn: "2026-10-02"
+          initialHead: 500
+          currentHead: 462
+          purpose: GROWING
+          status: ACTIVE
+          location:
+            id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+            code: HSE-B1
+            name: "Broiler house 1"
+            kind: PEN
+          mortalityPercent: "7.60"
+          version: 1
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -1,8 +1,8 @@
 operationId: cancelProcessingOrder
 tags:
   - prc
-summary: "Cancel a processing order that has not started"
-description: "Cancels a PLANNED or IN_PROGRESS order with a reason. Nothing has moved before completion, so cancelling has no stock or cost effect. A completed order is never cancelled.\n\nPermission: `prc.order.create`, scoped to the order's branch and processing location."
+summary: "Cancel a processing order, or reverse a completed one"
+description: "Cancels a PLANNED or IN_PROGRESS order with a reason: nothing has moved before completion, so it has no stock or cost effect.\n\nA COMPLETED order is never edited; cancelling it reverses it (FR-PRC-011): every movement its completion posted is reversed through inventory, the outputs first and then the inputs, each carrying the value it carried, so the animal stands in its pen again, ALIVE, at exactly its prior cost, and the output lots are empty. Its packs become REVERSED. The order stays COMPLETED and frozen and answers its `reversal`. This needs `prc.order.reverse` as well (the Owner and the Manager), at the same scope.\n\nRefusals (422 PROCESSING_ORDER_INVALID, `details[].code`): ORDER_REVERSED (reversed already); OUTPUT_SOLD (an output lot is not whole where the order put it, or a pack of it has been picked, sold or written off); OUTPUT_RESERVED; OUTPUT_CHANGED (inventory cannot give back exactly what the order received).\n\nPermission: `prc.order.create`, scoped to the order's branch and processing location; and `prc.order.reverse` to reverse a completed order."
 x-permission: prc.order.create
 x-error-codes:
   - VALIDATION_FAILED
@@ -15,6 +15,7 @@ x-error-codes:
   - IDEMPOTENCY_KEY_REUSED
   - NOT_FOUND
   - INVALID_STATE_TRANSITION
+  - PROCESSING_ORDER_INVALID
   - RATE_LIMITED
 parameters:
   - name: id
@@ -97,6 +98,7 @@ responses:
             displayName: "Yaw Boateng"
           postedAt: null
           postedBy: null
+          reversal: null
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

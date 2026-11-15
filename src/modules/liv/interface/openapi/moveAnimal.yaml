@@ -2,8 +2,9 @@ operationId: moveAnimal
 tags:
   - liv
 summary: "Move an animal to another pen"
-description: "Posts a TRANSFER_INTERNAL movement. Allowed during a withdrawal period.\n\nPermission: `liv.animal.move`."
+description: "Posts a TRANSFER_INTERNAL movement. Allowed during a withdrawal period.\n\nPermission: `liv.animal.move`. The answer carries the animal's accumulated cost and price band, so the caller also needs `liv.animal.read` at the same scope (`x-answer-permission`, ADR-0052); the Farm hand, who holds the write but not the read, uses `moveCareAnimal`."
 x-permission: liv.animal.move
+x-answer-permission: liv.animal.read
 x-error-codes:
   - VALIDATION_FAILED
   - UNAUTHENTICATED

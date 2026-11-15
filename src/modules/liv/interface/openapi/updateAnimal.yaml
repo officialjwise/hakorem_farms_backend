@@ -2,8 +2,9 @@ operationId: updateAnimal
 tags:
   - liv
 summary: "Update an animal's details"
-description: "Breed, sex, purpose and grade may change; species, acquisition, source and cost are not fields. The sex of a dam with a breeding record is fixed (SEX_FIXED_AS_DAM), and the tag, which is the stock unit's identifier, is accepted only unchanged (TAG_NOT_EDITABLE). Purpose decides whether later feed and veterinary cost is capitalised or expensed.\n\nPermission: `liv.animal.update`."
+description: "Breed, sex, purpose and grade may change; species, acquisition, source and cost are not fields. The sex of a dam with a breeding record is fixed (SEX_FIXED_AS_DAM), and the tag, which is the stock unit's identifier, is accepted only unchanged (TAG_NOT_EDITABLE). Purpose decides whether later feed and veterinary cost is capitalised or expensed.\n\nPermission: `liv.animal.update`. The answer carries the animal's accumulated cost and price band, so the caller also needs `liv.animal.read` at the same scope (`x-answer-permission`, ADR-0052); the Farm hand, who holds the write but not the read, uses `updateCareAnimal`."
 x-permission: liv.animal.update
+x-answer-permission: liv.animal.read
 x-error-codes:
   - VALIDATION_FAILED
   - UNAUTHENTICATED

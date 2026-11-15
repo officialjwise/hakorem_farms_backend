@@ -2,8 +2,9 @@ operationId: submitMortalityRecord
 tags:
   - liv
 summary: "Submit a mortality for write-off"
-description: "Values the record again from the cost pool and writes the stock off. At or above the value threshold (50,000 pesewas on the seeded farm) a photograph is required first (422 `MORTALITY_PHOTO_REQUIRED`) and a second approver after: this is the control for abuse case 2. Only the person who reported the record submits it, so the approver is never the reporter.\n\nPermission: `liv.mortality.report`.\n\nMay require approval of kind `MORTALITY_WRITE_OFF`, decided with `approveRequest` by a different user holding `liv.mortality.approve`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves: the animal stays on hand."
+description: "Values the record again from the cost pool and writes the stock off. At or above the value threshold (50,000 pesewas on the seeded farm) a photograph is required first (422 `MORTALITY_PHOTO_REQUIRED`) and a second approver after: this is the control for abuse case 2. Only the person who reported the record submits it, so the approver is never the reporter.\n\nPermission: `liv.mortality.report`.\n\nMay require approval of kind `MORTALITY_WRITE_OFF`, decided with `approveRequest` by a different user holding `liv.mortality.approve`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves: the animal stays on hand. The answer carries the value written off, so the caller also needs `liv.mortality.read` at the same scope (`x-answer-permission`, ADR-0052); the Farm hand, who holds the write but not the read, uses `submitCareMortalityRecord`."
 x-permission: liv.mortality.report
+x-answer-permission: liv.mortality.read
 x-error-codes:
   - VALIDATION_FAILED
   - UNAUTHENTICATED

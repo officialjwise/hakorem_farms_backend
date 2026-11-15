@@ -1,0 +1,99 @@
+operationId: submitCareMortalityRecord
+tags:
+  - liv
+summary: "Submit a mortality record, answered without cost"
+description: "The Farm hand's cost-free door to `submitMortalityRecord` (ADR-0052): the same rules, checks and effects, answered in a shape that carries no cost and no price. Unlike `submitMortalityRecord` it needs no read permission, because its answer shows nothing the write's own permission does not.\n\nValues the record again from the cost pool and writes the stock off. At or above the value threshold (50,000 pesewas on the seeded farm) a photograph is required first (422 `MORTALITY_PHOTO_REQUIRED`) and a second approver after: this is the control for abuse case 2. Only the person who reported the record submits it, so the approver is never the reporter.\n\nPermission: `liv.mortality.report`, scoped as `submitMortalityRecord` is."
+x-permission: liv.mortality.report
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - NOT_FOUND
+  - INVALID_STATE_TRANSITION
+  - LIVESTOCK_RECORD_INVALID
+  - MORTALITY_PHOTO_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/CareMortalityRecord"
+        example:
+          id: "019a7ac0-6e44-7f61-8499-fee6a93977c4"
+          kind: DEATH
+          stockUnit:
+            id: "019a7a91-4e2a-7ed9-a411-f66345936f41"
+            identifier: BRL-2610-01
+            tracking: LOT
+          animal: null
+          head: 3
+          reasonCode: DISEASE_SUSPECTED
+          foundAt: "2026-11-12T06:00:00Z"
+          location:
+            id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+            code: HSE-B1
+            name: "Broiler house 1"
+            kind: PEN
+          reportedBy:
+            id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+            displayName: "Abena Quaye"
+          photoFileId: null
+          status: POSTED
+          approvalRequestId: null
+          movementId: "019a7ac0-8d33-7944-9e7d-9d1e22ea15fc"
+          disposalNote: "Buried behind the broiler house, lime applied"
+          version: 2
+  "202":
+    description: "Accepted for approval. Nothing has taken effect yet."
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ApprovalPending"
+        example:
+          status: PENDING_APPROVAL
+          approvalRequestId: "019a7ac0-4a21-7c3e-8f10-6b2d93e5a7c4"
+          kind: MORTALITY_WRITE_OFF
+          subject:
+            id: "019a7ac0-1177-71b6-96ef-24403c269d1e"
+            docType: MORTALITY_RECORD
+            number: null
+          summary: "Death of G-0171 (DISEASE_SUSPECTED), valued 58900 pesewas"
+          requestedAt: "2026-11-13T07:40:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

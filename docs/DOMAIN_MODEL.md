@@ -254,7 +254,7 @@ The audit trail itself (audit events, the chain, anchors and per-subject keys) i
 | Actual yield outside the tolerance of expected yield sets the investigation flag | Domain |
 | Total output weight does not exceed total input weight | Domain |
 
-**Events:** `prc.ProcessingOrderStarted`, ◆`prc.DirectCostIncurred`, `prc.ProcessingOrderCompleted`, `prc.YieldVarianceFlagged`, `prc.PacksLabelled`.
+**Events:** `prc.ProcessingOrderStarted`, ◆`prc.DirectCostIncurred`, `prc.ProcessingOrderCompleted`, `prc.YieldVarianceFlagged`, ◆`prc.ProcessingOrderReversed` (B06 continued 3, A-162: the direct cost a reversal takes out of stock), `prc.PacksLabelled` (not published: packing and printing are audited and move nothing, A-161).
 
 ### 5.7 PUR: procurement and suppliers
 

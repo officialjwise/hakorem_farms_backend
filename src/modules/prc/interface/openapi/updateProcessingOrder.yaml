@@ -108,6 +108,7 @@ responses:
             displayName: "Yaw Boateng"
           postedAt: null
           postedBy: null
+          reversal: null
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

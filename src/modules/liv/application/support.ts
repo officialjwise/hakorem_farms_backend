@@ -24,9 +24,30 @@ export function pageProbe(limit: number): number {
 }
 
 /**
+ * The door a LIV operation came through (A-160, ADR-0052). A read names the permission it checks and the operation its
+ * cursors are bound to. A write names the operation its idempotency key belongs to and, for the full operation whose
+ * answer carries cost, the permission to read that answer: the caller needs it as well as the write's own, at the same
+ * scopes. The Farm hand's cost-free care operations answer without cost, so they need no answer permission.
+ */
+export interface ReadDoor {
+  readonly operationId: string;
+  readonly permission: string;
+}
+
+export interface WriteDoor {
+  readonly operationId: string;
+  readonly answerPermission: string | null;
+}
+
+/** The write's own permission, and the answer's read permission when the door's answer carries cost. */
+export function writePermissions(permission: string, door: WriteDoor): readonly string[] {
+  return door.answerPermission === null ? [permission] : [permission, door.answerPermission];
+}
+
+/**
  * A LIV write (ADR-0035, ADR-0005): authorised first in the handler, scoped to the branch and location of every record
  * it touches (one scope, or one per animal of a batch; none means the unscoped check, which still refuses a role without
- * the permission), then
+ * the permission), for each permission it names, then
  * claimed by its idempotency key, then done, all in one serializable transaction that the unit of work retries whole
  * on a serialization failure. A replay returns the first response.
  */
@@ -35,7 +56,7 @@ export function runWrite<T>(
   authoriser: Authoriser,
   idempotency: Idempotency,
   actor: Actor | undefined,
-  permission: string,
+  permission: string | readonly string[],
   operationId: string,
   request: object,
   idempotencyKey: string,
@@ -46,7 +67,9 @@ export function runWrite<T>(
     const found = await scope(tx);
     const scopes = Array.isArray(found) ? (found as readonly AuthoriseScope[]) : [found as AuthoriseScope];
     for (const one of scopes.length === 0 ? [{}] : scopes) {
-      await authoriser.authorise(tx, actor, permission, one);
+      for (const code of typeof permission === 'string' ? [permission] : permission) {
+        await authoriser.authorise(tx, actor, code, one);
+      }
     }
     const claim = await idempotency.claim(tx, { operationId, principalId: actor!.principalId, key: idempotencyKey, request });
     if (claim.kind === 'REPLAY') return claim.response as StoredResponse<T>;

@@ -1,0 +1,97 @@
+operationId: listPacks
+tags:
+  - prc
+summary: "List the packs made from a processing order"
+description: "A completed order's packs, in output line and pack order, with each pack's lot, weight and weight source, barcode, status and first print time (FR-PRC-009).\n\nPermission: `prc.order.read`, scoped to the order's branch and processing location."
+x-permission: prc.order.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/PackPage"
+        example:
+          data:
+            - id: "019a8a10-1c4e-7a21-9b3e-4d2f6a8c0e11"
+              stockUnit:
+                id: "019a8a0f-7b2d-7c40-8e15-3a9d4f6b2c70"
+                identifier: PRC-261114-3f2a91c4-01
+                tracking: LOT
+              outputLineNo: 1
+              packNo: 1
+              weightKg: "15.000"
+              weightSource: SCALE
+              barcode: PRC-261114-3f2a91c4-01/015000
+              status: SOLD
+              labelPrintedAt: "2026-11-14T13:05:00Z"
+            - id: "019a8a10-1c4e-7a21-9b3e-4d2f6a8c0e12"
+              stockUnit:
+                id: "019a8a0f-7b2d-7c40-8e15-3a9d4f6b2c70"
+                identifier: PRC-261114-3f2a91c4-01
+                tracking: LOT
+              outputLineNo: 1
+              packNo: 2
+              weightKg: "15.000"
+              weightSource: SCALE
+              barcode: PRC-261114-3f2a91c4-01/015000
+              status: IN_STOCK
+              labelPrintedAt: "2026-11-14T13:05:00Z"
+            - id: "019a8a10-1c4e-7a21-9b3e-4d2f6a8c0e13"
+              stockUnit:
+                id: "019a8a0f-7b2d-7c40-8e15-3a9d4f6b2c70"
+                identifier: PRC-261114-3f2a91c4-01
+                tracking: LOT
+              outputLineNo: 1
+              packNo: 3
+              weightKg: "14.600"
+              weightSource: SCALE
+              barcode: PRC-261114-3f2a91c4-01/014600
+              status: IN_STOCK
+              labelPrintedAt: null
+          page:
+            nextCursor: null
+            limit: 25
+            hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

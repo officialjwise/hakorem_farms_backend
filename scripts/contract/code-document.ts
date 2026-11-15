@@ -118,6 +118,9 @@ function mismatches(route: Route, spec: OperationSpec, fragment: JsonObject, fil
   if ((fragment['x-permission'] ?? null) !== checked) {
     problems.push(`${where}: x-permission is ${String(fragment['x-permission'] ?? null)} but the route checks ${String(checked)}`);
   }
+  if ((fragment['x-answer-permission'] ?? null) !== (spec.answerPermission ?? null)) {
+    problems.push(`${where}: x-answer-permission is ${String(fragment['x-answer-permission'] ?? null)} but the route checks ${String(spec.answerPermission ?? null)}`);
+  }
   const refs = parameterRefs(fragment);
   if (refs.includes('#/components/parameters/IdempotencyKey') !== spec.idempotent) {
     problems.push(`${where}: Idempotency-Key is ${spec.idempotent ? 'required by the route but not declared' : 'declared but the route does not take it'}`);

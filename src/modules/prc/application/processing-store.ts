@@ -66,6 +66,8 @@ export interface OrderRecord {
   readonly createdBy: string;
   readonly postedAt: Date | null;
   readonly postedBy: string | null;
+  /** The order's reversal (FR-PRC-011), when it was reversed. */
+  readonly reversal: { readonly id: string; readonly reason: string; readonly at: Date; readonly by: string } | null;
   readonly inputs: readonly InputRecord[];
   readonly outputs: readonly OutputRecord[];
   readonly costs: readonly CostRecord[];
@@ -126,9 +128,35 @@ export interface YieldStandardRecord {
   readonly version: number;
 }
 
+export type PackStatus = 'IN_STOCK' | 'PICKED' | 'SOLD' | 'WRITTEN_OFF' | 'REVERSED';
+
+/** A weighed, labelled pack of an output's lot (migration 0085). */
+export interface PackRecord {
+  readonly id: string;
+  readonly stockUnitId: string;
+  readonly processingOutputId: string;
+  readonly outputLineNo: number;
+  readonly packNo: number;
+  readonly weightKg: string;
+  readonly weightSource: WeightSource;
+  readonly barcode: string;
+  readonly labelPrintedAt: Date | null;
+  readonly status: PackStatus;
+}
+
+export interface NewPack {
+  readonly id: string;
+  readonly stockUnitId: string;
+  readonly processingOutputId: string;
+  readonly packNo: number;
+  readonly weightKg: string;
+  readonly weightSource: WeightSource;
+  readonly barcode: string;
+}
+
 export const PROCESSING_STORE = Symbol('ProcessingStore');
 
-/** The `prc` schema of migration 0072. */
+/** The `prc` schema of migrations 0072, 0085 and 0087. */
 export interface ProcessingStore {
   insertOrder(tx: Transaction, order: { id: string; locationId: string; outputLocationId: string; branchId: string }, actorId: string): Promise<void>;
   order(tx: Transaction, id: string): Promise<OrderRecord | null>;
@@ -156,4 +184,13 @@ export interface ProcessingStore {
   standardsOf(tx: Transaction, inputProductId: string): Promise<YieldStandardRecord[]>;
   insertStandard(tx: Transaction, standard: Omit<YieldStandardRecord, 'version'>, actorId: string): Promise<boolean>;
   updateStandard(tx: Transaction, id: string, version: number, set: { expectedPercent?: string; tolerancePercent?: string }, actorId: string): Promise<boolean>;
+  /** An order's packs in output line and pack order, after `after` (output line, pack number) when given. */
+  packsOf(tx: Transaction, orderId: string, after: { lineNo: number; packNo: number } | null, limit: number): Promise<PackRecord[]>;
+  /** The packs with these ids, locked for the command, in output line and pack order. */
+  lockPacks(tx: Transaction, ids: readonly string[]): Promise<PackRecord[]>;
+  insertPack(tx: Transaction, pack: NewPack, actorId: string): Promise<void>;
+  /** Sets the first print time of each pack that has none. */
+  markPrinted(tx: Transaction, ids: readonly string[], at: Date, actorId: string): Promise<void>;
+  setPackStatus(tx: Transaction, ids: readonly string[], status: PackStatus, actorId: string): Promise<void>;
+  insertReversal(tx: Transaction, reversal: { id: string; orderId: string; branchId: string; reason: string; at: Date }, actorId: string): Promise<void>;
 }

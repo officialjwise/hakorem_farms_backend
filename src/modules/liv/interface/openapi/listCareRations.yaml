@@ -1,0 +1,142 @@
+operationId: listCareRations
+tags:
+  - liv
+summary: "List feed rations (the care door)"
+description: "The Farm hand's cost-free read of the rations (ADR-0052): the same rules, filters and scope as `listRations`, answered in a shape that carries no cost and no price.\n\nPermission: `liv.feed.read`.\n\nPermission: `liv.care.read`, scoped as `listRations` is."
+x-permission: liv.care.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: speciesId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/RationPage"
+        example:
+          data:
+            - id: "019a7ac1-a39a-7244-a77c-2d116a23a5ef"
+              name: "Broiler starter"
+              species:
+                id: "019a7a8b-fd16-7bc0-a0f8-c4da5b273db8"
+                code: BROILER
+                name: "Broiler chicken"
+              feedProduct:
+                id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                sku: FD-BRL-FIN
+                name: "Broiler finisher feed, 50 kg bag"
+              qtyPerHeadPerDay: "0.001"
+              uom: BAG
+              stage: "Day 1 to 14"
+              version: 1
+            - id: "019a7ac1-c289-7c27-b15f-cb48e3d44426"
+              name: "Broiler grower"
+              species:
+                id: "019a7a8b-fd16-7bc0-a0f8-c4da5b273db8"
+                code: BROILER
+                name: "Broiler chicken"
+              feedProduct:
+                id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                sku: FD-BRL-FIN
+                name: "Broiler finisher feed, 50 kg bag"
+              qtyPerHeadPerDay: "0.002"
+              uom: BAG
+              stage: "Day 15 to 28"
+              version: 1
+            - id: "019a7ac1-e178-760a-8b43-69805d85e25e"
+              name: "Broiler finisher"
+              species:
+                id: "019a7a8b-fd16-7bc0-a0f8-c4da5b273db8"
+                code: BROILER
+                name: "Broiler chicken"
+              feedProduct:
+                id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                sku: FD-BRL-FIN
+                name: "Broiler finisher feed, 50 kg bag"
+              qtyPerHeadPerDay: "0.003"
+              uom: BAG
+              stage: "Day 29 to sale"
+              version: 1
+            - id: "019a7ac2-0067-7fee-9526-07b7d7368095"
+              name: "Goat supplement"
+              species:
+                id: "019a7a8b-a049-7e16-b34e-ea33ee146311"
+                code: GOAT
+                name: Goat
+              feedProduct:
+                id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                sku: FD-BRL-FIN
+                name: "Broiler finisher feed, 50 kg bag"
+              qtyPerHeadPerDay: "0.010"
+              uom: BAG
+              stage: null
+              version: 1
+            - id: "019a7ac2-1f56-79d1-af0a-a5ef50e71ecd"
+              name: "Sheep supplement"
+              species:
+                id: "019a7a8b-bf38-77f9-8d31-886b67c50149"
+                code: SHEEP
+                name: Sheep
+              feedProduct:
+                id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                sku: FD-BRL-FIN
+                name: "Broiler finisher feed, 50 kg bag"
+              qtyPerHeadPerDay: "0.012"
+              uom: BAG
+              stage: null
+              version: 1
+            - id: "019a7ac2-3e45-73b5-b8ed-4426ca98bd04"
+              name: "Pig grower"
+              species:
+                id: "019a7a8b-de27-71dd-9715-26a2e1769f80"
+                code: PIG
+                name: Pig
+              feedProduct:
+                id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                sku: FD-BRL-FIN
+                name: "Broiler finisher feed, 50 kg bag"
+              qtyPerHeadPerDay: "0.030"
+              uom: BAG
+              stage: "Weaner to 60 kg"
+              version: 1
+          page:
+            nextCursor: null
+            limit: 25
+            hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

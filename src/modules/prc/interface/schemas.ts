@@ -81,3 +81,15 @@ export const YieldStandardUpdate = z.strictObject({
   expectedPercent: Percent.optional(),
   tolerancePercent: Percent.optional(),
 });
+
+/** The contract's `PacksCreate`, strict (FR-PRC-009). */
+export const PacksCreate = z.strictObject({
+  outputLineNo: z.number().int().min(1).max(999),
+  packs: z.array(z.strictObject({ weightKg: Kilograms, weightSource: WeightSource })).min(1).max(200),
+});
+
+/** The contract's `LabelPrintRequest`, strict (FR-PRC-010). The format names the label the client draws. */
+export const LabelPrintRequest = z.strictObject({
+  packIds: z.array(z.uuid()).min(1).max(200),
+  format: z.enum(['PDF_LABEL_50x30', 'ZPL']).optional(),
+});

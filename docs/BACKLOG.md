@@ -62,6 +62,7 @@ Each item says why it is parked and what would bring it back.
 | --- | --- | --- | --- | --- |
 | BL-055 | Batches that group individual animals (a litter of kids, a group of goats) with members joined to them | `createBatch` hatches lot-tracked flocks only (A-159); no operation in the contract adds an animal to a batch, and a group's head and cost would be the sum of its members' rather than one lot's. `liv.animal.batch_id` exists, empty | The owner asks to manage a litter or a goat group as one, or a contract request adds a member operation | FR-LIV-006, A-159 |
 | BL-056 | Correcting a misread tag (`updateAnimal.tagNo`) | The tag is the stock unit's identifier, which INV's guard holds fixed so labels and traces never change under a sold lot; allowing it needs an INV migration and a rule for printed labels | A tag misread at receipt that cannot be fixed by reversing the receipt | FR-LIV-002, A-159 |
+| BL-057 | Server-side `sort` and `direction` on `listProducts`, `listStockOnHand`, `listStockUnits` and `listStockMovements` (the frontend's CR-019) | Raised on 2026-11-15 after every master data and inventory phase had finished, so no phase owns it; B06 continued 3 builds livestock and processing and declined it as out of its scope (session protocol: stay in scope) | The owner places it in a phase, as B06m was placed for CR-009 to CR-011 (A-155); it is additive (two optional query parameters per list, an unknown field a 400 with a code, cursors bound to the sort) | CR-019, ADR-0029 |
 
 ## Explicitly outside the brief
 

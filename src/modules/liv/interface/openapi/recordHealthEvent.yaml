@@ -2,8 +2,9 @@ operationId: recordHealthEvent
 tags:
   - liv
 summary: "Record a vaccination, treatment or check"
-description: "A product with withdrawal days places a WITHDRAWAL hold on every animal treated, in the same transaction, which blocks sale and slaughter until it ends. Medication used is issued from stock and its cost capitalised onto the animals.\n\nPermission: `liv.health.record`.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result."
+description: "A product with withdrawal days places a WITHDRAWAL hold on every animal treated, in the same transaction, which blocks sale and slaughter until it ends. Medication used is issued from stock and its cost capitalised onto the animals.\n\nPermission: `liv.health.record`.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result. The answer carries the event's cost, so the caller also needs `liv.health.read` at the same scope (`x-answer-permission`, ADR-0052); the Farm hand, who holds the write but not the read, uses `recordCareHealthEvent`."
 x-permission: liv.health.record
+x-answer-permission: liv.health.read
 x-error-codes:
   - VALIDATION_FAILED
   - UNAUTHENTICATED

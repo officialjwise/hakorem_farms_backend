@@ -8,7 +8,10 @@ import type {
   OrderFilters,
   OrderRecord,
   OrderStatus,
+  NewPack,
   OutputRecord,
+  PackRecord,
+  PackStatus,
   ProcessingStore,
   ReadScope,
   YieldStandardRecord,
@@ -21,14 +24,24 @@ const ORDER = `SELECT o.id, o.order_no AS "orderNo", o.status, o.location_id AS 
                       o.yield_variance_flag AS "yieldVarianceFlag", o.input_cost_pesewas::text AS "inputCostPesewas",
                       o.direct_cost_pesewas::text AS "directCostPesewas", o.total_cost_pesewas::text AS "totalCostPesewas",
                       o.cancel_reason AS "cancelReason", o.branch_id AS "branchId", o.version, o.created_at AS "createdAt",
-                      o.created_by AS "createdBy", o.posted_at AS "postedAt", o.posted_by AS "postedBy"
-                 FROM prc.processing_order o`;
+                      o.created_by AS "createdBy", o.posted_at AS "postedAt", o.posted_by AS "postedBy",
+                      rv.id AS "reversalId", rv.reason AS "reversalReason", rv.posted_at AS "reversedAt", rv.posted_by AS "reversedBy"
+                 FROM prc.processing_order o LEFT JOIN prc.processing_reversal rv ON rv.processing_order_id = o.id`;
 
-type OrderRow = Omit<OrderRecord, 'inputs' | 'outputs' | 'costs' | 'inputCostPesewas' | 'directCostPesewas' | 'totalCostPesewas'> & {
+type OrderRow = Omit<OrderRecord, 'inputs' | 'outputs' | 'costs' | 'inputCostPesewas' | 'directCostPesewas' | 'totalCostPesewas' | 'reversal'> & {
+  reversalId: string | null;
+  reversalReason: string | null;
+  reversedAt: Date | null;
+  reversedBy: string | null;
   inputCostPesewas: string | null;
   directCostPesewas: string;
   totalCostPesewas: string | null;
 };
+
+const PACK = `SELECT k.id, k.stock_unit_id AS "stockUnitId", k.processing_output_id AS "processingOutputId", p.line_no AS "outputLineNo",
+                     k.pack_no AS "packNo", k.weight_kg::text AS "weightKg", k.weight_source AS "weightSource", k.barcode,
+                     k.label_printed_at AS "labelPrintedAt", k.status
+                FROM prc.pack k JOIN prc.processing_output p ON p.id = k.processing_output_id`;
 
 const big = (text: string | null): bigint | null => (text === null ? null : BigInt(text));
 
@@ -227,8 +240,9 @@ export class PgProcessingStore implements ProcessingStore {
          FROM prc.processing_cost WHERE processing_order_id = ANY($1::uuid[]) ORDER BY created_at, id`,
       [ids],
     );
-    return rows.map((r) => ({
+    return rows.map(({ reversalId, reversalReason, reversedAt, reversedBy, ...r }) => ({
       ...r,
+      reversal: reversalId === null ? null : { id: reversalId, reason: reversalReason!, at: reversedAt!, by: reversedBy! },
       expectedYieldPercent: percent3(r.expectedYieldPercent),
       actualYieldPercent: percent3(r.actualYieldPercent),
       inputCostPesewas: big(r.inputCostPesewas),
@@ -240,6 +254,46 @@ export class PgProcessingStore implements ProcessingStore {
         .map(({ orderId: _o, ...o }) => ({ ...o, referencePricePesewasPerKg: BigInt(o.referencePricePesewasPerKg), allocationWeight: BigInt(o.allocationWeight), allocatedCostPesewas: BigInt(o.allocatedCostPesewas) })),
       costs: costs.rows.filter((c) => c.orderId === r.id).map(({ orderId: _o, ...c }) => ({ ...c, amountPesewas: BigInt(c.amountPesewas) })),
     }));
+  }
+
+  async packsOf(tx: Transaction, orderId: string, after: { lineNo: number; packNo: number } | null, limit: number): Promise<PackRecord[]> {
+    const { rows } = await tx.query<PackRecord>(
+      `${PACK} WHERE p.processing_order_id = $1 AND ($2::integer IS NULL OR (p.line_no, k.pack_no) > ($2, $3))
+        ORDER BY p.line_no, k.pack_no LIMIT $4`,
+      [orderId, after?.lineNo ?? null, after?.packNo ?? null, limit],
+    );
+    return rows;
+  }
+
+  async lockPacks(tx: Transaction, ids: readonly string[]): Promise<PackRecord[]> {
+    if (ids.length === 0) return [];
+    const { rows } = await tx.query<PackRecord>(`${PACK} WHERE k.id = ANY($1::uuid[]) ORDER BY p.line_no, k.pack_no FOR UPDATE OF k`, [ids]);
+    return rows;
+  }
+
+  async insertPack(tx: Transaction, pack: NewPack, actorId: string): Promise<void> {
+    await tx.query(
+      `INSERT INTO prc.pack (id, stock_unit_id, processing_output_id, pack_no, weight_kg, weight_source, barcode, created_by, updated_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)`,
+      [pack.id, pack.stockUnitId, pack.processingOutputId, pack.packNo, pack.weightKg, pack.weightSource, pack.barcode, actorId],
+    );
+  }
+
+  async markPrinted(tx: Transaction, ids: readonly string[], at: Date, actorId: string): Promise<void> {
+    await tx.query('UPDATE prc.pack SET label_printed_at = $2, version = version + 1, updated_at = now(), updated_by = $3 WHERE id = ANY($1::uuid[]) AND label_printed_at IS NULL', [ids, at, actorId]);
+  }
+
+  async setPackStatus(tx: Transaction, ids: readonly string[], status: PackStatus, actorId: string): Promise<void> {
+    if (ids.length === 0) return;
+    await tx.query('UPDATE prc.pack SET status = $2, version = version + 1, updated_at = now(), updated_by = $3 WHERE id = ANY($1::uuid[]) AND status <> $2', [ids, status, actorId]);
+  }
+
+  async insertReversal(tx: Transaction, reversal: { id: string; orderId: string; branchId: string; reason: string; at: Date }, actorId: string): Promise<void> {
+    await tx.query(
+      `INSERT INTO prc.processing_reversal (id, processing_order_id, branch_id, reason, status, posted_at, posted_by, created_by, updated_by)
+       VALUES ($1, $2, $3, $4, 'POSTED', $5, $6, $6, $6)`,
+      [reversal.id, reversal.orderId, reversal.branchId, reversal.reason, reversal.at, actorId],
+    );
   }
 }
 

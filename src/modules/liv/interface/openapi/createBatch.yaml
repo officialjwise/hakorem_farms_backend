@@ -2,8 +2,9 @@ operationId: createBatch
 tags:
   - liv
 summary: "Start a batch"
-description: "Hatches a flock on the farm: registers its lot and brings its head into the pen by a BIRTH movement at nil cost. The species must have exactly one lot-tracked product. A flock bought from a supplier opens its batch when its goods receipt is posted.\n\nPermission: `liv.batch.create`."
+description: "Hatches a flock on the farm: registers its lot and brings its head into the pen by a BIRTH movement at nil cost. The species must have exactly one lot-tracked product. A flock bought from a supplier opens its batch when its goods receipt is posted.\n\nPermission: `liv.batch.create`. The answer carries the batch's accumulated cost, so the caller also needs `liv.batch.read` at the same scope (`x-answer-permission`, ADR-0052); the Farm hand, who holds the write but not the read, uses `createCareBatch`."
 x-permission: liv.batch.create
+x-answer-permission: liv.batch.read
 x-error-codes:
   - VALIDATION_FAILED
   - UNAUTHENTICATED
