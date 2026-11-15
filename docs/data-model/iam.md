@@ -264,4 +264,4 @@ One maker-checker request. Posted statuses: `APPROVED`, `REJECTED`, `CANCELLED`,
 - CHECK: `decided_by` and `decided_at` are set exactly when status is `APPROVED` or `REJECTED`.
 - Partial UNIQUE (`subject_document_id`, `kind`) where status is `PENDING`: one open request per subject and kind.
 - Frozen once decided (`platform.freeze_posted`).
-- `evidence_file_id` is added, with its foreign key to `platform.stored_file`, by the B4 migration that creates the file store (docs/DATA_MODEL.md, Migrations).
+- `evidence_file_id` and its foreign key to `platform.stored_file` were added by migration 0034 (B04e continued 2), the expand migration that 0006 named. Migration 0034 also adds the SYSTEM principal `01900000-0000-7000-8000-000000000005` (Malware scanner), and 0034 and 0035 seed and grant `platform.file.upload`, `platform.file.read` and `platform.file.read.any` (A-124).
