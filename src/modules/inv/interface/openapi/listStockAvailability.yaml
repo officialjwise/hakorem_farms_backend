@@ -1,0 +1,116 @@
+operationId: listStockAvailability
+tags:
+  - inv
+summary: "Get available-to-promise for products at a branch"
+description: "Available is on-hand minus reserved minus quantity under hold, per product, over the branch's physical stock locations or the one named, in product id order. Stock in transit, including a transfer shortfall held there (ADR-0048), is never promised and is left out. A unit under a hold in force counts all its on-hand as held. `availability` is `OUT_OF_STOCK` at zero or below, `LOW_STOCK` at five or fewer (SA-19), otherwise `IN_STOCK`. A listed `productId` with no stock answers a zero line.\n\nPermission: `inv.stock.read`, scoped to the branch and, when named, the location."
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+x-permission: inv.stock.read
+parameters:
+  - name: branchId
+    in: query
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - name: productId
+    in: query
+    required: false
+    schema:
+      type: array
+      items:
+        type: string
+        format: uuid
+    style: form
+    explode: true
+  - name: locationId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/AvailabilityLinePage"
+        example:
+          data:
+            - productId: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+              uom: HEAD
+              onHandQty: "3.000"
+              reservedQty: "0.000"
+              heldQty: "1.000"
+              availableQty: "2.000"
+              availability: LOW_STOCK
+            - productId: "019a7a8d-ec06-79f8-af30-a851f637212f"
+              uom: KG
+              onHandQty: "142.800"
+              reservedQty: "0.000"
+              heldQty: "0.000"
+              availableQty: "142.800"
+              availability: IN_STOCK
+            - productId: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+              uom: CRATE
+              onHandQty: "48.000"
+              reservedQty: "0.000"
+              heldQty: "0.000"
+              availableQty: "48.000"
+              availability: IN_STOCK
+            - productId: "019a7a8d-704a-726a-a7a2-2f740f73a851"
+              uom: HEAD
+              onHandQty: "462.000"
+              reservedQty: "0.000"
+              heldQty: "0.000"
+              availableQty: "462.000"
+              availability: IN_STOCK
+            - productId: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
+              uom: KG
+              onHandQty: "0.000"
+              reservedQty: "0.000"
+              heldQty: "0.000"
+              availableQty: "0.000"
+              availability: OUT_OF_STOCK
+            - productId: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
+              uom: KG
+              onHandQty: "58.350"
+              reservedQty: "0.000"
+              heldQty: "0.000"
+              availableQty: "58.350"
+              availability: IN_STOCK
+          page:
+            nextCursor: null
+            limit: 25
+            hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

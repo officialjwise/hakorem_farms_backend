@@ -161,6 +161,7 @@ Standard columns: `DOCUMENT`.
 
 - Partial UNIQUE (`stock_unit_id`) where `status = 'ACTIVE' AND is_exclusive`: one goat cannot be promised twice.
 - Index (`expires_at`) where `status = 'ACTIVE'`, for the expiry job.
+- `inv.check_reservation_place` (BEFORE INSERT, migration 0060): only at a physical location other than in-transit (HK010 `ck_stock_reservation_place`), never of a unit under a hold in force (`ck_stock_reservation_held`). `released_reason` takes up to 500 characters. Ended by `Reservations` and the `reservation-expiry` job (A-144).
 
 ### `inv.stock_hold` · DOCUMENT
 
@@ -207,8 +208,10 @@ A stock fact that needs a person: negative stock, an offline conflict, a tempera
 | `resolved_by` | `uuid` | NULL, FK `iam.principal` | |
 | `resolution_document_id` | `uuid` | NULL, FK `platform.business_document` | The adjustment that settled it |
 | `resolution_note` | `text` | NULL | |
+| `resolution_kind` | `text` | NULL, CHECK in (`WRITE_OFF`, `FOUND`, `ADJUSTED`, `NO_CORRECTION`); set exactly when resolved | How it was settled (migration 0060, A-144) |
 
 - Only the resolution columns and `status` may be updated, once.
+- **A held transfer variance** (ADR-0048, migration 0060): a `TRANSFER_VARIANCE` with no `movement_id` holds its quantity in the in-transit location until resolved, only as `WRITE_OFF` (its adjustment) or `FOUND` (its transfer) with the resolution document (`ck_stock_exception_held_resolution`). The movement trigger `inv.protect_in_transit` refuses a movement that would take an in-transit balance below what open variances hold (HK010 `ck_stock_held`) and any movement type blocked by hold leaving in-transit (`ck_stock_in_transit`); a resolution marks its exception resolved before it posts. Index `ix_stock_exception_held`.
 
 ### `inv.goods_receipt` · DOCUMENT
 
@@ -304,11 +307,11 @@ What a transfer carries, dispatched and received.
 | `stock_unit_id` | `uuid` | NULL, FK `inv.stock_unit` | |
 | `qty_dispatched` | `qty` | NOT NULL, CHECK `> 0` | |
 | `qty_received` | `qty` | NULL | |
-| `variance_qty` | `qty` | NULL | Shortfall on receipt, posted as a loss with a reason |
+| `variance_qty` | `qty` | NULL | Shortfall on receipt, with a reason; held in transit by its exception from migration 0060 (ADR-0048), posted as a loss before it |
 | `variance_reason_code` | `text` | NULL, FK `mdm.reason_code` | |
 | `dispatch_movement_id`, `receipt_movement_id`, `variance_movement_id` | `uuid` | NULL, FK `inv.stock_movement` | The movements the line caused (B05 continued 2) |
 
-- UNIQUE (`stock_transfer_id`, `line_no`). CHECK when received: `qty_received + variance_qty = qty_dispatched`; a variance above zero has its reason and its movement, and none has neither. Lines are written while the transfer is a `DRAFT`; once dispatched only the receipt columns may be filled, once, from null (`inv.stock_document_part_guard`, HK004).
+- UNIQUE (`stock_transfer_id`, `line_no`). CHECK when received: `qty_received + variance_qty = qty_dispatched`; a variance above zero has its reason, and a variance movement only with a variance (from migration 0060 a variance has none: it is held). Lines are written while the transfer is a `DRAFT`; once dispatched only the receipt columns may be filled, once, from null (`inv.stock_document_part_guard`, HK004).
 
 ### `inv.stock_adjustment` · DOCUMENT
 

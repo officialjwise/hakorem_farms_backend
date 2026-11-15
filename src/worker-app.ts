@@ -18,11 +18,14 @@ import { ClamdScanner } from './platform/storage/malware-scanner';
 import { OBJECT_STORAGE, type ObjectStorage } from './platform/storage/object-storage';
 import { BullmqJobQueue } from './platform/queue/job-queue';
 import { S3ObjectStorage } from './platform/storage/s3-object-storage';
-import { WorkerRuntime } from './platform/worker/worker-runtime';
+import { WorkerRuntime, type ScheduledJob } from './platform/worker/worker-runtime';
+import { ReservationExpiry } from './modules/inv';
 
 /** Milliseconds a storage call from the worker may take. */
 const STORAGE_TIMEOUT_MS = 10_000;
 const SEALER_POOL_MAX = 2;
+/** Every minute, as docs/OPERATIONS.md schedules it: a checkout reservation lives 15 minutes (A-045). */
+const RESERVATION_EXPIRY_EVERY_MS = 60_000;
 
 /**
  * Builds and starts the worker: the application's module graph as a context (no HTTP), its own pools as hk_worker
@@ -74,6 +77,11 @@ export async function startWorker(config: AppConfig, logger: Logger, clock: Cloc
             ensureBucket: config.APP_ENV === 'development' || config.APP_ENV === 'test',
           },
         );
+  const reservationExpiry = app.get(ReservationExpiry);
+  // The modules' scheduled jobs (ADR-0049, docs/OPERATIONS.md "Scheduled jobs").
+  const jobs: ScheduledJob[] = [
+    { name: 'reservation-expiry', when: { everyMs: RESERVATION_EXPIRY_EVERY_MS }, run: async (system) => ({ expired: (await reservationExpiry.run(system)).length }) },
+  ];
   const metrics = new OtelMetrics({ enabled: config.METRICS_ENABLED, port: config.METRICS_PORT, serviceName: config.OTEL_SERVICE_NAME });
   const runtime = new WorkerRuntime(
     config,
@@ -87,6 +95,7 @@ export async function startWorker(config: AppConfig, logger: Logger, clock: Cloc
     clock,
     logger,
     fileScanner,
+    jobs,
   );
   await runtime.start();
   return {

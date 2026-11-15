@@ -1,0 +1,271 @@
+operationId: listStockExceptions
+tags:
+  - inv
+summary: "List stock exceptions that need a person"
+description: "Stock exceptions that need a person, newest first: negative stock, an offline conflict, a hold or reservation conflict, a temperature excursion, balance drift, or a transfer shortfall held in transit (ADR-0048). `summary` names the two conflicting facts. Narrowed to the branches the reader's grants reach and, for a grant at one location, the exceptions at that location.\n\nPermission: `inv.exception.read`."
+x-permission: inv.exception.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: status
+    in: query
+    required: false
+    schema:
+      type: string
+      enum:
+        - OPEN
+        - RESOLVED
+  - name: kind
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: branchId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/StockExceptionPage"
+        example:
+          data:
+            - id: "019a7ab1-7280-7533-8a6b-5c07b77dd4e5"
+              kind: SERIAL_CONFLICT
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              product:
+                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                sku: LIV-GOAT
+                name: Goat
+              stockUnit:
+                id: "019a7a8f-bc07-7e4c-9384-ed921796666f"
+                identifier: G-0171
+                tracking: SERIAL
+              location:
+                id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                code: PEN-G2
+                name: "Goat pen 2"
+                kind: PEN
+              movementId: null
+              sourceDocument:
+                id: "019a7ab1-916f-7f16-944f-fa3f312e731d"
+                docType: SALES_ORDER
+                number: SO-2026-DDW-004180
+              qty: null
+              summary: "Goat G-0171 sold offline at till T2 at 10:14 but had been sold at till T1 at 09:52"
+              details:
+                register: T2
+                shiftNo: SHF-2026-DDW-000311
+              raisedAt: "2026-11-13T03:00:00Z"
+              status: OPEN
+              resolvedAt: null
+              resolvedBy: null
+              resolutionDocument: null
+              resolutionNote: null
+              resolutionKind: null
+            - id: "019a7ab1-b05e-78fa-ae32-9876aadf1154"
+              kind: NEGATIVE_STOCK
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              product:
+                id: "019a7a8e-a5a0-754c-8a85-5d9ed05dd67c"
+                sku: PRD-YAM
+                name: "Yam, tuber"
+              stockUnit: null
+              location:
+                id: "019a7a84-7f34-76a9-8be1-736ae249ec48"
+                code: SHOP
+                name: "Shop floor"
+                kind: SHOP_FLOOR
+              movementId: "019a7ab1-cf4d-72dd-b816-36ae2490af8c"
+              sourceDocument:
+                id: "019a7ab1-ee3c-7cc1-81f9-d4e59e414dc3"
+                docType: SALES_ORDER
+                number: SO-2026-DDW-004181
+              qty: "-6.000"
+              summary: "Yam on the shop floor went to -6 after offline sales synced"
+              details:
+                register: T2
+                shiftNo: SHF-2026-DDW-000311
+              raisedAt: "2026-11-13T04:00:00Z"
+              status: OPEN
+              resolvedAt: null
+              resolvedBy: null
+              resolutionDocument: null
+              resolutionNote: null
+              resolutionKind: null
+            - id: "019a7ab2-0d2b-76a4-9bdd-731d17f2ebfa"
+              kind: HOLD_CONFLICT
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              product:
+                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                sku: LIV-GOAT
+                name: Goat
+              stockUnit:
+                id: "019a7a8f-9d18-7468-89a0-4f5a9de5c838"
+                identifier: G-0163
+                tracking: SERIAL
+              location:
+                id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                code: PEN-G2
+                name: "Goat pen 2"
+                kind: PEN
+              movementId: null
+              sourceDocument:
+                id: "019a7ab2-2c1a-7088-a5c0-115491a38a32"
+                docType: SALES_ORDER
+                number: SO-2026-DDW-004182
+              qty: null
+              summary: "Goat G-0163 sold offline during its withdrawal period, which ends 28 November"
+              details:
+                register: T2
+                shiftNo: SHF-2026-DDW-000311
+              raisedAt: "2026-11-13T05:00:00Z"
+              status: OPEN
+              resolvedAt: null
+              resolvedBy: null
+              resolutionDocument: null
+              resolutionNote: null
+              resolutionKind: null
+            - id: "019a7ab2-4b09-7a6b-bfa3-af8c0b542869"
+              kind: TEMPERATURE_EXCURSION
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              product:
+                id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
+                sku: MEAT-BEEF
+                name: "Beef, 15 kg pack"
+              stockUnit:
+                id: "019a7a91-2f3b-74f5-9a2d-582bcbe2d109"
+                identifier: MEAT-BEEF-261104-01
+                tracking: LOT
+              location:
+                id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+                code: COLD-1
+                name: "Cold room"
+                kind: COLD_ROOM
+              movementId: "019a7ab2-69f8-744f-8987-4dc38505c6a1"
+              sourceDocument:
+                id: "019a7ab2-88e7-7e32-936a-ebfafeb664d8"
+                docType: SALES_ORDER
+                number: SO-2026-DDW-004183
+              qty: null
+              summary: "Cold room read -9.5 °C at 03:40; three lots quarantined"
+              details:
+                register: T2
+                shiftNo: SHF-2026-DDW-000311
+              raisedAt: "2026-11-13T06:00:00Z"
+              status: OPEN
+              resolvedAt: null
+              resolvedBy: null
+              resolutionDocument: null
+              resolutionNote: null
+              resolutionKind: null
+            - id: "019a7ab2-a7d6-7816-ad4e-8a3278670310"
+              kind: TRANSFER_VARIANCE
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              product:
+                id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
+                sku: MEAT-GOAT
+                name: "Goat meat, 15 kg pack"
+              stockUnit:
+                id: "019a7a90-f15d-712e-b666-1bbcd880949a"
+                identifier: MEAT-GOAT-261109-01
+                tracking: LOT
+              location:
+                id: "019a7a84-7f34-76a9-8be1-736ae249ec48"
+                code: SHOP
+                name: "Shop floor"
+                kind: SHOP_FLOOR
+              movementId: "019a7ab2-c6c5-71f9-b731-2869f218a147"
+              sourceDocument:
+                id: "019a7ab2-e5b4-7bdd-8115-c6a16bc93f7f"
+                docType: SALES_ORDER
+                number: SO-2026-DDW-004184
+              qty: "-0.400"
+              summary: "Received 29.750 kg of 30.150 kg dispatched"
+              details:
+                register: T2
+                shiftNo: SHF-2026-DDW-000311
+              raisedAt: "2026-11-13T07:00:00Z"
+              status: RESOLVED
+              resolvedAt: "2026-11-13T11:00:00Z"
+              resolvedBy:
+                id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                displayName: "Kwabena Owusu"
+              resolutionDocument:
+                id: "019a7ab3-04a3-75c0-9af8-64d8e57addb6"
+                docType: STOCK_ADJUSTMENT
+                number: ADJ-2026-DDW-000041
+              resolutionNote: "Weighed again: drip loss in transit, posted as shrinkage"
+              resolutionKind: WRITE_OFF
+            - id: "019a7ab3-2392-7fa3-a4dc-03105f2b7bee"
+              kind: BALANCE_DRIFT
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              product:
+                id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                sku: EGG-BIG
+                name: "Eggs, big, crate of 30"
+              stockUnit:
+                id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
+                identifier: EGG-261112-L1
+                tracking: LOT
+              location:
+                id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
+                code: STORE-1
+                name: "Feed and produce store"
+                kind: STORE
+              movementId: "019a7ab3-4281-7987-bebf-a147d8dc1a25"
+              sourceDocument:
+                id: "019a7ab3-6170-736a-88a3-3f7f528db85d"
+                docType: SALES_ORDER
+                number: SO-2026-DDW-004185
+              qty: "2.000"
+              summary: "Nightly recompute: balance 48 crates, ledger 46 crates"
+              details:
+                register: T2
+                shiftNo: SHF-2026-DDW-000311
+              raisedAt: "2026-11-13T08:00:00Z"
+              status: OPEN
+              resolvedAt: null
+              resolvedBy: null
+              resolutionDocument: null
+              resolutionNote: null
+              resolutionKind: null
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

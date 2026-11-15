@@ -95,4 +95,18 @@ describe('the worker process (ADR-0006, ADR-0010)', () => {
     }
     expect((await admin.query("SELECT 1 FROM platform.idempotency_key WHERE key = 'old-key'")).rowCount).toBe(0);
   });
+
+  it('runs the reservation expiry INV contributes (ADR-0049) as the Scheduler, and records the run with its summary', async () => {
+    const admin = database.pool('admin');
+    const url = new URL(inject('redisUrl'));
+    const queue = new BullmqJobQueue({ host: url.hostname, port: Number(url.port) }, `${prefix}bull`, silent);
+    try {
+      await queue.add('reservation-expiry', {});
+      await waitFor(async () => (await admin.query("SELECT 1 FROM platform.job_run WHERE job_name = 'reservation-expiry'")).rowCount === 1);
+    } finally {
+      await queue.close();
+    }
+    const run = (await admin.query<{ outcome: string; summary: unknown; actor_id: string }>("SELECT outcome, summary, actor_id FROM platform.job_run WHERE job_name = 'reservation-expiry'")).rows[0];
+    expect(run).toEqual({ outcome: 'SUCCESS', summary: { expired: 0 }, actor_id: '01900000-0000-7000-8000-000000000004' });
+  });
 });

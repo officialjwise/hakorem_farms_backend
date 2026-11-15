@@ -206,3 +206,56 @@ export const ListStockHoldsQuery = z.object({
   cursor: Cursor,
   limit: Limit,
 });
+
+const EXCEPTION_KINDS = ['NEGATIVE_STOCK', 'SERIAL_CONFLICT', 'HOLD_CONFLICT', 'RESERVATION_CONFLICT', 'TEMPERATURE_EXCURSION', 'BALANCE_DRIFT', 'TRANSFER_VARIANCE'] as const;
+
+/** listStockExceptions query. */
+export const ListStockExceptionsQuery = z.object({
+  status: z.enum(['OPEN', 'RESOLVED']).optional(),
+  kind: z.enum(EXCEPTION_KINDS).optional(),
+  branchId: z.uuid().optional(),
+  cursor: Cursor,
+  limit: Limit,
+});
+
+/** The contract's `StockExceptionResolve`, strict (ADR-0048, A-144). */
+export const StockExceptionResolve = z.strictObject({
+  resolutionKind: z.enum(['WRITE_OFF', 'FOUND', 'ADJUSTED', 'NO_CORRECTION']).optional(),
+  note: z.string().trim().min(1).max(1_000),
+  resolutionDocumentId: z.uuid().optional(),
+  foundLocationId: z.uuid().optional(),
+});
+
+/** listStockReservations query. */
+export const ListStockReservationsQuery = z.object({
+  status: z.enum(['ACTIVE', 'CONSUMED', 'RELEASED', 'EXPIRED']).optional(),
+  productId: z.uuid().optional(),
+  holderDocumentId: z.uuid().optional(),
+  cursor: Cursor,
+  limit: Limit,
+});
+
+/** listStockAvailability query: `productId` repeats (`style: form, explode: true`). */
+export const ListStockAvailabilityQuery = z.object({
+  branchId: z.uuid(),
+  productId: z
+    .union([z.uuid(), z.array(z.uuid()).max(100)])
+    .transform((value) => (Array.isArray(value) ? value : [value]))
+    .optional(),
+  locationId: z.uuid().optional(),
+  cursor: Cursor,
+  limit: Limit,
+});
+
+/** listStockUnits query. */
+export const ListStockUnitsQuery = z.object({
+  q: z.string().trim().min(1).max(60).optional(),
+  productId: z.uuid().optional(),
+  locationId: z.uuid().optional(),
+  status: z.enum(['ACTIVE', 'SOLD', 'CONSUMED', 'WRITTEN_OFF', 'DEPLETED']).optional(),
+  tracking: z.enum(['SERIAL', 'LOT']).optional(),
+  expiringWithinDays: z.coerce.number().int().min(0).max(3_650).optional(),
+  onHold: Bool.optional(),
+  cursor: Cursor,
+  limit: Limit,
+});

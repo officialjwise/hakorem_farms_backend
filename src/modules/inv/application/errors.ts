@@ -26,6 +26,8 @@ registerMessages({
   'inv.stock_take_line_unfinished': 'This line is not counted yet, or needs a recount.',
   'inv.stock_hold_invalid': 'This hold cannot be placed or released like this.',
   'inv.stock_hold_rule': 'This value is not valid on a stock hold.',
+  'inv.stock_exception_invalid': 'This stock exception cannot be resolved like this.',
+  'inv.stock_exception_rule': 'This value is not valid for resolving this stock exception.',
   'inv.withdrawal_cannot_be_released': 'A veterinary withdrawal hold cannot be released early by anyone. It ends on its own date.',
 });
 
@@ -140,6 +142,20 @@ export class StockHoldInvalidError extends BusinessRuleError {
   }
 }
 
+/**
+ * 422 STOCK_EXCEPTION_INVALID: a resolution breaks a resolution rule (FR-INV-023, ADR-0048, A-144):
+ * `RESOLUTION_KIND_REQUIRED`, `NOT_FOR_A_HELD_VARIANCE`, `ONLY_FOR_A_HELD_VARIANCE`, `WRITE_OFF_PENDING`,
+ * `DOCUMENT_REQUIRED`, `NOT_FOR_NO_CORRECTION`, `NOT_A_SETTLING_ADJUSTMENT`, `FOUND_LOCATION_REQUIRED`, `ONLY_FOR_FOUND`,
+ * `NOT_A_STOCK_LOCATION`, `NOT_IN_THE_TRANSFER_BRANCHES`, and the adjustment's own line rules for a write-off.
+ */
+export class StockExceptionInvalidError extends BusinessRuleError {
+  readonly code = 'STOCK_EXCEPTION_INVALID';
+  readonly messageKey = 'inv.stock_exception_invalid';
+  constructor(fields: ReadonlyArray<{ readonly field: string; readonly rule: string }>) {
+    super('the stock exception resolution breaks a rule', details(fields, 'inv.stock_exception_rule'));
+  }
+}
+
 /** 422 WITHDRAWAL_CANNOT_BE_RELEASED: a veterinary withdrawal hold only ends by time (FR-INV-022, ADR-0019). */
 export class WithdrawalCannotBeReleasedError extends BusinessRuleError {
   readonly code = 'WITHDRAWAL_CANNOT_BE_RELEASED';
@@ -206,6 +222,13 @@ const BY_RULE: Readonly<Record<string, new (message: string) => Error>> = {
   ck_stock_reversal: StockMovementInvalidError,
   ck_stock_reversal_value: StockPoolValueGoneError,
   ck_stock_movement_type: StockMovementInvalidError,
+  // Migration 0060 (ADR-0048): in-transit stock is not sellable, and what a held variance holds stays.
+  ck_stock_in_transit: StockUnitNotAvailableError,
+  ck_stock_held: InsufficientStockError,
+  // Reservations (ADR-0019): above what is available, at a place stock is not promised from, or under a hold.
+  ck_stock_reservation: InsufficientStockError,
+  ck_stock_reservation_place: StockUnitNotAvailableError,
+  ck_stock_reservation_held: StockUnitOnHoldError,
 };
 
 /** Translates a stock trigger's refusal into its API error; anything else is rethrown unchanged. */
@@ -216,6 +239,9 @@ export function translateStockRefusal(error: unknown): never {
     if (type !== undefined) {
       throw new type(failure.message ?? failure.constraint);
     }
+  }
+  if (failure.code === '23505' && failure.constraint === 'uq_stock_reservation_exclusive') {
+    throw new StockUnitReservedError(failure.message ?? 'already reserved');
   }
   if (failure.code === '23505' && failure.constraint === 'uq_stock_movement_reverses') {
     throw new StockMovementAlreadyReversedError(failure.message ?? 'already reversed');

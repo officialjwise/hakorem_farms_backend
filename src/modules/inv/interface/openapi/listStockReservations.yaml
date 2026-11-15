@@ -1,0 +1,207 @@
+operationId: listStockReservations
+tags:
+  - inv
+summary: "List stock reservations"
+description: "Stock promised to a checkout, order or quote, oldest first. A reservation is made in process by the module that holds it (SHP, ORD, QUO) at serializable isolation: never above what is available, one active reservation per animal, never of stock in transit or of a unit under a hold. An outbound movement that names it consumes it whole; the scheduled job ends it `EXPIRED` at `expiresAt` (every minute) and publishes `inv.ReservationExpired`. Narrowed to the branches the reader's grants reach and, for a grant at one location, the reservations at that location.\n\nPermission: `inv.reservation.read`."
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+x-permission: inv.reservation.read
+parameters:
+  - name: status
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: productId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: holderDocumentId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/StockReservationPage"
+        example:
+          data:
+            - id: "019a7ab0-99f7-7ffb-9533-088363a68161"
+              product:
+                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                sku: LIV-GOAT
+                name: Goat
+              stockUnit:
+                id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
+                identifier: G-0157
+                tracking: SERIAL
+              location:
+                id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+                code: PEN-G1
+                name: "Goat pen 1"
+                kind: PEN
+              qty: "1.000"
+              isExclusive: true
+              holderDocument:
+                id: "019a7a95-a7c6-72d5-a80e-36306277af0e"
+                docType: QUOTE
+                number: QUO-2026-DDW-000088
+              status: ACTIVE
+              expiresAt: "2026-11-20T18:00:00Z"
+              createdAt: "2026-11-13T09:00:00Z"
+            - id: "019a7aae-105c-7052-858a-0df6682186d4"
+              product:
+                id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                sku: MEAT-CHK-FULL
+                name: "Full chicken, 15 kg pack"
+              stockUnit:
+                id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
+                identifier: EGG-261112-L1
+                tracking: LOT
+              location:
+                id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+                code: COLD-1
+                name: "Cold room"
+                kind: COLD_ROOM
+              qty: "15.000"
+              isExclusive: false
+              holderDocument:
+                id: "019a7ab0-b8e6-79de-af16-a6badd571f98"
+                docType: CHECKOUT_SESSION
+                number: null
+              status: ACTIVE
+              expiresAt: "2026-11-13T09:45:00Z"
+              createdAt: "2026-11-13T09:01:00Z"
+            - id: "019a7ab0-f6c4-7da5-82dd-e329d0b95c07"
+              product:
+                id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                sku: EGG-BIG
+                name: "Eggs, big, crate of 30"
+              stockUnit:
+                id: "019a7a91-2f3b-74f5-9a2d-582bcbe2d109"
+                identifier: MEAT-BEEF-261104-01
+                tracking: LOT
+              location:
+                id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
+                code: STORE-1
+                name: "Feed and produce store"
+                kind: STORE
+              qty: "2.000"
+              isExclusive: false
+              holderDocument:
+                id: "019a7ab0-d7d5-73c2-b8fa-44f25708bdd0"
+                docType: SALES_ORDER
+                number: SO-2026-DDW-004216
+              status: ACTIVE
+              expiresAt: null
+              createdAt: "2026-11-13T09:02:00Z"
+            - id: "019a7ab1-15b3-7789-9cc1-81614a6afa3f"
+              product:
+                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                sku: LIV-GOAT
+                name: Goat
+              stockUnit:
+                id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
+                identifier: G-0157
+                tracking: SERIAL
+              location:
+                id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+                code: PEN-G1
+                name: "Goat pen 1"
+                kind: PEN
+              qty: "1.000"
+              isExclusive: true
+              holderDocument:
+                id: "019a7a95-a7c6-72d5-a80e-36306277af0e"
+                docType: QUOTE
+                number: QUO-2026-DDW-000088
+              status: ACTIVE
+              expiresAt: "2026-11-20T18:00:00Z"
+              createdAt: "2026-11-13T09:03:00Z"
+            - id: "019a7ab1-34a2-716c-a6a4-1f98c41b9876"
+              product:
+                id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
+                sku: MEAT-BEEF
+                name: "Beef, 15 kg pack"
+              stockUnit:
+                id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
+                identifier: EGG-261112-L1
+                tracking: LOT
+              location:
+                id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+                code: COLD-1
+                name: "Cold room"
+                kind: COLD_ROOM
+              qty: "30.000"
+              isExclusive: false
+              holderDocument:
+                id: "019a7ab0-b8e6-79de-af16-a6badd571f98"
+                docType: CHECKOUT_SESSION
+                number: null
+              status: EXPIRED
+              expiresAt: "2026-11-13T09:45:00Z"
+              createdAt: "2026-11-13T09:04:00Z"
+            - id: "019a7ab1-5391-7b4f-b088-bdd03dcc36ae"
+              product:
+                id: "019a7a8d-326c-7ea3-83db-f3051c116be3"
+                sku: LIV-SHEEP
+                name: Sheep
+              stockUnit:
+                id: "019a7a8f-daf6-782f-ad67-8bc9914704a7"
+                identifier: S-0031
+                tracking: SERIAL
+              location:
+                id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
+                code: STORE-1
+                name: "Feed and produce store"
+                kind: STORE
+              qty: "1.000"
+              isExclusive: true
+              holderDocument:
+                id: "019a7ab0-d7d5-73c2-b8fa-44f25708bdd0"
+                docType: SALES_ORDER
+                number: SO-2026-DDW-004216
+              status: ACTIVE
+              expiresAt: null
+              createdAt: "2026-11-13T09:05:00Z"
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

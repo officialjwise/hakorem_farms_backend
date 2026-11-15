@@ -12,8 +12,8 @@ import { createTestDatabase, type TestDatabase } from '../../support/test-databa
 /**
  * Transfers, adjustments and reversals over the seeded farm (FR-INV-004, FR-INV-010 to FR-INV-012, ADR-0017,
  * ADR-0035, threat model "an adjustment used to hide a shortage"): every write refuses the wrong role and the wrong
- * location; stock moves through in-transit at an unchanged value; a shortfall on arrival needs its reason and is a
- * loss with an exception; an adjustment at or above 50,000 pesewas waits for a different person; a movement is
+ * location; stock moves through in-transit at an unchanged value; a shortfall on arrival needs its reason and is
+ * held in transit with an exception (ADR-0048); an adjustment at or above 50,000 pesewas waits for a different person; a movement is
  * reversed once at its original value.
  */
 let database: TestDatabase;
@@ -194,25 +194,25 @@ describe('a transfer through in-transit, received with a variance (FR-INV-010, F
     expect(await onHand('TRANSIT', 'LOT-BEEF-2026-1110', 'MEAT-BEEF-15KG')).toBe('10.000');
   });
 
-  it('receives 9.800 kg into the shop and posts the 0.200 kg variance as a loss valued 2,400 pesewas, with a TRANSFER_VARIANCE exception', async () => {
+  it('receives 9.800 kg into the shop and holds the 0.200 kg variance in transit at its value, with a TRANSFER_VARIANCE exception and no loss (ADR-0048)', async () => {
     const valueBefore = BigInt(await stockValue());
     const shopBefore = await onHand('SHOP', 'LOT-BEEF-2026-1110', 'MEAT-BEEF-15KG');
     const received = await post(shopStorekeeper, `/stock-transfers/${transfer.id}/receive`, { lines: [{ lineId: transfer.lines[0]!.id, qtyReceived: '9.800', varianceReasonCode: 'DAMAGED' }] });
     expect(received.status, JSON.stringify(received.body)).toBe(200);
     expect(received.body).toMatchObject({ status: 'RECEIVED', lines: [{ qtyDispatched: '10.000', qtyReceived: '9.800', varianceQty: '0.200', varianceReasonCode: 'DAMAGED' }] });
-    expect(await onHand('TRANSIT', 'LOT-BEEF-2026-1110', 'MEAT-BEEF-15KG')).toBe('0.000');
+    expect(await onHand('TRANSIT', 'LOT-BEEF-2026-1110', 'MEAT-BEEF-15KG')).toBe('0.200');
     expect(await onHand('SHOP', 'LOT-BEEF-2026-1110', 'MEAT-BEEF-15KG')).toBe((Number(shopBefore) + 9.8).toFixed(3));
-    const loss = (
-      await admin().query<{ value_pesewas: string; reason_code: string }>(
-        "SELECT value_pesewas, reason_code FROM inv.stock_movement WHERE source_document_id = $1 AND movement_type = 'ADJUST_LOSS'",
+    const loss = await admin().query("SELECT 1 FROM inv.stock_movement WHERE source_document_id = $1 AND movement_type = 'ADJUST_LOSS'", [transfer.id]);
+    expect(loss.rowCount).toBe(0);
+    expect(BigInt(await stockValue())).toBe(valueBefore);
+    const exceptions = (
+      await admin().query<{ kind: string; qty: string; status: string; movement_id: string | null; held: string }>(
+        "SELECT kind, qty, status, movement_id, details->>'heldValuePesewas' AS held FROM inv.stock_exception WHERE source_document_id = $1",
         [transfer.id],
       )
     ).rows;
-    // The lot's pool: 45.000 kg bought for 540,000, so 0.200 kg carries half_up(540,000 x 0.2 / 45) = 2,400.
-    expect(loss).toEqual([{ value_pesewas: '2400', reason_code: 'DAMAGED' }]);
-    expect(valueBefore - BigInt(await stockValue())).toBe(2_400n);
-    const exceptions = (await admin().query<{ kind: string; qty: string; status: string }>('SELECT kind, qty, status FROM inv.stock_exception WHERE source_document_id = $1', [transfer.id])).rows;
-    expect(exceptions).toEqual([{ kind: 'TRANSFER_VARIANCE', qty: '0.200', status: 'OPEN' }]);
+    // The lot's pool: 45.000 kg bought for 540,000, so the 0.200 kg held is worth half_up(540,000 x 0.2 / 45) = 2,400.
+    expect(exceptions).toEqual([{ kind: 'TRANSFER_VARIANCE', qty: '0.200', status: 'OPEN', movement_id: null, held: '2400' }]);
   });
 
   it('a received transfer is final: receiving again or cancelling is 422 INVALID_STATE_TRANSITION, and the database refuses a change', async () => {

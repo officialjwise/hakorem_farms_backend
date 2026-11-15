@@ -403,7 +403,7 @@ One worker instance runs the scheduler (`SCHEDULER_ENABLED=true`); jobs are Bull
 | --- | --- | --- | --- |
 | Continuous | `outbox-dispatch` | Delivers outbox messages to asynchronous subscribers, ordered per subject, with backoff, then `DEAD` | ADR-0010 |
 | Continuous | `audit-seal` | Seals audit events into the chain | ADR-0006 |
-| Every minute | `reservation-expiry` | Expires reservations past `expires_at` and publishes `inv.ReservationExpired` | ADR-0019 |
+| Every minute | `reservation-expiry` | Expires reservations past `expires_at` (up to 500 a run) and publishes `inv.ReservationExpired`; contributed by INV through `ScheduledJob` in `src/worker-app.ts` (B05 continued 3b) | ADR-0019, ADR-0049 |
 | Every 5 minutes | `payment-status-poll` | Looks up `PENDING` payments older than 2 minutes at the provider | Architecture 7.2 |
 | Every 15 minutes | `refund-retry` | Retries `FAILED` refunds under their policy | Architecture 7.2 |
 | Hourly, at :15 | `idempotency-purge` | Deletes `platform.idempotency_key` rows past `expires_at` (kept at least 72 hours) | ADR-0014 |

@@ -6,7 +6,9 @@
  * B05 continued adds `GoodsReceipts` (with `createIn` and `postIn` for the seed and later callers) and `StockQueries`.
  * B05 continued 2 adds `StockMovements` (reads and reversal), `StockTransfers` and `StockAdjustments` (with `createIn`).
  * B05 continued 3 adds `StockTakes` and `StockHolds`, whose `placeIn` is the `Holds` interface: LIV places a withdrawal
- * hold through it in the treatment's transaction.
+ * hold through it in the treatment's transaction. B05 continued 3b adds `StockExceptions` (the queue and its
+ * resolution, the held transfer variance of ADR-0048), `Reservations` (the in-process interface: `reserveIn`,
+ * `consumeIn`, `releaseIn`) and `ReservationExpiry`, the scheduled job.
  */
 export { InvModule } from './inv.module';
 export { Stock, type MovementRequest, type PostedMovement, type StockPostingPayload } from './application/stock';
@@ -19,7 +21,9 @@ export { StockTransfers, type StockTransferView, type TransferCreateRequest, typ
 export { StockAdjustments, type AdjustmentCreateRequest, type StockAdjustmentView } from './application/stock-adjustments';
 export { StockTakes, type StockTakeView } from './application/stock-takes';
 export { StockHolds, type HoldPlacementRequest, type StockHoldView } from './application/stock-holds';
-export type { StockUnitRegistered } from './events';
+export { StockExceptions, type StockExceptionView } from './application/stock-exceptions';
+export { ReservationExpiry, Reservations, reservationLockKey, type ConsumeRequest, type ReservationRequest, type StockReservationView } from './application/reservations';
+export type { ReservationEnded, StockUnitRegistered } from './events';
 export type { CostElement, LinkType, WeightSource } from './application/stock-store';
 export {
   InsufficientStockError,
@@ -37,5 +41,6 @@ export {
   StockTakeNotCountedError,
   StockHoldInvalidError,
   WithdrawalCannotBeReleasedError,
+  StockExceptionInvalidError,
 } from './application/errors';
 export { capitalise, emptyPool, issue, receive, valueAtAverage, type CostPool, type IssueResult } from './domain/valuation/cost-pool';

@@ -1,4 +1,5 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
+import type { ResolutionKind } from '../domain/stock-exception';
 import type {
   AdjustmentFilters,
   AdjustmentLineRecord,
@@ -197,8 +198,11 @@ export class PgStockDocumentsStore implements StockDocumentsStore {
     return rows[0] === undefined ? null : { qty: rows[0].qty, valuePesewas: BigInt(rows[0].value_pesewas) };
   }
 
-  async exceptionState(tx: Transaction, id: string): Promise<{ readonly status: string; readonly branchId: string } | null> {
-    const { rows } = await tx.query<{ status: string; branchId: string }>('SELECT status, branch_id AS "branchId" FROM inv.stock_exception WHERE id = $1', [id]);
+  async exceptionState(tx: Transaction, id: string): Promise<{ readonly status: string; readonly branchId: string; readonly kind: string; readonly movementId: string | null } | null> {
+    const { rows } = await tx.query<{ status: string; branchId: string; kind: string; movementId: string | null }>(
+      'SELECT status, branch_id AS "branchId", kind, movement_id AS "movementId" FROM inv.stock_exception WHERE id = $1',
+      [id],
+    );
     return rows[0] ?? null;
   }
 
@@ -209,6 +213,13 @@ export class PgStockDocumentsStore implements StockDocumentsStore {
       [e.kind, e.branchId, e.productId, e.stockUnitId, e.locationId, e.movementId, e.sourceDocumentId, e.qty, JSON.stringify(e.details)],
     );
     return rows[0]!.id;
+  }
+
+  async resolveException(tx: Transaction, id: string, r: { readonly kind: ResolutionKind; readonly note: string; readonly documentId: string | null; readonly at: Date }, actorId: string): Promise<void> {
+    await tx.query(
+      `UPDATE inv.stock_exception SET status = 'RESOLVED', resolved_at = $2, resolved_by = $3, resolution_document_id = $4, resolution_note = $5, resolution_kind = $6 WHERE id = $1`,
+      [id, r.at, actorId, r.documentId, r.note, r.kind],
+    );
   }
 
   // Transfers.

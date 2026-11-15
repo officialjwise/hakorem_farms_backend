@@ -26,3 +26,19 @@ export interface StockUnitRegistered {
     readonly purpose: 'GROWING' | 'BREEDING';
   } | null;
 }
+
+/**
+ * `inv.ReservationExpired` and `inv.ReservationReleased` v1 (ADR-0019): a reservation ended, by the expiry job or by
+ * a person, and gave back exactly `qty`. The holder (a checkout, an order, a quote) reacts: SHP tells the shopper the
+ * checkout lapsed (B7), QUO marks the animal no longer set aside (B10).
+ */
+export interface ReservationEnded {
+  readonly reservationId: string;
+  readonly holderDocumentId: string;
+  readonly productId: string;
+  readonly stockUnitId: string | null;
+  readonly locationId: string;
+  readonly qty: string;
+  readonly expiresAt: string | null;
+  readonly reason: string;
+}
