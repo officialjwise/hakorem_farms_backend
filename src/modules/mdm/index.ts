@@ -36,3 +36,10 @@ export { MasterDataRefs, type BranchFacts, type GradeFacts, type LocationFacts, 
 export { MdmImports } from './application/imports';
 export { cached, readRows, type EntitySheet, type SheetCheck, type SheetRecords } from './application/import-sheets';
 export { duplicateErrors, type RowError, type SheetColumns } from './domain/imports';
+/**
+ * B05x adds the location usage port (ADR-0051): a higher module that holds stock or documents at a branch or location
+ * implements `LocationUsageCheck` and registers it with `LocationUsageRegistry.register` when it starts, as INV does;
+ * closing a branch and archiving a location ask every registered check in their transaction.
+ */
+export { LocationUsageRegistry, type LocationUsageCheck } from './application/location-usage';
+export type { PlaceUsage } from './domain/locations';

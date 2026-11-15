@@ -2,7 +2,7 @@ operationId: listLocations
 tags:
   - mdm
 summary: "List stock locations"
-description: "Live locations in creation order. Virtual locations are left out unless `includeVirtual=true`.\n\nPermission: `mdm.location.read`."
+description: "Live locations the caller's grants reach, in creation order: a grant for a whole branch reaches its every location, a grant at one location only that location (its branch's virtual locations are not added). Virtual locations are left out unless `includeVirtual=true`.\n\nPermission: `mdm.location.read`."
 x-permission: mdm.location.read
 x-error-codes:
   - VALIDATION_FAILED

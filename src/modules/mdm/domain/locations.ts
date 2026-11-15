@@ -89,11 +89,53 @@ export function planLocationChange(state: LocationState, change: LocationChange)
   return rules.length > 0 ? err(rules) : ok(undefined);
 }
 
+/** What every registered usage check found at a branch or a location (ADR-0051). */
+export interface PlaceUsage {
+  readonly holdsStock: boolean;
+  readonly openDocuments: number;
+}
+
+function usageRules(usage: PlaceUsage, field: string | null): CatalogueRule[] {
+  const rules: CatalogueRule[] = [];
+  if (usage.holdsStock) rules.push({ field, rule: 'HOLDS_STOCK' });
+  if (usage.openDocuments > 0) rules.push({ field, rule: 'OPEN_DOCUMENTS' });
+  return rules;
+}
+
 /**
- * Archiving a location (FR-MDM-006): never a virtual one, and not while live locations sit below it. The stock
- * check ("a location with stock cannot be archived") arrives with inventory in B5 (A-111).
+ * Archiving a location (FR-MDM-006): never a virtual one; not while live locations sit below it, stock stands in
+ * it or an open document names it (A-111, ADR-0051). Every reason that applies is named.
  */
-export function planLocationArchive(usage: { readonly isVirtual: boolean; readonly liveChildren: number }): Result<void, CatalogueRule[]> {
-  if (usage.isVirtual) return err([{ field: null, rule: 'VIRTUAL_LOCATION_FIXED' }]);
-  return usage.liveChildren > 0 ? err([{ field: null, rule: 'HAS_LIVE_CHILDREN' }]) : ok(undefined);
+export function planLocationArchive(state: { readonly isVirtual: boolean; readonly liveChildren: number; readonly usage: PlaceUsage }): Result<void, CatalogueRule[]> {
+  if (state.isVirtual) return err([{ field: null, rule: 'VIRTUAL_LOCATION_FIXED' }]);
+  const rules: CatalogueRule[] = state.liveChildren > 0 ? [{ field: null, rule: 'HAS_LIVE_CHILDREN' }] : [];
+  rules.push(...usageRules(state.usage, null));
+  return rules.length > 0 ? err(rules) : ok(undefined);
+}
+
+export type BranchStatusValue = 'ACTIVE' | 'CLOSED';
+
+/** What a status change on a branch does. */
+export type BranchStatusChange = 'NONE' | 'CLOSE' | 'REOPEN';
+
+/**
+ * Closing (deactivating) or reopening a branch (FR-MDM-006, B05x, A-150). Reopening is always allowed. Closing is
+ * refused for the farm's own branch (the first, bootstrapped one, ADR-0042), for the last open branch that is not the
+ * smoke-test branch, for a branch where stock stands, and for one an open document names; every reason is named.
+ */
+export function planBranchStatus(state: {
+  readonly from: BranchStatusValue;
+  readonly to: BranchStatusValue;
+  readonly isFarmBranch: boolean;
+  readonly isTest: boolean;
+  readonly otherActiveBranches: number;
+  readonly usage: PlaceUsage;
+}): Result<BranchStatusChange, CatalogueRule[]> {
+  if (state.from === state.to) return ok('NONE');
+  if (state.to === 'ACTIVE') return ok('REOPEN');
+  const rules: CatalogueRule[] = [];
+  if (state.isFarmBranch) rules.push({ field: '/status', rule: 'FARM_BRANCH' });
+  if (!state.isTest && state.otherActiveBranches === 0) rules.push({ field: '/status', rule: 'LAST_ACTIVE_BRANCH' });
+  rules.push(...usageRules(state.usage, '/status'));
+  return rules.length > 0 ? err(rules) : ok('CLOSE');
 }

@@ -2,7 +2,7 @@ operationId: updateBranch
 tags:
   - mdm
 summary: "Update a branch"
-description: "Send the `version` you read; a stale version is refused with 409. Scoped to the branch: a grant at another branch does not reach it. Closing a branch sets `status` to `CLOSED`.\n\nPermission: `mdm.branch.update`."
+description: "Send the `version` you read; a stale version is refused with 409. Scoped to the branch: a grant at another branch does not reach it. Closing (deactivating) a branch sets `status` to `CLOSED`; it is refused with 422 `BRANCH_INVALID` for the farm's own branch, the last open trading branch, a branch where stock stands and a branch an open document names, every reason listed in `details` (ADR-0051). Reopening sets `ACTIVE` again and is always allowed. A closed branch keeps its locations, stock history and grants.\n\nPermission: `mdm.branch.update`."
 x-permission: mdm.branch.update
 x-error-codes:
   - VALIDATION_FAILED
@@ -14,6 +14,7 @@ x-error-codes:
   - ORIGIN_NOT_ALLOWED
   - PASSWORD_CHANGE_REQUIRED
   - NOT_FOUND
+  - BRANCH_INVALID
   - VERSION_CONFLICT
   - RATE_LIMITED
 parameters:
@@ -68,7 +69,62 @@ responses:
   "409":
     $ref: "#/components/responses/Conflict"
   "422":
-    $ref: "#/components/responses/BusinessRuleViolation"
+    description: "Closing the branch is refused (`BRANCH_INVALID`), each reason named in `details[].code`: `FARM_BRANCH` (the farm's own branch, the first one, never closes), `LAST_ACTIVE_BRANCH` (no other open trading branch would be left; the smoke-test branch does not count), `HOLDS_STOCK` (stock stands at one of its locations, in transit included) and `OPEN_DOCUMENTS` (a draft goods receipt, a transfer not yet received, an adjustment, reversal or stock take not yet decided, or an open stock exception names it). Any other refusal uses the usual codes."
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Error"
+        examples:
+          farmBranch:
+            summary: "Closing Dodowa, the farm's own branch, with goats in its pens"
+            value:
+              error:
+                code: BRANCH_INVALID
+                message: "This branch cannot be closed."
+                correlationId: "019a7b20-1c4e-7a10-9f3e-2b6d8c1a0e11"
+                details:
+                  - field: /status
+                    code: FARM_BRANCH
+                    message: "The farm's own branch, the last open branch, and a branch with stock or open documents stay open."
+                  - field: /status
+                    code: HOLDS_STOCK
+                    message: "The farm's own branch, the last open branch, and a branch with stock or open documents stay open."
+          lastActiveBranch:
+            summary: "Closing the only open trading branch"
+            value:
+              error:
+                code: BRANCH_INVALID
+                message: "This branch cannot be closed."
+                correlationId: "019a7b20-1c4e-7a10-9f3e-2b6d8c1a0e12"
+                details:
+                  - field: /status
+                    code: LAST_ACTIVE_BRANCH
+                    message: "The farm's own branch, the last open branch, and a branch with stock or open documents stay open."
+          holdsStock:
+            summary: "Closing Kasoa while 12 crates of eggs stand on its shop floor"
+            value:
+              error:
+                code: BRANCH_INVALID
+                message: "This branch cannot be closed."
+                correlationId: "019a7b20-1c4e-7a10-9f3e-2b6d8c1a0e13"
+                details:
+                  - field: /status
+                    code: HOLDS_STOCK
+                    message: "The farm's own branch, the last open branch, and a branch with stock or open documents stay open."
+          openDocuments:
+            summary: "Closing Kasoa while a goods receipt is still a draft"
+            value:
+              error:
+                code: BRANCH_INVALID
+                message: "This branch cannot be closed."
+                correlationId: "019a7b20-1c4e-7a10-9f3e-2b6d8c1a0e14"
+                details:
+                  - field: /status
+                    code: OPEN_DOCUMENTS
+                    message: "The farm's own branch, the last open branch, and a branch with stock or open documents stay open."
   "429":
     $ref: "#/components/responses/RateLimited"
   "500":

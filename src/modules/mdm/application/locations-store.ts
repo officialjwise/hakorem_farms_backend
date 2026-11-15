@@ -68,19 +68,34 @@ export interface LocationFilters {
   readonly includeVirtual: boolean;
 }
 
+/** Where one grant reaches: a branch, and optionally one location of it. */
+export interface LocationScope {
+  readonly branchId: string;
+  readonly locationId: string | null;
+}
+
 /** MDM's branch and location tables, each call in the caller's transaction. Lists are live rows in creation order. */
 export interface LocationsStore {
   branchCount(tx: Transaction): Promise<number>;
   lockBranch(tx: Transaction, id: string): Promise<RowState | null>;
   branch(tx: Transaction, id: string): Promise<BranchView | null>;
-  branches(tx: Transaction, afterId: string | null, limit: number): Promise<BranchView[]>;
+  /** Live branches among `within`, in id order. */
+  branches(tx: Transaction, within: readonly string[], afterId: string | null, limit: number): Promise<BranchView[]>;
+  /** The farm's own branch: the first ever created, which the bootstrap writes (ADR-0042); null on an empty table. */
+  farmBranchId(tx: Transaction): Promise<string | null>;
+  /** Live ACTIVE branches other than this one, the smoke-test branch left out. */
+  otherActiveTradingBranches(tx: Transaction, id: string): Promise<number>;
   branchCodeTaken(tx: Transaction, code: string): Promise<boolean>;
   insertBranch(tx: Transaction, id: string, write: BranchWrite, actorId: string): Promise<void>;
   updateBranch(tx: Transaction, id: string, expectedVersion: number, columns: Readonly<Record<string, unknown>>, actorId: string): Promise<boolean>;
 
   lockLocation(tx: Transaction, id: string): Promise<RowState | null>;
   location(tx: Transaction, id: string): Promise<LocationView | null>;
-  locations(tx: Transaction, filters: LocationFilters, afterId: string | null, limit: number): Promise<LocationView[]>;
+  /**
+   * Live locations the grants reach (a grant with no location reaches its whole branch), in id order; `null` for an
+   * in-process caller that authorised the whole set already (an export).
+   */
+  locations(tx: Transaction, filters: LocationFilters, scopes: readonly LocationScope[] | null, afterId: string | null, limit: number): Promise<LocationView[]>;
   locationCodeTaken(tx: Transaction, branchId: string, code: string): Promise<boolean>;
   insertLocation(tx: Transaction, id: string, write: LocationWrite, actorId: string): Promise<void>;
   updateLocation(tx: Transaction, id: string, expectedVersion: number, columns: Readonly<Record<string, unknown>>, actorId: string): Promise<boolean>;

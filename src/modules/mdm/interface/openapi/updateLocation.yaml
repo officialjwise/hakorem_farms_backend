@@ -2,7 +2,7 @@ operationId: updateLocation
 tags:
   - mdm
 summary: "Update a stock location"
-description: "Send the `version` you read; a stale version is refused with 409. A virtual location is never changed (422 `LOCATION_INVALID`, `VIRTUAL_LOCATION_FIXED`). A new parent obeys the create rules and is not the location itself or below it (`PARENT_IS_SELF_OR_BELOW`).\n\nPermission: `mdm.location.update`."
+description: "Send the `version` you read; a stale version is refused with 409. A virtual location is never changed (422 `LOCATION_INVALID`, `VIRTUAL_LOCATION_FIXED`). A new parent obeys the create rules and is not the location itself or below it (`PARENT_IS_SELF_OR_BELOW`). A location never moves to another branch: its branch is fixed when it is created, since its stock history and grants belong to that branch; create a location in the other branch and transfer the stock instead.\n\nPermission: `mdm.location.update`."
 x-permission: mdm.location.update
 x-error-codes:
   - VALIDATION_FAILED

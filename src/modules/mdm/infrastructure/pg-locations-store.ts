@@ -1,6 +1,6 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
 import type { RowState } from '../application/admin-kit';
-import type { BranchView, BranchWrite, LocationFilters, LocationsStore, LocationView, LocationWrite } from '../application/locations-store';
+import type { BranchView, BranchWrite, LocationFilters, LocationScope, LocationsStore, LocationView, LocationWrite } from '../application/locations-store';
 
 /** The columns each update may set: what the contract's update schemas can change. */
 const BRANCH_UPDATABLE: ReadonlySet<string> = new Set(['name', 'address', 'phone_e164', 'status']);
@@ -104,9 +104,26 @@ export class PgLocationsStore implements LocationsStore {
     return rows[0] === undefined ? null : toBranch(rows[0]);
   }
 
-  async branches(tx: Transaction, afterId: string | null, limit: number): Promise<BranchView[]> {
-    const { rows } = await tx.query<BranchRow>(`${BRANCH_SELECT} WHERE deleted_at IS NULL AND ($1::uuid IS NULL OR id > $1) ORDER BY id LIMIT $2`, [afterId, limit]);
+  async branches(tx: Transaction, within: readonly string[], afterId: string | null, limit: number): Promise<BranchView[]> {
+    const { rows } = await tx.query<BranchRow>(`${BRANCH_SELECT} WHERE deleted_at IS NULL AND id = ANY($1::uuid[]) AND ($2::uuid IS NULL OR id > $2) ORDER BY id LIMIT $3`, [
+      within,
+      afterId,
+      limit,
+    ]);
     return rows.map(toBranch);
+  }
+
+  async farmBranchId(tx: Transaction): Promise<string | null> {
+    const { rows } = await tx.query<{ id: string }>('SELECT id FROM mdm.branch ORDER BY created_at, id LIMIT 1');
+    return rows[0]?.id ?? null;
+  }
+
+  async otherActiveTradingBranches(tx: Transaction, id: string): Promise<number> {
+    const { rows } = await tx.query<{ n: number }>(
+      "SELECT count(*)::int AS n FROM mdm.branch WHERE id <> $1 AND status = 'ACTIVE' AND NOT is_test AND deleted_at IS NULL",
+      [id],
+    );
+    return rows[0]!.n;
   }
 
   async branchCodeTaken(tx: Transaction, code: string): Promise<boolean> {
@@ -135,14 +152,26 @@ export class PgLocationsStore implements LocationsStore {
     return rows[0] === undefined ? null : toLocation(rows[0]);
   }
 
-  async locations(tx: Transaction, filters: LocationFilters, afterId: string | null, limit: number): Promise<LocationView[]> {
+  async locations(tx: Transaction, filters: LocationFilters, scopes: readonly LocationScope[] | null, afterId: string | null, limit: number): Promise<LocationView[]> {
     const { rows } = await tx.query<LocationRow>(
       `${LOCATION_SELECT}
         WHERE l.deleted_at IS NULL
           AND ($1::uuid IS NULL OR l.branch_id = $1) AND ($2::text IS NULL OR l.kind = $2) AND ($3::uuid IS NULL OR l.parent_id = $3)
           AND ($4 OR NOT l.is_virtual) AND ($5::uuid IS NULL OR l.id > $5)
+          AND ($9 OR EXISTS (SELECT 1 FROM unnest($7::uuid[], $8::uuid[]) s(branch_id, location_id)
+                       WHERE s.branch_id = l.branch_id AND (s.location_id IS NULL OR s.location_id = l.id)))
         ORDER BY l.id LIMIT $6`,
-      [filters.branchId ?? null, filters.kind ?? null, filters.parentId ?? null, filters.includeVirtual, afterId, limit],
+      [
+        filters.branchId ?? null,
+        filters.kind ?? null,
+        filters.parentId ?? null,
+        filters.includeVirtual,
+        afterId,
+        limit,
+        (scopes ?? []).map((s) => s.branchId),
+        (scopes ?? []).map((s) => s.locationId),
+        scopes === null,
+      ],
     );
     return rows.map(toLocation);
   }

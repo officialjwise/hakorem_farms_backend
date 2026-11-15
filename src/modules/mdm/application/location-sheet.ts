@@ -159,7 +159,7 @@ export class LocationSheet implements EntitySheet<readonly LocationPlanRow[]> {
     const locations = [];
     let after: string | null = null;
     for (;;) {
-      const page = await this.store.locations(tx, { includeVirtual: false }, after, EXPORT_PAGE);
+      const page = await this.store.locations(tx, { includeVirtual: false }, null, after, EXPORT_PAGE);
       locations.push(...page);
       if (page.length < EXPORT_PAGE) break;
       after = page.at(-1)!.id;

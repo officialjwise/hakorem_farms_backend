@@ -258,3 +258,18 @@ export class DeliveryZoneInvalidError extends BusinessRuleError {
     super('the delivery zone is not valid', rules.map((rule) => ({ field: rule.field, code: rule.rule, message: translate('mdm.delivery_zone_rule') })));
   }
 }
+
+registerMessages({
+  'mdm.branch_invalid': 'This branch cannot be closed.',
+  'mdm.branch_rule': "The farm's own branch, the last open branch, and a branch with stock or open documents stay open.",
+});
+
+/** 422: closing the branch is refused (B05x): the farm's own, the last open one, or one in use (ADR-0051). */
+export class BranchInvalidError extends BusinessRuleError {
+  readonly code = 'BRANCH_INVALID';
+  readonly messageKey = 'mdm.branch_invalid';
+
+  constructor(rules: ReadonlyArray<{ readonly field: string | null; readonly rule: string }>) {
+    super('the branch breaks a branch rule', rules.map((rule) => ({ field: rule.field, code: rule.rule, message: translate('mdm.branch_rule') })));
+  }
+}

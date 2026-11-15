@@ -1,8 +1,8 @@
 operationId: listBranches
 tags:
   - mdm
-summary: "List branchs"
-description: "Permission: `mdm.branch.read`."
+summary: "List branches"
+description: "The branches where the caller holds `mdm.branch.read`, for the whole branch or for one of its locations, closed ones included (check `status`), in creation order. Use it for the branch switcher.\n\nPermission: `mdm.branch.read`."
 x-permission: mdm.branch.read
 x-error-codes:
   - VALIDATION_FAILED

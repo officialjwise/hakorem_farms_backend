@@ -2,7 +2,7 @@ operationId: archiveLocation
 tags:
   - mdm
 summary: "Archive a stock location"
-description: "Soft delete with a reason. Refused with 422 `RECORD_IN_USE` (`HAS_LIVE_CHILDREN`) while live locations sit below it, and with `LOCATION_INVALID` (`VIRTUAL_LOCATION_FIXED`) for a virtual location. Refusing a location that holds stock arrives with inventory (B5).\n\nPermission: `mdm.location.archive`."
+description: "Soft delete with a reason. Refused with 422 `RECORD_IN_USE` (`HAS_LIVE_CHILDREN`) while live locations sit below it, and with `LOCATION_INVALID` (`VIRTUAL_LOCATION_FIXED`) for a virtual location. It is also refused with `RECORD_IN_USE` while stock stands in it (`HOLDS_STOCK`) or an open stock document names it (`OPEN_DOCUMENTS`), every reason listed (ADR-0051).\n\nPermission: `mdm.location.archive`."
 x-permission: mdm.location.archive
 x-error-codes:
   - VALIDATION_FAILED
