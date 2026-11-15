@@ -104,7 +104,7 @@ Direct costs of a processing run.
 
 ### `prc.pack` · MASTER
 
-Not yet built: packs and labels are B06 continued's (A-154).
+Built in B06 continued 3 (migration 0085, A-161) with these differences: `processing_output_id` is the output packed and `stock_unit_id` its lot; `weight_source` is added (CHECK in `SCALE`, `MANUAL`, `ESTIMATE`); `weight_kg` is below 1,000 kg; `barcode` is `<lot>/<grams, six digits>` and **not unique** (two packs of one lot that weigh the same are interchangeable); status adds `REVERSED`. A guard (`prc.pack_guard`) makes a pack only IN_STOCK for a saleable output of a COMPLETED order, in that output's lot, freezes its lot, output, number, weight, source and barcode and its first print time, and allows only IN_STOCK <-> PICKED and on to SOLD, WRITTEN_OFF or REVERSED. A deferred trigger (`ck_pack_weights`, HK010) checks at commit that an output's packs weigh exactly its weight. No DELETE.
 
 A labelled, weighed pack within a meat lot.
 
@@ -120,3 +120,19 @@ A labelled, weighed pack within a meat lot.
 | `status` | `text` | NOT NULL, CHECK in (`IN_STOCK`, `PICKED`, `SOLD`, `WRITTEN_OFF`) | |
 
 Standard columns: `MASTER`. UNIQUE (`stock_unit_id`, `pack_no`).
+
+### `prc.processing_reversal` · DOCUMENT
+
+Built in B06 continued 3 (migration 0087, A-162): the reversal of a completed processing order (FR-PRC-011), the source document of the movements that reverse it. Used instead of a second `prc.processing_order` with `reverses_order_id`, which stays unused: the order stays COMPLETED and frozen.
+
+| Column | Type | Constraints | Why |
+| --- | --- | --- | --- |
+| `id` | `uuid` | PK, FK `platform.business_document` (type `PROCESSING_REVERSAL`) | |
+| `processing_order_id` | `uuid` | NOT NULL, UNIQUE, FK `prc.processing_order` | Once per order |
+| `branch_id` | `uuid` | NOT NULL, FK `mdm.branch` | The order's |
+| `reason` | `text` | NOT NULL, 1 to 500 characters | |
+| `status` | `text` | NOT NULL, CHECK `= 'POSTED'` | Posted when written |
+| `posted_at`, `posted_by` | `timestamptz`, `uuid` | NOT NULL | Who reversed it, when |
+
+Standard columns: `DOCUMENT`. A guard refuses a reversal of an order that is not COMPLETED or of another branch; `freeze_posted` freezes it.
+
