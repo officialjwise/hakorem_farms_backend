@@ -1,0 +1,251 @@
+operationId: listMortalityRecords
+tags:
+  - liv
+summary: "List deaths and culls"
+description: "Permission: `liv.mortality.read`."
+x-permission: liv.mortality.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: status
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: kind
+    in: query
+    required: false
+    schema:
+      type: string
+      enum:
+        - DEATH
+        - CULL
+  - name: reportedBy
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: locationId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: from
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date-time
+  - name: to
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date-time
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/MortalityRecordPage"
+        example:
+          data:
+            - id: "019a7ac0-1177-71b6-96ef-24403c269d1e"
+              kind: DEATH
+              stockUnit:
+                id: "019a7a8f-bc07-7e4c-9384-ed921796666f"
+                identifier: G-0171
+                tracking: SERIAL
+              animal:
+                id: "019a7a8f-bc07-7e4c-9384-ed921796666f"
+                tagNo: G-0171
+              head: 1
+              reasonCode: DISEASE_SUSPECTED
+              foundAt: "2026-11-13T06:00:00Z"
+              location:
+                id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                code: PEN-G2
+                name: "Goat pen 2"
+                kind: PEN
+              reportedBy:
+                id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                displayName: "Abena Quaye"
+              photoFileId: "019a7ac0-3066-7b9a-a0d2-c277b5d73b55"
+              valuePesewas: 58900
+              currency: GHS
+              status: PENDING_APPROVAL
+              approvalRequestId: "019a7ac0-4f55-757d-bab6-60af2f88d98d"
+              movementId: null
+              disposalNote: null
+              version: 2
+            - id: "019a7ac0-6e44-7f61-8499-fee6a93977c4"
+              kind: DEATH
+              stockUnit:
+                id: "019a7a91-4e2a-7ed9-a411-f66345936f41"
+                identifier: BRL-2610-01
+                tracking: LOT
+              animal: null
+              head: 3
+              reasonCode: DISEASE_SUSPECTED
+              foundAt: "2026-11-12T06:00:00Z"
+              location:
+                id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+                code: HSE-B1
+                name: "Broiler house 1"
+                kind: PEN
+              reportedBy:
+                id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                displayName: "Abena Quaye"
+              photoFileId: null
+              valuePesewas: 40500
+              currency: GHS
+              status: POSTED
+              approvalRequestId: null
+              movementId: "019a7ac0-8d33-7944-9e7d-9d1e22ea15fc"
+              disposalNote: "Buried behind the broiler house, lime applied"
+              version: 2
+            - id: "019a7ac0-ac22-7328-a860-3b559c9bb433"
+              kind: DEATH
+              stockUnit:
+                id: "019a7a91-4e2a-7ed9-a411-f66345936f41"
+                identifier: BRL-2610-01
+                tracking: LOT
+              animal: null
+              head: 2
+              reasonCode: HEAT_STRESS
+              foundAt: "2026-11-11T06:00:00Z"
+              location:
+                id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+                code: HSE-B1
+                name: "Broiler house 1"
+                kind: PEN
+              reportedBy:
+                id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                displayName: "Abena Quaye"
+              photoFileId: null
+              valuePesewas: 27000
+              currency: GHS
+              status: POSTED
+              approvalRequestId: null
+              movementId: "019a7ac0-cb11-7d0b-b244-d98d164c526a"
+              disposalNote: "Buried behind the broiler house, lime applied"
+              version: 2
+            - id: "019a7ac0-ea00-76ef-8c27-77c48ffdf0a2"
+              kind: CULL
+              stockUnit:
+                id: "019a7a90-18d4-7bf6-812e-c83884a94116"
+                identifier: P-0009
+                tracking: SERIAL
+              animal:
+                id: "019a7a90-18d4-7bf6-812e-c83884a94116"
+                tagNo: P-0009
+              head: 1
+              reasonCode: POOR_GROWTH
+              foundAt: "2026-11-10T06:00:00Z"
+              location:
+                id: "019a7a83-e489-7538-ba70-5c5581d4d533"
+                code: PEN-P1
+                name: "Pig pen"
+                kind: PEN
+              reportedBy:
+                id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                displayName: "Abena Quaye"
+              photoFileId: null
+              valuePesewas: 38700
+              currency: GHS
+              status: REPORTED
+              approvalRequestId: null
+              movementId: null
+              disposalNote: null
+              version: 2
+            - id: "019a7ac1-08ef-70d2-960a-15fc09ae8ed9"
+              kind: DEATH
+              stockUnit:
+                id: "019a7a91-4e2a-7ed9-a411-f66345936f41"
+                identifier: BRL-2610-01
+                tracking: LOT
+              animal: null
+              head: 1
+              reasonCode: PREDATOR
+              foundAt: "2026-11-09T06:00:00Z"
+              location:
+                id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+                code: HSE-B1
+                name: "Broiler house 1"
+                kind: PEN
+              reportedBy:
+                id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                displayName: "Abena Quaye"
+              photoFileId: null
+              valuePesewas: 13500
+              currency: GHS
+              status: POSTED
+              approvalRequestId: null
+              movementId: "019a7ac1-27de-7ab6-afee-b433835f2d11"
+              disposalNote: "Buried behind the broiler house, lime applied"
+              version: 2
+            - id: "019a7aac-9d28-79a8-8ee0-a35cb3d51c3a"
+              kind: DEATH
+              stockUnit:
+                id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
+                identifier: G-0142
+                tracking: SERIAL
+              animal:
+                id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
+                tagNo: G-0142
+              head: 1
+              reasonCode: DISEASE_SUSPECTED
+              foundAt: "2026-11-08T06:00:00Z"
+              location:
+                id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+                code: PEN-G1
+                name: "Goat pen 1"
+                kind: PEN
+              reportedBy:
+                id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                displayName: "Abena Quaye"
+              photoFileId: "019a7ac1-46cd-7499-b9d1-526afd10cb48"
+              valuePesewas: 61250
+              currency: GHS
+              status: REJECTED
+              approvalRequestId: "019a7ac1-65bc-7e7d-83b5-f0a276c16980"
+              movementId: null
+              disposalNote: null
+              version: 2
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

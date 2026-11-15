@@ -120,6 +120,7 @@ export default defineConfig({
         ...fullCoverage('src/modules/mdm/domain/label.ts'), // B05x: what a product label encodes
         ...fullCoverage('src/modules/rpt/domain/**/*.ts'), // B05x: dashboard periods, daily series in pesewas, pending figures
         ...fullCoverage('src/modules/prc/domain/**/*.ts'), // B6: cost allocation by relative sales value, yield against standard (ADR-0018)
+        ...fullCoverage('src/modules/liv/domain/**/*.ts'), // B06 continued: cost spread by head-days, withdrawal ends, the write-off threshold, animal status
         // ...fullCoverage('src/modules/fin/domain/**/*.ts'),              // B8: the ledger, posting rules, journals, periods (ADR-0003)
         // ...fullCoverage('src/modules/cap/domain/distribution/**/*.ts'), // B12: distribution, unit-days and allocation (ADR-0028)
       },

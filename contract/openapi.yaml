@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.23.0"
+  version: "1.24.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -24505,6 +24505,12 @@ paths:
       summary: "List the animal register"
       description: "Permission: `liv.animal.read`."
       x-permission: liv.animal.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: q
           in: query
@@ -24934,6 +24940,13 @@ paths:
       summary: "Get an animal"
       description: "Permission: `liv.animal.read`."
       x-permission: liv.animal.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -25354,6 +25367,12 @@ paths:
       summary: "List weight records"
       description: "Permission: `liv.weight.read`."
       x-permission: liv.weight.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: stockUnitId
           in: query
@@ -25497,6 +25516,18 @@ paths:
       summary: "Record weights for one or many animals"
       description: "Permission: `liv.weight.record`.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result."
       x-permission: liv.weight.record
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - LIVESTOCK_RECORD_INVALID
+        - REFERENCE_NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -26218,6 +26249,12 @@ paths:
       summary: "List health events"
       description: "Permission: `liv.health.read`."
       x-permission: liv.health.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: stockUnitId
           in: query
@@ -26435,6 +26472,20 @@ paths:
       summary: "Record a vaccination, treatment or check"
       description: "A product with withdrawal days places a WITHDRAWAL hold on every animal treated, in the same transaction, which blocks sale and slaughter until it ends. Medication used is issued from stock and its cost capitalised onto the animals.\n\nPermission: `liv.health.record`.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result."
       x-permission: liv.health.record
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - LIVESTOCK_RECORD_INVALID
+        - REFERENCE_NOT_FOUND
+        - INSUFFICIENT_STOCK
+        - STOCK_HOLD_INVALID
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -26516,6 +26567,13 @@ paths:
       summary: "Get a health event"
       description: "Permission: `liv.health.read`."
       x-permission: liv.health.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -27118,6 +27176,12 @@ paths:
       summary: "List deaths and culls"
       description: "Permission: `liv.mortality.read`."
       x-permission: liv.mortality.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: status
           in: query
@@ -27364,6 +27428,18 @@ paths:
       summary: "Report a death or cull"
       description: "Permission: `liv.mortality.report`.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result."
       x-permission: liv.mortality.report
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - LIVESTOCK_RECORD_INVALID
+        - REFERENCE_NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -27444,6 +27520,13 @@ paths:
       summary: "Get a mortality record"
       description: "Permission: `liv.mortality.read`."
       x-permission: liv.mortality.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -27511,8 +27594,22 @@ paths:
       tags:
         - liv
       summary: "Submit a mortality for write-off"
-      description: "Above the value threshold a photograph and a second approver are required before stock is written off; this is the control for abuse case 2.\n\nPermission: `liv.mortality.report`.\n\nMay require approval of kind `STOCK_WRITE_OFF`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+      description: "Values the record again from the cost pool and writes the stock off. At or above the value threshold (50,000 pesewas on the seeded farm) a photograph is required first (422 `MORTALITY_PHOTO_REQUIRED`) and a second approver after: this is the control for abuse case 2. Only the person who reported the record submits it, so the approver is never the reporter.\n\nPermission: `liv.mortality.report`.\n\nMay require approval of kind `MORTALITY_WRITE_OFF`, decided with `approveRequest` by a different user holding `liv.mortality.approve`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves: the animal stays on hand."
       x-permission: liv.mortality.report
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - LIVESTOCK_RECORD_INVALID
+        - MORTALITY_PHOTO_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -27570,14 +27667,14 @@ paths:
                 $ref: "#/components/schemas/ApprovalPending"
               example:
                 status: PENDING_APPROVAL
-                approvalRequestId: "019a7ab9-c8eb-7f82-94ba-00fb843279d9"
-                kind: STOCK_WRITE_OFF
+                approvalRequestId: "019a7ac0-4a21-7c3e-8f10-6b2d93e5a7c4"
+                kind: MORTALITY_WRITE_OFF
                 subject:
-                  id: "019a7ab9-e7da-7966-ae9e-9f32fde31810"
-                  docType: STOCK_ADJUSTMENT
+                  id: "019a7ac0-1177-71b6-96ef-24403c269d1e"
+                  docType: MORTALITY_RECORD
                   number: null
-                summary: "Awaiting approval by a different user with the approving permission"
-                requestedAt: "2026-11-13T10:12:00Z"
+                summary: "Death of G-0171 (DISEASE_SUSPECTED), valued 58900 pesewas"
+                requestedAt: "2026-11-13T07:40:00Z"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -27602,6 +27699,12 @@ paths:
       summary: "List rations"
       description: "Permission: `liv.feed.read`."
       x-permission: liv.feed.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: speciesId
           in: query
@@ -27739,6 +27842,18 @@ paths:
       summary: "Create a ration"
       description: "Permission: `liv.feed.manage`."
       x-permission: liv.feed.manage
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - RATION_INVALID
+        - REFERENCE_NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -27804,6 +27919,19 @@ paths:
       summary: "Change a ration"
       description: "Permission: `liv.feed.manage`."
       x-permission: liv.feed.manage
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - RATION_INVALID
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -27874,6 +28002,12 @@ paths:
       summary: "List feed issued to pens"
       description: "Permission: `liv.feed.read`."
       x-permission: liv.feed.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: locationId
           in: query
@@ -28094,6 +28228,19 @@ paths:
       summary: "Record feed issued to a pen"
       description: "Issues the feed from stock and spreads its cost across the stock units in the pen by head-days: capitalised onto growing animals, expensed for breeding stock. The allocation sums exactly to the value issued.\n\nPermission: `liv.feed.record`.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result."
       x-permission: liv.feed.record
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - LIVESTOCK_RECORD_INVALID
+        - REFERENCE_NOT_FOUND
+        - INSUFFICIENT_STOCK
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -28188,6 +28335,13 @@ paths:
       summary: "Get a feed consumption with its cost allocation"
       description: "Permission: `liv.feed.read`."
       x-permission: liv.feed.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -72038,6 +72192,7 @@ components:
         - CREDIT_NOTE
         - PAYMENT_REVERSAL
         - PERIOD_REOPEN
+        - MORTALITY_WRITE_OFF
     ApprovalPending:
       type: object
       description: "Returned with 202 when an action needs a second person. Nothing has taken effect."

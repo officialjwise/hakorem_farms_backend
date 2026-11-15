@@ -96,6 +96,7 @@ import {
   YieldStandardCreate,
   YieldStandardUpdate,
 } from '../../../src/modules/prc/interface/schemas';
+import { FeedConsumptionCreate, HealthEventCreate, MortalityRecordCreate, RationCreate, RationUpdate, WeightRecordBatch } from '../../../src/modules/liv/interface/schemas';
 import { createCatalogue, type TestCatalogue } from '../../support/catalogue';
 import { contractSchema } from '../../support/contract-schemas';
 import { consoleGet, consolePost, createBranch, createUser, enrolAndLogin, login, relaxRateLimits, testStartTime, type TestSession } from '../../support/iam';
@@ -296,6 +297,12 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     cancelProcessingOrder: PrcReasonBody,
     createYieldStandard: YieldStandardCreate,
     updateYieldStandard: YieldStandardUpdate,
+    recordWeights: WeightRecordBatch,
+    recordHealthEvent: HealthEventCreate,
+    reportMortality: MortalityRecordCreate,
+    createRation: RationCreate,
+    updateRation: RationUpdate,
+    recordFeedConsumption: FeedConsumptionCreate,
   };
 
   it('parses every request example of an implemented operation with the schema its route validates with', () => {

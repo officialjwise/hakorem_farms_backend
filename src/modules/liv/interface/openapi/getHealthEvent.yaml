@@ -1,0 +1,71 @@
+operationId: getHealthEvent
+tags:
+  - liv
+summary: "Get a health event"
+description: "Permission: `liv.health.read`."
+x-permission: liv.health.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/HealthEvent"
+        example:
+          id: "019a7aaf-64a1-7d18-b250-da58a2bc5336"
+          kind: TREATMENT
+          stockUnit:
+            id: "019a7a8f-9d18-7468-89a0-4f5a9de5c838"
+            identifier: G-0163
+            tracking: SERIAL
+          location: null
+          product:
+            id: "019a7a8f-026d-72f7-b82f-38453d70b123"
+            sku: VET-OXYTET
+            name: "Oxytetracycline 20% injection, 100 ml"
+          dose: "5 ml intramuscular"
+          qtyUsed: "0.050"
+          withdrawalDays: 28
+          withdrawalEndsAt: "2026-11-28T23:59:00Z"
+          holdsPlaced: 1
+          costPesewas: 4250
+          currency: GHS
+          administeredBy: "Dr Selorm Agbeko"
+          notes: "Cough and fever"
+          occurredAt: "2026-11-01T10:00:00Z"
+          recordedAt: "2026-11-01T10:05:00Z"
+          actor:
+            id: "019a7a87-27be-7035-a56e-0c2f577f850d"
+            displayName: "Dr Selorm Agbeko"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
