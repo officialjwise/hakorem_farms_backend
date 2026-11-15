@@ -1,0 +1,90 @@
+operationId: releaseStockHold
+tags:
+  - inv
+summary: "Release a hold early"
+description: "Releases a quarantine or investigation hold early, once, with a reason from the `HOLD_RELEASE` list and a note; the person releasing is never the one who placed it (`RELEASED_BY_PLACER`, also a database rule). A hold already released or ended is refused (`INVALID_STATE_TRANSITION`). Refused with 422 `WITHDRAWAL_CANNOT_BE_RELEASED` for a withdrawal hold, whoever asks: it ends by time.\n\nPermission: `inv.hold.release`, scoped to the unit's branch and, for an animal, where it stands."
+x-permission: inv.hold.release
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - NOT_FOUND
+  - INVALID_STATE_TRANSITION
+  - WITHDRAWAL_CANNOT_BE_RELEASED
+  - STOCK_HOLD_INVALID
+  - REFERENCE_NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/StockHoldRelease"
+      example:
+        reasonCode: QUARANTINE_COMPLETE
+        note: "Probe reading back to -18.0 within 20 minutes; lots inspected"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/StockHold"
+        example:
+          id: "019a7aaf-45b2-7334-a86d-3c21290bb4ff"
+          stockUnit:
+            id: "019a7a8f-9d18-7468-89a0-4f5a9de5c838"
+            identifier: BRL-2610-01
+            tracking: LOT
+          kind: QUARANTINE
+          startsAt: "2026-11-01T10:00:00Z"
+          endsAt: null
+          sourceDocument:
+            id: "019a7aaf-64a1-7d18-b250-da58a2bc5336"
+            docType: TEMPERATURE_READING
+            number: null
+          releasedAt: "2026-11-04T11:00:00Z"
+          releasedBy:
+            id: "019a7a86-ac02-7ab1-8f9e-1b2c3d4e5f60"
+            displayName: "Akosua Boateng"
+          releaseReasonCode: QUARANTINE_COMPLETE
+          createdAt: "2026-11-01T10:00:00Z"
+          createdBy:
+            id: "019a7a87-27be-7035-a56e-0c2f577f850d"
+            displayName: "Dr Selorm Agbeko"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

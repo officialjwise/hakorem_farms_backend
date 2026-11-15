@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.17.0"
+  version: "1.18.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -18690,8 +18690,14 @@ paths:
       tags:
         - inv
       summary: "List holds that block sale"
-      description: "Permission: `inv.hold.read`."
+      description: "Holds on animals and lots, oldest first. `active=true` lists the holds in force now (begun, not ended, not released); `active=false` the others. Narrowed to the branches the reader's grants reach and, for a grant at one location, to the animals standing there and the lots with stock there.\n\nPermission: `inv.hold.read`."
       x-permission: inv.hold.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: active
           in: query
@@ -18873,8 +18879,20 @@ paths:
       tags:
         - inv
       summary: "Place a quarantine or investigation hold"
-      description: "Permission: `inv.hold.create`."
+      description: "Places a `QUARANTINE` or `INVESTIGATION` hold on an active animal or lot, from now until `endsAt` or until released. While it is in force the lot or animal cannot be sold, processed or dispatched (`STOCK_UNIT_ON_HOLD` on those operations); pen moves and write-offs are not blocked. The hold is its own `STOCK_HOLD` document, which is its `sourceDocument`. A `WITHDRAWAL` hold is placed only by recording a treatment and is refused here (400).\n\nPermission: `inv.hold.create`, scoped to the unit's branch and, for an animal, where it stands."
       x-permission: inv.hold.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - STOCK_HOLD_INVALID
+        - REFERENCE_NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -18905,14 +18923,14 @@ paths:
                 id: "019a7aaf-45b2-7334-a86d-3c21290bb4ff"
                 stockUnit:
                   id: "019a7a8f-9d18-7468-89a0-4f5a9de5c838"
-                  identifier: G-0163
-                  tracking: SERIAL
-                kind: WITHDRAWAL
+                  identifier: MEAT-BEEF-261104-01
+                  tracking: LOT
+                kind: INVESTIGATION
                 startsAt: "2026-11-01T10:00:00Z"
-                endsAt: "2026-11-28T23:59:00Z"
+                endsAt: null
                 sourceDocument:
                   id: "019a7aaf-64a1-7d18-b250-da58a2bc5336"
-                  docType: HEALTH_EVENT
+                  docType: STOCK_HOLD
                   number: null
                 releasedAt: null
                 releasedBy: null
@@ -18941,8 +18959,23 @@ paths:
       tags:
         - inv
       summary: "Release a hold early"
-      description: "Refused with 422 `WITHDRAWAL_CANNOT_BE_RELEASED` for a withdrawal hold.\n\nPermission: `inv.hold.release`."
+      description: "Releases a quarantine or investigation hold early, once, with a reason from the `HOLD_RELEASE` list and a note; the person releasing is never the one who placed it (`RELEASED_BY_PLACER`, also a database rule). A hold already released or ended is refused (`INVALID_STATE_TRANSITION`). Refused with 422 `WITHDRAWAL_CANNOT_BE_RELEASED` for a withdrawal hold, whoever asks: it ends by time.\n\nPermission: `inv.hold.release`, scoped to the unit's branch and, for an animal, where it stands."
       x-permission: inv.hold.release
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - WITHDRAWAL_CANNOT_BE_RELEASED
+        - STOCK_HOLD_INVALID
+        - REFERENCE_NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -18962,7 +18995,7 @@ paths:
             schema:
               $ref: "#/components/schemas/StockHoldRelease"
             example:
-              reasonCode: TEMPERATURE_RECOVERED_CHECKED
+              reasonCode: QUARANTINE_COMPLETE
               note: "Probe reading back to -18.0 within 20 minutes; lots inspected"
       responses:
         "200":
@@ -18978,18 +19011,20 @@ paths:
                 id: "019a7aaf-45b2-7334-a86d-3c21290bb4ff"
                 stockUnit:
                   id: "019a7a8f-9d18-7468-89a0-4f5a9de5c838"
-                  identifier: G-0163
-                  tracking: SERIAL
-                kind: WITHDRAWAL
+                  identifier: BRL-2610-01
+                  tracking: LOT
+                kind: QUARANTINE
                 startsAt: "2026-11-01T10:00:00Z"
-                endsAt: "2026-11-28T23:59:00Z"
+                endsAt: null
                 sourceDocument:
                   id: "019a7aaf-64a1-7d18-b250-da58a2bc5336"
-                  docType: HEALTH_EVENT
+                  docType: TEMPERATURE_READING
                   number: null
-                releasedAt: null
-                releasedBy: null
-                releaseReasonCode: null
+                releasedAt: "2026-11-04T11:00:00Z"
+                releasedBy:
+                  id: "019a7a86-ac02-7ab1-8f9e-1b2c3d4e5f60"
+                  displayName: "Akosua Boateng"
+                releaseReasonCode: QUARANTINE_COMPLETE
                 createdAt: "2026-11-01T10:00:00Z"
                 createdBy:
                   id: "019a7a87-27be-7035-a56e-0c2f577f850d"
@@ -22311,8 +22346,14 @@ paths:
       tags:
         - inv
       summary: "List stock takes"
-      description: "Permission: `inv.stock_take.read`."
+      description: "Stock takes and cycle counts, oldest first, narrowed to the branches and locations the reader's grants reach. `status` is one of `DRAFT`, `COUNTING`, `REVIEW`, `PENDING_APPROVAL`, `POSTED`, `CANCELLED`.\n\nPermission: `inv.stock_take.read`."
       x-permission: inv.stock_take.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: status
           in: query
@@ -22533,8 +22574,20 @@ paths:
       tags:
         - inv
       summary: "Plan a stock take or cycle count"
-      description: "Permission: `inv.stock_take.create`."
+      description: "Plans a count of one location: of every product there (`FULL`) or of the listed products (`CYCLE`, `productIds` required). The location is a live physical location other than in-transit and a site. Animals are not counted here (`ANIMAL_NOT_COUNTED`): a missing animal is a death, a cull or a theft with its own controls. A take whose scope shares a product with another open take of the same location is refused (`SCOPE_OVERLAP`); a full take shares every product.\n\nPermission: `inv.stock_take.create`, scoped to the location."
       x-permission: inv.stock_take.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - STOCK_TAKE_INVALID
+        - REFERENCE_NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -22610,8 +22663,15 @@ paths:
       tags:
         - inv
       summary: "Get a stock take"
-      description: "Permission: `inv.stock_take.read`."
+      description: "Permission: `inv.stock_take.read`, scoped to the take's location."
       x-permission: inv.stock_take.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -22678,8 +22738,21 @@ paths:
       tags:
         - inv
       summary: "Freeze expected quantities and start counting"
-      description: "Permission: `inv.stock_take.create`."
+      description: "Freezes every non-zero balance in scope as a line's expected figure and opens counting. A listed loose product with nothing on hand is counted from zero. Movements during counting do not change the frozen figure. The database refuses to start a take whose scope overlaps one counting, in review or pending at the same location (`SCOPE_OVERLAP`).\n\nPermission: `inv.stock_take.create`, scoped to the take's location."
       x-permission: inv.stock_take.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - STOCK_TAKE_INVALID
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -22752,8 +22825,15 @@ paths:
       tags:
         - inv
       summary: "List the lines of a stock take"
-      description: "While COUNTING, expected quantity and variance are null for counters; they appear in REVIEW.\n\nPermission: `inv.stock_take.read`."
+      description: "The lines and, from review on, the variance report: expected, counted and recounted quantity, the variance and its value at cost. While the take is `DRAFT` or `COUNTING`, `expectedQty`, `varianceQty`, `varianceValuePesewas` and `varianceDirection` are null for every reader: the count is blind. In review, `needsRecount` marks every line whose first count differs from the expected figure and has not been recounted.\n\nPermission: `inv.stock_take.read`, scoped to the take's location."
       x-permission: inv.stock_take.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -22910,8 +22990,21 @@ paths:
       tags:
         - inv
       summary: "Record counted quantities"
-      description: "Permission: `inv.stock_take.count`."
+      description: "While `COUNTING`, records first counts (`isRecount` absent or false), which the counter may correct until counting closes; a typed weight is recorded as `MANUAL`. In `REVIEW`, records the recount of a line that needs one (`isRecount: true`), once, and the variance follows the recount.\n\nPermission: `inv.stock_take.count`, scoped to the take's location."
       x-permission: inv.stock_take.count
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - STOCK_TAKE_INVALID
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -22996,8 +23089,21 @@ paths:
       tags:
         - inv
       summary: "Close counting and show variances"
-      description: "Lines whose count differs from expected beyond tolerance are flagged for a recount.\n\nPermission: `inv.stock_take.count`."
+      description: "Closes counting once every line is counted (`STOCK_TAKE_NOT_COUNTED` otherwise) and values each variance from its cost pool: a loss at what the pool would give up, a gain at the pool's average. The tolerance is zero: every line whose count differs from the expected figure is flagged for a recount.\n\nPermission: `inv.stock_take.count`, scoped to the take's location."
       x-permission: inv.stock_take.count
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - STOCK_TAKE_NOT_COUNTED
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -23070,8 +23176,24 @@ paths:
       tags:
         - inv
       summary: "Post the variances"
-      description: "Posts STOCKTAKE_GAIN and STOCKTAKE_LOSS movements. Above the threshold, a different user must approve.\n\nPermission: `inv.stock_take.post`.\n\nMay require approval of kind `STOCK_WRITE_OFF`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+      description: "Refuses a take with a line awaiting its recount (`STOCK_TAKE_NOT_COUNTED`). Values the variances again from the pools as they are now and judges their value, gains and losses together, against the `STOCK_WRITE_OFF` threshold (50,000 pesewas in the seed). Below it, posts one `STOCKTAKE_LOSS` (to the branch's loss location, reason `COUNT_ERROR`) or `STOCKTAKE_GAIN` (from its adjustment location, reason `FOUND_STOCK`) per variance. At or above it the answer is `202` and stock is unchanged until a different user approves; the approval binds to the lines and their values, and a rejected take is cancelled. A posted take is immutable.\n\nPermission: `inv.stock_take.post`, scoped to the take's location.\n\nMay require approval of kind `STOCK_WRITE_OFF`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user holding `inv.adjustment.approve` approves, with a fresh step-up."
       x-permission: inv.stock_take.post
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - STOCK_TAKE_NOT_COUNTED
+        - INSUFFICIENT_STOCK
+        - STOCK_UNIT_NOT_AVAILABLE
+        - STOCK_UNIT_RESERVED
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -23136,7 +23258,7 @@ paths:
                 kind: STOCK_WRITE_OFF
                 subject:
                   id: "019a7ab9-e7da-7966-ae9e-9f32fde31810"
-                  docType: STOCK_ADJUSTMENT
+                  docType: STOCK_TAKE
                   number: null
                 summary: "Awaiting approval by a different user with the approving permission"
                 requestedAt: "2026-11-13T10:12:00Z"
@@ -23162,8 +23284,20 @@ paths:
       tags:
         - inv
       summary: "Cancel a stock take before posting"
-      description: "Permission: `inv.stock_take.create`."
+      description: "Sets a take aside with a reason while it is `DRAFT`, `COUNTING` or `REVIEW`; nothing moves. A pending take is decided by its approval instead.\n\nPermission: `inv.stock_take.create`, scoped to the take's location."
       x-permission: inv.stock_take.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -23197,7 +23331,7 @@ paths:
               example:
                 id: "019a7aba-06c9-7349-b881-3d6a7794b648"
                 stockTakeNo: STK-2026-DDW-000014
-                status: COUNTING
+                status: CANCELLED
                 location:
                   id: "019a7a84-7f34-76a9-8be1-736ae249ec48"
                   code: SHOP

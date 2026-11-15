@@ -161,3 +161,48 @@ export const ListStockAdjustmentsQuery = z.object({
   cursor: Cursor,
   limit: Limit,
 });
+
+/** The most products one cycle count lists, and the most counts one request records. */
+export const MAX_TAKE_PRODUCTS = 200;
+export const MAX_TAKE_COUNTS = 500;
+const TakeStatus = z.enum(['DRAFT', 'COUNTING', 'REVIEW', 'PENDING_APPROVAL', 'POSTED', 'CANCELLED']);
+
+/** The contract's `StockTakeCreate`, strict. */
+export const StockTakeCreate = z.strictObject({
+  locationId: z.uuid(),
+  scope: z.enum(['FULL', 'CYCLE']),
+  productIds: z.array(z.uuid()).max(MAX_TAKE_PRODUCTS).optional(),
+});
+
+/** The contract's `StockTakeCounts`, strict. */
+export const StockTakeCounts = z.strictObject({
+  counts: z.array(z.strictObject({ lineId: z.uuid(), countedQty: Quantity, countedWeightKg: Kilograms.optional(), isRecount: z.boolean().optional() })).max(MAX_TAKE_COUNTS),
+});
+
+/** listStockTakes query. The contract types `status` as a string; anything outside the statuses is a 400. */
+export const ListStockTakesQuery = z.object({
+  status: TakeStatus.optional(),
+  locationId: z.uuid().optional(),
+  cursor: Cursor,
+  limit: Limit,
+});
+
+/** The contract's `StockHoldCreate`, strict: a withdrawal hold is placed only by recording a treatment. */
+export const StockHoldCreate = z.strictObject({
+  stockUnitId: z.uuid(),
+  kind: z.enum(['QUARANTINE', 'INVESTIGATION']),
+  endsAt: DateTime.optional(),
+  note: z.string().trim().min(1).max(1_000),
+});
+
+/** The contract's `StockHoldRelease`, strict. */
+export const StockHoldRelease = z.strictObject({ reasonCode: ReasonCode, note: z.string().trim().min(1).max(1_000) });
+
+/** listStockHolds query. */
+export const ListStockHoldsQuery = z.object({
+  active: Bool.optional(),
+  kind: z.enum(['WITHDRAWAL', 'QUARANTINE', 'INVESTIGATION']).optional(),
+  stockUnitId: z.uuid().optional(),
+  cursor: Cursor,
+  limit: Limit,
+});

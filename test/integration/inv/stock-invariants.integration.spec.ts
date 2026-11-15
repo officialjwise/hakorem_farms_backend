@@ -141,8 +141,12 @@ describe('holds block the listed movement types until released (FR-INV-022)', ()
     const goat = await goatIn(fx.shop, 'G-0150');
     const id = await hold(goat, 'INVESTIGATION', new Date(Date.now() - 60_000));
     expect(await refusal(sell(fx, fx.goat, fx.shop, '1.000', goat))).toBe('ck_stock_on_hold');
-    await fx.app.query("UPDATE inv.stock_hold SET released_at = now(), released_by = $2, release_reason_code = 'INVESTIGATION_CLOSED' WHERE id = $1", [id, fx.actor]);
-    expect(await refusal(fx.app.query("UPDATE inv.stock_hold SET released_at = now(), released_by = $2, release_reason_code = 'TEST_NEGATIVE' WHERE id = $1", [id, SYSTEM_PRINCIPAL]))).toBe(
+    // Released by someone other than the placer, with its note (ck_stock_hold_releaser, ck_stock_hold_release_noted: B05 continued 3).
+    await fx.app.query(
+      "UPDATE inv.stock_hold SET released_at = now(), released_by = $2, release_reason_code = 'INVESTIGATION_CLOSED', release_note = 'Inspected and cleared' WHERE id = $1",
+      [id, SYSTEM_PRINCIPAL],
+    );
+    expect(await refusal(fx.app.query("UPDATE inv.stock_hold SET released_at = now(), released_by = $2, release_reason_code = 'TEST_NEGATIVE', release_note = 'Again' WHERE id = $1", [id, fx.actor]))).toBe(
       'ck_stock_hold_change',
     );
     await sell(fx, fx.goat, fx.shop, '1.000', goat);

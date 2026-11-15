@@ -20,6 +20,13 @@ registerMessages({
   'inv.stock_adjustment_rule': 'This value is not valid on a stock adjustment.',
   'inv.stock_reversal_not_possible': 'This movement cannot be reversed.',
   'inv.stock_reversal_rule': 'This reversal is not allowed.',
+  'inv.stock_take_invalid': 'This stock take cannot be planned, started or counted like this.',
+  'inv.stock_take_rule': 'This value is not valid on a stock take.',
+  'inv.stock_take_not_counted': 'Some lines of this stock take are not counted yet, or need a recount.',
+  'inv.stock_take_line_unfinished': 'This line is not counted yet, or needs a recount.',
+  'inv.stock_hold_invalid': 'This hold cannot be placed or released like this.',
+  'inv.stock_hold_rule': 'This value is not valid on a stock hold.',
+  'inv.withdrawal_cannot_be_released': 'A veterinary withdrawal hold cannot be released early by anyone. It ends on its own date.',
 });
 
 function details(fields: ReadonlyArray<{ readonly field: string; readonly rule: string }>, messageKey: string): ErrorDetail[] {
@@ -95,6 +102,48 @@ export class StockReversalNotPossibleError extends BusinessRuleError {
   constructor(fields: ReadonlyArray<{ readonly field: string; readonly rule: string }>) {
     super('the movement cannot be reversed', details(fields, 'inv.stock_reversal_rule'));
   }
+}
+
+/**
+ * 422 STOCK_TAKE_INVALID: a stock take breaks a stock-take rule (FR-INV-013, FR-INV-014): its scope
+ * (`NOT_A_STOCK_LOCATION`, `PRODUCTS_REQUIRED`, `NOT_FOR_FULL_SCOPE`, `PRODUCT_REPEATED`, `PRODUCT_NOT_STOCKED`,
+ * `ANIMAL_NOT_COUNTED`), a scope that overlaps another take of the location (`SCOPE_OVERLAP`), or a batch of counts
+ * (`NOT_COUNTING`, `NO_COUNTS`, `LINE_UNKNOWN`, `LINE_REPEATED`, `RECOUNT_IN_REVIEW_ONLY`, `COUNTING_CLOSED`,
+ * `RECOUNT_NOT_NEEDED`).
+ */
+export class StockTakeInvalidError extends BusinessRuleError {
+  readonly code = 'STOCK_TAKE_INVALID';
+  readonly messageKey = 'inv.stock_take_invalid';
+  constructor(fields: ReadonlyArray<{ readonly field: string; readonly rule: string }>) {
+    super('the stock take breaks a stock-take rule', details(fields, 'inv.stock_take_rule'));
+  }
+}
+
+/** 422 STOCK_TAKE_NOT_COUNTED: lines are uncounted (`NOT_COUNTED`) or await their recount (`RECOUNT_REQUIRED`). */
+export class StockTakeNotCountedError extends BusinessRuleError {
+  readonly code = 'STOCK_TAKE_NOT_COUNTED';
+  readonly messageKey = 'inv.stock_take_not_counted';
+  constructor(fields: ReadonlyArray<{ readonly field: string; readonly rule: string }>) {
+    super('the stock take has lines not counted or awaiting a recount', details(fields, 'inv.stock_take_line_unfinished'));
+  }
+}
+
+/**
+ * 422 STOCK_HOLD_INVALID: a hold breaks a hold rule (FR-INV-022, A-142): `STOCK_UNIT_NOT_ACTIVE`,
+ * `ENDS_BEFORE_IT_STARTS`, `WITHDRAWAL_NEEDS_AN_END`, or on release `REASON_NOT_ALLOWED` and `RELEASED_BY_PLACER`.
+ */
+export class StockHoldInvalidError extends BusinessRuleError {
+  readonly code = 'STOCK_HOLD_INVALID';
+  readonly messageKey = 'inv.stock_hold_invalid';
+  constructor(fields: ReadonlyArray<{ readonly field: string; readonly rule: string }>) {
+    super('the stock hold breaks a hold rule', details(fields, 'inv.stock_hold_rule'));
+  }
+}
+
+/** 422 WITHDRAWAL_CANNOT_BE_RELEASED: a veterinary withdrawal hold only ends by time (FR-INV-022, ADR-0019). */
+export class WithdrawalCannotBeReleasedError extends BusinessRuleError {
+  readonly code = 'WITHDRAWAL_CANNOT_BE_RELEASED';
+  readonly messageKey = 'inv.withdrawal_cannot_be_released';
 }
 
 /** 422 INSUFFICIENT_STOCK: the movement would take a physical location below zero (FR-INV-019). */
