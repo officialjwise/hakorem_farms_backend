@@ -29,7 +29,7 @@ A production system for a livestock, poultry, meat and fresh produce business in
 ## Session protocol
 
 1. Read this file, `docs/SHARED_BRIEF.md`, your session's section of `docs/BUILD_PROMPT.md`, and only the latest report in `docs/sessions/`.
-2. One phase per session. Confirm phase, scope and gate in three lines, then work that phase only and stop at the gate.
+2. Confirm phase, scope and gate in three lines, then work that phase and stop at its gate. A session may continue into the next phase only if it has enough context left to carry that phase to its gate. If it does not, it stops at a green commit and hands off. Starting a phase you cannot finish is worse than stopping, because the next session pays to clean it up. The phase order is `docs/prompts/session-openers.md`, never an order given from memory.
 3. Write the failing test first for anything touching money, stock, weight or permissions; build domain, then application, infrastructure, interface.
 4. End by writing `docs/sessions/<ID>-<slug>.md`: built, decided, assumed, deferred, contract changes, gate result, and the exact opening message for the next session.
 5. Run `git remote -v` and confirm it shows `hakorem_farms_backend`, then commit (Conventional Commits, one concern each) and push before closing. Run `git add`, `git commit` and `git push` as three separate commands: the permission classifier refuses them chained with `&&` or `;`.
