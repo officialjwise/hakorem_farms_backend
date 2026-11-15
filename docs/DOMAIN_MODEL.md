@@ -206,7 +206,7 @@ The audit trail itself (audit events, the chain, anchors and per-subject keys) i
 | A reason code from the fixed list is present where the movement type requires one | DB (foreign key and check) |
 | A transfer's received quantity plus recorded variance equals the dispatched quantity | Domain |
 
-**Events:** `inv.StockUnitRegistered`, `inv.StockMovementPosted`, ◆`inv.GoodsReceived`, ◆`inv.ProductionReceived`, ◆`inv.OpeningStockLoaded`, ◆`inv.StockIssuedForSale`, ◆`inv.SaleReturnReceived`, ◆`inv.StockWrittenOff`, ◆`inv.StockGainRecorded`, ◆`inv.CostCapitalised`, ◆`inv.UpkeepExpensed`, ◆`inv.StockConsumedInProcessing`, ◆`inv.ProcessingOutputReceived`, ◆`inv.StockTransferredBetweenBranches`, ◆`inv.SupplierReturnIssued`, `inv.StockTransferDispatched`, `inv.StockTransferReceived`, `inv.ReservationCreated`, `inv.ReservationReleased`, `inv.ReservationExpired`, `inv.StockHoldPlaced`, `inv.StockHoldReleased`, `inv.StockExceptionRaised`, `inv.StockTakePosted`, `inv.LowStockDetected`, `inv.LotExpiring`, `inv.TemperatureExcursionDetected`, `inv.BalanceDriftDetected`.
+**Events:** `inv.StockUnitRegistered`, `inv.StockMovementPosted`, `inv.GoodsReceiptPosted` (B7), ◆`inv.GoodsReceived`, ◆`inv.ProductionReceived`, ◆`inv.OpeningStockLoaded`, ◆`inv.StockIssuedForSale`, ◆`inv.SaleReturnReceived`, ◆`inv.StockWrittenOff`, ◆`inv.StockGainRecorded`, ◆`inv.CostCapitalised`, ◆`inv.UpkeepExpensed`, ◆`inv.StockConsumedInProcessing`, ◆`inv.ProcessingOutputReceived`, ◆`inv.StockTransferredBetweenBranches`, ◆`inv.SupplierReturnIssued`, `inv.StockTransferDispatched`, `inv.StockTransferReceived`, `inv.ReservationCreated`, `inv.ReservationReleased`, `inv.ReservationExpired`, `inv.StockHoldPlaced`, `inv.StockHoldReleased`, `inv.StockExceptionRaised`, `inv.StockTakePosted`, `inv.LowStockDetected`, `inv.LotExpiring`, `inv.TemperatureExcursionDetected`, `inv.BalanceDriftDetected`.
 
 ### 5.5 LIV: livestock management
 
@@ -270,7 +270,7 @@ The audit trail itself (audit events, the chain, anchors and per-subject keys) i
 | Invariant | Enforced |
 | --- | --- |
 | A purchase order above the requester's limit is approved by a different user | DB (approval constraint) and Domain |
-| Quantity received against an order line does not exceed quantity ordered plus tolerance | Domain |
+| Quantity received against an order line does not exceed quantity ordered plus tolerance | Domain and DB (`ck_purchase_order_line_tolerance`, B7) |
 | A supplier invoice line is payable only when it matches the order line and receipt within tolerance (three-way match) | Domain; `match_status` checked by DB before payment allocation |
 | A supplier payment is approved by a different user from the one who prepared it | DB (approval constraint) |
 | Allocations of a payment do not exceed its amount, and allocations to an invoice do not exceed its outstanding amount | DB (trigger) |
