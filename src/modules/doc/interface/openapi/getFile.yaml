@@ -1,0 +1,58 @@
+operationId: getFile
+tags:
+  - platform
+summary: "Get file metadata"
+description: "A file you uploaded; a file someone else uploaded needs `platform.file.read.any` as well. A file the scanner found infected, or could not scan, is quarantined and answers 422 `FILE_NOT_CLEAN`. A `PENDING` file is shown so its uploader can follow the scan, but it is not served.\n\nPermission: `platform.file.read`."
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - FILE_NOT_CLEAN
+  - RATE_LIMITED
+x-permission: platform.file.read
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - customerSession: []
+  - investorSession: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/StoredFile"
+        example:
+          id: "019a7a94-915f-79d6-9f0f-a63d1b3e1f1b"
+          originalName: G-0142-front.jpg
+          contentType: image/jpeg
+          sizeBytes: 284113
+          purpose: PRODUCT_IMAGE
+          classification: PUBLIC
+          scanStatus: PENDING
+          createdAt: "2026-11-13T09:41:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

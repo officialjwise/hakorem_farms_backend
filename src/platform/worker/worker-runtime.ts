@@ -12,6 +12,7 @@ import type { DomainEvents } from '../events/domain-events';
 import { DISPATCHER_PRINCIPAL, OutboxDispatcher } from '../events/outbox-dispatcher';
 import type { Metrics } from '../observability/metrics';
 import type { JobQueue } from '../queue/job-queue';
+import type { FileScanner } from '../storage/file-scanner';
 import type { ObjectStorage } from '../storage/object-storage';
 
 const SCHEDULER = { principalId: '01900000-0000-7000-8000-000000000004', displayName: 'Scheduler' } as const;
@@ -28,6 +29,8 @@ export const SCHEDULES = {
 const ANCHOR_RETENTION_DAYS = 2_557;
 const DISPATCH_BATCH = 100;
 const OUTBOX_BACKOFF_BASE_MS = 1_000;
+/** Files scanned per round of the scan loop. */
+const SCAN_BATCH = 10;
 
 /** Reads a key given as PEM or as the base64 of PKCS#8 DER, as JWT_SIGNING_KEYS are. */
 export function readPrivateKey(value: string): KeyObject {
@@ -54,6 +57,8 @@ export class WorkerRuntime {
     private readonly metrics: Metrics,
     private readonly clock: Clock,
     private readonly logger: Logger,
+    /** Null when no scanner is configured (development without the scanner container): uploads then stay PENDING. */
+    private readonly fileScanner: FileScanner | null = null,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -84,6 +89,19 @@ export class WorkerRuntime {
       const sealer = new AuditSealer(this.sealerPool, this.logger);
       const sealed = this.metrics.counter('hk_audit_sealed_total', 'Audit events sealed into the chain');
       this.loop('audit-seal', this.config.AUDIT_SEAL_INTERVAL_MS, async () => sealed.add(await sealer.sealOnce()));
+    }
+
+    if (this.fileScanner !== null) {
+      const scanner = this.fileScanner;
+      const scanned = this.metrics.counter('hk_files_scanned_total', 'Uploaded files given a scan verdict');
+      const infected = this.metrics.counter('hk_files_infected_total', 'Uploaded files the scanner found infected');
+      this.loop('file-scan', this.config.FILE_SCAN_INTERVAL_MS, async () => {
+        const round = await scanner.scanPending(SCAN_BATCH);
+        scanned.add(round.clean + round.infected + round.failed);
+        infected.add(round.infected);
+      });
+    } else {
+      this.logger.warn('no malware scanner is configured (CLAMAV_HOST): uploads stay PENDING and are never served');
     }
 
     const anchor = new AuditAnchor(this.sealerPool, this.storage, anchorKey, this.clock, { keyId, bucket, retentionDays: ANCHOR_RETENTION_DAYS });

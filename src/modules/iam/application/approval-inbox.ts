@@ -134,8 +134,7 @@ export class ApprovalInbox {
       summary: row.summary,
       amountPesewas: pesewasJson(row.amountPesewas),
       currency: 'GHS',
-      // The evidence column arrives with the file store (B04e continued 2).
-      evidenceFileId: null,
+      evidenceFileId: row.evidenceFileId,
       requestedBy: { id: row.requestedBy, displayName: row.requestedByName },
       requestedAt: row.requestedAt.toISOString(),
       decidedBy: row.decidedBy === null ? null : { id: row.decidedBy, displayName: row.decidedByName ?? '' },

@@ -25,6 +25,25 @@ async function asAdmin<T>(fn: (client: pg.Client) => Promise<T>): Promise<T> {
 }
 
 /**
+ * Dropping a test database WITH (FORCE) terminates connections still closing (57P01): expected at teardown, on the
+ * pool and on each client, since a client the pool is already closing has left the pool and its error reaches only
+ * its own listener. Any other error on an idle connection is a real failure and is rethrown so the run reports it.
+ * Every pool a test opens on its database goes through this, including one it builds itself.
+ */
+export function expectTeardownTermination(pool: pg.Pool): pg.Pool {
+  const onError = (error: Error & { code?: string }) => {
+    if (error.code !== '57P01') {
+      setImmediate(() => {
+        throw error;
+      });
+    }
+  };
+  pool.on('error', onError);
+  pool.on('connect', (client) => client.on('error', onError));
+  return pool;
+}
+
+/**
  * Clones the template into a fresh database with the same grants as a bootstrapped one. Tests never clean up by
  * truncating: LEDGER tables reject TRUNCATE for every role, so isolation is one database per file.
  */
@@ -45,18 +64,7 @@ export async function createTestDatabase(): Promise<TestDatabase> {
       let pool = pools.get(role);
       if (pool === undefined) {
         pool = new pg.Pool({ connectionString: roleUrl(settings, role, name), max: 10 });
-        // Dropping the database WITH (FORCE) terminates connections still closing (57P01): expected at teardown. Any
-        // other error on an idle connection is a real failure and is rethrown so the run reports it.
-        const onError = (error: Error & { code?: string }) => {
-          if (error.code !== '57P01') {
-            setImmediate(() => {
-              throw error;
-            });
-          }
-        };
-        pool.on('error', onError);
-        // A client the pool is already closing has left the pool, so its error reaches only its own listener.
-        pool.on('connect', (client) => client.on('error', onError));
+        expectTeardownTermination(pool);
         pools.set(role, pool);
       }
       return pool;

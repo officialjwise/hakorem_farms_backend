@@ -54,8 +54,10 @@ export class S3ObjectStorage implements ObjectStorage {
     return Buffer.from(await output.Body.transformToByteArray());
   }
 
-  signedGetUrl(bucket: string, key: string, ttlSeconds: number): Promise<string> {
-    return this.call(`sign ${bucket}`, () => getSignedUrl(this.client, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: ttlSeconds }));
+  signedGetUrl(bucket: string, key: string, ttlSeconds: number, signedAt?: Date): Promise<string> {
+    return this.call(`sign ${bucket}`, () =>
+      getSignedUrl(this.client, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: ttlSeconds, ...(signedAt === undefined ? {} : { signingDate: signedAt }) }),
+    );
   }
 
   async ensureBucket(bucket: string, options: { readonly objectLock: boolean }): Promise<void> {

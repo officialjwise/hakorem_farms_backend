@@ -59,6 +59,23 @@ services:
       retries: 30
     networks: [data]
 
+  scanner:
+    # The malware scanner (A-057, ADR-0044): ClamAV's daemon, which the worker sends every upload to. Development and
+    # CI use the signatures the image ships; production updates them with freshclam (docs/OPERATIONS.md). It needs
+    # about 1.2 GB of memory, so it runs only with `--profile scanner` and CLAMAV_HOST=scanner in .env; without it the
+    # worker scans nothing and every upload stays PENDING, never served.
+    profiles: [scanner]
+    image: clamav/clamav:1.4.3
+    environment:
+      CLAMAV_NO_FRESHCLAMD: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "clamdcheck.sh"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 30s
+    networks: [data]
+
   api:
     profiles: [app]
     build:
@@ -120,6 +137,7 @@ services:
     environment:
       <<: *app-environment
       APP_ROLE: worker
+      CLAMAV_HOST: ${CLAMAV_HOST:-}
       OTEL_SERVICE_NAME: hakorem-worker
       DATABASE_URL_WORKER: postgres://hk_worker:${HK_WORKER_PASSWORD}@postgres:5432/hakorem
       DATABASE_URL_SEALER: postgres://hk_sealer:${HK_SEALER_PASSWORD}@postgres:5432/hakorem

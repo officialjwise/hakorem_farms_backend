@@ -12,6 +12,13 @@ const VALID = {
   CORS_ALLOWED_ORIGINS: 'http://localhost:5173,http://localhost:3001',
 };
 
+const FILE_STORE = {
+  S3_ENDPOINT: 'https://objects.example-provider.com',
+  S3_ACCESS_KEY_ID: 'staging-files',
+  S3_SECRET_ACCESS_KEY: 'not-checked-here',
+  S3_BUCKET_PRIVATE: 'hakorem-staging-private',
+};
+
 function problemsFor(env: Record<string, string>): readonly string[] {
   try {
     loadConfig(env, '0.1.0');
@@ -85,8 +92,12 @@ describe('typed configuration', () => {
       'APP_VERSION is required in staging and production',
       'NODE_ENV must be production in staging and production',
       'MESSAGING_MODE must be live in production, or customers get no codes',
+      'S3_ENDPOINT is required in staging and production (the file store)',
+      'S3_ACCESS_KEY_ID is required in staging and production (the file store)',
+      'S3_SECRET_ACCESS_KEY is required in staging and production (the file store)',
+      'S3_BUCKET_PRIVATE is required in staging and production (the file store)',
     ]);
-    const config = loadConfig({ ...VALID, APP_ENV: 'staging', NODE_ENV: 'production', APP_VERSION: '1.0.0+9f3c2a1' }, '0.1.0');
+    const config = loadConfig({ ...VALID, ...FILE_STORE, APP_ENV: 'staging', NODE_ENV: 'production', APP_VERSION: '1.0.0+9f3c2a1' }, '0.1.0');
     expect(config.version).toBe('1.0.0+9f3c2a1');
   });
 
@@ -97,6 +108,26 @@ describe('typed configuration', () => {
     ]);
     expect(problemsFor({ ...VALID, MESSAGING_MODE: 'live', SMS_BASE_URL: 'https://sms.example-provider.com/v1', SMS_API_KEY: 'k'.repeat(32) })).toEqual([]);
     expect(loadConfig(VALID, '0.1.0').MESSAGING_MODE).toBe('capture');
+  });
+
+  it('needs the malware scanner for a deployed worker, so no upload waits for a scan that never comes', () => {
+    const worker = {
+      ...VALID,
+      ...FILE_STORE,
+      APP_ROLE: 'worker',
+      APP_ENV: 'staging',
+      NODE_ENV: 'production',
+      APP_VERSION: '1.0.0+9f3c2a1',
+      DATABASE_URL_WORKER: 'postgres://hk_worker:s3cret-value@127.0.0.1:55432/hakorem',
+      DATABASE_URL_SEALER: 'postgres://hk_sealer:s3cret-value@127.0.0.1:55432/hakorem',
+      S3_ANCHOR_ACCESS_KEY_ID: 'anchors',
+      S3_ANCHOR_SECRET_ACCESS_KEY: 'not-checked-here',
+      S3_BUCKET_ANCHORS: 'hakorem-staging-anchors',
+      AUDIT_ANCHOR_SIGNING_KEY: 'k'.repeat(40),
+      AUDIT_ANCHOR_KEY_ID: 'anchor-1',
+    };
+    expect(problemsFor(worker)).toEqual(['CLAMAV_HOST is required by the worker in staging and production, or no upload is ever scanned']);
+    expect(loadConfig({ ...worker, CLAMAV_HOST: 'scanner' }, '0.1.0').CLAMAV_PORT).toBe(3_310);
   });
 
   it('builds the version from the commit when no release version is set', () => {

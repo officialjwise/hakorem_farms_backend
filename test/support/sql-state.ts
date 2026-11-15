@@ -23,4 +23,6 @@ export const SQLSTATE = {
   documentFrozen: 'HK004',
   /** A destroyed subject key cannot change. */
   subjectKeyDestroyed: 'HK005',
+  /** platform.stored_file_guard(): a stored file's content never changes, and only the scanner gives its verdict, once. */
+  storedFileGuard: 'HK007',
 } as const;

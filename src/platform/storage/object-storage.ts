@@ -12,8 +12,11 @@ export interface PutOptions {
 export interface ObjectStorage {
   put(bucket: string, key: string, body: Buffer, options: PutOptions): Promise<void>;
   get(bucket: string, key: string): Promise<Buffer>;
-  /** A signed, expiring GET URL for a private object (security architecture section 5, file uploads). */
-  signedGetUrl(bucket: string, key: string, ttlSeconds: number): Promise<string>;
+  /**
+   * A signed, expiring GET URL for a private object (security architecture section 5, file uploads). `signedAt` is
+   * when the link's lifetime starts, from the caller's clock; it defaults to now.
+   */
+  signedGetUrl(bucket: string, key: string, ttlSeconds: number, signedAt?: Date): Promise<string>;
   /** Development and test only: creates a bucket if it is missing, with object lock when asked. */
   ensureBucket(bucket: string, options: { readonly objectLock: boolean }): Promise<void>;
 }

@@ -15,6 +15,7 @@ interface ApprovalRow {
   status: ApprovalStatus;
   decided_by: string | null;
   expires_at: Date | null;
+  evidence_file_id: string | null;
   version: number;
 }
 
@@ -54,7 +55,7 @@ const DECIDABLE_BY_VIEWER = `(a.status = 'PENDING' AND (a.expires_at IS NULL OR 
 
 const LISTING_SELECT = `
   SELECT a.id, a.kind, a.branch_id, a.subject_document_id, a.payload_hash, a.amount_pesewas::text, a.summary, a.requested_by, a.requested_at,
-         a.status, a.decided_by, a.expires_at, a.version, a.decided_at, a.decision_reason,
+         a.status, a.decided_by, a.expires_at, a.evidence_file_id, a.version, a.decided_at, a.decision_reason,
          rb.display_name AS requested_by_name, db.display_name AS decided_by_name
     FROM iam.approval_request a
     JOIN iam.principal rb ON rb.id = a.requested_by
@@ -74,6 +75,7 @@ function record(row: ApprovalRow): ApprovalRecord {
     status: row.status,
     decidedBy: row.decided_by,
     expiresAt: row.expires_at,
+    evidenceFileId: row.evidence_file_id,
     version: row.version,
   };
 }
@@ -87,8 +89,8 @@ export class PgApprovalStore implements ApprovalStore {
   async insert(tx: Transaction, record: ApprovalRecord): Promise<void> {
     await tx.query(
       `INSERT INTO iam.approval_request (id, kind, branch_id, subject_document_id, payload_hash, amount_pesewas, summary, requested_by,
-                                         requested_at, status, expires_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'PENDING', $10)`,
+                                         requested_at, status, expires_at, evidence_file_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'PENDING', $10, $11)`,
       [
         record.id,
         record.kind,
@@ -100,6 +102,7 @@ export class PgApprovalStore implements ApprovalStore {
         record.requestedBy,
         record.requestedAt,
         record.expiresAt,
+        record.evidenceFileId,
       ],
     );
   }
@@ -107,7 +110,7 @@ export class PgApprovalStore implements ApprovalStore {
   async byIdForUpdate(tx: Transaction, id: string): Promise<ApprovalRecord | null> {
     const { rows } = await tx.query<ApprovalRow>(
       `SELECT id, kind, branch_id, subject_document_id, payload_hash, amount_pesewas::text, summary, requested_by, requested_at, status,
-              decided_by, expires_at, version
+              decided_by, expires_at, evidence_file_id, version
          FROM iam.approval_request WHERE id = $1 FOR UPDATE`,
       [id],
     );

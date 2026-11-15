@@ -51,14 +51,14 @@ const stepUp = async (session: TestSession & { secret: Buffer }) => {
 const failures = async () => (await admin().query<{ n: number }>("SELECT count(*)::int AS n FROM platform.audit_event WHERE action = 'AUTHORISATION_FAILURE'")).rows[0]!.n;
 
 /** A write-off asked for by `maker`, its subject a probe row whose note is the payload. */
-async function writeOff(maker: string, note: string, branch: TestBranch = dodowa, expiresAt: Date | null = null): Promise<ApprovalRecord> {
+async function writeOff(maker: string, note: string, branch: TestBranch = dodowa, expiresAt: Date | null = null, evidenceFileId: string | null = null): Promise<ApprovalRecord> {
   const subjectId = randomUUID();
   await admin().query("INSERT INTO platform.business_document (id, doc_type, owner_module, branch_id, actor_id) VALUES ($1, 'STOCK_ADJUSTMENT', 'inv', $2, $3)", [subjectId, branch.branchId, SYSTEM_PRINCIPAL]);
   await admin().query('INSERT INTO platform.approval_probe (id, note) VALUES ($1, $2)', [subjectId, note]);
   const actor = actors.get(maker)!;
   return runWithRequestContext({ correlationId: randomUUID(), ip: '127.0.0.1', userAgent: 'test', actor }, () =>
     uow.run({ isolation: 'serializable' }, (tx: Transaction) =>
-      approvals.request(tx, actor, { kind: KIND, branchId: branch.branchId, subjectDocumentId: subjectId, payloadHash: hashOf(note), amountPesewas: 58_900n, summary: note, expiresAt }),
+      approvals.request(tx, actor, { kind: KIND, branchId: branch.branchId, subjectDocumentId: subjectId, payloadHash: hashOf(note), amountPesewas: 58_900n, summary: note, expiresAt, evidenceFileId }),
     ),
   );
 }
@@ -274,6 +274,17 @@ describe('the approval inbox (FR-IAM-012)', () => {
     expect(accountantView.canDecide).toBe(false);
     expect((await get(kasoaManager, `/iam/approvals/${theirs.id}`)).status).toBe(403);
     expect((await get(manager, `/iam/approvals/${randomUUID()}`)).status).toBe(404);
+  });
+
+  it('shows the evidence a maker attached from the file store, and null when there is none', async () => {
+    const photo = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(1_020, 7)]);
+    const uploaded = await consolePost(api.server, storekeeper, '/v1/files').field('purpose', 'EVIDENCE').attach('file', photo, 'rabbit-r-0043.jpg');
+    expect(uploaded.status).toBe(201);
+    const withEvidence = await writeOff('storekeeper', 'Mortality: rabbit R-0043 found dead', dodowa, null, uploaded.body.id as string);
+    const plain = await writeOff('storekeeper', 'Mortality: rabbit R-0044 found dead');
+    expect((await get(manager, `/iam/approvals/${withEvidence.id}`)).body.evidenceFileId).toBe(uploaded.body.id);
+    expect((await get(manager, `/iam/approvals/${plain.id}`)).body.evidenceFileId).toBeNull();
+    expect((await get(manager, `/v1/files/${uploaded.body.id as string}`.replace('/v1', ''))).status).toBe(200);
   });
 
   it('pages with a cursor bound to the filters', async () => {

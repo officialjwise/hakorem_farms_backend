@@ -81,7 +81,7 @@ Each card gives: what the module owns, its public interface (the services export
 
 ### platform (layer 1)
 
-- **Owns:** schema `platform`. Unit of work, actor context, audit trail, domain event bus and outbox, idempotency store, numbering, business document registry, settings store, file store, ports and adapters (payment provider, notification channel, PDF renderer, queue), observability and health.
+- **Owns:** schema `platform`. Unit of work, actor context, audit trail, domain event bus and outbox, idempotency store, numbering, business document registry, settings store, file store, ports and adapters (payment provider, notification channel, PDF renderer, queue), observability and health. The file store is the mechanism only: the object under a random key, `platform.stored_file`, signed links and their log, and the worker's scan through the `MalwareScanner` port (ClamAV, ADR-0044); who may upload or read is DOC's.
 - **Public interface:** `UnitOfWork`, `ActorContext`, `AuditTrail`, `DomainEvents`, `Idempotency`, `Numbering`, `DocumentRegistry`, `Settings`, `FileStore`, `PaymentProviderPort`, `NotificationChannelPort`, `PdfRendererPort`, `Jobs`, `Health`.
 - **Imports:** kernel only. Never a module.
 
@@ -111,7 +111,7 @@ Each card gives: what the module owns, its public interface (the services export
 - **Owns:** schema `doc`. Document templates and versions, the immutable archive of rendered documents, render jobs.
 - **Public interface:** `Documents` (render, archive, fetch, reprint), `Templates`.
 - **Imports:** platform, IAM.
-- **Subscribes:** nothing. Product photographs and supplier and investor files use the platform file store directly; DOC is not involved.
+- **Subscribes:** nothing. From B04e continued 2 DOC also serves the file store's operations (`uploadFile`, `getFile`, `createFileSignedUrl`) over the platform `FileStore`, holding the uses, their allow-lists and caps and the authorisation (ADR-0044). A module that references a file (product photographs, supplier and investor files, import files) reads it through the platform `FileStore` directly, not through DOC.
 
 ### FIN: general ledger and accounting (layer 4)
 

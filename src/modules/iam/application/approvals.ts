@@ -31,6 +31,8 @@ export interface ApprovalRecord {
   readonly status: ApprovalStatus;
   readonly decidedBy: string | null;
   readonly expiresAt: Date | null;
+  /** A photograph or document the maker attached, in the platform file store (B04e continued 2). */
+  readonly evidenceFileId: string | null;
   readonly version: number;
 }
 
@@ -42,6 +44,8 @@ export interface NewApproval {
   readonly amountPesewas?: bigint | null;
   readonly summary: string;
   readonly expiresAt?: Date | null;
+  /** A file the maker uploaded as evidence (`platform.file.upload`, purpose EVIDENCE); the database checks it exists. */
+  readonly evidenceFileId?: string | null;
 }
 
 /** A request as the inbox shows it (B04e continued). */
@@ -144,6 +148,7 @@ export class Approvals {
       status: 'PENDING',
       decidedBy: null,
       expiresAt: request.expiresAt ?? null,
+      evidenceFileId: request.evidenceFileId ?? null,
       version: 1,
     };
     await this.store.insert(tx, record);
@@ -153,7 +158,7 @@ export class Approvals {
       entityType: 'ApprovalRequest',
       entityId: record.id,
       branchId: record.branchId,
-      after: { kind: record.kind, subjectDocumentId: record.subjectDocumentId, summary: record.summary, amountPesewas: record.amountPesewas },
+      after: { kind: record.kind, subjectDocumentId: record.subjectDocumentId, summary: record.summary, amountPesewas: record.amountPesewas, evidenceFileId: record.evidenceFileId },
     });
     return record;
   }
