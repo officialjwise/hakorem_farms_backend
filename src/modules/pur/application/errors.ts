@@ -17,6 +17,9 @@ registerMessages({
   'pur.reference_not_found': 'Something this record refers to does not exist.',
   'pur.duplicate_reference': 'This payment reference was already recorded.',
   'pur.rule': 'This value breaks a rule.',
+  'pur.supplier_profile_invalid': 'These supplier terms or payout details cannot be saved like this.',
+  'pur.supplier_document_invalid': 'This document cannot be filed for the supplier.',
+  'pur.purchase_requisition_invalid': 'This purchase requisition cannot be made or changed like this.',
 });
 
 export interface BrokenRule {
@@ -105,7 +108,11 @@ export class ThreeWayMatchFailedError extends BusinessRuleError {
   }
 }
 
-/** 422 SUPPLIER_PAYMENT_INVALID (FR-PUR-012): `NO_ALLOCATIONS`, `OTHER_SUPPLIER`, `DUPLICATE_INVOICE`, `NOT_APPROVED`, `BRANCH_DIFFERS`, `BANK_ACCOUNT_NOT_AVAILABLE`. */
+/**
+ * 422 SUPPLIER_PAYMENT_INVALID (FR-PUR-012): `NO_ALLOCATIONS`, `OTHER_SUPPLIER`, `DUPLICATE_INVOICE`, `NOT_APPROVED`,
+ * `BRANCH_DIFFERS`, `BANK_ACCOUNT_NOT_AVAILABLE`, and (FR-PUR-002) `PAYOUT_DETAILS_MISSING` or `PAYOUT_METHOD_DIFFERS`
+ * when no approved details of the payment's method are in force.
+ */
 export class SupplierPaymentInvalidError extends BusinessRuleError {
   readonly code = 'SUPPLIER_PAYMENT_INVALID';
   readonly messageKey = 'pur.supplier_payment_invalid';
@@ -135,6 +142,43 @@ export class DuplicatePaymentReferenceError extends BusinessRuleError {
   }
 }
 
+/**
+ * 422 SUPPLIER_PROFILE_INVALID (FR-PUR-001, FR-PUR-002): payout details that do not fit their method (`REQUIRED`,
+ * `NOT_FOR_METHOD`, `ACCOUNT_NUMBER_INVALID`, `MOMO_NUMBER_INVALID`), or a change asked for while another waits
+ * (`PAYOUT_CHANGE_PENDING`).
+ */
+export class SupplierProfileInvalidError extends BusinessRuleError {
+  readonly code = 'SUPPLIER_PROFILE_INVALID';
+  readonly messageKey = 'pur.supplier_profile_invalid';
+
+  constructor(rules: readonly BrokenRule[]) {
+    super('the supplier profile breaks a rule', details(rules, 'pur.rule'));
+  }
+}
+
+/** 422 SUPPLIER_DOCUMENT_INVALID (FR-PUR-003): `REFERENCE_NOT_FOUND`, `FILE_NOT_USABLE`, `FILE_ALREADY_FILED`, `EXPIRED`. */
+export class SupplierDocumentInvalidError extends BusinessRuleError {
+  readonly code = 'SUPPLIER_DOCUMENT_INVALID';
+  readonly messageKey = 'pur.supplier_document_invalid';
+
+  constructor(rules: readonly BrokenRule[]) {
+    super('the supplier document breaks a rule', details(rules, 'pur.rule'));
+  }
+}
+
+/**
+ * 422 PURCHASE_REQUISITION_INVALID (FR-PUR-004): `NO_LINES`, `LINE_REPEATED`, `NOT_PURCHASABLE`, `PRODUCT_NOT_ACTIVE`,
+ * `NEEDED_BY_PAST`, `LOCATION_REQUIRED`, `NOT_A_RECEIVING_LOCATION`, and on conversion `LINE_NOT_ON_REQUISITION`.
+ */
+export class PurchaseRequisitionInvalidError extends BusinessRuleError {
+  readonly code = 'PURCHASE_REQUISITION_INVALID';
+  readonly messageKey = 'pur.purchase_requisition_invalid';
+
+  constructor(rules: readonly BrokenRule[]) {
+    super('the purchase requisition breaks a rule', details(rules, 'pur.rule'));
+  }
+}
+
 /** 422 REFERENCE_NOT_FOUND: an id in the request names no record. */
 export class PurReferenceNotFoundError extends BusinessRuleError {
   readonly code = 'REFERENCE_NOT_FOUND';
@@ -151,7 +195,7 @@ export function wrongStatus(what: string, status: string): InvalidStateTransitio
 }
 
 /**
- * The database's own refusals (migration 0094) as the API error they mean, for a writer racing past the handler's
+ * The database's own refusals (migrations 0094 and 0098) as the API error they mean, for a writer racing past the handler's
  * checks; anything else is rethrown unchanged.
  */
 export function translatePurRefusal(error: unknown): never {
@@ -162,6 +206,9 @@ export function translatePurRefusal(error: unknown): never {
   if (failure?.code === '23505' && failure.constraint === 'uq_supplier_payment_reference') throw new DuplicatePaymentReferenceError();
   if (failure?.code === '23503' && failure.constraint === 'fk_supplier_invoice_line_receipt_line') throw new PurReferenceNotFoundError(['/lines/goodsReceiptLineId']);
   if (failure?.code === 'HK004' && failure.constraint === 'ck_supplier_invoice_cancel_unpaid') throw new SupplierInvoiceInvalidError([{ field: '/status', rule: 'PAYMENT_ALLOCATED' }]);
+  if (failure?.code === '23505' && failure.constraint === 'uq_supplier_payout_change_pending') throw new SupplierProfileInvalidError([{ field: '/payoutDetails', rule: 'PAYOUT_CHANGE_PENDING' }]);
+  if (failure?.code === '23505' && failure.constraint === 'uq_supplier_document_file') throw new SupplierDocumentInvalidError([{ field: '/fileId', rule: 'FILE_ALREADY_FILED' }]);
+  if (failure?.code === 'HK010' && failure.constraint === 'ck_supplier_payment_payee') throw new SupplierPaymentInvalidError([{ field: '/method', rule: 'PAYOUT_DETAILS_MISSING' }]);
   if (failure?.code === 'HK004' && failure.constraint === 'ck_purchase_order_cancel_unreceived') throw new PurchaseOrderInvalidError([{ field: '/status', rule: 'RECEIVED_ALREADY' }]);
   throw error;
 }

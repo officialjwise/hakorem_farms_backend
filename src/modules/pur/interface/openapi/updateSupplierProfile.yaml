@@ -1,0 +1,98 @@
+operationId: updateSupplierProfile
+tags:
+  - pur
+summary: "Change a supplier's terms or payout details"
+description: "Changes terms (`paymentTermsDays`, `leadTimeDays`, `notes`) at once, 200 with the profile. Any `payoutDetails`, the first set included, is never applied directly (FR-PUR-002): the details are encrypted and the request answers 202 `ApprovalPending` of kind `SUPPLIER_PAYOUT_CHANGE`, and nothing in the request (terms included) takes effect until a different person holding `pur.supplier.payout_approve` approves it with a fresh step-up. Until then the details in force stay in force, and a payment prepared meanwhile pays them. Refusals are 422 `SUPPLIER_PROFILE_INVALID`: `REQUIRED`, `NOT_FOR_METHOD`, `ACCOUNT_NUMBER_INVALID` (6 to 20 digits), `MOMO_NUMBER_INVALID` (+233 and nine digits) and `PAYOUT_CHANGE_PENDING` (one change waits per supplier). `version` is the profile's; send 0 to open the profile of a supplier that has none.\n\nPermission: `pur.supplier.update`."
+x-permission: pur.supplier.update
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - VERSION_CONFLICT
+  - SUPPLIER_PROFILE_INVALID
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/SupplierProfileUpdate"
+      example:
+        version: 3
+        paymentTermsDays: 30
+        payoutDetails:
+          method: BANK
+          bankName: "Ecobank Ghana"
+          accountName: "Ashanti Feeds Ltd"
+          accountNumber: "0000000003381"
+          bankBranch: Adum
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/SupplierProfile"
+        example:
+          supplierId: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
+          paymentTermsDays: 30
+          payoutMethod: BANK
+          payoutDetailsMasked: "Ecobank Ghana, Ashanti Feeds Ltd, ****3381"
+          pendingPayoutChangeApprovalId: null
+          leadTimeDays: 3
+          notes: null
+          version: 3
+          updatedAt: "2026-11-04T12:00:00Z"
+  "202":
+    description: "Accepted for approval. Nothing has taken effect yet."
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ApprovalPending"
+        example:
+          status: PENDING_APPROVAL
+          approvalRequestId: "019a7ac7-ec26-7478-a9b0-50562217c934"
+          kind: SUPPLIER_PAYOUT_CHANGE
+          subject:
+            id: "019a7ac8-0b15-7e5b-b394-ee8d9bc8676b"
+            docType: SUPPLIER_PAYOUT_CHANGE
+            number: null
+          summary: "Pay Ashanti Feeds Ltd by Ecobank Ghana, Ashanti Feeds Ltd, ****3381 from now on"
+          requestedAt: "2026-11-13T10:12:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

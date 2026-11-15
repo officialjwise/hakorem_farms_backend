@@ -1,0 +1,256 @@
+operationId: listPurchaseRequisitions
+tags:
+  - pur
+summary: "List purchase requisitions"
+description: "Requisitions newest first, narrowed to the branches and locations the reader's grants reach (FR-PUR-004).\n\nPermission: `pur.requisition.read`."
+x-permission: pur.requisition.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: status
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: requestedBy
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/PurchaseRequisitionPage"
+        example:
+          data:
+            - id: "019a7ac9-5f5a-7b21-a05a-baefd66333cd"
+              requisitionNo: REQ-2026-DDW-000030
+              status: SUBMITTED
+              requestedBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              location:
+                id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                code: FEED
+                name: "Feed store"
+                kind: STORE
+              neededBy: "2026-11-15"
+              justification: "Feed store below reorder point"
+              rejectReason: null
+              lines:
+                - id: "019a7ac9-7e49-7505-ba3d-59275014d205"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                    sku: FD-BRL-FIN
+                    name: "Broiler finisher feed, 50 kg bag"
+                  qty: "20.000"
+                  uom: BAG
+                  note: null
+              purchaseOrder: null
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-10T09:00:00Z"
+              createdBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+            - id: "019a7ac9-9d38-7ee8-8421-f75ec9c5703c"
+              requisitionNo: REQ-2026-DDW-000031
+              status: CONVERTED
+              requestedBy:
+                id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                displayName: "Abena Quaye"
+              location:
+                id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                code: FEED
+                name: "Feed store"
+                kind: STORE
+              neededBy: "2026-11-16"
+              justification: "Next broiler batch arrives on 18 November"
+              rejectReason: null
+              lines:
+                - id: "019a7ac9-bc27-78cc-9e04-959643760e74"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8d-704a-726a-a7a2-2f740f73a851"
+                    sku: LIV-BROILER
+                    name: "Broiler chicken"
+                  qty: "500.000"
+                  uom: HEAD
+                  note: null
+              purchaseOrder:
+                id: "019a7ab4-96c6-764d-ab85-6daa1377e687"
+                docType: PURCHASE_ORDER
+                number: PO-2026-DDW-000041
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-10T09:01:00Z"
+              createdBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+            - id: "019a7ac9-db16-72af-a7e8-33cdbd27acab"
+              requisitionNo: REQ-2026-DDW-000032
+              status: CONVERTED
+              requestedBy:
+                id: "019a7a87-27be-7035-a56e-0c2f577f850d"
+                displayName: "Dr Selorm Agbeko"
+              location:
+                id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                code: FEED
+                name: "Feed store"
+                kind: STORE
+              neededBy: "2026-11-17"
+              justification: "Vaccines for PPR campaign"
+              rejectReason: null
+              lines:
+                - id: "019a7ac9-fa05-7c93-b1cb-d20536d84ae3"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8f-026d-72f7-b82f-38453d70b123"
+                    sku: VET-OXYTET
+                    name: "Oxytetracycline 20% injection, 100 ml"
+                  qty: "10.000"
+                  uom: UNIT
+                  note: null
+              purchaseOrder:
+                id: "019a7ab5-1282-7ddb-a313-e687fa3b5f65"
+                docType: PURCHASE_ORDER
+                number: PO-2026-DDW-000042
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-10T09:02:00Z"
+              createdBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+            - id: "019a7aca-18f4-7676-8bae-703cb089e91a"
+              requisitionNo: REQ-2026-DDW-000033
+              status: DRAFT
+              requestedBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              location:
+                id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                code: FEED
+                name: "Feed store"
+                kind: STORE
+              neededBy: "2026-11-18"
+              justification: null
+              rejectReason: null
+              lines:
+                - id: "019a7aca-37e3-705a-9592-0e742a3a8752"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                    sku: FD-BRL-FIN
+                    name: "Broiler finisher feed, 50 kg bag"
+                  qty: "10.000"
+                  uom: BAG
+                  note: null
+              purchaseOrder: null
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-10T09:03:00Z"
+              createdBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+            - id: "019a7aca-56d2-7a3d-af75-acaba3eb2589"
+              requisitionNo: REQ-2026-DDW-000034
+              status: REJECTED
+              requestedBy:
+                id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                displayName: "Abena Quaye"
+              location:
+                id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                code: FEED
+                name: "Feed store"
+                kind: STORE
+              neededBy: "2026-11-19"
+              justification: "Duplicate of REQ-2026-DDW-000031"
+              rejectReason: "Bought at the market last week"
+              lines:
+                - id: "019a7aca-75c1-7421-b959-4ae31d9cc3c1"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                    sku: FD-BRL-FIN
+                    name: "Broiler finisher feed, 50 kg bag"
+                  qty: "20.000"
+                  uom: BAG
+                  note: null
+              purchaseOrder: null
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-10T09:04:00Z"
+              createdBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+            - id: "019a7aca-94b0-7e04-833c-e91a974d61f8"
+              requisitionNo: REQ-2026-DDW-000035
+              status: SUBMITTED
+              requestedBy:
+                id: "019a7a87-27be-7035-a56e-0c2f577f850d"
+                displayName: "Dr Selorm Agbeko"
+              location:
+                id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                code: FEED
+                name: "Feed store"
+                kind: STORE
+              neededBy: "2026-11-20"
+              justification: "Packaging for Christmas packs"
+              rejectReason: null
+              lines:
+                - id: "019a7aca-b39f-77e8-9d20-875210fe002f"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8f-404b-76be-9bf6-74b430d2ed92"
+                    sku: SVC-DELIVERY
+                    name: Delivery
+                  qty: "400.000"
+                  uom: UNIT
+                  note: null
+              purchaseOrder: null
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-10T09:05:00Z"
+              createdBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

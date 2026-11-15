@@ -93,7 +93,7 @@ describe('B7 operations answer in the contract shapes', () => {
     expectShape('SupplierInvoice', (await post(accountant, `/supplier-invoices/${invoice.body.id}/approve`)).body);
     const payment = await post(accountant, '/supplier-payments', {
       supplierId: ids.get('supplier:Kpone Livestock Traders (SEED)'),
-      method: 'MOBILE_MONEY',
+      method: 'CASH',
       allocations: [{ supplierInvoiceId: invoice.body.id, amountPesewas: 12_000 }],
     });
     expect(payment.status).toBe(201);
@@ -104,7 +104,7 @@ describe('B7 operations answer in the contract shapes', () => {
     clock.advanceBy(30_000);
     expect((await post(manager, '/auth/step-up', { code: totpAt(manager.secret, Math.floor(clock.now().getTime() / 1000)) })).status).toBe(200);
     expect((await post(manager, `/iam/approvals/${submitted.body.approvalRequestId}/approve`, { reason: 'Matches the transport note' })).status).toBe(200);
-    const paid = await post(accountant, `/supplier-payments/${payment.body.id}/mark-paid`, { paidAt: clock.now().toISOString(), externalReference: 'MOMO-8812' });
+    const paid = await post(accountant, `/supplier-payments/${payment.body.id}/mark-paid`, { paidAt: clock.now().toISOString(), externalReference: 'CASH-8812' });
     expectShape('SupplierPayment', paid.body);
     expectShape('SupplierPaymentPage', (await consoleGet(api.server, accountant, v1('/supplier-payments'))).body);
   });

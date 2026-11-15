@@ -1,0 +1,79 @@
+operationId: updateSetting
+tags:
+  - aud
+summary: "Change a setting"
+description: "Writes a new effective-dated value of a setting in the catalogue (FR-AUD-007), from now or from a later `validFrom`; the value in force before stays on record for its time. `version` is the version of the row in force for the key and branch, 0 while the documented default applies (409 `VERSION_CONFLICT` otherwise). A value of the wrong type or out of range is 422 `SETTING_INVALID` (`WRONG_TYPE`, `OUT_OF_RANGE`; a past `validFrom` is `IN_THE_PAST`; a branch value for a farm-wide setting `NOT_BRANCH_SCOPED`); an unknown key is 404. Every change is audited with before and after values. In 1.29.0 the catalogue holds `pur.purchase_order.approval_limit_pesewas` (PESEWAS, default 200,000): a purchase order whose gross is above it needs a different person's approval, judged when it is submitted.\n\nPermission: `aud.setting.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+x-permission: aud.setting.manage
+x-requires-step-up: true
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - TOTP_ENROLMENT_REQUIRED
+  - STEP_UP_REQUIRED
+  - NOT_FOUND
+  - VERSION_CONFLICT
+  - SETTING_INVALID
+  - RATE_LIMITED
+parameters:
+  - name: key
+    in: path
+    required: true
+    schema:
+      type: string
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/SettingUpdate"
+      example:
+        value: 150000
+        version: 0
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Setting"
+        example:
+          key: pur.purchase_order.approval_limit_pesewas
+          branchId: null
+          value: 150000
+          valueType: PESEWAS
+          validFrom: "2026-11-15T09:00:00Z"
+          description: "A purchase order whose gross is above this many pesewas needs approval by a different person (FR-PUR-005)"
+          version: 1
+          updatedAt: "2026-11-15T09:00:00Z"
+          updatedBy:
+            id: "019a7a86-3046-711a-a652-1a7389f79351"
+            displayName: "Kwabena Owusu"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

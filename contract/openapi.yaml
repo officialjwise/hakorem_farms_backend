@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.28.0"
+  version: "1.29.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -4547,9 +4547,24 @@ paths:
       tags:
         - aud
       summary: "Change a setting"
-      description: "Every change is audited with before and after values. Settings with legal effect are effective-dated.\n\nPermission: `aud.setting.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      description: "Writes a new effective-dated value of a setting in the catalogue (FR-AUD-007), from now or from a later `validFrom`; the value in force before stays on record for its time. `version` is the version of the row in force for the key and branch, 0 while the documented default applies (409 `VERSION_CONFLICT` otherwise). A value of the wrong type or out of range is 422 `SETTING_INVALID` (`WRONG_TYPE`, `OUT_OF_RANGE`; a past `validFrom` is `IN_THE_PAST`; a branch value for a farm-wide setting `NOT_BRANCH_SCOPED`); an unknown key is 404. Every change is audited with before and after values. In 1.29.0 the catalogue holds `pur.purchase_order.approval_limit_pesewas` (PESEWAS, default 200,000): a purchase order whose gross is above it needs a different person's approval, judged when it is submitted.\n\nPermission: `aud.setting.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: aud.setting.manage
       x-requires-step-up: true
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - TOTP_ENROLMENT_REQUIRED
+        - STEP_UP_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - SETTING_INVALID
+        - RATE_LIMITED
       parameters:
         - name: key
           in: path
@@ -4560,7 +4575,6 @@ paths:
         - $ref: "#/components/parameters/CsrfToken"
       security:
         - staffSession: []
-        - apiKey: []
       requestBody:
         required: true
         content:
@@ -4568,9 +4582,8 @@ paths:
             schema:
               $ref: "#/components/schemas/SettingUpdate"
             example:
-              value: "35.00"
-              validFrom: "2027-01-01T00:00:00Z"
-              version: 2
+              value: 150000
+              version: 0
       responses:
         "200":
           description: OK
@@ -4582,17 +4595,17 @@ paths:
               schema:
                 $ref: "#/components/schemas/Setting"
               example:
-                key: tax.registered
+                key: pur.purchase_order.approval_limit_pesewas
                 branchId: null
-                value: true
-                valueType: BOOLEAN
-                validFrom: "2026-11-01T00:00:00Z"
-                description: "Whether the business charges and reclaims levies"
-                version: 2
-                updatedAt: "2026-11-05T11:00:00Z"
+                value: 150000
+                valueType: PESEWAS
+                validFrom: "2026-11-15T09:00:00Z"
+                description: "A purchase order whose gross is above this many pesewas needs approval by a different person (FR-PUR-005)"
+                version: 1
+                updatedAt: "2026-11-15T09:00:00Z"
                 updatedBy:
                   id: "019a7a86-3046-711a-a652-1a7389f79351"
-                  displayName: "Akua Mensah"
+                  displayName: "Kwabena Owusu"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -32890,8 +32903,15 @@ paths:
       tags:
         - pur
       summary: "Get a supplier's terms and payout details"
-      description: "Permission: `pur.supplier.read`."
+      description: "A supplier's commercial terms (FR-PUR-001): payment terms in days, which set a supplier invoice's due date, the expected lead time and notes, with the payout details in force shown only masked (the bank or network, the account name and the last four characters). `pendingPayoutChangeApprovalId` names a change waiting for a different person's approval; until then the details shown stay in force. Every supplier has a profile from its registration (`createSupplier`); one registered before procurement opened profiles answers 404 until `updateSupplierProfile` opens it with version 0.\n\nPermission: `pur.supplier.read`."
       x-permission: pur.supplier.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -32916,7 +32936,7 @@ paths:
                 supplierId: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
                 paymentTermsDays: 30
                 payoutMethod: BANK
-                payoutDetailsMasked: "Ecobank, Ashanti Feeds Ltd, ****3381"
+                payoutDetailsMasked: "Ecobank Ghana, Ashanti Feeds Ltd, ****3381"
                 pendingPayoutChangeApprovalId: null
                 leadTimeDays: 3
                 notes: null
@@ -32939,8 +32959,21 @@ paths:
       tags:
         - pur
       summary: "Change a supplier's terms or payout details"
-      description: "Permission: `pur.supplier.update`.\n\nMay require approval of kind `SUPPLIER_PAYOUT_CHANGE`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+      description: "Changes terms (`paymentTermsDays`, `leadTimeDays`, `notes`) at once, 200 with the profile. Any `payoutDetails`, the first set included, is never applied directly (FR-PUR-002): the details are encrypted and the request answers 202 `ApprovalPending` of kind `SUPPLIER_PAYOUT_CHANGE`, and nothing in the request (terms included) takes effect until a different person holding `pur.supplier.payout_approve` approves it with a fresh step-up. Until then the details in force stay in force, and a payment prepared meanwhile pays them. Refusals are 422 `SUPPLIER_PROFILE_INVALID`: `REQUIRED`, `NOT_FOR_METHOD`, `ACCOUNT_NUMBER_INVALID` (6 to 20 digits), `MOMO_NUMBER_INVALID` (+233 and nine digits) and `PAYOUT_CHANGE_PENDING` (one change waits per supplier). `version` is the profile's; send 0 to open the profile of a supplier that has none.\n\nPermission: `pur.supplier.update`."
       x-permission: pur.supplier.update
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - SUPPLIER_PROFILE_INVALID
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -32966,7 +32999,7 @@ paths:
                 method: BANK
                 bankName: "Ecobank Ghana"
                 accountName: "Ashanti Feeds Ltd"
-                accountNumber: "1441000273381"
+                accountNumber: "0000000003381"
                 bankBranch: Adum
       responses:
         "200":
@@ -32982,7 +33015,7 @@ paths:
                 supplierId: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
                 paymentTermsDays: 30
                 payoutMethod: BANK
-                payoutDetailsMasked: "Ecobank, Ashanti Feeds Ltd, ****3381"
+                payoutDetailsMasked: "Ecobank Ghana, Ashanti Feeds Ltd, ****3381"
                 pendingPayoutChangeApprovalId: null
                 leadTimeDays: 3
                 notes: null
@@ -33000,9 +33033,9 @@ paths:
                 kind: SUPPLIER_PAYOUT_CHANGE
                 subject:
                   id: "019a7ac8-0b15-7e5b-b394-ee8d9bc8676b"
-                  docType: STOCK_ADJUSTMENT
+                  docType: SUPPLIER_PAYOUT_CHANGE
                   number: null
-                summary: "Awaiting approval by a different user with the approving permission"
+                summary: "Pay Ashanti Feeds Ltd by Ecobank Ghana, Ashanti Feeds Ltd, ****3381 from now on"
                 requestedAt: "2026-11-13T10:12:00Z"
         "400":
           $ref: "#/components/responses/BadRequest"
@@ -33020,14 +33053,91 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
+  "/suppliers/{id}/payout-details":
+    get:
+      operationId: getSupplierPayoutDetails
+      tags:
+        - pur
+      summary: "Read a supplier's payout details in full"
+      description: "The payout details in force and any change waiting for approval, decrypted, so the checker can confirm a change with the supplier before approving it (FR-PUR-002). Restricted data: needs its own permission with a fresh step-up (403 `STEP_UP_REQUIRED`), and every read is audited as a decryption. Nothing here is cached or logged; show it only while the checker is looking. Added in 1.29.0.\n\nPermission: `pur.supplier.payout_read`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      x-permission: pur.supplier.payout_read
+      x-requires-step-up: true
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - TOTP_ENROLMENT_REQUIRED
+        - STEP_UP_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - staffSession: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupplierPayoutDetails"
+              example:
+                supplierId: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
+                inForce:
+                  method: BANK
+                  bankName: "Ecobank Ghana"
+                  accountName: "Ashanti Feeds Ltd"
+                  accountNumber: "0000000003381"
+                  bankBranch: Adum
+                  momoNetwork: null
+                  momoNumber: null
+                pending:
+                  method: MOBILE_MONEY
+                  bankName: null
+                  accountName: null
+                  accountNumber: null
+                  bankBranch: null
+                  momoNetwork: MTN
+                  momoNumber: "+233240000014"
+                  approvalRequestId: "019a7ac7-ec26-7478-a9b0-50562217c934"
+                  requestedBy: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                  requestedAt: "2026-11-13T10:12:00Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
   "/suppliers/{id}/documents":
     get:
       operationId: listSupplierDocuments
       tags:
         - pur
       summary: "List a supplier's documents"
-      description: "Permission: `pur.supplier.read`."
+      description: "The documents held for a supplier, newest first (FR-PUR-003). Each file is served only by `createFileSignedUrl`, a signed link that lives 5 minutes, each issue logged.\n\nPermission: `pur.supplier.read`."
       x-permission: pur.supplier.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -33121,8 +33231,20 @@ paths:
       tags:
         - pur
       summary: "Attach a document to a supplier"
-      description: "Permission: `pur.supplier.update`."
+      description: "Files a document for a supplier (FR-PUR-003): `fileId` is an upload of purpose `SUPPLIER_DOCUMENT` (`uploadFile`, which types the file by its bytes, so a PDF name on an executable is refused there) that the malware scanner passed. Refusals are 422 `SUPPLIER_DOCUMENT_INVALID`: `REFERENCE_NOT_FOUND`, `FILE_NOT_USABLE` (another purpose, or not yet `CLEAN`), `FILE_ALREADY_FILED` and `EXPIRED` (`expiresOn` before today). The expiry reminder is sent once notifications exist (B11).\n\nPermission: `pur.supplier.update`."
       x-permission: pur.supplier.update
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - SUPPLIER_DOCUMENT_INVALID
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -33312,8 +33434,15 @@ paths:
       tags:
         - pur
       summary: "List purchase requisitions"
-      description: "Permission: `pur.requisition.read`."
+      description: "Requisitions newest first, narrowed to the branches and locations the reader's grants reach (FR-PUR-004).\n\nPermission: `pur.requisition.read`."
       x-permission: pur.requisition.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: status
           in: query
@@ -33357,8 +33486,14 @@ paths:
                     requestedBy:
                       id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
                       displayName: "Yaw Boateng"
+                    location:
+                      id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                      code: FEED
+                      name: "Feed store"
+                      kind: STORE
                     neededBy: "2026-11-15"
                     justification: "Feed store below reorder point"
+                    rejectReason: null
                     lines:
                       - id: "019a7ac9-7e49-7505-ba3d-59275014d205"
                         lineNo: 1
@@ -33382,8 +33517,14 @@ paths:
                     requestedBy:
                       id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
                       displayName: "Abena Quaye"
+                    location:
+                      id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                      code: FEED
+                      name: "Feed store"
+                      kind: STORE
                     neededBy: "2026-11-16"
                     justification: "Next broiler batch arrives on 18 November"
+                    rejectReason: null
                     lines:
                       - id: "019a7ac9-bc27-78cc-9e04-959643760e74"
                         lineNo: 1
@@ -33410,8 +33551,14 @@ paths:
                     requestedBy:
                       id: "019a7a87-27be-7035-a56e-0c2f577f850d"
                       displayName: "Dr Selorm Agbeko"
+                    location:
+                      id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                      code: FEED
+                      name: "Feed store"
+                      kind: STORE
                     neededBy: "2026-11-17"
                     justification: "Vaccines for PPR campaign"
+                    rejectReason: null
                     lines:
                       - id: "019a7ac9-fa05-7c93-b1cb-d20536d84ae3"
                         lineNo: 1
@@ -33438,8 +33585,14 @@ paths:
                     requestedBy:
                       id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
                       displayName: "Yaw Boateng"
+                    location:
+                      id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                      code: FEED
+                      name: "Feed store"
+                      kind: STORE
                     neededBy: "2026-11-18"
                     justification: null
+                    rejectReason: null
                     lines:
                       - id: "019a7aca-37e3-705a-9592-0e742a3a8752"
                         lineNo: 1
@@ -33463,8 +33616,14 @@ paths:
                     requestedBy:
                       id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
                       displayName: "Abena Quaye"
+                    location:
+                      id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                      code: FEED
+                      name: "Feed store"
+                      kind: STORE
                     neededBy: "2026-11-19"
                     justification: "Duplicate of REQ-2026-DDW-000031"
+                    rejectReason: "Bought at the market last week"
                     lines:
                       - id: "019a7aca-75c1-7421-b959-4ae31d9cc3c1"
                         lineNo: 1
@@ -33488,8 +33647,14 @@ paths:
                     requestedBy:
                       id: "019a7a87-27be-7035-a56e-0c2f577f850d"
                       displayName: "Dr Selorm Agbeko"
+                    location:
+                      id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                      code: FEED
+                      name: "Feed store"
+                      kind: STORE
                     neededBy: "2026-11-20"
                     justification: "Packaging for Christmas packs"
+                    rejectReason: null
                     lines:
                       - id: "019a7aca-b39f-77e8-9d20-875210fe002f"
                         lineNo: 1
@@ -33526,8 +33691,20 @@ paths:
       tags:
         - pur
       summary: "Raise a purchase requisition"
-      description: "Permission: `pur.requisition.create`."
+      description: "Raises a DRAFT requisition (FR-PUR-004): products and quantities in each product's base unit, a needed-by date and a justification, at `locationId`, or, when it is left out, at the one location or branch the requester's grants name. Refusals are 422 `PURCHASE_REQUISITION_INVALID`: `NO_LINES`, `LINE_REPEATED`, `PRODUCT_NOT_ACTIVE`, `NOT_PURCHASABLE`, `NEEDED_BY_PAST` and `LOCATION_REQUIRED`; an unknown product is 422 `REFERENCE_NOT_FOUND`.\n\nPermission: `pur.requisition.create`."
       x-permission: pur.requisition.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - REFERENCE_NOT_FOUND
+        - PURCHASE_REQUISITION_INVALID
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -33541,11 +33718,12 @@ paths:
             schema:
               $ref: "#/components/schemas/PurchaseRequisitionCreate"
             example:
-              neededBy: "2026-11-16"
+              locationId: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+              neededBy: "2026-11-18"
               justification: "Feed store below reorder point"
               lines:
                 - productId: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
-                  qty: "20.000"
+                  qty: "10.000"
       responses:
         "201":
           description: OK
@@ -33563,8 +33741,14 @@ paths:
                 requestedBy:
                   id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
                   displayName: "Yaw Boateng"
+                location:
+                  id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                  code: FEED
+                  name: "Feed store"
+                  kind: STORE
                 neededBy: "2026-11-18"
                 justification: null
+                rejectReason: null
                 lines:
                   - id: "019a7aca-37e3-705a-9592-0e742a3a8752"
                     lineNo: 1
@@ -33602,8 +33786,15 @@ paths:
       tags:
         - pur
       summary: "Get a purchase requisition"
-      description: "Permission: `pur.requisition.read`."
+      description: "One requisition with its lines and, once converted, the purchase order it became.\n\nPermission: `pur.requisition.read`."
       x-permission: pur.requisition.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -33631,8 +33822,14 @@ paths:
                 requestedBy:
                   id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
                   displayName: "Yaw Boateng"
+                location:
+                  id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                  code: FEED
+                  name: "Feed store"
+                  kind: STORE
                 neededBy: "2026-11-15"
                 justification: "Feed store below reorder point"
+                rejectReason: null
                 lines:
                   - id: "019a7ac9-7e49-7505-ba3d-59275014d205"
                     lineNo: 1
@@ -33667,8 +33864,23 @@ paths:
       tags:
         - pur
       summary: "Change a draft requisition"
-      description: "Permission: `pur.requisition.create`."
+      description: "Changes a DRAFT requisition; `lines` replaces them all. Any other status is 422 `INVALID_STATE_TRANSITION`.\n\nPermission: `pur.requisition.create`."
       x-permission: pur.requisition.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - REFERENCE_NOT_FOUND
+        - PURCHASE_REQUISITION_INVALID
+        - INVALID_STATE_TRANSITION
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -33707,8 +33919,14 @@ paths:
                 requestedBy:
                   id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
                   displayName: "Yaw Boateng"
+                location:
+                  id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                  code: FEED
+                  name: "Feed store"
+                  kind: STORE
                 neededBy: "2026-11-15"
                 justification: "Feed store below reorder point"
+                rejectReason: null
                 lines:
                   - id: "019a7ac9-7e49-7505-ba3d-59275014d205"
                     lineNo: 1
@@ -33748,8 +33966,20 @@ paths:
       tags:
         - pur
       summary: "Submit a requisition"
-      description: "Permission: `pur.requisition.create`."
+      description: "Submits a DRAFT requisition for a manager; publishes `pur.RequisitionSubmitted`. Its lines are fixed from now on, by the database too.\n\nPermission: `pur.requisition.create`."
       x-permission: pur.requisition.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -33779,8 +34009,14 @@ paths:
                 requestedBy:
                   id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
                   displayName: "Yaw Boateng"
+                location:
+                  id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                  code: FEED
+                  name: "Feed store"
+                  kind: STORE
                 neededBy: "2026-11-15"
                 justification: "Feed store below reorder point"
+                rejectReason: null
                 lines:
                   - id: "019a7ac9-7e49-7505-ba3d-59275014d205"
                     lineNo: 1
@@ -33820,8 +34056,20 @@ paths:
       tags:
         - pur
       summary: "Reject a requisition"
-      description: "Permission: `pur.requisition.approve`."
+      description: "Rejects a SUBMITTED requisition with a reason. A rejected requisition is never converted (422 `INVALID_STATE_TRANSITION`).\n\nPermission: `pur.requisition.approve`."
       x-permission: pur.requisition.approve
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -33841,7 +34089,7 @@ paths:
             schema:
               $ref: "#/components/schemas/ReasonRequest"
             example:
-              reason: "Counted twice in error at the morning check"
+              reason: "Bought at the market last week"
       responses:
         "200":
           description: OK
@@ -33855,12 +34103,18 @@ paths:
               example:
                 id: "019a7ac9-5f5a-7b21-a05a-baefd66333cd"
                 requisitionNo: REQ-2026-DDW-000030
-                status: SUBMITTED
+                status: REJECTED
                 requestedBy:
                   id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
                   displayName: "Yaw Boateng"
+                location:
+                  id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                  code: FEED
+                  name: "Feed store"
+                  kind: STORE
                 neededBy: "2026-11-15"
                 justification: "Feed store below reorder point"
+                rejectReason: "Bought at the market last week"
                 lines:
                   - id: "019a7ac9-7e49-7505-ba3d-59275014d205"
                     lineNo: 1
@@ -35045,8 +35299,23 @@ paths:
       tags:
         - pur
       summary: "Turn a requisition into a draft purchase order"
-      description: "Permission: `pur.purchase_order.create`."
+      description: "Turns a SUBMITTED requisition into a DRAFT purchase order in one transaction (FR-PUR-004): each named requisition line is ordered once at the price agreed with the supplier and at its requisitioned quantity unless `qty` says otherwise; a line left out is not ordered. The requisition becomes CONVERTED and names the order; the order then follows its own approval limit (`submitPurchaseOrder`). The caller also needs `pur.requisition.approve` at the requisition's scope (403 `FORBIDDEN`), so a requester cannot convert their own request without it. A rejected or draft requisition is 422 `INVALID_STATE_TRANSITION`; `LINE_NOT_ON_REQUISITION`, `LINE_REPEATED` and `NO_LINES` are 422 `PURCHASE_REQUISITION_INVALID`; the order's own refusals are 422 `PURCHASE_ORDER_INVALID`.\n\nPermission: `pur.purchase_order.create`."
       x-permission: pur.purchase_order.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - REFERENCE_NOT_FOUND
+        - PURCHASE_REQUISITION_INVALID
+        - PURCHASE_ORDER_INVALID
+        - INVALID_STATE_TRANSITION
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -36367,6 +36636,7 @@ paths:
                       supplierNo: S-0007
                       name: "Ashanti Feeds Ltd"
                     method: BANK
+                    payeeDetailsMasked: "Ecobank Ghana, Ashanti Feeds Ltd, ****3381"
                     bankAccount:
                       id: "019a7a92-6491-77d8-bd10-86568cccff34"
                       name: "GCB current account"
@@ -36397,6 +36667,7 @@ paths:
                       supplierNo: S-0012
                       name: "Kpone Livestock Traders"
                     method: MOBILE_MONEY
+                    payeeDetailsMasked: "MTN MoMo, ****0014"
                     bankAccount:
                       id: "019a7a92-8380-71bb-86f4-248e067d9d6b"
                       name: "MTN MoMo merchant wallet"
@@ -36427,6 +36698,7 @@ paths:
                       supplierNo: S-0021
                       name: "Dodowa Vegetable Growers Cooperative"
                     method: MOBILE_MONEY
+                    payeeDetailsMasked: "MTN MoMo, ****0014"
                     bankAccount:
                       id: "019a7a92-8380-71bb-86f4-248e067d9d6b"
                       name: "MTN MoMo merchant wallet"
@@ -36457,6 +36729,7 @@ paths:
                       supplierNo: S-0025
                       name: "Tema Packaging Supplies"
                     method: BANK
+                    payeeDetailsMasked: "Ecobank Ghana, Ashanti Feeds Ltd, ****3381"
                     bankAccount:
                       id: "019a7a92-6491-77d8-bd10-86568cccff34"
                       name: "GCB current account"
@@ -36487,6 +36760,7 @@ paths:
                       supplierNo: S-0019
                       name: "Awutu Poultry Farm"
                     method: BANK
+                    payeeDetailsMasked: "Ecobank Ghana, Ashanti Feeds Ltd, ****3381"
                     bankAccount:
                       id: "019a7a92-6491-77d8-bd10-86568cccff34"
                       name: "GCB current account"
@@ -36517,6 +36791,7 @@ paths:
                       supplierNo: S-0007
                       name: "Ashanti Feeds Ltd"
                     method: BANK
+                    payeeDetailsMasked: "Ecobank Ghana, Ashanti Feeds Ltd, ****3381"
                     bankAccount:
                       id: "019a7a92-8380-71bb-86f4-248e067d9d6b"
                       name: "MTN MoMo merchant wallet"
@@ -36558,7 +36833,7 @@ paths:
       tags:
         - pur
       summary: "Prepare a supplier payment"
-      description: "Prepares a payment as DRAFT, its amount the sum of its allocations (FR-PUR-012). Each allocation is to an APPROVED invoice of the same supplier that matched or needed no match, and never more than the invoice has left after other live payments: paying 110,000 across invoices of 60,000 and 50,000 allocates exactly, and 60,001 against the first is 422 `ALLOCATION_EXCEEDS_AVAILABLE`. An unmatched invoice is 422 `THREE_WAY_MATCH_FAILED` (FR-PUR-010), and the database refuses the allocation too. Other refusals are 422 `SUPPLIER_PAYMENT_INVALID`: `NO_ALLOCATIONS`, `OTHER_SUPPLIER`, `DUPLICATE_INVOICE`, `NOT_APPROVED`, `BRANCH_DIFFERS` and `BANK_ACCOUNT_NOT_AVAILABLE` (`bankAccountId` is taken once bank accounts exist, B8).\n\nPermission: `pur.supplier_payment.create`."
+      description: "Prepares a payment as DRAFT, its amount the sum of its allocations (FR-PUR-012). Each allocation is to an APPROVED invoice of the same supplier that matched or needed no match, and never more than the invoice has left after other live payments: paying 110,000 across invoices of 60,000 and 50,000 allocates exactly, and 60,001 against the first is 422 `ALLOCATION_EXCEEDS_AVAILABLE`. An unmatched invoice is 422 `THREE_WAY_MATCH_FAILED` (FR-PUR-010), and the database refuses the allocation too. Other refusals are 422 `SUPPLIER_PAYMENT_INVALID`: `NO_ALLOCATIONS`, `OTHER_SUPPLIER`, `DUPLICATE_INVOICE`, `NOT_APPROVED`, `BRANCH_DIFFERS`, `BANK_ACCOUNT_NOT_AVAILABLE` (`bankAccountId` is taken once bank accounts exist, B8), and `PAYOUT_DETAILS_MISSING` or `PAYOUT_METHOD_DIFFERS` (1.29.0): a bank or mobile money payment pays the supplier's approved payout details of that method in force now, fixed on the payment as `payeeDetailsMasked`; a change still waiting for approval is never used (FR-PUR-002).\n\nPermission: `pur.supplier_payment.create`."
       x-permission: pur.supplier_payment.create
       x-error-codes:
         - VALIDATION_FAILED
@@ -36613,6 +36888,7 @@ paths:
                   supplierNo: S-0007
                   name: "Ashanti Feeds Ltd"
                 method: BANK
+                payeeDetailsMasked: "Ecobank Ghana, Ashanti Feeds Ltd, ****3381"
                 bankAccount:
                   id: "019a7a92-6491-77d8-bd10-86568cccff34"
                   name: "GCB current account"
@@ -36693,6 +36969,7 @@ paths:
                   supplierNo: S-0007
                   name: "Ashanti Feeds Ltd"
                 method: BANK
+                payeeDetailsMasked: "Ecobank Ghana, Ashanti Feeds Ltd, ****3381"
                 bankAccount:
                   id: "019a7a92-6491-77d8-bd10-86568cccff34"
                   name: "GCB current account"
@@ -36779,6 +37056,7 @@ paths:
                   supplierNo: S-0007
                   name: "Ashanti Feeds Ltd"
                 method: BANK
+                payeeDetailsMasked: "Ecobank Ghana, Ashanti Feeds Ltd, ****3381"
                 bankAccount:
                   id: "019a7a92-6491-77d8-bd10-86568cccff34"
                   name: "GCB current account"
@@ -36895,6 +37173,7 @@ paths:
                   supplierNo: S-0019
                   name: "Awutu Poultry Farm"
                 method: BANK
+                payeeDetailsMasked: "Ecobank Ghana, Ashanti Feeds Ltd, ****3381"
                 bankAccount:
                   id: "019a7a92-6491-77d8-bd10-86568cccff34"
                   name: "GCB current account"
@@ -36993,6 +37272,7 @@ paths:
                   supplierNo: S-0007
                   name: "Ashanti Feeds Ltd"
                 method: BANK
+                payeeDetailsMasked: "Ecobank Ghana, Ashanti Feeds Ltd, ****3381"
                 bankAccount:
                   id: "019a7a92-6491-77d8-bd10-86568cccff34"
                   name: "GCB current account"
@@ -84449,6 +84729,7 @@ components:
         - updatedAt
     PayoutDetailsInput:
       type: object
+      description: "Restricted data, stored encrypted and never logged. A bank account needs `bankName`, `accountName` and `accountNumber` (6 to 20 digits) and may name `bankBranch`; a wallet needs `momoNetwork` and `momoNumber` (+233 and nine digits); cash and cheques carry nothing else (a cheque is made out to the name in the register). A field of another method is refused."
       properties:
         method:
           type: string
@@ -84494,6 +84775,93 @@ components:
       required:
         - version
       additionalProperties: false
+    PayoutDetailsView:
+      type: object
+      description: "One set of payout details in full. Restricted: returned only by `getSupplierPayoutDetails` (1.29.0)."
+      properties:
+        method:
+          type: string
+          enum:
+            - BANK
+            - MOBILE_MONEY
+            - CASH
+            - CHEQUE
+        bankName:
+          type:
+            - string
+            - "null"
+        accountName:
+          type:
+            - string
+            - "null"
+        accountNumber:
+          type:
+            - string
+            - "null"
+        bankBranch:
+          type:
+            - string
+            - "null"
+        momoNetwork:
+          type:
+            - string
+            - "null"
+          enum:
+            - MTN
+            - TELECEL
+            - AIRTELTIGO
+            - null
+        momoNumber:
+          type:
+            - string
+            - "null"
+      required:
+        - method
+        - bankName
+        - accountName
+        - accountNumber
+        - bankBranch
+        - momoNetwork
+        - momoNumber
+    PendingPayoutDetails:
+      type: object
+      description: "A payout detail change waiting for a different person's approval, in full (1.29.0)."
+      allOf:
+        - $ref: "#/components/schemas/PayoutDetailsView"
+        - type: object
+          properties:
+            approvalRequestId:
+              type: string
+              format: uuid
+            requestedBy:
+              type: string
+              format: uuid
+            requestedAt:
+              type: string
+              format: date-time
+          required:
+            - approvalRequestId
+            - requestedBy
+            - requestedAt
+    SupplierPayoutDetails:
+      type: object
+      description: "A supplier's payout details decrypted: those in force and any change waiting. Each read is audited (1.29.0)."
+      properties:
+        supplierId:
+          type: string
+          format: uuid
+        inForce:
+          anyOf:
+            - $ref: "#/components/schemas/PayoutDetailsView"
+            - type: "null"
+        pending:
+          anyOf:
+            - $ref: "#/components/schemas/PendingPayoutDetails"
+            - type: "null"
+      required:
+        - supplierId
+        - inForce
+        - pending
     SupplierDocument:
       type: object
       properties:
@@ -84654,6 +85022,11 @@ components:
             - CANCELLED
         requestedBy:
           $ref: "#/components/schemas/PrincipalRef"
+        location:
+          anyOf:
+            - $ref: "#/components/schemas/LocationRef"
+            - type: "null"
+          description: "Where the goods are wanted: the location the requester named or their grant gives; null for a branch-wide request (1.29.0)."
         neededBy:
           type:
             - string
@@ -84663,6 +85036,11 @@ components:
           type:
             - string
             - "null"
+        rejectReason:
+          type:
+            - string
+            - "null"
+          description: "Why a manager rejected it; null unless REJECTED (1.29.0)."
         lines:
           type: array
           items:
@@ -84686,8 +85064,10 @@ components:
         - requisitionNo
         - status
         - requestedBy
+        - location
         - neededBy
         - justification
+        - rejectReason
         - lines
         - purchaseOrder
         - branchId
@@ -84711,6 +85091,10 @@ components:
     PurchaseRequisitionCreate:
       type: object
       properties:
+        locationId:
+          type: string
+          format: uuid
+          description: "Where the goods are wanted. Left out, the one location or branch the requester's grants name (1.29.0)."
         neededBy:
           type: string
           format: date
@@ -85419,6 +85803,11 @@ components:
             - MOBILE_MONEY
             - CASH
             - CHEQUE
+        payeeDetailsMasked:
+          type:
+            - string
+            - "null"
+          description: "Who the payment pays: the supplier's approved payout details in force when it was prepared, masked. A change approved later does not move it (FR-PUR-002). Null for cash and cheques (1.29.0)."
         bankAccount:
           anyOf:
             - $ref: "#/components/schemas/BankAccountRef"
@@ -85471,6 +85860,7 @@ components:
         - status
         - supplier
         - method
+        - payeeDetailsMasked
         - bankAccount
         - amountPesewas
         - currency

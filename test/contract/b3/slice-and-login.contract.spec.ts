@@ -119,12 +119,18 @@ import {
   PurchaseOrderCreate,
   PurchaseOrderSend,
   PurchaseOrderUpdate,
+  PurchaseRequisitionCreate,
+  PurchaseRequisitionUpdate,
   ReasonBody as PurReasonBody,
+  RequisitionConvert,
+  SupplierDocumentCreate,
   SupplierInvoiceCreate,
   SupplierInvoiceUpdate,
   SupplierPaymentCreate,
   SupplierPaymentMarkPaid,
+  SupplierProfileUpdate,
 } from '../../../src/modules/pur/interface/schemas';
+import { SettingUpdate as AudSettingUpdate } from '../../../src/modules/aud/interface/schemas';
 import { createCatalogue, type TestCatalogue } from '../../support/catalogue';
 import { contractSchema } from '../../support/contract-schemas';
 import { consoleGet, consolePost, createBranch, createUser, enrolAndLogin, login, relaxRateLimits, testStartTime, type TestSession } from '../../support/iam';
@@ -363,6 +369,13 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     createSupplierPayment: SupplierPaymentCreate,
     markSupplierPaymentPaid: SupplierPaymentMarkPaid,
     cancelSupplierPayment: PurReasonBody,
+    updateSupplierProfile: SupplierProfileUpdate,
+    addSupplierDocument: SupplierDocumentCreate,
+    createPurchaseRequisition: PurchaseRequisitionCreate,
+    updatePurchaseRequisition: PurchaseRequisitionUpdate,
+    rejectPurchaseRequisition: PurReasonBody,
+    convertPurchaseRequisition: RequisitionConvert,
+    updateSetting: AudSettingUpdate,
   };
 
   it('parses every request example of an implemented operation with the schema its route validates with', () => {

@@ -8,16 +8,22 @@ import { NotFoundError, VersionConflictError } from '../../../platform/errors/ap
 import type { DomainEvents, EventEnvelope } from '../../../platform/events/domain-events';
 import type { Cursors } from '../../../platform/http/cursor';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
+import type { Settings } from '../../../platform/settings/settings';
 import type { ApprovalHandler, ApprovalRecord, Approvals, Authoriser, PrincipalNames } from '../../iam';
 import type { GoodsReceiptPosted } from '../../inv/events';
 import type { MasterDataRefs, TaxService } from '../../mdm';
-import { judgeOrderAction, judgeReceipt, orderLineNet, outstanding, receivedStatus, type OrderAction, type OrderStatus } from '../domain/purchasing';
+import { flagOrderSplitting, splitLookbackStart, type SplitSuspect } from '../domain/order-splitting';
+import { judgeOrderAction, judgeReceipt, orderLimitJudgement, orderLineNet, outstanding, receivedStatus, type OrderAction, type OrderStatus } from '../domain/purchasing';
 import type { PurchaseOrderApproved, PurchaseOrderSent } from '../events';
 import { PurchaseOrderInvalidError, PurReferenceNotFoundError, ReceiptExceedsOrderError, ReceiptOrderMismatchError, translatePurRefusal, wrongStatus, type BrokenRule } from './errors';
 import { lineNumber, locationRef, pesewas, principalRef, productRef, readPage, runPurchaseCommand, supplierRef, type ApprovalPendingView, type Page } from './purchase-command';
 import type { OrderFilter, OrderHeader, OrderLineRecord, OrderRecord, PurchasingStore } from './purchasing-store';
 
 export const PURCHASE_ORDER_KIND = 'PURCHASE_ORDER';
+/** The setting that holds the purchase order approval limit (FR-PUR-005, A-168), changed only through AUD's `updateSetting`. */
+export const APPROVAL_LIMIT_SETTING = 'pur.purchase_order.approval_limit_pesewas';
+/** Its documented default when no row exists: FR-PUR-005's seed, above 200,000 pesewas needs a second person. */
+export const DEFAULT_APPROVAL_LIMIT_PESEWAS = 200_000;
 const DOC_TYPE = 'PURCHASE_ORDER';
 const READ = 'pur.purchase_order.read';
 const CREATE = 'pur.purchase_order.create';
@@ -141,8 +147,20 @@ export class PurchaseOrders implements ApprovalHandler {
     private readonly principals: PrincipalNames,
     private readonly cursors: Cursors,
     private readonly clock: Clock,
+    private readonly settings: Settings,
   ) {
     this.nextId = createUuidV7Generator(clock);
+  }
+
+  /**
+   * Orders that look split to stay under the approval limit (owner, 2026-11-15, A-168): runs by one maker to one
+   * supplier, each just under the limit it was judged by, submitted within the window, among orders submitted from
+   * `from` (less the window, so a run that starts before it is seen whole) to `to`. B12's daily exception report reads
+   * this; it is the published rule, not a screen.
+   */
+  async splitSuspectsIn(tx: Transaction, from: Date, to: Date): Promise<SplitSuspect[]> {
+    const orders = await this.store.submittedOrders(tx, splitLookbackStart(from), to);
+    return flagOrderSplitting(orders).filter((s) => s.lastAt >= from);
   }
 
   list(actor: Actor | undefined, filter: OrderFilter, cursor: string | undefined, limit: number): Promise<Page<PurchaseOrderView>> {
@@ -182,17 +200,28 @@ export class PurchaseOrders implements ApprovalHandler {
       body,
       idempotencyKey,
       (tx) => this.locationScope(tx, body.deliverToLocationId),
-      async (tx) => {
-        const header = await this.header(tx, body);
-        const lines = await this.pricedLines(tx, body.orderDate, body.lines);
-        const id = this.nextId();
-        await this.documents.register(tx, { id, docType: DOC_TYPE, ownerModule: 'pur', branchId: header.branchId, actorId: actor!.principalId });
-        await this.store.insertOrder(tx, id, { ...header, ...lines.totals, taxSchemeVersionId: lines.versionId }, lines.records, actor!.principalId);
-        const view = await this.view(tx, id);
-        await this.audit.record(tx, { module: 'pur', action: 'CREATE', entityType: 'PurchaseOrder', entityId: id, branchId: view.branchId, before: null, after: { ...view } });
-        return { status: 201, body: view };
-      },
+      async (tx) => ({ status: 201, body: await this.createIn(tx, actor!, body) }),
     );
+  }
+
+  /**
+   * A draft order made inside a caller's transaction, by a caller that already authorised the maker for
+   * `pur.purchase_order.create` at the delivery location: a requisition's conversion (FR-PUR-004).
+   */
+  async createIn(tx: Transaction, actor: Actor, body: PurchaseOrderCreate): Promise<PurchaseOrderView> {
+    const header = await this.header(tx, body);
+    const lines = await this.pricedLines(tx, body.orderDate, body.lines);
+    const id = this.nextId();
+    await this.documents.register(tx, { id, docType: DOC_TYPE, ownerModule: 'pur', branchId: header.branchId, actorId: actor.principalId });
+    await this.store.insertOrder(tx, id, { ...header, ...lines.totals, taxSchemeVersionId: lines.versionId }, lines.records, actor.principalId);
+    const view = await this.view(tx, id);
+    await this.audit.record(tx, { module: 'pur', action: 'CREATE', entityType: 'PurchaseOrder', entityId: id, branchId: view.branchId, before: null, after: { ...view } });
+    return view;
+  }
+
+  /** The branch and location an order delivered to `locationId` is authorised against. */
+  scopeOf(tx: Transaction, locationId: string): Promise<{ branchId?: string; locationId?: string }> {
+    return this.locationScope(tx, locationId);
   }
 
   update(actor: Actor | undefined, id: string, body: PurchaseOrderUpdate, idempotencyKey: string): Promise<StoredResponse<PurchaseOrderView>> {
@@ -215,8 +244,10 @@ export class PurchaseOrders implements ApprovalHandler {
       const before = await this.locked(tx, id, 'SUBMIT', null);
       const supplier = (await this.refs.suppliersIn(tx, [before.supplierId])).get(before.supplierId)!;
       if (!supplier.isLive) throw new PurchaseOrderInvalidError([{ field: '/supplierId', rule: 'SUPPLIER_NOT_ACTIVE' }]);
-      const judgement = await this.approvals.judgeIn(tx, PURCHASE_ORDER_KIND, before.branchId, before.grossPesewas);
       const now = this.clock.now();
+      // The approval limit is a setting in force at the branch now (owner, 2026-11-15, A-168), read fresh, never cached.
+      const limit = BigInt(await this.settings.integerAt(APPROVAL_LIMIT_SETTING, DEFAULT_APPROVAL_LIMIT_PESEWAS, now, before.branchId));
+      const judgement = orderLimitJudgement(before.grossPesewas, limit);
       if (!judgement.required) {
         await this.store.markOrderJudged(tx, id, { status: 'APPROVED', thresholdPesewas: judgement.thresholdPesewas, approvalRequestId: null, at: now }, actor!.principalId);
         const view = await this.audited(tx, 'APPROVE', before, { thresholdPesewas: pesewas(judgement.thresholdPesewas) });

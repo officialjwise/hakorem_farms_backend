@@ -2,6 +2,7 @@ import { Module, type DynamicModule, type Type } from '@nestjs/common';
 import type { Clock } from '@hakorem/kernel';
 import type { Logger } from 'pino';
 import type { AppConfig } from './platform/config/app-config';
+import { AudModule } from './modules/aud';
 import { IamModule } from './modules/iam';
 import { DocModule } from './modules/doc';
 import { MdmModule } from './modules/mdm';
@@ -26,7 +27,7 @@ export class AppModule {
   ): DynamicModule {
     return {
       module: AppModule,
-      imports: [PlatformModule.forRoot(config, logger, clock), IamModule, MdmModule, DocModule, InvModule, LivModule, PrcModule, PurModule, RptModule, ...extra],
+      imports: [PlatformModule.forRoot(config, logger, clock), IamModule, AudModule, MdmModule, DocModule, InvModule, LivModule, PrcModule, PurModule, RptModule, ...extra],
     };
   }
 }

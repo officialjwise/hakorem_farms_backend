@@ -1,6 +1,6 @@
 import { Money, Quantity, Rate } from '@hakorem/kernel';
 import { describe, expect, it } from 'vitest';
-import { judgeAllocations, judgeOrderAction, judgeReceipt, orderLineNet, outstanding, receivedStatus, type AllocationFacts } from './purchasing';
+import { judgeAllocations, judgeOrderAction, judgeReceipt, orderLimitJudgement, orderLineNet, outstanding, paymentApprovalReason, receivedStatus, type AllocationFacts } from './purchasing';
 
 describe('a purchase order line (FR-PUR-005)', () => {
   it('prices 20 broilers at 5,500 as exactly 110,000', () => {
@@ -130,5 +130,22 @@ describe('allocating a supplier payment (FR-PUR-010, FR-PUR-012)', () => {
     ]);
     expect(twice).toEqual({ ok: false, error: [{ index: 1, rule: 'DUPLICATE_INVOICE' }] });
     expect(judgeAllocations('awutu', [])).toEqual({ ok: false, error: [{ index: -1, rule: 'NO_ALLOCATIONS' }] });
+  });
+});
+
+describe('the purchase order approval limit as a setting (owner, 2026-11-15)', () => {
+  it('needs approval only above the limit, and keeps the threshold the database holds as the limit plus one pesewa', () => {
+    expect(orderLimitJudgement(200_000n, 200_000n)).toEqual({ required: false, thresholdPesewas: 200_001n });
+    expect(orderLimitJudgement(200_001n, 200_000n)).toEqual({ required: true, thresholdPesewas: 200_001n });
+    expect(orderLimitJudgement(110_000n, 100_000n)).toEqual({ required: true, thresholdPesewas: 100_001n });
+  });
+});
+
+describe('the first payment after a payout change (owner, 2026-11-15)', () => {
+  it('needs a second person whatever the amount, and otherwise follows the payment policy', () => {
+    expect(paymentApprovalReason(true, false)).toBe('FIRST_PAYMENT_AFTER_PAYOUT_CHANGE');
+    expect(paymentApprovalReason(true, true)).toBe('FIRST_PAYMENT_AFTER_PAYOUT_CHANGE');
+    expect(paymentApprovalReason(false, true)).toBe('PAYMENT_POLICY');
+    expect(paymentApprovalReason(false, false)).toBeNull();
   });
 });

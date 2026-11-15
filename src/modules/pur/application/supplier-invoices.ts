@@ -12,6 +12,7 @@ import type { Authoriser, PrincipalNames } from '../../iam';
 import type { MasterDataRefs, ProductFacts, TaxService } from '../../mdm';
 import { orderLineNet } from '../domain/purchasing';
 import { matchInvoice, matchLine, type MatchReason, type MatchStatus } from '../domain/three-way-match';
+import { dueDateFrom } from '../domain/terms';
 import type { SupplierInvoiceApproved, SupplierInvoiceMismatched } from '../events';
 import {
   DuplicateSupplierInvoiceError,
@@ -23,6 +24,7 @@ import {
   type BrokenRule,
 } from './errors';
 import { lineNumber, pesewas, principalRef, productRef, readPage, runPurchaseCommand, supplierRef, wholeBranches, type Page } from './purchase-command';
+import type { SupplierRegisterStore } from './supplier-register-store';
 import type { InvoiceFilter, InvoiceHeader, InvoiceLineRecord, InvoiceRecord, InvoiceStatus, LineMatchRecord, OrderRecord, PurchasingStore } from './purchasing-store';
 
 const DOC_TYPE = 'SUPPLIER_INVOICE';
@@ -143,6 +145,7 @@ export class SupplierInvoices {
   constructor(
     private readonly uow: UnitOfWork,
     private readonly store: PurchasingStore,
+    private readonly register: SupplierRegisterStore,
     private readonly refs: MasterDataRefs,
     private readonly tax: TaxService,
     private readonly files: FileStore,
@@ -214,7 +217,7 @@ export class SupplierInvoices {
         if (branchId === undefined) throw new SupplierInvoiceInvalidError([{ field: '/branchId', rule: 'BRANCH_REQUIRED' }]);
         if (order !== null && body.branchId !== undefined && body.branchId !== order.branchId) throw new SupplierInvoiceInvalidError([{ field: '/branchId', rule: 'BRANCH_DIFFERS' }]);
         if ((await this.refs.branchesIn(tx, [branchId])).get(branchId) === undefined) throw new PurReferenceNotFoundError(['/branchId']);
-        const built = await this.build(tx, body, order);
+        const built = await this.build(tx, body, order, await this.termsDays(tx, supplier.id));
         if (await this.store.supplierInvoiceNoTaken(tx, body.supplierId, built.header.supplierInvoiceNo, null)) throw new DuplicateSupplierInvoiceError();
         const id = this.nextId();
         await this.documents.register(tx, { id, docType: DOC_TYPE, ownerModule: 'pur', branchId, actorId: actor!.principalId });
@@ -241,6 +244,7 @@ export class SupplierInvoices {
           lines: body.lines ?? before.lines.map(inputOf),
         },
         order,
+        await this.termsDays(tx, before.supplierId),
       );
       if (await this.store.supplierInvoiceNoTaken(tx, before.supplierId, built.header.supplierInvoiceNo, id)) throw new DuplicateSupplierInvoiceError();
       await this.store.replaceInvoice(tx, id, built.header, built.lines, actor!.principalId);
@@ -412,14 +416,20 @@ export class SupplierInvoices {
     return order;
   }
 
+  /** The supplier's payment terms in days (FR-PUR-001): what an invoice's due date defaults to after its date. */
+  private async termsDays(tx: Transaction, supplierId: string): Promise<number> {
+    return (await this.register.profile(tx, supplierId, false))?.paymentTermsDays ?? 0;
+  }
+
   /** The header and lines an entry or a change makes: each line priced exactly, its levies calculated and as charged. */
   private async build(
     tx: Transaction,
     body: Pick<SupplierInvoiceCreate, 'supplierInvoiceNo' | 'invoiceDate' | 'dueDate' | 'fileId' | 'statedGrossPesewas' | 'lines'>,
     order: OrderRecord | null,
+    termsDays: number,
   ): Promise<{ header: InvoiceHeader; lines: InvoiceLineRecord[] }> {
     const broken: BrokenRule[] = [];
-    const dueDate = body.dueDate ?? body.invoiceDate;
+    const dueDate = body.dueDate ?? dueDateFrom(body.invoiceDate, termsDays);
     if (dueDate < body.invoiceDate) broken.push({ field: '/dueDate', rule: 'DUE_BEFORE_INVOICE' });
     if (body.fileId !== undefined) {
       const file = await this.files.find(tx, body.fileId);

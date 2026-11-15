@@ -84,3 +84,34 @@ export interface SupplierPaymentMade {
   readonly approvalRequestId: string;
   readonly allocations: readonly { readonly supplierInvoiceId: string; readonly amountPesewas: number }[];
 }
+
+/**
+ * `pur.SupplierPayoutChangeRequested` v1: someone asked to change where a supplier is paid (FR-PUR-002). Nothing is in
+ * force yet. The payout change report and the daily exception report (`PAYOUT_DETAIL_CHANGE`, THREAT_MODEL case 13)
+ * read it (B12). Only masked details travel.
+ */
+export interface SupplierPayoutChangeRequested {
+  readonly payoutChangeId: string;
+  readonly supplierId: string;
+  readonly approvalRequestId: string;
+  readonly method: 'BANK' | 'MOBILE_MONEY' | 'CASH' | 'CHEQUE';
+  /** The details in force when the change was asked for, masked; null when none were. */
+  readonly previousPayoutMasked: string | null;
+  readonly payoutMasked: string;
+  readonly requestedBy: string;
+  readonly abuseCase: number;
+}
+
+/** `pur.SupplierPayoutChanged` v1: a different person approved the change and the new details are in force. */
+export interface SupplierPayoutChanged extends SupplierPayoutChangeRequested {
+  readonly approvedBy: string;
+}
+
+/** `pur.RequisitionSubmitted` v1: a requisition waits for a manager to reject or convert it (FR-PUR-004). */
+export interface RequisitionSubmitted {
+  readonly requisitionId: string;
+  readonly requestedBy: string;
+  readonly locationId: string | null;
+  readonly neededBy: string | null;
+  readonly lines: readonly { readonly productId: string; readonly qty: string }[];
+}

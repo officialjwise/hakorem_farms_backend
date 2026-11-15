@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.28.0"
+  version: "1.29.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -1093,74 +1093,7 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
-  "/admin/settings/{key}":
-    put:
-      operationId: updateSetting
-      tags:
-        - aud
-      summary: "Change a setting"
-      description: "Every change is audited with before and after values. Settings with legal effect are effective-dated.\n\nPermission: `aud.setting.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
-      x-permission: aud.setting.manage
-      x-requires-step-up: true
-      parameters:
-        - name: key
-          in: path
-          required: true
-          schema:
-            type: string
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SettingUpdate"
-            example:
-              value: "35.00"
-              validFrom: "2027-01-01T00:00:00Z"
-              version: 2
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Setting"
-              example:
-                key: tax.registered
-                branchId: null
-                value: true
-                valueType: BOOLEAN
-                validFrom: "2026-11-01T00:00:00Z"
-                description: "Whether the business charges and reclaims levies"
-                version: 2
-                updatedAt: "2026-11-05T11:00:00Z"
-                updatedBy:
-                  id: "019a7a86-3046-711a-a652-1a7389f79351"
-                  displayName: "Akua Mensah"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+  "/admin/settings/{key}": {}
   "/admin/number-series":
     get:
       operationId: listNumberSeries
@@ -2499,302 +2432,9 @@ paths:
   "/processing-orders/{id}/labels": {}
   "/yield-standards": {}
   "/yield-standards/{id}": {}
-  "/suppliers/{id}/profile":
-    get:
-      operationId: getSupplierProfile
-      tags:
-        - pur
-      summary: "Get a supplier's terms and payout details"
-      description: "Permission: `pur.supplier.read`."
-      x-permission: pur.supplier.read
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SupplierProfile"
-              example:
-                supplierId: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
-                paymentTermsDays: 30
-                payoutMethod: BANK
-                payoutDetailsMasked: "Ecobank, Ashanti Feeds Ltd, ****3381"
-                pendingPayoutChangeApprovalId: null
-                leadTimeDays: 3
-                notes: null
-                version: 3
-                updatedAt: "2026-11-04T12:00:00Z"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-    put:
-      operationId: updateSupplierProfile
-      tags:
-        - pur
-      summary: "Change a supplier's terms or payout details"
-      description: "Permission: `pur.supplier.update`.\n\nMay require approval of kind `SUPPLIER_PAYOUT_CHANGE`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
-      x-permission: pur.supplier.update
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SupplierProfileUpdate"
-            example:
-              version: 3
-              paymentTermsDays: 30
-              payoutDetails:
-                method: BANK
-                bankName: "Ecobank Ghana"
-                accountName: "Ashanti Feeds Ltd"
-                accountNumber: "1441000273381"
-                bankBranch: Adum
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SupplierProfile"
-              example:
-                supplierId: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
-                paymentTermsDays: 30
-                payoutMethod: BANK
-                payoutDetailsMasked: "Ecobank, Ashanti Feeds Ltd, ****3381"
-                pendingPayoutChangeApprovalId: null
-                leadTimeDays: 3
-                notes: null
-                version: 3
-                updatedAt: "2026-11-04T12:00:00Z"
-        "202":
-          description: "Accepted for approval. Nothing has taken effect yet."
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApprovalPending"
-              example:
-                status: PENDING_APPROVAL
-                approvalRequestId: "019a7ac7-ec26-7478-a9b0-50562217c934"
-                kind: SUPPLIER_PAYOUT_CHANGE
-                subject:
-                  id: "019a7ac8-0b15-7e5b-b394-ee8d9bc8676b"
-                  docType: STOCK_ADJUSTMENT
-                  number: null
-                summary: "Awaiting approval by a different user with the approving permission"
-                requestedAt: "2026-11-13T10:12:00Z"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/suppliers/{id}/documents":
-    get:
-      operationId: listSupplierDocuments
-      tags:
-        - pur
-      summary: "List a supplier's documents"
-      description: "Permission: `pur.supplier.read`."
-      x-permission: pur.supplier.read
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - name: cursor
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: limit
-          in: query
-          required: false
-          schema:
-            $ref: "#/components/schemas/PageLimit"
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SupplierDocumentPage"
-              example:
-                data:
-                  - id: "019a7ac8-2a04-783f-8d77-8cc5157905a2"
-                    kind: REGISTRATION
-                    file:
-                      id: "019a7ac8-48f3-7222-975a-2afc8f2aa3da"
-                      originalName: business-registration.pdf
-                      contentType: application/pdf
-                    expiresOn: null
-                    createdAt: "2026-11-02T10:00:00Z"
-                  - id: "019a7ac8-67e2-7c06-a13e-c93408db4211"
-                    kind: TAX_CLEARANCE
-                    file:
-                      id: "019a7ac8-86d1-75e9-bb21-676b828ce049"
-                      originalName: tax-clearance-2026.pdf
-                      contentType: application/pdf
-                    expiresOn: "2026-12-31"
-                    createdAt: "2026-11-03T10:00:00Z"
-                  - id: "019a7ac8-a5c0-7fcd-8505-05a2fc3d7e80"
-                    kind: HEALTH_CERTIFICATE
-                    file:
-                      id: "019a7ac8-c4af-79b0-9ee8-a3da75ee1cb8"
-                      originalName: vet-health-cert-kpone.pdf
-                      contentType: application/pdf
-                    expiresOn: "2027-02-28"
-                    createdAt: "2026-11-04T10:00:00Z"
-                  - id: "019a7ac8-e39e-7394-a8cc-4211ef9fbaef"
-                    kind: CONTRACT
-                    file:
-                      id: "019a7ac9-028d-7d77-b2af-e04969505927"
-                      originalName: supply-agreement-2026.pdf
-                      contentType: application/pdf
-                    expiresOn: "2027-06-30"
-                    createdAt: "2026-11-05T10:00:00Z"
-                  - id: "019a7ac9-217c-775a-8c93-7e80e301f75e"
-                    kind: OTHER
-                    file:
-                      id: "019a7ac9-406b-713e-9676-1cb85cb29596"
-                      originalName: price-list-nov.pdf
-                      contentType: application/pdf
-                    expiresOn: null
-                    createdAt: "2026-11-06T10:00:00Z"
-                page:
-                  nextCursor: null
-                  limit: 25
-                  hasMore: false
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-    post:
-      operationId: addSupplierDocument
-      tags:
-        - pur
-      summary: "Attach a document to a supplier"
-      description: "Permission: `pur.supplier.update`."
-      x-permission: pur.supplier.update
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SupplierDocumentCreate"
-            example:
-              kind: HEALTH_CERTIFICATE
-              fileId: "019a7ac8-c4af-79b0-9ee8-a3da75ee1cb8"
-              expiresOn: "2027-02-28"
-      responses:
-        "201":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SupplierDocument"
-              example:
-                id: "019a7ac8-2a04-783f-8d77-8cc5157905a2"
-                kind: REGISTRATION
-                file:
-                  id: "019a7ac8-48f3-7222-975a-2afc8f2aa3da"
-                  originalName: business-registration.pdf
-                  contentType: application/pdf
-                expiresOn: null
-                createdAt: "2026-11-02T10:00:00Z"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+  "/suppliers/{id}/profile": {}
+  "/suppliers/{id}/payout-details": {}
+  "/suppliers/{id}/documents": {}
   "/supplier-scores":
     get:
       operationId: listSupplierScores
@@ -2921,706 +2561,17 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
-  "/purchase-requisitions":
-    get:
-      operationId: listPurchaseRequisitions
-      tags:
-        - pur
-      summary: "List purchase requisitions"
-      description: "Permission: `pur.requisition.read`."
-      x-permission: pur.requisition.read
-      parameters:
-        - name: status
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: requestedBy
-          in: query
-          required: false
-          schema:
-            type: string
-            format: uuid
-        - name: cursor
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: limit
-          in: query
-          required: false
-          schema:
-            $ref: "#/components/schemas/PageLimit"
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PurchaseRequisitionPage"
-              example:
-                data:
-                  - id: "019a7ac9-5f5a-7b21-a05a-baefd66333cd"
-                    requisitionNo: REQ-2026-DDW-000030
-                    status: SUBMITTED
-                    requestedBy:
-                      id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                      displayName: "Yaw Boateng"
-                    neededBy: "2026-11-15"
-                    justification: "Feed store below reorder point"
-                    lines:
-                      - id: "019a7ac9-7e49-7505-ba3d-59275014d205"
-                        lineNo: 1
-                        product:
-                          id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
-                          sku: FD-BRL-FIN
-                          name: "Broiler finisher feed, 50 kg bag"
-                        qty: "20.000"
-                        uom: BAG
-                        note: null
-                    purchaseOrder: null
-                    branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                    version: 2
-                    createdAt: "2026-11-10T09:00:00Z"
-                    createdBy:
-                      id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                      displayName: "Yaw Boateng"
-                  - id: "019a7ac9-9d38-7ee8-8421-f75ec9c5703c"
-                    requisitionNo: REQ-2026-DDW-000031
-                    status: CONVERTED
-                    requestedBy:
-                      id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
-                      displayName: "Abena Quaye"
-                    neededBy: "2026-11-16"
-                    justification: "Next broiler batch arrives on 18 November"
-                    lines:
-                      - id: "019a7ac9-bc27-78cc-9e04-959643760e74"
-                        lineNo: 1
-                        product:
-                          id: "019a7a8d-704a-726a-a7a2-2f740f73a851"
-                          sku: LIV-BROILER
-                          name: "Broiler chicken"
-                        qty: "500.000"
-                        uom: HEAD
-                        note: null
-                    purchaseOrder:
-                      id: "019a7ab4-96c6-764d-ab85-6daa1377e687"
-                      docType: PURCHASE_ORDER
-                      number: PO-2026-DDW-000041
-                    branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                    version: 2
-                    createdAt: "2026-11-10T09:01:00Z"
-                    createdBy:
-                      id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                      displayName: "Yaw Boateng"
-                  - id: "019a7ac9-db16-72af-a7e8-33cdbd27acab"
-                    requisitionNo: REQ-2026-DDW-000032
-                    status: CONVERTED
-                    requestedBy:
-                      id: "019a7a87-27be-7035-a56e-0c2f577f850d"
-                      displayName: "Dr Selorm Agbeko"
-                    neededBy: "2026-11-17"
-                    justification: "Vaccines for PPR campaign"
-                    lines:
-                      - id: "019a7ac9-fa05-7c93-b1cb-d20536d84ae3"
-                        lineNo: 1
-                        product:
-                          id: "019a7a8f-026d-72f7-b82f-38453d70b123"
-                          sku: VET-OXYTET
-                          name: "Oxytetracycline 20% injection, 100 ml"
-                        qty: "10.000"
-                        uom: UNIT
-                        note: null
-                    purchaseOrder:
-                      id: "019a7ab5-1282-7ddb-a313-e687fa3b5f65"
-                      docType: PURCHASE_ORDER
-                      number: PO-2026-DDW-000042
-                    branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                    version: 2
-                    createdAt: "2026-11-10T09:02:00Z"
-                    createdBy:
-                      id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                      displayName: "Yaw Boateng"
-                  - id: "019a7aca-18f4-7676-8bae-703cb089e91a"
-                    requisitionNo: REQ-2026-DDW-000033
-                    status: DRAFT
-                    requestedBy:
-                      id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                      displayName: "Yaw Boateng"
-                    neededBy: "2026-11-18"
-                    justification: null
-                    lines:
-                      - id: "019a7aca-37e3-705a-9592-0e742a3a8752"
-                        lineNo: 1
-                        product:
-                          id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
-                          sku: FD-BRL-FIN
-                          name: "Broiler finisher feed, 50 kg bag"
-                        qty: "10.000"
-                        uom: BAG
-                        note: null
-                    purchaseOrder: null
-                    branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                    version: 2
-                    createdAt: "2026-11-10T09:03:00Z"
-                    createdBy:
-                      id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                      displayName: "Yaw Boateng"
-                  - id: "019a7aca-56d2-7a3d-af75-acaba3eb2589"
-                    requisitionNo: REQ-2026-DDW-000034
-                    status: REJECTED
-                    requestedBy:
-                      id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
-                      displayName: "Abena Quaye"
-                    neededBy: "2026-11-19"
-                    justification: "Duplicate of REQ-2026-DDW-000031"
-                    lines:
-                      - id: "019a7aca-75c1-7421-b959-4ae31d9cc3c1"
-                        lineNo: 1
-                        product:
-                          id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
-                          sku: FD-BRL-FIN
-                          name: "Broiler finisher feed, 50 kg bag"
-                        qty: "20.000"
-                        uom: BAG
-                        note: null
-                    purchaseOrder: null
-                    branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                    version: 2
-                    createdAt: "2026-11-10T09:04:00Z"
-                    createdBy:
-                      id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                      displayName: "Yaw Boateng"
-                  - id: "019a7aca-94b0-7e04-833c-e91a974d61f8"
-                    requisitionNo: REQ-2026-DDW-000035
-                    status: SUBMITTED
-                    requestedBy:
-                      id: "019a7a87-27be-7035-a56e-0c2f577f850d"
-                      displayName: "Dr Selorm Agbeko"
-                    neededBy: "2026-11-20"
-                    justification: "Packaging for Christmas packs"
-                    lines:
-                      - id: "019a7aca-b39f-77e8-9d20-875210fe002f"
-                        lineNo: 1
-                        product:
-                          id: "019a7a8f-404b-76be-9bf6-74b430d2ed92"
-                          sku: SVC-DELIVERY
-                          name: Delivery
-                        qty: "400.000"
-                        uom: UNIT
-                        note: null
-                    purchaseOrder: null
-                    branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                    version: 2
-                    createdAt: "2026-11-10T09:05:00Z"
-                    createdBy:
-                      id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                      displayName: "Yaw Boateng"
-                page:
-                  nextCursor: eyJpZCI6IjAxOWE3YyJ9
-                  limit: 25
-                  hasMore: true
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-    post:
-      operationId: createPurchaseRequisition
-      tags:
-        - pur
-      summary: "Raise a purchase requisition"
-      description: "Permission: `pur.requisition.create`."
-      x-permission: pur.requisition.create
-      parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/PurchaseRequisitionCreate"
-            example:
-              neededBy: "2026-11-16"
-              justification: "Feed store below reorder point"
-              lines:
-                - productId: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
-                  qty: "20.000"
-      responses:
-        "201":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PurchaseRequisition"
-              example:
-                id: "019a7aca-18f4-7676-8bae-703cb089e91a"
-                requisitionNo: REQ-2026-DDW-000033
-                status: DRAFT
-                requestedBy:
-                  id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                  displayName: "Yaw Boateng"
-                neededBy: "2026-11-18"
-                justification: null
-                lines:
-                  - id: "019a7aca-37e3-705a-9592-0e742a3a8752"
-                    lineNo: 1
-                    product:
-                      id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
-                      sku: FD-BRL-FIN
-                      name: "Broiler finisher feed, 50 kg bag"
-                    qty: "10.000"
-                    uom: BAG
-                    note: null
-                purchaseOrder: null
-                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                version: 2
-                createdAt: "2026-11-10T09:03:00Z"
-                createdBy:
-                  id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                  displayName: "Yaw Boateng"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/purchase-requisitions/{id}":
-    get:
-      operationId: getPurchaseRequisition
-      tags:
-        - pur
-      summary: "Get a purchase requisition"
-      description: "Permission: `pur.requisition.read`."
-      x-permission: pur.requisition.read
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PurchaseRequisition"
-              example:
-                id: "019a7ac9-5f5a-7b21-a05a-baefd66333cd"
-                requisitionNo: REQ-2026-DDW-000030
-                status: SUBMITTED
-                requestedBy:
-                  id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                  displayName: "Yaw Boateng"
-                neededBy: "2026-11-15"
-                justification: "Feed store below reorder point"
-                lines:
-                  - id: "019a7ac9-7e49-7505-ba3d-59275014d205"
-                    lineNo: 1
-                    product:
-                      id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
-                      sku: FD-BRL-FIN
-                      name: "Broiler finisher feed, 50 kg bag"
-                    qty: "20.000"
-                    uom: BAG
-                    note: null
-                purchaseOrder: null
-                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                version: 2
-                createdAt: "2026-11-10T09:00:00Z"
-                createdBy:
-                  id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                  displayName: "Yaw Boateng"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-    patch:
-      operationId: updatePurchaseRequisition
-      tags:
-        - pur
-      summary: "Change a draft requisition"
-      description: "Permission: `pur.requisition.create`."
-      x-permission: pur.requisition.create
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/PurchaseRequisitionUpdate"
-            example:
-              version: 2
-              neededBy: "2026-11-17"
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PurchaseRequisition"
-              example:
-                id: "019a7ac9-5f5a-7b21-a05a-baefd66333cd"
-                requisitionNo: REQ-2026-DDW-000030
-                status: SUBMITTED
-                requestedBy:
-                  id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                  displayName: "Yaw Boateng"
-                neededBy: "2026-11-15"
-                justification: "Feed store below reorder point"
-                lines:
-                  - id: "019a7ac9-7e49-7505-ba3d-59275014d205"
-                    lineNo: 1
-                    product:
-                      id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
-                      sku: FD-BRL-FIN
-                      name: "Broiler finisher feed, 50 kg bag"
-                    qty: "20.000"
-                    uom: BAG
-                    note: null
-                purchaseOrder: null
-                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                version: 2
-                createdAt: "2026-11-10T09:00:00Z"
-                createdBy:
-                  id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                  displayName: "Yaw Boateng"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/purchase-requisitions/{id}/submit":
-    post:
-      operationId: submitPurchaseRequisition
-      tags:
-        - pur
-      summary: "Submit a requisition"
-      description: "Permission: `pur.requisition.create`."
-      x-permission: pur.requisition.create
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PurchaseRequisition"
-              example:
-                id: "019a7ac9-5f5a-7b21-a05a-baefd66333cd"
-                requisitionNo: REQ-2026-DDW-000030
-                status: SUBMITTED
-                requestedBy:
-                  id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                  displayName: "Yaw Boateng"
-                neededBy: "2026-11-15"
-                justification: "Feed store below reorder point"
-                lines:
-                  - id: "019a7ac9-7e49-7505-ba3d-59275014d205"
-                    lineNo: 1
-                    product:
-                      id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
-                      sku: FD-BRL-FIN
-                      name: "Broiler finisher feed, 50 kg bag"
-                    qty: "20.000"
-                    uom: BAG
-                    note: null
-                purchaseOrder: null
-                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                version: 2
-                createdAt: "2026-11-10T09:00:00Z"
-                createdBy:
-                  id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                  displayName: "Yaw Boateng"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/purchase-requisitions/{id}/reject":
-    post:
-      operationId: rejectPurchaseRequisition
-      tags:
-        - pur
-      summary: "Reject a requisition"
-      description: "Permission: `pur.requisition.approve`."
-      x-permission: pur.requisition.approve
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ReasonRequest"
-            example:
-              reason: "Counted twice in error at the morning check"
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PurchaseRequisition"
-              example:
-                id: "019a7ac9-5f5a-7b21-a05a-baefd66333cd"
-                requisitionNo: REQ-2026-DDW-000030
-                status: SUBMITTED
-                requestedBy:
-                  id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                  displayName: "Yaw Boateng"
-                neededBy: "2026-11-15"
-                justification: "Feed store below reorder point"
-                lines:
-                  - id: "019a7ac9-7e49-7505-ba3d-59275014d205"
-                    lineNo: 1
-                    product:
-                      id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
-                      sku: FD-BRL-FIN
-                      name: "Broiler finisher feed, 50 kg bag"
-                    qty: "20.000"
-                    uom: BAG
-                    note: null
-                purchaseOrder: null
-                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                version: 2
-                createdAt: "2026-11-10T09:00:00Z"
-                createdBy:
-                  id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                  displayName: "Yaw Boateng"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+  "/purchase-requisitions": {}
+  "/purchase-requisitions/{id}": {}
+  "/purchase-requisitions/{id}/submit": {}
+  "/purchase-requisitions/{id}/reject": {}
   "/purchase-orders": {}
   "/purchase-orders/{id}": {}
   "/purchase-orders/{id}/submit": {}
   "/purchase-orders/{id}/send": {}
   "/purchase-orders/{id}/close": {}
   "/purchase-orders/{id}/cancel": {}
-  "/purchase-requisitions/{id}/convert":
-    post:
-      operationId: convertPurchaseRequisition
-      tags:
-        - pur
-      summary: "Turn a requisition into a draft purchase order"
-      description: "Permission: `pur.purchase_order.create`."
-      x-permission: pur.purchase_order.create
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RequisitionConvert"
-            example:
-              supplierId: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
-              deliverToLocationId: "019a7a84-6045-7cc6-b1fe-d53368984e11"
-              expectedOn: "2026-11-16"
-              lines:
-                - lineId: "019a7ac9-7e49-7505-ba3d-59275014d205"
-                  unitPricePesewas: 52000
-      responses:
-        "201":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PurchaseOrder"
-              example:
-                id: "019a7ab3-be3d-7115-b64d-1a25bfa09303"
-                orderNo: PO-2026-DDW-000040
-                status: RECEIVED
-                supplier:
-                  id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                  supplierNo: S-0012
-                  name: "Kpone Livestock Traders"
-                deliverToLocation:
-                  id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
-                  code: PEN-G2
-                  name: "Goat pen 2"
-                  kind: PEN
-                orderDate: "2026-11-10"
-                expectedOn: "2026-11-15"
-                taxInclusive: false
-                netPesewas: 228000
-                taxPesewas: 0
-                grossPesewas: 228000
-                currency: GHS
-                approvalRequestId: null
-                sentAt: "2026-11-10T11:00:00Z"
-                lines:
-                  - id: "019a7ab3-fc1b-74dc-9a14-5694b302cf72"
-                    lineNo: 1
-                    product:
-                      id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                      sku: LIV-GOAT
-                      name: Goat
-                    description: null
-                    qtyOrdered: "4.000"
-                    qtyReceived: "4.000"
-                    qtyInvoiced: "4.000"
-                    uom: HEAD
-                    baseUom: HEAD
-                    qtyOrderedBase: "4.000"
-                    qtyOutstanding: "4.000"
-                    unitPricePesewas: 57000
-                    lineNetPesewas: 228000
-                    overReceiptTolerancePercent: "0.00"
-                    expenseCategory: null
-                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                version: 2
-                createdAt: "2026-11-10T09:00:00Z"
-                createdBy:
-                  id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
-                  displayName: "Efua Asante"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+  "/purchase-requisitions/{id}/convert": {}
   "/supplier-invoices": {}
   "/supplier-invoices/{id}": {}
   "/supplier-invoices/{id}/match": {}
@@ -49616,6 +48567,7 @@ components:
         - updatedAt
     PayoutDetailsInput:
       type: object
+      description: "Restricted data, stored encrypted and never logged. A bank account needs `bankName`, `accountName` and `accountNumber` (6 to 20 digits) and may name `bankBranch`; a wallet needs `momoNetwork` and `momoNumber` (+233 and nine digits); cash and cheques carry nothing else (a cheque is made out to the name in the register). A field of another method is refused."
       properties:
         method:
           type: string
@@ -49661,6 +48613,93 @@ components:
       required:
         - version
       additionalProperties: false
+    PayoutDetailsView:
+      type: object
+      description: "One set of payout details in full. Restricted: returned only by `getSupplierPayoutDetails` (1.29.0)."
+      properties:
+        method:
+          type: string
+          enum:
+            - BANK
+            - MOBILE_MONEY
+            - CASH
+            - CHEQUE
+        bankName:
+          type:
+            - string
+            - "null"
+        accountName:
+          type:
+            - string
+            - "null"
+        accountNumber:
+          type:
+            - string
+            - "null"
+        bankBranch:
+          type:
+            - string
+            - "null"
+        momoNetwork:
+          type:
+            - string
+            - "null"
+          enum:
+            - MTN
+            - TELECEL
+            - AIRTELTIGO
+            - null
+        momoNumber:
+          type:
+            - string
+            - "null"
+      required:
+        - method
+        - bankName
+        - accountName
+        - accountNumber
+        - bankBranch
+        - momoNetwork
+        - momoNumber
+    PendingPayoutDetails:
+      type: object
+      description: "A payout detail change waiting for a different person's approval, in full (1.29.0)."
+      allOf:
+        - $ref: "#/components/schemas/PayoutDetailsView"
+        - type: object
+          properties:
+            approvalRequestId:
+              type: string
+              format: uuid
+            requestedBy:
+              type: string
+              format: uuid
+            requestedAt:
+              type: string
+              format: date-time
+          required:
+            - approvalRequestId
+            - requestedBy
+            - requestedAt
+    SupplierPayoutDetails:
+      type: object
+      description: "A supplier's payout details decrypted: those in force and any change waiting. Each read is audited (1.29.0)."
+      properties:
+        supplierId:
+          type: string
+          format: uuid
+        inForce:
+          anyOf:
+            - $ref: "#/components/schemas/PayoutDetailsView"
+            - type: "null"
+        pending:
+          anyOf:
+            - $ref: "#/components/schemas/PendingPayoutDetails"
+            - type: "null"
+      required:
+        - supplierId
+        - inForce
+        - pending
     SupplierDocument:
       type: object
       properties:
@@ -49821,6 +48860,11 @@ components:
             - CANCELLED
         requestedBy:
           $ref: "#/components/schemas/PrincipalRef"
+        location:
+          anyOf:
+            - $ref: "#/components/schemas/LocationRef"
+            - type: "null"
+          description: "Where the goods are wanted: the location the requester named or their grant gives; null for a branch-wide request (1.29.0)."
         neededBy:
           type:
             - string
@@ -49830,6 +48874,11 @@ components:
           type:
             - string
             - "null"
+        rejectReason:
+          type:
+            - string
+            - "null"
+          description: "Why a manager rejected it; null unless REJECTED (1.29.0)."
         lines:
           type: array
           items:
@@ -49853,8 +48902,10 @@ components:
         - requisitionNo
         - status
         - requestedBy
+        - location
         - neededBy
         - justification
+        - rejectReason
         - lines
         - purchaseOrder
         - branchId
@@ -49878,6 +48929,10 @@ components:
     PurchaseRequisitionCreate:
       type: object
       properties:
+        locationId:
+          type: string
+          format: uuid
+          description: "Where the goods are wanted. Left out, the one location or branch the requester's grants name (1.29.0)."
         neededBy:
           type: string
           format: date
@@ -50586,6 +49641,11 @@ components:
             - MOBILE_MONEY
             - CASH
             - CHEQUE
+        payeeDetailsMasked:
+          type:
+            - string
+            - "null"
+          description: "Who the payment pays: the supplier's approved payout details in force when it was prepared, masked. A change approved later does not move it (FR-PUR-002). Null for cash and cheques (1.29.0)."
         bankAccount:
           anyOf:
             - $ref: "#/components/schemas/BankAccountRef"
@@ -50638,6 +49698,7 @@ components:
         - status
         - supplier
         - method
+        - payeeDetailsMasked
         - bankAccount
         - amountPesewas
         - currency
