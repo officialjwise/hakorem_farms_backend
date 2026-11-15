@@ -1,7 +1,7 @@
 import { createUuidV7Generator, type Clock } from '@hakorem/kernel';
 import type { AuditTrail } from '../../../platform/audit/audit-trail';
 import type { Actor } from '../../../platform/context/request-context';
-import { sqlStateOf, type Transaction, type UnitOfWork } from '../../../platform/database/unit-of-work';
+import { databaseErrorOf, sqlStateOf, type Transaction, type UnitOfWork } from '../../../platform/database/unit-of-work';
 import { NotFoundError, VersionConflictError } from '../../../platform/errors/api-error';
 import type { Cursors } from '../../../platform/http/cursor';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
@@ -75,7 +75,7 @@ const ENTITY: Readonly<Record<CatalogueRecord, string>> = { category: 'Category'
 
 /** Turns a race the database caught into the same refusal the checks give. */
 function translateConstraint(error: unknown): never {
-  const constraint = (error as { constraint?: string }).constraint ?? '';
+  const constraint = databaseErrorOf(error)?.constraint ?? '';
   const state = sqlStateOf(error);
   if (state === '23505' && UNIQUE_POINTER[constraint] !== undefined) {
     throw new DuplicateRecordError([UNIQUE_POINTER[constraint]]);

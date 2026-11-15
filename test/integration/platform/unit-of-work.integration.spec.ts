@@ -8,6 +8,7 @@ import {
   NoUnitOfWorkError,
   SerializationRetriesExhaustedError,
   SERIALIZATION_RETRY_LIMIT,
+  databaseErrorOf,
   sqlStateOf,
   UnitOfWork,
 } from '../../../src/platform/database/unit-of-work';
@@ -101,6 +102,15 @@ describe('the unit of work (ADR-0005)', () => {
     expect(sqlStateOf(wrapped)).toBe('23505');
     expect(sqlStateOf(new Error('plain'))).toBeUndefined();
     expect(sqlStateOf({ cause: { cause: { cause: { cause: { cause: { code: '40001' } } } } } })).toBeUndefined();
+  });
+
+  it('a real unique violation through a drizzle query carries its constraint only on the cause, which databaseErrorOf reads', async () => {
+    const insertTwice = (tx: { db: { execute: (q: ReturnType<typeof sql.raw>) => Promise<unknown> } }) =>
+      tx.db.execute(sql.raw("INSERT INTO uow_probe.on_call (vet, on_duty) VALUES ('Dr Kwame Asante', true), ('Dr Kwame Asante', false)"));
+    const wrapped = await uow.run({ isolation: 'read committed' }, insertTwice).catch((error: unknown) => error);
+    expect((wrapped as { constraint?: unknown }).constraint).toBeUndefined();
+    expect(databaseErrorOf(wrapped)).toMatchObject({ code: '23505', constraint: 'on_call_pkey' });
+    expect(databaseErrorOf(new Error('plain'))).toBeUndefined();
   });
 
   it('re-runs the whole command on a real write-skew conflict, so the retry sees the committed state', async () => {

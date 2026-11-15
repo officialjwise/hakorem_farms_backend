@@ -1,7 +1,7 @@
 import { createUuidV7Generator, type Clock } from '@hakorem/kernel';
 import type { AuditTrail } from '../../../platform/audit/audit-trail';
 import type { Actor } from '../../../platform/context/request-context';
-import { sqlStateOf, type Transaction, type UnitOfWork } from '../../../platform/database/unit-of-work';
+import { databaseErrorOf, sqlStateOf, type Transaction, type UnitOfWork } from '../../../platform/database/unit-of-work';
 import { BusinessRuleError, NotFoundError } from '../../../platform/errors/api-error';
 import type { DomainEvents } from '../../../platform/events/domain-events';
 import { registerMessages } from '../../../platform/i18n/messages';
@@ -87,7 +87,7 @@ export class ProductGallery {
       });
     } catch (error) {
       // Two attaches of one file racing past the check meet the partial unique index of migration 0037.
-      if (sqlStateOf(error) === '23505' && (error as { constraint?: string }).constraint === 'uq_product_image_file') throw new DuplicateRecordError(['/fileId']);
+      if (sqlStateOf(error) === '23505' && databaseErrorOf(error)?.constraint === 'uq_product_image_file') throw new DuplicateRecordError(['/fileId']);
       throw error;
     }
   }

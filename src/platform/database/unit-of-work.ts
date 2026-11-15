@@ -78,21 +78,34 @@ export class IsolationLevelError extends Error {
 /** How many wrappers deep the SQLSTATE is looked for: drizzle adds one; the bound stops a cyclic chain. */
 const CAUSE_DEPTH = 4;
 
+/** The fields of a PostgreSQL error the application reads (the `pg` driver's `DatabaseError`). */
+export interface DatabaseErrorFields {
+  readonly code: string;
+  readonly constraint?: string | undefined;
+  readonly detail?: string | undefined;
+  readonly message?: string | undefined;
+}
+
 /**
- * The SQLSTATE of a database error, found through its wrappers: drizzle throws `DrizzleQueryError` with the pg error
- * as `cause` and no `code` of its own, so reading only the top level missed every failure raised by a `tx.db` query,
- * and a serialization failure there was not retried (ADR-0005).
+ * The database error inside a thrown error, found through its wrappers: drizzle throws `DrizzleQueryError` with the pg
+ * error as `cause` and neither `code` nor `constraint` of its own, so reading the top level missed every failure raised
+ * by a `tx.db` query: a serialization failure was not retried (ADR-0005) and a unique violation lost its constraint
+ * name, turning a refusal into a 500. Read `code`, `constraint` and `detail` only through this.
  */
-export function sqlStateOf(error: unknown): string | undefined {
+export function databaseErrorOf(error: unknown): DatabaseErrorFields | undefined {
   let current: unknown = error;
   for (let depth = 0; depth <= CAUSE_DEPTH && typeof current === 'object' && current !== null; depth += 1) {
-    const code = (current as { code?: unknown }).code;
-    if (typeof code === 'string') {
-      return code;
+    if (typeof (current as { code?: unknown }).code === 'string') {
+      return current as DatabaseErrorFields;
     }
     current = (current as { cause?: unknown }).cause;
   }
   return undefined;
+}
+
+/** The SQLSTATE of a database error, through its wrappers (see `databaseErrorOf`). */
+export function sqlStateOf(error: unknown): string | undefined {
+  return databaseErrorOf(error)?.code;
 }
 
 export type Sleep = (milliseconds: number) => Promise<void>;

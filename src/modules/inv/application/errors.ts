@@ -1,5 +1,6 @@
 import { BusinessRuleError, type ErrorDetail } from '../../../platform/errors/api-error';
 import { registerMessages, translate } from '../../../platform/i18n/messages';
+import { databaseErrorOf, type DatabaseErrorFields } from '../../../platform/database/unit-of-work';
 
 /** INV's user-facing messages (docs/API.md section 10). Registered when the module loads. */
 registerMessages({
@@ -272,7 +273,7 @@ const BY_RULE: Readonly<Record<string, new (message: string) => Error>> = {
 
 /** Translates a stock trigger's refusal into its API error; anything else is rethrown unchanged. */
 export function translateStockRefusal(error: unknown): never {
-  const failure = error as { code?: string; constraint?: string; message?: string };
+  const failure: Partial<DatabaseErrorFields> = databaseErrorOf(error) ?? {};
   if (failure.code === 'HK010' && failure.constraint !== undefined) {
     const type = BY_RULE[failure.constraint];
     if (type !== undefined) {

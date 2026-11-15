@@ -1,7 +1,7 @@
 import { createUuidV7Generator, type Clock } from '@hakorem/kernel';
 import type { AuditTrail } from '../../../platform/audit/audit-trail';
 import type { Actor } from '../../../platform/context/request-context';
-import { sqlStateOf, type Transaction, type UnitOfWork } from '../../../platform/database/unit-of-work';
+import { databaseErrorOf, sqlStateOf, type Transaction, type UnitOfWork } from '../../../platform/database/unit-of-work';
 import { InvalidStateTransitionError, NotFoundError, VersionConflictError } from '../../../platform/errors/api-error';
 import { translate } from '../../../platform/i18n/messages';
 import type { DomainEvents } from '../../../platform/events/domain-events';
@@ -117,7 +117,7 @@ export class ProductCatalogue {
         return response;
       });
     } catch (error) {
-      const field = sqlStateOf(error) === '23505' ? INDEX_FIELD[(error as { constraint?: string }).constraint ?? ''] : undefined;
+      const field = sqlStateOf(error) === '23505' ? INDEX_FIELD[databaseErrorOf(error)?.constraint ?? ''] : undefined;
       if (field !== undefined) {
         throw new DuplicateValueError([FIELD_POINTER[field]]);
       }
@@ -145,7 +145,7 @@ export class ProductCatalogue {
         return response;
       });
     } catch (error) {
-      const field = sqlStateOf(error) === '23505' ? INDEX_FIELD[(error as { constraint?: string }).constraint ?? ''] : undefined;
+      const field = sqlStateOf(error) === '23505' ? INDEX_FIELD[databaseErrorOf(error)?.constraint ?? ''] : undefined;
       if (field !== undefined) {
         throw new DuplicateValueError([FIELD_POINTER[field]]);
       }

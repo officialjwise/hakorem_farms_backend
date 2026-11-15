@@ -3,7 +3,7 @@ import { createUuidV7Generator, Rate, toBusinessDate, type Clock } from '@hakore
 import type { AuditTrail } from '../../../platform/audit/audit-trail';
 import type { Actor } from '../../../platform/context/request-context';
 import { canonicalJson } from '../../../platform/crypto/canonical-json';
-import { sqlStateOf, type Transaction, type UnitOfWork } from '../../../platform/database/unit-of-work';
+import { databaseErrorOf, sqlStateOf, type Transaction, type UnitOfWork } from '../../../platform/database/unit-of-work';
 import type { DocumentRegistry } from '../../../platform/documents/document-registry';
 import { InvalidStateTransitionError, NotFoundError, VersionConflictError } from '../../../platform/errors/api-error';
 import type { DomainEvents } from '../../../platform/events/domain-events';
@@ -256,7 +256,7 @@ export class TaxAdmin implements ApprovalHandler {
         return response;
       });
     } catch (error) {
-      if (sqlStateOf(error) === '23505' && (error as { constraint?: string }).constraint === 'uq_tax_scheme_version_open') {
+      if (sqlStateOf(error) === '23505' && databaseErrorOf(error)?.constraint === 'uq_tax_scheme_version_open') {
         throw openVersionExists(null);
       }
       throw error;
@@ -511,7 +511,7 @@ export class TaxAdmin implements ApprovalHandler {
         return response;
       });
     } catch (error) {
-      const pointer = sqlStateOf(error) === '23505' ? UNIQUE_POINTER[(error as { constraint?: string }).constraint ?? ''] : undefined;
+      const pointer = sqlStateOf(error) === '23505' ? UNIQUE_POINTER[databaseErrorOf(error)?.constraint ?? ''] : undefined;
       if (pointer !== undefined) {
         throw new DuplicateRecordError([pointer]);
       }

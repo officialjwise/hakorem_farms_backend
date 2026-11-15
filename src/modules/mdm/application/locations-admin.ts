@@ -1,7 +1,7 @@
 import { createUuidV7Generator, type Clock } from '@hakorem/kernel';
 import type { AuditTrail } from '../../../platform/audit/audit-trail';
 import type { Actor } from '../../../platform/context/request-context';
-import { sqlStateOf, type Transaction, type UnitOfWork } from '../../../platform/database/unit-of-work';
+import { databaseErrorOf, sqlStateOf, type Transaction, type UnitOfWork } from '../../../platform/database/unit-of-work';
 import { VersionConflictError } from '../../../platform/errors/api-error';
 import type { Cursors } from '../../../platform/http/cursor';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
@@ -60,7 +60,7 @@ export interface InProcessBranchOptions {
 const UNIQUE_POINTER: Readonly<Record<string, string>> = { uq_branch_code: '/code', uq_location_branch_code: '/code' };
 
 function translateConstraint(error: unknown): never {
-  const constraint = (error as { constraint?: string }).constraint ?? '';
+  const constraint = databaseErrorOf(error)?.constraint ?? '';
   if (sqlStateOf(error) === '23505' && UNIQUE_POINTER[constraint] !== undefined) {
     throw new DuplicateRecordError([UNIQUE_POINTER[constraint]]);
   }
