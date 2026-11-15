@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { ManualClock } from '@hakorem/kernel';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -118,8 +118,11 @@ afterAll(async () => {
   await database.drop();
 });
 
+/** Ten random letters (26^10 codes): a role code takes letters and underscores only, and two roles must never collide. */
+const uniqueLetters = (length = 10): string => Array.from(randomBytes(length), (byte) => String.fromCharCode(65 + (byte % 26))).join('');
+
 const newRole = (overrides: object = {}) => ({
-  code: `SHOP_SUP_${randomUUID().slice(0, 4).toUpperCase().replace(/[^A-Z]/g, 'X')}`,
+  code: `SHOP_SUP_${uniqueLetters()}`,
   name: 'Shop supervisor',
   requiresTotp: false,
   permissions: ['iam.approval.read'],
@@ -180,6 +183,7 @@ describe('creating and changing a role (FR-IAM-008, FR-IAM-022)', () => {
 
   it('replaces permissions and limits, soft-deleting what goes with the actor, and the change reaches a holder on the next request', async () => {
     const created = await post(owner, '/iam/roles', newRole({ permissions: ['iam.approval.read', 'iam.role.read'] }));
+    expect(created.status).toBe(201);
     const roleId = created.body.id as string;
     const holder = await createUser(database, { name: 'Kojo Antwi' });
     await admin().query('INSERT INTO iam.role_grant (id, principal_id, role_id, branch_id, created_by, updated_by) VALUES ($1, $2, $3, $4, $5, $5)', [randomUUID(), holder.principalId, roleId, dodowa.branchId, SYSTEM_PRINCIPAL]);
