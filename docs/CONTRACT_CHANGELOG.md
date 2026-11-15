@@ -4,7 +4,9 @@ Every change to `contract/openapi.yaml`, newest first. A breaking change needs a
 
 Version numbers follow semantic versioning: a major bump breaks an existing client, a minor bump adds operations or optional fields, a patch fixes descriptions or examples.
 
-## Reading 1.5.0 to 1.21.0 cold (written 2026-11-15, for the frontend track; 1.19.0 to 1.21.0 added the same day)
+## Reading 1.5.0 to 1.21.1 cold (written 2026-11-15, for the frontend track; 1.19.0 to 1.21.1 added the same day)
+
+**1.21.1, the dashboard's mock example:** `getOwnerDashboard` now has two named examples. `allFiguresLive`, listed first so the mock serves it by default, shows every figure filled and `pendingFigures` empty: build and style the screen against it. `beforeSalesAndBilling` is today's real answer, with sales, cash, receivables, top movers and alerts null and listed in `pendingFigures`: ask the mock for it (`Prefer: example=beforeSalesAndBilling`) to build the "not yet available" state. No shape changed.
 
 **LOUD, 1.21.0: `OwnerDashboard`'s planned figures are now nullable.** `salesTodayPesewas`, `salesYesterdayPesewas`, `salesMonthToDatePesewas`, `salesByChannel`, `cash`, `receivablesOutstandingPesewas`, `receivablesOverduePesewas`, `topMovers`, `alerts`, `exceptionsToday` and `branchId` may be `null`. `getOwnerDashboard` was planned and never implemented, so no client has read a real answer, but a screen or fixture built on the planned shape assumed numbers. A figure is null exactly while `pendingFigures` lists it, with its source, reason and the phase that makes it live (B8, B9a, B12); show it as "no data source yet", never as zero. The contract versioning check passes it as a minor version (nothing a client sends changed, and no schema lost a property or changed its type); it is called out here because a reader of the planned shape gains a null it did not expect.
 
@@ -33,6 +35,12 @@ The contract moved from 1.4.0 to 1.20.0 in one night while the frontend track wa
 
 - **Reserving stock** has no HTTP operation: checkout, orders and quotes reserve in process (B7, B9a, B10). `listStockReservations` shows what they hold; until then it lists only what tests create.
 - **Empty until their modules exist:** `quoteDelivery.slots` (B11), `Supplier.hasProfile` (B7), `Customer.hasBusinessAccount` (B10), `StockOnHandLine.priceBand` (null), a trace's `healthEvents` and a sale's `customer` and `billingDocument`, `GoodsReceipt.receiptNo` (null until numbering), and `OPENING_STOCK` imports (422 `IMPORT_ENTITY_NOT_AVAILABLE` until opening stock is built).
+
+## 1.21.1 (2026-11-15, owner request after B05x)
+
+**Examples only.** No schema, field, parameter, response or error code changed.
+
+- **`getOwnerDashboard` has two named examples** in place of the one example. `allFiguresLive` comes first, so a mock server serves it by default: every figure filled in farm terms, consistent with itself (today's sales of GHS 16,223.00 split over the counter, online and wholesale with 28 orders, a seven-day sales series of GHS 151,957.00 over 230 orders ending in yesterday's and today's figures, cash of GHS 94,410.00 across tills, safe, drivers, bank and mobile money, receivables, top movers and alerts), with `pendingFigures` empty. `beforeSalesAndBilling` is what the API answers today: the stock, animal, low stock and purchases figures of the seeded farm, every sourceless figure null and listed in `pendingFigures` with its reason and phase. The owner asked for this so the frontend's dashboard mock looks finished rather than empty.
 
 ## 1.21.0 (2026-11-15, B05x)
 
