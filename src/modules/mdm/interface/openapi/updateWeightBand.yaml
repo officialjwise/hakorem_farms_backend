@@ -1,0 +1,75 @@
+operationId: updateWeightBand
+tags:
+  - mdm
+summary: "Update a weight band"
+description: "Send the `version` you read; a stale version is refused with 409. The range stays half-open and may not meet another band of the species (422 `WEIGHT_BAND_INVALID`). A band that a pending or active price list version prices with keeps its range (422 `RECORD_IN_USE`).\n\nPermission: `mdm.weight_band.update`."
+x-permission: mdm.weight_band.update
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - VERSION_CONFLICT
+  - WEIGHT_BAND_INVALID
+  - RECORD_IN_USE
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/WeightBandUpdate"
+      example:
+        version: 3
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/WeightBand"
+        example:
+          id: "019a7a8c-3af4-7f87-84bf-01494e897a27"
+          code: GOAT-S
+          minKg: "10.000"
+          maxKg: "18.000"
+          speciesId: "019a7a8b-a049-7e16-b34e-ea33ee146311"
+          version: 2
+          createdAt: "2026-11-02T08:00:00Z"
+          updatedAt: "2026-11-10T14:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

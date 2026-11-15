@@ -13,7 +13,9 @@ export { extendPrice, judgeAgreedPrice, type AgreedPriceVerdict, type Channel, t
 export { TaxService, type TaxCalculation, type TaxLineRequest, type TaxRequest } from './application/tax-calculation';
 export type { CategoryTreatment, LevyLine, TaxBreakdown, TaxTotals, TaxTreatment } from './domain/tax/tax-calculator';
 export { couponLockKey, Promotions, type CouponRedemptionRequest } from './application/promotions';
-export type { PriceListVersionActivated, ProductCreated, PromotionActivated, PromotionEnded, TaxSchemeVersionActivated } from './events';
+export type { PriceListVersionActivated, ProductChanged, ProductCreated, PromotionActivated, PromotionEnded, TaxSchemeVersionActivated } from './events';
 export { PriceListAdmin, type PriceListDraft, type VersionDraft } from './application/price-lists';
 export { TaxAdmin, type TaxCellRequest } from './application/tax-admin';
 export type { PromotionCreateRequest } from './application/promotions';
+export { CatalogueAdmin } from './application/catalogue-admin';
+export { ProductCatalogue } from './application/product-catalogue';

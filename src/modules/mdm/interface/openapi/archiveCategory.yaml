@@ -1,0 +1,83 @@
+operationId: archiveCategory
+tags:
+  - mdm
+summary: "Archive a product category"
+description: "Soft delete with a reason. The record stays in history and on documents that used it. Refused with 422 `RECORD_IN_USE` while the category has live products (`HAS_LIVE_PRODUCTS`) or live child categories (`HAS_LIVE_CHILDREN`).\n\nPermission: `mdm.category.archive`."
+x-permission: mdm.category.archive
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - VERSION_CONFLICT
+  - RECORD_IN_USE
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ArchiveRequest"
+      example:
+        version: 3
+        reason: "No longer used"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Category"
+        example:
+          id: "019a7a89-737b-7c17-9150-ca4d5fa2432b"
+          parentId: null
+          code: LIVE
+          name: "Live animals"
+          productLine: LIVE
+          glGroup: LIVE_ANIMALS
+          taxCategory:
+            id: "019a7a8a-6af3-7b33-906b-bc092d2a34e7"
+            code: LIVE_ANIMALS
+            name: "Live Animals"
+          sortOrder: 0
+          isOnlineVisible: true
+          productCount: 3
+          version: 2
+          createdAt: "2026-11-02T08:00:00Z"
+          updatedAt: "2026-11-10T14:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

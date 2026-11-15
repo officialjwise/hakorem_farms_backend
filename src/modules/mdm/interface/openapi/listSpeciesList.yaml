@@ -1,0 +1,97 @@
+operationId: listSpeciesList
+tags:
+  - mdm
+summary: "List speciess"
+description: "Permission: `mdm.species.read`."
+x-permission: mdm.species.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/SpeciesPage"
+        example:
+          data:
+            - id: "019a7a8b-a049-7e16-b34e-ea33ee146311"
+              code: GOAT
+              name: Goat
+              trackingDefault: SERIAL
+              gradeCount: 2
+              weightBandCount: 3
+              version: 2
+              createdAt: "2026-11-02T08:00:00Z"
+              updatedAt: "2026-11-10T14:00:00Z"
+            - id: "019a7a8b-bf38-77f9-8d31-886b67c50149"
+              code: SHEEP
+              name: Sheep
+              trackingDefault: SERIAL
+              gradeCount: 0
+              weightBandCount: 2
+              version: 3
+              createdAt: "2026-11-02T08:01:00Z"
+              updatedAt: "2026-11-11T14:01:00Z"
+            - id: "019a7a8b-de27-71dd-9715-26a2e1769f80"
+              code: PIG
+              name: Pig
+              trackingDefault: SERIAL
+              gradeCount: 0
+              weightBandCount: 0
+              version: 4
+              createdAt: "2026-11-02T08:02:00Z"
+              updatedAt: "2026-11-12T14:02:00Z"
+            - id: "019a7a8b-fd16-7bc0-a0f8-c4da5b273db8"
+              code: BROILER
+              name: "Broiler chicken"
+              trackingDefault: LOT
+              gradeCount: 0
+              weightBandCount: 0
+              version: 2
+              createdAt: "2026-11-02T08:03:00Z"
+              updatedAt: "2026-11-10T14:03:00Z"
+            - id: "019a7a8c-1c05-75a4-badc-6311d4d8dbef"
+              code: LOCAL_CHICKEN
+              name: "Local chicken"
+              trackingDefault: LOT
+              gradeCount: 0
+              weightBandCount: 0
+              version: 3
+              createdAt: "2026-11-02T08:04:00Z"
+              updatedAt: "2026-11-11T14:04:00Z"
+          page:
+            nextCursor: null
+            limit: 25
+            hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

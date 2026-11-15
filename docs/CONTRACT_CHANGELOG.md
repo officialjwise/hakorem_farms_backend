@@ -8,6 +8,17 @@ Version numbers follow semantic versioning: a major bump breaks an existing clie
 
 - **CR-002 (frontend, raised 2026-11-13): weights as decimal strings, never JSON numbers.** Already satisfied by 1.0.0 and 1.1.0, so no version change. `components.schemas.Kilograms` is `type: string` with the pattern `^(0|[1-9][0-9]{0,6})\.[0-9]{3}$` (exactly three decimal places), and its description says it is never a JSON number. The request was raised against a copy taken before re-syncing; re-run `./scripts/sync-contract.sh`. The owner closed it on 2026-11-13: do not reopen it.
 
+## 1.7.0 (2026-11-15, B04d continued)
+
+**Additive.** No schema, field, parameter or response was removed, renamed or retyped, and nothing a client sends was made required. One response schema gained a required field (`Uom.displayDecimals`), which breaks nothing a client sends (ADR-0038). A client generated from 1.6.x compiles unchanged. The frontend track is paused, so nothing reviewed this entry; read it before resuming.
+
+Eighteen catalogue operations now answer from the real API (61 in all), with the schemas 1.2.0 already published: `listCategories`, `createCategory`, `getCategory`, `updateCategory`, `archiveCategory`, `listUnitsOfMeasure`, `listSpeciesList`, `createSpecies`, `updateSpecies`, `listGrades`, `createGrade`, `updateGrade`, `archiveGrade`, `listWeightBands`, `createWeightBand`, `updateWeightBand`, `archiveWeightBand`, `updateProduct`.
+
+- **CR-003: `Uom.displayDecimals`** (integer 0 to 3, required in responses): 0 for counted units (head, crate, tuber, pack, bunch, bag, unit), 3 for kilograms and litres. Quantities on the wire keep three places. Part 2 of CR-003 (the unit's precision beside `uom` on stock lines) lands with the stock schemas in B5.
+- **Descriptions** of `createCategory`, `updateCategory`, `archiveCategory`, `createWeightBand`, `updateWeightBand`, `archiveGrade`, `archiveWeightBand`, `updateProduct` and `listUnitsOfMeasure` now state their rules. `listCategories`' summary is spelled correctly.
+- **`x-error-codes`** on the eighteen operations. Two new codes, also in `docs/API.md` section 10.3: **`RECORD_IN_USE`** (422: a category with live products or children, or a grade or band a pending or active price list version prices with, is archived or moved; `details[].code` is `HAS_LIVE_PRODUCTS`, `HAS_LIVE_CHILDREN` or `USED_BY_LIVE_PRICES`) and **`WEIGHT_BAND_INVALID`** (422: an empty range, or one that meets another band of the species, `details[].code` `NOT_ABOVE_MIN` or `OVERLAPS_BAND:<code>`).
+- **Behaviour a client should know, with no shape change:** lists return live records in creation order; `getCategory` also returns an archived category. `updateProduct` never moves a product back to `DRAFT` (422 `INVALID_STATE_TRANSITION`) and refuses a shelf-life change that would move a countable product between held in lots and not (422 `STOCK_POLICY_CONFLICT`, `TRACKING_FIXED`); moving a product to another category keeps its tax category unless the change names one.
+
 ## 1.6.0 (2026-11-15, B04d)
 
 **Additive, with one relaxation on a public operation.** No schema, field or response was removed, renamed or retyped, and nothing a client sends was made required. A client generated from 1.5.x compiles unchanged. The frontend track is paused, so nothing reviewed this entry; read it before resuming.

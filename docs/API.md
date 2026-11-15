@@ -352,6 +352,8 @@ The "Source" column says where the code comes from. **Contract** means the code 
 | `DUPLICATE_VALUE` | 422 | A unique value (SKU, barcode, storefront slug) is already used by another live record. `details` names each field |
 | `REFERENCE_NOT_FOUND` | 422 | An id in the request names no record (an unknown category, species, tax category or unit). `details` names each field |
 | `STOCK_POLICY_CONFLICT` | 422 | The product's fields contradict its stock-keeping policy, for example a serialised animal without a species or listed for the cart, or catch-weight stock not held in kilograms. `details` names each field and rule |
+| `RECORD_IN_USE` | 422 | The record is still in use: a category with live products or live children, or a grade or weight band a pending or active price list version prices with, cannot be archived, and such a band keeps its range. `details[].code` says why (`HAS_LIVE_PRODUCTS`, `HAS_LIVE_CHILDREN`, `USED_BY_LIVE_PRICES`) (1.7.0) |
+| `WEIGHT_BAND_INVALID` | 422 | A weight band's range is empty (`NOT_ABOVE_MIN`) or meets another live band of the species (`OVERLAPS_BAND:<code>`); bands are half-open `[minKg, maxKg)` (1.7.0) |
 
 #### Stock, livestock and processing (Added)
 

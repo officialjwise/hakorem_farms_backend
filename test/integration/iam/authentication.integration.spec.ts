@@ -62,7 +62,17 @@ describe('staff login (ADR-0016, docs/API.md section 3.1)', () => {
     expect(session.grants).toEqual([
       { roleCode: 'CASHIER', roleName: 'Cashier', branchId: dodowa.branchId, branchCode: 'DDW', locationId: dodowa.shopId, locationCode: 'SHOP' },
     ]);
-    expect(session.permissions).toEqual(['iam.session.read', 'iam.session.revoke', 'mdm.price.resolve', 'mdm.product.read', 'mdm.tax.calculate']);
+    expect(session.permissions).toEqual([
+      'iam.session.read',
+      'iam.session.revoke',
+      'mdm.category.read',
+      'mdm.grade.read',
+      'mdm.price.resolve',
+      'mdm.product.read',
+      'mdm.species.read',
+      'mdm.tax.calculate',
+      'mdm.weight_band.read',
+    ]);
     expect(Date.parse(session.accessExpiresAt) - clock.now().getTime()).toBeLessThanOrEqual(600_000);
     expect(session.mustChangePassword).toBe(false);
     expect(session.totpEnrolled).toBe(false);

@@ -15,6 +15,22 @@ export interface ProductCreated {
 }
 
 /**
+ * `mdm.ProductChanged` v1: a product's catalogue fields changed (updateProduct). Carries the fields a subscriber
+ * filters on and the names of every field that changed; storefront search and offline price packs subscribe (B7, B9b).
+ */
+export interface ProductChanged {
+  readonly productId: string;
+  readonly sku: string;
+  readonly name: string;
+  readonly categoryId: string;
+  readonly onlineMode: 'HIDDEN' | 'LISTED' | 'REQUEST_TO_BUY';
+  readonly status: 'DRAFT' | 'ACTIVE' | 'DISCONTINUED';
+  readonly isSellable: boolean;
+  readonly changedFields: readonly string[];
+  readonly version: number;
+}
+
+/**
  * `mdm.PriceListVersionActivated` v1: a price list version was approved and is in force from `validFrom`. Offline
  * price packs and the storefront catalogue cache subscribe (B9b, B7) so a device never prices from a stale list.
  */

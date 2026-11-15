@@ -1,0 +1,76 @@
+operationId: archiveGrade
+tags:
+  - mdm
+summary: "Archive a grade"
+description: "Soft delete with a reason. The record stays in history and on documents that used it. Refused with 422 `RECORD_IN_USE` (`USED_BY_LIVE_PRICES`) while a pending or active price list version prices with the grade.\n\nPermission: `mdm.grade.archive`."
+x-permission: mdm.grade.archive
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - VERSION_CONFLICT
+  - RECORD_IN_USE
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ArchiveRequest"
+      example:
+        version: 3
+        reason: "No longer used"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Grade"
+        example:
+          id: "019a7aa0-68dd-72ea-b822-3779b100b057"
+          speciesId: "019a7a8b-a049-7e16-b34e-ea33ee146311"
+          code: A
+          name: "Grade A, well finished"
+          description: "Body condition score 4 or above, no visible defects"
+          sortOrder: 0
+          version: 2
+          createdAt: "2026-11-02T08:00:00Z"
+          updatedAt: "2026-11-10T14:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

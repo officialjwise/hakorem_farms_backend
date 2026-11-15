@@ -95,6 +95,7 @@ export default defineConfig({
         ...fullCoverage('packages/kernel/src/**/*.ts'),
         ...fullCoverage('src/modules/mdm/domain/pricing/**/*.ts'), // B4: the ADR-0004 walk and price list rules
         ...fullCoverage('src/modules/mdm/domain/tax/**/*.ts'), // B4 continued: the tax calculator and scheme versions (ADR-0020)
+        ...fullCoverage('src/modules/mdm/domain/catalogue.ts'), // B04d continued: weight band ranges and archive rules
         // ...fullCoverage('src/modules/inv/domain/valuation/**/*.ts'),    // B5: stock valuation, cost pool and average cost (ADR-0018)
         // ...fullCoverage('src/modules/fin/domain/**/*.ts'),              // B8: the ledger, posting rules, journals, periods (ADR-0003)
         // ...fullCoverage('src/modules/cap/domain/distribution/**/*.ts'), // B12: distribution, unit-days and allocation (ADR-0028)

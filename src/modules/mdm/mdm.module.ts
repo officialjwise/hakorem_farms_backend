@@ -31,16 +31,20 @@ import { TaxService } from './application/tax-calculation';
 import { TAX_STORE, type TaxStore } from './application/tax-store';
 import { PgTaxStore } from './infrastructure/pg-tax-store';
 import { TaxController } from './interface/tax.controller';
+import { CatalogueAdmin } from './application/catalogue-admin';
+import { CATALOGUE_STORE, type CatalogueStore } from './application/catalogue-store';
+import { PgCatalogueStore } from './infrastructure/pg-catalogue-store';
+import { CatalogueController } from './interface/catalogue.controller';
 
 /**
- * MDM (layer 3): the Product slice, the pricing sub-domain (price lists with maker-checker activation and the
+ * MDM (layer 3): the Product slice and the catalogue's reference data (categories, units, species, grades, bands), the pricing sub-domain (price lists with maker-checker activation and the
  * engine, ADR-0004), the tax sub-domain (levies, scheme versions with maker-checker activation and the calculator,
  * ADR-0020), promotions and coupons (FR-MDM-018), IAM's ScopeNames port and the PRICE_LIST_ACTIVATION,
  * TAX_SCHEME_ACTIVATION and PROMOTION_ACTIVATION approval handlers.
  */
 @Module({
   imports: [IamModule],
-  controllers: [ProductsController, PricingController, PriceListsController, PromotionsController, TaxController],
+  controllers: [ProductsController, CatalogueController, PricingController, PriceListsController, PromotionsController, TaxController],
   providers: [
     { provide: PRODUCT_STORE, useClass: DrizzleProductStore },
     { provide: PRICING_STORE, useClass: PgPricingStore },
@@ -84,6 +88,13 @@ import { TaxController } from './interface/tax.controller';
       inject: [UnitOfWork, PRICE_LIST_STORE, Authoriser, Approvals, PRINCIPAL_NAMES, DocumentRegistry, Idempotency, AuditTrail, DomainEvents, CLOCK],
     },
     { provide: TAX_STORE, useClass: PgTaxStore },
+    { provide: CATALOGUE_STORE, useClass: PgCatalogueStore },
+    {
+      provide: CatalogueAdmin,
+      useFactory: (uow: UnitOfWork, store: CatalogueStore, authoriser: Authoriser, idempotency: Idempotency, audit: AuditTrail, cursors: Cursors, clock: Clock) =>
+        new CatalogueAdmin(uow, store, authoriser, idempotency, audit, cursors, clock),
+      inject: [UnitOfWork, CATALOGUE_STORE, Authoriser, Idempotency, AuditTrail, Cursors, CLOCK],
+    },
     {
       provide: TaxAdmin,
       useFactory: (

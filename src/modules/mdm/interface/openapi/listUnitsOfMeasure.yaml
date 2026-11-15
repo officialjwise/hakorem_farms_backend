@@ -1,0 +1,80 @@
+operationId: listUnitsOfMeasure
+tags:
+  - mdm
+summary: "List units of measure"
+description: "A fixed list, changed only by migration. `displayDecimals` is how many decimal places a quantity in the unit is shown with: 0 for counted units, 3 for weight and volume (CR-003); quantities on the wire keep three places.\n\nPermission: `mdm.product.read`."
+x-permission: mdm.product.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/UomPage"
+        example:
+          data:
+            - code: HEAD
+              name: Head
+              kind: COUNT
+              displayDecimals: 0
+            - code: KG
+              name: Kilogram
+              kind: WEIGHT
+              displayDecimals: 3
+            - code: CRATE
+              name: Crate
+              kind: COUNT
+              displayDecimals: 0
+            - code: PACK
+              name: Pack
+              kind: COUNT
+              displayDecimals: 0
+            - code: TUBER
+              name: Tuber
+              kind: COUNT
+              displayDecimals: 0
+            - code: BAG
+              name: Bag
+              kind: COUNT
+              displayDecimals: 0
+            - code: UNIT
+              name: Unit
+              kind: COUNT
+              displayDecimals: 0
+          page:
+            nextCursor: null
+            limit: 25
+            hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

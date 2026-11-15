@@ -53,8 +53,12 @@ export type UniqueProductField = 'sku' | 'barcode' | 'seoSlug';
 /** MDM's product tables, each call in the caller's transaction. */
 export interface ProductStore {
   references(tx: Transaction, draft: ProductDraft): Promise<ProductReferences>;
-  /** Which of the draft's unique values a live product already uses. */
-  takenValues(tx: Transaction, definition: ProductDefinition): Promise<UniqueProductField[]>;
+  /** Which of the draft's unique values a live product other than `exceptId` already uses. */
+  takenValues(tx: Transaction, definition: ProductDefinition, exceptId?: string): Promise<UniqueProductField[]>;
+  /** Locks the live product's row for the rest of the transaction; false when there is none. */
+  lock(tx: Transaction, id: string): Promise<boolean>;
+  /** Writes the definition if the row is still at `expectedVersion`; false when it is not. */
+  update(tx: Transaction, id: string, expectedVersion: number, definition: ProductDefinition, actorId: string, now: Date): Promise<boolean>;
   insert(tx: Transaction, id: string, definition: ProductDefinition, actorId: string, now: Date): Promise<void>;
   view(tx: Transaction, id: string): Promise<ProductView | null>;
   /** Newest first; `beforeId` is the exclusive upper bound for the next page. */

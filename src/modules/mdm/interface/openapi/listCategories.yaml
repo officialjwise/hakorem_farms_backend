@@ -1,0 +1,148 @@
+operationId: listCategories
+tags:
+  - mdm
+summary: "List product categories"
+description: "Permission: `mdm.category.read`."
+x-permission: mdm.category.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/CategoryPage"
+        example:
+          data:
+            - id: "019a7a89-737b-7c17-9150-ca4d5fa2432b"
+              parentId: null
+              code: LIVE
+              name: "Live animals"
+              productLine: LIVE
+              glGroup: LIVE_ANIMALS
+              taxCategory:
+                id: "019a7a8a-6af3-7b33-906b-bc092d2a34e7"
+                code: LIVE_ANIMALS
+                name: "Live Animals"
+              sortOrder: 0
+              isOnlineVisible: true
+              productCount: 3
+              version: 2
+              createdAt: "2026-11-02T08:00:00Z"
+              updatedAt: "2026-11-10T14:00:00Z"
+            - id: "019a7a89-926a-75fb-ab33-6884d953e162"
+              parentId: "019a7a89-737b-7c17-9150-ca4d5fa2432b"
+              code: POULTRY
+              name: "Live poultry"
+              productLine: LIVE
+              glGroup: LIVE_ANIMALS
+              taxCategory:
+                id: "019a7a8a-6af3-7b33-906b-bc092d2a34e7"
+                code: LIVE_ANIMALS
+                name: "Live Animals"
+              sortOrder: 10
+              isOnlineVisible: true
+              productCount: 2
+              version: 3
+              createdAt: "2026-11-02T08:01:00Z"
+              updatedAt: "2026-11-11T14:01:00Z"
+            - id: "019a7a89-b159-7fde-b516-06bc53047f9a"
+              parentId: null
+              code: MEAT
+              name: Meat
+              productLine: MEAT
+              glGroup: MEAT
+              taxCategory:
+                id: "019a7a8a-c7c0-78dd-8e16-96af9a3d0f8d"
+                code: PROCESSED_MEAT
+                name: "Processed Meat"
+              sortOrder: 20
+              isOnlineVisible: true
+              productCount: 5
+              version: 4
+              createdAt: "2026-11-02T08:02:00Z"
+              updatedAt: "2026-11-12T14:02:00Z"
+            - id: "019a7a89-d048-79c2-8efa-a4f3ccb51dd1"
+              parentId: null
+              code: EGGS
+              name: Eggs
+              productLine: PRODUCE
+              glGroup: PRODUCE_EGGS
+              taxCategory:
+                id: "019a7a8a-a8d1-7efa-b432-f878208c7156"
+                code: EGGS
+                name: Eggs
+              sortOrder: 30
+              isOnlineVisible: true
+              productCount: 2
+              version: 2
+              createdAt: "2026-11-02T08:03:00Z"
+              updatedAt: "2026-11-10T14:03:00Z"
+            - id: "019a7a89-ef37-73a5-98dd-432b4666bc09"
+              parentId: null
+              code: PRODUCE
+              name: "Fresh produce"
+              productLine: PRODUCE
+              glGroup: PRODUCE_EGGS
+              taxCategory:
+                id: "019a7a8a-89e2-7516-aa4f-5a40a6dbd31e"
+                code: RAW_PRODUCE
+                name: "Raw Produce"
+              sortOrder: 40
+              isOnlineVisible: true
+              productCount: 3
+              version: 3
+              createdAt: "2026-11-02T08:04:00Z"
+              updatedAt: "2026-11-11T14:04:00Z"
+            - id: "019a7a8a-0e26-7d89-a2c1-e162c0175a40"
+              parentId: null
+              code: FEED
+              name: "Feed and medication"
+              productLine: FEED
+              glGroup: FEED_MEDICATION
+              taxCategory:
+                id: "019a7a8a-e6af-72c1-97f9-34e713eeadc4"
+                code: FARM_INPUTS
+                name: "Farm Inputs"
+              sortOrder: 50
+              isOnlineVisible: false
+              productCount: 2
+              version: 4
+              createdAt: "2026-11-02T08:05:00Z"
+              updatedAt: "2026-11-12T14:05:00Z"
+          page:
+            nextCursor: null
+            limit: 25
+            hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
