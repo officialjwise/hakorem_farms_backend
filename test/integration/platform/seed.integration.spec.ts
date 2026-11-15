@@ -260,3 +260,48 @@ describe('branches, locations and customers through the services (A-085, ADR-004
   });
 });
 
+describe('the staff and their grants through the IAM services (A-085, ADR-0043)', () => {
+  it('bootstraps the Owner as the System, and the Owner creates every other account, each audited by the seed', async () => {
+    const { rows } = await database.pool('admin').query<{ actor: string; n: number; agents: string[] }>(
+      `SELECT p.display_name AS actor, count(*)::int AS n, array_agg(DISTINCT e.user_agent) AS agents
+         FROM platform.audit_event e JOIN iam.principal p ON p.id = e.actor_id
+        WHERE e.action = 'CREATE' AND e.entity_type = 'UserAccount' GROUP BY 1 ORDER BY 1`,
+    );
+    expect(rows).toEqual([
+      { actor: 'Kwabena Owusu', n: 7, agents: ['hakorem-seed'] },
+      { actor: 'System', n: 1, agents: ['hakorem-seed'] },
+    ]);
+  });
+
+  it('grants every role through createGrant: the Owner grant by the System, the other eight by the Owner, each a PERMISSION_CHANGE', async () => {
+    const { rows } = await database.pool('admin').query<{ actor: string; n: number; agents: string[] }>(
+      `SELECT p.display_name AS actor, count(*)::int AS n, array_agg(DISTINCT e.user_agent) AS agents
+         FROM platform.audit_event e JOIN iam.principal p ON p.id = e.actor_id
+        WHERE e.action = 'PERMISSION_CHANGE' AND e.entity_type = 'RoleGrant' GROUP BY 1 ORDER BY 1`,
+    );
+    expect(rows).toEqual([
+      { actor: 'Kwabena Owusu', n: 7, agents: ['hakorem-seed'] },
+      { actor: 'System', n: 1, agents: ['hakorem-seed'] },
+    ]);
+    const events = await database.pool('admin').query<{ n: number }>("SELECT count(*)::int AS n FROM platform.outbox_message WHERE event_type = 'iam.RoleGranted'");
+    expect(events.rows[0]!.n).toBe(8);
+  });
+
+  it('sets each seeded password through the first sign-in: no account still needs a change, and each changed it on a login challenge', async () => {
+    const admin = database.pool('admin');
+    const accounts = await admin.query<{ n: number }>('SELECT count(*)::int AS n FROM iam.user_account WHERE must_change_password');
+    expect(accounts.rows[0]!.n).toBe(0);
+    const changes = await admin.query<{ n: number }>(
+      "SELECT count(*)::int AS n FROM platform.audit_event WHERE action = 'PASSWORD_CHANGE' AND user_agent = 'hakorem-seed' AND (metadata->>'viaLoginChallenge')::boolean",
+    );
+    expect(changes.rows[0]!.n).toBe(8);
+  });
+
+  it('writes no IAM row as SQL, and no seed unit is a SQL unit any more', () => {
+    const directory = join(__dirname, '../../../src/seed');
+    for (const file of readdirSync(directory).filter((name) => name.endsWith('.ts'))) {
+      expect(readFileSync(join(directory, file), 'utf8'), file).not.toMatch(/(INSERT\s+INTO|UPDATE)\s+(iam|mdm)\./i);
+    }
+    expect(seedUnits({ SEED_STAFF_PASSWORD: password }).map((unit) => unit.kind)).toEqual(['SERVICE', 'SERVICE', 'SERVICE', 'SERVICE']);
+  });
+});
