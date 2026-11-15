@@ -33,7 +33,7 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B05 continued | `B05b-inventory-documents.md` | `b05b-inventory-documents` | B4 to B12 | On-hand from movements matches a hand count of the seeded farm; a lot traces both ways over the API; every goods receipt write refuses the wrong role (built; the session split, A-138) |
 | B05 continued 2 | `B05c-inventory-control.md` | `b05c-inventory-control` | B4 to B12 | Every movement reversal, transfer and adjustment write refuses the wrong role; an adjustment at or above the threshold waits for a different person; a transfer balances received plus variance to dispatched (built; the session split, A-140) |
 | B05 continued 3 | `B05d-inventory-counts-holds.md` | `b05d-inventory-counts-holds` | B4 to B12 | A stock take posts its variances from blind counts, overlapping cycle counts are refused, a hold blocks a sale until released, each write with a wrong-role refusal (built; the session split, A-143) |
-| B05 continued 3b | `B05d2-inventory-reservations-exceptions.md` | `b05d2-inventory-reservations-exceptions` | B4 to B12 | An expired reservation is released by the job exactly as reserved, under concurrency; one active reservation per animal; an exception is resolved through the adjustment path; each write with a wrong-role refusal |
+| B05 continued 3b | `B05d2-inventory-reservations-exceptions.md` | `b05d2-inventory-reservations-exceptions` | B4 to B12 | An expired reservation is released by the job exactly as reserved, under concurrency; one active reservation per animal; an exception is resolved through the adjustment path; each write with a wrong-role refusal (built; ADR-0048 built with it, A-145) |
 | B05 continued 4 | `B05e-inventory-cold-chain-opening.md` | `b05e-inventory-cold-chain-opening` | B4 to B12 | The B5 gate in full: on-hand from movements matches a hand count of the seeded farm; stock cannot go negative outside allowed types; a lot traces both ways; every INV write refuses the wrong role |
 | B6 | `B06-livestock-processing.md` | `b06-livestock-processing` | B4 to B12 | A processing order produces lots whose costs sum exactly to input cost plus direct processing cost |
 | B7 | `B07-procurement-suppliers.md` | `b07-procurement-suppliers` | B4 to B12 | Three-way match blocks payment on disagreement; checkout reserves stock and releases it on timeout |
@@ -653,7 +653,7 @@ Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reaso
 report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the INV requirement block of docs/SRS.md (nothing else from the SRS),
 docs/data-model/inv.md, the INV card in docs/MODULE_BOUNDARIES.md, ADR-0002, ADR-0005, ADR-0017,
-ADR-0018, ADR-0019, ADR-0046 and ADR-0047, A-128 and A-131 to the latest INV assumption in
+ADR-0018, ADR-0019, ADR-0046, ADR-0047, ADR-0048 and ADR-0049, A-128 and A-131 to the latest INV assumption in
 docs/ASSUMPTIONS.md, and migrations 0044 and 0047. Use docs/prompts/module-build-prompt.md as the
 recipe, and run hakorem-security-review on the opening stock import and temperature quarantine.
 Do not read any other document unless this phase needs it.
@@ -666,7 +666,8 @@ TEMPERATURE_EXCURSION exception and an event (a location's range is MDM's: read 
 interface, and a database rule that needs it needs a new proposed ADR, since ADR-0047 is not widened
 silently); reorder rules (listReorderRules, createReorderRule, updateReorderRule) and listStockAlerts with
 one low-stock alert per crossing; expiry alerts by a daily job and the refusal to sell an expired lot
-(A-134 (j)); the scheduling of the nightly recompute (BalanceReconciliation); the OPENING_STOCK import
+(A-134 (j)); the scheduling of the nightly recompute (BalanceReconciliation) and the expiry alerts as ScheduledJob entries in
+src/worker-app.ts (ADR-0049, as reservation-expiry is); the OPENING_STOCK import
 sheet (A-128): the sheet is INV's, registered with MdmImports through a port MDM defines and INV
 implements (a new port needs an ADR), posting OPENING_BALANCE movements in the import's transaction;
 then decide whether a goods receipt of kind OPENING stays refused (A-136). Each write with a wrong-role
