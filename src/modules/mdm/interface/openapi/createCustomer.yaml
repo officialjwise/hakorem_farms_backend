@@ -1,0 +1,80 @@
+operationId: createCustomer
+tags:
+  - mdm
+summary: "Create a customer"
+description: "A phone typed the Ghanaian way (`0244123456`, `024 412 3456`, `233244123456`) is stored as `+233244123456`; one that is no Ghanaian or E.164 number is 400 with `details[].code` `INVALID_PHONE`. The phone is unique among live customers (422 `DUPLICATE_VALUE`). Without `tierId` the customer joins the `RETAIL` tier. A `tin` is stored encrypted and shown only as `tinMasked`, its last four characters. `hasBusinessAccount` is false until wholesale accounts exist (B10).\n\nPermission: `mdm.customer.create`."
+x-permission: mdm.customer.create
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - REFERENCE_NOT_FOUND
+  - DUPLICATE_VALUE
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/CustomerCreate"
+      example:
+        kind: INDIVIDUAL
+        name: "Salomey Adjei"
+        phone: "+233540672231"
+        marketingConsent: false
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Customer"
+        example:
+          id: "019a7a87-659c-73fc-8935-489e4ae1c17c"
+          customerNo: C-00118
+          kind: INDIVIDUAL
+          name: "Ama Serwaa Ofori"
+          phone: "+233244512876"
+          email: null
+          tier:
+            id: "019a7a88-5d14-7318-8850-3a5a1869b337"
+            code: RETAIL
+            name: Retail
+          hasLogin: true
+          tinMasked: null
+          marketingConsentAt: "2026-11-03T12:00:00Z"
+          status: ACTIVE
+          priceList: null
+          hasBusinessAccount: false
+          defaultArea: Madina
+          version: 2
+          createdAt: "2026-11-02T08:00:00Z"
+          updatedAt: "2026-11-10T14:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

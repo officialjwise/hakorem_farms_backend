@@ -351,3 +351,138 @@ export const ProductUpdate = z.strictObject({
   isSellable: z.boolean().optional(),
   status: ProductStatus.optional(),
 });
+
+/**
+ * The contract's `PhoneInput` (1.8.0): a phone number as a person types it. MDM stores it in E.164, a Ghanaian
+ * number typed locally (`0244123456`) normalised to `+233244123456`; anything else is 400 `INVALID_PHONE`.
+ */
+const PhoneInput = z.string().regex(/^\+?[0-9][0-9 -]{6,22}$/);
+const Celsius = z.string().regex(/^-?[0-9]{1,2}\.[0-9]$/);
+const Coordinate = z.string().regex(/^-?[0-9]{1,3}\.[0-9]{1,6}$/);
+const TempClass = z.enum(['AMBIENT', 'CHILLED', 'FROZEN']);
+const LocationKind = z.enum([
+  'SITE', 'PEN', 'COLD_ROOM', 'STORE', 'SHOP_FLOOR', 'VEHICLE', 'RETURNS_HOLD', 'QUARANTINE', 'IN_TRANSIT',
+  'SUPPLIER', 'CUSTOMER', 'PRODUCTION', 'PROCESSING', 'CONSUMPTION', 'LOSS', 'ADJUSTMENT', 'OPENING',
+]);
+const PartyName = z.string().trim().min(1).max(160);
+const Email = z.email().max(254);
+
+/** The contract's `BranchCreate` and `BranchUpdate`, strict. The code pattern is migration 0003's. */
+export const BranchCreate = z.strictObject({
+  code: z.string().regex(/^[A-Z0-9]{2,5}$/),
+  name: RecordName,
+  address: z.string().trim().max(300).optional(),
+  phone: PhoneInput.optional(),
+});
+export const BranchUpdate = z.strictObject({
+  version: Version,
+  name: RecordName.optional(),
+  address: z.string().trim().max(300).optional(),
+  phone: PhoneInput.optional(),
+  status: z.enum(['ACTIVE', 'CLOSED']).optional(),
+});
+
+/** The contract's `LocationCreate` and `LocationUpdate`, strict. Patterns are migration 0003's. */
+export const LocationCreate = z.strictObject({
+  branchId: z.uuid(),
+  parentId: z.uuid().optional(),
+  code: z.string().regex(/^[A-Z0-9_-]{2,20}$/),
+  name: RecordName,
+  kind: LocationKind,
+  isSellable: z.boolean().optional(),
+  allowsNegative: z.boolean().optional(),
+  tempClass: TempClass.optional(),
+  tempMinC: Celsius.optional(),
+  tempMaxC: Celsius.optional(),
+  capacityHead: z.number().int().min(1).max(100_000).optional(),
+});
+export const LocationUpdate = z.strictObject({
+  version: Version,
+  name: RecordName.optional(),
+  parentId: z.uuid().optional(),
+  isSellable: z.boolean().optional(),
+  tempMinC: Celsius.optional(),
+  tempMaxC: Celsius.optional(),
+  capacityHead: z.number().int().min(1).max(100_000).optional(),
+});
+/** listLocations: virtual locations are left out unless asked for. */
+export const ListLocationsQuery = PageQuery.extend({
+  branchId: z.uuid().optional(),
+  kind: LocationKind.optional(),
+  parentId: z.uuid().optional(),
+  includeVirtual: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+});
+
+/** The contract's `CustomerCreate`, `CustomerUpdate` and `CustomerTierCreate`, strict. Patterns are migration 0011's. */
+export const CustomerCreate = z.strictObject({
+  kind: z.enum(['INDIVIDUAL', 'BUSINESS']),
+  name: PartyName,
+  phone: PhoneInput.optional(),
+  email: Email.optional(),
+  tierId: z.uuid().optional(),
+  tin: z.string().trim().min(1).max(40).optional(),
+  marketingConsent: z.boolean().optional(),
+});
+export const CustomerUpdate = z.strictObject({
+  version: Version,
+  name: PartyName.optional(),
+  phone: PhoneInput.optional(),
+  email: Email.optional(),
+  tierId: z.uuid().optional(),
+  tin: z.string().trim().min(1).max(40).optional(),
+  status: z.enum(['ACTIVE', 'BLOCKED']).optional(),
+});
+export const CustomerTierCreate = z.strictObject({ code: z.string().regex(/^[A-Z][A-Z_]{1,39}$/), name: RecordName });
+export const ListCustomersQuery = PageQuery.extend({
+  q: z.string().trim().min(1).max(80).optional(),
+  kind: z.enum(['INDIVIDUAL', 'BUSINESS']).optional(),
+  tierId: z.uuid().optional(),
+  status: z.enum(['ACTIVE', 'BLOCKED', 'ANONYMISED']).optional(),
+});
+
+/** The contract's `CustomerAddressCreate` and `CustomerAddressUpdate`, strict. Limits are migration 0021's. */
+const AddressFields = {
+  label: z.string().trim().min(1).max(60),
+  recipientName: PartyName,
+  recipientPhone: PhoneInput,
+  line1: z.string().max(200),
+  area: z.string().trim().min(1).max(120),
+  city: z.string().trim().min(1).max(120),
+  region: z.string().trim().min(1).max(40),
+  digitalAddress: z.string().trim().max(20).optional(),
+  directions: z.string().max(1_000).optional(),
+  latitude: Coordinate.optional(),
+  longitude: Coordinate.optional(),
+  isDefault: z.boolean().optional(),
+};
+export const CustomerAddressCreate = z.strictObject(AddressFields).refine((body) => (body.latitude === undefined) === (body.longitude === undefined), {
+  path: ['longitude'],
+  message: 'latitude and longitude go together',
+});
+export const CustomerAddressUpdate = z
+  .strictObject({
+    version: Version,
+    label: AddressFields.label.optional(),
+    recipientName: PartyName.optional(),
+    recipientPhone: PhoneInput.optional(),
+    line1: AddressFields.line1.optional(),
+    area: AddressFields.area.optional(),
+    city: AddressFields.city.optional(),
+    region: AddressFields.region.optional(),
+    digitalAddress: AddressFields.digitalAddress,
+    directions: AddressFields.directions,
+    latitude: Coordinate.optional(),
+    longitude: Coordinate.optional(),
+    isDefault: z.boolean().optional(),
+  })
+  .refine((body) => (body.latitude === undefined) === (body.longitude === undefined), { path: ['longitude'], message: 'latitude and longitude go together' });
+
+/** The contract's `PriceListAssignmentInput`, strict. */
+export const PriceListAssignmentInput = z.strictObject({
+  priceListId: z.uuid(),
+  validFrom: z.iso.datetime({ offset: true }).transform((value) => new Date(value)),
+  validTo: z.iso
+    .datetime({ offset: true })
+    .transform((value) => new Date(value))
+    .optional(),
+});

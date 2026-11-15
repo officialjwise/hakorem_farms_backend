@@ -1,0 +1,175 @@
+operationId: listCustomerAddresses
+tags:
+  - mdm
+summary: "List a customer's addresses"
+description: "Permission: `mdm.customer.read`."
+x-permission: mdm.customer.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/CustomerAddressPage"
+        example:
+          data:
+            - id: "019a7a95-88d7-78f2-9e2a-97f8e8c610d6"
+              customerId: "019a7a87-659c-73fc-8935-489e4ae1c17c"
+              label: Home
+              recipientName: "Ama Serwaa Ofori"
+              recipientPhone: "+233244512876"
+              line1: "House 14, Ashaley Botwe Road, near the Methodist church"
+              area: Madina
+              city: Accra
+              region: "Greater Accra"
+              digitalAddress: GM-091-4471
+              directions: "Blue gate opposite Sika Pharmacy"
+              latitude: "5.687214"
+              longitude: "-0.166402"
+              deliveryZone:
+                id: "019a7a93-5c09-76f4-bc2c-78125a54f0f0"
+                code: ACC-EAST
+                name: "Accra East: Madina, Adenta, East Legon"
+              isDefault: true
+              version: 1
+            - id: "019a7aa3-3056-765a-ab92-6e759fe7e753"
+              customerId: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+              label: Kitchen
+              recipientName: "Royal Palm Hotel, kitchen"
+              recipientPhone: "+233302765410"
+              line1: "7 Liberation Road"
+              area: "Airport Residential"
+              city: Accra
+              region: "Greater Accra"
+              digitalAddress: GA-145-2208
+              directions: "Deliveries through the back gate, ask for the head chef"
+              latitude: "5.605311"
+              longitude: "-0.171590"
+              deliveryZone:
+                id: "019a7a93-d7c5-7e81-b3ba-f0f0411869ce"
+                code: ACC-CENTRAL
+                name: "Accra Central, Osu, Airport"
+              isDefault: true
+              version: 1
+            - id: "019a7aa3-4f45-703d-b576-0cad1998858b"
+              customerId: "019a7a87-a37a-77c3-acfc-850d3e43fdeb"
+              label: Home
+              recipientName: "Kofi Agyeman"
+              recipientPhone: "+233201447302"
+              line1: "22 Lagos Avenue"
+              area: "East Legon"
+              city: Accra
+              region: "Greater Accra"
+              digitalAddress: GA-492-1180
+              directions: null
+              latitude: "5.636082"
+              longitude: "-0.153811"
+              deliveryZone:
+                id: "019a7a93-5c09-76f4-bc2c-78125a54f0f0"
+                code: ACC-EAST
+                name: "Accra East: Madina, Adenta, East Legon"
+              isDefault: true
+              version: 1
+            - id: "019a7aa3-6e34-7a21-8f59-aae4934923c2"
+              customerId: "019a7a87-c269-71a7-b6df-2344b7f49c22"
+              label: Shop
+              recipientName: "Asantewaa Chop Bar"
+              recipientPhone: "+233557018924"
+              line1: "Adenta Barrier, beside Total filling station"
+              area: Adenta
+              city: Accra
+              region: "Greater Accra"
+              digitalAddress: GD-021-7731
+              directions: "Yellow kiosk behind the station"
+              latitude: "5.705933"
+              longitude: "-0.159074"
+              deliveryZone:
+                id: "019a7a93-5c09-76f4-bc2c-78125a54f0f0"
+                code: ACC-EAST
+                name: "Accra East: Madina, Adenta, East Legon"
+              isDefault: true
+              version: 1
+            - id: "019a7aa3-8d23-7404-993c-491c0cfac1f9"
+              customerId: "019a7a87-e158-7b8a-80c2-c17c31a53a5a"
+              label: Flat
+              recipientName: "Grace Nyarko"
+              recipientPhone: "+233249903118"
+              line1: "Block C, Flat 4, Community 11"
+              area: "Tema Community 11"
+              city: Tema
+              region: "Greater Accra"
+              digitalAddress: GT-118-0942
+              directions: null
+              latitude: "5.669810"
+              longitude: "-0.016735"
+              deliveryZone:
+                id: "019a7a93-7af8-70d7-860f-1649d4058f27"
+                code: TEMA
+                name: "Tema and Community 25"
+              isDefault: true
+              version: 1
+            - id: "019a7aa3-ac12-7de8-a320-e75386ab6031"
+              customerId: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
+              label: "Funeral grounds"
+              recipientName: "Emmanuel Tetteh"
+              recipientPhone: "+233268114590"
+              line1: "Funeral grounds, Kasoa Old Town park"
+              area: Kasoa
+              city: Kasoa
+              region: Central
+              digitalAddress: CX-004-5528
+              directions: "Call on arrival"
+              latitude: "5.534776"
+              longitude: "-0.420183"
+              deliveryZone:
+                id: "019a7a93-b8d6-749e-a9d6-52b8c767cb96"
+                code: KASOA
+                name: "Kasoa and Weija"
+              isDefault: true
+              version: 1
+          page:
+            nextCursor: null
+            limit: 25
+            hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

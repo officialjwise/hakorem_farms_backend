@@ -6,6 +6,7 @@
  * promotions: `resolveIn` returns each line's discounts, and a selling module redeems or releases a coupon with
  * `Promotions.redeemIn` and `releaseIn` in its transaction, holding `couponLockKey(code)` (ADR-0040). B04d continued
  * publishes the administration services so the seeded farm is written through them (A-085); no module calls them.
+ * B04d continued 2 adds the branch, location and party administration for the seed on the same terms (ADR-0042).
  */
 export { MdmModule } from './mdm.module';
 export { PricingService, type AppliedPromotionView, type PriceResolutionView, type PriceResolveResultView, type ResolveLine, type ResolveRequest } from './application/pricing';
@@ -19,3 +20,5 @@ export { TaxAdmin, type TaxCellRequest } from './application/tax-admin';
 export type { PromotionCreateRequest } from './application/promotions';
 export { CatalogueAdmin } from './application/catalogue-admin';
 export { ProductCatalogue } from './application/product-catalogue';
+export { LocationsAdmin } from './application/locations-admin';
+export { PartiesAdmin } from './application/parties-admin';

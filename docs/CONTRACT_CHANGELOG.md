@@ -8,6 +8,17 @@ Version numbers follow semantic versioning: a major bump breaks an existing clie
 
 - **CR-002 (frontend, raised 2026-11-13): weights as decimal strings, never JSON numbers.** Already satisfied by 1.0.0 and 1.1.0, so no version change. `components.schemas.Kilograms` is `type: string` with the pattern `^(0|[1-9][0-9]{0,6})\.[0-9]{3}$` (exactly three decimal places), and its description says it is never a JSON number. The request was raised against a copy taken before re-syncing; re-run `./scripts/sync-contract.sh`. The owner closed it on 2026-11-13: do not reopen it.
 
+## 1.8.0 (2026-11-15, B04d continued 2)
+
+**Additive, with request schemas widened.** No schema, field, parameter or response was removed, renamed or retyped, and nothing a client sends was made required. A client generated from 1.7.x compiles unchanged. The frontend track is paused, so nothing reviewed this entry; read it before resuming.
+
+Twenty-one operations now answer from the real API (82 in all), with the schemas 1.2.0 already published: `listBranches`, `createBranch`, `getBranch`, `updateBranch`, `listLocations`, `createLocation`, `getLocation`, `updateLocation`, `archiveLocation`, `listCustomers`, `createCustomer`, `getCustomer`, `updateCustomer`, `archiveCustomer`, `listCustomerTiers`, `createCustomerTier`, `listCustomerAddresses`, `createCustomerAddress`, `updateCustomerAddress`, `archiveCustomerAddress`, `assignCustomerPriceList`.
+
+- **`PhoneInput`** (new schema): a phone number as a person types it, `^\+?[0-9][0-9 -]{6,22}$`. It replaces `PhoneNumber` in the request schemas `CustomerCreate.phone`, `CustomerUpdate.phone`, `CustomerAddressCreate.recipientPhone`, `CustomerAddressUpdate.recipientPhone`, `BranchCreate.phone` and `BranchUpdate.phone`, so FR-MDM-008's `0244123456` is accepted and stored as `+233244123456`. Every E.164 value 1.7.0 accepted is still accepted; responses keep `PhoneNumber`. A value that is no Ghanaian or E.164 number is 400 `VALIDATION_FAILED`, `details[].code` `INVALID_PHONE`.
+- **Two new error codes**, also in `docs/API.md` section 10.3: **`LOCATION_INVALID`** and **`PRICE_LIST_ASSIGNMENT_INVALID`** (422).
+- **`x-error-codes` and descriptions** on the twenty-one operations state their rules: virtual locations, the parent in the same branch, cold room ranges, phone normalisation and uniqueness, Ghana address rules, the encrypted TIN, the assignment window replacing what it meets.
+- **Behaviour a client should know, with no shape change:** `listLocations` leaves out virtual locations unless `includeVirtual=true`; `CustomerAddress.deliveryZone` is null and `Customer.hasBusinessAccount` false until delivery zones (B04d continued 3) and wholesale accounts (B10) exist.
+
 ## 1.7.0 (2026-11-15, B04d continued)
 
 **Additive.** No schema, field, parameter or response was removed, renamed or retyped, and nothing a client sends was made required. One response schema gained a required field (`Uom.displayDecimals`), which breaks nothing a client sends (ADR-0038). A client generated from 1.6.x compiles unchanged. The frontend track is paused, so nothing reviewed this entry; read it before resuming.

@@ -1,0 +1,65 @@
+operationId: getLocation
+tags:
+  - mdm
+summary: "Get a stock location"
+description: "Permission: `mdm.location.read`."
+x-permission: mdm.location.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Location"
+        example:
+          id: "019a7a83-68cd-7daa-b2e2-e3779b105c55"
+          branch:
+            id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+            code: DDW
+            name: "HaKorem Farms, Dodowa"
+          parentId: null
+          code: DDW-SITE
+          name: "Dodowa farm"
+          kind: SITE
+          isVirtual: false
+          isSellable: false
+          allowsNegative: false
+          tempClass: null
+          tempMinC: null
+          tempMaxC: null
+          capacityHead: null
+          version: 2
+          createdAt: "2026-11-02T08:00:00Z"
+          updatedAt: "2026-11-10T14:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

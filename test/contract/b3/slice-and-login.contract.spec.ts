@@ -15,6 +15,16 @@ import {
 } from '../../../src/modules/iam/interface/schemas';
 import {
   ArchiveBody,
+  BranchCreate,
+  BranchUpdate,
+  CustomerAddressCreate,
+  CustomerAddressUpdate,
+  CustomerCreate,
+  CustomerTierCreate,
+  CustomerUpdate,
+  LocationCreate,
+  LocationUpdate,
+  PriceListAssignmentInput,
   CategoryCreate,
   CategoryUpdate,
   CouponCreate,
@@ -172,6 +182,19 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     updateWeightBand: WeightBandUpdate,
     archiveWeightBand: ArchiveBody,
     updateProduct: ProductUpdate,
+    createBranch: BranchCreate,
+    updateBranch: BranchUpdate,
+    createLocation: LocationCreate,
+    updateLocation: LocationUpdate,
+    archiveLocation: ArchiveBody,
+    createCustomer: CustomerCreate,
+    updateCustomer: CustomerUpdate,
+    archiveCustomer: ArchiveBody,
+    createCustomerTier: CustomerTierCreate,
+    createCustomerAddress: CustomerAddressCreate,
+    updateCustomerAddress: CustomerAddressUpdate,
+    archiveCustomerAddress: ArchiveBody,
+    assignCustomerPriceList: PriceListAssignmentInput,
   };
 
   it('parses every request example of an implemented operation with the schema its route validates with', () => {
