@@ -434,6 +434,7 @@ The "Source" column says where the code comes from. **Contract** means the code 
 | `FILE_TYPE_NOT_ALLOWED` | 415 | The sniffed content type is not allowed for this use |
 | `FILE_NOT_CLEAN` | 422 | The file has not passed its malware scan, or failed it, and is not served |
 | `IMPORT_NOT_VALIDATED` | 422 | An import must be validated (dry run) before it is applied, and have no blocking errors |
+| `IMPORT_ENTITY_NOT_AVAILABLE` | 422 | The entity's import and export sheet is not built yet: only customers so far; products, suppliers, locations and price list entries in B04e continued 5, opening stock in B5 (1.14.0) |
 | `WEBHOOK_URL_NOT_ALLOWED` | 422 | The URL is not HTTPS, or resolves to a private, loopback or link-local address |
 
 A new code is added by the `hakorem-endpoint` skill: name it here, in the contract, and in a test that asserts the status and code together.
@@ -542,6 +543,14 @@ Integrations subscribe to events with `POST /integrations/{id}/webhook-endpoints
 - **Refusals:** 422 `FILE_NOT_CLEAN` while the photograph is `PENDING`, or when it failed (an infected file, or one that is not a decodable image); 422 `REFERENCE_NOT_FOUND` on `/fileId` for a file of another use or no file; 422 `DUPLICATE_VALUE` for a photograph already in the gallery.
 - **Variants:** `Product.images[].variants` has `thumb` (320 pixels wide), `card` (640) and `full` (1280), never wider than the original, each with `url` (WebP) and `fallbackUrl` (JPEG) and their sizes in bytes; no `card` rendition is above 200,000 bytes. Use them in a `<picture>` with `srcset` and lazy loading. They are on the public media origin and need no link; the original is never there.
 - **Removing:** `DELETE /products/{id}/images/{imageId}` answers 204; the image leaves the gallery, its variants stay on the origin (a cached page may still show them).
+
+**Built in B04e continued 4** (contract 1.14.0, ADR-0046, A-128): master data imports and exports, `listImportJobs`, `createImportJob`, `getImportJob`, `listImportErrors`, `applyImportJob`, `cancelImportJob`, `createExportJob`. What a screen needs to know:
+
+- **Who:** the Owner and Manager import (`mdm.import.create`, `mdm.import.apply`) and read the jobs (`mdm.import.read`, which the Accountant holds too); the Owner, Manager and Accountant export (`mdm.export.create`). Applying also needs the entity's own create or update permission, exporting its read permission. Everyone else gets 403.
+- **Importing:** upload the XLSX or CSV with `purpose: IMPORT`, poll `getFile` until `CLEAN`, then `createImportJob` with `entity` and `fileId`. That is the dry run: it answers 202 with the job `VALIDATED` and `rowsTotal`, `rowsValid`, `rowsToCreate` and `rowsToUpdate`, and writes nothing else. `listImportErrors` gives each row error with its spreadsheet row (the header is row 1), column and message. A file that is not this entity's sheet comes back `FAILED`, its errors on row 1. At most 5,000 rows.
+- **Applying:** `applyImportJob` writes every row in one transaction, or none, and only for a `VALIDATED` job with no row error (else 422 `IMPORT_NOT_VALIDATED`). The rows are checked again as they are written; if something changed since the dry run, nothing is written, the job gains the new errors and the answer is 422 `IMPORT_NOT_VALIDATED`. `cancelImportJob` sets aside an import not yet applied (else 422 `INVALID_STATE_TRANSITION`). Jobs and errors stay readable.
+- **The customer sheet** (the only one so far; other entities 422 `IMPORT_ENTITY_NOT_AVAILABLE`): columns `customerNo`, `kind`, `name`, `phone`, `email`, `tier`, in any order, any case. A blank `customerNo` creates a customer (kind and name required); a number changes that customer, and a blank cell changes nothing. Phones are Ghanaian numbers as typed at the counter. Export the customers first to get a template whose cells are all text.
+- **Exporting:** `createExportJob` with `entity` and `format` (`XLSX` or `CSV`) always needs a fresh step-up (403 `STEP_UP_REQUIRED`, as `x-requires-step-up` says). It answers 202 with the job `APPLIED` and the row count, and is audited with the user, the parameters and the row count; more than 100 rows is a bulk export, which the daily exception report will show. The `file` is a private `EXPORT` file: poll `getFile` until `CLEAN`, then `createFileSignedUrl` for a link that lasts five minutes. In a CSV, a cell that would start a formula (`=`, `+`, `-`, `@`) is written with a leading apostrophe, so a phone appears as `'+233...`; importing that CSV back removes it.
 
 ## 17. The mock server
 

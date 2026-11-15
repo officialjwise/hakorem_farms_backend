@@ -8,6 +8,17 @@ Version numbers follow semantic versioning: a major bump breaks an existing clie
 
 - **CR-002 (frontend, raised 2026-11-13): weights as decimal strings, never JSON numbers.** Already satisfied by 1.0.0 and 1.1.0, so no version change. `components.schemas.Kilograms` is `type: string` with the pattern `^(0|[1-9][0-9]{0,6})\.[0-9]{3}$` (exactly three decimal places), and its description says it is never a JSON number. The request was raised against a copy taken before re-syncing; re-run `./scripts/sync-contract.sh`. The owner closed it on 2026-11-13: do not reopen it.
 
+## 1.14.0 (2026-11-15, B04e continued 4)
+
+**Additive.** No schema, field, parameter or request was removed, renamed or retyped, and nothing a client sends was made required. Two properties were added to a response schema and made required there, which breaks nothing a client sends (ADR-0038); one enumeration value was added. A client generated from 1.13.x compiles unchanged. The frontend track is paused, so nothing reviewed this entry; read it before resuming.
+
+Seven operations now answer from the real API (138 in all): `listImportJobs`, `createImportJob`, `getImportJob`, `listImportErrors`, `applyImportJob`, `cancelImportJob` and `createExportJob` (FR-MDM-019, FR-MDM-020, SEC-009, ADR-0046, A-128).
+
+- **`ImportJob` gains `rowsToCreate` and `rowsToUpdate`** (integer or null, required in responses): the dry run's preview that FR-MDM-019 asks for, null for an export and for an import whose file could not be read.
+- **`FilePurpose` gains `EXPORT`**: the private file the server writes for an export. `uploadFile` accepts no upload under it (415 `FILE_TYPE_NOT_ALLOWED`); `getFile` and `createFileSignedUrl` serve it like any file once the scan has passed it.
+- **New error code `IMPORT_ENTITY_NOT_AVAILABLE`** (422) on `createImportJob` and `createExportJob`: the entity's sheet is not built yet. Only `CUSTOMER` is built; products, suppliers, locations and price list entries follow in B04e continued 5, opening stock in B5 (A-128, A-129).
+- **Descriptions, `x-error-codes` and examples** of the seven operations state their rules: the dry run writes only the job and its row errors; apply writes every row in one transaction or none, re-checks the rows, and needs the entity's own create or update permission; cancel only before apply; every export needs a fresh step-up (unchanged `x-requires-step-up: true`), is audited with its row count and marked bulk above 100 rows, and is downloaded through `createFileSignedUrl` once its file is `CLEAN`. The examples show the preview counts, a `VALIDATED` dry run and a `CANCELLED` job.
+
 ## 1.13.0 (2026-11-15, B04e continued 3)
 
 **Additive.** No schema, field, parameter or request was removed, renamed or retyped, and nothing a client sends was made required. Three properties were added to a response schema and made required there, which breaks nothing a client sends (ADR-0038). A client generated from 1.12.x compiles unchanged. The frontend track is paused, so nothing reviewed this entry; read it before resuming.
