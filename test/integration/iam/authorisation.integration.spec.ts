@@ -98,6 +98,11 @@ const VALID_BODY: Readonly<Record<string, object>> = {
   createGoodsReceipt: { kind: 'HARVEST', locationId: randomUUID(), receivedAt: '2026-11-10T07:00:00Z', lines: [] },
   updateGoodsReceipt: { version: 1, notes: 'Two birds died on the road' },
   cancelGoodsReceipt: { reason: 'Delivery turned back at the gate' },
+  reverseStockMovement: { reasonCode: 'COUNT_ERROR', note: 'Posted twice from the cold room tablet' },
+  createStockTransfer: { fromLocationId: randomUUID(), toLocationId: randomUUID(), lines: [] },
+  receiveStockTransfer: { lines: [] },
+  cancelStockTransfer: { reason: 'Van not available' },
+  createStockAdjustment: { locationId: randomUUID(), reasonCode: 'COUNT_ERROR', lines: [] },
   archiveLocation: { version: 1, reason: 'Closed' },
   createCustomer: { kind: 'INDIVIDUAL', name: 'Ama' },
   updateCustomer: { version: 1, name: 'Ama' },
@@ -167,6 +172,9 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'listImportJobs', 'createImportJob', 'getImportJob', 'listImportErrors', 'applyImportJob', 'cancelImportJob', 'createExportJob',
         'listStockOnHand', 'getStockUnit', 'traceStockUnit',
         'listGoodsReceipts', 'createGoodsReceipt', 'getGoodsReceipt', 'updateGoodsReceipt', 'postGoodsReceipt', 'cancelGoodsReceipt',
+        'listMovementTypes', 'listStockMovements', 'getStockMovement', 'reverseStockMovement', 'listStockUnitMovements',
+        'listStockTransfers', 'createStockTransfer', 'getStockTransfer', 'dispatchStockTransfer', 'receiveStockTransfer', 'cancelStockTransfer',
+        'listStockAdjustments', 'createStockAdjustment', 'getStockAdjustment', 'submitStockAdjustment',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);

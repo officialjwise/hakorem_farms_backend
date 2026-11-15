@@ -8,6 +8,16 @@ Version numbers follow semantic versioning: a major bump breaks an existing clie
 
 - **CR-002 (frontend, raised 2026-11-13): weights as decimal strings, never JSON numbers.** Already satisfied by 1.0.0 and 1.1.0, so no version change. `components.schemas.Kilograms` is `type: string` with the pattern `^(0|[1-9][0-9]{0,6})\.[0-9]{3}$` (exactly three decimal places), and its description says it is never a JSON number. The request was raised against a copy taken before re-syncing; re-run `./scripts/sync-contract.sh`. The owner closed it on 2026-11-13: do not reopen it.
 
+## 1.17.0 (2026-11-15, B05 continued 2)
+
+**Additive.** No schema, field, parameter or request was removed, renamed or retyped, and nothing a client sends was made required. Four error codes were added; descriptions and `x-error-codes` were written. A client generated from 1.16.x compiles unchanged. The frontend track is paused, so nothing reviewed this entry; read it before resuming.
+
+Fifteen operations now answer from the real API (162 in all): `listMovementTypes`, `listStockMovements`, `getStockMovement`, `reverseStockMovement`, `listStockUnitMovements`, `listStockTransfers`, `createStockTransfer`, `getStockTransfer`, `dispatchStockTransfer`, `receiveStockTransfer`, `cancelStockTransfer`, `listStockAdjustments`, `createStockAdjustment`, `getStockAdjustment` and `submitStockAdjustment` (FR-INV-001 to FR-INV-004, FR-INV-010 to FR-INV-012).
+
+- **New error codes** (422, each with the broken rule in `details[].code`, docs/API.md section 10.3): `STOCK_TRANSFER_INVALID` on `createStockTransfer` and `dispatchStockTransfer`; `TRANSFER_VARIANCE` on `receiveStockTransfer` (the code FR-INV-011 names); `STOCK_ADJUSTMENT_INVALID` on `createStockAdjustment` and `submitStockAdjustment`; `STOCK_REVERSAL_NOT_POSSIBLE` on `reverseStockMovement`.
+- **Descriptions** state the rules: scopes (a transfer's source for drafting and dispatch, its destination for receipt; an adjustment's location; a movement's physical location), the 50,000 pesewa seed thresholds of `STOCK_WRITE_OFF` and `STOCK_REVERSAL` and their approver `inv.adjustment.approve`, values from the cost pool, animals never adjusted, a typed weight recorded `MANUAL`, a shortfall on arrival posted as a loss with a `TRANSFER_VARIANCE` exception, a reversal kept as a `STOCK_REVERSAL` document.
+- **Not changed, and why:** `receiveStockTransfer` keeps no 202: approval of a large variance at receipt (FR-INV-011) would add a response a client must handle, which is the owner's call (A-139).
+
 ## 1.16.0 (2026-11-15, B05 continued)
 
 **Additive.** No schema, field, parameter or request was removed, renamed or retyped, and nothing a client sends was made required. One property was added to two response schemas and made required there, which breaks nothing a client sends (ADR-0038); one error code was added. A client generated from 1.15.x compiles unchanged. The frontend track is paused, so nothing reviewed this entry; read it before resuming.

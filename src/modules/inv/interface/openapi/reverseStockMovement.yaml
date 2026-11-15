@@ -1,0 +1,128 @@
+operationId: reverseStockMovement
+tags:
+  - inv
+summary: "Correct a movement with a reversing movement"
+description: "Writes a new movement with source and destination swapped, carrying the original's value; the original is never changed and stays visible, linked to its reversal. A movement is reversed once (`STOCK_MOVEMENT_ALREADY_REVERSED`, also while a reversal waits for approval). The reason is from the stock adjustment list (`COUNT_ERROR`, `RECEIPT_ERROR` and the others), and the note is kept. A transfer's movements, a value-only movement and a reversal are never reversed by hand, and a movement whose cost pool no longer holds its value is corrected with an adjustment instead (`STOCK_REVERSAL_NOT_POSSIBLE`, the rule in `details[].code`). The reversal is recorded as a `STOCK_REVERSAL` document, the reversing movement's source document.\n\nPermission: `inv.movement.reverse`, scoped to the movement's branch and physical location.\n\nMay require approval of kind `STOCK_REVERSAL` (at or above 50,000 pesewas in the seed). When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user holding `inv.adjustment.approve` approves, with a fresh step-up."
+x-permission: inv.movement.reverse
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - NOT_FOUND
+  - STOCK_MOVEMENT_ALREADY_REVERSED
+  - STOCK_REVERSAL_NOT_POSSIBLE
+  - REFERENCE_NOT_FOUND
+  - INSUFFICIENT_STOCK
+  - STOCK_UNIT_NOT_AVAILABLE
+  - STOCK_UNIT_RESERVED
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/MovementReversalRequest"
+      example:
+        reasonCode: COUNT_ERROR
+        note: "Transfer posted twice from the cold room tablet"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/StockMovement"
+        example:
+          id: "019a7aac-db06-7d6f-a2a7-dfcba73758a9"
+          movementType: SALE_ISSUE
+          product:
+            id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+            sku: LIV-GOAT
+            name: Goat
+          stockUnit:
+            id: "019a7a8f-bc07-7e4c-9384-ed921796666f"
+            identifier: G-0171
+            tracking: SERIAL
+          from:
+            id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+            code: PEN-G2
+            name: "Goat pen 2"
+            kind: PEN
+          to:
+            id: "019a7a85-57bd-7be1-b11a-c6ef36203fcd"
+            code: V-CUSTOMER
+            name: Customers
+            kind: CUSTOMER
+          qty: "1.000"
+          uom: HEAD
+          weightKg: "24.900"
+          weightSource: SCALE
+          packCount: null
+          valuePesewas: 58900
+          currency: GHS
+          costElement: null
+          reasonCode: null
+          sourceDocument:
+            id: "019a7aac-216c-721a-8753-2a7ecd11a35c"
+            docType: SALES_ORDER
+            number: SO-2026-DDW-004211
+          reservationId: null
+          reversesMovementId: null
+          reversedByMovementId: null
+          actor:
+            id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+            displayName: "Adwoa Darko"
+          occurredAt: "2026-11-13T07:00:00Z"
+          recordedAt: "2026-11-13T07:00:00Z"
+  "202":
+    description: "Accepted for approval. Nothing has taken effect yet."
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ApprovalPending"
+        example:
+          status: PENDING_APPROVAL
+          approvalRequestId: "019a7aad-b38f-72a7-97e0-334ffb0eac2d"
+          kind: STOCK_REVERSAL
+          subject:
+            id: "019a7aad-d27e-7c8b-a1c3-d18774bf4a65"
+            docType: STOCK_ADJUSTMENT
+            number: null
+          summary: "Awaiting approval by a different user with the approving permission"
+          requestedAt: "2026-11-13T10:12:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

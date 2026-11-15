@@ -1,5 +1,5 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
-import type { GradeFacts, LocationFacts, MasterDataRefsStore, ProductFacts, SupplierFacts } from '../application/master-data-refs';
+import type { BranchFacts, GradeFacts, ReasonCodeFacts, LocationFacts, MasterDataRefsStore, ProductFacts, SupplierFacts } from '../application/master-data-refs';
 
 /** MDM's own tables, read by primary key for a higher module's transaction (MasterDataRefs). */
 export class PgMasterDataRefsStore implements MasterDataRefsStore {
@@ -67,5 +67,23 @@ export class PgMasterDataRefsStore implements MasterDataRefsStore {
   async grades(tx: Transaction, ids: readonly string[]): Promise<GradeFacts[]> {
     const { rows } = await tx.query<{ id: string; code: string; name: string }>('SELECT id, code, name FROM mdm.grade WHERE id = ANY($1::uuid[])', [ids]);
     return rows;
+  }
+
+  async branches(tx: Transaction, ids: readonly string[]): Promise<BranchFacts[]> {
+    const { rows } = await tx.query<BranchFacts>('SELECT id, code, name FROM mdm.branch WHERE id = ANY($1::uuid[])', [ids]);
+    return rows;
+  }
+
+  async reasonCodes(tx: Transaction, codes: readonly string[]): Promise<ReasonCodeFacts[]> {
+    const { rows } = await tx.query<ReasonCodeFacts>('SELECT code, domain, requires_note AS "requiresNote" FROM mdm.reason_code WHERE code = ANY($1::text[])', [codes]);
+    return rows;
+  }
+
+  async physicalLocationOfKind(tx: Transaction, branchId: string, kind: string): Promise<string | null> {
+    const { rows } = await tx.query<{ id: string }>(
+      'SELECT id FROM mdm.location WHERE branch_id = $1 AND kind = $2 AND NOT is_virtual AND deleted_at IS NULL ORDER BY created_at, id LIMIT 1',
+      [branchId, kind],
+    );
+    return rows[0]?.id ?? null;
   }
 }

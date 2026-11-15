@@ -128,14 +128,18 @@ export class PgApprovalStore implements ApprovalStore {
   }
 
   async approverRule(tx: Transaction, kind: string, branchId: string): Promise<ApproverRule | null> {
-    const { rows } = await tx.query<{ approver_permission: string; requires_step_up: boolean }>(
-      `SELECT approver_permission, requires_step_up FROM iam.approval_policy
+    const { rows } = await tx.query<{ approver_permission: string; requires_step_up: boolean; threshold_pesewas: string | null }>(
+      `SELECT approver_permission, requires_step_up, threshold_pesewas FROM iam.approval_policy
         WHERE kind = $1 AND (branch_id = $2 OR branch_id IS NULL) AND deleted_at IS NULL
         ORDER BY branch_id NULLS LAST LIMIT 1`,
       [kind, branchId],
     );
     const row = rows[0];
-    return row === undefined ? null : { permission: row.approver_permission, requiresStepUp: row.requires_step_up };
+    return row === undefined ? null : {
+          permission: row.approver_permission,
+          requiresStepUp: row.requires_step_up,
+          thresholdPesewas: row.threshold_pesewas === null ? null : BigInt(row.threshold_pesewas),
+        };
   }
 
   async list(tx: Transaction, filter: ApprovalFilter): Promise<ApprovalListing[]> {

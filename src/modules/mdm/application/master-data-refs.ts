@@ -42,6 +42,19 @@ export interface GradeFacts {
   readonly name: string;
 }
 
+export interface BranchFacts {
+  readonly id: string;
+  readonly code: string;
+  readonly name: string;
+}
+
+/** A reason from the fixed list (FR-MDM-011): its domain, and whether it needs a note beside it. */
+export interface ReasonCodeFacts {
+  readonly code: string;
+  readonly domain: string;
+  readonly requiresNote: boolean;
+}
+
 export const MASTER_DATA_REFS_STORE = Symbol('MASTER_DATA_REFS_STORE');
 
 export interface MasterDataRefsStore {
@@ -50,6 +63,9 @@ export interface MasterDataRefsStore {
   virtualLocation(tx: Transaction, branchId: string, kind: string): Promise<string | null>;
   suppliers(tx: Transaction, ids: readonly string[]): Promise<SupplierFacts[]>;
   grades(tx: Transaction, ids: readonly string[]): Promise<GradeFacts[]>;
+  branches(tx: Transaction, ids: readonly string[]): Promise<BranchFacts[]>;
+  reasonCodes(tx: Transaction, codes: readonly string[]): Promise<ReasonCodeFacts[]>;
+  physicalLocationOfKind(tx: Transaction, branchId: string, kind: string): Promise<string | null>;
 }
 
 function byId<T extends { readonly id: string }>(rows: readonly T[]): ReadonlyMap<string, T> {
@@ -63,7 +79,7 @@ function unique(ids: readonly string[]): string[] {
 /**
  * The read side of MDM's `Catalogue`, `Parties` and `Locations` interfaces for a higher module working inside its
  * own transaction (MODULE_BOUNDARIES, MDM card): products, locations, suppliers and grades by id, as facts and the
- * contract's `ProductRef`, `LocationRef`, `SupplierRef` and `GradeRef`. It authorises nothing: the caller's command
+ * contract's `ProductRef`, `LocationRef`, `SupplierRef`, `GradeRef` and `BranchRef`, and reasons from the fixed list. It authorises nothing: the caller's command
  * has authorised its own operation, and these are names and rules, never another module's records to change.
  */
 export class MasterDataRefs {
@@ -88,5 +104,20 @@ export class MasterDataRefs {
 
   async gradesIn(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, GradeFacts>> {
     return ids.length === 0 ? new Map() : byId(await this.store.grades(tx, unique(ids)));
+  }
+
+  async branchesIn(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, BranchFacts>> {
+    return ids.length === 0 ? new Map() : byId(await this.store.branches(tx, unique(ids)));
+  }
+
+  /** Reasons from the fixed list by code; an unknown code is simply absent. */
+  async reasonCodesIn(tx: Transaction, codes: readonly string[]): Promise<ReadonlyMap<string, ReasonCodeFacts>> {
+    if (codes.length === 0) return new Map();
+    return new Map((await this.store.reasonCodes(tx, unique(codes))).map((row) => [row.code, row] as const));
+  }
+
+  /** The branch's live physical location of a kind (its in-transit location, for a transfer), or null if it has none. */
+  physicalLocationOfKindIn(tx: Transaction, branchId: string, kind: string): Promise<string | null> {
+    return this.store.physicalLocationOfKind(tx, branchId, kind);
   }
 }

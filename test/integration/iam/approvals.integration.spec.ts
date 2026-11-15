@@ -8,7 +8,7 @@ import { createBranch, createUser, SYSTEM_PRINCIPAL, testStartTime, type TestBra
 import { startTestApp, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
 
-const KIND = 'STOCK_WRITE_OFF';
+const KIND = 'SALE_VOID';
 let database: TestDatabase;
 let api: TestApp;
 let approvals: Approvals;
@@ -59,10 +59,10 @@ beforeAll(async () => {
   const admin = database.pool('admin');
   await admin.query('CREATE TABLE platform.approval_probe (id uuid PRIMARY KEY, note text NOT NULL, applied boolean NOT NULL DEFAULT false)');
   await admin.query('GRANT SELECT, INSERT, UPDATE ON platform.approval_probe TO hk_app');
-  await admin.query("INSERT INTO iam.permission (code, module, description) VALUES ('inv.adjustment.approve', 'inv', 'Approve a stock adjustment')");
-  await admin.query("INSERT INTO iam.role_permission (role_id, permission_code, created_by) VALUES ('01900000-0000-7000-8000-000000000102', 'inv.adjustment.approve', $1)", [SYSTEM_PRINCIPAL]);
+  await admin.query("INSERT INTO iam.permission (code, module, description) VALUES ('iam.probe.approve', 'iam', 'Approve a test probe request')");
+  await admin.query("INSERT INTO iam.role_permission (role_id, permission_code, created_by) VALUES ('01900000-0000-7000-8000-000000000102', 'iam.probe.approve', $1)", [SYSTEM_PRINCIPAL]);
   await admin.query(
-    `INSERT INTO iam.approval_policy (id, kind, approver_permission, created_by, updated_by) VALUES ($1, $2, 'inv.adjustment.approve', $3, $3)`,
+    `INSERT INTO iam.approval_policy (id, kind, approver_permission, created_by, updated_by) VALUES ($1, $2, 'iam.probe.approve', $3, $3)`,
     [randomUUID(), KIND, SYSTEM_PRINCIPAL],
   );
   const s = await createUser(database, { name: 'Yaw Boateng', grants: [{ role: 'STOREKEEPER', branchId: dodowa.branchId }] });

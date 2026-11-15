@@ -12,6 +12,14 @@ registerMessages({
   'inv.goods_receipt_rule': 'This value is not valid on a goods receipt.',
   'inv.reference_not_found': 'Something this record refers to does not exist.',
   'inv.reference_unknown': 'There is no such record.',
+  'inv.stock_transfer_invalid': 'Some lines of this transfer are not valid.',
+  'inv.stock_transfer_rule': 'This value is not valid on a stock transfer.',
+  'inv.transfer_variance': 'What was received and the variance must add up to what was dispatched, and a variance needs its reason.',
+  'inv.transfer_variance_rule': 'This received quantity or reason is not valid.',
+  'inv.stock_adjustment_invalid': 'Some lines of this adjustment are not valid.',
+  'inv.stock_adjustment_rule': 'This value is not valid on a stock adjustment.',
+  'inv.stock_reversal_not_possible': 'This movement cannot be reversed.',
+  'inv.stock_reversal_rule': 'This reversal is not allowed.',
 });
 
 function details(fields: ReadonlyArray<{ readonly field: string; readonly rule: string }>, messageKey: string): ErrorDetail[] {
@@ -39,6 +47,53 @@ export class InvReferenceNotFoundError extends BusinessRuleError {
 
   constructor(fields: readonly string[]) {
     super('the request refers to records that do not exist', details(fields.map((field) => ({ field, rule: 'NOT_FOUND' })), 'inv.reference_unknown'));
+  }
+}
+
+/** 422 STOCK_TRANSFER_INVALID: a transfer breaks a transfer rule (FR-INV-010); each `details[].code` names it. */
+export class StockTransferInvalidError extends BusinessRuleError {
+  readonly code = 'STOCK_TRANSFER_INVALID';
+  readonly messageKey = 'inv.stock_transfer_invalid';
+
+  constructor(fields: ReadonlyArray<{ readonly field: string; readonly rule: string }>) {
+    super('the stock transfer breaks a transfer rule', details(fields, 'inv.stock_transfer_rule'));
+  }
+}
+
+/**
+ * 422 TRANSFER_VARIANCE: a receipt confirmation does not balance (FR-INV-011): received plus variance is not what was
+ * dispatched, a variance has no reason, or a line is unanswered.
+ */
+export class TransferVarianceError extends BusinessRuleError {
+  readonly code = 'TRANSFER_VARIANCE';
+  readonly messageKey = 'inv.transfer_variance';
+
+  constructor(fields: ReadonlyArray<{ readonly field: string; readonly rule: string }>) {
+    super('the receipt confirmation does not balance to what was dispatched', details(fields, 'inv.transfer_variance_rule'));
+  }
+}
+
+/** 422 STOCK_ADJUSTMENT_INVALID: an adjustment breaks an adjustment rule (FR-INV-012); each `details[].code` names it. */
+export class StockAdjustmentInvalidError extends BusinessRuleError {
+  readonly code = 'STOCK_ADJUSTMENT_INVALID';
+  readonly messageKey = 'inv.stock_adjustment_invalid';
+
+  constructor(fields: ReadonlyArray<{ readonly field: string; readonly rule: string }>) {
+    super('the stock adjustment breaks an adjustment rule', details(fields, 'inv.stock_adjustment_rule'));
+  }
+}
+
+/**
+ * 422 STOCK_REVERSAL_NOT_POSSIBLE: the movement is of a kind that is never reversed by hand (a transfer's movement, a
+ * value-only movement, a reversal), its reason is not one a reversal takes, or its cost pool no longer holds the value
+ * it carried (A-134 (b)): the correction is then an adjustment.
+ */
+export class StockReversalNotPossibleError extends BusinessRuleError {
+  readonly code = 'STOCK_REVERSAL_NOT_POSSIBLE';
+  readonly messageKey = 'inv.stock_reversal_not_possible';
+
+  constructor(fields: ReadonlyArray<{ readonly field: string; readonly rule: string }>) {
+    super('the movement cannot be reversed', details(fields, 'inv.stock_reversal_rule'));
   }
 }
 
@@ -85,6 +140,12 @@ export class StockMovementInvalidError extends Error {
   }
 }
 
+/**
+ * The cost pool no longer holds the value a reversal must give back (`ck_stock_reversal_value`, A-134 (b)): a bug in
+ * a caller that never checks, so a 500 like its parent, except where a person asked for the reversal and is told.
+ */
+export class StockPoolValueGoneError extends StockMovementInvalidError {}
+
 /** The database rule a refusal names (SQLSTATE HK010, migration 0044), as the error the API answers with. */
 const BY_RULE: Readonly<Record<string, new (message: string) => Error>> = {
   ck_stock_negative: InsufficientStockError,
@@ -94,7 +155,7 @@ const BY_RULE: Readonly<Record<string, new (message: string) => Error>> = {
   ck_stock_reserved: StockUnitReservedError,
   ck_stock_reservation_use: StockUnitReservedError,
   ck_stock_reversal: StockMovementInvalidError,
-  ck_stock_reversal_value: StockMovementInvalidError,
+  ck_stock_reversal_value: StockPoolValueGoneError,
   ck_stock_movement_type: StockMovementInvalidError,
 };
 

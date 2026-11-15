@@ -96,6 +96,8 @@ const DODOWA_LOCATIONS = [
   { code: 'SHOP', name: 'Shop floor', kind: 'SHOP_FLOOR', isSellable: true },
   { code: 'VAN1', name: 'Delivery van GT 4471-26 (SEED)', kind: 'VEHICLE' },
   { code: 'RETURNS', name: 'Customer returns holding area', kind: 'RETURNS_HOLD' },
+  // Where a transfer's stock waits between dispatch and receipt: still the farm's stock (FR-INV-010).
+  { code: 'TRANSIT', name: 'Stock in transit', kind: 'IN_TRANSIT' },
 ] as const;
 
 /**

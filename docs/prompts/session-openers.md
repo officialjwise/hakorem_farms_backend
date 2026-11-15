@@ -31,7 +31,9 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B04e continued 5 | `B04e6-mdm-import-sheets.md` | `b04e6-mdm-import-sheets` | B4 to B12 | The product, supplier, location and price list entry sheets import with a dry run that writes nothing and apply all or none through each entity's own service, and export audited with their row count, each with a wrong-role refusal (built) |
 | B5 | `B05-inventory-ledger.md` | `b05-inventory-ledger` | B4 to B12 | The movement ledger and its database invariants, each proved by its own test; valuation at 100 percent; a lot traces both ways (built; the session split, A-131) |
 | B05 continued | `B05b-inventory-documents.md` | `b05b-inventory-documents` | B4 to B12 | On-hand from movements matches a hand count of the seeded farm; a lot traces both ways over the API; every goods receipt write refuses the wrong role (built; the session split, A-138) |
-| B05 continued 2 | `B05c-inventory-control.md` | `b05c-inventory-control` | B4 to B12 | The B5 gate in full: on-hand from movements matches a hand count of the seeded farm; stock cannot go negative outside allowed types; a lot traces both ways; every INV write refuses the wrong role |
+| B05 continued 2 | `B05c-inventory-control.md` | `b05c-inventory-control` | B4 to B12 | Every movement reversal, transfer and adjustment write refuses the wrong role; an adjustment at or above the threshold waits for a different person; a transfer balances received plus variance to dispatched (built; the session split, A-140) |
+| B05 continued 3 | `B05d-inventory-counts-holds.md` | `b05d-inventory-counts-holds` | B4 to B12 | A stock take posts its variances from blind counts, overlapping cycle counts are refused, a hold blocks a sale until released, an expired reservation is released, each write with a wrong-role refusal |
+| B05 continued 4 | `B05e-inventory-cold-chain-opening.md` | `b05e-inventory-cold-chain-opening` | B4 to B12 | The B5 gate in full: on-hand from movements matches a hand count of the seeded farm; stock cannot go negative outside allowed types; a lot traces both ways; every INV write refuses the wrong role |
 | B6 | `B06-livestock-processing.md` | `b06-livestock-processing` | B4 to B12 | A processing order produces lots whose costs sum exactly to input cost plus direct processing cost |
 | B7 | `B07-procurement-suppliers.md` | `b07-procurement-suppliers` | B4 to B12 | Three-way match blocks payment on disagreement; checkout reserves stock and releases it on timeout |
 | B8 | `B08-ledger-billing.md` | `b08-ledger-billing` | B4 to B12 | Trial balance sums to zero on a seeded day; an unbalanced journal is rejected by the database; numbering is gap-free under concurrent load |
@@ -535,6 +537,8 @@ docs/sessions/B05b-inventory-documents.md.
 
 ## B05 continued 2 — Transfers, adjustments, stock takes, holds, cold chain, alerts and opening stock
 
+**Built in part; the session split** (A-140, ADR-0026 Amendments): the movement reads and their reversal with approval, transfers through in-transit with receipt variance, and adjustments with approval at the threshold (migrations 0050 to 0053, 15 operations, contract 1.17.0). The rest is B05 continued 3 and B05 continued 4, below. The opener is kept as it was run.
+
 Branch `b05c-inventory-control`, from `b05b-inventory-documents` (stacked). Report `docs/sessions/B05c-inventory-control.md`. B05 continued built goods receipts (migration 0047: `inv.goods_receipt`, its lines and `inv.goods_receipt_animal`, frozen once posted; `GoodsReceipts.createIn` and `postIn` posting through `Stock.postIn`), stock on hand at cost with each line's exact share of its pool (`domain/valuation/pool-lines.ts`, under the 100 percent gate), `getStockUnit`, `traceStockUnit`, MDM's `MasterDataRefs`, `Authoriser.scopes` for narrowing lists to a reader's grants, the permissions `inv.stock.read` and `inv.goods_receipt.*` (A-135), contract 1.16.0, and the seed with stock (`src/seed/farm-inv.ts`, its hand count in `SEED_HAND_COUNT`). Gate: the B5 gate in full: on-hand derived from movements matches a hand count of the seeded farm, stock cannot go negative outside the allowed movement types, and a lot traces in both directions over the API, with every INV write refusing the wrong role.
 
 ```text
@@ -566,13 +570,81 @@ where these documents need it. Keep the valuation gate at 100 percent. Run the B
 it and write docs/sessions/B05c-inventory-control.md.
 ```
 
+## B05 continued 3 — Stock takes, holds, reservations and exceptions
+
+Branch `b05d-inventory-counts-holds`, from `b05c-inventory-control` (stacked). Report `docs/sessions/B05d-inventory-counts-holds.md`. B05 continued 2 built movements and their reversal (`StockMovements`, `inv.stock_reversal`, approval kind `STOCK_REVERSAL`), transfers (`StockTransfers`, through the branch's `IN_TRANSIT` location, a shortfall as `ADJUST_LOSS` with a `TRANSFER_VARIANCE` exception) and adjustments (`StockAdjustments`, approval kind `STOCK_WRITE_OFF`, the threshold copied onto the document from `Approvals.judgeIn`), with the shared command and view helpers in `application/stock-command.ts`, the line rules in `domain/stock-documents.ts`, `valueAtAverage` under the valuation gate, migrations 0050 to 0053 and contract 1.17.0 (A-139). Gate: a stock take posts a gain or loss per variance from blind counts and its variance value at or above the threshold waits for approval; a cycle count of an overlapping scope is refused; a hold blocks a sale until released by a named user with a reason, and a withdrawal hold cannot be released; an expired reservation is released by the job; every write refuses the wrong role.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B05c-inventory-control.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
+report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the INV requirement block of docs/SRS.md (nothing else from the SRS),
+docs/data-model/inv.md, the INV card in docs/MODULE_BOUNDARIES.md, ADR-0002, ADR-0005, ADR-0017,
+ADR-0018, ADR-0019, ADR-0027 (the stock exception part) and ADR-0047, A-131 to A-140 in
+docs/ASSUMPTIONS.md, migrations 0044 and 0051, and src/modules/inv/application/stock-adjustments.ts as the
+pattern for a document with approval. Use docs/prompts/module-build-prompt.md as the recipe, and run
+hakorem-security-review on stock-take variance posting, hold release and exception resolution.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B05 continued 3 only, on branch b05d-inventory-counts-holds, branched from b05c-inventory-control:
+stock takes (createStockTake through submitStockTake, listStockTakes, getStockTake, listStockTakeLines,
+cancelStockTake) with expected figures frozen at start and hidden from the counter, recounts, a variance
+report, STOCKTAKE_GAIN and STOCKTAKE_LOSS movements, and approval of a variance value at or above the
+threshold (STOCK_WRITE_OFF, maker and checker differ); cycle counts that refuse overlapping scopes; the
+hold service (listStockHolds, createStockHold for QUARANTINE and INVESTIGATION, releaseStockHold with a
+named user and a reason, a WITHDRAWAL hold never released early) and the in-process Holds interface LIV
+will call; the reservation service (listStockReservations, releaseStockReservation, the Reservations
+interface with serializable reserve) and the scheduled reservation expiry job publishing
+inv.ReservationExpired; the exception service (listStockExceptions, getStockException,
+resolveStockException posting any correction through the adjustment path); listStockAvailability and
+listStockUnits. Each write with a wrong-role refusal. Post every movement through Stock.postIn; never
+write a projection. Keep the valuation gate at 100 percent. Stop at the gate and write
+docs/sessions/B05d-inventory-counts-holds.md.
+```
+
+## B05 continued 4 — Cold chain, alerts, opening stock and the B5 gate
+
+Branch `b05e-inventory-cold-chain-opening`, from `b05d-inventory-counts-holds` (stacked). Report `docs/sessions/B05e-inventory-cold-chain-opening.md`. Gate: the B5 gate in full: on-hand derived from movements matches a hand count of the seeded farm, stock cannot go negative outside the allowed movement types, and a lot traces in both directions over the API, with every INV write refusing the wrong role.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B05d-inventory-counts-holds.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
+report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the INV requirement block of docs/SRS.md (nothing else from the SRS),
+docs/data-model/inv.md, the INV card in docs/MODULE_BOUNDARIES.md, ADR-0002, ADR-0005, ADR-0017,
+ADR-0018, ADR-0019, ADR-0046 and ADR-0047, A-128 and A-131 to the latest INV assumption in
+docs/ASSUMPTIONS.md, and migrations 0044 and 0047. Use docs/prompts/module-build-prompt.md as the
+recipe, and run hakorem-security-review on the opening stock import and temperature quarantine.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B05 continued 4 only, on branch b05e-inventory-cold-chain-opening, branched from
+b05d-inventory-counts-holds: temperature readings (listTemperatureReadings, recordTemperatureReading)
+with automatic quarantine of every lot in the location in the reading's transaction, a
+TEMPERATURE_EXCURSION exception and an event (a location's range is MDM's: read it through MDM's
+interface, and a database rule that needs it needs a new proposed ADR, since ADR-0047 is not widened
+silently); reorder rules (listReorderRules, createReorderRule, updateReorderRule) and listStockAlerts with
+one low-stock alert per crossing; expiry alerts by a daily job and the refusal to sell an expired lot
+(A-134 (j)); the scheduling of the nightly recompute (BalanceReconciliation); the OPENING_STOCK import
+sheet (A-128): the sheet is INV's, registered with MdmImports through a port MDM defines and INV
+implements (a new port needs an ADR), posting OPENING_BALANCE movements in the import's transaction;
+then decide whether a goods receipt of kind OPENING stays refused (A-136). Each write with a wrong-role
+refusal. Post every movement through Stock.postIn; never write a projection. Extend the seed through the
+services where these need it. Keep the valuation gate at 100 percent. Run the B5 gate in full, with a
+walk that every INV write operation refuses the wrong role, stop at it and write
+docs/sessions/B05e-inventory-cold-chain-opening.md.
+```
+
 ## B6 — Livestock and processing
 
 Branch `b06-livestock-processing`. Report `docs/sessions/B06-livestock-processing.md`. Gate: a processing order consumes an animal and produces lots whose costs sum exactly to the input cost plus the direct processing cost.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
-List docs/sessions/ and read only the most recent report (docs/sessions/B05c-inventory-control.md).
+List docs/sessions/ and read only the most recent report (docs/sessions/B05e-inventory-cold-chain-opening.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
 report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the LIV and PRC requirement blocks of docs/SRS.md (nothing else from the SRS),

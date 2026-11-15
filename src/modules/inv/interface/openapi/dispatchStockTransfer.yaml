@@ -1,0 +1,105 @@
+operationId: dispatchStockTransfer
+tags:
+  - inv
+summary: "Dispatch a transfer into transit"
+description: "Moves every line from the source into the source branch's in-transit location, which is still the farm's stock: it keeps its value and cannot be sold. A transfer within one branch changes no cost. Stock under a hold cannot be dispatched (`STOCK_UNIT_ON_HOLD`); a branch without an in-transit location is refused (`NO_IN_TRANSIT_LOCATION`). A transfer within one location tree and branch may be dispatched and received in one step by sending receive straight after.\n\nPermission: `inv.transfer.dispatch`, scoped to the source location."
+x-permission: inv.transfer.dispatch
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - NOT_FOUND
+  - INVALID_STATE_TRANSITION
+  - STOCK_TRANSFER_INVALID
+  - REFERENCE_NOT_FOUND
+  - INSUFFICIENT_STOCK
+  - STOCK_UNIT_NOT_AVAILABLE
+  - STOCK_UNIT_ON_HOLD
+  - STOCK_UNIT_RESERVED
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/StockTransfer"
+        example:
+          id: "019a7ab6-a4a5-7e68-b3a0-ef5928386837"
+          transferNo: TRF-2026-DDW-000010
+          status: DISPATCHED
+          from:
+            id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
+            code: STORE-1
+            name: "Feed and produce store"
+            kind: STORE
+          to:
+            id: "019a7a84-7f34-76a9-8be1-736ae249ec48"
+            code: SHOP
+            name: "Shop floor"
+            kind: SHOP_FLOOR
+          toBranch:
+            id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+            code: DDW
+            name: "HaKorem Farms, Dodowa"
+          lines:
+            - id: "019a7ab6-c394-784b-8d84-8d90a1e9066e"
+              lineNo: 1
+              product:
+                id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                sku: EGG-BIG
+                name: "Eggs, big, crate of 30"
+              stockUnit:
+                id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
+                identifier: EGG-261112-L1
+                tracking: LOT
+              uom: CRATE
+              qtyDispatched: "10.000"
+              qtyReceived: null
+              varianceQty: null
+              varianceReasonCode: null
+          dispatchedAt: "2026-11-13T06:01:00Z"
+          dispatchedBy:
+            id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+            displayName: "Yaw Boateng"
+          receivedAt: null
+          receivedBy: null
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 2
+          createdAt: "2026-11-13T06:01:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

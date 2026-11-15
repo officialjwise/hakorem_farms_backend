@@ -1,0 +1,307 @@
+operationId: listStockAdjustments
+tags:
+  - inv
+summary: "List stock adjustments"
+description: "Adjustments at the locations the reader's grants reach; `createdBy` narrows to one maker, for the adjustment-by-user review.\n\nPermission: `inv.adjustment.read`."
+x-permission: inv.adjustment.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: status
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: locationId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: reasonCode
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: createdBy
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/StockAdjustmentPage"
+        example:
+          data:
+            - id: "019a7ab7-d9fb-714b-9683-1d83e9229661"
+              adjustmentNo: ADJ-2026-DDW-000038
+              status: POSTED
+              location:
+                id: "019a7a84-7f34-76a9-8be1-736ae249ec48"
+                code: SHOP
+                name: "Shop floor"
+                kind: SHOP_FLOOR
+              reasonCode: COUNT_ERROR
+              note: null
+              totalValuePesewas: 12000
+              currency: GHS
+              approvalRequestId: null
+              exceptionId: null
+              lines:
+                - id: "019a7ab7-f8ea-7b2e-a066-bbbb62d33499"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8e-a5a0-754c-8a85-5d9ed05dd67c"
+                    sku: PRD-YAM
+                    name: "Yam, tuber"
+                  stockUnit: null
+                  direction: LOSS
+                  qty: "6.000"
+                  uom: TUBER
+                  weightKg: null
+                  valuePesewas: 12000
+                  movementId: "019a7ab8-17d9-7512-ba4a-59f2dc84d2d0"
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-12T08:00:00Z"
+              createdBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              postedAt: "2026-11-12T09:00:00Z"
+              postedBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+            - id: "019a7ab8-36c8-7ef5-842d-f82a56357108"
+              adjustmentNo: null
+              status: PENDING_APPROVAL
+              location:
+                id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+                code: COLD-1
+                name: "Cold room"
+                kind: COLD_ROOM
+              reasonCode: EXPIRED
+              note: "One pack past expiry found at the back of the cold room"
+              totalValuePesewas: 15000
+              currency: GHS
+              approvalRequestId: "019a7ab8-55b7-78d9-9e11-9661cfe60f3f"
+              exceptionId: null
+              lines:
+                - id: "019a7ab8-74a6-72bc-a7f4-34994997ad77"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8e-0af5-73db-b913-46896fe8bf67"
+                    sku: MEAT-CHK-WING
+                    name: "Chicken wings, 15 kg pack"
+                  stockUnit:
+                    id: "019a7a91-104c-7b12-804a-b9f4523132d2"
+                    identifier: MEAT-CHK-261106-02
+                    tracking: LOT
+                  direction: LOSS
+                  qty: "15.000"
+                  uom: KG
+                  weightKg: "15.000"
+                  valuePesewas: 15000
+                  movementId: null
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-12T08:01:00Z"
+              createdBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              postedAt: null
+              postedBy: null
+            - id: "019a7ab8-9395-7c9f-b1d8-d2d0c3484bae"
+              adjustmentNo: ADJ-2026-DDW-000040
+              status: POSTED
+              location:
+                id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
+                code: STORE-1
+                name: "Feed and produce store"
+                kind: STORE
+              reasonCode: BREAKAGE
+              note: null
+              totalValuePesewas: 8000
+              currency: GHS
+              approvalRequestId: null
+              exceptionId: null
+              lines:
+                - id: "019a7ab8-b284-7683-8bbb-71083cf9e9e6"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                    sku: EGG-BIG
+                    name: "Eggs, big, crate of 30"
+                  stockUnit:
+                    id: "019a7a91-2f3b-74f5-9a2d-582bcbe2d109"
+                    identifier: MEAT-BEEF-261104-01
+                    tracking: LOT
+                  direction: LOSS
+                  qty: "2.000"
+                  uom: CRATE
+                  weightKg: null
+                  valuePesewas: 8000
+                  movementId: "019a7ab8-d173-7066-959f-0f3fb6aa881d"
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-12T08:02:00Z"
+              createdBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              postedAt: "2026-11-12T09:02:00Z"
+              postedBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+            - id: "019a7ab8-f062-7a4a-af82-ad77305b2655"
+              adjustmentNo: ADJ-2026-DDW-000041
+              status: POSTED
+              location:
+                id: "019a7a84-7f34-76a9-8be1-736ae249ec48"
+                code: SHOP
+                name: "Shop floor"
+                kind: SHOP_FLOOR
+              reasonCode: COUNT_ERROR
+              note: null
+              totalValuePesewas: 3200
+              currency: GHS
+              approvalRequestId: null
+              exceptionId: null
+              lines:
+                - id: "019a7ab9-0f51-742d-b966-4baeaa0cc48c"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8e-c48f-7f30-9468-fbd64a0e74b4"
+                    sku: PRD-CABBAGE
+                    name: "Cabbage, head"
+                  stockUnit: null
+                  direction: GAIN
+                  qty: "4.000"
+                  uom: UNIT
+                  weightKg: null
+                  valuePesewas: 3200
+                  movementId: "019a7ab9-2e40-7e11-8349-e9e623bd62c4"
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-12T08:03:00Z"
+              createdBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              postedAt: "2026-11-12T09:03:00Z"
+              postedBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+            - id: "019a7ab3-04a3-75c0-9af8-64d8e57addb6"
+              adjustmentNo: ADJ-2026-DDW-000042
+              status: POSTED
+              location:
+                id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+                code: COLD-1
+                name: "Cold room"
+                kind: COLD_ROOM
+              reasonCode: DRIP_LOSS
+              note: null
+              totalValuePesewas: 971
+              currency: GHS
+              approvalRequestId: null
+              exceptionId: "019a7ab2-a7d6-7816-ad4e-8a3278670310"
+              lines:
+                - id: "019a7ab9-4d2f-77f4-9d2d-881d9d6e00fb"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
+                    sku: MEAT-GOAT
+                    name: "Goat meat, 15 kg pack"
+                  stockUnit:
+                    id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
+                    identifier: EGG-261112-L1
+                    tracking: LOT
+                  direction: LOSS
+                  qty: "0.400"
+                  uom: KG
+                  weightKg: "0.400"
+                  valuePesewas: 971
+                  movementId: "019a7ab9-6c1e-71d8-a710-2655171f9f32"
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-12T08:04:00Z"
+              createdBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              postedAt: "2026-11-12T09:04:00Z"
+              postedBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+            - id: "019a7ab9-8b0d-7bbb-b0f3-c48c90d03d6a"
+              adjustmentNo: null
+              status: DRAFT
+              location:
+                id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
+                code: STORE-1
+                name: "Feed and produce store"
+                kind: STORE
+              reasonCode: RODENT_DAMAGE
+              note: null
+              totalValuePesewas: 52000
+              currency: GHS
+              approvalRequestId: null
+              exceptionId: null
+              lines:
+                - id: "019a7ab9-a9fc-759f-8ad7-62c40a81dba1"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                    sku: FD-BRL-FIN
+                    name: "Broiler finisher feed, 50 kg bag"
+                  stockUnit: null
+                  direction: LOSS
+                  qty: "1.000"
+                  uom: BAG
+                  weightKg: null
+                  valuePesewas: 52000
+                  movementId: null
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-12T08:05:00Z"
+              createdBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              postedAt: null
+              postedBy: null
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

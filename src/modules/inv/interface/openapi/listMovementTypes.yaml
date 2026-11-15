@@ -1,0 +1,108 @@
+operationId: listMovementTypes
+tags:
+  - inv
+summary: "List stock movement types and their rules"
+description: "Every movement type and how it behaves: value only, allowed to go negative, blocked by a hold, needing a reason, needing a stock unit. Changed only by migration.\n\nPermission: `inv.stock.read`."
+x-permission: inv.stock.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/MovementTypePage"
+        example:
+          data:
+            - code: RECEIPT_PURCHASE
+              name: "Purchase receipt"
+              isValueOnly: false
+              allowsNegative: false
+              blockedByHold: false
+              requiresReason: false
+              requiresStockUnit: false
+            - code: SALE_ISSUE
+              name: Sale
+              isValueOnly: false
+              allowsNegative: false
+              blockedByHold: true
+              requiresReason: false
+              requiresStockUnit: false
+            - code: SALE_ISSUE_OFFLINE
+              name: "Sale made offline"
+              isValueOnly: false
+              allowsNegative: true
+              blockedByHold: true
+              requiresReason: false
+              requiresStockUnit: false
+            - code: MORTALITY
+              name: Death
+              isValueOnly: false
+              allowsNegative: false
+              blockedByHold: false
+              requiresReason: true
+              requiresStockUnit: true
+            - code: TRANSFER_INTERNAL
+              name: "Move within branch"
+              isValueOnly: false
+              allowsNegative: false
+              blockedByHold: false
+              requiresReason: false
+              requiresStockUnit: false
+            - code: PROCESS_CONSUME
+              name: "Consumed in processing"
+              isValueOnly: false
+              allowsNegative: false
+              blockedByHold: true
+              requiresReason: false
+              requiresStockUnit: true
+            - code: COST_CAPITALISE
+              name: "Cost added to stock"
+              isValueOnly: true
+              allowsNegative: false
+              blockedByHold: false
+              requiresReason: false
+              requiresStockUnit: true
+            - code: ADJUST_LOSS
+              name: "Adjustment, loss"
+              isValueOnly: false
+              allowsNegative: false
+              blockedByHold: false
+              requiresReason: true
+              requiresStockUnit: false
+          page:
+            nextCursor: null
+            limit: 25
+            hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

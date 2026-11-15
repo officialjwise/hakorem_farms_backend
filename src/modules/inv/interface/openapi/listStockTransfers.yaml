@@ -1,0 +1,327 @@
+operationId: listStockTransfers
+tags:
+  - inv
+summary: "List stock transfers"
+description: "Transfers whose source or destination the reader's grants reach.\n\nPermission: `inv.transfer.read`."
+x-permission: inv.transfer.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: status
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: fromLocationId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: toLocationId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/StockTransferPage"
+        example:
+          data:
+            - id: "019a7ab6-66c7-7aa1-9fd9-b2ea34d62bc8"
+              transferNo: TRF-2026-DDW-00009
+              status: RECEIVED
+              from:
+                id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+                code: COLD-1
+                name: "Cold room"
+                kind: COLD_ROOM
+              to:
+                id: "019a7a84-7f34-76a9-8be1-736ae249ec48"
+                code: SHOP
+                name: "Shop floor"
+                kind: SHOP_FLOOR
+              toBranch:
+                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                code: DDW
+                name: "HaKorem Farms, Dodowa"
+              lines:
+                - id: "019a7ab6-85b6-7485-a9bd-5121ae87c9ff"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
+                    sku: MEAT-GOAT
+                    name: "Goat meat, 15 kg pack"
+                  stockUnit:
+                    id: "019a7a90-f15d-712e-b666-1bbcd880949a"
+                    identifier: MEAT-GOAT-261109-01
+                    tracking: LOT
+                  uom: KG
+                  qtyDispatched: "30.150"
+                  qtyReceived: "29.750"
+                  varianceQty: "0.400"
+                  varianceReasonCode: DRIP_LOSS
+              dispatchedAt: "2026-11-13T06:00:00Z"
+              dispatchedBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              receivedAt: "2026-11-13T07:00:00Z"
+              receivedBy:
+                id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                displayName: "Adwoa Darko"
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-13T06:00:00Z"
+            - id: "019a7ab6-a4a5-7e68-b3a0-ef5928386837"
+              transferNo: TRF-2026-DDW-000010
+              status: DISPATCHED
+              from:
+                id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
+                code: STORE-1
+                name: "Feed and produce store"
+                kind: STORE
+              to:
+                id: "019a7a84-7f34-76a9-8be1-736ae249ec48"
+                code: SHOP
+                name: "Shop floor"
+                kind: SHOP_FLOOR
+              toBranch:
+                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                code: DDW
+                name: "HaKorem Farms, Dodowa"
+              lines:
+                - id: "019a7ab6-c394-784b-8d84-8d90a1e9066e"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                    sku: EGG-BIG
+                    name: "Eggs, big, crate of 30"
+                  stockUnit:
+                    id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
+                    identifier: EGG-261112-L1
+                    tracking: LOT
+                  uom: CRATE
+                  qtyDispatched: "10.000"
+                  qtyReceived: null
+                  varianceQty: null
+                  varianceReasonCode: null
+              dispatchedAt: "2026-11-13T06:01:00Z"
+              dispatchedBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              receivedAt: null
+              receivedBy: null
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-13T06:01:00Z"
+            - id: "019a7ab6-e283-722f-9767-2bc81b9aa4a6"
+              transferNo: TRF-2026-DDW-000011
+              status: RECEIVED
+              from:
+                id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+                code: COLD-1
+                name: "Cold room"
+                kind: COLD_ROOM
+              to:
+                id: "019a7a84-7f34-76a9-8be1-736ae249ec48"
+                code: SHOP
+                name: "Shop floor"
+                kind: SHOP_FLOOR
+              toBranch:
+                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                code: DDW
+                name: "HaKorem Farms, Dodowa"
+              lines:
+                - id: "019a7ab7-0172-7c12-a14b-c9ff954b42dd"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                    sku: MEAT-CHK-FULL
+                    name: "Full chicken, 15 kg pack"
+                  stockUnit:
+                    id: "019a7a91-104c-7b12-804a-b9f4523132d2"
+                    identifier: MEAT-CHK-261106-02
+                    tracking: LOT
+                  uom: KG
+                  qtyDispatched: "45.000"
+                  qtyReceived: "45.000"
+                  varianceQty: "0.000"
+                  varianceReasonCode: null
+              dispatchedAt: "2026-11-13T06:02:00Z"
+              dispatchedBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              receivedAt: "2026-11-13T07:02:00Z"
+              receivedBy:
+                id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                displayName: "Adwoa Darko"
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-13T06:02:00Z"
+            - id: "019a7ab7-2061-75f6-bb2e-68370efce114"
+              transferNo: TRF-2026-DDW-000012
+              status: RECEIVED
+              from:
+                id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+                code: PEN-G1
+                name: "Goat pen 1"
+                kind: PEN
+              to:
+                id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                code: PEN-G2
+                name: "Goat pen 2"
+                kind: PEN
+              toBranch:
+                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                code: DDW
+                name: "HaKorem Farms, Dodowa"
+              lines:
+                - id: "019a7ab7-3f50-7fd9-8512-066e88ad7f4c"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                    sku: LIV-GOAT
+                    name: Goat
+                  stockUnit:
+                    id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
+                    identifier: G-0142
+                    tracking: SERIAL
+                  uom: HEAD
+                  qtyDispatched: "1.000"
+                  qtyReceived: "1.000"
+                  varianceQty: "0.000"
+                  varianceReasonCode: null
+              dispatchedAt: "2026-11-13T06:03:00Z"
+              dispatchedBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              receivedAt: "2026-11-13T07:03:00Z"
+              receivedBy:
+                id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                displayName: "Adwoa Darko"
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-13T06:03:00Z"
+            - id: "019a7ab7-5e3f-79bd-9ef5-a4a6025e1d83"
+              transferNo: null
+              status: DRAFT
+              from:
+                id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
+                code: STORE-1
+                name: "Feed and produce store"
+                kind: STORE
+              to:
+                id: "019a7a84-7f34-76a9-8be1-736ae249ec48"
+                code: SHOP
+                name: "Shop floor"
+                kind: SHOP_FLOOR
+              toBranch:
+                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                code: DDW
+                name: "HaKorem Farms, Dodowa"
+              lines:
+                - id: "019a7ab7-7d2e-73a0-a8d9-42dd7c0fbbbb"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8e-86b1-7b69-b0a1-bf6756ac3845"
+                    sku: PRD-TOMATO
+                    name: "Tomatoes, crate"
+                  stockUnit:
+                    id: "019a7a91-8c08-72a0-87d8-32d238f5abb0"
+                    identifier: TOM-261111-COOP
+                    tracking: LOT
+                  uom: CRATE
+                  qtyDispatched: "4.000"
+                  qtyReceived: null
+                  varianceQty: null
+                  varianceReasonCode: null
+              dispatchedAt: null
+              dispatchedBy: null
+              receivedAt: null
+              receivedBy: null
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-13T06:04:00Z"
+            - id: "019a7ab7-9c1d-7d84-b2bc-e114f5c059f2"
+              transferNo: TRF-2026-DDW-000014
+              status: RECEIVED
+              from:
+                id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+                code: COLD-1
+                name: "Cold room"
+                kind: COLD_ROOM
+              to:
+                id: "019a7a84-9e23-708d-95c5-11a25bfa8a80"
+                code: VAN-GT4521
+                name: "Delivery van GT-4521-24"
+                kind: VEHICLE
+              toBranch:
+                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                code: DDW
+                name: "HaKorem Farms, Dodowa"
+              lines:
+                - id: "019a7ab7-bb0c-7767-8c9f-7f4c6f71f82a"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
+                    sku: MEAT-BEEF
+                    name: "Beef, 15 kg pack"
+                  stockUnit:
+                    id: "019a7a91-2f3b-74f5-9a2d-582bcbe2d109"
+                    identifier: MEAT-BEEF-261104-01
+                    tracking: LOT
+                  uom: KG
+                  qtyDispatched: "30.000"
+                  qtyReceived: "30.000"
+                  varianceQty: "0.000"
+                  varianceReasonCode: null
+              dispatchedAt: "2026-11-13T06:05:00Z"
+              dispatchedBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              receivedAt: "2026-11-13T07:05:00Z"
+              receivedBy:
+                id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                displayName: "Adwoa Darko"
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-13T06:05:00Z"
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

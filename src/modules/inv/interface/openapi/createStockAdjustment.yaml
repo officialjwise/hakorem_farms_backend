@@ -1,0 +1,99 @@
+operationId: createStockAdjustment
+tags:
+  - inv
+summary: "Draft a stock adjustment"
+description: "Drafts a gain or loss at a physical location with a reason from the fixed list for `STOCK_ADJUSTMENT` or `WASTAGE`, and a note when the reason needs one. Values come from the cost pool, never from the request: a loss at what the pool would give up, a gain at the pool's average. Animals are never adjusted: they leave by a sale, a death or a cull, each with its own controls. A typed weight is recorded as `MANUAL`. Refusals are `STOCK_ADJUSTMENT_INVALID` with the rule in `details[].code`: `REASON_NOT_ALLOWED`, `NOTE_REQUIRED`, `NOT_A_STOCK_LOCATION`, `EXCEPTION_NOT_OPEN`, `ANIMAL_NOT_ADJUSTED`, `NO_LINES`, `LINE_REPEATED`, `STOCK_UNIT_REQUIRED`, `PRODUCT_NOT_TRACKED`, `PRODUCT_NOT_STOCKED`, `PRODUCT_NOT_ACTIVE`, `NOT_FOR_THIS_PRODUCT`, `STOCK_UNIT_NOT_ACTIVE`, `NOT_IN_THIS_BRANCH`.\n\nPermission: `inv.adjustment.create`, scoped to the location."
+x-permission: inv.adjustment.create
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - STOCK_ADJUSTMENT_INVALID
+  - REFERENCE_NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/StockAdjustmentCreate"
+      example:
+        locationId: "019a7a84-6045-7cc6-b1fe-d53368984e11"
+        reasonCode: RODENT_DAMAGE
+        note: "Bag chewed open overnight, contents spoiled"
+        lines:
+          - productId: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+            direction: LOSS
+            qty: "1.000"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/StockAdjustment"
+        example:
+          id: "019a7ab9-8b0d-7bbb-b0f3-c48c90d03d6a"
+          adjustmentNo: null
+          status: DRAFT
+          location:
+            id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
+            code: STORE-1
+            name: "Feed and produce store"
+            kind: STORE
+          reasonCode: RODENT_DAMAGE
+          note: null
+          totalValuePesewas: 52000
+          currency: GHS
+          approvalRequestId: null
+          exceptionId: null
+          lines:
+            - id: "019a7ab9-a9fc-759f-8ad7-62c40a81dba1"
+              lineNo: 1
+              product:
+                id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                sku: FD-BRL-FIN
+                name: "Broiler finisher feed, 50 kg bag"
+              stockUnit: null
+              direction: LOSS
+              qty: "1.000"
+              uom: BAG
+              weightKg: null
+              valuePesewas: 52000
+              movementId: null
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 2
+          createdAt: "2026-11-12T08:05:00Z"
+          createdBy:
+            id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+            displayName: "Yaw Boateng"
+          postedAt: null
+          postedBy: null
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

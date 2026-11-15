@@ -9,7 +9,7 @@ import { consoleGet, consolePost, createUser, enrolAndLogin, relaxRateLimits, te
 import { startTestApp, TEST_ORIGIN, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
 
-/** The B05 continued operations answer in the shapes of contract/openapi.yaml 1.16.0, over the seeded farm. */
+/** The B05 continued and B05 continued 2 operations answer in the shapes of contract/openapi.yaml 1.17.0, over the seeded farm. */
 let database: TestDatabase;
 let api: TestApp;
 let manager: TestSession;
@@ -93,5 +93,65 @@ describe('inventory operations answer in the contract shapes', () => {
     const missing = await get(`/stock-units/${randomUUID()}`);
     expect(missing.status).toBe(404);
     expectShape('Error', missing.body);
+  });
+
+  it('movements, a reversal, a transfer and an adjustment through their lives, and their refusals', async () => {
+    expectShape('MovementTypePage', (await get('/stock/movement-types?limit=5')).body);
+    const movements = await get('/stock/movements?limit=3');
+    expectShape('StockMovementPage', movements.body);
+    expectShape('StockMovementPage', (await get(`/stock-units/${id('unit:G-0142')}/movements`)).body);
+    expectShape('StockMovement', (await get(`/stock/movements/${movements.body.data[0].id as string}`)).body);
+
+    const transfer = await post('/stock-transfers', {
+      fromLocationId: id('location:COLD'),
+      toLocationId: id('location:SHOP'),
+      lines: [{ productId: id('product:MEAT-GOAT-15KG'), stockUnitId: id('unit:LOT-GOAT-0001'), qty: '5.000' }],
+    });
+    expect(transfer.status).toBe(201);
+    expectShape('StockTransfer', transfer.body);
+    expectShape('StockTransfer', (await post(`/stock-transfers/${transfer.body.id as string}/dispatch`)).body);
+    const received = await post(`/stock-transfers/${transfer.body.id as string}/receive`, { lines: [{ lineId: transfer.body.lines[0].id, qtyReceived: '4.900', varianceReasonCode: 'DAMAGED' }] });
+    expect(received.status).toBe(200);
+    expectShape('StockTransfer', received.body);
+    expectShape('StockTransfer', (await get(`/stock-transfers/${transfer.body.id as string}`)).body);
+    expectShape('StockTransferPage', (await get('/stock-transfers?status=RECEIVED')).body);
+    const unbalanced = await post(`/stock-transfers/${transfer.body.id as string}/receive`, { lines: [] });
+    expect(unbalanced.status).toBe(422);
+    expectShape('Error', unbalanced.body);
+    const draft = await post('/stock-transfers', { fromLocationId: id('location:COLD'), toLocationId: id('location:SHOP'), lines: [{ productId: id('product:MEAT-GOAT-15KG'), stockUnitId: id('unit:LOT-GOAT-0001'), qty: '1.000' }] });
+    expectShape('StockTransfer', (await post(`/stock-transfers/${draft.body.id as string}/cancel`, { reason: 'Van not available' })).body);
+
+    const small = await post('/stock-adjustments', {
+      locationId: id('location:SHOP'),
+      reasonCode: 'DAMAGED',
+      note: 'Two tubers crushed',
+      lines: [{ productId: id('product:PRD-YAM-TUBER'), direction: 'LOSS', qty: '2.000' }],
+    });
+    expect(small.status).toBe(201);
+    expectShape('StockAdjustment', small.body);
+    const posted = await post(`/stock-adjustments/${small.body.id as string}/submit`);
+    expect(posted.status).toBe(200);
+    expectShape('StockAdjustment', posted.body);
+    const large = await post('/stock-adjustments', {
+      locationId: id('location:COLD'),
+      reasonCode: 'COLD_CHAIN_FAILURE',
+      note: 'Freezer failed overnight',
+      lines: [{ productId: id('product:MEAT-BEEF-15KG'), stockUnitId: id('unit:LOT-BEEF-2026-1110'), direction: 'LOSS', qty: '10.000', weightKg: '10.000' }],
+    });
+    const pending = await post(`/stock-adjustments/${large.body.id as string}/submit`);
+    expect(pending.status).toBe(202);
+    expectShape('ApprovalPending', pending.body);
+    expectShape('StockAdjustment', (await get(`/stock-adjustments/${large.body.id as string}`)).body);
+    expectShape('StockAdjustmentPage', (await get('/stock-adjustments')).body);
+    const invalid = await post('/stock-adjustments', { locationId: id('location:SHOP'), reasonCode: 'REGULAR_CUSTOMER', lines: [] });
+    expect(invalid.status).toBe(422);
+    expectShape('Error', invalid.body);
+
+    const reversed = await post(`/stock/movements/${posted.body.lines[0].movementId as string}/reverse`, { reasonCode: 'COUNT_ERROR', note: 'The tubers were fine' });
+    expect(reversed.status).toBe(201);
+    expectShape('StockMovement', reversed.body);
+    const twice = await post(`/stock/movements/${posted.body.lines[0].movementId as string}/reverse`, { reasonCode: 'COUNT_ERROR', note: 'Again' });
+    expect(twice.status).toBe(422);
+    expectShape('Error', twice.body);
   });
 });
