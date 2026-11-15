@@ -8,6 +8,15 @@ Version numbers follow semantic versioning: a major bump breaks an existing clie
 
 - **CR-002 (frontend, raised 2026-11-13): weights as decimal strings, never JSON numbers.** Already satisfied by 1.0.0 and 1.1.0, so no version change. `components.schemas.Kilograms` is `type: string` with the pattern `^(0|[1-9][0-9]{0,6})\.[0-9]{3}$` (exactly three decimal places), and its description says it is never a JSON number. The request was raised against a copy taken before re-syncing; re-run `./scripts/sync-contract.sh`. The owner closed it on 2026-11-13: do not reopen it.
 
+## 1.15.0 (2026-11-15, B04e continued 5)
+
+**Additive.** No schema, field, parameter, enumeration value or error code was added, removed, renamed or retyped, and nothing a client sends was made required. A client generated from 1.14.x compiles unchanged. The frontend track is paused, so nothing reviewed this entry; read it before resuming.
+
+The same seven operations answer for more of the values their `entity` enumeration already listed (FR-MDM-019, FR-MDM-020, A-130):
+
+- **`createImportJob`, `applyImportJob` and `createExportJob` now take `PRODUCT`, `SUPPLIER`, `LOCATION` and `PRICE_LIST_ENTRY`**, where 1.14.0 answered 422 `IMPORT_ENTITY_NOT_AVAILABLE`. Only `OPENING_STOCK` still answers it, until B5.
+- **Descriptions** state each sheet's columns and rules: what names a record (`sku`, `supplierNo`, `branch` with `code`, and `priceList` with `sku`, `grade`, `weightBand` and `minQty`), what never changes by import, prices as integer pesewas, price list entries written into the list's `DRAFT` version only, the entity permissions applying and exporting need, and the branch scope of location and price list entry imports (403 when the file writes a branch the user holds no grant at).
+
 ## 1.14.0 (2026-11-15, B04e continued 4)
 
 **Additive.** No schema, field, parameter or request was removed, renamed or retyped, and nothing a client sends was made required. Two properties were added to a response schema and made required there, which breaks nothing a client sends (ADR-0038); one enumeration value was added. A client generated from 1.13.x compiles unchanged. The frontend track is paused, so nothing reviewed this entry; read it before resuming.

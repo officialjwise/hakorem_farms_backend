@@ -1,7 +1,7 @@
 import { createUuidV7Generator, type Clock } from '@hakorem/kernel';
 import type { AuditTrail } from '../../../platform/audit/audit-trail';
 import type { Actor } from '../../../platform/context/request-context';
-import { sqlStateOf, type UnitOfWork } from '../../../platform/database/unit-of-work';
+import { sqlStateOf, type Transaction, type UnitOfWork } from '../../../platform/database/unit-of-work';
 import { InvalidStateTransitionError, NotFoundError, VersionConflictError } from '../../../platform/errors/api-error';
 import { translate } from '../../../platform/i18n/messages';
 import type { DomainEvents } from '../../../platform/events/domain-events';
@@ -9,7 +9,7 @@ import type { Cursors } from '../../../platform/http/cursor';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
 import type { Authoriser } from '../../iam';
 import { canChangeProductStatus, planReferencedArchive } from '../domain/catalogue';
-import { defineProduct, type OnlineMode, type ProductDraft, type ProductStatus } from '../domain/product';
+import { defineProduct, type FieldRule, type OnlineMode, type ProductDraft, type ProductStatus } from '../domain/product';
 import type { ProductArchived, ProductChanged, ProductCreated } from '../events';
 import { DuplicateValueError, RecordInUseError, ReferenceNotFoundError, StockPolicyConflictError } from './errors';
 import type { ProductListFilter, ProductStore, ProductView, UniqueProductField } from './product-store';
@@ -38,6 +38,36 @@ export interface ProductChange {
 }
 
 const orUndefined = <T>(value: T | null): T | undefined => (value === null ? undefined : value);
+
+/** A change merged onto a product, as updateProduct checks it: the policy, units and species never change. */
+function mergedDraft(before: ProductView, change: ProductChange): ProductDraft {
+  return {
+    sku: before.sku,
+    name: change.name ?? before.name,
+    categoryId: change.categoryId ?? before.category.id,
+    stockPolicy: before.stockPolicy,
+    speciesId: before.species?.id,
+    baseUom: before.baseUom,
+    saleUom: before.saleUom,
+    nominalPackKg: change.nominalPackKg ?? orUndefined(before.nominalPackKg),
+    weightTolerancePercent: change.weightTolerancePercent ?? before.weightTolerancePercent,
+    // The tax category stays as it is unless the change names one: moving category never retaxes silently.
+    taxCategoryId: change.taxCategoryId ?? before.taxCategory.id,
+    shelfLifeDays: change.shelfLifeDays ?? orUndefined(before.shelfLifeDays),
+    storageTempClass: orUndefined(before.storageTempClass),
+    withdrawalDays: orUndefined(before.withdrawalDays),
+    barcode: change.barcode ?? orUndefined(before.barcode),
+    description: change.description ?? orUndefined(before.description),
+    onlineMode: change.onlineMode ?? before.onlineMode,
+    seo: {
+      slug: change.seo?.slug ?? orUndefined(before.seo.slug),
+      title: change.seo?.title ?? orUndefined(before.seo.title),
+      description: change.seo?.description ?? orUndefined(before.seo.description),
+    },
+    isPurchasable: change.isPurchasable ?? before.isPurchasable,
+    isSellable: change.isSellable ?? before.isSellable,
+  };
+}
 
 const FIELD_POINTER: Readonly<Record<UniqueProductField, string>> = { sku: '/sku', barcode: '/barcode', seoSlug: '/seo/slug' };
 /** Unique indexes of migration 0009, for a race that reaches the database before the check sees it. */
@@ -81,30 +111,7 @@ export class ProductCatalogue {
         if (claim.kind === 'REPLAY') {
           return claim.response as StoredResponse<ProductView>;
         }
-        const defined = defineProduct(draft, await this.store.references(tx, draft));
-        if (!defined.ok) {
-          throw defined.error.code === 'REFERENCE_NOT_FOUND' ? new ReferenceNotFoundError(defined.error.fields) : new StockPolicyConflictError(defined.error.fields);
-        }
-        const taken = await this.store.takenValues(tx, defined.value);
-        if (taken.length > 0) {
-          throw new DuplicateValueError(taken.map((field) => FIELD_POINTER[field]));
-        }
-        const id = this.nextId();
-        const now = this.clock.now();
-        await this.store.insert(tx, id, defined.value, actor!.principalId, now);
-        const view = (await this.store.view(tx, id))!;
-        await this.audit.record(tx, { module: 'mdm', action: 'CREATE', entityType: 'Product', entityId: id, before: null, after: { ...view } });
-        const payload: ProductCreated = {
-          productId: id,
-          sku: view.sku,
-          name: view.name,
-          categoryId: view.category.id,
-          stockPolicy: view.stockPolicy,
-          tracking: view.tracking,
-          onlineMode: view.onlineMode,
-          status: view.status,
-        };
-        await this.events.publish(tx, { type: 'mdm.ProductCreated', subjectType: 'Product', subjectId: id, payload });
+        const view = await this.createIn(tx, actor!, draft);
         const response = { status: 201, body: view };
         await this.idempotency.complete(tx, claim.id, response);
         return response;
@@ -132,77 +139,7 @@ export class ProductCatalogue {
         if (claim.kind === 'REPLAY') {
           return claim.response as StoredResponse<ProductView>;
         }
-        if (!(await this.store.lock(tx, id))) {
-          throw new NotFoundError('no such product');
-        }
-        const before = (await this.store.view(tx, id))!;
-        if (before.version !== change.version) {
-          throw new VersionConflictError(`product ${id} is at version ${before.version}, not ${change.version}`);
-        }
-        const status = change.status ?? before.status;
-        if (!canChangeProductStatus(before.status, status)) {
-          throw new InvalidStateTransitionError(`product ${id} cannot go from ${before.status} to ${status}`, [
-            { field: '/status', code: before.status, message: translate('error.invalid_state_transition') },
-          ]);
-        }
-        const draft: ProductDraft = {
-          sku: before.sku,
-          name: change.name ?? before.name,
-          categoryId: change.categoryId ?? before.category.id,
-          stockPolicy: before.stockPolicy,
-          speciesId: before.species?.id,
-          baseUom: before.baseUom,
-          saleUom: before.saleUom,
-          nominalPackKg: change.nominalPackKg ?? orUndefined(before.nominalPackKg),
-          weightTolerancePercent: change.weightTolerancePercent ?? before.weightTolerancePercent,
-          // The tax category stays as it is unless the change names one: moving category never retaxes silently.
-          taxCategoryId: change.taxCategoryId ?? before.taxCategory.id,
-          shelfLifeDays: change.shelfLifeDays ?? orUndefined(before.shelfLifeDays),
-          storageTempClass: orUndefined(before.storageTempClass),
-          withdrawalDays: orUndefined(before.withdrawalDays),
-          barcode: change.barcode ?? orUndefined(before.barcode),
-          description: change.description ?? orUndefined(before.description),
-          onlineMode: change.onlineMode ?? before.onlineMode,
-          seo: {
-            slug: change.seo?.slug ?? orUndefined(before.seo.slug),
-            title: change.seo?.title ?? orUndefined(before.seo.title),
-            description: change.seo?.description ?? orUndefined(before.seo.description),
-          },
-          isPurchasable: change.isPurchasable ?? before.isPurchasable,
-          isSellable: change.isSellable ?? before.isSellable,
-        };
-        const defined = defineProduct(draft, await this.store.references(tx, draft));
-        if (!defined.ok) {
-          throw defined.error.code === 'REFERENCE_NOT_FOUND' ? new ReferenceNotFoundError(defined.error.fields) : new StockPolicyConflictError(defined.error.fields);
-        }
-        if (defined.value.tracking !== before.tracking) {
-          throw new StockPolicyConflictError([{ field: '/shelfLifeDays', rule: 'TRACKING_FIXED' }]);
-        }
-        const definition = { ...defined.value, status };
-        const taken = await this.store.takenValues(tx, definition, id);
-        if (taken.length > 0) {
-          throw new DuplicateValueError(taken.map((field) => FIELD_POINTER[field]));
-        }
-        if (!(await this.store.update(tx, id, before.version, definition, actor!.principalId, this.clock.now()))) {
-          throw new VersionConflictError(`product ${id} changed while it was updated`);
-        }
-        const view = (await this.store.view(tx, id))!;
-        const changedFields = (Object.keys(view) as Array<keyof ProductView>).filter(
-          (field) => !['version', 'updatedAt'].includes(field) && JSON.stringify(view[field]) !== JSON.stringify(before[field]),
-        );
-        await this.audit.record(tx, { module: 'mdm', action: 'UPDATE', entityType: 'Product', entityId: id, before: { ...before }, after: { ...view } });
-        const payload: ProductChanged = {
-          productId: id,
-          sku: view.sku,
-          name: view.name,
-          categoryId: view.category.id,
-          onlineMode: view.onlineMode,
-          status: view.status,
-          isSellable: view.isSellable,
-          changedFields,
-          version: view.version,
-        };
-        await this.events.publish(tx, { type: 'mdm.ProductChanged', subjectType: 'Product', subjectId: id, payload });
+        const view = await this.updateIn(tx, actor!, id, change);
         const response = { status: 200, body: view };
         await this.idempotency.complete(tx, claim.id, response);
         return response;
@@ -214,6 +151,108 @@ export class ProductCatalogue {
       }
       throw error;
     }
+  }
+
+  /**
+   * Creates a product in the caller's transaction, every rule of createProduct applied, audited and published. The
+   * caller has authorised `mdm.product.create`: createProduct, or an import being applied (FR-MDM-019).
+   */
+  async createIn(tx: Transaction, actor: Actor, draft: ProductDraft): Promise<ProductView> {
+    const defined = defineProduct(draft, await this.store.references(tx, draft));
+    if (!defined.ok) {
+      throw defined.error.code === 'REFERENCE_NOT_FOUND' ? new ReferenceNotFoundError(defined.error.fields) : new StockPolicyConflictError(defined.error.fields);
+    }
+    const taken = await this.store.takenValues(tx, defined.value);
+    if (taken.length > 0) {
+      throw new DuplicateValueError(taken.map((field) => FIELD_POINTER[field]));
+    }
+    const id = this.nextId();
+    const now = this.clock.now();
+    await this.store.insert(tx, id, defined.value, actor.principalId, now);
+    const view = (await this.store.view(tx, id))!;
+    await this.audit.record(tx, { module: 'mdm', action: 'CREATE', entityType: 'Product', entityId: id, before: null, after: { ...view } });
+    const payload: ProductCreated = {
+      productId: id,
+      sku: view.sku,
+      name: view.name,
+      categoryId: view.category.id,
+      stockPolicy: view.stockPolicy,
+      tracking: view.tracking,
+      onlineMode: view.onlineMode,
+      status: view.status,
+    };
+    await this.events.publish(tx, { type: 'mdm.ProductCreated', subjectType: 'Product', subjectId: id, payload });
+    return view;
+  }
+
+  /** Every rule a new product would break, without writing anything: what an import's dry run reports (FR-MDM-019). */
+  async createRules(tx: Transaction, draft: ProductDraft): Promise<FieldRule[]> {
+    const defined = defineProduct(draft, await this.store.references(tx, draft));
+    if (!defined.ok) return [...defined.error.fields];
+    return (await this.store.takenValues(tx, defined.value)).map((field) => ({ field: FIELD_POINTER[field], rule: 'DUPLICATE_VALUE' }));
+  }
+
+  /**
+   * Changes a product in the caller's transaction, every rule of updateProduct applied, audited and published. The
+   * caller has authorised `mdm.product.update`: updateProduct, or an import being applied (FR-MDM-019).
+   */
+  async updateIn(tx: Transaction, actor: Actor, id: string, change: ProductChange): Promise<ProductView> {
+    if (!(await this.store.lock(tx, id))) {
+      throw new NotFoundError('no such product');
+    }
+    const before = (await this.store.view(tx, id))!;
+    if (before.version !== change.version) {
+      throw new VersionConflictError(`product ${id} is at version ${before.version}, not ${change.version}`);
+    }
+    const status = change.status ?? before.status;
+    if (!canChangeProductStatus(before.status, status)) {
+      throw new InvalidStateTransitionError(`product ${id} cannot go from ${before.status} to ${status}`, [
+        { field: '/status', code: before.status, message: translate('error.invalid_state_transition') },
+      ]);
+    }
+    const draft = mergedDraft(before, change);
+    const defined = defineProduct(draft, await this.store.references(tx, draft));
+    if (!defined.ok) {
+      throw defined.error.code === 'REFERENCE_NOT_FOUND' ? new ReferenceNotFoundError(defined.error.fields) : new StockPolicyConflictError(defined.error.fields);
+    }
+    if (defined.value.tracking !== before.tracking) {
+      throw new StockPolicyConflictError([{ field: '/shelfLifeDays', rule: 'TRACKING_FIXED' }]);
+    }
+    const definition = { ...defined.value, status };
+    const taken = await this.store.takenValues(tx, definition, id);
+    if (taken.length > 0) {
+      throw new DuplicateValueError(taken.map((field) => FIELD_POINTER[field]));
+    }
+    if (!(await this.store.update(tx, id, before.version, definition, actor.principalId, this.clock.now()))) {
+      throw new VersionConflictError(`product ${id} changed while it was updated`);
+    }
+    const view = (await this.store.view(tx, id))!;
+    const changedFields = (Object.keys(view) as Array<keyof ProductView>).filter(
+      (field) => !['version', 'updatedAt'].includes(field) && JSON.stringify(view[field]) !== JSON.stringify(before[field]),
+    );
+    await this.audit.record(tx, { module: 'mdm', action: 'UPDATE', entityType: 'Product', entityId: id, before: { ...before }, after: { ...view } });
+    const payload: ProductChanged = {
+      productId: id,
+      sku: view.sku,
+      name: view.name,
+      categoryId: view.category.id,
+      onlineMode: view.onlineMode,
+      status: view.status,
+      isSellable: view.isSellable,
+      changedFields,
+      version: view.version,
+    };
+    await this.events.publish(tx, { type: 'mdm.ProductChanged', subjectType: 'Product', subjectId: id, payload });
+    return view;
+  }
+
+  /** Every rule a change to a live product would break, without writing anything (FR-MDM-019). */
+  async updateRules(tx: Transaction, before: ProductView, change: Omit<ProductChange, 'version' | 'status'>): Promise<FieldRule[]> {
+    const draft = mergedDraft(before, { ...change, version: before.version });
+    const defined = defineProduct(draft, await this.store.references(tx, draft));
+    if (!defined.ok) return [...defined.error.fields];
+    if (defined.value.tracking !== before.tracking) return [{ field: '/shelfLifeDays', rule: 'TRACKING_FIXED' }];
+    return (await this.store.takenValues(tx, defined.value, before.id)).map((field) => ({ field: FIELD_POINTER[field], rule: 'DUPLICATE_VALUE' }));
   }
 
   /**

@@ -184,44 +184,51 @@ export class LocationsAdmin {
       'createLocation',
       body,
       idempotencyKey,
-      async (tx) => {
-        const branch = await this.store.branch(tx, body.branchId);
-        if (branch === null) throw referencesNotFound(['/branchId']);
-        let parent: { sameBranch: boolean; isVirtual: boolean } | null = null;
-        if (body.parentId !== undefined) {
-          const found = await this.store.location(tx, body.parentId);
-          if (found === null || (await this.store.lockLocation(tx, body.parentId))?.archived === true) throw referencesNotFound(['/parentId']);
-          parent = { sameBranch: found.branch.id === body.branchId, isVirtual: found.isVirtual };
-        }
-        const plan = planLocation({ kind: body.kind, parent, tempClass: body.tempClass, tempMinC: body.tempMinC, tempMaxC: body.tempMaxC });
-        if (!plan.ok) throw new LocationInvalidError(plan.error);
-        if (await this.store.locationCodeTaken(tx, body.branchId, body.code)) throw new DuplicateRecordError(['/code']);
-        const id = this.nextId();
-        await this.store.insertLocation(
-          tx,
-          id,
-          {
-            branchId: body.branchId,
-            parentId: body.parentId ?? null,
-            code: body.code,
-            name: body.name,
-            kind: body.kind,
-            isVirtual: false,
-            isSellable: body.isSellable ?? false,
-            allowsNegative: body.allowsNegative ?? false,
-            tempClass: plan.value.tempClass,
-            tempMinC: body.tempMinC ?? null,
-            tempMaxC: body.tempMaxC ?? null,
-            capacityHead: body.capacityHead ?? null,
-          },
-          actor!.principalId,
-        );
-        const view = (await this.store.location(tx, id))!;
-        await this.audit.record(tx, { module: 'mdm', action: 'CREATE', entityType: 'Location', entityId: id, branchId: body.branchId, before: null, after: { ...view } });
-        return { status: 201, body: view };
-      },
+      async (tx) => ({ status: 201, body: await this.createLocationIn(tx, actor!, body) }),
       (tx) => this.branchScope(tx, body.branchId),
     );
+  }
+
+  /**
+   * Creates a physical location in the caller's transaction, every rule of createLocation applied and audited. The
+   * caller has authorised `mdm.location.create` for the location's branch: createLocation, or an import being
+   * applied (FR-MDM-019).
+   */
+  async createLocationIn(tx: Transaction, actor: Actor, body: LocationCreateRequest): Promise<LocationView> {
+    const branch = await this.store.branch(tx, body.branchId);
+    if (branch === null) throw referencesNotFound(['/branchId']);
+    let parent: { sameBranch: boolean; isVirtual: boolean } | null = null;
+    if (body.parentId !== undefined) {
+      const found = await this.store.location(tx, body.parentId);
+      if (found === null || (await this.store.lockLocation(tx, body.parentId))?.archived === true) throw referencesNotFound(['/parentId']);
+      parent = { sameBranch: found.branch.id === body.branchId, isVirtual: found.isVirtual };
+    }
+    const plan = planLocation({ kind: body.kind, parent, tempClass: body.tempClass, tempMinC: body.tempMinC, tempMaxC: body.tempMaxC });
+    if (!plan.ok) throw new LocationInvalidError(plan.error);
+    if (await this.store.locationCodeTaken(tx, body.branchId, body.code)) throw new DuplicateRecordError(['/code']);
+    const id = this.nextId();
+    await this.store.insertLocation(
+      tx,
+      id,
+      {
+        branchId: body.branchId,
+        parentId: body.parentId ?? null,
+        code: body.code,
+        name: body.name,
+        kind: body.kind,
+        isVirtual: false,
+        isSellable: body.isSellable ?? false,
+        allowsNegative: body.allowsNegative ?? false,
+        tempClass: plan.value.tempClass,
+        tempMinC: body.tempMinC ?? null,
+        tempMaxC: body.tempMaxC ?? null,
+        capacityHead: body.capacityHead ?? null,
+      },
+      actor.principalId,
+    );
+    const view = (await this.store.location(tx, id))!;
+    await this.audit.record(tx, { module: 'mdm', action: 'CREATE', entityType: 'Location', entityId: id, branchId: body.branchId, before: null, after: { ...view } });
+    return view;
   }
 
   updateLocation(actor: Actor | undefined, id: string, body: LocationUpdateRequest, idempotencyKey: string): Promise<StoredResponse<LocationView>> {
@@ -231,33 +238,40 @@ export class LocationsAdmin {
       'updateLocation',
       { id, ...body },
       idempotencyKey,
-      async (tx) => {
-        const before = await this.lockedLive(tx, id, body.version);
-        let parent: { sameBranch: boolean; isVirtual: boolean; isSelfOrBelow: boolean } | undefined;
-        if (body.parentId !== undefined) {
-          const found = await this.store.location(tx, body.parentId);
-          if (found === null || (await this.store.lockLocation(tx, body.parentId))?.archived === true) throw referencesNotFound(['/parentId']);
-          parent = { sameBranch: found.branch.id === before.branch.id, isVirtual: found.isVirtual, isSelfOrBelow: await this.store.isSelfOrBelow(tx, id, body.parentId) };
-        }
-        const plan = planLocationChange(before, { parent, tempMinC: body.tempMinC, tempMaxC: body.tempMaxC });
-        if (!plan.ok) throw new LocationInvalidError(plan.error);
-        const set = sentColumns({
-          name: body.name,
-          parent_id: body.parentId,
-          is_sellable: body.isSellable,
-          temp_min_c: body.tempMinC,
-          temp_max_c: body.tempMaxC,
-          capacity_head: body.capacityHead,
-        });
-        if (Object.keys(set).length > 0 && !(await this.store.updateLocation(tx, id, body.version, set, actor!.principalId))) {
-          throw new VersionConflictError(`location ${id} changed while it was updated`);
-        }
-        const view = (await this.store.location(tx, id))!;
-        await this.audit.record(tx, { module: 'mdm', action: 'UPDATE', entityType: 'Location', entityId: id, branchId: view.branch.id, before: { ...before }, after: { ...view } });
-        return { status: 200, body: view };
-      },
+      async (tx) => ({ status: 200, body: await this.updateLocationIn(tx, actor!, id, body) }),
       (tx) => this.scopeOf(tx, id),
     );
+  }
+
+  /**
+   * Changes a physical location in the caller's transaction, every rule of updateLocation applied and audited. The
+   * caller has authorised `mdm.location.update` for the location's branch: updateLocation, or an import being
+   * applied (FR-MDM-019).
+   */
+  async updateLocationIn(tx: Transaction, actor: Actor, id: string, body: LocationUpdateRequest): Promise<LocationView> {
+    const before = await this.lockedLive(tx, id, body.version);
+    let parent: { sameBranch: boolean; isVirtual: boolean; isSelfOrBelow: boolean } | undefined;
+    if (body.parentId !== undefined) {
+      const found = await this.store.location(tx, body.parentId);
+      if (found === null || (await this.store.lockLocation(tx, body.parentId))?.archived === true) throw referencesNotFound(['/parentId']);
+      parent = { sameBranch: found.branch.id === before.branch.id, isVirtual: found.isVirtual, isSelfOrBelow: await this.store.isSelfOrBelow(tx, id, body.parentId) };
+    }
+    const plan = planLocationChange(before, { parent, tempMinC: body.tempMinC, tempMaxC: body.tempMaxC });
+    if (!plan.ok) throw new LocationInvalidError(plan.error);
+    const set = sentColumns({
+      name: body.name,
+      parent_id: body.parentId,
+      is_sellable: body.isSellable,
+      temp_min_c: body.tempMinC,
+      temp_max_c: body.tempMaxC,
+      capacity_head: body.capacityHead,
+    });
+    if (Object.keys(set).length > 0 && !(await this.store.updateLocation(tx, id, body.version, set, actor.principalId))) {
+      throw new VersionConflictError(`location ${id} changed while it was updated`);
+    }
+    const view = (await this.store.location(tx, id))!;
+    await this.audit.record(tx, { module: 'mdm', action: 'UPDATE', entityType: 'Location', entityId: id, branchId: view.branch.id, before: { ...before }, after: { ...view } });
+    return view;
   }
 
   archiveLocation(actor: Actor | undefined, id: string, body: { readonly version: number; readonly reason: string }, idempotencyKey: string): Promise<StoredResponse<LocationView>> {

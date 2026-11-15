@@ -1,5 +1,5 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
-import type { ImportJobFilters, ImportJobRecord, ImportStore, NewImportJob, StoredRowError } from '../application/import-store';
+import type { ImportJobFilters, ImportJobRecord, ImportStore, NamedRecord, NewImportJob, SheetLookups, StoredRowError } from '../application/import-store';
 import type { RowError } from '../domain/imports';
 
 interface JobRow {
@@ -108,5 +108,69 @@ export class PgImportStore implements ImportStore {
       [jobId, after?.rowNo ?? null, after?.id ?? null, limit],
     );
     return rows.map((row) => ({ id: row.id, rowNo: row.row_no, column: row.column_name, message: row.message }));
+  }
+}
+
+/** The id of the one row a lookup query finds, or null. */
+async function idOf(tx: Transaction, sql: string, values: unknown[]): Promise<string | null> {
+  const { rows } = await tx.query<{ id: string }>(sql, values);
+  return rows[0]?.id ?? null;
+}
+
+/** A sheet's codes as live MDM records (A-130). Every query reads only the `mdm` schema, and only live rows. */
+export class PgSheetLookups implements SheetLookups {
+  async productBySku(tx: Transaction, sku: string): Promise<(NamedRecord & { readonly speciesId: string | null }) | null> {
+    const { rows } = await tx.query<{ id: string; version: number; species_id: string | null }>('SELECT id, version, species_id FROM mdm.product WHERE sku = $1 AND deleted_at IS NULL', [sku]);
+    return rows[0] === undefined ? null : { id: rows[0].id, version: rows[0].version, speciesId: rows[0].species_id };
+  }
+
+  categoryIdByCode(tx: Transaction, code: string): Promise<string | null> {
+    return idOf(tx, 'SELECT id FROM mdm.category WHERE code = $1 AND deleted_at IS NULL', [code]);
+  }
+
+  speciesIdByCode(tx: Transaction, code: string): Promise<string | null> {
+    return idOf(tx, 'SELECT id FROM mdm.species WHERE code = $1 AND deleted_at IS NULL', [code]);
+  }
+
+  taxCategoryIdByCode(tx: Transaction, code: string): Promise<string | null> {
+    return idOf(tx, 'SELECT id FROM mdm.tax_category WHERE code = $1 AND deleted_at IS NULL', [code]);
+  }
+
+  async supplierByNo(tx: Transaction, supplierNo: string): Promise<NamedRecord | null> {
+    const { rows } = await tx.query<{ id: string; version: number }>('SELECT id, version FROM mdm.supplier WHERE supplier_no = $1 AND deleted_at IS NULL', [supplierNo]);
+    return rows[0] ?? null;
+  }
+
+  branchIdByCode(tx: Transaction, code: string): Promise<string | null> {
+    return idOf(tx, 'SELECT id FROM mdm.branch WHERE code = $1 AND deleted_at IS NULL', [code]);
+  }
+
+  async locationByCode(tx: Transaction, branchId: string, code: string): Promise<(NamedRecord & { readonly isVirtual: boolean }) | null> {
+    const { rows } = await tx.query<{ id: string; version: number; is_virtual: boolean }>(
+      'SELECT id, version, is_virtual FROM mdm.location WHERE branch_id = $1 AND code = $2 AND deleted_at IS NULL',
+      [branchId, code],
+    );
+    return rows[0] === undefined ? null : { id: rows[0].id, version: rows[0].version, isVirtual: rows[0].is_virtual };
+  }
+
+  async priceListByCode(tx: Transaction, code: string): Promise<{ readonly id: string } | null> {
+    const id = await idOf(tx, 'SELECT id FROM mdm.price_list WHERE code = $1 AND deleted_at IS NULL', [code]);
+    return id === null ? null : { id };
+  }
+
+  async openVersion(tx: Transaction, priceListId: string): Promise<{ readonly id: string; readonly status: string; readonly version: number; readonly branchId: string } | null> {
+    const { rows } = await tx.query<{ id: string; status: string; version: number; branch_id: string }>(
+      "SELECT id, status, version, branch_id FROM mdm.price_list_version WHERE price_list_id = $1 AND status IN ('DRAFT', 'PENDING_APPROVAL')",
+      [priceListId],
+    );
+    return rows[0] === undefined ? null : { id: rows[0].id, status: rows[0].status, version: rows[0].version, branchId: rows[0].branch_id };
+  }
+
+  gradeIdByCode(tx: Transaction, speciesId: string, code: string): Promise<string | null> {
+    return idOf(tx, 'SELECT id FROM mdm.grade WHERE species_id = $1 AND code = $2 AND deleted_at IS NULL', [speciesId, code]);
+  }
+
+  weightBandIdByCode(tx: Transaction, speciesId: string, code: string): Promise<string | null> {
+    return idOf(tx, 'SELECT id FROM mdm.weight_band WHERE species_id = $1 AND code = $2 AND deleted_at IS NULL', [speciesId, code]);
   }
 }

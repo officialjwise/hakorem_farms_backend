@@ -11,10 +11,10 @@ export type ImportDirection = 'IMPORT' | 'EXPORT';
 export type ImportStatus = 'UPLOADED' | 'VALIDATED' | 'APPLIED' | 'FAILED' | 'CANCELLED';
 
 /**
- * The entities whose sheets are built (A-128): customers in B04e continued 4. Products, suppliers, locations and
- * price list entries follow in B04e continued 5; opening stock writes stock, which INV owns, and waits for B5.
+ * The entities whose sheets are built (A-128, A-130): customers in B04e continued 4; products, suppliers, locations
+ * and price list entries in B04e continued 5. Opening stock writes stock, which INV owns, and waits for B5.
  */
-export const AVAILABLE_ENTITIES: readonly ImportEntity[] = ['CUSTOMER'];
+export const AVAILABLE_ENTITIES: readonly ImportEntity[] = ['PRODUCT', 'CUSTOMER', 'SUPPLIER', 'PRICE_LIST_ENTRY', 'LOCATION'];
 
 /** The most records one import holds (A-128): a large first load, small enough to validate inside one request. */
 export const MAX_IMPORT_ROWS = 5_000;

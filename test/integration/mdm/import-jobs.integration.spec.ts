@@ -198,7 +198,7 @@ describe('the import file and the entity', () => {
     await world.worker.scanPending(50);
     const missing = await post(world, world.manager, '/imports', { entity: 'CUSTOMER', fileId: randomUUID() });
     expect(missing.body.error).toMatchObject({ code: 'REFERENCE_NOT_FOUND', details: [{ field: '/fileId' }] });
-    for (const entity of ['OPENING_STOCK', 'PRODUCT', 'SUPPLIER', 'LOCATION', 'PRICE_LIST_ENTRY']) {
+    for (const entity of ['OPENING_STOCK']) {
       const response = await post(world, world.manager, '/imports', { entity, fileId: pending });
       expect(response.status, entity).toBe(422);
       expect(response.body.error.code, entity).toBe('IMPORT_ENTITY_NOT_AVAILABLE');

@@ -35,4 +35,5 @@ Option 4. No dependency is added.
 ## Verification
 
 - `src/platform/spreadsheet/spreadsheet.spec.ts`: round trips; the openpyxl and LibreOffice workbooks; a declared-size lie, too many parts, a part and a total over the limit; encrypted, ZIP64, multi-disk and unknown-method archives; out-of-order rows and cells; CSV quoting; formula neutralisation.
+- `test/integration/mdm/import-sheets.integration.spec.ts` (B04e continued 5, A-130): the product, supplier, location and price list entry sheets, each with its row errors, an all-or-none apply, its export and a wrong-role refusal.
 - `test/integration/mdm/import-jobs.integration.spec.ts` (FR-MDM-019) and `test/integration/mdm/master-data-export.integration.spec.ts` (FR-MDM-020, SEC-009).

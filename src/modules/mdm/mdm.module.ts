@@ -53,8 +53,12 @@ import { PgReferenceDataStore } from './infrastructure/pg-reference-data-store';
 import { ReferenceDataController } from './interface/reference-data.controller';
 import { MdmImports } from './application/imports';
 import { CustomerSheet } from './application/import-sheets';
-import { IMPORT_STORE, type ImportStore } from './application/import-store';
-import { PgImportStore } from './infrastructure/pg-import-store';
+import { LocationSheet } from './application/location-sheet';
+import { PriceEntrySheet } from './application/price-entry-sheet';
+import { ProductSheet } from './application/product-sheet';
+import { SupplierSheet } from './application/supplier-sheet';
+import { IMPORT_STORE, SHEET_LOOKUPS, type ImportStore, type SheetLookups } from './application/import-store';
+import { PgImportStore, PgSheetLookups } from './infrastructure/pg-import-store';
 import { ImportsController } from './interface/imports.controller';
 
 /**
@@ -195,6 +199,7 @@ import { ImportsController } from './interface/imports.controller';
       inject: [UnitOfWork, PRODUCT_STORE, FileStore, Authoriser, Idempotency, AuditTrail, DomainEvents, CLOCK],
     },
     { provide: IMPORT_STORE, useClass: PgImportStore },
+    { provide: SHEET_LOOKUPS, useClass: PgSheetLookups },
     {
       provide: MdmImports,
       useFactory: (
@@ -209,8 +214,45 @@ import { ImportsController } from './interface/imports.controller';
         clock: Clock,
         parties: PartiesAdmin,
         partiesStore: PartiesStore,
-      ) => new MdmImports(uow, store, files, authoriser, idempotency, audit, principals, cursors, clock, [new CustomerSheet(parties, partiesStore, clock)]),
-      inject: [UnitOfWork, IMPORT_STORE, FileStore, Authoriser, Idempotency, AuditTrail, PRINCIPAL_NAMES, Cursors, CLOCK, PartiesAdmin, PARTIES_STORE],
+        lookups: SheetLookups,
+        catalogue: ProductCatalogue,
+        productStore: ProductStore,
+        referenceData: ReferenceDataAdmin,
+        referenceDataStore: ReferenceDataStore,
+        locations: LocationsAdmin,
+        locationsStore: LocationsStore,
+        priceLists: PriceListAdmin,
+        priceListStore: PriceListStore,
+      ) =>
+        new MdmImports(uow, store, files, authoriser, idempotency, audit, principals, cursors, clock, [
+          new ProductSheet(catalogue, productStore, lookups),
+          new CustomerSheet(parties, partiesStore, clock),
+          new SupplierSheet(referenceData, referenceDataStore, lookups),
+          new LocationSheet(locations, locationsStore, lookups, authoriser),
+          new PriceEntrySheet(priceLists, priceListStore, lookups, authoriser, clock),
+        ]),
+      inject: [
+        UnitOfWork,
+        IMPORT_STORE,
+        FileStore,
+        Authoriser,
+        Idempotency,
+        AuditTrail,
+        PRINCIPAL_NAMES,
+        Cursors,
+        CLOCK,
+        PartiesAdmin,
+        PARTIES_STORE,
+        SHEET_LOOKUPS,
+        ProductCatalogue,
+        PRODUCT_STORE,
+        ReferenceDataAdmin,
+        REFERENCE_DATA_STORE,
+        LocationsAdmin,
+        LOCATIONS_STORE,
+        PriceListAdmin,
+        PRICE_LIST_STORE,
+      ],
     },
   ],
   exports: [PricingService, Promotions, TaxService],

@@ -210,62 +210,82 @@ export class ReferenceDataAdmin {
   }
 
   createSupplier(actor: Actor | undefined, body: SupplierCreateRequest, idempotencyKey: string): Promise<StoredResponse<SupplierView>> {
-    return this.kit.write(actor, 'mdm.supplier.create', 'createSupplier', body, idempotencyKey, async (tx) => {
-      const phone = phoneOf(body.phone) ?? null;
-      const phoneHash = phone === null ? null : this.phoneHash(phone);
-      if (phoneHash !== null && (await this.store.supplierPhoneTaken(tx, phoneHash, null))) throw new DuplicateRecordError(['/phone']);
-      const categoryIds = await this.liveCategories(tx, body.categoryIds ?? []);
-      const id = this.nextId();
-      await this.store.insertSupplier(
-        tx,
-        id,
-        {
-          supplierNo: await this.store.nextSupplierNo(tx),
-          name: body.name,
-          contactName: body.contactName ?? null,
-          phone,
-          phoneHash,
-          email: body.email?.trim().toLowerCase() ?? null,
-          address: body.address ?? null,
-          tinEnc: body.tin === undefined ? null : await this.sealTin(tx, id, body.tin, actor!),
-        },
-        actor!.principalId,
-      );
-      await this.store.setSupplierCategories(tx, id, categoryIds, actor!.principalId, this.clock.now(), this.nextId);
-      const view = await this.supplierViewOf(tx, id, actor!);
-      await this.auditSupplier(tx, 'CREATE', id, null, view);
-      const payload: SupplierRegistered = { supplierId: id, supplierNo: view.supplierNo, name: view.name, categoryIds };
-      await this.events.publish(tx, { type: 'mdm.SupplierRegistered', subjectType: 'Supplier', subjectId: id, payload });
-      return { status: 201, body: view };
-    });
+    return this.kit.write(actor, 'mdm.supplier.create', 'createSupplier', body, idempotencyKey, async (tx) => ({ status: 201, body: await this.createSupplierIn(tx, actor!, body) }));
+  }
+
+  /**
+   * Registers a supplier in the caller's transaction, every rule of createSupplier applied, audited and published.
+   * The caller has authorised `mdm.supplier.create`: createSupplier, or an import being applied (FR-MDM-019).
+   */
+  async createSupplierIn(tx: Transaction, actor: Actor, body: SupplierCreateRequest): Promise<SupplierView> {
+    const phone = phoneOf(body.phone) ?? null;
+    const phoneHash = phone === null ? null : this.phoneHash(phone);
+    if (phoneHash !== null && (await this.store.supplierPhoneTaken(tx, phoneHash, null))) throw new DuplicateRecordError(['/phone']);
+    const categoryIds = await this.liveCategories(tx, body.categoryIds ?? []);
+    const id = this.nextId();
+    await this.store.insertSupplier(
+      tx,
+      id,
+      {
+        supplierNo: await this.store.nextSupplierNo(tx),
+        name: body.name,
+        contactName: body.contactName ?? null,
+        phone,
+        phoneHash,
+        email: body.email?.trim().toLowerCase() ?? null,
+        address: body.address ?? null,
+        tinEnc: body.tin === undefined ? null : await this.sealTin(tx, id, body.tin, actor),
+      },
+      actor.principalId,
+    );
+    await this.store.setSupplierCategories(tx, id, categoryIds, actor.principalId, this.clock.now(), this.nextId);
+    const view = await this.supplierViewOf(tx, id, actor);
+    await this.auditSupplier(tx, 'CREATE', id, null, view);
+    const payload: SupplierRegistered = { supplierId: id, supplierNo: view.supplierNo, name: view.name, categoryIds };
+    await this.events.publish(tx, { type: 'mdm.SupplierRegistered', subjectType: 'Supplier', subjectId: id, payload });
+    return view;
   }
 
   updateSupplier(actor: Actor | undefined, id: string, body: SupplierUpdateRequest, idempotencyKey: string): Promise<StoredResponse<SupplierView>> {
-    return this.kit.write(actor, 'mdm.supplier.update', 'updateSupplier', { id, ...body }, idempotencyKey, async (tx) => {
-      requireLiveVersion(await this.store.lockSupplier(tx, id), 'supplier', id, body.version);
-      const before = await this.supplierViewOf(tx, id, actor!);
-      const phone = phoneOf(body.phone);
-      const phoneHash = phone === undefined ? undefined : this.phoneHash(phone);
-      if (phoneHash !== undefined && (await this.store.supplierPhoneTaken(tx, phoneHash, id))) throw new DuplicateRecordError(['/phone']);
-      const categoryIds = body.categoryIds === undefined ? undefined : await this.liveCategories(tx, body.categoryIds);
-      const set = sentColumns({
-        name: body.name,
-        contact_name: body.contactName,
-        phone_e164: phone,
-        phone_hash: phoneHash,
-        email: body.email?.trim().toLowerCase(),
-        address: body.address,
-        tin_enc: body.tin === undefined ? undefined : await this.sealTin(tx, id, body.tin, actor!),
-        status: body.status,
-      });
-      if (Object.keys(set).length > 0 && !(await this.store.updateSupplier(tx, id, body.version, set, actor!.principalId))) {
-        throw new VersionConflictError(`supplier ${id} changed while it was updated`);
-      }
-      if (categoryIds !== undefined) await this.store.setSupplierCategories(tx, id, categoryIds, actor!.principalId, this.clock.now(), this.nextId);
-      const view = await this.supplierViewOf(tx, id, actor!);
-      await this.auditSupplier(tx, 'UPDATE', id, before, view);
-      return { status: 200, body: view };
+    return this.kit.write(actor, 'mdm.supplier.update', 'updateSupplier', { id, ...body }, idempotencyKey, async (tx) => ({ status: 200, body: await this.updateSupplierIn(tx, actor!, id, body) }));
+  }
+
+  /**
+   * Changes a supplier in the caller's transaction, every rule of updateSupplier applied and audited. The caller has
+   * authorised `mdm.supplier.update`: updateSupplier, or an import being applied (FR-MDM-019).
+   */
+  async updateSupplierIn(tx: Transaction, actor: Actor, id: string, body: SupplierUpdateRequest): Promise<SupplierView> {
+    requireLiveVersion(await this.store.lockSupplier(tx, id), 'supplier', id, body.version);
+    const before = await this.supplierViewOf(tx, id, actor);
+    const phone = phoneOf(body.phone);
+    const phoneHash = phone === undefined ? undefined : this.phoneHash(phone);
+    if (phoneHash !== undefined && (await this.store.supplierPhoneTaken(tx, phoneHash, id))) throw new DuplicateRecordError(['/phone']);
+    const categoryIds = body.categoryIds === undefined ? undefined : await this.liveCategories(tx, body.categoryIds);
+    const set = sentColumns({
+      name: body.name,
+      contact_name: body.contactName,
+      phone_e164: phone,
+      phone_hash: phoneHash,
+      email: body.email?.trim().toLowerCase(),
+      address: body.address,
+      tin_enc: body.tin === undefined ? undefined : await this.sealTin(tx, id, body.tin, actor),
+      status: body.status,
     });
+    if (Object.keys(set).length > 0 && !(await this.store.updateSupplier(tx, id, body.version, set, actor.principalId))) {
+      throw new VersionConflictError(`supplier ${id} changed while it was updated`);
+    }
+    if (categoryIds !== undefined) await this.store.setSupplierCategories(tx, id, categoryIds, actor.principalId, this.clock.now(), this.nextId);
+    const view = await this.supplierViewOf(tx, id, actor);
+    await this.auditSupplier(tx, 'UPDATE', id, before, view);
+    return view;
+  }
+
+  /**
+   * What an import row needs to know about a phone number (FR-MDM-019): whether a live supplier other than
+   * `exceptId` holds it, matched by its keyed hash, never by the number itself.
+   */
+  supplierPhoneTaken(tx: Transaction, phoneE164: string, exceptId: string | null): Promise<boolean> {
+    return this.store.supplierPhoneTaken(tx, this.phoneHash(phoneE164), exceptId);
   }
 
   /** Archives a supplier with a reason. Refusing one with open purchase orders arrives with procurement (B7, A-117). */
