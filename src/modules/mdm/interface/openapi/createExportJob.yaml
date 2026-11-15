@@ -1,0 +1,77 @@
+operationId: createExportJob
+tags:
+  - mdm
+summary: "Export master data to a spreadsheet"
+description: "Export is a permission, and every export needs a fresh step-up, whatever its size. It is audited with the user, the entity, the format and its row count; an export of more than 100 rows is marked bulk for the daily exception report (SEC-009). Exporting also needs the entity's read permission (for customers `mdm.customer.read`). The job comes back `APPLIED` with the row count, and its `file` is a private `EXPORT` file: once `getFile` shows it `CLEAN` (the worker scans it like any file), `createFileSignedUrl` issues the download link, which expires after five minutes and is logged. CSV cells that would start a formula are written with a leading apostrophe. Only `CUSTOMER` is built so far; any other entity is 422 `IMPORT_ENTITY_NOT_AVAILABLE`.\n\nPermission: `mdm.export.create`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - STEP_UP_REQUIRED
+  - TOTP_ENROLMENT_REQUIRED
+  - IMPORT_ENTITY_NOT_AVAILABLE
+  - RATE_LIMITED
+x-permission: mdm.export.create
+x-requires-step-up: true
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ExportCreate"
+      example:
+        entity: CUSTOMER
+        format: XLSX
+responses:
+  "202":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ImportJob"
+        example:
+          id: "019a7aab-e38e-7e53-a38c-ee0fd9af66ed"
+          entity: CUSTOMER
+          direction: EXPORT
+          file:
+            id: "019a7aac-027d-7837-bd6f-8c4753600525"
+            originalName: customers-export-2026-11-11.xlsx
+            contentType: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+          status: APPLIED
+          rowsTotal: 412
+          rowsValid: 412
+          rowsApplied: 412
+          rowsToCreate: null
+          rowsToUpdate: null
+          createdAt: "2026-11-11T10:00:00Z"
+          createdBy:
+            id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+            displayName: "Efua Asante"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

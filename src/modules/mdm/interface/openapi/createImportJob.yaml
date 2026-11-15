@@ -1,0 +1,76 @@
+operationId: createImportJob
+tags:
+  - mdm
+summary: "Upload a spreadsheet and validate it as a dry run"
+description: "Upload the spreadsheet first with POST /files, purpose `IMPORT` (XLSX or CSV), and wait until `getFile` shows it `CLEAN`. The first sheet's first row names the columns; each further row is one record. This call runs the dry run and writes nothing but the job and its row errors: the job comes back `VALIDATED` with `rowsTotal`, `rowsValid`, `rowsToCreate` and `rowsToUpdate`, and each row error is listed by `listImportErrors`; a file that cannot be read as this entity's sheet (no header, an unknown or missing column, no rows, more than 5,000 rows) comes back `FAILED` with its errors on row 1. Only `CUSTOMER` is built so far: columns `customerNo` (blank creates a customer, a number changes that customer), `kind`, `name`, `phone`, `email`, `tier`; any other entity is 422 `IMPORT_ENTITY_NOT_AVAILABLE`. A file of another use, or none, is 422 `REFERENCE_NOT_FOUND`; one not `CLEAN` is 422 `FILE_NOT_CLEAN`; someone else's upload also needs `platform.file.read.any`.\n\nPermission: `mdm.import.create`."
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - REFERENCE_NOT_FOUND
+  - FILE_NOT_CLEAN
+  - IMPORT_ENTITY_NOT_AVAILABLE
+  - RATE_LIMITED
+x-permission: mdm.import.create
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ImportCreate"
+      example:
+        entity: CUSTOMER
+        fileId: "019a7aab-0b05-791b-be53-9a8b85d81369"
+responses:
+  "202":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ImportJob"
+        example:
+          id: "019a7aaa-ec16-7f38-a470-fc540c277531"
+          entity: CUSTOMER
+          direction: IMPORT
+          file:
+            id: "019a7aab-0b05-791b-be53-9a8b85d81369"
+            originalName: customers-from-notebook.xlsx
+            contentType: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+          status: VALIDATED
+          rowsTotal: 318
+          rowsValid: 309
+          rowsApplied: null
+          rowsToCreate: 300
+          rowsToUpdate: 18
+          createdAt: "2026-11-03T10:00:00Z"
+          createdBy:
+            id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+            displayName: "Kojo Antwi"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

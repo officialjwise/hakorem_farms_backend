@@ -1,0 +1,79 @@
+operationId: listImportErrors
+tags:
+  - mdm
+summary: "List the rows that failed validation"
+description: "In spreadsheet order: by row number (the header is row 1), then column. A message names the row, the column and the rule, never a personal value from the cell. The job and its errors stay readable after it is applied, failed or cancelled.\n\nPermission: `mdm.import.read`."
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+x-permission: mdm.import.read
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ImportRowErrorPage"
+        example:
+          data:
+            - rowNo: 14
+              column: phone
+              message: "Phone number must start with +233 and have nine more digits"
+            - rowNo: 27
+              column: phone
+              message: "Duplicate of row 26"
+            - rowNo: 27
+              column: tier
+              message: "Unknown tier \"VIP\""
+            - rowNo: 88
+              column: name
+              message: "Name is empty"
+            - rowNo: 103
+              column: phone
+              message: "Phone number already belongs to customer C-00118"
+            - rowNo: 211
+              column: email
+              message: "Email address is not valid"
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

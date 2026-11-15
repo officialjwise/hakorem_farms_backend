@@ -577,3 +577,9 @@ export const ListReasonCodesQuery = PageQuery.extend({
 export const ListPriceListsQuery = PageQuery.extend({ kind: PriceListKind.optional(), channel: Channel.optional() });
 export const PriceListUpdate = z.strictObject({ version: Version, name: RecordName.optional(), taxInclusive: z.boolean().optional() });
 export const ListPriceListEntriesQuery = PageQuery.extend({ productId: z.uuid().optional() });
+
+/** The contract's `ImportEntity`, `ImportCreate`, `ExportCreate` and the listImportJobs filters (FR-MDM-019, FR-MDM-020). */
+const ImportEntity = z.enum(['PRODUCT', 'CUSTOMER', 'SUPPLIER', 'PRICE_LIST_ENTRY', 'LOCATION', 'OPENING_STOCK']);
+export const ImportCreate = z.strictObject({ entity: ImportEntity, fileId: z.uuid() });
+export const ExportCreate = z.strictObject({ entity: ImportEntity, format: z.enum(['XLSX', 'CSV']) });
+export const ListImportJobsQuery = PageQuery.extend({ entity: ImportEntity.optional(), direction: z.enum(['IMPORT', 'EXPORT']).optional() });

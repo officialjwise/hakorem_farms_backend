@@ -11,6 +11,7 @@ export const FILE_PURPOSES = [
   'SUPPLIER_INVOICE',
   'INVESTOR_DOCUMENT',
   'IMPORT',
+  'EXPORT',
   'EVIDENCE',
   'STATEMENT',
   'AGREEMENT',
@@ -45,7 +46,8 @@ export interface FileUse {
 
 /**
  * Product photographs are PUBLIC once re-encoded into variants (FR-DOC-005); the original stays in the private bucket.
- * Everything else is CONFIDENTIAL (DC-34): delivery proof, signatures, supplier, investor and import files, evidence.
+ * Everything else is CONFIDENTIAL (DC-34): delivery proof, signatures, supplier, investor, import and export files,
+ * evidence. An EXPORT file is written by the server for a master data export (FR-MDM-020, A-128) and accepts no upload.
  */
 export const FILE_USES: Readonly<Record<FilePurpose, FileUse>> = {
   PRODUCT_IMAGE: { types: IMAGES, classification: 'PUBLIC', keyPrefix: 'product-image' },
@@ -55,6 +57,7 @@ export const FILE_USES: Readonly<Record<FilePurpose, FileUse>> = {
   SUPPLIER_INVOICE: { types: IMAGES_AND_PDF, classification: 'CONFIDENTIAL', keyPrefix: 'supplier-invoice' },
   INVESTOR_DOCUMENT: { types: IMAGES_AND_PDF, classification: 'CONFIDENTIAL', keyPrefix: 'investor-document' },
   IMPORT: { types: [XLSX, CSV], classification: 'CONFIDENTIAL', keyPrefix: 'import' },
+  EXPORT: { types: [], classification: 'CONFIDENTIAL', keyPrefix: 'export' },
   EVIDENCE: { types: IMAGES_AND_PDF, classification: 'CONFIDENTIAL', keyPrefix: 'evidence' },
   STATEMENT: { types: [PDF], classification: 'CONFIDENTIAL', keyPrefix: 'statement' },
   AGREEMENT: { types: [PDF], classification: 'CONFIDENTIAL', keyPrefix: 'agreement' },

@@ -106,6 +106,8 @@ const VALID_BODY: Readonly<Record<string, object>> = {
   assignCustomerPriceList: { priceListId: '01900000-0000-7000-8000-00000000f002', validFrom: '2026-12-01T00:00:00Z' },
   archiveProduct: { version: 1, reason: 'No longer stocked' },
   addProductImage: { fileId: randomUUID(), altText: 'Front view' },
+  createImportJob: { entity: 'CUSTOMER', fileId: randomUUID() },
+  createExportJob: { entity: 'CUSTOMER', format: 'CSV' },
   updatePriceList: { version: 1, name: 'Base prices' },
   archivePriceList: { version: 1, reason: 'Replaced' },
   createSupplier: { name: 'Ashanti Feeds Ltd' },
@@ -135,7 +137,7 @@ afterAll(async () => {
 });
 
 describe('deny by default: the handler walk (ADR-0017, security architecture section 14)', () => {
-  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2 and B04e continued 3 routes, and every one declares its operation', () => {
+  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3 and B04e continued 4 routes, and every one declares its operation', () => {
     expect(routes.map((route) => route.spec?.operationId).sort()).toEqual(
       [
         'changePassword', 'confirmTotpEnrolment', 'createProduct', 'getCurrentSession', 'getHealth', 'getProduct', 'listProducts', 'listSessions',
@@ -159,6 +161,7 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'registerCustomer', 'verifyCustomerPhone', 'requestPasswordReset', 'resetPassword',
         'uploadFile', 'getFile', 'createFileSignedUrl',
         'addProductImage', 'removeProductImage',
+        'listImportJobs', 'createImportJob', 'getImportJob', 'listImportErrors', 'applyImportJob', 'cancelImportJob', 'createExportJob',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);

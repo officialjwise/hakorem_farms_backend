@@ -201,61 +201,81 @@ export class PartiesAdmin {
   }
 
   createCustomer(actor: Actor | undefined, body: CustomerCreateRequest, idempotencyKey: string): Promise<StoredResponse<CustomerView>> {
-    return this.kit.write(actor, 'mdm.customer.create', 'createCustomer', body, idempotencyKey, async (tx) => {
-      const phone = phoneOf(body.phone, '/phone') ?? null;
-      const tier = body.tierId === undefined ? await this.store.tierByCode(tx, DEFAULT_TIER) : await this.store.tier(tx, body.tierId);
-      if (tier === null) throw referencesNotFound(['/tierId']);
-      const phoneHash = phone === null ? null : this.phoneHash(phone);
-      if (phoneHash !== null && (await this.store.phoneTaken(tx, phoneHash, null))) throw new DuplicateRecordError(['/phone']);
-      const id = this.nextId();
-      const tinEnc = body.tin === undefined ? null : await this.sealTin(tx, id, body.tin, actor!);
-      await this.store.insertCustomer(
-        tx,
-        id,
-        {
-          customerNo: await this.store.nextCustomerNo(tx),
-          kind: body.kind,
-          name: body.name,
-          phone,
-          phoneHash,
-          email: body.email?.trim().toLowerCase() ?? null,
-          tierId: tier.id,
-          tinEnc,
-          marketingConsentAt: body.marketingConsent === true ? this.clock.now() : null,
-        },
-        actor!.principalId,
-      );
-      const view = await this.viewOf(tx, id, actor!);
-      await this.auditCustomer(tx, 'CREATE', id, null, view);
-      return { status: 201, body: view };
-    });
+    return this.kit.write(actor, 'mdm.customer.create', 'createCustomer', body, idempotencyKey, async (tx) => ({ status: 201, body: await this.createCustomerIn(tx, actor!, body) }));
+  }
+
+  /**
+   * Creates a customer in the caller's transaction, every rule of createCustomer applied and audited. The caller has
+   * authorised `mdm.customer.create`: createCustomer, or an import being applied (FR-MDM-019).
+   */
+  async createCustomerIn(tx: Transaction, actor: Actor, body: CustomerCreateRequest): Promise<CustomerView> {
+    const phone = phoneOf(body.phone, '/phone') ?? null;
+    const tier = body.tierId === undefined ? await this.store.tierByCode(tx, DEFAULT_TIER) : await this.store.tier(tx, body.tierId);
+    if (tier === null) throw referencesNotFound(['/tierId']);
+    const phoneHash = phone === null ? null : this.phoneHash(phone);
+    if (phoneHash !== null && (await this.store.phoneTaken(tx, phoneHash, null))) throw new DuplicateRecordError(['/phone']);
+    const id = this.nextId();
+    const tinEnc = body.tin === undefined ? null : await this.sealTin(tx, id, body.tin, actor);
+    await this.store.insertCustomer(
+      tx,
+      id,
+      {
+        customerNo: await this.store.nextCustomerNo(tx),
+        kind: body.kind,
+        name: body.name,
+        phone,
+        phoneHash,
+        email: body.email?.trim().toLowerCase() ?? null,
+        tierId: tier.id,
+        tinEnc,
+        marketingConsentAt: body.marketingConsent === true ? this.clock.now() : null,
+      },
+      actor.principalId,
+    );
+    const view = await this.viewOf(tx, id, actor);
+    await this.auditCustomer(tx, 'CREATE', id, null, view);
+    return view;
   }
 
   updateCustomer(actor: Actor | undefined, id: string, body: CustomerUpdateRequest, idempotencyKey: string): Promise<StoredResponse<CustomerView>> {
-    return this.kit.write(actor, 'mdm.customer.update', 'updateCustomer', { id, ...body }, idempotencyKey, async (tx) => {
-      requireLiveVersion(await this.store.lockCustomer(tx, id), 'customer', id, body.version);
-      const before = await this.viewOf(tx, id, actor!);
-      if (before.status === 'ANONYMISED') throw new InvalidStateTransitionError(`customer ${id} is anonymised`);
-      const phone = phoneOf(body.phone, '/phone');
-      const phoneHash = phone === undefined ? undefined : this.phoneHash(phone);
-      if (phoneHash !== undefined && (await this.store.phoneTaken(tx, phoneHash, id))) throw new DuplicateRecordError(['/phone']);
-      if (body.tierId !== undefined && (await this.store.tier(tx, body.tierId)) === null) throw referencesNotFound(['/tierId']);
-      const set = sentColumns({
-        name: body.name,
-        phone_e164: phone,
-        phone_hash: phoneHash,
-        email: body.email?.trim().toLowerCase(),
-        tier_id: body.tierId,
-        tin_enc: body.tin === undefined ? undefined : await this.sealTin(tx, id, body.tin, actor!),
-        status: body.status,
-      });
-      if (Object.keys(set).length > 0 && !(await this.store.updateCustomer(tx, id, body.version, set, actor!.principalId))) {
-        throw new VersionConflictError(`customer ${id} changed while it was updated`);
-      }
-      const view = await this.viewOf(tx, id, actor!);
-      await this.auditCustomer(tx, 'UPDATE', id, before, view);
-      return { status: 200, body: view };
+    return this.kit.write(actor, 'mdm.customer.update', 'updateCustomer', { id, ...body }, idempotencyKey, async (tx) => ({ status: 200, body: await this.updateCustomerIn(tx, actor!, id, body) }));
+  }
+
+  /**
+   * Changes a customer in the caller's transaction, every rule of updateCustomer applied and audited. The caller has
+   * authorised `mdm.customer.update`: updateCustomer, or an import being applied (FR-MDM-019).
+   */
+  async updateCustomerIn(tx: Transaction, actor: Actor, id: string, body: CustomerUpdateRequest): Promise<CustomerView> {
+    requireLiveVersion(await this.store.lockCustomer(tx, id), 'customer', id, body.version);
+    const before = await this.viewOf(tx, id, actor);
+    if (before.status === 'ANONYMISED') throw new InvalidStateTransitionError(`customer ${id} is anonymised`);
+    const phone = phoneOf(body.phone, '/phone');
+    const phoneHash = phone === undefined ? undefined : this.phoneHash(phone);
+    if (phoneHash !== undefined && (await this.store.phoneTaken(tx, phoneHash, id))) throw new DuplicateRecordError(['/phone']);
+    if (body.tierId !== undefined && (await this.store.tier(tx, body.tierId)) === null) throw referencesNotFound(['/tierId']);
+    const set = sentColumns({
+      name: body.name,
+      phone_e164: phone,
+      phone_hash: phoneHash,
+      email: body.email?.trim().toLowerCase(),
+      tier_id: body.tierId,
+      tin_enc: body.tin === undefined ? undefined : await this.sealTin(tx, id, body.tin, actor),
+      status: body.status,
     });
+    if (Object.keys(set).length > 0 && !(await this.store.updateCustomer(tx, id, body.version, set, actor.principalId))) {
+      throw new VersionConflictError(`customer ${id} changed while it was updated`);
+    }
+    const view = await this.viewOf(tx, id, actor);
+    await this.auditCustomer(tx, 'UPDATE', id, before, view);
+    return view;
+  }
+
+  /**
+   * What an import row needs to know about a phone number (FR-MDM-019): the number of the live customer who holds
+   * it, or null. The number is matched by its keyed hash, never by the number itself.
+   */
+  phoneHolder(tx: Transaction, phoneE164: string): Promise<{ readonly id: string; readonly customerNo: string } | null> {
+    return this.store.customerByPhoneHash(tx, this.phoneHash(phoneE164));
   }
 
   archiveCustomer(actor: Actor | undefined, id: string, body: { readonly version: number; readonly reason: string }, idempotencyKey: string): Promise<StoredResponse<CustomerView>> {

@@ -51,6 +51,11 @@ import { ReferenceDataAdmin } from './application/reference-data-admin';
 import { REFERENCE_DATA_STORE, type ReferenceDataStore } from './application/reference-data-store';
 import { PgReferenceDataStore } from './infrastructure/pg-reference-data-store';
 import { ReferenceDataController } from './interface/reference-data.controller';
+import { MdmImports } from './application/imports';
+import { CustomerSheet } from './application/import-sheets';
+import { IMPORT_STORE, type ImportStore } from './application/import-store';
+import { PgImportStore } from './infrastructure/pg-import-store';
+import { ImportsController } from './interface/imports.controller';
 
 /**
  * MDM (layer 3): the Product slice and the catalogue's reference data (categories, units, species, grades, bands), branches and
@@ -62,7 +67,7 @@ import { ReferenceDataController } from './interface/reference-data.controller';
  */
 @Module({
   imports: [IamModule],
-  controllers: [ProductsController, CatalogueController, LocationsController, PartiesController, ReferenceDataController, PricingController, PriceListsController, PromotionsController, TaxController],
+  controllers: [ProductsController, CatalogueController, LocationsController, PartiesController, ReferenceDataController, PricingController, PriceListsController, PromotionsController, TaxController, ImportsController],
   providers: [
     { provide: PRODUCT_STORE, useFactory: (files: FileStore) => new DrizzleProductStore(files), inject: [FileStore] },
     { provide: PRICING_STORE, useClass: PgPricingStore },
@@ -188,6 +193,24 @@ import { ReferenceDataController } from './interface/reference-data.controller';
       useFactory: (uow: UnitOfWork, store: ProductStore, files: FileStore, authoriser: Authoriser, idempotency: Idempotency, audit: AuditTrail, events: DomainEvents, clock: Clock) =>
         new ProductGallery(uow, store, files, authoriser, idempotency, audit, events, clock),
       inject: [UnitOfWork, PRODUCT_STORE, FileStore, Authoriser, Idempotency, AuditTrail, DomainEvents, CLOCK],
+    },
+    { provide: IMPORT_STORE, useClass: PgImportStore },
+    {
+      provide: MdmImports,
+      useFactory: (
+        uow: UnitOfWork,
+        store: ImportStore,
+        files: FileStore,
+        authoriser: Authoriser,
+        idempotency: Idempotency,
+        audit: AuditTrail,
+        principals: PrincipalNames,
+        cursors: Cursors,
+        clock: Clock,
+        parties: PartiesAdmin,
+        partiesStore: PartiesStore,
+      ) => new MdmImports(uow, store, files, authoriser, idempotency, audit, principals, cursors, clock, [new CustomerSheet(parties, partiesStore, clock)]),
+      inject: [UnitOfWork, IMPORT_STORE, FileStore, Authoriser, Idempotency, AuditTrail, PRINCIPAL_NAMES, Cursors, CLOCK, PartiesAdmin, PARTIES_STORE],
     },
   ],
   exports: [PricingService, Promotions, TaxService],

@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.13.0"
+  version: "1.14.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -227,7 +227,7 @@ paths:
       tags:
         - platform
       summary: "Upload a file"
-      description: "Stores the file under a random key outside the web root and queues a malware scan; it is `PENDING` until the scanner says `CLEAN`, and only a `CLEAN` file is ever served. The type is found from the bytes, never the name or the declared type, and must be on the purpose's allow-list: images (JPEG, PNG, WebP) for photographs, signatures and proof of delivery; images and PDF for supplier, investor and evidence documents; PDF for statements and agreements; XLSX or CSV for imports. Images are capped at 5 MB and PDF and spreadsheets at 10 MB; a body over 10 MB is refused while it arrives. Reference the returned id from the record that uses it.\n\nPermission: `platform.file.upload`."
+      description: "Stores the file under a random key outside the web root and queues a malware scan; it is `PENDING` until the scanner says `CLEAN`, and only a `CLEAN` file is ever served. The type is found from the bytes, never the name or the declared type, and must be on the purpose's allow-list: images (JPEG, PNG, WebP) for photographs, signatures and proof of delivery; images and PDF for supplier, investor and evidence documents; PDF for statements and agreements; XLSX or CSV for imports. `EXPORT` files are written by the server for a master data export and take no upload (415 `FILE_TYPE_NOT_ALLOWED`). Images are capped at 5 MB and PDF and spreadsheets at 10 MB; a body over 10 MB is refused while it arrives. Reference the returned id from the record that uses it.\n\nPermission: `platform.file.upload`."
       x-error-codes:
         - VALIDATION_FAILED
         - IDEMPOTENCY_KEY_REQUIRED
@@ -16031,7 +16031,13 @@ paths:
       tags:
         - mdm
       summary: "List import and export jobs"
-      description: "Permission: `mdm.import.read`."
+      description: "Newest first. Shows imports and exports; `rowsToCreate` and `rowsToUpdate` are the dry run's preview (null for an export).\n\nPermission: `mdm.import.read`."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       x-permission: mdm.import.read
       parameters:
         - name: entity
@@ -16083,6 +16089,8 @@ paths:
                     rowsTotal: 42
                     rowsValid: 42
                     rowsApplied: 42
+                    rowsToCreate: 40
+                    rowsToUpdate: 2
                     createdAt: "2026-11-01T10:00:00Z"
                     createdBy:
                       id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
@@ -16098,6 +16106,8 @@ paths:
                     rowsTotal: 318
                     rowsValid: 309
                     rowsApplied: null
+                    rowsToCreate: 300
+                    rowsToUpdate: 18
                     createdAt: "2026-11-03T10:00:00Z"
                     createdBy:
                       id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
@@ -16113,6 +16123,8 @@ paths:
                     rowsTotal: 38
                     rowsValid: 38
                     rowsApplied: 38
+                    rowsToCreate: 36
+                    rowsToUpdate: 2
                     createdAt: "2026-11-05T10:00:00Z"
                     createdBy:
                       id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
@@ -16128,6 +16140,8 @@ paths:
                     rowsTotal: 96
                     rowsValid: 96
                     rowsApplied: 96
+                    rowsToCreate: 94
+                    rowsToUpdate: 2
                     createdAt: "2026-11-07T10:00:00Z"
                     createdBy:
                       id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
@@ -16140,9 +16154,11 @@ paths:
                       originalName: suppliers.xlsx
                       contentType: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
                     status: FAILED
-                    rowsTotal: 11
+                    rowsTotal: null
                     rowsValid: 0
                     rowsApplied: null
+                    rowsToCreate: null
+                    rowsToUpdate: null
                     createdAt: "2026-11-09T10:00:00Z"
                     createdBy:
                       id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
@@ -16152,12 +16168,14 @@ paths:
                     direction: EXPORT
                     file:
                       id: "019a7aac-027d-7837-bd6f-8c4753600525"
-                      originalName: customers-export.xlsx
+                      originalName: customers-export-2026-11-11.xlsx
                       contentType: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
                     status: APPLIED
                     rowsTotal: 412
                     rowsValid: 412
                     rowsApplied: 412
+                    rowsToCreate: null
+                    rowsToUpdate: null
                     createdAt: "2026-11-11T10:00:00Z"
                     createdBy:
                       id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
@@ -16181,7 +16199,20 @@ paths:
       tags:
         - mdm
       summary: "Upload a spreadsheet and validate it as a dry run"
-      description: "Nothing is written until the job is applied.\n\nPermission: `mdm.import.create`."
+      description: "Upload the spreadsheet first with POST /files, purpose `IMPORT` (XLSX or CSV), and wait until `getFile` shows it `CLEAN`. The first sheet's first row names the columns; each further row is one record. This call runs the dry run and writes nothing but the job and its row errors: the job comes back `VALIDATED` with `rowsTotal`, `rowsValid`, `rowsToCreate` and `rowsToUpdate`, and each row error is listed by `listImportErrors`; a file that cannot be read as this entity's sheet (no header, an unknown or missing column, no rows, more than 5,000 rows) comes back `FAILED` with its errors on row 1. Only `CUSTOMER` is built so far: columns `customerNo` (blank creates a customer, a number changes that customer), `kind`, `name`, `phone`, `email`, `tier`; any other entity is 422 `IMPORT_ENTITY_NOT_AVAILABLE`. A file of another use, or none, is 422 `REFERENCE_NOT_FOUND`; one not `CLEAN` is 422 `FILE_NOT_CLEAN`; someone else's upload also needs `platform.file.read.any`.\n\nPermission: `mdm.import.create`."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - REFERENCE_NOT_FOUND
+        - FILE_NOT_CLEAN
+        - IMPORT_ENTITY_NOT_AVAILABLE
+        - RATE_LIMITED
       x-permission: mdm.import.create
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -16216,10 +16247,12 @@ paths:
                   id: "019a7aab-0b05-791b-be53-9a8b85d81369"
                   originalName: customers-from-notebook.xlsx
                   contentType: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
-                status: UPLOADED
-                rowsTotal: null
-                rowsValid: null
+                status: VALIDATED
+                rowsTotal: 318
+                rowsValid: 309
                 rowsApplied: null
+                rowsToCreate: 300
+                rowsToUpdate: 18
                 createdAt: "2026-11-03T10:00:00Z"
                 createdBy:
                   id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
@@ -16245,6 +16278,13 @@ paths:
         - mdm
       summary: "Get an import job"
       description: "Permission: `mdm.import.read`."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
       x-permission: mdm.import.read
       parameters:
         - name: id
@@ -16278,6 +16318,8 @@ paths:
                 rowsTotal: 42
                 rowsValid: 42
                 rowsApplied: 42
+                rowsToCreate: 40
+                rowsToUpdate: 2
                 createdAt: "2026-11-01T10:00:00Z"
                 createdBy:
                   id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
@@ -16300,7 +16342,14 @@ paths:
       tags:
         - mdm
       summary: "List the rows that failed validation"
-      description: "Permission: `mdm.import.read`."
+      description: "In spreadsheet order: by row number (the header is row 1), then column. A message names the row, the column and the rule, never a personal value from the cell. The job and its errors stay readable after it is applied, failed or cancelled.\n\nPermission: `mdm.import.read`."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
       x-permission: mdm.import.read
       parameters:
         - name: id
@@ -16374,7 +16423,19 @@ paths:
       tags:
         - mdm
       summary: "Apply a validated import"
-      description: "Applies the valid rows in one transaction. Opening stock posts OPENING_BALANCE movements.\n\nPermission: `mdm.import.apply`."
+      description: "Applies every row in one transaction, or none. Only a `VALIDATED` import whose dry run found no row error is applied; anything else is 422 `IMPORT_NOT_VALIDATED`. The rows are checked again inside the transaction: if the database moved since the dry run and a row no longer passes, nothing is written, the new errors are added to the job and the answer is 422 `IMPORT_NOT_VALIDATED`. Each row is written through the entity's own rules and audited, so applying also needs the entity's create or update permission for the rows that create or change records (for customers `mdm.customer.create` and `mdm.customer.update`). Opening stock waits for the inventory module (B5).\n\nPermission: `mdm.import.apply`."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - IMPORT_NOT_VALIDATED
+        - RATE_LIMITED
       x-permission: mdm.import.apply
       parameters:
         - name: id
@@ -16410,6 +16471,8 @@ paths:
                 rowsTotal: 42
                 rowsValid: 42
                 rowsApplied: 42
+                rowsToCreate: 40
+                rowsToUpdate: 2
                 createdAt: "2026-11-01T10:00:00Z"
                 createdBy:
                   id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
@@ -16436,7 +16499,19 @@ paths:
       tags:
         - mdm
       summary: "Cancel an import that has not been applied"
-      description: "Permission: `mdm.import.create`."
+      description: "Only an import that is `UPLOADED` or `VALIDATED` can be cancelled; anything else is 422 `INVALID_STATE_TRANSITION`. The job and its errors stay readable.\n\nPermission: `mdm.import.create`."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - RATE_LIMITED
       x-permission: mdm.import.create
       parameters:
         - name: id
@@ -16468,10 +16543,12 @@ paths:
                   id: "019a7aaa-cd27-7554-9a8c-5e1c9276d6fa"
                   originalName: catalogue-2026-11.xlsx
                   contentType: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
-                status: APPLIED
+                status: CANCELLED
                 rowsTotal: 42
-                rowsValid: 42
-                rowsApplied: 42
+                rowsValid: 40
+                rowsApplied: null
+                rowsToCreate: 40
+                rowsToUpdate: 2
                 createdAt: "2026-11-01T10:00:00Z"
                 createdBy:
                   id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
@@ -16498,7 +16575,20 @@ paths:
       tags:
         - mdm
       summary: "Export master data to a spreadsheet"
-      description: "Export is a permission and every export is audited with its row count. Customer exports need step-up.\n\nPermission: `mdm.export.create`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      description: "Export is a permission, and every export needs a fresh step-up, whatever its size. It is audited with the user, the entity, the format and its row count; an export of more than 100 rows is marked bulk for the daily exception report (SEC-009). Exporting also needs the entity's read permission (for customers `mdm.customer.read`). The job comes back `APPLIED` with the row count, and its `file` is a private `EXPORT` file: once `getFile` shows it `CLEAN` (the worker scans it like any file), `createFileSignedUrl` issues the download link, which expires after five minutes and is logged. CSV cells that would start a formula are written with a leading apostrophe. Only `CUSTOMER` is built so far; any other entity is 422 `IMPORT_ENTITY_NOT_AVAILABLE`.\n\nPermission: `mdm.export.create`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - STEP_UP_REQUIRED
+        - TOTP_ENROLMENT_REQUIRED
+        - IMPORT_ENTITY_NOT_AVAILABLE
+        - RATE_LIMITED
       x-permission: mdm.export.create
       x-requires-step-up: true
       parameters:
@@ -16532,12 +16622,14 @@ paths:
                 direction: EXPORT
                 file:
                   id: "019a7aac-027d-7837-bd6f-8c4753600525"
-                  originalName: customers-export.xlsx
+                  originalName: customers-export-2026-11-11.xlsx
                   contentType: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
                 status: APPLIED
                 rowsTotal: 412
                 rowsValid: 412
                 rowsApplied: 412
+                rowsToCreate: null
+                rowsToUpdate: null
                 createdAt: "2026-11-11T10:00:00Z"
                 createdBy:
                   id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
@@ -69684,6 +69776,7 @@ components:
         - SUPPLIER_INVOICE
         - INVESTOR_DOCUMENT
         - IMPORT
+        - EXPORT
         - EVIDENCE
         - STATEMENT
         - AGREEMENT
@@ -74281,6 +74374,16 @@ components:
           format: date-time
         createdBy:
           $ref: "#/components/schemas/PrincipalRef"
+        rowsToCreate:
+          type:
+            - integer
+            - "null"
+          description: "The dry run's preview: rows that create a record. Null for an export, and for an import whose file could not be read."
+        rowsToUpdate:
+          type:
+            - integer
+            - "null"
+          description: "The dry run's preview: rows that change an existing record. Null as for `rowsToCreate`."
       required:
         - id
         - entity
@@ -74290,6 +74393,8 @@ components:
         - rowsTotal
         - rowsValid
         - rowsApplied
+        - rowsToCreate
+        - rowsToUpdate
         - createdAt
         - createdBy
     ImportCreate:
