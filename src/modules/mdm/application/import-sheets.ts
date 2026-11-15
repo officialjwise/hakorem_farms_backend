@@ -39,8 +39,33 @@ interface CustomerPlanRow {
   readonly tierId: string | undefined;
 }
 
-/** The most customers one export query reads at a time. */
-const EXPORT_PAGE = 1_000;
+/** A sheet's records, each as the record type `R` its reader gives. */
+export type SheetRecords = readonly { readonly rowNo: number; readonly cells: ReadonlyMap<string, string> }[];
+
+/** Reads every record with the entity's row reader, collecting the form errors into `errors`. */
+export function readRows<R>(records: SheetRecords, reader: (rowNo: number, cells: ReadonlyMap<string, string>) => { readonly row: R; readonly errors: readonly RowError[] }, errors: RowError[]): R[] {
+  return records.map((record) => {
+    const result = reader(record.rowNo, record.cells);
+    errors.push(...result.errors);
+    return result.row;
+  });
+}
+
+/** A lookup by code asked once per distinct code within one check. */
+export function cached<V>(lookup: (code: string) => Promise<V>): (code: string) => Promise<V> {
+  const seen = new Map<string, Promise<V>>();
+  return (code) => {
+    let found = seen.get(code);
+    if (found === undefined) {
+      found = lookup(code);
+      seen.set(code, found);
+    }
+    return found;
+  };
+}
+
+/** The most records one export query reads at a time. */
+export const EXPORT_PAGE = 1_000;
 
 /** Customers (FR-MDM-008) through a sheet, written by PartiesAdmin's own create and update. */
 export class CustomerSheet implements EntitySheet<readonly CustomerPlanRow[]> {

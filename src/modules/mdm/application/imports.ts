@@ -38,7 +38,7 @@ export class ImportFileNotCleanError extends BusinessRuleError {
   readonly messageKey = 'mdm.import_file_not_clean';
 }
 
-/** 422: the entity's sheet is not built yet (A-128): opening stock waits for B5, the others for B04e continued 5. */
+/** 422: the entity's sheet is not built yet (A-128, A-130): opening stock waits for B5. */
 export class ImportEntityNotAvailableError extends BusinessRuleError {
   readonly code = 'IMPORT_ENTITY_NOT_AVAILABLE';
   readonly messageKey = 'mdm.import_entity_not_available';

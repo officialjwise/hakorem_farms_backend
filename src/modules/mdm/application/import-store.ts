@@ -59,4 +59,30 @@ export interface ImportStore {
   errors(tx: Transaction, jobId: string, after: { readonly rowNo: number; readonly id: string } | null, limit: number): Promise<StoredRowError[]>;
 }
 
+/** A live record a sheet's row names by its code, with what the row's check needs. */
+export interface NamedRecord {
+  readonly id: string;
+  readonly version: number;
+}
+
+/**
+ * The codes a spreadsheet names records by, turned into the live records' ids (FR-MDM-019, A-130): every lookup is
+ * of a live row in MDM's own tables, in the caller's transaction, and answers null when there is none.
+ */
+export interface SheetLookups {
+  productBySku(tx: Transaction, sku: string): Promise<(NamedRecord & { readonly speciesId: string | null }) | null>;
+  categoryIdByCode(tx: Transaction, code: string): Promise<string | null>;
+  speciesIdByCode(tx: Transaction, code: string): Promise<string | null>;
+  taxCategoryIdByCode(tx: Transaction, code: string): Promise<string | null>;
+  supplierByNo(tx: Transaction, supplierNo: string): Promise<NamedRecord | null>;
+  branchIdByCode(tx: Transaction, code: string): Promise<string | null>;
+  locationByCode(tx: Transaction, branchId: string, code: string): Promise<(NamedRecord & { readonly isVirtual: boolean }) | null>;
+  priceListByCode(tx: Transaction, code: string): Promise<{ readonly id: string } | null>;
+  /** The list's one open version (DRAFT or PENDING_APPROVAL), if it has one. */
+  openVersion(tx: Transaction, priceListId: string): Promise<{ readonly id: string; readonly status: string; readonly version: number; readonly branchId: string } | null>;
+  gradeIdByCode(tx: Transaction, speciesId: string, code: string): Promise<string | null>;
+  weightBandIdByCode(tx: Transaction, speciesId: string, code: string): Promise<string | null>;
+}
+
 export const IMPORT_STORE = Symbol('IMPORT_STORE');
+export const SHEET_LOOKUPS = Symbol('SHEET_LOOKUPS');

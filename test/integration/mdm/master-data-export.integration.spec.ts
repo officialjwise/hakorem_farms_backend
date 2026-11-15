@@ -102,7 +102,7 @@ describe('FR-MDM-020: audits row counts and demands step-up above 100 rows', () 
     const rows = readSheet(Buffer.from(await (await fetch(linked.body.url as string)).arrayBuffer()), XLSX, 1_000);
     expect(rows).toHaveLength(151);
     expect(rows[1]![3]).toBe('+233240005000');
-    for (const entity of ['OPENING_STOCK', 'PRODUCT', 'SUPPLIER', 'LOCATION', 'PRICE_LIST_ENTRY']) {
+    for (const entity of ['OPENING_STOCK']) {
       const response = await post(world, world.accountant, '/exports', { entity, format: 'CSV' });
       expect(response.status, entity).toBe(422);
       expect(response.body.error.code, entity).toBe('IMPORT_ENTITY_NOT_AVAILABLE');
