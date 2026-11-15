@@ -1,6 +1,6 @@
 # ADR-0050: A higher module contributes an import sheet to MDM's imports through a port
 
-- **Status:** Proposed (B05 continued 4; awaiting the owner)
+- **Status:** Accepted (approved by the owner on 2026-11-15, for the same reason as ADR-0049: a module registers its sheet through the port and never reaches into another module's import code)
 - **Date:** 2026-11-15
 - **Session:** B05 continued 4
 - **Deciders:** backend track
