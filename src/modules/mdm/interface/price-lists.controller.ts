@@ -1,12 +1,16 @@
-import { Body, Controller, Get, Inject, Param, Post, Put, Res } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Patch, Post, Put, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import type { z } from 'zod';
 import type { Actor } from '../../../platform/context/request-context';
 import { CurrentActor } from '../../../platform/http/actor-param';
 import { IdempotencyKeyHeader, Operation } from '../../../platform/http/operation';
 import { zodPipe } from '../../../platform/http/validation';
-import { PriceListAdmin, type ApprovalPendingView, type PriceListVersionView, type PriceListView } from '../application/price-lists';
-import { IdParam, PriceListCreate, PriceListEntriesReplace, PriceListVersionCreate } from './schemas';
+import { PriceListAdmin, type ApprovalPendingView, type PriceListEntryView, type PriceListVersionView, type PriceListView } from '../application/price-lists';
+import type { Page } from '../application/product-catalogue';
+import { ArchiveBody, IdParam, ListPriceListEntriesQuery, ListPriceListsQuery, PageQuery, PriceListCreate, PriceListEntriesReplace, PriceListUpdate, PriceListVersionCreate } from './schemas';
+
+const READ = { access: 'SESSION', realms: ['STAFF'], idempotent: false, csrf: false, rateLimit: 'console' } as const;
+const WRITE = { access: 'SESSION', realms: ['STAFF'], idempotent: true, csrf: true, rateLimit: 'console' } as const;
 
 /**
  * Price lists and their versions (FR-MDM-015). The controller parses and delegates; the handler authorises, does
@@ -80,5 +84,59 @@ export class PriceListsController {
     const response = await this.admin.submit(actor, id, idempotencyKey);
     res.status(response.status);
     return response.body;
+  }
+
+  @Get('price-lists')
+  @Operation({ operationId: 'listPriceLists', ...READ, permission: 'mdm.price_list.read' })
+  listPriceLists(@CurrentActor() actor: Actor | undefined, @Query(zodPipe(ListPriceListsQuery)) query: z.infer<typeof ListPriceListsQuery>): Promise<Page<PriceListView>> {
+    return this.admin.listLists(actor, { kind: query.kind, channel: query.channel }, query.cursor, query.limit);
+  }
+
+  @Patch('price-lists/:id')
+  @Operation({ operationId: 'updatePriceList', ...WRITE, permission: 'mdm.price_list.update' })
+  async updatePriceList(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(PriceListUpdate)) body: z.infer<typeof PriceListUpdate>,
+    @IdempotencyKeyHeader() idempotencyKey: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<PriceListView> {
+    const response = await this.admin.updateList(actor, id, body, idempotencyKey);
+    res.status(response.status);
+    return response.body;
+  }
+
+  @Post('price-lists/:id/archive')
+  @Operation({ operationId: 'archivePriceList', ...WRITE, permission: 'mdm.price_list.archive' })
+  async archivePriceList(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(ArchiveBody)) body: z.infer<typeof ArchiveBody>,
+    @IdempotencyKeyHeader() idempotencyKey: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<PriceListView> {
+    const response = await this.admin.archiveList(actor, id, body, idempotencyKey);
+    res.status(response.status);
+    return response.body;
+  }
+
+  @Get('price-lists/:id/versions')
+  @Operation({ operationId: 'listPriceListVersions', ...READ, permission: 'mdm.price_list.read' })
+  listPriceListVersions(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Query(zodPipe(PageQuery)) query: z.infer<typeof PageQuery>,
+  ): Promise<Page<PriceListVersionView>> {
+    return this.admin.listVersions(actor, id, query.cursor, query.limit);
+  }
+
+  @Get('price-list-versions/:id/entries')
+  @Operation({ operationId: 'listPriceListEntries', ...READ, permission: 'mdm.price_list.read' })
+  listPriceListEntries(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Query(zodPipe(ListPriceListEntriesQuery)) query: z.infer<typeof ListPriceListEntriesQuery>,
+  ): Promise<Page<PriceListEntryView>> {
+    return this.admin.listEntries(actor, id, query.productId, query.cursor, query.limit);
   }
 }

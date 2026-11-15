@@ -1,0 +1,96 @@
+operationId: quoteDelivery
+tags:
+  - shp
+summary: "Check whether an address is in a delivery zone, the fee and the slots"
+description: "Public and read-only (FR-MDM-010). The zone whose areas name the address's area, else its city, among the active zones of open branches, with its exact fee: a zone with fee 1500 returns exactly 1500, and a free zone returns 0. An address in no zone returns `deliverable: false` with `feePesewas: null`: delivery unavailable, never a zero fee. `freeOverPesewas` is the order value above which the fee is waived at checkout. `slots` is empty until delivery scheduling exists (B11). No cart exists yet, so a `cartId` is refused with 422 `REFERENCE_NOT_FOUND`."
+x-error-codes:
+  - VALIDATION_FAILED
+  - REFERENCE_NOT_FOUND
+  - RATE_LIMITED
+security:
+  - {}
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/DeliveryQuoteRequest"
+      example:
+        address:
+          recipientName: "Ama Serwaa Ofori"
+          recipientPhone: "+233244512876"
+          line1: "House 14, Ashaley Botwe Road"
+          area: Madina
+          city: Accra
+          region: "Greater Accra"
+          digitalAddress: GM-091-4471
+        cartId: "019a7aa9-1c15-7ae4-b01c-b713eac82ff1"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/DeliveryQuote"
+        example:
+          deliverable: true
+          zone:
+            id: "019a7a93-5c09-76f4-bc2c-78125a54f0f0"
+            code: ACC-EAST
+            name: "Accra East: Madina, Adenta, East Legon"
+          feePesewas: 3000
+          freeOverPesewas: 50000
+          cutoffTime: "14:00"
+          slots:
+            - id: "019a7afd-16ee-736d-a8a6-3faf4a4fb88d"
+              date: "2026-11-14"
+              startsAt: "10:00"
+              endsAt: "12:00"
+              available: true
+              remaining: 4
+            - id: "019a7a94-b04e-73ba-a8f2-447494efbd52"
+              date: "2026-11-14"
+              startsAt: "14:00"
+              endsAt: "16:00"
+              available: false
+              remaining: 0
+            - id: "019a7afd-35dd-7d51-b289-dde6c40056c4"
+              date: "2026-11-15"
+              startsAt: "10:00"
+              endsAt: "12:00"
+              available: true
+              remaining: 6
+            - id: "019a7af2-74c6-7d3c-a275-dc9d7577557b"
+              date: "2026-11-15"
+              startsAt: "14:00"
+              endsAt: "16:00"
+              available: true
+              remaining: 6
+            - id: "019a7afd-54cc-7734-8c6d-7c1e3db1f4fc"
+              date: "2026-11-16"
+              startsAt: "10:00"
+              endsAt: "12:00"
+              available: true
+              remaining: 8
+            - id: "019a7afd-73bb-7118-9650-1a55b7629333"
+              date: "2026-11-16"
+              startsAt: "14:00"
+              endsAt: "16:00"
+              available: true
+              remaining: 8
+          currency: GHS
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

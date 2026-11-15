@@ -1,0 +1,64 @@
+operationId: getDeliveryZone
+tags:
+  - mdm
+summary: "Get a delivery zone"
+description: "Permission: `mdm.delivery_zone.read`."
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+x-permission: mdm.delivery_zone.read
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/DeliveryZone"
+        example:
+          id: "019a7a93-5c09-76f4-bc2c-78125a54f0f0"
+          branch:
+            id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+            code: DDW
+            name: "HaKorem Farms, Dodowa"
+          code: ACC-EAST
+          name: "Accra East: Madina, Adenta, East Legon"
+          areas:
+            - Madina
+            - Adenta
+            - "East Legon"
+            - "Ashaley Botwe"
+          feePesewas: 3000
+          freeOverPesewas: 50000
+          cutoffTime: "14:00"
+          isActive: true
+          currency: GHS
+          version: 1
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

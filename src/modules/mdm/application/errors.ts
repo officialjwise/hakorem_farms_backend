@@ -231,3 +231,30 @@ export function invalidFormat(rules: ReadonlyArray<{ readonly field: string | nu
     rules.map((rule) => ({ field: rule.field, code: rule.rule, message: translate('mdm.field_format') })),
   );
 }
+
+registerMessages({
+  'mdm.payment_method_invalid': 'This change to the payment method is not allowed.',
+  'mdm.payment_method_rule': 'Not allowed for this payment method.',
+  'mdm.delivery_zone_invalid': 'This delivery zone is not valid.',
+  'mdm.delivery_zone_rule': 'Not a valid value for a delivery zone.',
+});
+
+/** 422: verification switched off for mobile money or card, a method other than cash taken offline, or no channel left. */
+export class PaymentMethodInvalidError extends BusinessRuleError {
+  readonly code = 'PAYMENT_METHOD_INVALID';
+  readonly messageKey = 'mdm.payment_method_invalid';
+
+  constructor(rules: ReadonlyArray<{ readonly field: string | null; readonly rule: string }>) {
+    super('the payment method change is not allowed', rules.map((rule) => ({ field: rule.field, code: rule.rule, message: translate('mdm.payment_method_rule') })));
+  }
+}
+
+/** 422: a zone without areas, with a blank or repeated area, or covering an area another active zone covers. */
+export class DeliveryZoneInvalidError extends BusinessRuleError {
+  readonly code = 'DELIVERY_ZONE_INVALID';
+  readonly messageKey = 'mdm.delivery_zone_invalid';
+
+  constructor(rules: ReadonlyArray<{ readonly field: string | null; readonly rule: string }>) {
+    super('the delivery zone is not valid', rules.map((rule) => ({ field: rule.field, code: rule.rule, message: translate('mdm.delivery_zone_rule') })));
+  }
+}

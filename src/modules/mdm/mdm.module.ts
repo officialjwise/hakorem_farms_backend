@@ -45,17 +45,22 @@ import { LocationsController } from './interface/locations.controller';
 import { PartiesController } from './interface/parties.controller';
 import { SubjectKeys } from '../../platform/crypto/subject-keys';
 import { APP_CONFIG, type AppConfig } from '../../platform/config/app-config';
+import { ReferenceDataAdmin } from './application/reference-data-admin';
+import { REFERENCE_DATA_STORE, type ReferenceDataStore } from './application/reference-data-store';
+import { PgReferenceDataStore } from './infrastructure/pg-reference-data-store';
+import { ReferenceDataController } from './interface/reference-data.controller';
 
 /**
  * MDM (layer 3): the Product slice and the catalogue's reference data (categories, units, species, grades, bands), branches and
- * locations, customers with their tiers, addresses and assigned price list (B04d continued 2), the pricing sub-domain (price lists with maker-checker activation and the
+ * locations, customers with their tiers, addresses and assigned price list (B04d continued 2), suppliers, payment
+ * methods, delivery zones with the delivery quote and the fixed reason codes (B04d continued 3), the pricing sub-domain (price lists with maker-checker activation and the
  * engine, ADR-0004), the tax sub-domain (levies, scheme versions with maker-checker activation and the calculator,
  * ADR-0020), promotions and coupons (FR-MDM-018), IAM's ScopeNames port and the PRICE_LIST_ACTIVATION,
  * TAX_SCHEME_ACTIVATION and PROMOTION_ACTIVATION approval handlers.
  */
 @Module({
   imports: [IamModule],
-  controllers: [ProductsController, CatalogueController, LocationsController, PartiesController, PricingController, PriceListsController, PromotionsController, TaxController],
+  controllers: [ProductsController, CatalogueController, LocationsController, PartiesController, ReferenceDataController, PricingController, PriceListsController, PromotionsController, TaxController],
   providers: [
     { provide: PRODUCT_STORE, useClass: DrizzleProductStore },
     { provide: PRICING_STORE, useClass: PgPricingStore },
@@ -95,13 +100,32 @@ import { APP_CONFIG, type AppConfig } from '../../platform/config/app-config';
         audit: AuditTrail,
         events: DomainEvents,
         clock: Clock,
-      ) => new PriceListAdmin(uow, store, authoriser, approvals, principals, documents, idempotency, audit, events, clock),
-      inject: [UnitOfWork, PRICE_LIST_STORE, Authoriser, Approvals, PRINCIPAL_NAMES, DocumentRegistry, Idempotency, AuditTrail, DomainEvents, CLOCK],
+        cursors: Cursors,
+      ) => new PriceListAdmin(uow, store, authoriser, approvals, principals, documents, idempotency, audit, events, clock, cursors),
+      inject: [UnitOfWork, PRICE_LIST_STORE, Authoriser, Approvals, PRINCIPAL_NAMES, DocumentRegistry, Idempotency, AuditTrail, DomainEvents, CLOCK, Cursors],
     },
     { provide: TAX_STORE, useClass: PgTaxStore },
     { provide: CATALOGUE_STORE, useClass: PgCatalogueStore },
     { provide: LOCATIONS_STORE, useClass: PgLocationsStore },
     { provide: PARTIES_STORE, useClass: PgPartiesStore },
+    { provide: REFERENCE_DATA_STORE, useClass: PgReferenceDataStore },
+    {
+      provide: ReferenceDataAdmin,
+      useFactory: (
+        uow: UnitOfWork,
+        store: ReferenceDataStore,
+        authoriser: Authoriser,
+        idempotency: Idempotency,
+        audit: AuditTrail,
+        events: DomainEvents,
+        keys: SubjectKeys,
+        cursors: Cursors,
+        clock: Clock,
+        settings: Settings,
+        config: AppConfig,
+      ) => new ReferenceDataAdmin(uow, store, authoriser, idempotency, audit, events, keys, cursors, clock, settings, Buffer.from(config.LOOKUP_HMAC_KEY, 'base64')),
+      inject: [UnitOfWork, REFERENCE_DATA_STORE, Authoriser, Idempotency, AuditTrail, DomainEvents, SubjectKeys, Cursors, CLOCK, Settings, APP_CONFIG],
+    },
     {
       provide: LocationsAdmin,
       useFactory: (uow: UnitOfWork, store: LocationsStore, authoriser: Authoriser, idempotency: Idempotency, audit: AuditTrail, cursors: Cursors, clock: Clock) =>

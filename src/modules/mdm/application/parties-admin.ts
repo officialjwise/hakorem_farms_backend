@@ -9,6 +9,7 @@ import type { Cursors } from '../../../platform/http/cursor';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
 import type { Authoriser } from '../../iam';
 import { normaliseGhanaPhone, planAddress, planPriceListAssignment } from '../domain/parties';
+import { matchDeliveryZone } from '../domain/reference-data';
 import { AdminKit, requireLiveVersion, sentColumns } from './admin-kit';
 import { DuplicateRecordError, invalidFormat, PriceListAssignmentInvalidError, referencesNotFound } from './errors';
 import type { AddressView, CustomerFilters, CustomerKind, CustomerRecord, CustomerStatus, PartiesStore, TierView } from './parties-store';
@@ -311,6 +312,7 @@ export class PartiesAdmin {
           latitude: body.latitude ?? null,
           longitude: body.longitude ?? null,
           isDefault: body.isDefault ?? false,
+          deliveryZoneId: await this.zoneFor(tx, body.area, body.city),
         },
         actor!.principalId,
       );
@@ -331,6 +333,7 @@ export class PartiesAdmin {
         recipientPhone: body.recipientPhone ?? before.recipientPhone,
       });
       if (body.isDefault === true) await this.store.clearDefaultAddress(tx, before.customerId, id, actor!.principalId);
+      const zoneId = await this.zoneFor(tx, body.area ?? before.area, body.city ?? before.city);
       const set = sentColumns({
         label: body.label,
         recipient_name: body.recipientName,
@@ -344,6 +347,7 @@ export class PartiesAdmin {
         latitude: body.latitude,
         longitude: body.longitude,
         is_default: body.isDefault,
+        delivery_zone_id: zoneId === (before.deliveryZone?.id ?? null) ? undefined : zoneId,
       });
       if (Object.keys(set).length > 0 && !(await this.store.updateAddress(tx, id, body.version, set, actor!.principalId))) {
         throw new VersionConflictError(`address ${id} changed while it was updated`);
@@ -409,6 +413,11 @@ export class PartiesAdmin {
   }
 
   // Shared steps.
+
+  /** The zone an address is in as it is saved, or null (A-112): the same match `quoteDelivery` makes. */
+  private async zoneFor(tx: Transaction, area: string, city: string): Promise<string | null> {
+    return matchDeliveryZone({ area, city }, await this.store.deliverableZones(tx))?.id ?? null;
+  }
 
   private phoneHash(phone: string): Buffer {
     return createHmac('sha256', this.phoneKey).update(phone).digest();

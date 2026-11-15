@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { SEED_CUSTOMERS, SEED_PRICE_LISTS, SEED_PRODUCTS, SEED_PROMOTIONS, SEED_SPECIES } from '../../../src/seed/reference-pricing';
+import { SEED_PAYMENT_METHODS_ENABLED } from '../../../src/seed/farm-mdm';
 import { runSeedUnits } from '../../../src/seed/run-seed';
 import { seedUnits } from '../../../src/seed/seed-units';
 import { startTestApp, TEST_ORIGIN, type TestApp } from '../../support/test-app';
@@ -178,6 +179,34 @@ describe('the MDM seed through the services (A-085)', () => {
         WHERE e.action = 'ASSIGN_PRICE_LIST' GROUP BY 1, 2`,
     );
     expect(rows).toEqual([{ actor: 'Akosua Boateng', user_agent: 'hakorem-seed', n: 1 }]);
+  });
+});
+
+describe('payment methods and the delivery zone through the services (A-085, A-115)', () => {
+  it('the seeded Owner turned on the five methods the farm takes, and cheques and store credit stay off', async () => {
+    const admin = database.pool('admin');
+    const methods = await admin.query<{ code: string; is_enabled: boolean }>('SELECT code, is_enabled FROM mdm.payment_method ORDER BY code');
+    expect(methods.rows.filter((row) => row.is_enabled).map((row) => row.code)).toEqual([...SEED_PAYMENT_METHODS_ENABLED].sort());
+    const { rows } = await admin.query<{ actor: string; n: number; agents: string[] }>(
+      `SELECT p.display_name AS actor, count(*)::int AS n, array_agg(DISTINCT e.user_agent) AS agents
+         FROM platform.audit_event e JOIN iam.principal p ON p.id = e.actor_id
+        WHERE e.entity_type = 'PaymentMethod' GROUP BY 1`,
+    );
+    expect(rows).toEqual([{ actor: 'Kwabena Owusu', n: SEED_PAYMENT_METHODS_ENABLED.length, agents: ['hakorem-seed'] }]);
+  });
+
+  it('the seeded Manager created the Dodowa zone at exactly 1,500 pesewas before the customers, so the Dodowa address is in it', async () => {
+    const admin = database.pool('admin');
+    const zone = await admin.query<{ code: string; fee: string; free_over: string; actor: string; agent: string }>(
+      `SELECT z.code, z.fee_pesewas::text AS fee, z.free_over_pesewas::text AS free_over, p.display_name AS actor, e.user_agent AS agent
+         FROM mdm.delivery_zone z JOIN platform.audit_event e ON e.entity_id = z.id AND e.action = 'CREATE' JOIN iam.principal p ON p.id = e.actor_id`,
+    );
+    expect(zone.rows).toEqual([{ code: 'DODOWA', fee: '1500', free_over: '50000', actor: 'Akosua Boateng', agent: 'hakorem-seed' }]);
+    const addresses = await admin.query<{ area: string; zoned: boolean }>('SELECT area, delivery_zone_id IS NOT NULL AS zoned FROM mdm.customer_address ORDER BY area');
+    expect(addresses.rows).toEqual([
+      { area: 'Dodowa', zoned: true },
+      { area: 'Spintex', zoned: false },
+    ]);
   });
 });
 

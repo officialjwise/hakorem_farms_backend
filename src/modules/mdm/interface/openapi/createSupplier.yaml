@@ -1,0 +1,79 @@
+operationId: createSupplier
+tags:
+  - mdm
+summary: "Create a supplier"
+description: "Identity only (FR-MDM-007): commercial terms and payout details belong to procurement. The phone is sent as typed and stored in E.164 (400 `INVALID_PHONE`); two live suppliers never share a phone (422 `DUPLICATE_VALUE`, `/phone`). Each `categoryIds` entry names a live catalogue category (422 `REFERENCE_NOT_FOUND`). The TIN is stored encrypted; responses show `tinMasked`. Publishes `mdm.SupplierRegistered`.\n\nPermission: `mdm.supplier.create`."
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - DUPLICATE_VALUE
+  - REFERENCE_NOT_FOUND
+  - RATE_LIMITED
+x-permission: mdm.supplier.create
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/SupplierCreate"
+      example:
+        name: "Akuapem Hills Goat Breeders"
+        contactName: "Kwame Asiedu"
+        phone: "+233244661290"
+        address: Mampong-Akuapem
+        categoryIds:
+          - "019a7a89-737b-7c17-9150-ca4d5fa2432b"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Supplier"
+        example:
+          id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
+          supplierNo: S-0007
+          name: "Ashanti Feeds Ltd"
+          contactName: "Samuel Ofosu"
+          phone: "+233322031447"
+          email: "sales@ashanti.com.gh"
+          address: "Kaase Industrial Area, Kumasi"
+          tinMasked: "C00••••••20"
+          status: ACTIVE
+          categories:
+            - id: "019a7a8a-0e26-7d89-a2c1-e162c0175a40"
+              code: FEED
+              name: "Feed and medication"
+          hasProfile: true
+          version: 2
+          createdAt: "2026-11-02T08:00:00Z"
+          updatedAt: "2026-11-10T14:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

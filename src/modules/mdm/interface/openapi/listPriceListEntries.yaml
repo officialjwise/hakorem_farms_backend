@@ -1,0 +1,198 @@
+operationId: listPriceListEntries
+tags:
+  - pricing
+summary: "List the entries of a price list version"
+description: "A version's entries in a stable order, optionally for one product.\n\nPermission: `mdm.price_list.read`."
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+x-permission: mdm.price_list.read
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - name: productId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/PriceListEntryPage"
+        example:
+          data:
+            - id: "019a7aa5-f7cf-79ca-9f02-a5718ece1e4f"
+              product:
+                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                sku: LIV-GOAT
+                name: Goat
+              grade: null
+              weightBand:
+                id: "019a7a8c-3af4-7f87-84bf-01494e897a27"
+                code: GOAT-S
+                minKg: "10.000"
+                maxKg: "18.000"
+              basis: PER_HEAD
+              listPricePesewas: 45000
+              floorPricePesewas: 32000
+              ceilingPricePesewas: 52000
+              quoteOnly: false
+              minQty: "0.000"
+              currency: GHS
+            - id: "019a7aa6-16be-73ad-a8e5-43a9087fbc86"
+              product:
+                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                sku: LIV-GOAT
+                name: Goat
+              grade:
+                id: "019a7a8c-d59f-70f8-9631-185eaefe913c"
+                code: A
+                name: "Grade A, well finished"
+              weightBand:
+                id: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
+                code: GOAT-M
+                minKg: "18.000"
+                maxKg: "28.000"
+              basis: PER_HEAD
+              listPricePesewas: 85000
+              floorPricePesewas: 70000
+              ceilingPricePesewas: 98000
+              quoteOnly: false
+              minQty: "0.000"
+              currency: GHS
+            - id: "019a7aa6-35ad-7d90-b2c9-e1e082305abe"
+              product:
+                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                sku: LIV-GOAT
+                name: Goat
+              grade: null
+              weightBand:
+                id: "019a7a8c-78d2-734e-a886-3db841ebb696"
+                code: GOAT-L
+                minKg: "28.000"
+                maxKg: "45.000"
+              basis: PER_HEAD
+              listPricePesewas: 140000
+              floorPricePesewas: 120000
+              ceilingPricePesewas: 195000
+              quoteOnly: false
+              minQty: "0.000"
+              currency: GHS
+            - id: "019a7aa6-549c-7774-8cac-8017fbe1f8f5"
+              product:
+                id: "019a7a8d-326c-7ea3-83db-f3051c116be3"
+                sku: LIV-SHEEP
+                name: Sheep
+              grade: null
+              weightBand:
+                id: "019a7a8c-b6b0-7715-8c4d-7a27354df305"
+                code: SHEEP-L
+                minKg: "40.000"
+                maxKg: "70.000"
+              basis: PER_HEAD
+              listPricePesewas: 220000
+              floorPricePesewas: 180000
+              ceilingPricePesewas: 300000
+              quoteOnly: false
+              minQty: "0.000"
+              currency: GHS
+            - id: "019a7aa6-738b-7157-9690-1e4f7592972d"
+              product:
+                id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                sku: MEAT-CHK-FULL
+                name: "Full chicken, 15 kg pack"
+              grade: null
+              weightBand: null
+              basis: PER_KG
+              listPricePesewas: 2000
+              floorPricePesewas: 1467
+              ceilingPricePesewas: 2333
+              quoteOnly: false
+              minQty: "0.000"
+              currency: GHS
+            - id: "019a7aa6-927a-7b3b-a073-bc86ef433564"
+              product:
+                id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                sku: EGG-BIG
+                name: "Eggs, big, crate of 30"
+              grade: null
+              weightBand: null
+              basis: PER_UNIT
+              listPricePesewas: 6000
+              floorPricePesewas: 6000
+              ceilingPricePesewas: 6000
+              quoteOnly: false
+              minQty: "0.000"
+              currency: GHS
+            - id: "019a7aa6-b169-751e-ba57-5abe68f4d39c"
+              product:
+                id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
+                sku: MEAT-BEEF
+                name: "Beef, 15 kg pack"
+              grade: null
+              weightBand: null
+              basis: PER_KG
+              listPricePesewas: 3000
+              floorPricePesewas: 2200
+              ceilingPricePesewas: 4333
+              quoteOnly: false
+              minQty: "0.000"
+              currency: GHS
+            - id: "019a7aa6-d058-7f02-843a-f8f5e2a571d3"
+              product:
+                id: "019a7a8d-515b-7886-9dbe-913c95c20a1a"
+                sku: LIV-PIGLET
+                name: "Baby pig"
+              grade: null
+              weightBand: null
+              basis: PER_HEAD
+              listPricePesewas: 0
+              floorPricePesewas: 0
+              ceilingPricePesewas: 0
+              quoteOnly: true
+              minQty: "0.000"
+              currency: GHS
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

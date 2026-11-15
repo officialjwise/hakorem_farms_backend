@@ -1,0 +1,84 @@
+operationId: updateDeliveryZone
+tags:
+  - mdm
+summary: "Update a delivery zone"
+description: "Send the `version` you read; a stale version is refused with 409. Scoped to the zone's branch. The area rules are those of `createDeliveryZone`; an inactive zone may share an area and is checked again when it is made active. A saved address keeps the zone it was in when it was saved.\n\nPermission: `mdm.delivery_zone.update`."
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - VERSION_CONFLICT
+  - DELIVERY_ZONE_INVALID
+  - RATE_LIMITED
+x-permission: mdm.delivery_zone.update
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/DeliveryZoneUpdate"
+      example:
+        version: 3
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/DeliveryZone"
+        example:
+          id: "019a7a93-5c09-76f4-bc2c-78125a54f0f0"
+          branch:
+            id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+            code: DDW
+            name: "HaKorem Farms, Dodowa"
+          code: ACC-EAST
+          name: "Accra East: Madina, Adenta, East Legon"
+          areas:
+            - Madina
+            - Adenta
+            - "East Legon"
+            - "Ashaley Botwe"
+          feePesewas: 3000
+          freeOverPesewas: 50000
+          cutoffTime: "14:00"
+          isActive: true
+          currency: GHS
+          version: 1
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

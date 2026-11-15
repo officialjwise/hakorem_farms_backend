@@ -1,7 +1,7 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
 import type { ActiveWindow, EntryDefinition, EntryInput, EntryReferences, VersionWindow } from '../domain/pricing/price-list';
 import type { Channel, PriceListKind } from '../domain/pricing/pricing-engine';
-import type { EntrySnapshot, NewPriceList, PriceListRow, PriceListStore, VersionRow, VersionStatus } from '../application/price-list-store';
+import type { EntryRow, EntrySnapshot, NewPriceList, PriceListRow, PriceListStore, PriceListUsage, VersionRow, VersionStatus } from '../application/price-list-store';
 
 interface ListRecord {
   id: string;
@@ -19,6 +19,31 @@ interface ListRecord {
   version: number;
   created_at: Date;
   updated_at: Date;
+}
+
+const LIST_SELECT = `
+  SELECT l.id, l.code, l.name, l.kind, l.channel, t.id AS tier_id, t.code AS tier_code, t.name AS tier_name,
+         b.id AS branch_id, b.code AS branch_code, b.name AS branch_name, l.tax_inclusive, l.version, l.created_at, l.updated_at
+    FROM mdm.price_list l
+    LEFT JOIN mdm.customer_tier t ON t.id = l.customer_tier_id
+    LEFT JOIN mdm.branch b ON b.id = l.branch_id`;
+
+const LIST_UPDATABLE: ReadonlySet<string> = new Set(['name', 'tax_inclusive']);
+
+function toList(row: ListRecord): PriceListRow {
+  return {
+    id: row.id,
+    code: row.code,
+    name: row.name,
+    kind: row.kind,
+    channel: row.channel,
+    customerTier: row.tier_id === null ? null : { id: row.tier_id, code: row.tier_code!, name: row.tier_name! },
+    branch: row.branch_id === null ? null : { id: row.branch_id, code: row.branch_code!, name: row.branch_name! },
+    taxInclusive: row.tax_inclusive,
+    version: row.version,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
 }
 
 interface VersionRecord {
@@ -92,32 +117,108 @@ export class PgPriceListStore implements PriceListStore {
   }
 
   async list(tx: Transaction, id: string): Promise<PriceListRow | null> {
+    const { rows } = await tx.query<ListRecord>(`${LIST_SELECT} WHERE l.id = $1 AND l.deleted_at IS NULL`, [id]);
+    return rows[0] === undefined ? null : toList(rows[0]);
+  }
+
+  async lists(tx: Transaction, f: { readonly kind?: PriceListKind | undefined; readonly channel?: Channel | undefined }, afterId: string | null, limit: number): Promise<PriceListRow[]> {
     const { rows } = await tx.query<ListRecord>(
-      `SELECT l.id, l.code, l.name, l.kind, l.channel, t.id AS tier_id, t.code AS tier_code, t.name AS tier_name,
-              b.id AS branch_id, b.code AS branch_code, b.name AS branch_name, l.tax_inclusive, l.version, l.created_at, l.updated_at
-         FROM mdm.price_list l
-         LEFT JOIN mdm.customer_tier t ON t.id = l.customer_tier_id
-         LEFT JOIN mdm.branch b ON b.id = l.branch_id
-        WHERE l.id = $1 AND l.deleted_at IS NULL`,
-      [id],
+      `${LIST_SELECT} WHERE l.deleted_at IS NULL AND ($1::text IS NULL OR l.kind = $1) AND ($2::text IS NULL OR l.channel = $2) AND ($3::uuid IS NULL OR l.id > $3) ORDER BY l.id LIMIT $4`,
+      [f.kind ?? null, f.channel ?? null, afterId, limit],
     );
-    const row = rows[0];
-    if (row === undefined) {
-      return null;
+    return rows.map(toList);
+  }
+
+  async lockList(tx: Transaction, id: string): Promise<{ readonly version: number; readonly archived: boolean } | null> {
+    const { rows } = await tx.query<{ version: number; archived: boolean }>('SELECT version, deleted_at IS NOT NULL AS archived FROM mdm.price_list WHERE id = $1 FOR UPDATE', [id]);
+    return rows[0] ?? null;
+  }
+
+  async updateList(tx: Transaction, id: string, expectedVersion: number, columns: Readonly<Record<string, unknown>>, actorId: string): Promise<boolean> {
+    const names = Object.keys(columns);
+    for (const name of names) {
+      if (!LIST_UPDATABLE.has(name)) throw new Error(`mdm.price_list.${name} is not an updatable column`);
     }
-    return {
+    const sets = names.map((name, index) => `${name} = $${index + 4}`);
+    const result = await tx.query(
+      `UPDATE mdm.price_list SET ${[...sets, 'version = version + 1', 'updated_at = now()', 'updated_by = $3'].join(', ')} WHERE id = $1 AND version = $2 AND deleted_at IS NULL`,
+      [id, expectedVersion, actorId, ...names.map((name) => columns[name])],
+    );
+    return result.rowCount === 1;
+  }
+
+  async archiveList(tx: Transaction, id: string, expectedVersion: number, reason: string, actorId: string, now: Date): Promise<boolean> {
+    const result = await tx.query(
+      `UPDATE mdm.price_list SET deleted_at = $4, deleted_by = $3, delete_reason = $5, version = version + 1, updated_at = $4, updated_by = $3
+        WHERE id = $1 AND version = $2 AND deleted_at IS NULL`,
+      [id, expectedVersion, actorId, now, reason],
+    );
+    return result.rowCount === 1;
+  }
+
+  async usage(tx: Transaction, id: string, now: Date): Promise<PriceListUsage> {
+    const { rows } = await tx.query<{ live: number; submitted: number; assigned: number }>(
+      `SELECT (SELECT count(*)::int FROM mdm.price_list_version WHERE price_list_id = $1
+                 AND (status = 'PENDING_APPROVAL' OR (status = 'ACTIVE' AND (valid_to IS NULL OR valid_to > $2)))) AS live,
+              (SELECT count(*)::int FROM mdm.price_list_version WHERE price_list_id = $1 AND status <> 'DRAFT') AS submitted,
+              (SELECT count(*)::int FROM mdm.customer_price_list WHERE price_list_id = $1 AND deleted_at IS NULL AND (valid_to IS NULL OR valid_to > $2)) AS assigned`,
+      [id, now],
+    );
+    return { liveVersions: rows[0]!.live, submittedVersions: rows[0]!.submitted, liveAssignments: rows[0]!.assigned };
+  }
+
+  async versions(tx: Transaction, listId: string, beforeNo: number | null, limit: number): Promise<VersionRow[]> {
+    const { rows } = await tx.query<VersionRecord>(
+      `${VERSION_SELECT} WHERE v.price_list_id = $1 AND ($2::int IS NULL OR v.version_no < $2) ORDER BY v.version_no DESC LIMIT $3`,
+      [listId, beforeNo, limit],
+    );
+    return rows.map(toVersion);
+  }
+
+  async entryRows(tx: Transaction, versionId: string, productId: string | null, afterId: string | null, limit: number): Promise<EntryRow[]> {
+    const { rows } = await tx.query<{
+      id: string;
+      product_id: string;
+      sku: string;
+      product_name: string;
+      grade_id: string | null;
+      grade_code: string | null;
+      grade_name: string | null;
+      band_id: string | null;
+      band_code: string | null;
+      min_kg: string | null;
+      max_kg: string | null;
+      basis: string;
+      list_price: string;
+      floor_price: string;
+      ceiling_price: string;
+      quote_only: boolean;
+      min_qty: string;
+    }>(
+      `SELECT e.id, p.id AS product_id, p.sku, p.name AS product_name, g.id AS grade_id, g.code AS grade_code, g.name AS grade_name,
+              w.id AS band_id, w.code AS band_code, w.min_kg::text AS min_kg, w.max_kg::text AS max_kg, e.basis,
+              e.list_price_pesewas::text AS list_price, e.floor_price_pesewas::text AS floor_price, e.ceiling_price_pesewas::text AS ceiling_price,
+              e.quote_only, e.min_qty::text AS min_qty
+         FROM mdm.price_list_entry e
+         JOIN mdm.product p ON p.id = e.product_id
+         LEFT JOIN mdm.grade g ON g.id = e.grade_id
+         LEFT JOIN mdm.weight_band w ON w.id = e.weight_band_id
+        WHERE e.version_id = $1 AND ($2::uuid IS NULL OR e.product_id = $2) AND ($3::uuid IS NULL OR e.id > $3)
+        ORDER BY e.id LIMIT $4`,
+      [versionId, productId, afterId, limit],
+    );
+    return rows.map((row) => ({
       id: row.id,
-      code: row.code,
-      name: row.name,
-      kind: row.kind,
-      channel: row.channel,
-      customerTier: row.tier_id === null ? null : { id: row.tier_id, code: row.tier_code!, name: row.tier_name! },
-      branch: row.branch_id === null ? null : { id: row.branch_id, code: row.branch_code!, name: row.branch_name! },
-      taxInclusive: row.tax_inclusive,
-      version: row.version,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    };
+      product: { id: row.product_id, sku: row.sku, name: row.product_name },
+      grade: row.grade_id === null ? null : { id: row.grade_id, code: row.grade_code!, name: row.grade_name! },
+      weightBand: row.band_id === null ? null : { id: row.band_id, code: row.band_code!, minKg: row.min_kg!, maxKg: row.max_kg! },
+      basis: row.basis,
+      listPricePesewas: BigInt(row.list_price),
+      floorPricePesewas: BigInt(row.floor_price),
+      ceilingPricePesewas: BigInt(row.ceiling_price),
+      quoteOnly: row.quote_only,
+      minQty: row.min_qty,
+    }));
   }
 
   async versionsOfInterest(tx: Transaction, listId: string, now: Date): Promise<{ readonly active: VersionRow | null; readonly draftId: string | null }> {

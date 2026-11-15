@@ -61,6 +61,14 @@ export interface ProductStore {
   update(tx: Transaction, id: string, expectedVersion: number, definition: ProductDefinition, actorId: string, now: Date): Promise<boolean>;
   insert(tx: Transaction, id: string, definition: ProductDefinition, actorId: string, now: Date): Promise<void>;
   view(tx: Transaction, id: string): Promise<ProductView | null>;
+  /** The product's view whether or not it is archived. */
+  viewAny(tx: Transaction, id: string): Promise<ProductView | null>;
+  /** The version of the live product's locked row, or null when there is none. */
+  lockedVersion(tx: Transaction, id: string): Promise<number | null>;
+  /** Archives the live row if it is still at `expectedVersion`; false when it is not. */
+  archive(tx: Transaction, id: string, expectedVersion: number, reason: string, actorId: string, now: Date): Promise<boolean>;
+  /** How many entries of pending or active price list versions price the product. */
+  livePriceUses(tx: Transaction, id: string): Promise<number>;
   /** Newest first; `beforeId` is the exclusive upper bound for the next page. */
   list(tx: Transaction, filter: ProductListFilter, beforeId: string | null, limit: number): Promise<ProductView[]>;
 }

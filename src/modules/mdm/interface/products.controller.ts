@@ -7,7 +7,7 @@ import { IdempotencyKeyHeader, Operation } from '../../../platform/http/operatio
 import { zodPipe } from '../../../platform/http/validation';
 import { ProductCatalogue, type Page } from '../application/product-catalogue';
 import type { ProductView } from '../application/product-store';
-import { ListProductsQuery, ProductCreate, ProductIdParam, ProductUpdate } from './schemas';
+import { ArchiveBody, ListProductsQuery, ProductCreate, ProductIdParam, ProductUpdate } from './schemas';
 
 /**
  * `listProducts`, `createProduct`, `getProduct`, `updateProduct`. The controller parses and delegates; the handler authorises,
@@ -53,6 +53,20 @@ export class ProductsController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<ProductView> {
     const response = await this.catalogue.update(actor, id, body, idempotencyKey);
+    res.status(response.status);
+    return response.body;
+  }
+
+  @Post(':id/archive')
+  @Operation({ operationId: 'archiveProduct', access: 'SESSION', realms: ['STAFF'], permission: 'mdm.product.archive', idempotent: true, csrf: true, rateLimit: 'console' })
+  async archive(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(ProductIdParam)) id: string,
+    @Body(zodPipe(ArchiveBody)) body: z.infer<typeof ArchiveBody>,
+    @IdempotencyKeyHeader() idempotencyKey: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<ProductView> {
+    const response = await this.catalogue.archive(actor, id, body, idempotencyKey);
     res.status(response.status);
     return response.body;
   }
