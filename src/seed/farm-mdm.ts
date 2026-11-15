@@ -1,13 +1,14 @@
-import { createUuidV7Generator, systemClock } from '@hakorem/kernel';
+import { randomUUID } from 'node:crypto';
 import type { INestApplicationContext } from '@nestjs/common';
 import type pg from 'pg';
 import { Approvals } from '../modules/iam';
-import { CatalogueAdmin, PriceListAdmin, ProductCatalogue, Promotions, TaxAdmin, type TaxCellRequest } from '../modules/mdm';
+import { CatalogueAdmin, LocationsAdmin, PartiesAdmin, PriceListAdmin, ProductCatalogue, Promotions, TaxAdmin, type TaxCellRequest } from '../modules/mdm';
+import { runWithRequestContext, type Actor } from '../platform/context/request-context';
 import { UnitOfWork } from '../platform/database/unit-of-work';
 import { PG_POOL } from '../platform/platform.module';
 import { SEED_CATEGORIES, SEED_SPECIES_LIST } from './reference-catalogue';
 import { SEED_CUSTOMERS, SEED_PRICE_LISTS, SEED_PRODUCTS, SEED_PROMOTIONS, SEED_SPECIES, SEED_TAX_SCHEME } from './reference-pricing';
-import { SeedStaff } from './seed-staff';
+import { SEED_USER_AGENT, SeedStaff } from './seed-staff';
 import type { ServiceSeedUnit } from './seed-unit';
 
 /** The instant the seeded farm's prices and tax scheme take effect. */
@@ -71,6 +72,43 @@ export function seedTaxCells(): TaxCellRequest[] {
   );
 }
 
+/** The farm's first branch: the Dodowa farm and shop (A-001: one location running from day one). */
+const DODOWA = { code: 'DDW', name: 'Dodowa farm and shop (SEED)', address: 'Off the Dodowa-Afienya road, Dodowa, GE-293-0471 (SEED)', phone: '+233200000001' };
+const SYSTEM_PRINCIPAL = '01900000-0000-7000-8000-000000000001';
+
+/** Dodowa's physical locations, the site first; the others sit below it. The frozen cold room carries its range. */
+const DODOWA_LOCATIONS = [
+  { code: 'SITE', name: 'Farm site', kind: 'SITE' },
+  { code: 'PENS', name: 'Goat and sheep pens', kind: 'PEN', capacityHead: 120 },
+  { code: 'COLD', name: 'Cold room', kind: 'COLD_ROOM', tempClass: 'FROZEN', tempMinC: '-25.0', tempMaxC: '-18.0' },
+  { code: 'SHOP', name: 'Shop floor', kind: 'SHOP_FLOOR', isSellable: true },
+  { code: 'VAN1', name: 'Delivery van GT 4471-26 (SEED)', kind: 'VEHICLE' },
+  { code: 'RETURNS', name: 'Customer returns holding area', kind: 'RETURNS_HOLD' },
+] as const;
+
+/**
+ * The first seed unit: the Dodowa branch with its eight virtual locations, through MDM's bootstrap (ADR-0042). A
+ * role grant names a branch, so the first branch exists before anyone can be granted anything; the bootstrap runs
+ * as the SYSTEM principal and only while no branch exists. Every later branch is created by a granted person.
+ */
+export function farmSeedMdmBootstrap(): ServiceSeedUnit {
+  return {
+    kind: 'SERVICE',
+    name: 'mdm-bootstrap',
+    async run(app: INestApplicationContext) {
+      const pool = app.get<pg.Pool>(PG_POOL);
+      if ((await pool.query('SELECT 1 FROM mdm.branch LIMIT 1')).rows.length > 0) {
+        return { records: 0 };
+      }
+      const system: Actor = { principalId: SYSTEM_PRINCIPAL, kind: 'SYSTEM', displayName: 'System', realm: null, sessionId: null, steppedUpAt: null };
+      await runWithRequestContext({ correlationId: randomUUID(), ip: null, userAgent: SEED_USER_AGENT, actor: system }, () =>
+        app.get(LocationsAdmin).bootstrapFirstBranch(system, DODOWA),
+      );
+      return { records: 9 };
+    },
+  };
+}
+
 /**
  * The MDM slice of the seeded farm written through MDM's services as the seeded staff (A-085): the catalogue's
  * categories, species, grades, weight bands and products, written by the seeded Manager; tax scheme version 1
@@ -90,8 +128,56 @@ export function farmSeedMdm(): ServiceSeedUnit {
       const approvals = app.get(Approvals);
       const approve = (approvalRequestId: string, reason: string) =>
         staff.as('owner', (owner) => uow.run({ isolation: 'serializable' }, (tx) => approvals.decide(tx, owner, approvalRequestId, 'APPROVED', reason)));
-      const nextId = createUuidV7Generator(systemClock);
       let records = 0;
+
+      // The smoke-suite branch, created by the Owner; it gets its virtual locations with it. Its physical locations
+      // wait for B13's smoke suite and a person granted there (A-110).
+      const locationsAdmin = app.get(LocationsAdmin);
+      const branchIds = await idsByCode(pool, 'SELECT code, id FROM mdm.branch');
+      if (!branchIds.has('TST')) {
+        await staff.as('owner', (owner) =>
+          locationsAdmin.createBranch(owner, { code: 'TST', name: 'Smoke test branch (SEED)', address: DODOWA.address, phone: DODOWA.phone }, key('branch', 'TST'), { isTest: true }),
+        );
+        records += 9;
+      }
+
+      // Dodowa's physical locations, created by the Manager, who is granted at Dodowa.
+      const dodowa = required(branchIds, 'DDW', 'branch');
+      const locationIds = await idsByCode(pool, "SELECT l.code, l.id FROM mdm.location l JOIN mdm.branch b ON b.id = l.branch_id WHERE b.code = 'DDW' AND l.deleted_at IS NULL");
+      records += await staff.as('manager', async (manager) => {
+        let written = 0;
+        for (const location of DODOWA_LOCATIONS) {
+          if (locationIds.has(location.code)) continue;
+          const parentId = location.kind === 'SITE' ? undefined : required(locationIds, 'SITE', 'location');
+          const created = await locationsAdmin.createLocation(manager, { branchId: dodowa, parentId, ...location }, key('location', 'DDW', location.code));
+          locationIds.set(location.code, created.body.id);
+          written += 1;
+        }
+        return written;
+      });
+
+      // Customers, one per tier and a caterer, with their addresses, created by the Manager (FR-MDM-008).
+      const parties = app.get(PartiesAdmin);
+      const customers = await idsByCode(pool, 'SELECT name AS code, id FROM mdm.customer WHERE deleted_at IS NULL');
+      records += await staff.as('manager', async (manager) => {
+        let written = 0;
+        for (const customer of SEED_CUSTOMERS) {
+          if (customers.has(customer.name)) continue;
+          const created = await parties.createCustomer(manager, { kind: customer.kind, name: customer.name, phone: customer.phone, tierId: TIER[customer.tier] }, key('customer', customer.customerNo));
+          customers.set(customer.name, created.body.id);
+          written += 1;
+          if (customer.address !== null) {
+            await parties.createAddress(
+              manager,
+              created.body.id,
+              { ...customer.address, recipientName: customer.name, recipientPhone: customer.phone, isDefault: true },
+              key('customer', customer.customerNo, 'address'),
+            );
+            written += 1;
+          }
+        }
+        return written;
+      });
 
       // The catalogue: categories, species, their grades and weight bands, and the products, written by the Manager.
       const catalogue = app.get(CatalogueAdmin);
@@ -206,19 +292,15 @@ export function farmSeedMdm(): ServiceSeedUnit {
         records += 2 + list.entries.length;
       }
 
-      // The caterer's contract list. Written as SQL until assignCustomerPriceList is built (A-085).
-      const customers = await idsByCode(pool, 'SELECT customer_no AS code, id FROM mdm.customer WHERE deleted_at IS NULL');
-      const manager = staff.actor('manager').principalId;
+      // The caterer's contract list, assigned by the Manager through assignCustomerPriceList (FR-MDM-021).
+      const assigned = await idsByCode(pool, 'SELECT customer_id::text AS code, id FROM mdm.customer_price_list WHERE deleted_at IS NULL');
       for (const customer of SEED_CUSTOMERS) {
-        if (customer.assignedList === null) {
-          continue;
-        }
-        const assigned = await pool.query(
-          `INSERT INTO mdm.customer_price_list (id, customer_id, price_list_id, valid_from, created_by, updated_by)
-           SELECT $1, $2, $3, $4, $5, $5 WHERE NOT EXISTS (SELECT 1 FROM mdm.customer_price_list WHERE customer_id = $2 AND deleted_at IS NULL)`,
-          [nextId(), required(customers, customer.customerNo, 'customer'), required(existingLists, customer.assignedList, 'price list'), SEED_INSTANT, manager],
+        const customerId = required(customers, customer.name, 'customer');
+        if (customer.assignedList === null || assigned.has(customerId)) continue;
+        await staff.as('manager', (manager) =>
+          parties.assignPriceList(manager, customerId, { priceListId: required(existingLists, customer.assignedList!, 'price list'), validFrom: SEED_INSTANT }, key('customer', customer.customerNo, 'price-list')),
         );
-        records += assigned.rowCount ?? 0;
+        records += 1;
       }
 
       // Promotions: the Manager drafts, adds the coupon and submits; the Owner approves.

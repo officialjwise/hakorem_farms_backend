@@ -67,6 +67,10 @@ export interface SeedCustomer {
   readonly tier: SeedTier;
   /** The CUSTOMER list assigned to them, by code. */
   readonly assignedList: string | null;
+  /** From the seed block +233 20 000 02xx, typed the local way so the seed exercises the normalisation (FR-MDM-008). */
+  readonly phone: string;
+  /** A saved delivery address, in Ghana format. */
+  readonly address: { readonly label: string; readonly line1: string; readonly area: string; readonly city: string; readonly region: string; readonly digitalAddress: string } | null;
 }
 
 export const SEED_SPECIES: readonly SeedSpecies[] = [
@@ -251,10 +255,26 @@ export const SEED_PRICE_LISTS: readonly SeedPriceList[] = [
 ];
 
 export const SEED_CUSTOMERS: readonly SeedCustomer[] = [
-  { customerNo: 'C-00001', name: 'Ama Serwaa (SEED)', kind: 'INDIVIDUAL', tier: 'RETAIL', assignedList: null },
-  { customerNo: 'C-00002', name: 'Tema Cold Store Ltd (SEED)', kind: 'BUSINESS', tier: 'WHOLESALE', assignedList: null },
-  { customerNo: 'C-00003', name: 'Madina Market Traders (SEED)', kind: 'BUSINESS', tier: 'RESELLER', assignedList: null },
-  { customerNo: 'C-00004', name: 'Accra Event Caterers (SEED)', kind: 'BUSINESS', tier: 'WHOLESALE', assignedList: 'CATERERS-2026' },
+  {
+    customerNo: 'C-00001',
+    name: 'Ama Serwaa (SEED)',
+    kind: 'INDIVIDUAL',
+    tier: 'RETAIL',
+    assignedList: null,
+    phone: '020 000 0201',
+    address: { label: 'Home', line1: 'Two houses after the Presby church, Dodowa (SEED)', area: 'Dodowa', city: 'Dodowa', region: 'Greater Accra', digitalAddress: 'GE-293-0475' },
+  },
+  { customerNo: 'C-00002', name: 'Tema Cold Store Ltd (SEED)', kind: 'BUSINESS', tier: 'WHOLESALE', assignedList: null, phone: '0200000202', address: null },
+  { customerNo: 'C-00003', name: 'Madina Market Traders (SEED)', kind: 'BUSINESS', tier: 'RESELLER', assignedList: null, phone: '0200000203', address: null },
+  {
+    customerNo: 'C-00004',
+    name: 'Accra Event Caterers (SEED)',
+    kind: 'BUSINESS',
+    tier: 'WHOLESALE',
+    assignedList: 'CATERERS-2026',
+    phone: '0200000204',
+    address: { label: 'Kitchen', line1: 'Opposite the Shell filling station, Spintex Road (SEED)', area: 'Spintex', city: 'Accra', region: 'Greater Accra', digitalAddress: 'GT-042-1187' },
+  },
 ];
 
 export interface SeedPromotion {

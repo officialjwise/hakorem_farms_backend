@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { SEED_PRICE_LISTS, SEED_PRODUCTS, SEED_PROMOTIONS, SEED_SPECIES } from '../../../src/seed/reference-pricing';
+import { SEED_CUSTOMERS, SEED_PRICE_LISTS, SEED_PRODUCTS, SEED_PROMOTIONS, SEED_SPECIES } from '../../../src/seed/reference-pricing';
 import { runSeedUnits } from '../../../src/seed/run-seed';
 import { seedUnits } from '../../../src/seed/seed-units';
 import { startTestApp, TEST_ORIGIN, type TestApp } from '../../support/test-app';
@@ -169,4 +171,63 @@ describe('the MDM seed through the services (A-085)', () => {
     );
     expect(assigned.rows).toEqual([{ customer_no: 'C-00004', code: 'CATERERS-2026' }]);
   });
+
+  it("assigns the caterer's list through assignCustomerPriceList as the seeded Manager", async () => {
+    const { rows } = await database.pool('admin').query<{ actor: string; user_agent: string; n: number }>(
+      `SELECT p.display_name AS actor, e.user_agent, count(*)::int AS n FROM platform.audit_event e JOIN iam.principal p ON p.id = e.actor_id
+        WHERE e.action = 'ASSIGN_PRICE_LIST' GROUP BY 1, 2`,
+    );
+    expect(rows).toEqual([{ actor: 'Akosua Boateng', user_agent: 'hakorem-seed', n: 1 }]);
+  });
 });
+
+describe('branches, locations and customers through the services (A-085, ADR-0042)', () => {
+  it('bootstraps Dodowa as the System, the Owner creates the test branch, the Manager creates the locations and customers, all audited by the seed', async () => {
+    const { rows } = await database.pool('admin').query<{ entity_type: string; actor: string; n: number; agents: string[] }>(
+      `SELECT e.entity_type, p.display_name AS actor, count(*)::int AS n, array_agg(DISTINCT e.user_agent) AS agents
+         FROM platform.audit_event e JOIN iam.principal p ON p.id = e.actor_id
+        WHERE e.action = 'CREATE' AND e.entity_type IN ('Branch', 'Location', 'Customer', 'CustomerAddress')
+        GROUP BY 1, 2 ORDER BY 1, 2`,
+    );
+    const addresses = SEED_CUSTOMERS.filter((customer) => customer.address !== null).length;
+    expect(rows).toEqual([
+      { entity_type: 'Branch', actor: 'Kwabena Owusu', n: 1, agents: ['hakorem-seed'] },
+      { entity_type: 'Branch', actor: 'System', n: 1, agents: ['hakorem-seed'] },
+      { entity_type: 'Customer', actor: 'Akosua Boateng', n: SEED_CUSTOMERS.length, agents: ['hakorem-seed'] },
+      { entity_type: 'CustomerAddress', actor: 'Akosua Boateng', n: addresses, agents: ['hakorem-seed'] },
+      { entity_type: 'Location', actor: 'Akosua Boateng', n: 6, agents: ['hakorem-seed'] },
+    ]);
+  });
+
+  it('stores the customers in their tiers with numbers in order and phones normalised from the local form', async () => {
+    const { rows } = await database.pool('admin').query<{ customer_no: string; name: string; phone_e164: string; tier: string }>(
+      'SELECT c.customer_no, c.name, c.phone_e164, t.code AS tier FROM mdm.customer c JOIN mdm.customer_tier t ON t.id = c.tier_id ORDER BY c.customer_no',
+    );
+    expect(rows).toEqual(
+      SEED_CUSTOMERS.map((customer) => ({ customer_no: customer.customerNo, name: customer.name, phone_e164: `+233${customer.phone.replace(/\s/g, '').slice(1)}`, tier: customer.tier })),
+    );
+  });
+
+  it('gives the location-scoped staff their grants once the locations exist, and keeps the cold room frozen with its range', async () => {
+    const admin = database.pool('admin');
+    const grants = await admin.query<{ email: string; location: string }>(
+      `SELECT u.email, l.code AS location FROM iam.role_grant g JOIN iam.user_account u ON u.principal_id = g.principal_id
+         JOIN mdm.location l ON l.id = g.location_id ORDER BY u.email`,
+    );
+    expect(grants.rows).toEqual([
+      { email: 'abdul.iddrisu@seed.hakoremfarms.invalid', location: 'PENS' },
+      { email: 'adwoa.darko@seed.hakoremfarms.invalid', location: 'SHOP' },
+      { email: 'kofi.mensah@seed.hakoremfarms.invalid', location: 'COLD' },
+    ]);
+    const cold = await admin.query("SELECT temp_class, temp_min_c::text AS min, temp_max_c::text AS max FROM mdm.location WHERE code = 'COLD'");
+    expect(cold.rows).toEqual([{ temp_class: 'FROZEN', min: '-25.0', max: '-18.0' }]);
+  });
+
+  it('writes no MDM row as SQL: no seed source inserts into or updates an mdm table', () => {
+    const directory = join(__dirname, '../../../src/seed');
+    for (const file of readdirSync(directory).filter((name) => name.endsWith('.ts'))) {
+      expect(readFileSync(join(directory, file), 'utf8'), file).not.toMatch(/(INSERT\s+INTO|UPDATE)\s+mdm\./i);
+    }
+  });
+});
+
