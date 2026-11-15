@@ -81,7 +81,7 @@ No table is partitioned in version one. At the capacity targets in the shared br
 
 ## 2. Schema index
 
-233 tables in 23 schemas: 78 `DOCUMENT`, 67 `MASTER`, 45 `LEDGER`, 23 `PROJECTION`, 13 `WORK`, 7 `LOOKUP`. Plus the published views named in the dictionaries.
+234 tables in 23 schemas: 79 `DOCUMENT`, 67 `MASTER`, 45 `LEDGER`, 23 `PROJECTION`, 13 `WORK`, 7 `LOOKUP`. Plus the published views named in the dictionaries.
 
 | Schema | Module | Tables | Dictionary |
 | --- | --- | --- | --- |
@@ -241,6 +241,7 @@ No table is partitioned in version one. At the capacity targets in the shared br
 | `inv.goods_receipt` | `DOCUMENT` | Stock received from a supplier, or from harvest or lay |
 | `inv.goods_receipt_line` | `DOCUMENT` | Frozen with its header |
 | `inv.goods_receipt_animal` | `DOCUMENT` | One tagged animal of a serialised receipt line, frozen with its header (B05 continued) |
+| `inv.stock_reversal` | `DOCUMENT` | A reversal of one movement, asked for and approved at the threshold, and its reversing movement (B05 continued 2) |
 | `inv.stock_transfer` | `DOCUMENT` | Movement between locations with an in-transit stage |
 | `inv.stock_transfer_line` | `DOCUMENT` | What a transfer carries, dispatched and received |
 | `inv.stock_adjustment` | `DOCUMENT` | A manual gain or loss |

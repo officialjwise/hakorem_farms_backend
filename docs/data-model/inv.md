@@ -284,8 +284,10 @@ Movement between locations with an in-transit stage. Posted statuses: `RECEIVED`
 | `dispatched_by` | `uuid` | NULL, FK `iam.principal` | |
 | `received_at` | `timestamptz` | NULL | Receipt confirmation at destination |
 | `received_by` | `uuid` | NULL, FK `iam.principal` | |
+| `in_transit_location_id` | `uuid` | NULL, FK `mdm.location`; set with `dispatched_at` | The source branch's in-transit location the stock waits in (B05 continued 2, A-139) |
+| `cancel_reason` | `text` | NULL; set exactly when `CANCELLED` | Why a draft was set aside (A-139) |
 
-Standard columns: `DOCUMENT` (`status` in `DRAFT`, `DISPATCHED`, `RECEIVED`, `CANCELLED`).
+Standard columns: `DOCUMENT` (`status` in `DRAFT`, `DISPATCHED`, `RECEIVED`, `CANCELLED`). Built in migration 0051: a transfer starts `DRAFT` and moves only `DRAFT` to `DISPATCHED` or `CANCELLED`, then `DISPATCHED` to `RECEIVED` (`inv.document_status_guard`, HK004); `RECEIVED` and `CANCELLED` are frozen, and a `DISPATCHED` transfer changes only to be received.
 
 ### `inv.stock_transfer_line` · DOCUMENT
 
@@ -302,8 +304,9 @@ What a transfer carries, dispatched and received.
 | `qty_received` | `qty` | NULL | |
 | `variance_qty` | `qty` | NULL | Shortfall on receipt, posted as a loss with a reason |
 | `variance_reason_code` | `text` | NULL, FK `mdm.reason_code` | |
+| `dispatch_movement_id`, `receipt_movement_id`, `variance_movement_id` | `uuid` | NULL, FK `inv.stock_movement` | The movements the line caused (B05 continued 2) |
 
-- UNIQUE (`stock_transfer_id`, `line_no`). CHECK when received: `qty_received + variance_qty = qty_dispatched`.
+- UNIQUE (`stock_transfer_id`, `line_no`). CHECK when received: `qty_received + variance_qty = qty_dispatched`; a variance above zero has its reason and its movement, and none has neither. Lines are written while the transfer is a `DRAFT`; once dispatched only the receipt columns may be filled, once, from null (`inv.stock_document_part_guard`, HK004).
 
 ### `inv.stock_adjustment` · DOCUMENT
 
@@ -317,12 +320,13 @@ A manual gain or loss. Posted statuses: `POSTED`, `REJECTED`.
 | `reason_code` | `text` | NOT NULL, FK `mdm.reason_code` | Mandatory, from the fixed list |
 | `note` | `text` | NULL | |
 | `total_value_pesewas` | `pesewas` | NOT NULL DEFAULT 0 | Compared with the approval threshold |
+| `approval_threshold_pesewas` | `pesewas` | NULL; set when judged | The `STOCK_WRITE_OFF` threshold it was judged against, read through IAM's `Approvals.judgeIn` (A-139) |
 | `approval_request_id` | `uuid` | NULL, FK `iam.approval_request` | Required above the threshold |
 | `exception_id` | `uuid` | NULL, FK `inv.stock_exception` | The exception this resolves |
 
 Standard columns: `DOCUMENT` (`status` in `DRAFT`, `PENDING_APPROVAL`, `POSTED`, `REJECTED`).
 
-- CHECK: status `POSTED` with `total_value_pesewas` at or above the policy threshold requires `approval_request_id`. The threshold comparison is done by the posting function, which reads `iam.approval_policy`.
+- CHECK `ck_stock_adjustment_approved`: status `POSTED` with `total_value_pesewas` at or above `approval_threshold_pesewas` requires `approval_request_id`. The threshold is copied onto the row when the adjustment is submitted, so the check reads no other schema's table (A-139; the earlier wording, a posting function reading `iam.approval_policy`, would have widened ADR-0047). Statuses move `DRAFT` to `PENDING_APPROVAL` or `POSTED`, and `PENDING_APPROVAL` to `POSTED` or `REJECTED`; `POSTED` and `REJECTED` are frozen, a pending adjustment changes only to be decided.
 
 ### `inv.stock_adjustment_line` · DOCUMENT
 
@@ -338,10 +342,28 @@ One gain or loss within an adjustment.
 | `direction` | `text` | NOT NULL, CHECK in (`GAIN`, `LOSS`) | |
 | `qty` | `qty` | NOT NULL, CHECK `> 0` | |
 | `weight_kg` | `kg` | NULL | |
-| `value_pesewas` | `pesewas` | NOT NULL | |
-| `movement_id` | `uuid` | NULL, FK `inv.stock_movement` | Set on posting |
+| `weight_source` | `text` | NULL, with `weight_kg`; CHECK in (`SCALE`, `MANUAL`, `ESTIMATE`) | `MANUAL` for a typed weight (A-139) |
+| `value_pesewas` | `pesewas` | NOT NULL | From the cost pool: a loss at what the pool gives up, a gain at its average |
+| `movement_id` | `uuid` | NULL, UNIQUE, FK `inv.stock_movement` | Set on posting |
 
-- UNIQUE (`stock_adjustment_id`, `line_no`).
+- UNIQUE (`stock_adjustment_id`, `line_no`). Lines change while the adjustment is a `DRAFT`; while it is pending only `movement_id` is filled, once (`inv.stock_document_part_guard`, HK004).
+
+### `inv.stock_reversal` · DOCUMENT
+
+The request to reverse one movement and, once posted, the reversing movement, which names it as its source document (FR-INV-004; added in B05 continued 2, A-139). Document type `STOCK_REVERSAL`, not numbered.
+
+| Column | Type | Constraints | Why |
+| --- | --- | --- | --- |
+| `id` | `uuid` | PK, FK `platform.business_document` | |
+| `movement_id` | `uuid` | NOT NULL, FK `inv.stock_movement` | The movement reversed |
+| `reason_code` | `text` | NOT NULL, FK `mdm.reason_code` | From the stock adjustment list |
+| `note` | `text` | NOT NULL | |
+| `value_pesewas` | `pesewas` | NOT NULL | The original's value, judged against the threshold |
+| `approval_threshold_pesewas` | `pesewas` | NOT NULL | The `STOCK_REVERSAL` threshold it was judged against |
+| `approval_request_id` | `uuid` | NULL, FK `iam.approval_request`; required unless posted at once | |
+| `reversal_movement_id` | `uuid` | NULL, UNIQUE, FK `inv.stock_movement`; set exactly when `POSTED` | |
+
+Standard columns: `DOCUMENT` (`status` in `PENDING_APPROVAL`, `POSTED`, `REJECTED`), with `posted_at` and `posted_by`. Partial UNIQUE (`movement_id`) where status is not `REJECTED`. CHECK `ck_stock_reversal_approved`: posted at or above its threshold only with an approval. `POSTED` and `REJECTED` are frozen.
 
 ### `inv.stock_take` · DOCUMENT
 
