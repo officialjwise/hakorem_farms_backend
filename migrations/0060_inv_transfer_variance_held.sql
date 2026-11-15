@@ -18,6 +18,7 @@
 --   ck_stock_reservation_place (HK010) a reservation is at a physical location other than in-transit
 --   ck_stock_reservation_held (HK010)  a unit under a hold in force is never reserved (available = on hand less
 --                                      reserved less held)
+--   ck_stock_reservation_released_reason  widened to 500 characters, the contract's ReasonRequest
 -- The new triggers read only inv tables and MDM's published location_stock_facts (ADR-0047, unchanged).
 -- Data category: INTERNAL (DC-13): quantities and free text about stock; no personal data.
 -- Rollback: tested (`pnpm db:rollback`): drops the triggers, restores the B05 continued 2 line check and the B5
@@ -25,6 +26,9 @@
 -- the old line check refuses a held variance's row.
 
 -- migrate:up
+ALTER TABLE inv.stock_reservation DROP CONSTRAINT ck_stock_reservation_released_reason;
+ALTER TABLE inv.stock_reservation
+  ADD CONSTRAINT ck_stock_reservation_released_reason CHECK (length(btrim(released_reason)) BETWEEN 1 AND 500);
 ALTER TABLE inv.stock_transfer_line DROP CONSTRAINT ck_stock_transfer_line_movements;
 ALTER TABLE inv.stock_transfer_line
   ADD CONSTRAINT ck_stock_transfer_line_movements CHECK ((COALESCE(qty_received, 0) > 0) = (receipt_movement_id IS NOT NULL)
@@ -153,3 +157,6 @@ ALTER TABLE inv.stock_transfer_line DROP CONSTRAINT ck_stock_transfer_line_movem
 ALTER TABLE inv.stock_transfer_line
   ADD CONSTRAINT ck_stock_transfer_line_movements CHECK ((COALESCE(qty_received, 0) > 0) = (receipt_movement_id IS NOT NULL)
                                                          AND (COALESCE(variance_qty, 0) > 0) = (variance_movement_id IS NOT NULL));
+ALTER TABLE inv.stock_reservation DROP CONSTRAINT ck_stock_reservation_released_reason;
+ALTER TABLE inv.stock_reservation
+  ADD CONSTRAINT ck_stock_reservation_released_reason CHECK (length(btrim(released_reason)) BETWEEN 1 AND 200);

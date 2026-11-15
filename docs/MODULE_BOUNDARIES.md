@@ -295,6 +295,7 @@ Any other reference upward, from a lower layer to a document in a higher one, us
 | Approval handlers | IAM | Every module with an approval kind | IAM calls the owning module's handler when a request is approved, in the same transaction |
 | Health contributors | platform | Any module | A module reports its own health item, such as last successful reconciliation |
 | `ScopeNames` | IAM | MDM | IAM asks for the codes of the branches and locations a session's grants name (ADR-0033) |
+| `ScheduledJob` | platform | Any module, wired in `src/worker-app.ts` | The worker runs a module's scheduled job as the Scheduler and records the run (ADR-0049, proposed); first INV's `reservation-expiry` |
 
 Adding a port needs an ADR. Ports are the exception, not a way round the layer rule.
 

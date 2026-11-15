@@ -1,6 +1,6 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
 import type { ReadScope } from '../application/goods-receipt-store';
-import type { HoldKind, OnHandFilters, OnHandRow, PoolRow, StockReadStore, StockUnitRow } from '../application/stock-read-store';
+import type { HoldKind, OnHandFilters, OnHandRow, PoolRow, StockReadStore, StockUnitFilters, StockUnitRow } from '../application/stock-read-store';
 
 /** The holds covering a unit now: unreleased, started, not yet ended. */
 const ACTIVE_HOLD = 'h.released_at IS NULL AND h.starts_at <= now() AND (h.ends_at IS NULL OR h.ends_at > now())';
@@ -84,6 +84,42 @@ export class PgStockReadStore implements StockReadStore {
       [productIds],
     );
     return rows.map((r) => ({ productId: r.product_id, stockUnitId: r.stock_unit_id, branchId: r.branch_id, qty: r.qty, valuePesewas: BigInt(r.value_pesewas) }));
+  }
+
+  async stockUnitIds(tx: Transaction, filters: StockUnitFilters, scopes: readonly ReadScope[], afterId: string | null, limit: number): Promise<string[]> {
+    const { rows } = await tx.query<{ id: string }>(
+      `SELECT u.id FROM inv.stock_unit u
+        WHERE u.deleted_at IS NULL
+          AND EXISTS (SELECT 1 FROM unnest($1::uuid[], $2::uuid[]) s(branch_id, location_id)
+                       WHERE s.branch_id = u.branch_id
+                         AND (s.location_id IS NULL OR s.location_id = u.current_location_id
+                              OR EXISTS (SELECT 1 FROM inv.stock_balance b WHERE b.stock_unit_id = u.id AND b.location_id = s.location_id AND b.on_hand_qty <> 0)))
+          AND ($3::text IS NULL OR strpos(lower(u.identifier), lower($3)) > 0)
+          AND ($4::uuid IS NULL OR u.product_id = $4)
+          AND ($5::uuid IS NULL OR u.current_location_id = $5
+               OR EXISTS (SELECT 1 FROM inv.stock_balance b WHERE b.stock_unit_id = u.id AND b.location_id = $5 AND b.on_hand_qty <> 0))
+          AND ($6::text IS NULL OR u.status = $6)
+          AND ($7::text IS NULL OR u.tracking = $7)
+          AND ($8::date IS NULL OR u.expires_on <= $8)
+          AND ($9::boolean IS NULL OR $9 = EXISTS (SELECT 1 FROM inv.stock_hold h WHERE h.stock_unit_id = u.id AND ${ACTIVE_HOLD}))
+          AND ($10::uuid IS NULL OR u.id > $10)
+        ORDER BY u.id
+        LIMIT $11`,
+      [
+        scopes.map((s) => s.branchId),
+        scopes.map((s) => s.locationId),
+        filters.q ?? null,
+        filters.productId ?? null,
+        filters.locationId ?? null,
+        filters.status ?? null,
+        filters.tracking ?? null,
+        filters.expiresBy ?? null,
+        filters.onHold ?? null,
+        afterId,
+        limit,
+      ],
+    );
+    return rows.map((r) => r.id);
   }
 
   async stockUnit(tx: Transaction, id: string): Promise<StockUnitRow | null> {

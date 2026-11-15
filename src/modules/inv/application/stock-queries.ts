@@ -6,12 +6,13 @@ import { NotFoundError } from '../../../platform/errors/api-error';
 import type { Cursors } from '../../../platform/http/cursor';
 import type { Authoriser } from '../../iam';
 import type { MasterDataRefs, ProductFacts } from '../../mdm';
+import { availabilityOf, type Availability } from '../domain/availability';
 import { unitCost, valueLines } from '../domain/valuation/pool-lines';
-import { addDays, daysBetween } from './counting';
+import { addDays, daysBetween, pageProbe } from './counting';
 import type { ReadScope } from './goods-receipt-store';
 import type { Lineage, TracedUnit } from './lineage';
 import type { CostElement, LinkType } from './stock-store';
-import type { HoldKind, OnHandFilters, OnHandRow, StockReadStore } from './stock-read-store';
+import type { HoldKind, OnHandFilters, OnHandRow, StockReadStore, StockUnitFilters, StockUnitRow } from './stock-read-store';
 
 const COST_ELEMENTS: readonly CostElement[] = ['PURCHASE', 'FEED', 'VETERINARY', 'LABOUR', 'OVERHEAD', 'PROCESSING'];
 
@@ -67,6 +68,41 @@ export interface OnHandQuery extends OnHandFilters {
   readonly includeZero?: boolean | undefined;
   readonly expiringWithinDays?: number | undefined;
 }
+
+export interface StockUnitQuery {
+  readonly q?: string | undefined;
+  readonly productId?: string | undefined;
+  readonly locationId?: string | undefined;
+  readonly status?: StockUnitRow['status'] | undefined;
+  readonly tracking?: 'SERIAL' | 'LOT' | undefined;
+  readonly expiringWithinDays?: number | undefined;
+  readonly onHold?: boolean | undefined;
+}
+
+export interface AvailabilityQuery {
+  readonly branchId: string;
+  readonly productId?: readonly string[] | undefined;
+  readonly locationId?: string | undefined;
+}
+
+/** The contract's `AvailabilityLine`. */
+export interface AvailabilityLineView {
+  readonly productId: string;
+  readonly uom: string;
+  readonly onHandQty: string;
+  readonly reservedQty: string;
+  readonly heldQty: string;
+  readonly availableQty: string;
+  readonly availability: Availability;
+}
+
+interface Page<V> {
+  readonly data: readonly V[];
+  readonly page: { readonly nextCursor: string | null; readonly limit: number; readonly hasMore: boolean };
+}
+
+/** Stock in transit or at a whole site is never promised (FR-INV-010, ADR-0048). */
+const NOT_PROMISED_AT: ReadonlySet<string> = new Set(['IN_TRANSIT', 'SITE']);
 
 export interface StockUnitView {
   readonly id: string;
@@ -210,11 +246,95 @@ export class StockQueries {
       const unit = await this.store.stockUnit(tx, id);
       await this.authoriser.authorise(tx, actor, 'inv.stock.read', unit === null ? {} : { branchId: unit.branchId, locationId: unit.currentLocationId });
       if (unit === null) throw new NotFoundError(`no stock unit ${id}`);
-      const product = (await this.refs.productsIn(tx, [unit.productId])).get(unit.productId)!;
-      const location = unit.currentLocationId === null ? null : (await this.refs.locationsIn(tx, [unit.currentLocationId])).get(unit.currentLocationId)!;
-      const supplier = unit.supplierId === null ? null : (await this.refs.suppliersIn(tx, [unit.supplierId])).get(unit.supplierId)!;
-      const grade = unit.gradeId === null ? null : (await this.refs.gradesIn(tx, [unit.gradeId])).get(unit.gradeId)!;
-      const docs = await this.documents.refs(tx, [unit.sourceDocumentId, ...(unit.activeReservation === null ? [] : [unit.activeReservation.holderDocumentId])]);
+      return (await this.unitViews(tx, [unit]))[0]!;
+    });
+  }
+
+  /**
+   * Animals and lots as stock units (FR-INV-005, FR-INV-016), in id order: filtered by tag or batch, product, where an
+   * animal stands or a lot has stock, status, tracking, expiry within days of today in Accra, and whether a hold is in
+   * force; narrowed to the branches the reader's grants reach and, for a grant at one location, the units there.
+   */
+  listStockUnits(actor: Actor | undefined, query: StockUnitQuery, cursor: string | undefined, limit: number): Promise<Page<StockUnitView>> {
+    return this.uow.run({ isolation: 'read committed' }, async (tx) => {
+      await this.authoriser.authorise(tx, actor, 'inv.stock.read');
+      const scopes: ReadScope[] = (await this.authoriser.scopes(tx, actor!, 'inv.stock.read')).map((s) => ({ branchId: s.branchId, locationId: s.locationId }));
+      const { expiringWithinDays, ...rest } = query;
+      const filters: StockUnitFilters = { ...rest, expiresBy: expiringWithinDays === undefined ? undefined : addDays(toBusinessDate(this.clock.now()), expiringWithinDays) };
+      const binding = { operationId: 'listStockUnits', principalId: actor!.principalId, filters: { ...query } };
+      const after = cursor === undefined ? null : (this.cursors.decode(cursor, binding)['id'] ?? null);
+      const found = await this.store.stockUnitIds(tx, filters, scopes, after, pageProbe(limit));
+      const pageIds = found.slice(0, limit);
+      const units: StockUnitRow[] = [];
+      for (const unitId of pageIds) units.push((await this.store.stockUnit(tx, unitId))!);
+      const last = pageIds.at(-1);
+      const hasMore = found.length > limit;
+      return { data: await this.unitViews(tx, units), page: { nextCursor: hasMore && last !== undefined ? this.cursors.encode(binding, { id: last }) : null, limit, hasMore } };
+    });
+  }
+
+  /**
+   * Available to promise per product at a branch (FR-INV-021, ADR-0019): on hand less reserved less held, over the
+   * branch's physical stock locations, or one of them. Stock in transit is never promised (FR-INV-010, ADR-0048) and
+   * is left out. A unit under a hold in force counts all its on hand as held (A-137 (d)). A listed product with no
+   * stock answers a zero line. In product id order.
+   */
+  listAvailability(actor: Actor | undefined, query: AvailabilityQuery, cursor: string | undefined, limit: number): Promise<Page<AvailabilityLineView>> {
+    return this.uow.run({ isolation: 'read committed' }, async (tx) => {
+      await this.authoriser.authorise(tx, actor, 'inv.stock.read', { branchId: query.branchId, locationId: query.locationId ?? null });
+      const scopes: ReadScope[] = (await this.authoriser.scopes(tx, actor!, 'inv.stock.read')).map((s) => ({ branchId: s.branchId, locationId: s.locationId }));
+      const wanted = query.productId === undefined || query.productId.length === 0 ? null : new Set(query.productId);
+      const rows = (await this.store.onHand(tx, { branchId: query.branchId, locationId: query.locationId }, scopes, false)).filter((r) => wanted === null || wanted.has(r.productId));
+      const locations = await this.refs.locationsIn(tx, rows.map((r) => r.locationId));
+      const totals = new Map<string, { onHand: Quantity; reserved: Quantity; held: Quantity }>();
+      for (const productId of wanted ?? []) totals.set(productId, { onHand: Quantity.zero(), reserved: Quantity.zero(), held: Quantity.zero() });
+      for (const r of rows) {
+        if (NOT_PROMISED_AT.has(locations.get(r.locationId)?.kind ?? '')) continue;
+        const onHand = Quantity.parse(r.onHandQty);
+        const total = totals.get(r.productId) ?? { onHand: Quantity.zero(), reserved: Quantity.zero(), held: Quantity.zero() };
+        totals.set(r.productId, {
+          onHand: total.onHand.plus(onHand),
+          reserved: total.reserved.plus(Quantity.parse(r.reservedQty)),
+          held: r.holds.length > 0 && onHand.thousandths > 0n ? total.held.plus(onHand) : total.held,
+        });
+      }
+      const products = await this.refs.productsIn(tx, [...totals.keys()]);
+      const binding = { operationId: 'listStockAvailability', principalId: actor!.principalId, filters: { ...query } };
+      const after = cursor === undefined ? null : (this.cursors.decode(cursor, binding)['productId'] ?? null);
+      const ordered = [...totals.keys()].filter((p) => products.has(p) && (after === null || p > after)).sort();
+      const pageIds = ordered.slice(0, limit);
+      const hasMore = ordered.length > limit;
+      const last = pageIds.at(-1);
+      return {
+        data: pageIds.map((productId) => {
+          const total = totals.get(productId)!;
+          const { available, availability } = availabilityOf(total);
+          return {
+            productId,
+            uom: products.get(productId)!.baseUom,
+            onHandQty: total.onHand.toDecimalString(),
+            reservedQty: total.reserved.toDecimalString(),
+            heldQty: total.held.toDecimalString(),
+            availableQty: available.toDecimalString(),
+            availability,
+          };
+        }),
+        page: { nextCursor: hasMore && last !== undefined ? this.cursors.encode(binding, { productId: last }) : null, limit, hasMore },
+      };
+    });
+  }
+
+  private async unitViews(tx: Transaction, units: readonly StockUnitRow[]): Promise<StockUnitView[]> {
+    const products = await this.refs.productsIn(tx, units.map((u) => u.productId));
+    const locations = await this.refs.locationsIn(tx, units.flatMap((u) => (u.currentLocationId === null ? [] : [u.currentLocationId])));
+    const suppliers = await this.refs.suppliersIn(tx, units.flatMap((u) => (u.supplierId === null ? [] : [u.supplierId])));
+    const grades = await this.refs.gradesIn(tx, units.flatMap((u) => (u.gradeId === null ? [] : [u.gradeId])));
+    const docs = await this.documents.refs(tx, units.flatMap((u) => [u.sourceDocumentId, ...(u.activeReservation === null ? [] : [u.activeReservation.holderDocumentId])]));
+    return units.map((unit) => {
+      const product = products.get(unit.productId)!;
+      const location = unit.currentLocationId === null ? null : locations.get(unit.currentLocationId)!;
+      const supplier = unit.supplierId === null ? null : suppliers.get(unit.supplierId)!;
+      const grade = unit.gradeId === null ? null : grades.get(unit.gradeId)!;
       return {
         id: unit.id,
         product: productRef(product),

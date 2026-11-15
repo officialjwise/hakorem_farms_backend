@@ -17016,7 +17016,13 @@ paths:
       tags:
         - inv
       summary: "Get available-to-promise for products at a branch"
-      description: "Available is on-hand minus reserved minus quantity under hold.\n\nPermission: `inv.stock.read`."
+      description: "Available is on-hand minus reserved minus quantity under hold, per product, over the branch's physical stock locations or the one named, in product id order. Stock in transit, including a transfer shortfall held there (ADR-0048), is never promised and is left out. A unit under a hold in force counts all its on-hand as held. `availability` is `OUT_OF_STOCK` at zero or below, `LOW_STOCK` at five or fewer (SA-19), otherwise `IN_STOCK`. A listed `productId` with no stock answers a zero line.\n\nPermission: `inv.stock.read`, scoped to the branch and, when named, the location."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       x-permission: inv.stock.read
       parameters:
         - name: branchId
@@ -17833,7 +17839,13 @@ paths:
       tags:
         - inv
       summary: "List animals and lots as stock units"
-      description: "Permission: `inv.stock.read`."
+      description: "Animals and lots, in id order. `q` matches part of the tag or batch number without regard to case; `locationId` is where an animal stands or where a lot has stock; `expiringWithinDays` is an expiry on or before that many days from today in Accra; `onHold` is whether a hold is in force now. Narrowed to the branches the reader's grants reach and, for a grant at one location, to the animals standing there and the lots with stock there.\n\nPermission: `inv.stock.read`."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       x-permission: inv.stock.read
       parameters:
         - name: q
@@ -19051,7 +19063,13 @@ paths:
       tags:
         - inv
       summary: "List stock reservations"
-      description: "Permission: `inv.reservation.read`."
+      description: "Stock promised to a checkout, order or quote, oldest first. A reservation is made in process by the module that holds it (SHP, ORD, QUO) at serializable isolation: never above what is available, one active reservation per animal, never of stock in transit or of a unit under a hold. An outbound movement that names it consumes it whole; the scheduled job ends it `EXPIRED` at `expiresAt` (every minute) and publishes `inv.ReservationExpired`. Narrowed to the branches the reader's grants reach and, for a grant at one location, the reservations at that location.\n\nPermission: `inv.reservation.read`."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       x-permission: inv.reservation.read
       parameters:
         - name: status
@@ -19254,7 +19272,19 @@ paths:
       tags:
         - inv
       summary: "Release a reservation"
-      description: "Permission: `inv.reservation.release`."
+      description: "Releases an active reservation by hand, once, with a reason: what it promised is available again at once, and `inv.ReservationReleased` is published for its holder. A reservation consumed, expired or already released is refused (`INVALID_STATE_TRANSITION`).\n\nPermission: `inv.reservation.release`, scoped to the reservation's branch and location."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - RATE_LIMITED
       x-permission: inv.reservation.release
       parameters:
         - name: id

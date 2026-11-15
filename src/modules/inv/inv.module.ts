@@ -42,17 +42,23 @@ import { StockExceptionsController } from './interface/stock-exceptions.controll
 import { STOCK_EXCEPTION_STORE, type StockExceptionStore } from './application/stock-exception-store';
 import { StockExceptions } from './application/stock-exceptions';
 import { PgStockExceptionStore } from './infrastructure/pg-stock-exception-store';
+import { StockReservationsController } from './interface/stock-reservations.controller';
+import { STOCK_RESERVATION_STORE, type StockReservationStore } from './application/stock-reservation-store';
+import { ReservationExpiry, Reservations } from './application/reservations';
+import { PgStockReservationStore } from './infrastructure/pg-stock-reservation-store';
 
 /**
  * INV (layer 5): the stock movement ledger (ADR-0002) whose invariants live in migration 0044's triggers, the
  * in-transaction `Stock.postIn` other modules post through, lineage and its trace, and the nightly balance
  * recompute (B5); goods receipts, stock on hand at cost, stock units and the trace over HTTP (B05 continued); the
  * movement reads and reversal, transfers and adjustments, and their two approval handlers (B05 continued 2); stock takes
- * and cycle counts, and holds with the in-process `StockHolds.placeIn` LIV calls (B05 continued 3).
+ * and cycle counts, and holds with the in-process `StockHolds.placeIn` LIV calls (B05 continued 3); reservations with
+ * their expiry job, the exception queue with the held transfer variance, availability and the stock unit list
+ * (B05 continued 3b).
  */
 @Module({
   imports: [IamModule, MdmModule],
-  controllers: [GoodsReceiptsController, StockController, StockControlController, StockTakesController, StockHoldsController, StockExceptionsController],
+  controllers: [GoodsReceiptsController, StockController, StockControlController, StockTakesController, StockHoldsController, StockExceptionsController, StockReservationsController],
   providers: [
     { provide: STOCK_STORE, useClass: PgStockStore },
     { provide: GOODS_RECEIPT_STORE, useClass: PgGoodsReceiptStore },
@@ -61,6 +67,30 @@ import { PgStockExceptionStore } from './infrastructure/pg-stock-exception-store
     { provide: STOCK_TAKE_STORE, useClass: PgStockTakeStore },
     { provide: STOCK_HOLD_STORE, useClass: PgStockHoldStore },
     { provide: STOCK_EXCEPTION_STORE, useClass: PgStockExceptionStore },
+    { provide: STOCK_RESERVATION_STORE, useClass: PgStockReservationStore },
+    {
+      provide: Reservations,
+      useFactory: (
+        uow: UnitOfWork,
+        store: StockReservationStore,
+        documentsStore: StockDocumentsStore,
+        refs: MasterDataRefs,
+        stock: Stock,
+        authoriser: Authoriser,
+        idempotency: Idempotency,
+        audit: AuditTrail,
+        events: DomainEvents,
+        documents: DocumentRegistry,
+        cursors: Cursors,
+        clock: Clock,
+      ) => new Reservations(uow, store, documentsStore, refs, stock, authoriser, idempotency, audit, events, documents, cursors, clock),
+      inject: [UnitOfWork, STOCK_RESERVATION_STORE, STOCK_DOCUMENTS_STORE, MasterDataRefs, Stock, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, Cursors, CLOCK],
+    },
+    {
+      provide: ReservationExpiry,
+      useFactory: (uow: UnitOfWork, store: StockReservationStore, reservations: Reservations, clock: Clock) => new ReservationExpiry(uow, store, reservations, clock),
+      inject: [UnitOfWork, STOCK_RESERVATION_STORE, Reservations, CLOCK],
+    },
     {
       provide: Stock,
       useFactory: (store: StockStore, events: DomainEvents, clock: Clock) => new Stock(store, events, clock),
@@ -209,7 +239,7 @@ import { PgStockExceptionStore } from './infrastructure/pg-stock-exception-store
       inject: [UnitOfWork, STOCK_EXCEPTION_STORE, STOCK_DOCUMENTS_STORE, MasterDataRefs, StockAdjustments, Stock, Authoriser, Idempotency, AuditTrail, DocumentRegistry, PRINCIPAL_NAMES, Cursors, CLOCK],
     },
   ],
-  exports: [Stock, Lineage, BalanceReconciliation, GoodsReceipts, StockQueries, StockMovements, StockTransfers, StockAdjustments, StockTakes, StockHolds, StockExceptions],
+  exports: [Stock, Lineage, BalanceReconciliation, GoodsReceipts, StockQueries, StockMovements, StockTransfers, StockAdjustments, StockTakes, StockHolds, StockExceptions, Reservations, ReservationExpiry],
 })
 export class InvModule implements OnModuleInit {
   constructor(

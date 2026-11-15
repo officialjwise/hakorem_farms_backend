@@ -1,0 +1,88 @@
+operationId: releaseStockReservation
+tags:
+  - inv
+summary: "Release a reservation"
+description: "Releases an active reservation by hand, once, with a reason: what it promised is available again at once, and `inv.ReservationReleased` is published for its holder. A reservation consumed, expired or already released is refused (`INVALID_STATE_TRANSITION`).\n\nPermission: `inv.reservation.release`, scoped to the reservation's branch and location."
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - NOT_FOUND
+  - INVALID_STATE_TRANSITION
+  - RATE_LIMITED
+x-permission: inv.reservation.release
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ReasonRequest"
+      example:
+        reason: "Customer will not collect; quote withdrawn"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/StockReservation"
+        example:
+          id: "019a7ab0-99f7-7ffb-9533-088363a68161"
+          product:
+            id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+            sku: LIV-GOAT
+            name: Goat
+          stockUnit:
+            id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
+            identifier: G-0157
+            tracking: SERIAL
+          location:
+            id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+            code: PEN-G1
+            name: "Goat pen 1"
+            kind: PEN
+          qty: "1.000"
+          isExclusive: true
+          holderDocument:
+            id: "019a7a95-a7c6-72d5-a80e-36306277af0e"
+            docType: QUOTE
+            number: QUO-2026-DDW-000088
+          status: ACTIVE
+          expiresAt: "2026-11-20T18:00:00Z"
+          createdAt: "2026-11-13T09:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

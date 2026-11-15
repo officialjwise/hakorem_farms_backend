@@ -109,6 +109,7 @@ const VALID_BODY: Readonly<Record<string, object>> = {
   createStockHold: { stockUnitId: '019a7a91-2f3b-74f5-9a2d-582bcbe2d109', kind: 'INVESTIGATION', note: 'Refused' },
   releaseStockHold: { reasonCode: 'INVESTIGATION_CLOSED', note: 'Refused' },
   resolveStockException: { resolutionKind: 'WRITE_OFF', note: 'Refused' },
+  releaseStockReservation: { reason: 'Refused' },
   archiveLocation: { version: 1, reason: 'Closed' },
   createCustomer: { kind: 'INDIVIDUAL', name: 'Ama' },
   updateCustomer: { version: 1, name: 'Ama' },
@@ -185,6 +186,7 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'submitStockTake', 'cancelStockTake',
         'listStockHolds', 'createStockHold', 'releaseStockHold',
         'listStockExceptions', 'getStockException', 'resolveStockException',
+        'listStockReservations', 'releaseStockReservation', 'listStockAvailability', 'listStockUnits',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);
@@ -203,6 +205,9 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
     }
   });
 
+  /** Reads whose query has a required parameter: without it the request is refused as invalid before it is authorised. */
+  const VALID_QUERY: Record<string, string> = { listStockAvailability: `?branchId=${randomUUID()}` };
+
   it('refuses a staff user who holds no grant on every permissioned operation, with 403 FORBIDDEN', async () => {
     const nobody = await createUser(database, { name: 'Kwame Nkansah' });
     const session = await login(api.server, nobody);
@@ -213,7 +218,7 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
       const body = VALID_BODY[route.spec!.operationId] ?? {};
       const response =
         route.method === 'GET'
-          ? await consoleGet(api.server, session, path)
+          ? await consoleGet(api.server, session, `${path}${VALID_QUERY[route.spec!.operationId] ?? ''}`)
           : route.method === 'PUT' || route.method === 'PATCH' || route.method === 'DELETE'
             ? await (route.method === 'PUT' ? request(api.server).put(path) : route.method === 'PATCH' ? request(api.server).patch(path) : request(api.server).delete(path))
                 .set('Cookie', session.jar.header())

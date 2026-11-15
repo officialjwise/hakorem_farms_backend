@@ -25,6 +25,17 @@ export const SCHEDULES = {
   'idempotency-purge': { cron: '15 * * * *' },
 } as const;
 
+/**
+ * A scheduled job a module contributes (ADR-0049, proposed): the composition root (`src/worker-app.ts`) hands it to the
+ * worker, which runs it as the Scheduler principal on its schedule and records each run in `platform.job_run`.
+ * `run` does its own work in its own transaction and answers a summary for the run's row.
+ */
+export interface ScheduledJob {
+  readonly name: string;
+  readonly when: { readonly everyMs: number } | { readonly cron: string };
+  run(system: { readonly kind: 'SYSTEM'; readonly principalId: string }): Promise<Record<string, unknown>>;
+}
+
 /** Seven years, as the statutory retention of financial records (A-063). */
 const ANCHOR_RETENTION_DAYS = 2_557;
 const DISPATCH_BATCH = 100;
@@ -59,6 +70,8 @@ export class WorkerRuntime {
     private readonly logger: Logger,
     /** Null when no scanner is configured (development without the scanner container): uploads then stay PENDING. */
     private readonly fileScanner: FileScanner | null = null,
+    /** The modules' scheduled jobs (ADR-0049): the reservation expiry (INV) first. */
+    private readonly jobs: readonly ScheduledJob[] = [],
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -118,9 +131,17 @@ export class WorkerRuntime {
     this.queue.process('idempotency-purge', async () => {
       await this.purgeIdempotencyKeys();
     });
+    for (const job of this.jobs) {
+      this.queue.process(job.name, async () => {
+        await this.runJob(job);
+      });
+    }
     if (this.config.SCHEDULER_ENABLED) {
       for (const [name, when] of Object.entries(SCHEDULES)) {
         await this.queue.schedule(name, when);
+      }
+      for (const job of this.jobs) {
+        await this.queue.schedule(job.name, job.when);
       }
     }
     this.logger.info({ scheduler: this.config.SCHEDULER_ENABLED, sealer: this.config.AUDIT_SEALER_ENABLED }, 'worker started');
@@ -144,6 +165,27 @@ export class WorkerRuntime {
       [this.nextId(), started, this.clock.now(), JSON.stringify({ purged: rowCount ?? 0 }), SCHEDULER.principalId],
     );
     return rowCount ?? 0;
+  }
+
+  /**
+   * Runs one module job as the Scheduler and records the run in `platform.job_run`: `SUCCESS` with the job's summary,
+   * or `FAILED` with the error's message, which is then rethrown so the queue logs it and the next run tries again.
+   */
+  async runJob(job: ScheduledJob): Promise<Record<string, unknown>> {
+    const started = this.clock.now();
+    const record = (outcome: 'SUCCESS' | 'FAILED', summary: Record<string, unknown>) =>
+      this.workerPool.query(
+        `INSERT INTO platform.job_run (id, job_name, started_at, finished_at, outcome, summary, actor_id) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [this.nextId(), job.name, started, this.clock.now(), outcome, JSON.stringify(summary), SCHEDULER.principalId],
+      );
+    try {
+      const summary = await runAsSystem(SCHEDULER, randomUUID(), () => job.run({ kind: 'SYSTEM', principalId: SCHEDULER.principalId }));
+      await record('SUCCESS', summary);
+      return summary;
+    } catch (error) {
+      await record('FAILED', { error: error instanceof Error ? error.message : String(error) });
+      throw error;
+    }
   }
 
   /** Runs `work` every `intervalMs`, one run at a time; a failure is logged and the loop carries on. */

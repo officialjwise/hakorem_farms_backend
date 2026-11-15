@@ -66,6 +66,20 @@ export interface StockUnitRow {
   readonly activeReservation: { readonly id: string; readonly holderDocumentId: string; readonly expiresAt: Date | null } | null;
 }
 
+export interface StockUnitFilters {
+  /** Part of the tag or batch number, without regard to case. */
+  readonly q?: string | undefined;
+  readonly productId?: string | undefined;
+  /** Where an animal stands, or where a lot has stock. */
+  readonly locationId?: string | undefined;
+  readonly status?: StockUnitRow['status'] | undefined;
+  readonly tracking?: 'SERIAL' | 'LOT' | undefined;
+  /** Expiring on or before this business date. */
+  readonly expiresBy?: string | undefined;
+  /** Under a hold in force now, or not. */
+  readonly onHold?: boolean | undefined;
+}
+
 export interface StockReadStore {
   /** Balances at physical locations within the scopes, in a stable order (location, product, unit). */
   onHand(tx: Transaction, filters: OnHandFilters, scopes: readonly ReadScope[], includeZero: boolean): Promise<OnHandRow[]>;
@@ -73,4 +87,9 @@ export interface StockReadStore {
   poolBalances(tx: Transaction, productIds: readonly string[]): Promise<Array<{ readonly productId: string; readonly stockUnitId: string | null; readonly locationId: string; readonly branchId: string; readonly onHandQty: string }>>;
   pools(tx: Transaction, productIds: readonly string[]): Promise<PoolRow[]>;
   stockUnit(tx: Transaction, id: string): Promise<StockUnitRow | null>;
+  /**
+   * Ids of the stock units matching the filters, in id order after `afterId`, narrowed to the branch of a scope and,
+   * for a grant at one location, to the animals standing there and the lots with stock there (as holds, A-142).
+   */
+  stockUnitIds(tx: Transaction, filters: StockUnitFilters, scopes: readonly ReadScope[], afterId: string | null, limit: number): Promise<string[]>;
 }

@@ -273,6 +273,7 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     createStockHold: StockHoldCreate,
     releaseStockHold: StockHoldRelease,
     resolveStockException: StockExceptionResolve,
+    releaseStockReservation: InvReasonBody,
   };
 
   it('parses every request example of an implemented operation with the schema its route validates with', () => {

@@ -220,4 +220,20 @@ describe('inventory operations answer in the contract shapes', () => {
     expect(missing.status).toBe(404);
     expectShape('Error', missing.body);
   });
+
+  it('reservations, availability and the stock unit list, and their refusals', async () => {
+    expectShape('StockReservationPage', (await get('/stock/reservations?status=ACTIVE')).body);
+    const missing = await post(`/stock/reservations/${randomUUID()}/release`, { reason: 'Quote withdrawn' });
+    expect(missing.status).toBe(404);
+    expectShape('Error', missing.body);
+    const availability = await get(`/stock/availability?branchId=${id('branch:DDW')}&productId=${id('product:LIV-GOAT')}&productId=${id('product:PRD-YAM-TUBER')}`);
+    expect(availability.status).toBe(200);
+    expectShape('AvailabilityLinePage', availability.body);
+    const units = await get('/stock-units?tracking=SERIAL&limit=2');
+    expect(units.status).toBe(200);
+    expectShape('StockUnitPage', units.body);
+    const invalid = await get('/stock-units?status=LOST');
+    expect(invalid.status).toBe(400);
+    expectShape('Error', invalid.body);
+  });
 });
