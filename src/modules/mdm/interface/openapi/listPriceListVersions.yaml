@@ -1,0 +1,165 @@
+operationId: listPriceListVersions
+tags:
+  - pricing
+summary: "List the versions of a price list"
+description: "Every version of a live list, newest number first.\n\nPermission: `mdm.price_list.read`."
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+x-permission: mdm.price_list.read
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/PriceListVersionPage"
+        example:
+          data:
+            - id: "019a7aa3-e9f0-71af-86e7-23c27a0d9ca0"
+              priceListId: "019a7a94-5381-760f-bb48-69ce27dce2ac"
+              versionNo: 5
+              status: DRAFT
+              validFrom: "2026-12-01T00:00:00Z"
+              validTo: null
+              approvalRequestId: null
+              activatedAt: null
+              activatedBy: null
+              notes: "Christmas season goat prices"
+              entryCount: 38
+              version: 1
+              createdAt: "2026-11-10T11:00:00Z"
+              createdBy:
+                id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                displayName: "Kwabena Owusu"
+            - id: "019a7aa4-46bd-7f59-b491-fe68e7207746"
+              priceListId: "019a7a94-5381-760f-bb48-69ce27dce2ac"
+              versionNo: 4
+              status: ACTIVE
+              validFrom: "2026-11-01T00:00:00Z"
+              validTo: null
+              approvalRequestId: "019a7aa5-5d24-7858-8d90-8e5c2e59073a"
+              activatedAt: "2026-11-01T00:00:00Z"
+              activatedBy:
+                id: "019a7a86-3046-711a-a652-1a7389f79351"
+                displayName: "Akua Mensah"
+              notes: null
+              entryCount: 36
+              version: 1
+              createdAt: "2026-11-10T11:00:00Z"
+              createdBy:
+                id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                displayName: "Kwabena Owusu"
+            - id: "019a7aa4-849b-7320-9858-3ad7da82b3b5"
+              priceListId: "019a7a94-5381-760f-bb48-69ce27dce2ac"
+              versionNo: 3
+              status: SUPERSEDED
+              validFrom: "2026-10-01T00:00:00Z"
+              validTo: "2026-11-01T00:00:00Z"
+              approvalRequestId: "019a7aa5-7c13-723c-9774-2c93a80aa571"
+              activatedAt: "2026-11-01T00:00:00Z"
+              activatedBy:
+                id: "019a7a86-3046-711a-a652-1a7389f79351"
+                displayName: "Akua Mensah"
+              notes: "Feed price rise passed through to broilers"
+              entryCount: 36
+              version: 1
+              createdAt: "2026-11-10T11:00:00Z"
+              createdBy:
+                id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                displayName: "Kwabena Owusu"
+            - id: "019a7aa4-c279-76e7-bc1f-7746cde4f024"
+              priceListId: "019a7a94-5381-760f-bb48-69ce27dce2ac"
+              versionNo: 2
+              status: SUPERSEDED
+              validFrom: "2026-08-15T00:00:00Z"
+              validTo: "2026-10-01T00:00:00Z"
+              approvalRequestId: "019a7aa5-9b02-7c1f-a157-cacb21bb43a9"
+              activatedAt: "2026-11-01T00:00:00Z"
+              activatedBy:
+                id: "019a7a86-3046-711a-a652-1a7389f79351"
+                displayName: "Akua Mensah"
+              notes: "Christmas season goat prices"
+              entryCount: 34
+              version: 1
+              createdAt: "2026-11-10T11:00:00Z"
+              createdBy:
+                id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                displayName: "Kwabena Owusu"
+            - id: "019a7aa5-0057-7aae-9fe6-b3b5c1462c93"
+              priceListId: "019a7a94-5381-760f-bb48-69ce27dce2ac"
+              versionNo: 1
+              status: SUPERSEDED
+              validFrom: "2026-07-01T00:00:00Z"
+              validTo: "2026-08-15T00:00:00Z"
+              approvalRequestId: "019a7aa5-b9f1-7603-bb3b-69029b6ce1e0"
+              activatedAt: "2026-11-01T00:00:00Z"
+              activatedBy:
+                id: "019a7a86-3046-711a-a652-1a7389f79351"
+                displayName: "Akua Mensah"
+              notes: null
+              entryCount: 34
+              version: 1
+              createdAt: "2026-11-10T11:00:00Z"
+              createdBy:
+                id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                displayName: "Kwabena Owusu"
+            - id: "019a7aa5-3e35-7e75-b3ad-f024b4a86902"
+              priceListId: "019a7a94-5381-760f-bb48-69ce27dce2ac"
+              versionNo: 0
+              status: REJECTED
+              validFrom: "2026-06-20T00:00:00Z"
+              validTo: null
+              approvalRequestId: "019a7aa5-d8e0-7fe6-851e-073a151d8017"
+              activatedAt: null
+              activatedBy: null
+              notes: "Feed price rise passed through to broilers"
+              entryCount: 35
+              version: 1
+              createdAt: "2026-11-10T11:00:00Z"
+              createdBy:
+                id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                displayName: "Kwabena Owusu"
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

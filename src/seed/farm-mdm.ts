@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { INestApplicationContext } from '@nestjs/common';
 import type pg from 'pg';
 import { Approvals } from '../modules/iam';
-import { CatalogueAdmin, LocationsAdmin, PartiesAdmin, PriceListAdmin, ProductCatalogue, Promotions, TaxAdmin, type TaxCellRequest } from '../modules/mdm';
+import { CatalogueAdmin, LocationsAdmin, PartiesAdmin, PriceListAdmin, ProductCatalogue, Promotions, ReferenceDataAdmin, TaxAdmin, type TaxCellRequest } from '../modules/mdm';
 import { runWithRequestContext, type Actor } from '../platform/context/request-context';
 import { UnitOfWork } from '../platform/database/unit-of-work';
 import { PG_POOL } from '../platform/platform.module';
@@ -33,6 +33,18 @@ const LEVY: Readonly<Record<string, string>> = {
   NHIL: '01900000-0000-7000-8000-000000000502',
   GETFUND: '01900000-0000-7000-8000-000000000503',
 };
+
+/** The payment methods the seeded farm takes (A-115). Cheques and store credit stay disabled until the owner decides. */
+export const SEED_PAYMENT_METHODS_ENABLED: readonly string[] = ['CASH', 'MOMO', 'CARD', 'BANK_TRANSFER', 'COD'];
+/** Dodowa's delivery zone: GHS 15.00, free over GHS 500.00, orders by 14:00 for the next slot (FR-MDM-010). */
+export const SEED_DELIVERY_ZONE = {
+  code: 'DODOWA',
+  name: 'Dodowa and surroundings (SEED)',
+  areas: ['Dodowa', 'Ayikuma', 'Afienya', 'Doryumu'],
+  feePesewas: 1_500n,
+  freeOverPesewas: 50_000n,
+  cutoffTime: '14:00',
+} as const;
 
 /** Default shelf lives of new lots: frozen meat packs and eggs (reference catalogue). */
 const MEAT_SHELF_LIFE_DAYS = 90;
@@ -155,6 +167,26 @@ export function farmSeedMdm(): ServiceSeedUnit {
         }
         return written;
       });
+
+      // The payment methods the farm takes, turned on by the Owner; cheques and store credit stay off (FR-MDM-009, A-115).
+      const reference = app.get(ReferenceDataAdmin);
+      const methods = await pool.query<{ id: string; code: string; version: number; is_enabled: boolean }>('SELECT id, code, version, is_enabled FROM mdm.payment_method');
+      records += await staff.as('owner', async (owner) => {
+        let written = 0;
+        for (const method of methods.rows) {
+          if (!SEED_PAYMENT_METHODS_ENABLED.includes(method.code) || method.is_enabled) continue;
+          await reference.updatePaymentMethod(owner, method.id, { version: method.version, isEnabled: true }, key('payment-method', method.code));
+          written += 1;
+        }
+        return written;
+      });
+
+      // Dodowa's delivery zone, created by the Manager before the customers, so a saved address finds it (FR-MDM-010).
+      const zones = await idsByCode(pool, "SELECT z.code, z.id FROM mdm.delivery_zone z JOIN mdm.branch b ON b.id = z.branch_id WHERE b.code = 'DDW' AND z.deleted_at IS NULL");
+      if (!zones.has(SEED_DELIVERY_ZONE.code)) {
+        await staff.as('manager', (manager) => reference.createZone(manager, { branchId: dodowa, ...SEED_DELIVERY_ZONE }, key('delivery-zone', 'DDW', SEED_DELIVERY_ZONE.code)));
+        records += 1;
+      }
 
       // Customers, one per tier and a caterer, with their addresses, created by the Manager (FR-MDM-008).
       const parties = app.get(PartiesAdmin);

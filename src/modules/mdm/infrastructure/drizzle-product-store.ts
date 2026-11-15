@@ -192,6 +192,34 @@ export class DrizzleProductStore implements ProductStore {
     return rows[0] ?? null;
   }
 
+  async viewAny(tx: Transaction, id: string): Promise<ProductView | null> {
+    const rows = await this.select(tx, eq(product.id, id), 1);
+    return rows[0] ?? null;
+  }
+
+  async lockedVersion(tx: Transaction, id: string): Promise<number | null> {
+    const { rows } = await tx.query<{ version: number }>('SELECT version FROM mdm.product WHERE id = $1 AND deleted_at IS NULL FOR UPDATE', [id]);
+    return rows[0]?.version ?? null;
+  }
+
+  async archive(tx: Transaction, id: string, expectedVersion: number, reason: string, actorId: string, now: Date): Promise<boolean> {
+    const result = await tx.query(
+      `UPDATE mdm.product SET deleted_at = $4, deleted_by = $3, delete_reason = $5, version = version + 1, updated_at = $4, updated_by = $3
+        WHERE id = $1 AND version = $2 AND deleted_at IS NULL`,
+      [id, expectedVersion, actorId, now, reason],
+    );
+    return result.rowCount === 1;
+  }
+
+  async livePriceUses(tx: Transaction, id: string): Promise<number> {
+    const { rows } = await tx.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM mdm.price_list_entry e JOIN mdm.price_list_version v ON v.id = e.version_id
+        WHERE e.product_id = $1 AND v.status IN ('PENDING_APPROVAL', 'ACTIVE')`,
+      [id],
+    );
+    return rows[0]!.n;
+  }
+
   async list(tx: Transaction, filter: ProductListFilter, beforeId: string | null, limit: number): Promise<ProductView[]> {
     const clauses: SQL[] = [isNull(product.deletedAt)];
     if (filter.categoryId !== undefined) clauses.push(eq(product.categoryId, filter.categoryId));

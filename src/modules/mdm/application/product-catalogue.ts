@@ -8,15 +8,16 @@ import type { DomainEvents } from '../../../platform/events/domain-events';
 import type { Cursors } from '../../../platform/http/cursor';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
 import type { Authoriser } from '../../iam';
-import { canChangeProductStatus } from '../domain/catalogue';
+import { canChangeProductStatus, planReferencedArchive } from '../domain/catalogue';
 import { defineProduct, type OnlineMode, type ProductDraft, type ProductStatus } from '../domain/product';
-import type { ProductChanged, ProductCreated } from '../events';
-import { DuplicateValueError, ReferenceNotFoundError, StockPolicyConflictError } from './errors';
+import type { ProductArchived, ProductChanged, ProductCreated } from '../events';
+import { DuplicateValueError, RecordInUseError, ReferenceNotFoundError, StockPolicyConflictError } from './errors';
 import type { ProductListFilter, ProductStore, ProductView, UniqueProductField } from './product-store';
 
 export const CREATE_PRODUCT = 'createProduct';
 export const LIST_PRODUCTS = 'listProducts';
 export const UPDATE_PRODUCT = 'updateProduct';
+export const ARCHIVE_PRODUCT = 'archiveProduct';
 
 /** The contract's `ProductUpdate`, parsed at the boundary. The stock-keeping policy, units and species never change. */
 export interface ProductChange {
@@ -213,6 +214,37 @@ export class ProductCatalogue {
       }
       throw error;
     }
+  }
+
+  /**
+   * archiveProduct (FR-MDM-001): a soft delete with a reason. Refused while a pending or active price list version
+   * prices the product (RECORD_IN_USE, USED_BY_LIVE_PRICES), as for a grade or a band; refusing a product that holds
+   * stock arrives with inventory's usage check (B5, A-117). Publishes `mdm.ProductArchived`.
+   */
+  async archive(actor: Actor | undefined, id: string, body: { readonly version: number; readonly reason: string }, idempotencyKey: string): Promise<StoredResponse<ProductView>> {
+    return this.uow.run({ isolation: 'serializable' }, async (tx) => {
+      await this.authoriser.authorise(tx, actor, 'mdm.product.archive');
+      const claim = await this.idempotency.claim(tx, { operationId: ARCHIVE_PRODUCT, principalId: actor!.principalId, key: idempotencyKey, request: { id, ...body } });
+      if (claim.kind === 'REPLAY') {
+        return claim.response as StoredResponse<ProductView>;
+      }
+      const version = await this.store.lockedVersion(tx, id);
+      if (version === null) throw new NotFoundError('no such product');
+      if (version !== body.version) throw new VersionConflictError(`product ${id} is at version ${version}, not ${body.version}`);
+      const verdict = planReferencedArchive(await this.store.livePriceUses(tx, id));
+      if (!verdict.ok) throw new RecordInUseError(verdict.error);
+      const before = (await this.store.view(tx, id))!;
+      if (!(await this.store.archive(tx, id, body.version, body.reason, actor!.principalId, this.clock.now()))) {
+        throw new VersionConflictError(`product ${id} changed while it was archived`);
+      }
+      const view = (await this.store.viewAny(tx, id))!;
+      await this.audit.record(tx, { module: 'mdm', action: 'ARCHIVE', entityType: 'Product', entityId: id, before: { ...before }, after: { ...view, reason: body.reason } });
+      const payload: ProductArchived = { productId: id, sku: view.sku, reason: body.reason, version: view.version };
+      await this.events.publish(tx, { type: 'mdm.ProductArchived', subjectType: 'Product', subjectId: id, payload });
+      const response = { status: 200, body: view };
+      await this.idempotency.complete(tx, claim.id, response);
+      return response;
+    });
   }
 
   async get(actor: Actor | undefined, id: string): Promise<ProductView> {

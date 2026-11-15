@@ -1,0 +1,63 @@
+operationId: getSupplier
+tags:
+  - mdm
+summary: "Get a supplier"
+description: "Also returns an archived supplier, whose history stays readable.\n\nPermission: `mdm.supplier.read`."
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+x-permission: mdm.supplier.read
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Supplier"
+        example:
+          id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
+          supplierNo: S-0007
+          name: "Ashanti Feeds Ltd"
+          contactName: "Samuel Ofosu"
+          phone: "+233322031447"
+          email: "sales@ashanti.com.gh"
+          address: "Kaase Industrial Area, Kumasi"
+          tinMasked: "C00••••••20"
+          status: ACTIVE
+          categories:
+            - id: "019a7a8a-0e26-7d89-a2c1-e162c0175a40"
+              code: FEED
+              name: "Feed and medication"
+          hasProfile: true
+          version: 2
+          createdAt: "2026-11-02T08:00:00Z"
+          updatedAt: "2026-11-10T14:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

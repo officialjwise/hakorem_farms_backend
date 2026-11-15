@@ -1,0 +1,131 @@
+operationId: listPaymentMethods
+tags:
+  - mdm
+summary: "List payment methods"
+description: "The seven methods, enabled ones only unless `includeDisabled=true` (1.9.0): a disabled method is not offered for new sales. Methods are created only by migration; the API changes their settings.\n\nPermission: `mdm.payment_method.read`."
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+x-permission: mdm.payment_method.read
+parameters:
+  - name: includeDisabled
+    in: query
+    required: false
+    description: "Also list disabled methods, for the settings screen (1.9.0)."
+    schema:
+      type: boolean
+      default: false
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/PaymentMethodPage"
+        example:
+          data:
+            - id: "019a7a92-a26f-7b9f-90d7-c2c5802e3ba3"
+              code: CASH
+              name: Cash
+              kind: CASH
+              requiresProviderVerification: false
+              allowedOffline: true
+              channels:
+                - POS
+                - ONLINE
+                - WHOLESALE
+                - QUOTE
+              isEnabled: true
+              version: 1
+            - id: "019a7a92-c15e-7582-aabb-60fcf9dfd9da"
+              code: MOMO
+              name: "Mobile money"
+              kind: MOBILE_MONEY
+              requiresProviderVerification: true
+              allowedOffline: false
+              channels:
+                - POS
+                - ONLINE
+                - WHOLESALE
+                - QUOTE
+              isEnabled: true
+              version: 1
+            - id: "019a7a92-e04d-7f66-b49e-ff3473907812"
+              code: CARD
+              name: Card
+              kind: CARD
+              requiresProviderVerification: true
+              allowedOffline: false
+              channels:
+                - ONLINE
+                - POS
+              isEnabled: true
+              version: 1
+            - id: "019a7a92-ff3c-7949-8e81-9d6bed411649"
+              code: BANK_TRANSFER
+              name: "Bank transfer"
+              kind: BANK_TRANSFER
+              requiresProviderVerification: false
+              allowedOffline: false
+              channels:
+                - WHOLESALE
+                - QUOTE
+              isEnabled: true
+              version: 1
+            - id: "019a7a93-1e2b-732d-9865-3ba366f2b481"
+              code: CHEQUE
+              name: Cheque
+              kind: CHEQUE
+              requiresProviderVerification: false
+              allowedOffline: false
+              channels:
+                - WHOLESALE
+                - QUOTE
+              isEnabled: true
+              version: 1
+            - id: "019a7a93-3d1a-7d10-a248-d9dae0a352b8"
+              code: STORE_CREDIT
+              name: "Store credit"
+              kind: STORE_CREDIT
+              requiresProviderVerification: false
+              allowedOffline: false
+              channels:
+                - POS
+                - ONLINE
+                - WHOLESALE
+                - QUOTE
+              isEnabled: true
+              version: 1
+          page:
+            nextCursor: null
+            limit: 25
+            hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -1,0 +1,110 @@
+operationId: listReasonCodes
+tags:
+  - mdm
+summary: "List reason codes"
+description: "A fixed list changed only by migration, as the threat model requires; the contract has no write operation for it. Ordered by code.\n\nPermission: `mdm.reason_code.read`."
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+x-permission: mdm.reason_code.read
+parameters:
+  - name: domain
+    in: query
+    required: false
+    schema:
+      type: string
+      enum:
+        - STOCK_ADJUSTMENT
+        - MORTALITY
+        - CULL
+        - WASTAGE
+        - PRICE_OVERRIDE
+        - VOID
+        - REFUND
+        - RETURN
+        - CANCELLATION
+        - DELIVERY_FAILURE
+        - CASH_MOVEMENT
+        - HOLD_RELEASE
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ReasonCodePage"
+        example:
+          data:
+            - code: DISEASE_SUSPECTED
+              domain: MORTALITY
+              description: "Died, disease suspected"
+              requiresNote: true
+              lossAccountGroup: MORTALITY
+            - code: PREDATOR
+              domain: MORTALITY
+              description: "Killed by a predator"
+              requiresNote: true
+              lossAccountGroup: MORTALITY
+            - code: EXPIRED
+              domain: WASTAGE
+              description: "Past expiry date"
+              requiresNote: false
+              lossAccountGroup: WASTAGE
+            - code: COUNT_ERROR
+              domain: STOCK_ADJUSTMENT
+              description: "Earlier count was wrong"
+              requiresNote: true
+              lossAccountGroup: SHRINKAGE
+            - code: REGULAR_CUSTOMER
+              domain: PRICE_OVERRIDE
+              description: "Regular customer, agreed price"
+              requiresNote: false
+              lossAccountGroup: null
+            - code: CUSTOMER_CHANGED_MIND
+              domain: VOID
+              description: "Customer changed mind before leaving"
+              requiresNote: false
+              lossAccountGroup: null
+            - code: DAMAGED_IN_DELIVERY
+              domain: REFUND
+              description: "Damaged in delivery"
+              requiresNote: true
+              lossAccountGroup: null
+            - code: CUSTOMER_NOT_AVAILABLE
+              domain: DELIVERY_FAILURE
+              description: "Customer not available"
+              requiresNote: false
+              lossAccountGroup: null
+          page:
+            nextCursor: null
+            limit: 25
+            hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

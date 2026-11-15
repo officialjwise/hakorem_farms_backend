@@ -1,0 +1,85 @@
+operationId: createDeliveryZone
+tags:
+  - mdm
+summary: "Create a delivery zone"
+description: "Scoped to the zone's branch. The fee is exact integer pesewas and may be zero. `areas` are the towns and suburbs covered, matched against an address's area, then its city, ignoring case; an area that another active zone covers is refused (422 `DELIVERY_ZONE_INVALID`, `AREA_IN_ZONE:<code>`), as are no areas (`NO_AREAS`) and a blank or repeated one (`AREA_BLANK`, `AREA_REPEATED`). The code is unique among the branch's live zones (`DUPLICATE_VALUE`).\n\nPermission: `mdm.delivery_zone.create`."
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - DUPLICATE_VALUE
+  - REFERENCE_NOT_FOUND
+  - DELIVERY_ZONE_INVALID
+  - RATE_LIMITED
+x-permission: mdm.delivery_zone.create
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/DeliveryZoneCreate"
+      example:
+        branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+        code: ACC-WEST
+        name: "Accra West: Dansoman, Mallam"
+        areas:
+          - Dansoman
+          - Mallam
+          - Kaneshie
+        feePesewas: 5000
+        freeOverPesewas: 60000
+        cutoffTime: "13:00"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/DeliveryZone"
+        example:
+          id: "019a7a93-5c09-76f4-bc2c-78125a54f0f0"
+          branch:
+            id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+            code: DDW
+            name: "HaKorem Farms, Dodowa"
+          code: ACC-EAST
+          name: "Accra East: Madina, Adenta, East Legon"
+          areas:
+            - Madina
+            - Adenta
+            - "East Legon"
+            - "Ashaley Botwe"
+          feePesewas: 3000
+          freeOverPesewas: 50000
+          cutoffTime: "14:00"
+          isActive: true
+          currency: GHS
+          version: 1
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

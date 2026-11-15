@@ -31,6 +31,28 @@ export interface ProductChanged {
 }
 
 /**
+ * `mdm.ProductArchived` v1: a product left the catalogue (archiveProduct). Its history stays readable; storefront
+ * search and offline price packs drop it (B7, B9b).
+ */
+export interface ProductArchived {
+  readonly productId: string;
+  readonly sku: string;
+  readonly reason: string;
+  readonly version: number;
+}
+
+/**
+ * `mdm.SupplierRegistered` v1: a supplier entered the register (createSupplier). Procurement subscribes to open the
+ * supplier's commercial profile (B7). Identity only: no contact details travel in the event.
+ */
+export interface SupplierRegistered {
+  readonly supplierId: string;
+  readonly supplierNo: string;
+  readonly name: string;
+  readonly categoryIds: readonly string[];
+}
+
+/**
  * `mdm.PriceListVersionActivated` v1: a price list version was approved and is in force from `validFrom`. Offline
  * price packs and the storefront catalogue cache subscribe (B9b, B7) so a device never prices from a stale list.
  */

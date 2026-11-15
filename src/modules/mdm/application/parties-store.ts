@@ -1,5 +1,6 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
 import type { AssignmentWindow } from '../domain/parties';
+import type { ZoneForMatch } from '../domain/reference-data';
 import type { RowState } from './admin-kit';
 
 export type CustomerKind = 'INDIVIDUAL' | 'BUSINESS';
@@ -32,7 +33,7 @@ export interface CustomerRecord {
   readonly updatedAt: string;
 }
 
-/** The contract's `CustomerAddress`. The delivery zone is resolved once zones exist (B04d continued 3, A-112). */
+/** The contract's `CustomerAddress`. The delivery zone is the one the address was in when it was last saved (A-112). */
 export interface AddressView {
   readonly id: string;
   readonly customerId: string;
@@ -47,7 +48,7 @@ export interface AddressView {
   readonly directions: string | null;
   readonly latitude: string | null;
   readonly longitude: string | null;
-  readonly deliveryZone: null;
+  readonly deliveryZone: { readonly id: string; readonly code: string; readonly name: string } | null;
   readonly isDefault: boolean;
   readonly version: number;
 }
@@ -78,6 +79,7 @@ export interface AddressWrite {
   readonly latitude: string | null;
   readonly longitude: string | null;
   readonly isDefault: boolean;
+  readonly deliveryZoneId: string | null;
 }
 
 export interface CustomerFilters {
@@ -120,6 +122,8 @@ export interface PartiesStore {
   archiveAddress(tx: Transaction, id: string, expectedVersion: number, reason: string, actorId: string, now: Date): Promise<boolean>;
   /** Clears the default flag on the customer's other live addresses. */
   clearDefaultAddress(tx: Transaction, customerId: string, exceptId: string | null, actorId: string): Promise<void>;
+  /** The zones a saved address is matched against (FR-MDM-010). */
+  deliverableZones(tx: Transaction): Promise<ZoneForMatch[]>;
 
   livePriceList(tx: Transaction, id: string): Promise<PriceListFacts | null>;
   liveAssignments(tx: Transaction, customerId: string): Promise<AssignmentWindow[]>;

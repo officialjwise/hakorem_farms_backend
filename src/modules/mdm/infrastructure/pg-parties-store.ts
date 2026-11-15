@@ -1,6 +1,8 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
 import type { AssignmentWindow } from '../domain/parties';
 import type { RowState } from '../application/admin-kit';
+import type { ZoneForMatch } from '../domain/reference-data';
+import { deliverableZones } from './pg-reference-data-store';
 import type { AddressView, AddressWrite, CustomerFilters, CustomerRecord, CustomerWrite, PartiesStore, PriceListFacts, TierView } from '../application/parties-store';
 
 const CUSTOMER_UPDATABLE: ReadonlySet<string> = new Set(['name', 'phone_e164', 'phone_hash', 'email', 'tier_id', 'tin_enc', 'status']);
@@ -17,6 +19,7 @@ const ADDRESS_UPDATABLE: ReadonlySet<string> = new Set([
   'latitude',
   'longitude',
   'is_default',
+  'delivery_zone_id',
 ]);
 
 /** `$1` is the instant the assigned list is read at. */
@@ -32,9 +35,10 @@ const CUSTOMER_SELECT = `
     LEFT JOIN mdm.price_list l ON l.id = cpl.price_list_id`;
 
 const ADDRESS_SELECT = `
-  SELECT id, customer_id, label, recipient_name, recipient_phone_e164, line1, area, city, region, digital_address, directions,
-         latitude::text AS latitude, longitude::text AS longitude, is_default, version
-    FROM mdm.customer_address`;
+  SELECT a.id, a.customer_id, a.label, a.recipient_name, a.recipient_phone_e164, a.line1, a.area, a.city, a.region, a.digital_address, a.directions,
+         a.latitude::text AS latitude, a.longitude::text AS longitude, a.is_default, a.version, z.id AS zone_id, z.code AS zone_code, z.name AS zone_name
+    FROM mdm.customer_address a
+    LEFT JOIN mdm.delivery_zone z ON z.id = a.delivery_zone_id`;
 
 interface CustomerRow {
   id: string;
@@ -98,6 +102,9 @@ interface AddressRow {
   longitude: string | null;
   is_default: boolean;
   version: number;
+  zone_id: string | null;
+  zone_code: string | null;
+  zone_name: string | null;
 }
 
 function toAddress(row: AddressRow): AddressView {
@@ -115,7 +122,7 @@ function toAddress(row: AddressRow): AddressView {
     directions: row.directions,
     latitude: row.latitude,
     longitude: row.longitude,
-    deliveryZone: null,
+    deliveryZone: row.zone_id === null ? null : { id: row.zone_id, code: row.zone_code!, name: row.zone_name! },
     isDefault: row.is_default,
     version: row.version,
   };
@@ -225,20 +232,20 @@ export class PgPartiesStore implements PartiesStore {
   }
 
   async address(tx: Transaction, id: string): Promise<AddressView | null> {
-    const { rows } = await tx.query<AddressRow>(`${ADDRESS_SELECT} WHERE id = $1`, [id]);
+    const { rows } = await tx.query<AddressRow>(`${ADDRESS_SELECT} WHERE a.id = $1`, [id]);
     return rows[0] === undefined ? null : toAddress(rows[0]);
   }
 
   async addresses(tx: Transaction, customerId: string, afterId: string | null, limit: number): Promise<AddressView[]> {
-    const { rows } = await tx.query<AddressRow>(`${ADDRESS_SELECT} WHERE customer_id = $1 AND deleted_at IS NULL AND ($2::uuid IS NULL OR id > $2) ORDER BY id LIMIT $3`, [customerId, afterId, limit]);
+    const { rows } = await tx.query<AddressRow>(`${ADDRESS_SELECT} WHERE a.customer_id = $1 AND a.deleted_at IS NULL AND ($2::uuid IS NULL OR a.id > $2) ORDER BY a.id LIMIT $3`, [customerId, afterId, limit]);
     return rows.map(toAddress);
   }
 
   async insertAddress(tx: Transaction, id: string, w: AddressWrite, actorId: string): Promise<void> {
     await tx.query(
-      `INSERT INTO mdm.customer_address (id, customer_id, label, recipient_name, recipient_phone_e164, line1, area, city, region, digital_address, directions, latitude, longitude, is_default, created_by, updated_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $15)`,
-      [id, w.customerId, w.label, w.recipientName, w.recipientPhone, w.line1, w.area, w.city, w.region, w.digitalAddress, w.directions, w.latitude, w.longitude, w.isDefault, actorId],
+      `INSERT INTO mdm.customer_address (id, customer_id, label, recipient_name, recipient_phone_e164, line1, area, city, region, digital_address, directions, latitude, longitude, is_default, delivery_zone_id, created_by, updated_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $16)`,
+      [id, w.customerId, w.label, w.recipientName, w.recipientPhone, w.line1, w.area, w.city, w.region, w.digitalAddress, w.directions, w.latitude, w.longitude, w.isDefault, w.deliveryZoneId, actorId],
     );
   }
 
@@ -292,5 +299,9 @@ export class PgPartiesStore implements PartiesStore {
       'INSERT INTO mdm.customer_price_list (id, customer_id, price_list_id, valid_from, valid_to, created_by, updated_by) VALUES ($1, $2, $3, $4, $5, $6, $6)',
       [id, w.customerId, w.priceListId, w.validFrom, w.validTo, actorId],
     );
+  }
+
+  deliverableZones(tx: Transaction): Promise<ZoneForMatch[]> {
+    return deliverableZones(tx);
   }
 }

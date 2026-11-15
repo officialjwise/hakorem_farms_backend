@@ -57,6 +57,36 @@ export interface EntrySnapshot {
   readonly minQty: string;
 }
 
+interface Ref {
+  readonly id: string;
+  readonly code: string;
+  readonly name: string;
+}
+
+/** The contract's `PriceListEntry`, money as bigint pesewas. */
+export interface EntryRow {
+  readonly id: string;
+  readonly product: { readonly id: string; readonly sku: string; readonly name: string };
+  readonly grade: Ref | null;
+  readonly weightBand: { readonly id: string; readonly code: string; readonly minKg: string; readonly maxKg: string } | null;
+  readonly basis: string;
+  readonly listPricePesewas: bigint;
+  readonly floorPricePesewas: bigint;
+  readonly ceilingPricePesewas: bigint;
+  readonly quoteOnly: boolean;
+  readonly minQty: string;
+}
+
+/** What still prices with a list or is assigned it, now or later (archivePriceList, updatePriceList). */
+export interface PriceListUsage {
+  /** Versions pending approval, or active now or later. */
+  readonly liveVersions: number;
+  /** Versions that ever went for approval: their prices were read with the list's tax-inclusive flag. */
+  readonly submittedVersions: number;
+  /** Customer assignments in force now or later. */
+  readonly liveAssignments: number;
+}
+
 /** MDM's price list tables, each call in the caller's transaction. */
 export interface PriceListStore {
   tierExists(tx: Transaction, id: string): Promise<boolean>;
@@ -65,6 +95,16 @@ export interface PriceListStore {
   firstBranchId(tx: Transaction): Promise<string>;
   insertList(tx: Transaction, id: string, list: NewPriceList, actorId: string): Promise<void>;
   list(tx: Transaction, id: string): Promise<PriceListRow | null>;
+  /** Live lists in creation order, `afterId` exclusive. */
+  lists(tx: Transaction, filters: { readonly kind?: PriceListKind | undefined; readonly channel?: Channel | undefined }, afterId: string | null, limit: number): Promise<PriceListRow[]>;
+  lockList(tx: Transaction, id: string): Promise<{ readonly version: number; readonly archived: boolean } | null>;
+  updateList(tx: Transaction, id: string, expectedVersion: number, columns: Readonly<Record<string, unknown>>, actorId: string): Promise<boolean>;
+  archiveList(tx: Transaction, id: string, expectedVersion: number, reason: string, actorId: string, now: Date): Promise<boolean>;
+  usage(tx: Transaction, id: string, now: Date): Promise<PriceListUsage>;
+  /** A list's versions, newest number first, `beforeNo` exclusive. */
+  versions(tx: Transaction, listId: string, beforeNo: number | null, limit: number): Promise<VersionRow[]>;
+  /** A version's entries in id order, `afterId` exclusive. */
+  entryRows(tx: Transaction, versionId: string, productId: string | null, afterId: string | null, limit: number): Promise<EntryRow[]>;
   /** The version in force now and the open draft or submitted version of a list. */
   versionsOfInterest(tx: Transaction, listId: string, now: Date): Promise<{ readonly active: VersionRow | null; readonly draftId: string | null }>;
   nextVersionNo(tx: Transaction, listId: string): Promise<number>;

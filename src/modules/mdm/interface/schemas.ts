@@ -486,3 +486,87 @@ export const PriceListAssignmentInput = z.strictObject({
     .transform((value) => new Date(value))
     .optional(),
 });
+
+/** The contract's `SupplierCreate` and `SupplierUpdate`, strict. Limits are migration 0024's; phones as typed (`PhoneInput`). */
+const SupplierFields = {
+  contactName: PartyName.optional(),
+  phone: PhoneInput.optional(),
+  email: Email.optional(),
+  address: z.string().trim().min(1).max(300).optional(),
+  tin: z.string().trim().min(1).max(40).optional(),
+  categoryIds: z.array(z.uuid()).max(50).optional(),
+};
+export const SupplierCreate = z.strictObject({ name: PartyName, ...SupplierFields });
+export const SupplierUpdate = z.strictObject({ version: Version, name: PartyName.optional(), ...SupplierFields, status: z.enum(['ACTIVE', 'BLOCKED']).optional() });
+export const ListSuppliersQuery = PageQuery.extend({
+  q: z.string().trim().min(1).max(160).optional(),
+  categoryId: z.uuid().optional(),
+  status: z.enum(['ACTIVE', 'BLOCKED']).optional(),
+});
+
+/** The contract's `PaymentMethodUpdate`, strict. */
+export const PaymentMethodUpdate = z.strictObject({
+  version: Version,
+  isEnabled: z.boolean().optional(),
+  allowedOffline: z.boolean().optional(),
+  requiresProviderVerification: z.boolean().optional(),
+  channels: z.array(Channel).max(4).optional(),
+});
+/** listPaymentMethods: disabled methods are left out unless asked for, as a tender screen needs them. */
+export const ListPaymentMethodsQuery = PageQuery.extend({
+  includeDisabled: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+});
+
+/** The contract's `DeliveryZoneCreate` and `DeliveryZoneUpdate`, strict. Limits are migration 0024's. */
+const LocalTime = z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/);
+const ZoneAreas = z.array(z.string().max(120)).max(100);
+export const DeliveryZoneCreate = z.strictObject({
+  branchId: z.uuid(),
+  code: z.string().regex(/^[A-Z0-9][A-Z0-9_-]{1,29}$/),
+  name: RecordName,
+  areas: ZoneAreas,
+  feePesewas: Pesewas,
+  freeOverPesewas: Pesewas.optional(),
+  cutoffTime: LocalTime,
+});
+export const DeliveryZoneUpdate = z.strictObject({
+  version: Version,
+  name: RecordName.optional(),
+  areas: ZoneAreas.optional(),
+  feePesewas: Pesewas.optional(),
+  freeOverPesewas: Pesewas.optional(),
+  cutoffTime: LocalTime.optional(),
+  isActive: z.boolean().optional(),
+});
+export const ListDeliveryZonesQuery = PageQuery.extend({ branchId: z.uuid().optional() });
+
+/** The contract's `DeliveryQuoteRequest` with its `AddressInput`, strict. */
+export const DeliveryQuoteRequest = z.strictObject({
+  address: z
+    .strictObject({
+      recipientName: PartyName,
+      recipientPhone: z.string().regex(/^\+[1-9][0-9]{7,14}$/),
+      line1: AddressFields.line1,
+      area: AddressFields.area,
+      city: AddressFields.city,
+      region: AddressFields.region,
+      digitalAddress: AddressFields.digitalAddress,
+      directions: AddressFields.directions,
+      latitude: Coordinate.optional(),
+      longitude: Coordinate.optional(),
+    })
+    .refine((body) => (body.latitude === undefined) === (body.longitude === undefined), { path: ['longitude'], message: 'latitude and longitude go together' }),
+  cartId: z.uuid().optional(),
+});
+
+/** listReasonCodes. */
+export const ListReasonCodesQuery = PageQuery.extend({
+  domain: z
+    .enum(['STOCK_ADJUSTMENT', 'MORTALITY', 'CULL', 'WASTAGE', 'PRICE_OVERRIDE', 'VOID', 'REFUND', 'RETURN', 'CANCELLATION', 'DELIVERY_FAILURE', 'CASH_MOVEMENT', 'HOLD_RELEASE'])
+    .optional(),
+});
+
+/** listPriceLists, the contract's `PriceListUpdate` and listPriceListEntries. */
+export const ListPriceListsQuery = PageQuery.extend({ kind: PriceListKind.optional(), channel: Channel.optional() });
+export const PriceListUpdate = z.strictObject({ version: Version, name: RecordName.optional(), taxInclusive: z.boolean().optional() });
+export const ListPriceListEntriesQuery = PageQuery.extend({ productId: z.uuid().optional() });

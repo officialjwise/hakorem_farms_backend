@@ -14,14 +14,19 @@ import { activationWindow, defineEntries, definePriceList, defineVersionWindow, 
 import type { FieldRule } from '../domain/product';
 import type { Channel, PriceListKind } from '../domain/pricing/pricing-engine';
 import type { PriceListVersionActivated } from '../events';
-import { DuplicateRecordError, PriceEntryDuplicateError, PriceEntryInvalidError, referencesNotFound } from './errors';
-import type { PriceListRow, PriceListStore, VersionRow, VersionStatus } from './price-list-store';
+import { DuplicateRecordError, PriceEntryDuplicateError, PriceEntryInvalidError, RecordInUseError, referencesNotFound } from './errors';
+import type { Cursors } from '../../../platform/http/cursor';
+import { jsonPesewas } from './json-money';
+import type { Page } from './product-catalogue';
+import type { EntryRow, PriceListRow, PriceListStore, VersionRow, VersionStatus } from './price-list-store';
 
 export const CREATE_PRICE_LIST = 'createPriceList';
 export const CREATE_PRICE_LIST_VERSION = 'createPriceListVersion';
 export const REPLACE_PRICE_LIST_ENTRIES = 'replacePriceListEntries';
 export const SUBMIT_PRICE_LIST_VERSION = 'submitPriceListVersion';
 export const PRICE_LIST_ACTIVATION = 'PRICE_LIST_ACTIVATION';
+export const UPDATE_PRICE_LIST = 'updatePriceList';
+export const ARCHIVE_PRICE_LIST = 'archivePriceList';
 
 /** Unique indexes of migration 0011, for a race that reaches the database before the check sees it. */
 const UNIQUE_POINTER: Readonly<Record<string, string>> = { uq_price_list_code: '/code', uq_price_list_slot: '/kind' };
@@ -79,6 +84,14 @@ export interface PriceListVersionView {
   readonly createdBy: PrincipalRef;
 }
 
+/** The contract's `PriceListEntry`, money as JSON integers of pesewas. */
+export type PriceListEntryView = Omit<EntryRow, 'listPricePesewas' | 'floorPricePesewas' | 'ceilingPricePesewas'> & {
+  readonly listPricePesewas: number;
+  readonly floorPricePesewas: number;
+  readonly ceilingPricePesewas: number;
+  readonly currency: 'GHS';
+};
+
 /** The contract's `ApprovalPending`, the 202 body of submitPriceListVersion. */
 export interface ApprovalPendingView {
   readonly status: 'PENDING_APPROVAL';
@@ -119,8 +132,95 @@ export class PriceListAdmin implements ApprovalHandler {
     private readonly audit: AuditTrail,
     private readonly events: DomainEvents,
     private readonly clock: Clock,
+    private readonly cursors: Cursors,
   ) {
     this.nextId = createUuidV7Generator(clock);
+  }
+
+  /** listPriceLists (FR-MDM-015): live lists in creation order, optionally of one kind or channel. */
+  listLists(actor: Actor | undefined, filters: { readonly kind?: PriceListKind | undefined; readonly channel?: Channel | undefined }, cursor: string | undefined, limit: number): Promise<Page<PriceListView>> {
+    return this.page(actor, 'listPriceLists', { kind: filters.kind ?? null, channel: filters.channel ?? null }, cursor, limit, async (tx, after) => {
+      const views: PriceListView[] = [];
+      for (const row of await this.store.lists(tx, filters, after, limit + 1)) views.push(await this.listView(tx, row.id));
+      return views;
+    }, (view) => view.id);
+  }
+
+  /**
+   * updatePriceList: the name, and the tax-inclusive flag only while no version of the list has gone for approval,
+   * because an approved price was read with that flag (RECORD_IN_USE, PRICED_WITH_THIS_FLAG; A-118). Scoped to the
+   * list's branch like the other price list writes.
+   */
+  async updateList(actor: Actor | undefined, id: string, body: { readonly version: number; readonly name?: string | undefined; readonly taxInclusive?: boolean | undefined }, idempotencyKey: string): Promise<StoredResponse<PriceListView>> {
+    return this.listWrite(actor, 'mdm.price_list.update', UPDATE_PRICE_LIST, id, body, idempotencyKey, async (tx, before) => {
+      if (body.taxInclusive !== undefined && body.taxInclusive !== before.taxInclusive && (await this.store.usage(tx, id, this.clock.now())).submittedVersions > 0) {
+        throw new RecordInUseError([{ field: '/taxInclusive', rule: 'PRICED_WITH_THIS_FLAG' }]);
+      }
+      const set = Object.fromEntries(Object.entries({ name: body.name, tax_inclusive: body.taxInclusive }).filter(([, value]) => value !== undefined));
+      if (Object.keys(set).length > 0 && !(await this.store.updateList(tx, id, body.version, set, actor!.principalId))) {
+        throw new VersionConflictError(`price list ${id} changed while it was updated`);
+      }
+      const view = await this.listView(tx, id);
+      await this.audit.record(tx, { module: 'mdm', action: 'UPDATE', entityType: 'PriceList', entityId: id, branchId: before.branch?.id ?? null, before: { ...before }, after: { ...view } });
+      return { status: 200, body: view };
+    });
+  }
+
+  /**
+   * archivePriceList: refused while a version is pending approval or active now or later (RECORD_IN_USE,
+   * HAS_LIVE_VERSION), or a customer is assigned the list now or later (ASSIGNED_TO_CUSTOMERS). Its history stays
+   * readable, so an earlier sale's price reference still reproduces its price.
+   */
+  async archiveList(actor: Actor | undefined, id: string, body: { readonly version: number; readonly reason: string }, idempotencyKey: string): Promise<StoredResponse<PriceListView>> {
+    return this.listWrite(actor, 'mdm.price_list.archive', ARCHIVE_PRICE_LIST, id, body, idempotencyKey, async (tx, before) => {
+      const now = this.clock.now();
+      const usage = await this.store.usage(tx, id, now);
+      const rules = [
+        ...(usage.liveVersions > 0 ? [{ field: null, rule: 'HAS_LIVE_VERSION' }] : []),
+        ...(usage.liveAssignments > 0 ? [{ field: null, rule: 'ASSIGNED_TO_CUSTOMERS' }] : []),
+      ];
+      if (rules.length > 0) throw new RecordInUseError(rules);
+      if (!(await this.store.archiveList(tx, id, body.version, body.reason, actor!.principalId, now))) {
+        throw new VersionConflictError(`price list ${id} changed while it was archived`);
+      }
+      const after = { ...before, version: before.version + 1, updatedAt: now.toISOString() };
+      await this.audit.record(tx, { module: 'mdm', action: 'ARCHIVE', entityType: 'PriceList', entityId: id, branchId: before.branch?.id ?? null, before: { ...before }, after: { ...after, reason: body.reason } });
+      return { status: 200, body: after };
+    });
+  }
+
+  /** listPriceListVersions: every version of a live list, newest first. */
+  listVersions(actor: Actor | undefined, listId: string, cursor: string | undefined, limit: number): Promise<Page<PriceListVersionView>> {
+    return this.page(
+      actor,
+      'listPriceListVersions',
+      { listId },
+      cursor,
+      limit,
+      async (tx, after) => {
+        if ((await this.store.list(tx, listId)) === null) throw new NotFoundError('no such price list');
+        const views: PriceListVersionView[] = [];
+        for (const row of await this.store.versions(tx, listId, after === null ? null : Number(after), limit + 1)) views.push(await this.versionView(tx, row.id));
+        return views;
+      },
+      (view) => String(view.versionNo),
+    );
+  }
+
+  /** listPriceListEntries: a version's entries, optionally for one product, money as JSON integers. */
+  listEntries(actor: Actor | undefined, versionId: string, productId: string | undefined, cursor: string | undefined, limit: number): Promise<Page<PriceListEntryView>> {
+    return this.page(
+      actor,
+      'listPriceListEntries',
+      { versionId, productId: productId ?? null },
+      cursor,
+      limit,
+      async (tx, after) => {
+        if ((await this.store.version(tx, versionId, false)) === null) throw new NotFoundError('no such price list version');
+        return (await this.store.entryRows(tx, versionId, productId ?? null, after, limit + 1)).map(entryView);
+      },
+      (view) => view.id,
+    );
   }
 
   async createList(actor: Actor | undefined, draft: PriceListDraft, idempotencyKey: string): Promise<StoredResponse<PriceListView>> {
@@ -393,6 +493,52 @@ export class PriceListAdmin implements ApprovalHandler {
     });
   }
 
+  private async listWrite(
+    actor: Actor | undefined,
+    permission: string,
+    operationId: string,
+    id: string,
+    body: { readonly version: number },
+    idempotencyKey: string,
+    work: (tx: Transaction, before: PriceListView) => Promise<StoredResponse<PriceListView>>,
+  ): Promise<StoredResponse<PriceListView>> {
+    return this.uow.run({ isolation: 'serializable' }, async (tx) => {
+      const found = await this.store.list(tx, id);
+      await this.authoriser.authorise(tx, actor, permission, found?.branch == null ? {} : { branchId: found.branch.id });
+      const claim = await this.idempotency.claim(tx, { operationId, principalId: actor!.principalId, key: idempotencyKey, request: { id, ...body } });
+      if (claim.kind === 'REPLAY') {
+        return claim.response as StoredResponse<PriceListView>;
+      }
+      const state = await this.store.lockList(tx, id);
+      if (state === null || state.archived) throw new NotFoundError(`no live price list ${id}`);
+      if (state.version !== body.version) throw new VersionConflictError(`price list ${id} is at version ${state.version}, not ${body.version}`);
+      const response = await work(tx, await this.listView(tx, id));
+      await this.idempotency.complete(tx, claim.id, response);
+      return response;
+    });
+  }
+
+  private page<V>(
+    actor: Actor | undefined,
+    operationId: string,
+    filters: Record<string, unknown>,
+    cursor: string | undefined,
+    limit: number,
+    rows: (tx: Transaction, after: string | null) => Promise<V[]>,
+    key: (view: V) => string,
+  ): Promise<Page<V>> {
+    return this.uow.run({ isolation: 'read committed' }, async (tx) => {
+      await this.authoriser.authorise(tx, actor, 'mdm.price_list.read');
+      const binding = { operationId, principalId: actor!.principalId, filters };
+      const after = cursor === undefined ? null : ((this.cursors.decode(cursor, binding)['id'] as string | undefined) ?? null);
+      const found = await rows(tx, after);
+      const hasMore = found.length > limit;
+      const data = found.slice(0, limit);
+      const last = data.at(-1);
+      return { data, page: { nextCursor: hasMore && last !== undefined ? this.cursors.encode(binding, { id: key(last) }) : null, limit, hasMore } };
+    });
+  }
+
   private async listView(tx: Transaction, id: string): Promise<PriceListView> {
     const list = await this.store.list(tx, id);
     if (list === null) {
@@ -440,6 +586,16 @@ export class PriceListAdmin implements ApprovalHandler {
       createdBy: names.get(version.createdBy) ?? { id: version.createdBy, displayName: '' },
     };
   }
+}
+
+function entryView(row: EntryRow): PriceListEntryView {
+  return {
+    ...row,
+    listPricePesewas: jsonPesewas(row.listPricePesewas),
+    floorPricePesewas: jsonPesewas(row.floorPricePesewas),
+    ceilingPricePesewas: jsonPesewas(row.ceilingPricePesewas),
+    currency: 'GHS',
+  };
 }
 
 function entriesHash(entries: readonly unknown[]): string {

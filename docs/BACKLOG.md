@@ -57,6 +57,7 @@ These are not mentioned in the shared brief, or are mentioned only conditionally
 | BL-040 | Customer-facing live delivery map | Delivery notifications at dispatch, on the way and delivered are in scope |
 | BL-041 | Multi-language interface beyond English | All strings go through the translation layer from day one; other languages are data |
 | BL-042 | An unassign operation for a customer's price list (`DELETE /customers/{id}/price-list`) | FR-MDM-021's "unassigning returns to tier" is met by an assignment with a `validTo` (A-113); a separate operation needs a contract addition, worth it when the wholesale screens (F10) ask for it |
+| BL-045 | Re-resolve saved addresses when a delivery zone's areas change | A saved address keeps the zone it was in when saved (A-112, A-116); the checkout quote always matches live, so a stale saved zone only affects what a screen shows |
 
 ## How to add to this list
 

@@ -1,0 +1,80 @@
+operationId: updatePaymentMethod
+tags:
+  - mdm
+summary: "Enable, disable or restrict a payment method"
+description: "Send the `version` you read; a stale version is refused with 409. Provider verification cannot be switched off for mobile money or card (422 `PAYMENT_METHOD_INVALID`, `VERIFICATION_REQUIRED`). Only cash may be taken offline, and mobile money when the setting `pos.offline_mobile_money_allowed` is on (`OFFLINE_NOT_ALLOWED`). A method keeps at least one channel (`NO_CHANNELS`).\n\nPermission: `mdm.payment_method.manage`."
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - VERSION_CONFLICT
+  - PAYMENT_METHOD_INVALID
+  - RATE_LIMITED
+x-permission: mdm.payment_method.manage
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/PaymentMethodUpdate"
+      example:
+        version: 1
+        isEnabled: false
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/PaymentMethod"
+        example:
+          id: "019a7a92-a26f-7b9f-90d7-c2c5802e3ba3"
+          code: CASH
+          name: Cash
+          kind: CASH
+          requiresProviderVerification: false
+          allowedOffline: true
+          channels:
+            - POS
+            - ONLINE
+            - WHOLESALE
+            - QUOTE
+          isEnabled: true
+          version: 1
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

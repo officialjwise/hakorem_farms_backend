@@ -96,6 +96,15 @@ const VALID_BODY: Readonly<Record<string, object>> = {
   updateCustomerAddress: { version: 1, label: 'Home' },
   archiveCustomerAddress: { version: 1, reason: 'Moved' },
   assignCustomerPriceList: { priceListId: '01900000-0000-7000-8000-00000000f002', validFrom: '2026-12-01T00:00:00Z' },
+  archiveProduct: { version: 1, reason: 'No longer stocked' },
+  updatePriceList: { version: 1, name: 'Base prices' },
+  archivePriceList: { version: 1, reason: 'Replaced' },
+  createSupplier: { name: 'Ashanti Feeds Ltd' },
+  updateSupplier: { version: 1, name: 'Ashanti Feeds Ltd' },
+  archiveSupplier: { version: 1, reason: 'Stopped trading' },
+  updatePaymentMethod: { version: 1, isEnabled: false },
+  createDeliveryZone: { branchId: randomUUID(), code: 'DODOWA', name: 'Dodowa', areas: ['Dodowa'], feePesewas: 1500, cutoffTime: '14:00' },
+  updateDeliveryZone: { version: 1, feePesewas: 1500 },
 };
 
 beforeAll(async () => {
@@ -113,7 +122,7 @@ afterAll(async () => {
 });
 
 describe('deny by default: the handler walk (ADR-0017, security architecture section 14)', () => {
-  it('finds the B3, B4, B04 continued, B04d, B04d continued and B04d continued 2 routes, and every one declares its operation', () => {
+  it('finds the B3, B4, B04 continued, B04d and B04d continued 1 to 3 routes, and every one declares its operation', () => {
     expect(routes.map((route) => route.spec?.operationId).sort()).toEqual(
       [
         'changePassword', 'confirmTotpEnrolment', 'createProduct', 'getCurrentSession', 'getHealth', 'getProduct', 'listProducts', 'listSessions',
@@ -128,6 +137,9 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'listBranches', 'createBranch', 'getBranch', 'updateBranch', 'listLocations', 'createLocation', 'getLocation', 'updateLocation', 'archiveLocation',
         'listCustomers', 'createCustomer', 'getCustomer', 'updateCustomer', 'archiveCustomer', 'listCustomerTiers', 'createCustomerTier',
         'listCustomerAddresses', 'createCustomerAddress', 'updateCustomerAddress', 'archiveCustomerAddress', 'assignCustomerPriceList',
+        'listSuppliers', 'createSupplier', 'getSupplier', 'updateSupplier', 'archiveSupplier', 'listPaymentMethods', 'updatePaymentMethod',
+        'listDeliveryZones', 'createDeliveryZone', 'getDeliveryZone', 'updateDeliveryZone', 'quoteDelivery', 'listReasonCodes',
+        'listPriceLists', 'updatePriceList', 'archivePriceList', 'listPriceListVersions', 'listPriceListEntries', 'archiveProduct',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);
