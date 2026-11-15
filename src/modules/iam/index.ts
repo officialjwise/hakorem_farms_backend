@@ -3,6 +3,7 @@
  * handler calls, the maker-checker mechanism, principal display names, and the ScopeNames port MDM implements.
  */
 export { Authoriser, type AuthoriseScope } from './application/authoriser';
+export type { GrantScope } from './domain/authorisation-policy';
 export { Approvals, type ApprovalHandler, type ApprovalRecord, type NewApproval } from './application/approvals';
 export { PRINCIPAL_NAMES, type PrincipalNames, type PrincipalRef } from './application/principal-names';
 export { ScopeNamesRegistry } from './application/authentication.service';
