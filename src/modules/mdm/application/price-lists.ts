@@ -335,42 +335,54 @@ export class PriceListAdmin implements ApprovalHandler {
       if (claim.kind === 'REPLAY') {
         return claim.response as StoredResponse<PriceListVersionView>;
       }
-      if (version === null) {
-        throw new NotFoundError('no such price list version');
-      }
-      if (version.status !== 'DRAFT') {
-        throw notDraft(version, 'replacing entries');
-      }
-      if (version.version !== body.version) {
-        throw new VersionConflictError(`price list version ${versionId} is at version ${version.version}, not ${body.version}`);
-      }
-      const defined = defineEntries(body.entries, await this.store.entryReferences(tx, body.entries));
-      if (!defined.ok) {
-        const unknown = defined.error.filter((rule) => rule.rule === 'UNKNOWN');
-        const duplicates = defined.error.filter((rule) => rule.rule === 'DUPLICATE_ENTRY');
-        if (unknown.length > 0) throw referencesNotFound(unknown.map((rule) => rule.field));
-        if (duplicates.length > 0 && duplicates.length === defined.error.length) throw new PriceEntryDuplicateError(duplicates);
-        throw new PriceEntryInvalidError(defined.error.filter((rule) => rule.rule !== 'DUPLICATE_ENTRY'));
-      }
-      const before = await this.store.entries(tx, versionId);
-      await this.store.replaceEntries(tx, versionId, defined.value, actor!.principalId, this.nextId);
-      if (!(await this.store.touchVersion(tx, versionId, version.version, actor!.principalId))) {
-        throw new VersionConflictError(`price list version ${versionId} changed while its entries were replaced`);
-      }
-      const view = await this.versionView(tx, versionId);
-      await this.audit.record(tx, {
-        module: 'mdm',
-        action: 'UPDATE',
-        entityType: 'PriceListVersion',
-        entityId: versionId,
-        branchId: version.branchId,
-        before: { entryCount: before.length, entriesHash: entriesHash(before) },
-        after: { entryCount: view.entryCount, entriesHash: entriesHash(await this.store.entries(tx, versionId)) },
-      });
+      const view = await this.replaceEntriesIn(tx, actor!, versionId, body);
       const response = { status: 200, body: view };
       await this.idempotency.complete(tx, claim.id, response);
       return response;
     });
+  }
+
+  /**
+   * Replaces a draft version's entries in the caller's transaction, every rule of replacePriceListEntries applied and
+   * audited; a version that is not a DRAFT is refused, so an active version's prices never change. The caller has
+   * authorised `mdm.price_list.update` for the version's branch: replacePriceListEntries, or an import being applied
+   * (FR-MDM-019).
+   */
+  async replaceEntriesIn(tx: Transaction, actor: Actor, versionId: string, body: { readonly version: number; readonly entries: readonly EntryInput[] }): Promise<PriceListVersionView> {
+    const version = await this.store.version(tx, versionId, true);
+    if (version === null) {
+      throw new NotFoundError('no such price list version');
+    }
+    if (version.status !== 'DRAFT') {
+      throw notDraft(version, 'replacing entries');
+    }
+    if (version.version !== body.version) {
+      throw new VersionConflictError(`price list version ${versionId} is at version ${version.version}, not ${body.version}`);
+    }
+    const defined = defineEntries(body.entries, await this.store.entryReferences(tx, body.entries));
+    if (!defined.ok) {
+      const unknown = defined.error.filter((rule) => rule.rule === 'UNKNOWN');
+      const duplicates = defined.error.filter((rule) => rule.rule === 'DUPLICATE_ENTRY');
+      if (unknown.length > 0) throw referencesNotFound(unknown.map((rule) => rule.field));
+      if (duplicates.length > 0 && duplicates.length === defined.error.length) throw new PriceEntryDuplicateError(duplicates);
+      throw new PriceEntryInvalidError(defined.error.filter((rule) => rule.rule !== 'DUPLICATE_ENTRY'));
+    }
+    const before = await this.store.entries(tx, versionId);
+    await this.store.replaceEntries(tx, versionId, defined.value, actor.principalId, this.nextId);
+    if (!(await this.store.touchVersion(tx, versionId, version.version, actor.principalId))) {
+      throw new VersionConflictError(`price list version ${versionId} changed while its entries were replaced`);
+    }
+    const view = await this.versionView(tx, versionId);
+    await this.audit.record(tx, {
+      module: 'mdm',
+      action: 'UPDATE',
+      entityType: 'PriceListVersion',
+      entityId: versionId,
+      branchId: version.branchId,
+      before: { entryCount: before.length, entriesHash: entriesHash(before) },
+      after: { entryCount: view.entryCount, entriesHash: entriesHash(await this.store.entries(tx, versionId)) },
+    });
+    return view;
   }
 
   async submit(actor: Actor | undefined, versionId: string, idempotencyKey: string): Promise<StoredResponse<ApprovalPendingView>> {
