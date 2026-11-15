@@ -2,6 +2,7 @@ import { farmSeedIam, seedLocationGrantsIam } from './farm-iam';
 import { farmSeedInv } from './farm-inv';
 import { farmSeedLiv } from './farm-liv';
 import { farmSeedMdm, farmSeedMdmBootstrap } from './farm-mdm';
+import { farmSeedMdmUnits } from './farm-mdm-units';
 import { farmSeedPrc } from './farm-prc';
 import type { SeedUnit } from './seed-unit';
 
@@ -17,8 +18,9 @@ export interface SeedEnvironment {
  * the catalogue, the tax scheme, the approved price lists, the caterer's contract list and the promotions through
  * MDM's services; then the Owner grants the staff scoped to a location once the locations exist; last, the Manager
  * registers the suppliers and receives the farm's stock through INV's goods receipts (B05 continued), weighs the animals the receipts opened in the register through
- * LIV (B06 continued), and sets the goat's yield standards through PRC (B6).
+ * LIV (B06 continued), gives the feed bags and the cabbage crate their exact conversions through MDM (B06u), and sets the
+ * goat's yield standards through PRC (B6).
  */
 export function seedUnits(env: SeedEnvironment): readonly SeedUnit[] {
-  return [farmSeedMdmBootstrap(), farmSeedIam(env.SEED_STAFF_PASSWORD), farmSeedMdm(), seedLocationGrantsIam(), farmSeedInv(), farmSeedLiv(), farmSeedPrc()];
+  return [farmSeedMdmBootstrap(), farmSeedIam(env.SEED_STAFF_PASSWORD), farmSeedMdm(), seedLocationGrantsIam(), farmSeedInv(), farmSeedLiv(), farmSeedMdmUnits(), farmSeedPrc()];
 }
