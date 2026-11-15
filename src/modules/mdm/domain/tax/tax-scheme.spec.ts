@@ -1,7 +1,7 @@
 import { Rate } from '@hakorem/kernel';
 import { describe, expect, it } from 'vitest';
 import type { TaxCellInput } from './tax-calculator';
-import { defineTaxMatrix, defineTaxWindow, planTaxActivation, taxActivationWindow, taxSchemeInForce, type MatrixCellInput } from './tax-scheme';
+import { defineTaxMatrix, planTaxActivation, taxActivationWindow, taxSchemeInForce, type MatrixCellInput } from './tax-scheme';
 
 const VAT = { id: 'levy-vat', code: 'VAT', name: 'Value added tax' };
 const NHIL = { id: 'levy-nhil', code: 'NHIL', name: 'National Health Insurance Levy' };
@@ -93,15 +93,6 @@ describe('tax scheme matrix (FR-MDM-012, ADR-0020)', () => {
 });
 
 describe('tax scheme version window (ADR-0020, ADR-0039)', () => {
-  it('accepts an open-ended window and a window that ends after it starts', () => {
-    expect(defineTaxWindow('2026-01-01', null)).toEqual({ ok: true, value: { validFrom: '2026-01-01', validTo: null } });
-    expect(defineTaxWindow('2026-01-01', '2026-01-02')).toEqual({ ok: true, value: { validFrom: '2026-01-01', validTo: '2026-01-02' } });
-  });
-
-  it('refuses a window that ends on or before its first day', () => {
-    expect(defineTaxWindow('2026-01-01', '2026-01-01')).toEqual({ ok: false, error: [{ field: '/validTo', rule: 'NOT_AFTER_VALID_FROM' }] });
-  });
-
   it('keeps a window that starts on or after the day of approval', () => {
     expect(taxActivationWindow({ validFrom: '2026-12-01', validTo: null }, '2026-11-14')).toEqual({ ok: true, value: { validFrom: '2026-12-01', validTo: null } });
     expect(taxActivationWindow({ validFrom: '2026-11-14', validTo: null }, '2026-11-14')).toEqual({ ok: true, value: { validFrom: '2026-11-14', validTo: null } });

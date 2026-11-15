@@ -1,5 +1,4 @@
 import { err, ok, type Result } from '@hakorem/kernel';
-import type { FieldRule } from '../product';
 import { categoryTaxRule, type CategoryTaxRule, type TaxCellInput, type TaxLevyRef, type TaxRuleErrorCode } from './tax-calculator';
 
 /**
@@ -63,13 +62,6 @@ export function defineTaxMatrix(versionId: string, cells: readonly MatrixCellInp
 export interface TaxWindow {
   readonly validFrom: string;
   readonly validTo: string | null;
-}
-
-export function defineTaxWindow(validFrom: string, validTo: string | null): Result<TaxWindow, FieldRule[]> {
-  if (validTo !== null && validTo <= validFrom) {
-    return err([{ field: '/validTo', rule: 'NOT_AFTER_VALID_FROM' }]);
-  }
-  return ok({ validFrom, validTo });
 }
 
 /**
