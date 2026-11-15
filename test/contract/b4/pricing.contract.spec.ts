@@ -65,6 +65,25 @@ describe('pricing operations answer in the contract shapes', () => {
     expectShape('ApprovalPending', submitted.body);
   });
 
+  it('previewPriceListVersion returns PriceListPreviewPage, and a version already in force the error envelope (CR-009)', async () => {
+    const list = await consolePost(api.server, manager, '/v1/price-lists').send({ code: 'ONLINE', name: 'Online prices', kind: 'CHANNEL', channel: 'ONLINE', taxInclusive: true });
+    const version = await consolePost(api.server, manager, `/v1/price-lists/${list.body.id}/versions`).send({ validFrom: '2026-12-01T00:00:00Z' });
+    await request(api.server)
+      .put(`/v1/price-list-versions/${version.body.id}/entries`)
+      .set('Cookie', manager.jar.header())
+      .set('X-CSRF-Token', manager.csrfToken)
+      .set('Origin', TEST_ORIGIN)
+      .set('Idempotency-Key', randomUUID())
+      .send({ version: 1, entries: [{ productId: goatId, basis: 'PER_HEAD', listPricePesewas: 95_000, floorPricePesewas: 85_000, ceilingPricePesewas: 110_000 }] });
+    const preview = await consoleGet(api.server, manager, `/v1/price-list-versions/${version.body.id}/preview?limit=1`);
+    expect(preview.status).toBe(200);
+    expectShape('PriceListPreviewPage', preview.body);
+    expect(preview.body.data[0]).toMatchObject({ kind: 'ADDED', current: null, proposed: { listPricePesewas: 95_000 } });
+    const missing = await consoleGet(api.server, manager, `/v1/price-list-versions/${randomUUID()}/preview`);
+    expect(missing.status).toBe(404);
+    expectShape('Error', missing.body);
+  });
+
   it('resolvePrices returns PriceResolveResult, and a refusal the error envelope', async () => {
     const resolved = await consolePost(api.server, manager, '/v1/pricing/resolve').send({ channel: 'POS', branchId, lines: [{ lineRef: '1', productId: goatId, quantity: '1.000' }] });
     expect(resolved.status).toBe(200);

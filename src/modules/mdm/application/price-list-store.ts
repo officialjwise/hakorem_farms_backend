@@ -105,6 +105,10 @@ export interface PriceListStore {
   versions(tx: Transaction, listId: string, beforeNo: number | null, limit: number): Promise<VersionRow[]>;
   /** A version's entries in id order, `afterId` exclusive. */
   entryRows(tx: Transaction, versionId: string, productId: string | null, afterId: string | null, limit: number): Promise<EntryRow[]>;
+  /** Every entry of each version, with its references, in one statement so the versions are read at one snapshot (CR-009). */
+  entryRowsOf(tx: Transaction, versionIds: readonly string[]): Promise<ReadonlyMap<string, readonly EntryRow[]>>;
+  /** The ACTIVE version of a list in force at an instant: valid_from <= at < valid_to (CR-009). */
+  activeVersionAt(tx: Transaction, listId: string, at: Date): Promise<VersionRow | null>;
   /** The version in force now and the open draft or submitted version of a list. */
   versionsOfInterest(tx: Transaction, listId: string, now: Date): Promise<{ readonly active: VersionRow | null; readonly draftId: string | null }>;
   nextVersionNo(tx: Transaction, listId: string): Promise<number>;

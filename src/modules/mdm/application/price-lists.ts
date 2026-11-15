@@ -11,6 +11,7 @@ import type { Idempotency, StoredResponse } from '../../../platform/idempotency/
 import { translate } from '../../../platform/i18n/messages';
 import type { Approvals, ApprovalHandler, ApprovalRecord, Authoriser, PrincipalNames, PrincipalRef } from '../../iam';
 import { activationWindow, defineEntries, definePriceList, defineVersionWindow, planActivation, type EntryInput } from '../domain/pricing/price-list';
+import { comparePriceListVersions, linesAfter, previewInstant, previewRefusal, type PreviewCounts, type PreviewEntry, type PreviewKind } from '../domain/pricing/price-list-preview';
 import type { FieldRule } from '../domain/product';
 import type { Channel, PriceListKind } from '../domain/pricing/pricing-engine';
 import type { PriceListVersionActivated } from '../events';
@@ -27,6 +28,7 @@ export const SUBMIT_PRICE_LIST_VERSION = 'submitPriceListVersion';
 export const PRICE_LIST_ACTIVATION = 'PRICE_LIST_ACTIVATION';
 export const UPDATE_PRICE_LIST = 'updatePriceList';
 export const ARCHIVE_PRICE_LIST = 'archivePriceList';
+export const PREVIEW_PRICE_LIST_VERSION = 'previewPriceListVersion';
 
 /** Unique indexes of migration 0011, for a race that reaches the database before the check sees it. */
 const UNIQUE_POINTER: Readonly<Record<string, string>> = { uq_price_list_code: '/code', uq_price_list_slot: '/kind' };
@@ -91,6 +93,20 @@ export type PriceListEntryView = Omit<EntryRow, 'listPricePesewas' | 'floorPrice
   readonly ceilingPricePesewas: number;
   readonly currency: 'GHS';
 };
+
+/** The contract's `PriceListPreviewLine`. */
+export interface PriceListPreviewLineView {
+  readonly kind: PreviewKind;
+  readonly current: PriceListEntryView | null;
+  readonly proposed: PriceListEntryView | null;
+}
+
+/** The contract's `PriceListPreviewPage` (CR-009). */
+export interface PriceListPreviewView extends Page<PriceListPreviewLineView> {
+  readonly comparedWith: { readonly id: string; readonly versionNo: number; readonly validFrom: string; readonly validTo: string | null } | null;
+  readonly comparedAt: string;
+  readonly counts: PreviewCounts;
+}
 
 /** The contract's `ApprovalPending`, the 202 body of submitPriceListVersion. */
 export interface ApprovalPendingView {
@@ -319,6 +335,45 @@ export class PriceListAdmin implements ApprovalHandler {
     return this.uow.run({ isolation: 'read committed' }, async (tx) => {
       await this.authoriser.authorise(tx, actor, 'mdm.price_list.read');
       return this.versionView(tx, id);
+    });
+  }
+
+  /**
+   * previewPriceListVersion (CR-009): a DRAFT or PENDING_APPROVAL version compared with the ACTIVE version of the same
+   * list in force when it would take effect (its validFrom, or now for one already past: ADR-0036 decision 3), line
+   * by line by the engine's identity (product, grade, band, quantity break). Read only, scoped to the version's
+   * branch. Both versions' entries are read in one statement, so the comparison is of one snapshot; a cursor is
+   * bound to the version's lock and the version compared with, so a page never mixes two comparisons.
+   */
+  async previewVersion(actor: Actor | undefined, id: string, cursor: string | undefined, limit: number): Promise<PriceListPreviewView> {
+    return this.uow.run({ isolation: 'read committed' }, async (tx) => {
+      const version = await this.store.version(tx, id, false);
+      await this.authoriser.authorise(tx, actor, 'mdm.price_list.read', version === null ? {} : { branchId: version.branchId });
+      if (version === null) {
+        throw new NotFoundError('no such price list version');
+      }
+      const refused = previewRefusal(version.status);
+      if (refused !== null) {
+        throw new InvalidStateTransitionError(`price list version ${version.id} is ${refused}; a preview needs DRAFT or PENDING_APPROVAL`, [
+          { field: null, code: refused, message: translate('error.invalid_state_transition') },
+        ]);
+      }
+      const at = previewInstant(version.validFrom, this.clock.now());
+      const inForce = await this.store.activeVersionAt(tx, version.priceListId, at);
+      const rows = await this.store.entryRowsOf(tx, inForce === null ? [version.id] : [version.id, inForce.id]);
+      const { lines, counts } = comparePriceListVersions(inForce === null ? null : rows.get(inForce.id)!.map(previewEntry), rows.get(version.id)!.map(previewEntry));
+      const binding = { operationId: PREVIEW_PRICE_LIST_VERSION, principalId: actor!.principalId, filters: { versionId: version.id, version: version.version, comparedWith: inForce?.id ?? null } };
+      const after = cursor === undefined ? null : (this.cursors.decode(cursor, binding)['key'] ?? null);
+      const rest = linesAfter(lines, after);
+      const page = rest.slice(0, limit);
+      const hasMore = rest.length > limit;
+      return {
+        comparedWith: inForce === null ? null : { id: inForce.id, versionNo: inForce.versionNo, validFrom: inForce.validFrom.toISOString(), validTo: inForce.validTo?.toISOString() ?? null },
+        comparedAt: at.toISOString(),
+        counts,
+        data: page.map((line) => ({ kind: line.kind, current: line.current === null ? null : entryView(line.current.row), proposed: line.proposed === null ? null : entryView(line.proposed.row) })),
+        page: { nextCursor: hasMore ? this.cursors.encode(binding, { key: page.at(-1)!.key }) : null, limit, hasMore },
+      };
     });
   }
 
@@ -608,6 +663,11 @@ function entryView(row: EntryRow): PriceListEntryView {
     ceilingPricePesewas: jsonPesewas(row.ceilingPricePesewas),
     currency: 'GHS',
   };
+}
+
+/** An entry as the comparison reads it, carrying the row it answers with. */
+function previewEntry(row: EntryRow): PreviewEntry & { readonly row: EntryRow } {
+  return { ...row, productId: row.product.id, gradeId: row.grade?.id ?? null, weightBandId: row.weightBand?.id ?? null, row };
 }
 
 function entriesHash(entries: readonly unknown[]): string {

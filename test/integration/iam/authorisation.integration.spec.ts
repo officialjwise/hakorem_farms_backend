@@ -162,7 +162,7 @@ afterAll(async () => {
 });
 
 describe('deny by default: the handler walk (ADR-0017, security architecture section 14)', () => {
-  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued, B05 continued 3, B05x and B6 routes, and every one declares its operation', () => {
+  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued, B05 continued 3, B05x, B6 and B06m routes, and every one declares its operation', () => {
     expect(routes.map((route) => route.spec?.operationId).sort()).toEqual(
       [
         'changePassword', 'confirmTotpEnrolment', 'createProduct', 'getCurrentSession', 'getHealth', 'getProduct', 'listProducts', 'listSessions',
@@ -201,6 +201,7 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'getOwnerDashboard', 'getStockValueTile', 'getAnimalsOnHandTile', 'getLowStockTile', 'getPurchasesSeries', 'getStockUnitLabel', 'getProductLabel',
         'listProcessingOrders', 'createProcessingOrder', 'getProcessingOrder', 'updateProcessingOrder', 'startProcessingOrder', 'recordProcessingOutputs',
         'addProcessingCost', 'completeProcessingOrder', 'cancelProcessingOrder', 'listYieldStandards', 'createYieldStandard', 'updateYieldStandard',
+        'previewPriceListVersion',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);
