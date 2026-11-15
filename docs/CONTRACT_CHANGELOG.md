@@ -8,6 +8,16 @@ Version numbers follow semantic versioning: a major bump breaks an existing clie
 
 - **CR-002 (frontend, raised 2026-11-13): weights as decimal strings, never JSON numbers.** Already satisfied by 1.0.0 and 1.1.0, so no version change. `components.schemas.Kilograms` is `type: string` with the pattern `^(0|[1-9][0-9]{0,6})\.[0-9]{3}$` (exactly three decimal places), and its description says it is never a JSON number. The request was raised against a copy taken before re-syncing; re-run `./scripts/sync-contract.sh`. The owner closed it on 2026-11-13: do not reopen it.
 
+## 1.12.0 (2026-11-15, B04e continued 2)
+
+**Additive.** No schema, field, parameter or request was removed, renamed or retyped, and nothing a client sends was made required. A client generated from 1.11.x compiles unchanged. The frontend track is paused, so nothing reviewed this entry; read it before resuming.
+
+Three operations now answer from the real API (129 in all), with the schemas 1.2.0 already published: `uploadFile`, `getFile`, `createFileSignedUrl`. They keep their tag `platform`; DOC owns them in code (ADR-0044).
+
+- **New responses:** `uploadFile` can answer **413** `PAYLOAD_TOO_LARGE` (over the purpose's cap: images 5 MB, PDF and spreadsheets 10 MB) and **415** `FILE_TYPE_NOT_ALLOWED` (the bytes are not a type the purpose accepts); `getFile` can answer **422** `FILE_NOT_CLEAN` for a quarantined (infected or unscannable) file. The codes were already in `docs/API.md` section 10.
+- **`x-error-codes` and descriptions** on the three operations state their rules (A-124): the allow-list per purpose, the caps, `PENDING` until the scanner says `CLEAN`, only `CLEAN` linked, five-minute links logged, and `platform.file.read.any` for a file someone else uploaded.
+- **`ApprovalRequest.evidenceFileId`** now carries the attached file's id (it was always null).
+
 ## 1.11.0 (2026-11-15, B04e continued)
 
 **Additive.** No schema, field, parameter or response was removed, renamed or retyped, and nothing a client sends was made required. A client generated from 1.10.x compiles unchanged. The frontend track is paused, so nothing reviewed this entry; read it before resuming.

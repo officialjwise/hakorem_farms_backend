@@ -45,6 +45,19 @@ export const TEST_SECRETS: Readonly<Record<string, string>> = {
   ARGON2_ITERATIONS: '2',
 };
 
+/** The file store's object storage: the run's S3-compatible container, path-style, one private bucket per run. */
+export const TEST_PRIVATE_BUCKET = 'hk-test-private';
+export function objectStoreEnvironment(): Record<string, string> {
+  const store = inject('objectStore');
+  return {
+    S3_ENDPOINT: store.endpoint,
+    S3_FORCE_PATH_STYLE: 'true',
+    S3_ACCESS_KEY_ID: store.accessKeyId,
+    S3_SECRET_ACCESS_KEY: store.secretAccessKey,
+    S3_BUCKET_PRIVATE: TEST_PRIVATE_BUCKET,
+  };
+}
+
 /** The real application, built by the same `createApp` production uses, against the test file's database. */
 export async function startTestApp(database: TestDatabase, options: TestAppOptions = {}): Promise<TestApp> {
   const config = loadConfig(
@@ -57,6 +70,7 @@ export async function startTestApp(database: TestDatabase, options: TestAppOptio
       HEALTH_CACHE_SECONDS: '0',
       ...TEST_SECRETS,
       REDIS_KEY_PREFIX: `t${randomBytes(4).toString('hex')}:`,
+      ...objectStoreEnvironment(),
       ...options.environment,
     },
     '0.1.0',

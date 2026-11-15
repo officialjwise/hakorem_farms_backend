@@ -10,7 +10,11 @@ import { UnitOfWork } from './platform/database/unit-of-work';
 import { DomainEvents } from './platform/events/domain-events';
 import { NestPinoLogger } from './platform/logging/nest-logger';
 import { OtelMetrics } from './platform/observability/metrics';
-import { PG_POOL } from './platform/platform.module';
+import { LOGGER, PG_POOL } from './platform/platform.module';
+import { AuditTrail } from './platform/audit/audit-trail';
+import { FileScanner } from './platform/storage/file-scanner';
+import { ClamdScanner } from './platform/storage/malware-scanner';
+import { OBJECT_STORAGE, type ObjectStorage } from './platform/storage/object-storage';
 import { BullmqJobQueue } from './platform/queue/job-queue';
 import { S3ObjectStorage } from './platform/storage/s3-object-storage';
 import { WorkerRuntime } from './platform/worker/worker-runtime';
@@ -51,6 +55,19 @@ export async function startWorker(config: AppConfig, logger: Logger, clock: Cloc
     secretAccessKey: config.S3_ANCHOR_SECRET_ACCESS_KEY!,
     timeoutMs: STORAGE_TIMEOUT_MS,
   });
+  const fileStorage = app.get<ObjectStorage | null>(OBJECT_STORAGE);
+  const fileScanner =
+    config.CLAMAV_HOST === undefined || fileStorage === null
+      ? null
+      : new FileScanner(
+          app.get<pg.Pool>(PG_POOL),
+          app.get(UnitOfWork),
+          fileStorage,
+          new ClamdScanner({ host: config.CLAMAV_HOST, port: config.CLAMAV_PORT, timeoutMs: config.CLAMAV_TIMEOUT_MS }),
+          app.get(AuditTrail),
+          clock,
+          app.get<Logger>(LOGGER),
+        );
   const metrics = new OtelMetrics({ enabled: config.METRICS_ENABLED, port: config.METRICS_PORT, serviceName: config.OTEL_SERVICE_NAME });
   const runtime = new WorkerRuntime(
     config,
@@ -63,6 +80,7 @@ export async function startWorker(config: AppConfig, logger: Logger, clock: Cloc
     metrics,
     clock,
     logger,
+    fileScanner,
   );
   await runtime.start();
   return {

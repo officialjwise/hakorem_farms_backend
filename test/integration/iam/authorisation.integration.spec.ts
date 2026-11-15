@@ -134,7 +134,7 @@ afterAll(async () => {
 });
 
 describe('deny by default: the handler walk (ADR-0017, security architecture section 14)', () => {
-  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e and B04e continued routes, and every one declares its operation', () => {
+  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued and B04e continued 2 routes, and every one declares its operation', () => {
     expect(routes.map((route) => route.spec?.operationId).sort()).toEqual(
       [
         'changePassword', 'confirmTotpEnrolment', 'createProduct', 'getCurrentSession', 'getHealth', 'getProduct', 'listProducts', 'listSessions',
@@ -156,6 +156,7 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'listRoles', 'getRole', 'listPermissions', 'listGrants', 'createGrant', 'revokeGrant',
         'createRole', 'updateRole', 'listApprovals', 'getApproval', 'approveRequest', 'rejectRequest', 'cancelApprovalRequest',
         'registerCustomer', 'verifyCustomerPhone', 'requestPasswordReset', 'resetPassword',
+        'uploadFile', 'getFile', 'createFileSignedUrl',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);
@@ -192,7 +193,9 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
                 .set('Origin', TEST_ORIGIN)
                 .set('Idempotency-Key', randomUUID())
                 .send(body)
-            : await consolePost(api.server, session, path).send(body);
+            : route.spec!.operationId === 'uploadFile'
+              ? await consolePost(api.server, session, path).field('purpose', 'EVIDENCE').attach('file', Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]), 'pen.jpg')
+              : await consolePost(api.server, session, path).send(body);
       expect(response.status, `${route.method} ${route.path}`).toBe(403);
       expect(response.body.error.code, route.path).toBe('FORBIDDEN');
     }

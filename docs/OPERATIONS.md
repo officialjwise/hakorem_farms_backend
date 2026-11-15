@@ -179,8 +179,11 @@ All buckets are S3-compatible. Credentials are separate per purpose so that a le
 | `S3_BUCKET_LOGS` | Daily log archive (section 5) | Prod | `hakorem-prod-logs` |
 | `PUBLIC_MEDIA_BASE_URL` | Origin that serves public media | Yes | `https://media.hakoremfarms.com` |
 | `SIGNED_URL_TTL_SECONDS` | Lifetime of a signed download URL | Opt, `300` | `300` |
-| `MALWARE_SCAN_MODE` | `clamd` or `stub` (`stub` only in local and CI) | Yes | `clamd` |
-| `CLAMAV_HOST`, `CLAMAV_PORT` | The scanner | Prod | `clamav`, `3310` |
+| `CLAMAV_HOST`, `CLAMAV_PORT` | The scanner the worker sends every upload to (ClamAV's daemon, ADR-0044). Without a host nothing is scanned and every upload stays `PENDING`, never served; there is no stub that passes files unscanned. Locally: `scanner` with `docker compose --profile scanner` (about 1.2 GB of memory) | Staging and prod (worker); opt, port `3310` | `scanner`, `3310` |
+| `CLAMAV_TIMEOUT_MS` | How long one scan may take | Opt, `60000` | `60000` |
+| `FILE_SCAN_INTERVAL_MS` | How often the worker looks for `PENDING` files (ten per round) | Opt, `2000` | `2000` |
+
+The API needs `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` and `S3_BUCKET_PRIVATE` in staging and production (the file store, B04e continued 2). The scanner image is `clamav/clamav:1.4.3`; development and CI run it with the signatures it ships (`CLAMAV_NO_FRESHCLAMD=true`); production runs its `freshclam` so signatures stay current (B13 provisions it). An `INFECTED` file is logged as a warning and counted in `hk_files_infected_total`; `hk_files_scanned_total` counts verdicts.
 
 ### 3.5.1 Public media origin
 

@@ -3,6 +3,7 @@ import type { Clock } from '@hakorem/kernel';
 import type { Logger } from 'pino';
 import type { AppConfig } from './platform/config/app-config';
 import { IamModule } from './modules/iam';
+import { DocModule } from './modules/doc';
 import { MdmModule } from './modules/mdm';
 import { PlatformModule } from './platform/platform.module';
 
@@ -20,7 +21,7 @@ export class AppModule {
   ): DynamicModule {
     return {
       module: AppModule,
-      imports: [PlatformModule.forRoot(config, logger, clock), IamModule, MdmModule, ...extra],
+      imports: [PlatformModule.forRoot(config, logger, clock), IamModule, MdmModule, DocModule, ...extra],
     };
   }
 }

@@ -188,9 +188,14 @@ Metadata for every object in object storage. Content is immutable; only scan sta
 | `sha256` | `bytea` | NOT NULL | Integrity, and proof an archived document is unchanged |
 | `classification` | `text` | NOT NULL, CHECK in (`PUBLIC`, `INTERNAL`, `CONFIDENTIAL`, `RESTRICTED`) | Drives signed URL rules |
 | `scan_status` | `text` | NOT NULL, CHECK in (`PENDING`, `CLEAN`, `INFECTED`, `FAILED`) | A file is not served until `CLEAN` |
+| `purpose` | `text` | NOT NULL, CHECK in the contract's `FilePurpose` | The use: decides the allow-list, the cap and the classification (DOC, A-124) |
+| `scanned_at` | `timestamptz` | NULL; set exactly when status is not `PENDING` | When the scanner gave its verdict |
+| `scan_verdict` | `text` | NULL | The signature found, or why the scan failed |
 | `owner_module` | `text` | NOT NULL | Who to ask about it |
 
 Standard columns: `MASTER`.
+
+Created in B04e continued 2 (migration 0033, ADR-0044). `platform.stored_file_guard()` (SQLSTATE HK007) refuses a change to any content column, a row inserted with any status but `PENDING`, a second verdict, and a verdict from any role but `hk_worker`, the scanner's. UNIQUE (`bucket`, `object_key`); a partial index on the `PENDING` rows feeds the scan loop.
 
 ### `platform.stored_file_variant` · PROJECTION
 
@@ -210,7 +215,7 @@ Resized and compressed renditions of an image, produced by a worker.
 
 ### `platform.file_access_log` · LEDGER
 
-Every signed URL issued for a private file.
+Every signed URL issued for a private file. Created in B04e continued 2 (migration 0033): `recorded_at` is when the link was signed, and `url_expires_at` is after it.
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |

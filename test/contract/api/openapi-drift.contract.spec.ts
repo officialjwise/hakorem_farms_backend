@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Controller, Get, Module, Post } from '@nestjs/common';
+import { Controller, Get, Module } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
 import { buildContract, ContractMergeError, operationsOf } from '../../../scripts/contract/build-contract';
 import { documentModule, OperationFragmentError } from '../../../scripts/contract/code-document';
@@ -20,11 +20,11 @@ class ProbeSlotController {
   }
 }
 
-/** Claims an operation that is still planned: POST /files (uploadFile). */
-@Controller('files')
+/** Claims an operation that is still planned (B8): GET /finance/trial-balance (getTrialBalance). */
+@Controller('finance/trial-balance')
 class DuplicateUploadController {
-  @Post()
-  @Operation({ operationId: 'uploadFile', access: 'SESSION', realms: ['STAFF'], permission: 'platform.file.upload', idempotent: true, csrf: true, rateLimit: 'console' })
+  @Get()
+  @Operation({ operationId: 'getTrialBalance', access: 'SESSION', realms: ['STAFF'], permission: 'fin.report.read', idempotent: false, csrf: false, rateLimit: 'console' })
   upload(): string {
     return 'duplicate';
   }
@@ -91,21 +91,20 @@ describe('the contract is generated from code (FR-API-002, ADR-0030, ADR-0031)',
   });
 
   it('refuses an operation that is both in the code and still in the planned contract', async () => {
-    const uploadFile = {
-      operationId: 'uploadFile',
-      tags: ['platform'],
+    const getTrialBalance = {
+      operationId: 'getTrialBalance',
+      tags: ['fin'],
       summary: 'duplicate',
-      'x-permission': 'platform.file.upload',
-      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/CsrfToken' }],
+      'x-permission': 'fin.report.read',
       security: [{ staffSession: [] }],
-      responses: { '201': { description: 'OK' } },
+      responses: { '200': { description: 'OK' } },
     };
-    const duplicate = await documentModule(DuplicateUploadModule, fragments({ uploadFile }));
+    const duplicate = await documentModule(DuplicateUploadModule, fragments({ getTrialBalance }));
     expect(() => buildContract(readYaml(PLANNED_PATH), duplicate)).toThrow(ContractMergeError);
   });
 
-  it('keeps all 600 operations in the published contract, 126 of them now implemented in code', async () => {
+  it('keeps all 600 operations in the published contract, 129 of them now implemented in code', async () => {
     expect(operationsOf(readYaml(PUBLISHED_PATH))).toHaveLength(600);
-    expect(operationsOf(readYaml(PLANNED_PATH))).toHaveLength(474);
+    expect(operationsOf(readYaml(PLANNED_PATH))).toHaveLength(471);
   });
 });

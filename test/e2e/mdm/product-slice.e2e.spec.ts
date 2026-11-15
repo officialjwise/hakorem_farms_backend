@@ -54,6 +54,19 @@ class Browser {
     const text = await response.text();
     return { status: response.status, body: text === '' ? null : JSON.parse(text) };
   }
+
+  /** A multipart upload to the file store (FR-DOC-006), as the console's file picker sends it. */
+  async upload(purpose: string, content: Buffer, filename: string): Promise<{ status: number; body: Json }> {
+    const form = new FormData();
+    form.set('purpose', purpose);
+    form.set('file', new Blob([content], { type: 'application/octet-stream' }), filename);
+    const response = await fetch(`${BASE_URL}/v1/files`, {
+      method: 'POST',
+      headers: { Origin: ORIGIN, Cookie: [...this.cookies].map(([k, v]) => `${k}=${v}`).join('; '), 'X-CSRF-Token': this.csrf, 'Idempotency-Key': randomUUID() },
+      body: form,
+    });
+    return { status: response.status, body: await response.json() };
+  }
 }
 
 const password = seededPassword();
@@ -105,6 +118,16 @@ describe('the Product slice on the running stack', () => {
     const refused = await cashier.call('POST', '/v1/products', { sku: 'LIV-TURKEY', name: 'Turkey', categoryId: randomUUID(), stockPolicy: 'NON_STOCK', baseUom: 'UNIT', saleUom: 'UNIT', onlineMode: 'HIDDEN' }, { 'Idempotency-Key': randomUUID() });
     expect(refused.status).toBe(403);
     expect(refused.body.error.code).toBe('FORBIDDEN');
+  });
+
+  it("stores the Manager's photograph PENDING in the stack's object store, typed by its bytes, and refuses the cashier (FR-DOC-006)", async () => {
+    const photo = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(4_092, 9)]);
+    const stored = await manager.upload('EVIDENCE', photo, 'pen-3-door.png');
+    expect(stored.status).toBe(201);
+    expect(stored.body).toMatchObject({ contentType: 'image/jpeg', sizeBytes: 4_096, scanStatus: 'PENDING' });
+    expect((await manager.call('GET', `/v1/files/${stored.body.id}`)).body.scanStatus).toMatch(/^(PENDING|CLEAN)$/);
+    expect((await cashier.upload('EVIDENCE', photo, 'pen-3-door.jpg')).status).toBe(403);
+    expect((await cashier.call('GET', `/v1/files/${stored.body.id}`)).status).toBe(403);
   });
 
   it('keeps the audit trail sealed by the worker', async () => {

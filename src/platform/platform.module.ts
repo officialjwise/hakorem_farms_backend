@@ -19,29 +19,53 @@ import { Idempotency } from './idempotency/idempotency';
 import { createRedis } from './redis/redis-client';
 import { Settings } from './settings/settings';
 import { GenericHttpSms, SMS_CHANNEL } from './notifications/notification-channel';
+import { FileStore } from './storage/file-store';
+import { OBJECT_STORAGE, type ObjectStorage } from './storage/object-storage';
+import { S3ObjectStorage } from './storage/s3-object-storage';
 
 export const LOGGER = Symbol('LOGGER');
 export const PG_POOL = Symbol('PG_POOL');
 export const REDIS = Symbol('REDIS');
 export const CLOCK = Symbol('CLOCK');
 export const KEY_RING = Symbol('KEY_RING');
+/** Milliseconds an object storage call may take; uploads and scans are made outside any business transaction. */
+const FILE_STORAGE_TIMEOUT_MS = 30_000;
+
+/** The file store's object storage (ADR-0044): the files credential, not the anchor writer's. Null when not configured. */
+function fileObjectStorage(config: AppConfig): S3ObjectStorage | null {
+  if (config.S3_ENDPOINT === undefined || config.S3_ACCESS_KEY_ID === undefined || config.S3_SECRET_ACCESS_KEY === undefined) {
+    return null;
+  }
+  return new S3ObjectStorage({
+    endpoint: config.S3_ENDPOINT,
+    region: config.S3_REGION,
+    forcePathStyle: config.S3_FORCE_PATH_STYLE,
+    accessKeyId: config.S3_ACCESS_KEY_ID,
+    secretAccessKey: config.S3_SECRET_ACCESS_KEY,
+    timeoutMs: FILE_STORAGE_TIMEOUT_MS,
+  });
+}
 
 /** Closes the pool and Redis when the application stops, after in-flight requests finish. */
 class ConnectionCloser implements OnApplicationShutdown {
   constructor(
     @Inject(PG_POOL) private readonly pool: pg.Pool,
     @Inject(REDIS) private readonly redis: Redis,
+    @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage | null,
   ) {}
 
   async onApplicationShutdown(): Promise<void> {
+    if (this.storage instanceof S3ObjectStorage) {
+      this.storage.close();
+    }
     await Promise.allSettled([this.pool.end(), this.redis.quit()]);
   }
 }
 
 /**
  * Technical mechanisms every module uses: configuration, logging, the clock, the database pool and unit of work,
- * Redis, encryption keys, the audit trail, domain events and the outbox, idempotency, settings, rate limiting and
- * the health report. No business rules live here (ADR-0009).
+ * Redis, encryption keys, the audit trail, domain events and the outbox, idempotency, settings, rate limiting, the
+ * file store and the health report. No business rules live here (ADR-0009).
  */
 @Global()
 @Module({})
@@ -93,6 +117,13 @@ export class PlatformModule {
               logger,
             ),
         },
+        { provide: OBJECT_STORAGE, useFactory: () => fileObjectStorage(config) },
+        {
+          provide: FileStore,
+          useFactory: (storage: ObjectStorage | null, audit: AuditTrail) =>
+            new FileStore(storage, { privateBucket: config.S3_BUCKET_PRIVATE ?? null, ensureBucket: config.APP_ENV === 'development' || config.APP_ENV === 'test' }, audit, clock),
+          inject: [OBJECT_STORAGE, AuditTrail],
+        },
         ConnectionCloser,
       ],
       exports: [
@@ -113,6 +144,8 @@ export class PlatformModule {
         Cursors,
         HealthService,
         SMS_CHANNEL,
+        OBJECT_STORAGE,
+        FileStore,
       ],
     };
   }

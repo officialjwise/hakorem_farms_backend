@@ -102,6 +102,11 @@ const environmentSchema = z
     S3_ANCHOR_ACCESS_KEY_ID: z.string().min(1).optional(),
     S3_ANCHOR_SECRET_ACCESS_KEY: z.string().min(1).optional(),
     SIGNED_URL_TTL_SECONDS: seconds(300),
+    // The malware scanner (A-057, ADR-0044): ClamAV's daemon, which the worker sends every upload to.
+    CLAMAV_HOST: z.string().min(1).optional(),
+    CLAMAV_PORT: z.coerce.number().int().min(1).max(65_535).default(3_310),
+    CLAMAV_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(300_000).default(60_000),
+    FILE_SCAN_INTERVAL_MS: z.coerce.number().int().min(100).default(2_000),
     // The worker (docs/OPERATIONS.md section 3.8).
     WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(50).default(5),
     SCHEDULER_ENABLED: booleanFlag.default(true),
@@ -133,6 +138,15 @@ const environmentSchema = z
     }
     if (env.APP_ENV === 'production' && env.MESSAGING_MODE !== 'live') {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['MESSAGING_MODE'], message: 'must be live in production, or customers get no codes' });
+    }
+    if (deployed) {
+      // The file store: uploads go to the private bucket, and the worker scans each one before it is served.
+      for (const key of ['S3_ENDPOINT', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY', 'S3_BUCKET_PRIVATE'] as const) {
+        require(key, 'is required in staging and production (the file store)');
+      }
+      if (env.APP_ROLE === 'worker') {
+        require('CLAMAV_HOST', 'is required by the worker in staging and production, or no upload is ever scanned');
+      }
     }
     if (env.APP_ROLE === 'api') {
       require('DATABASE_URL_APP', 'is required by the API');

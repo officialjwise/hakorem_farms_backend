@@ -1,0 +1,94 @@
+operationId: uploadFile
+tags:
+  - platform
+summary: "Upload a file"
+description: "Stores the file under a random key outside the web root and queues a malware scan; it is `PENDING` until the scanner says `CLEAN`, and only a `CLEAN` file is ever served. The type is found from the bytes, never the name or the declared type, and must be on the purpose's allow-list: images (JPEG, PNG, WebP) for photographs, signatures and proof of delivery; images and PDF for supplier, investor and evidence documents; PDF for statements and agreements; XLSX or CSV for imports. Images are capped at 5 MB and PDF and spreadsheets at 10 MB; a body over 10 MB is refused while it arrives. Reference the returned id from the record that uses it.\n\nPermission: `platform.file.upload`."
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - PAYLOAD_TOO_LARGE
+  - FILE_TYPE_NOT_ALLOWED
+  - RATE_LIMITED
+x-permission: platform.file.upload
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - customerSession: []
+  - investorSession: []
+requestBody:
+  required: true
+  content:
+    multipart/form-data:
+      schema:
+        $ref: "#/components/schemas/FileUpload"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/StoredFile"
+        example:
+          id: "019a7a94-915f-79d6-9f0f-a63d1b3e1f1b"
+          originalName: G-0142-front.jpg
+          contentType: image/jpeg
+          sizeBytes: 284113
+          purpose: PRODUCT_IMAGE
+          classification: PUBLIC
+          scanStatus: PENDING
+          createdAt: "2026-11-13T09:41:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "413":
+    description: "The file is over its purpose's cap, or the body is over 10 MB."
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Error"
+        example:
+          error:
+            code: PAYLOAD_TOO_LARGE
+            message: "The file is too large."
+            correlationId: "019a7b1d-5a33-73ab-98e3-438b35eabc69"
+            details: []
+  "415":
+    description: "The file's content is not a type this purpose accepts."
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Error"
+        example:
+          error:
+            code: FILE_TYPE_NOT_ALLOWED
+            message: "This kind of file cannot be used here. Check what this upload accepts and try another file."
+            correlationId: "019a7b1d-5a33-73ab-98e3-438b35eabc69"
+            details: []
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

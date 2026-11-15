@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.11.0"
+  version: "1.12.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -227,7 +227,19 @@ paths:
       tags:
         - platform
       summary: "Upload a file"
-      description: "Stores the file under a random key outside the web root and queues a malware scan. Reference the returned id from the record that uses it.\n\nPermission: `platform.file.upload`."
+      description: "Stores the file under a random key outside the web root and queues a malware scan; it is `PENDING` until the scanner says `CLEAN`, and only a `CLEAN` file is ever served. The type is found from the bytes, never the name or the declared type, and must be on the purpose's allow-list: images (JPEG, PNG, WebP) for photographs, signatures and proof of delivery; images and PDF for supplier, investor and evidence documents; PDF for statements and agreements; XLSX or CSV for imports. Images are capped at 5 MB and PDF and spreadsheets at 10 MB; a body over 10 MB is refused while it arrives. Reference the returned id from the record that uses it.\n\nPermission: `platform.file.upload`."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - PAYLOAD_TOO_LARGE
+        - FILE_TYPE_NOT_ALLOWED
+        - RATE_LIMITED
       x-permission: platform.file.upload
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -269,6 +281,36 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "409":
           $ref: "#/components/responses/Conflict"
+        "413":
+          description: "The file is over its purpose's cap, or the body is over 10 MB."
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: PAYLOAD_TOO_LARGE
+                  message: "The file is too large."
+                  correlationId: "019a7b1d-5a33-73ab-98e3-438b35eabc69"
+                  details: []
+        "415":
+          description: "The file's content is not a type this purpose accepts."
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: FILE_TYPE_NOT_ALLOWED
+                  message: "This kind of file cannot be used here. Check what this upload accepts and try another file."
+                  correlationId: "019a7b1d-5a33-73ab-98e3-438b35eabc69"
+                  details: []
         "422":
           $ref: "#/components/responses/BusinessRuleViolation"
         "429":
@@ -281,7 +323,15 @@ paths:
       tags:
         - platform
       summary: "Get file metadata"
-      description: "Permission: `platform.file.read`."
+      description: "A file you uploaded; a file someone else uploaded needs `platform.file.read.any` as well. A file the scanner found infected, or could not scan, is quarantined and answers 422 `FILE_NOT_CLEAN`. A `PENDING` file is shown so its uploader can follow the scan, but it is not served.\n\nPermission: `platform.file.read`."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - FILE_NOT_CLEAN
+        - RATE_LIMITED
       x-permission: platform.file.read
       parameters:
         - name: id
@@ -321,6 +371,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/BusinessRuleViolation"
         "429":
           $ref: "#/components/responses/RateLimited"
         "500":
@@ -331,7 +383,17 @@ paths:
       tags:
         - platform
       summary: "Issue a signed URL for a private file"
-      description: "The link expires after five minutes. Every issue is recorded in the file access log.\n\nPermission: `platform.file.read`."
+      description: "The link expires after five minutes. Every issue is recorded in the file access log with the user, the file and the time. Only a `CLEAN` file is linked: any other answers 422 `FILE_NOT_CLEAN`. A file someone else uploaded needs `platform.file.read.any` as well.\n\nPermission: `platform.file.read`."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - FILE_NOT_CLEAN
+        - RATE_LIMITED
       x-permission: platform.file.read
       parameters:
         - name: id
