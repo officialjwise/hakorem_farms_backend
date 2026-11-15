@@ -1,0 +1,106 @@
+operationId: submitStockTake
+tags:
+  - inv
+summary: "Post the variances"
+description: "Refuses a take with a line awaiting its recount (`STOCK_TAKE_NOT_COUNTED`). Values the variances again from the pools as they are now and judges their value, gains and losses together, against the `STOCK_WRITE_OFF` threshold (50,000 pesewas in the seed). Below it, posts one `STOCKTAKE_LOSS` (to the branch's loss location, reason `COUNT_ERROR`) or `STOCKTAKE_GAIN` (from its adjustment location, reason `FOUND_STOCK`) per variance. At or above it the answer is `202` and stock is unchanged until a different user approves; the approval binds to the lines and their values, and a rejected take is cancelled. A posted take is immutable.\n\nPermission: `inv.stock_take.post`, scoped to the take's location.\n\nMay require approval of kind `STOCK_WRITE_OFF`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user holding `inv.adjustment.approve` approves, with a fresh step-up."
+x-permission: inv.stock_take.post
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - NOT_FOUND
+  - INVALID_STATE_TRANSITION
+  - STOCK_TAKE_NOT_COUNTED
+  - INSUFFICIENT_STOCK
+  - STOCK_UNIT_NOT_AVAILABLE
+  - STOCK_UNIT_RESERVED
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/StockTake"
+        example:
+          id: "019a7aba-44a7-7710-9c48-79d96af6f2b7"
+          stockTakeNo: STK-2026-DDW-000016
+          status: POSTED
+          location:
+            id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+            code: PEN-G1
+            name: "Goat pen 1"
+            kind: PEN
+          scope: CYCLE
+          snapshotAt: "2026-11-11T06:00:00Z"
+          countedBy:
+            id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+            displayName: "Yaw Boateng"
+          lineCount: 14
+          countedLineCount: 14
+          gainValuePesewas: 0
+          lossValuePesewas: 0
+          currency: GHS
+          approvalRequestId: null
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 2
+          createdAt: "2026-11-12T08:02:00Z"
+          createdBy:
+            id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+            displayName: "Yaw Boateng"
+          postedAt: "2026-11-12T09:02:00Z"
+          postedBy:
+            id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+            displayName: "Yaw Boateng"
+  "202":
+    description: "Accepted for approval. Nothing has taken effect yet."
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ApprovalPending"
+        example:
+          status: PENDING_APPROVAL
+          approvalRequestId: "019a7ab9-c8eb-7f82-94ba-00fb843279d9"
+          kind: STOCK_WRITE_OFF
+          subject:
+            id: "019a7ab9-e7da-7966-ae9e-9f32fde31810"
+            docType: STOCK_TAKE
+            number: null
+          summary: "Awaiting approval by a different user with the approving permission"
+          requestedAt: "2026-11-13T10:12:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

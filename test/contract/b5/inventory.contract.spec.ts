@@ -5,11 +5,11 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runSeedUnits } from '../../../src/seed/run-seed';
 import { seedUnits } from '../../../src/seed/seed-units';
 import { contractSchema } from '../../support/contract-schemas';
-import { consoleGet, consolePost, createUser, enrolAndLogin, relaxRateLimits, testStartTime, type TestSession } from '../../support/iam';
+import { consoleGet, consolePost, consolePut, createUser, enrolAndLogin, relaxRateLimits, testStartTime, type TestSession } from '../../support/iam';
 import { startTestApp, TEST_ORIGIN, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
 
-/** The B05 continued and B05 continued 2 operations answer in the shapes of contract/openapi.yaml 1.17.0, over the seeded farm. */
+/** The B05 continued to B05 continued 3 operations answer in the shapes of contract/openapi.yaml 1.18.0, over the seeded farm. */
 let database: TestDatabase;
 let api: TestApp;
 let manager: TestSession;
@@ -153,5 +153,35 @@ describe('inventory operations answer in the contract shapes', () => {
     const twice = await post(`/stock/movements/${posted.body.lines[0].movementId as string}/reverse`, { reasonCode: 'COUNT_ERROR', note: 'Again' });
     expect(twice.status).toBe(422);
     expectShape('Error', twice.body);
+  });
+
+  it('a stock take through its life, its variance report and its refusals', async () => {
+    const created = await post('/stock-takes', { locationId: id('location:SHOP'), scope: 'CYCLE', productIds: [id('product:PRD-CABBAGE-HEAD')] });
+    expect(created.status).toBe(201);
+    expectShape('StockTake', created.body);
+    const takeId = created.body.id as string;
+    expectShape('StockTake', (await post(`/stock-takes/${takeId}/start`)).body);
+    const blind = await get(`/stock-takes/${takeId}/lines`);
+    expectShape('StockTakeLinePage', blind.body);
+    const lineId = blind.body.data[0].id as string;
+    const counted = await consolePut(api.server, manager, `/v1/stock-takes/${takeId}/counts`).send({ counts: [{ lineId, countedQty: '24.000' }] });
+    expect(counted.status).toBe(200);
+    expectShape('StockTake', counted.body);
+    expectShape('StockTake', (await post(`/stock-takes/${takeId}/review`)).body);
+    expectShape('StockTakeLinePage', (await get(`/stock-takes/${takeId}/lines`)).body);
+    const early = await post(`/stock-takes/${takeId}/submit`);
+    expect(early.status).toBe(422);
+    expectShape('Error', early.body);
+    await consolePut(api.server, manager, `/v1/stock-takes/${takeId}/counts`).send({ counts: [{ lineId, countedQty: '24.000', isRecount: true }] });
+    const posted = await post(`/stock-takes/${takeId}/submit`);
+    expect(posted.status).toBe(200);
+    expectShape('StockTake', posted.body);
+    expectShape('StockTake', (await get(`/stock-takes/${takeId}`)).body);
+    expectShape('StockTakePage', (await get('/stock-takes?status=POSTED')).body);
+    const other = await post('/stock-takes', { locationId: id('location:SHOP'), scope: 'FULL' });
+    expectShape('StockTake', (await post(`/stock-takes/${other.body.id as string}/cancel`, { reason: 'Planned for the wrong day' })).body);
+    const refused = await post('/stock-takes', { locationId: id('location:SHOP'), scope: 'CYCLE' });
+    expect(refused.status).toBe(422);
+    expectShape('Error', refused.body);
   });
 });

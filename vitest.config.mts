@@ -108,6 +108,7 @@ export default defineConfig({
         ...fullCoverage('src/platform/storage/image-variant-plan.ts'), // B04e continued 3: variant widths, byte budgets, the quality ladder
         ...fullCoverage('src/modules/mdm/domain/product-images.ts'), // B04e continued 3: which photograph is attached, gallery order
         ...fullCoverage('src/modules/inv/domain/valuation/**/*.ts'), // B5: stock valuation, cost pool and average cost (ADR-0018)
+        ...fullCoverage('src/modules/inv/domain/stock-take.ts'), // B05 continued 3: stock-take scopes, overlap, variances, recounts
         // ...fullCoverage('src/modules/fin/domain/**/*.ts'),              // B8: the ledger, posting rules, journals, periods (ADR-0003)
         // ...fullCoverage('src/modules/cap/domain/distribution/**/*.ts'), // B12: distribution, unit-days and allocation (ADR-0028)
       },

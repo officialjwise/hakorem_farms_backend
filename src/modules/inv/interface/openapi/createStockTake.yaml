@@ -1,0 +1,87 @@
+operationId: createStockTake
+tags:
+  - inv
+summary: "Plan a stock take or cycle count"
+description: "Plans a count of one location: of every product there (`FULL`) or of the listed products (`CYCLE`, `productIds` required). The location is a live physical location other than in-transit and a site. Animals are not counted here (`ANIMAL_NOT_COUNTED`): a missing animal is a death, a cull or a theft with its own controls. A take whose scope shares a product with another open take of the same location is refused (`SCOPE_OVERLAP`); a full take shares every product.\n\nPermission: `inv.stock_take.create`, scoped to the location."
+x-permission: inv.stock_take.create
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - STOCK_TAKE_INVALID
+  - REFERENCE_NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/StockTakeCreate"
+      example:
+        locationId: "019a7a84-7f34-76a9-8be1-736ae249ec48"
+        scope: CYCLE
+        productIds:
+          - "019a7a8e-a5a0-754c-8a85-5d9ed05dd67c"
+          - "019a7a8e-c48f-7f30-9468-fbd64a0e74b4"
+          - "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/StockTake"
+        example:
+          id: "019a7aba-c063-7e9e-93d6-f2b751ba6b95"
+          stockTakeNo: null
+          status: DRAFT
+          location:
+            id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+            code: PEN-G2
+            name: "Goat pen 2"
+            kind: PEN
+          scope: FULL
+          snapshotAt: null
+          countedBy: null
+          lineCount: 0
+          countedLineCount: 0
+          gainValuePesewas: null
+          lossValuePesewas: null
+          currency: GHS
+          approvalRequestId: null
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 2
+          createdAt: "2026-11-12T08:05:00Z"
+          createdBy:
+            id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+            displayName: "Yaw Boateng"
+          postedAt: null
+          postedBy: null
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

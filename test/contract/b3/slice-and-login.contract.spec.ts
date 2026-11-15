@@ -10,6 +10,8 @@ import {
   MovementReversal,
   ReasonBody as InvReasonBody,
   StockAdjustmentCreate,
+  StockTakeCounts,
+  StockTakeCreate,
   StockTransferCreate,
   TransferReceive,
 } from '../../../src/modules/inv/interface/schemas';
@@ -262,6 +264,9 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     receiveStockTransfer: TransferReceive,
     cancelStockTransfer: InvReasonBody,
     createStockAdjustment: StockAdjustmentCreate,
+    createStockTake: StockTakeCreate,
+    recordStockTakeCounts: StockTakeCounts,
+    cancelStockTake: InvReasonBody,
   };
 
   it('parses every request example of an implemented operation with the schema its route validates with', () => {

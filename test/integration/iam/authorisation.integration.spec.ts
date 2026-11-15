@@ -103,6 +103,9 @@ const VALID_BODY: Readonly<Record<string, object>> = {
   receiveStockTransfer: { lines: [] },
   cancelStockTransfer: { reason: 'Van not available' },
   createStockAdjustment: { locationId: randomUUID(), reasonCode: 'COUNT_ERROR', lines: [] },
+  createStockTake: { locationId: randomUUID(), scope: 'FULL' },
+  recordStockTakeCounts: { counts: [] },
+  cancelStockTake: { reason: 'Refused' },
   archiveLocation: { version: 1, reason: 'Closed' },
   createCustomer: { kind: 'INDIVIDUAL', name: 'Ama' },
   updateCustomer: { version: 1, name: 'Ama' },
@@ -145,7 +148,7 @@ afterAll(async () => {
 });
 
 describe('deny by default: the handler walk (ADR-0017, security architecture section 14)', () => {
-  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4 and B05 continued routes, and every one declares its operation', () => {
+  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued and B05 continued 3 routes, and every one declares its operation', () => {
     expect(routes.map((route) => route.spec?.operationId).sort()).toEqual(
       [
         'changePassword', 'confirmTotpEnrolment', 'createProduct', 'getCurrentSession', 'getHealth', 'getProduct', 'listProducts', 'listSessions',
@@ -175,6 +178,8 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'listMovementTypes', 'listStockMovements', 'getStockMovement', 'reverseStockMovement', 'listStockUnitMovements',
         'listStockTransfers', 'createStockTransfer', 'getStockTransfer', 'dispatchStockTransfer', 'receiveStockTransfer', 'cancelStockTransfer',
         'listStockAdjustments', 'createStockAdjustment', 'getStockAdjustment', 'submitStockAdjustment',
+        'listStockTakes', 'createStockTake', 'getStockTake', 'startStockTake', 'listStockTakeLines', 'recordStockTakeCounts', 'closeStockTakeCounting',
+        'submitStockTake', 'cancelStockTake',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);
