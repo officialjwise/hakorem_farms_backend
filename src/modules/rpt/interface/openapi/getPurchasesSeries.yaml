@@ -1,0 +1,92 @@
+operationId: getPurchasesSeries
+tags:
+  - rpt
+summary: "Purchases per day at cost"
+description: "Posted purchase receipts at cost (goods receipts of kind `PURCHASE`; harvests and opening stock are not purchases) per business day in Africa/Accra, by the day the goods were received, from the published view `inv.pub_goods_receipt`. Every day of the period is listed; a day with no receipt is 0. A period that ends after today, starts after it ends or covers more than 92 days is 422 `REPORT_PERIOD_INVALID`.\n\nPermission: `rpt.tile.read`."
+x-permission: rpt.tile.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - REPORT_PERIOD_INVALID
+  - RATE_LIMITED
+parameters:
+  - name: branchId
+    in: query
+    required: false
+    description: "One branch; without it, every branch where the caller holds `rpt.tile.read` for the whole branch."
+    schema:
+      type: string
+      format: uuid
+  - name: from
+    in: query
+    required: false
+    description: "First business date (Africa/Accra), included. Without `from` and `to`, the 30 days ending today."
+    schema:
+      type: string
+      format: date
+  - name: to
+    in: query
+    required: false
+    description: "Last business date, included; not after today. A period covers at most 92 days."
+    schema:
+      type: string
+      format: date
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/PurchasesSeriesTile"
+        example:
+          branchIds:
+            - "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          purchases:
+            from: "2026-11-09"
+            to: "2026-11-15"
+            points:
+              - date: "2026-11-09"
+                valueAtCostPesewas: 0
+                receiptCount: 0
+              - date: "2026-11-10"
+                valueAtCostPesewas: 1535001
+                receiptCount: 4
+              - date: "2026-11-11"
+                valueAtCostPesewas: 0
+                receiptCount: 0
+              - date: "2026-11-12"
+                valueAtCostPesewas: 212000
+                receiptCount: 1
+              - date: "2026-11-13"
+                valueAtCostPesewas: 0
+                receiptCount: 0
+              - date: "2026-11-14"
+                valueAtCostPesewas: 96500
+                receiptCount: 1
+              - date: "2026-11-15"
+                valueAtCostPesewas: 0
+                receiptCount: 0
+            totalPesewas: 1843501
+            receiptCount: 6
+          currency: GHS
+          asOf: "2026-11-15T09:30:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

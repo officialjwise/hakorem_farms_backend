@@ -116,6 +116,7 @@ export default defineConfig({
         ...fullCoverage('src/modules/inv/domain/stock-alert.ts'), // B05 continued 4: reorder levels, one alert per crossing, expiry
         ...fullCoverage('src/modules/inv/domain/temperature.ts'), // B05 continued 4: a reading against its range, in tenths of a degree
         ...fullCoverage('src/modules/inv/domain/opening-stock.ts'), // B05 continued 4: an opening stock row, read exactly
+        ...fullCoverage('src/modules/rpt/domain/**/*.ts'), // B05x: dashboard periods, daily series in pesewas, pending figures
         // ...fullCoverage('src/modules/fin/domain/**/*.ts'),              // B8: the ledger, posting rules, journals, periods (ADR-0003)
         // ...fullCoverage('src/modules/cap/domain/distribution/**/*.ts'), // B12: distribution, unit-days and allocation (ADR-0028)
       },

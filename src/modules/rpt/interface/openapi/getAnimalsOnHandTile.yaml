@@ -1,0 +1,60 @@
+operationId: getAnimalsOnHandTile
+tags:
+  - rpt
+summary: "Animals on hand by species"
+description: "Serialised live stock units (tracked one by one, such as goats, sheep and pigs) with stock on hand at a physical location of the branches, in transit included, counted by species from the published views `inv.pub_stock_on_hand` and `mdm.pub_product`. Animals kept as a batch (broilers) are stock lines, not units, and are not counted here.\n\nPermission: `rpt.tile.read`."
+x-permission: rpt.tile.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: branchId
+    in: query
+    required: false
+    description: "One branch; without it, every branch where the caller holds `rpt.tile.read` for the whole branch."
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/AnimalsOnHandTile"
+        example:
+          branchIds:
+            - "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          animalsOnHand:
+            total: 6
+            bySpecies:
+              - species:
+                  id: "019a7a8b-5b1d-7d3a-8f2e-3c4d5e6f7a81"
+                  code: GOAT
+                  name: Goat
+                count: 4
+              - species:
+                  id: "019a7a8b-5b1d-7d3a-8f2e-3c4d5e6f7a82"
+                  code: SHEEP
+                  name: Sheep
+                count: 2
+          asOf: "2026-11-15T09:30:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
