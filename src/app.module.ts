@@ -5,6 +5,7 @@ import type { AppConfig } from './platform/config/app-config';
 import { IamModule } from './modules/iam';
 import { DocModule } from './modules/doc';
 import { MdmModule } from './modules/mdm';
+import { InvModule } from './modules/inv';
 import { PlatformModule } from './platform/platform.module';
 
 /**
@@ -21,7 +22,7 @@ export class AppModule {
   ): DynamicModule {
     return {
       module: AppModule,
-      imports: [PlatformModule.forRoot(config, logger, clock), IamModule, MdmModule, DocModule, ...extra],
+      imports: [PlatformModule.forRoot(config, logger, clock), IamModule, MdmModule, DocModule, InvModule, ...extra],
     };
   }
 }
