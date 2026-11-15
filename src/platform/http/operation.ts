@@ -40,6 +40,12 @@ export interface OperationSpec {
    * `x-permission` reads `POLICY_PERMISSION`.
    */
   readonly permissionByPolicy?: boolean;
+  /**
+   * The permission to read the answer, when the answer carries what the write's own permission does not let its holder
+   * see (cost, ADR-0052): the handler checks it as well, at the same scopes, and the contract's `x-answer-permission`
+   * names it. A role without it works through the operation's cost-free twin.
+   */
+  readonly answerPermission?: string;
 }
 
 /** The contract's `x-permission` text for an operation whose permission the approval policy names. */
@@ -60,6 +66,9 @@ export function Operation(spec: OperationSpec): MethodDecorator {
   }
   if (spec.permissionByPolicy === true && (spec.permission !== null || spec.access !== 'SESSION')) {
     throw new Error(`${spec.operationId}: a policy-named permission needs a session and no fixed permission`);
+  }
+  if (spec.answerPermission !== undefined && (spec.permission === null || !PERMISSION.test(spec.answerPermission))) {
+    throw new Error(`${spec.operationId}: an answer permission needs a fixed permission and must be a permission code`);
   }
   if (spec.access === 'PUBLIC' && (spec.permission !== null || spec.csrf)) {
     throw new Error(`${spec.operationId}: a public operation has no permission and no CSRF token`);

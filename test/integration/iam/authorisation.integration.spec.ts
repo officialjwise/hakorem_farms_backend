@@ -136,6 +136,14 @@ const VALID_BODY: Readonly<Record<string, object>> = {
   updateBreedingRecord: { version: 1, status: 'CONFIRMED' },
   recordBirth: { actualBirthOn: '2026-11-02', litterSize: 2, offspring: [{ tagNo: 'G-0181', sex: 'MALE' }] },
   failBreedingRecord: { reason: 'Came back on heat' },
+  recordCareHealthEvent: { kind: 'TREATMENT', stockUnitId: randomUUID(), occurredAt: '2026-11-10T08:00:00Z' },
+  reportCareMortality: { kind: 'DEATH', stockUnitId: randomUUID(), reasonCode: 'UNKNOWN_CAUSE', foundAt: '2026-11-10T06:00:00Z' },
+  recordCareFeedConsumption: { locationId: randomUUID(), feedProductId: randomUUID(), qty: '10.000', consumedOn: '2026-11-10' },
+  updateCareAnimal: { version: 1, purpose: 'BREEDING' },
+  moveCareAnimal: { toLocationId: randomUUID() },
+  createCareBatch: { batchNo: 'BRL-2611-01', speciesId: randomUUID(), startedOn: '2026-11-12', initialHead: 500, purpose: 'GROWING', locationId: randomUUID() },
+  updateCareBatch: { version: 1, purpose: 'LAYING' },
+  closeCareBatch: { reason: 'All birds sold' },
   createCustomer: { kind: 'INDIVIDUAL', name: 'Ama' },
   updateCustomer: { version: 1, name: 'Ama' },
   archiveCustomer: { version: 1, reason: 'Duplicate' },
@@ -177,7 +185,7 @@ afterAll(async () => {
 });
 
 describe('deny by default: the handler walk (ADR-0017, security architecture section 14)', () => {
-  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued, B05 continued 3, B05x, B6, B06m, B06 continued and B06 continued 2 routes, and every one declares its operation', () => {
+  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued, B05 continued 3, B05x, B6, B06m, B06 continued, B06 continued 2 and B06 continued 3 routes, and every one declares its operation', () => {
     expect(routes.map((route) => route.spec?.operationId).sort()).toEqual(
       [
         'changePassword', 'confirmTotpEnrolment', 'createProduct', 'getCurrentSession', 'getHealth', 'getProduct', 'listProducts', 'listSessions',
@@ -222,6 +230,9 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'recordFeedConsumption', 'getFeedConsumption',
         'updateAnimal', 'moveAnimal', 'listAnimalTimeline', 'listGrowth', 'listBatches', 'createBatch', 'getBatch', 'updateBatch', 'closeBatch',
         'listBreedingRecords', 'createBreedingRecord', 'getBreedingRecord', 'updateBreedingRecord', 'recordBirth', 'failBreedingRecord',
+        'listCareAnimals', 'getCareAnimal', 'updateCareAnimal', 'moveCareAnimal', 'listCareHealthEvents', 'recordCareHealthEvent', 'getCareHealthEvent',
+        'reportCareMortality', 'submitCareMortalityRecord', 'listCareRations', 'recordCareFeedConsumption', 'listCareBatches', 'createCareBatch', 'getCareBatch',
+        'updateCareBatch', 'closeCareBatch',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);

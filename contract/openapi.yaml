@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.25.0"
+  version: "1.26.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -25036,8 +25036,9 @@ paths:
       tags:
         - liv
       summary: "Update an animal's details"
-      description: "Breed, sex, purpose and grade may change; species, acquisition, source and cost are not fields. The sex of a dam with a breeding record is fixed (SEX_FIXED_AS_DAM), and the tag, which is the stock unit's identifier, is accepted only unchanged (TAG_NOT_EDITABLE). Purpose decides whether later feed and veterinary cost is capitalised or expensed.\n\nPermission: `liv.animal.update`."
+      description: "Breed, sex, purpose and grade may change; species, acquisition, source and cost are not fields. The sex of a dam with a breeding record is fixed (SEX_FIXED_AS_DAM), and the tag, which is the stock unit's identifier, is accepted only unchanged (TAG_NOT_EDITABLE). Purpose decides whether later feed and veterinary cost is capitalised or expensed.\n\nPermission: `liv.animal.update`. The answer carries the animal's accumulated cost and price band, so the caller also needs `liv.animal.read` at the same scope (`x-answer-permission`, ADR-0052); the Farm hand, who holds the write but not the read, uses `updateCareAnimal`."
       x-permission: liv.animal.update
+      x-answer-permission: liv.animal.read
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHENTICATED
@@ -25278,8 +25279,9 @@ paths:
       tags:
         - liv
       summary: "Move an animal to another pen"
-      description: "Posts a TRANSFER_INTERNAL movement. Allowed during a withdrawal period.\n\nPermission: `liv.animal.move`."
+      description: "Posts a TRANSFER_INTERNAL movement. Allowed during a withdrawal period.\n\nPermission: `liv.animal.move`. The answer carries the animal's accumulated cost and price band, so the caller also needs `liv.animal.read` at the same scope (`x-answer-permission`, ADR-0052); the Farm hand, who holds the write but not the read, uses `moveCareAnimal`."
       x-permission: liv.animal.move
+      x-answer-permission: liv.animal.read
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHENTICATED
@@ -25991,8 +25993,9 @@ paths:
       tags:
         - liv
       summary: "Start a batch"
-      description: "Hatches a flock on the farm: registers its lot and brings its head into the pen by a BIRTH movement at nil cost. The species must have exactly one lot-tracked product. A flock bought from a supplier opens its batch when its goods receipt is posted.\n\nPermission: `liv.batch.create`."
+      description: "Hatches a flock on the farm: registers its lot and brings its head into the pen by a BIRTH movement at nil cost. The species must have exactly one lot-tracked product. A flock bought from a supplier opens its batch when its goods receipt is posted.\n\nPermission: `liv.batch.create`. The answer carries the batch's accumulated cost, so the caller also needs `liv.batch.read` at the same scope (`x-answer-permission`, ADR-0052); the Farm hand, who holds the write but not the read, uses `createCareBatch`."
       x-permission: liv.batch.create
+      x-answer-permission: liv.batch.read
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHENTICATED
@@ -26150,8 +26153,9 @@ paths:
       tags:
         - liv
       summary: "Update a batch"
-      description: "A batch's purpose decides how feed and veterinary cost spread onto its flock is treated: capitalised for GROWING, expensed for BREEDING and LAYING.\n\nPermission: `liv.batch.update`."
+      description: "A batch's purpose decides how feed and veterinary cost spread onto its flock is treated: capitalised for GROWING, expensed for BREEDING and LAYING.\n\nPermission: `liv.batch.update`. The answer carries the batch's accumulated cost, so the caller also needs `liv.batch.read` at the same scope (`x-answer-permission`, ADR-0052); the Farm hand, who holds the write but not the read, uses `updateCareBatch`."
       x-permission: liv.batch.update
+      x-answer-permission: liv.batch.read
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHENTICATED
@@ -26243,8 +26247,9 @@ paths:
       tags:
         - liv
       summary: "Close a batch once it has no stock left"
-      description: "Refused with LIVESTOCK_RECORD_INVALID (BATCH_NOT_EMPTY) while any head is left, whatever the reason: sell, process or write off the birds first. The reason is always recorded.\n\nPermission: `liv.batch.update`."
+      description: "Refused with LIVESTOCK_RECORD_INVALID (BATCH_NOT_EMPTY) while any head is left, whatever the reason: sell, process or write off the birds first. The reason is always recorded.\n\nPermission: `liv.batch.update`. The answer carries the batch's accumulated cost, so the caller also needs `liv.batch.read` at the same scope (`x-answer-permission`, ADR-0052); the Farm hand, who holds the write but not the read, uses `closeCareBatch`."
       x-permission: liv.batch.update
+      x-answer-permission: liv.batch.read
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHENTICATED
@@ -26557,8 +26562,9 @@ paths:
       tags:
         - liv
       summary: "Record a vaccination, treatment or check"
-      description: "A product with withdrawal days places a WITHDRAWAL hold on every animal treated, in the same transaction, which blocks sale and slaughter until it ends. Medication used is issued from stock and its cost capitalised onto the animals.\n\nPermission: `liv.health.record`.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result."
+      description: "A product with withdrawal days places a WITHDRAWAL hold on every animal treated, in the same transaction, which blocks sale and slaughter until it ends. Medication used is issued from stock and its cost capitalised onto the animals.\n\nPermission: `liv.health.record`.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result. The answer carries the event's cost, so the caller also needs `liv.health.read` at the same scope (`x-answer-permission`, ADR-0052); the Farm hand, who holds the write but not the read, uses `recordCareHealthEvent`."
       x-permission: liv.health.record
+      x-answer-permission: liv.health.read
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHENTICATED
@@ -27571,8 +27577,9 @@ paths:
       tags:
         - liv
       summary: "Report a death or cull"
-      description: "Permission: `liv.mortality.report`.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result."
+      description: "Permission: `liv.mortality.report`.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result. The answer carries the value written off, so the caller also needs `liv.mortality.read` at the same scope (`x-answer-permission`, ADR-0052); the Farm hand, who holds the write but not the read, uses `reportCareMortality`."
       x-permission: liv.mortality.report
+      x-answer-permission: liv.mortality.read
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHENTICATED
@@ -27739,8 +27746,9 @@ paths:
       tags:
         - liv
       summary: "Submit a mortality for write-off"
-      description: "Values the record again from the cost pool and writes the stock off. At or above the value threshold (50,000 pesewas on the seeded farm) a photograph is required first (422 `MORTALITY_PHOTO_REQUIRED`) and a second approver after: this is the control for abuse case 2. Only the person who reported the record submits it, so the approver is never the reporter.\n\nPermission: `liv.mortality.report`.\n\nMay require approval of kind `MORTALITY_WRITE_OFF`, decided with `approveRequest` by a different user holding `liv.mortality.approve`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves: the animal stays on hand."
+      description: "Values the record again from the cost pool and writes the stock off. At or above the value threshold (50,000 pesewas on the seeded farm) a photograph is required first (422 `MORTALITY_PHOTO_REQUIRED`) and a second approver after: this is the control for abuse case 2. Only the person who reported the record submits it, so the approver is never the reporter.\n\nPermission: `liv.mortality.report`.\n\nMay require approval of kind `MORTALITY_WRITE_OFF`, decided with `approveRequest` by a different user holding `liv.mortality.approve`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves: the animal stays on hand. The answer carries the value written off, so the caller also needs `liv.mortality.read` at the same scope (`x-answer-permission`, ADR-0052); the Farm hand, who holds the write but not the read, uses `submitCareMortalityRecord`."
       x-permission: liv.mortality.report
+      x-answer-permission: liv.mortality.read
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHENTICATED
@@ -28371,8 +28379,9 @@ paths:
       tags:
         - liv
       summary: "Record feed issued to a pen"
-      description: "Issues the feed from stock and spreads its cost across the stock units in the pen by head-days: capitalised onto growing animals, expensed for breeding stock. The allocation sums exactly to the value issued.\n\nPermission: `liv.feed.record`.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result."
+      description: "Issues the feed from stock and spreads its cost across the stock units in the pen by head-days: capitalised onto growing animals, expensed for breeding stock. The allocation sums exactly to the value issued.\n\nPermission: `liv.feed.record`.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result. The answer carries the feed's value and each share of it, so the caller also needs `liv.feed.read` at the same scope (`x-answer-permission`, ADR-0052); the Farm hand, who holds the write but not the read, uses `recordCareFeedConsumption`."
       x-permission: liv.feed.record
+      x-answer-permission: liv.feed.read
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHENTICATED
@@ -28559,6 +28568,2038 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/care/animals":
+    get:
+      operationId: listCareAnimals
+      tags:
+        - liv
+      summary: "List animals without cost"
+      description: "The Farm hand's cost-free read of the animal register (ADR-0052): the same rules, filters and scope as `listAnimals`, answered in a shape that carries no cost and no price.\n\nPermission: `liv.animal.read`.\n\nPermission: `liv.care.read`, scoped as `listAnimals` is."
+      x-permission: liv.care.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: speciesId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: locationId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - ALIVE
+              - SOLD
+              - SLAUGHTERED
+              - DEAD
+              - CULLED
+        - name: sellable
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: purpose
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - GROWING
+              - BREEDING
+        - name: weightBandId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/PageLimit"
+      security:
+        - staffSession: []
+        - apiKey: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareAnimalPage"
+              example:
+                data:
+                  - id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
+                    tagNo: G-0142
+                    species:
+                      id: "019a7a8b-a049-7e16-b34e-ea33ee146311"
+                      code: GOAT
+                      name: Goat
+                    product:
+                      id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                      sku: LIV-GOAT
+                      name: Goat
+                    breed: "West African Dwarf"
+                    sex: MALE
+                    dateOfBirth: null
+                    acquiredOn: "2026-10-03"
+                    source: PURCHASE
+                    supplier:
+                      id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
+                      supplierNo: S-0012
+                      name: "Kpone Livestock Traders"
+                    dam: null
+                    sire: null
+                    batch: null
+                    purpose: GROWING
+                    status: ALIVE
+                    currentLocation:
+                      id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+                      code: PEN-G1
+                      name: "Goat pen 1"
+                      kind: PEN
+                    grade:
+                      id: "019a7a8c-d59f-70f8-9631-185eaefe913c"
+                      code: A
+                      name: "Grade A, well finished"
+                    lastWeightKg: "26.400"
+                    lastWeighedAt: "2026-11-11T07:00:00Z"
+                    weightBand:
+                      id: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
+                      code: GOAT-M
+                      minKg: "18.000"
+                      maxKg: "28.000"
+                    withdrawalUntil: null
+                    sellable: true
+                    version: 4
+                    createdAt: "2026-11-03T11:00:00Z"
+                  - id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
+                    tagNo: G-0157
+                    species:
+                      id: "019a7a8b-a049-7e16-b34e-ea33ee146311"
+                      code: GOAT
+                      name: Goat
+                    product:
+                      id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                      sku: LIV-GOAT
+                      name: Goat
+                    breed: "West African Dwarf"
+                    sex: MALE
+                    dateOfBirth: null
+                    acquiredOn: "2026-11-04"
+                    source: PURCHASE
+                    supplier:
+                      id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
+                      supplierNo: S-0012
+                      name: "Kpone Livestock Traders"
+                    dam: null
+                    sire: null
+                    batch: null
+                    purpose: GROWING
+                    status: ALIVE
+                    currentLocation:
+                      id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+                      code: PEN-G1
+                      name: "Goat pen 1"
+                      kind: PEN
+                    grade:
+                      id: "019a7a8c-d59f-70f8-9631-185eaefe913c"
+                      code: A
+                      name: "Grade A, well finished"
+                    lastWeightKg: "31.800"
+                    lastWeighedAt: "2026-11-11T07:01:00Z"
+                    weightBand:
+                      id: "019a7a8c-78d2-734e-a886-3db841ebb696"
+                      code: GOAT-L
+                      minKg: "28.000"
+                      maxKg: "45.000"
+                    withdrawalUntil: null
+                    sellable: false
+                    version: 4
+                    createdAt: "2026-11-04T11:00:00Z"
+                  - id: "019a7a8f-9d18-7468-89a0-4f5a9de5c838"
+                    tagNo: G-0163
+                    species:
+                      id: "019a7a8b-a049-7e16-b34e-ea33ee146311"
+                      code: GOAT
+                      name: Goat
+                    product:
+                      id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                      sku: LIV-GOAT
+                      name: Goat
+                    breed: "West African Dwarf"
+                    sex: FEMALE
+                    dateOfBirth: null
+                    acquiredOn: "2026-10-05"
+                    source: PURCHASE
+                    supplier:
+                      id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
+                      supplierNo: S-0012
+                      name: "Kpone Livestock Traders"
+                    dam: null
+                    sire: null
+                    batch: null
+                    purpose: GROWING
+                    status: ALIVE
+                    currentLocation:
+                      id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                      code: PEN-G2
+                      name: "Goat pen 2"
+                      kind: PEN
+                    grade: null
+                    lastWeightKg: "22.150"
+                    lastWeighedAt: "2026-11-11T07:02:00Z"
+                    weightBand:
+                      id: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
+                      code: GOAT-M
+                      minKg: "18.000"
+                      maxKg: "28.000"
+                    withdrawalUntil: "2026-11-28T23:59:00Z"
+                    sellable: false
+                    version: 4
+                    createdAt: "2026-11-05T11:00:00Z"
+                  - id: "019a7a8f-bc07-7e4c-9384-ed921796666f"
+                    tagNo: G-0171
+                    species:
+                      id: "019a7a8b-a049-7e16-b34e-ea33ee146311"
+                      code: GOAT
+                      name: Goat
+                    product:
+                      id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                      sku: LIV-GOAT
+                      name: Goat
+                    breed: "West African Dwarf"
+                    sex: MALE
+                    dateOfBirth: null
+                    acquiredOn: "2026-11-06"
+                    source: PURCHASE
+                    supplier:
+                      id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
+                      supplierNo: S-0012
+                      name: "Kpone Livestock Traders"
+                    dam: null
+                    sire: null
+                    batch: null
+                    purpose: GROWING
+                    status: ALIVE
+                    currentLocation:
+                      id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                      code: PEN-G2
+                      name: "Goat pen 2"
+                      kind: PEN
+                    grade: null
+                    lastWeightKg: "24.900"
+                    lastWeighedAt: "2026-11-11T07:03:00Z"
+                    weightBand:
+                      id: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
+                      code: GOAT-M
+                      minKg: "18.000"
+                      maxKg: "28.000"
+                    withdrawalUntil: null
+                    sellable: true
+                    version: 4
+                    createdAt: "2026-11-06T11:00:00Z"
+                  - id: "019a7a8f-daf6-782f-ad67-8bc9914704a7"
+                    tagNo: S-0031
+                    species:
+                      id: "019a7a8b-bf38-77f9-8d31-886b67c50149"
+                      code: SHEEP
+                      name: Sheep
+                    product:
+                      id: "019a7a8d-326c-7ea3-83db-f3051c116be3"
+                      sku: LIV-SHEEP
+                      name: Sheep
+                    breed: "Djallonké"
+                    sex: MALE
+                    dateOfBirth: null
+                    acquiredOn: "2026-10-07"
+                    source: PURCHASE
+                    supplier:
+                      id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
+                      supplierNo: S-0012
+                      name: "Kpone Livestock Traders"
+                    dam: null
+                    sire: null
+                    batch: null
+                    purpose: GROWING
+                    status: ALIVE
+                    currentLocation:
+                      id: "019a7a83-c59a-7b54-a08d-be1e082336fb"
+                      code: PEN-S1
+                      name: "Sheep pen"
+                      kind: PEN
+                    grade: null
+                    lastWeightKg: "43.200"
+                    lastWeighedAt: "2026-11-11T07:04:00Z"
+                    weightBand:
+                      id: "019a7a8c-b6b0-7715-8c4d-7a27354df305"
+                      code: SHEEP-L
+                      minKg: "40.000"
+                      maxKg: "70.000"
+                    withdrawalUntil: null
+                    sellable: true
+                    version: 4
+                    createdAt: "2026-11-07T11:00:00Z"
+                  - id: "019a7a8f-f9e5-7212-b74b-2a010af8a2de"
+                    tagNo: G-0118
+                    species:
+                      id: "019a7a8b-a049-7e16-b34e-ea33ee146311"
+                      code: GOAT
+                      name: Goat
+                    product:
+                      id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                      sku: LIV-GOAT
+                      name: Goat
+                    breed: "West African Dwarf"
+                    sex: FEMALE
+                    dateOfBirth: "2025-03-14"
+                    acquiredOn: "2026-11-03"
+                    source: PURCHASE
+                    supplier:
+                      id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
+                      supplierNo: S-0012
+                      name: "Kpone Livestock Traders"
+                    dam: null
+                    sire: null
+                    batch: null
+                    purpose: BREEDING
+                    status: ALIVE
+                    currentLocation:
+                      id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+                      code: PEN-G1
+                      name: "Goat pen 1"
+                      kind: PEN
+                    grade: null
+                    lastWeightKg: "29.600"
+                    lastWeighedAt: "2026-11-11T07:05:00Z"
+                    weightBand:
+                      id: "019a7a8c-78d2-734e-a886-3db841ebb696"
+                      code: GOAT-L
+                      minKg: "28.000"
+                      maxKg: "45.000"
+                    withdrawalUntil: null
+                    sellable: false
+                    version: 4
+                    createdAt: "2026-11-03T11:00:00Z"
+                  - id: "019a7a90-18d4-7bf6-812e-c83884a94116"
+                    tagNo: P-0009
+                    species:
+                      id: "019a7a8b-de27-71dd-9715-26a2e1769f80"
+                      code: PIG
+                      name: Pig
+                    product:
+                      id: "019a7a8d-515b-7886-9dbe-913c95c20a1a"
+                      sku: LIV-PIGLET
+                      name: "Baby pig"
+                    breed: "Large White cross"
+                    sex: FEMALE
+                    dateOfBirth: null
+                    acquiredOn: "2026-10-04"
+                    source: PURCHASE
+                    supplier:
+                      id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
+                      supplierNo: S-0012
+                      name: "Kpone Livestock Traders"
+                    dam: null
+                    sire: null
+                    batch: null
+                    purpose: GROWING
+                    status: ALIVE
+                    currentLocation:
+                      id: "019a7a83-e489-7538-ba70-5c5581d4d533"
+                      code: PEN-P1
+                      name: "Pig pen"
+                      kind: PEN
+                    grade: null
+                    lastWeightKg: "14.300"
+                    lastWeighedAt: "2026-11-11T07:06:00Z"
+                    weightBand: null
+                    withdrawalUntil: null
+                    sellable: true
+                    version: 4
+                    createdAt: "2026-11-04T11:00:00Z"
+                page:
+                  nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                  limit: 25
+                  hasMore: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/care/animals/{id}":
+    get:
+      operationId: getCareAnimal
+      tags:
+        - liv
+      summary: "Get an animal without cost"
+      description: "The Farm hand's cost-free read of an animal (ADR-0052): the same rules, filters and scope as `getAnimal`, answered in a shape that carries no cost and no price.\n\nPermission: `liv.animal.read`.\n\nPermission: `liv.care.read`, scoped as `getAnimal` is."
+      x-permission: liv.care.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - staffSession: []
+        - apiKey: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareAnimal"
+              example:
+                id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
+                tagNo: G-0142
+                species:
+                  id: "019a7a8b-a049-7e16-b34e-ea33ee146311"
+                  code: GOAT
+                  name: Goat
+                product:
+                  id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                  sku: LIV-GOAT
+                  name: Goat
+                breed: "West African Dwarf"
+                sex: MALE
+                dateOfBirth: null
+                acquiredOn: "2026-10-03"
+                source: PURCHASE
+                supplier:
+                  id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
+                  supplierNo: S-0012
+                  name: "Kpone Livestock Traders"
+                dam: null
+                sire: null
+                batch: null
+                purpose: GROWING
+                status: ALIVE
+                currentLocation:
+                  id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+                  code: PEN-G1
+                  name: "Goat pen 1"
+                  kind: PEN
+                grade:
+                  id: "019a7a8c-d59f-70f8-9631-185eaefe913c"
+                  code: A
+                  name: "Grade A, well finished"
+                lastWeightKg: "26.400"
+                lastWeighedAt: "2026-11-11T07:00:00Z"
+                weightBand:
+                  id: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
+                  code: GOAT-M
+                  minKg: "18.000"
+                  maxKg: "28.000"
+                withdrawalUntil: null
+                sellable: true
+                version: 4
+                createdAt: "2026-11-03T11:00:00Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    patch:
+      operationId: updateCareAnimal
+      tags:
+        - liv
+      summary: "Edit an animal, answered without cost"
+      description: "The Farm hand's cost-free door to `updateAnimal` (ADR-0052): the same rules, checks and effects, answered in a shape that carries no cost and no price. Unlike `updateAnimal` it needs no read permission, because its answer shows nothing the write's own permission does not.\n\nBreed, sex, purpose and grade may change; species, acquisition, source and cost are not fields. The sex of a dam with a breeding record is fixed (SEX_FIXED_AS_DAM), and the tag, which is the stock unit's identifier, is accepted only unchanged (TAG_NOT_EDITABLE). Purpose decides whether later feed and veterinary cost is capitalised or expensed.\n\nPermission: `liv.animal.update`, scoped as `updateAnimal` is."
+      x-permission: liv.animal.update
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - LIVESTOCK_RECORD_INVALID
+        - REFERENCE_NOT_FOUND
+        - RATE_LIMITED
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CsrfToken"
+      security:
+        - staffSession: []
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnimalUpdate"
+            example:
+              version: 4
+              purpose: BREEDING
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareAnimal"
+              example:
+                id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
+                tagNo: G-0142
+                species:
+                  id: "019a7a8b-a049-7e16-b34e-ea33ee146311"
+                  code: GOAT
+                  name: Goat
+                product:
+                  id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                  sku: LIV-GOAT
+                  name: Goat
+                breed: "West African Dwarf"
+                sex: MALE
+                dateOfBirth: null
+                acquiredOn: "2026-10-03"
+                source: PURCHASE
+                supplier:
+                  id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
+                  supplierNo: S-0012
+                  name: "Kpone Livestock Traders"
+                dam: null
+                sire: null
+                batch: null
+                purpose: BREEDING
+                status: ALIVE
+                currentLocation:
+                  id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+                  code: PEN-G1
+                  name: "Goat pen 1"
+                  kind: PEN
+                grade:
+                  id: "019a7a8c-d59f-70f8-9631-185eaefe913c"
+                  code: A
+                  name: "Grade A, well finished"
+                lastWeightKg: "26.400"
+                lastWeighedAt: "2026-11-11T07:00:00Z"
+                weightBand:
+                  id: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
+                  code: GOAT-M
+                  minKg: "18.000"
+                  maxKg: "28.000"
+                withdrawalUntil: null
+                sellable: true
+                version: 5
+                createdAt: "2026-11-03T11:00:00Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/BusinessRuleViolation"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/care/animals/{id}/move":
+    post:
+      operationId: moveCareAnimal
+      tags:
+        - liv
+      summary: "Move an animal, answered without cost"
+      description: "The Farm hand's cost-free door to `moveAnimal` (ADR-0052): the same rules, checks and effects, answered in a shape that carries no cost and no price. Unlike `moveAnimal` it needs no read permission, because its answer shows nothing the write's own permission does not.\n\nPosts a TRANSFER_INTERNAL movement. Allowed during a withdrawal period.\n\nPermission: `liv.animal.move`, scoped as `moveAnimal` is."
+      x-permission: liv.animal.move
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - NOT_FOUND
+        - LIVESTOCK_RECORD_INVALID
+        - REFERENCE_NOT_FOUND
+        - STOCK_UNIT_NOT_AVAILABLE
+        - RATE_LIMITED
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CsrfToken"
+      security:
+        - staffSession: []
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnimalMove"
+            example:
+              toLocationId: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareAnimal"
+              example:
+                id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
+                tagNo: G-0142
+                species:
+                  id: "019a7a8b-a049-7e16-b34e-ea33ee146311"
+                  code: GOAT
+                  name: Goat
+                product:
+                  id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                  sku: LIV-GOAT
+                  name: Goat
+                breed: "West African Dwarf"
+                sex: MALE
+                dateOfBirth: null
+                acquiredOn: "2026-10-03"
+                source: PURCHASE
+                supplier:
+                  id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
+                  supplierNo: S-0012
+                  name: "Kpone Livestock Traders"
+                dam: null
+                sire: null
+                batch: null
+                purpose: GROWING
+                status: ALIVE
+                currentLocation:
+                  id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+                  code: PEN-G1
+                  name: "Goat pen 1"
+                  kind: PEN
+                grade:
+                  id: "019a7a8c-d59f-70f8-9631-185eaefe913c"
+                  code: A
+                  name: "Grade A, well finished"
+                lastWeightKg: "26.400"
+                lastWeighedAt: "2026-11-11T07:00:00Z"
+                weightBand:
+                  id: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
+                  code: GOAT-M
+                  minKg: "18.000"
+                  maxKg: "28.000"
+                withdrawalUntil: null
+                sellable: true
+                version: 4
+                createdAt: "2026-11-03T11:00:00Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/BusinessRuleViolation"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/care/health-events":
+    get:
+      operationId: listCareHealthEvents
+      tags:
+        - liv
+      summary: "List health events and withdrawal holds without cost"
+      description: "The Farm hand's cost-free read of health events with their withdrawal holds (ADR-0052): the same rules, filters and scope as `listHealthEvents`, answered in a shape that carries no cost and no price.\n\nPermission: `liv.health.read`.\n\nPermission: `liv.care.read`, scoped as `listHealthEvents` is."
+      x-permission: liv.care.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
+      parameters:
+        - name: stockUnitId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: locationId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: kind
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/PageLimit"
+      security:
+        - staffSession: []
+        - apiKey: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareHealthEventPage"
+              example:
+                data:
+                  - id: "019a7aaf-64a1-7d18-b250-da58a2bc5336"
+                    kind: TREATMENT
+                    stockUnit:
+                      id: "019a7a8f-9d18-7468-89a0-4f5a9de5c838"
+                      identifier: G-0163
+                      tracking: SERIAL
+                    location: null
+                    product:
+                      id: "019a7a8f-026d-72f7-b82f-38453d70b123"
+                      sku: VET-OXYTET
+                      name: "Oxytetracycline 20% injection, 100 ml"
+                    dose: "5 ml intramuscular"
+                    qtyUsed: "0.050"
+                    withdrawalDays: 28
+                    withdrawalEndsAt: "2026-11-28T23:59:00Z"
+                    holdsPlaced: 1
+                    administeredBy: "Dr Selorm Agbeko"
+                    notes: "Cough and fever"
+                    occurredAt: "2026-11-01T10:00:00Z"
+                    recordedAt: "2026-11-01T10:05:00Z"
+                    actor:
+                      id: "019a7a87-27be-7035-a56e-0c2f577f850d"
+                      displayName: "Dr Selorm Agbeko"
+                  - id: "019a7aaf-8390-76fb-8c34-78901c6df16e"
+                    kind: VACCINATION
+                    stockUnit: null
+                    location:
+                      id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+                      code: HSE-B1
+                      name: "Broiler house 1"
+                      kind: PEN
+                    product: null
+                    dose: "Newcastle, drinking water"
+                    qtyUsed: null
+                    withdrawalDays: 0
+                    withdrawalEndsAt: null
+                    holdsPlaced: 0
+                    administeredBy: "Dr Selorm Agbeko"
+                    notes: "Batch BRL-2610-01, day 21"
+                    occurredAt: "2026-11-02T10:00:00Z"
+                    recordedAt: "2026-11-02T10:05:00Z"
+                    actor:
+                      id: "019a7a87-27be-7035-a56e-0c2f577f850d"
+                      displayName: "Dr Selorm Agbeko"
+                  - id: "019a7aaf-c16e-7ac2-affb-b4ff0fcf2ddc"
+                    kind: DEWORMING
+                    stockUnit: null
+                    location:
+                      id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+                      code: PEN-G1
+                      name: "Goat pen 1"
+                      kind: PEN
+                    product: null
+                    dose: "Albendazole 10% oral"
+                    qtyUsed: null
+                    withdrawalDays: 14
+                    withdrawalEndsAt: "2026-11-17T23:59:00Z"
+                    holdsPlaced: 31
+                    administeredBy: "Dr Selorm Agbeko"
+                    notes: "Whole pen"
+                    occurredAt: "2026-11-03T10:00:00Z"
+                    recordedAt: "2026-11-03T10:05:00Z"
+                    actor:
+                      id: "019a7a87-27be-7035-a56e-0c2f577f850d"
+                      displayName: "Dr Selorm Agbeko"
+                  - id: "019a7aaf-26c3-7951-9e89-9de9af5a16c7"
+                    kind: CHECK
+                    stockUnit:
+                      id: "019a7a8f-daf6-782f-ad67-8bc9914704a7"
+                      identifier: S-0031
+                      tracking: SERIAL
+                    location: null
+                    product: null
+                    dose: null
+                    qtyUsed: null
+                    withdrawalDays: 0
+                    withdrawalEndsAt: null
+                    holdsPlaced: 0
+                    administeredBy: "Dr Selorm Agbeko"
+                    notes: "Pre-sale check, healthy"
+                    occurredAt: "2026-11-04T10:00:00Z"
+                    recordedAt: "2026-11-04T10:05:00Z"
+                    actor:
+                      id: "019a7a87-27be-7035-a56e-0c2f577f850d"
+                      displayName: "Dr Selorm Agbeko"
+                  - id: "019a7abe-9e43-7b0d-9045-b9a687da3284"
+                    kind: TREATMENT
+                    stockUnit:
+                      id: "019a7a90-18d4-7bf6-812e-c83884a94116"
+                      identifier: P-0009
+                      tracking: SERIAL
+                    location: null
+                    product:
+                      id: "019a7a8f-026d-72f7-b82f-38453d70b123"
+                      sku: VET-OXYTET
+                      name: "Oxytetracycline 20% injection, 100 ml"
+                    dose: "3 ml intramuscular"
+                    qtyUsed: "0.030"
+                    withdrawalDays: 28
+                    withdrawalEndsAt: "2026-11-24T23:59:00Z"
+                    holdsPlaced: 1
+                    administeredBy: "Dr Selorm Agbeko"
+                    notes: Scours
+                    occurredAt: "2026-11-05T10:00:00Z"
+                    recordedAt: "2026-11-05T10:05:00Z"
+                    actor:
+                      id: "019a7a87-27be-7035-a56e-0c2f577f850d"
+                      displayName: "Dr Selorm Agbeko"
+                  - id: "019a7abe-bd32-74f0-aa29-57de018bd0bb"
+                    kind: VACCINATION
+                    stockUnit: null
+                    location:
+                      id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                      code: PEN-G2
+                      name: "Goat pen 2"
+                      kind: PEN
+                    product: null
+                    dose: "PPR vaccine"
+                    qtyUsed: null
+                    withdrawalDays: 0
+                    withdrawalEndsAt: null
+                    holdsPlaced: 0
+                    administeredBy: "Dr Selorm Agbeko"
+                    notes: "Annual PPR"
+                    occurredAt: "2026-11-06T10:00:00Z"
+                    recordedAt: "2026-11-06T10:05:00Z"
+                    actor:
+                      id: "019a7a87-27be-7035-a56e-0c2f577f850d"
+                      displayName: "Dr Selorm Agbeko"
+                page:
+                  nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                  limit: 25
+                  hasMore: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      operationId: recordCareHealthEvent
+      tags:
+        - liv
+      summary: "Record a health event, answered without cost"
+      description: "The Farm hand's cost-free door to `recordHealthEvent` (ADR-0052): the same rules, checks and effects, answered in a shape that carries no cost and no price. Unlike `recordHealthEvent` it needs no read permission, because its answer shows nothing the write's own permission does not.\n\nA product with withdrawal days places a WITHDRAWAL hold on every animal treated, in the same transaction, which blocks sale and slaughter until it ends. Medication used is issued from stock and its cost capitalised onto the animals.\n\nPermission: `liv.health.record`, scoped as `recordHealthEvent` is."
+      x-permission: liv.health.record
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - LIVESTOCK_RECORD_INVALID
+        - REFERENCE_NOT_FOUND
+        - INSUFFICIENT_STOCK
+        - STOCK_HOLD_INVALID
+        - RATE_LIMITED
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CsrfToken"
+      security:
+        - staffSession: []
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HealthEventCreate"
+            example:
+              id: "019a7abe-dc21-7ed4-b40c-f6157b3c6ef3"
+              kind: TREATMENT
+              stockUnitId: "019a7a8f-9d18-7468-89a0-4f5a9de5c838"
+              productId: "019a7a8f-026d-72f7-b82f-38453d70b123"
+              dose: "5 ml intramuscular"
+              qtyUsed: "0.050"
+              costPesewas: 4250
+              administeredBy: "Dr Selorm Agbeko"
+              notes: "Cough and fever"
+              occurredAt: "2026-11-01T10:00:00Z"
+      responses:
+        "201":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareHealthEvent"
+              example:
+                id: "019a7aaf-64a1-7d18-b250-da58a2bc5336"
+                kind: TREATMENT
+                stockUnit:
+                  id: "019a7a8f-9d18-7468-89a0-4f5a9de5c838"
+                  identifier: G-0163
+                  tracking: SERIAL
+                location: null
+                product:
+                  id: "019a7a8f-026d-72f7-b82f-38453d70b123"
+                  sku: VET-OXYTET
+                  name: "Oxytetracycline 20% injection, 100 ml"
+                dose: "5 ml intramuscular"
+                qtyUsed: "0.050"
+                withdrawalDays: 28
+                withdrawalEndsAt: "2026-11-28T23:59:00Z"
+                holdsPlaced: 1
+                administeredBy: "Dr Selorm Agbeko"
+                notes: "Cough and fever"
+                occurredAt: "2026-11-01T10:00:00Z"
+                recordedAt: "2026-11-01T10:05:00Z"
+                actor:
+                  id: "019a7a87-27be-7035-a56e-0c2f577f850d"
+                  displayName: "Dr Selorm Agbeko"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/BusinessRuleViolation"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/care/health-events/{id}":
+    get:
+      operationId: getCareHealthEvent
+      tags:
+        - liv
+      summary: "Get a health event and its withdrawal hold without cost"
+      description: "The Farm hand's cost-free read of a health event with its withdrawal hold (ADR-0052): the same rules, filters and scope as `getHealthEvent`, answered in a shape that carries no cost and no price.\n\nPermission: `liv.health.read`.\n\nPermission: `liv.care.read`, scoped as `getHealthEvent` is."
+      x-permission: liv.care.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - staffSession: []
+        - apiKey: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareHealthEvent"
+              example:
+                id: "019a7aaf-64a1-7d18-b250-da58a2bc5336"
+                kind: TREATMENT
+                stockUnit:
+                  id: "019a7a8f-9d18-7468-89a0-4f5a9de5c838"
+                  identifier: G-0163
+                  tracking: SERIAL
+                location: null
+                product:
+                  id: "019a7a8f-026d-72f7-b82f-38453d70b123"
+                  sku: VET-OXYTET
+                  name: "Oxytetracycline 20% injection, 100 ml"
+                dose: "5 ml intramuscular"
+                qtyUsed: "0.050"
+                withdrawalDays: 28
+                withdrawalEndsAt: "2026-11-28T23:59:00Z"
+                holdsPlaced: 1
+                administeredBy: "Dr Selorm Agbeko"
+                notes: "Cough and fever"
+                occurredAt: "2026-11-01T10:00:00Z"
+                recordedAt: "2026-11-01T10:05:00Z"
+                actor:
+                  id: "019a7a87-27be-7035-a56e-0c2f577f850d"
+                  displayName: "Dr Selorm Agbeko"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/care/mortality-records":
+    post:
+      operationId: reportCareMortality
+      tags:
+        - liv
+      summary: "Report a death or cull, answered without cost"
+      description: "The Farm hand's cost-free door to `reportMortality` (ADR-0052): the same rules, checks and effects, answered in a shape that carries no cost and no price. Unlike `reportMortality` it needs no read permission, because its answer shows nothing the write's own permission does not.\n\nPermission: `liv.mortality.report`.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result.\n\nPermission: `liv.mortality.report`, scoped as `reportMortality` is."
+      x-permission: liv.mortality.report
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - LIVESTOCK_RECORD_INVALID
+        - REFERENCE_NOT_FOUND
+        - RATE_LIMITED
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CsrfToken"
+      security:
+        - staffSession: []
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MortalityRecordCreate"
+            example:
+              id: "019a7ac1-84ab-7860-9d98-8ed9f07207b7"
+              kind: DEATH
+              stockUnitId: "019a7a8f-bc07-7e4c-9384-ed921796666f"
+              reasonCode: DISEASE_SUSPECTED
+              foundAt: "2026-11-13T06:00:00Z"
+              photoFileId: "019a7ac0-3066-7b9a-a0d2-c277b5d73b55"
+      responses:
+        "201":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareMortalityRecord"
+              example:
+                id: "019a7ac0-1177-71b6-96ef-24403c269d1e"
+                kind: DEATH
+                stockUnit:
+                  id: "019a7a8f-bc07-7e4c-9384-ed921796666f"
+                  identifier: G-0171
+                  tracking: SERIAL
+                animal:
+                  id: "019a7a8f-bc07-7e4c-9384-ed921796666f"
+                  tagNo: G-0171
+                head: 1
+                reasonCode: DISEASE_SUSPECTED
+                foundAt: "2026-11-13T06:00:00Z"
+                location:
+                  id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                  code: PEN-G2
+                  name: "Goat pen 2"
+                  kind: PEN
+                reportedBy:
+                  id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                  displayName: "Abena Quaye"
+                photoFileId: "019a7ac0-3066-7b9a-a0d2-c277b5d73b55"
+                status: REPORTED
+                approvalRequestId: null
+                movementId: null
+                disposalNote: null
+                version: 2
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/BusinessRuleViolation"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/care/mortality-records/{id}/submit":
+    post:
+      operationId: submitCareMortalityRecord
+      tags:
+        - liv
+      summary: "Submit a mortality record, answered without cost"
+      description: "The Farm hand's cost-free door to `submitMortalityRecord` (ADR-0052): the same rules, checks and effects, answered in a shape that carries no cost and no price. Unlike `submitMortalityRecord` it needs no read permission, because its answer shows nothing the write's own permission does not.\n\nValues the record again from the cost pool and writes the stock off. At or above the value threshold (50,000 pesewas on the seeded farm) a photograph is required first (422 `MORTALITY_PHOTO_REQUIRED`) and a second approver after: this is the control for abuse case 2. Only the person who reported the record submits it, so the approver is never the reporter.\n\nPermission: `liv.mortality.report`, scoped as `submitMortalityRecord` is."
+      x-permission: liv.mortality.report
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - LIVESTOCK_RECORD_INVALID
+        - MORTALITY_PHOTO_REQUIRED
+        - RATE_LIMITED
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CsrfToken"
+      security:
+        - staffSession: []
+        - apiKey: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareMortalityRecord"
+              example:
+                id: "019a7ac0-6e44-7f61-8499-fee6a93977c4"
+                kind: DEATH
+                stockUnit:
+                  id: "019a7a91-4e2a-7ed9-a411-f66345936f41"
+                  identifier: BRL-2610-01
+                  tracking: LOT
+                animal: null
+                head: 3
+                reasonCode: DISEASE_SUSPECTED
+                foundAt: "2026-11-12T06:00:00Z"
+                location:
+                  id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+                  code: HSE-B1
+                  name: "Broiler house 1"
+                  kind: PEN
+                reportedBy:
+                  id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                  displayName: "Abena Quaye"
+                photoFileId: null
+                status: POSTED
+                approvalRequestId: null
+                movementId: "019a7ac0-8d33-7944-9e7d-9d1e22ea15fc"
+                disposalNote: "Buried behind the broiler house, lime applied"
+                version: 2
+        "202":
+          description: "Accepted for approval. Nothing has taken effect yet."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalPending"
+              example:
+                status: PENDING_APPROVAL
+                approvalRequestId: "019a7ac0-4a21-7c3e-8f10-6b2d93e5a7c4"
+                kind: MORTALITY_WRITE_OFF
+                subject:
+                  id: "019a7ac0-1177-71b6-96ef-24403c269d1e"
+                  docType: MORTALITY_RECORD
+                  number: null
+                summary: "Death of G-0171 (DISEASE_SUSPECTED), valued 58900 pesewas"
+                requestedAt: "2026-11-13T07:40:00Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/BusinessRuleViolation"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/care/rations":
+    get:
+      operationId: listCareRations
+      tags:
+        - liv
+      summary: "List feed rations (the care door)"
+      description: "The Farm hand's cost-free read of the rations (ADR-0052): the same rules, filters and scope as `listRations`, answered in a shape that carries no cost and no price.\n\nPermission: `liv.feed.read`.\n\nPermission: `liv.care.read`, scoped as `listRations` is."
+      x-permission: liv.care.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
+      parameters:
+        - name: speciesId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/PageLimit"
+      security:
+        - staffSession: []
+        - apiKey: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RationPage"
+              example:
+                data:
+                  - id: "019a7ac1-a39a-7244-a77c-2d116a23a5ef"
+                    name: "Broiler starter"
+                    species:
+                      id: "019a7a8b-fd16-7bc0-a0f8-c4da5b273db8"
+                      code: BROILER
+                      name: "Broiler chicken"
+                    feedProduct:
+                      id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                      sku: FD-BRL-FIN
+                      name: "Broiler finisher feed, 50 kg bag"
+                    qtyPerHeadPerDay: "0.001"
+                    uom: BAG
+                    stage: "Day 1 to 14"
+                    version: 1
+                  - id: "019a7ac1-c289-7c27-b15f-cb48e3d44426"
+                    name: "Broiler grower"
+                    species:
+                      id: "019a7a8b-fd16-7bc0-a0f8-c4da5b273db8"
+                      code: BROILER
+                      name: "Broiler chicken"
+                    feedProduct:
+                      id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                      sku: FD-BRL-FIN
+                      name: "Broiler finisher feed, 50 kg bag"
+                    qtyPerHeadPerDay: "0.002"
+                    uom: BAG
+                    stage: "Day 15 to 28"
+                    version: 1
+                  - id: "019a7ac1-e178-760a-8b43-69805d85e25e"
+                    name: "Broiler finisher"
+                    species:
+                      id: "019a7a8b-fd16-7bc0-a0f8-c4da5b273db8"
+                      code: BROILER
+                      name: "Broiler chicken"
+                    feedProduct:
+                      id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                      sku: FD-BRL-FIN
+                      name: "Broiler finisher feed, 50 kg bag"
+                    qtyPerHeadPerDay: "0.003"
+                    uom: BAG
+                    stage: "Day 29 to sale"
+                    version: 1
+                  - id: "019a7ac2-0067-7fee-9526-07b7d7368095"
+                    name: "Goat supplement"
+                    species:
+                      id: "019a7a8b-a049-7e16-b34e-ea33ee146311"
+                      code: GOAT
+                      name: Goat
+                    feedProduct:
+                      id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                      sku: FD-BRL-FIN
+                      name: "Broiler finisher feed, 50 kg bag"
+                    qtyPerHeadPerDay: "0.010"
+                    uom: BAG
+                    stage: null
+                    version: 1
+                  - id: "019a7ac2-1f56-79d1-af0a-a5ef50e71ecd"
+                    name: "Sheep supplement"
+                    species:
+                      id: "019a7a8b-bf38-77f9-8d31-886b67c50149"
+                      code: SHEEP
+                      name: Sheep
+                    feedProduct:
+                      id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                      sku: FD-BRL-FIN
+                      name: "Broiler finisher feed, 50 kg bag"
+                    qtyPerHeadPerDay: "0.012"
+                    uom: BAG
+                    stage: null
+                    version: 1
+                  - id: "019a7ac2-3e45-73b5-b8ed-4426ca98bd04"
+                    name: "Pig grower"
+                    species:
+                      id: "019a7a8b-de27-71dd-9715-26a2e1769f80"
+                      code: PIG
+                      name: Pig
+                    feedProduct:
+                      id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                      sku: FD-BRL-FIN
+                      name: "Broiler finisher feed, 50 kg bag"
+                    qtyPerHeadPerDay: "0.030"
+                    uom: BAG
+                    stage: "Weaner to 60 kg"
+                    version: 1
+                page:
+                  nextCursor: null
+                  limit: 25
+                  hasMore: false
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/care/feed-consumption":
+    post:
+      operationId: recordCareFeedConsumption
+      tags:
+        - liv
+      summary: "Record feed given to a pen, answered without cost"
+      description: "The Farm hand's cost-free door to `recordFeedConsumption` (ADR-0052): the same rules, checks and effects, answered in a shape that carries no cost and no price. Unlike `recordFeedConsumption` it needs no read permission, because its answer shows nothing the write's own permission does not.\n\nIssues the feed from stock and spreads its cost across the stock units in the pen by head-days: capitalised onto growing animals, expensed for breeding stock. The allocation sums exactly to the value issued.\n\nPermission: `liv.feed.record`, scoped as `recordFeedConsumption` is."
+      x-permission: liv.feed.record
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - LIVESTOCK_RECORD_INVALID
+        - REFERENCE_NOT_FOUND
+        - INSUFFICIENT_STOCK
+        - RATE_LIMITED
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CsrfToken"
+      security:
+        - staffSession: []
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FeedConsumptionCreate"
+            example:
+              id: "019a7ac3-16ce-78ed-ae25-97ab1e6f1089"
+              locationId: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+              feedProductId: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+              qty: "4.000"
+              consumedOn: "2026-11-12"
+      responses:
+        "201":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareFeedConsumption"
+              example:
+                id: "019a7ac2-5d34-7d98-82d1-e25e44495b3c"
+                location:
+                  id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+                  code: PEN-G1
+                  name: "Goat pen 1"
+                  kind: PEN
+                feedProduct:
+                  id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                  sku: FD-BRL-FIN
+                  name: "Broiler finisher feed, 50 kg bag"
+                qty: "4.000"
+                uom: BAG
+                consumedOn: "2026-11-12"
+                ration: null
+                status: POSTED
+                allocations:
+                  - stockUnit:
+                      id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
+                      identifier: G-0142
+                      tracking: SERIAL
+                    headDays: 30
+                    treatment: CAPITALISED
+                  - stockUnit:
+                      id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
+                      identifier: G-0157
+                      tracking: SERIAL
+                    headDays: 30
+                    treatment: CAPITALISED
+                  - stockUnit:
+                      id: "019a7a8f-f9e5-7212-b74b-2a010af8a2de"
+                      identifier: G-0118
+                      tracking: SERIAL
+                    headDays: 30
+                    treatment: EXPENSED
+                postedAt: "2026-11-12T18:00:00Z"
+                actor:
+                  id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                  displayName: "Abena Quaye"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/BusinessRuleViolation"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/care/batches":
+    get:
+      operationId: listCareBatches
+      tags:
+        - liv
+      summary: "List batches without cost"
+      description: "The Farm hand's cost-free read of batches (ADR-0052): the same rules, filters and scope as `listBatches`, answered in a shape that carries no cost and no price.\n\nPermission: `liv.batch.read`.\n\nPermission: `liv.care.read`, scoped as `listBatches` is."
+      x-permission: liv.care.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - ACTIVE
+              - CLOSED
+        - name: speciesId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/PageLimit"
+      security:
+        - staffSession: []
+        - apiKey: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareBatchPage"
+              example:
+                data:
+                  - id: "019a7abe-6065-7746-bc7e-7d379478f615"
+                    batchNo: BRL-2611-01
+                    species:
+                      id: "019a7a8b-fd16-7bc0-a0f8-c4da5b273db8"
+                      code: BROILER
+                      name: "Broiler chicken"
+                    stockUnit:
+                      id: "019a7abe-6a11-7b22-8c33-d44e55f66a77"
+                      identifier: BRL-2611-01
+                      tracking: LOT
+                    startedOn: "2026-11-12"
+                    initialHead: 500
+                    currentHead: 500
+                    purpose: GROWING
+                    status: ACTIVE
+                    location:
+                      id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+                      code: HSE-B1
+                      name: "Broiler house 1"
+                      kind: PEN
+                    mortalityPercent: "0.00"
+                    version: 1
+                  - id: "019a7abe-4176-7d62-a29b-df001ac757de"
+                    batchNo: LCH-2608-01
+                    species:
+                      id: "019a7a8c-1c05-75a4-badc-6311d4d8dbef"
+                      code: LOCAL_CHICKEN
+                      name: "Local chicken"
+                    stockUnit:
+                      id: "019a7a91-2608-7d2e-9f3a-4b5c6d702608"
+                      identifier: LCH-2608-01
+                      tracking: LOT
+                    startedOn: "2026-08-15"
+                    initialHead: 120
+                    currentHead: 109
+                    purpose: GROWING
+                    status: ACTIVE
+                    location:
+                      id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+                      code: HSE-B1
+                      name: "Broiler house 1"
+                      kind: PEN
+                    mortalityPercent: "9.17"
+                    version: 1
+                  - id: "019a7abe-2287-737f-98b7-40c8a116b9a6"
+                    batchNo: LAY-2604-01
+                    species:
+                      id: "019a7a8c-1c05-75a4-badc-6311d4d8dbef"
+                      code: LOCAL_CHICKEN
+                      name: "Local chicken"
+                    stockUnit:
+                      id: "019a7a91-2604-7c1d-8e2f-3a4b5c602604"
+                      identifier: LAY-2604-01
+                      tracking: LOT
+                    startedOn: "2026-04-10"
+                    initialHead: 800
+                    currentHead: 771
+                    purpose: LAYING
+                    status: ACTIVE
+                    location:
+                      id: "019a7a84-2267-78ff-9e37-98c4753611a2"
+                      code: HSE-L1
+                      name: "Layer house"
+                      kind: PEN
+                    mortalityPercent: "3.63"
+                    version: 2
+                  - id: "019a7abe-0398-799b-8ed4-a29127651b6f"
+                    batchNo: BRL-2609-02
+                    species:
+                      id: "019a7a8b-fd16-7bc0-a0f8-c4da5b273db8"
+                      code: BROILER
+                      name: "Broiler chicken"
+                    stockUnit:
+                      id: "019a7a91-2609-7a02-8b0c-1d2e3f402609"
+                      identifier: BRL-2609-02
+                      tracking: LOT
+                    startedOn: "2026-09-01"
+                    initialHead: 400
+                    currentHead: 0
+                    purpose: GROWING
+                    status: CLOSED
+                    location:
+                      id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+                      code: HSE-B1
+                      name: "Broiler house 1"
+                      kind: PEN
+                    mortalityPercent: "4.25"
+                    version: 2
+                  - id: "019a7abd-e4a9-7fb8-b4f0-0459adb47d37"
+                    batchNo: BRL-2610-01
+                    species:
+                      id: "019a7a8b-fd16-7bc0-a0f8-c4da5b273db8"
+                      code: BROILER
+                      name: "Broiler chicken"
+                    stockUnit:
+                      id: "019a7a91-4e2a-7ed9-a411-f66345936f41"
+                      identifier: BRL-2610-01
+                      tracking: LOT
+                    startedOn: "2026-10-02"
+                    initialHead: 500
+                    currentHead: 462
+                    purpose: GROWING
+                    status: ACTIVE
+                    location:
+                      id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+                      code: HSE-B1
+                      name: "Broiler house 1"
+                      kind: PEN
+                    mortalityPercent: "7.60"
+                    version: 1
+                page:
+                  nextCursor: null
+                  limit: 25
+                  hasMore: false
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      operationId: createCareBatch
+      tags:
+        - liv
+      summary: "Hatch a batch, answered without cost"
+      description: "The Farm hand's cost-free door to `createBatch` (ADR-0052): the same rules, checks and effects, answered in a shape that carries no cost and no price. Unlike `createBatch` it needs no read permission, because its answer shows nothing the write's own permission does not.\n\nHatches a flock on the farm: registers its lot and brings its head into the pen by a BIRTH movement at nil cost. The species must have exactly one lot-tracked product. A flock bought from a supplier opens its batch when its goods receipt is posted.\n\nPermission: `liv.batch.create`, scoped as `createBatch` is."
+      x-permission: liv.batch.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - LIVESTOCK_RECORD_INVALID
+        - REFERENCE_NOT_FOUND
+        - RATE_LIMITED
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CsrfToken"
+      security:
+        - staffSession: []
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BatchCreate"
+            example:
+              batchNo: BRL-2611-01
+              speciesId: "019a7a8b-fd16-7bc0-a0f8-c4da5b273db8"
+              startedOn: "2026-11-12"
+              initialHead: 500
+              purpose: GROWING
+              locationId: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+      responses:
+        "201":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareBatch"
+              example:
+                id: "019a7abe-6065-7746-bc7e-7d379478f615"
+                batchNo: BRL-2611-01
+                species:
+                  id: "019a7a8b-fd16-7bc0-a0f8-c4da5b273db8"
+                  code: BROILER
+                  name: "Broiler chicken"
+                stockUnit:
+                  id: "019a7abe-6a11-7b22-8c33-d44e55f66a77"
+                  identifier: BRL-2611-01
+                  tracking: LOT
+                startedOn: "2026-11-12"
+                initialHead: 500
+                currentHead: 500
+                purpose: GROWING
+                status: ACTIVE
+                location:
+                  id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+                  code: HSE-B1
+                  name: "Broiler house 1"
+                  kind: PEN
+                mortalityPercent: "0.00"
+                version: 1
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/BusinessRuleViolation"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/care/batches/{id}":
+    get:
+      operationId: getCareBatch
+      tags:
+        - liv
+      summary: "Get a batch without cost"
+      description: "The Farm hand's cost-free read of a batch (ADR-0052): the same rules, filters and scope as `getBatch`, answered in a shape that carries no cost and no price.\n\nPermission: `liv.batch.read`.\n\nPermission: `liv.care.read`, scoped as `getBatch` is."
+      x-permission: liv.care.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - staffSession: []
+        - apiKey: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareBatch"
+              example:
+                id: "019a7abd-e4a9-7fb8-b4f0-0459adb47d37"
+                batchNo: BRL-2610-01
+                species:
+                  id: "019a7a8b-fd16-7bc0-a0f8-c4da5b273db8"
+                  code: BROILER
+                  name: "Broiler chicken"
+                stockUnit:
+                  id: "019a7a91-4e2a-7ed9-a411-f66345936f41"
+                  identifier: BRL-2610-01
+                  tracking: LOT
+                startedOn: "2026-10-02"
+                initialHead: 500
+                currentHead: 462
+                purpose: GROWING
+                status: ACTIVE
+                location:
+                  id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+                  code: HSE-B1
+                  name: "Broiler house 1"
+                  kind: PEN
+                mortalityPercent: "7.60"
+                version: 1
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    patch:
+      operationId: updateCareBatch
+      tags:
+        - liv
+      summary: "Change a batch's purpose, answered without cost"
+      description: "The Farm hand's cost-free door to `updateBatch` (ADR-0052): the same rules, checks and effects, answered in a shape that carries no cost and no price. Unlike `updateBatch` it needs no read permission, because its answer shows nothing the write's own permission does not.\n\nA batch's purpose decides how feed and veterinary cost spread onto its flock is treated: capitalised for GROWING, expensed for BREEDING and LAYING.\n\nPermission: `liv.batch.update`, scoped as `updateBatch` is."
+      x-permission: liv.batch.update
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - LIVESTOCK_RECORD_INVALID
+        - RATE_LIMITED
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CsrfToken"
+      security:
+        - staffSession: []
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BatchUpdate"
+            example:
+              version: 1
+              purpose: LAYING
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareBatch"
+              example:
+                id: "019a7abe-2287-737f-98b7-40c8a116b9a6"
+                batchNo: LAY-2604-01
+                species:
+                  id: "019a7a8c-1c05-75a4-badc-6311d4d8dbef"
+                  code: LOCAL_CHICKEN
+                  name: "Local chicken"
+                stockUnit:
+                  id: "019a7a91-2604-7c1d-8e2f-3a4b5c602604"
+                  identifier: LAY-2604-01
+                  tracking: LOT
+                startedOn: "2026-04-10"
+                initialHead: 800
+                currentHead: 771
+                purpose: LAYING
+                status: ACTIVE
+                location:
+                  id: "019a7a84-2267-78ff-9e37-98c4753611a2"
+                  code: HSE-L1
+                  name: "Layer house"
+                  kind: PEN
+                mortalityPercent: "3.63"
+                version: 2
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/BusinessRuleViolation"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/care/batches/{id}/close":
+    post:
+      operationId: closeCareBatch
+      tags:
+        - liv
+      summary: "Close an empty batch, answered without cost"
+      description: "The Farm hand's cost-free door to `closeBatch` (ADR-0052): the same rules, checks and effects, answered in a shape that carries no cost and no price. Unlike `closeBatch` it needs no read permission, because its answer shows nothing the write's own permission does not.\n\nRefused with LIVESTOCK_RECORD_INVALID (BATCH_NOT_EMPTY) while any head is left, whatever the reason: sell, process or write off the birds first. The reason is always recorded.\n\nPermission: `liv.batch.update`, scoped as `closeBatch` is."
+      x-permission: liv.batch.update
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - NOT_FOUND
+        - LIVESTOCK_RECORD_INVALID
+        - RATE_LIMITED
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CsrfToken"
+      security:
+        - staffSession: []
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReasonRequest"
+            example:
+              reason: "All birds sold or processed"
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareBatch"
+              example:
+                id: "019a7abe-0398-799b-8ed4-a29127651b6f"
+                batchNo: BRL-2609-02
+                species:
+                  id: "019a7a8b-fd16-7bc0-a0f8-c4da5b273db8"
+                  code: BROILER
+                  name: "Broiler chicken"
+                stockUnit:
+                  id: "019a7a91-2609-7a02-8b0c-1d2e3f402609"
+                  identifier: BRL-2609-02
+                  tracking: LOT
+                startedOn: "2026-09-01"
+                initialHead: 400
+                currentHead: 0
+                purpose: GROWING
+                status: CLOSED
+                location:
+                  id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+                  code: HSE-B1
+                  name: "Broiler house 1"
+                  kind: PEN
+                mortalityPercent: "4.25"
+                version: 2
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/BusinessRuleViolation"
         "429":
           $ref: "#/components/responses/RateLimited"
         "500":
@@ -79512,6 +81553,145 @@ components:
       required:
         - data
         - page
+    CareAnimal:
+      type: object
+      description: "An animal as the Farm hand sees it (ADR-0052): the `Animal` without its accumulated cost and its selling price band, with its withdrawal hold and whether it may be sold."
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: "Same as the stock unit id."
+        tagNo:
+          type: string
+        species:
+          $ref: "#/components/schemas/SpeciesRef"
+        product:
+          $ref: "#/components/schemas/ProductRef"
+        breed:
+          type:
+            - string
+            - "null"
+        sex:
+          type: string
+          enum:
+            - MALE
+            - FEMALE
+            - UNKNOWN
+        dateOfBirth:
+          type:
+            - string
+            - "null"
+          format: date
+        acquiredOn:
+          type: string
+          format: date
+        source:
+          type: string
+          enum:
+            - PURCHASE
+            - BIRTH
+            - OPENING
+        supplier:
+          anyOf:
+            - $ref: "#/components/schemas/SupplierRef"
+            - type: "null"
+        dam:
+          anyOf:
+            - $ref: "#/components/schemas/AnimalRef"
+            - type: "null"
+        sire:
+          anyOf:
+            - $ref: "#/components/schemas/AnimalRef"
+            - type: "null"
+        batch:
+          anyOf:
+            - $ref: "#/components/schemas/BatchRef"
+            - type: "null"
+        purpose:
+          type: string
+          enum:
+            - GROWING
+            - BREEDING
+        status:
+          type: string
+          enum:
+            - ALIVE
+            - SOLD
+            - SLAUGHTERED
+            - DEAD
+            - CULLED
+        currentLocation:
+          anyOf:
+            - $ref: "#/components/schemas/LocationRef"
+            - type: "null"
+        grade:
+          anyOf:
+            - $ref: "#/components/schemas/GradeRef"
+            - type: "null"
+        lastWeightKg:
+          anyOf:
+            - $ref: "#/components/schemas/Kilograms"
+            - type: "null"
+        lastWeighedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        weightBand:
+          anyOf:
+            - $ref: "#/components/schemas/WeightBandRef"
+            - type: "null"
+        withdrawalUntil:
+          type:
+            - string
+            - "null"
+          format: date-time
+        sellable:
+          type: boolean
+          description: "Alive, not under hold, not reserved."
+        version:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - tagNo
+        - species
+        - product
+        - breed
+        - sex
+        - dateOfBirth
+        - acquiredOn
+        - source
+        - supplier
+        - dam
+        - sire
+        - batch
+        - purpose
+        - status
+        - currentLocation
+        - grade
+        - lastWeightKg
+        - lastWeighedAt
+        - weightBand
+        - withdrawalUntil
+        - sellable
+        - version
+        - createdAt
+    CareAnimalPage:
+      type: object
+      description: "A page of `CareAnimal` results."
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CareAnimal"
+        page:
+          $ref: "#/components/schemas/PageInfo"
+      required:
+        - data
+        - page
     AnimalEvent:
       type: object
       properties:
@@ -79863,6 +82043,73 @@ components:
       required:
         - data
         - page
+    CareBatch:
+      type: object
+      description: "A batch as the Farm hand sees it (ADR-0052): the `Batch` without its accumulated cost."
+      properties:
+        id:
+          type: string
+          format: uuid
+        batchNo:
+          type: string
+        species:
+          $ref: "#/components/schemas/SpeciesRef"
+        stockUnit:
+          anyOf:
+            - $ref: "#/components/schemas/StockUnitRef"
+            - type: "null"
+        startedOn:
+          type: string
+          format: date
+        initialHead:
+          type: integer
+        currentHead:
+          type: integer
+        purpose:
+          type: string
+          enum:
+            - GROWING
+            - BREEDING
+            - LAYING
+        status:
+          type: string
+          enum:
+            - ACTIVE
+            - CLOSED
+        location:
+          anyOf:
+            - $ref: "#/components/schemas/LocationRef"
+            - type: "null"
+        mortalityPercent:
+          $ref: "#/components/schemas/Percent"
+        version:
+          type: integer
+      required:
+        - id
+        - batchNo
+        - species
+        - stockUnit
+        - startedOn
+        - initialHead
+        - currentHead
+        - purpose
+        - status
+        - location
+        - mortalityPercent
+        - version
+    CareBatchPage:
+      type: object
+      description: "A page of `CareBatch` results."
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CareBatch"
+        page:
+          $ref: "#/components/schemas/PageInfo"
+      required:
+        - data
+        - page
     HealthEvent:
       type: object
       properties:
@@ -79994,6 +82241,94 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/HealthEvent"
+        page:
+          $ref: "#/components/schemas/PageInfo"
+      required:
+        - data
+        - page
+    CareHealthEvent:
+      type: object
+      description: "A health event as the Farm hand sees it (ADR-0052): the `HealthEvent` with its withdrawal days, the end of the withdrawal period and the holds placed, without its cost."
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+            - VACCINATION
+            - TREATMENT
+            - CHECK
+            - DEWORMING
+        stockUnit:
+          anyOf:
+            - $ref: "#/components/schemas/StockUnitRef"
+            - type: "null"
+        location:
+          anyOf:
+            - $ref: "#/components/schemas/LocationRef"
+            - type: "null"
+        product:
+          anyOf:
+            - $ref: "#/components/schemas/ProductRef"
+            - type: "null"
+        dose:
+          type:
+            - string
+            - "null"
+        qtyUsed:
+          anyOf:
+            - $ref: "#/components/schemas/Quantity"
+            - type: "null"
+        withdrawalDays:
+          type: integer
+        withdrawalEndsAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        holdsPlaced:
+          type: integer
+        administeredBy:
+          type:
+            - string
+            - "null"
+        notes:
+          type:
+            - string
+            - "null"
+        occurredAt:
+          type: string
+          format: date-time
+        recordedAt:
+          type: string
+          format: date-time
+        actor:
+          $ref: "#/components/schemas/PrincipalRef"
+      required:
+        - id
+        - kind
+        - stockUnit
+        - location
+        - product
+        - dose
+        - qtyUsed
+        - withdrawalDays
+        - withdrawalEndsAt
+        - holdsPlaced
+        - administeredBy
+        - notes
+        - occurredAt
+        - recordedAt
+        - actor
+    CareHealthEventPage:
+      type: object
+      description: "A page of `CareHealthEvent` results."
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CareHealthEvent"
         page:
           $ref: "#/components/schemas/PageInfo"
       required:
@@ -80300,6 +82635,81 @@ components:
       required:
         - data
         - page
+    CareMortalityRecord:
+      type: object
+      description: "A mortality record as the Farm hand who reported it sees it (ADR-0052): the `MortalityRecord` without the value written off."
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+            - DEATH
+            - CULL
+        stockUnit:
+          $ref: "#/components/schemas/StockUnitRef"
+        animal:
+          anyOf:
+            - $ref: "#/components/schemas/AnimalRef"
+            - type: "null"
+        head:
+          type: integer
+        reasonCode:
+          type: string
+        foundAt:
+          type: string
+          format: date-time
+        location:
+          anyOf:
+            - $ref: "#/components/schemas/LocationRef"
+            - type: "null"
+        reportedBy:
+          $ref: "#/components/schemas/PrincipalRef"
+        photoFileId:
+          type:
+            - string
+            - "null"
+          format: uuid
+        status:
+          type: string
+          enum:
+            - REPORTED
+            - PENDING_APPROVAL
+            - POSTED
+            - REJECTED
+        approvalRequestId:
+          type:
+            - string
+            - "null"
+          format: uuid
+        movementId:
+          type:
+            - string
+            - "null"
+          format: uuid
+        disposalNote:
+          type:
+            - string
+            - "null"
+        version:
+          type: integer
+      required:
+        - id
+        - kind
+        - stockUnit
+        - animal
+        - head
+        - reasonCode
+        - foundAt
+        - location
+        - reportedBy
+        - photoFileId
+        - status
+        - approvalRequestId
+        - movementId
+        - disposalNote
+        - version
     Ration:
       type: object
       properties:
@@ -80511,6 +82921,73 @@ components:
       required:
         - data
         - page
+    CareFeedAllocation:
+      type: object
+      description: "A pen member's head-day share of a feed issue, without its value (ADR-0052)."
+      properties:
+        stockUnit:
+          $ref: "#/components/schemas/StockUnitRef"
+        headDays:
+          type: integer
+        treatment:
+          type: string
+          enum:
+            - CAPITALISED
+            - EXPENSED
+      required:
+        - stockUnit
+        - headDays
+        - treatment
+    CareFeedConsumption:
+      type: object
+      description: "A feed issue as the Farm hand sees it (ADR-0052): the `FeedConsumption` without its value or the value of each share."
+      properties:
+        id:
+          type: string
+          format: uuid
+        location:
+          $ref: "#/components/schemas/LocationRef"
+        feedProduct:
+          $ref: "#/components/schemas/ProductRef"
+        qty:
+          $ref: "#/components/schemas/Quantity"
+        uom:
+          type: string
+        consumedOn:
+          type: string
+          format: date
+        ration:
+          anyOf:
+            - $ref: "#/components/schemas/RationRef"
+            - type: "null"
+        status:
+          type: string
+          enum:
+            - DRAFT
+            - POSTED
+        allocations:
+          type: array
+          items:
+            $ref: "#/components/schemas/CareFeedAllocation"
+        postedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        actor:
+          $ref: "#/components/schemas/PrincipalRef"
+      required:
+        - id
+        - location
+        - feedProduct
+        - qty
+        - uom
+        - consumedOn
+        - ration
+        - status
+        - allocations
+        - postedAt
+        - actor
     ProcessingInput:
       type: object
       properties:

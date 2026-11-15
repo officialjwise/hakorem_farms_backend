@@ -14,7 +14,7 @@ import type { FeedConsumed } from '../events';
 import { LivestockRecordInvalidError, LivReferenceNotFoundError, RationInvalidError } from './errors';
 import type { FeedConsumptionRecord, FeedFilters, LivestockStore, RationRecord } from './livestock-store';
 import type { CostSpreader } from './spread';
-import { afterOf, pageOf, pageProbe, readScopeOf, runWrite, type Page } from './support';
+import { afterOf, pageOf, pageProbe, readScopeOf, runWrite, writePermissions, type Page, type ReadDoor, type WriteDoor } from './support';
 
 export interface RationCreateRequest {
   readonly name: string;
@@ -112,10 +112,10 @@ export class Feeding {
 
   // Rations.
 
-  listRations(actor: Actor | undefined, speciesId: string | undefined, cursor: string | undefined, limit: number): Promise<Page<RationView>> {
+  listRations(actor: Actor | undefined, speciesId: string | undefined, cursor: string | undefined, limit: number, door: ReadDoor = { operationId: 'listRations', permission: 'liv.feed.read' }): Promise<Page<RationView>> {
     return this.uow.run({ isolation: 'read committed' }, async (tx) => {
-      await this.authoriser.authorise(tx, actor, 'liv.feed.read');
-      const binding = { operationId: 'listRations', principalId: actor!.principalId, filters: { speciesId: speciesId ?? null } };
+      await this.authoriser.authorise(tx, actor, door.permission);
+      const binding = { operationId: door.operationId, principalId: actor!.principalId, filters: { speciesId: speciesId ?? null } };
       const rows = await this.store.listRations(tx, speciesId, afterOf(this.cursors, binding, cursor), pageProbe(limit));
       return pageOf(this.cursors, binding, rows, limit, (r) => r.id, await this.rationViews(tx, rows.slice(0, limit)));
     });
@@ -163,14 +163,19 @@ export class Feeding {
 
   // Feed consumption.
 
-  record(actor: Actor | undefined, body: FeedConsumptionCreateRequest, idempotencyKey: string): Promise<StoredResponse<FeedConsumptionView>> {
+  record(
+    actor: Actor | undefined,
+    body: FeedConsumptionCreateRequest,
+    idempotencyKey: string,
+    door: WriteDoor = { operationId: 'recordFeedConsumption', answerPermission: 'liv.feed.read' },
+  ): Promise<StoredResponse<FeedConsumptionView>> {
     return runWrite(
       this.uow,
       this.authoriser,
       this.idempotency,
       actor,
-      'liv.feed.record',
-      'recordFeedConsumption',
+      writePermissions('liv.feed.record', door),
+      door.operationId,
       body,
       idempotencyKey,
       async (tx) => {

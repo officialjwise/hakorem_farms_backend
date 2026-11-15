@@ -17,7 +17,7 @@ import type { Animals, AnimalView } from './animals';
 import { LivestockRecordInvalidError, LivReferenceNotFoundError } from './errors';
 import type { HerdStore } from './herd-store';
 import type { AnimalRecord, LivestockStore, Purpose, Sex } from './livestock-store';
-import { afterOf, pageOf, pageProbe, runWrite, type Page } from './support';
+import { afterOf, pageOf, pageProbe, runWrite, writePermissions, type Page, type WriteDoor } from './support';
 
 export interface AnimalUpdateRequest {
   readonly version: number;
@@ -93,8 +93,14 @@ export class AnimalCare {
     this.nextId = createUuidV7Generator(clock);
   }
 
-  update(actor: Actor | undefined, id: string, body: AnimalUpdateRequest, idempotencyKey: string): Promise<StoredResponse<AnimalView>> {
-    return runWrite(this.uow, this.authoriser, this.idempotency, actor, 'liv.animal.update', 'updateAnimal', { id, ...body }, idempotencyKey, (tx) => this.scopeOf(tx, id), async (tx, who) => {
+  update(
+    actor: Actor | undefined,
+    id: string,
+    body: AnimalUpdateRequest,
+    idempotencyKey: string,
+    door: WriteDoor = { operationId: 'updateAnimal', answerPermission: 'liv.animal.read' },
+  ): Promise<StoredResponse<AnimalView>> {
+    return runWrite(this.uow, this.authoriser, this.idempotency, actor, writePermissions('liv.animal.update', door), door.operationId, { id, ...body }, idempotencyKey, (tx) => this.scopeOf(tx, id), async (tx, who) => {
       const before = await this.store.lockAnimal(tx, id);
       if (before === null) throw new NotFoundError(`no animal ${id}`);
       if (before.version !== body.version) throw new VersionConflictError(`animal ${id} is at version ${before.version}, not ${body.version}`);
@@ -124,14 +130,20 @@ export class AnimalCare {
     });
   }
 
-  move(actor: Actor | undefined, id: string, body: AnimalMoveRequest, idempotencyKey: string): Promise<StoredResponse<AnimalView>> {
+  move(
+    actor: Actor | undefined,
+    id: string,
+    body: AnimalMoveRequest,
+    idempotencyKey: string,
+    door: WriteDoor = { operationId: 'moveAnimal', answerPermission: 'liv.animal.read' },
+  ): Promise<StoredResponse<AnimalView>> {
     return runWrite(
       this.uow,
       this.authoriser,
       this.idempotency,
       actor,
-      'liv.animal.move',
-      'moveAnimal',
+      writePermissions('liv.animal.move', door),
+      door.operationId,
       { id, ...body },
       idempotencyKey,
       async (tx) => {

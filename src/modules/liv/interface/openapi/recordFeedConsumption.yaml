@@ -2,8 +2,9 @@ operationId: recordFeedConsumption
 tags:
   - liv
 summary: "Record feed issued to a pen"
-description: "Issues the feed from stock and spreads its cost across the stock units in the pen by head-days: capitalised onto growing animals, expensed for breeding stock. The allocation sums exactly to the value issued.\n\nPermission: `liv.feed.record`.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result."
+description: "Issues the feed from stock and spreads its cost across the stock units in the pen by head-days: capitalised onto growing animals, expensed for breeding stock. The allocation sums exactly to the value issued.\n\nPermission: `liv.feed.record`.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result. The answer carries the feed's value and each share of it, so the caller also needs `liv.feed.read` at the same scope (`x-answer-permission`, ADR-0052); the Farm hand, who holds the write but not the read, uses `recordCareFeedConsumption`."
 x-permission: liv.feed.record
+x-answer-permission: liv.feed.read
 x-error-codes:
   - VALIDATION_FAILED
   - UNAUTHENTICATED

@@ -17,7 +17,7 @@ import { checkMortalityReport, judgeWriteOff, type MortalityKind } from '../doma
 import type { MortalityApproved, MortalityReported } from '../events';
 import { LivestockRecordInvalidError, LivReferenceNotFoundError, MortalityPhotoRequiredError } from './errors';
 import type { LivestockStore, MortalityFilters, MortalityRecord, MortalityStatus } from './livestock-store';
-import { afterOf, pageOf, pageProbe, placesOf, readScopeOf, runWrite, type Page } from './support';
+import { afterOf, pageOf, pageProbe, placesOf, readScopeOf, runWrite, writePermissions, type Page, type WriteDoor } from './support';
 
 export const MORTALITY_WRITE_OFF = 'MORTALITY_WRITE_OFF';
 /** Threat model abuse case 2: a healthy animal recorded as dead and sold privately. */
@@ -107,14 +107,19 @@ export class MortalityRecords implements ApprovalHandler {
     this.nextId = createUuidV7Generator(clock);
   }
 
-  report(actor: Actor | undefined, body: MortalityReportRequest, idempotencyKey: string): Promise<StoredResponse<MortalityRecordView>> {
+  report(
+    actor: Actor | undefined,
+    body: MortalityReportRequest,
+    idempotencyKey: string,
+    door: WriteDoor = { operationId: 'reportMortality', answerPermission: 'liv.mortality.read' },
+  ): Promise<StoredResponse<MortalityRecordView>> {
     return runWrite(
       this.uow,
       this.authoriser,
       this.idempotency,
       actor,
-      'liv.mortality.report',
-      'reportMortality',
+      writePermissions('liv.mortality.report', door),
+      door.operationId,
       { ...body, foundAt: body.foundAt.toISOString() },
       idempotencyKey,
       async (tx) => {
@@ -179,14 +184,19 @@ export class MortalityRecords implements ApprovalHandler {
     return view;
   }
 
-  submit(actor: Actor | undefined, id: string, idempotencyKey: string): Promise<StoredResponse<MortalityRecordView | ApprovalPendingView>> {
+  submit(
+    actor: Actor | undefined,
+    id: string,
+    idempotencyKey: string,
+    door: WriteDoor = { operationId: 'submitMortalityRecord', answerPermission: 'liv.mortality.read' },
+  ): Promise<StoredResponse<MortalityRecordView | ApprovalPendingView>> {
     return runWrite(
       this.uow,
       this.authoriser,
       this.idempotency,
       actor,
-      'liv.mortality.report',
-      'submitMortalityRecord',
+      writePermissions('liv.mortality.report', door),
+      door.operationId,
       { id },
       idempotencyKey,
       (tx) => this.scopeOf(tx, id),

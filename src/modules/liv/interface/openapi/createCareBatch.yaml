@@ -1,0 +1,84 @@
+operationId: createCareBatch
+tags:
+  - liv
+summary: "Hatch a batch, answered without cost"
+description: "The Farm hand's cost-free door to `createBatch` (ADR-0052): the same rules, checks and effects, answered in a shape that carries no cost and no price. Unlike `createBatch` it needs no read permission, because its answer shows nothing the write's own permission does not.\n\nHatches a flock on the farm: registers its lot and brings its head into the pen by a BIRTH movement at nil cost. The species must have exactly one lot-tracked product. A flock bought from a supplier opens its batch when its goods receipt is posted.\n\nPermission: `liv.batch.create`, scoped as `createBatch` is."
+x-permission: liv.batch.create
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - LIVESTOCK_RECORD_INVALID
+  - REFERENCE_NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/BatchCreate"
+      example:
+        batchNo: BRL-2611-01
+        speciesId: "019a7a8b-fd16-7bc0-a0f8-c4da5b273db8"
+        startedOn: "2026-11-12"
+        initialHead: 500
+        purpose: GROWING
+        locationId: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/CareBatch"
+        example:
+          id: "019a7abe-6065-7746-bc7e-7d379478f615"
+          batchNo: BRL-2611-01
+          species:
+            id: "019a7a8b-fd16-7bc0-a0f8-c4da5b273db8"
+            code: BROILER
+            name: "Broiler chicken"
+          stockUnit:
+            id: "019a7abe-6a11-7b22-8c33-d44e55f66a77"
+            identifier: BRL-2611-01
+            tracking: LOT
+          startedOn: "2026-11-12"
+          initialHead: 500
+          currentHead: 500
+          purpose: GROWING
+          status: ACTIVE
+          location:
+            id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+            code: HSE-B1
+            name: "Broiler house 1"
+            kind: PEN
+          mortalityPercent: "0.00"
+          version: 1
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

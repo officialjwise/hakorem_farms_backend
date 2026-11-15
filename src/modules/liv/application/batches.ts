@@ -16,7 +16,7 @@ import { checkBatchClose, holdsAnimals } from '../domain/herd';
 import type { BatchClosed, BatchStarted } from '../events';
 import { LivestockRecordInvalidError, LivReferenceNotFoundError } from './errors';
 import type { BatchFilters, BatchPurpose, BatchRecord, HerdStore } from './herd-store';
-import { afterOf, pageOf, pageProbe, placesOf, readScopeOf, runWrite, type Page } from './support';
+import { afterOf, pageOf, pageProbe, placesOf, readScopeOf, runWrite, writePermissions, type Page, type ReadDoor, type WriteDoor } from './support';
 
 export interface BatchCreateRequest {
   readonly batchNo: string;
@@ -78,33 +78,38 @@ export class Batches {
     this.nextId = createUuidV7Generator(clock);
   }
 
-  list(actor: Actor | undefined, filters: BatchFilters, cursor: string | undefined, limit: number): Promise<Page<BatchView>> {
+  list(actor: Actor | undefined, filters: BatchFilters, cursor: string | undefined, limit: number, door: ReadDoor = { operationId: 'listBatches', permission: 'liv.batch.read' }): Promise<Page<BatchView>> {
     return this.uow.run({ isolation: 'read committed' }, async (tx) => {
-      await this.authoriser.authorise(tx, actor, 'liv.batch.read');
-      const scope = await readScopeOf(tx, this.authoriser, this.units, actor!, 'liv.batch.read');
-      const binding = { operationId: 'listBatches', principalId: actor!.principalId, filters: { ...filters } };
+      await this.authoriser.authorise(tx, actor, door.permission);
+      const scope = await readScopeOf(tx, this.authoriser, this.units, actor!, door.permission);
+      const binding = { operationId: door.operationId, principalId: actor!.principalId, filters: { ...filters } };
       const rows = await this.herd.listBatches(tx, filters, scope, afterOf(this.cursors, binding, cursor), pageProbe(limit));
       return pageOf(this.cursors, binding, rows, limit, (r) => r.id, await this.viewsIn(tx, rows.slice(0, limit)));
     });
   }
 
-  get(actor: Actor | undefined, id: string): Promise<BatchView> {
+  get(actor: Actor | undefined, id: string, door: ReadDoor = { operationId: 'getBatch', permission: 'liv.batch.read' }): Promise<BatchView> {
     return this.uow.run({ isolation: 'read committed' }, async (tx) => {
       const batch = (await this.herd.batches(tx, [id]))[0];
-      await this.authoriser.authorise(tx, actor, 'liv.batch.read', batch === undefined ? {} : await this.scopeOf(tx, batch));
+      await this.authoriser.authorise(tx, actor, door.permission, batch === undefined ? {} : await this.scopeOf(tx, batch));
       if (batch === undefined) throw new NotFoundError(`no batch ${id}`);
       return (await this.viewsIn(tx, [batch]))[0]!;
     });
   }
 
-  create(actor: Actor | undefined, body: BatchCreateRequest, idempotencyKey: string): Promise<StoredResponse<BatchView>> {
+  create(
+    actor: Actor | undefined,
+    body: BatchCreateRequest,
+    idempotencyKey: string,
+    door: WriteDoor = { operationId: 'createBatch', answerPermission: 'liv.batch.read' },
+  ): Promise<StoredResponse<BatchView>> {
     return runWrite(
       this.uow,
       this.authoriser,
       this.idempotency,
       actor,
-      'liv.batch.create',
-      'createBatch',
+      writePermissions('liv.batch.create', door),
+      door.operationId,
       body,
       idempotencyKey,
       async (tx) => {
@@ -173,8 +178,14 @@ export class Batches {
     return view;
   }
 
-  update(actor: Actor | undefined, id: string, body: BatchUpdateRequest, idempotencyKey: string): Promise<StoredResponse<BatchView>> {
-    return runWrite(this.uow, this.authoriser, this.idempotency, actor, 'liv.batch.update', 'updateBatch', { id, ...body }, idempotencyKey, (tx) => this.scopeById(tx, id), async (tx, who) => {
+  update(
+    actor: Actor | undefined,
+    id: string,
+    body: BatchUpdateRequest,
+    idempotencyKey: string,
+    door: WriteDoor = { operationId: 'updateBatch', answerPermission: 'liv.batch.read' },
+  ): Promise<StoredResponse<BatchView>> {
+    return runWrite(this.uow, this.authoriser, this.idempotency, actor, writePermissions('liv.batch.update', door), door.operationId, { id, ...body }, idempotencyKey, (tx) => this.scopeById(tx, id), async (tx, who) => {
       const before = await this.herd.lockBatch(tx, id);
       if (before === null) throw new NotFoundError(`no batch ${id}`);
       if (before.version !== body.version) throw new VersionConflictError(`batch ${id} is at version ${before.version}, not ${body.version}`);
@@ -187,8 +198,14 @@ export class Batches {
     });
   }
 
-  close(actor: Actor | undefined, id: string, reason: string, idempotencyKey: string): Promise<StoredResponse<BatchView>> {
-    return runWrite(this.uow, this.authoriser, this.idempotency, actor, 'liv.batch.update', 'closeBatch', { id, reason }, idempotencyKey, (tx) => this.scopeById(tx, id), async (tx, who) => {
+  close(
+    actor: Actor | undefined,
+    id: string,
+    reason: string,
+    idempotencyKey: string,
+    door: WriteDoor = { operationId: 'closeBatch', answerPermission: 'liv.batch.read' },
+  ): Promise<StoredResponse<BatchView>> {
+    return runWrite(this.uow, this.authoriser, this.idempotency, actor, writePermissions('liv.batch.update', door), door.operationId, { id, reason }, idempotencyKey, (tx) => this.scopeById(tx, id), async (tx, who) => {
       const before = await this.herd.lockBatch(tx, id);
       if (before === null) throw new NotFoundError(`no batch ${id}`);
       const [beforeView] = await this.viewsIn(tx, [before]);

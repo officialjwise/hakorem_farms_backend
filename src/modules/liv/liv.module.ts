@@ -26,6 +26,7 @@ import { Weighing } from './application/weights';
 import { PgHerdStore } from './infrastructure/pg-herd-store';
 import { PgLivestockStore } from './infrastructure/pg-livestock-store';
 import { LivestockController } from './interface/livestock.controller';
+import { CareController } from './interface/care.controller';
 
 /**
  * LIV (layer 6): livestock management. B06 continued builds the animal register, which follows each animal's stock
@@ -37,7 +38,7 @@ import { LivestockController } from './interface/livestock.controller';
  */
 @Module({
   imports: [IamModule, MdmModule, InvModule],
-  controllers: [LivestockController],
+  controllers: [LivestockController, CareController],
   providers: [
     { provide: LIVESTOCK_STORE, useClass: PgLivestockStore },
     { provide: HERD_STORE, useClass: PgHerdStore },

@@ -1,0 +1,88 @@
+operationId: reportCareMortality
+tags:
+  - liv
+summary: "Report a death or cull, answered without cost"
+description: "The Farm hand's cost-free door to `reportMortality` (ADR-0052): the same rules, checks and effects, answered in a shape that carries no cost and no price. Unlike `reportMortality` it needs no read permission, because its answer shows nothing the write's own permission does not.\n\nPermission: `liv.mortality.report`.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result.\n\nPermission: `liv.mortality.report`, scoped as `reportMortality` is."
+x-permission: liv.mortality.report
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - LIVESTOCK_RECORD_INVALID
+  - REFERENCE_NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/MortalityRecordCreate"
+      example:
+        id: "019a7ac1-84ab-7860-9d98-8ed9f07207b7"
+        kind: DEATH
+        stockUnitId: "019a7a8f-bc07-7e4c-9384-ed921796666f"
+        reasonCode: DISEASE_SUSPECTED
+        foundAt: "2026-11-13T06:00:00Z"
+        photoFileId: "019a7ac0-3066-7b9a-a0d2-c277b5d73b55"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/CareMortalityRecord"
+        example:
+          id: "019a7ac0-1177-71b6-96ef-24403c269d1e"
+          kind: DEATH
+          stockUnit:
+            id: "019a7a8f-bc07-7e4c-9384-ed921796666f"
+            identifier: G-0171
+            tracking: SERIAL
+          animal:
+            id: "019a7a8f-bc07-7e4c-9384-ed921796666f"
+            tagNo: G-0171
+          head: 1
+          reasonCode: DISEASE_SUSPECTED
+          foundAt: "2026-11-13T06:00:00Z"
+          location:
+            id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+            code: PEN-G2
+            name: "Goat pen 2"
+            kind: PEN
+          reportedBy:
+            id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+            displayName: "Abena Quaye"
+          photoFileId: "019a7ac0-3066-7b9a-a0d2-c277b5d73b55"
+          status: REPORTED
+          approvalRequestId: null
+          movementId: null
+          disposalNote: null
+          version: 2
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

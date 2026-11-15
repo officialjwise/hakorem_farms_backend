@@ -111,7 +111,7 @@ export class LivestockController {
   }
 
   @Post('health-events')
-  @Operation({ operationId: 'recordHealthEvent', ...WRITE, permission: 'liv.health.record' })
+  @Operation({ operationId: 'recordHealthEvent', ...WRITE, permission: 'liv.health.record', answerPermission: 'liv.health.read' })
   recordHealthEvent(
     @CurrentActor() actor: Actor | undefined,
     @Body(zodPipe(HealthEventCreate)) body: z.infer<typeof HealthEventCreate>,
@@ -135,7 +135,7 @@ export class LivestockController {
   }
 
   @Post('mortality-records')
-  @Operation({ operationId: 'reportMortality', ...WRITE, permission: 'liv.mortality.report' })
+  @Operation({ operationId: 'reportMortality', ...WRITE, permission: 'liv.mortality.report', answerPermission: 'liv.mortality.read' })
   reportMortality(
     @CurrentActor() actor: Actor | undefined,
     @Body(zodPipe(MortalityRecordCreate)) body: z.infer<typeof MortalityRecordCreate>,
@@ -152,7 +152,7 @@ export class LivestockController {
   }
 
   @Post('mortality-records/:id/submit')
-  @Operation({ operationId: 'submitMortalityRecord', ...WRITE, permission: 'liv.mortality.report' })
+  @Operation({ operationId: 'submitMortalityRecord', ...WRITE, permission: 'liv.mortality.report', answerPermission: 'liv.mortality.read' })
   submitMortalityRecord(
     @CurrentActor() actor: Actor | undefined,
     @Param('id', zodPipe(IdParam)) id: string,
@@ -199,7 +199,7 @@ export class LivestockController {
   }
 
   @Post('feed-consumption')
-  @Operation({ operationId: 'recordFeedConsumption', ...WRITE, permission: 'liv.feed.record' })
+  @Operation({ operationId: 'recordFeedConsumption', ...WRITE, permission: 'liv.feed.record', answerPermission: 'liv.feed.read' })
   recordFeedConsumption(
     @CurrentActor() actor: Actor | undefined,
     @Body(zodPipe(FeedConsumptionCreate)) body: z.infer<typeof FeedConsumptionCreate>,
@@ -216,7 +216,7 @@ export class LivestockController {
   }
 
   @Patch('animals/:id')
-  @Operation({ operationId: 'updateAnimal', ...WRITE, permission: 'liv.animal.update' })
+  @Operation({ operationId: 'updateAnimal', ...WRITE, permission: 'liv.animal.update', answerPermission: 'liv.animal.read' })
   updateAnimal(
     @CurrentActor() actor: Actor | undefined,
     @Param('id', zodPipe(IdParam)) id: string,
@@ -234,7 +234,7 @@ export class LivestockController {
   }
 
   @Post('animals/:id/move')
-  @Operation({ operationId: 'moveAnimal', ...WRITE, permission: 'liv.animal.move' })
+  @Operation({ operationId: 'moveAnimal', ...WRITE, permission: 'liv.animal.move', answerPermission: 'liv.animal.read' })
   moveAnimal(
     @CurrentActor() actor: Actor | undefined,
     @Param('id', zodPipe(IdParam)) id: string,
@@ -260,7 +260,7 @@ export class LivestockController {
   }
 
   @Post('batches')
-  @Operation({ operationId: 'createBatch', ...WRITE, permission: 'liv.batch.create' })
+  @Operation({ operationId: 'createBatch', ...WRITE, permission: 'liv.batch.create', answerPermission: 'liv.batch.read' })
   createBatch(
     @CurrentActor() actor: Actor | undefined,
     @Body(zodPipe(BatchCreate)) body: z.infer<typeof BatchCreate>,
@@ -277,7 +277,7 @@ export class LivestockController {
   }
 
   @Patch('batches/:id')
-  @Operation({ operationId: 'updateBatch', ...WRITE, permission: 'liv.batch.update' })
+  @Operation({ operationId: 'updateBatch', ...WRITE, permission: 'liv.batch.update', answerPermission: 'liv.batch.read' })
   updateBatch(
     @CurrentActor() actor: Actor | undefined,
     @Param('id', zodPipe(IdParam)) id: string,
@@ -289,7 +289,7 @@ export class LivestockController {
   }
 
   @Post('batches/:id/close')
-  @Operation({ operationId: 'closeBatch', ...WRITE, permission: 'liv.batch.update' })
+  @Operation({ operationId: 'closeBatch', ...WRITE, permission: 'liv.batch.update', answerPermission: 'liv.batch.read' })
   closeBatch(
     @CurrentActor() actor: Actor | undefined,
     @Param('id', zodPipe(IdParam)) id: string,

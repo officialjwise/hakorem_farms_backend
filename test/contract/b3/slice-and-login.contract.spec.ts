@@ -327,6 +327,14 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     updateBreedingRecord: BreedingRecordUpdate,
     recordBirth: BirthRecord,
     failBreedingRecord: LivReasonRequest,
+    recordCareHealthEvent: HealthEventCreate,
+    reportCareMortality: MortalityRecordCreate,
+    recordCareFeedConsumption: FeedConsumptionCreate,
+    updateCareAnimal: AnimalUpdate,
+    moveCareAnimal: AnimalMove,
+    createCareBatch: BatchCreate,
+    updateCareBatch: BatchUpdate,
+    closeCareBatch: LivReasonRequest,
   };
 
   it('parses every request example of an implemented operation with the schema its route validates with', () => {

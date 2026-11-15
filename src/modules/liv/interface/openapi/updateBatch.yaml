@@ -2,8 +2,9 @@ operationId: updateBatch
 tags:
   - liv
 summary: "Update a batch"
-description: "A batch's purpose decides how feed and veterinary cost spread onto its flock is treated: capitalised for GROWING, expensed for BREEDING and LAYING.\n\nPermission: `liv.batch.update`."
+description: "A batch's purpose decides how feed and veterinary cost spread onto its flock is treated: capitalised for GROWING, expensed for BREEDING and LAYING.\n\nPermission: `liv.batch.update`. The answer carries the batch's accumulated cost, so the caller also needs `liv.batch.read` at the same scope (`x-answer-permission`, ADR-0052); the Farm hand, who holds the write but not the read, uses `updateCareBatch`."
 x-permission: liv.batch.update
+x-answer-permission: liv.batch.read
 x-error-codes:
   - VALIDATION_FAILED
   - UNAUTHENTICATED

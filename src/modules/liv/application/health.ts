@@ -15,7 +15,7 @@ import type { HealthEventRecorded, WithdrawalStarted } from '../events';
 import { LivestockRecordInvalidError, LivReferenceNotFoundError } from './errors';
 import type { HealthEventRecord, HealthFilters, HealthKind, LivestockStore } from './livestock-store';
 import type { CostSpreader, ServedUnit } from './spread';
-import { afterOf, pageOf, pageProbe, placesOf, readScopeOf, runWrite, type Page } from './support';
+import { afterOf, pageOf, pageProbe, placesOf, readScopeOf, runWrite, writePermissions, type Page, type ReadDoor, type WriteDoor } from './support';
 
 export interface HealthEventCreateRequest {
   readonly id?: string | undefined;
@@ -97,14 +97,19 @@ export class HealthRecords {
     this.nextId = createUuidV7Generator(clock);
   }
 
-  record(actor: Actor | undefined, body: HealthEventCreateRequest, idempotencyKey: string): Promise<StoredResponse<HealthEventView>> {
+  record(
+    actor: Actor | undefined,
+    body: HealthEventCreateRequest,
+    idempotencyKey: string,
+    door: WriteDoor = { operationId: 'recordHealthEvent', answerPermission: 'liv.health.read' },
+  ): Promise<StoredResponse<HealthEventView>> {
     return runWrite(
       this.uow,
       this.authoriser,
       this.idempotency,
       actor,
-      'liv.health.record',
-      'recordHealthEvent',
+      writePermissions('liv.health.record', door),
+      door.operationId,
       { ...body, costPesewas: body.costPesewas?.toString(), occurredAt: body.occurredAt.toISOString() },
       idempotencyKey,
       (tx) => this.scopeOf(tx, body),
@@ -226,17 +231,17 @@ export class HealthRecords {
     return view;
   }
 
-  list(actor: Actor | undefined, filters: HealthFilters, cursor: string | undefined, limit: number): Promise<Page<HealthEventView>> {
+  list(actor: Actor | undefined, filters: HealthFilters, cursor: string | undefined, limit: number, door: ReadDoor = { operationId: 'listHealthEvents', permission: 'liv.health.read' }): Promise<Page<HealthEventView>> {
     return this.uow.run({ isolation: 'read committed' }, async (tx) => {
-      await this.authoriser.authorise(tx, actor, 'liv.health.read');
-      const scope = await readScopeOf(tx, this.authoriser, this.units, actor!, 'liv.health.read');
-      const binding = { operationId: 'listHealthEvents', principalId: actor!.principalId, filters: { ...filters, from: filters.from?.toISOString(), to: filters.to?.toISOString() } };
+      await this.authoriser.authorise(tx, actor, door.permission);
+      const scope = await readScopeOf(tx, this.authoriser, this.units, actor!, door.permission);
+      const binding = { operationId: door.operationId, principalId: actor!.principalId, filters: { ...filters, from: filters.from?.toISOString(), to: filters.to?.toISOString() } };
       const rows = await this.store.listHealthEvents(tx, filters, scope, afterOf(this.cursors, binding, cursor), pageProbe(limit));
       return pageOf(this.cursors, binding, rows, limit, (r) => r.id, await this.views(tx, rows.slice(0, limit)));
     });
   }
 
-  get(actor: Actor | undefined, id: string): Promise<HealthEventView> {
+  get(actor: Actor | undefined, id: string, door: ReadDoor = { operationId: 'getHealthEvent', permission: 'liv.health.read' }): Promise<HealthEventView> {
     return this.uow.run({ isolation: 'read committed' }, async (tx) => {
       const record = (await this.store.healthEvents(tx, [id]))[0];
       let scope: AuthoriseScope = {};
@@ -244,7 +249,7 @@ export class HealthRecords {
         const unit = record.stockUnitId === null ? undefined : (await this.units.factsIn(tx, [record.stockUnitId], this.clock.now())).get(record.stockUnitId);
         scope = { branchId: record.branchId, locationId: record.locationId ?? unit?.currentLocationId ?? null };
       }
-      await this.authoriser.authorise(tx, actor, 'liv.health.read', scope);
+      await this.authoriser.authorise(tx, actor, door.permission, scope);
       if (record === undefined) throw new NotFoundError(`no health event ${id}`);
       return (await this.views(tx, [record]))[0]!;
     });

@@ -14,7 +14,7 @@ import type { AnimalRegistered, BatchStarted } from '../events';
 import { LivestockRecordInvalidError } from './errors';
 import type { HerdStore } from './herd-store';
 import type { AnimalFilters, AnimalRecord, LivestockStore, Purpose, Sex } from './livestock-store';
-import { afterOf, pageOf, pageProbe, readScopeOf, type Page } from './support';
+import { afterOf, pageOf, pageProbe, readScopeOf, type Page, type ReadDoor } from './support';
 
 interface Ref {
   readonly id: string;
@@ -236,11 +236,11 @@ export class Animals {
     });
   };
 
-  list(actor: Actor | undefined, filters: AnimalListFilters, cursor: string | undefined, limit: number): Promise<Page<AnimalView>> {
+  list(actor: Actor | undefined, filters: AnimalListFilters, cursor: string | undefined, limit: number, door: ReadDoor = { operationId: 'listAnimals', permission: 'liv.animal.read' }): Promise<Page<AnimalView>> {
     return this.uow.run({ isolation: 'read committed' }, async (tx) => {
-      await this.authoriser.authorise(tx, actor, 'liv.animal.read');
-      const scope = await readScopeOf(tx, this.authoriser, this.units, actor!, 'liv.animal.read');
-      const binding = { operationId: 'listAnimals', principalId: actor!.principalId, filters: { ...filters } };
+      await this.authoriser.authorise(tx, actor, door.permission);
+      const scope = await readScopeOf(tx, this.authoriser, this.units, actor!, door.permission);
+      const binding = { operationId: door.operationId, principalId: actor!.principalId, filters: { ...filters } };
       let after = afterOf(this.cursors, binding, cursor);
       const query: AnimalFilters = {
         q: filters.q,
@@ -272,11 +272,11 @@ export class Animals {
     });
   }
 
-  get(actor: Actor | undefined, id: string): Promise<AnimalView> {
+  get(actor: Actor | undefined, id: string, door: ReadDoor = { operationId: 'getAnimal', permission: 'liv.animal.read' }): Promise<AnimalView> {
     return this.uow.run({ isolation: 'read committed' }, async (tx) => {
       const record = (await this.store.animals(tx, [id]))[0];
       const facts = record === undefined ? undefined : (await this.units.factsIn(tx, [id], this.clock.now())).get(id);
-      await this.authoriser.authorise(tx, actor, 'liv.animal.read', record === undefined ? {} : { branchId: record.branchId, locationId: facts?.currentLocationId ?? null });
+      await this.authoriser.authorise(tx, actor, door.permission, record === undefined ? {} : { branchId: record.branchId, locationId: facts?.currentLocationId ?? null });
       if (record === undefined) throw new NotFoundError(`no animal ${id}`);
       return (await this.viewsIn(tx, [record], this.clock.now()))[0]!;
     });

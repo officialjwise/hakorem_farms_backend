@@ -106,9 +106,10 @@ async function weigh(unit: string, kg: string, day: string, head = 1): Promise<v
 }
 
 async function feed(pen: string, sku: string, qty: string, consumedOn: string): Promise<{ allocations: Array<{ stockUnit: { identifier: string }; amountPesewas: number; treatment: string }> }> {
-  const fed = await post(farmHand, '/feed-consumption', { locationId: id(`location:${pen}`), feedProductId: id(`product:${sku}`), qty, consumedOn });
+  // The Farm hand records feed through the care door, which answers without its value (A-160); the manager reads it.
+  const fed = await post(farmHand, '/care/feed-consumption', { locationId: id(`location:${pen}`), feedProductId: id(`product:${sku}`), qty, consumedOn });
   expect(fed.status, JSON.stringify(fed.body)).toBe(201);
-  return fed.body;
+  return (await get(manager, `/feed-consumption/${fed.body.id as string}`)).body;
 }
 
 async function animal(tag: string): Promise<Record<string, unknown>> {
@@ -322,7 +323,7 @@ describe('moving an animal between pens (FR-LIV-003)', () => {
   });
 
   it('moves an animal under a withdrawal hold, which blocks a sale but not a pen move', async () => {
-    const treated = await post(farmHand, '/health-events', { kind: 'DEWORMING', stockUnitId: id('unit:GR-C'), productId: id('product:MED-ALBENDAZOLE'), qtyUsed: '0.010', occurredAt: daysAgo(0.01).toISOString() });
+    const treated = await post(farmHand, '/care/health-events', { kind: 'DEWORMING', stockUnitId: id('unit:GR-C'), productId: id('product:MED-ALBENDAZOLE'), qtyUsed: '0.010', occurredAt: daysAgo(0.01).toISOString() });
     expect(treated.status, JSON.stringify(treated.body)).toBe(201);
     expect((await animal('GR-C'))['sellable']).toBe(false);
     const moved = await post(manager, `/animals/${id('unit:GR-C')}/move`, { toLocationId: id('location:PEN-GR2') });
@@ -336,9 +337,9 @@ describe('batches (FR-LIV-006)', () => {
     const batch = (await get(manager, `/batches/${id('batch:BRG-01')}`)).body;
     expect(batch).toMatchObject({ batchNo: 'BRG-01', species: { code: 'BROILER' }, stockUnit: { identifier: 'BRG-01', tracking: 'LOT' }, initialHead: 20, currentHead: 20, purpose: 'GROWING', status: 'ACTIVE', location: { code: 'PEN-BR' }, mortalityPercent: '0.00' });
     // Two birds die: 2 of 20 head at a pool of 95,000 writes off 9,500, below the threshold, so it posts on submit.
-    const reported = await post(farmHand, '/mortality-records', { kind: 'DEATH', stockUnitId: id('unit:BRG-01'), head: 2, reasonCode: 'UNKNOWN_CAUSE', foundAt: daysAgo(1).toISOString() });
+    const reported = await post(farmHand, '/care/mortality-records', { kind: 'DEATH', stockUnitId: id('unit:BRG-01'), head: 2, reasonCode: 'UNKNOWN_CAUSE', foundAt: daysAgo(1).toISOString() });
     expect(reported.status, JSON.stringify(reported.body)).toBe(201);
-    expect((await post(farmHand, `/mortality-records/${reported.body.id as string}/submit`)).status).toBe(200);
+    expect((await post(farmHand, `/care/mortality-records/${reported.body.id as string}/submit`)).status).toBe(200);
     const after = (await get(manager, `/batches/${id('batch:BRG-01')}`)).body;
     expect(after).toMatchObject({ currentHead: 18, mortalityPercent: '10.00', accumulatedCostPesewas: 85_500 });
     const early = await post(manager, `/batches/${id('batch:BRG-01')}/close`, { reason: 'House to be cleaned' });
@@ -410,11 +411,15 @@ describe('every remaining LIV write refuses the wrong role (ADR-0035)', () => {
   });
 
   it('lets the Farm hand read growth, batches and breeding, as the owner decided on 2026-11-15, and refuses the Cashier them', async () => {
-    for (const path of [`/livestock/growth?groupBy=PEN&from=${FROM}&to=${TO}`, '/batches', `/batches/${id('batch:BRL-HATCH-01')}`, '/breeding-records']) {
+    // Batches through the care door, without their cost (A-160); the full batch reads carry cost and refuse the role.
+    for (const path of [`/livestock/growth?groupBy=PEN&from=${FROM}&to=${TO}`, '/care/batches', `/care/batches/${id('batch:BRL-HATCH-01')}`, '/breeding-records']) {
       expect((await get(farmHand, path)).status, path).toBe(200);
       expect((await get(wrong.get('CASHIER')!, path)).status, path).toBe(403);
     }
-    // The timeline is read with liv.animal.read, which the Farm hand does not yet hold (A-158; B06 continued 3).
+    for (const path of ['/batches', `/batches/${id('batch:BRL-HATCH-01')}`]) {
+      expect((await get(farmHand, path)).status, path).toBe(403);
+    }
+    // The timeline is read with liv.animal.read and carries each movement's value, so the Farm hand is refused it.
     expect((await get(farmHand, `/animals/${id('unit:GR-A')}/timeline`)).status).toBe(403);
   });
 });
@@ -495,8 +500,8 @@ describe('breeding and births (FR-LIV-010, FR-LIV-011)', () => {
     expect(failed.body.status).toBe('FAILED');
     const again = await post(farmHand, '/breeding-records', { damId: id('unit:GR-E'), sireId: id('unit:GR-S'), matedOn: dayOf(20) });
     expect(again.status).toBe(201);
-    const died = await post(farmHand, '/mortality-records', { kind: 'DEATH', stockUnitId: id('unit:GR-E'), reasonCode: 'UNKNOWN_CAUSE', foundAt: daysAgo(0.01).toISOString() });
-    expect((await post(farmHand, `/mortality-records/${died.body.id as string}/submit`)).status).toBe(200);
+    const died = await post(farmHand, '/care/mortality-records', { kind: 'DEATH', stockUnitId: id('unit:GR-E'), reasonCode: 'UNKNOWN_CAUSE', foundAt: daysAgo(0.01).toISOString() });
+    expect((await post(farmHand, `/care/mortality-records/${died.body.id as string}/submit`)).status).toBe(200);
     clock.advanceBy(2 * DAY);
     // Two days on, the session has lapsed; the Farm hand signs in again.
     farmHand = await login(api.server, farmHandUser);
