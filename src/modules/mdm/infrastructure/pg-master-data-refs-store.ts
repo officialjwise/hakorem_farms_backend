@@ -1,0 +1,71 @@
+import type { Transaction } from '../../../platform/database/unit-of-work';
+import type { GradeFacts, LocationFacts, MasterDataRefsStore, ProductFacts, SupplierFacts } from '../application/master-data-refs';
+
+/** MDM's own tables, read by primary key for a higher module's transaction (MasterDataRefs). */
+export class PgMasterDataRefsStore implements MasterDataRefsStore {
+  async products(tx: Transaction, ids: readonly string[]): Promise<ProductFacts[]> {
+    const { rows } = await tx.query<{
+      id: string;
+      sku: string;
+      name: string;
+      category_id: string;
+      stock_policy: ProductFacts['stockPolicy'];
+      tracking: ProductFacts['tracking'];
+      base_uom: string;
+      display_decimals: number;
+      shelf_life_days: number | null;
+      storage_temp_class: ProductFacts['storageTempClass'];
+      is_purchasable: boolean;
+      is_live: boolean;
+    }>(
+      `SELECT p.id, p.sku, p.name, p.category_id, p.stock_policy, p.tracking, p.base_uom, u.display_decimals, p.shelf_life_days,
+              p.storage_temp_class, p.is_purchasable, (p.status = 'ACTIVE' AND p.deleted_at IS NULL) AS is_live
+         FROM mdm.product p JOIN mdm.uom u ON u.code = p.base_uom
+        WHERE p.id = ANY($1::uuid[])`,
+      [ids],
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      sku: r.sku,
+      name: r.name,
+      categoryId: r.category_id,
+      stockPolicy: r.stock_policy,
+      tracking: r.tracking,
+      baseUom: r.base_uom,
+      uomDisplayDecimals: Number(r.display_decimals),
+      shelfLifeDays: r.shelf_life_days,
+      storageTempClass: r.storage_temp_class,
+      isPurchasable: r.is_purchasable,
+      isLive: r.is_live,
+    }));
+  }
+
+  async locations(tx: Transaction, ids: readonly string[]): Promise<LocationFacts[]> {
+    const { rows } = await tx.query<{ id: string; branch_id: string; code: string; name: string; kind: string; is_virtual: boolean; is_live: boolean }>(
+      'SELECT id, branch_id, code, name, kind, is_virtual, deleted_at IS NULL AS is_live FROM mdm.location WHERE id = ANY($1::uuid[])',
+      [ids],
+    );
+    return rows.map((r) => ({ id: r.id, branchId: r.branch_id, code: r.code, name: r.name, kind: r.kind, isVirtual: r.is_virtual, isLive: r.is_live }));
+  }
+
+  async virtualLocation(tx: Transaction, branchId: string, kind: string): Promise<string | null> {
+    const { rows } = await tx.query<{ id: string }>(
+      'SELECT id FROM mdm.location WHERE branch_id = $1 AND kind = $2 AND is_virtual AND deleted_at IS NULL ORDER BY created_at, id LIMIT 1',
+      [branchId, kind],
+    );
+    return rows[0]?.id ?? null;
+  }
+
+  async suppliers(tx: Transaction, ids: readonly string[]): Promise<SupplierFacts[]> {
+    const { rows } = await tx.query<{ id: string; supplier_no: string; name: string; is_live: boolean }>(
+      "SELECT id, supplier_no, name, (status = 'ACTIVE' AND deleted_at IS NULL) AS is_live FROM mdm.supplier WHERE id = ANY($1::uuid[])",
+      [ids],
+    );
+    return rows.map((r) => ({ id: r.id, supplierNo: r.supplier_no, name: r.name, isLive: r.is_live }));
+  }
+
+  async grades(tx: Transaction, ids: readonly string[]): Promise<GradeFacts[]> {
+    const { rows } = await tx.query<{ id: string; code: string; name: string }>('SELECT id, code, name FROM mdm.grade WHERE id = ANY($1::uuid[])', [ids]);
+    return rows;
+  }
+}
