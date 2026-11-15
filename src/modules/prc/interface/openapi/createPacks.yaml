@@ -1,0 +1,109 @@
+operationId: createPacks
+tags:
+  - prc
+summary: "Pack an output into weighed packs"
+description: "Packs a saleable output of a COMPLETED order, once, while its lot is whole and where the order put it. The pack weights must sum exactly to the output's weight (a tolerance of 0.000 kg; the last pack is the remainder), and their number must equal the output's `packCount` when it recorded one. Each pack's barcode payload is the lot and its weight in grams, six digits; a pack weighs less than 1,000 kg. Packing moves no stock and no cost.\n\nRefusals (422 PROCESSING_ORDER_INVALID, `details[].code`): ORDER_NOT_COMPLETED, ORDER_REVERSED, OUTPUT_NOT_FOUND, OUTPUT_IS_WASTE, ALREADY_PACKED, LOT_NOT_WHOLE, NO_PACKS, PACK_WEIGHT_NOT_POSITIVE, PACK_TOO_HEAVY_FOR_LABEL, PACK_COUNT_NOT_OUTPUT_COUNT, PACK_WEIGHTS_NOT_LOT_WEIGHT.\n\nPermission: `prc.order.process`, scoped to the order's branch and processing location."
+x-permission: prc.order.process
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - NOT_FOUND
+  - PROCESSING_ORDER_INVALID
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/PacksCreate"
+      example:
+        outputLineNo: 1
+        packs:
+          - weightKg: "15.000"
+            weightSource: SCALE
+          - weightKg: "15.000"
+            weightSource: SCALE
+          - weightKg: "14.600"
+            weightSource: SCALE
+responses:
+  "201":
+    description: Created
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/PackList"
+        example:
+          packs:
+            - id: "019a8a10-1c4e-7a21-9b3e-4d2f6a8c0e11"
+              stockUnit:
+                id: "019a8a0f-7b2d-7c40-8e15-3a9d4f6b2c70"
+                identifier: PRC-261114-3f2a91c4-01
+                tracking: LOT
+              outputLineNo: 1
+              packNo: 1
+              weightKg: "15.000"
+              weightSource: SCALE
+              barcode: PRC-261114-3f2a91c4-01/015000
+              status: IN_STOCK
+              labelPrintedAt: null
+            - id: "019a8a10-1c4e-7a21-9b3e-4d2f6a8c0e12"
+              stockUnit:
+                id: "019a8a0f-7b2d-7c40-8e15-3a9d4f6b2c70"
+                identifier: PRC-261114-3f2a91c4-01
+                tracking: LOT
+              outputLineNo: 1
+              packNo: 2
+              weightKg: "15.000"
+              weightSource: SCALE
+              barcode: PRC-261114-3f2a91c4-01/015000
+              status: IN_STOCK
+              labelPrintedAt: null
+            - id: "019a8a10-1c4e-7a21-9b3e-4d2f6a8c0e13"
+              stockUnit:
+                id: "019a8a0f-7b2d-7c40-8e15-3a9d4f6b2c70"
+                identifier: PRC-261114-3f2a91c4-01
+                tracking: LOT
+              outputLineNo: 1
+              packNo: 3
+              weightKg: "14.600"
+              weightSource: SCALE
+              barcode: PRC-261114-3f2a91c4-01/014600
+              status: IN_STOCK
+              labelPrintedAt: null
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -136,6 +136,8 @@ const VALID_BODY: Readonly<Record<string, object>> = {
   updateBreedingRecord: { version: 1, status: 'CONFIRMED' },
   recordBirth: { actualBirthOn: '2026-11-02', litterSize: 2, offspring: [{ tagNo: 'G-0181', sex: 'MALE' }] },
   failBreedingRecord: { reason: 'Came back on heat' },
+  createPacks: { outputLineNo: 1, packs: [{ weightKg: '15.000', weightSource: 'SCALE' }] },
+  printPackLabels: { packIds: [randomUUID()] },
   recordCareHealthEvent: { kind: 'TREATMENT', stockUnitId: randomUUID(), occurredAt: '2026-11-10T08:00:00Z' },
   reportCareMortality: { kind: 'DEATH', stockUnitId: randomUUID(), reasonCode: 'UNKNOWN_CAUSE', foundAt: '2026-11-10T06:00:00Z' },
   recordCareFeedConsumption: { locationId: randomUUID(), feedProductId: randomUUID(), qty: '10.000', consumedOn: '2026-11-10' },
@@ -232,7 +234,7 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'listBreedingRecords', 'createBreedingRecord', 'getBreedingRecord', 'updateBreedingRecord', 'recordBirth', 'failBreedingRecord',
         'listCareAnimals', 'getCareAnimal', 'updateCareAnimal', 'moveCareAnimal', 'listCareHealthEvents', 'recordCareHealthEvent', 'getCareHealthEvent',
         'reportCareMortality', 'submitCareMortalityRecord', 'listCareRations', 'recordCareFeedConsumption', 'listCareBatches', 'createCareBatch', 'getCareBatch',
-        'updateCareBatch', 'closeCareBatch',
+        'updateCareBatch', 'closeCareBatch', 'listPacks', 'createPacks', 'printPackLabels',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);

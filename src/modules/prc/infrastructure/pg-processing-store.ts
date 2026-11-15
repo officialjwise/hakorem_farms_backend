@@ -8,7 +8,10 @@ import type {
   OrderFilters,
   OrderRecord,
   OrderStatus,
+  NewPack,
   OutputRecord,
+  PackRecord,
+  PackStatus,
   ProcessingStore,
   ReadScope,
   YieldStandardRecord,
@@ -29,6 +32,11 @@ type OrderRow = Omit<OrderRecord, 'inputs' | 'outputs' | 'costs' | 'inputCostPes
   directCostPesewas: string;
   totalCostPesewas: string | null;
 };
+
+const PACK = `SELECT k.id, k.stock_unit_id AS "stockUnitId", k.processing_output_id AS "processingOutputId", p.line_no AS "outputLineNo",
+                     k.pack_no AS "packNo", k.weight_kg::text AS "weightKg", k.weight_source AS "weightSource", k.barcode,
+                     k.label_printed_at AS "labelPrintedAt", k.status
+                FROM prc.pack k JOIN prc.processing_output p ON p.id = k.processing_output_id`;
 
 const big = (text: string | null): bigint | null => (text === null ? null : BigInt(text));
 
@@ -241,7 +249,40 @@ export class PgProcessingStore implements ProcessingStore {
       costs: costs.rows.filter((c) => c.orderId === r.id).map(({ orderId: _o, ...c }) => ({ ...c, amountPesewas: BigInt(c.amountPesewas) })),
     }));
   }
+
+  async packsOf(tx: Transaction, orderId: string, after: { lineNo: number; packNo: number } | null, limit: number): Promise<PackRecord[]> {
+    const { rows } = await tx.query<PackRecord>(
+      `${PACK} WHERE p.processing_order_id = $1 AND ($2::integer IS NULL OR (p.line_no, k.pack_no) > ($2, $3))
+        ORDER BY p.line_no, k.pack_no LIMIT $4`,
+      [orderId, after?.lineNo ?? null, after?.packNo ?? null, limit],
+    );
+    return rows;
+  }
+
+  async lockPacks(tx: Transaction, ids: readonly string[]): Promise<PackRecord[]> {
+    if (ids.length === 0) return [];
+    const { rows } = await tx.query<PackRecord>(`${PACK} WHERE k.id = ANY($1::uuid[]) ORDER BY p.line_no, k.pack_no FOR UPDATE OF k`, [ids]);
+    return rows;
+  }
+
+  async insertPack(tx: Transaction, pack: NewPack, actorId: string): Promise<void> {
+    await tx.query(
+      `INSERT INTO prc.pack (id, stock_unit_id, processing_output_id, pack_no, weight_kg, weight_source, barcode, created_by, updated_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)`,
+      [pack.id, pack.stockUnitId, pack.processingOutputId, pack.packNo, pack.weightKg, pack.weightSource, pack.barcode, actorId],
+    );
+  }
+
+  async markPrinted(tx: Transaction, ids: readonly string[], at: Date, actorId: string): Promise<void> {
+    await tx.query('UPDATE prc.pack SET label_printed_at = $2, version = version + 1, updated_at = now(), updated_by = $3 WHERE id = ANY($1::uuid[]) AND label_printed_at IS NULL', [ids, at, actorId]);
+  }
+
+  async setPackStatus(tx: Transaction, ids: readonly string[], status: PackStatus, actorId: string): Promise<void> {
+    if (ids.length === 0) return;
+    await tx.query('UPDATE prc.pack SET status = $2, version = version + 1, updated_at = now(), updated_by = $3 WHERE id = ANY($1::uuid[]) AND status <> $2', [ids, status, actorId]);
+  }
 }
+
 
 const STANDARD = `SELECT s.id, s.input_product_id AS "inputProductId", s.output_product_id AS "outputProductId", s.expected_percent::text AS "expectedPercent",
                          s.tolerance_percent::text AS "tolerancePercent", s.version

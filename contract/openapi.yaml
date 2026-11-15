@@ -32264,8 +32264,15 @@ paths:
       tags:
         - prc
       summary: "List the packs made from a processing order"
-      description: "Permission: `prc.order.read`."
+      description: "A completed order's packs, in output line and pack order, with each pack's lot, weight and weight source, barcode, status and first print time (FR-PRC-009).\n\nPermission: `prc.order.read`, scoped to the order's branch and processing location."
       x-permission: prc.order.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -32298,66 +32305,42 @@ paths:
                 $ref: "#/components/schemas/PackPage"
               example:
                 data:
-                  - id: "019a7ac6-78f2-7dce-a306-e5bc6dcb5e9a"
+                  - id: "019a8a10-1c4e-7a21-9b3e-4d2f6a8c0e11"
                     stockUnit:
-                      id: "019a7a90-f15d-712e-b666-1bbcd880949a"
-                      identifier: MEAT-GOAT-261109-01
+                      id: "019a8a0f-7b2d-7c40-8e15-3a9d4f6b2c70"
+                      identifier: PRC-261114-3f2a91c4-01
                       tracking: LOT
+                    outputLineNo: 1
                     packNo: 1
-                    weightKg: "15.200"
-                    barcode: "226010901015200"
+                    weightKg: "15.000"
+                    weightSource: SCALE
+                    barcode: PRC-261114-3f2a91c4-01/015000
                     status: SOLD
-                    labelPrintedAt: "2026-11-09T12:00:00Z"
-                  - id: "019a7ac6-97e1-77b2-bcea-83f3e77cfcd1"
+                    labelPrintedAt: "2026-11-14T13:05:00Z"
+                  - id: "019a8a10-1c4e-7a21-9b3e-4d2f6a8c0e12"
                     stockUnit:
-                      id: "019a7a90-f15d-712e-b666-1bbcd880949a"
-                      identifier: MEAT-GOAT-261109-01
+                      id: "019a8a0f-7b2d-7c40-8e15-3a9d4f6b2c70"
+                      identifier: PRC-261114-3f2a91c4-01
                       tracking: LOT
+                    outputLineNo: 1
                     packNo: 2
-                    weightKg: "14.850"
-                    barcode: "226010901114850"
-                    status: SOLD
-                    labelPrintedAt: "2026-11-09T12:01:00Z"
-                  - id: "019a7ac6-b6d0-7195-86cd-222b612d9b09"
+                    weightKg: "15.000"
+                    weightSource: SCALE
+                    barcode: PRC-261114-3f2a91c4-01/015000
+                    status: IN_STOCK
+                    labelPrintedAt: "2026-11-14T13:05:00Z"
+                  - id: "019a8a10-1c4e-7a21-9b3e-4d2f6a8c0e13"
                     stockUnit:
-                      id: "019a7a90-f15d-712e-b666-1bbcd880949a"
-                      identifier: MEAT-GOAT-261109-01
+                      id: "019a8a0f-7b2d-7c40-8e15-3a9d4f6b2c70"
+                      identifier: PRC-261114-3f2a91c4-01
                       tracking: LOT
+                    outputLineNo: 1
                     packNo: 3
-                    weightKg: "14.950"
-                    barcode: "226010901214950"
+                    weightKg: "14.600"
+                    weightSource: SCALE
+                    barcode: PRC-261114-3f2a91c4-01/014600
                     status: IN_STOCK
-                    labelPrintedAt: "2026-11-09T12:02:00Z"
-                  - id: "019a7ac6-d5bf-7b79-90b1-c062dade3940"
-                    stockUnit:
-                      id: "019a7a90-f15d-712e-b666-1bbcd880949a"
-                      identifier: MEAT-GOAT-261109-01
-                      tracking: LOT
-                    packNo: 4
-                    weightKg: "13.350"
-                    barcode: "226010901313350"
-                    status: IN_STOCK
-                    labelPrintedAt: "2026-11-09T12:03:00Z"
-                  - id: "019a7ac6-f4ae-755c-aa94-5e9a548fd778"
-                    stockUnit:
-                      id: "019a7a90-f15d-712e-b666-1bbcd880949a"
-                      identifier: MEAT-GOAT-261109-01
-                      tracking: LOT
-                    packNo: 5
-                    weightKg: "15.100"
-                    barcode: "226010901415100"
-                    status: PICKED
-                    labelPrintedAt: "2026-11-09T12:04:00Z"
-                  - id: "019a7ac7-139d-7f40-b478-fcd1ce4075af"
-                    stockUnit:
-                      id: "019a7a90-f15d-712e-b666-1bbcd880949a"
-                      identifier: MEAT-GOAT-261109-01
-                      tracking: LOT
-                    packNo: 6
-                    weightKg: "14.700"
-                    barcode: "226010901514700"
-                    status: IN_STOCK
-                    labelPrintedAt: "2026-11-09T12:05:00Z"
+                    labelPrintedAt: null
                 page:
                   nextCursor: null
                   limit: 25
@@ -32379,8 +32362,20 @@ paths:
       tags:
         - prc
       summary: "Pack an output into weighed packs"
-      description: "Pack weights must sum to the output weight within 0.050 kg.\n\nPermission: `prc.order.process`."
+      description: "Packs a saleable output of a COMPLETED order, once, while its lot is whole and where the order put it. The pack weights must sum exactly to the output's weight (a tolerance of 0.000 kg; the last pack is the remainder), and their number must equal the output's `packCount` when it recorded one. Each pack's barcode payload is the lot and its weight in grams, six digits; a pack weighs less than 1,000 kg. Packing moves no stock and no cost.\n\nRefusals (422 PROCESSING_ORDER_INVALID, `details[].code`): ORDER_NOT_COMPLETED, ORDER_REVERSED, OUTPUT_NOT_FOUND, OUTPUT_IS_WASTE, ALREADY_PACKED, LOT_NOT_WHOLE, NO_PACKS, PACK_WEIGHT_NOT_POSITIVE, PACK_TOO_HEAVY_FOR_LABEL, PACK_COUNT_NOT_OUTPUT_COUNT, PACK_WEIGHTS_NOT_LOT_WEIGHT.\n\nPermission: `prc.order.process`, scoped to the order's branch and processing location."
       x-permission: prc.order.process
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - NOT_FOUND
+        - PROCESSING_ORDER_INVALID
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -32402,11 +32397,15 @@ paths:
             example:
               outputLineNo: 1
               packs:
-                - weightKg: "14.200"
+                - weightKg: "15.000"
+                  weightSource: SCALE
+                - weightKg: "15.000"
+                  weightSource: SCALE
+                - weightKg: "14.600"
                   weightSource: SCALE
       responses:
         "201":
-          description: OK
+          description: Created
           headers:
             X-Correlation-Id:
               $ref: "#/components/headers/CorrelationId"
@@ -32416,46 +32415,42 @@ paths:
                 $ref: "#/components/schemas/PackList"
               example:
                 packs:
-                  - id: "019a7ac6-78f2-7dce-a306-e5bc6dcb5e9a"
+                  - id: "019a8a10-1c4e-7a21-9b3e-4d2f6a8c0e11"
                     stockUnit:
-                      id: "019a7a90-f15d-712e-b666-1bbcd880949a"
-                      identifier: MEAT-GOAT-261109-01
+                      id: "019a8a0f-7b2d-7c40-8e15-3a9d4f6b2c70"
+                      identifier: PRC-261114-3f2a91c4-01
                       tracking: LOT
+                    outputLineNo: 1
                     packNo: 1
-                    weightKg: "15.200"
-                    barcode: "226010901015200"
-                    status: SOLD
-                    labelPrintedAt: "2026-11-09T12:00:00Z"
-                  - id: "019a7ac6-97e1-77b2-bcea-83f3e77cfcd1"
+                    weightKg: "15.000"
+                    weightSource: SCALE
+                    barcode: PRC-261114-3f2a91c4-01/015000
+                    status: IN_STOCK
+                    labelPrintedAt: null
+                  - id: "019a8a10-1c4e-7a21-9b3e-4d2f6a8c0e12"
                     stockUnit:
-                      id: "019a7a90-f15d-712e-b666-1bbcd880949a"
-                      identifier: MEAT-GOAT-261109-01
+                      id: "019a8a0f-7b2d-7c40-8e15-3a9d4f6b2c70"
+                      identifier: PRC-261114-3f2a91c4-01
                       tracking: LOT
+                    outputLineNo: 1
                     packNo: 2
-                    weightKg: "14.850"
-                    barcode: "226010901114850"
-                    status: SOLD
-                    labelPrintedAt: "2026-11-09T12:01:00Z"
-                  - id: "019a7ac6-b6d0-7195-86cd-222b612d9b09"
+                    weightKg: "15.000"
+                    weightSource: SCALE
+                    barcode: PRC-261114-3f2a91c4-01/015000
+                    status: IN_STOCK
+                    labelPrintedAt: null
+                  - id: "019a8a10-1c4e-7a21-9b3e-4d2f6a8c0e13"
                     stockUnit:
-                      id: "019a7a90-f15d-712e-b666-1bbcd880949a"
-                      identifier: MEAT-GOAT-261109-01
+                      id: "019a8a0f-7b2d-7c40-8e15-3a9d4f6b2c70"
+                      identifier: PRC-261114-3f2a91c4-01
                       tracking: LOT
+                    outputLineNo: 1
                     packNo: 3
-                    weightKg: "14.950"
-                    barcode: "226010901214950"
+                    weightKg: "14.600"
+                    weightSource: SCALE
+                    barcode: PRC-261114-3f2a91c4-01/014600
                     status: IN_STOCK
-                    labelPrintedAt: "2026-11-09T12:02:00Z"
-                  - id: "019a7ac6-d5bf-7b79-90b1-c062dade3940"
-                    stockUnit:
-                      id: "019a7a90-f15d-712e-b666-1bbcd880949a"
-                      identifier: MEAT-GOAT-261109-01
-                      tracking: LOT
-                    packNo: 4
-                    weightKg: "13.350"
-                    barcode: "226010901313350"
-                    status: IN_STOCK
-                    labelPrintedAt: "2026-11-09T12:03:00Z"
+                    labelPrintedAt: null
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -32477,9 +32472,21 @@ paths:
       operationId: printPackLabels
       tags:
         - prc
-      summary: "Generate pack labels with lot and weight barcodes"
-      description: "Permission: `prc.order.process`."
+      summary: "Print pack labels: the data each label carries, with its lot and weight barcode"
+      description: "Answers what each label prints, for the client to draw (A-151): product, batch, production and expiry dates, storage class, the weight in kilograms and a CODE_128 barcode whose payload is the lot and the weight in grams (`PRC-261114-3f2a91c4-01/015000`). The first print time is recorded once; a reprint gives the same payload and is marked `reprint`. Only packs IN_STOCK or PICKED print.\n\nRefusals (422 PROCESSING_ORDER_INVALID): ORDER_NOT_COMPLETED, NO_PACKS, TOO_MANY_PACKS, PACK_NOT_IN_ORDER, PACK_NOT_IN_STOCK.\n\nPermission: `prc.order.process`, scoped to the order's branch and processing location."
       x-permission: prc.order.process
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - NOT_FOUND
+        - PROCESSING_ORDER_INVALID
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -32487,6 +32494,7 @@ paths:
           schema:
             type: string
             format: uuid
+        - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
       security:
         - staffSession: []
@@ -32499,8 +32507,8 @@ paths:
               $ref: "#/components/schemas/LabelPrintRequest"
             example:
               packIds:
-                - "019a7ac6-78f2-7dce-a306-e5bc6dcb5e9a"
-                - "019a7ac6-97e1-77b2-bcea-83f3e77cfcd1"
+                - "019a8a10-1c4e-7a21-9b3e-4d2f6a8c0e12"
+                - "019a8a10-1c4e-7a21-9b3e-4d2f6a8c0e13"
               format: PDF_LABEL_50x30
       responses:
         "200":
@@ -32511,10 +32519,58 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SignedUrl"
+                $ref: "#/components/schemas/PackLabelSheet"
               example:
-                url: "https://files.hakoremfarms.com/private/019a7a95-e5a4-769c-8bd5-729f55d9eb7d?X-Amz-Expires=300&X-Amz-Signature=3f9a"
-                expiresAt: "2026-11-13T10:05:00Z"
+                format: PDF_LABEL_50x30
+                labels:
+                  - pack:
+                      id: "019a8a10-1c4e-7a21-9b3e-4d2f6a8c0e12"
+                      packNo: 2
+                    stockUnit:
+                      id: "019a8a0f-7b2d-7c40-8e15-3a9d4f6b2c70"
+                      identifier: PRC-261114-3f2a91c4-01
+                      tracking: LOT
+                    product:
+                      id: "019a7a8d-2f61-7b0e-9c4d-6e1a3b5c7d90"
+                      sku: MEAT-GOAT-15KG
+                      name: "Goat meat, 15 kg pack"
+                    lotNo: PRC-261114-3f2a91c4-01
+                    weightKg: "15.000"
+                    weightSource: SCALE
+                    producedOn: "2026-11-14"
+                    expiresOn: "2026-11-21"
+                    storageTempClass: CHILLED
+                    line: "PRC-261114-3f2a91c4-01 · 15.000 kg"
+                    barcode:
+                      symbology: CODE_128
+                      payload: PRC-261114-3f2a91c4-01/015000
+                      text: PRC-261114-3f2a91c4-01/015000
+                    labelPrintedAt: "2026-11-14T13:05:00Z"
+                    reprint: true
+                  - pack:
+                      id: "019a8a10-1c4e-7a21-9b3e-4d2f6a8c0e13"
+                      packNo: 3
+                    stockUnit:
+                      id: "019a8a0f-7b2d-7c40-8e15-3a9d4f6b2c70"
+                      identifier: PRC-261114-3f2a91c4-01
+                      tracking: LOT
+                    product:
+                      id: "019a7a8d-2f61-7b0e-9c4d-6e1a3b5c7d90"
+                      sku: MEAT-GOAT-15KG
+                      name: "Goat meat, 15 kg pack"
+                    lotNo: PRC-261114-3f2a91c4-01
+                    weightKg: "14.600"
+                    weightSource: SCALE
+                    producedOn: "2026-11-14"
+                    expiresOn: "2026-11-21"
+                    storageTempClass: CHILLED
+                    line: "PRC-261114-3f2a91c4-01 · 14.600 kg"
+                    barcode:
+                      symbology: CODE_128
+                      payload: PRC-261114-3f2a91c4-01/014600
+                      text: PRC-261114-3f2a91c4-01/014600
+                    labelPrintedAt: "2026-11-14T13:20:00Z"
+                    reprint: false
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -83353,13 +83409,19 @@ components:
           format: uuid
         stockUnit:
           $ref: "#/components/schemas/StockUnitRef"
+        outputLineNo:
+          type: integer
+          minimum: 1
+          description: "The processing output the pack was cut from."
         packNo:
           type: integer
         weightKg:
           $ref: "#/components/schemas/Kilograms"
+        weightSource:
+          $ref: "#/components/schemas/WeightSource"
         barcode:
           type: string
-          description: "Carries the lot and the weight."
+          description: "The barcode payload: the lot and the weight in grams, six digits (`PRC-261114-3f2a91c4-01/015200` for 15.200 kg). Two packs of one lot that weigh the same carry the same payload and are interchangeable (A-161)."
         status:
           type: string
           enum:
@@ -83367,6 +83429,8 @@ components:
             - PICKED
             - SOLD
             - WRITTEN_OFF
+            - REVERSED
+          description: "`REVERSED` when the order that made it was reversed (FR-PRC-011)."
         labelPrintedAt:
           type:
             - string
@@ -83375,11 +83439,14 @@ components:
       required:
         - id
         - stockUnit
+        - outputLineNo
         - packNo
         - weightKg
+        - weightSource
         - barcode
         - status
         - labelPrintedAt
+      description: "A weighed, labelled piece of a meat lot (FR-PRC-009)."
     PackPage:
       type: object
       description: "A page of `Pack` results."
@@ -83431,6 +83498,8 @@ components:
       properties:
         packIds:
           type: array
+          minItems: 1
+          maxItems: 200
           items:
             type: string
             format: uuid
@@ -83439,10 +83508,94 @@ components:
           enum:
             - PDF_LABEL_50x30
             - ZPL
+          description: "The label the client draws the data on; the answer is the same data either way. Defaults to `PDF_LABEL_50x30`."
       required:
         - packIds
-        - format
       additionalProperties: false
+    PackLabel:
+      type: object
+      description: "What one pack label prints, for the client to draw (FR-PRC-010, A-151): product, batch, production and expiry dates, storage class, weight and a barcode carrying the lot and the weight in grams."
+      properties:
+        pack:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            packNo:
+              type: integer
+          required:
+            - id
+            - packNo
+        stockUnit:
+          $ref: "#/components/schemas/StockUnitRef"
+        product:
+          $ref: "#/components/schemas/ProductRef"
+        lotNo:
+          type: string
+        weightKg:
+          $ref: "#/components/schemas/Kilograms"
+        weightSource:
+          $ref: "#/components/schemas/WeightSource"
+        producedOn:
+          type: string
+          format: date
+        expiresOn:
+          type:
+            - string
+            - "null"
+          format: date
+        storageTempClass:
+          type:
+            - string
+            - "null"
+          enum:
+            - AMBIENT
+            - CHILLED
+            - FROZEN
+            - null
+        line:
+          type: string
+          description: "The lot and the weight in kilograms, printed beside the barcode."
+        barcode:
+          $ref: "#/components/schemas/LabelBarcode"
+        labelPrintedAt:
+          type: string
+          format: date-time
+          description: "When the label was first printed; a reprint keeps it."
+        reprint:
+          type: boolean
+          description: "True when the label had been printed before: the label shows a reprint mark."
+      required:
+        - pack
+        - stockUnit
+        - product
+        - lotNo
+        - weightKg
+        - weightSource
+        - producedOn
+        - expiresOn
+        - storageTempClass
+        - line
+        - barcode
+        - labelPrintedAt
+        - reprint
+    PackLabelSheet:
+      type: object
+      description: "The labels of `printPackLabels`, in output line and pack order."
+      properties:
+        format:
+          type: string
+          enum:
+            - PDF_LABEL_50x30
+            - ZPL
+        labels:
+          type: array
+          items:
+            $ref: "#/components/schemas/PackLabel"
+      required:
+        - format
+        - labels
     YieldStandard:
       type: object
       properties:
