@@ -18,6 +18,7 @@ import { DocumentRegistry } from './documents/document-registry';
 import { Idempotency } from './idempotency/idempotency';
 import { createRedis } from './redis/redis-client';
 import { Settings } from './settings/settings';
+import { GenericHttpSms, SMS_CHANNEL } from './notifications/notification-channel';
 
 export const LOGGER = Symbol('LOGGER');
 export const PG_POOL = Symbol('PG_POOL');
@@ -84,6 +85,14 @@ export class PlatformModule {
             ]),
           inject: [PG_POOL, REDIS],
         },
+        {
+          provide: SMS_CHANNEL,
+          useFactory: () =>
+            new GenericHttpSms(
+              { mode: config.MESSAGING_MODE, baseUrl: config.SMS_BASE_URL, apiKey: config.SMS_API_KEY, senderId: config.SMS_SENDER_ID, timeoutMs: config.SMS_TIMEOUT_MS },
+              logger,
+            ),
+        },
         ConnectionCloser,
       ],
       exports: [
@@ -103,6 +112,7 @@ export class PlatformModule {
         RateLimiter,
         Cursors,
         HealthService,
+        SMS_CHANNEL,
       ],
     };
   }

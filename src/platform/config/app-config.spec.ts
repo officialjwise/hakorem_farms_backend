@@ -84,9 +84,19 @@ describe('typed configuration', () => {
     expect(problemsFor({ ...VALID, APP_ENV: 'production' })).toEqual([
       'APP_VERSION is required in staging and production',
       'NODE_ENV must be production in staging and production',
+      'MESSAGING_MODE must be live in production, or customers get no codes',
     ]);
     const config = loadConfig({ ...VALID, APP_ENV: 'staging', NODE_ENV: 'production', APP_VERSION: '1.0.0+9f3c2a1' }, '0.1.0');
     expect(config.version).toBe('1.0.0+9f3c2a1');
+  });
+
+  it('needs the SMS provider unless messaging is captured, and live messaging in production', () => {
+    expect(problemsFor({ ...VALID, MESSAGING_MODE: 'sandbox' })).toEqual([
+      'SMS_BASE_URL is required unless MESSAGING_MODE is capture',
+      'SMS_API_KEY is required unless MESSAGING_MODE is capture',
+    ]);
+    expect(problemsFor({ ...VALID, MESSAGING_MODE: 'live', SMS_BASE_URL: 'https://sms.example-provider.com/v1', SMS_API_KEY: 'k'.repeat(32) })).toEqual([]);
+    expect(loadConfig(VALID, '0.1.0').MESSAGING_MODE).toBe('capture');
   });
 
   it('builds the version from the commit when no release version is set', () => {

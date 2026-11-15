@@ -846,7 +846,10 @@ paths:
       tags:
         - auth
       summary: "Request a password reset code"
-      description: "Always answers 202 with the same message, whether or not the account exists."
+      description: "Always answers 202 with the same message, whether or not the account exists. For an active account with a phone, a single-use reset code valid thirty minutes goes by SMS and replaces any earlier one; an email-only account gets nothing until the email channel arrives (B11). At most five requests per identifier in fifteen minutes (429), beside the per-address limit; both fail closed (1.11.0)."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - RATE_LIMITED
       security: []
       requestBody:
         required: true

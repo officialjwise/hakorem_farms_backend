@@ -134,7 +134,7 @@ afterAll(async () => {
 });
 
 describe('deny by default: the handler walk (ADR-0017, security architecture section 14)', () => {
-  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3 and B04e routes, and every one declares its operation', () => {
+  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e and B04e continued routes, and every one declares its operation', () => {
     expect(routes.map((route) => route.spec?.operationId).sort()).toEqual(
       [
         'changePassword', 'confirmTotpEnrolment', 'createProduct', 'getCurrentSession', 'getHealth', 'getProduct', 'listProducts', 'listSessions',
@@ -155,6 +155,7 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'listUsers', 'createUser', 'getUser', 'updateUser', 'disableUser', 'enableUser', 'unlockUser', 'resetUserPassword',
         'listRoles', 'getRole', 'listPermissions', 'listGrants', 'createGrant', 'revokeGrant',
         'createRole', 'updateRole', 'listApprovals', 'getApproval', 'approveRequest', 'rejectRequest', 'cancelApprovalRequest',
+        'registerCustomer', 'verifyCustomerPhone', 'requestPasswordReset', 'resetPassword',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);

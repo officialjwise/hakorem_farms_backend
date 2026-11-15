@@ -23,12 +23,13 @@ interface AccountRow {
   password_hash: string | null;
   must_change_password: boolean;
   totp_required: boolean;
+  phone_verified_at: Date | null;
   version: number;
 }
 
 const ACCOUNT_SELECT = `
   SELECT a.principal_id, a.realm, p.display_name, p.status AS principal_status, a.email, a.phone_e164, a.password_hash,
-         a.must_change_password, a.totp_required, a.version
+         a.must_change_password, a.totp_required, a.phone_verified_at, a.version
     FROM iam.user_account a JOIN iam.principal p ON p.id = a.principal_id
    WHERE a.deleted_at IS NULL AND p.deleted_at IS NULL`;
 
@@ -46,6 +47,7 @@ function account(row: AccountRow | undefined): AccountRecord | null {
     passwordHash: row.password_hash,
     mustChangePassword: row.must_change_password,
     totpRequired: row.totp_required,
+    phoneVerifiedAt: row.phone_verified_at,
     version: row.version,
   };
 }

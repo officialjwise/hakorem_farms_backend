@@ -138,3 +138,21 @@ export const ListApprovalsQuery = z.object({
 
 /** `ApprovalDecision`: the reason is optional on an approval, required on a rejection (`ReasonRequest`). */
 export const ApprovalDecision = z.strictObject({ reason: z.string().trim().min(1).max(500).optional() });
+
+/** `CustomerRegistration` (FR-IAM-019). The phone must be a Ghana number; the handler says so with its own code. */
+export const CustomerRegistration = z.strictObject({
+  name: z.string().trim().min(1).max(120),
+  phone,
+  email: email.optional(),
+  password: z.string().min(1).max(512),
+  marketingConsent: z.boolean(),
+});
+
+/** `PhoneVerification`. */
+export const PhoneVerification = z.strictObject({ challengeToken, code: z.string().regex(/^\d{6}$/) });
+
+/** `PasswordResetRequest` (FR-IAM-020). Any identifier is accepted: a malformed one matches no account, silently. */
+export const PasswordResetRequest = z.strictObject({ identifier: z.string().min(3).max(254), realm: z.enum(['STAFF', 'CUSTOMER', 'INVESTOR']) });
+
+/** `PasswordResetConfirm`. */
+export const PasswordResetConfirm = z.strictObject({ token: z.string().min(10).max(200), newPassword: z.string().min(1).max(512) });

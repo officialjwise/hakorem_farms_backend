@@ -79,6 +79,8 @@ export interface AccountRecord {
   readonly passwordHash: string | null;
   readonly mustChangePassword: boolean;
   readonly totpRequired: boolean;
+  /** When the phone was proved by a code: a customer account is usable only once it is set (FR-IAM-019). */
+  readonly phoneVerifiedAt: Date | null;
   readonly version: number;
 }
 

@@ -102,6 +102,7 @@ export default defineConfig({
         ...fullCoverage('src/modules/iam/domain/access-admin.ts'), // B04e: grant judgement, account status, the last owner, temporary passwords
         ...fullCoverage('src/modules/iam/domain/role-admin.ts'), // B04e continued: role changes beyond the actor, own roles, TOTP roles
         ...fullCoverage('src/modules/iam/domain/approval.ts'), // B04e continued: deciding, withdrawing, the shown status
+        ...fullCoverage('src/modules/iam/domain/self-service.ts'), // B04e continued: phone codes, attempts, reset tokens
         // ...fullCoverage('src/modules/inv/domain/valuation/**/*.ts'),    // B5: stock valuation, cost pool and average cost (ADR-0018)
         // ...fullCoverage('src/modules/fin/domain/**/*.ts'),              // B8: the ledger, posting rules, journals, periods (ADR-0003)
         // ...fullCoverage('src/modules/cap/domain/distribution/**/*.ts'), // B12: distribution, unit-days and allocation (ADR-0028)
