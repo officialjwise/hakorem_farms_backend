@@ -11,6 +11,8 @@ Owner: INV module. The stock movement ledger, tracked stock units, balances, val
 | `inv.pub_stock_on_hand` (view) | Product, stock unit, location, branch, on-hand, reserved, available |
 | `inv.pub_stock_value` (view) | Product, stock unit, branch, quantity, value |
 | `inv.pub_movement` (view) | Movements with type, product, locations, quantity, weight, value, document and time; no actor detail |
+| `inv.protect_expired()` on `BEFORE INSERT` of `inv.stock_movement` | A movement type `blocked_when_expired` (sale, offline sale) of a lot whose `expires_on` is before the movement's Africa/Accra date is refused (HK010 `ck_stock_expired`, migration 0064, A-134 (j)) |
+| `inv.pub_reorder_level` (view) | Each live reorder rule with on hand, reserved, held and available stock over the branch's physical stock locations (or the rule's one location; in transit and sites left out), and `at_or_below_reorder_point` and `below_minimum`. Read by RPT's low stock tile (B05x, ADR-0011) and by `StockAlerts` |
 
 ---
 
@@ -27,6 +29,7 @@ Behaviour of each kind of movement.
 | `blocked_by_hold` | `boolean` | NOT NULL | Rejected while the stock unit is under hold |
 | `requires_reason` | `boolean` | NOT NULL | `reason_code` mandatory |
 | `requires_stock_unit` | `boolean` | NOT NULL | Only tracked stock may use it |
+| `blocked_when_expired` | `boolean` | NOT NULL DEFAULT false | Refused for a lot past its expiry date; `SALE_ISSUE` and `SALE_ISSUE_OFFLINE` (migration 0064, FR-INV-016) |
 | `posting_event` | `text` | NULL | The event published for the ledger (ADR-0003); null if none |
 
 Seeded: `RECEIPT_PURCHASE`, `RECEIPT_HARVEST`, `BIRTH`, `OPENING_BALANCE`, `TRANSFER_INTERNAL`, `TRANSFER_DISPATCH`, `TRANSFER_RECEIPT`, `SALE_ISSUE`, `SALE_ISSUE_OFFLINE` (allows negative), `SALE_RETURN`, `PROCESS_CONSUME`, `PROCESS_OUTPUT`, `FEED_ISSUE`, `MEDICATION_ISSUE`, `COST_CAPITALISE` (value only), `MORTALITY`, `CULL`, `ADJUST_GAIN`, `ADJUST_LOSS`, `STOCKTAKE_GAIN`, `STOCKTAKE_LOSS`, `SUPPLIER_RETURN`. `SALE_ISSUE`, `SALE_ISSUE_OFFLINE`, `PROCESS_CONSUME` and `TRANSFER_DISPATCH` are blocked by hold.
@@ -230,7 +233,7 @@ Stock received from a supplier, or from harvest or lay. Posted status: `POSTED`.
 | `notes` | `text` | NULL | |
 | `cancel_reason` | `text` | NULL; set exactly when `CANCELLED` | Why a draft was set aside (A-136) |
 
-Standard columns: `DOCUMENT` (`status` in `DRAFT`, `POSTED`, `CANCELLED`), with `posted_at` and `posted_by` set exactly when `POSTED`. Built in migration 0047: `POSTED` and `CANCELLED` are final and frozen (`platform.freeze_posted`, HK004); a purchase names its supplier and nothing else does (`ck_goods_receipt_supplier`).
+Standard columns: `DOCUMENT` (`status` in `DRAFT`, `POSTED`, `CANCELLED`), with `posted_at` and `posted_by` set exactly when `POSTED`. Built in migration 0047: `POSTED` and `CANCELLED` are final and frozen (`platform.freeze_posted`, HK004); a purchase names its supplier and nothing else does (`ck_goods_receipt_supplier`). A receipt of kind `OPENING` is written only by the `OPENING_STOCK` import sheet (one per location, posted in the import's transaction as `OPENING_BALANCE` movements from the branch's OPENING location); `createGoodsReceipt` refuses the kind (A-136, A-147, ADR-0050).
 
 ### `inv.goods_receipt_line` · DOCUMENT
 
@@ -424,36 +427,62 @@ Expected and counted quantity for one item in a stock take.
 
 ### `inv.reorder_rule` · MASTER
 
-Minimum, reorder point and maximum levels, and expiry alert lead time.
+Minimum, reorder point and maximum levels, and expiry alert lead time (FR-INV-015, FR-INV-016; migration 0064, A-147).
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `id` | `uuid` | PK | |
 | `product_id` | `uuid` | NOT NULL, FK `mdm.product` | |
 | `branch_id` | `uuid` | NOT NULL, FK `mdm.branch` | |
-| `location_id` | `uuid` | NULL, FK `mdm.location` | Null for the whole branch |
-| `min_qty` | `qty` | NOT NULL | Minimum level |
-| `reorder_point_qty` | `qty` | NOT NULL, CHECK `>= min_qty` | Low-stock alert fires here |
-| `max_qty` | `qty` | NOT NULL, CHECK `>= reorder_point_qty` | Maximum level |
-| `expiry_alert_days` | `integer` | NULL, CHECK `> 0` | Days before expiry to alert |
+| `location_id` | `uuid` | NULL, FK `mdm.location` | Null for the whole branch; otherwise one physical stock location of it (not in transit, not a site) |
+| `min_qty` | `qty` | NOT NULL, CHECK `>= 0` | Minimum level: a `BELOW_MINIMUM` alert under it |
+| `reorder_point_qty` | `qty` | NOT NULL, CHECK `>= min_qty` | Low-stock alert fires at or below it |
+| `max_qty` | `qty` | NOT NULL, CHECK `>= reorder_point_qty` and `> 0` | Maximum level; the suggested reorder reaches it |
+| `expiry_alert_days` | `integer` | NULL, CHECK 1 to 365 | Days before expiry to alert; null takes the default of 3 |
 
-Standard columns: `MASTER`. UNIQUE NULLS NOT DISTINCT (`product_id`, `branch_id`, `location_id`) among live rows.
+Standard columns: `MASTER`. UNIQUE NULLS NOT DISTINCT (`product_id`, `branch_id`, `location_id`) among live rows (`uq_reorder_rule`). Its product, branch and location never change (`inv.reorder_rule_guard`, HK010 `ck_reorder_rule_change`).
 
-### `inv.temperature_reading` · LEDGER
+### `inv.stock_alert` · DOCUMENT
 
-Cold chain log. A reading outside the location's range quarantines its lots.
+An alert raised once per crossing and cleared once (FR-INV-015, FR-INV-016; migration 0064, an addition to the B0 dictionary, A-147). Raised in the transaction of the movement, reservation or hold that crossed a level (`StockAlerts.evaluateIn`, called by `Stock.postIn`, `Reservations` and `StockHolds`) and by the daily `stock-alerts` job; each raise publishes `inv.StockAlertRaised`.
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `id` | `uuid` | PK | |
-| `location_id` | `uuid` | NOT NULL, FK `mdm.location` | Cold room or vehicle |
-| `reading_c` | `numeric(4,1)` | NOT NULL | Degrees Celsius |
-| `measured_at` | `timestamptz` | NOT NULL | |
-| `source` | `text` | NOT NULL, CHECK in (`MANUAL`, `SENSOR`) | |
-| `is_excursion` | `boolean` | NOT NULL | Outside the location's range |
-| `exception_id` | `uuid` | NULL, FK `inv.stock_exception` | Raised for an excursion |
+| `kind` | `text` | NOT NULL, CHECK in (`LOW_STOCK`, `BELOW_MINIMUM`, `EXPIRING`, `EXPIRED`) | |
+| `branch_id` | `uuid` | NOT NULL, FK `mdm.branch` | |
+| `product_id` | `uuid` | NOT NULL, FK `mdm.product` | |
+| `location_id` | `uuid` | NULL, FK `mdm.location` | The rule's location, or where the lot stands |
+| `stock_unit_id` | `uuid` | NULL, FK `inv.stock_unit` | The lot, for an expiry alert |
+| `reorder_rule_id` | `uuid` | NULL, FK `inv.reorder_rule` | The rule, for a level alert |
+| `qty` | `numeric(14,3)` | NOT NULL | Available (level) or on hand (expiry) when raised |
+| `threshold_qty` | `qty` | NULL | The level crossed |
+| `suggested_qty` | `qty` | NULL | What reached the maximum when raised |
+| `expires_on` | `date` | NULL | The lot's expiry |
+| `status` | `text` | NOT NULL, CHECK in (`OPEN`, `CLEARED`) | |
+| `raised_at` | `timestamptz` | NOT NULL | |
+| `cleared_at` | `timestamptz` | NULL; set exactly when `CLEARED` | |
 
-Standard columns: `LEDGER`.
+Standard columns: `DOCUMENT` (no posting step). `ck_stock_alert_shape`: a level alert names its rule and threshold and no lot; an expiry alert names its lot, location and date. At most one OPEN alert of a kind per rule (`uq_stock_alert_open_rule`) and per lot and location (`uq_stock_alert_open_lot`). Raised OPEN, cleared once, nothing else changes (`inv.stock_alert_guard`, HK010 `ck_stock_alert_change`).
+
+### `inv.temperature_reading` · LEDGER
+
+Cold chain log (FR-INV-007, FR-INV-008; migration 0064, A-147). A reading outside the location's range quarantines its lots.
+
+| Column | Type | Constraints | Why |
+| --- | --- | --- | --- |
+| `id` | `uuid` | PK | Client-generated on an offline queue, so a resubmission is stored once |
+| `location_id` | `uuid` | NOT NULL, FK `mdm.location` | Cold room or vehicle |
+| `branch_id` | `uuid` | NOT NULL, FK `mdm.branch` | The location's branch, for scoping |
+| `reading_c` | `numeric(4,1)` | NOT NULL | Degrees Celsius |
+| `range_min_c`, `range_max_c` | `numeric(4,1)` | NOT NULL, CHECK min `<` max | The location's range when recorded, read through MDM's `MasterDataRefs` and copied, so ADR-0047 is not widened |
+| `measured_at` | `timestamptz` | NOT NULL | No more than five minutes ahead of the server (checked in `ColdChain`) |
+| `source` | `text` | NOT NULL, CHECK in (`MANUAL`, `SENSOR`) | |
+| `is_excursion` | `boolean` | NOT NULL, CHECK `= (reading_c < range_min_c OR reading_c > range_max_c)` (`ck_temperature_reading_excursion`) | Outside the range it was judged by |
+| `excursion_document_id` | `uuid` | NULL, FK `platform.business_document`; set exactly for an excursion | The `TEMPERATURE_EXCURSION` document its holds and exceptions name (migration 0063) |
+| `exception_id` | `uuid` | NULL, FK `inv.stock_exception`; only on an excursion | The first exception raised; one per stock line in the location |
+
+Standard columns: `LEDGER` (`recorded_at`, `actor_id`).
 
 ### `inv.stock_balance_snapshot` · LEDGER
 
