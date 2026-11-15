@@ -25,4 +25,6 @@ export const SQLSTATE = {
   subjectKeyDestroyed: 'HK005',
   /** platform.stored_file_guard(): a stored file's content never changes, and only the scanner gives its verdict, once. */
   storedFileGuard: 'HK007',
+  /** mdm.product_image_guard(): only a CLEAN product photograph is attached, and an image's file never changes. */
+  productImageGuard: 'HK008',
 } as const;

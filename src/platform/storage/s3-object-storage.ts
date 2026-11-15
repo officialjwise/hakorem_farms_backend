@@ -2,6 +2,7 @@ import {
   CreateBucketCommand,
   GetObjectCommand,
   HeadBucketCommand,
+  PutBucketPolicyCommand,
   PutObjectCommand,
   S3Client,
   type PutObjectCommandInput,
@@ -60,16 +61,23 @@ export class S3ObjectStorage implements ObjectStorage {
     );
   }
 
-  async ensureBucket(bucket: string, options: { readonly objectLock: boolean }): Promise<void> {
+  async ensureBucket(bucket: string, options: { readonly objectLock: boolean; readonly publicRead?: boolean }): Promise<void> {
+    let exists = true;
     try {
       await this.client.send(new HeadBucketCommand({ Bucket: bucket }));
-      return;
     } catch {
-      // Missing: create it below.
+      exists = false;
     }
-    await this.call(`create ${bucket}`, () =>
-      this.client.send(new CreateBucketCommand({ Bucket: bucket, ...(options.objectLock ? { ObjectLockEnabledForBucket: true } : {}) })),
-    );
+    if (!exists) {
+      await this.call(`create ${bucket}`, () =>
+        this.client.send(new CreateBucketCommand({ Bucket: bucket, ...(options.objectLock ? { ObjectLockEnabledForBucket: true } : {}) })),
+      );
+    }
+    if (options.publicRead === true) {
+      // Anyone may read an object by its key; nobody anonymous may list the bucket or write to it.
+      const policy = { Version: '2012-10-17', Statement: [{ Effect: 'Allow', Principal: '*', Action: ['s3:GetObject'], Resource: [`arn:aws:s3:::${bucket}/*`] }] };
+      await this.call(`publish ${bucket}`, () => this.client.send(new PutBucketPolicyCommand({ Bucket: bucket, Policy: JSON.stringify(policy) })));
+    }
   }
 
   close(): void {

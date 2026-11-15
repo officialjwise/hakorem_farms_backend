@@ -112,6 +112,8 @@ services:
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
       S3_BUCKET_PUBLIC_MEDIA: ${S3_BUCKET_PUBLIC_MEDIA}
       S3_BUCKET_PRIVATE: ${S3_BUCKET_PRIVATE}
+      # The public media origin the browser reads photograph variants from (ADR-0045); empty is the bucket's own URL.
+      MEDIA_PUBLIC_BASE_URL: ${MEDIA_PUBLIC_BASE_URL:-}
     ports:
       - "127.0.0.1:${API_HOST_PORT:-3000}:3000"
     healthcheck:
