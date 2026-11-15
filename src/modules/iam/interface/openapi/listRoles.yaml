@@ -1,0 +1,141 @@
+operationId: listRoles
+tags:
+  - iam
+summary: "List roles"
+description: "Permission: `iam.role.read`."
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - TOTP_ENROLMENT_REQUIRED
+  - RATE_LIMITED
+x-permission: iam.role.read
+parameters:
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/RolePage"
+        example:
+          data:
+            - id: "019a7a94-7270-7ff3-852b-0805a18d80e3"
+              code: CASHIER
+              name: Cashier
+              isSystem: true
+              requiresTotp: false
+              permissions:
+                - pos.sale.create
+                - pos.shift.open
+                - pos.shift.close
+                - pay.payment.create
+              limits:
+                - limitKind: PRICE_OVERRIDE_PER_LINE
+                  amountPesewas: 5000
+                - limitKind: PRICE_OVERRIDE_PER_SHIFT
+                  amountPesewas: 20000
+              userCount: 2
+              version: 2
+              createdAt: "2026-11-01T08:00:00Z"
+              updatedAt: "2026-11-10T15:00:00Z"
+            - id: "019a7a96-be2d-7bd5-b10d-c623a9b03f01"
+              code: MANAGER
+              name: Manager
+              isSystem: true
+              requiresTotp: true
+              permissions:
+                - ord.order.void.approve
+                - inv.adjustment.approve
+                - liv.mortality.approve
+                - mdm.price_list.approve
+              limits: []
+              userCount: 1
+              version: 2
+              createdAt: "2026-11-01T08:00:00Z"
+              updatedAt: "2026-11-10T15:00:00Z"
+            - id: "019a7a96-dd1c-75b8-8af0-645b2361dd39"
+              code: ACCOUNTANT
+              name: Accountant
+              isSystem: true
+              requiresTotp: true
+              permissions:
+                - fin.journal.create
+                - fin.period.lock
+                - pur.supplier_payment.create
+                - aud.audit.read
+              limits: []
+              userCount: 1
+              version: 2
+              createdAt: "2026-11-01T08:00:00Z"
+              updatedAt: "2026-11-10T15:00:00Z"
+            - id: "019a7a96-fc0b-7f9c-94d4-02929d127b70"
+              code: STOREKEEPER
+              name: Storekeeper
+              isSystem: true
+              requiresTotp: false
+              permissions:
+                - inv.goods_receipt.create
+                - inv.transfer.create
+                - inv.stock_take.count
+              limits: []
+              userCount: 1
+              version: 2
+              createdAt: "2026-11-01T08:00:00Z"
+              updatedAt: "2026-11-10T15:00:00Z"
+            - id: "019a7a97-1afa-797f-aeb7-a0ca16c319a7"
+              code: DRIVER
+              name: Driver
+              isSystem: true
+              requiresTotp: false
+              permissions:
+                - del.delivery.read.assigned
+                - del.proof.create
+              limits: []
+              userCount: 1
+              version: 2
+              createdAt: "2026-11-01T08:00:00Z"
+              updatedAt: "2026-11-10T15:00:00Z"
+            - id: "019a7a97-39e9-7363-b89b-3f019074b7df"
+              code: INVESTOR
+              name: Investor
+              isSystem: true
+              requiresTotp: false
+              permissions:
+                - cap.portal.read.own
+              limits: []
+              userCount: 5
+              version: 2
+              createdAt: "2026-11-01T08:00:00Z"
+              updatedAt: "2026-11-10T15:00:00Z"
+          page:
+            nextCursor: null
+            limit: 25
+            hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

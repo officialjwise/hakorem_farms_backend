@@ -10,7 +10,7 @@ import { CLOCK, PG_POOL } from '../platform/platform.module';
 /** The user agent every audit event written by the seed carries, so the trail says the seed wrote it. */
 export const SEED_USER_AGENT = 'hakorem-seed';
 
-/** The seeded staff the service units act as (src/seed/farm-b3.ts creates them). */
+/** The seeded staff the service units act as (src/seed/farm-iam.ts creates them through IAM's services). */
 export const SEED_STAFF = {
   owner: 'kwabena.owusu@seed.hakoremfarms.invalid',
   manager: 'akosua.boateng@seed.hakoremfarms.invalid',
@@ -49,7 +49,7 @@ export class SeedStaff {
     for (const [member, email] of Object.entries(SEED_STAFF) as Array<[SeedStaffMember, string]>) {
       const row = rows.find((candidate) => candidate.email === email);
       if (row === undefined) {
-        throw new Error(`the seed needs the seeded ${member} ${email}, which the B3 seed unit creates; run the seed units in order`);
+        continue; // the IAM seed unit loads the staff while it is still creating them; actor() refuses a missing one
       }
       actors.set(member, { principalId: row.principal_id, kind: 'USER', displayName: row.display_name, realm: 'STAFF', sessionId: null, steppedUpAt: clock.now() });
     }
@@ -57,7 +57,11 @@ export class SeedStaff {
   }
 
   actor(member: SeedStaffMember): Actor {
-    return this.actors.get(member)!;
+    const actor = this.actors.get(member);
+    if (actor === undefined) {
+      throw new Error(`the seed needs the seeded ${member} ${SEED_STAFF[member]}, which the iam-services seed unit creates; run the seed units in order`);
+    }
+    return actor;
   }
 
   /** Runs `work` as `member`, in a request context of its own, with the seed's step-up waiver in force. */

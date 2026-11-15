@@ -5,8 +5,11 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { z } from 'zod';
 import { loadFragments } from '../../../scripts/contract/code-document';
 import {
+  GrantCreate,
   LoginRequest,
   PasswordChangeRequest,
+  UserCreate,
+  UserUpdate,
   ReasonRequest,
   StepUpRequest,
   TotpCodeRequest,
@@ -162,6 +165,14 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     confirmTotpEnrolment: TotpCodeRequest,
     stepUp: StepUpRequest,
     revokeSession: ReasonRequest,
+    createUser: UserCreate,
+    updateUser: UserUpdate,
+    disableUser: ReasonRequest,
+    enableUser: ReasonRequest,
+    unlockUser: ReasonRequest,
+    resetUserPassword: ReasonRequest,
+    createGrant: GrantCreate,
+    revokeGrant: ReasonRequest,
     createProduct: ProductCreate,
     createPriceList: PriceListCreate,
     createPriceListVersion: PriceListVersionCreate,

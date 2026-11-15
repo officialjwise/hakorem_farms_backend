@@ -58,6 +58,14 @@ function registeredRoutes(): RouteInfo[] {
 const VALID_BODY: Readonly<Record<string, object>> = {
   createProduct: { sku: 'MEAT-GOAT-5KG', name: 'Goat meat, 5 kg pack', categoryId: randomUUID(), stockPolicy: 'CATCH_WEIGHT', baseUom: 'KG', saleUom: 'PACK', onlineMode: 'LISTED' },
   revokeSession: { reason: 'Tablet left unattended overnight' },
+  createUser: { displayName: 'Kojo Asante', email: 'kojo.asante@hakoremfarms.test', realm: 'STAFF', grants: [] },
+  updateUser: { version: 1, displayName: 'Kojo Asante' },
+  disableUser: { reason: 'Left the business' },
+  enableUser: { reason: 'Came back' },
+  unlockUser: { reason: 'Forgot the password' },
+  resetUserPassword: { reason: 'Lost the password' },
+  createGrant: { principalId: randomUUID(), roleId: randomUUID(), branchId: randomUUID() },
+  revokeGrant: { reason: 'Moved to the farm' },
   resolvePrices: { channel: 'POS', branchId: randomUUID(), lines: [{ lineRef: '1', productId: randomUUID(), quantity: '1.000' }] },
   createPriceList: { code: 'BASE', name: 'Base prices', kind: 'BASE', taxInclusive: true },
   createPriceListVersion: { validFrom: '2026-12-01T00:00:00Z' },
@@ -122,7 +130,7 @@ afterAll(async () => {
 });
 
 describe('deny by default: the handler walk (ADR-0017, security architecture section 14)', () => {
-  it('finds the B3, B4, B04 continued, B04d and B04d continued 1 to 3 routes, and every one declares its operation', () => {
+  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3 and B04e routes, and every one declares its operation', () => {
     expect(routes.map((route) => route.spec?.operationId).sort()).toEqual(
       [
         'changePassword', 'confirmTotpEnrolment', 'createProduct', 'getCurrentSession', 'getHealth', 'getProduct', 'listProducts', 'listSessions',
@@ -140,6 +148,8 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'listSuppliers', 'createSupplier', 'getSupplier', 'updateSupplier', 'archiveSupplier', 'listPaymentMethods', 'updatePaymentMethod',
         'listDeliveryZones', 'createDeliveryZone', 'getDeliveryZone', 'updateDeliveryZone', 'quoteDelivery', 'listReasonCodes',
         'listPriceLists', 'updatePriceList', 'archivePriceList', 'listPriceListVersions', 'listPriceListEntries', 'archiveProduct',
+        'listUsers', 'createUser', 'getUser', 'updateUser', 'disableUser', 'enableUser', 'unlockUser', 'resetUserPassword',
+        'listRoles', 'getRole', 'listPermissions', 'listGrants', 'createGrant', 'revokeGrant',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);

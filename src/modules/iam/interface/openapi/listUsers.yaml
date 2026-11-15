@@ -1,0 +1,192 @@
+operationId: listUsers
+tags:
+  - iam
+summary: "List user accounts"
+description: "Permission: `iam.user.read`."
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - TOTP_ENROLMENT_REQUIRED
+  - RATE_LIMITED
+x-permission: iam.user.read
+parameters:
+  - name: realm
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/Realm"
+  - name: status
+    in: query
+    required: false
+    schema:
+      type: string
+      enum:
+        - ACTIVE
+        - DISABLED
+        - LOCKED
+  - name: q
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/UserAccountPage"
+        example:
+          data:
+            - id: "019a7a86-3046-711a-a652-1a7389f79351"
+              displayName: "Akua Mensah"
+              realm: STAFF
+              email: "akua.mensah@hakoremfarms.com"
+              phone: "+233244100201"
+              status: ACTIVE
+              totpEnrolled: true
+              totpRequired: true
+              mustChangePassword: false
+              lastLoginAt: "2026-11-13T06:40:00Z"
+              grants:
+                - roleCode: OWNER
+                  roleName: Owner
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  branchCode: DDW
+                  locationId: null
+                  locationCode: null
+              version: 3
+              createdAt: "2026-11-02T08:00:00Z"
+              updatedAt: "2026-11-12T17:00:00Z"
+            - id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+              displayName: "Kwabena Owusu"
+              realm: STAFF
+              email: "kwabena.owusu@hakoremfarms.com"
+              phone: "+233244100202"
+              status: ACTIVE
+              totpEnrolled: true
+              totpRequired: true
+              mustChangePassword: false
+              lastLoginAt: "2026-11-13T06:41:00Z"
+              grants:
+                - roleCode: MANAGER
+                  roleName: Manager
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  branchCode: DDW
+                  locationId: null
+                  locationCode: null
+              version: 4
+              createdAt: "2026-11-02T08:00:00Z"
+              updatedAt: "2026-11-12T17:00:00Z"
+            - id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+              displayName: "Efua Asante"
+              realm: STAFF
+              email: "efua.asante@hakoremfarms.com"
+              phone: "+233244100203"
+              status: ACTIVE
+              totpEnrolled: true
+              totpRequired: true
+              mustChangePassword: false
+              lastLoginAt: "2026-11-13T06:42:00Z"
+              grants:
+                - roleCode: ACCOUNTANT
+                  roleName: Accountant
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  branchCode: DDW
+                  locationId: null
+                  locationCode: null
+              version: 5
+              createdAt: "2026-11-02T08:00:00Z"
+              updatedAt: "2026-11-12T17:00:00Z"
+            - id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+              displayName: "Yaw Boateng"
+              realm: STAFF
+              email: "yaw.boateng@hakoremfarms.com"
+              phone: "+233244100204"
+              status: ACTIVE
+              totpEnrolled: false
+              totpRequired: false
+              mustChangePassword: false
+              lastLoginAt: "2026-11-13T06:43:00Z"
+              grants:
+                - roleCode: STOREKEEPER
+                  roleName: Storekeeper
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  branchCode: DDW
+                  locationId: null
+                  locationCode: null
+              version: 6
+              createdAt: "2026-11-02T08:00:00Z"
+              updatedAt: "2026-11-12T17:00:00Z"
+            - id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+              displayName: "Adwoa Darko"
+              realm: STAFF
+              email: "adwoa.darko@hakoremfarms.com"
+              phone: "+233244100205"
+              status: ACTIVE
+              totpEnrolled: false
+              totpRequired: false
+              mustChangePassword: false
+              lastLoginAt: "2026-11-13T06:44:00Z"
+              grants:
+                - roleCode: CASHIER
+                  roleName: Cashier
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  branchCode: DDW
+                  locationId: "019a7a84-7f34-76a9-8be1-736ae249ec48"
+                  locationCode: SHOP
+              version: 7
+              createdAt: "2026-11-02T08:00:00Z"
+              updatedAt: "2026-11-12T17:00:00Z"
+            - id: "019a7a86-caf1-728b-b7c3-3188ea6caa66"
+              displayName: "Nana Yeboah"
+              realm: STAFF
+              email: "nana.yeboah@hakoremfarms.com"
+              phone: "+233244100206"
+              status: ACTIVE
+              totpEnrolled: false
+              totpRequired: false
+              mustChangePassword: false
+              lastLoginAt: "2026-11-13T06:45:00Z"
+              grants:
+                - roleCode: CASHIER
+                  roleName: Cashier
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  branchCode: DDW
+                  locationId: "019a7a84-7f34-76a9-8be1-736ae249ec48"
+                  locationCode: SHOP
+              version: 8
+              createdAt: "2026-11-02T08:00:00Z"
+              updatedAt: "2026-11-12T17:00:00Z"
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

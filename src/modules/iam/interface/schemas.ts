@@ -50,3 +50,44 @@ export const ListSessionsQuery = z.object({
 });
 
 export const SessionIdParam = z.uuid();
+
+const page = { cursor: z.string().min(1).max(512).optional(), limit: z.coerce.number().int().min(1).max(100).default(25) };
+const displayName = z.string().trim().min(1).max(120);
+const email = z.email().max(254);
+const phone = z.string().regex(/^\+[1-9][0-9]{7,14}$/);
+
+/** The contract's `GrantInput`. */
+export const GrantInput = z.strictObject({
+  roleId: z.uuid(),
+  branchId: z.uuid(),
+  locationId: z.uuid().optional(),
+  validFrom: z.iso.datetime({ offset: true }).optional(),
+  validTo: z.iso.datetime({ offset: true }).optional(),
+});
+
+/** `UserCreate`. */
+export const UserCreate = z.strictObject({
+  displayName,
+  email: email.optional(),
+  phone: phone.optional(),
+  realm: z.enum(['STAFF', 'INVESTOR']),
+  grants: z.array(GrantInput).max(20),
+});
+
+/** `UserUpdate`. */
+export const UserUpdate = z.strictObject({ version: z.number().int().min(1), displayName: displayName.optional(), email: email.optional(), phone: phone.optional() });
+
+/** `GrantCreate`. */
+export const GrantCreate = GrantInput.extend({ principalId: z.uuid() });
+
+export const ListUsersQuery = z.object({
+  realm: z.enum(['STAFF', 'CUSTOMER', 'INVESTOR']).optional(),
+  status: z.enum(['ACTIVE', 'DISABLED', 'LOCKED']).optional(),
+  q: z.string().trim().min(1).max(100).optional(),
+  ...page,
+});
+
+export const ListRolesQuery = z.object(page);
+export const ListPermissionsQuery = z.object({ module: z.string().regex(/^[a-z]{2,4}$/).optional(), ...page });
+export const ListGrantsQuery = z.object({ principalId: z.uuid().optional(), roleId: z.uuid().optional(), branchId: z.uuid().optional(), ...page });
+export const IdParam = z.uuid();

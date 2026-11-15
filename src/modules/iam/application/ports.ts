@@ -48,6 +48,25 @@ export interface ScopeNames {
     readonly branches: ReadonlyMap<string, string>;
     readonly locations: ReadonlyMap<string, string>;
   }>;
+  /** Codes, names and kinds, and each location's branch, for the grant administration views (B04e). Archived rows are left out. */
+  refs(tx: Transaction, branchIds: readonly string[], locationIds: readonly string[]): Promise<{
+    readonly branches: ReadonlyMap<string, BranchRefRecord>;
+    readonly locations: ReadonlyMap<string, LocationRefRecord>;
+  }>;
+}
+
+export interface BranchRefRecord {
+  readonly id: string;
+  readonly code: string;
+  readonly name: string;
+}
+
+export interface LocationRefRecord {
+  readonly id: string;
+  readonly code: string;
+  readonly name: string;
+  readonly kind: string;
+  readonly branchId: string;
 }
 
 export interface AccountRecord {

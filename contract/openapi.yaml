@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.9.0"
+  version: "1.10.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -1396,6 +1396,13 @@ paths:
         - iam
       summary: "List user accounts"
       description: "Permission: `iam.user.read`."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - TOTP_ENROLMENT_REQUIRED
+        - RATE_LIMITED
       x-permission: iam.user.read
       parameters:
         - name: realm
@@ -1581,7 +1588,23 @@ paths:
       tags:
         - iam
       summary: "Create a staff or investor account"
-      description: "Permission: `iam.user.create`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      description: "Creates a staff account with a temporary password, shown once in this response and in a retry with the same key, never again (it is kept sealed with the user's key, not in the clear). The account must change it at first sign-in. Email and phone are each unique among live staff accounts (422 `DUPLICATE_VALUE`); one of them is required (422 `USER_INVALID`, `NO_IDENTIFIER`). Investor accounts arrive with capital (B12): until then `realm: INVESTOR` is refused (422 `USER_INVALID`, `INVESTOR_ACCOUNTS_NOT_AVAILABLE`). Each grant follows `createGrant`'s rules, and the caller needs this permission at each grant's branch (1.10.0).\n\nPermission: `iam.user.create`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - TOTP_ENROLMENT_REQUIRED
+        - STEP_UP_REQUIRED
+        - DUPLICATE_VALUE
+        - REFERENCE_NOT_FOUND
+        - GRANT_INVALID
+        - USER_INVALID
+        - RATE_LIMITED
       x-permission: iam.user.create
       x-requires-step-up: true
       parameters:
@@ -1659,6 +1682,14 @@ paths:
         - iam
       summary: "Get a user account"
       description: "Permission: `iam.user.read`."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - TOTP_ENROLMENT_REQUIRED
+        - RATE_LIMITED
+        - NOT_FOUND
       x-permission: iam.user.read
       parameters:
         - name: id
@@ -1718,7 +1749,21 @@ paths:
       tags:
         - iam
       summary: "Update a user account"
-      description: "Permission: `iam.user.update`."
+      description: "Send the `version` you read; a stale version is refused with 409. The caller needs this permission at every branch the user holds a grant at (1.10.0).\n\nPermission: `iam.user.update`."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - TOTP_ENROLMENT_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - DUPLICATE_VALUE
+        - RATE_LIMITED
       x-permission: iam.user.update
       parameters:
         - name: id
@@ -1794,7 +1839,21 @@ paths:
       tags:
         - iam
       summary: "Disable a user account and end its sessions"
-      description: "Permission: `iam.user.disable`."
+      description: "Disables the account and revokes every session it has at once. Nobody disables themselves (403 `FORBIDDEN`), nor the last active Owner (422 `USER_INVALID`, `LAST_OWNER`). An account already disabled answers 422 `INVALID_STATE_TRANSITION` (1.10.0).\n\nPermission: `iam.user.disable`."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - TOTP_ENROLMENT_REQUIRED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - USER_INVALID
+        - RATE_LIMITED
       x-permission: iam.user.disable
       parameters:
         - name: id
@@ -1869,7 +1928,20 @@ paths:
       tags:
         - iam
       summary: "Re-enable a disabled account"
-      description: "Permission: `iam.user.disable`."
+      description: "Enables a disabled account; its sessions stay revoked, so the user signs in again. Nobody enables themselves (403 `FORBIDDEN`) (1.10.0).\n\nPermission: `iam.user.disable`."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - TOTP_ENROLMENT_REQUIRED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - RATE_LIMITED
       x-permission: iam.user.disable
       parameters:
         - name: id
@@ -1944,7 +2016,19 @@ paths:
       tags:
         - iam
       summary: "Clear a lockout"
-      description: "Permission: `iam.user.unlock`."
+      description: "Clears the failed-login lockout of the account at once (FR-IAM-017). Nobody unlocks themselves (403 `FORBIDDEN`) (1.10.0).\n\nPermission: `iam.user.unlock`."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - TOTP_ENROLMENT_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
       x-permission: iam.user.unlock
       parameters:
         - name: id
@@ -2019,7 +2103,20 @@ paths:
       tags:
         - iam
       summary: "Issue a temporary password for a staff member"
-      description: "Permission: `iam.user.reset_password`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      description: "Sets a new temporary password, shown once, and revokes every session of the account; the user must change it at next sign-in. Nobody resets their own password here (403 `FORBIDDEN`; use `changePassword`) (1.10.0).\n\nPermission: `iam.user.reset_password`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - TOTP_ENROLMENT_REQUIRED
+        - STEP_UP_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
       x-permission: iam.user.reset_password
       x-requires-step-up: true
       parameters:
@@ -2077,6 +2174,13 @@ paths:
         - iam
       summary: "List roles"
       description: "Permission: `iam.role.read`."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - TOTP_ENROLMENT_REQUIRED
+        - RATE_LIMITED
       x-permission: iam.role.read
       parameters:
         - name: cursor
@@ -2287,6 +2391,14 @@ paths:
         - iam
       summary: "Get a role"
       description: "Permission: `iam.role.read`."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - TOTP_ENROLMENT_REQUIRED
+        - RATE_LIMITED
+        - NOT_FOUND
       x-permission: iam.role.read
       parameters:
         - name: id
@@ -2426,6 +2538,13 @@ paths:
         - iam
       summary: "List permission codes"
       description: "Permission: `iam.role.read`."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - TOTP_ENROLMENT_REQUIRED
+        - RATE_LIMITED
       x-permission: iam.role.read
       parameters:
         - name: module
@@ -2503,6 +2622,13 @@ paths:
         - iam
       summary: "List role grants"
       description: "Permission: `iam.grant.read`."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - TOTP_ENROLMENT_REQUIRED
+        - RATE_LIMITED
       x-permission: iam.grant.read
       parameters:
         - name: principalId
@@ -2689,7 +2815,22 @@ paths:
       tags:
         - iam
       summary: "Grant a role at a branch or location"
-      description: "Permission: `iam.grant.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      description: "Nobody grants themselves a role (403 `FORBIDDEN`; the database refuses it too), and nobody grants a role holding a permission they do not hold at that branch and location (403 `FORBIDDEN`). The location must be in the branch (`LOCATION_NOT_IN_BRANCH`), the window must end after it starts (`NOT_AFTER_VALID_FROM`), and the Customer and Investor roles are for their own realms (`ROLE_NOT_FOR_REALM`), each 422 `GRANT_INVALID`. The same live grant twice is 422 `DUPLICATE_VALUE`. Every grant is audited as `PERMISSION_CHANGE` and published as `iam.RoleGranted` (1.10.0).\n\nPermission: `iam.grant.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - TOTP_ENROLMENT_REQUIRED
+        - STEP_UP_REQUIRED
+        - DUPLICATE_VALUE
+        - REFERENCE_NOT_FOUND
+        - GRANT_INVALID
+        - RATE_LIMITED
       x-permission: iam.grant.manage
       x-requires-step-up: true
       parameters:
@@ -2760,7 +2901,21 @@ paths:
       tags:
         - iam
       summary: "Revoke a role grant"
-      description: "Permission: `iam.grant.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      description: "Nobody revokes their own grant (403 `FORBIDDEN`; the database refuses it too), nor a grant of a role holding a permission they lack at that scope (403). The last Owner grant in force stays (422 `GRANT_INVALID`, `LAST_OWNER`). The revocation takes effect on the next request, is audited as `PERMISSION_CHANGE` and is published as `iam.RoleRevoked` (1.10.0).\n\nPermission: `iam.grant.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - TOTP_ENROLMENT_REQUIRED
+        - STEP_UP_REQUIRED
+        - NOT_FOUND
+        - GRANT_INVALID
+        - RATE_LIMITED
       x-permission: iam.grant.manage
       x-requires-step-up: true
       parameters:

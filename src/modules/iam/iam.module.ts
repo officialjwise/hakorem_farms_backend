@@ -11,6 +11,8 @@ import { DomainEvents } from '../../platform/events/domain-events';
 import { Cursors } from '../../platform/http/cursor';
 import { Idempotency } from '../../platform/idempotency/idempotency';
 import { CLOCK, LOGGER, REDIS } from '../../platform/platform.module';
+import { AccessAdmin } from './application/access-admin';
+import { ACCESS_STORE, type AccessStore } from './application/access-store';
 import { APPROVAL_STORE, Approvals, type ApprovalStore } from './application/approvals';
 import { AuthenticationService, ScopeNamesRegistry } from './application/authentication.service';
 import { Authoriser } from './application/authoriser';
@@ -32,12 +34,14 @@ import { SessionsService } from './application/sessions.service';
 import { Argon2PasswordHasher } from './infrastructure/argon2-password-hasher';
 import { RangeQueryBreachedPasswords } from './infrastructure/breached-passwords';
 import { JwtAccessTokens } from './infrastructure/jwt-access-tokens';
+import { PgAccessStore } from './infrastructure/pg-access-store';
 import { PgApprovalStore } from './infrastructure/pg-approval-store';
 import { PgIamStore } from './infrastructure/pg-iam-store';
 import { PgPrincipalNames } from './infrastructure/pg-principal-names';
 import { UqrQrCodes } from './infrastructure/uqr-qr-codes';
 import { PRINCIPAL_NAMES } from './application/principal-names';
 import { RedisLoginThrottle } from './infrastructure/redis-login-throttle';
+import { AccessController } from './interface/access.controller';
 import { AuthController } from './interface/auth.controller';
 import { AuthenticationGuard } from './interface/authentication.guard';
 import { SessionsController } from './interface/sessions.controller';
@@ -57,10 +61,11 @@ const BREACHED_LOOKUP_TIMEOUT_MS = 2_000;
  * every module passes through it.
  */
 @Module({
-  controllers: [AuthController, SessionsController],
+  controllers: [AuthController, SessionsController, AccessController],
   providers: [
     { provide: IAM_STORE, useClass: PgIamStore },
     { provide: APPROVAL_STORE, useClass: PgApprovalStore },
+    { provide: ACCESS_STORE, useClass: PgAccessStore },
     { provide: PRINCIPAL_NAMES, useClass: PgPrincipalNames },
     { provide: QR_CODES, useClass: UqrQrCodes },
     {
@@ -138,9 +143,28 @@ const BREACHED_LOOKUP_TIMEOUT_MS = 2_000;
         new Approvals(store, authoriser, events, audit, clock),
       inject: [APPROVAL_STORE, Authoriser, DomainEvents, AuditTrail, CLOCK],
     },
+    {
+      provide: AccessAdmin,
+      useFactory: (
+        uow: UnitOfWork,
+        store: AccessStore,
+        iamStore: IamStore,
+        authoriser: Authoriser,
+        idempotency: Idempotency,
+        cursors: Cursors,
+        audit: AuditTrail,
+        events: DomainEvents,
+        hasher: PasswordHasher,
+        throttle: LoginThrottle,
+        scopeNames: ScopeNamesRegistry,
+        subjectKeys: SubjectKeys,
+        clock: Clock,
+      ) => new AccessAdmin(uow, store, iamStore, authoriser, idempotency, cursors, audit, events, hasher, throttle, scopeNames, subjectKeys, clock),
+      inject: [UnitOfWork, ACCESS_STORE, IAM_STORE, Authoriser, Idempotency, Cursors, AuditTrail, DomainEvents, PASSWORD_HASHER, LOGIN_THROTTLE, ScopeNamesRegistry, SubjectKeys, CLOCK],
+    },
     AuthenticationGuard,
     { provide: APP_GUARD, useExisting: AuthenticationGuard },
   ],
-  exports: [Authoriser, Approvals, ScopeNamesRegistry, PRINCIPAL_NAMES],
+  exports: [Authoriser, Approvals, ScopeNamesRegistry, PRINCIPAL_NAMES, AccessAdmin],
 })
 export class IamModule {}

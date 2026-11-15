@@ -1,0 +1,86 @@
+operationId: enableUser
+tags:
+  - iam
+summary: "Re-enable a disabled account"
+description: "Enables a disabled account; its sessions stay revoked, so the user signs in again. Nobody enables themselves (403 `FORBIDDEN`) (1.10.0).\n\nPermission: `iam.user.disable`."
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - TOTP_ENROLMENT_REQUIRED
+  - NOT_FOUND
+  - INVALID_STATE_TRANSITION
+  - RATE_LIMITED
+x-permission: iam.user.disable
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ReasonRequest"
+      example:
+        reason: "Confirmed identity in person"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/UserAccount"
+        example:
+          id: "019a7a86-3046-711a-a652-1a7389f79351"
+          displayName: "Akua Mensah"
+          realm: STAFF
+          email: "akua.mensah@hakoremfarms.com"
+          phone: "+233244100201"
+          status: ACTIVE
+          totpEnrolled: true
+          totpRequired: true
+          mustChangePassword: false
+          lastLoginAt: "2026-11-13T06:40:00Z"
+          grants:
+            - roleCode: OWNER
+              roleName: Owner
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              branchCode: DDW
+              locationId: null
+              locationCode: null
+          version: 3
+          createdAt: "2026-11-02T08:00:00Z"
+          updatedAt: "2026-11-12T17:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

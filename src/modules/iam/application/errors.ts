@@ -1,5 +1,5 @@
 import { ApiError, BusinessRuleError } from '../../../platform/errors/api-error';
-import { registerMessages } from '../../../platform/i18n/messages';
+import { registerMessages, translate } from '../../../platform/i18n/messages';
 
 /** IAM's user-facing messages (docs/API.md section 10.3). Registered when the module loads. */
 registerMessages({
@@ -19,7 +19,65 @@ registerMessages({
   'iam.approval_already_decided': 'This request was already decided.',
   'iam.approval_expired': 'This request lapsed before anyone decided it.',
   'iam.approval_subject_changed': 'The record changed after approval was requested. Ask for approval again.',
+  'iam.duplicate_value': 'Another live account or grant already uses this value.',
+  'iam.reference_not_found': 'This refers to something that does not exist.',
+  'iam.grant_rule': 'This grant breaks a grant rule.',
+  'iam.user_rule': 'This change to the account is not allowed.',
+  'iam.self_administration': 'You cannot change your own access. Ask another manager or the owner.',
+  'iam.role_exceeds_granter': 'You can only give a role whose every permission you hold yourself at that branch.',
 });
+
+export class IamDuplicateValueError extends BusinessRuleError {
+  readonly code = 'DUPLICATE_VALUE';
+  readonly messageKey = 'iam.duplicate_value';
+
+  constructor(fields: readonly string[]) {
+    super(`duplicate value at ${fields.join(', ')}`, fields.map((field) => ({ field, code: 'DUPLICATE', message: translate('iam.duplicate_value') })));
+  }
+}
+
+export class IamReferenceNotFoundError extends BusinessRuleError {
+  readonly code = 'REFERENCE_NOT_FOUND';
+  readonly messageKey = 'iam.reference_not_found';
+
+  constructor(fields: readonly string[]) {
+    super(`no record for ${fields.join(', ')}`, fields.map((field) => ({ field, code: 'NOT_FOUND', message: translate('iam.reference_not_found') })));
+  }
+}
+
+/** 422 `GRANT_INVALID`: `details[].code` names the rule (A-120). */
+export class GrantInvalidError extends BusinessRuleError {
+  readonly code = 'GRANT_INVALID';
+  readonly messageKey = 'iam.grant_rule';
+
+  constructor(rules: ReadonlyArray<{ readonly field: string | null; readonly rule: string }>) {
+    super('the grant breaks a grant rule', rules.map((rule) => ({ field: rule.field, code: rule.rule, message: translate('iam.grant_rule') })));
+  }
+}
+
+/** 422 `USER_INVALID`: `details[].code` names the rule (A-120). */
+export class UserInvalidError extends BusinessRuleError {
+  readonly code = 'USER_INVALID';
+  readonly messageKey = 'iam.user_rule';
+
+  constructor(field: string | null, rule: string) {
+    super(`the account change breaks ${rule}`, [{ field, code: rule, message: translate('iam.user_rule') }]);
+  }
+}
+
+/** 403: nobody changes their own grants, status, lock or password through administration (FR-IAM-022). */
+export class SelfAdministrationError extends ApiError {
+  readonly status = 403;
+  readonly code = 'FORBIDDEN';
+  readonly messageKey = 'iam.self_administration';
+}
+
+/** 403: the role holds a permission the granter does not hold at that scope (FR-IAM-022). */
+export class RoleExceedsGranterError extends ApiError {
+  readonly status = 403;
+  readonly code = 'FORBIDDEN';
+  readonly messageKey = 'iam.role_exceeds_granter';
+}
 
 export class InvalidCredentialsError extends ApiError {
   readonly status = 401;

@@ -358,6 +358,8 @@ The "Source" column says where the code comes from. **Contract** means the code 
 | `PRICE_LIST_ASSIGNMENT_INVALID` | 422 | The list assigned to a customer is not a `CUSTOMER` list (`NOT_A_CUSTOMER_LIST`), or the window ends before it starts (`NOT_AFTER_VALID_FROM`) (1.8.0) |
 | `PAYMENT_METHOD_INVALID` | 422 | A payment method change is not allowed: verification switched off for mobile money or card (`VERIFICATION_REQUIRED`), a method other than cash, or mobile money without `pos.offline_mobile_money_allowed`, taken offline (`OFFLINE_NOT_ALLOWED`), or no channel left (`NO_CHANNELS`) (1.9.0) |
 | `DELIVERY_ZONE_INVALID` | 422 | A delivery zone has no areas (`NO_AREAS`), a blank or repeated area (`AREA_BLANK`, `AREA_REPEATED`), or an area another active zone covers (`AREA_IN_ZONE:<code>`) (1.9.0) |
+| `GRANT_INVALID` | 422 | A grant breaks a grant rule: a location outside the branch (`LOCATION_NOT_IN_BRANCH`), a window ending before it starts (`NOT_AFTER_VALID_FROM`), the Customer or Investor role outside its realm (`ROLE_NOT_FOR_REALM`), or the last Owner grant in force revoked (`LAST_OWNER`) (1.10.0) |
+| `USER_INVALID` | 422 | An account change is not allowed: no email and no phone (`NO_IDENTIFIER`), an investor account before investor records exist (`INVESTOR_ACCOUNTS_NOT_AVAILABLE`), or the last active Owner disabled (`LAST_OWNER`) (1.10.0) |
 
 #### Stock, livestock and processing (Added)
 
@@ -548,6 +550,15 @@ One short section per tag, in the order of the contract's tag groups. Each lists
 ### Identity and access (`iam`, 29)
 
 Users (`createUser` needs step-up and sets a temporary password; `disableUser`, `enableUser`, `unlockUser`, `resetUserPassword`), roles and permissions, grants by branch and location (`createGrant`, `revokeGrant`, both need step-up and appear on the permission-change report), sessions, **approvals** (`listApprovals`, `approveRequest`, `rejectRequest`, `cancelApprovalRequest`, section 11), approval policies (thresholds, step-up to change) and API credentials (section 3.8). A client building an approvals inbox uses `decidableByMe=true` and `requestedByMe=true`.
+
+**Built in B04e (1.10.0):** `listUsers`, `createUser`, `getUser`, `updateUser`, `disableUser`, `enableUser`, `unlockUser`, `resetUserPassword`, `listRoles`, `getRole`, `listPermissions`, `listGrants`, `createGrant`, `revokeGrant`. Rules (A-120):
+
+- **Scope.** A handler checks the permission at every branch the target user holds a grant at, and a grant change at the grant's branch and location. Reads of users and permissions are farm-wide for their holders.
+- **Nobody administers their own access.** Disabling, enabling, unlocking or resetting yourself, granting yourself a role and revoking your own grant are 403 `FORBIDDEN`; the database refuses a self-grant and a self-revocation too.
+- **Nothing beyond what you hold.** A role holding a permission the caller does not hold at that branch and location cannot be granted or revoked by them (403), so a Manager neither makes nor unmakes an Owner. The last active Owner cannot be disabled (`USER_INVALID`, `LAST_OWNER`) and the last Owner grant in force cannot be revoked (`GRANT_INVALID`, `LAST_OWNER`).
+- **Temporary passwords** are shown once, in the response and in a retry with the same idempotency key, and are kept nowhere in the clear. The account must change it at first sign-in; a reset also revokes every session.
+- **Disabling** revokes every session at once; enabling does not bring them back. **Unlocking** clears the lockout in Redis and in the account row at once.
+- Every grant change is audited as `PERMISSION_CHANGE` and published as `iam.RoleGranted` or `iam.RoleRevoked`, for the permission-change report (B12).
 
 ### Audit and administration (`aud`, 18)
 

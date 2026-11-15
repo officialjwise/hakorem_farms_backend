@@ -88,7 +88,7 @@ Each card gives: what the module owns, its public interface (the services export
 ### IAM: identity, access and roles (layer 2)
 
 - **Owns:** schema `iam`. Principals, user accounts, credentials, TOTP, sessions, refresh tokens, API credentials, roles, permissions, grants, approval policies and requests.
-- **Public interface:** `Authoriser` (the policy check every handler calls), `Approvals` (request, decide, register a handler for a kind), `Identity` (principal lookup, display names; B4 built the display names as `PrincipalNames`, token `PRINCIPAL_NAMES`), `Authentication` (guards that set the actor context), `ApiCredentials`.
+- **Public interface:** `Authoriser` (the policy check every handler calls), `Approvals` (request, decide, register a handler for a kind), `Identity` (principal lookup, display names; B4 built the display names as `PrincipalNames`, token `PRINCIPAL_NAMES`), `Authentication` (guards that set the actor context), `ApiCredentials`. B04e publishes `AccessAdmin` (user and grant administration, with the first-Owner bootstrap, ADR-0043) and `AuthenticationService` for the seed alone, on ADR-0041's terms; no module calls them. The `ScopeNames` port gains `refs` (branch and location codes, names and kinds), which MDM implements. Events: `iam.ApprovalDecided`, `iam.RoleGranted`, `iam.RoleRevoked`.
 - **Imports:** platform.
 - **Subscribes:** nothing.
 

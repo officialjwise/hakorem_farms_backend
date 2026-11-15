@@ -1,0 +1,66 @@
+operationId: getRole
+tags:
+  - iam
+summary: "Get a role"
+description: "Permission: `iam.role.read`."
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - TOTP_ENROLMENT_REQUIRED
+  - RATE_LIMITED
+  - NOT_FOUND
+x-permission: iam.role.read
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Role"
+        example:
+          id: "019a7a94-7270-7ff3-852b-0805a18d80e3"
+          code: CASHIER
+          name: Cashier
+          isSystem: true
+          requiresTotp: false
+          permissions:
+            - pos.sale.create
+            - pos.shift.open
+            - pos.shift.close
+            - pay.payment.create
+          limits:
+            - limitKind: PRICE_OVERRIDE_PER_LINE
+              amountPesewas: 5000
+            - limitKind: PRICE_OVERRIDE_PER_SHIFT
+              amountPesewas: 20000
+          userCount: 2
+          version: 2
+          createdAt: "2026-11-01T08:00:00Z"
+          updatedAt: "2026-11-10T15:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
