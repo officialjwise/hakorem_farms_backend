@@ -41,7 +41,7 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B06 continued | `B06b-livestock-packs.md` | `b06b-livestock-packs` | B4 to B12 | Every LIV write built refuses the wrong role; a withdrawal hold blocks sale and processing and nobody releases it early; mortality at or above the threshold waits for a photograph and a different approver; feed and veterinary cost spread by head-days sum exactly to the value issued (built; the session split, A-158) |
 | B06 continued 2 | `B06c-livestock-growth-breeding.md` | `b06c-livestock-growth-breeding` | B4 to B12 | Every remaining LIV write refuses the wrong role; a move starts only where the animal is; average daily gain and feed conversion match a hand calculation; a batch closes only when empty; a birth registers its offspring at nil cost linked to the dam; the feed, medicine and ration seed is counted by hand (built) |
 | B06 continued 3 | `B06d-packs-labels.md` | `b06d-packs-labels` | B4 to B12 | Pack weights equal the lot weight and a pack label encodes the lot and the weight; a completed order reverses only while its outputs are unsold; every pack write refuses the wrong role; the Farm hand sees no cost on any LIV or PRC operation its grants reach (built) |
-| B06u | `B06u-uom-conversions.md` | `b06u-uom-conversions` | B4 to B12 | Alternative units convert exactly, an inexact factor is refused by the database, conversions list in the contract, writes refuse the wrong role |
+| B06u | `B06u-uom-conversions.md` | `b06u-uom-conversions` | B4 to B12 | Alternative units convert exactly, an inexact factor is refused by the database, conversions list in the contract, writes refuse the wrong role (built) |
 | B7 | `B07-procurement-suppliers.md` | `b07-procurement-suppliers` | B4 to B12 | Three-way match blocks payment on disagreement; checkout reserves stock and releases it on timeout |
 | B8 | `B08-ledger-billing.md` | `b08-ledger-billing` | B4 to B12 | Trial balance sums to zero on a seeded day; an unbalanced journal is rejected by the database; numbering is gap-free under concurrent load |
 | B9a | `B09a-order-core-payments.md` | `b09a-order-core-payments` | B4 to B12 | Every payment edge case in the brief passes; an order on any channel posts stock, document, payment and ledger in one transaction |
@@ -928,7 +928,9 @@ ADR-0026 proposes, the public catalogue, cart and checkout reservation with the 
 (order placement and online payment are B09a), and, as the ADR-0026 delivery split decides, the
 del.delivery_slot table and slot generation, with checkout storing a chosen slot through its foreign key
 but not enforcing capacity (capacity and cut-offs are B11). Use input levies from ADR-0020 and a reclaimable flag
-on the supplier invoice lines. Extend the seed.
+on the supplier invoice lines. A purchase or cart line in a unit other than the product's base unit (feed
+bought by the 50 kg bag) converts through MasterDataRefs.toBaseIn (B06u, A-163), never with a factor of its own.
+Extend the seed.
 Stop at the gate and write docs/sessions/B07-procurement-suppliers.md.
 ```
 
@@ -996,8 +998,8 @@ Make the owner dashboard's B9a figures live (B05x, A-149): remove `salesTodayPes
 `salesMonthToDatePesewas`, `salesByChannel`, `salesSeries` and `topMovers` from RPT's PENDING_FIGURES and answer them
 from completed orders through a published view, and build the planned tiles getSalesTodayTile and getSalesSeries,
 each test-first with its wrong-role refusal.
-Unit conversions are built in B06u (A-157): an order line in a unit other than the product's base unit
-converts through MasterDataRefs, never with a factor of its own.
+Unit conversions are built in B06u (A-157, A-163): an order line in a unit other than the product's base unit
+converts through MasterDataRefs.toBaseIn, never with a factor of its own.
 Stop at the gate and write docs/sessions/B09a-order-core-payments.md.
 ```
 

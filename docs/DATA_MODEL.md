@@ -169,7 +169,7 @@ No table is partitioned in version one. At the capacity targets in the shared br
 | `mdm.grade` | `MASTER` | Quality grades within a species, used by pricing and quoting |
 | `mdm.weight_band` | `MASTER` | Live-weight ranges within a species, used by pricing and quoting |
 | `mdm.product` | `MASTER` | The catalogue |
-| `mdm.product_uom_conversion` | `MASTER` | Exact conversion between two units for a product |
+| `mdm.product_uom_conversion` | `MASTER` | Exact conversion from a countable product's alternative unit to its base unit (B06u) |
 | `mdm.product_image` | `MASTER` | Photographs of a product |
 | `mdm.customer_tier` | `MASTER` | Customer tiers, an input to pricing |
 | `mdm.customer` | `MASTER` | Customer identity |
@@ -785,6 +785,7 @@ The shared brief requires that the rules are put in the database, because applic
 | Three-way match blocks supplier payment | Trigger on `pur.supplier_payment_allocation` |
 | Two active price list versions, tax scheme versions or weight bands cannot overlap | Exclusion constraints |
 | Two price list entries cannot match the same request | Unique index with nulls not distinct |
+| A unit conversion is exact to three places, in lowest terms, and only for a countable product (B06u, A-163) | `CHECK` `ck_uom_conversion_exact` and trigger `mdm.uom_conversion_guard` on `mdm.product_uom_conversion` (migration 0090) |
 | A tax scheme version covers every category and levy | Deferred trigger on activation |
 | One open shift per register and per cashier | Partial unique indexes on `pos.shift` |
 | An offline sale is applied exactly once | Partial unique index on `pos.sale_sync` |
