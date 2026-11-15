@@ -1,0 +1,74 @@
+operationId: cancelImportJob
+tags:
+  - mdm
+summary: "Cancel an import that has not been applied"
+description: "Only an import that is `UPLOADED` or `VALIDATED` can be cancelled; anything else is 422 `INVALID_STATE_TRANSITION`. The job and its errors stay readable.\n\nPermission: `mdm.import.create`."
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - INVALID_STATE_TRANSITION
+  - RATE_LIMITED
+x-permission: mdm.import.create
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ImportJob"
+        example:
+          id: "019a7aaa-ae38-7b71-80a9-bfe518c538c2"
+          entity: PRODUCT
+          direction: IMPORT
+          file:
+            id: "019a7aaa-cd27-7554-9a8c-5e1c9276d6fa"
+            originalName: catalogue-2026-11.xlsx
+            contentType: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+          status: CANCELLED
+          rowsTotal: 42
+          rowsValid: 40
+          rowsApplied: null
+          rowsToCreate: 40
+          rowsToUpdate: 2
+          createdAt: "2026-11-01T10:00:00Z"
+          createdBy:
+            id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+            displayName: "Kwabena Owusu"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

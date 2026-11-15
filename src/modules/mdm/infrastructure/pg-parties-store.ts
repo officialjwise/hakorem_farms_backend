@@ -3,7 +3,7 @@ import type { AssignmentWindow } from '../domain/parties';
 import type { RowState } from '../application/admin-kit';
 import type { ZoneForMatch } from '../domain/reference-data';
 import { deliverableZones } from './pg-reference-data-store';
-import type { AddressView, AddressWrite, CustomerFilters, CustomerRecord, CustomerWrite, PartiesStore, PriceListFacts, TierView } from '../application/parties-store';
+import type { AddressView, AddressWrite, CustomerFilters, CustomerKind, CustomerStatus, CustomerRecord, CustomerWrite, PartiesStore, PriceListFacts, TierView } from '../application/parties-store';
 
 const CUSTOMER_UPDATABLE: ReadonlySet<string> = new Set(['name', 'phone_e164', 'phone_hash', 'email', 'tier_id', 'tin_enc', 'status']);
 const ADDRESS_UPDATABLE: ReadonlySet<string> = new Set([
@@ -208,6 +208,19 @@ export class PgPartiesStore implements PartiesStore {
   async phoneTaken(tx: Transaction, phoneHash: Buffer, exceptId: string | null): Promise<boolean> {
     const { rows } = await tx.query('SELECT 1 FROM mdm.customer WHERE phone_hash = $1 AND deleted_at IS NULL AND id IS DISTINCT FROM $2', [phoneHash, exceptId]);
     return rows.length > 0;
+  }
+
+  async customerByPhoneHash(tx: Transaction, phoneHash: Buffer): Promise<{ id: string; customerNo: string } | null> {
+    const { rows } = await tx.query<{ id: string; customer_no: string }>('SELECT id, customer_no FROM mdm.customer WHERE phone_hash = $1 AND deleted_at IS NULL', [phoneHash]);
+    return rows.length === 0 ? null : { id: rows[0]!.id, customerNo: rows[0]!.customer_no };
+  }
+
+  async customerByNo(tx: Transaction, customerNo: string): Promise<{ id: string; kind: CustomerKind; status: CustomerStatus; version: number } | null> {
+    const { rows } = await tx.query<{ id: string; kind: CustomerKind; status: CustomerStatus; version: number }>(
+      'SELECT id, kind, status, version FROM mdm.customer WHERE customer_no = $1 AND deleted_at IS NULL',
+      [customerNo],
+    );
+    return rows[0] ?? null;
   }
 
   async insertCustomer(tx: Transaction, id: string, w: CustomerWrite, actorId: string): Promise<void> {

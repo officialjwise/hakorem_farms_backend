@@ -180,6 +180,17 @@ export class FileStore {
   }
 
   /**
+   * The content of a CLEAN file, for a module that reads what was uploaded (an import, ADR-0046). Call outside any
+   * transaction. A file the scanner has not passed is never read.
+   */
+  async content(file: StoredFileRecord): Promise<Buffer> {
+    if (file.scanStatus !== 'CLEAN') {
+      throw new Error(`file ${file.id} is ${file.scanStatus}; only a CLEAN file is read`);
+    }
+    return this.configured().storage.get(file.bucket, file.objectKey);
+  }
+
+  /**
    * The public variants of each file, in the order thumb, card, full and WebP before JPEG, with their URLs on the media
    * origin. A file with none, or with no origin configured, maps to an empty list. The original is never among them.
    */

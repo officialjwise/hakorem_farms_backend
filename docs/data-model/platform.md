@@ -188,7 +188,7 @@ Metadata for every object in object storage. Content is immutable; only scan sta
 | `sha256` | `bytea` | NOT NULL | Integrity, and proof an archived document is unchanged |
 | `classification` | `text` | NOT NULL, CHECK in (`PUBLIC`, `INTERNAL`, `CONFIDENTIAL`, `RESTRICTED`) | Drives signed URL rules |
 | `scan_status` | `text` | NOT NULL, CHECK in (`PENDING`, `CLEAN`, `INFECTED`, `FAILED`) | A file is not served until `CLEAN` |
-| `purpose` | `text` | NOT NULL, CHECK in the contract's `FilePurpose` | The use: decides the allow-list, the cap and the classification (DOC, A-124) |
+| `purpose` | `text` | NOT NULL, CHECK in the contract's `FilePurpose` | The use: decides the allow-list, the cap and the classification (DOC, A-124). `EXPORT` (migration 0038) is a file the server writes for a master data export; no upload is accepted under it (A-128) |
 | `scanned_at` | `timestamptz` | NULL; set exactly when status is not `PENDING` | When the scanner gave its verdict |
 | `scan_verdict` | `text` | NULL | The signature found, or why the scan failed |
 | `owner_module` | `text` | NOT NULL | Who to ask about it |

@@ -602,8 +602,13 @@ A spreadsheet import or export of master data. Posted statuses: `APPLIED`, `FAIL
 | `rows_total` | `integer` | NULL | |
 | `rows_valid` | `integer` | NULL | |
 | `rows_applied` | `integer` | NULL | Export row count is audited |
+| `rows_to_create` | `integer` | NULL | The dry run's preview (FR-MDM-019); null for an export |
+| `rows_to_update` | `integer` | NULL | The dry run's preview; null for an export |
+| `branch_id` | `uuid` | NOT NULL, FK `mdm.branch` | The head office branch: master data is not branch-scoped (A-128) |
 
 Standard columns: `DOCUMENT`.
+
+Created in B04e continued 4 (migration 0039, ADR-0046). Frozen once `APPLIED`, `FAILED` or `CANCELLED` (`platform.freeze_posted`, HK004). `mdm.import_job_guard()` (SQLSTATE HK009): an import is inserted `UPLOADED`, `VALIDATED` or `FAILED` and its file must be a CLEAN `IMPORT` file (`platform.require_clean_file`); `entity`, `direction`, `file_id`, `branch_id` and the creation columns never change; the status moves only `UPLOADED` to `VALIDATED`, `FAILED` or `CANCELLED`, and `VALIDATED` to `APPLIED` or `CANCELLED`; an import with an error row is never `APPLIED`. CHECKs: an `APPLIED` job has `rows_valid = rows_applied = rows_total`; an export is `APPLIED` or `FAILED`; the posted columns are set exactly in a posted status. One export job per file. `hk_app` holds `SELECT`, `INSERT`, `UPDATE`.
 
 ### `mdm.import_job_error` · WORK
 
@@ -616,3 +621,6 @@ Row-level validation errors of an import.
 | `row_no` | `integer` | NOT NULL | |
 | `column_name` | `text` | NULL | |
 | `message` | `text` | NOT NULL | Shown in the dry-run preview |
+| `created_at` | `timestamptz` | NOT NULL DEFAULT now() | |
+
+Created in B04e continued 4 (migration 0039). `row_no` is the spreadsheet row (the header is row 1, at least 1); `column_name` 1 to 60 characters; `message` 1 to 300 characters, naming the rule and never a personal value from the cell (A-128). Listed by (`row_no`, `id`).

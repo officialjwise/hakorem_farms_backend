@@ -28,6 +28,8 @@ describe('what each use of the file store accepts (FR-DOC-006, SA-11, SEC-027)',
   it('takes spreadsheets only for imports, and PDF only where a document is expected', () => {
     expect(judgeUpload('IMPORT', 'text/csv', 2_048)).toMatchObject({ allowed: true, use: { classification: 'CONFIDENTIAL', keyPrefix: 'import' } });
     expect(judgeUpload('IMPORT', 'image/png', 2_048)).toEqual({ allowed: false, refusal: 'FILE_TYPE_NOT_ALLOWED' });
+    // An export is written by the server only: no upload is ever stored under it.
+    expect(judgeUpload('EXPORT', 'text/csv', 2_048)).toEqual({ allowed: false, refusal: 'FILE_TYPE_NOT_ALLOWED' });
     expect(judgeUpload('STATEMENT', 'application/pdf', 2_048)).toMatchObject({ allowed: true });
     expect(judgeUpload('SIGNATURE', 'image/webp', 2_048)).toEqual({ allowed: false, refusal: 'FILE_TYPE_NOT_ALLOWED' });
   });

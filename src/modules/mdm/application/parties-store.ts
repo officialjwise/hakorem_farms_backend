@@ -110,6 +110,10 @@ export interface PartiesStore {
   customers(tx: Transaction, filters: CustomerFilters, at: Date, afterId: string | null, limit: number): Promise<CustomerRecord[]>;
   /** Whether a live customer other than `exceptId` has this phone hash. */
   phoneTaken(tx: Transaction, phoneHash: Buffer, exceptId: string | null): Promise<boolean>;
+  /** The live customer with this phone hash, if any. */
+  customerByPhoneHash(tx: Transaction, phoneHash: Buffer): Promise<{ readonly id: string; readonly customerNo: string } | null>;
+  /** The live customer with this number, if any, with what an import needs to change it. */
+  customerByNo(tx: Transaction, customerNo: string): Promise<{ readonly id: string; readonly kind: CustomerKind; readonly status: CustomerStatus; readonly version: number } | null>;
   insertCustomer(tx: Transaction, id: string, write: CustomerWrite, actorId: string): Promise<void>;
   updateCustomer(tx: Transaction, id: string, expectedVersion: number, columns: Readonly<Record<string, unknown>>, actorId: string): Promise<boolean>;
   archiveCustomer(tx: Transaction, id: string, expectedVersion: number, reason: string, actorId: string, now: Date): Promise<boolean>;

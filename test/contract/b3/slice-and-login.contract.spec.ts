@@ -67,6 +67,8 @@ import {
   TaxCellsReplace,
   TaxLevyCreate,
   TaxSchemeVersionCreate,
+  ImportCreate,
+  ExportCreate,
 } from '../../../src/modules/mdm/interface/schemas';
 import { createCatalogue, type TestCatalogue } from '../../support/catalogue';
 import { contractSchema } from '../../support/contract-schemas';
@@ -241,6 +243,8 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     archivePriceList: ArchiveBody,
     archiveProduct: ArchiveBody,
     addProductImage: ProductImageCreateBody,
+    createImportJob: ImportCreate,
+    createExportJob: ExportCreate,
   };
 
   it('parses every request example of an implemented operation with the schema its route validates with', () => {

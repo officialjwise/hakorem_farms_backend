@@ -147,6 +147,21 @@ describe('the Product slice on the running stack', () => {
     expect((await cashier.call('GET', `/v1/products/${created.body.id}`)).body.images).toEqual([]);
   });
 
+  it('reads an import only once it is clean, refuses the cashier the imports and exports, and lists the jobs (FR-MDM-019, FR-MDM-020)', async () => {
+    const sheet = Buffer.from('customerNo,kind,name,phone,email,tier\r\n,INDIVIDUAL,Esi Quartey,0244000777,,RETAIL\r\n');
+    const stored = await manager.upload('IMPORT', sheet, 'customers.csv');
+    expect(stored.status).toBe(201);
+    // The stack runs no ClamAV, so the file stays PENDING and is never read.
+    const dryRun = await manager.call('POST', '/v1/imports', { entity: 'CUSTOMER', fileId: stored.body.id }, { 'Idempotency-Key': randomUUID() });
+    expect(dryRun.status).toBe(422);
+    expect(dryRun.body.error.code).toBe('FILE_NOT_CLEAN');
+    expect((await cashier.call('POST', '/v1/imports', { entity: 'CUSTOMER', fileId: stored.body.id }, { 'Idempotency-Key': randomUUID() })).status).toBe(403);
+    expect((await cashier.call('POST', '/v1/exports', { entity: 'CUSTOMER', format: 'CSV' }, { 'Idempotency-Key': randomUUID() })).status).toBe(403);
+    const listed = await manager.call('GET', '/v1/imports');
+    expect(listed.status).toBe(200);
+    expect(Array.isArray(listed.body.data)).toBe(true);
+  });
+
   it('keeps the audit trail sealed by the worker', async () => {
     let lag = '';
     for (let attempt = 0; attempt < 20; attempt += 1) {

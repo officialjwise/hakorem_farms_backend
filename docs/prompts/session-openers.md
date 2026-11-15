@@ -27,7 +27,8 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B04e continued | `B04e2-auth-approvals.md` | `b04e2-auth-approvals` | B4 to B12 | Role writes, the approval endpoints, customer registration and phone verification, and password reset with CR-004 point 3's error codes are live, each with a wrong-role refusal (built) |
 | B04e continued 2 | `B04e3-file-store-imports.md` | `b04e3-file-store-imports` | B4 to B12 | The file store with uploads, the malware scanner and `evidence_file_id` are live, each with a wrong-role refusal (built; the session split, A-125) |
 | B04e continued 3 | `B04e4-product-images-imports.md` | `b04e4-product-images-imports` | B4 to B12 | Product images attach through the file store with compressed public variants and a hidden original, each write with a wrong-role refusal (built; the session split, A-127) |
-| B04e continued 4 | `B04e5-mdm-imports-exports.md` | `b04e5-mdm-imports-exports` | B4 to B12 | MDM's imports and exports run with a dry run that writes nothing, apply all or none, and audit exports with their row count, step-up above the bulk threshold and a signed expiring link, each write with a wrong-role refusal |
+| B04e continued 4 | `B04e5-mdm-imports-exports.md` | `b04e5-mdm-imports-exports` | B4 to B12 | MDM's imports and exports run with a dry run that writes nothing, apply all or none, and audit exports with their row count, step-up above the bulk threshold and a signed expiring link, each write with a wrong-role refusal (built for the customer sheet; the session split, A-129) |
+| B04e continued 5 | `B04e6-mdm-import-sheets.md` | `b04e6-mdm-import-sheets` | B4 to B12 | The product, supplier, location and price list entry sheets import with a dry run that writes nothing and apply all or none through each entity's own service, and export audited with their row count, each with a wrong-role refusal |
 | B5 | `B05-inventory-ledger.md` | `b05-inventory-ledger` | B4 to B12 | On-hand from movements matches a hand count; stock cannot go negative outside allowed types; a lot traces both ways |
 | B6 | `B06-livestock-processing.md` | `b06-livestock-processing` | B4 to B12 | A processing order produces lots whose costs sum exactly to input cost plus direct processing cost |
 | B7 | `B07-procurement-suppliers.md` | `b07-procurement-suppliers` | B4 to B12 | Three-way match blocks payment on disagreement; checkout reserves stock and releases it on timeout |
@@ -412,6 +413,8 @@ and open a stacked pull request against b04e3-file-store-imports.
 
 ## B04e continued 4 — MDM imports and exports
 
+**Built in part** (contract 1.14.0, ADR-0046, A-128): the import and export mechanism (the spreadsheet codec, the seven operations, the job rules in the database) with the customer sheet, and that part of the gate passed. The session split at the boundary between the mechanism and the remaining sheets (A-129); those are B04e continued 5's, and opening stock is B5's. The opener below is kept as it was run.
+
 Branch `b04e5-mdm-imports-exports`, from `b04e4-product-images-imports` (stacked). Report `docs/sessions/B04e5-mdm-imports-exports.md`. B04e continued 3 built product photographs (contract 1.13.0, ADR-0045, A-126): the worker's variants in `platform.stored_file_variant`, `addProductImage` and `removeProductImage` over `mdm.product_image`, then split at the boundary between the photographs and the spreadsheet imports (A-127, ADR-0026 Amendments). Gate: MDM's imports and exports (FR-MDM-019, FR-MDM-020: `listImportJobs`, `createImportJob`, `getImportJob`, `listImportErrors`, `applyImportJob`, `cancelImportJob`, `createExportJob`) run over an `IMPORT` file from the file store with a dry run that writes nothing, apply all or none in one transaction, and audit exports with their row count, step-up above the bulk threshold (SEC-009) and a signed expiring link, each write with a wrong-role refusal. `OPENING_STOCK` writes stock, which INV owns and B5 builds: decide with an assumption whether its dry run and apply wait for B5. When this gate passes, B04e's and B04 continued's gates as a whole have passed.
 
 ```text
@@ -434,13 +437,40 @@ tests first for every permission rule. Stop at the gate, write docs/sessions/B04
 push, and open a stacked pull request against b04e4-product-images-imports.
 ```
 
-## B5 — Inventory and the stock movement ledger
+## B04e continued 5 — The remaining MDM import sheets
 
-Branch `b05-inventory-ledger`. Report `docs/sessions/B05-inventory-ledger.md`. Gate: on-hand derived from movements matches a hand count, stock cannot go negative outside the allowed movement types, and a lot traces in both directions.
+Branch `b04e6-mdm-import-sheets`, from `b04e5-mdm-imports-exports` (stacked). Report `docs/sessions/B04e6-mdm-import-sheets.md`. B04e continued 4 built the import and export mechanism (contract 1.14.0, ADR-0046, A-128): `src/platform/spreadsheet/` (XLSX and CSV on Node's zlib, no dependency), `MdmImports` with the seven operations over `mdm.import_job` (HK009), and one `EntitySheet`, `CustomerSheet`, which applies rows through `PartiesAdmin.createCustomerIn` and `updateCustomerIn`; then it split at the boundary between the mechanism and the remaining sheets (A-129, ADR-0026 Amendments). Gate: the `PRODUCT`, `SUPPLIER`, `LOCATION` and `PRICE_LIST_ENTRY` sheets each import with a dry run that writes nothing and apply all rows or none through the entity's own service in the import's transaction (an `...In` method like `createCustomerIn`), and export audited with their row count and a fresh step-up, each with a wrong-role refusal and its own row-error tests; `AVAILABLE_ENTITIES` then lists every entity but `OPENING_STOCK`, which stays 422 `IMPORT_ENTITY_NOT_AVAILABLE` until B5. When this gate passes, B04e's and B04 continued's gates as a whole have passed.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
 List docs/sessions/ and read only the most recent report (docs/sessions/B04e5-mdm-imports-exports.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
+report what you declined and why, never edit that file and never open frontend source.
+For this phase, read FR-MDM-019 and FR-MDM-020 in docs/SRS.md and the requirements of the entities a sheet
+writes (FR-MDM-001 products, the supplier, location and price list entry requirements; nothing else),
+docs/data-model/mdm.md (import jobs and the tables of products, suppliers, locations and price list entries),
+the MDM card in docs/MODULE_BOUNDARIES.md, ADR-0046 and A-128 and A-129 in docs/ASSUMPTIONS.md. Use
+docs/prompts/module-build-prompt.md as the recipe, and run hakorem-security-review on every sheet: they are
+imports, exports and permissions.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B04e continued 5 only, on branch b04e6-mdm-import-sheets, branched from
+b04e5-mdm-imports-exports: one EntitySheet each for products, suppliers, locations and price list entries
+(price list entries into a draft version, never an active one), each writing through the entity's own
+service in the import's transaction. Reuse MdmImports and the platform spreadsheet codec; do not add a
+dependency. Write the failing tests first for every permission rule and every price. Stop at the gate,
+write docs/sessions/B04e6-mdm-import-sheets.md, push, and open a stacked pull request against
+b04e5-mdm-imports-exports.
+```
+
+## B5 — Inventory and the stock movement ledger
+
+Branch `b05-inventory-ledger`. Report `docs/sessions/B05-inventory-ledger.md`. Gate: on-hand derived from movements matches a hand count, stock cannot go negative outside the allowed movement types, and a lot traces in both directions. B5 also builds the `OPENING_STOCK` import sheet, deferred from B04e continued 4 (A-128).
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B04e6-mdm-import-sheets.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
 report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the INV requirement block of docs/SRS.md (nothing else from the SRS),
@@ -454,7 +484,10 @@ trigger, movement types and reason codes, locations and virtual locations, stock
 cost pools with specific identification and weighted average, reservations and holds, goods receipts,
 transfers, adjustments with approval, stock take, stock exceptions, and the tests ADR-0002 requires,
 each rejection path as its own integration test (negative stock, double sale of a serial unit, sale
-under hold, update and delete refused). Extend the seed with stock.
+under hold, update and delete refused). Extend the seed with stock. Build the OPENING_STOCK import sheet
+too (A-128): MDM sits below INV, so the sheet is INV's, registered with MdmImports through a port MDM
+defines and INV implements (like ProductUsageCheck; a new port needs an ADR), posting OPENING_BALANCE
+movements in the import's transaction; read ADR-0046 for the mechanism.
 Coverage (NFR-015, docs/TEST_STRATEGY.md section 6): put stock valuation under
 src/modules/inv/domain/valuation/ and uncomment its 100 percent gate in vitest.config.mts before the
 gate passes. Fill every branch it exposes; the gate does not pass on a lowered number.
