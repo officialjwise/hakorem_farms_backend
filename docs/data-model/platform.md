@@ -206,12 +206,16 @@ Resized and compressed renditions of an image, produced by a worker.
 | `file_id` | `uuid` | NOT NULL, FK `platform.stored_file` | The original |
 | `variant` | `text` | NOT NULL | For example `thumb`, `card`, `full` |
 | `object_key` | `text` | NOT NULL, UNIQUE | |
-| `content_type` | `text` | NOT NULL | Usually a modern compressed format |
+| `content_type` | `text` | NOT NULL | `image/webp`, or `image/jpeg` for the fallback |
+| `bucket` | `text` | NOT NULL | The public media bucket |
 | `width` | `integer` | NOT NULL | For responsive markup |
 | `height` | `integer` | NOT NULL | |
 | `size_bytes` | `bigint` | NOT NULL | Page weight budgeting |
+| `created_at` | `timestamptz` | NOT NULL DEFAULT now() | When the worker published it |
 
-- PK (`file_id`, `variant`).
+- PK (`file_id`, `variant`, `content_type`): each width as WebP and as its JPEG fallback (A-126).
+
+Created in B04e continued 3 (migration 0036, ADR-0045). `variant` is `thumb` (320 pixels wide), `card` (640) or `full` (1280); `content_type` is `image/webp` or `image/jpeg`; `bucket` is the public media bucket and `object_key` is `p/<file id>/<variant>.<webp|jpg>`, UNIQUE (`bucket`, `object_key`). A CHECK holds the byte budgets: 50,000 for `thumb`, 200,000 for `card` (FR-DOC-005), 800,000 for `full`. Written only by `hk_worker` in the transaction that records the CLEAN verdict; insert-only (`reject_change`); `platform.stored_file_variant_guard()` (HK007) admits a variant only for a CLEAN public image. The same migration publishes `platform.require_clean_file(file_id, purpose)` (HK008), which another schema's trigger calls to require a CLEAN file of a use without reading this table.
 
 ### `platform.file_access_log` · LEDGER
 
