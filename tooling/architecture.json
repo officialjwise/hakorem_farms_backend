@@ -43,5 +43,6 @@
   },
   "universalKeys": ["iam.principal", "mdm.branch", "mdm.location"],
   "platformSharedObjects": ["pesewas", "qty", "kg", "percent", "reject_change", "touch_version", "freeze_posted", "allocate_number", "require_clean_file"],
-  "publishedViewReaders": ["cst", "rpt"]
+  "publishedViewReaders": ["cst", "rpt"],
+  "publishedFunctions": { "mdm": ["location_stock_facts", "product_tracking"] }
 }

@@ -56,7 +56,7 @@ describe('database roles (ADR-0024, SEC-036)', () => {
 describe('table classes (ADR-0012)', () => {
   beforeAll(async () => {
     const admin = database.pool('admin');
-    await admin.query('CREATE SCHEMA inv AUTHORIZATION hk_owner');
+    await admin.query('CREATE SCHEMA IF NOT EXISTS inv AUTHORIZATION hk_owner');
     await admin.query('GRANT USAGE ON SCHEMA inv TO hk_app');
     // A correct LEDGER table, written as the migration skill shows.
     await admin.query(`
