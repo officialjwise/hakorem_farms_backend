@@ -35,6 +35,7 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B05 continued 3 | `B05d-inventory-counts-holds.md` | `b05d-inventory-counts-holds` | B4 to B12 | A stock take posts its variances from blind counts, overlapping cycle counts are refused, a hold blocks a sale until released, each write with a wrong-role refusal (built; the session split, A-143) |
 | B05 continued 3b | `B05d2-inventory-reservations-exceptions.md` | `b05d2-inventory-reservations-exceptions` | B4 to B12 | An expired reservation is released by the job exactly as reserved, under concurrency; one active reservation per animal; an exception is resolved through the adjustment path; each write with a wrong-role refusal (built; ADR-0048 built with it, A-145) |
 | B05 continued 4 | `B05e-inventory-cold-chain-opening.md` | `b05e-inventory-cold-chain-opening` | B4 to B12 | The B5 gate in full: on-hand from movements matches a hand count of the seeded farm; stock cannot go negative outside allowed types; a lot traces both ways; every INV write refuses the wrong role |
+| B05x | `B05x-dashboard-branches-labels.md` | `b05x-dashboard-branches-labels` | B4 to B12 | Every dashboard tile whose data exists answers exactly on the seeded farm, the rest are contract-only and scheduled; a branch deactivates with its refusals and lists stay within grants; lot and product label data answers; every operation refuses the wrong role |
 | B6 | `B06-livestock-processing.md` | `b06-livestock-processing` | B4 to B12 | A processing order produces lots whose costs sum exactly to input cost plus direct processing cost |
 | B7 | `B07-procurement-suppliers.md` | `b07-procurement-suppliers` | B4 to B12 | Three-way match blocks payment on disagreement; checkout reserves stock and releases it on timeout |
 | B8 | `B08-ledger-billing.md` | `b08-ledger-billing` | B4 to B12 | Trial balance sums to zero on a seeded day; an unbalanced journal is rejected by the database; numbering is gap-free under concurrent load |
@@ -677,13 +678,55 @@ walk that every INV write operation refuses the wrong role, stop at it and write
 docs/sessions/B05e-inventory-cold-chain-opening.md.
 ```
 
+## B05x — Dashboard tiles, branch management and label data, pulled forward for the frontend
+
+Branch `b05x-dashboard-branches-labels`, from `main` (each phase is merged into `main` when green, ADR-0026 Amendments). Report `docs/sessions/B05x-dashboard-branches-labels.md`. Inserted by the owner on 2026-11-15 between B5 and B6: the frontend's UI phase needs these endpoints earlier than B12 schedules them. Everything is additive. Gate: every tile whose data exists answers from the real API with exact values on the seeded farm (stock value at cost equal to `listStockOnHand`'s total, the animal count equal to a hand count of serialised live stock units, the low stock count equal to the products at or below their reorder point, the purchases series equal to posted goods receipts at cost per day); the tiles whose data does not exist yet are in the contract, live only on the mock, and named in the openers that will build them; a branch can be deactivated, with its refusals, and branches and locations list only within the caller's grants; label data for a lot and a product answers from the real API; every operation refuses the wrong role.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report.
+Read ../frontend/docs/CONTRACT_REQUESTS.md, and the newer copy from the frontend's f05-stock branch if the
+parent session saved one (it lists CR-009 to CR-012): implement what is reasonable, record in the report
+what you declined and why, never edit that file and never open frontend source.
+For this phase, read the RPT and MDM (branches and locations) requirement blocks of docs/SRS.md and NFR-023
+(nothing else from the SRS), the RPT, MDM and INV cards in docs/MODULE_BOUNDARIES.md, ADR-0011 (published
+views), ADR-0023 (the reporting read model), ADR-0026 (Amendments), ADR-0042 and ADR-0047, and the planned
+contract's getOwnerDashboard and printPackLabels. Use docs/prompts/module-build-prompt.md as the recipe.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B05x only, on branch b05x-dashboard-branches-labels, branched from main:
+1. Dashboard tiles in RPT, one operation per tile, each reading only published views (ADR-0011, ADR-0023),
+   scoped to the branches the caller holds rpt permissions at, money as integer pesewas, with asOf:
+   stock value at cost, animals on hand (serialised live stock units on hand, by species), low stock count
+   (products at or below their reorder point), and a purchases time series over a period (posted goods
+   receipts at cost, per day in Africa/Accra) - all built now over INV's published views; and, in the
+   contract only, today's sales, cash position, outstanding receivables and a sales time series, whose
+   sources are BIL (B8), ORD and PAY (B9a) and POS (B9b). Never answer one of those from code before its
+   source exists: a 200 with a zero would be a placeholder. Add a line to the B8, B9a and B9b openers
+   naming the tile each must make live. Keep the planned getOwnerDashboard for B12 (NFR-023: one round trip
+   for the whole screen); the per-tile operations are the owner's addition, and each tile is useful alone.
+2. Branch and location management where B04d continued 2 left gaps: deactivate (and reactivate) a branch
+   with its refusals (not the last active branch, not one holding stock or open documents, not the
+   farm's own), and listBranches and listLocations scoped to the caller's grants. Kasoa and KNUST are real
+   selling points the owner will create through the API: do not seed them as SEED data.
+3. Label data for printing lot and product barcodes, if the contract does not expose it: a read that
+   returns what a label prints (code, name, lot, weight, dates, the barcode payload and its symbology),
+   no image rendering. printPackLabels stays B6's.
+Each operation with a wrong-role refusal, written test-first; update the cold-read summary at the top of
+docs/CONTRACT_CHANGELOG.md with every contract change. Record the schedule change in ADR-0026
+Amendments.
+Stop at the gate, write docs/sessions/B05x-dashboard-branches-labels.md, and merge into main when every
+run on the pull request is green.
+```
+
 ## B6 — Livestock and processing
 
 Branch `b06-livestock-processing`. Report `docs/sessions/B06-livestock-processing.md`. Gate: a processing order consumes an animal and produces lots whose costs sum exactly to the input cost plus the direct processing cost.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
-List docs/sessions/ and read only the most recent report (docs/sessions/B05e-inventory-cold-chain-opening.md).
+List docs/sessions/ and read only the most recent report (docs/sessions/B05x-dashboard-branches-labels.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
 report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the LIV and PRC requirement blocks of docs/SRS.md (nothing else from the SRS),
