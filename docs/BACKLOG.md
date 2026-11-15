@@ -56,6 +56,13 @@ Each item says why it is parked and what would bring it back.
 | BL-053 | `resolvePrices` priced from a named draft version (`priceListVersionId`), so a sample basket shows what the draft would charge | CR-009's optional part. `previewPriceListVersion` already shows every changed price; pricing from a version not in force needs the engine to take a version in place of its walk, a second path through code under a 100 percent gate, for a screen that does not yet exist | The price list screen asks for basket pricing in a new contract request | CR-009, FR-MDM-016, A-156 |
 | BL-054 | A `kind` filter on `previewPriceListVersion` (only the changes) | Not asked for; `counts` tells a screen whether anything changed and the lines are in identity order | A list of several hundred lines where the manager reviews only changes | CR-009, A-156 |
 
+## Parked in B06 continued 2
+
+| ID | Item | Why it is not in version one yet | What would bring it back | Related |
+| --- | --- | --- | --- | --- |
+| BL-055 | Batches that group individual animals (a litter of kids, a group of goats) with members joined to them | `createBatch` hatches lot-tracked flocks only (A-159); no operation in the contract adds an animal to a batch, and a group's head and cost would be the sum of its members' rather than one lot's. `liv.animal.batch_id` exists, empty | The owner asks to manage a litter or a goat group as one, or a contract request adds a member operation | FR-LIV-006, A-159 |
+| BL-056 | Correcting a misread tag (`updateAnimal.tagNo`) | The tag is the stock unit's identifier, which INV's guard holds fixed so labels and traces never change under a sold lot; allowing it needs an INV migration and a rule for printed labels | A tag misread at receipt that cannot be fixed by reversing the receipt | FR-LIV-002, A-159 |
+
 ## Explicitly outside the brief
 
 These are not mentioned in the shared brief, or are mentioned only conditionally. They are listed so that nobody builds them by accident.

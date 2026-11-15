@@ -2,7 +2,7 @@
 
 Owner: LIV module. The animal register, weights, health, breeding, mortality and feed.
 
-**Built in B06 continued (migration 0076, A-158):** `liv.animal`, `liv.weight_record`, `liv.health_event`, `liv.health_cost_allocation` (an addition, below), `liv.mortality_record`, `liv.ration`, `liv.feed_consumption` and `liv.feed_cost_allocation`. `liv.batch` and `liv.breeding_record`, and the animal's `batch_id` and `breeding_record_id`, are B06 continued 2's. Additions to the tables below: `branch_id`, `product_id` and `exit_value_pesewas` (the cost the closing movement carried out, set exactly when the status is not ALIVE) on an animal; `branch_id` on a weight record; `branch_id`, `holds_placed`, `medication_value_pesewas` and `issue_movement_id` on a health event, which must name exactly one of its stock unit and its pen; `location_id`, `threshold_pesewas` (the policy's threshold when submitted) and the DOCUMENT columns on a mortality record; `from_location_id` and the DOCUMENT columns on a feed consumption. An animal's status may also return to ALIVE from any closed status, on a customer return or the reversal of the closing movement. Stock quantities, locations and cost are inventory's; this module holds the biological record and shares identity with the stock unit (ADR-0002, ADR-0018, ADR-0019). Conventions are in `docs/DATA_MODEL.md`.
+**Built in B06 continued (migration 0076, A-158):** `liv.animal`, `liv.weight_record`, `liv.health_event`, `liv.health_cost_allocation` (an addition, below), `liv.mortality_record`, `liv.ration`, `liv.feed_consumption` and `liv.feed_cost_allocation`. `liv.batch` and `liv.breeding_record`, and the animal's `batch_id` and `breeding_record_id`, are B06 continued 2's. Additions to the tables below: `branch_id`, `product_id` and `exit_value_pesewas` (the cost the closing movement carried out, set exactly when the status is not ALIVE) on an animal; `branch_id` on a weight record; `branch_id`, `holds_placed`, `medication_value_pesewas` and `issue_movement_id` on a health event, which must name exactly one of its stock unit and its pen; `location_id`, `threshold_pesewas` (the policy's threshold when submitted) and the DOCUMENT columns on a mortality record; `from_location_id` and the DOCUMENT columns on a feed consumption. An animal's status may also return to ALIVE from any closed status, on a customer return or the reversal of the closing movement. **Built in B06 continued 2 (migration 0080, A-159):** `liv.batch`, `liv.breeding_record`, the animal's `batch_id` and `breeding_record_id` (an expand: nullable), and two additions, `liv.animal_move` and `liv.gestation_period` (below). Additions to the tables below: `branch_id`, `location_id` (where the batch started) and `closed_at`, `closed_by`, `close_reason` on a batch, whose `stock_unit_id` is set for every batch built so far (BL-055); `branch_id`, `stillbirths`, `fail_reason` and the DOCUMENT columns on a breeding record. The animal's tag and parentage are now fixed by `liv.animal_guard` too, and the sex of a dam. Stock quantities, locations and cost are inventory's; this module holds the biological record and shares identity with the stock unit (ADR-0002, ADR-0018, ADR-0019). Conventions are in `docs/DATA_MODEL.md`.
 
 ---
 
@@ -50,6 +50,16 @@ A group managed together: a flock of broilers, a litter. For poultry the batch i
 | `status` | `text` | NOT NULL, CHECK in (`ACTIVE`, `CLOSED`) | |
 
 Standard columns: `MASTER`.
+
+- Built (0080): `liv.batch_guard` freezes the number, species, branch, lot, start, initial head and starting location, moves status only ACTIVE to CLOSED with the close columns all set, and freezes a closed batch. Closing needs no head left on the lot (checked by `Batches`, since the head is inventory's).
+
+### `liv.animal_move` · LEDGER
+
+Built in B06 continued 2 (A-159), an addition. One move of an animal between pens of its branch (FR-LIV-003), registered as a business document (`ANIMAL_MOVE`) that its TRANSFER_INTERNAL movement cites: `id`, `stock_unit_id` (FK `liv.animal`), `branch_id`, `from_location_id`, `to_location_id` (different), `movement_id` (FK `inv.stock_movement`), `note`, `occurred_at`. Standard columns: `LEDGER`. Index (`stock_unit_id`, `occurred_at`) for the timeline.
+
+### `liv.gestation_period` · LOOKUP
+
+Built in B06 continued 2 (A-159), an addition. Gestation days per species code (FR-LIV-010, SA-19: goat 150, sheep 147, pig 114, rabbit 31), changed only by migration. A species with a row is a breeding species. Keyed by code because species are seed data, not migration rows.
 
 ### `liv.weight_record` · LEDGER
 
@@ -109,6 +119,8 @@ Posted statuses: `BORN`, `FAILED`.
 | `notes` | `text` | NULL | |
 
 Standard columns: `DOCUMENT` (`status` in `MATED`, `CONFIRMED`, `BORN`, `FAILED`).
+
+- Built (0080): `liv.breeding_record_guard` moves status MATED to CONFIRMED, BORN or FAILED and CONFIRMED to BORN or FAILED, fixes the dam, sire, mating date and branch, and checks the dam is a FEMALE animal and the sire a MALE one; `platform.freeze_posted('BORN,FAILED')`; `ck_breeding_record_born` (a BORN record has its date, litter, live births and stillbirths, which sum to the litter, born no earlier than the mating) and `ck_breeding_record_failed` (a FAILED record has its reason).
 
 ### `liv.mortality_record` · DOCUMENT
 
