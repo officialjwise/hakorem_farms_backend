@@ -980,9 +980,9 @@ Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (
 reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
 For this phase, read FR-PUR-010, FR-PUR-011, FR-PUR-013 and FR-PUR-014 in the PUR block of docs/SRS.md (nothing else
 from the SRS), docs/data-model/pur.md (its "As built" notes first), the PUR and INV cards in docs/MODULE_BOUNDARIES.md,
-ADR-0017, ADR-0020, ADR-0043 and A-164, A-166 to A-170 in docs/ASSUMPTIONS.md (A-168 to A-170 are the owner's
-decisions of 2026-11-15; first apply the owner's answer on A-169's Owner role, if the B07 continued report records
-one). Use docs/prompts/module-build-prompt.md as the recipe. Load hakorem-money, hakorem-stock (the supplier
+ADR-0017, ADR-0020, ADR-0043 and A-164, A-166 to A-171 in docs/ASSUMPTIONS.md (A-168 to A-171 are the owner's
+decisions of 2026-11-15: keep the cross-approval of payout changes and the bar on their maker approving the first
+payment after them). Use docs/prompts/module-build-prompt.md as the recipe. Load hakorem-money, hakorem-stock (the supplier
 return), hakorem-security-review (the variance approval) and hakorem-migration.
 Do not read any other document unless this phase needs it.
 
