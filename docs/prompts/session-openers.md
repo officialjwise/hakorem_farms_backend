@@ -37,7 +37,7 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B05 continued 4 | `B05e-inventory-cold-chain-opening.md` | `b05e-inventory-cold-chain-opening` | B4 to B12 | The B5 gate in full: on-hand from movements matches a hand count of the seeded farm; stock cannot go negative outside allowed types; a lot traces both ways; every INV write refuses the wrong role |
 | B05x | `B05x-dashboard-branches-labels.md` | `b05x-dashboard-branches-labels` | B4 to B12 | getOwnerDashboard answers in one request with its sourceless figures null and listed; every tile whose data exists answers exactly on the seeded farm, the rest are contract-only and scheduled; a branch deactivates with its refusals and lists stay within grants; lot and product label data answers; every operation refuses the wrong role (built) |
 | B6 | `B06-livestock-processing.md` | `b06-livestock-processing` | B4 to B12 | A processing order produces lots whose costs sum exactly to input cost plus direct processing cost (built; the session split, A-154) |
-| B06m | `B06m-master-data-requests.md` | `b06m-master-data-requests` | B4 to B12 | The draft price list preview answers exactly by the engine's identity and refuses the wrong role; price list examples agree; CR-011 answered |
+| B06m | `B06m-master-data-requests.md` | `b06m-master-data-requests` | B4 to B12 | The draft price list preview answers exactly by the engine's identity and refuses the wrong role; price list examples agree; CR-011 answered (built) |
 | B06 continued | `B06b-livestock-packs.md` | `b06b-livestock-packs` | B4 to B12 | Every LIV write refuses the wrong role; a withdrawal hold blocks sale and processing and nobody releases it early; mortality at or above the threshold waits for a photograph and a different approver; feed and veterinary cost spread by head-days sum exactly; pack weights equal the lot weight and a pack label encodes lot and weight |
 | B7 | `B07-procurement-suppliers.md` | `b07-procurement-suppliers` | B4 to B12 | Three-way match blocks payment on disagreement; checkout reserves stock and releases it on timeout |
 | B8 | `B08-ledger-billing.md` | `b08-ledger-billing` | B4 to B12 | Trial balance sums to zero on a seeded day; an unbalanced journal is rejected by the database; numbering is gap-free under concurrent load |
@@ -904,6 +904,10 @@ Make the owner dashboard's B9a figures live (B05x, A-149): remove `salesTodayPes
 `salesMonthToDatePesewas`, `salesByChannel`, `salesSeries` and `topMovers` from RPT's PENDING_FIGURES and answer them
 from completed orders through a published view, and build the planned tiles getSalesTodayTile and getSalesSeries,
 each test-first with its wrong-role refusal.
+Unit conversions (B06m, A-157): FR-MDM-003's alternative units were never built. Before an order line may carry a
+unit other than the product's base unit, build them in MDM (mdm.product_uom_conversion with numerator and
+denominator, the exact-factor rule and FR-MDM-003's unit test, read through MasterDataRefs); if no order line needs
+one, say so in the report and ask the owner to park them.
 Stop at the gate and write docs/sessions/B09a-order-core-payments.md.
 ```
 

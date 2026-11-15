@@ -24,7 +24,7 @@ Standard columns: `MASTER`. UNIQUE (`parent_id`, `lower(btrim(name))`) among liv
 
 ### `mdm.uom` · LOOKUP
 
-Units of measure.
+Units of measure. A fixed list seeded by migration (0009, 0019); no operation creates, changes or archives one, and a unit carries no conversion (CR-011, A-157).
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
@@ -116,7 +116,7 @@ Standard columns: `MASTER`.
 
 ### `mdm.product_uom_conversion` · MASTER
 
-Exact conversion between two units for a product.
+Exact conversion between two units for a product. **Not built** (CR-011, A-157): no migration creates it and no operation reads or writes it. B9a builds it if an order line needs a unit other than the product's base unit.
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |

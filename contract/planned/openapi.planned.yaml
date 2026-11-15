@@ -48761,6 +48761,7 @@ components:
         - page
     Uom:
       type: object
+      description: "A unit of measure from a fixed list seeded by migration: there is no operation that creates, changes or archives one (CR-011). A unit carries no conversion. A product holds its stock in `baseUom` and is sold in `saleUom`, and the price list entry's `basis` says what a price multiplies. A crate of 30 eggs is a product counted in `CRATE`, the 30 being part of what the product is, not a factor; a meat pack is held and priced by the kilogram (`baseUom` `KG`) with `nominalPackKg` as its standard size for estimates only, and the weighed kilograms are what is charged. Exact conversions between units of one product (FR-MDM-003) are not built yet."
       properties:
         code:
           type: string
@@ -49152,12 +49153,15 @@ components:
             - type: "null"
         baseUom:
           type: string
+          description: "The `Uom` code the product's stock is held and counted in: `KG` for a catch-weight product."
         saleUom:
           type: string
+          description: "The `Uom` code shown to a buyer. No factor converts it to `baseUom` (CR-011): for a catch-weight product sold in `PACK` the quantity is still kilograms."
         nominalPackKg:
           anyOf:
             - $ref: "#/components/schemas/Kilograms"
             - type: "null"
+          description: "A catch-weight product's standard pack size, for estimates (a 15 kg pack). Never a conversion: what is charged is the weighed kilograms."
         weightTolerancePercent:
           $ref: "#/components/schemas/Percent"
         taxCategory:
