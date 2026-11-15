@@ -72,7 +72,6 @@ beforeAll(async () => {
   approvals = api.app.get(Approvals);
   dodowa = await createBranch(database, 'DDW');
   kasoa = await createBranch(database, 'KSA');
-  await admin().query("INSERT INTO platform.document_type (code, owner_module, name, is_numbered) VALUES ('STOCK_ADJUSTMENT', 'inv', 'Stock adjustment', false)");
   await admin().query('CREATE TABLE platform.approval_probe (id uuid PRIMARY KEY, note text NOT NULL, applied boolean NOT NULL DEFAULT false)');
   await admin().query('GRANT SELECT, INSERT, UPDATE ON platform.approval_probe TO hk_app');
   await admin().query(`INSERT INTO iam.permission (code, module, description) VALUES ('${APPROVER}', 'inv', 'Approve a stock adjustment')`);

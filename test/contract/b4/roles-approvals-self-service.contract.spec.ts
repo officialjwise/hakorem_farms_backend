@@ -66,7 +66,6 @@ beforeAll(async () => {
   const maker = await createUser(database, { name: 'Akosua Boateng', grants: [{ role: 'MANAGER', branchId }] });
   makerActor = { principalId: maker.principalId, kind: 'USER', displayName: 'Akosua Boateng', realm: 'STAFF', sessionId: null, steppedUpAt: null };
   const admin = database.pool('admin');
-  await admin.query("INSERT INTO platform.document_type (code, owner_module, name, is_numbered) VALUES ('STOCK_ADJUSTMENT', 'inv', 'Stock adjustment', false)");
   await admin.query("INSERT INTO iam.permission (code, module, description) VALUES ('inv.adjustment.approve', 'inv', 'Approve a stock adjustment')");
   await admin.query("INSERT INTO iam.role_permission (role_id, permission_code, created_by) VALUES ($1, 'inv.adjustment.approve', $2)", [ROLE_IDS.MANAGER, SYSTEM_PRINCIPAL]);
   await admin.query("INSERT INTO iam.approval_policy (id, kind, approver_permission, created_by, updated_by) VALUES ($1, 'STOCK_WRITE_OFF', 'inv.adjustment.approve', $2, $2)", [randomUUID(), SYSTEM_PRINCIPAL]);

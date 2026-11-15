@@ -123,7 +123,7 @@ Each card gives: what the module owns, its public interface (the services export
 ### INV: inventory and stock control (layer 5)
 
 - **Owns:** schema `inv`. Movement types, stock units, lineage, movements, balances, cost pools, reservations, holds, exceptions, goods receipts, transfers, adjustments, stock takes, reorder rules, temperature readings, balance snapshots.
-- **Public interface:** `Stock` (post movements for a document), `StockUnits`, `Reservations`, `Holds`, `Availability`, `Valuation` (capitalise cost, read pool value), `Lineage`, `GoodsReceipts`, `Transfers`, `Adjustments`, `StockTakes`. Implements MDM's `ProductUsageCheck`. Published views: `inv.pub_stock_on_hand`, `inv.pub_stock_value`, `inv.pub_movement`.
+- **Public interface:** `Stock` (post movements for a document), `StockUnits`, `Reservations`, `Holds`, `Availability`, `Valuation` (capitalise cost, read pool value), `Lineage`, `GoodsReceipts`, `Transfers`, `Adjustments`, `StockTakes`. Implements MDM's `ProductUsageCheck`. Published views: `inv.pub_stock_on_hand`, `inv.pub_stock_value`, `inv.pub_movement`. Built in B5: `Stock.postIn` (a movement in the caller's serializable transaction; the value is the database's), `Lineage.linkIn` and `Lineage.trace`, `BalanceReconciliation`, and the three views; every stock invariant is in the triggers of migration 0044, which call MDM's published functions `location_stock_facts` and `product_tracking` (ADR-0047). The documents and the remaining interfaces arrive in B05 continued.
 - **Imports:** platform, IAM, MDM.
 - **Subscribes:** nothing.
 
@@ -343,7 +343,7 @@ The rule runs in `pnpm lint`. CI runs `pnpm lint` on every pull request and a fa
 ### Data: two CI checks
 
 1. **Foreign keys.** A query over `pg_constraint` and `pg_namespace` lists every foreign key whose referencing and referenced tables are in different schemas. Each must match the allow-list in section 5 and point from a higher layer to a lower one. Anything else fails the build.
-2. **Schema names in code.** A scan of each module's `infrastructure/` folder and migrations fails if it names a schema other than its own, the published `pub_` views it is allowed to read (CST and RPT only), or a published key in a foreign key clause.
+2. **Schema names in code.** A scan of each module's `infrastructure/` folder and migrations fails if it names a schema other than its own, the published `pub_` views it is allowed to read (CST and RPT only), a published key in a foreign key clause, or a read-only function a lower layer publishes for it (`publishedFunctions` in `tooling/architecture.json`, ADR-0047: MDM's `location_stock_facts` and `product_tracking`, called by INV's stock triggers).
 
 ### Review
 

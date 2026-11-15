@@ -1,11 +1,11 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, join, relative, resolve } from 'node:path';
-import { applicationSchemas, readArchitecture, type Architecture } from './architecture';
+import { applicationSchemas, layerOf, readArchitecture, type Architecture } from './architecture';
 
 /**
  * docs/MODULE_BOUNDARIES.md section 7, data check 2: a migration, or a module's infrastructure code, names only its
  * own schema. It may also name the shared platform objects (domains and trigger functions), a published key in a
- * REFERENCES clause, and, for CST and RPT only, a published `pub_` view.
+ * REFERENCES clause, a function a lower layer publishes (ADR-0047), and, for CST and RPT only, a published `pub_` view.
  */
 const ROOT = resolve(__dirname, '../..');
 const MIGRATION_NAME = /^\d{4}_([a-z]+)_/;
@@ -30,6 +30,7 @@ export function schemaNameProblems(file: string, ownSchema: string, text: string
       const qualified = `${schema}.${object}`;
       const allowed =
         (schema === 'platform' && architecture.platformSharedObjects.includes(object)) ||
+        (!isForeignKey && layerBelow(architecture, schema, ownSchema) && architecture.publishedFunctions[schema]?.includes(object) === true) ||
         (isForeignKey && (architecture.universalKeys.includes(qualified) || architecture.publishedKeys[schema]?.includes(object) === true)) ||
         (architecture.publishedViewReaders.includes(ownSchema) && object.startsWith('pub_'));
       if (!allowed) {
@@ -38,6 +39,13 @@ export function schemaNameProblems(file: string, ownSchema: string, text: string
     }
   });
   return problems;
+}
+
+/** A published function may be called only from a higher layer, as a foreign key may point only downward. */
+function layerBelow(architecture: Architecture, schema: string, ownSchema: string): boolean {
+  const own = layerOf(architecture, ownSchema);
+  const other = layerOf(architecture, schema);
+  return own !== undefined && other !== undefined && other < own;
 }
 
 function filesUnder(directory: string, extension: string): string[] {

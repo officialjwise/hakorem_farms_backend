@@ -35,6 +35,16 @@ describe('schema names in code (MODULE_BOUNDARIES section 7, data check 2)', () 
     ]);
   });
 
+  it('lets a higher layer call a function master data publishes, and nothing else of it (ADR-0047)', () => {
+    expect(schemaNameProblems('0044_inv_ok.sql', 'inv', 'SELECT * FROM mdm.location_stock_facts(NEW.from_location_id);', architecture)).toEqual([]);
+    expect(schemaNameProblems('0044_inv_bad.sql', 'inv', 'SELECT mdm.price_list_entry_guard();', architecture)).toEqual([
+      '0044_inv_bad.sql:1: names mdm.price_list_entry_guard, which belongs to another schema',
+    ]);
+    expect(schemaNameProblems('0010_iam_bad.sql', 'iam', 'SELECT mdm.product_tracking($1);', architecture)).toEqual([
+      '0010_iam_bad.sql:1: names mdm.product_tracking, which belongs to another schema',
+    ]);
+  });
+
   it('lets reporting read a published view and nobody else', () => {
     expect(schemaNameProblems('0090_rpt_add_fact.sql', 'rpt', 'SELECT * FROM ord.pub_order_line;', architecture)).toEqual([]);
     expect(schemaNameProblems('0091_whl_bad.sql', 'whl', 'SELECT * FROM ord.pub_order_line;', architecture)).toEqual([

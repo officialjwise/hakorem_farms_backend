@@ -8,6 +8,8 @@ export interface Architecture {
   readonly universalKeys: readonly string[];
   readonly platformSharedObjects: readonly string[];
   readonly publishedViewReaders: readonly string[];
+  /** Read-only functions a schema publishes to higher layers, called by primary key (ADR-0047). */
+  readonly publishedFunctions: Readonly<Record<string, readonly string[]>>;
 }
 
 /** tooling/architecture.json: the module layers and published keys of docs/MODULE_BOUNDARIES.md. */
