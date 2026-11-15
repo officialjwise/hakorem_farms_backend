@@ -203,10 +203,22 @@ describe('the payment provider port and its Paystack adapter (A-047)', () => {
 
 describe('the metrics port and its OpenTelemetry Prometheus adapter', () => {
   let metrics: OtelMetrics;
-  const port = 40_000 + Math.floor(Math.random() * 20_000);
+  let port: number;
 
-  beforeAll(() => {
+  beforeAll(async () => {
+    // A port the system just handed out, not a random guess that can collide with another listener.
+    port = await new Promise<number>((resolve, reject) => {
+      const probe = createServer();
+      probe.once('error', reject);
+      probe.listen(0, '127.0.0.1', () => {
+        const { port: free } = probe.address() as AddressInfo;
+        probe.close(() => resolve(free));
+      });
+    });
     metrics = new OtelMetrics({ enabled: true, port, serviceName: 'hakorem-test' });
+    // The exporter starts listening in the background; its startServer() is the same promise, settled once it listens
+    // (or rejected if it cannot), so the scrape below never races the server's start.
+    await metrics.exporter!.startServer();
   });
 
   afterAll(() => metrics.shutdown());
@@ -214,7 +226,6 @@ describe('the metrics port and its OpenTelemetry Prometheus adapter', () => {
   it('exposes a counter and a histogram in the Prometheus text format', async () => {
     metrics.counter('hk_outbox_delivered_total', 'Outbox deliveries').add(3, { consumer: 'ntf.receipts' });
     metrics.histogram('hk_request_duration_ms', 'Request duration', 'ms').record(42, { route: '/v1/products' });
-    await new Promise((resolve) => setTimeout(resolve, 200));
     const text = await (await fetch(`http://127.0.0.1:${port}/metrics`)).text();
     expect(text).toMatch(/hk_outbox_delivered_total\{consumer="ntf\.receipts"[^}]*\} 3/);
     expect(text).toContain('hk_request_duration_ms');
