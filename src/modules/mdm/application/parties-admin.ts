@@ -3,7 +3,7 @@ import { createUuidV7Generator, type Clock } from '@hakorem/kernel';
 import type { AuditTrail } from '../../../platform/audit/audit-trail';
 import type { Actor } from '../../../platform/context/request-context';
 import { openWithSubjectKey, sealWithSubjectKey, type SubjectKeys } from '../../../platform/crypto/subject-keys';
-import { sqlStateOf, type Transaction, type UnitOfWork } from '../../../platform/database/unit-of-work';
+import { databaseErrorOf, sqlStateOf, type Transaction, type UnitOfWork } from '../../../platform/database/unit-of-work';
 import { InvalidStateTransitionError, NotFoundError, VersionConflictError } from '../../../platform/errors/api-error';
 import type { Cursors } from '../../../platform/http/cursor';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
@@ -92,7 +92,7 @@ const ADDRESS_PERSONAL = ['recipientName', 'recipientPhone', 'line1', 'direction
 const UNIQUE_POINTER: Readonly<Record<string, string>> = { uq_customer_phone_hash: '/phone', uq_customer_tier_code: '/code' };
 
 function translateConstraint(error: unknown): never {
-  const constraint = (error as { constraint?: string }).constraint ?? '';
+  const constraint = databaseErrorOf(error)?.constraint ?? '';
   const state = sqlStateOf(error);
   if (state === '23505' && UNIQUE_POINTER[constraint] !== undefined) {
     throw new DuplicateRecordError([UNIQUE_POINTER[constraint]]);

@@ -163,6 +163,20 @@ describe('createProduct (FR-MDM-001)', () => {
     expect(response.body.error.details.map((d: { field: string }) => d.field)).toEqual(['/sku', '/seo/slug']);
   });
 
+  it('refuses every concurrent duplicate with 422 DUPLICATE_VALUE, never a 500, when the race reaches the unique index', async () => {
+    // The pre-check above sees committed rows only; eight concurrent creates of one new SKU pass it together, and all but
+    // one meet uq_product_sku inside drizzle's insert, whose error wraps the pg error (constraint and code) as its cause.
+    const body = goat({ sku: 'LIV-PIGLET', name: 'Piglet', barcode: '6034000120051', seo: { slug: 'piglet' } });
+    const responses = await Promise.all(Array.from({ length: 8 }, () => create(body, randomUUID())));
+    expect(responses.map((r) => r.status).sort()).toEqual([201, 422, 422, 422, 422, 422, 422, 422]);
+    for (const refused of responses.filter((r) => r.status === 422)) {
+      expect(refused.body.error.code).toBe('DUPLICATE_VALUE');
+      expect(refused.body.error.details.map((d: { field: string }) => d.field)).toEqual(expect.arrayContaining(['/sku']));
+    }
+    const { rows } = await database.pool('admin').query("SELECT 1 FROM mdm.product WHERE sku = 'LIV-PIGLET'");
+    expect(rows).toHaveLength(1);
+  });
+
   it('refuses references that do not exist and fields that contradict the stock policy, with 422 and the fields named', async () => {
     const unknown = await create(goat({ sku: 'LIV-COW', categoryId: randomUUID(), seo: { slug: 'cow' } }));
     expect(unknown.status).toBe(422);

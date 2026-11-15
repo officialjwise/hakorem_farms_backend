@@ -3,7 +3,7 @@ import { createUuidV7Generator, type Clock } from '@hakorem/kernel';
 import type { AuditTrail } from '../../../platform/audit/audit-trail';
 import type { Actor, Realm } from '../../../platform/context/request-context';
 import { openWithSubjectKey, sealWithSubjectKey, type SubjectKeys } from '../../../platform/crypto/subject-keys';
-import { sqlStateOf, type Transaction, type UnitOfWork } from '../../../platform/database/unit-of-work';
+import { databaseErrorOf, sqlStateOf, type Transaction, type UnitOfWork } from '../../../platform/database/unit-of-work';
 import type { DomainEvents } from '../../../platform/events/domain-events';
 import { InvalidStateTransitionError, NotFoundError, VersionConflictError } from '../../../platform/errors/api-error';
 import type { Cursors } from '../../../platform/http/cursor';
@@ -657,7 +657,7 @@ export class AccessAdmin {
       return await pending;
     } catch (error) {
       const state = sqlStateOf(error);
-      const constraint = (error as { constraint?: string }).constraint ?? '';
+      const constraint = databaseErrorOf(error)?.constraint ?? '';
       if (state === '23505' && constraint === 'uq_role_grant_scope') throw new IamDuplicateValueError(['/roleId']);
       if (state === '23505' && constraint === 'uq_user_account_realm_email') throw new IamDuplicateValueError(['/email']);
       if (state === '23505' && constraint === 'uq_user_account_realm_phone') throw new IamDuplicateValueError(['/phone']);

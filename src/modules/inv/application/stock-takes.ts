@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { createUuidV7Generator, Money, Quantity, Weight, type Clock } from '@hakorem/kernel';
 import type { AuditTrail } from '../../../platform/audit/audit-trail';
 import type { Actor } from '../../../platform/context/request-context';
-import type { Transaction, UnitOfWork } from '../../../platform/database/unit-of-work';
+import { databaseErrorOf, type DatabaseErrorFields, type Transaction, type UnitOfWork } from '../../../platform/database/unit-of-work';
 import type { DocumentRegistry } from '../../../platform/documents/document-registry';
 import { InvalidStateTransitionError, NotFoundError } from '../../../platform/errors/api-error';
 import type { Cursors } from '../../../platform/http/cursor';
@@ -217,7 +217,7 @@ export class StockTakes implements ApprovalHandler {
     try {
       await this.store.markStarted(tx, id, this.clock.now(), actor.principalId);
     } catch (error) {
-      const failure = error as { code?: string; constraint?: string };
+      const failure: Partial<DatabaseErrorFields> = databaseErrorOf(error) ?? {};
       if (failure.code === 'HK010' && failure.constraint === 'ck_stock_take_overlap') {
         throw new StockTakeInvalidError([{ field: '/id', rule: 'SCOPE_OVERLAP' }]);
       }

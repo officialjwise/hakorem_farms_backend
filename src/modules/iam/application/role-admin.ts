@@ -1,7 +1,7 @@
 import { createUuidV7Generator, type Clock } from '@hakorem/kernel';
 import type { AuditTrail } from '../../../platform/audit/audit-trail';
 import type { Actor } from '../../../platform/context/request-context';
-import { sqlStateOf, type Transaction, type UnitOfWork } from '../../../platform/database/unit-of-work';
+import { databaseErrorOf, sqlStateOf, type Transaction, type UnitOfWork } from '../../../platform/database/unit-of-work';
 import { NotFoundError, VersionConflictError } from '../../../platform/errors/api-error';
 import type { DomainEvents } from '../../../platform/events/domain-events';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
@@ -168,7 +168,7 @@ export class RoleAdmin {
         return response;
       });
     } catch (error) {
-      if (sqlStateOf(error) === '23505' && (error as { constraint?: string }).constraint === 'uq_role_code') throw new IamDuplicateValueError(['/code']);
+      if (sqlStateOf(error) === '23505' && databaseErrorOf(error)?.constraint === 'uq_role_code') throw new IamDuplicateValueError(['/code']);
       throw error;
     }
   }
