@@ -25,7 +25,8 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B04d continued 3 | `B04d3-reference-data.md` | `b04d3-reference-data` | B4 to B12 | Every remaining master data write refuses the wrong role; reason codes are a fixed list; `quoteDelivery` returns a zone's exact fee or "delivery unavailable"; the payment methods, zones and their seed are written through services (built) |
 | B4 continued (e) | `B04e-iam-carry-overs.md` | `b04e-iam-carry-overs` | B4 to B12 | User, role-reading and grant administration refuse the wrong role; the IAM seed is written through the IAM services (built; the session split, A-121) |
 | B04e continued | `B04e2-auth-approvals.md` | `b04e2-auth-approvals` | B4 to B12 | Role writes, the approval endpoints, customer registration and phone verification, and password reset with CR-004 point 3's error codes are live, each with a wrong-role refusal (built) |
-| B04e continued 2 | `B04e3-file-store-imports.md` | `b04e3-file-store-imports` | B4 to B12 | The file store with uploads, the malware scanner and `evidence_file_id` are live, each with a wrong-role refusal; MDM's imports and exports run with a dry run |
+| B04e continued 2 | `B04e3-file-store-imports.md` | `b04e3-file-store-imports` | B4 to B12 | The file store with uploads, the malware scanner and `evidence_file_id` are live, each with a wrong-role refusal (built; the session split, A-125) |
+| B04e continued 3 | `B04e4-product-images-imports.md` | `b04e4-product-images-imports` | B4 to B12 | Product images attach through the file store with compressed public variants and a hidden original; MDM's imports and exports run with a dry run, each write with a wrong-role refusal |
 | B5 | `B05-inventory-ledger.md` | `b05-inventory-ledger` | B4 to B12 | On-hand from movements matches a hand count; stock cannot go negative outside allowed types; a lot traces both ways |
 | B6 | `B06-livestock-processing.md` | `b06-livestock-processing` | B4 to B12 | A processing order produces lots whose costs sum exactly to input cost plus direct processing cost |
 | B7 | `B07-procurement-suppliers.md` | `b07-procurement-suppliers` | B4 to B12 | Three-way match blocks payment on disagreement; checkout reserves stock and releases it on timeout |
@@ -357,6 +358,8 @@ docs/sessions/B04e2-auth-approvals.md, push, and open a stacked pull request aga
 
 ## B04e continued 2 — The file store, uploads and MDM imports
 
+**Built in part** (contract 1.12.0, ADR-0044, A-124): the file store, the scanner and `evidence_file_id`. The session split at the boundary between the file store and its consumers (A-125); product images and the imports and exports are B04e continued 3's. The opener below is kept as it was run.
+
 Branch `b04e3-file-store-imports`, from `b04e2-auth-approvals` (stacked). Report `docs/sessions/B04e3-file-store-imports.md`. Gate: `uploadFile`, `getFile` and `createFileSignedUrl` are live on the platform file store (size cap before the body is read, type by content sniffing, a random key, scan status `PENDING` until the malware scanner (A-057) says `CLEAN`, signed expiring URLs logged), `iam.approval_request.evidence_file_id` exists with its foreign key, product images attach through it, and MDM's imports and exports (FR-MDM-019, FR-MDM-020) run with a dry-run preview, each write with a wrong-role refusal. When this gate passes, B04e's and B04 continued's gates as a whole have passed.
 
 ```text
@@ -379,13 +382,38 @@ Write the failing tests first for every permission rule. Stop at the gate, write
 docs/sessions/B04e3-file-store-imports.md, push, and open a stacked pull request against b04e2-auth-approvals.
 ```
 
+## B04e continued 3 — Product images and MDM imports and exports
+
+Branch `b04e4-product-images-imports`, from `b04e3-file-store-imports` (stacked). Report `docs/sessions/B04e4-product-images-imports.md`. B04e continued 2 built the file store (contract 1.12.0, ADR-0044, A-124): `uploadFile`, `getFile` and `createFileSignedUrl` in the DOC module over the platform `FileStore`, the ClamAV scan in the worker, and `evidence_file_id`, then split at the boundary between the file store and its consumers (A-125, ADR-0026 Amendments). Gate: `addProductImage` (and the other product image operations the contract plans) attaches a CLEAN `PRODUCT_IMAGE` file through `mdm.product_image`, re-encoded into variants at 320, 640 and 1280 pixels (WebP with a JPEG fallback) in `platform.stored_file_variant`, none above 200 KB at 640 pixels for a 4 MB JPEG, the original never served publicly (FR-DOC-005); and MDM's imports and exports (FR-MDM-019, FR-MDM-020: `listImportJobs`, `createImportJob`, `getImportJob`, `listImportErrors`, `applyImportJob`, `cancelImportJob`, `createExportJob`) run with a dry run that writes nothing, apply all or none, and audit exports with their row count, step-up above the bulk threshold and a signed expiring link, each write with a wrong-role refusal. When this gate passes, B04e's and B04 continued's gates as a whole have passed.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B04e3-file-store-imports.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
+report what you declined and why, never edit that file and never open frontend source.
+For this phase, read FR-MDM-019, FR-MDM-020, FR-DOC-005 and SEC-009 in docs/SRS.md (nothing else),
+docs/data-model/mdm.md (product images, import jobs and their errors), docs/data-model/platform.md
+(the file store tables), the platform, MDM and DOC cards in docs/MODULE_BOUNDARIES.md, ADR-0041, ADR-0044
+and A-124 and A-125 in docs/ASSUMPTIONS.md. Use docs/prompts/module-build-prompt.md as the recipe, and run
+hakorem-security-review on every operation: they are uploads, exports and permissions.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B04e continued 3 only, on branch b04e4-product-images-imports, branched from
+b04e3-file-store-imports: product images through the file store with their variants (an image library
+needs an ADR), and MDM's imports and exports with a dry run (a spreadsheet library needs an ADR). Reuse
+the platform FileStore and the DOC upload; do not add a second upload path. Write the failing tests first
+for every permission rule. Stop at the gate, write docs/sessions/B04e4-product-images-imports.md, push,
+and open a stacked pull request against b04e3-file-store-imports.
+```
+
 ## B5 — Inventory and the stock movement ledger
 
 Branch `b05-inventory-ledger`. Report `docs/sessions/B05-inventory-ledger.md`. Gate: on-hand derived from movements matches a hand count, stock cannot go negative outside the allowed movement types, and a lot traces in both directions.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
-List docs/sessions/ and read only the most recent report (docs/sessions/B04e3-file-store-imports.md).
+List docs/sessions/ and read only the most recent report (docs/sessions/B04e4-product-images-imports.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
 report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the INV requirement block of docs/SRS.md (nothing else from the SRS),
