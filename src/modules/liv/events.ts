@@ -94,3 +94,53 @@ export interface FeedConsumed {
   readonly valuePesewas: number;
   readonly allocations: ReadonlyArray<{ readonly stockUnitId: string; readonly headDays: number; readonly amountPesewas: number; readonly treatment: 'CAPITALISED' | 'EXPENSED' }>;
 }
+
+/** `liv.AnimalUpdated` v1 (FR-LIV-002): an animal's breed, sex, purpose or grade changed; purpose decides its cost treatment. */
+export interface AnimalUpdated {
+  readonly stockUnitId: string;
+  readonly branchId: string;
+  readonly changed: readonly string[];
+  readonly purpose: 'GROWING' | 'BREEDING';
+}
+
+/** `liv.AnimalMoved` v1 (FR-LIV-003): an animal moved between pens of its branch, by a TRANSFER_INTERNAL movement. */
+export interface AnimalMoved {
+  readonly moveId: string;
+  readonly stockUnitId: string;
+  readonly branchId: string;
+  readonly fromLocationId: string;
+  readonly toLocationId: string;
+  readonly movementId: string;
+  readonly occurredAt: string;
+}
+
+/** `liv.BatchStarted` v1 (FR-LIV-006): a batch opened, from a received flock or a hatch on the farm. */
+export interface BatchStarted {
+  readonly batchId: string;
+  readonly batchNo: string;
+  readonly stockUnitId: string | null;
+  readonly speciesId: string;
+  readonly branchId: string;
+  readonly initialHead: number;
+  readonly purpose: 'GROWING' | 'BREEDING' | 'LAYING';
+  readonly startedOn: string;
+}
+
+/** `liv.BatchClosed` v1 (FR-LIV-006): a batch with no head left was closed, with its reason. */
+export interface BatchClosed {
+  readonly batchId: string;
+  readonly branchId: string;
+  readonly reason: string;
+  readonly mortalityPercent: string;
+}
+
+/** `liv.BirthRecorded` v1 (FR-LIV-011): a dam gave birth; each live offspring was registered at nil cost. */
+export interface BirthRecorded {
+  readonly breedingRecordId: string;
+  readonly damId: string;
+  readonly branchId: string;
+  readonly actualBirthOn: string;
+  readonly litterSize: number;
+  readonly liveBirths: number;
+  readonly offspringIds: readonly string[];
+}

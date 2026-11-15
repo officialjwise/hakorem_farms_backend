@@ -6,7 +6,8 @@ import type { LocationFacts, MasterDataRefs } from '../../mdm';
 import { headOf, spreadByHeadDays, treatmentOf } from '../domain/cost-spread';
 import { LivestockRecordInvalidError } from './errors';
 import { placesOf } from './support';
-import type { CostAllocationRecord, LivestockStore, Purpose } from './livestock-store';
+import type { BatchPurpose, HerdStore } from './herd-store';
+import type { CostAllocationRecord, LivestockStore } from './livestock-store';
 
 /** An animal or flock a feed issue or a treatment served, with the head-days it is weighted by. */
 export interface ServedUnit {
@@ -17,7 +18,8 @@ export interface ServedUnit {
   readonly branchId: string;
   readonly locationId: string;
   readonly headDays: bigint;
-  readonly purpose: Purpose;
+  /** An animal's purpose, or a flock's batch's: what decides whether its share is capitalised or expensed. */
+  readonly purpose: BatchPurpose;
 }
 
 /** Locations that hold no animals to feed or treat: a whole site, stock on the road. Virtual ones are refused too. */
@@ -35,6 +37,7 @@ const DAYS_SERVED = 1n;
 export class CostSpreader {
   constructor(
     private readonly store: LivestockStore,
+    private readonly herd: HerdStore,
     private readonly refs: MasterDataRefs,
     private readonly units: StockUnits,
     private readonly stock: Stock,
@@ -46,6 +49,7 @@ export class CostSpreader {
     const products = await this.refs.productsIn(tx, [...facts.values()].map((u) => u.productId));
     const animals = new Map((await this.store.animals(tx, ids)).map((a) => [a.stockUnitId, a] as const));
     const places = await placesOf(tx, this.units, [...facts.values()]);
+    const batches = await this.herd.batchesOfUnits(tx, [...facts.values()].filter((u) => u.tracking === 'LOT').map((u) => u.id));
     const found = new Map<string, ServedUnit & { readonly problem: string | null }>();
     for (const unit of facts.values()) {
       const animal = animals.get(unit.id);
@@ -59,7 +63,8 @@ export class CostSpreader {
         branchId: unit.branchId,
         locationId: places.get(unit.id) ?? '',
         headDays: headOf(unit.tracking, unit.poolQty) * DAYS_SERVED,
-        purpose: animal?.purpose ?? 'GROWING',
+        // A flock takes its batch's purpose (A-159); one with no batch counts as growing stock (A-158).
+        purpose: animal?.purpose ?? batches.get(unit.id)?.purpose ?? 'GROWING',
         problem: !livestock ? 'NOT_LIVESTOCK' : !alive ? 'ANIMAL_NOT_ALIVE' : places.get(unit.id) === null ? 'NOT_IN_ONE_PLACE' : null,
       });
     }

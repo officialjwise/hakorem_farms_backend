@@ -1,0 +1,119 @@
+operationId: updateAnimal
+tags:
+  - liv
+summary: "Update an animal's details"
+description: "Breed, sex, purpose and grade may change; species, acquisition, source and cost are not fields. The sex of a dam with a breeding record is fixed (SEX_FIXED_AS_DAM), and the tag, which is the stock unit's identifier, is accepted only unchanged (TAG_NOT_EDITABLE). Purpose decides whether later feed and veterinary cost is capitalised or expensed.\n\nPermission: `liv.animal.update`."
+x-permission: liv.animal.update
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - NOT_FOUND
+  - VERSION_CONFLICT
+  - LIVESTOCK_RECORD_INVALID
+  - REFERENCE_NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/AnimalUpdate"
+      example:
+        version: 4
+        purpose: BREEDING
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Animal"
+        example:
+          id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
+          tagNo: G-0142
+          species:
+            id: "019a7a8b-a049-7e16-b34e-ea33ee146311"
+            code: GOAT
+            name: Goat
+          product:
+            id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+            sku: LIV-GOAT
+            name: Goat
+          breed: "West African Dwarf"
+          sex: MALE
+          dateOfBirth: null
+          acquiredOn: "2026-10-03"
+          source: PURCHASE
+          supplier:
+            id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
+            supplierNo: S-0012
+            name: "Kpone Livestock Traders"
+          dam: null
+          sire: null
+          batch: null
+          purpose: BREEDING
+          status: ALIVE
+          currentLocation:
+            id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+            code: PEN-G1
+            name: "Goat pen 1"
+            kind: PEN
+          grade:
+            id: "019a7a8c-d59f-70f8-9631-185eaefe913c"
+            code: A
+            name: "Grade A, well finished"
+          lastWeightKg: "26.400"
+          lastWeighedAt: "2026-11-11T07:00:00Z"
+          weightBand:
+            id: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
+            code: GOAT-M
+            minKg: "18.000"
+            maxKg: "28.000"
+          accumulatedCostPesewas: 61250
+          currency: GHS
+          withdrawalUntil: null
+          sellable: true
+          priceBand:
+            listPricePesewas: 85000
+            floorPricePesewas: 70000
+            ceilingPricePesewas: 98000
+            basis: PER_HEAD
+          version: 5
+          createdAt: "2026-11-03T11:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

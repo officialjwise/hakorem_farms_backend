@@ -1,0 +1,68 @@
+operationId: getBreedingRecord
+tags:
+  - liv
+summary: "Get a breeding record"
+description: "Permission: `liv.breeding.read`."
+x-permission: liv.breeding.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/BreedingRecord"
+        example:
+          id: "019a7abe-fb10-78b7-8df0-944cf4ed0d2a"
+          dam:
+            id: "019a7a8f-f9e5-7212-b74b-2a010af8a2de"
+            tagNo: G-0118
+          sire:
+            id: "019a7abf-19ff-729b-97d3-32846e9eab62"
+            tagNo: G-0101
+          matedOn: "2026-06-02"
+          expectedBirthOn: "2026-10-29"
+          actualBirthOn: "2026-11-02"
+          litterSize: 2
+          liveBirths: 2
+          status: BORN
+          notes: null
+          offspring:
+            - id: "019a7abf-38ee-7c7e-a1b6-d0bbe84f4999"
+              tagNo: G-0181
+              sex: MALE
+            - id: "019a7abf-57dd-7662-bb9a-6ef36200e7d1"
+              tagNo: G-0182
+              sex: FEMALE
+          version: 3
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

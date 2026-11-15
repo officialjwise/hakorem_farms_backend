@@ -132,4 +132,9 @@ export class PgMasterDataRefsStore implements MasterDataRefsStore {
     const { rows } = await tx.query<{ id: string }>('SELECT id FROM mdm.product WHERE sku = upper($1) AND deleted_at IS NULL', [sku]);
     return rows[0]?.id ?? null;
   }
+
+  async productIdsOfSpecies(tx: Transaction, speciesId: string): Promise<string[]> {
+    const { rows } = await tx.query<{ id: string }>("SELECT id FROM mdm.product WHERE species_id = $1 AND status = 'ACTIVE' AND deleted_at IS NULL ORDER BY sku", [speciesId]);
+    return rows.map((r) => r.id);
+  }
 }

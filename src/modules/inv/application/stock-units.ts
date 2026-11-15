@@ -19,6 +19,16 @@ export interface LotRegistration {
   readonly weighedAt: Date | null;
 }
 
+/** An animal a higher module's document brings into being: a birth (LIV, B06 continued 2). Its BIRTH movement follows. */
+export interface SerialRegistration {
+  readonly productId: string;
+  readonly branchId: string;
+  readonly identifier: string;
+  readonly sourceDocumentId: string;
+  readonly weightKg: string | null;
+  readonly weighedAt: Date | null;
+}
+
 /**
  * INV's `StockUnits` interface (MODULE_BOUNDARIES, INV card) for a higher module working inside its own transaction:
  * the facts a command checks before it moves a unit (status, where it is, its cost pool, the holds that cover a
@@ -66,6 +76,44 @@ export class StockUnits {
       actorId,
     );
     return id;
+  }
+
+  /**
+   * Registers a serialised unit for an animal born on the farm (FR-LIV-011): ACTIVE, with no location and no stock until
+   * the caller's BIRTH movement brings it in at nil cost. No `inv.StockUnitRegistered` is published, since the caller
+   * opens the animal's record itself, with its dam and its birth, in the same transaction.
+   */
+  async registerSerialIn(tx: Transaction, actorId: string, unit: SerialRegistration): Promise<string> {
+    const id = this.nextId();
+    await this.store.insert(
+      tx,
+      {
+        id,
+        productId: unit.productId,
+        tracking: 'SERIAL',
+        branchId: unit.branchId,
+        identifier: unit.identifier,
+        producedOn: null,
+        expiresOn: null,
+        storageTempClass: null,
+        supplierId: null,
+        sourceDocumentId: unit.sourceDocumentId,
+        lastWeightKg: unit.weightKg,
+        lastWeighedAt: unit.weighedAt,
+      },
+      actorId,
+    );
+    return id;
+  }
+
+  /** What each unit had at each physical location at an instant in the past, from its movements (FR-LIV-005). */
+  onHandAsOfIn(tx: Transaction, stockUnitIds: readonly string[], at: Date): Promise<UnitOnHand[]> {
+    return this.store.onHandAsOf(tx, [...new Set(stockUnitIds)], at);
+  }
+
+  /** Sets an active unit's grade (FR-LIV-002: an animal's grade is its unit's, which pricing reads); false if none. */
+  setGradeIn(tx: Transaction, actorId: string, stockUnitId: string, gradeId: string | null): Promise<boolean> {
+    return this.store.setGrade(tx, stockUnitId, gradeId, actorId);
   }
 
   /** Where each unit stands now with what it has there: one row per physical location holding some of it. */

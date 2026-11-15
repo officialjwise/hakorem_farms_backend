@@ -3,6 +3,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { SEED_FEED_PRODUCTS } from '../../../src/seed/farm-liv';
 import { SEED_CUSTOMERS, SEED_PRICE_LISTS, SEED_PRODUCTS, SEED_PROMOTIONS, SEED_SPECIES } from '../../../src/seed/reference-pricing';
 import { SEED_PAYMENT_METHODS_ENABLED } from '../../../src/seed/farm-mdm';
 import { runSeedUnits } from '../../../src/seed/run-seed';
@@ -53,8 +54,8 @@ describe('the seeded farm (hakorem-seed)', () => {
     const virtual = await admin.query<{ n: number }>('SELECT count(*)::int AS n FROM mdm.location WHERE is_virtual');
     expect(virtual.rows[0]!.n).toBe(16);
     const products = await admin.query<{ sku: string }>('SELECT sku FROM mdm.product ORDER BY sku');
-    // B3's six products, and from B4 the rest of the reference catalogue.
-    expect(products.rows.map((row) => row.sku)).toEqual(SEED_PRODUCTS.map((product) => product.sku).sort());
+    // B3's six products, from B4 the rest of the reference catalogue, and from B06 continued 2 the store's feed and medicine.
+    expect(products.rows.map((row) => row.sku)).toEqual([...SEED_PRODUCTS, ...SEED_FEED_PRODUCTS].map((product) => product.sku).sort());
     expect(products.rows.map((row) => row.sku)).toEqual(expect.arrayContaining(['EGG-CRATE-BIG', 'LIV-GOAT', 'LIV-SHEEP', 'MEAT-CHICKEN-WINGS-15KG', 'MEAT-GOAT-15KG', 'PRD-YAM-TUBER']));
   });
 
@@ -66,8 +67,8 @@ describe('the seeded farm (hakorem-seed)', () => {
     expect(login.status).toBe(200);
     expect(login.body.session.grants).toEqual([expect.objectContaining({ roleCode: 'CASHIER', branchCode: 'DDW', locationCode: 'SHOP' })]);
     const cookies = (login.headers['set-cookie'] as unknown as string[]).map((c) => c.split(';')[0]).join('; ');
-    const products = await request(api.server).get('/v1/products').set('Cookie', cookies);
-    expect(products.body.data).toHaveLength(SEED_PRODUCTS.length);
+    const products = await request(api.server).get('/v1/products?limit=100').set('Cookie', cookies);
+    expect(products.body.data).toHaveLength(SEED_PRODUCTS.length + SEED_FEED_PRODUCTS.length);
     const owner = await request(api.server).post('/v1/auth/staff/login').set('Origin', TEST_ORIGIN).send({ identifier: 'kwabena.owusu@seed.hakoremfarms.invalid', password });
     expect(owner.body.status).toBe('TOTP_ENROLMENT_REQUIRED');
   });
@@ -85,9 +86,10 @@ describe('the MDM seed through the services (A-085)', () => {
     const bands = SEED_SPECIES.reduce((sum, species) => sum + species.bands.length, 0);
     const grades = SEED_SPECIES.reduce((sum, species) => sum + species.grades.length, 0);
     expect(rows).toEqual([
-      { entity_type: 'Category', n: 4, actors: ['Akosua Boateng'], agents: ['hakorem-seed'] },
+      // The reference catalogue's four, and the LIV seed's feed and medicine (B06 continued 2).
+      { entity_type: 'Category', n: 5, actors: ['Akosua Boateng'], agents: ['hakorem-seed'] },
       { entity_type: 'Grade', n: grades, actors: ['Akosua Boateng'], agents: ['hakorem-seed'] },
-      { entity_type: 'Product', n: SEED_PRODUCTS.length, actors: ['Akosua Boateng'], agents: ['hakorem-seed'] },
+      { entity_type: 'Product', n: SEED_PRODUCTS.length + SEED_FEED_PRODUCTS.length, actors: ['Akosua Boateng'], agents: ['hakorem-seed'] },
       { entity_type: 'Species', n: 7, actors: ['Akosua Boateng'], agents: ['hakorem-seed'] },
       { entity_type: 'WeightBand', n: bands, actors: ['Akosua Boateng'], agents: ['hakorem-seed'] },
     ]);
@@ -224,7 +226,8 @@ describe('branches, locations and customers through the services (A-085, ADR-004
       { entity_type: 'Branch', actor: 'System', n: 1, agents: ['hakorem-seed'] },
       { entity_type: 'Customer', actor: 'Akosua Boateng', n: SEED_CUSTOMERS.length, agents: ['hakorem-seed'] },
       { entity_type: 'CustomerAddress', actor: 'Akosua Boateng', n: addresses, agents: ['hakorem-seed'] },
-      { entity_type: 'Location', actor: 'Akosua Boateng', n: 7, agents: ['hakorem-seed'] },
+      // Dodowa's seven, and the feed and medicine store the LIV seed adds (B06 continued 2).
+      { entity_type: 'Location', actor: 'Akosua Boateng', n: 8, agents: ['hakorem-seed'] },
     ]);
   });
 

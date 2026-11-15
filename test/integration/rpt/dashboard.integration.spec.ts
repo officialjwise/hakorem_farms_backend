@@ -5,6 +5,7 @@ import { addDays } from '../../../src/modules/rpt/domain/dashboard';
 import { PgDashboardStore } from '../../../src/modules/rpt/infrastructure/pg-dashboard-store';
 import type { Transaction } from '../../../src/platform/database/unit-of-work';
 import { SEED_HAND_COUNT, SEED_RECEIPTS, SEED_REORDER_RULES, SEED_STOCK_RECEIVED_AT } from '../../../src/seed/farm-inv';
+import { SEED_STORE_RECEIPT } from '../../../src/seed/farm-liv';
 import { runSeedUnits } from '../../../src/seed/run-seed';
 import { seedUnits } from '../../../src/seed/seed-units';
 import { consoleGet, CookieJar, createUser, enrolAndLogin, login, relaxRateLimits, testStartTime, type RoleCode, type TestSession } from '../../support/iam';
@@ -34,9 +35,10 @@ const SEED_DAY = toBusinessDate(SEED_STOCK_RECEIVED_AT);
 
 /** The hand counts, written out from the seed's own receipts and rules rather than read back from the database. */
 const PURCHASES_ON_SEED_DAY = Money.sum(
-  SEED_RECEIPTS.filter((r) => r.kind === 'PURCHASE').flatMap((r) => r.lines.map((l) => Money.ofPesewas(l.valuePesewas))),
+  [...SEED_RECEIPTS.filter((r) => r.kind === 'PURCHASE').flatMap((r) => r.lines), ...SEED_STORE_RECEIPT.lines].map((l) => Money.ofPesewas(l.valuePesewas)),
 ).toJsonInteger();
-const PURCHASE_RECEIPTS = SEED_RECEIPTS.filter((r) => r.kind === 'PURCHASE').length;
+// The INV seed's four purchase receipts, and the LIV seed's delivery to the store (B06 continued 2).
+const PURCHASE_RECEIPTS = [...SEED_RECEIPTS.filter((r) => r.kind === 'PURCHASE'), SEED_STORE_RECEIPT].length;
 const TAGGED_ANIMALS = { GOAT: 4, SHEEP: 2 };
 
 const PENDING = [
@@ -106,7 +108,7 @@ describe('B05x gate: getOwnerDashboard answers in one request', () => {
     const purchases = response.body.purchases as { from: string; to: string; points: Array<{ date: string; valueAtCostPesewas: number; receiptCount: number }>; totalPesewas: number; receiptCount: number };
     expect(purchases.to).toBe(SEED_DAY);
     expect(purchases.points).toHaveLength(7);
-    expect(purchases.points.find((p) => p.date === SEED_DAY)).toEqual({ date: SEED_DAY, valueAtCostPesewas: 1_535_001, receiptCount: 4 });
+    expect(purchases.points.find((p) => p.date === SEED_DAY)).toEqual({ date: SEED_DAY, valueAtCostPesewas: 1_729_001, receiptCount: 5 });
     expect(purchases.points.filter((p) => p.date !== SEED_DAY).every((p) => p.valueAtCostPesewas === 0 && p.receiptCount === 0)).toBe(true);
     expect([purchases.totalPesewas, purchases.receiptCount]).toEqual([PURCHASES_ON_SEED_DAY, PURCHASE_RECEIPTS]);
   });
@@ -117,7 +119,7 @@ describe('B05x gate: getOwnerDashboard answers in one request', () => {
     const dayAfter = (await get(owner, `/dashboard/owner?date=${addDays(SEED_DAY, 1)}&period=MONTH`)).body;
     expect([dayAfter.purchasesTodayPesewas, dayAfter.purchasesYesterdayPesewas]).toEqual([0, PURCHASES_ON_SEED_DAY]);
     expect(dayAfter.purchases.points).toHaveLength(30);
-    expect(dayAfter.purchases).toMatchObject({ from: addDays(SEED_DAY, -28), to: addDays(SEED_DAY, 1), totalPesewas: PURCHASES_ON_SEED_DAY, receiptCount: 4 });
+    expect(dayAfter.purchases).toMatchObject({ from: addDays(SEED_DAY, -28), to: addDays(SEED_DAY, 1), totalPesewas: PURCHASES_ON_SEED_DAY, receiptCount: 5 });
     expect((await get(owner, '/dashboard/owner?period=YEAR')).status).toBe(400);
   });
 
@@ -130,12 +132,12 @@ describe('B05x gate: getOwnerDashboard answers in one request', () => {
 });
 
 describe('B05x gate: each tile answers alone, with the dashboard value and the module of record', () => {
-  it('values stock at cost exactly as listStockOnHand totals it, GHS 15,955.01', async () => {
+  it('values stock at cost exactly as listStockOnHand totals it, GHS 17,895.01', async () => {
     const tile = await get(manager, '/dashboard/tiles/stock-value');
     expect(tile.status).toBe(200);
     const onHand = await get(manager, `/stock/on-hand?branchId=${id('branch:DDW')}&limit=1`);
     expect(tile.body).toEqual({ branchIds: [id('branch:DDW')], stockValueAtCostPesewas: onHand.body.totalValueAtCostPesewas, currency: 'GHS', asOf: clock.now().toISOString() });
-    expect(tile.body.stockValueAtCostPesewas).toBe(1_595_501);
+    expect(tile.body.stockValueAtCostPesewas).toBe(1_789_501);
   });
 
   it('counts the serialised live animals on hand by species as a person counts the tags in the pens', async () => {
@@ -165,11 +167,11 @@ describe('B05x gate: each tile answers alone, with the dashboard value and the m
         to: '2026-11-11',
         points: [
           { date: '2026-11-09', valueAtCostPesewas: 0, receiptCount: 0 },
-          { date: SEED_DAY, valueAtCostPesewas: PURCHASES_ON_SEED_DAY, receiptCount: 4 },
+          { date: SEED_DAY, valueAtCostPesewas: PURCHASES_ON_SEED_DAY, receiptCount: 5 },
           { date: '2026-11-11', valueAtCostPesewas: 0, receiptCount: 0 },
         ],
-        totalPesewas: 1_535_001,
-        receiptCount: 4,
+        totalPesewas: 1_729_001,
+        receiptCount: 5,
       },
     });
   });
@@ -214,7 +216,7 @@ describe('B05x gate: the dashboard is scoped to the grants and refuses the wrong
     expect(elsewhere.body).toMatchObject({ branchIds: [id('branch:TST')], stockValueAtCostPesewas: 0, lowStockCount: 0, animalsOnHand: { total: 0, bySpecies: [] } });
     expect(elsewhere.body.purchases.totalPesewas).toBe(0);
     const asked = await get(owner, `/dashboard/owner?date=${SEED_DAY}&branchId=${id('branch:DDW')}`);
-    expect(asked.body).toMatchObject({ branchId: id('branch:DDW'), branchIds: [id('branch:DDW')], stockValueAtCostPesewas: 1_595_501 });
+    expect(asked.body).toMatchObject({ branchId: id('branch:DDW'), branchIds: [id('branch:DDW')], stockValueAtCostPesewas: 1_789_501 });
   });
 
   it('refuses a branch outside the grants, an unknown branch included', async () => {
@@ -243,10 +245,10 @@ describe('the dashboard reads published views only (ADR-0011, ADR-0023)', () => 
       const tx = client as unknown as Transaction;
       const store = new PgDashboardStore();
       const branchIds = [id('branch:DDW')];
-      expect(await store.stockValueAtCost(tx, branchIds)).toBe(1_595_501n);
+      expect(await store.stockValueAtCost(tx, branchIds)).toBe(1_789_501n);
       expect((await store.animalsOnHand(tx, branchIds)).map((r) => [r.code, r.count]).sort()).toEqual([['GOAT', 4], ['SHEEP', 2]]);
       expect(await store.lowStockProducts(tx, branchIds)).toBe(1);
-      expect(await store.purchasesByDay(tx, branchIds, { from: SEED_DAY, to: SEED_DAY })).toEqual([{ date: SEED_DAY, valuePesewas: 1_535_001n, count: 4 }]);
+      expect(await store.purchasesByDay(tx, branchIds, { from: SEED_DAY, to: SEED_DAY })).toEqual([{ date: SEED_DAY, valuePesewas: 1_729_001n, count: 5 }]);
       await expect(client.query('SELECT 1 FROM inv.cost_pool LIMIT 1')).rejects.toMatchObject({ code: '42501' });
       await expect(client.query('SELECT 1 FROM mdm.product LIMIT 1')).rejects.toMatchObject({ code: '42501' });
     } finally {

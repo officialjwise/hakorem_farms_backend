@@ -34,14 +34,21 @@ export interface AnimalRecord {
   readonly acquisitionCostPesewas: bigint;
   readonly damId: string | null;
   readonly sireId: string | null;
+  /** The batch the animal is managed with (B06 continued 2); null for one managed on its own. */
+  readonly batchId: string | null;
+  /** The birth that produced it, for an animal born on the farm. */
+  readonly breedingRecordId: string | null;
   readonly purpose: Purpose;
   readonly status: AnimalStatus;
+  readonly statusChangedAt: Date | null;
   readonly exitValuePesewas: bigint | null;
   readonly version: number;
   readonly createdAt: Date;
 }
 
-export type NewAnimal = Omit<AnimalRecord, 'status' | 'exitValuePesewas' | 'version' | 'createdAt'>;
+export type NewAnimal = Omit<AnimalRecord, 'status' | 'statusChangedAt' | 'exitValuePesewas' | 'version' | 'createdAt' | 'batchId' | 'breedingRecordId'> & {
+  readonly breedingRecordId?: string | null;
+};
 
 export interface AnimalFilters {
   readonly q?: string | undefined;

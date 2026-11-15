@@ -1,0 +1,159 @@
+operationId: listGrowth
+tags:
+  - liv
+summary: "Growth, feed conversion and mortality by pen or batch"
+description: "A pen's figures are over the animals and flocks that stood in it for the whole window; a batch's over its flock. Average daily gain is the weighed head's total gain over their days between first and last weighing in the window; feed conversion is the feed issued in the window over the kilograms gained, to three places; mortality is the deaths in the window over the head at its start. A loss of weight shows no gain, daily gain or conversion.\n\nPermission: `liv.report.read`."
+x-permission: liv.report.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - LIVESTOCK_RECORD_INVALID
+  - RATE_LIMITED
+parameters:
+  - name: groupBy
+    in: query
+    required: true
+    schema:
+      type: string
+      enum:
+        - PEN
+        - BATCH
+  - name: from
+    in: query
+    required: true
+    schema:
+      type: string
+      format: date
+  - name: to
+    in: query
+    required: true
+    schema:
+      type: string
+      format: date
+  - name: speciesId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/GrowthRowPage"
+        example:
+          data:
+            - group:
+                id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+                code: PEN-G1
+                name: "Goat pen 1"
+                kind: PEN
+              species:
+                id: "019a7a8b-a049-7e16-b34e-ea33ee146311"
+                code: GOAT
+                name: Goat
+              head: 31
+              startAverageKg: "22.140"
+              endAverageKg: "26.830"
+              averageDailyGainKg: "0.156"
+              feedQty: "1550.000"
+              feedConversionRatio: "10.661"
+              mortalityPercent: "0.00"
+            - group:
+                id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                code: PEN-G2
+                name: "Goat pen 2"
+                kind: PEN
+              species:
+                id: "019a7a8b-a049-7e16-b34e-ea33ee146311"
+                code: GOAT
+                name: Goat
+              head: 27
+              startAverageKg: "20.900"
+              endAverageKg: "24.100"
+              averageDailyGainKg: "0.107"
+              feedQty: "1410.000"
+              feedConversionRatio: "16.319"
+              mortalityPercent: "3.57"
+            - group:
+                id: "019a7a83-c59a-7b54-a08d-be1e082336fb"
+                code: PEN-S1
+                name: "Sheep pen"
+                kind: PEN
+              species:
+                id: "019a7a8b-bf38-77f9-8d31-886b67c50149"
+                code: SHEEP
+                name: Sheep
+              head: 9
+              startAverageKg: "38.500"
+              endAverageKg: "42.700"
+              averageDailyGainKg: "0.140"
+              feedQty: "620.000"
+              feedConversionRatio: "16.402"
+              mortalityPercent: "0.00"
+            - group:
+                id: "019a7a91-4e2a-7ed9-a411-f66345936f41"
+                code: BRL-2610-01
+                name: "Broiler batch October"
+                kind: BATCH
+              species:
+                id: "019a7a8b-fd16-7bc0-a0f8-c4da5b273db8"
+                code: BROILER
+                name: "Broiler chicken"
+              head: 462
+              startAverageKg: "0.420"
+              endAverageKg: "1.842"
+              averageDailyGainKg: "0.047"
+              feedQty: "1240.000"
+              feedConversionRatio: "1.887"
+              mortalityPercent: "7.60"
+            - group:
+                id: "019a7a83-e489-7538-ba70-5c5581d4d533"
+                code: PEN-P1
+                name: "Pig pen"
+                kind: PEN
+              species:
+                id: "019a7a8b-de27-71dd-9715-26a2e1769f80"
+                code: PIG
+                name: Pig
+              head: 6
+              startAverageKg: "9.800"
+              endAverageKg: "14.300"
+              averageDailyGainKg: "0.150"
+              feedQty: "280.000"
+              feedConversionRatio: "10.370"
+              mortalityPercent: "0.00"
+          page:
+            nextCursor: null
+            limit: 25
+            hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

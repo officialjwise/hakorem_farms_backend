@@ -127,6 +127,15 @@ const VALID_BODY: Readonly<Record<string, object>> = {
   createRation: { name: 'Broiler grower', speciesId: randomUUID(), feedProductId: randomUUID(), qtyPerHeadPerDay: '0.120' },
   updateRation: { version: 1, qtyPerHeadPerDay: '0.130' },
   recordFeedConsumption: { locationId: randomUUID(), feedProductId: randomUUID(), qty: '10.000', consumedOn: '2026-11-10' },
+  updateAnimal: { version: 1, purpose: 'BREEDING' },
+  moveAnimal: { toLocationId: randomUUID() },
+  createBatch: { batchNo: 'BRL-2611-01', speciesId: randomUUID(), startedOn: '2026-11-12', initialHead: 500, purpose: 'GROWING', locationId: randomUUID() },
+  updateBatch: { version: 1, purpose: 'LAYING' },
+  closeBatch: { reason: 'All birds sold' },
+  createBreedingRecord: { damId: randomUUID(), matedOn: '2026-11-10' },
+  updateBreedingRecord: { version: 1, status: 'CONFIRMED' },
+  recordBirth: { actualBirthOn: '2026-11-02', litterSize: 2, offspring: [{ tagNo: 'G-0181', sex: 'MALE' }] },
+  failBreedingRecord: { reason: 'Came back on heat' },
   createCustomer: { kind: 'INDIVIDUAL', name: 'Ama' },
   updateCustomer: { version: 1, name: 'Ama' },
   archiveCustomer: { version: 1, reason: 'Duplicate' },
@@ -168,7 +177,7 @@ afterAll(async () => {
 });
 
 describe('deny by default: the handler walk (ADR-0017, security architecture section 14)', () => {
-  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued, B05 continued 3, B05x, B6, B06m and B06 continued routes, and every one declares its operation', () => {
+  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued, B05 continued 3, B05x, B6, B06m, B06 continued and B06 continued 2 routes, and every one declares its operation', () => {
     expect(routes.map((route) => route.spec?.operationId).sort()).toEqual(
       [
         'changePassword', 'confirmTotpEnrolment', 'createProduct', 'getCurrentSession', 'getHealth', 'getProduct', 'listProducts', 'listSessions',
@@ -211,6 +220,8 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'listAnimals', 'getAnimal', 'listWeightRecords', 'recordWeights', 'listHealthEvents', 'recordHealthEvent', 'getHealthEvent', 'listMortalityRecords',
         'reportMortality', 'getMortalityRecord', 'submitMortalityRecord', 'listRations', 'createRation', 'updateRation', 'listFeedConsumption',
         'recordFeedConsumption', 'getFeedConsumption',
+        'updateAnimal', 'moveAnimal', 'listAnimalTimeline', 'listGrowth', 'listBatches', 'createBatch', 'getBatch', 'updateBatch', 'closeBatch',
+        'listBreedingRecords', 'createBreedingRecord', 'getBreedingRecord', 'updateBreedingRecord', 'recordBirth', 'failBreedingRecord',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);
@@ -230,7 +241,7 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
   });
 
   /** Reads whose query has a required parameter: without it the request is refused as invalid before it is authorised. */
-  const VALID_QUERY: Record<string, string> = { listStockAvailability: `?branchId=${randomUUID()}` };
+  const VALID_QUERY: Record<string, string> = { listStockAvailability: `?branchId=${randomUUID()}`, listGrowth: '?groupBy=PEN&from=2026-10-01&to=2026-10-31' };
 
   it('refuses a staff user who holds no grant on every permissioned operation, with 403 FORBIDDEN', async () => {
     const nobody = await createUser(database, { name: 'Kwame Nkansah' });

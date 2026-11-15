@@ -9,15 +9,21 @@ import { Idempotency } from '../../platform/idempotency/idempotency';
 import { CLOCK } from '../../platform/platform.module';
 import { FileStore } from '../../platform/storage/file-store';
 import { Approvals, Authoriser, IamModule, PRINCIPAL_NAMES, type PrincipalNames } from '../iam';
-import { InvModule, Stock, StockHolds, StockUnits } from '../inv';
+import { InvModule, Lineage, Stock, StockHolds, StockUnits } from '../inv';
 import { MasterDataRefs, MdmModule, PricingService } from '../mdm';
+import { AnimalCare } from './application/animal-care';
 import { Animals, FOLLOWED_EVENTS } from './application/animals';
+import { Batches } from './application/batches';
+import { Breeding } from './application/breeding';
+import { Growth } from './application/growth';
+import { HERD_STORE, type HerdStore } from './application/herd-store';
 import { Feeding } from './application/feeding';
 import { HealthRecords } from './application/health';
 import { LIVESTOCK_STORE, type LivestockStore } from './application/livestock-store';
 import { MORTALITY_WRITE_OFF, MortalityRecords } from './application/mortality';
 import { CostSpreader } from './application/spread';
 import { Weighing } from './application/weights';
+import { PgHerdStore } from './infrastructure/pg-herd-store';
 import { PgLivestockStore } from './infrastructure/pg-livestock-store';
 import { LivestockController } from './interface/livestock.controller';
 
@@ -25,23 +31,90 @@ import { LivestockController } from './interface/livestock.controller';
  * LIV (layer 6): livestock management. B06 continued builds the animal register, which follows each animal's stock
  * unit through INV's events in their own transactions, weights, health events with withdrawal holds and veterinary
  * cost, mortality and culls with the second approver, rations and feed with the head-days spread. Stock, holds and cost
- * move only through INV's `Stock`, `StockHolds` and `StockUnits`; batches and breeding are B06 continued 2's.
+ * move only through INV's `Stock`, `StockHolds` and `StockUnits`. B06 continued 2 adds edits, moves and the timeline
+ * (`AnimalCare`), batches (`Batches`, which a received flock also opens through the register's subscriber), breeding and
+ * births (`Breeding`) and the growth report (`Growth`).
  */
 @Module({
   imports: [IamModule, MdmModule, InvModule],
   controllers: [LivestockController],
   providers: [
     { provide: LIVESTOCK_STORE, useClass: PgLivestockStore },
+    { provide: HERD_STORE, useClass: PgHerdStore },
     {
       provide: CostSpreader,
-      useFactory: (store: LivestockStore, refs: MasterDataRefs, units: StockUnits, stock: Stock) => new CostSpreader(store, refs, units, stock),
-      inject: [LIVESTOCK_STORE, MasterDataRefs, StockUnits, Stock],
+      useFactory: (store: LivestockStore, herd: HerdStore, refs: MasterDataRefs, units: StockUnits, stock: Stock) => new CostSpreader(store, herd, refs, units, stock),
+      inject: [LIVESTOCK_STORE, HERD_STORE, MasterDataRefs, StockUnits, Stock],
     },
     {
       provide: Animals,
-      useFactory: (uow: UnitOfWork, store: LivestockStore, refs: MasterDataRefs, units: StockUnits, pricing: PricingService, authoriser: Authoriser, events: DomainEvents, audit: AuditTrail, cursors: Cursors, clock: Clock) =>
-        new Animals(uow, store, refs, units, pricing, authoriser, events, audit, cursors, clock),
-      inject: [UnitOfWork, LIVESTOCK_STORE, MasterDataRefs, StockUnits, PricingService, Authoriser, DomainEvents, AuditTrail, Cursors, CLOCK],
+      useFactory: (uow: UnitOfWork, store: LivestockStore, herd: HerdStore, refs: MasterDataRefs, units: StockUnits, pricing: PricingService, authoriser: Authoriser, events: DomainEvents, audit: AuditTrail, cursors: Cursors, clock: Clock) =>
+        new Animals(uow, store, herd, refs, units, pricing, authoriser, events, audit, cursors, clock),
+      inject: [UnitOfWork, LIVESTOCK_STORE, HERD_STORE, MasterDataRefs, StockUnits, PricingService, Authoriser, DomainEvents, AuditTrail, Cursors, CLOCK],
+    },
+    {
+      provide: AnimalCare,
+      useFactory: (
+        uow: UnitOfWork,
+        store: LivestockStore,
+        herd: HerdStore,
+        animals: Animals,
+        refs: MasterDataRefs,
+        units: StockUnits,
+        stock: Stock,
+        authoriser: Authoriser,
+        idempotency: Idempotency,
+        audit: AuditTrail,
+        events: DomainEvents,
+        documents: DocumentRegistry,
+        principals: PrincipalNames,
+        cursors: Cursors,
+        clock: Clock,
+      ) => new AnimalCare(uow, store, herd, animals, refs, units, stock, authoriser, idempotency, audit, events, documents, principals, cursors, clock),
+      inject: [UnitOfWork, LIVESTOCK_STORE, HERD_STORE, Animals, MasterDataRefs, StockUnits, Stock, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, PRINCIPAL_NAMES, Cursors, CLOCK],
+    },
+    {
+      provide: Batches,
+      useFactory: (
+        uow: UnitOfWork,
+        herd: HerdStore,
+        refs: MasterDataRefs,
+        units: StockUnits,
+        stock: Stock,
+        authoriser: Authoriser,
+        idempotency: Idempotency,
+        audit: AuditTrail,
+        events: DomainEvents,
+        documents: DocumentRegistry,
+        cursors: Cursors,
+        clock: Clock,
+      ) => new Batches(uow, herd, refs, units, stock, authoriser, idempotency, audit, events, documents, cursors, clock),
+      inject: [UnitOfWork, HERD_STORE, MasterDataRefs, StockUnits, Stock, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, Cursors, CLOCK],
+    },
+    {
+      provide: Breeding,
+      useFactory: (
+        uow: UnitOfWork,
+        store: LivestockStore,
+        herd: HerdStore,
+        refs: MasterDataRefs,
+        units: StockUnits,
+        stock: Stock,
+        lineage: Lineage,
+        authoriser: Authoriser,
+        idempotency: Idempotency,
+        audit: AuditTrail,
+        events: DomainEvents,
+        documents: DocumentRegistry,
+        cursors: Cursors,
+        clock: Clock,
+      ) => new Breeding(uow, store, herd, refs, units, stock, lineage, authoriser, idempotency, audit, events, documents, cursors, clock),
+      inject: [UnitOfWork, LIVESTOCK_STORE, HERD_STORE, MasterDataRefs, StockUnits, Stock, Lineage, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, Cursors, CLOCK],
+    },
+    {
+      provide: Growth,
+      useFactory: (uow: UnitOfWork, herd: HerdStore, refs: MasterDataRefs, units: StockUnits, authoriser: Authoriser, cursors: Cursors) => new Growth(uow, herd, refs, units, authoriser, cursors),
+      inject: [UnitOfWork, HERD_STORE, MasterDataRefs, StockUnits, Authoriser, Cursors],
     },
     {
       provide: Weighing,
@@ -112,7 +185,7 @@ import { LivestockController } from './interface/livestock.controller';
       inject: [UnitOfWork, LIVESTOCK_STORE, MasterDataRefs, StockUnits, Stock, CostSpreader, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, PRINCIPAL_NAMES, Cursors, CLOCK],
     },
   ],
-  exports: [Animals, Weighing, HealthRecords, MortalityRecords, Feeding],
+  exports: [Animals, Weighing, HealthRecords, MortalityRecords, Feeding, AnimalCare, Batches, Breeding, Growth],
 })
 export class LivModule implements OnModuleInit {
   constructor(

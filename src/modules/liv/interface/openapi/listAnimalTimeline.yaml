@@ -1,0 +1,119 @@
+operationId: listAnimalTimeline
+tags:
+  - liv
+summary: "List everything that happened to an animal"
+description: "Permission: `liv.animal.read`."
+x-permission: liv.animal.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/AnimalEventPage"
+        example:
+          data:
+            - actor: null
+              at: "2026-10-03T11:00:00Z"
+              kind: ACQUIRED
+              summary: "Bought from Kpone Livestock Traders at GHS 520.00"
+              document:
+                id: "019a7aad-f16d-766e-bba7-6fbeee70e89c"
+                docType: GOODS_RECEIPT
+                number: GRN-2026-DDW-000070
+              valuePesewas: 52000
+            - actor:
+                id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                displayName: "Abena Quaye"
+              at: "2026-10-10T07:00:00Z"
+              kind: WEIGHED
+              summary: "21.300 kg by scale"
+              document: null
+              valuePesewas: null
+            - actor:
+                id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                displayName: "Abena Quaye"
+              at: "2026-10-20T08:00:00Z"
+              kind: TREATED
+              summary: "Dewormed, Albendazole 10% oral suspension; withdrawal 14 days"
+              document:
+                id: "019a7aaf-26c3-7951-9e89-9de9af5a16c7"
+                docType: HEALTH_EVENT
+                number: null
+              valuePesewas: 4300
+            - actor:
+                id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                displayName: "Abena Quaye"
+              at: "2026-11-01T06:00:00Z"
+              kind: COST_ADDED
+              summary: "Feed of 2026-10-31 added from Goat pen 1"
+              document:
+                id: "019a7abc-ce42-76b9-abf1-7466667bed44"
+                docType: FEED_CONSUMPTION
+                number: null
+              valuePesewas: 4950
+            - actor:
+                id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                displayName: "Abena Quaye"
+              at: "2026-11-04T07:00:00Z"
+              kind: MOVED
+              summary: "Moved from Goat pen 2 to Goat pen 1"
+              document:
+                id: "019a7ab7-2061-75f6-bb2e-68370efce114"
+                docType: ANIMAL_MOVE
+                number: null
+              valuePesewas: null
+            - actor:
+                id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                displayName: "Abena Quaye"
+              at: "2026-11-11T07:00:00Z"
+              kind: WEIGHED
+              summary: "26.400 kg by scale; average daily gain 0.159 kg"
+              document: null
+              valuePesewas: null
+          page:
+            nextCursor: null
+            limit: 25
+            hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

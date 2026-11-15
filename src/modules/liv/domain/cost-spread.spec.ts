@@ -101,4 +101,8 @@ describe('whether a cost is capitalised or expensed (ADR-0018, A-025)', () => {
     expect(treatmentOf('GROWING')).toBe('CAPITALISED');
     expect(treatmentOf('BREEDING')).toBe('EXPENSED');
   });
+
+  it('expenses a laying flock as breeding stock, since its birds are kept to produce rather than to sell (A-159)', () => {
+    expect(treatmentOf('LAYING')).toBe('EXPENSED');
+  });
 });

@@ -9,8 +9,10 @@ import type { Authoriser } from '../../iam';
 import type { StockPostingPayload, StockUnitFacts, StockUnitRegistered, StockUnits } from '../../inv';
 import type { MasterDataRefs, PricingService } from '../../mdm';
 import { sourceOfArrival, statusAfterMovement, type AnimalStatus } from '../domain/animal';
-import type { AnimalRegistered } from '../events';
+import { headOf } from '../domain/cost-spread';
+import type { AnimalRegistered, BatchStarted } from '../events';
 import { LivestockRecordInvalidError } from './errors';
+import type { HerdStore } from './herd-store';
 import type { AnimalFilters, AnimalRecord, LivestockStore, Purpose, Sex } from './livestock-store';
 import { afterOf, pageOf, pageProbe, readScopeOf, type Page } from './support';
 
@@ -89,6 +91,7 @@ export class Animals {
   constructor(
     private readonly uow: UnitOfWork,
     private readonly store: LivestockStore,
+    private readonly herd: HerdStore,
     private readonly refs: MasterDataRefs,
     private readonly units: StockUnits,
     private readonly pricing: PricingService,
@@ -101,10 +104,14 @@ export class Animals {
     this.nextId = createUuidV7Generator(clock);
   }
 
-  /** Transactional subscriber to `inv.StockUnitRegistered`: a serialised unit received becomes an animal (FR-LIV-001). */
+  /**
+   * Transactional subscriber to `inv.StockUnitRegistered`: a serialised unit received becomes an animal (FR-LIV-001),
+   * and a flock received as a lot of a livestock product opens its batch (FR-LIV-006, A-159).
+   */
   readonly register = async (tx: Transaction, event: EventEnvelope): Promise<void> => {
     const unit = event.payload as unknown as StockUnitRegistered;
-    if (unit.tracking !== 'SERIAL' || unit.animal === null) return;
+    if (unit.tracking === 'LOT') return this.openFlock(tx, event, unit);
+    if (unit.animal === null) return;
     const product = (await this.refs.productsIn(tx, [unit.productId])).get(unit.productId)!;
     if (product.speciesId === null) {
       throw new Error(`product ${product.sku} is serialised without a species, which mdm.product's check forbids`);
@@ -169,6 +176,40 @@ export class Animals {
       },
     });
   };
+
+  /**
+   * A received flock's batch (FR-LIV-006, A-159): numbered as its lot, started on the day it arrived with the head
+   * received, GROWING until someone changes its purpose. A lot of anything that is not livestock opens nothing; a lot
+   * whose number another batch already carries is refused, and the receipt with it.
+   */
+  private async openFlock(tx: Transaction, event: EventEnvelope, unit: StockUnitRegistered): Promise<void> {
+    const product = (await this.refs.productsIn(tx, [unit.productId])).get(unit.productId)!;
+    if (product.speciesId === null) return;
+    if (await this.herd.batchNoTaken(tx, unit.identifier)) throw new LivestockRecordInvalidError([{ field: '/lines', rule: 'BATCH_NO_TAKEN' }]);
+    const facts = (await this.units.factsIn(tx, [unit.stockUnitId], event.occurredAt)).get(unit.stockUnitId)!;
+    const batch = {
+      id: this.nextId(),
+      stockUnitId: unit.stockUnitId,
+      batchNo: unit.identifier,
+      speciesId: product.speciesId,
+      branchId: facts.branchId,
+      locationId: unit.locationId,
+      startedOn: toBusinessDate(event.occurredAt),
+      initialHead: Number(headOf('LOT', facts.poolQty)),
+      purpose: 'GROWING' as const,
+    };
+    await this.herd.insertBatch(tx, batch, event.actorId);
+    await this.audit.record(tx, { module: 'liv', action: 'CREATE', entityType: 'Batch', entityId: batch.id, branchId: batch.branchId, before: null, after: { ...batch } });
+    await this.events.publish<BatchStarted>(tx, {
+      type: 'liv.BatchStarted',
+      subjectType: 'Batch',
+      subjectId: batch.id,
+      branchId: batch.branchId,
+      occurredAt: event.occurredAt,
+      causationId: event.id,
+      payload: { batchId: batch.id, batchNo: batch.batchNo, stockUnitId: batch.stockUnitId, speciesId: batch.speciesId, branchId: batch.branchId, initialHead: batch.initialHead, purpose: batch.purpose, startedOn: batch.startedOn },
+    });
+  }
 
   /**
    * Transactional subscriber to the movements that close or reopen a unit (FR-LIV-017): the animal becomes SOLD,
@@ -247,6 +288,7 @@ export class Animals {
     const ids = records.map((r) => r.stockUnitId);
     const facts = await this.units.factsIn(tx, ids, at);
     const alive = (r: AnimalRecord) => r.status === 'ALIVE';
+    const batches = new Map((await this.herd.batches(tx, records.flatMap((r) => (r.batchId === null ? [] : [r.batchId])))).map((b) => [b.id, b] as const));
     const [products, species, suppliers, grades, locations, parents] = [
       await this.refs.productsIn(tx, records.map((r) => r.productId)),
       await this.refs.speciesIn(tx, records.map((r) => r.speciesId)),
@@ -279,7 +321,7 @@ export class Animals {
         supplier: supplier === null ? null : { id: supplier.id, supplierNo: supplier.supplierNo, name: supplier.name },
         dam: parent(r.damId),
         sire: parent(r.sireId),
-        batch: null,
+        batch: r.batchId === null ? null : { id: r.batchId, batchNo: batches.get(r.batchId)!.batchNo },
         purpose: r.purpose,
         status: r.status,
         currentLocation: location === null ? null : { id: location.id, code: location.code, name: location.name, kind: location.kind },
