@@ -248,6 +248,7 @@ No table is partitioned in version one. At the capacity targets in the shared br
 | `inv.stock_adjustment_line` | `DOCUMENT` | One gain or loss within an adjustment |
 | `inv.stock_take` | `DOCUMENT` | A cycle count or full stock take |
 | `inv.stock_take_line` | `DOCUMENT` | Expected and counted quantity for one item in a stock take |
+| `inv.stock_take_product` | `DOCUMENT` | The products a cycle count covers (B05 continued 3, A-141) |
 | `inv.reorder_rule` | `MASTER` | Minimum, reorder point and maximum levels, and expiry alert lead time |
 | `inv.temperature_reading` | `LEDGER` | Cold chain log |
 | `inv.stock_balance_snapshot` | `LEDGER` | Month-end balances, for as-of reporting and five-year history |

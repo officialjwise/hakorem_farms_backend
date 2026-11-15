@@ -176,11 +176,13 @@ A block on moving a stock unit out. Published key.
 | `source_document_id` | `uuid` | NOT NULL, FK `platform.business_document` | The treatment or excursion that caused it |
 | `released_at` | `timestamptz` | NULL | Early release |
 | `released_by` | `uuid` | NULL, FK `iam.principal` | |
-| `release_reason_code` | `text` | NULL, FK `mdm.reason_code` | |
+| `release_reason_code` | `text` | NULL, FK `mdm.reason_code` | From the `HOLD_RELEASE` list |
+| `note` | `text` | NULL | Why a person placed it (migration 0057, A-142) |
+| `release_note` | `text` | NULL; required with `released_at` (`ck_stock_hold_release_noted`) | What the release found (migration 0057, A-142) |
 | `created_at` | `timestamptz` | NOT NULL DEFAULT `now()` | |
 | `created_by` | `uuid` | NOT NULL, FK `iam.principal` | |
 
-- Only the three release columns may ever be updated, once. A `WITHDRAWAL` hold cannot be released early.
+- Only the four release columns may ever be updated, once. A `WITHDRAWAL` hold cannot be released early. The person who releases a hold is not the one who placed it (`ck_stock_hold_releaser`, B05 continued 3).
 - Index (`stock_unit_id`) where `released_at IS NULL`.
 
 ### `inv.stock_exception` · DOCUMENT
@@ -367,20 +369,34 @@ Standard columns: `DOCUMENT` (`status` in `PENDING_APPROVAL`, `POSTED`, `REJECTE
 
 ### `inv.stock_take` · DOCUMENT
 
-A cycle count or full stock take. Posted statuses: `POSTED`, `CANCELLED`.
+A cycle count or full stock take of one location (FR-INV-013, FR-INV-014). Posted statuses: `POSTED`, `CANCELLED`. Built in migration 0054 (B05 continued 3, A-141).
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `id` | `uuid` | PK, FK `platform.business_document` | |
-| `stock_take_no` | `text` | NULL, UNIQUE | |
+| `stock_take_no` | `text` | NULL, UNIQUE | Null until numbering (B8) |
 | `location_id` | `uuid` | NOT NULL, FK `mdm.location` | Scope of the count |
-| `scope` | `text` | NOT NULL, CHECK in (`FULL`, `CYCLE`) | |
-| `snapshot_at` | `timestamptz` | NULL | When expected quantities were frozen |
-| `counted_by` | `uuid` | NULL, FK `iam.principal` | |
-| `variance_value_pesewas` | `pesewas` | NULL | Absolute value of variances, for the threshold |
-| `approval_request_id` | `uuid` | NULL, FK `iam.approval_request` | Required above the threshold |
+| `scope` | `text` | NOT NULL, CHECK in (`FULL`, `CYCLE`) | A cycle count lists its products in `inv.stock_take_product` |
+| `snapshot_at` | `timestamptz` | NULL; set exactly when counting starts | When expected quantities were frozen |
+| `counted_by` | `uuid` | NULL, FK `iam.principal` | The first to record a count |
+| `gain_value_pesewas`, `loss_value_pesewas` | `pesewas` | NULL; set at review | The variance report's two totals, as the contract shows them |
+| `variance_value_pesewas` | `pesewas` | NULL; CHECK equals gain plus loss | Compared with the threshold |
+| `approval_threshold_pesewas` | `pesewas` | NULL; set when judged | The `STOCK_WRITE_OFF` threshold, read through IAM's `Approvals.judgeIn` (as A-139) |
+| `approval_request_id` | `uuid` | NULL, FK `iam.approval_request` | Required at or above the threshold |
+| `cancel_reason` | `text` | NULL; set exactly when `CANCELLED` | |
 
-Standard columns: `DOCUMENT` (`status` in `DRAFT`, `COUNTING`, `REVIEW`, `PENDING_APPROVAL`, `POSTED`, `CANCELLED`).
+Standard columns: `DOCUMENT` (`status` in `DRAFT`, `COUNTING`, `REVIEW`, `PENDING_APPROVAL`, `POSTED`, `CANCELLED`), with `posted_at` and `posted_by` set exactly when `POSTED`. Statuses move `DRAFT` to `COUNTING` or `CANCELLED`, `COUNTING` to `REVIEW` or `CANCELLED`, `REVIEW` to `POSTED`, `PENDING_APPROVAL` or `CANCELLED`, and `PENDING_APPROVAL` to `POSTED` or `CANCELLED` (`inv.document_status_guard`); `POSTED` and `CANCELLED` are frozen, and a pending take changes only to be decided. CHECK `ck_stock_take_approved`: posted at or above its threshold only with an approval. Trigger `inv.stock_take_overlap`: a take starts counting only when no take of its location whose scope shares a product (a `FULL` take shares every one) is counting, in review or pending; it takes an advisory lock on the location first, so the rule holds at any isolation level (HK010 `ck_stock_take_overlap`).
+
+### `inv.stock_take_product` · DOCUMENT
+
+The products a cycle count covers. Added in B05 continued 3 (A-141).
+
+| Column | Type | Constraints | Why |
+| --- | --- | --- | --- |
+| `stock_take_id` | `uuid` | NOT NULL, FK `inv.stock_take` | |
+| `product_id` | `uuid` | NOT NULL, FK `mdm.product` | |
+
+PK (`stock_take_id`, `product_id`). Written while the take is a `DRAFT` (`inv.stock_take_part_guard`, HK004).
 
 ### `inv.stock_take_line` · DOCUMENT
 
@@ -391,16 +407,17 @@ Expected and counted quantity for one item in a stock take.
 | `id` | `uuid` | PK | |
 | `stock_take_id` | `uuid` | NOT NULL, FK `inv.stock_take` | |
 | `product_id` | `uuid` | NOT NULL, FK `mdm.product` | |
-| `stock_unit_id` | `uuid` | NULL, FK `inv.stock_unit` | |
-| `expected_qty` | `numeric(14,3)` | NOT NULL | From the balance at snapshot |
-| `counted_qty` | `qty` | NULL | Entered blind: the counter does not see expected |
-| `recount_qty` | `qty` | NULL | Second count where the first disagreed |
-| `counted_weight_kg` | `kg` | NULL | |
-| `variance_qty` | `numeric(14,3)` | NULL | Final count minus expected; signed |
-| `variance_value_pesewas` | `pesewas` | NULL | |
-| `movement_id` | `uuid` | NULL, FK `inv.stock_movement` | The gain or loss posted |
+| `stock_unit_id` | `uuid` | NULL, FK `inv.stock_unit` | A lot; animals are not counted here (A-141) |
+| `expected_qty` | `numeric(14,3)` | NOT NULL | From the balance at snapshot; signed |
+| `counted_qty` | `qty` | NULL | Entered blind: nobody reads expected while counting |
+| `recount_qty` | `qty` | NULL; only with `counted_qty` | Second count where the first disagreed; final |
+| `counted_weight_kg` | `kg` | NULL, with `counted_weight_source` | |
+| `counted_weight_source` | `text` | NULL, CHECK in (`SCALE`, `MANUAL`, `ESTIMATE`) | `MANUAL` for a typed weight (A-141) |
+| `variance_qty` | `numeric(14,3)` | NULL; CHECK equals the final count less expected | Signed |
+| `variance_value_pesewas` | `pesewas` | NULL, with `variance_qty` | From the cost pool |
+| `movement_id` | `uuid` | NULL, UNIQUE, FK `inv.stock_movement`; only for a non-zero variance | The gain or loss posted |
 
-- UNIQUE NULLS NOT DISTINCT (`stock_take_id`, `product_id`, `stock_unit_id`).
+- UNIQUE NULLS NOT DISTINCT (`stock_take_id`, `product_id`, `stock_unit_id`). Lines are written while the take is a `DRAFT`; while `COUNTING` only the counts change; in `REVIEW` only the recount (once), the variance and the movement (once); while `PENDING_APPROVAL` only the movement (once) (`inv.stock_take_part_guard`, HK004).
 
 ### `inv.reorder_rule` · MASTER
 

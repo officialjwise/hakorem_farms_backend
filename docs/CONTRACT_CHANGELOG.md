@@ -8,6 +8,17 @@ Version numbers follow semantic versioning: a major bump breaks an existing clie
 
 - **CR-002 (frontend, raised 2026-11-13): weights as decimal strings, never JSON numbers.** Already satisfied by 1.0.0 and 1.1.0, so no version change. `components.schemas.Kilograms` is `type: string` with the pattern `^(0|[1-9][0-9]{0,6})\.[0-9]{3}$` (exactly three decimal places), and its description says it is never a JSON number. The request was raised against a copy taken before re-syncing; re-run `./scripts/sync-contract.sh`. The owner closed it on 2026-11-13: do not reopen it.
 
+## 1.18.0 (2026-11-15, B05 continued 3)
+
+**Additive.** No schema, field, parameter or request was removed, renamed or retyped, and nothing a client sends was made required. Two error codes were added and one was described more fully; descriptions, examples and `x-error-codes` were written. A client generated from 1.17.x compiles unchanged. The frontend track is paused, so nothing reviewed this entry; read it before resuming.
+
+Twelve operations now answer from the real API (174 in all): `listStockTakes`, `createStockTake`, `getStockTake`, `startStockTake`, `listStockTakeLines`, `recordStockTakeCounts`, `closeStockTakeCounting`, `submitStockTake`, `cancelStockTake`, `listStockHolds`, `createStockHold` and `releaseStockHold` (FR-INV-013, FR-INV-014, FR-INV-022).
+
+- **New error codes** (422, each with the broken rule in `details[].code`, docs/API.md section 10.3): `STOCK_TAKE_INVALID` on `createStockTake`, `startStockTake` and `recordStockTakeCounts`; `STOCK_HOLD_INVALID` on `createStockHold` and `releaseStockHold`. `STOCK_TAKE_NOT_COUNTED` now names each unfinished line (`NOT_COUNTED`, `RECOUNT_REQUIRED`).
+- **Descriptions** state the rules: the count is blind for every reader until counting closes; the tolerance is zero, so every difference is recounted once; the reasons the variances post with; the 202 of `submitStockTake` and its approver; a rejected take is cancelled; a hold's scope, its own `STOCK_HOLD` document, release by a different person with a `HOLD_RELEASE` reason, and a withdrawal hold never released.
+- **Examples:** `submitStockTake`'s 202 names a `STOCK_TAKE` subject; `cancelStockTake` answers `CANCELLED`; `createStockHold` and `releaseStockHold` show an investigation and a released quarantine.
+- **Not changed, and why:** `listStockTakes` keeps `status` typed as a string, as `listStockAdjustments` does; a value outside the statuses answers 400.
+
 ## 1.17.0 (2026-11-15, B05 continued 2)
 
 **Additive.** No schema, field, parameter or request was removed, renamed or retyped, and nothing a client sends was made required. Four error codes were added; descriptions and `x-error-codes` were written. A client generated from 1.16.x compiles unchanged. The frontend track is paused, so nothing reviewed this entry; read it before resuming.
