@@ -36,7 +36,8 @@ requestBody:
       schema:
         $ref: "#/components/schemas/PriceListUpdate"
       example:
-        version: 3
+        version: 2
+        name: "Base prices, all branches"
 responses:
   "200":
     description: OK
@@ -50,7 +51,7 @@ responses:
         example:
           id: "019a7a94-5381-760f-bb48-69ce27dce2ac"
           code: BASE
-          name: "Base prices"
+          name: "Base prices, all branches"
           kind: BASE
           channel: null
           customerTier: null
@@ -58,14 +59,14 @@ responses:
           taxInclusive: true
           currency: GHS
           activeVersion:
-            id: "019a7aa3-e9f0-71af-86e7-23c27a0d9ca0"
-            versionNo: 3
+            id: "019a7aa4-46bd-7f59-b491-fe68e7207746"
+            versionNo: 4
             validFrom: "2026-11-01T00:00:00Z"
             validTo: null
-          draftVersionId: "019a7aa4-08df-7b92-90ca-c1f9f3be3ad7"
-          version: 2
+          draftVersionId: "019a7aa3-e9f0-71af-86e7-23c27a0d9ca0"
+          version: 3
           createdAt: "2026-11-02T08:00:00Z"
-          updatedAt: "2026-11-10T14:00:00Z"
+          updatedAt: "2026-11-15T09:30:00Z"
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

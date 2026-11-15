@@ -56,11 +56,11 @@ responses:
               taxInclusive: true
               currency: GHS
               activeVersion:
-                id: "019a7aa3-e9f0-71af-86e7-23c27a0d9ca0"
-                versionNo: 3
+                id: "019a7aa4-46bd-7f59-b491-fe68e7207746"
+                versionNo: 4
                 validFrom: "2026-11-01T00:00:00Z"
                 validTo: null
-              draftVersionId: "019a7aa4-08df-7b92-90ca-c1f9f3be3ad7"
+              draftVersionId: "019a7aa3-e9f0-71af-86e7-23c27a0d9ca0"
               version: 2
               createdAt: "2026-11-02T08:00:00Z"
               updatedAt: "2026-11-10T14:00:00Z"
@@ -74,7 +74,7 @@ responses:
               taxInclusive: true
               currency: GHS
               activeVersion:
-                id: "019a7aa4-46bd-7f59-b491-fe68e7207746"
+                id: "019a7ab1-0b11-7a2e-8c41-2e6f9d3b5c01"
                 versionNo: 4
                 validFrom: "2026-11-01T00:00:00Z"
                 validTo: null
@@ -92,7 +92,7 @@ responses:
               taxInclusive: true
               currency: GHS
               activeVersion:
-                id: "019a7aa4-849b-7320-9858-3ad7da82b3b5"
+                id: "019a7ab1-0b12-7a2e-8c41-2e6f9d3b5c02"
                 versionNo: 3
                 validFrom: "2026-11-01T00:00:00Z"
                 validTo: null
@@ -113,7 +113,7 @@ responses:
               taxInclusive: false
               currency: GHS
               activeVersion:
-                id: "019a7aa4-c279-76e7-bc1f-7746cde4f024"
+                id: "019a7ab1-0b13-7a2e-8c41-2e6f9d3b5c03"
                 versionNo: 4
                 validFrom: "2026-11-01T00:00:00Z"
                 validTo: null
@@ -131,7 +131,7 @@ responses:
               taxInclusive: false
               currency: GHS
               activeVersion:
-                id: "019a7aa5-0057-7aae-9fe6-b3b5c1462c93"
+                id: "019a7ab1-0b14-7a2e-8c41-2e6f9d3b5c04"
                 versionNo: 3
                 validFrom: "2026-11-01T00:00:00Z"
                 validTo: null

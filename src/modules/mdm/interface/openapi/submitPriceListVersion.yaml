@@ -45,12 +45,12 @@ responses:
           status: PENDING_APPROVAL
           validFrom: "2026-12-01T00:00:00Z"
           validTo: null
-          approvalRequestId: "019a7aa6-ef47-78e5-9e1e-972d5c56100b"
+          approvalRequestId: "019a7aa7-0e36-72c9-a801-3564d607ae42"
           activatedAt: null
           activatedBy: null
           notes: "Christmas season goat prices"
           entryCount: 38
-          version: 1
+          version: 3
           createdAt: "2026-11-10T11:00:00Z"
           createdBy:
             id: "019a7a86-4f35-7afd-b035-b8ab03a83188"

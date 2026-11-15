@@ -54,7 +54,7 @@ responses:
               activatedBy: null
               notes: "Christmas season goat prices"
               entryCount: 38
-              version: 1
+              version: 2
               createdAt: "2026-11-10T11:00:00Z"
               createdBy:
                 id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
@@ -66,14 +66,14 @@ responses:
               validFrom: "2026-11-01T00:00:00Z"
               validTo: null
               approvalRequestId: "019a7aa5-5d24-7858-8d90-8e5c2e59073a"
-              activatedAt: "2026-11-01T00:00:00Z"
+              activatedAt: "2026-10-29T15:20:00Z"
               activatedBy:
                 id: "019a7a86-3046-711a-a652-1a7389f79351"
                 displayName: "Akua Mensah"
               notes: null
               entryCount: 36
               version: 1
-              createdAt: "2026-11-10T11:00:00Z"
+              createdAt: "2026-10-26T09:00:00Z"
               createdBy:
                 id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
                 displayName: "Kwabena Owusu"
@@ -84,14 +84,14 @@ responses:
               validFrom: "2026-10-01T00:00:00Z"
               validTo: "2026-11-01T00:00:00Z"
               approvalRequestId: "019a7aa5-7c13-723c-9774-2c93a80aa571"
-              activatedAt: "2026-11-01T00:00:00Z"
+              activatedAt: "2026-09-28T16:00:00Z"
               activatedBy:
                 id: "019a7a86-3046-711a-a652-1a7389f79351"
                 displayName: "Akua Mensah"
               notes: "Feed price rise passed through to broilers"
               entryCount: 36
               version: 1
-              createdAt: "2026-11-10T11:00:00Z"
+              createdAt: "2026-09-24T10:30:00Z"
               createdBy:
                 id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
                 displayName: "Kwabena Owusu"
@@ -102,14 +102,14 @@ responses:
               validFrom: "2026-08-15T00:00:00Z"
               validTo: "2026-10-01T00:00:00Z"
               approvalRequestId: "019a7aa5-9b02-7c1f-a157-cacb21bb43a9"
-              activatedAt: "2026-11-01T00:00:00Z"
+              activatedAt: "2026-08-13T11:45:00Z"
               activatedBy:
                 id: "019a7a86-3046-711a-a652-1a7389f79351"
                 displayName: "Akua Mensah"
-              notes: "Christmas season goat prices"
+              notes: "Mid-year review of egg and broiler prices"
               entryCount: 34
               version: 1
-              createdAt: "2026-11-10T11:00:00Z"
+              createdAt: "2026-08-10T08:15:00Z"
               createdBy:
                 id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
                 displayName: "Kwabena Owusu"
@@ -120,37 +120,21 @@ responses:
               validFrom: "2026-07-01T00:00:00Z"
               validTo: "2026-08-15T00:00:00Z"
               approvalRequestId: "019a7aa5-b9f1-7603-bb3b-69029b6ce1e0"
-              activatedAt: "2026-11-01T00:00:00Z"
+              activatedAt: "2026-06-29T14:00:00Z"
               activatedBy:
                 id: "019a7a86-3046-711a-a652-1a7389f79351"
                 displayName: "Akua Mensah"
               notes: null
               entryCount: 34
               version: 1
-              createdAt: "2026-11-10T11:00:00Z"
-              createdBy:
-                id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
-                displayName: "Kwabena Owusu"
-            - id: "019a7aa5-3e35-7e75-b3ad-f024b4a86902"
-              priceListId: "019a7a94-5381-760f-bb48-69ce27dce2ac"
-              versionNo: 0
-              status: REJECTED
-              validFrom: "2026-06-20T00:00:00Z"
-              validTo: null
-              approvalRequestId: "019a7aa5-d8e0-7fe6-851e-073a151d8017"
-              activatedAt: null
-              activatedBy: null
-              notes: "Feed price rise passed through to broilers"
-              entryCount: 35
-              version: 1
-              createdAt: "2026-11-10T11:00:00Z"
+              createdAt: "2026-06-25T09:00:00Z"
               createdBy:
                 id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
                 displayName: "Kwabena Owusu"
           page:
-            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            nextCursor: null
             limit: 25
-            hasMore: true
+            hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":
