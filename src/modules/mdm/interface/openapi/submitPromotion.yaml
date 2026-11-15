@@ -1,0 +1,102 @@
+operationId: submitPromotion
+tags:
+  - pricing
+summary: "Submit a promotion for activation"
+description: "Always answers `202`: activation is maker-checker. Once approved by a different user holding `mdm.promotion.approve`, the promotion is `ACTIVE` from its `validFrom`, or from the moment of approval if that is later. A promotion whose window has passed is refused with `INVALID_STATE_TRANSITION` (`WINDOW_PASSED`).\n\nPermission: `mdm.promotion.update`.\n\nMay require approval of kind `PROMOTION_ACTIVATION`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+x-permission: mdm.promotion.update
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - INVALID_STATE_TRANSITION
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Promotion"
+        example:
+          id: "019a7aa7-4c14-7690-8bc8-71d3c969eab1"
+          code: XMAS-CHICKEN
+          name: "Christmas chicken 5% off"
+          kind: PERCENT_OFF
+          percentOff: "5.00"
+          amountOffPesewas: null
+          bundlePricePesewas: null
+          appliesTo: LINE
+          channel: ONLINE
+          minOrderPesewas: null
+          stackGroup: PRICE
+          isExclusive: false
+          requiresCoupon: false
+          maxRedemptions: null
+          redemptions: 44
+          validFrom: "2026-11-01T00:00:00Z"
+          validTo: "2026-12-31T23:59:00Z"
+          status: ACTIVE
+          approvalRequestId: null
+          targets:
+            - product:
+                id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                sku: MEAT-CHK-FULL
+                name: "Full chicken, 15 kg pack"
+              category: null
+              bundleQty: null
+          currency: GHS
+          version: 1
+          createdAt: "2026-11-01T09:00:00Z"
+  "202":
+    description: "Accepted for approval. Nothing has taken effect yet."
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ApprovalPending"
+        example:
+          status: PENDING_APPROVAL
+          approvalRequestId: "019a7aa8-249d-7bc8-b100-c5581d403e36"
+          kind: PROMOTION_ACTIVATION
+          subject:
+            id: "019a7aa8-438c-75ab-8ae4-638f96f1dc6d"
+            docType: STOCK_ADJUSTMENT
+            number: null
+          summary: "Awaiting approval by a different user with the approving permission"
+          requestedAt: "2026-11-13T10:12:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

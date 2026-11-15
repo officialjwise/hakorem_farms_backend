@@ -170,7 +170,7 @@ The audit trail itself (audit events, the chain, anchors and per-subject keys) i
 | A location belongs to exactly one branch; its parent is in the same branch | DB (foreign key and trigger) |
 | A coupon cannot be redeemed beyond its limits | DB (redemption count check under row lock) |
 
-**Events:** `mdm.ProductCreated`, `mdm.ProductChanged`, `mdm.PriceListVersionActivated`, `mdm.PromotionActivated`, `mdm.TaxSchemeVersionActivated`, `mdm.CustomerRegistered`, `mdm.CustomerChanged`, `mdm.SupplierRegistered`, `mdm.LocationChanged`, `mdm.ImportCompleted`.
+**Events:** `mdm.ProductCreated`, `mdm.ProductChanged`, `mdm.PriceListVersionActivated`, `mdm.PromotionActivated`, `mdm.PromotionEnded`, `mdm.TaxSchemeVersionActivated`, `mdm.CustomerRegistered`, `mdm.CustomerChanged`, `mdm.SupplierRegistered`, `mdm.LocationChanged`, `mdm.ImportCompleted`.
 
 ### 5.4 INV: inventory and stock control
 

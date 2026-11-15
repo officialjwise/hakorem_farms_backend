@@ -45,3 +45,22 @@ export interface TaxSchemeVersionActivated {
   /** Versions this one replaced outright. */
   readonly supersededVersionIds: readonly string[];
 }
+
+/**
+ * `mdm.PromotionActivated` v1: a promotion was approved and discounts lines from `validFrom` (the moment of approval
+ * if that was later). Offline price packs (B9b) and the storefront (B7) subscribe so a cached price never misses it.
+ */
+export interface PromotionActivated {
+  readonly promotionId: string;
+  readonly code: string;
+  readonly validFrom: string;
+  readonly validTo: string;
+}
+
+/** `mdm.PromotionEnded` v1: an active promotion was ended early; from `validTo` it discounts nothing. */
+export interface PromotionEnded {
+  readonly promotionId: string;
+  readonly code: string;
+  readonly validTo: string;
+  readonly reason: string;
+}

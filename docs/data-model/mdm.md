@@ -372,7 +372,11 @@ Posted statuses: `ACTIVE`, `ENDED`, `REJECTED`. Registered as a business documen
 | `status` | `text` | NOT NULL, CHECK in (`DRAFT`, `PENDING_APPROVAL`, `ACTIVE`, `ENDED`, `REJECTED`) | |
 | `approval_request_id` | `uuid` | NULL, FK `iam.approval_request`; required to become `ACTIVE` | |
 
-Standard columns: `DOCUMENT`.
+Standard columns: `DOCUMENT`, plus `activated_at` and `activated_by` (required for `ACTIVE` and `ENDED`). Built in B04d (migration 0017, ADR-0040).
+
+- CHECK `ck_promotion_value`: exactly the value its kind needs and no other; `FREE_DELIVERY` applies to `ORDER`. `percent_off` is above 0 and at most 100; the money values and `max_redemptions` are positive.
+- Lifecycle guard `mdm.promotion_guard`: `DRAFT` to `PENDING_APPROVAL` to `ACTIVE` or `REJECTED`, `ACTIVE` to `ENDED`; once submitted only the lifecycle columns move; `valid_to` of an `ACTIVE` promotion may only become earlier; activation may move `valid_from` later, to the moment of approval, never earlier (SQLSTATE HK004).
+- UNIQUE `code` (stored upper-case).
 
 ### `mdm.promotion_target` · MASTER
 
@@ -386,7 +390,8 @@ The products or categories a promotion applies to.
 | `category_id` | `uuid` | NULL, FK `mdm.category` | |
 | `bundle_qty` | `qty` | NULL | Quantity of this product in a bundle |
 
-- CHECK: exactly one of `product_id`, `category_id` is set. Frozen with its promotion.
+- CHECK: exactly one of `product_id`, `category_id` is set; `bundle_qty` positive. UNIQUE NULLS NOT DISTINCT (`promotion_id`, `product_id`, `category_id`). A category target covers the categories below it (ADR-0040).
+- Standard columns: `version`, created and changed, no soft delete. Frozen with its promotion by `mdm.promotion_target_guard`; a draft's targets are emptied only by `mdm.clear_draft_promotion_targets(promotion_id)`, `SECURITY DEFINER` (B04d).
 
 ### `mdm.coupon` · MASTER
 
@@ -399,7 +404,7 @@ A code that unlocks a promotion.
 | `code` | `text` | NOT NULL, UNIQUE | Stored upper-case |
 | `max_uses` | `integer` | NULL | |
 | `per_customer_limit` | `integer` | NULL | |
-| `used_count` | `integer` | NOT NULL DEFAULT 0, CHECK `max_uses IS NULL OR used_count <= max_uses` | Maintained by trigger from redemptions |
+| `used_count` | `integer` | NOT NULL DEFAULT 0, CHECK `>= 0` and `max_uses IS NULL OR used_count <= max_uses` | Maintained by the redemption trigger only: `mdm.coupon_guard` refuses any other change, and a change of `code` or `promotion_id` |
 
 Standard columns: `MASTER`.
 
@@ -418,7 +423,7 @@ Each use, or release, of a coupon.
 
 Standard columns: `LEDGER`.
 
-- Trigger locks the coupon row, adjusts `used_count`, and so enforces the limit under concurrency.
+- Trigger `mdm.coupon_redemption_count` (B04d, ADR-0040) locks the promotion and then the coupon, refuses a use beyond the coupon's `max_uses`, the promotion's `max_redemptions` across its coupons, the customer's `per_customer_limit`, or a second use by one document, and a release with no use to release (SQLSTATE HK006, reason in `DETAIL`: `LIMIT_REACHED`, `ALREADY_USED`, `NOT_APPLICABLE`, `NOTHING_TO_RELEASE`); then moves `used_count`. Update, delete and truncate are refused for every role.
 
 ## Tax
 
