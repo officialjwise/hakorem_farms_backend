@@ -21,7 +21,8 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B4 continued | `B04c-master-data-continued.md` | `b04c-master-data-continued` | B4 to B12 | The tax calculator's exact cases pass (built; the session split, A-097) |
 | B4 continued (d) | `B04d-master-data-promotions.md` | `b04d-master-data-promotions` | B4 to B12 | Promotions stack by their rules and a coupon limit holds under concurrency (built; the session split, A-103) |
 | B04d continued | `B04d-continued-master-data.md` | `b04d-continued-master-data` | B4 to B12 | Every catalogue write refuses the wrong role; the catalogue, price lists, tax scheme and promotions are seeded through services, and `calculateTax` answers on a fresh setup (built; the session split, A-108) |
-| B04d continued 2 | `B04d2-parties-locations.md` | `b04d2-parties-locations` | B4 to B12 | Every remaining master data write refuses the wrong role; branches, locations and customers are seeded through services, and nothing in the MDM seed is written as SQL |
+| B04d continued 2 | `B04d2-parties-locations.md` | `b04d2-parties-locations` | B4 to B12 | Every branch, location, customer and assignment write refuses the wrong role; branches, locations and customers are seeded through services, and nothing in the MDM seed is written as SQL (built; the session split, A-114) |
+| B04d continued 3 | `B04d3-reference-data.md` | `b04d3-reference-data` | B4 to B12 | Every remaining master data write refuses the wrong role; reason codes are a fixed list; `quoteDelivery` returns a zone's exact fee or "delivery unavailable"; the payment methods, zones and their seed are written through services |
 | B4 continued (e) | `B04e-iam-carry-overs.md` | `b04e-iam-carry-overs` | B4 to B12 | The A-087 operations are live, each with a wrong-role refusal; the IAM seed is written through services |
 | B5 | `B05-inventory-ledger.md` | `b05-inventory-ledger` | B4 to B12 | On-hand from movements matches a hand count; stock cannot go negative outside allowed types; a lot traces both ways |
 | B6 | `B06-livestock-processing.md` | `b06-livestock-processing` | B4 to B12 | A processing order produces lots whose costs sum exactly to input cost plus direct processing cost |
@@ -266,13 +267,45 @@ docs/sessions/B04d2-parties-locations.md, push, and open a stacked pull request 
 b04d-continued-master-data.
 ```
 
-## B4 continued (e) — The B3 carry-overs in IAM
+## B04d continued 3 — Suppliers and the reference data
 
-Branch `b04e-iam-carry-overs`, from `b04d2-parties-locations` (stacked). Report `docs/sessions/B04e-iam-carry-overs.md`. Gate: the A-087 operations are live (the file store with uploads, the malware scanner and `evidence_file_id` on `iam.approval_request`; user and grant administration; customer registration and phone verification; password reset with CR-004 point 3's error codes; `approveRequest`, `rejectRequest`, `listApprovals` and `getApproval` over the existing mechanism), each with a wrong-role refusal; the IAM seed is written through the IAM services. When this gate passes, B04 continued's gate as a whole has passed.
+Branch `b04d3-reference-data`, from `b04d2-parties-locations` (stacked; nothing is merged until the owner approves). Report `docs/sessions/B04d3-reference-data.md`. B04d continued 2 built branches and locations, customers with their tiers and addresses, and `assignCustomerPriceList` (contract 1.8.0, ADR-0042), and moved the rest of the MDM seed onto the services, then split at that sub-domain boundary (A-114, ADR-0026 Amendments). Gate: every remaining master data write refuses the wrong role; reason codes are a fixed list seeded by migration with no write operation; `quoteDelivery` returns exactly 1,500 pesewas for an address in a zone whose fee is 1,500, and "delivery unavailable" (not zero) for an address in none; payment methods and delivery zones are seeded through the MDM services. When this gate passes, B04d's gate as a whole has passed.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
 List docs/sessions/ and read only the most recent report (docs/sessions/B04d2-parties-locations.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
+report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the MDM requirement block of docs/SRS.md (nothing else from the SRS),
+docs/data-model/mdm.md, the MDM card in docs/MODULE_BOUNDARIES.md, ADR-0036, ADR-0041 and ADR-0042.
+Use docs/prompts/module-build-prompt.md as the recipe.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Before building: remove the multer override if @nestjs/platform-express 11.2.10 has passed the 14-day
+floor (A-076). Copy the parties and locations slice's shape (B04d continued 2: AdminKit, PartiesAdmin,
+PgPartiesStore, PartiesController) for every endpoint, with the fragment moved from the planned file
+(scripts/contract/move-to-code.ts).
+Then execute B04d continued 3 only, on branch b04d3-reference-data, branched from
+b04d2-parties-locations: suppliers (FR-MDM-007, phones normalised as customers' are), payment methods
+(FR-MDM-009), delivery zones and quoteDelivery (FR-MDM-010, with the expand migration that adds
+delivery_zone_id to mdm.customer_address and resolves it at save, A-112), reason codes (FR-MDM-011, a fixed
+list seeded by migration), the price list listings and updates (listPriceLists, updatePriceList,
+archivePriceList, listPriceListVersions, listPriceListEntries) and archiveProduct, each write with a
+wrong-role refusal; and their seed through the services (A-085, ADR-0041): the payment methods and a
+Dodowa delivery zone. Imports and exports (FR-MDM-019, FR-MDM-020) need the file store, which is B04e's:
+build them there or record them as deferred. Write the failing tests first for every money and permission
+rule (a zone fee is exact pesewas). Stop at the gate, write docs/sessions/B04d3-reference-data.md, push,
+and open a stacked pull request against b04d2-parties-locations.
+```
+
+## B4 continued (e) — The B3 carry-overs in IAM
+
+Branch `b04e-iam-carry-overs`, from `b04d3-reference-data` (stacked). Report `docs/sessions/B04e-iam-carry-overs.md`. Gate: the A-087 operations are live (the file store with uploads, the malware scanner and `evidence_file_id` on `iam.approval_request`; user and grant administration; customer registration and phone verification; password reset with CR-004 point 3's error codes; `approveRequest`, `rejectRequest`, `listApprovals` and `getApproval` over the existing mechanism), each with a wrong-role refusal; the IAM seed is written through the IAM services. When this gate passes, B04 continued's gate as a whole has passed.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B04d3-reference-data.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
 report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the IAM requirement block of docs/SRS.md (nothing else from the SRS),
@@ -282,11 +315,11 @@ hakorem-security-review on every operation: they are authentication, uploads and
 Do not read any other document unless this phase needs it.
 
 Confirm in three lines: the phase, its scope, and its gate.
-Then execute B04e only, on branch b04e-iam-carry-overs, branched from b04d2-parties-locations: the
-A-087 items listed in the gate, MDM's imports and exports if B04d continued 2 deferred them, and the IAM seed through
+Then execute B04e only, on branch b04e-iam-carry-overs, branched from b04d3-reference-data: the
+A-087 items listed in the gate, MDM's imports and exports if B04d continued 3 deferred them, and the IAM seed through
 the IAM services (A-085). Write the failing tests first for every permission rule.
 Stop at the gate, write docs/sessions/B04e-iam-carry-overs.md, push, and open a stacked pull request
-against b04d2-parties-locations.
+against b04d3-reference-data.
 ```
 
 ## B5 — Inventory and the stock movement ledger
