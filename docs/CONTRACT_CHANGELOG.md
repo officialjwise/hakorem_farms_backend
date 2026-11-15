@@ -4,7 +4,9 @@ Every change to `contract/openapi.yaml`, newest first. A breaking change needs a
 
 Version numbers follow semantic versioning: a major bump breaks an existing client, a minor bump adds operations or optional fields, a patch fixes descriptions or examples.
 
-## Reading 1.5.0 to 1.21.1 cold (written 2026-11-15, for the frontend track; 1.19.0 to 1.21.1 added the same day)
+## Reading 1.5.0 to 1.22.0 cold (written 2026-11-15, for the frontend track; 1.19.0 to 1.22.0 added the same day)
+
+**1.22.0, processing orders (B6):** the twelve PRC operations for processing orders and yield standards answer from the real API, with no shape changed. **LOUD, a behaviour correction on planned operations:** `startProcessingOrder` moves no stock (the planned text said it consumed the inputs); the inputs are consumed when the order completes, so an order in progress can still be cancelled with no stock or cost effect. Until completion an input's `costPesewas` is the cost it would carry now (its whole pool), while the order's `inputCostPesewas`, `totalCostPesewas`, yields and the outputs' reference prices, allocation weights, allocated costs and lots stay null or zero. `orderNo` is null until document numbering exists. Yield standard percentages come back in their shortest form (`"48"`, not `"48.00"`). New error codes: `PROCESSING_ORDER_INVALID` and `YIELD_STANDARD_INVALID`; an input under a withdrawal hold or quarantine is refused with `STOCK_UNIT_ON_HOLD`, each detail naming the hold kind as its `code` and its end in its `message`. Packs and labels (`createPacks`, `listPacks`, `printPackLabels`) and all livestock operations are still served by the mock only (B06 continued).
 
 **1.21.1, the dashboard's mock example:** `getOwnerDashboard` now has two named examples. `allFiguresLive`, listed first so the mock serves it by default, shows every figure filled and `pendingFigures` empty: build and style the screen against it. `beforeSalesAndBilling` is today's real answer, with sales, cash, receivables, top movers and alerts null and listed in `pendingFigures`: ask the mock for it (`Prefer: example=beforeSalesAndBilling`) to build the "not yet available" state. No shape changed.
 
@@ -35,6 +37,16 @@ The contract moved from 1.4.0 to 1.20.0 in one night while the frontend track wa
 
 - **Reserving stock** has no HTTP operation: checkout, orders and quotes reserve in process (B7, B9a, B10). `listStockReservations` shows what they hold; until then it lists only what tests create.
 - **Empty until their modules exist:** `quoteDelivery.slots` (B11), `Supplier.hasProfile` (B7), `Customer.hasBusinessAccount` (B10), `StockOnHandLine.priceBand` (null), a trace's `healthEvents` and a sale's `customer` and `billingDocument`, `GoodsReceipt.receiptNo` (null until numbering), and `OPENING_STOCK` imports (422 `IMPORT_ENTITY_NOT_AVAILABLE` until opening stock is built).
+
+## 1.22.0 (2026-11-15, B6)
+
+**Minor: twelve planned operations now answer from code; no schema, field, parameter or response shape changed.** The versioning check against `main` passes.
+
+- **From code:** `listProcessingOrders`, `getProcessingOrder`, `createProcessingOrder`, `updateProcessingOrder`, `startProcessingOrder`, `recordProcessingOutputs`, `addProcessingCost`, `completeProcessingOrder`, `cancelProcessingOrder`, `listYieldStandards`, `createYieldStandard`, `updateYieldStandard` (206 operations from code, 404 planned, 610 published).
+- **LOUD, behaviour described differently, same shape:** `startProcessingOrder` posts no movement; the inputs are consumed by PROCESS_CONSUME movements when `completeProcessingOrder` runs (FR-PRC-003, FR-PRC-011, A-153). `cancelProcessingOrder` accepts a PLANNED or IN_PROGRESS order and has no stock or cost effect. `addProcessingCost` accepts a PLANNED or IN_PROGRESS order; the cost is published to the ledger at completion.
+- **Descriptions:** every PRC operation now states its rules, its refusals by `details[].code`, and its permission and scope; `x-error-codes` added to each.
+- **Examples:** consistent with each operation's own status: create, update and cancel show the PLANNED (or CANCELLED) goat G-0109 with no costs yet; start, outputs and costs show an order in progress with nothing allocated; get, list and complete show goat G-0098, 29.600 kg, 66,100 pesewas plus 6,000 of direct cost split 64,035 to goat meat (`MEAT-GOAT-15KG`) and 8,065 to offal (`BYP-GOAT-OFFAL`), expected yield 59.000 percent (48 plus 11) and actual 58.446. Lots are numbered `PRC-<yymmdd>-<8 hex>-<line>`. `orderNo` is null.
+- **New error codes:** `PROCESSING_ORDER_INVALID` (rules in `docs/API.md` 10.3) and `YIELD_STANDARD_INVALID` (`SAME_PRODUCT`, `STANDARD_EXISTS`, `EXPECTED_ZERO`).
 
 ## 1.21.1 (2026-11-15, owner request after B05x)
 

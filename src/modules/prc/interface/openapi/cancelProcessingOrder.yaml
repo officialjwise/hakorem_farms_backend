@@ -1,0 +1,115 @@
+operationId: cancelProcessingOrder
+tags:
+  - prc
+summary: "Cancel a processing order that has not started"
+description: "Cancels a PLANNED or IN_PROGRESS order with a reason. Nothing has moved before completion, so cancelling has no stock or cost effect. A completed order is never cancelled.\n\nPermission: `prc.order.create`, scoped to the order's branch and processing location."
+x-permission: prc.order.create
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - NOT_FOUND
+  - INVALID_STATE_TRANSITION
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ReasonRequest"
+      example:
+        reason: "Counted twice in error at the morning check"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ProcessingOrder"
+        example:
+          id: "019a7ac5-05be-7725-ac5d-7b22b97ff400"
+          orderNo: null
+          status: CANCELLED
+          location:
+            id: "019a7a85-19df-781a-9d53-8a8042be035e"
+            code: PROC-1
+            name: "Processing room"
+            kind: STORE
+          outputLocation:
+            id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+            code: COLD-1
+            name: "Cold room"
+            kind: COLD_ROOM
+          startedAt: null
+          completedAt: null
+          inputs:
+            - id: "019a7ac5-24ad-7108-b640-195a33309238"
+              stockUnit:
+                id: "019a7a90-9490-7384-88bc-41166b6db9f4"
+                identifier: G-0109
+                tracking: SERIAL
+              product:
+                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                sku: LIV-GOAT
+                name: Goat
+              qty: "1.000"
+              uom: HEAD
+              weightKg: "26.400"
+              weightSource: SCALE
+              costPesewas: 61800
+          outputs: []
+          costs: []
+          inputWeightKg: "26.400"
+          outputWeightKg: null
+          wasteWeightKg: null
+          expectedYieldPercent: null
+          actualYieldPercent: null
+          yieldVarianceFlag: false
+          inputCostPesewas: null
+          directCostPesewas: 0
+          totalCostPesewas: null
+          currency: GHS
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 2
+          createdAt: "2026-11-12T08:03:00Z"
+          createdBy:
+            id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+            displayName: "Yaw Boateng"
+          postedAt: null
+          postedBy: null
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

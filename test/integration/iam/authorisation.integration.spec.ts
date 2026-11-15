@@ -114,6 +114,13 @@ const VALID_BODY: Readonly<Record<string, object>> = {
   updateReorderRule: { version: 1, reorderPointQty: '20.000' },
   recordTemperatureReading: { locationId: '019a7a84-4156-72e2-a81a-36fbeee7afd9', readingC: '-18.0', measuredAt: '2026-11-13T10:00:00Z', source: 'MANUAL' },
   archiveLocation: { version: 1, reason: 'Closed' },
+  createProcessingOrder: { locationId: randomUUID(), outputLocationId: randomUUID(), inputs: [{ stockUnitId: randomUUID(), weightKg: '28.000', weightSource: 'SCALE' }] },
+  updateProcessingOrder: { version: 1 },
+  recordProcessingOutputs: { version: 1, outputs: [] },
+  addProcessingCost: { costKind: 'LABOUR', amountPesewas: 4000, description: 'Slaughter and dressing' },
+  cancelProcessingOrder: { reason: 'Buyer wants the goat live' },
+  createYieldStandard: { inputProductId: randomUUID(), outputProductId: randomUUID(), expectedPercent: '48' },
+  updateYieldStandard: { version: 1, tolerancePercent: '6' },
   createCustomer: { kind: 'INDIVIDUAL', name: 'Ama' },
   updateCustomer: { version: 1, name: 'Ama' },
   archiveCustomer: { version: 1, reason: 'Duplicate' },
@@ -155,7 +162,7 @@ afterAll(async () => {
 });
 
 describe('deny by default: the handler walk (ADR-0017, security architecture section 14)', () => {
-  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued, B05 continued 3 and B05x routes, and every one declares its operation', () => {
+  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued, B05 continued 3, B05x and B6 routes, and every one declares its operation', () => {
     expect(routes.map((route) => route.spec?.operationId).sort()).toEqual(
       [
         'changePassword', 'confirmTotpEnrolment', 'createProduct', 'getCurrentSession', 'getHealth', 'getProduct', 'listProducts', 'listSessions',
@@ -192,6 +199,8 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'listStockReservations', 'releaseStockReservation', 'listStockAvailability', 'listStockUnits',
         'listReorderRules', 'createReorderRule', 'updateReorderRule', 'listStockAlerts', 'listTemperatureReadings', 'recordTemperatureReading',
         'getOwnerDashboard', 'getStockValueTile', 'getAnimalsOnHandTile', 'getLowStockTile', 'getPurchasesSeries', 'getStockUnitLabel', 'getProductLabel',
+        'listProcessingOrders', 'createProcessingOrder', 'getProcessingOrder', 'updateProcessingOrder', 'startProcessingOrder', 'recordProcessingOutputs',
+        'addProcessingCost', 'completeProcessingOrder', 'cancelProcessingOrder', 'listYieldStandards', 'createYieldStandard', 'updateYieldStandard',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);

@@ -11,11 +11,13 @@
  * `consumeIn`, `releaseIn`) and `ReservationExpiry`, the scheduled job. B05 continued 4 adds `StockAlerts` (reorder
  * rules, the alerts `Stock.postIn` raises once per crossing, the published view `inv.pub_reorder_level`),
  * `StockAlertSweep` (the daily `stock-alerts` job), `ColdChain` (readings, with quarantine on an excursion) and the
- * `OPENING_STOCK` import sheet it registers with MDM's `MdmImports` (ADR-0050).
+ * `OPENING_STOCK` import sheet it registers with MDM's `MdmImports` (ADR-0050). B6 adds `StockUnits` (`factsIn`,
+ * `activeIdentifiersIn`, `registerLotIn`), through which PRC checks its inputs and registers its output lots.
  */
 export { InvModule } from './inv.module';
 export { Stock, type MovementRequest, type PostedMovement, type StockPostingPayload } from './application/stock';
 export { Lineage, type Trace, type TracedUnit } from './application/lineage';
+export { StockUnits, type LotRegistration, type StockUnitFacts } from './application/stock-units';
 export { BalanceReconciliation, type DriftFound } from './application/reconciliation';
 export { GoodsReceipts, type GoodsReceiptCreateRequest, type GoodsReceiptView, type ReceiptLineInput } from './application/goods-receipts';
 export { StockQueries, type StockOnHandPageView, type StockTraceView, type StockUnitView } from './application/stock-queries';

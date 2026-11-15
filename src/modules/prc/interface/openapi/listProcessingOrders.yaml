@@ -1,0 +1,480 @@
+operationId: listProcessingOrders
+tags:
+  - prc
+summary: "List processing orders"
+description: "Processing orders, newest first, within the reader's grants: an order is listed where the reader holds the permission for its branch or its processing location. `from` and `to` are Accra calendar dates of creation.\n\nPermission: `prc.order.read`."
+x-permission: prc.order.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: status
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: from
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date
+  - name: to
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date
+  - name: yieldVarianceFlag
+    in: query
+    required: false
+    schema:
+      type: boolean
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ProcessingOrderPage"
+        example:
+          data:
+            - id: "019a7aac-7e39-7fc5-b4fd-05253a247e03"
+              orderNo: null
+              status: COMPLETED
+              location:
+                id: "019a7a85-19df-781a-9d53-8a8042be035e"
+                code: PROC-1
+                name: "Processing room"
+                kind: STORE
+              outputLocation:
+                id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+                code: COLD-1
+                name: "Cold room"
+                kind: COLD_ROOM
+              startedAt: "2026-11-09T06:00:00Z"
+              completedAt: "2026-11-09T11:00:00Z"
+              inputs:
+                - id: "019a7ac3-35bd-72d1-b809-35e29820aec0"
+                  stockUnit:
+                    id: "019a7a90-37c3-75d9-9b12-666ffe5adf4d"
+                    identifier: G-0098
+                    tracking: SERIAL
+                  product:
+                    id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                    sku: LIV-GOAT
+                    name: Goat
+                  qty: "1.000"
+                  uom: HEAD
+                  weightKg: "29.600"
+                  weightSource: SCALE
+                  costPesewas: 66100
+              outputs:
+                - id: "019a7ac3-54ac-7cb4-81ec-d41a11d14cf7"
+                  lineNo: 1
+                  product:
+                    id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
+                    sku: MEAT-GOAT-15KG
+                    name: "Goat meat, 15 kg pack"
+                  outputKind: MEAT
+                  stockUnit:
+                    id: "019a7a90-f15d-712e-b666-1bbcd880949a"
+                    identifier: PRC-261109-3a247e03-01
+                    tracking: LOT
+                  weightKg: "14.200"
+                  weightSource: SCALE
+                  packCount: 1
+                  referencePricePesewasPerKg: 2600
+                  allocationWeight: 36920000
+                  allocatedCostPesewas: 64035
+                  expiresOn: "2026-12-09"
+                - id: "019a7ac3-739b-7698-9bd0-72518b82eb2f"
+                  lineNo: 2
+                  product:
+                    id: "019a7a8f-215c-7cda-8212-d67cb7214f5a"
+                    sku: BYP-GOAT-OFFAL
+                    name: "Goat offal, kg"
+                  outputKind: OFFAL
+                  stockUnit:
+                    id: "019a7ac3-928a-707b-a5b3-108905338966"
+                    identifier: PRC-261109-3a247e03-02
+                    tracking: LOT
+                  weightKg: "3.100"
+                  weightSource: SCALE
+                  packCount: null
+                  referencePricePesewasPerKg: 1500
+                  allocationWeight: 4650000
+                  allocatedCostPesewas: 8065
+                  expiresOn: "2026-12-09"
+                - id: "019a7ac3-b179-7a5e-bf97-aec07ee4279e"
+                  lineNo: 3
+                  product:
+                    id: "019a7a8f-215c-7cda-8212-d67cb7214f5a"
+                    sku: BYP-GOAT-OFFAL
+                    name: "Goat offal, kg"
+                  outputKind: WASTE
+                  stockUnit: null
+                  weightKg: "8.950"
+                  weightSource: SCALE
+                  packCount: null
+                  referencePricePesewasPerKg: 0
+                  allocationWeight: 0
+                  allocatedCostPesewas: 0
+                  expiresOn: null
+              costs:
+                - id: "019a7ac3-d068-7442-897a-4cf7f895c5d5"
+                  costKind: LABOUR
+                  amountPesewas: 4000
+                  description: "Slaughter and dressing, two hands"
+                - id: "019a7ac3-ef57-7e25-935e-eb2f7246640d"
+                  costKind: CONSUMABLE
+                  amountPesewas: 2000
+                  description: "Bags, labels and ice"
+              inputWeightKg: "29.600"
+              outputWeightKg: "17.300"
+              wasteWeightKg: "8.950"
+              expectedYieldPercent: "59.000"
+              actualYieldPercent: "58.446"
+              yieldVarianceFlag: false
+              inputCostPesewas: 66100
+              directCostPesewas: 6000
+              totalCostPesewas: 72100
+              currency: GHS
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-12T08:00:00Z"
+              createdBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              postedAt: "2026-11-12T09:00:00Z"
+              postedBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+            - id: "019a7ac4-0e46-7809-ad41-8966ebf70244"
+              orderNo: null
+              status: COMPLETED
+              location:
+                id: "019a7a85-19df-781a-9d53-8a8042be035e"
+                code: PROC-1
+                name: "Processing room"
+                kind: STORE
+              outputLocation:
+                id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+                code: COLD-1
+                name: "Cold room"
+                kind: COLD_ROOM
+              startedAt: "2026-11-08T06:00:00Z"
+              completedAt: "2026-11-08T11:00:00Z"
+              inputs:
+                - id: "019a7ac4-2d35-71ec-b725-279e65a8a07c"
+                  stockUnit:
+                    id: "019a7a90-56b2-7fbd-a4f5-04a7780b7d85"
+                    identifier: G-0104
+                    tracking: SERIAL
+                  product:
+                    id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                    sku: LIV-GOAT
+                    name: Goat
+                  qty: "1.000"
+                  uom: HEAD
+                  weightKg: "31.800"
+                  weightSource: SCALE
+                  costPesewas: 74800
+              outputs: []
+              costs:
+                - id: "019a7ac4-4c24-7bd0-8108-c5d5df593eb3"
+                  costKind: LABOUR
+                  amountPesewas: 4000
+                  description: "Slaughter and dressing, two hands"
+                - id: "019a7ac4-6b13-75b3-9aec-640d590adceb"
+                  costKind: CONSUMABLE
+                  amountPesewas: 2000
+                  description: "Bags, labels and ice"
+              inputWeightKg: "31.800"
+              outputWeightKg: "18.900"
+              wasteWeightKg: null
+              expectedYieldPercent: "60.000"
+              actualYieldPercent: "59.430"
+              yieldVarianceFlag: false
+              inputCostPesewas: 74800
+              directCostPesewas: 6000
+              totalCostPesewas: 80800
+              currency: GHS
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-12T08:01:00Z"
+              createdBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              postedAt: "2026-11-12T09:01:00Z"
+              postedBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+            - id: "019a7ac4-8a02-7f97-a4cf-0244d2bb7b22"
+              orderNo: null
+              status: IN_PROGRESS
+              location:
+                id: "019a7a85-19df-781a-9d53-8a8042be035e"
+                code: PROC-1
+                name: "Processing room"
+                kind: STORE
+              outputLocation:
+                id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+                code: COLD-1
+                name: "Cold room"
+                kind: COLD_ROOM
+              startedAt: "2026-11-07T06:00:00Z"
+              completedAt: null
+              inputs:
+                - id: "019a7ac4-a8f1-797a-beb2-a07c4c6c195a"
+                  stockUnit:
+                    id: "019a7a90-75a1-79a0-bed9-a2def1bc1bbc"
+                    identifier: S-0019
+                    tracking: SERIAL
+                  product:
+                    id: "019a7a8d-326c-7ea3-83db-f3051c116be3"
+                    sku: LIV-SHEEP
+                    name: Sheep
+                  qty: "1.000"
+                  uom: HEAD
+                  weightKg: "43.200"
+                  weightSource: SCALE
+                  costPesewas: null
+              outputs: []
+              costs:
+                - id: "019a7ac4-c7e0-735e-8896-3eb3c61db791"
+                  costKind: LABOUR
+                  amountPesewas: 4000
+                  description: "Slaughter and dressing, two hands"
+                - id: "019a7ac4-e6cf-7d41-9279-dceb3fce55c9"
+                  costKind: CONSUMABLE
+                  amountPesewas: 2000
+                  description: "Bags, labels and ice"
+              inputWeightKg: "43.200"
+              outputWeightKg: null
+              wasteWeightKg: null
+              expectedYieldPercent: "60.000"
+              actualYieldPercent: null
+              yieldVarianceFlag: false
+              inputCostPesewas: null
+              directCostPesewas: 6000
+              totalCostPesewas: null
+              currency: GHS
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-12T08:02:00Z"
+              createdBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              postedAt: null
+              postedBy: null
+            - id: "019a7ac5-05be-7725-ac5d-7b22b97ff400"
+              orderNo: null
+              status: PLANNED
+              location:
+                id: "019a7a85-19df-781a-9d53-8a8042be035e"
+                code: PROC-1
+                name: "Processing room"
+                kind: STORE
+              outputLocation:
+                id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+                code: COLD-1
+                name: "Cold room"
+                kind: COLD_ROOM
+              startedAt: null
+              completedAt: null
+              inputs:
+                - id: "019a7ac5-24ad-7108-b640-195a33309238"
+                  stockUnit:
+                    id: "019a7a90-9490-7384-88bc-41166b6db9f4"
+                    identifier: G-0109
+                    tracking: SERIAL
+                  product:
+                    id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                    sku: LIV-GOAT
+                    name: Goat
+                  qty: "1.000"
+                  uom: HEAD
+                  weightKg: "26.400"
+                  weightSource: SCALE
+                  costPesewas: null
+              outputs: []
+              costs:
+                - id: "019a7ac5-439c-7aec-8024-b791ace1306f"
+                  costKind: LABOUR
+                  amountPesewas: 4000
+                  description: "Slaughter and dressing, two hands"
+                - id: "019a7ac5-628b-74cf-9a07-55c92692cea7"
+                  costKind: CONSUMABLE
+                  amountPesewas: 2000
+                  description: "Bags, labels and ice"
+              inputWeightKg: "26.400"
+              outputWeightKg: null
+              wasteWeightKg: null
+              expectedYieldPercent: "60.000"
+              actualYieldPercent: null
+              yieldVarianceFlag: false
+              inputCostPesewas: null
+              directCostPesewas: 6000
+              totalCostPesewas: null
+              currency: GHS
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-12T08:03:00Z"
+              createdBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              postedAt: null
+              postedBy: null
+            - id: "019a7ac5-817a-7eb2-a3eb-f400a0436cde"
+              orderNo: null
+              status: COMPLETED
+              location:
+                id: "019a7a85-19df-781a-9d53-8a8042be035e"
+                code: PROC-1
+                name: "Processing room"
+                kind: STORE
+              outputLocation:
+                id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+                code: COLD-1
+                name: "Cold room"
+                kind: COLD_ROOM
+              startedAt: "2026-11-05T06:00:00Z"
+              completedAt: "2026-11-05T11:00:00Z"
+              inputs:
+                - id: "019a7ac5-a069-7896-bdce-923819f40b16"
+                  stockUnit:
+                    id: "019a7a90-b37f-7d67-92a0-df4de51e582b"
+                    identifier: G-0111
+                    tracking: SERIAL
+                  product:
+                    id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                    sku: LIV-GOAT
+                    name: Goat
+                  qty: "1.000"
+                  uom: HEAD
+                  weightKg: "24.900"
+                  weightSource: SCALE
+                  costPesewas: 58900
+              outputs: []
+              costs:
+                - id: "019a7ac5-bf58-7279-87b2-306f93a5a94d"
+                  costKind: LABOUR
+                  amountPesewas: 4000
+                  description: "Slaughter and dressing, two hands"
+                - id: "019a7ac5-de47-7c5d-9195-cea70d564784"
+                  costKind: CONSUMABLE
+                  amountPesewas: 2000
+                  description: "Bags, labels and ice"
+              inputWeightKg: "24.900"
+              outputWeightKg: "14.600"
+              wasteWeightKg: null
+              expectedYieldPercent: "60.000"
+              actualYieldPercent: "58.630"
+              yieldVarianceFlag: false
+              inputCostPesewas: 58900
+              directCostPesewas: 6000
+              totalCostPesewas: 64900
+              currency: GHS
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-12T08:04:00Z"
+              createdBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              postedAt: "2026-11-12T09:04:00Z"
+              postedBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+            - id: "019a7ac5-fd36-7640-ab79-6cde8707e5bc"
+              orderNo: null
+              status: CANCELLED
+              location:
+                id: "019a7a85-19df-781a-9d53-8a8042be035e"
+                code: PROC-1
+                name: "Processing room"
+                kind: STORE
+              outputLocation:
+                id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+                code: COLD-1
+                name: "Cold room"
+                kind: COLD_ROOM
+              startedAt: "2026-11-04T06:00:00Z"
+              completedAt: null
+              inputs:
+                - id: "019a7ac6-1c25-7024-b55c-0b1600b883f3"
+                  stockUnit:
+                    id: "019a7a90-d26e-774b-ac83-7d855ecff663"
+                    identifier: G-0113
+                    tracking: SERIAL
+                  product:
+                    id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                    sku: LIV-GOAT
+                    name: Goat
+                  qty: "1.000"
+                  uom: HEAD
+                  weightKg: "22.150"
+                  weightSource: SCALE
+                  costPesewas: 52300
+              outputs: []
+              costs:
+                - id: "019a7ac6-3b14-7a07-8f40-a94d7a69222b"
+                  costKind: LABOUR
+                  amountPesewas: 4000
+                  description: "Slaughter and dressing, two hands"
+                - id: "019a7ac6-5a03-73eb-9923-4784f41ac062"
+                  costKind: CONSUMABLE
+                  amountPesewas: 2000
+                  description: "Bags, labels and ice"
+              inputWeightKg: "22.150"
+              outputWeightKg: null
+              wasteWeightKg: null
+              expectedYieldPercent: "60.000"
+              actualYieldPercent: null
+              yieldVarianceFlag: false
+              inputCostPesewas: 52300
+              directCostPesewas: 6000
+              totalCostPesewas: 58300
+              currency: GHS
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-12T08:05:00Z"
+              createdBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              postedAt: null
+              postedBy: null
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

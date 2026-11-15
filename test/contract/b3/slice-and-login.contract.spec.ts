@@ -87,6 +87,15 @@ import {
   ImportCreate,
   ExportCreate,
 } from '../../../src/modules/mdm/interface/schemas';
+import {
+  ProcessingCostCreate,
+  ProcessingOrderCreate,
+  ProcessingOrderUpdate,
+  ProcessingOutputsReplace,
+  ReasonBody as PrcReasonBody,
+  YieldStandardCreate,
+  YieldStandardUpdate,
+} from '../../../src/modules/prc/interface/schemas';
 import { createCatalogue, type TestCatalogue } from '../../support/catalogue';
 import { contractSchema } from '../../support/contract-schemas';
 import { consoleGet, consolePost, createBranch, createUser, enrolAndLogin, login, relaxRateLimits, testStartTime, type TestSession } from '../../support/iam';
@@ -280,6 +289,13 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     createReorderRule: ReorderRuleCreate,
     updateReorderRule: ReorderRuleUpdate,
     recordTemperatureReading: TemperatureReadingCreate,
+    createProcessingOrder: ProcessingOrderCreate,
+    updateProcessingOrder: ProcessingOrderUpdate,
+    recordProcessingOutputs: ProcessingOutputsReplace,
+    addProcessingCost: ProcessingCostCreate,
+    cancelProcessingOrder: PrcReasonBody,
+    createYieldStandard: YieldStandardCreate,
+    updateYieldStandard: YieldStandardUpdate,
   };
 
   it('parses every request example of an implemented operation with the schema its route validates with', () => {

@@ -1,0 +1,113 @@
+operationId: createProcessingOrder
+tags:
+  - prc
+summary: "Plan a processing order"
+description: "Plans an order of input animals at the processing location, each with its weight at input and the source of that weight. Each input must be an animal (a SERIAL stock unit) standing at the processing location, not sold, consumed or written off (`PROCESSING_ORDER_INVALID`: `INPUT_NOT_AN_ANIMAL`, `INPUT_NOT_AVAILABLE`, `INPUT_NOT_HERE`, `INPUT_REPEATED`, `NO_INPUTS`), and under no unreleased hold: an animal under a veterinary withdrawal hold or a quarantine is refused with 422 `STOCK_UNIT_ON_HOLD`, each detail naming the hold and its end. The output location is a physical location of the same branch, usually the cold room. Nothing moves until the order completes; until then each input shows the cost it would carry now, its whole cost pool. The order number is allocated once document numbering exists; until then `orderNo` is null.\n\nPermission: `prc.order.create`, scoped to the order's branch and processing location."
+x-permission: prc.order.create
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - PROCESSING_ORDER_INVALID
+  - STOCK_UNIT_ON_HOLD
+  - REFERENCE_NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ProcessingOrderCreate"
+      example:
+        locationId: "019a7a85-19df-781a-9d53-8a8042be035e"
+        outputLocationId: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+        inputs:
+          - stockUnitId: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
+            weightKg: "26.400"
+            weightSource: SCALE
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ProcessingOrder"
+        example:
+          id: "019a7ac5-05be-7725-ac5d-7b22b97ff400"
+          orderNo: null
+          status: PLANNED
+          location:
+            id: "019a7a85-19df-781a-9d53-8a8042be035e"
+            code: PROC-1
+            name: "Processing room"
+            kind: STORE
+          outputLocation:
+            id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+            code: COLD-1
+            name: "Cold room"
+            kind: COLD_ROOM
+          startedAt: null
+          completedAt: null
+          inputs:
+            - id: "019a7ac5-24ad-7108-b640-195a33309238"
+              stockUnit:
+                id: "019a7a90-9490-7384-88bc-41166b6db9f4"
+                identifier: G-0109
+                tracking: SERIAL
+              product:
+                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                sku: LIV-GOAT
+                name: Goat
+              qty: "1.000"
+              uom: HEAD
+              weightKg: "26.400"
+              weightSource: SCALE
+              costPesewas: 61800
+          outputs: []
+          costs: []
+          inputWeightKg: "26.400"
+          outputWeightKg: null
+          wasteWeightKg: null
+          expectedYieldPercent: null
+          actualYieldPercent: null
+          yieldVarianceFlag: false
+          inputCostPesewas: null
+          directCostPesewas: 0
+          totalCostPesewas: null
+          currency: GHS
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 1
+          createdAt: "2026-11-12T08:03:00Z"
+          createdBy:
+            id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+            displayName: "Yaw Boateng"
+          postedAt: null
+          postedBy: null
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

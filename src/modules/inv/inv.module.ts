@@ -35,6 +35,9 @@ import { PgStockReadStore } from './infrastructure/pg-stock-read-store';
 import { PgStockStore } from './infrastructure/pg-stock-store';
 import { PgStockTakeStore } from './infrastructure/pg-stock-take-store';
 import { PgStockHoldStore } from './infrastructure/pg-stock-hold-store';
+import { STOCK_UNIT_STORE, type StockUnitStore } from './application/stock-unit-store';
+import { StockUnits } from './application/stock-units';
+import { PgStockUnitStore } from './infrastructure/pg-stock-unit-store';
 import { GoodsReceiptsController } from './interface/goods-receipts.controller';
 import { StockControlController } from './interface/stock-control.controller';
 import { StockController } from './interface/stock.controller';
@@ -162,6 +165,12 @@ import { StockAlertsController } from './interface/stock-alerts.controller';
       provide: Stock,
       useFactory: (store: StockStore, events: DomainEvents, clock: Clock, alerts: StockAlerts) => new Stock(store, events, clock, alerts),
       inject: [STOCK_STORE, DomainEvents, CLOCK, StockAlerts],
+    },
+    { provide: STOCK_UNIT_STORE, useClass: PgStockUnitStore },
+    {
+      provide: StockUnits,
+      useFactory: (store: StockUnitStore, clock: Clock) => new StockUnits(store, clock),
+      inject: [STOCK_UNIT_STORE, CLOCK],
     },
     {
       provide: Lineage,
@@ -307,7 +316,7 @@ import { StockAlertsController } from './interface/stock-alerts.controller';
       inject: [UnitOfWork, STOCK_EXCEPTION_STORE, STOCK_DOCUMENTS_STORE, MasterDataRefs, StockAdjustments, Stock, Authoriser, Idempotency, AuditTrail, DocumentRegistry, PRINCIPAL_NAMES, Cursors, CLOCK],
     },
   ],
-  exports: [Stock, Lineage, BalanceReconciliation, GoodsReceipts, StockQueries, StockMovements, StockTransfers, StockAdjustments, StockTakes, StockHolds, StockExceptions, Reservations, ReservationExpiry, StockAlerts, StockAlertSweep, ColdChain],
+  exports: [Stock, StockUnits, Lineage, BalanceReconciliation, GoodsReceipts, StockQueries, StockMovements, StockTransfers, StockAdjustments, StockTakes, StockHolds, StockExceptions, Reservations, ReservationExpiry, StockAlerts, StockAlertSweep, ColdChain],
 })
 export class InvModule implements OnModuleInit {
   constructor(

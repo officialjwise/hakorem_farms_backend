@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.21.1"
+  version: "1.22.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -28144,8 +28144,15 @@ paths:
       tags:
         - prc
       summary: "List processing orders"
-      description: "Permission: `prc.order.read`."
+      description: "Processing orders, newest first, within the reader's grants: an order is listed where the reader holds the permission for its branch or its processing location. `from` and `to` are Accra calendar dates of creation.\n\nPermission: `prc.order.read`."
       x-permission: prc.order.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: status
           in: query
@@ -28195,7 +28202,7 @@ paths:
               example:
                 data:
                   - id: "019a7aac-7e39-7fc5-b4fd-05253a247e03"
-                    orderNo: PRC-2026-DDW-000012
+                    orderNo: null
                     status: COMPLETED
                     location:
                       id: "019a7a85-19df-781a-9d53-8a8042be035e"
@@ -28229,12 +28236,12 @@ paths:
                         lineNo: 1
                         product:
                           id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
-                          sku: MEAT-GOAT
+                          sku: MEAT-GOAT-15KG
                           name: "Goat meat, 15 kg pack"
                         outputKind: MEAT
                         stockUnit:
                           id: "019a7a90-f15d-712e-b666-1bbcd880949a"
-                          identifier: MEAT-GOAT-261109-01
+                          identifier: PRC-261109-3a247e03-01
                           tracking: LOT
                         weightKg: "14.200"
                         weightSource: SCALE
@@ -28252,7 +28259,7 @@ paths:
                         outputKind: OFFAL
                         stockUnit:
                           id: "019a7ac3-928a-707b-a5b3-108905338966"
-                          identifier: OFF-GOAT-261109-01
+                          identifier: PRC-261109-3a247e03-02
                           tracking: LOT
                         weightKg: "3.100"
                         weightSource: SCALE
@@ -28288,8 +28295,8 @@ paths:
                     inputWeightKg: "29.600"
                     outputWeightKg: "17.300"
                     wasteWeightKg: "8.950"
-                    expectedYieldPercent: "60.00"
-                    actualYieldPercent: "58.45"
+                    expectedYieldPercent: "59.000"
+                    actualYieldPercent: "58.446"
                     yieldVarianceFlag: false
                     inputCostPesewas: 66100
                     directCostPesewas: 6000
@@ -28306,7 +28313,7 @@ paths:
                       id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
                       displayName: "Yaw Boateng"
                   - id: "019a7ac4-0e46-7809-ad41-8966ebf70244"
-                    orderNo: PRC-2026-DDW-000011
+                    orderNo: null
                     status: COMPLETED
                     location:
                       id: "019a7a85-19df-781a-9d53-8a8042be035e"
@@ -28348,8 +28355,8 @@ paths:
                     inputWeightKg: "31.800"
                     outputWeightKg: "18.900"
                     wasteWeightKg: null
-                    expectedYieldPercent: "60.00"
-                    actualYieldPercent: "59.43"
+                    expectedYieldPercent: "60.000"
+                    actualYieldPercent: "59.430"
                     yieldVarianceFlag: false
                     inputCostPesewas: 74800
                     directCostPesewas: 6000
@@ -28366,7 +28373,7 @@ paths:
                       id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
                       displayName: "Yaw Boateng"
                   - id: "019a7ac4-8a02-7f97-a4cf-0244d2bb7b22"
-                    orderNo: PRC-2026-DDW-000010
+                    orderNo: null
                     status: IN_PROGRESS
                     location:
                       id: "019a7a85-19df-781a-9d53-8a8042be035e"
@@ -28408,7 +28415,7 @@ paths:
                     inputWeightKg: "43.200"
                     outputWeightKg: null
                     wasteWeightKg: null
-                    expectedYieldPercent: "60.00"
+                    expectedYieldPercent: "60.000"
                     actualYieldPercent: null
                     yieldVarianceFlag: false
                     inputCostPesewas: null
@@ -28424,7 +28431,7 @@ paths:
                     postedAt: null
                     postedBy: null
                   - id: "019a7ac5-05be-7725-ac5d-7b22b97ff400"
-                    orderNo: PRC-2026-DDW-000009
+                    orderNo: null
                     status: PLANNED
                     location:
                       id: "019a7a85-19df-781a-9d53-8a8042be035e"
@@ -28466,7 +28473,7 @@ paths:
                     inputWeightKg: "26.400"
                     outputWeightKg: null
                     wasteWeightKg: null
-                    expectedYieldPercent: "60.00"
+                    expectedYieldPercent: "60.000"
                     actualYieldPercent: null
                     yieldVarianceFlag: false
                     inputCostPesewas: null
@@ -28482,7 +28489,7 @@ paths:
                     postedAt: null
                     postedBy: null
                   - id: "019a7ac5-817a-7eb2-a3eb-f400a0436cde"
-                    orderNo: PRC-2026-DDW-000008
+                    orderNo: null
                     status: COMPLETED
                     location:
                       id: "019a7a85-19df-781a-9d53-8a8042be035e"
@@ -28524,8 +28531,8 @@ paths:
                     inputWeightKg: "24.900"
                     outputWeightKg: "14.600"
                     wasteWeightKg: null
-                    expectedYieldPercent: "60.00"
-                    actualYieldPercent: "58.63"
+                    expectedYieldPercent: "60.000"
+                    actualYieldPercent: "58.630"
                     yieldVarianceFlag: false
                     inputCostPesewas: 58900
                     directCostPesewas: 6000
@@ -28542,7 +28549,7 @@ paths:
                       id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
                       displayName: "Yaw Boateng"
                   - id: "019a7ac5-fd36-7640-ab79-6cde8707e5bc"
-                    orderNo: PRC-2026-DDW-000007
+                    orderNo: null
                     status: CANCELLED
                     location:
                       id: "019a7a85-19df-781a-9d53-8a8042be035e"
@@ -28584,7 +28591,7 @@ paths:
                     inputWeightKg: "22.150"
                     outputWeightKg: null
                     wasteWeightKg: null
-                    expectedYieldPercent: "60.00"
+                    expectedYieldPercent: "60.000"
                     actualYieldPercent: null
                     yieldVarianceFlag: false
                     inputCostPesewas: 52300
@@ -28618,8 +28625,21 @@ paths:
       tags:
         - prc
       summary: "Plan a processing order"
-      description: "An input under a withdrawal hold or quarantine is refused with 422 STOCK_UNIT_ON_HOLD.\n\nPermission: `prc.order.create`."
+      description: "Plans an order of input animals at the processing location, each with its weight at input and the source of that weight. Each input must be an animal (a SERIAL stock unit) standing at the processing location, not sold, consumed or written off (`PROCESSING_ORDER_INVALID`: `INPUT_NOT_AN_ANIMAL`, `INPUT_NOT_AVAILABLE`, `INPUT_NOT_HERE`, `INPUT_REPEATED`, `NO_INPUTS`), and under no unreleased hold: an animal under a veterinary withdrawal hold or a quarantine is refused with 422 `STOCK_UNIT_ON_HOLD`, each detail naming the hold and its end. The output location is a physical location of the same branch, usually the cold room. Nothing moves until the order completes; until then each input shows the cost it would carry now, its whole cost pool. The order number is allocated once document numbering exists; until then `orderNo` is null.\n\nPermission: `prc.order.create`, scoped to the order's branch and processing location."
       x-permission: prc.order.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - PROCESSING_ORDER_INVALID
+        - STOCK_UNIT_ON_HOLD
+        - REFERENCE_NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -28651,7 +28671,7 @@ paths:
                 $ref: "#/components/schemas/ProcessingOrder"
               example:
                 id: "019a7ac5-05be-7725-ac5d-7b22b97ff400"
-                orderNo: PRC-2026-DDW-000009
+                orderNo: null
                 status: PLANNED
                 location:
                   id: "019a7a85-19df-781a-9d53-8a8042be035e"
@@ -28679,29 +28699,21 @@ paths:
                     uom: HEAD
                     weightKg: "26.400"
                     weightSource: SCALE
-                    costPesewas: null
+                    costPesewas: 61800
                 outputs: []
-                costs:
-                  - id: "019a7ac5-439c-7aec-8024-b791ace1306f"
-                    costKind: LABOUR
-                    amountPesewas: 4000
-                    description: "Slaughter and dressing, two hands"
-                  - id: "019a7ac5-628b-74cf-9a07-55c92692cea7"
-                    costKind: CONSUMABLE
-                    amountPesewas: 2000
-                    description: "Bags, labels and ice"
+                costs: []
                 inputWeightKg: "26.400"
                 outputWeightKg: null
                 wasteWeightKg: null
-                expectedYieldPercent: "60.00"
+                expectedYieldPercent: null
                 actualYieldPercent: null
                 yieldVarianceFlag: false
                 inputCostPesewas: null
-                directCostPesewas: 6000
+                directCostPesewas: 0
                 totalCostPesewas: null
                 currency: GHS
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                version: 2
+                version: 1
                 createdAt: "2026-11-12T08:03:00Z"
                 createdBy:
                   id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
@@ -28728,8 +28740,15 @@ paths:
       tags:
         - prc
       summary: "Get a processing order"
-      description: "Permission: `prc.order.read`."
+      description: "One processing order with its inputs, outputs, direct costs, weights, yield and costs.\n\nPermission: `prc.order.read`, scoped to the order's branch and processing location."
       x-permission: prc.order.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -28752,7 +28771,7 @@ paths:
                 $ref: "#/components/schemas/ProcessingOrder"
               example:
                 id: "019a7aac-7e39-7fc5-b4fd-05253a247e03"
-                orderNo: PRC-2026-DDW-000012
+                orderNo: null
                 status: COMPLETED
                 location:
                   id: "019a7a85-19df-781a-9d53-8a8042be035e"
@@ -28786,12 +28805,12 @@ paths:
                     lineNo: 1
                     product:
                       id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
-                      sku: MEAT-GOAT
+                      sku: MEAT-GOAT-15KG
                       name: "Goat meat, 15 kg pack"
                     outputKind: MEAT
                     stockUnit:
                       id: "019a7a90-f15d-712e-b666-1bbcd880949a"
-                      identifier: MEAT-GOAT-261109-01
+                      identifier: PRC-261109-3a247e03-01
                       tracking: LOT
                     weightKg: "14.200"
                     weightSource: SCALE
@@ -28809,7 +28828,7 @@ paths:
                     outputKind: OFFAL
                     stockUnit:
                       id: "019a7ac3-928a-707b-a5b3-108905338966"
-                      identifier: OFF-GOAT-261109-01
+                      identifier: PRC-261109-3a247e03-02
                       tracking: LOT
                     weightKg: "3.100"
                     weightSource: SCALE
@@ -28845,8 +28864,8 @@ paths:
                 inputWeightKg: "29.600"
                 outputWeightKg: "17.300"
                 wasteWeightKg: "8.950"
-                expectedYieldPercent: "60.00"
-                actualYieldPercent: "58.45"
+                expectedYieldPercent: "59.000"
+                actualYieldPercent: "58.446"
                 yieldVarianceFlag: false
                 inputCostPesewas: 66100
                 directCostPesewas: 6000
@@ -28879,8 +28898,24 @@ paths:
       tags:
         - prc
       summary: "Change a planned processing order"
-      description: "Permission: `prc.order.create`."
+      description: "Changes a PLANNED order: its output location, or its inputs, replaced whole and checked again as `createProcessingOrder` checks them. Send the `version` you read; a stale version is refused with 409. Any other status is refused with `INVALID_STATE_TRANSITION`; a completed order is frozen by the database.\n\nPermission: `prc.order.create`, scoped to the order's branch and processing location."
       x-permission: prc.order.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - VERSION_CONFLICT
+        - PROCESSING_ORDER_INVALID
+        - STOCK_UNIT_ON_HOLD
+        - REFERENCE_NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -28919,9 +28954,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ProcessingOrder"
               example:
-                id: "019a7aac-7e39-7fc5-b4fd-05253a247e03"
-                orderNo: PRC-2026-DDW-000012
-                status: COMPLETED
+                id: "019a7ac5-05be-7725-ac5d-7b22b97ff400"
+                orderNo: null
+                status: PLANNED
                 location:
                   id: "019a7a85-19df-781a-9d53-8a8042be035e"
                   code: PROC-1
@@ -28932,13 +28967,13 @@ paths:
                   code: COLD-1
                   name: "Cold room"
                   kind: COLD_ROOM
-                startedAt: "2026-11-09T06:00:00Z"
-                completedAt: "2026-11-09T11:00:00Z"
+                startedAt: null
+                completedAt: null
                 inputs:
-                  - id: "019a7ac3-35bd-72d1-b809-35e29820aec0"
+                  - id: "019a7ac5-24ad-7108-b640-195a33309238"
                     stockUnit:
-                      id: "019a7a90-37c3-75d9-9b12-666ffe5adf4d"
-                      identifier: G-0098
+                      id: "019a7a90-9490-7384-88bc-41166b6db9f4"
+                      identifier: G-0109
                       tracking: SERIAL
                     product:
                       id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
@@ -28946,90 +28981,29 @@ paths:
                       name: Goat
                     qty: "1.000"
                     uom: HEAD
-                    weightKg: "29.600"
+                    weightKg: "26.400"
                     weightSource: SCALE
-                    costPesewas: 66100
-                outputs:
-                  - id: "019a7ac3-54ac-7cb4-81ec-d41a11d14cf7"
-                    lineNo: 1
-                    product:
-                      id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
-                      sku: MEAT-GOAT
-                      name: "Goat meat, 15 kg pack"
-                    outputKind: MEAT
-                    stockUnit:
-                      id: "019a7a90-f15d-712e-b666-1bbcd880949a"
-                      identifier: MEAT-GOAT-261109-01
-                      tracking: LOT
-                    weightKg: "14.200"
-                    weightSource: SCALE
-                    packCount: 1
-                    referencePricePesewasPerKg: 2600
-                    allocationWeight: 36920000
-                    allocatedCostPesewas: 64035
-                    expiresOn: "2026-12-09"
-                  - id: "019a7ac3-739b-7698-9bd0-72518b82eb2f"
-                    lineNo: 2
-                    product:
-                      id: "019a7a8f-215c-7cda-8212-d67cb7214f5a"
-                      sku: BYP-GOAT-OFFAL
-                      name: "Goat offal, kg"
-                    outputKind: OFFAL
-                    stockUnit:
-                      id: "019a7ac3-928a-707b-a5b3-108905338966"
-                      identifier: OFF-GOAT-261109-01
-                      tracking: LOT
-                    weightKg: "3.100"
-                    weightSource: SCALE
-                    packCount: null
-                    referencePricePesewasPerKg: 1500
-                    allocationWeight: 4650000
-                    allocatedCostPesewas: 8065
-                    expiresOn: "2026-12-09"
-                  - id: "019a7ac3-b179-7a5e-bf97-aec07ee4279e"
-                    lineNo: 3
-                    product:
-                      id: "019a7a8f-215c-7cda-8212-d67cb7214f5a"
-                      sku: BYP-GOAT-OFFAL
-                      name: "Goat offal, kg"
-                    outputKind: WASTE
-                    stockUnit: null
-                    weightKg: "8.950"
-                    weightSource: SCALE
-                    packCount: null
-                    referencePricePesewasPerKg: 0
-                    allocationWeight: 0
-                    allocatedCostPesewas: 0
-                    expiresOn: null
-                costs:
-                  - id: "019a7ac3-d068-7442-897a-4cf7f895c5d5"
-                    costKind: LABOUR
-                    amountPesewas: 4000
-                    description: "Slaughter and dressing, two hands"
-                  - id: "019a7ac3-ef57-7e25-935e-eb2f7246640d"
-                    costKind: CONSUMABLE
-                    amountPesewas: 2000
-                    description: "Bags, labels and ice"
-                inputWeightKg: "29.600"
-                outputWeightKg: "17.300"
-                wasteWeightKg: "8.950"
-                expectedYieldPercent: "60.00"
-                actualYieldPercent: "58.45"
+                    costPesewas: 61800
+                outputs: []
+                costs: []
+                inputWeightKg: "26.400"
+                outputWeightKg: null
+                wasteWeightKg: null
+                expectedYieldPercent: null
+                actualYieldPercent: null
                 yieldVarianceFlag: false
-                inputCostPesewas: 66100
-                directCostPesewas: 6000
-                totalCostPesewas: 72100
+                inputCostPesewas: null
+                directCostPesewas: 0
+                totalCostPesewas: null
                 currency: GHS
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                 version: 2
-                createdAt: "2026-11-12T08:00:00Z"
+                createdAt: "2026-11-12T08:03:00Z"
                 createdBy:
                   id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
                   displayName: "Yaw Boateng"
-                postedAt: "2026-11-12T09:00:00Z"
-                postedBy:
-                  id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                  displayName: "Yaw Boateng"
+                postedAt: null
+                postedBy: null
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -29052,8 +29026,23 @@ paths:
       tags:
         - prc
       summary: "Start processing: consume the inputs"
-      description: "Posts PROCESS_CONSUME movements, which move each input's cost into work in progress.\n\nPermission: `prc.order.process`."
+      description: "Starts a PLANNED order once every input is checked again, as `createProcessingOrder` checks it: an input sold, moved or put under a hold since it was planned is refused, a hold with 422 `STOCK_UNIT_ON_HOLD`. Moves no stock: the inputs are consumed when the order completes, so an order in progress can still be cancelled with no stock effect. Publishes `prc.ProcessingOrderStarted`.\n\nPermission: `prc.order.process`, scoped to the order's branch and processing location."
       x-permission: prc.order.process
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - PROCESSING_ORDER_INVALID
+        - STOCK_UNIT_ON_HOLD
+        - REFERENCE_NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -29078,7 +29067,7 @@ paths:
                 $ref: "#/components/schemas/ProcessingOrder"
               example:
                 id: "019a7ac4-8a02-7f97-a4cf-0244d2bb7b22"
-                orderNo: PRC-2026-DDW-000010
+                orderNo: null
                 status: IN_PROGRESS
                 location:
                   id: "019a7a85-19df-781a-9d53-8a8042be035e"
@@ -29106,7 +29095,7 @@ paths:
                     uom: HEAD
                     weightKg: "43.200"
                     weightSource: SCALE
-                    costPesewas: null
+                    costPesewas: 61800
                 outputs: []
                 costs:
                   - id: "019a7ac4-c7e0-735e-8896-3eb3c61db791"
@@ -29120,7 +29109,7 @@ paths:
                 inputWeightKg: "43.200"
                 outputWeightKg: null
                 wasteWeightKg: null
-                expectedYieldPercent: "60.00"
+                expectedYieldPercent: null
                 actualYieldPercent: null
                 yieldVarianceFlag: false
                 inputCostPesewas: null
@@ -29157,8 +29146,23 @@ paths:
       tags:
         - prc
       summary: "Record the weighed outputs"
-      description: "Reference prices are snapshotted from the base price list when the order completes.\n\nPermission: `prc.order.process`."
+      description: "Replaces an IN_PROGRESS order's weighed outputs, each with its kind (`MEAT`, `OFFAL`, `BY_PRODUCT`, `WASTE`), weight and weight source. A saleable output is a product kept in lots and weighed in kilograms (`OUTPUT_NOT_A_LOT`, `OUTPUT_NOT_BY_WEIGHT`); waste names no pack count or expiry (`NOT_FOR_WASTE`). The outputs together weigh no more than the inputs (`OUTPUT_WEIGHT_ABOVE_INPUT`). Reference prices, allocation and lots are made when the order completes; until then they are zero and null. Send the `version` you read.\n\nPermission: `prc.order.process`, scoped to the order's branch and processing location."
       x-permission: prc.order.process
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - VERSION_CONFLICT
+        - PROCESSING_ORDER_INVALID
+        - REFERENCE_NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -29205,8 +29209,8 @@ paths:
                 $ref: "#/components/schemas/ProcessingOrder"
               example:
                 id: "019a7aac-7e39-7fc5-b4fd-05253a247e03"
-                orderNo: PRC-2026-DDW-000012
-                status: COMPLETED
+                orderNo: null
+                status: IN_PROGRESS
                 location:
                   id: "019a7a85-19df-781a-9d53-8a8042be035e"
                   code: PROC-1
@@ -29218,7 +29222,7 @@ paths:
                   name: "Cold room"
                   kind: COLD_ROOM
                 startedAt: "2026-11-09T06:00:00Z"
-                completedAt: "2026-11-09T11:00:00Z"
+                completedAt: null
                 inputs:
                   - id: "019a7ac3-35bd-72d1-b809-35e29820aec0"
                     stockUnit:
@@ -29239,19 +29243,16 @@ paths:
                     lineNo: 1
                     product:
                       id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
-                      sku: MEAT-GOAT
+                      sku: MEAT-GOAT-15KG
                       name: "Goat meat, 15 kg pack"
                     outputKind: MEAT
-                    stockUnit:
-                      id: "019a7a90-f15d-712e-b666-1bbcd880949a"
-                      identifier: MEAT-GOAT-261109-01
-                      tracking: LOT
+                    stockUnit: null
                     weightKg: "14.200"
                     weightSource: SCALE
                     packCount: 1
-                    referencePricePesewasPerKg: 2600
-                    allocationWeight: 36920000
-                    allocatedCostPesewas: 64035
+                    referencePricePesewasPerKg: 0
+                    allocationWeight: 0
+                    allocatedCostPesewas: 0
                     expiresOn: "2026-12-09"
                   - id: "019a7ac3-739b-7698-9bd0-72518b82eb2f"
                     lineNo: 2
@@ -29260,17 +29261,14 @@ paths:
                       sku: BYP-GOAT-OFFAL
                       name: "Goat offal, kg"
                     outputKind: OFFAL
-                    stockUnit:
-                      id: "019a7ac3-928a-707b-a5b3-108905338966"
-                      identifier: OFF-GOAT-261109-01
-                      tracking: LOT
+                    stockUnit: null
                     weightKg: "3.100"
                     weightSource: SCALE
                     packCount: null
-                    referencePricePesewasPerKg: 1500
-                    allocationWeight: 4650000
-                    allocatedCostPesewas: 8065
-                    expiresOn: "2026-12-09"
+                    referencePricePesewasPerKg: 0
+                    allocationWeight: 0
+                    allocatedCostPesewas: 0
+                    expiresOn: null
                   - id: "019a7ac3-b179-7a5e-bf97-aec07ee4279e"
                     lineNo: 3
                     product:
@@ -29296,25 +29294,23 @@ paths:
                     amountPesewas: 2000
                     description: "Bags, labels and ice"
                 inputWeightKg: "29.600"
-                outputWeightKg: "17.300"
-                wasteWeightKg: "8.950"
-                expectedYieldPercent: "60.00"
-                actualYieldPercent: "58.45"
+                outputWeightKg: null
+                wasteWeightKg: null
+                expectedYieldPercent: null
+                actualYieldPercent: null
                 yieldVarianceFlag: false
-                inputCostPesewas: 66100
+                inputCostPesewas: null
                 directCostPesewas: 6000
-                totalCostPesewas: 72100
+                totalCostPesewas: null
                 currency: GHS
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                version: 2
+                version: 4
                 createdAt: "2026-11-12T08:00:00Z"
                 createdBy:
                   id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
                   displayName: "Yaw Boateng"
-                postedAt: "2026-11-12T09:00:00Z"
-                postedBy:
-                  id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                  displayName: "Yaw Boateng"
+                postedAt: null
+                postedBy: null
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -29337,8 +29333,21 @@ paths:
       tags:
         - prc
       summary: "Add a direct processing cost"
-      description: "Permission: `prc.order.process`."
+      description: "Adds a direct cost (labour, consumables, a service, utilities) to a PLANNED or IN_PROGRESS order, in pesewas. It is part of the total the order allocates to its outputs when it completes, and is published then as `prc.DirectCostIncurred` for the ledger, so a cancelled order leaves no cost behind.\n\nPermission: `prc.order.process`, scoped to the order's branch and processing location."
       x-permission: prc.order.process
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - PROCESSING_ORDER_INVALID
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -29373,8 +29382,8 @@ paths:
                 $ref: "#/components/schemas/ProcessingOrder"
               example:
                 id: "019a7aac-7e39-7fc5-b4fd-05253a247e03"
-                orderNo: PRC-2026-DDW-000012
-                status: COMPLETED
+                orderNo: null
+                status: IN_PROGRESS
                 location:
                   id: "019a7a85-19df-781a-9d53-8a8042be035e"
                   code: PROC-1
@@ -29386,7 +29395,7 @@ paths:
                   name: "Cold room"
                   kind: COLD_ROOM
                 startedAt: "2026-11-09T06:00:00Z"
-                completedAt: "2026-11-09T11:00:00Z"
+                completedAt: null
                 inputs:
                   - id: "019a7ac3-35bd-72d1-b809-35e29820aec0"
                     stockUnit:
@@ -29407,19 +29416,16 @@ paths:
                     lineNo: 1
                     product:
                       id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
-                      sku: MEAT-GOAT
+                      sku: MEAT-GOAT-15KG
                       name: "Goat meat, 15 kg pack"
                     outputKind: MEAT
-                    stockUnit:
-                      id: "019a7a90-f15d-712e-b666-1bbcd880949a"
-                      identifier: MEAT-GOAT-261109-01
-                      tracking: LOT
+                    stockUnit: null
                     weightKg: "14.200"
                     weightSource: SCALE
                     packCount: 1
-                    referencePricePesewasPerKg: 2600
-                    allocationWeight: 36920000
-                    allocatedCostPesewas: 64035
+                    referencePricePesewasPerKg: 0
+                    allocationWeight: 0
+                    allocatedCostPesewas: 0
                     expiresOn: "2026-12-09"
                   - id: "019a7ac3-739b-7698-9bd0-72518b82eb2f"
                     lineNo: 2
@@ -29428,17 +29434,14 @@ paths:
                       sku: BYP-GOAT-OFFAL
                       name: "Goat offal, kg"
                     outputKind: OFFAL
-                    stockUnit:
-                      id: "019a7ac3-928a-707b-a5b3-108905338966"
-                      identifier: OFF-GOAT-261109-01
-                      tracking: LOT
+                    stockUnit: null
                     weightKg: "3.100"
                     weightSource: SCALE
                     packCount: null
-                    referencePricePesewasPerKg: 1500
-                    allocationWeight: 4650000
-                    allocatedCostPesewas: 8065
-                    expiresOn: "2026-12-09"
+                    referencePricePesewasPerKg: 0
+                    allocationWeight: 0
+                    allocatedCostPesewas: 0
+                    expiresOn: null
                   - id: "019a7ac3-b179-7a5e-bf97-aec07ee4279e"
                     lineNo: 3
                     product:
@@ -29464,25 +29467,23 @@ paths:
                     amountPesewas: 2000
                     description: "Bags, labels and ice"
                 inputWeightKg: "29.600"
-                outputWeightKg: "17.300"
-                wasteWeightKg: "8.950"
-                expectedYieldPercent: "60.00"
-                actualYieldPercent: "58.45"
+                outputWeightKg: null
+                wasteWeightKg: null
+                expectedYieldPercent: null
+                actualYieldPercent: null
                 yieldVarianceFlag: false
-                inputCostPesewas: 66100
+                inputCostPesewas: null
                 directCostPesewas: 6000
-                totalCostPesewas: 72100
+                totalCostPesewas: null
                 currency: GHS
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                version: 2
+                version: 5
                 createdAt: "2026-11-12T08:00:00Z"
                 createdBy:
                   id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
                   displayName: "Yaw Boateng"
-                postedAt: "2026-11-12T09:00:00Z"
-                postedBy:
-                  id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                  displayName: "Yaw Boateng"
+                postedAt: null
+                postedBy: null
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -29505,8 +29506,25 @@ paths:
       tags:
         - prc
       summary: "Complete a processing order and create the output lots"
-      description: "Allocates input cost plus direct cost across the outputs by relative sales value with largest-remainder rounding, so the output costs sum exactly to the total; waste takes no cost. In the example 72,100 pesewas (goat 66,100 plus direct cost 6,000) splits to 64,035 for goat meat and 8,065 for offal. Creates lots with lineage to every input and publishes the ledger events, in one transaction.\n\nPermission: `prc.order.process`."
+      description: "Completes an IN_PROGRESS order in one transaction. Every input is consumed by a PROCESS_CONSUME movement carrying its whole cost pool (the input cost). Each saleable output's reference price per kilogram is snapshotted from the counter's price list for the branch, before promotions; an output without a per-kilogram price is refused (`REFERENCE_PRICE_MISSING`). The total, input cost plus direct cost, is allocated across the outputs by relative sales value (grams times reference price) with largest-remainder rounding, ties to the lowest line, so the output costs sum exactly to the total; waste takes no cost, and an order with nothing saleable is refused (`NO_SALEABLE_OUTPUT`). In the example 72,100 pesewas (goat 66,100 plus direct cost 6,000) splits to 64,035 for goat meat and 8,065 for offal. Each saleable output becomes a new lot in the output location, received by a PROCESS_OUTPUT movement at its allocated cost, with lineage to every input. Yield is judged against the standards of the input product: an output outside its tolerance sets `yieldVarianceFlag`, which never blocks completion, and publishes `prc.YieldVarianceFlagged`. The database checks the sums again at commit. A completed order is frozen.\n\nPermission: `prc.order.process`, scoped to the order's branch and processing location."
       x-permission: prc.order.process
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - PROCESSING_ORDER_INVALID
+        - STOCK_UNIT_ON_HOLD
+        - STOCK_UNIT_NOT_AVAILABLE
+        - STOCK_UNIT_RESERVED
+        - REFERENCE_NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -29531,7 +29549,7 @@ paths:
                 $ref: "#/components/schemas/ProcessingOrder"
               example:
                 id: "019a7aac-7e39-7fc5-b4fd-05253a247e03"
-                orderNo: PRC-2026-DDW-000012
+                orderNo: null
                 status: COMPLETED
                 location:
                   id: "019a7a85-19df-781a-9d53-8a8042be035e"
@@ -29565,12 +29583,12 @@ paths:
                     lineNo: 1
                     product:
                       id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
-                      sku: MEAT-GOAT
+                      sku: MEAT-GOAT-15KG
                       name: "Goat meat, 15 kg pack"
                     outputKind: MEAT
                     stockUnit:
                       id: "019a7a90-f15d-712e-b666-1bbcd880949a"
-                      identifier: MEAT-GOAT-261109-01
+                      identifier: PRC-261109-3a247e03-01
                       tracking: LOT
                     weightKg: "14.200"
                     weightSource: SCALE
@@ -29588,7 +29606,7 @@ paths:
                     outputKind: OFFAL
                     stockUnit:
                       id: "019a7ac3-928a-707b-a5b3-108905338966"
-                      identifier: OFF-GOAT-261109-01
+                      identifier: PRC-261109-3a247e03-02
                       tracking: LOT
                     weightKg: "3.100"
                     weightSource: SCALE
@@ -29624,8 +29642,8 @@ paths:
                 inputWeightKg: "29.600"
                 outputWeightKg: "17.300"
                 wasteWeightKg: "8.950"
-                expectedYieldPercent: "60.00"
-                actualYieldPercent: "58.45"
+                expectedYieldPercent: "59.000"
+                actualYieldPercent: "58.446"
                 yieldVarianceFlag: false
                 inputCostPesewas: 66100
                 directCostPesewas: 6000
@@ -29663,8 +29681,20 @@ paths:
       tags:
         - prc
       summary: "Cancel a processing order that has not started"
-      description: "Permission: `prc.order.create`."
+      description: "Cancels a PLANNED or IN_PROGRESS order with a reason. Nothing has moved before completion, so cancelling has no stock or cost effect. A completed order is never cancelled.\n\nPermission: `prc.order.create`, scoped to the order's branch and processing location."
       x-permission: prc.order.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -29696,9 +29726,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ProcessingOrder"
               example:
-                id: "019a7aac-7e39-7fc5-b4fd-05253a247e03"
-                orderNo: PRC-2026-DDW-000012
-                status: COMPLETED
+                id: "019a7ac5-05be-7725-ac5d-7b22b97ff400"
+                orderNo: null
+                status: CANCELLED
                 location:
                   id: "019a7a85-19df-781a-9d53-8a8042be035e"
                   code: PROC-1
@@ -29709,13 +29739,13 @@ paths:
                   code: COLD-1
                   name: "Cold room"
                   kind: COLD_ROOM
-                startedAt: "2026-11-09T06:00:00Z"
-                completedAt: "2026-11-09T11:00:00Z"
+                startedAt: null
+                completedAt: null
                 inputs:
-                  - id: "019a7ac3-35bd-72d1-b809-35e29820aec0"
+                  - id: "019a7ac5-24ad-7108-b640-195a33309238"
                     stockUnit:
-                      id: "019a7a90-37c3-75d9-9b12-666ffe5adf4d"
-                      identifier: G-0098
+                      id: "019a7a90-9490-7384-88bc-41166b6db9f4"
+                      identifier: G-0109
                       tracking: SERIAL
                     product:
                       id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
@@ -29723,90 +29753,29 @@ paths:
                       name: Goat
                     qty: "1.000"
                     uom: HEAD
-                    weightKg: "29.600"
+                    weightKg: "26.400"
                     weightSource: SCALE
-                    costPesewas: 66100
-                outputs:
-                  - id: "019a7ac3-54ac-7cb4-81ec-d41a11d14cf7"
-                    lineNo: 1
-                    product:
-                      id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
-                      sku: MEAT-GOAT
-                      name: "Goat meat, 15 kg pack"
-                    outputKind: MEAT
-                    stockUnit:
-                      id: "019a7a90-f15d-712e-b666-1bbcd880949a"
-                      identifier: MEAT-GOAT-261109-01
-                      tracking: LOT
-                    weightKg: "14.200"
-                    weightSource: SCALE
-                    packCount: 1
-                    referencePricePesewasPerKg: 2600
-                    allocationWeight: 36920000
-                    allocatedCostPesewas: 64035
-                    expiresOn: "2026-12-09"
-                  - id: "019a7ac3-739b-7698-9bd0-72518b82eb2f"
-                    lineNo: 2
-                    product:
-                      id: "019a7a8f-215c-7cda-8212-d67cb7214f5a"
-                      sku: BYP-GOAT-OFFAL
-                      name: "Goat offal, kg"
-                    outputKind: OFFAL
-                    stockUnit:
-                      id: "019a7ac3-928a-707b-a5b3-108905338966"
-                      identifier: OFF-GOAT-261109-01
-                      tracking: LOT
-                    weightKg: "3.100"
-                    weightSource: SCALE
-                    packCount: null
-                    referencePricePesewasPerKg: 1500
-                    allocationWeight: 4650000
-                    allocatedCostPesewas: 8065
-                    expiresOn: "2026-12-09"
-                  - id: "019a7ac3-b179-7a5e-bf97-aec07ee4279e"
-                    lineNo: 3
-                    product:
-                      id: "019a7a8f-215c-7cda-8212-d67cb7214f5a"
-                      sku: BYP-GOAT-OFFAL
-                      name: "Goat offal, kg"
-                    outputKind: WASTE
-                    stockUnit: null
-                    weightKg: "8.950"
-                    weightSource: SCALE
-                    packCount: null
-                    referencePricePesewasPerKg: 0
-                    allocationWeight: 0
-                    allocatedCostPesewas: 0
-                    expiresOn: null
-                costs:
-                  - id: "019a7ac3-d068-7442-897a-4cf7f895c5d5"
-                    costKind: LABOUR
-                    amountPesewas: 4000
-                    description: "Slaughter and dressing, two hands"
-                  - id: "019a7ac3-ef57-7e25-935e-eb2f7246640d"
-                    costKind: CONSUMABLE
-                    amountPesewas: 2000
-                    description: "Bags, labels and ice"
-                inputWeightKg: "29.600"
-                outputWeightKg: "17.300"
-                wasteWeightKg: "8.950"
-                expectedYieldPercent: "60.00"
-                actualYieldPercent: "58.45"
+                    costPesewas: 61800
+                outputs: []
+                costs: []
+                inputWeightKg: "26.400"
+                outputWeightKg: null
+                wasteWeightKg: null
+                expectedYieldPercent: null
+                actualYieldPercent: null
                 yieldVarianceFlag: false
-                inputCostPesewas: 66100
-                directCostPesewas: 6000
-                totalCostPesewas: 72100
+                inputCostPesewas: null
+                directCostPesewas: 0
+                totalCostPesewas: null
                 currency: GHS
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                 version: 2
-                createdAt: "2026-11-12T08:00:00Z"
+                createdAt: "2026-11-12T08:03:00Z"
                 createdBy:
                   id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
                   displayName: "Yaw Boateng"
-                postedAt: "2026-11-12T09:00:00Z"
-                postedBy:
-                  id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                  displayName: "Yaw Boateng"
+                postedAt: null
+                postedBy: null
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -30102,8 +30071,14 @@ paths:
       tags:
         - prc
       summary: "List expected yields"
-      description: "Permission: `prc.yield_standard.read`."
+      description: "Yield standards: the expected weight of an output product as a percentage of an input product's live weight, and the tolerance outside which a completed order is flagged.\n\nPermission: `prc.yield_standard.read`."
       x-permission: prc.yield_standard.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: cursor
           in: query
@@ -30139,8 +30114,8 @@ paths:
                       id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
                       sku: MEAT-GOAT
                       name: "Goat meat, 15 kg pack"
-                    expectedPercent: "48.00"
-                    tolerancePercent: "5.00"
+                    expectedPercent: "48"
+                    tolerancePercent: "5"
                     version: 1
                   - id: "019a7ac7-517b-7306-983f-3940c1a2b21e"
                     inputProduct:
@@ -30151,8 +30126,8 @@ paths:
                       id: "019a7a8f-215c-7cda-8212-d67cb7214f5a"
                       sku: BYP-GOAT-OFFAL
                       name: "Goat offal, kg"
-                    expectedPercent: "11.00"
-                    tolerancePercent: "5.00"
+                    expectedPercent: "11"
+                    tolerancePercent: "5"
                     version: 1
                   - id: "019a7ac7-706a-7cea-a222-d7783b535056"
                     inputProduct:
@@ -30163,8 +30138,8 @@ paths:
                       id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
                       sku: MEAT-GOAT
                       name: "Goat meat, 15 kg pack"
-                    expectedPercent: "47.00"
-                    tolerancePercent: "5.00"
+                    expectedPercent: "47"
+                    tolerancePercent: "5"
                     version: 1
                   - id: "019a7ac7-8f59-76cd-bc06-75afb504ee8d"
                     inputProduct:
@@ -30175,8 +30150,8 @@ paths:
                       id: "019a7a8f-215c-7cda-8212-d67cb7214f5a"
                       sku: BYP-GOAT-OFFAL
                       name: "Goat offal, kg"
-                    expectedPercent: "10.00"
-                    tolerancePercent: "5.00"
+                    expectedPercent: "10"
+                    tolerancePercent: "5"
                     version: 1
                   - id: "019a7ac7-ae48-70b1-85e9-13e72eb58cc5"
                     inputProduct:
@@ -30187,8 +30162,8 @@ paths:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
                       sku: MEAT-CHK-FULL
                       name: "Full chicken, 15 kg pack"
-                    expectedPercent: "72.00"
-                    tolerancePercent: "5.00"
+                    expectedPercent: "72"
+                    tolerancePercent: "5"
                     version: 1
                   - id: "019a7ac7-cd37-7a94-9fcd-b21ea8662afc"
                     inputProduct:
@@ -30199,8 +30174,8 @@ paths:
                       id: "019a7a8e-67c2-7185-a6be-212fdcfb9a0d"
                       sku: MEAT-PORK
                       name: "Pork, 15 kg pack"
-                    expectedPercent: "62.00"
-                    tolerancePercent: "5.00"
+                    expectedPercent: "62"
+                    tolerancePercent: "5"
                     version: 1
                 page:
                   nextCursor: null
@@ -30221,8 +30196,20 @@ paths:
       tags:
         - prc
       summary: "Set an expected yield"
-      description: "Permission: `prc.yield_standard.manage`."
+      description: "Creates the standard for an input and an output product; one per pair (`YIELD_STANDARD_INVALID`: `STANDARD_EXISTS`, `SAME_PRODUCT`, `EXPECTED_ZERO`). The tolerance is 5 percent when none is given.\n\nPermission: `prc.yield_standard.manage`."
       x-permission: prc.yield_standard.manage
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - YIELD_STANDARD_INVALID
+        - REFERENCE_NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -30238,7 +30225,7 @@ paths:
             example:
               inputProductId: "019a7a8d-515b-7886-9dbe-913c95c20a1a"
               outputProductId: "019a7a8e-67c2-7185-a6be-212fdcfb9a0d"
-              expectedPercent: "62.00"
+              expectedPercent: "62"
       responses:
         "201":
           description: OK
@@ -30259,8 +30246,8 @@ paths:
                   id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
                   sku: MEAT-GOAT
                   name: "Goat meat, 15 kg pack"
-                expectedPercent: "48.00"
-                tolerancePercent: "5.00"
+                expectedPercent: "48"
+                tolerancePercent: "5"
                 version: 1
         "400":
           $ref: "#/components/responses/BadRequest"
@@ -30282,8 +30269,22 @@ paths:
       tags:
         - prc
       summary: "Change an expected yield"
-      description: "Permission: `prc.yield_standard.manage`."
+      description: "Changes the expected percentage or the tolerance. Send the `version` you read; a stale version is refused with 409. Orders already completed keep the yield they were judged with.\n\nPermission: `prc.yield_standard.manage`."
       x-permission: prc.yield_standard.manage
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - YIELD_STANDARD_INVALID
+        - REFERENCE_NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -30304,7 +30305,7 @@ paths:
               $ref: "#/components/schemas/YieldStandardUpdate"
             example:
               version: 1
-              tolerancePercent: "4.00"
+              tolerancePercent: "4"
       responses:
         "200":
           description: OK
@@ -30325,8 +30326,8 @@ paths:
                   id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
                   sku: MEAT-GOAT
                   name: "Goat meat, 15 kg pack"
-                expectedPercent: "48.00"
-                tolerancePercent: "5.00"
+                expectedPercent: "48"
+                tolerancePercent: "5"
                 version: 1
         "400":
           $ref: "#/components/responses/BadRequest"

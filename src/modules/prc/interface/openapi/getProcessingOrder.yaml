@@ -1,0 +1,157 @@
+operationId: getProcessingOrder
+tags:
+  - prc
+summary: "Get a processing order"
+description: "One processing order with its inputs, outputs, direct costs, weights, yield and costs.\n\nPermission: `prc.order.read`, scoped to the order's branch and processing location."
+x-permission: prc.order.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ProcessingOrder"
+        example:
+          id: "019a7aac-7e39-7fc5-b4fd-05253a247e03"
+          orderNo: null
+          status: COMPLETED
+          location:
+            id: "019a7a85-19df-781a-9d53-8a8042be035e"
+            code: PROC-1
+            name: "Processing room"
+            kind: STORE
+          outputLocation:
+            id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+            code: COLD-1
+            name: "Cold room"
+            kind: COLD_ROOM
+          startedAt: "2026-11-09T06:00:00Z"
+          completedAt: "2026-11-09T11:00:00Z"
+          inputs:
+            - id: "019a7ac3-35bd-72d1-b809-35e29820aec0"
+              stockUnit:
+                id: "019a7a90-37c3-75d9-9b12-666ffe5adf4d"
+                identifier: G-0098
+                tracking: SERIAL
+              product:
+                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                sku: LIV-GOAT
+                name: Goat
+              qty: "1.000"
+              uom: HEAD
+              weightKg: "29.600"
+              weightSource: SCALE
+              costPesewas: 66100
+          outputs:
+            - id: "019a7ac3-54ac-7cb4-81ec-d41a11d14cf7"
+              lineNo: 1
+              product:
+                id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
+                sku: MEAT-GOAT-15KG
+                name: "Goat meat, 15 kg pack"
+              outputKind: MEAT
+              stockUnit:
+                id: "019a7a90-f15d-712e-b666-1bbcd880949a"
+                identifier: PRC-261109-3a247e03-01
+                tracking: LOT
+              weightKg: "14.200"
+              weightSource: SCALE
+              packCount: 1
+              referencePricePesewasPerKg: 2600
+              allocationWeight: 36920000
+              allocatedCostPesewas: 64035
+              expiresOn: "2026-12-09"
+            - id: "019a7ac3-739b-7698-9bd0-72518b82eb2f"
+              lineNo: 2
+              product:
+                id: "019a7a8f-215c-7cda-8212-d67cb7214f5a"
+                sku: BYP-GOAT-OFFAL
+                name: "Goat offal, kg"
+              outputKind: OFFAL
+              stockUnit:
+                id: "019a7ac3-928a-707b-a5b3-108905338966"
+                identifier: PRC-261109-3a247e03-02
+                tracking: LOT
+              weightKg: "3.100"
+              weightSource: SCALE
+              packCount: null
+              referencePricePesewasPerKg: 1500
+              allocationWeight: 4650000
+              allocatedCostPesewas: 8065
+              expiresOn: "2026-12-09"
+            - id: "019a7ac3-b179-7a5e-bf97-aec07ee4279e"
+              lineNo: 3
+              product:
+                id: "019a7a8f-215c-7cda-8212-d67cb7214f5a"
+                sku: BYP-GOAT-OFFAL
+                name: "Goat offal, kg"
+              outputKind: WASTE
+              stockUnit: null
+              weightKg: "8.950"
+              weightSource: SCALE
+              packCount: null
+              referencePricePesewasPerKg: 0
+              allocationWeight: 0
+              allocatedCostPesewas: 0
+              expiresOn: null
+          costs:
+            - id: "019a7ac3-d068-7442-897a-4cf7f895c5d5"
+              costKind: LABOUR
+              amountPesewas: 4000
+              description: "Slaughter and dressing, two hands"
+            - id: "019a7ac3-ef57-7e25-935e-eb2f7246640d"
+              costKind: CONSUMABLE
+              amountPesewas: 2000
+              description: "Bags, labels and ice"
+          inputWeightKg: "29.600"
+          outputWeightKg: "17.300"
+          wasteWeightKg: "8.950"
+          expectedYieldPercent: "59.000"
+          actualYieldPercent: "58.446"
+          yieldVarianceFlag: false
+          inputCostPesewas: 66100
+          directCostPesewas: 6000
+          totalCostPesewas: 72100
+          currency: GHS
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 2
+          createdAt: "2026-11-12T08:00:00Z"
+          createdBy:
+            id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+            displayName: "Yaw Boateng"
+          postedAt: "2026-11-12T09:00:00Z"
+          postedBy:
+            id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+            displayName: "Yaw Boateng"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
