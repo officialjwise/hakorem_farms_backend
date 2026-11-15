@@ -1,14 +1,19 @@
 import { randomUUID } from 'node:crypto';
 import { ManualClock, Money, Quantity, Weight } from '@hakorem/kernel';
+import { RequestMethod } from '@nestjs/common';
+import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
+import { ModulesContainer } from '@nestjs/core';
+import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { BalanceReconciliation, Lineage, Stock, type MovementRequest } from '../../../src/modules/inv';
+import { BalanceReconciliation, InvModule, Lineage, Stock, type MovementRequest } from '../../../src/modules/inv';
+import { OPERATION_METADATA, type OperationSpec } from '../../../src/platform/http/operation';
 import { runAsSystem, type Actor } from '../../../src/platform/context/request-context';
 import { UnitOfWork } from '../../../src/platform/database/unit-of-work';
 import { SEED_HAND_COUNT } from '../../../src/seed/farm-inv';
 import { runSeedUnits } from '../../../src/seed/run-seed';
 import { seedUnits } from '../../../src/seed/seed-units';
-import { consoleGet, createUser, enrolAndLogin, login, relaxRateLimits, SYSTEM_PRINCIPAL, testStartTime, type TestSession } from '../../support/iam';
-import { startTestApp, type TestApp } from '../../support/test-app';
+import { consoleGet, consolePost, createUser, enrolAndLogin, login, relaxRateLimits, SYSTEM_PRINCIPAL, testStartTime, type TestSession } from '../../support/iam';
+import { startTestApp, TEST_ORIGIN, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
 
 /**
@@ -77,6 +82,7 @@ beforeAll(async () => {
     await admin().query<{ code: string; id: string }>(
       `SELECT 'branch:' || code AS code, id FROM mdm.branch
        UNION ALL SELECT 'location:' || l.code, l.id FROM mdm.location l JOIN mdm.branch b ON b.id = l.branch_id WHERE b.code = 'DDW'
+       UNION ALL SELECT 'virtual:' || l.kind, l.id FROM mdm.location l JOIN mdm.branch b ON b.id = l.branch_id WHERE b.code = 'DDW' AND l.is_virtual
        UNION ALL SELECT 'product:' || sku, id FROM mdm.product
        UNION ALL SELECT 'unit:' || identifier, id FROM inv.stock_unit`,
     )
@@ -259,3 +265,115 @@ describe('B5 gate: a lot traces in both directions over the API (FR-INV-006)', (
     expect((await get(manager, `/stock-units/${randomUUID()}/trace`)).status).toBe(404);
   });
 });
+
+describe('B5 gate: stock cannot go negative outside the allowed movement types (FR-INV-019)', () => {
+  const yam = () => ({ productId: id('product:PRD-YAM-TUBER'), branchId: id('branch:DDW'), toLocationId: id('virtual:CUSTOMER') });
+  /** A sale through Stock.postIn; answers the movement id or the error code. */
+  const sell = (movementType: string, from: string, qty: string) =>
+    runAsSystem({ principalId: SYSTEM_PRINCIPAL, displayName: 'B5 gate' }, randomUUID(), () =>
+      api.app.get(UnitOfWork).run({ isolation: 'serializable' }, async (tx) => {
+        const documentId = randomUUID();
+        await tx.query("INSERT INTO platform.business_document (id, doc_type, owner_module, branch_id, actor_id) VALUES ($1, 'STOCK_ADJUSTMENT', 'inv', $2, $3)", [documentId, id('branch:DDW'), SYSTEM_PRINCIPAL]);
+        return (await api.app.get(Stock).postIn(tx, SYSTEM_PRINCIPAL, { ...yam(), movementType, fromLocationId: id(from), qty: Quantity.parse(qty), sourceDocumentId: documentId, occurredAt: clock.now() })).id;
+      }),
+    ).catch((error: unknown) => (error as { code?: string }).code ?? String(error));
+  const shopYam = async () =>
+    (await admin().query<{ q: string }>('SELECT on_hand_qty::text AS q FROM inv.stock_balance WHERE product_id = $1 AND location_id = $2 AND stock_unit_id IS NULL', [id('product:PRD-YAM-TUBER'), id('location:SHOP')])).rows[0]!.q;
+
+  it('refuses a counter sale of 41 yams from the 40 on the shop floor, and an offline sale out of a location that does not allow it', async () => {
+    expect(await sell('SALE_ISSUE', 'location:SHOP', '41.000')).toBe('INSUFFICIENT_STOCK');
+    expect(await sell('SALE_ISSUE_OFFLINE', 'location:PENS', '1.000')).toBe('INSUFFICIENT_STOCK');
+    expect(await shopYam()).toBe('40.000');
+  });
+
+  it('refuses the offline sale at the seeded shop floor too, which does not allow negative stock: both type and location must allow it', async () => {
+    // Where a location does allow it, the offline sale posts below zero with one NEGATIVE_STOCK exception
+    // (stock-invariants.integration.spec.ts, FR-INV-019's acceptance on a branch whose counter allows it).
+    expect(await sell('SALE_ISSUE_OFFLINE', 'location:SHOP', '41.000')).toBe('INSUFFICIENT_STOCK');
+    expect(await shopYam()).toBe('40.000');
+    const raised = await admin().query("SELECT 1 FROM inv.stock_exception WHERE kind = 'NEGATIVE_STOCK' AND product_id = $1", [id('product:PRD-YAM-TUBER')]);
+    expect(raised.rowCount).toBe(0);
+    // The ledger and its projection still agree everywhere: the nightly recompute finds no drift.
+    expect(await api.app.get(BalanceReconciliation).run(SYSTEM)).toEqual([]);
+  });
+});
+
+describe('B5 gate: every INV write refuses the wrong role (ADR-0017, ADR-0035)', () => {
+  /** A body that passes validation for each INV write, so the refusal seen is the permission's. */
+  const VALID_BODY: Readonly<Record<string, object>> = {
+    createGoodsReceipt: { kind: 'HARVEST', locationId: randomUUID(), receivedAt: '2026-11-10T07:00:00Z', lines: [] },
+    updateGoodsReceipt: { version: 1, notes: 'Two birds died on the road' },
+    cancelGoodsReceipt: { reason: 'Delivery turned back at the gate' },
+    reverseStockMovement: { reasonCode: 'COUNT_ERROR', note: 'Posted twice from the cold room tablet' },
+    createStockTransfer: { fromLocationId: randomUUID(), toLocationId: randomUUID(), lines: [] },
+    receiveStockTransfer: { lines: [] },
+    cancelStockTransfer: { reason: 'Van not available' },
+    createStockAdjustment: { locationId: randomUUID(), reasonCode: 'COUNT_ERROR', lines: [] },
+    createStockTake: { locationId: randomUUID(), scope: 'FULL' },
+    recordStockTakeCounts: { counts: [] },
+    cancelStockTake: { reason: 'Refused' },
+    createStockHold: { stockUnitId: randomUUID(), kind: 'INVESTIGATION', note: 'Refused' },
+    releaseStockHold: { reasonCode: 'INVESTIGATION_CLOSED', note: 'Refused' },
+    resolveStockException: { resolutionKind: 'WRITE_OFF', note: 'Refused' },
+    releaseStockReservation: { reason: 'Refused' },
+    createReorderRule: { productId: randomUUID(), branchId: randomUUID(), minQty: '10.000', reorderPointQty: '15.000', maxQty: '60.000' },
+    updateReorderRule: { version: 1, reorderPointQty: '20.000' },
+    recordTemperatureReading: { locationId: randomUUID(), readingC: '-18.0', measuredAt: '2026-11-13T10:00:00Z', source: 'MANUAL' },
+  };
+
+  /** Every state-changing route INV's controllers mount, with the operation it declares. */
+  function invWrites(): Array<{ method: string; path: string; spec: OperationSpec }> {
+    const found: Array<{ method: string; path: string; spec: OperationSpec }> = [];
+    for (const module of api.app.get(ModulesContainer).values()) {
+      if (module.metatype !== InvModule) continue;
+      for (const wrapper of module.controllers.values()) {
+        const type = wrapper.metatype as (new (...args: never[]) => object) | null;
+        if (type === null) continue;
+        const base = String(Reflect.getMetadata(PATH_METADATA, type) ?? '');
+        for (const name of Object.getOwnPropertyNames(type.prototype)) {
+          const handler = (type.prototype as Record<string, unknown>)[name];
+          if (name === 'constructor' || typeof handler !== 'function' || Reflect.getMetadata(PATH_METADATA, handler) === undefined) continue;
+          const method = RequestMethod[Reflect.getMetadata(METHOD_METADATA, handler) as number]!;
+          if (method === 'GET') continue;
+          const path = `/v1/${[base, String(Reflect.getMetadata(PATH_METADATA, handler))].filter((p) => p !== '' && p !== '/').join('/')}`.replace(/\/+/g, '/');
+          found.push({ method, path, spec: Reflect.getMetadata(OPERATION_METADATA, handler) as OperationSpec });
+        }
+      }
+    }
+    return found;
+  }
+
+  it('walks all 24 INV writes and answers 403 to the accountant, the cashier, the sales clerk, the driver and the farm hand', async () => {
+    const branchId = id('branch:DDW');
+    const sessions: Record<string, TestSession> = {
+      ACCOUNTANT: accountant,
+      CASHIER: cashier,
+      SALES: await login(api.server, await createUser(database, { name: 'Esi Appiah', grants: [{ role: 'SALES', branchId }] })),
+      DRIVER: await login(api.server, await createUser(database, { name: 'Selorm Agbeko', grants: [{ role: 'DRIVER', branchId }] })),
+      FARM_HAND: await login(api.server, await createUser(database, { name: 'Abdul-Rahman Iddrisu', grants: [{ role: 'FARM_HAND', branchId, locationId: id('location:PENS') }] })),
+    };
+    const writes = invWrites();
+    expect(writes.map((w) => w.spec.operationId).sort()).toEqual(
+      [
+        'createGoodsReceipt', 'updateGoodsReceipt', 'postGoodsReceipt', 'cancelGoodsReceipt', 'reverseStockMovement',
+        'createStockTransfer', 'dispatchStockTransfer', 'receiveStockTransfer', 'cancelStockTransfer', 'createStockAdjustment', 'submitStockAdjustment',
+        'createStockTake', 'startStockTake', 'recordStockTakeCounts', 'closeStockTakeCounting', 'submitStockTake', 'cancelStockTake',
+        'createStockHold', 'releaseStockHold', 'resolveStockException', 'releaseStockReservation',
+        'createReorderRule', 'updateReorderRule', 'recordTemperatureReading',
+      ].sort(),
+    );
+    for (const [role, session] of Object.entries(sessions)) {
+      for (const write of writes) {
+        const path = write.path.replace(/:[a-zA-Z]+/g, randomUUID());
+        const body = VALID_BODY[write.spec.operationId] ?? {};
+        const response =
+          write.method === 'PATCH' || write.method === 'PUT'
+            ? await (write.method === 'PUT' ? request(api.server).put(path) : request(api.server).patch(path)).set('Cookie', session.jar.header()).set('X-CSRF-Token', session.csrfToken).set('Origin', TEST_ORIGIN).set('Idempotency-Key', randomUUID()).send(body)
+            : await consolePost(api.server, session, path).send(body);
+        expect(response.status, `${role} ${write.spec.operationId}`).toBe(403);
+        expect(response.body.error.code, `${role} ${write.spec.operationId}`).toBe('FORBIDDEN');
+      }
+    }
+  });
+});
+
