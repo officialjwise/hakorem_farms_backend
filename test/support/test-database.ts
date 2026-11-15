@@ -47,13 +47,16 @@ export async function createTestDatabase(): Promise<TestDatabase> {
         pool = new pg.Pool({ connectionString: roleUrl(settings, role, name), max: 10 });
         // Dropping the database WITH (FORCE) terminates connections still closing (57P01): expected at teardown. Any
         // other error on an idle connection is a real failure and is rethrown so the run reports it.
-        pool.on('error', (error: Error & { code?: string }) => {
+        const onError = (error: Error & { code?: string }) => {
           if (error.code !== '57P01') {
             setImmediate(() => {
               throw error;
             });
           }
-        });
+        };
+        pool.on('error', onError);
+        // A client the pool is already closing has left the pool, so its error reaches only its own listener.
+        pool.on('connect', (client) => client.on('error', onError));
         pools.set(role, pool);
       }
       return pool;
