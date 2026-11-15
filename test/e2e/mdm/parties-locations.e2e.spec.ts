@@ -65,11 +65,11 @@ describe('the seeded parties and locations (B04d continued 2 gate)', () => {
     expect(caterer.body.data[0].priceList).toEqual(expect.objectContaining({ code: 'CATERERS-2026' }));
   });
 
-  it("lists Dodowa's six physical locations and, when asked, its eight virtual ones", async () => {
+  it("lists Dodowa's seven physical locations (in-transit last) and, when asked, its eight virtual ones", async () => {
     const branches = await call('GET', '/v1/branches');
     const dodowa = branches.body.data.find((branch: Json) => branch.code === 'DDW');
     const physical = await call('GET', `/v1/locations?branchId=${dodowa.id}`);
-    expect(physical.body.data.map((location: Json) => location.code)).toEqual(['SITE', 'PENS', 'COLD', 'SHOP', 'VAN1', 'RETURNS']);
+    expect(physical.body.data.map((location: Json) => location.code)).toEqual(['SITE', 'PENS', 'COLD', 'SHOP', 'VAN1', 'RETURNS', 'TRANSIT']);
     const all = await call('GET', `/v1/locations?branchId=${dodowa.id}&includeVirtual=true&limit=100`);
     expect(all.body.data.filter((location: Json) => location.isVirtual)).toHaveLength(8);
   });

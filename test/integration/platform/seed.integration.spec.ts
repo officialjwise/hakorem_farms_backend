@@ -224,7 +224,7 @@ describe('branches, locations and customers through the services (A-085, ADR-004
       { entity_type: 'Branch', actor: 'System', n: 1, agents: ['hakorem-seed'] },
       { entity_type: 'Customer', actor: 'Akosua Boateng', n: SEED_CUSTOMERS.length, agents: ['hakorem-seed'] },
       { entity_type: 'CustomerAddress', actor: 'Akosua Boateng', n: addresses, agents: ['hakorem-seed'] },
-      { entity_type: 'Location', actor: 'Akosua Boateng', n: 6, agents: ['hakorem-seed'] },
+      { entity_type: 'Location', actor: 'Akosua Boateng', n: 7, agents: ['hakorem-seed'] },
     ]);
   });
 

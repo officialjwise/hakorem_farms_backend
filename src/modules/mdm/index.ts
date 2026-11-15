@@ -9,7 +9,8 @@
  * B04d continued 2 adds the branch, location and party administration for the seed on the same terms (ADR-0042).
  * B04d continued 3 adds suppliers and the reference data (payment methods, delivery zones) on the same terms.
  * B05 continued adds `MasterDataRefs`: products, locations, suppliers and grades by id in the caller's transaction,
- * the read side of `Catalogue`, `Parties` and `Locations` that inventory needs to post and show stock.
+ * the read side of `Catalogue`, `Parties` and `Locations` that inventory needs to post and show stock; B05 continued 2
+ * adds branches, reasons from the fixed list and a branch's physical location of a kind (its in-transit location).
  */
 export { MdmModule } from './mdm.module';
 export { PricingService, type AppliedPromotionView, type PriceResolutionView, type PriceResolveResultView, type ResolveLine, type ResolveRequest } from './application/pricing';
@@ -26,4 +27,4 @@ export { ProductCatalogue } from './application/product-catalogue';
 export { LocationsAdmin } from './application/locations-admin';
 export { PartiesAdmin } from './application/parties-admin';
 export { ReferenceDataAdmin } from './application/reference-data-admin';
-export { MasterDataRefs, type GradeFacts, type LocationFacts, type ProductFacts, type SupplierFacts } from './application/master-data-refs';
+export { MasterDataRefs, type BranchFacts, type GradeFacts, type LocationFacts, type ProductFacts, type ReasonCodeFacts, type SupplierFacts } from './application/master-data-refs';
