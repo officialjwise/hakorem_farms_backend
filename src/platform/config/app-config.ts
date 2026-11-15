@@ -127,8 +127,9 @@ const environmentSchema = z
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['NODE_ENV'], message: 'must be production in staging and production' });
     }
     if (env.MESSAGING_MODE !== 'capture') {
-      require('SMS_BASE_URL', 'is required unless MESSAGING_MODE is capture');
-      require('SMS_API_KEY', 'is required unless MESSAGING_MODE is capture');
+      for (const key of ['SMS_BASE_URL', 'SMS_API_KEY'] as const) {
+        require(key, 'is required unless MESSAGING_MODE is capture');
+      }
     }
     if (env.APP_ENV === 'production' && env.MESSAGING_MODE !== 'live') {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['MESSAGING_MODE'], message: 'must be live in production, or customers get no codes' });
