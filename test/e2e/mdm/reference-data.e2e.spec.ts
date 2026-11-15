@@ -9,9 +9,16 @@ const BASE_URL = (process.env['E2E_BASE_URL'] ?? 'http://127.0.0.1:3000').replac
 const ORIGIN = 'http://localhost:5173';
 
 /** A public call with no session: the storefront's view. The contract tests assert the shapes. */
-async function quote(body: unknown): Promise<{ status: number; body: { deliverable: boolean; zone: { code: string } | null; feePesewas: number | null; currency: string } }> {
+interface Quote {
+  readonly deliverable: boolean;
+  readonly zone: { readonly code: string } | null;
+  readonly feePesewas: number | null;
+  readonly currency: string;
+}
+
+async function quote(body: unknown): Promise<{ status: number; body: Quote }> {
   const response = await fetch(`${BASE_URL}/v1/shop/delivery/quote`, { method: 'POST', headers: { Origin: ORIGIN, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  return { status: response.status, body: await response.json() };
+  return { status: response.status, body: (await response.json()) as Quote };
 }
 
 describe('the seeded reference data (B04d continued 3 gate)', () => {
