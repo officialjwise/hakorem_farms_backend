@@ -105,6 +105,8 @@ export default defineConfig({
         ...fullCoverage('src/modules/iam/domain/self-service.ts'), // B04e continued: phone codes, attempts, reset tokens
         ...fullCoverage('src/modules/doc/domain/file-use.ts'), // B04e continued 2: upload allow-lists, SA-11 caps, what is served
         ...fullCoverage('src/platform/storage/content-sniffer.ts'), // B04e continued 2: the type from the bytes (SC-12)
+        ...fullCoverage('src/platform/storage/image-variant-plan.ts'), // B04e continued 3: variant widths, byte budgets, the quality ladder
+        ...fullCoverage('src/modules/mdm/domain/product-images.ts'), // B04e continued 3: which photograph is attached, gallery order
         // ...fullCoverage('src/modules/inv/domain/valuation/**/*.ts'),    // B5: stock valuation, cost pool and average cost (ADR-0018)
         // ...fullCoverage('src/modules/fin/domain/**/*.ts'),              // B8: the ledger, posting rules, journals, periods (ADR-0003)
         // ...fullCoverage('src/modules/cap/domain/distribution/**/*.ts'), // B12: distribution, unit-days and allocation (ADR-0028)

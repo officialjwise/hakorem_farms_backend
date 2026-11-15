@@ -55,6 +55,21 @@ export interface FileStoreSettings {
   readonly privateBucket: string | null;
   /** Create the bucket on first use: development and test only. */
   readonly ensureBucket: boolean;
+  /**
+   * Where the public variants of a photograph are read from (ADR-0045): the media origin, which serves the public
+   * bucket and nothing else. Null when there is none, and then no variant is shown.
+   */
+  readonly publicBaseUrl?: string | null;
+}
+
+/** A public rendition of a photograph, as the catalogue shows it (FR-DOC-005). */
+export interface PublicVariant {
+  readonly variant: 'thumb' | 'card' | 'full';
+  readonly contentType: 'image/webp' | 'image/jpeg';
+  readonly url: string;
+  readonly width: number;
+  readonly height: number;
+  readonly sizeBytes: number;
 }
 
 const MILLISECONDS_PER_SECOND = 1_000;
@@ -162,6 +177,34 @@ export class FileStore {
   async find(tx: Transaction, id: string): Promise<StoredFileRecord | null> {
     const { rows } = await tx.query<StoredFileRow>(`SELECT ${COLUMNS} FROM platform.stored_file WHERE id = $1 AND deleted_at IS NULL`, [id]);
     return rows.length === 0 ? null : record(rows[0]!);
+  }
+
+  /**
+   * The public variants of each file, in the order thumb, card, full and WebP before JPEG, with their URLs on the media
+   * origin. A file with none, or with no origin configured, maps to an empty list. The original is never among them.
+   */
+  async publicVariants(tx: Transaction, fileIds: readonly string[]): Promise<ReadonlyMap<string, readonly PublicVariant[]>> {
+    const variants = new Map<string, PublicVariant[]>(fileIds.map((id) => [id, []]));
+    const base = this.settings.publicBaseUrl ?? null;
+    if (fileIds.length === 0 || base === null) return variants;
+    const { rows } = await tx.query<{ file_id: string; variant: PublicVariant['variant']; content_type: PublicVariant['contentType']; object_key: string; width: number; height: number; size_bytes: string }>(
+      `SELECT file_id, variant, content_type, object_key, width, height, size_bytes FROM platform.stored_file_variant
+        WHERE file_id = ANY($1::uuid[])
+        ORDER BY file_id, array_position(ARRAY['thumb', 'card', 'full'], variant), content_type DESC`,
+      [fileIds],
+    );
+    const origin = base.replace(/\/+$/, '');
+    for (const row of rows) {
+      variants.get(row.file_id)!.push({
+        variant: row.variant,
+        contentType: row.content_type,
+        url: `${origin}/${row.object_key}`,
+        width: row.width,
+        height: row.height,
+        sizeBytes: Number(row.size_bytes),
+      });
+    }
+    return variants;
   }
 
   /**

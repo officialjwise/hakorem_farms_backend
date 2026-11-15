@@ -42,6 +42,6 @@
     "ord": ["sales_order", "sales_order_line"]
   },
   "universalKeys": ["iam.principal", "mdm.branch", "mdm.location"],
-  "platformSharedObjects": ["pesewas", "qty", "kg", "percent", "reject_change", "touch_version", "freeze_posted", "allocate_number"],
+  "platformSharedObjects": ["pesewas", "qty", "kg", "percent", "reject_change", "touch_version", "freeze_posted", "allocate_number", "require_clean_file"],
   "publishedViewReaders": ["cst", "rpt"]
 }

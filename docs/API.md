@@ -536,6 +536,13 @@ Integrations subscribe to events with `POST /integrations/{id}/webhook-endpoints
 - **Scanning:** a new file is `PENDING`; poll `getFile` until `CLEAN`. An `INFECTED` or `FAILED` file is quarantined: `getFile` and `createFileSignedUrl` answer 422 `FILE_NOT_CLEAN`. A link is issued only for `CLEAN`, lives five minutes, and every issue is logged with the user, the file, the time and the address.
 - **Evidence:** an approval request can carry `evidenceFileId`; the inbox shows it.
 
+**Built in B04e continued 3** (contract 1.13.0, ADR-0045, A-126): product photographs and their public variants, `addProductImage` and `removeProductImage`. What a screen needs to know:
+
+- **Attaching:** upload with `purpose: PRODUCT_IMAGE`, poll `getFile` until `CLEAN`, then `POST /products/{id}/images` with `fileId`, `altText` (1 to 200 characters) and, optionally, `sortOrder` (0 to 999; without it the photograph goes last). The worker re-encodes a clean photograph before it marks it clean, so an attached photograph always has its variants. Only the Owner and the Manager (`mdm.product.update`) attach and remove; attaching someone else's upload also needs `platform.file.read.any`.
+- **Refusals:** 422 `FILE_NOT_CLEAN` while the photograph is `PENDING`, or when it failed (an infected file, or one that is not a decodable image); 422 `REFERENCE_NOT_FOUND` on `/fileId` for a file of another use or no file; 422 `DUPLICATE_VALUE` for a photograph already in the gallery.
+- **Variants:** `Product.images[].variants` has `thumb` (320 pixels wide), `card` (640) and `full` (1280), never wider than the original, each with `url` (WebP) and `fallbackUrl` (JPEG) and their sizes in bytes; no `card` rendition is above 200,000 bytes. Use them in a `<picture>` with `srcset` and lazy loading. They are on the public media origin and need no link; the original is never there.
+- **Removing:** `DELETE /products/{id}/images/{imageId}` answers 204; the image leaves the gallery, its variants stay on the origin (a cached page may still show them).
+
 ## 17. The mock server
 
 The frontend builds against a mock generated from the contract, with realistic examples on every operation (at least five rows per list, from one seeded farm in Dodowa).

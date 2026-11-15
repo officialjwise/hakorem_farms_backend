@@ -13,6 +13,7 @@ import { OtelMetrics } from './platform/observability/metrics';
 import { LOGGER, PG_POOL } from './platform/platform.module';
 import { AuditTrail } from './platform/audit/audit-trail';
 import { FileScanner } from './platform/storage/file-scanner';
+import { SharpImageRenderer } from './platform/storage/image-renderer';
 import { ClamdScanner } from './platform/storage/malware-scanner';
 import { OBJECT_STORAGE, type ObjectStorage } from './platform/storage/object-storage';
 import { BullmqJobQueue } from './platform/queue/job-queue';
@@ -67,6 +68,11 @@ export async function startWorker(config: AppConfig, logger: Logger, clock: Cloc
           app.get(AuditTrail),
           clock,
           app.get<Logger>(LOGGER),
+          {
+            renderer: new SharpImageRenderer(),
+            publicBucket: config.S3_BUCKET_PUBLIC_MEDIA ?? null,
+            ensureBucket: config.APP_ENV === 'development' || config.APP_ENV === 'test',
+          },
         );
   const metrics = new OtelMetrics({ enabled: config.METRICS_ENABLED, port: config.METRICS_PORT, serviceName: config.OTEL_SERVICE_NAME });
   const runtime = new WorkerRuntime(

@@ -102,6 +102,9 @@ const environmentSchema = z
     S3_ANCHOR_ACCESS_KEY_ID: z.string().min(1).optional(),
     S3_ANCHOR_SECRET_ACCESS_KEY: z.string().min(1).optional(),
     SIGNED_URL_TTL_SECONDS: seconds(300),
+    // The public media origin (ADR-0045): it serves S3_BUCKET_PUBLIC_MEDIA, where only the variants of product
+    // photographs are published, never an original. Unset in development and test: the bucket's own path-style URL.
+    MEDIA_PUBLIC_BASE_URL: z.string().url().optional(),
     // The malware scanner (A-057, ADR-0044): ClamAV's daemon, which the worker sends every upload to.
     CLAMAV_HOST: z.string().min(1).optional(),
     CLAMAV_PORT: z.coerce.number().int().min(1).max(65_535).default(3_310),
@@ -146,6 +149,9 @@ const environmentSchema = z
       }
       if (env.APP_ROLE === 'worker') {
         require('CLAMAV_HOST', 'is required by the worker in staging and production, or no upload is ever scanned');
+        require('S3_BUCKET_PUBLIC_MEDIA', 'is required by the worker in staging and production, or no product photograph is published');
+      } else {
+        require('MEDIA_PUBLIC_BASE_URL', 'is required by the API in staging and production (the public media origin)');
       }
     }
     if (env.APP_ROLE === 'api') {
@@ -219,4 +225,15 @@ export function databaseUrlOf(config: AppConfig): string {
     throw new ConfigError([`${config.APP_ROLE === 'worker' ? 'DATABASE_URL_WORKER' : 'DATABASE_URL_APP'} is missing`]);
   }
   return url;
+}
+
+/**
+ * The origin the public variants of a photograph are read from (ADR-0045): MEDIA_PUBLIC_BASE_URL, or in development
+ * and test the public bucket's own path-style URL on the object store. Null when neither is configured.
+ */
+export function publicMediaBaseUrl(config: Pick<AppConfig, 'MEDIA_PUBLIC_BASE_URL' | 'APP_ENV' | 'S3_ENDPOINT' | 'S3_BUCKET_PUBLIC_MEDIA'>): string | null {
+  if (config.MEDIA_PUBLIC_BASE_URL !== undefined) return config.MEDIA_PUBLIC_BASE_URL;
+  const local = config.APP_ENV === 'development' || config.APP_ENV === 'test';
+  if (!local || config.S3_ENDPOINT === undefined || config.S3_BUCKET_PUBLIC_MEDIA === undefined) return null;
+  return `${config.S3_ENDPOINT.replace(/\/+$/, '')}/${config.S3_BUCKET_PUBLIC_MEDIA}`;
 }

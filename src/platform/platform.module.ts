@@ -4,7 +4,7 @@ import type { Redis } from 'ioredis';
 import type pg from 'pg';
 import type { Logger } from 'pino';
 import { AuditTrail } from './audit/audit-trail';
-import { APP_CONFIG, databaseUrlOf, type AppConfig } from './config/app-config';
+import { APP_CONFIG, databaseUrlOf, publicMediaBaseUrl, type AppConfig } from './config/app-config';
 import { keyRingFromEnvironment, type KeyRing } from './crypto/key-ring';
 import { SubjectKeys } from './crypto/subject-keys';
 import { createPool } from './database/database-pool';
@@ -121,7 +121,12 @@ export class PlatformModule {
         {
           provide: FileStore,
           useFactory: (storage: ObjectStorage | null, audit: AuditTrail) =>
-            new FileStore(storage, { privateBucket: config.S3_BUCKET_PRIVATE ?? null, ensureBucket: config.APP_ENV === 'development' || config.APP_ENV === 'test' }, audit, clock),
+            new FileStore(
+              storage,
+              { privateBucket: config.S3_BUCKET_PRIVATE ?? null, ensureBucket: config.APP_ENV === 'development' || config.APP_ENV === 'test', publicBaseUrl: publicMediaBaseUrl(config) },
+              audit,
+              clock,
+            ),
           inject: [OBJECT_STORAGE, AuditTrail],
         },
         ConnectionCloser,

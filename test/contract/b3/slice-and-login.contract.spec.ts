@@ -25,6 +25,7 @@ import {
 } from '../../../src/modules/iam/interface/schemas';
 import {
   ArchiveBody,
+  ProductImageCreateBody,
   BranchCreate,
   BranchUpdate,
   CustomerAddressCreate,
@@ -239,6 +240,7 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     updatePriceList: PriceListUpdate,
     archivePriceList: ArchiveBody,
     archiveProduct: ArchiveBody,
+    addProductImage: ProductImageCreateBody,
   };
 
   it('parses every request example of an implemented operation with the schema its route validates with', () => {

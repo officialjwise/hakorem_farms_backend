@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ConfigError, loadConfig } from './app-config';
+import { ConfigError, loadConfig, publicMediaBaseUrl } from './app-config';
 
 const VALID = {
   NODE_ENV: 'development',
@@ -96,8 +96,12 @@ describe('typed configuration', () => {
       'S3_ACCESS_KEY_ID is required in staging and production (the file store)',
       'S3_SECRET_ACCESS_KEY is required in staging and production (the file store)',
       'S3_BUCKET_PRIVATE is required in staging and production (the file store)',
+      'MEDIA_PUBLIC_BASE_URL is required by the API in staging and production (the public media origin)',
     ]);
-    const config = loadConfig({ ...VALID, ...FILE_STORE, APP_ENV: 'staging', NODE_ENV: 'production', APP_VERSION: '1.0.0+9f3c2a1' }, '0.1.0');
+    const config = loadConfig(
+      { ...VALID, ...FILE_STORE, APP_ENV: 'staging', NODE_ENV: 'production', APP_VERSION: '1.0.0+9f3c2a1', MEDIA_PUBLIC_BASE_URL: 'https://media.staging.example.com' },
+      '0.1.0',
+    );
     expect(config.version).toBe('1.0.0+9f3c2a1');
   });
 
@@ -126,8 +130,19 @@ describe('typed configuration', () => {
       AUDIT_ANCHOR_SIGNING_KEY: 'k'.repeat(40),
       AUDIT_ANCHOR_KEY_ID: 'anchor-1',
     };
-    expect(problemsFor(worker)).toEqual(['CLAMAV_HOST is required by the worker in staging and production, or no upload is ever scanned']);
-    expect(loadConfig({ ...worker, CLAMAV_HOST: 'scanner' }, '0.1.0').CLAMAV_PORT).toBe(3_310);
+    expect(problemsFor(worker)).toEqual([
+      'CLAMAV_HOST is required by the worker in staging and production, or no upload is ever scanned',
+      'S3_BUCKET_PUBLIC_MEDIA is required by the worker in staging and production, or no product photograph is published',
+    ]);
+    expect(loadConfig({ ...worker, CLAMAV_HOST: 'scanner', S3_BUCKET_PUBLIC_MEDIA: 'hakorem-staging-media' }, '0.1.0').CLAMAV_PORT).toBe(3_310);
+  });
+
+  it('reads public variants from the media origin, or locally from the public bucket on the object store (ADR-0045)', () => {
+    const local = { MEDIA_PUBLIC_BASE_URL: undefined, APP_ENV: 'development', S3_ENDPOINT: 'http://127.0.0.1:57070/', S3_BUCKET_PUBLIC_MEDIA: 'hakorem-dev-media' } as const;
+    expect(publicMediaBaseUrl(local)).toBe('http://127.0.0.1:57070/hakorem-dev-media');
+    expect(publicMediaBaseUrl({ ...local, MEDIA_PUBLIC_BASE_URL: 'https://media.hakoremfarms.com' })).toBe('https://media.hakoremfarms.com');
+    expect(publicMediaBaseUrl({ ...local, APP_ENV: 'staging' })).toBeNull();
+    expect(publicMediaBaseUrl({ ...local, S3_BUCKET_PUBLIC_MEDIA: undefined })).toBeNull();
   });
 
   it('builds the version from the commit when no release version is set', () => {

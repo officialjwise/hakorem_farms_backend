@@ -8,6 +8,16 @@ Version numbers follow semantic versioning: a major bump breaks an existing clie
 
 - **CR-002 (frontend, raised 2026-11-13): weights as decimal strings, never JSON numbers.** Already satisfied by 1.0.0 and 1.1.0, so no version change. `components.schemas.Kilograms` is `type: string` with the pattern `^(0|[1-9][0-9]{0,6})\.[0-9]{3}$` (exactly three decimal places), and its description says it is never a JSON number. The request was raised against a copy taken before re-syncing; re-run `./scripts/sync-contract.sh`. The owner closed it on 2026-11-13: do not reopen it.
 
+## 1.13.0 (2026-11-15, B04e continued 3)
+
+**Additive.** No schema, field, parameter or request was removed, renamed or retyped, and nothing a client sends was made required. Three properties were added to a response schema and made required there, which breaks nothing a client sends (ADR-0038). A client generated from 1.12.x compiles unchanged. The frontend track is paused, so nothing reviewed this entry; read it before resuming.
+
+Two operations now answer from the real API (131 in all): `addProductImage` and `removeProductImage` (FR-DOC-005, ADR-0045).
+
+- **`ImageVariant` gains `sizeBytes`, `fallbackUrl` and `fallbackSizeBytes`** (required in responses). `url` is the WebP rendition; `fallbackUrl` is the JPEG one of the same width, for a browser without WebP; the sizes are bytes, for page-weight budgets (NFR-005). The variant names are unchanged: `thumb` is 320 pixels wide, `card` 640 and `full` 1280, never wider than the original. Every example that shows a product image now shows those widths and the new fields.
+- **`x-error-codes` and descriptions** on the two operations state their rules (A-126): only a `CLEAN` product photograph is attached (`FILE_NOT_CLEAN` while it is `PENDING`, or if it failed); a file of another use, or none, is `REFERENCE_NOT_FOUND` on `/fileId`; one already in the gallery is `DUPLICATE_VALUE`; someone else's upload also needs `platform.file.read.any`; with no `sortOrder` a photograph goes last; removing is a soft delete; both publish `mdm.ProductChanged` with `images` changed and leave the product's `version` where it was.
+- **`Product.images`** now carries the gallery, where it was always empty.
+
 ## 1.12.0 (2026-11-15, B04e continued 2)
 
 **Additive.** No schema, field, parameter or request was removed, renamed or retyped, and nothing a client sends was made required. A client generated from 1.11.x compiles unchanged. The frontend track is paused, so nothing reviewed this entry; read it before resuming.

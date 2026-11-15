@@ -47,6 +47,8 @@ export const TEST_SECRETS: Readonly<Record<string, string>> = {
 
 /** The file store's object storage: the run's S3-compatible container, path-style, one private bucket per run. */
 export const TEST_PRIVATE_BUCKET = 'hk-test-private';
+/** The public media bucket the worker publishes photograph variants to (ADR-0045), readable by anyone. */
+export const TEST_PUBLIC_BUCKET = 'hk-test-media';
 export function objectStoreEnvironment(): Record<string, string> {
   const store = inject('objectStore');
   return {
@@ -55,6 +57,7 @@ export function objectStoreEnvironment(): Record<string, string> {
     S3_ACCESS_KEY_ID: store.accessKeyId,
     S3_SECRET_ACCESS_KEY: store.secretAccessKey,
     S3_BUCKET_PRIVATE: TEST_PRIVATE_BUCKET,
+    S3_BUCKET_PUBLIC_MEDIA: TEST_PUBLIC_BUCKET,
   };
 }
 

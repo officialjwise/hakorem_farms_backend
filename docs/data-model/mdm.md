@@ -142,6 +142,8 @@ Photographs of a product.
 
 Standard columns: `MASTER`.
 
+Created in B04e continued 3 (migration 0037, ADR-0045). `alt_text` is 1 to 200 characters and `sort_order` 0 to 999. A partial unique index keeps one live image per (`product_id`, `file_id`). `mdm.product_image_guard()` (SQLSTATE HK008) asks `platform.require_clean_file(file_id, 'PRODUCT_IMAGE')` on insert, so only a CLEAN product photograph is attached, and refuses a change to an image's product or file. Removing an image is a soft delete with the reason "Removed from the product gallery".
+
 ## Parties
 
 ### `mdm.customer_tier` · MASTER

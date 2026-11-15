@@ -17,8 +17,11 @@ export interface ObjectStorage {
    * when the link's lifetime starts, from the caller's clock; it defaults to now.
    */
   signedGetUrl(bucket: string, key: string, ttlSeconds: number, signedAt?: Date): Promise<string>;
-  /** Development and test only: creates a bucket if it is missing, with object lock when asked. */
-  ensureBucket(bucket: string, options: { readonly objectLock: boolean }): Promise<void>;
+  /**
+   * Development and test only: creates a bucket if it is missing, with object lock when asked. `publicRead` lets anyone
+   * read its objects, as the public media origin does in production (ADR-0045); it never lists them.
+   */
+  ensureBucket(bucket: string, options: { readonly objectLock: boolean; readonly publicRead?: boolean }): Promise<void>;
 }
 
 export const OBJECT_STORAGE = Symbol('OBJECT_STORAGE');
