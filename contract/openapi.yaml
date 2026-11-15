@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.10.0"
+  version: "1.11.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -846,7 +846,10 @@ paths:
       tags:
         - auth
       summary: "Request a password reset code"
-      description: "Always answers 202 with the same message, whether or not the account exists."
+      description: "Always answers 202 with the same message, whether or not the account exists. For an active account with a phone, a single-use reset code valid thirty minutes goes by SMS and replaces any earlier one; an email-only account gets nothing until the email channel arrives (B11). At most five requests per identifier in fifteen minutes (429), beside the per-address limit; both fail closed (1.11.0)."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - RATE_LIMITED
       security: []
       requestBody:
         required: true
@@ -2315,7 +2318,21 @@ paths:
       tags:
         - iam
       summary: "Create a role"
-      description: "Permission: `iam.role.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      description: "Only the Owner holds this (1.11.0). A new role is never a system role. Nobody adds a permission they do not hold themselves (403 `FORBIDDEN`). An unknown permission code (`UNKNOWN_PERMISSION`) or one limit kind twice (`DUPLICATE_LIMIT_KIND`) is 422 `ROLE_INVALID`; a live role with the same code is 422 `DUPLICATE_VALUE`. Audited as `PERMISSION_CHANGE` and published as `iam.RoleChanged`.\n\nPermission: `iam.role.manage`.\\n\\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - TOTP_ENROLMENT_REQUIRED
+        - STEP_UP_REQUIRED
+        - DUPLICATE_VALUE
+        - ROLE_INVALID
+        - RATE_LIMITED
       x-permission: iam.role.manage
       x-requires-step-up: true
       parameters:
@@ -2385,79 +2402,27 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
   "/iam/roles/{id}":
-    get:
-      operationId: getRole
-      tags:
-        - iam
-      summary: "Get a role"
-      description: "Permission: `iam.role.read`."
-      x-error-codes:
-        - VALIDATION_FAILED
-        - UNAUTHENTICATED
-        - FORBIDDEN
-        - PASSWORD_CHANGE_REQUIRED
-        - TOTP_ENROLMENT_REQUIRED
-        - RATE_LIMITED
-        - NOT_FOUND
-      x-permission: iam.role.read
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Role"
-              example:
-                id: "019a7a94-7270-7ff3-852b-0805a18d80e3"
-                code: CASHIER
-                name: Cashier
-                isSystem: true
-                requiresTotp: false
-                permissions:
-                  - pos.sale.create
-                  - pos.shift.open
-                  - pos.shift.close
-                  - pay.payment.create
-                limits:
-                  - limitKind: PRICE_OVERRIDE_PER_LINE
-                    amountPesewas: 5000
-                  - limitKind: PRICE_OVERRIDE_PER_SHIFT
-                    amountPesewas: 20000
-                userCount: 2
-                version: 2
-                createdAt: "2026-11-01T08:00:00Z"
-                updatedAt: "2026-11-10T15:00:00Z"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
     patch:
       operationId: updateRole
       tags:
         - iam
       summary: "Change a role's permissions or limits"
-      description: "Permission: `iam.role.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      description: "`permissions` and `limits`, when sent, replace the whole set; a removed permission or limit is soft-deleted with the actor (1.11.0). Nobody changes a role they hold, or adds or removes a permission they do not hold (403 `FORBIDDEN`). The Owner, Manager and Accountant roles keep `requiresTotp` (`TOTP_REQUIRED_FOR_ROLE`); an unknown permission code (`UNKNOWN_PERMISSION`) or one limit kind twice (`DUPLICATE_LIMIT_KIND`) is 422 `ROLE_INVALID`. No role is ever deleted, and the database refuses deleting a system role. A stale `version` is 409 `VERSION_CONFLICT`. Audited as `PERMISSION_CHANGE` with the role before and after, and published as `iam.RoleChanged`.\n\nPermission: `iam.role.manage`.\\n\\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - TOTP_ENROLMENT_REQUIRED
+        - STEP_UP_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - ROLE_INVALID
+        - RATE_LIMITED
       x-permission: iam.role.manage
       x-requires-step-up: true
       parameters:
@@ -2527,6 +2492,73 @@ paths:
           $ref: "#/components/responses/Conflict"
         "422":
           $ref: "#/components/responses/BusinessRuleViolation"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    get:
+      operationId: getRole
+      tags:
+        - iam
+      summary: "Get a role"
+      description: "Permission: `iam.role.read`."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - TOTP_ENROLMENT_REQUIRED
+        - RATE_LIMITED
+        - NOT_FOUND
+      x-permission: iam.role.read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - staffSession: []
+        - apiKey: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Role"
+              example:
+                id: "019a7a94-7270-7ff3-852b-0805a18d80e3"
+                code: CASHIER
+                name: Cashier
+                isSystem: true
+                requiresTotp: false
+                permissions:
+                  - pos.sale.create
+                  - pos.shift.open
+                  - pos.shift.close
+                  - pay.payment.create
+                limits:
+                  - limitKind: PRICE_OVERRIDE_PER_LINE
+                    amountPesewas: 5000
+                  - limitKind: PRICE_OVERRIDE_PER_SHIFT
+                    amountPesewas: 20000
+                userCount: 2
+                version: 2
+                createdAt: "2026-11-01T08:00:00Z"
+                updatedAt: "2026-11-10T15:00:00Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "429":
           $ref: "#/components/responses/RateLimited"
         "500":
@@ -2990,7 +3022,14 @@ paths:
       tags:
         - iam
       summary: "List approval requests (the approval inbox)"
-      description: "Permission: `iam.approval.read`."
+      description: "Newest first. Lists the requests at the branches where a branch-wide grant gives you `iam.approval.read` (1.11.0). `decidableByMe=true` keeps the pending, unlapsed requests of others whose policy permission you hold at their branch; `requestedByMe=true` keeps your own. A pending request past `expiresAt` shows as `EXPIRED`. `subject.number` is null until the document registry carries numbers (B8), and `evidenceFileId` until the file store exists.\n\nPermission: `iam.approval.read`."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - TOTP_ENROLMENT_REQUIRED
+        - RATE_LIMITED
       x-permission: iam.approval.read
       parameters:
         - name: status
@@ -3192,7 +3231,15 @@ paths:
       tags:
         - iam
       summary: "Get an approval request"
-      description: "Permission: `iam.approval.read`."
+      description: "Refused with 403 at a branch where you do not hold `iam.approval.read` (1.11.0).\n\nPermission: `iam.approval.read`."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - TOTP_ENROLMENT_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
       x-permission: iam.approval.read
       parameters:
         - name: id
@@ -3254,7 +3301,24 @@ paths:
       tags:
         - iam
       summary: "Approve a request"
-      description: "Refused with 422 `MAKER_CANNOT_CHECK` when the caller made the request; the database enforces the same rule. The subject action takes effect in the same transaction as the approval. Some kinds require step-up.\n\nPermission: `the approving permission named by the approval policy for the kind`."
+      description: "You need `iam.approval.read` and the permission the kind's policy names at the request's branch (403 `FORBIDDEN`), and a step-up when the policy or that permission asks for one (403 `STEP_UP_REQUIRED`). Refused with 422 `MAKER_CANNOT_CHECK` when the caller made the request; the database enforces the same rule. A decided or withdrawn request is 422 `APPROVAL_ALREADY_DECIDED`, a lapsed one 422 `APPROVAL_EXPIRED`, and one whose subject changed since it was asked 422 `APPROVAL_SUBJECT_CHANGED`. The subject action takes effect in the same transaction as the approval, and the decision is audited and published as `iam.ApprovalDecided` (1.11.0).\n\nPermission: `the approving permission named by the approval policy for the kind`."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - TOTP_ENROLMENT_REQUIRED
+        - STEP_UP_REQUIRED
+        - NOT_FOUND
+        - MAKER_CANNOT_CHECK
+        - APPROVAL_ALREADY_DECIDED
+        - APPROVAL_EXPIRED
+        - APPROVAL_SUBJECT_CHANGED
+        - RATE_LIMITED
       x-permission: "the approving permission named by the approval policy for the kind"
       parameters:
         - name: id
@@ -3332,7 +3396,23 @@ paths:
       tags:
         - iam
       summary: "Reject a request"
-      description: "Permission: `the approving permission named by the approval policy for the kind`."
+      description: "The same checker rules as `approveRequest`; the reason is required. The owning module undoes any pending effect in the same transaction (1.11.0).\n\nPermission: `the approving permission named by the approval policy for the kind`."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - TOTP_ENROLMENT_REQUIRED
+        - STEP_UP_REQUIRED
+        - NOT_FOUND
+        - MAKER_CANNOT_CHECK
+        - APPROVAL_ALREADY_DECIDED
+        - APPROVAL_EXPIRED
+        - RATE_LIMITED
       x-permission: "the approving permission named by the approval policy for the kind"
       parameters:
         - name: id
@@ -3408,7 +3488,21 @@ paths:
       tags:
         - iam
       summary: "Withdraw my own pending request"
-      description: "Permission: `iam.approval.cancel.own`."
+      description: "Only the person who made the request withdraws it (403 `FORBIDDEN` for anyone else, audited). A decided or withdrawn request is 422 `APPROVAL_ALREADY_DECIDED`, a lapsed one 422 `APPROVAL_EXPIRED`. The status becomes `CANCELLED` with your reason, and the owning module undoes any pending effect in the same transaction (1.11.0).\n\nPermission: `iam.approval.cancel.own`."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - TOTP_ENROLMENT_REQUIRED
+        - NOT_FOUND
+        - APPROVAL_ALREADY_DECIDED
+        - APPROVAL_EXPIRED
+        - RATE_LIMITED
       x-permission: iam.approval.cancel.own
       parameters:
         - name: id

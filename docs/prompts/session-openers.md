@@ -24,7 +24,7 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B04d continued 2 | `B04d2-parties-locations.md` | `b04d2-parties-locations` | B4 to B12 | Every branch, location, customer and assignment write refuses the wrong role; branches, locations and customers are seeded through services, and nothing in the MDM seed is written as SQL (built; the session split, A-114) |
 | B04d continued 3 | `B04d3-reference-data.md` | `b04d3-reference-data` | B4 to B12 | Every remaining master data write refuses the wrong role; reason codes are a fixed list; `quoteDelivery` returns a zone's exact fee or "delivery unavailable"; the payment methods, zones and their seed are written through services (built) |
 | B4 continued (e) | `B04e-iam-carry-overs.md` | `b04e-iam-carry-overs` | B4 to B12 | User, role-reading and grant administration refuse the wrong role; the IAM seed is written through the IAM services (built; the session split, A-121) |
-| B04e continued | `B04e2-auth-approvals.md` | `b04e2-auth-approvals` | B4 to B12 | Role writes, the approval endpoints, customer registration and phone verification, and password reset with CR-004 point 3's error codes are live, each with a wrong-role refusal |
+| B04e continued | `B04e2-auth-approvals.md` | `b04e2-auth-approvals` | B4 to B12 | Role writes, the approval endpoints, customer registration and phone verification, and password reset with CR-004 point 3's error codes are live, each with a wrong-role refusal (built) |
 | B04e continued 2 | `B04e3-file-store-imports.md` | `b04e3-file-store-imports` | B4 to B12 | The file store with uploads, the malware scanner and `evidence_file_id` are live, each with a wrong-role refusal; MDM's imports and exports run with a dry run |
 | B5 | `B05-inventory-ledger.md` | `b05-inventory-ledger` | B4 to B12 | On-hand from movements matches a hand count; stock cannot go negative outside allowed types; a lot traces both ways |
 | B6 | `B06-livestock-processing.md` | `b06-livestock-processing` | B4 to B12 | A processing order produces lots whose costs sum exactly to input cost plus direct processing cost |
@@ -327,6 +327,8 @@ against b04d3-reference-data.
 ```
 
 ## B04e continued — Roles, approvals and the customer realm
+
+**Built** (contract 1.11.0, A-122, A-123): the whole gate, with no split. The opener below is kept as it was run.
 
 Branch `b04e2-auth-approvals`, from `b04e-iam-carry-overs` (stacked; nothing is merged until the owner approves). Report `docs/sessions/B04e2-auth-approvals.md`. B04e built user, role-reading and grant administration (contract 1.10.0, A-120) and moved the IAM seed onto the services (ADR-0043), then split at that sub-domain boundary (A-121, ADR-0026 Amendments). Gate: `createRole` and `updateRole` (step-up, system roles not deletable), `listApprovals`, `getApproval`, `approveRequest`, `rejectRequest` and `cancelApprovalRequest` over the existing mechanism, `registerCustomer` and `verifyCustomerPhone` (FR-IAM-019: an identical answer for a known phone, a 6th wrong code refused even if correct), and `requestPasswordReset` and `resetPassword` (FR-IAM-020, with CR-004 point 3's named error codes for a wrong, used or expired token) are live, each write with a wrong-role refusal.
 

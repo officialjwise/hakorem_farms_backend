@@ -1,0 +1,93 @@
+operationId: updateRole
+tags:
+  - iam
+summary: "Change a role's permissions or limits"
+description: "`permissions` and `limits`, when sent, replace the whole set; a removed permission or limit is soft-deleted with the actor (1.11.0). Nobody changes a role they hold, or adds or removes a permission they do not hold (403 `FORBIDDEN`). The Owner, Manager and Accountant roles keep `requiresTotp` (`TOTP_REQUIRED_FOR_ROLE`); an unknown permission code (`UNKNOWN_PERMISSION`) or one limit kind twice (`DUPLICATE_LIMIT_KIND`) is 422 `ROLE_INVALID`. No role is ever deleted, and the database refuses deleting a system role. A stale `version` is 409 `VERSION_CONFLICT`. Audited as `PERMISSION_CHANGE` with the role before and after, and published as `iam.RoleChanged`.\n\nPermission: `iam.role.manage`.\\n\\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - TOTP_ENROLMENT_REQUIRED
+  - STEP_UP_REQUIRED
+  - NOT_FOUND
+  - VERSION_CONFLICT
+  - ROLE_INVALID
+  - RATE_LIMITED
+x-permission: iam.role.manage
+x-requires-step-up: true
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/RoleUpdate"
+      example:
+        version: 2
+        limits:
+          - limitKind: PRICE_OVERRIDE_PER_LINE
+            amountPesewas: 3000
+          - limitKind: PRICE_OVERRIDE_PER_SHIFT
+            amountPesewas: 15000
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Role"
+        example:
+          id: "019a7a94-7270-7ff3-852b-0805a18d80e3"
+          code: CASHIER
+          name: Cashier
+          isSystem: true
+          requiresTotp: false
+          permissions:
+            - pos.sale.create
+            - pos.shift.open
+            - pos.shift.close
+            - pay.payment.create
+          limits:
+            - limitKind: PRICE_OVERRIDE_PER_LINE
+              amountPesewas: 5000
+            - limitKind: PRICE_OVERRIDE_PER_SHIFT
+              amountPesewas: 20000
+          userCount: 2
+          version: 2
+          createdAt: "2026-11-01T08:00:00Z"
+          updatedAt: "2026-11-10T15:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

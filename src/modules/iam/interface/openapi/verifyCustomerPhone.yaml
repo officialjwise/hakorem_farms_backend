@@ -1,0 +1,38 @@
+operationId: verifyCustomerPhone
+tags:
+  - auth
+summary: "Verify a customer phone number with the SMS code"
+security: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/PhoneVerification"
+      example:
+        challengeToken: hk1.ch.eyJwaG9uZSI6IjIzMyJ9.dmVy
+        code: "730194"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/LoginResult"
+        example:
+          status: TOTP_REQUIRED
+          challengeToken: hk1.ch.eyJzdWIiOiIwMTlhN2MifQ.d2Fp
+          session: null
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

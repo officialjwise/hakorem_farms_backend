@@ -83,6 +83,13 @@ const environmentSchema = z
     JWT_PUBLIC_KEYS: jsonObjectOfStrings.optional(),
     HIBP_ENABLED: booleanFlag.default(true),
     HIBP_BASE_URL: z.string().url().default('https://api.pwnedpasswords.com/range'),
+    // Messaging (docs/OPERATIONS.md section 3.6): one-time codes go out by SMS from B04e continued. `capture` sends
+    // nothing and logs a masked line; `live` and `sandbox` need the provider's URL and key.
+    MESSAGING_MODE: z.enum(['live', 'sandbox', 'capture']).default('capture'),
+    SMS_BASE_URL: z.string().url().optional(),
+    SMS_API_KEY: z.string().min(16).optional(),
+    SMS_SENDER_ID: z.string().regex(/^[A-Za-z0-9 ]{1,11}$/).default('HaKorem'),
+    SMS_TIMEOUT_MS: z.coerce.number().int().min(500).max(30_000).default(5_000),
     // Object storage (docs/OPERATIONS.md section 3.5). Required by the worker from B3 (audit anchors), by the API from B4.
     S3_ENDPOINT: z.string().url().optional(),
     S3_REGION: z.string().min(1).default('us-east-1'),
@@ -118,6 +125,14 @@ const environmentSchema = z
     }
     if (deployed && env.NODE_ENV !== 'production') {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['NODE_ENV'], message: 'must be production in staging and production' });
+    }
+    if (env.MESSAGING_MODE !== 'capture') {
+      for (const key of ['SMS_BASE_URL', 'SMS_API_KEY'] as const) {
+        require(key, 'is required unless MESSAGING_MODE is capture');
+      }
+    }
+    if (env.APP_ENV === 'production' && env.MESSAGING_MODE !== 'live') {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['MESSAGING_MODE'], message: 'must be live in production, or customers get no codes' });
     }
     if (env.APP_ROLE === 'api') {
       require('DATABASE_URL_APP', 'is required by the API');

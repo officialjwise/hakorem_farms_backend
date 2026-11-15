@@ -1,0 +1,68 @@
+operationId: getApproval
+tags:
+  - iam
+summary: "Get an approval request"
+description: "Refused with 403 at a branch where you do not hold `iam.approval.read` (1.11.0).\n\nPermission: `iam.approval.read`."
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - TOTP_ENROLMENT_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+x-permission: iam.approval.read
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ApprovalRequest"
+        example:
+          id: "019a7a98-3161-727e-b7b7-30bd5dfca99b"
+          kind: SALE_VOID
+          status: PENDING
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          subject:
+            id: "019a7a98-5050-7c62-819a-cef4d7ad47d2"
+            docType: SALES_ORDER
+            number: SO-2026-DDW-004198
+          summary: "Void sale of GHS 1,275.00: customer changed mind, goat returned to pen"
+          amountPesewas: 127500
+          currency: GHS
+          evidenceFileId: null
+          requestedBy:
+            id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+            displayName: "Adwoa Darko"
+          requestedAt: "2026-11-13T08:00:00Z"
+          decidedBy: null
+          decidedAt: null
+          decisionReason: null
+          expiresAt: "2026-11-14T18:00:00Z"
+          canDecide: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

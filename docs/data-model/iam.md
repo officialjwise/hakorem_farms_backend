@@ -36,6 +36,7 @@ Login details for a person.
 | `failed_attempts` | `integer` | NOT NULL DEFAULT 0 | Lockout backoff |
 | `locked_until` | `timestamptz` | NULL | Lockout |
 | `last_login_at` | `timestamptz` | NULL | |
+| `phone_verified_at` | `timestamptz` | NULL | When the phone was proved by an SMS code; a customer account signs in only once it is set (migration 0032, FR-IAM-019) |
 
 Standard columns: `MASTER`.
 
@@ -122,6 +123,9 @@ One-time tokens for password reset, phone and email verification and login codes
 | `expires_at` | `timestamptz` | NOT NULL | |
 | `attempts` | `integer` | NOT NULL DEFAULT 0 | Caps guessing |
 | `consumed_at` | `timestamptz` | NULL | Single use |
+| `code_hash` | `bytea` | NULL, CHECK length 32 | HMAC of a `PHONE_VERIFY` six-digit code, keyed from `LOOKUP_HMAC_KEY`; null for a reset token and for the challenge a known phone gets at registration, which no code passes (migration 0032, A-123) |
+
+- `PASSWORD_RESET` and `PHONE_VERIFY` rows are created by B04e continued: a new one spends the principal's open ones of the same purpose (index on `principal_id`, `purpose` where unused).
 
 ### `iam.api_credential` · MASTER
 
@@ -175,8 +179,11 @@ Which permissions a role contains.
 | `permission_code` | `text` | NOT NULL, FK `iam.permission` | |
 | `created_at` | `timestamptz` | NOT NULL DEFAULT `now()` | |
 | `created_by` | `uuid` | NOT NULL, FK `iam.principal` | |
+| `updated_at` | `timestamptz` | NOT NULL DEFAULT `now()` | Migration 0030 |
+| `updated_by` | `uuid` | NULL, FK `iam.principal` | Who last removed or restored the link |
+| `deleted_at`, `deleted_by`, `delete_reason` | | NULL, set together | Soft deletion |
 
-- PK (`role_id`, `permission_code`). Removal is a hard delete of the link, with the before state in the audit log.
+- PK (`role_id`, `permission_code`). From migration 0030 (A-122) removal is a soft deletion of the link with actor and reason, as ADR-0024 requires of a MASTER table, and adding the permission back restores the row; the audit log holds the role before and after. Every reader filters `deleted_at IS NULL`.
 
 ### `iam.role_limit` · MASTER
 

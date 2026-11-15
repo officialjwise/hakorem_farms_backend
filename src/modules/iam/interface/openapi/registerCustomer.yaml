@@ -1,0 +1,39 @@
+operationId: registerCustomer
+tags:
+  - auth
+summary: "Register a customer account"
+security: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/CustomerRegistration"
+      example:
+        name: "Grace Nyarko"
+        phone: "+233249903118"
+        email: "grace.nyarko@example.com"
+        password: Waakye-on-Sunday-31
+        marketingConsent: false
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/LoginResult"
+        example:
+          status: VERIFICATION_REQUIRED
+          challengeToken: hk1.ch.eyJwaG9uZSI6IjIzMyJ9.dmVy
+          session: null
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

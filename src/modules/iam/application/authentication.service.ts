@@ -30,6 +30,7 @@ import type {
   ScopeNames,
   SessionRecord,
 } from './ports';
+import type { PhoneCodes } from './phone-codes';
 import type { ChallengeStatus, GrantSummaryView, IssuedSession, LoginOutcome, SessionInfoView } from './session-view';
 
 export interface AuthenticationSettings {
@@ -147,6 +148,7 @@ export class AuthenticationService {
     private readonly clock: Clock,
     private readonly logger: Logger,
     private readonly settings: AuthenticationSettings,
+    private readonly phoneCodes: PhoneCodes,
   ) {
     this.nextId = createUuidV7Generator(clock);
     this.csrfKey = createHmac('sha256', settings.lookupKey).update('hk-csrf-v1').digest();
@@ -201,7 +203,23 @@ export class AuthenticationService {
       throw new InvalidCredentialsError('wrong identifier or password');
     }
     await this.throttle.reset(realm, throttleKey);
-    return this.uow.run({ isolation: 'serializable' }, (tx) => this.afterPassword(tx, account!, input.deviceLabel ?? null));
+    const outcome = await this.uow.run({ isolation: 'serializable' }, (tx) => this.afterPassword(tx, account!, input.deviceLabel ?? null));
+    if (outcome.kind === 'CHALLENGE' && outcome.message !== undefined) {
+      this.phoneCodes.deliver(outcome.message);
+    }
+    return outcome;
+  }
+
+  /**
+   * The rest of a login once something other than the password has proved the person (a phone code, FR-IAM-019): the
+   * same steps as after a correct password, in the caller's transaction.
+   */
+  async continueLogin(tx: Transaction, principalId: string, deviceLabel: string | null): Promise<LoginOutcome> {
+    const account = await this.store.accountById(tx, principalId);
+    if (account === null || account.principalStatus !== 'ACTIVE') {
+      throw new ChallengeExpiredError('the account is no longer active');
+    }
+    return this.afterPassword(tx, account, deviceLabel);
   }
 
   async verifyTotp(challengeToken: string, code: string): Promise<IssuedSession> {
@@ -479,6 +497,11 @@ export class AuthenticationService {
   // ---------------------------------------------------------------- internals
 
   private async afterPassword(tx: Transaction, account: AccountRecord, deviceLabel: string | null): Promise<LoginOutcome> {
+    if (account.realm === 'CUSTOMER' && account.phoneVerifiedAt === null && account.phone !== null) {
+      // A customer whose phone is not yet proved gets a fresh code instead of a session (FR-IAM-019, A-123).
+      const issued = await this.phoneCodes.issue(tx, account.principalId, account.phone, deviceLabel, true);
+      return { kind: 'CHALLENGE', status: 'VERIFICATION_REQUIRED', challengeToken: issued.challengeToken, message: issued.message };
+    }
     if (account.mustChangePassword) {
       return this.challenge(tx, account, 'LOGIN_PASSWORD_CHANGE', deviceLabel);
     }

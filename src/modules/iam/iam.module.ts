@@ -42,6 +42,16 @@ import { UqrQrCodes } from './infrastructure/uqr-qr-codes';
 import { PRINCIPAL_NAMES } from './application/principal-names';
 import { RedisLoginThrottle } from './infrastructure/redis-login-throttle';
 import { AccessController } from './interface/access.controller';
+import { ApprovalsController } from './interface/approvals.controller';
+import { ApprovalInbox } from './application/approval-inbox';
+import { RoleAdmin } from './application/role-admin';
+import { DocumentRegistry } from '../../platform/documents/document-registry';
+import { RateLimiter } from '../../platform/http/rate-limiter';
+import { SMS_CHANNEL, type NotificationChannel } from '../../platform/notifications/notification-channel';
+import { PhoneCodes } from './application/phone-codes';
+import { SelfService } from './application/self-service';
+import { SELF_SERVICE_STORE, type SelfServiceStore } from './application/self-service-store';
+import { PgSelfServiceStore } from './infrastructure/pg-self-service-store';
 import { AuthController } from './interface/auth.controller';
 import { AuthenticationGuard } from './interface/authentication.guard';
 import { SessionsController } from './interface/sessions.controller';
@@ -61,11 +71,18 @@ const BREACHED_LOOKUP_TIMEOUT_MS = 2_000;
  * every module passes through it.
  */
 @Module({
-  controllers: [AuthController, SessionsController, AccessController],
+  controllers: [AuthController, SessionsController, AccessController, ApprovalsController],
   providers: [
     { provide: IAM_STORE, useClass: PgIamStore },
     { provide: APPROVAL_STORE, useClass: PgApprovalStore },
     { provide: ACCESS_STORE, useClass: PgAccessStore },
+    { provide: SELF_SERVICE_STORE, useClass: PgSelfServiceStore },
+    {
+      provide: PhoneCodes,
+      useFactory: (store: SelfServiceStore, sms: NotificationChannel, clock: Clock, logger: Logger, config: AppConfig) =>
+        new PhoneCodes(store, sms, clock, logger, Buffer.from(config.LOOKUP_HMAC_KEY, 'base64')),
+      inject: [SELF_SERVICE_STORE, SMS_CHANNEL, CLOCK, LOGGER, APP_CONFIG],
+    },
     { provide: PRINCIPAL_NAMES, useClass: PgPrincipalNames },
     { provide: QR_CODES, useClass: UqrQrCodes },
     {
@@ -117,6 +134,7 @@ const BREACHED_LOOKUP_TIMEOUT_MS = 2_000;
         clock: Clock,
         logger: Logger,
         config: AppConfig,
+        phoneCodes: PhoneCodes,
       ) =>
         new AuthenticationService(uow, store, hasher, tokens, breached, qrCodes, throttle, scopeNames, subjectKeys, audit, clock, logger, {
           accessTtlSeconds: config.AUTH_ACCESS_TTL_SECONDS,
@@ -128,8 +146,8 @@ const BREACHED_LOOKUP_TIMEOUT_MS = 2_000;
             CUSTOMER: { idleSeconds: config.AUTH_CUSTOMER_REFRESH_IDLE_SECONDS, absoluteSeconds: config.AUTH_CUSTOMER_REFRESH_ABSOLUTE_SECONDS },
             INVESTOR: { idleSeconds: config.AUTH_CUSTOMER_REFRESH_IDLE_SECONDS, absoluteSeconds: config.AUTH_CUSTOMER_REFRESH_ABSOLUTE_SECONDS },
           },
-        }),
-      inject: [UnitOfWork, IAM_STORE, PASSWORD_HASHER, ACCESS_TOKENS, BREACHED_PASSWORDS, QR_CODES, LOGIN_THROTTLE, ScopeNamesRegistry, SubjectKeys, AuditTrail, CLOCK, LOGGER, APP_CONFIG],
+        }, phoneCodes),
+      inject: [UnitOfWork, IAM_STORE, PASSWORD_HASHER, ACCESS_TOKENS, BREACHED_PASSWORDS, QR_CODES, LOGIN_THROTTLE, ScopeNamesRegistry, SubjectKeys, AuditTrail, CLOCK, LOGGER, APP_CONFIG, PhoneCodes],
     },
     {
       provide: SessionsService,
@@ -161,6 +179,45 @@ const BREACHED_LOOKUP_TIMEOUT_MS = 2_000;
         clock: Clock,
       ) => new AccessAdmin(uow, store, iamStore, authoriser, idempotency, cursors, audit, events, hasher, throttle, scopeNames, subjectKeys, clock),
       inject: [UnitOfWork, ACCESS_STORE, IAM_STORE, Authoriser, Idempotency, Cursors, AuditTrail, DomainEvents, PASSWORD_HASHER, LOGIN_THROTTLE, ScopeNamesRegistry, SubjectKeys, CLOCK],
+    },
+    {
+      provide: SelfService,
+      useFactory: (
+        uow: UnitOfWork,
+        store: SelfServiceStore,
+        iamStore: IamStore,
+        authentication: AuthenticationService,
+        phoneCodes: PhoneCodes,
+        hasher: PasswordHasher,
+        breached: BreachedPasswords,
+        throttle: LoginThrottle,
+        limiter: RateLimiter,
+        audit: AuditTrail,
+        events: DomainEvents,
+        clock: Clock,
+        config: AppConfig,
+      ) => new SelfService(uow, store, iamStore, authentication, phoneCodes, hasher, breached, throttle, limiter, audit, events, clock, Buffer.from(config.LOOKUP_HMAC_KEY, 'base64')),
+      inject: [UnitOfWork, SELF_SERVICE_STORE, IAM_STORE, AuthenticationService, PhoneCodes, PASSWORD_HASHER, BREACHED_PASSWORDS, LOGIN_THROTTLE, RateLimiter, AuditTrail, DomainEvents, CLOCK, APP_CONFIG],
+    },
+    {
+      provide: RoleAdmin,
+      useFactory: (uow: UnitOfWork, store: AccessStore, authoriser: Authoriser, idempotency: Idempotency, audit: AuditTrail, events: DomainEvents, clock: Clock) =>
+        new RoleAdmin(uow, store, authoriser, idempotency, audit, events, clock),
+      inject: [UnitOfWork, ACCESS_STORE, Authoriser, Idempotency, AuditTrail, DomainEvents, CLOCK],
+    },
+    {
+      provide: ApprovalInbox,
+      useFactory: (
+        uow: UnitOfWork,
+        approvals: Approvals,
+        store: ApprovalStore,
+        authoriser: Authoriser,
+        idempotency: Idempotency,
+        cursors: Cursors,
+        documents: DocumentRegistry,
+        clock: Clock,
+      ) => new ApprovalInbox(uow, approvals, store, authoriser, idempotency, cursors, documents, clock),
+      inject: [UnitOfWork, Approvals, APPROVAL_STORE, Authoriser, Idempotency, Cursors, DocumentRegistry, CLOCK],
     },
     AuthenticationGuard,
     { provide: APP_GUARD, useExisting: AuthenticationGuard },

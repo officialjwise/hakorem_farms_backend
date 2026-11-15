@@ -1,3 +1,4 @@
+import type { OutgoingMessage } from '../../../platform/notifications/notification-channel';
 import type { Realm } from '../../../platform/context/request-context';
 
 /** The contract's `GrantSummary`. */
@@ -35,11 +36,17 @@ export interface IssuedSession {
   readonly refreshExpiresAt: Date;
 }
 
-export type ChallengeStatus = 'TOTP_REQUIRED' | 'TOTP_ENROLMENT_REQUIRED' | 'PASSWORD_CHANGE_REQUIRED';
+export type ChallengeStatus = 'TOTP_REQUIRED' | 'TOTP_ENROLMENT_REQUIRED' | 'PASSWORD_CHANGE_REQUIRED' | 'VERIFICATION_REQUIRED';
 
 export type LoginOutcome =
   | { readonly kind: 'AUTHENTICATED'; readonly issued: IssuedSession }
-  | { readonly kind: 'CHALLENGE'; readonly status: ChallengeStatus; readonly challengeToken: string };
+  | {
+      readonly kind: 'CHALLENGE';
+      readonly status: ChallengeStatus;
+      readonly challengeToken: string;
+      /** A code to send once the transaction has committed (VERIFICATION_REQUIRED); never shown to the client. */
+      readonly message?: OutgoingMessage;
+    };
 
 /** The contract's `SessionRecord`, one row of the device list. */
 export interface SessionRecordView {

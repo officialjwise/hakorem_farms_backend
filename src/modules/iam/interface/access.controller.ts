@@ -6,6 +6,7 @@ import { CurrentActor } from '../../../platform/http/actor-param';
 import { IdempotencyKeyHeader, Operation } from '../../../platform/http/operation';
 import { zodPipe } from '../../../platform/http/validation';
 import type { StoredResponse } from '../../../platform/idempotency/idempotency';
+import { RoleAdmin } from '../application/role-admin';
 import { AccessAdmin, type Page, type PermissionView, type RoleGrantView, type RoleView, type UserAccountView, type UserCreatedView } from '../application/access-admin';
 import {
   GrantCreate,
@@ -15,6 +16,8 @@ import {
   ListRolesQuery,
   ListUsersQuery,
   ReasonRequest,
+  RoleCreate,
+  RoleUpdate,
   UserCreate,
   UserUpdate,
 } from './schemas';
@@ -29,12 +32,15 @@ async function reply<T>(res: Response, pending: Promise<StoredResponse<T>>): Pro
 }
 
 /**
- * User accounts, roles and permissions read, and role grants (FR-IAM-001, FR-IAM-008, FR-IAM-015, FR-IAM-017,
+ * User accounts, roles and permissions, and role grants (FR-IAM-001, FR-IAM-008, FR-IAM-015, FR-IAM-017,
  * FR-IAM-022). The controller parses and delegates; AccessAdmin authorises and decides.
  */
 @Controller('iam')
 export class AccessController {
-  constructor(@Inject(AccessAdmin) private readonly admin: AccessAdmin) {}
+  constructor(
+    @Inject(AccessAdmin) private readonly admin: AccessAdmin,
+    @Inject(RoleAdmin) private readonly roles: RoleAdmin,
+  ) {}
 
   @Get('users')
   @Operation({ operationId: 'listUsers', ...READ, permission: 'iam.user.read' })
@@ -123,6 +129,29 @@ export class AccessController {
   @Operation({ operationId: 'listRoles', ...READ, permission: 'iam.role.read' })
   listRoles(@CurrentActor() actor: Actor | undefined, @Query(zodPipe(ListRolesQuery)) query: z.infer<typeof ListRolesQuery>): Promise<Page<RoleView>> {
     return this.admin.listRoles(actor, query.cursor, query.limit);
+  }
+
+  @Post('roles')
+  @Operation({ operationId: 'createRole', ...WRITE, permission: 'iam.role.manage' })
+  createRole(
+    @CurrentActor() actor: Actor | undefined,
+    @Body(zodPipe(RoleCreate)) body: z.infer<typeof RoleCreate>,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<RoleView> {
+    return reply(res, this.roles.createRole(actor, body, key));
+  }
+
+  @Patch('roles/:id')
+  @Operation({ operationId: 'updateRole', ...WRITE, permission: 'iam.role.manage' })
+  updateRole(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(RoleUpdate)) body: z.infer<typeof RoleUpdate>,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<RoleView> {
+    return reply(res, this.roles.updateRole(actor, id, body, key));
   }
 
   @Get('roles/:id')

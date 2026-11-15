@@ -10,12 +10,24 @@ import { AuthenticationService, type AccountCaller, type TotpEnrolmentView } fro
 import type { IssuedSession, LoginOutcome, SessionInfoView } from '../application/session-view';
 import { clearSessionCookies, readCookies, REALMS, refreshCookieName, setSessionCookies } from './cookies';
 import { requestedRealm, type GuardedRequest } from './authentication.guard';
-import { LoginRequest, PasswordChangeRequest, StepUpRequest, TotpCodeRequest, TotpEnrolmentStart, TotpVerifyRequest } from './schemas';
+import {
+  CustomerRegistration,
+  LoginRequest,
+  PasswordChangeRequest,
+  PasswordResetConfirm,
+  PasswordResetRequest,
+  PhoneVerification,
+  StepUpRequest,
+  TotpCodeRequest,
+  TotpEnrolmentStart,
+  TotpVerifyRequest,
+} from './schemas';
+import { SelfService } from '../application/self-service';
 import type { z } from 'zod';
 
 /** The contract's `LoginResult`. */
 interface LoginResult {
-  readonly status: 'AUTHENTICATED' | 'TOTP_REQUIRED' | 'TOTP_ENROLMENT_REQUIRED' | 'PASSWORD_CHANGE_REQUIRED';
+  readonly status: 'AUTHENTICATED' | 'TOTP_REQUIRED' | 'TOTP_ENROLMENT_REQUIRED' | 'PASSWORD_CHANGE_REQUIRED' | 'VERIFICATION_REQUIRED';
   readonly challengeToken: string | null;
   readonly session: SessionInfoView | null;
 }
@@ -30,6 +42,9 @@ function callerOf(req: GuardedRequest, challengeToken: string | undefined): Acco
   throw new UnauthenticatedError('neither a session nor a login challenge');
 }
 
+/** The one answer to every reset request, known account or not (FR-IAM-020). */
+const RESET_ACCEPTED = 'If the account exists, a reset code has been sent.';
+
 const PUBLIC_AUTH = { access: 'PUBLIC', realms: [], permission: null, idempotent: false, csrf: false, rateLimit: 'auth' } as const;
 const OWN_ACCOUNT = { access: 'SESSION', realms: REALMS, permission: null, idempotent: false, csrf: true, rateLimit: 'auth' } as const;
 
@@ -42,6 +57,7 @@ export class AuthController {
   constructor(
     @Inject(AuthenticationService) private readonly authentication: AuthenticationService,
     @Inject(CLOCK) private readonly clock: Clock,
+    @Inject(SelfService) private readonly selfService: SelfService,
   ) {}
 
   @Post('staff/login')
@@ -148,8 +164,41 @@ export class AuthController {
     return this.authentication.stepUp(req.hkAuth!, body.code);
   }
 
+  @Post('password/reset-request')
+  @HttpCode(202)
+  @Operation({ operationId: 'requestPasswordReset', ...PUBLIC_AUTH })
+  async requestPasswordReset(@Body(zodPipe(PasswordResetRequest)) body: z.infer<typeof PasswordResetRequest>): Promise<{ status: 'ACCEPTED'; message: string }> {
+    await this.selfService.requestPasswordReset(body);
+    return { status: 'ACCEPTED', message: RESET_ACCEPTED };
+  }
+
+  @Post('password/reset')
+  @HttpCode(204)
+  @Operation({ operationId: 'resetPassword', ...PUBLIC_AUTH })
+  async resetPassword(@Body(zodPipe(PasswordResetConfirm)) body: z.infer<typeof PasswordResetConfirm>): Promise<void> {
+    await this.selfService.resetPassword(body.token, body.newPassword);
+  }
+
+  @Post('customer/register')
+  @HttpCode(201)
+  @Operation({ operationId: 'registerCustomer', ...PUBLIC_AUTH })
+  async registerCustomer(@Body(zodPipe(CustomerRegistration)) body: z.infer<typeof CustomerRegistration>): Promise<LoginResult> {
+    const { challengeToken } = await this.selfService.registerCustomer(body);
+    return { status: 'VERIFICATION_REQUIRED', challengeToken, session: null };
+  }
+
+  @Post('customer/verify-phone')
+  @HttpCode(200)
+  @Operation({ operationId: 'verifyCustomerPhone', ...PUBLIC_AUTH })
+  async verifyCustomerPhone(@Body(zodPipe(PhoneVerification)) body: z.infer<typeof PhoneVerification>, @Res({ passthrough: true }) res: Response): Promise<LoginResult> {
+    return this.outcome(await this.selfService.verifyCustomerPhone(body.challengeToken, body.code), res);
+  }
+
   private async login(realm: Realm, body: z.infer<typeof LoginRequest>, res: Response): Promise<LoginResult> {
-    const outcome: LoginOutcome = await this.authentication.login(realm, body);
+    return this.outcome(await this.authentication.login(realm, body), res);
+  }
+
+  private outcome(outcome: LoginOutcome, res: Response): LoginResult {
     if (outcome.kind === 'CHALLENGE') {
       return { status: outcome.status, challengeToken: outcome.challengeToken, session: null };
     }

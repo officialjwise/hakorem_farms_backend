@@ -9,6 +9,9 @@ import { isSensitiveKey, REDACTED } from '../logging/log-scrubber';
 type Json = Record<string, unknown>;
 
 /** One audited action (ADR-0006). The actor, session, address and correlation id come from the request context. */
+/** Actions an anonymous caller can cause, recorded with no actor: a failed login, a reset asked for an unknown account. */
+const ANONYMOUS_ACTIONS: ReadonlySet<string> = new Set(['LOGIN_FAILED', 'PASSWORD_RESET_REQUESTED']);
+
 export interface AuditEntry {
   /** The module that acted, lower-case code. */
   readonly module: string;
@@ -106,7 +109,7 @@ export class AuditTrail {
   ): Promise<string> {
     const context = currentRequestContext();
     const actorId = entry.actorId !== undefined ? entry.actorId : (context?.actor?.principalId ?? null);
-    if (actorId === null && entry.action !== 'LOGIN_FAILED') {
+    if (actorId === null && !ANONYMOUS_ACTIONS.has(entry.action)) {
       throw new AuditActorMissingError(entry.action);
     }
     if (context === undefined) {

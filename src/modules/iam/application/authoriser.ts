@@ -14,6 +14,8 @@ export interface AuthoriseScope {
   readonly locationId?: string | null;
   /** Whose record it is, and the permission that lets the actor reach anyone's. */
   readonly owner?: { readonly principalId: string; readonly anyPermission: string };
+  /** Ask for a fresh step-up even if the permission is not marked so: an approval policy that requires one (A-122). */
+  readonly stepUp?: boolean;
 }
 
 const MILLISECONDS_PER_SECOND = 1_000;
@@ -58,15 +60,24 @@ export class Authoriser {
       await this.refuse(actor, permission, decision.reason, scope);
       throw new ForbiddenError(`${permission} refused: ${decision.reason}`);
     }
-    if ((await this.store.permissionRequiresStepUp(tx, permission)) === true) {
-      const totp = await this.store.totp(tx, actor.principalId);
-      if (totp === null || totp.confirmedAt === null) {
-        throw new TotpEnrolmentRequiredError(`${permission} needs a second factor`);
-      }
-      const fresh = actor.steppedUpAt !== null && now.getTime() - actor.steppedUpAt.getTime() <= this.stepUpTtlSeconds * MILLISECONDS_PER_SECOND;
-      if (!fresh) {
-        throw new StepUpRequiredError(`${permission} needs a step-up within ${this.stepUpTtlSeconds} s`);
-      }
+    if (scope.stepUp === true || (await this.store.permissionRequiresStepUp(tx, permission)) === true) {
+      await this.requireStepUp(tx, actor, permission);
+    }
+  }
+
+  /**
+   * A TOTP entered on this session within the step-up window (FR-IAM-007), for a permission marked so or an approval
+   * policy that asks for it. 403 `TOTP_ENROLMENT_REQUIRED` with no second factor, `STEP_UP_REQUIRED` when stale.
+   */
+  private async requireStepUp(tx: Transaction, actor: Actor, what: string): Promise<void> {
+    const totp = await this.store.totp(tx, actor.principalId);
+    if (totp === null || totp.confirmedAt === null) {
+      throw new TotpEnrolmentRequiredError(`${what} needs a second factor`);
+    }
+    const now = this.clock.now();
+    const fresh = actor.steppedUpAt !== null && now.getTime() - actor.steppedUpAt.getTime() <= this.stepUpTtlSeconds * MILLISECONDS_PER_SECOND;
+    if (!fresh) {
+      throw new StepUpRequiredError(`${what} needs a step-up within ${this.stepUpTtlSeconds} s`);
     }
   }
 

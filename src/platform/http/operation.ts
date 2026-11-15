@@ -34,7 +34,16 @@ export interface OperationSpec {
   readonly acceptsLoginChallenge?: boolean;
   /** A public route that a browser calls with a cookie (refresh): its Origin must be on the allow-list. */
   readonly originRequired?: boolean;
+  /**
+   * The permission is not one code but the one the approval policy names for the request's kind (approve and
+   * reject, A-122). `permission` is then null, the handler checks the policy's permission, and the contract's
+   * `x-permission` reads `POLICY_PERMISSION`.
+   */
+  readonly permissionByPolicy?: boolean;
 }
+
+/** The contract's `x-permission` text for an operation whose permission the approval policy names. */
+export const POLICY_PERMISSION = 'the approving permission named by the approval policy for the kind';
 
 const OPERATION_ID = /^[a-z][A-Za-z]+$/;
 const PERMISSION = /^[a-z]+\.[a-z_]+\.[a-z_.]+$/;
@@ -48,6 +57,9 @@ export function Operation(spec: OperationSpec): MethodDecorator {
   }
   if (spec.access === 'SESSION' && spec.realms.length === 0) {
     throw new Error(`${spec.operationId}: a session operation names at least one realm`);
+  }
+  if (spec.permissionByPolicy === true && (spec.permission !== null || spec.access !== 'SESSION')) {
+    throw new Error(`${spec.operationId}: a policy-named permission needs a session and no fixed permission`);
   }
   if (spec.access === 'PUBLIC' && (spec.permission !== null || spec.csrf)) {
     throw new Error(`${spec.operationId}: a public operation has no permission and no CSRF token`);

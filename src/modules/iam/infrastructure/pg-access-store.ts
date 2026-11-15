@@ -5,6 +5,7 @@ import type {
   GrantFilter,
   GrantRow,
   NewGrant,
+  NewRole,
   NewUser,
   PermissionRecord,
   RoleRecord,
@@ -223,7 +224,7 @@ export class PgAccessStore implements AccessStore {
   async permissionsAtScope(tx: Transaction, principalId: string, branchId: string, locationId: string | null, now: Date): Promise<Set<string>> {
     const { rows } = await tx.query<{ code: string }>(
       `SELECT DISTINCT rp.permission_code AS code
-         FROM iam.role_grant g JOIN iam.role r ON r.id = g.role_id JOIN iam.role_permission rp ON rp.role_id = r.id
+         FROM iam.role_grant g JOIN iam.role r ON r.id = g.role_id JOIN iam.role_permission rp ON rp.role_id = r.id AND rp.deleted_at IS NULL
          JOIN iam.principal p ON p.id = g.principal_id
         WHERE g.principal_id = $1 AND ${CURRENT_GRANT} AND p.status = 'ACTIVE'
           AND g.branch_id = $3 AND (g.location_id IS NULL OR g.location_id = $4::uuid)`,
@@ -299,6 +300,85 @@ export class PgAccessStore implements AccessStore {
     return rows.map((row) => ({ id: row.code, code: row.code, module: row.module, description: row.description, requiresStepUp: row.requires_step_up }));
   }
 
+  async permissionCodes(tx: Transaction, codes: readonly string[]): Promise<Set<string>> {
+    const { rows } = await tx.query<{ code: string }>('SELECT code FROM iam.permission WHERE code = ANY($1::text[])', [codes]);
+    return new Set(rows.map((row) => row.code));
+  }
+
+  async permissionsAnywhere(tx: Transaction, principalId: string, now: Date): Promise<Set<string>> {
+    const { rows } = await tx.query<{ code: string }>(
+      `SELECT DISTINCT rp.permission_code AS code
+         FROM iam.role_grant g JOIN iam.role r ON r.id = g.role_id JOIN iam.role_permission rp ON rp.role_id = r.id AND rp.deleted_at IS NULL
+         JOIN iam.principal p ON p.id = g.principal_id
+        WHERE g.principal_id = $1 AND ${CURRENT_GRANT} AND p.status = 'ACTIVE'`,
+      [principalId, now],
+    );
+    return new Set(rows.map((row) => row.code));
+  }
+
+  async holdsRole(tx: Transaction, principalId: string, roleId: string, now: Date): Promise<boolean> {
+    const { rowCount } = await tx.query(`SELECT 1 FROM iam.role_grant g JOIN iam.role r ON r.id = g.role_id WHERE g.principal_id = $1 AND ${CURRENT_GRANT} AND g.role_id = $3 LIMIT 1`, [principalId, now, roleId]);
+    return (rowCount ?? 0) > 0;
+  }
+
+  async lockRole(tx: Transaction, id: string): Promise<{ version: number } | null> {
+    const { rows } = await tx.query<{ version: number }>('SELECT version FROM iam.role WHERE id = $1 AND deleted_at IS NULL FOR UPDATE', [id]);
+    return rows[0] ?? null;
+  }
+
+  async insertRole(tx: Transaction, created: NewRole, actorId: string): Promise<void> {
+    await tx.query(
+      `INSERT INTO iam.role (id, code, name, is_system, requires_totp, created_by, updated_by) VALUES ($1, $2, $3, false, $4, $5, $5)`,
+      [created.id, created.code, created.name, created.requiresTotp, actorId],
+    );
+  }
+
+  async touchRole(tx: Transaction, id: string, version: number, set: { name: string; requiresTotp: boolean }, actorId: string): Promise<boolean> {
+    const { rowCount } = await tx.query(
+      `UPDATE iam.role SET name = $3, requires_totp = $4, version = version + 1, updated_by = $5
+        WHERE id = $1 AND version = $2 AND deleted_at IS NULL`,
+      [id, version, set.name, set.requiresTotp, actorId],
+    );
+    return (rowCount ?? 0) > 0;
+  }
+
+  async addRolePermission(tx: Transaction, roleId: string, code: string, actorId: string): Promise<void> {
+    await tx.query(
+      `INSERT INTO iam.role_permission (role_id, permission_code, created_by, updated_by) VALUES ($1, $2, $3, $3)
+       ON CONFLICT (role_id, permission_code) DO UPDATE
+          SET deleted_at = NULL, deleted_by = NULL, delete_reason = NULL, updated_at = now(), updated_by = $3
+        WHERE iam.role_permission.deleted_at IS NOT NULL`,
+      [roleId, code, actorId],
+    );
+  }
+
+  async removeRolePermission(tx: Transaction, roleId: string, code: string, reason: string, actorId: string): Promise<void> {
+    await tx.query(
+      `UPDATE iam.role_permission SET deleted_at = now(), deleted_by = $4, delete_reason = $3, updated_at = now(), updated_by = $4
+        WHERE role_id = $1 AND permission_code = $2 AND deleted_at IS NULL`,
+      [roleId, code, reason, actorId],
+    );
+  }
+
+  async setRoleLimit(tx: Transaction, roleId: string, limitKind: string, amountPesewas: bigint | null, reason: string, actorId: string): Promise<void> {
+    if (amountPesewas === null) {
+      await tx.query(
+        `UPDATE iam.role_limit SET deleted_at = now(), deleted_by = $4, delete_reason = $3, version = version + 1, updated_by = $4
+          WHERE role_id = $1 AND limit_kind = $2 AND deleted_at IS NULL`,
+        [roleId, limitKind, reason, actorId],
+      );
+      return;
+    }
+    await tx.query(
+      `INSERT INTO iam.role_limit (role_id, limit_kind, amount_pesewas, created_by, updated_by) VALUES ($1, $2, $3, $4, $4)
+       ON CONFLICT (role_id, limit_kind) DO UPDATE
+          SET amount_pesewas = EXCLUDED.amount_pesewas, deleted_at = NULL, deleted_by = NULL, delete_reason = NULL,
+              version = iam.role_limit.version + 1, updated_by = $4
+        WHERE iam.role_limit.amount_pesewas <> EXCLUDED.amount_pesewas OR iam.role_limit.deleted_at IS NOT NULL`,
+      [roleId, limitKind, amountPesewas.toString(), actorId],
+    );
+  }
+
   private async roles(tx: Transaction, tail: string, values: unknown[]): Promise<RoleRecord[]> {
     const { rows } = await tx.query<{
       id: string;
@@ -314,7 +394,7 @@ export class PgAccessStore implements AccessStore {
       updated_at: Date;
     }>(
       `SELECT r.id, r.code, r.name, r.is_system, r.requires_totp,
-              (SELECT array_agg(rp.permission_code ORDER BY rp.permission_code) FROM iam.role_permission rp WHERE rp.role_id = r.id) AS permissions,
+              (SELECT array_agg(rp.permission_code ORDER BY rp.permission_code) FROM iam.role_permission rp WHERE rp.role_id = r.id AND rp.deleted_at IS NULL) AS permissions,
               (SELECT json_agg(json_build_object('limitKind', l.limit_kind, 'amountPesewas', l.amount_pesewas::text) ORDER BY l.limit_kind)
                  FROM iam.role_limit l WHERE l.role_id = r.id AND l.deleted_at IS NULL) AS limits,
               (SELECT count(DISTINCT g.principal_id)::int FROM iam.role_grant g

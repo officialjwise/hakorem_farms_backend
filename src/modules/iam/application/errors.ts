@@ -25,7 +25,63 @@ registerMessages({
   'iam.user_rule': 'This change to the account is not allowed.',
   'iam.self_administration': 'You cannot change your own access. Ask another manager or the owner.',
   'iam.role_exceeds_granter': 'You can only give a role whose every permission you hold yourself at that branch.',
+  'iam.role_rule': 'This change to the role is not allowed.',
+  'iam.role_beyond_actor': 'You can only add or remove a permission you hold yourself.',
+  'iam.approval_not_requester': 'Only the person who made this request can withdraw it.',
+  'iam.verification_code_invalid': 'That code is not right. Check the SMS and try again.',
+  'iam.reset_token_invalid': 'This reset code is not right. Ask for a new one.',
+  'iam.reset_token_used': 'This reset code was already used. Ask for a new one if you need it.',
+  'iam.reset_token_expired': 'This reset code has expired. Ask for a new one.',
+  'iam.phone_not_ghana': 'Enter a Ghana mobile number, starting +233.',
 });
+
+/** 422: the phone verification code is wrong; the challenge counts the attempt (FR-IAM-019). */
+export class VerificationCodeInvalidError extends BusinessRuleError {
+  readonly code = 'VERIFICATION_CODE_INVALID';
+  readonly messageKey = 'iam.verification_code_invalid';
+}
+
+/** 422, CR-004 point 3: no reset token matches. */
+export class ResetTokenInvalidError extends BusinessRuleError {
+  readonly code = 'RESET_TOKEN_INVALID';
+  readonly messageKey = 'iam.reset_token_invalid';
+}
+
+/** 422, CR-004 point 3: the reset token was already used. */
+export class ResetTokenUsedError extends BusinessRuleError {
+  readonly code = 'RESET_TOKEN_USED';
+  readonly messageKey = 'iam.reset_token_used';
+}
+
+/** 422, CR-004 point 3: the reset token is past its thirty minutes. */
+export class ResetTokenExpiredError extends BusinessRuleError {
+  readonly code = 'RESET_TOKEN_EXPIRED';
+  readonly messageKey = 'iam.reset_token_expired';
+}
+
+/** 422 `ROLE_INVALID`: `details[].code` names the rule (A-122). */
+export class RoleInvalidError extends BusinessRuleError {
+  readonly code = 'ROLE_INVALID';
+  readonly messageKey = 'iam.role_rule';
+
+  constructor(rules: ReadonlyArray<{ readonly field: string | null; readonly rule: string }>) {
+    super('the role change breaks a role rule', rules.map((rule) => ({ field: rule.field, code: rule.rule, message: translate('iam.role_rule') })));
+  }
+}
+
+/** 403: a role change adds or removes a permission the actor does not hold (FR-IAM-022, A-122). */
+export class RoleBeyondActorError extends ApiError {
+  readonly status = 403;
+  readonly code = 'FORBIDDEN';
+  readonly messageKey = 'iam.role_beyond_actor';
+}
+
+/** 403: only the maker withdraws a request (A-122). */
+export class ApprovalNotRequesterError extends ApiError {
+  readonly status = 403;
+  readonly code = 'FORBIDDEN';
+  readonly messageKey = 'iam.approval_not_requester';
+}
 
 export class IamDuplicateValueError extends BusinessRuleError {
   readonly code = 'DUPLICATE_VALUE';

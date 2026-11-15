@@ -119,6 +119,30 @@ export interface AccessStore {
   listRoles(tx: Transaction, afterId: string | null, limit: number, now: Date): Promise<RoleRecord[]>;
   role(tx: Transaction, id: string, now: Date): Promise<RoleRecord | null>;
   listPermissions(tx: Transaction, module: string | null, afterCode: string | null, limit: number): Promise<PermissionRecord[]>;
+
+  /** Role writes (B04e continued, A-122). */
+  permissionCodes(tx: Transaction, codes: readonly string[]): Promise<Set<string>>;
+  /** Every permission the principal holds through a current grant, at any branch. */
+  permissionsAnywhere(tx: Transaction, principalId: string, now: Date): Promise<Set<string>>;
+  holdsRole(tx: Transaction, principalId: string, roleId: string, now: Date): Promise<boolean>;
+  /** Locks the live role row; null when there is none. */
+  lockRole(tx: Transaction, id: string): Promise<{ readonly version: number } | null>;
+  insertRole(tx: Transaction, role: NewRole, actorId: string): Promise<void>;
+  /** Moves the role one version on, with its new name and TOTP flag; false when the version did not match. */
+  touchRole(tx: Transaction, id: string, version: number, set: { name: string; requiresTotp: boolean }, actorId: string): Promise<boolean>;
+  /** Adds the link, or restores a removed one. */
+  addRolePermission(tx: Transaction, roleId: string, code: string, actorId: string): Promise<void>;
+  /** Removes the link by soft deletion (ADR-0024). */
+  removeRolePermission(tx: Transaction, roleId: string, code: string, reason: string, actorId: string): Promise<void>;
+  /** Sets one limit, restoring a removed one; with null removes it by soft deletion. */
+  setRoleLimit(tx: Transaction, roleId: string, limitKind: string, amountPesewas: bigint | null, reason: string, actorId: string): Promise<void>;
+}
+
+export interface NewRole {
+  readonly id: string;
+  readonly code: string;
+  readonly name: string;
+  readonly requiresTotp: boolean;
 }
 
 export const ACCESS_STORE = Symbol('ACCESS_STORE');
