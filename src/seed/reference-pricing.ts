@@ -145,6 +145,8 @@ export const SEED_PRODUCTS: readonly SeedProduct[] = [
   meat('MEAT-BEEF-15KG', 'Beef, 15 kg pack'),
   meat('MEAT-PORK-15KG', 'Pork, 15 kg pack'),
   meat('MEAT-GOAT-15KG', 'Goat meat, 15 kg pack', true),
+  // Offal from the slab (B6): sold loose by the kilogram at the counter, never online.
+  { ...meat('BYP-GOAT-OFFAL', 'Goat offal, per kg (SEED)'), saleUom: 'KG', onlineMode: 'HIDDEN' },
   countable('EGG-CRATE-LOCAL', 'Eggs, local, crate of 30', 'EGGS', 'CRATE'),
   countable('EGG-CRATE-SMALL', 'Eggs, small, crate of 30', 'EGGS', 'CRATE'),
   countable('EGG-CRATE-BIG', 'Eggs, big, crate of 30', 'EGGS', 'CRATE', true),
@@ -202,6 +204,7 @@ const BASE_ENTRIES: readonly SeedEntry[] = [
   entry('MEAT-BEEF-15KG', 'PER_KG', 2_200, 3_060, 4_333),
   entry('MEAT-PORK-15KG', 'PER_KG', 1_133, 1_700, 2_267),
   entry('MEAT-GOAT-15KG', 'PER_KG', 1_400, 2_200, 3_133),
+  entry('BYP-GOAT-OFFAL', 'PER_KG', 1_000, 1_500, 1_800),
   entry('EGG-CRATE-LOCAL', 'PER_UNIT', 3_500, 3_500, 3_500),
   entry('EGG-CRATE-SMALL', 'PER_UNIT', 4_500, 4_500, 4_500),
   entry('EGG-CRATE-BIG', 'PER_UNIT', 6_000, 6_000, 6_000),

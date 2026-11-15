@@ -302,6 +302,6 @@ describe('the staff and their grants through the IAM services (A-085, ADR-0043)'
     for (const file of readdirSync(directory).filter((name) => name.endsWith('.ts'))) {
       expect(readFileSync(join(directory, file), 'utf8'), file).not.toMatch(/(INSERT\s+INTO|UPDATE)\s+(iam|mdm)\./i);
     }
-    expect(seedUnits({ SEED_STAFF_PASSWORD: password }).map((unit) => unit.kind)).toEqual(['SERVICE', 'SERVICE', 'SERVICE', 'SERVICE', 'SERVICE']);
+    expect(seedUnits({ SEED_STAFF_PASSWORD: password }).map((unit) => unit.kind)).toEqual(['SERVICE', 'SERVICE', 'SERVICE', 'SERVICE', 'SERVICE', 'SERVICE']);
   });
 });
