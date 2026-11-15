@@ -609,7 +609,7 @@ docs/sessions/B05d-inventory-counts-holds.md.
 
 ## B05 continued 3b — Reservations, exceptions, availability and the stock unit list
 
-Branch `b05d2-inventory-reservations-exceptions`, from `b05d-inventory-counts-holds` (stacked). Report `docs/sessions/B05d2-inventory-reservations-exceptions.md`. B05 continued 3 built stock takes and cycle counts (`StockTakes`, migration 0054, the `STOCK_WRITE_OFF` approval shared with adjustments through `StockWriteOffs`) and holds (`StockHolds` with `placeIn`, migration 0057), with permissions in 0055, 0056, 0058 and 0059 and contract 1.18.0 (A-141, A-142). Gate: one active reservation per animal and reserved never above available, proved under concurrency; an expired reservation is released by the scheduled job exactly as reserved and `inv.ReservationExpired` is published through the outbox; a stock exception is resolved once with a resolution kind and note, any correction posted through the adjustment path; availability is on hand less reserved less held; every write refuses the wrong role.
+Branch `b05d2-inventory-reservations-exceptions`, from `main` (each phase is merged into `main` when green, ADR-0026 Amendments). Report `docs/sessions/B05d2-inventory-reservations-exceptions.md`. B05 continued 3 built stock takes and cycle counts (`StockTakes`, migration 0054, the `STOCK_WRITE_OFF` approval shared with adjustments through `StockWriteOffs`) and holds (`StockHolds` with `placeIn`, migration 0057), with permissions in 0055, 0056, 0058 and 0059 and contract 1.18.0 (A-141, A-142). Gate: one active reservation per animal and reserved never above available, proved under concurrency; an expired reservation is released by the scheduled job exactly as reserved and `inv.ReservationExpired` is published through the outbox; a stock exception is resolved once with a resolution kind and note, any correction posted through the adjustment path; availability is on hand less reserved less held; every write refuses the wrong role.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
@@ -618,7 +618,7 @@ Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reaso
 report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the INV requirement block of docs/SRS.md (nothing else from the SRS),
 docs/data-model/inv.md, the INV card in docs/MODULE_BOUNDARIES.md, ADR-0002, ADR-0005, ADR-0010,
-ADR-0017, ADR-0019, ADR-0027 (the stock exception part) and ADR-0047, A-131 to A-143 in
+ADR-0017, ADR-0019, ADR-0027 (the stock exception part), ADR-0047 and ADR-0048, A-131 to A-143 in
 docs/ASSUMPTIONS.md, migrations 0044 and 0057, and src/modules/inv/application/stock-holds.ts and
 stock-adjustments.ts as the patterns. Use docs/prompts/module-build-prompt.md as the recipe, and run
 hakorem-security-review on reservation release and exception resolution.
@@ -626,12 +626,16 @@ Do not read any other document unless this phase needs it.
 
 Confirm in three lines: the phase, its scope, and its gate.
 Then execute B05 continued 3b only, on branch b05d2-inventory-reservations-exceptions, branched from
-b05d-inventory-counts-holds: the reservation service (listStockReservations, releaseStockReservation,
+main: the reservation service (listStockReservations, releaseStockReservation,
 the Reservations interface with serializable reserve and consume, one active reservation per animal,
 reserved never above available, proved under concurrency) and the scheduled reservation expiry job
 releasing exactly what it reserved and publishing inv.ReservationExpired through the outbox; the
 exception service (listStockExceptions, getStockException, resolveStockException with a resolution kind
-and note, posting any correction through the adjustment path and its approval); listStockAvailability
+and note, posting any correction through the adjustment path and its approval); ADR-0048 (owner, 2026-11-15):
+receiveStockTransfer stops posting a shortfall as a loss and holds it instead (never sellable, reservable or
+transferable; the hand count still reconciles), and resolveStockException clears a TRANSFER_VARIANCE either
+by writing it off under the adjustment threshold and step-up (202 ApprovalPending above it, maker never the
+checker, threshold copied onto the document) or by recording the goods as found, each test-first; listStockAvailability
 (on hand less reserved less held) and listStockUnits. Each write with a wrong-role refusal. Post every
 movement through Stock.postIn; never write a projection. Keep the valuation gate and the stock-take and
 hold domain gates at 100 percent. Stop at the gate and write
@@ -640,7 +644,7 @@ docs/sessions/B05d2-inventory-reservations-exceptions.md.
 
 ## B05 continued 4 — Cold chain, alerts, opening stock and the B5 gate
 
-Branch `b05e-inventory-cold-chain-opening`, from `b05d2-inventory-reservations-exceptions` (stacked). Report `docs/sessions/B05e-inventory-cold-chain-opening.md`. Gate: the B5 gate in full: on-hand derived from movements matches a hand count of the seeded farm, stock cannot go negative outside the allowed movement types, and a lot traces in both directions over the API, with every INV write refusing the wrong role.
+Branch `b05e-inventory-cold-chain-opening`, from `main` (each phase is merged into `main` when green, ADR-0026 Amendments). Report `docs/sessions/B05e-inventory-cold-chain-opening.md`. Gate: the B5 gate in full: on-hand derived from movements matches a hand count of the seeded farm, stock cannot go negative outside the allowed movement types, and a lot traces in both directions over the API, with every INV write refusing the wrong role.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
@@ -656,7 +660,7 @@ Do not read any other document unless this phase needs it.
 
 Confirm in three lines: the phase, its scope, and its gate.
 Then execute B05 continued 4 only, on branch b05e-inventory-cold-chain-opening, branched from
-b05d2-inventory-reservations-exceptions: temperature readings (listTemperatureReadings, recordTemperatureReading)
+main: temperature readings (listTemperatureReadings, recordTemperatureReading)
 with automatic quarantine of every lot in the location in the reading's transaction, a
 TEMPERATURE_EXCURSION exception and an event (a location's range is MDM's: read it through MDM's
 interface, and a database rule that needs it needs a new proposed ADR, since ADR-0047 is not widened
