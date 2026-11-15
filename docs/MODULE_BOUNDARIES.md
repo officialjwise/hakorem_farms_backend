@@ -95,7 +95,7 @@ Each card gives: what the module owns, its public interface (the services export
 ### AUD: audit, compliance and administration (layer 3)
 
 - **Owns:** schema `aud`. Retention policies, data-subject requests. Audited administration of settings, feature flags, number series and the business profile.
-- **Public interface:** `AuditLog` (authorised query of the platform audit trail), `Administration`, `DataSubjectRequests`, `Retention`.
+- **Public interface:** `AuditLog` (authorised query of the platform audit trail), `Administration`, `DataSubjectRequests`, `Retention`. B07 continued builds `SettingsAdmin` (`updateSetting`, FR-AUD-007, A-168) over platform `Settings`, with its own catalogue of keys, types and ranges; the module reading a key keeps its default.
 - **Imports:** platform, IAM.
 - **Subscribes:** nothing.
 
@@ -158,10 +158,10 @@ Each card gives: what the module owns, its public interface (the services export
 ### PUR: procurement and suppliers (layer 7)
 
 - **Owns:** schema `pur`. Supplier profiles, requisitions, purchase orders, supplier invoices and credit notes with levy rows, match results, supplier payments and allocations, supplier scores.
-- **Public interface:** `Suppliers`, `Purchasing`, `SupplierInvoices`, `SupplierPayments`. B7 builds `PurchaseOrders` (the `Purchasing` interface: orders with the `PURCHASE_ORDER` approval limit through IAM's `Approvals.judgeIn` and its approval handler), `SupplierInvoices` (levy rows from MDM's `TaxService.calculateIn`, the three-way match) and `SupplierPayments` (allocations, and the `SUPPLIER_PAYMENT` approval handler); a line in another unit converts through `MasterDataRefs.toBaseIn`. Every ◆ event waits in the outbox for B8. `Suppliers` arrives with B07 continued.
+- **Public interface:** `Suppliers`, `Purchasing`, `SupplierInvoices`, `SupplierPayments`. B7 builds `PurchaseOrders` (the `Purchasing` interface: orders with the `PURCHASE_ORDER` approval limit through IAM's `Approvals.judgeIn` and its approval handler), `SupplierInvoices` (levy rows from MDM's `TaxService.calculateIn`, the three-way match) and `SupplierPayments` (allocations, and the `SUPPLIER_PAYMENT` approval handler); a line in another unit converts through `MasterDataRefs.toBaseIn`. Every ◆ event waits in the outbox for B8. B07 continued builds `Suppliers` (profiles, payout details changed only through its `SUPPLIER_PAYOUT_CHANGE` approval handler, documents through platform's `FileStore`, the supplier's subject key from platform's `SubjectKeys`) and `Requisitions` (converted through `PurchaseOrders.createIn`); a farm-wide record is held at MDM's `MasterDataRefs.headOfficeBranchIn`. `PurchaseOrders` reads the approval limit from platform `Settings` and publishes `splitSuspectsIn`, the order splitting rule B12's exception report reads (A-168).
 - **Imports:** platform, IAM, MDM, INV.
-- **Subscribes (T):** `inv.GoodsReceiptPosted` (B7, A-164), to keep each purchase order line's received quantity in the receipt's transaction and refuse an over-receipt.
-- **Subscribes (A):** `inv.GoodsReceived`, for supplier performance scores (B07 continued).
+- **Subscribes (T):** `inv.GoodsReceiptPosted` (B7, A-164), to keep each purchase order line's received quantity in the receipt's transaction and refuse an over-receipt; `mdm.SupplierRegistered` (B07 continued, A-166), to open the supplier's profile in its registration's transaction.
+- **Subscribes (A):** `inv.GoodsReceived`, for supplier performance scores (B07 continued 1b).
 
 ### DEL: delivery and logistics (layer 8)
 
