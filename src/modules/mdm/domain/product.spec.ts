@@ -76,6 +76,13 @@ describe('defining a product (shared brief, domain model section 1; FR-MDM-001)'
     expect(defineProduct(eggs, { ...references, category: EGG_CATEGORY })).toEqual({ ok: true, value: expect.objectContaining({ tracking: 'NONE' }) });
   });
 
+  it('tracks a countable flock by lot when its species is kept in lots, even with no shelf life (A-107)', () => {
+    const broilers = { sku: 'LIV-BROILER', name: 'Broiler chicken', categoryId: LIVE_CATEGORY.id, stockPolicy: 'COUNTABLE', speciesId: GOAT, baseUom: 'HEAD', saleUom: 'HEAD', onlineMode: 'REQUEST_TO_BUY' } as const;
+    expect(defineProduct(broilers, { ...references, speciesTrackingDefault: 'LOT' })).toEqual({ ok: true, value: expect.objectContaining({ tracking: 'LOT' }) });
+    expect(defineProduct(broilers, { ...references, speciesTrackingDefault: 'SERIAL' })).toEqual({ ok: true, value: expect.objectContaining({ tracking: 'NONE' }) });
+    expect(defineProduct(broilers, references)).toEqual({ ok: true, value: expect.objectContaining({ tracking: 'NONE' }) });
+  });
+
   it('keeps an explicit tax category over the category default', () => {
     const override = '019a7a8a-c7c0-7f30-b5d6-e7f8a9b0c1d2';
     expect(defineProduct({ ...goat, taxCategoryId: override }, references)).toEqual({ ok: true, value: expect.objectContaining({ taxCategoryId: override }) });

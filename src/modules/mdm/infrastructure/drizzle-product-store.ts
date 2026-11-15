@@ -86,7 +86,7 @@ export class DrizzleProductStore implements ProductStore {
     const speciesRows =
       draft.speciesId === undefined
         ? []
-        : await tx.db.select({ id: species.id }).from(species).where(and(eq(species.id, draft.speciesId), isNull(species.deletedAt)));
+        : await tx.db.select({ id: species.id, trackingDefault: species.trackingDefault }).from(species).where(and(eq(species.id, draft.speciesId), isNull(species.deletedAt)));
     const taxRows =
       draft.taxCategoryId === undefined
         ? []
@@ -95,6 +95,7 @@ export class DrizzleProductStore implements ProductStore {
     return {
       category: categoryRow === undefined ? null : { id: categoryRow.id, glGroup: categoryRow.glGroup as GlGroup, taxCategoryId: categoryRow.taxCategoryId },
       speciesFound: speciesRows.length === 1,
+      speciesTrackingDefault: speciesRows[0]?.trackingDefault as 'SERIAL' | 'LOT' | undefined,
       taxCategoryFound: taxRows.length === 1,
       units: new Map(units.map((unit) => [unit.code, unit.kind as UomKind])),
     };
