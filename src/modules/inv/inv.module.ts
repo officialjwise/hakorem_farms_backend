@@ -9,7 +9,9 @@ import { Cursors } from '../../platform/http/cursor';
 import { Idempotency } from '../../platform/idempotency/idempotency';
 import { CLOCK, LOGGER } from '../../platform/platform.module';
 import { Approvals, Authoriser, IamModule, PRINCIPAL_NAMES, type PrincipalNames } from '../iam';
-import { MasterDataRefs, MdmImports, MdmModule } from '../mdm';
+import { LocationUsageRegistry, MasterDataRefs, MdmImports, MdmModule } from '../mdm';
+import { INVENTORY_USAGE_STORE, InventoryLocationUsage, type InventoryUsageStore } from './application/location-usage';
+import { PgInventoryUsageStore } from './infrastructure/pg-inventory-usage-store';
 import { GOODS_RECEIPT_STORE, type GoodsReceiptStore } from './application/goods-receipt-store';
 import { GoodsReceipts } from './application/goods-receipts';
 import { Lineage } from './application/lineage';
@@ -86,6 +88,8 @@ import { StockAlertsController } from './interface/stock-alerts.controller';
     { provide: STOCK_EXCEPTION_STORE, useClass: PgStockExceptionStore },
     { provide: STOCK_RESERVATION_STORE, useClass: PgStockReservationStore },
     { provide: STOCK_ALERT_STORE, useClass: PgStockAlertStore },
+    { provide: INVENTORY_USAGE_STORE, useClass: PgInventoryUsageStore },
+    { provide: InventoryLocationUsage, useFactory: (store: InventoryUsageStore) => new InventoryLocationUsage(store), inject: [INVENTORY_USAGE_STORE] },
     {
       provide: StockAlerts,
       useFactory: (
@@ -314,15 +318,18 @@ export class InvModule implements OnModuleInit {
     @Inject(DocumentRegistry) private readonly documents: DocumentRegistry,
     @Inject(MdmImports) private readonly imports: MdmImports,
     @Inject(OpeningStockSheet) private readonly openingStock: OpeningStockSheet,
+    @Inject(LocationUsageRegistry) private readonly locationUsage: LocationUsageRegistry,
+    @Inject(InventoryLocationUsage) private readonly inventoryUsage: InventoryLocationUsage,
   ) {}
 
   /**
    * Registers INV's approval handlers (ADR-0017): a stock write-off (an adjustment, or a stock take's variances, told
    * apart by the subject's document type) and a movement reversal; and the `OPENING_STOCK` sheet with MDM's imports
-   * (ADR-0050).
+   * (ADR-0050); and INV's answer to whether a branch or location is in use (ADR-0051).
    */
   onModuleInit(): void {
     this.imports.registerSheet(this.openingStock);
+    this.locationUsage.register(this.inventoryUsage);
     this.approvals.registerHandler(STOCK_WRITE_OFF, new StockWriteOffs(this.documents, { STOCK_ADJUSTMENT: this.adjustments, STOCK_TAKE: this.takes }));
     this.approvals.registerHandler(STOCK_REVERSAL, this.movements);
   }

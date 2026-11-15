@@ -223,9 +223,12 @@ describe('branches and locations (FR-MDM-006)', () => {
     const created = await post(manager, '/branches', { code: 'KSI', name: 'Kumasi depot (TEST)', phone: '0322001122' });
     expect(created.status).toBe(201);
     expect(created.body).toMatchObject({ code: 'KSI', phone: '+233322001122', isTest: false, status: 'ACTIVE' });
-    const virtual = await get(manager, `/locations?branchId=${created.body.id}&includeVirtual=true`);
+    // Lists answer within the grants (B05x): the Manager, granted at Dodowa only, sees none of the new branch's locations; a reader granted there sees them.
+    expect((await get(manager, `/locations?branchId=${created.body.id}&includeVirtual=true`)).body.data).toEqual([]);
+    const kumasiReader = await login(api.server, await createUser(database, { name: 'Kumasi storekeeper', grants: [{ role: 'STOREKEEPER', branchId: created.body.id }] }));
+    const virtual = await get(kumasiReader, `/locations?branchId=${created.body.id}&includeVirtual=true`);
     expect(virtual.body.data.map((l: { kind: string }) => l.kind)).toEqual(['SUPPLIER', 'CUSTOMER', 'PRODUCTION', 'PROCESSING', 'CONSUMPTION', 'LOSS', 'ADJUSTMENT', 'OPENING']);
-    expect((await get(manager, `/locations?branchId=${created.body.id}`)).body.data).toEqual([]);
+    expect((await get(kumasiReader, `/locations?branchId=${created.body.id}`)).body.data).toEqual([]);
     expect((await post(manager, '/branches', { code: 'KSI', name: 'Again' })).body.error.code).toBe('DUPLICATE_VALUE');
     // The Manager is granted at Dodowa only, so Dodowa's own virtual loss location is the one they may try to change.
     const loss = ids.get('location:DDW:V-LOSS')!;
@@ -273,7 +276,9 @@ describe('branches and locations (FR-MDM-006)', () => {
     expect(busy.body.error).toMatchObject({ code: 'RECORD_IN_USE', details: [{ code: 'HAS_LIVE_CHILDREN' }] });
     expect((await post(manager, `/locations/${pen.body.id}/archive`, { version: 1, reason: 'Closed' })).status).toBe(200);
     expect((await post(manager, `/locations/${yard.body.id}/archive`, { version: 1, reason: 'Closed' })).status).toBe(200);
-    expect((await get(storekeeper, `/locations/${yard.body.id}`)).status).toBe(200);
+    expect((await get(manager, `/locations/${yard.body.id}`)).status).toBe(200);
+    // A location-scoped reader reaches its own location only (B05x).
+    expect((await get(storekeeper, `/locations/${yard.body.id}`)).status).toBe(403);
     const renamed = await send('patch', manager, `/locations/${ids.get('location:DDW:SHOP')}`, { version: 1, name: 'Shop floor and counter' });
     expect(renamed.body).toMatchObject({ name: 'Shop floor and counter', version: 2 });
   });

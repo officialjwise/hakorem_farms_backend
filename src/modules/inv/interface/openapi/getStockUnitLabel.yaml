@@ -1,0 +1,70 @@
+operationId: getStockUnitLabel
+tags:
+  - inv
+summary: "What a lot or animal label prints"
+description: "The data a lot or animal label prints, for the client to draw and print (no image is rendered here): the product, the batch (`lotNo`) or tag (`tagNo`), the weight (a lot's weight on hand, summed over where it stands; an animal's last recorded weight, with when), the quantity on hand, production and expiry dates, storage class, and the barcode: `CODE_128` of the SKU and the batch or tag joined by `/` (a SKU never holds a `/`). Scoped as `getStockUnit` is. Pack labels made by a processing order are `printPackLabels` (B6).\n\nPermission: `inv.stock.read`."
+x-permission: inv.stock.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/StockUnitLabel"
+        example:
+          stockUnit:
+            id: "019a7a95-1f3c-7b2e-9a41-5d8c0e2f6a13"
+            identifier: LOT-BEEF-2026-1110
+            tracking: LOT
+          product:
+            id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
+            sku: MEAT-BEEF-15KG
+            name: "Beef, 15 kg pack"
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          kind: LOT
+          lotNo: LOT-BEEF-2026-1110
+          tagNo: null
+          weightKg: "45.000"
+          weighedAt: null
+          onHandQty: "45.000"
+          uom: KG
+          uomDisplayDecimals: 3
+          producedOn: "2026-11-09"
+          expiresOn: "2027-02-08"
+          storageTempClass: FROZEN
+          barcode:
+            symbology: CODE_128
+            payload: MEAT-BEEF-15KG/LOT-BEEF-2026-1110
+            text: MEAT-BEEF-15KG/LOT-BEEF-2026-1110
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

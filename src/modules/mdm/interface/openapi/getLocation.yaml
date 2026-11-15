@@ -2,7 +2,7 @@ operationId: getLocation
 tags:
   - mdm
 summary: "Get a stock location"
-description: "Permission: `mdm.location.read`."
+description: "Scoped to the location: a grant at another branch, or at another location of the branch, is 403.\n\nPermission: `mdm.location.read`."
 x-permission: mdm.location.read
 x-error-codes:
   - VALIDATION_FAILED

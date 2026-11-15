@@ -35,7 +35,7 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B05 continued 3 | `B05d-inventory-counts-holds.md` | `b05d-inventory-counts-holds` | B4 to B12 | A stock take posts its variances from blind counts, overlapping cycle counts are refused, a hold blocks a sale until released, each write with a wrong-role refusal (built; the session split, A-143) |
 | B05 continued 3b | `B05d2-inventory-reservations-exceptions.md` | `b05d2-inventory-reservations-exceptions` | B4 to B12 | An expired reservation is released by the job exactly as reserved, under concurrency; one active reservation per animal; an exception is resolved through the adjustment path; each write with a wrong-role refusal (built; ADR-0048 built with it, A-145) |
 | B05 continued 4 | `B05e-inventory-cold-chain-opening.md` | `b05e-inventory-cold-chain-opening` | B4 to B12 | The B5 gate in full: on-hand from movements matches a hand count of the seeded farm; stock cannot go negative outside allowed types; a lot traces both ways; every INV write refuses the wrong role |
-| B05x | `B05x-dashboard-branches-labels.md` | `b05x-dashboard-branches-labels` | B4 to B12 | Every dashboard tile whose data exists answers exactly on the seeded farm, the rest are contract-only and scheduled; a branch deactivates with its refusals and lists stay within grants; lot and product label data answers; every operation refuses the wrong role |
+| B05x | `B05x-dashboard-branches-labels.md` | `b05x-dashboard-branches-labels` | B4 to B12 | getOwnerDashboard answers in one request with its sourceless figures null and listed; every tile whose data exists answers exactly on the seeded farm, the rest are contract-only and scheduled; a branch deactivates with its refusals and lists stay within grants; lot and product label data answers; every operation refuses the wrong role (built) |
 | B6 | `B06-livestock-processing.md` | `b06-livestock-processing` | B4 to B12 | A processing order produces lots whose costs sum exactly to input cost plus direct processing cost |
 | B7 | `B07-procurement-suppliers.md` | `b07-procurement-suppliers` | B4 to B12 | Three-way match blocks payment on disagreement; checkout reserves stock and releases it on timeout |
 | B8 | `B08-ledger-billing.md` | `b08-ledger-billing` | B4 to B12 | Trial balance sums to zero on a seeded day; an unbalanced journal is rejected by the database; numbering is gap-free under concurrent load |
@@ -728,24 +728,25 @@ run on the pull request is green.
 
 ## B6 — Livestock and processing
 
-Branch `b06-livestock-processing`. Report `docs/sessions/B06-livestock-processing.md`. Gate: a processing order consumes an animal and produces lots whose costs sum exactly to the input cost plus the direct processing cost.
+Branch `b06-livestock-processing`, from `main` (ADR-0026 Amendments). Report `docs/sessions/B06-livestock-processing.md`. Gate: a processing order consumes an animal and produces lots whose costs sum exactly to the input cost plus the direct processing cost.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
 List docs/sessions/ and read only the most recent report (docs/sessions/B05x-dashboard-branches-labels.md).
-Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
-report what you declined and why, never edit that file and never open frontend source.
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the LIV and PRC requirement blocks of docs/SRS.md (nothing else from the SRS),
 docs/data-model/liv.md and docs/data-model/prc.md, the LIV and PRC cards in docs/MODULE_BOUNDARIES.md,
 and ADR-0018 and ADR-0019. Use docs/prompts/module-build-prompt.md as the recipe.
 Do not read any other document unless this phase needs it.
 
 Confirm in three lines: the phase, its scope, and its gate.
-Then execute B06 only, on branch b06-livestock-processing: the animal register, batches, weights and
+Then execute B06 only, on branch b06-livestock-processing, branched from main: the animal register, batches, weights and
 growth, health events with veterinary withdrawal holds that nobody can release early, breeding,
 mortality and culls with photograph and second approver above the threshold, rations and feed with
 head-days allocation, processing orders with yield against standard and variance flag, relative-sales-value
-cost allocation by largest remainder, packs and labels. Write the allocation test first: outputs'
+cost allocation by largest remainder, packs and labels (printPackLabels, whose barcodes follow B05x's
+LabelBarcode: CODE_128, A-151; an animal's weights carry their source, which getStockUnitLabel then shows). Write the allocation test first: outputs'
 allocated costs sum exactly to input cost plus direct cost, including an awkward split. Extend the seed.
 Stop at the gate and write docs/sessions/B06-livestock-processing.md.
 ```
@@ -806,6 +807,10 @@ seeded movement has its journal. End the report with B09a's opening message (ADR
 Coverage (NFR-015, docs/TEST_STRATEGY.md section 6): uncomment the 100 percent gate for
 src/modules/fin/domain/ in vitest.config.mts before the gate passes. Fill every branch it exposes;
 the gate does not pass on a lowered number.
+Make the owner dashboard's B8 figures live (B05x, A-149): remove `cash`, `receivablesOutstandingPesewas` and
+`receivablesOverduePesewas` from RPT's PENDING_FIGURES (src/modules/rpt/domain/dashboard.ts) and answer them from
+the ledger (accounts 1000 to 1130, account 1200) and billing's due dates through published views, and build the
+planned tiles getCashPositionTile and getReceivablesTile, each test-first with its wrong-role refusal.
 Stop at the gate and write docs/sessions/B08-ledger-billing.md.
 ```
 
@@ -834,6 +839,10 @@ its sandbox, webhook verification (signature, timestamp window, replay cache, am
 refunds, unmatched payments, deposits, store credit and settlement reconciliation, and, as ADR-0026
 proposes, online order placement and payment. Write every payment edge case test-first. Point of sale,
 shifts and offline sync are B09b: do not start them.
+Make the owner dashboard's B9a figures live (B05x, A-149): remove `salesTodayPesewas`, `salesYesterdayPesewas`,
+`salesMonthToDatePesewas`, `salesByChannel`, `salesSeries` and `topMovers` from RPT's PENDING_FIGURES and answer them
+from completed orders through a published view, and build the planned tiles getSalesTodayTile and getSalesSeries,
+each test-first with its wrong-role refusal.
 Stop at the gate and write docs/sessions/B09a-order-core-payments.md.
 ```
 
@@ -861,6 +870,8 @@ offline, the stock exception instead of a refusal, price override bounds re-chec
 the five conflict tests ADR-0027 names (animal sold elsewhere, animal on hold, countable stock gone
 negative, sale in a locked period, missing device counter) and the 500-transaction test with the network
 disabled. Run scenario 6 of docs/UAT.md as a dry run and record any difference.
+Check that counter sales reach the owner dashboard's sales figures and the getSalesTodayTile and getSalesSeries
+tiles B9a made live (B05x, A-149): a seeded counter sale appears in today's sales by channel POS, test-first.
 Stop at the gate and write docs/sessions/B09b-pos-shifts-offline.md.
 ```
 
@@ -949,6 +960,11 @@ the hand calculation must match the run to the pesewa.
 Coverage (NFR-015, docs/TEST_STRATEGY.md section 6): put the distribution rules under
 src/modules/cap/domain/distribution/ and uncomment its 100 percent gate in vitest.config.mts before
 the gate passes. Fill every branch it exposes; the gate does not pass on a lowered number.
+The owner dashboard was pulled forward to B05x (A-149): keep getOwnerDashboard's shape, add its caching and the
+NFR-023 performance budget, move its reads onto the hk_report connection, and remove `alerts` and
+`exceptionsToday` from RPT's PENDING_FIGURES once the daily exception report answers them. runReport must implement
+every report code listReportDefinitions lists, SALES_SUMMARY and PURCHASES included (CR-018), each matching its
+contract example's columns.
 Stop at the gate and write docs/sessions/B12-capital-costing-reporting.md.
 ```
 

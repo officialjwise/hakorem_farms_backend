@@ -4,7 +4,7 @@ import type { Actor } from '../../../platform/context/request-context';
 import { CurrentActor } from '../../../platform/http/actor-param';
 import { Operation } from '../../../platform/http/operation';
 import { zodPipe } from '../../../platform/http/validation';
-import { StockQueries, type AvailabilityLineView, type StockOnHandPageView, type StockTraceView, type StockUnitView } from '../application/stock-queries';
+import { StockQueries, type AvailabilityLineView, type StockOnHandPageView, type StockTraceView, type StockUnitLabelView, type StockUnitView } from '../application/stock-queries';
 import type { Page } from '../application/stock-command';
 import { IdParam, ListStockAvailabilityQuery, ListStockOnHandQuery, ListStockUnitsQuery } from './schemas';
 
@@ -40,6 +40,12 @@ export class StockController {
   @Operation({ operationId: 'getStockUnit', ...READ, permission: 'inv.stock.read' })
   getStockUnit(@CurrentActor() actor: Actor | undefined, @Param('id', zodPipe(IdParam)) id: string): Promise<StockUnitView> {
     return this.queries.getStockUnit(actor, id);
+  }
+
+  @Get('stock-units/:id/label')
+  @Operation({ operationId: 'getStockUnitLabel', ...READ, permission: 'inv.stock.read' })
+  getStockUnitLabel(@CurrentActor() actor: Actor | undefined, @Param('id', zodPipe(IdParam)) id: string): Promise<StockUnitLabelView> {
+    return this.queries.getStockUnitLabel(actor, id);
   }
 
   @Get('stock-units/:id/trace')

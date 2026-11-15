@@ -6,10 +6,11 @@ import { VersionConflictError } from '../../../platform/errors/api-error';
 import type { Cursors } from '../../../platform/http/cursor';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
 import type { Authoriser } from '../../iam';
-import { planLocation, planLocationArchive, planLocationChange, VIRTUAL_KINDS, type LocationKind, type TempClass } from '../domain/locations';
+import { planBranchStatus, planLocation, planLocationArchive, planLocationChange, VIRTUAL_KINDS, type LocationKind, type TempClass } from '../domain/locations';
 import { normaliseGhanaPhone } from '../domain/parties';
 import { AdminKit, requireLiveVersion, sentColumns } from './admin-kit';
-import { DuplicateRecordError, invalidFormat, LocationInvalidError, RecordInUseError, referencesNotFound } from './errors';
+import { BranchInvalidError, DuplicateRecordError, invalidFormat, LocationInvalidError, RecordInUseError, referencesNotFound } from './errors';
+import type { LocationUsageRegistry } from './location-usage';
 import type { BranchStatus, BranchView, LocationFilters, LocationsStore, LocationView } from './locations-store';
 import type { Page } from './product-catalogue';
 
@@ -93,11 +94,12 @@ export class LocationsAdmin {
   constructor(
     private readonly uow: UnitOfWork,
     private readonly store: LocationsStore,
-    authoriser: Authoriser,
+    private readonly authoriser: Authoriser,
     idempotency: Idempotency,
     private readonly audit: AuditTrail,
     cursors: Cursors,
     private readonly clock: Clock,
+    private readonly usage: LocationUsageRegistry,
   ) {
     this.nextId = createUuidV7Generator(clock);
     this.kit = new AdminKit(uow, authoriser, idempotency, cursors, translateConstraint);
@@ -105,12 +107,26 @@ export class LocationsAdmin {
 
   // Branches.
 
+  /** Branches where the reader holds `mdm.branch.read`, at the whole branch or at one of its locations (B05x). */
   listBranches(actor: Actor | undefined, cursor: string | undefined, limit: number): Promise<Page<BranchView>> {
-    return this.kit.page(actor, 'mdm.branch.read', 'listBranches', {}, cursor, limit, (tx, after) => this.store.branches(tx, after, limit + 1));
+    return this.kit.page(actor, 'mdm.branch.read', 'listBranches', {}, cursor, limit, async (tx, after) =>
+      this.store.branches(tx, await this.grantedBranches(tx, actor!, 'mdm.branch.read'), after, limit + 1),
+    );
   }
 
+  /** A branch outside the reader's grants is refused as a branch-scoped read (audited), so nothing about it leaks. */
   getBranch(actor: Actor | undefined, id: string): Promise<BranchView> {
-    return this.kit.read(actor, 'mdm.branch.read', (tx) => this.store.branch(tx, id), 'no such branch');
+    return this.kit.read(
+      actor,
+      'mdm.branch.read',
+      async (tx) => {
+        if (!(await this.grantedBranches(tx, actor!, 'mdm.branch.read')).includes(id)) {
+          await this.authoriser.authorise(tx, actor, 'mdm.branch.read', { branchId: id });
+        }
+        return this.store.branch(tx, id);
+      },
+      'no such branch',
+    );
   }
 
   createBranch(actor: Actor | undefined, body: BranchCreateRequest, idempotencyKey: string, options: InProcessBranchOptions = {}): Promise<StoredResponse<BranchView>> {
@@ -147,6 +163,7 @@ export class LocationsAdmin {
       async (tx) => {
         requireLiveVersion(await this.store.lockBranch(tx, id), 'branch', id, body.version);
         const before = (await this.store.branch(tx, id))!;
+        if (body.status !== undefined) await this.judgeStatusChange(tx, before, body.status);
         const set = sentColumns({ name: body.name, address: body.address, phone_e164: phoneOf(body.phone, '/phone'), status: body.status });
         if (Object.keys(set).length > 0 && !(await this.store.updateBranch(tx, id, body.version, set, actor!.principalId))) {
           throw new VersionConflictError(`branch ${id} changed while it was updated`);
@@ -169,12 +186,22 @@ export class LocationsAdmin {
       { branchId: filters.branchId ?? null, kind: filters.kind ?? null, parentId: filters.parentId ?? null, includeVirtual: filters.includeVirtual },
       cursor,
       limit,
-      (tx, after) => this.store.locations(tx, filters, after, limit + 1),
+      async (tx, after) => this.store.locations(tx, filters, await this.authoriser.scopes(tx, actor!, 'mdm.location.read'), after, limit + 1),
     );
   }
 
+  /** Scoped to the location: a grant at another branch, or at another location of the branch, does not reach it. */
   getLocation(actor: Actor | undefined, id: string): Promise<LocationView> {
-    return this.kit.read(actor, 'mdm.location.read', (tx) => this.store.location(tx, id), 'no such location');
+    return this.kit.read(
+      actor,
+      'mdm.location.read',
+      async (tx) => {
+        const found = await this.store.location(tx, id);
+        if (found !== null) await this.authoriser.authorise(tx, actor, 'mdm.location.read', { branchId: found.branch.id, locationId: found.id });
+        return found;
+      },
+      'no such location',
+    );
   }
 
   createLocation(actor: Actor | undefined, body: LocationCreateRequest, idempotencyKey: string): Promise<StoredResponse<LocationView>> {
@@ -283,9 +310,13 @@ export class LocationsAdmin {
       idempotencyKey,
       async (tx) => {
         const before = await this.lockedLive(tx, id, body.version);
-        const verdict = planLocationArchive({ isVirtual: before.isVirtual, liveChildren: await this.store.liveChildren(tx, id) });
+        const verdict = planLocationArchive({
+          isVirtual: before.isVirtual,
+          liveChildren: await this.store.liveChildren(tx, id),
+          usage: before.isVirtual ? { holdsStock: false, openDocuments: 0 } : await this.usage.locationUsage(tx, id),
+        });
         if (!verdict.ok) {
-          throw verdict.error[0]!.rule === 'HAS_LIVE_CHILDREN' ? new RecordInUseError(verdict.error) : new LocationInvalidError(verdict.error);
+          throw verdict.error[0]!.rule === 'VIRTUAL_LOCATION_FIXED' ? new LocationInvalidError(verdict.error) : new RecordInUseError(verdict.error);
         }
         if (!(await this.store.archiveLocation(tx, id, body.version, body.reason, actor!.principalId, this.clock.now()))) {
           throw new VersionConflictError(`location ${id} changed while it was archived`);
@@ -299,6 +330,28 @@ export class LocationsAdmin {
   }
 
   // Shared steps.
+
+  /**
+   * A status change on a branch (B05x, A-150): closing is refused for the farm's own branch, the last open trading
+   * branch, and a branch where stock stands or an open document names it (ADR-0051); reopening is always allowed.
+   */
+  private async judgeStatusChange(tx: Transaction, before: BranchView, to: BranchStatus): Promise<void> {
+    if (before.status === to || to === 'ACTIVE') return;
+    const verdict = planBranchStatus({
+      from: before.status,
+      to,
+      isFarmBranch: (await this.store.farmBranchId(tx)) === before.id,
+      isTest: before.isTest,
+      otherActiveBranches: await this.store.otherActiveTradingBranches(tx, before.id),
+      usage: await this.usage.branchUsage(tx, before.id),
+    });
+    if (!verdict.ok) throw new BranchInvalidError(verdict.error);
+  }
+
+  /** The branches the actor holds the permission at, for the whole branch or one of its locations. */
+  private async grantedBranches(tx: Transaction, actor: Actor, permission: string): Promise<string[]> {
+    return [...new Set((await this.authoriser.scopes(tx, actor, permission)).map((scope) => scope.branchId))];
+  }
 
   private async insertBranch(tx: Transaction, body: BranchCreateRequest, isTest: boolean, actorId: string): Promise<BranchView> {
     const phone = phoneOf(body.phone, '/phone') ?? null;

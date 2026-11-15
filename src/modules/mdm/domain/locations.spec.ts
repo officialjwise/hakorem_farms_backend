@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isVirtualKind, planLocation, planLocationArchive, planLocationChange, VIRTUAL_KINDS } from './locations';
+import { isVirtualKind, planBranchStatus, planLocation, planLocationArchive, planLocationChange, VIRTUAL_KINDS } from './locations';
 
 describe('planLocation (FR-MDM-006)', () => {
   const pen = { kind: 'PEN' as const, parent: null, tempClass: undefined, tempMinC: undefined, tempMaxC: undefined };
@@ -63,9 +63,59 @@ describe('planLocationChange and planLocationArchive (FR-MDM-006)', () => {
     expect(planLocationChange(shop, { parent: { sameBranch: true, isVirtual: false, isSelfOrBelow: false } })).toEqual({ ok: true, value: undefined });
   });
 
+  const unused = { holdsStock: false, openDocuments: 0 };
+
   it('refuses to archive a virtual location or one with live children', () => {
-    expect(planLocationArchive({ isVirtual: true, liveChildren: 0 })).toEqual({ ok: false, error: [{ field: null, rule: 'VIRTUAL_LOCATION_FIXED' }] });
-    expect(planLocationArchive({ isVirtual: false, liveChildren: 2 })).toEqual({ ok: false, error: [{ field: null, rule: 'HAS_LIVE_CHILDREN' }] });
-    expect(planLocationArchive({ isVirtual: false, liveChildren: 0 })).toEqual({ ok: true, value: undefined });
+    expect(planLocationArchive({ isVirtual: true, liveChildren: 0, usage: unused })).toEqual({ ok: false, error: [{ field: null, rule: 'VIRTUAL_LOCATION_FIXED' }] });
+    expect(planLocationArchive({ isVirtual: false, liveChildren: 2, usage: unused })).toEqual({ ok: false, error: [{ field: null, rule: 'HAS_LIVE_CHILDREN' }] });
+    expect(planLocationArchive({ isVirtual: false, liveChildren: 0, usage: unused })).toEqual({ ok: true, value: undefined });
+  });
+
+  it('refuses to archive a location holding stock or named by an open document, naming every reason (A-111, ADR-0051)', () => {
+    expect(planLocationArchive({ isVirtual: false, liveChildren: 0, usage: { holdsStock: true, openDocuments: 0 } })).toEqual({ ok: false, error: [{ field: null, rule: 'HOLDS_STOCK' }] });
+    expect(planLocationArchive({ isVirtual: false, liveChildren: 1, usage: { holdsStock: true, openDocuments: 2 } })).toEqual({
+      ok: false,
+      error: [
+        { field: null, rule: 'HAS_LIVE_CHILDREN' },
+        { field: null, rule: 'HOLDS_STOCK' },
+        { field: null, rule: 'OPEN_DOCUMENTS' },
+      ],
+    });
+  });
+});
+
+describe('planBranchStatus: closing and reopening a branch (FR-MDM-006, B05x)', () => {
+  const branch = { from: 'ACTIVE' as const, to: 'CLOSED' as const, isFarmBranch: false, isTest: false, otherActiveBranches: 1, usage: { holdsStock: false, openDocuments: 0 } };
+
+  it('closes an unused branch while another stays open, and reopens a closed one without a check', () => {
+    expect(planBranchStatus(branch)).toEqual({ ok: true, value: 'CLOSE' });
+    expect(planBranchStatus({ ...branch, from: 'CLOSED', to: 'ACTIVE', isFarmBranch: true, otherActiveBranches: 0, usage: { holdsStock: true, openDocuments: 3 } })).toEqual({ ok: true, value: 'REOPEN' });
+  });
+
+  it('changes nothing when the status asked for is the status it has', () => {
+    expect(planBranchStatus({ ...branch, to: 'ACTIVE', usage: { holdsStock: true, openDocuments: 1 } })).toEqual({ ok: true, value: 'NONE' });
+    expect(planBranchStatus({ ...branch, from: 'CLOSED' })).toEqual({ ok: true, value: 'NONE' });
+  });
+
+  it("refuses to close the farm's own branch", () => {
+    expect(planBranchStatus({ ...branch, isFarmBranch: true })).toEqual({ ok: false, error: [{ field: '/status', rule: 'FARM_BRANCH' }] });
+  });
+
+  it('refuses to close the last open trading branch, but closes a smoke-test branch with none left', () => {
+    expect(planBranchStatus({ ...branch, otherActiveBranches: 0 })).toEqual({ ok: false, error: [{ field: '/status', rule: 'LAST_ACTIVE_BRANCH' }] });
+    expect(planBranchStatus({ ...branch, isTest: true, otherActiveBranches: 0 })).toEqual({ ok: true, value: 'CLOSE' });
+  });
+
+  it('refuses to close a branch holding stock or open documents, naming every reason at once', () => {
+    expect(planBranchStatus({ ...branch, usage: { holdsStock: true, openDocuments: 0 } })).toEqual({ ok: false, error: [{ field: '/status', rule: 'HOLDS_STOCK' }] });
+    expect(planBranchStatus({ ...branch, isFarmBranch: true, otherActiveBranches: 0, usage: { holdsStock: true, openDocuments: 4 } })).toEqual({
+      ok: false,
+      error: [
+        { field: '/status', rule: 'FARM_BRANCH' },
+        { field: '/status', rule: 'LAST_ACTIVE_BRANCH' },
+        { field: '/status', rule: 'HOLDS_STOCK' },
+        { field: '/status', rule: 'OPEN_DOCUMENTS' },
+      ],
+    });
   });
 });

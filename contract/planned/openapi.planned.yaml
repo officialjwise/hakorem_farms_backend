@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.20.0"
+  version: "1.21.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -2363,6 +2363,7 @@ paths:
   "/products": {}
   "/products/{id}": {}
   "/products/{id}/archive": {}
+  "/products/{id}/label": {}
   "/customers": {}
   "/customers/{id}": {}
   "/customers/{id}/archive": {}
@@ -2419,6 +2420,7 @@ paths:
   "/stock/movements/{id}/reverse": {}
   "/stock-units": {}
   "/stock-units/{id}": {}
+  "/stock-units/{id}/label": {}
   "/stock-units/{id}/movements": {}
   "/stock-units/{id}/trace": {}
   "/stock/holds": {}
@@ -43327,18 +43329,24 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
-  "/dashboard/owner":
+  "/dashboard/owner": {}
+  "/dashboard/tiles/stock-value": {}
+  "/dashboard/tiles/animals-on-hand": {}
+  "/dashboard/tiles/low-stock": {}
+  "/dashboard/tiles/purchases": {}
+  "/dashboard/tiles/sales-today":
     get:
-      operationId: getOwnerDashboard
+      operationId: getSalesTodayTile
       tags:
         - rpt
-      summary: "The owner dashboard"
-      description: "One request, from the reporting schema. Figures lag transactions by seconds; asOf says when.\n\nPermission: `rpt.dashboard.owner`."
-      x-permission: rpt.dashboard.owner
+      summary: "Today's sales"
+      description: "Completed orders' gross totals on a business date in Africa/Accra, every channel. Not answered by the API until the order core exists (B9a, with counter sales from B9b): until then only the mock serves it.\n\nPermission: `rpt.tile.read`."
+      x-permission: rpt.tile.read
       parameters:
         - name: branchId
           in: query
           required: false
+          description: "One branch; without it, every branch where the caller holds `rpt.tile.read` for the whole branch."
           schema:
             type: string
             format: uuid
@@ -43360,27 +43368,57 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/OwnerDashboard"
+                $ref: "#/components/schemas/SalesTodayTile"
               example:
-                date: "2026-11-13"
-                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                asOf: "2026-11-13T09:30:00Z"
-                salesTodayPesewas: 1622300
-                salesYesterdayPesewas: 2840500
-                salesMonthToDatePesewas: 31220400
-                salesByChannel:
-                  - channel: POS
-                    amountPesewas: 1284300
-                    count: 26
-                  - channel: ONLINE
-                    amountPesewas: 45000
-                    count: 1
-                  - channel: WHOLESALE
-                    amountPesewas: 293000
-                    count: 1
-                  - channel: QUOTE
-                    amountPesewas: 0
-                    count: 0
+                branchIds:
+                  - "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                date: "2026-11-15"
+                salesPesewas: 1622300
+                orderCount: 28
+                currency: GHS
+                asOf: "2026-11-15T09:30:00Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/dashboard/tiles/cash-position":
+    get:
+      operationId: getCashPositionTile
+      tags:
+        - rpt
+      summary: "Cash position"
+      description: "The balances of ledger accounts 1000 to 1130: tills, safe, drivers, bank and mobile money. Not answered by the API until the general ledger exists (B8): until then only the mock serves it.\n\nPermission: `rpt.tile.read`."
+      x-permission: rpt.tile.read
+      parameters:
+        - name: branchId
+          in: query
+          required: false
+          description: "One branch; without it, every branch where the caller holds `rpt.tile.read` for the whole branch."
+          schema:
+            type: string
+            format: uuid
+      security:
+        - staffSession: []
+        - apiKey: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CashPositionTile"
+              example:
+                branchIds:
+                  - "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                 cash:
                   tillsPesewas: 742300
                   safePesewas: 900000
@@ -43388,52 +43426,147 @@ paths:
                   bankPesewas: 6250300
                   mobileMoneyPesewas: 1394400
                   totalPesewas: 9441000
-                stockValueAtCostPesewas: 7811730
-                receivablesOutstandingPesewas: 2063400
-                receivablesOverduePesewas: 545900
-                topMovers:
-                  - product:
-                      id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                      sku: LIV-GOAT
-                      name: Goat
-                    qty: "4.000"
-                    uom: HEAD
-                    revenuePesewas: 335000
-                  - product:
-                      id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                      sku: EGG-BIG
-                      name: "Eggs, big, crate of 30"
-                    qty: "21.000"
-                    uom: CRATE
-                    revenuePesewas: 126000
-                  - product:
-                      id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                      sku: MEAT-BEEF
-                      name: "Beef, 15 kg pack"
-                    qty: "45.600"
-                    uom: KG
-                    revenuePesewas: 136800
-                alerts:
-                  - kind: STOCK_EXCEPTION
-                    severity: URGENT
-                    summary: "Goat G-0171 sold at two tills"
-                    link: "/stock/exceptions/019a7ab1-7280-7533-8a6b-5c07b77dd4e5"
-                  - kind: LOW_STOCK
-                    severity: REVIEW
-                    summary: "Broiler finisher feed below reorder point: 12 bags"
-                    link: null
-                  - kind: APPROVALS
-                    severity: REVIEW
-                    summary: "5 requests waiting for you"
-                    link: "/iam/approvals"
-                exceptionsToday: 9
                 currency: GHS
+                asOf: "2026-11-15T09:30:00Z"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/dashboard/tiles/receivables":
+    get:
+      operationId: getReceivablesTile
+      tags:
+        - rpt
+      summary: "Outstanding receivables"
+      description: "The balance of ledger account 1200 and the part of it past its due date. Not answered by the API until the ledger and billing exist (B8): until then only the mock serves it.\n\nPermission: `rpt.tile.read`."
+      x-permission: rpt.tile.read
+      parameters:
+        - name: branchId
+          in: query
+          required: false
+          description: "One branch; without it, every branch where the caller holds `rpt.tile.read` for the whole branch."
+          schema:
+            type: string
+            format: uuid
+      security:
+        - staffSession: []
+        - apiKey: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReceivablesTile"
+              example:
+                branchIds:
+                  - "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                outstandingPesewas: 2063400
+                overduePesewas: 545900
+                currency: GHS
+                asOf: "2026-11-15T09:30:00Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/dashboard/tiles/sales":
+    get:
+      operationId: getSalesSeries
+      tags:
+        - rpt
+      summary: "Sales per day"
+      description: "Completed orders' gross totals per business day in Africa/Accra, every day of the period listed. Not answered by the API until the order core exists (B9a, with counter sales from B9b): until then only the mock serves it.\n\nPermission: `rpt.tile.read`."
+      x-permission: rpt.tile.read
+      parameters:
+        - name: branchId
+          in: query
+          required: false
+          description: "One branch; without it, every branch where the caller holds `rpt.tile.read` for the whole branch."
+          schema:
+            type: string
+            format: uuid
+        - name: from
+          in: query
+          required: false
+          description: "First business date (Africa/Accra), included. Without `from` and `to`, the 30 days ending today."
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: false
+          description: "Last business date, included; not after today. A period covers at most 92 days."
+          schema:
+            type: string
+            format: date
+      security:
+        - staffSession: []
+        - apiKey: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesSeriesTile"
+              example:
+                branchIds:
+                  - "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                sales:
+                  from: "2026-11-09"
+                  to: "2026-11-15"
+                  points:
+                    - date: "2026-11-09"
+                      salesPesewas: 2410500
+                      orderCount: 31
+                    - date: "2026-11-10"
+                      salesPesewas: 1987000
+                      orderCount: 27
+                    - date: "2026-11-11"
+                      salesPesewas: 2205400
+                      orderCount: 29
+                    - date: "2026-11-12"
+                      salesPesewas: 2840500
+                      orderCount: 35
+                    - date: "2026-11-13"
+                      salesPesewas: 1622300
+                      orderCount: 28
+                    - date: "2026-11-14"
+                      salesPesewas: 3102000
+                      orderCount: 38
+                    - date: "2026-11-15"
+                      salesPesewas: 845000
+                      orderCount: 11
+                  totalPesewas: 15012700
+                  orderCount: 199
+                currency: GHS
+                asOf: "2026-11-15T09:30:00Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/BusinessRuleViolation"
         "429":
           $ref: "#/components/responses/RateLimited"
         "500":
@@ -44104,7 +44237,7 @@ paths:
       tags:
         - rpt
       summary: "List the reports available to me"
-      description: "Permission: `rpt.report.read`."
+      description: "The reports the caller may run, each with the parameters it takes as a JSON schema. `from` and `to` are business dates in Africa/Accra, both included; `branchId` narrows to one branch, and without it a report covers every branch the caller holds `rpt.report.read` at. `STOCK_ON_HAND` takes `branchId` and `to` (stock as it stood at the end of that day; today without it). `EXPIRING_LOTS` takes `branchId`, `from` and `to` (lots whose expiry date falls in the period). `AGEING_STOCK` takes `branchId` and `to`. `MORTALITY_RATE`, `FEED_CONVERSION`, `DELIVERY_PERFORMANCE`, `SALES_BY_CASHIER`, `SALES_SUMMARY` (sales by day, channel and payment method) and `PURCHASES` (goods received and supplier invoices) take `branchId`, `from` and `to`. `CUSTOMER_LIST` takes none and is a bulk export above 100 rows. `runReport` answers every code listed here from B12; until then only the mock serves it.\n\nPermission: `rpt.report.read`."
       x-permission: rpt.report.read
       parameters:
         - name: cursor
@@ -44135,9 +44268,6 @@ paths:
                   - parameters:
                       type: object
                       properties:
-                        from:
-                          type: string
-                          format: date
                         to:
                           type: string
                           format: date
@@ -44156,9 +44286,6 @@ paths:
                   - parameters:
                       type: object
                       properties:
-                        from:
-                          type: string
-                          format: date
                         to:
                           type: string
                           format: date
@@ -44296,6 +44423,39 @@ paths:
                       - PDF
                       - XLSX
                     canExport: true
+                    isBulk: false
+                    code: SALES_SUMMARY
+                    name: "Sales by day, channel and payment method"
+                    category: FINANCIAL
+                  - parameters:
+                      type: object
+                      properties:
+                        from:
+                          type: string
+                          format: date
+                        to:
+                          type: string
+                          format: date
+                        branchId:
+                          type: string
+                          format: uuid
+                    formats:
+                      - SCREEN
+                      - PDF
+                      - XLSX
+                    canExport: true
+                    isBulk: false
+                    code: PURCHASES
+                    name: "Purchases: goods received and supplier invoices"
+                    category: FINANCIAL
+                  - parameters:
+                      type: object
+                      properties: {}
+                    formats:
+                      - SCREEN
+                      - PDF
+                      - XLSX
+                    canExport: true
                     isBulk: true
                     code: CUSTOMER_LIST
                     name: "Customer list"
@@ -44320,7 +44480,7 @@ paths:
       tags:
         - rpt
       summary: "Run a report on screen or export it"
-      description: "Runs in the worker against the reporting schema with a statement timeout, so it cannot slow the counter. Export is a separate permission; every run is audited with its row count; a bulk export needs step-up and lands on the exception report.\n\nPermission: `rpt.report.read, plus rpt.report.export for PDF or XLSX`."
+      description: "Runs in the worker against the reporting schema with a statement timeout, so it cannot slow the counter. Export is a separate permission; every run is audited with its row count; a bulk export needs step-up and lands on the exception report. Every code `listReportDefinitions` lists is answered, `SALES_SUMMARY` and `PURCHASES` included, with the parameters it lists; each code has its own named example (`Prefer: example=<CODE>` on the mock). Not answered by the API until B12.\n\nPermission: `rpt.report.read, plus rpt.report.export for PDF or XLSX`."
       x-permission: "rpt.report.read, plus rpt.report.export for PDF or XLSX"
       parameters:
         - name: code
@@ -44355,52 +44515,551 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReportRun"
-              example:
-                id: "019a7abb-98ec-73d6-890e-463ba591bf19"
-                reportCode: MORTALITY_RATE
-                parameters:
-                  from: "2026-10-01"
-                  to: "2026-10-31"
-                format: SCREEN
-                status: READY
-                rowCount: 5
-                result:
-                  columns:
-                    - key: pen
-                      label: Pen
-                      type: TEXT
-                    - key: headKept
-                      label: Head-days
-                      type: INTEGER
-                    - key: deaths
-                      label: Deaths
-                      type: INTEGER
-                    - key: ratePercent
-                      label: "Mortality %"
-                      type: PERCENT
-                    - key: lossPesewas
-                      label: "Loss at cost"
-                      type: PESEWAS
-                  rows:
-                    - pen: "Broiler house 1"
-                      headKept: 13980
-                      deaths: 6
-                      ratePercent: "1.29"
-                      lossPesewas: 81000
-                    - pen: "Goat pen 2"
-                      headKept: 810
-                      deaths: 1
-                      ratePercent: "3.57"
-                      lossPesewas: 58900
-                  totals:
-                    deaths: 7
-                    lossPesewas: 139900
-                file: null
-                dataAsOf: "2026-11-13T09:30:00Z"
-                createdAt: "2026-11-13T09:31:00Z"
-                createdBy:
-                  id: "019a7a86-3046-711a-a652-1a7389f79351"
-                  displayName: "Akua Mensah"
+              examples:
+                STOCK_ON_HAND:
+                  summary: "Stock on hand at cost at Dodowa"
+                  value:
+                    id: "019a7abb-98ec-73d6-890e-463ba591bf01"
+                    reportCode: STOCK_ON_HAND
+                    parameters:
+                      to: "2026-11-15"
+                      branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    format: SCREEN
+                    status: READY
+                    rowCount: 8
+                    result:
+                      columns:
+                        - key: location
+                          label: Location
+                          type: TEXT
+                        - key: product
+                          label: Product
+                          type: TEXT
+                        - key: qty
+                          label: "On hand"
+                          type: QUANTITY
+                        - key: uom
+                          label: Unit
+                          type: TEXT
+                        - key: valueAtCostPesewas
+                          label: "Value at cost"
+                          type: PESEWAS
+                      rows:
+                        - location: "Goat and sheep pens"
+                          product: "Goat (G-0142 to G-0145)"
+                          qty: "4.000"
+                          uom: HEAD
+                          valueAtCostPesewas: 240000
+                        - location: "Goat and sheep pens"
+                          product: "Sheep (S-0031, S-0032)"
+                          qty: "2.000"
+                          uom: HEAD
+                          valueAtCostPesewas: 150001
+                        - location: "Goat and sheep pens"
+                          product: "Broiler, batch BR-2026-1110"
+                          qty: "20.000"
+                          uom: HEAD
+                          valueAtCostPesewas: 110000
+                        - location: "Cold room"
+                          product: "Beef, 15 kg pack, LOT-BEEF-2026-1110"
+                          qty: "45.000"
+                          uom: KG
+                          valueAtCostPesewas: 540000
+                        - location: "Cold room"
+                          product: "Goat meat, 15 kg pack, LOT-GOAT-0001"
+                          qty: "30.000"
+                          uom: KG
+                          valueAtCostPesewas: 390000
+                        - location: "Shop floor"
+                          product: "Eggs, big, crate of 30"
+                          qty: "30.000"
+                          uom: CRATE
+                          valueAtCostPesewas: 105000
+                        - location: "Shop floor"
+                          product: "Yam, tuber"
+                          qty: "40.000"
+                          uom: TUBER
+                          valueAtCostPesewas: 48000
+                        - location: "Shop floor"
+                          product: "Cabbage, head"
+                          qty: "25.000"
+                          uom: HEAD
+                          valueAtCostPesewas: 12500
+                      totals:
+                        valueAtCostPesewas: 1595501
+                    file: null
+                    dataAsOf: "2026-11-15T09:30:00Z"
+                    createdAt: "2026-11-15T09:31:00Z"
+                    createdBy:
+                      id: "019a7a86-3046-711a-a652-1a7389f79351"
+                      displayName: "Akosua Boateng"
+                AGEING_STOCK:
+                  summary: "Lots by age at Dodowa"
+                  value:
+                    id: "019a7abb-98ec-73d6-890e-463ba591bf02"
+                    reportCode: AGEING_STOCK
+                    parameters:
+                      to: "2026-11-15"
+                      branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    format: SCREEN
+                    status: READY
+                    rowCount: 3
+                    result:
+                      columns:
+                        - key: lot
+                          label: Lot
+                          type: TEXT
+                        - key: product
+                          label: Product
+                          type: TEXT
+                        - key: receivedOn
+                          label: Received
+                          type: DATE
+                        - key: ageDays
+                          label: "Age, days"
+                          type: INTEGER
+                        - key: qty
+                          label: "On hand"
+                          type: QUANTITY
+                        - key: valueAtCostPesewas
+                          label: "Value at cost"
+                          type: PESEWAS
+                      rows:
+                        - lot: LOT-BEEF-2026-1110
+                          product: "Beef, 15 kg pack"
+                          receivedOn: "2026-11-10"
+                          ageDays: 5
+                          qty: "45.000"
+                          valueAtCostPesewas: 540000
+                        - lot: LOT-GOAT-0001
+                          product: "Goat meat, 15 kg pack"
+                          receivedOn: "2026-11-10"
+                          ageDays: 5
+                          qty: "30.000"
+                          valueAtCostPesewas: 390000
+                        - lot: EGG-BIG-2026-1110
+                          product: "Eggs, big, crate of 30"
+                          receivedOn: "2026-11-10"
+                          ageDays: 5
+                          qty: "30.000"
+                          valueAtCostPesewas: 105000
+                      totals:
+                        valueAtCostPesewas: 1035000
+                    file: null
+                    dataAsOf: "2026-11-15T09:30:00Z"
+                    createdAt: "2026-11-15T09:31:00Z"
+                    createdBy:
+                      id: "019a7a86-3046-711a-a652-1a7389f79351"
+                      displayName: "Akosua Boateng"
+                EXPIRING_LOTS:
+                  summary: "Lots expiring in the next month"
+                  value:
+                    id: "019a7abb-98ec-73d6-890e-463ba591bf03"
+                    reportCode: EXPIRING_LOTS
+                    parameters:
+                      from: "2026-11-15"
+                      to: "2026-12-15"
+                      branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    format: SCREEN
+                    status: READY
+                    rowCount: 1
+                    result:
+                      columns:
+                        - key: lot
+                          label: Lot
+                          type: TEXT
+                        - key: product
+                          label: Product
+                          type: TEXT
+                        - key: location
+                          label: Location
+                          type: TEXT
+                        - key: expiresOn
+                          label: Expires
+                          type: DATE
+                        - key: daysToExpiry
+                          label: "Days left"
+                          type: INTEGER
+                        - key: qty
+                          label: "On hand"
+                          type: QUANTITY
+                        - key: valueAtCostPesewas
+                          label: "Value at cost"
+                          type: PESEWAS
+                      rows:
+                        - lot: EGG-BIG-2026-1110
+                          product: "Eggs, big, crate of 30"
+                          location: "Shop floor"
+                          expiresOn: "2026-12-01"
+                          daysToExpiry: 16
+                          qty: "30.000"
+                          valueAtCostPesewas: 105000
+                      totals:
+                        valueAtCostPesewas: 105000
+                    file: null
+                    dataAsOf: "2026-11-15T09:30:00Z"
+                    createdAt: "2026-11-15T09:31:00Z"
+                    createdBy:
+                      id: "019a7a86-3046-711a-a652-1a7389f79351"
+                      displayName: "Akosua Boateng"
+                MORTALITY_RATE:
+                  summary: "Mortality in October"
+                  value:
+                    id: "019a7abb-98ec-73d6-890e-463ba591bf19"
+                    reportCode: MORTALITY_RATE
+                    parameters:
+                      from: "2026-10-01"
+                      to: "2026-10-31"
+                    format: SCREEN
+                    status: READY
+                    rowCount: 5
+                    result:
+                      columns:
+                        - key: pen
+                          label: Pen
+                          type: TEXT
+                        - key: headKept
+                          label: Head-days
+                          type: INTEGER
+                        - key: deaths
+                          label: Deaths
+                          type: INTEGER
+                        - key: ratePercent
+                          label: "Mortality %"
+                          type: PERCENT
+                        - key: lossPesewas
+                          label: "Loss at cost"
+                          type: PESEWAS
+                      rows:
+                        - pen: "Broiler house 1"
+                          headKept: 13980
+                          deaths: 6
+                          ratePercent: "1.29"
+                          lossPesewas: 81000
+                        - pen: "Goat pen 2"
+                          headKept: 810
+                          deaths: 1
+                          ratePercent: "3.57"
+                          lossPesewas: 58900
+                      totals:
+                        deaths: 7
+                        lossPesewas: 139900
+                    file: null
+                    dataAsOf: "2026-11-13T09:30:00Z"
+                    createdAt: "2026-11-13T09:31:00Z"
+                    createdBy:
+                      id: "019a7a86-3046-711a-a652-1a7389f79351"
+                      displayName: "Akua Mensah"
+                FEED_CONVERSION:
+                  summary: "Feed conversion by batch and pen"
+                  value:
+                    id: "019a7abb-98ec-73d6-890e-463ba591bf04"
+                    reportCode: FEED_CONVERSION
+                    parameters:
+                      from: "2026-11-09"
+                      to: "2026-11-15"
+                      branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    format: SCREEN
+                    status: READY
+                    rowCount: 2
+                    result:
+                      columns:
+                        - key: pen
+                          label: Pen
+                          type: TEXT
+                        - key: batch
+                          label: Batch
+                          type: TEXT
+                        - key: feedKg
+                          label: "Feed eaten"
+                          type: KG
+                        - key: gainKg
+                          label: "Weight gained"
+                          type: KG
+                        - key: conversion
+                          label: "Feed per kg gained"
+                          type: TEXT
+                      rows:
+                        - pen: "Broiler house 1"
+                          batch: BR-2026-1110
+                          feedKg: "41.250"
+                          gainKg: "23.640"
+                          conversion: "1.74"
+                        - pen: "Goat and sheep pens"
+                          batch: "Goats G-0142 to G-0145"
+                          feedKg: "18.600"
+                          gainKg: "2.130"
+                          conversion: "8.73"
+                      totals:
+                        feedKg: "59.850"
+                        gainKg: "25.770"
+                    file: null
+                    dataAsOf: "2026-11-15T09:30:00Z"
+                    createdAt: "2026-11-15T09:31:00Z"
+                    createdBy:
+                      id: "019a7a86-3046-711a-a652-1a7389f79351"
+                      displayName: "Akosua Boateng"
+                DELIVERY_PERFORMANCE:
+                  summary: "Deliveries on time by driver"
+                  value:
+                    id: "019a7abb-98ec-73d6-890e-463ba591bf05"
+                    reportCode: DELIVERY_PERFORMANCE
+                    parameters:
+                      from: "2026-11-09"
+                      to: "2026-11-15"
+                      branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    format: SCREEN
+                    status: READY
+                    rowCount: 2
+                    result:
+                      columns:
+                        - key: driver
+                          label: Driver
+                          type: TEXT
+                        - key: deliveries
+                          label: Deliveries
+                          type: INTEGER
+                        - key: onTime
+                          label: "On time"
+                          type: INTEGER
+                        - key: onTimePercent
+                          label: "On time %"
+                          type: PERCENT
+                      rows:
+                        - driver: "Selorm Agbeko"
+                          deliveries: 18
+                          onTime: 16
+                          onTimePercent: "88.89"
+                        - driver: "Kwesi Ofori"
+                          deliveries: 12
+                          onTime: 11
+                          onTimePercent: "91.67"
+                      totals:
+                        deliveries: 30
+                        onTime: 27
+                        onTimePercent: "90.00"
+                    file: null
+                    dataAsOf: "2026-11-15T09:30:00Z"
+                    createdAt: "2026-11-15T09:31:00Z"
+                    createdBy:
+                      id: "019a7a86-3046-711a-a652-1a7389f79351"
+                      displayName: "Akosua Boateng"
+                SALES_BY_CASHIER:
+                  summary: "Counter sales by cashier"
+                  value:
+                    id: "019a7abb-98ec-73d6-890e-463ba591bf06"
+                    reportCode: SALES_BY_CASHIER
+                    parameters:
+                      from: "2026-11-09"
+                      to: "2026-11-15"
+                      branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    format: SCREEN
+                    status: READY
+                    rowCount: 2
+                    result:
+                      columns:
+                        - key: cashier
+                          label: Cashier
+                          type: TEXT
+                        - key: sales
+                          label: Sales
+                          type: INTEGER
+                        - key: voids
+                          label: Voids
+                          type: INTEGER
+                        - key: grossPesewas
+                          label: Gross
+                          type: PESEWAS
+                      rows:
+                        - cashier: "Adwoa Darko"
+                          sales: 41
+                          voids: 1
+                          grossPesewas: 912400
+                        - cashier: "Kwame Boadu"
+                          sales: 23
+                          voids: 0
+                          grossPesewas: 371900
+                      totals:
+                        sales: 64
+                        voids: 1
+                        grossPesewas: 1284300
+                    file: null
+                    dataAsOf: "2026-11-15T09:30:00Z"
+                    createdAt: "2026-11-15T09:31:00Z"
+                    createdBy:
+                      id: "019a7a86-3046-711a-a652-1a7389f79351"
+                      displayName: "Akosua Boateng"
+                SALES_SUMMARY:
+                  summary: "Sales by day, channel and payment method"
+                  value:
+                    id: "019a7abb-98ec-73d6-890e-463ba591bf07"
+                    reportCode: SALES_SUMMARY
+                    parameters:
+                      from: "2026-11-13"
+                      to: "2026-11-14"
+                      branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    format: SCREEN
+                    status: READY
+                    rowCount: 5
+                    result:
+                      columns:
+                        - key: date
+                          label: Date
+                          type: DATE
+                        - key: channel
+                          label: Channel
+                          type: TEXT
+                        - key: paymentMethod
+                          label: "Paid by"
+                          type: TEXT
+                        - key: orders
+                          label: Orders
+                          type: INTEGER
+                        - key: grossPesewas
+                          label: Gross
+                          type: PESEWAS
+                      rows:
+                        - date: "2026-11-13"
+                          channel: POS
+                          paymentMethod: Cash
+                          orders: 14
+                          grossPesewas: 388300
+                        - date: "2026-11-13"
+                          channel: POS
+                          paymentMethod: "MTN Mobile Money"
+                          orders: 9
+                          grossPesewas: 446000
+                        - date: "2026-11-13"
+                          channel: WHOLESALE
+                          paymentMethod: "Bank transfer"
+                          orders: 1
+                          grossPesewas: 293000
+                        - date: "2026-11-14"
+                          channel: POS
+                          paymentMethod: Cash
+                          orders: 16
+                          grossPesewas: 452100
+                        - date: "2026-11-14"
+                          channel: ONLINE
+                          paymentMethod: "MTN Mobile Money"
+                          orders: 1
+                          grossPesewas: 45000
+                      totals:
+                        orders: 41
+                        grossPesewas: 1624400
+                    file: null
+                    dataAsOf: "2026-11-15T09:30:00Z"
+                    createdAt: "2026-11-15T09:31:00Z"
+                    createdBy:
+                      id: "019a7a86-3046-711a-a652-1a7389f79351"
+                      displayName: "Akosua Boateng"
+                PURCHASES:
+                  summary: "Goods received and supplier invoices"
+                  value:
+                    id: "019a7abb-98ec-73d6-890e-463ba591bf08"
+                    reportCode: PURCHASES
+                    parameters:
+                      from: "2026-11-10"
+                      to: "2026-11-11"
+                      branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    format: SCREEN
+                    status: READY
+                    rowCount: 5
+                    result:
+                      columns:
+                        - key: date
+                          label: Date
+                          type: DATE
+                        - key: kind
+                          label: Document
+                          type: TEXT
+                        - key: reference
+                          label: Reference
+                          type: TEXT
+                        - key: supplier
+                          label: Supplier
+                          type: TEXT
+                        - key: valuePesewas
+                          label: "Value at cost"
+                          type: PESEWAS
+                      rows:
+                        - date: "2026-11-10"
+                          kind: GOODS_RECEIPT
+                          reference: SEED-KLT-0457
+                          supplier: "Kpone Livestock Traders (SEED)"
+                          valuePesewas: 390001
+                        - date: "2026-11-10"
+                          kind: GOODS_RECEIPT
+                          reference: SEED-APF-1182
+                          supplier: "Awutu Poultry Farm (SEED)"
+                          valuePesewas: 110000
+                        - date: "2026-11-10"
+                          kind: GOODS_RECEIPT
+                          reference: SEED-ACS-0093
+                          supplier: "Ashaiman Cold Store Ltd (SEED)"
+                          valuePesewas: 930000
+                        - date: "2026-11-10"
+                          kind: GOODS_RECEIPT
+                          reference: SEED-APF-1183
+                          supplier: "Awutu Poultry Farm (SEED)"
+                          valuePesewas: 105000
+                        - date: "2026-11-11"
+                          kind: SUPPLIER_INVOICE
+                          reference: KLT/INV/2026/0457
+                          supplier: "Kpone Livestock Traders (SEED)"
+                          valuePesewas: 390001
+                      totals:
+                        receivedPesewas: 1535001
+                        invoicedPesewas: 390001
+                    file: null
+                    dataAsOf: "2026-11-15T09:30:00Z"
+                    createdAt: "2026-11-15T09:31:00Z"
+                    createdBy:
+                      id: "019a7a86-3046-711a-a652-1a7389f79351"
+                      displayName: "Akosua Boateng"
+                CUSTOMER_LIST:
+                  summary: Customers
+                  value:
+                    id: "019a7abb-98ec-73d6-890e-463ba591bf09"
+                    reportCode: CUSTOMER_LIST
+                    parameters: {}
+                    format: SCREEN
+                    status: READY
+                    rowCount: 3
+                    result:
+                      columns:
+                        - key: customerNo
+                          label: Customer
+                          type: TEXT
+                        - key: name
+                          label: Name
+                          type: TEXT
+                        - key: phone
+                          label: Phone
+                          type: TEXT
+                        - key: tier
+                          label: Tier
+                          type: TEXT
+                      rows:
+                        - customerNo: C-000101
+                          name: "Abena Owusu (SEED)"
+                          phone: "+233200000301"
+                          tier: RETAIL
+                        - customerNo: C-000102
+                          name: "Dodowa Chop Bar (SEED)"
+                          phone: "+233200000302"
+                          tier: WHOLESALE
+                        - customerNo: C-000103
+                          name: "Nana Agyei (SEED)"
+                          phone: "+233200000303"
+                          tier: RETAIL
+                      totals: null
+                    file: null
+                    dataAsOf: "2026-11-15T09:30:00Z"
+                    createdAt: "2026-11-15T09:31:00Z"
+                    createdBy:
+                      id: "019a7a86-3046-711a-a652-1a7389f79351"
+                      displayName: "Akosua Boateng"
         "202":
           description: "Queued; poll GET /report-runs/{id}."
           content:
@@ -67664,53 +68323,238 @@ components:
         - qty
         - uom
         - revenuePesewas
+    LabelBarcode:
+      type: object
+      description: "A barcode for the client to draw: what the bars encode and in which symbology, and the text printed under them."
+      properties:
+        symbology:
+          type: string
+          enum:
+            - CODE_128
+        payload:
+          type: string
+        text:
+          type: string
+      required:
+        - symbology
+        - payload
+        - text
+    ProductLabel:
+      type: object
+      properties:
+        product:
+          $ref: "#/components/schemas/ProductRef"
+        saleUom:
+          type: string
+        nominalPackKg:
+          anyOf:
+            - $ref: "#/components/schemas/Kilograms"
+            - type: "null"
+        shelfLifeDays:
+          type:
+            - integer
+            - "null"
+        storageTempClass:
+          type:
+            - string
+            - "null"
+          enum:
+            - AMBIENT
+            - CHILLED
+            - FROZEN
+            - null
+        barcode:
+          $ref: "#/components/schemas/LabelBarcode"
+      required:
+        - product
+        - saleUom
+        - nominalPackKg
+        - shelfLifeDays
+        - storageTempClass
+        - barcode
+    StockUnitLabel:
+      type: object
+      properties:
+        stockUnit:
+          $ref: "#/components/schemas/StockUnitRef"
+        product:
+          $ref: "#/components/schemas/ProductRef"
+        branchId:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+            - LOT
+            - ANIMAL
+        lotNo:
+          type:
+            - string
+            - "null"
+        tagNo:
+          type:
+            - string
+            - "null"
+        weightKg:
+          anyOf:
+            - $ref: "#/components/schemas/Kilograms"
+            - type: "null"
+          description: "A lot: its weight on hand, null for counted stock or nothing on hand. An animal: its last recorded weight, null if never weighed."
+        weighedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: "When an animal was last weighed; null for a lot."
+        onHandQty:
+          $ref: "#/components/schemas/Quantity"
+        uom:
+          type: string
+        uomDisplayDecimals:
+          type: integer
+          minimum: 0
+          maximum: 3
+        producedOn:
+          type:
+            - string
+            - "null"
+          format: date
+        expiresOn:
+          type:
+            - string
+            - "null"
+          format: date
+        storageTempClass:
+          type:
+            - string
+            - "null"
+          enum:
+            - AMBIENT
+            - CHILLED
+            - FROZEN
+            - null
+        barcode:
+          $ref: "#/components/schemas/LabelBarcode"
+      required:
+        - stockUnit
+        - product
+        - branchId
+        - kind
+        - lotNo
+        - tagNo
+        - weightKg
+        - weighedAt
+        - onHandQty
+        - uom
+        - uomDisplayDecimals
+        - producedOn
+        - expiresOn
+        - storageTempClass
+        - barcode
     OwnerDashboard:
       type: object
+      description: "Every figure of the owner's first screen in one response (NFR-023). A figure whose source module is not built yet is null and named in `pendingFigures` with why and the phase that makes it live; a figure is null exactly while it is listed there, and a listed figure is never answered with a zero. Stock figures are as of `asOf`, whatever `date` asks for."
       properties:
         date:
           type: string
           format: date
+          description: "The business date in Africa/Accra the sales figures are for: today unless asked."
         branchId:
-          type: string
+          type:
+            - string
+            - "null"
           format: uuid
+          description: "The branch asked for, or null when the dashboard covers every branch in `branchIds`."
+        branchIds:
+          type: array
+          description: "The branches the figures cover: the one asked for, or every branch where the caller holds `rpt.dashboard.owner` for the whole branch."
+          items:
+            type: string
+            format: uuid
         asOf:
           type: string
           format: date-time
         salesTodayPesewas:
-          $ref: "#/components/schemas/Pesewas"
+          anyOf:
+            - $ref: "#/components/schemas/Pesewas"
+            - type: "null"
         salesYesterdayPesewas:
-          $ref: "#/components/schemas/Pesewas"
+          anyOf:
+            - $ref: "#/components/schemas/Pesewas"
+            - type: "null"
         salesMonthToDatePesewas:
-          $ref: "#/components/schemas/Pesewas"
+          anyOf:
+            - $ref: "#/components/schemas/Pesewas"
+            - type: "null"
         salesByChannel:
-          type: array
+          type:
+            - array
+            - "null"
           items:
             $ref: "#/components/schemas/ChannelSales"
         cash:
-          $ref: "#/components/schemas/CashPosition"
+          anyOf:
+            - $ref: "#/components/schemas/CashPosition"
+            - type: "null"
         stockValueAtCostPesewas:
           allOf:
             - $ref: "#/components/schemas/Pesewas"
-          description: "At cost, never at price."
+          description: "At cost, never at price: the value of every cost pool of the branches, equal to `listStockOnHand`'s `totalValueAtCostPesewas` over the same branches."
+        purchasesTodayPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "Posted purchase receipts at cost received on `date`, the same figure as its point in `purchases`."
+        purchasesYesterdayPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "The same on the day before `date`."
         receivablesOutstandingPesewas:
-          $ref: "#/components/schemas/Pesewas"
+          anyOf:
+            - $ref: "#/components/schemas/Pesewas"
+            - type: "null"
         receivablesOverduePesewas:
-          $ref: "#/components/schemas/Pesewas"
+          anyOf:
+            - $ref: "#/components/schemas/Pesewas"
+            - type: "null"
         topMovers:
-          type: array
+          type:
+            - array
+            - "null"
           items:
             $ref: "#/components/schemas/TopMover"
         alerts:
-          type: array
+          type:
+            - array
+            - "null"
           items:
             $ref: "#/components/schemas/DashboardAlert"
         exceptionsToday:
+          type:
+            - integer
+            - "null"
+        animalsOnHand:
+          $ref: "#/components/schemas/AnimalsOnHand"
+        lowStockCount:
           type: integer
+          minimum: 0
+          description: "Products at or below a reorder point in the branches, each product counted once."
+        purchases:
+          $ref: "#/components/schemas/PurchasesSeriesData"
+        salesSeries:
+          anyOf:
+            - $ref: "#/components/schemas/SalesSeriesData"
+            - type: "null"
+        pendingFigures:
+          type: array
+          description: "The figures above that are null because their source is not built yet, in schema order. Empty once every source exists."
+          items:
+            $ref: "#/components/schemas/PendingFigure"
         currency:
           $ref: "#/components/schemas/Currency"
       required:
         - date
         - branchId
+        - branchIds
         - asOf
         - salesTodayPesewas
         - salesYesterdayPesewas
@@ -67718,12 +68562,315 @@ components:
         - salesByChannel
         - cash
         - stockValueAtCostPesewas
+        - purchasesTodayPesewas
+        - purchasesYesterdayPesewas
         - receivablesOutstandingPesewas
         - receivablesOverduePesewas
         - topMovers
         - alerts
         - exceptionsToday
+        - animalsOnHand
+        - lowStockCount
+        - purchases
+        - salesSeries
+        - pendingFigures
         - currency
+    PendingFigure:
+      type: object
+      description: "A dashboard figure that is null because the module it comes from is not built yet."
+      properties:
+        figure:
+          type: string
+          description: "The `OwnerDashboard` property that is null, for example `salesTodayPesewas`."
+        source:
+          type: string
+          description: "The module code its figures will come from, for example `ord`."
+        reason:
+          type: string
+        phase:
+          type: string
+          description: "The build phase that makes it live, for example `B9a`."
+      required:
+        - figure
+        - source
+        - reason
+        - phase
+    AnimalsOnHand:
+      type: object
+      description: "Serialised live stock units with stock on hand at a physical location, in transit included, counted by species."
+      properties:
+        total:
+          type: integer
+          minimum: 0
+        bySpecies:
+          type: array
+          items:
+            $ref: "#/components/schemas/SpeciesCount"
+      required:
+        - total
+        - bySpecies
+    SpeciesCount:
+      type: object
+      properties:
+        species:
+          anyOf:
+            - $ref: "#/components/schemas/SpeciesRef"
+            - type: "null"
+        count:
+          type: integer
+          minimum: 1
+      required:
+        - species
+        - count
+    PurchasesSeriesData:
+      type: object
+      description: "Posted purchase receipts at cost per business day in Africa/Accra, by the day the goods were received; a day with none is 0."
+      properties:
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        points:
+          type: array
+          items:
+            $ref: "#/components/schemas/PurchasesPoint"
+        totalPesewas:
+          $ref: "#/components/schemas/Pesewas"
+        receiptCount:
+          type: integer
+          minimum: 0
+      required:
+        - from
+        - to
+        - points
+        - totalPesewas
+        - receiptCount
+    PurchasesPoint:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        valueAtCostPesewas:
+          $ref: "#/components/schemas/Pesewas"
+        receiptCount:
+          type: integer
+          minimum: 0
+      required:
+        - date
+        - valueAtCostPesewas
+        - receiptCount
+    SalesSeriesData:
+      type: object
+      description: "Completed orders' gross totals per business day in Africa/Accra; a day with none is 0."
+      properties:
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        points:
+          type: array
+          items:
+            $ref: "#/components/schemas/SalesPoint"
+        totalPesewas:
+          $ref: "#/components/schemas/Pesewas"
+        orderCount:
+          type: integer
+          minimum: 0
+      required:
+        - from
+        - to
+        - points
+        - totalPesewas
+        - orderCount
+    SalesPoint:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        salesPesewas:
+          $ref: "#/components/schemas/Pesewas"
+        orderCount:
+          type: integer
+          minimum: 0
+      required:
+        - date
+        - salesPesewas
+        - orderCount
+    StockValueTile:
+      type: object
+      properties:
+        branchIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        stockValueAtCostPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "At cost, never at price: equal to `listStockOnHand`'s `totalValueAtCostPesewas` over the same branches."
+        currency:
+          $ref: "#/components/schemas/Currency"
+        asOf:
+          type: string
+          format: date-time
+      required:
+        - branchIds
+        - stockValueAtCostPesewas
+        - currency
+        - asOf
+    AnimalsOnHandTile:
+      type: object
+      properties:
+        branchIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        animalsOnHand:
+          $ref: "#/components/schemas/AnimalsOnHand"
+        asOf:
+          type: string
+          format: date-time
+      required:
+        - branchIds
+        - animalsOnHand
+        - asOf
+    LowStockTile:
+      type: object
+      properties:
+        branchIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        lowStockCount:
+          type: integer
+          minimum: 0
+          description: "Products at or below a reorder point in the branches, each product counted once."
+        asOf:
+          type: string
+          format: date-time
+      required:
+        - branchIds
+        - lowStockCount
+        - asOf
+    PurchasesSeriesTile:
+      type: object
+      properties:
+        branchIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        purchases:
+          $ref: "#/components/schemas/PurchasesSeriesData"
+        currency:
+          $ref: "#/components/schemas/Currency"
+        asOf:
+          type: string
+          format: date-time
+      required:
+        - branchIds
+        - purchases
+        - currency
+        - asOf
+    SalesTodayTile:
+      type: object
+      properties:
+        branchIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        date:
+          type: string
+          format: date
+        salesPesewas:
+          $ref: "#/components/schemas/Pesewas"
+        orderCount:
+          type: integer
+          minimum: 0
+        currency:
+          $ref: "#/components/schemas/Currency"
+        asOf:
+          type: string
+          format: date-time
+      required:
+        - branchIds
+        - date
+        - salesPesewas
+        - orderCount
+        - currency
+        - asOf
+    CashPositionTile:
+      type: object
+      properties:
+        branchIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        cash:
+          $ref: "#/components/schemas/CashPosition"
+        currency:
+          $ref: "#/components/schemas/Currency"
+        asOf:
+          type: string
+          format: date-time
+      required:
+        - branchIds
+        - cash
+        - currency
+        - asOf
+    ReceivablesTile:
+      type: object
+      properties:
+        branchIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        outstandingPesewas:
+          $ref: "#/components/schemas/Pesewas"
+        overduePesewas:
+          $ref: "#/components/schemas/Pesewas"
+        currency:
+          $ref: "#/components/schemas/Currency"
+        asOf:
+          type: string
+          format: date-time
+      required:
+        - branchIds
+        - outstandingPesewas
+        - overduePesewas
+        - currency
+        - asOf
+    SalesSeriesTile:
+      type: object
+      properties:
+        branchIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        sales:
+          $ref: "#/components/schemas/SalesSeriesData"
+        currency:
+          $ref: "#/components/schemas/Currency"
+        asOf:
+          type: string
+          format: date-time
+      required:
+        - branchIds
+        - sales
+        - currency
+        - asOf
     CashPosition:
       type: object
       properties:

@@ -13,6 +13,7 @@ Owner: INV module. The stock movement ledger, tracked stock units, balances, val
 | `inv.pub_movement` (view) | Movements with type, product, locations, quantity, weight, value, document and time; no actor detail |
 | `inv.protect_expired()` on `BEFORE INSERT` of `inv.stock_movement` | A movement type `blocked_when_expired` (sale, offline sale) of a lot whose `expires_on` is before the movement's Africa/Accra date is refused (HK010 `ck_stock_expired`, migration 0064, A-134 (j)) |
 | `inv.pub_reorder_level` (view) | Each live reorder rule with on hand, reserved, held and available stock over the branch's physical stock locations (or the rule's one location; in transit and sites left out), and `at_or_below_reorder_point` and `below_minimum`. Read by RPT's low stock tile (B05x, ADR-0011) and by `StockAlerts` |
+| `inv.pub_goods_receipt` (view) | Each goods receipt's kind, status, branch, location, supplier, `received_at`, `posted_at`, value at cost (the sum of its lines) and line count. Read by RPT's purchases tile (B05x, migration 0068) |
 
 ---
 

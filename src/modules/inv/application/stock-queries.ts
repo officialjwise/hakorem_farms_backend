@@ -1,3 +1,4 @@
+import { stockUnitLabel, type StockUnitLabelPrint } from '../domain/label';
 import { Money, Quantity, toBusinessDate, type Clock } from '@hakorem/kernel';
 import type { Actor } from '../../../platform/context/request-context';
 import type { Transaction, UnitOfWork } from '../../../platform/database/unit-of-work';
@@ -103,6 +104,19 @@ interface Page<V> {
 
 /** Stock in transit or at a whole site is never promised (FR-INV-010, ADR-0048). */
 const NOT_PROMISED_AT: ReadonlySet<string> = new Set(['IN_TRANSIT', 'SITE']);
+
+/** The contract's `StockUnitLabel`. */
+export interface StockUnitLabelView extends StockUnitLabelPrint {
+  readonly stockUnit: { readonly id: string; readonly identifier: string; readonly tracking: 'SERIAL' | 'LOT' };
+  readonly product: ProductRefView;
+  readonly branchId: string;
+  readonly onHandQty: string;
+  readonly uom: string;
+  readonly uomDisplayDecimals: number;
+  readonly producedOn: string | null;
+  readonly expiresOn: string | null;
+  readonly storageTempClass: string | null;
+}
 
 export interface StockUnitView {
   readonly id: string;
@@ -247,6 +261,41 @@ export class StockQueries {
       await this.authoriser.authorise(tx, actor, 'inv.stock.read', unit === null ? {} : { branchId: unit.branchId, locationId: unit.currentLocationId });
       if (unit === null) throw new NotFoundError(`no stock unit ${id}`);
       return (await this.unitViews(tx, [unit]))[0]!;
+    });
+  }
+
+  /**
+   * What a label prints for a lot or an animal (B05x, A-151): the product, the batch or tag, the weight (a lot's on
+   * hand, an animal's last recorded), its dates and storage class, and the barcode's payload and symbology. No image is
+   * rendered; `printPackLabels` (B6) renders packs. Authorised as `getStockUnit` is, at the unit's branch and location.
+   */
+  getStockUnitLabel(actor: Actor | undefined, id: string): Promise<StockUnitLabelView> {
+    return this.uow.run({ isolation: 'read committed' }, async (tx) => {
+      const unit = await this.store.stockUnit(tx, id);
+      await this.authoriser.authorise(tx, actor, 'inv.stock.read', unit === null ? {} : { branchId: unit.branchId, locationId: unit.currentLocationId });
+      if (unit === null) throw new NotFoundError(`no stock unit ${id}`);
+      const view = (await this.unitViews(tx, [unit]))[0]!;
+      const balances = await this.store.onHand(tx, { stockUnitId: id }, [{ branchId: unit.branchId, locationId: null }], false);
+      const print = stockUnitLabel({
+        tracking: view.tracking,
+        sku: view.product.sku,
+        identifier: view.identifier,
+        onHandWeightsKg: balances.map((b) => b.onHandWeightKg),
+        lastWeightKg: view.lastWeightKg,
+        lastWeighedAt: view.lastWeighedAt,
+      });
+      return {
+        stockUnit: { id: view.id, identifier: view.identifier, tracking: view.tracking },
+        product: view.product,
+        branchId: view.branchId,
+        ...print,
+        onHandQty: view.onHandQty,
+        uom: view.uom,
+        uomDisplayDecimals: view.uomDisplayDecimals,
+        producedOn: view.producedOn,
+        expiresOn: view.expiresOn,
+        storageTempClass: view.storageTempClass,
+      };
     });
   }
 

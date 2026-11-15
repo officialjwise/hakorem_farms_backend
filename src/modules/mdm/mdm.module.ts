@@ -38,6 +38,7 @@ import { CATALOGUE_STORE, type CatalogueStore } from './application/catalogue-st
 import { PgCatalogueStore } from './infrastructure/pg-catalogue-store';
 import { CatalogueController } from './interface/catalogue.controller';
 import { LocationsAdmin } from './application/locations-admin';
+import { LocationUsageRegistry } from './application/location-usage';
 import { LOCATIONS_STORE, type LocationsStore } from './application/locations-store';
 import { PartiesAdmin } from './application/parties-admin';
 import { PARTIES_STORE, type PartiesStore } from './application/parties-store';
@@ -141,10 +142,19 @@ import { ImportsController } from './interface/imports.controller';
     },
     {
       provide: LocationsAdmin,
-      useFactory: (uow: UnitOfWork, store: LocationsStore, authoriser: Authoriser, idempotency: Idempotency, audit: AuditTrail, cursors: Cursors, clock: Clock) =>
-        new LocationsAdmin(uow, store, authoriser, idempotency, audit, cursors, clock),
-      inject: [UnitOfWork, LOCATIONS_STORE, Authoriser, Idempotency, AuditTrail, Cursors, CLOCK],
+      useFactory: (
+        uow: UnitOfWork,
+        store: LocationsStore,
+        authoriser: Authoriser,
+        idempotency: Idempotency,
+        audit: AuditTrail,
+        cursors: Cursors,
+        clock: Clock,
+        usage: LocationUsageRegistry,
+      ) => new LocationsAdmin(uow, store, authoriser, idempotency, audit, cursors, clock, usage),
+      inject: [UnitOfWork, LOCATIONS_STORE, Authoriser, Idempotency, AuditTrail, Cursors, CLOCK, LocationUsageRegistry],
     },
+    { provide: LocationUsageRegistry, useFactory: () => new LocationUsageRegistry() },
     {
       provide: PartiesAdmin,
       useFactory: (uow: UnitOfWork, store: PartiesStore, authoriser: Authoriser, idempotency: Idempotency, audit: AuditTrail, keys: SubjectKeys, cursors: Cursors, clock: Clock, config: AppConfig) =>
@@ -259,7 +269,7 @@ import { ImportsController } from './interface/imports.controller';
     { provide: MASTER_DATA_REFS_STORE, useClass: PgMasterDataRefsStore },
     { provide: MasterDataRefs, useFactory: (store: MasterDataRefsStore) => new MasterDataRefs(store), inject: [MASTER_DATA_REFS_STORE] },
   ],
-  exports: [PricingService, Promotions, TaxService, MasterDataRefs, MdmImports],
+  exports: [PricingService, Promotions, TaxService, MasterDataRefs, MdmImports, LocationUsageRegistry],
 })
 export class MdmModule implements OnModuleInit {
   constructor(

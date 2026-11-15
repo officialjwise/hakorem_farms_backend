@@ -1,0 +1,48 @@
+operationId: getLowStockTile
+tags:
+  - rpt
+summary: "Low stock count"
+description: "The products whose available stock (on hand less reserved less held) is at or below a reorder point in the branches, from the published view `inv.pub_reorder_level`; a product with two rules is counted once. `listStockAlerts` lists them.\n\nPermission: `rpt.tile.read`."
+x-permission: rpt.tile.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: branchId
+    in: query
+    required: false
+    description: "One branch; without it, every branch where the caller holds `rpt.tile.read` for the whole branch."
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/LowStockTile"
+        example:
+          branchIds:
+            - "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          lowStockCount: 1
+          asOf: "2026-11-15T09:30:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

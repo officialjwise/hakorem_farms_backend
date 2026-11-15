@@ -1,0 +1,167 @@
+operationId: getOwnerDashboard
+tags:
+  - rpt
+summary: "The owner dashboard"
+description: "The owner's first screen in one request (FR-RPT-001, NFR-023). It composes the dashboard tiles: stock value at cost, animals on hand by species, the low stock count and purchases on `date` and the day before, and the purchases of the week (or, with `period=MONTH`, the 30 days) ending `date`, read from the published views of inventory and master data (ADR-0011, ADR-0023) and scoped to the branch asked for or to every branch where the caller holds `rpt.dashboard.owner` for the whole branch. A figure whose source module is not built yet (sales, top movers and the sales series until B9a, cash and receivables until B8, alerts and the exception count until B12) is null and listed in `pendingFigures` with its reason and phase; it is never answered with a zero. Stock figures are as of `asOf`; `date` (today unless asked, never later) dates the sales figures and ends the purchases period. A `date` after today is 422 `REPORT_PERIOD_INVALID`.\n\nPermission: `rpt.dashboard.owner`."
+x-permission: rpt.dashboard.owner
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - REPORT_PERIOD_INVALID
+  - RATE_LIMITED
+parameters:
+  - name: branchId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: date
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date
+  - name: period
+    in: query
+    required: false
+    description: "How far back the purchases and sales series reach, ending on `date`: `WEEK` (7 days, the default) or `MONTH` (30 days)."
+    schema:
+      type: string
+      enum:
+        - WEEK
+        - MONTH
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/OwnerDashboard"
+        example:
+          date: "2026-11-15"
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          branchIds:
+            - "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          asOf: "2026-11-15T09:30:00Z"
+          salesTodayPesewas: null
+          salesYesterdayPesewas: null
+          salesMonthToDatePesewas: null
+          salesByChannel: null
+          cash: null
+          stockValueAtCostPesewas: 1595501
+          purchasesTodayPesewas: 0
+          purchasesYesterdayPesewas: 96500
+          receivablesOutstandingPesewas: null
+          receivablesOverduePesewas: null
+          topMovers: null
+          alerts: null
+          exceptionsToday: null
+          animalsOnHand:
+            total: 6
+            bySpecies:
+              - species:
+                  id: "019a7a8b-5b1d-7d3a-8f2e-3c4d5e6f7a81"
+                  code: GOAT
+                  name: Goat
+                count: 4
+              - species:
+                  id: "019a7a8b-5b1d-7d3a-8f2e-3c4d5e6f7a82"
+                  code: SHEEP
+                  name: Sheep
+                count: 2
+          lowStockCount: 1
+          purchases:
+            from: "2026-11-09"
+            to: "2026-11-15"
+            points:
+              - date: "2026-11-09"
+                valueAtCostPesewas: 0
+                receiptCount: 0
+              - date: "2026-11-10"
+                valueAtCostPesewas: 1535001
+                receiptCount: 4
+              - date: "2026-11-11"
+                valueAtCostPesewas: 0
+                receiptCount: 0
+              - date: "2026-11-12"
+                valueAtCostPesewas: 212000
+                receiptCount: 1
+              - date: "2026-11-13"
+                valueAtCostPesewas: 0
+                receiptCount: 0
+              - date: "2026-11-14"
+                valueAtCostPesewas: 96500
+                receiptCount: 1
+              - date: "2026-11-15"
+                valueAtCostPesewas: 0
+                receiptCount: 0
+            totalPesewas: 1843501
+            receiptCount: 6
+          salesSeries: null
+          pendingFigures:
+            - figure: salesTodayPesewas
+              source: ord
+              reason: "Sales are completed orders; the order core that records them on every channel is built in B9a, and counter sales reach it from B9b."
+              phase: B9a
+            - figure: salesYesterdayPesewas
+              source: ord
+              reason: "Sales are completed orders; the order core that records them on every channel is built in B9a, and counter sales reach it from B9b."
+              phase: B9a
+            - figure: salesMonthToDatePesewas
+              source: ord
+              reason: "Sales are completed orders; the order core that records them on every channel is built in B9a, and counter sales reach it from B9b."
+              phase: B9a
+            - figure: salesByChannel
+              source: ord
+              reason: "Sales are completed orders; the order core that records them on every channel is built in B9a, and counter sales reach it from B9b."
+              phase: B9a
+            - figure: salesSeries
+              source: ord
+              reason: "Sales are completed orders; the order core that records them on every channel is built in B9a, and counter sales reach it from B9b."
+              phase: B9a
+            - figure: cash
+              source: fin
+              reason: "The cash position is the balance of ledger accounts 1000 to 1130; the general ledger is built in B8."
+              phase: B8
+            - figure: receivablesOutstandingPesewas
+              source: fin
+              reason: "Receivables are the balance of ledger account 1200 from issued invoices; the ledger and billing are built in B8."
+              phase: B8
+            - figure: receivablesOverduePesewas
+              source: bil
+              reason: "Overdue receivables are invoices past their due date; billing is built in B8."
+              phase: B8
+            - figure: topMovers
+              source: ord
+              reason: "Top movers rank the products sold today by revenue, from completed orders built in B9a."
+              phase: B9a
+            - figure: alerts
+              source: rpt
+              reason: "The alert feed gathers stock exceptions, approvals and the daily exception report, which are composed in B12."
+              phase: B12
+            - figure: exceptionsToday
+              source: rpt
+              reason: "The count of exception items comes from the daily exception report, built in B12."
+              phase: B12
+          currency: GHS
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
