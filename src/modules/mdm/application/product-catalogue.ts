@@ -1,3 +1,4 @@
+import { productBarcode, type ProductLabelBarcode } from '../domain/label';
 import { createUuidV7Generator, type Clock } from '@hakorem/kernel';
 import type { AuditTrail } from '../../../platform/audit/audit-trail';
 import type { Actor } from '../../../platform/context/request-context';
@@ -87,6 +88,16 @@ export interface Page<T> {
  * handler authorises through the IAM policy engine first; a state change claims its idempotency key as the first
  * write, writes its row, its audit event and its domain event in the same transaction, and stores the response.
  */
+/** The contract's `ProductLabel`. */
+export interface ProductLabelView {
+  readonly product: { readonly id: string; readonly sku: string; readonly name: string };
+  readonly saleUom: string;
+  readonly nominalPackKg: string | null;
+  readonly shelfLifeDays: number | null;
+  readonly storageTempClass: 'AMBIENT' | 'CHILLED' | 'FROZEN' | null;
+  readonly barcode: ProductLabelBarcode;
+}
+
 export class ProductCatalogue {
   private readonly nextId: () => string;
 
@@ -295,6 +306,22 @@ export class ProductCatalogue {
       }
       return view;
     });
+  }
+
+  /**
+   * What a product label prints (B05x, A-151): SKU, name, sale unit, nominal pack weight, shelf life, storage class,
+   * and the barcode (the product's own, or its SKU) with its symbology. No image is rendered.
+   */
+  async getLabel(actor: Actor | undefined, id: string): Promise<ProductLabelView> {
+    const view = await this.get(actor, id);
+    return {
+      product: { id: view.id, sku: view.sku, name: view.name },
+      saleUom: view.saleUom,
+      nominalPackKg: view.nominalPackKg,
+      shelfLifeDays: view.shelfLifeDays,
+      storageTempClass: view.storageTempClass,
+      barcode: productBarcode(view),
+    };
   }
 
   async list(actor: Actor | undefined, filter: ProductListFilter, cursor: string | undefined, limit: number): Promise<Page<ProductView>> {

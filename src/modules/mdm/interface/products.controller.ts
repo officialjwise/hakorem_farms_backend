@@ -5,7 +5,7 @@ import type { Actor } from '../../../platform/context/request-context';
 import { CurrentActor } from '../../../platform/http/actor-param';
 import { IdempotencyKeyHeader, Operation } from '../../../platform/http/operation';
 import { zodPipe } from '../../../platform/http/validation';
-import { ProductCatalogue, type Page } from '../application/product-catalogue';
+import { ProductCatalogue, type Page, type ProductLabelView } from '../application/product-catalogue';
 import { ProductGallery } from '../application/product-gallery';
 import type { ProductView } from '../application/product-store';
 import { ArchiveBody, ListProductsQuery, ProductCreate, ProductIdParam, ProductImageCreateBody, ProductImageIdParam, ProductUpdate } from './schemas';
@@ -46,6 +46,12 @@ export class ProductsController {
   @Operation({ operationId: 'getProduct', access: 'SESSION', realms: ['STAFF'], permission: 'mdm.product.read', idempotent: false, csrf: false, rateLimit: 'console' })
   getProduct(@CurrentActor() actor: Actor | undefined, @Param('id', zodPipe(ProductIdParam)) id: string): Promise<ProductView> {
     return this.catalogue.get(actor, id);
+  }
+
+  @Get(':id/label')
+  @Operation({ operationId: 'getProductLabel', access: 'SESSION', realms: ['STAFF'], permission: 'mdm.product.read', idempotent: false, csrf: false, rateLimit: 'console' })
+  getProductLabel(@CurrentActor() actor: Actor | undefined, @Param('id', zodPipe(ProductIdParam)) id: string): Promise<ProductLabelView> {
+    return this.catalogue.getLabel(actor, id);
   }
 
   @Patch(':id')

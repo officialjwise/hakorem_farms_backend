@@ -8249,6 +8249,66 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
+  "/products/{id}/label":
+    get:
+      operationId: getProductLabel
+      tags:
+        - mdm
+      summary: "What a product label prints"
+      description: "The data a shelf or counter label prints for a product, for the client to draw and print (no image is rendered here): SKU, name, sale unit, nominal pack weight, shelf life, storage class, and the barcode, which encodes the product's own `barcode` or, without one, its SKU, as `CODE_128`. Pack labels with lot and weight are `printPackLabels` (B6).\n\nPermission: `mdm.product.read`."
+      x-permission: mdm.product.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - staffSession: []
+        - apiKey: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductLabel"
+              example:
+                product:
+                  id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                  sku: EGG-CRATE-BIG
+                  name: "Eggs, big, crate of 30"
+                saleUom: CRATE
+                nominalPackKg: null
+                shelfLifeDays: 21
+                storageTempClass: AMBIENT
+                barcode:
+                  symbology: CODE_128
+                  payload: "6034123757"
+                  text: "6034123757"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
   "/customers":
     get:
       operationId: listCustomers
@@ -18317,6 +18377,78 @@ paths:
                   docType: GOODS_RECEIPT
                   number: GRN-2026-DDW-000070
                 createdAt: "2026-11-03T11:00:00Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/stock-units/{id}/label":
+    get:
+      operationId: getStockUnitLabel
+      tags:
+        - inv
+      summary: "What a lot or animal label prints"
+      description: "The data a lot or animal label prints, for the client to draw and print (no image is rendered here): the product, the batch (`lotNo`) or tag (`tagNo`), the weight (a lot's weight on hand, summed over where it stands; an animal's last recorded weight, with when), the quantity on hand, production and expiry dates, storage class, and the barcode: `CODE_128` of the SKU and the batch or tag joined by `/` (a SKU never holds a `/`). Scoped as `getStockUnit` is. Pack labels made by a processing order are `printPackLabels` (B6).\n\nPermission: `inv.stock.read`."
+      x-permission: inv.stock.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - staffSession: []
+        - apiKey: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StockUnitLabel"
+              example:
+                stockUnit:
+                  id: "019a7a95-1f3c-7b2e-9a41-5d8c0e2f6a13"
+                  identifier: LOT-BEEF-2026-1110
+                  tracking: LOT
+                product:
+                  id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
+                  sku: MEAT-BEEF-15KG
+                  name: "Beef, 15 kg pack"
+                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                kind: LOT
+                lotNo: LOT-BEEF-2026-1110
+                tagNo: null
+                weightKg: "45.000"
+                weighedAt: null
+                onHandQty: "45.000"
+                uom: KG
+                uomDisplayDecimals: 3
+                producedOn: "2026-11-09"
+                expiresOn: "2027-02-08"
+                storageTempClass: FROZEN
+                barcode:
+                  symbology: CODE_128
+                  payload: MEAT-BEEF-15KG/LOT-BEEF-2026-1110
+                  text: MEAT-BEEF-15KG/LOT-BEEF-2026-1110
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -90284,6 +90416,134 @@ components:
         - qty
         - uom
         - revenuePesewas
+    LabelBarcode:
+      type: object
+      description: "A barcode for the client to draw: what the bars encode and in which symbology, and the text printed under them."
+      properties:
+        symbology:
+          type: string
+          enum:
+            - CODE_128
+        payload:
+          type: string
+        text:
+          type: string
+      required:
+        - symbology
+        - payload
+        - text
+    ProductLabel:
+      type: object
+      properties:
+        product:
+          $ref: "#/components/schemas/ProductRef"
+        saleUom:
+          type: string
+        nominalPackKg:
+          anyOf:
+            - $ref: "#/components/schemas/Kilograms"
+            - type: "null"
+        shelfLifeDays:
+          type:
+            - integer
+            - "null"
+        storageTempClass:
+          type:
+            - string
+            - "null"
+          enum:
+            - AMBIENT
+            - CHILLED
+            - FROZEN
+            - null
+        barcode:
+          $ref: "#/components/schemas/LabelBarcode"
+      required:
+        - product
+        - saleUom
+        - nominalPackKg
+        - shelfLifeDays
+        - storageTempClass
+        - barcode
+    StockUnitLabel:
+      type: object
+      properties:
+        stockUnit:
+          $ref: "#/components/schemas/StockUnitRef"
+        product:
+          $ref: "#/components/schemas/ProductRef"
+        branchId:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+            - LOT
+            - ANIMAL
+        lotNo:
+          type:
+            - string
+            - "null"
+        tagNo:
+          type:
+            - string
+            - "null"
+        weightKg:
+          anyOf:
+            - $ref: "#/components/schemas/Kilograms"
+            - type: "null"
+          description: "A lot: its weight on hand, null for counted stock or nothing on hand. An animal: its last recorded weight, null if never weighed."
+        weighedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: "When an animal was last weighed; null for a lot."
+        onHandQty:
+          $ref: "#/components/schemas/Quantity"
+        uom:
+          type: string
+        uomDisplayDecimals:
+          type: integer
+          minimum: 0
+          maximum: 3
+        producedOn:
+          type:
+            - string
+            - "null"
+          format: date
+        expiresOn:
+          type:
+            - string
+            - "null"
+          format: date
+        storageTempClass:
+          type:
+            - string
+            - "null"
+          enum:
+            - AMBIENT
+            - CHILLED
+            - FROZEN
+            - null
+        barcode:
+          $ref: "#/components/schemas/LabelBarcode"
+      required:
+        - stockUnit
+        - product
+        - branchId
+        - kind
+        - lotNo
+        - tagNo
+        - weightKg
+        - weighedAt
+        - onHandQty
+        - uom
+        - uomDisplayDecimals
+        - producedOn
+        - expiresOn
+        - storageTempClass
+        - barcode
     OwnerDashboard:
       type: object
       description: "Every figure of the owner's first screen in one response (NFR-023). A figure whose source module is not built yet is null and named in `pendingFigures` with why and the phase that makes it live; a figure is null exactly while it is listed there, and a listed figure is never answered with a zero. Stock figures are as of `asOf`, whatever `date` asks for."

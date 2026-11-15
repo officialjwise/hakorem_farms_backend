@@ -191,7 +191,7 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'listStockExceptions', 'getStockException', 'resolveStockException',
         'listStockReservations', 'releaseStockReservation', 'listStockAvailability', 'listStockUnits',
         'listReorderRules', 'createReorderRule', 'updateReorderRule', 'listStockAlerts', 'listTemperatureReadings', 'recordTemperatureReading',
-        'getOwnerDashboard', 'getStockValueTile', 'getAnimalsOnHandTile', 'getLowStockTile', 'getPurchasesSeries',
+        'getOwnerDashboard', 'getStockValueTile', 'getAnimalsOnHandTile', 'getLowStockTile', 'getPurchasesSeries', 'getStockUnitLabel', 'getProductLabel',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);

@@ -1,0 +1,58 @@
+operationId: getProductLabel
+tags:
+  - mdm
+summary: "What a product label prints"
+description: "The data a shelf or counter label prints for a product, for the client to draw and print (no image is rendered here): SKU, name, sale unit, nominal pack weight, shelf life, storage class, and the barcode, which encodes the product's own `barcode` or, without one, its SKU, as `CODE_128`. Pack labels with lot and weight are `printPackLabels` (B6).\n\nPermission: `mdm.product.read`."
+x-permission: mdm.product.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ProductLabel"
+        example:
+          product:
+            id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+            sku: EGG-CRATE-BIG
+            name: "Eggs, big, crate of 30"
+          saleUom: CRATE
+          nominalPackKg: null
+          shelfLifeDays: 21
+          storageTempClass: AMBIENT
+          barcode:
+            symbology: CODE_128
+            payload: "6034123757"
+            text: "6034123757"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

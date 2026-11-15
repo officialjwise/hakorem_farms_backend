@@ -2363,6 +2363,7 @@ paths:
   "/products": {}
   "/products/{id}": {}
   "/products/{id}/archive": {}
+  "/products/{id}/label": {}
   "/customers": {}
   "/customers/{id}": {}
   "/customers/{id}/archive": {}
@@ -2419,6 +2420,7 @@ paths:
   "/stock/movements/{id}/reverse": {}
   "/stock-units": {}
   "/stock-units/{id}": {}
+  "/stock-units/{id}/label": {}
   "/stock-units/{id}/movements": {}
   "/stock-units/{id}/trace": {}
   "/stock/holds": {}
@@ -67795,6 +67797,134 @@ components:
         - qty
         - uom
         - revenuePesewas
+    LabelBarcode:
+      type: object
+      description: "A barcode for the client to draw: what the bars encode and in which symbology, and the text printed under them."
+      properties:
+        symbology:
+          type: string
+          enum:
+            - CODE_128
+        payload:
+          type: string
+        text:
+          type: string
+      required:
+        - symbology
+        - payload
+        - text
+    ProductLabel:
+      type: object
+      properties:
+        product:
+          $ref: "#/components/schemas/ProductRef"
+        saleUom:
+          type: string
+        nominalPackKg:
+          anyOf:
+            - $ref: "#/components/schemas/Kilograms"
+            - type: "null"
+        shelfLifeDays:
+          type:
+            - integer
+            - "null"
+        storageTempClass:
+          type:
+            - string
+            - "null"
+          enum:
+            - AMBIENT
+            - CHILLED
+            - FROZEN
+            - null
+        barcode:
+          $ref: "#/components/schemas/LabelBarcode"
+      required:
+        - product
+        - saleUom
+        - nominalPackKg
+        - shelfLifeDays
+        - storageTempClass
+        - barcode
+    StockUnitLabel:
+      type: object
+      properties:
+        stockUnit:
+          $ref: "#/components/schemas/StockUnitRef"
+        product:
+          $ref: "#/components/schemas/ProductRef"
+        branchId:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+            - LOT
+            - ANIMAL
+        lotNo:
+          type:
+            - string
+            - "null"
+        tagNo:
+          type:
+            - string
+            - "null"
+        weightKg:
+          anyOf:
+            - $ref: "#/components/schemas/Kilograms"
+            - type: "null"
+          description: "A lot: its weight on hand, null for counted stock or nothing on hand. An animal: its last recorded weight, null if never weighed."
+        weighedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: "When an animal was last weighed; null for a lot."
+        onHandQty:
+          $ref: "#/components/schemas/Quantity"
+        uom:
+          type: string
+        uomDisplayDecimals:
+          type: integer
+          minimum: 0
+          maximum: 3
+        producedOn:
+          type:
+            - string
+            - "null"
+          format: date
+        expiresOn:
+          type:
+            - string
+            - "null"
+          format: date
+        storageTempClass:
+          type:
+            - string
+            - "null"
+          enum:
+            - AMBIENT
+            - CHILLED
+            - FROZEN
+            - null
+        barcode:
+          $ref: "#/components/schemas/LabelBarcode"
+      required:
+        - stockUnit
+        - product
+        - branchId
+        - kind
+        - lotNo
+        - tagNo
+        - weightKg
+        - weighedAt
+        - onHandQty
+        - uom
+        - uomDisplayDecimals
+        - producedOn
+        - expiresOn
+        - storageTempClass
+        - barcode
     OwnerDashboard:
       type: object
       description: "Every figure of the owner's first screen in one response (NFR-023). A figure whose source module is not built yet is null and named in `pendingFigures` with why and the phase that makes it live; a figure is null exactly while it is listed there, and a listed figure is never answered with a zero. Stock figures are as of `asOf`, whatever `date` asks for."
