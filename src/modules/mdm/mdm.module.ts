@@ -21,15 +21,21 @@ import { PRODUCT_STORE, type ProductStore } from './application/product-store';
 import { DrizzleProductStore } from './infrastructure/drizzle-product-store';
 import { MdmScopeNames } from './infrastructure/scope-names';
 import { ProductsController } from './interface/products.controller';
+import { Settings } from '../../platform/settings/settings';
+import { TAX_SCHEME_ACTIVATION, TaxAdmin } from './application/tax-admin';
+import { TaxService } from './application/tax-calculation';
+import { TAX_STORE, type TaxStore } from './application/tax-store';
+import { PgTaxStore } from './infrastructure/pg-tax-store';
+import { TaxController } from './interface/tax.controller';
 
 /**
  * MDM (layer 3): the Product slice, the pricing sub-domain (price lists with maker-checker activation and the
- * engine, ADR-0004), IAM's ScopeNames port and the PRICE_LIST_ACTIVATION approval handler. Tax, promotions and the
- * rest of master data arrive with B04 continued.
+ * engine, ADR-0004), the tax sub-domain (levies, scheme versions with maker-checker activation and the calculator,
+ * ADR-0020), IAM's ScopeNames port and the PRICE_LIST_ACTIVATION and TAX_SCHEME_ACTIVATION approval handlers.
  */
 @Module({
   imports: [IamModule],
-  controllers: [ProductsController, PricingController, PriceListsController],
+  controllers: [ProductsController, PricingController, PriceListsController, TaxController],
   providers: [
     { provide: PRODUCT_STORE, useClass: DrizzleProductStore },
     { provide: PRICING_STORE, useClass: PgPricingStore },
@@ -55,6 +61,29 @@ import { ProductsController } from './interface/products.controller';
       ) => new PriceListAdmin(uow, store, authoriser, approvals, principals, documents, idempotency, audit, events, clock),
       inject: [UnitOfWork, PRICE_LIST_STORE, Authoriser, Approvals, PRINCIPAL_NAMES, DocumentRegistry, Idempotency, AuditTrail, DomainEvents, CLOCK],
     },
+    { provide: TAX_STORE, useClass: PgTaxStore },
+    {
+      provide: TaxAdmin,
+      useFactory: (
+        uow: UnitOfWork,
+        store: TaxStore,
+        authoriser: Authoriser,
+        approvals: Approvals,
+        principals: PrincipalNames,
+        documents: DocumentRegistry,
+        idempotency: Idempotency,
+        audit: AuditTrail,
+        events: DomainEvents,
+        cursors: Cursors,
+        clock: Clock,
+      ) => new TaxAdmin(uow, store, authoriser, approvals, principals, documents, idempotency, audit, events, cursors, clock),
+      inject: [UnitOfWork, TAX_STORE, Authoriser, Approvals, PRINCIPAL_NAMES, DocumentRegistry, Idempotency, AuditTrail, DomainEvents, Cursors, CLOCK],
+    },
+    {
+      provide: TaxService,
+      useFactory: (uow: UnitOfWork, store: TaxStore, authoriser: Authoriser, settings: Settings) => new TaxService(uow, store, authoriser, settings),
+      inject: [UnitOfWork, TAX_STORE, Authoriser, Settings],
+    },
     MdmScopeNames,
     {
       provide: ProductCatalogue,
@@ -71,7 +100,7 @@ import { ProductsController } from './interface/products.controller';
       inject: [UnitOfWork, PRODUCT_STORE, Authoriser, Idempotency, AuditTrail, DomainEvents, Cursors, CLOCK],
     },
   ],
-  exports: [PricingService],
+  exports: [PricingService, TaxService],
 })
 export class MdmModule implements OnModuleInit {
   constructor(
@@ -79,11 +108,13 @@ export class MdmModule implements OnModuleInit {
     @Inject(MdmScopeNames) private readonly implementation: MdmScopeNames,
     @Inject(Approvals) private readonly approvals: Approvals,
     @Inject(PriceListAdmin) private readonly priceLists: PriceListAdmin,
+    @Inject(TaxAdmin) private readonly tax: TaxAdmin,
   ) {}
 
   /** Registers MDM's implementation of IAM's ScopeNames port (ADR-0033) and MDM's approval handlers (ADR-0017). */
   onModuleInit(): void {
     this.scopeNames.register(this.implementation);
     this.approvals.registerHandler(PRICE_LIST_ACTIVATION, this.priceLists);
+    this.approvals.registerHandler(TAX_SCHEME_ACTIVATION, this.tax);
   }
 }

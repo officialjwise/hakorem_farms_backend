@@ -1,0 +1,65 @@
+operationId: createTaxCategory
+tags:
+  - tax
+summary: "Add a tax category"
+description: "Permission: `mdm.tax.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+x-permission: mdm.tax.manage
+x-requires-step-up: true
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - STEP_UP_REQUIRED
+  - TOTP_ENROLMENT_REQUIRED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - DUPLICATE_VALUE
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/TaxCategoryCreate"
+      example:
+        code: IMPORTED_INPUTS
+        name: "Imported farm inputs"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/TaxCategory"
+        example:
+          id: "019a7a8a-6af3-7b33-906b-bc092d2a34e7"
+          code: LIVE_ANIMALS
+          name: "Live Animals"
+          productCount: 3
+          version: 1
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

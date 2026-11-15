@@ -8,6 +8,23 @@ Version numbers follow semantic versioning: a major bump breaks an existing clie
 
 - **CR-002 (frontend, raised 2026-11-13): weights as decimal strings, never JSON numbers.** Already satisfied by 1.0.0 and 1.1.0, so no version change. `components.schemas.Kilograms` is `type: string` with the pattern `^(0|[1-9][0-9]{0,6})\.[0-9]{3}$` (exactly three decimal places), and its description says it is never a JSON number. The request was raised against a copy taken before re-syncing; re-run `./scripts/sync-contract.sh`. The owner closed it on 2026-11-13: do not reopen it.
 
+## 1.5.0 (2026-11-15, B04 continued)
+
+**Additive, with one behaviour change on two operations nothing implemented before.** No schema, field, parameter or response was removed, renamed, retyped or made required. A client generated from 1.4.x compiles unchanged. The frontend track is paused, so nothing reviewed this entry; read it before resuming.
+
+Ten tax operations now answer from the real API (34 in all), with the request and response schemas 1.2.0 already published: `listTaxLevies`, `createTaxLevy`, `listTaxCategories`, `createTaxCategory`, `listTaxSchemeVersions`, `createTaxSchemeVersion`, `getTaxSchemeVersion`, `replaceTaxSchemeCells`, `submitTaxSchemeVersion`, `calculateTax`.
+
+- **LOUD: `createTaxSchemeVersion` and `replaceTaxSchemeCells` now require step-up** (`x-requires-step-up: true`, and the description says so). The planned contract did not mark them, but step-up belongs to the permission they check, `mdm.tax.manage`, which the other three tax writes already marked, and ADR-0020 makes every tax configuration change a step-up action (ADR-0039). A screen asks for the TOTP code before these writes, as it does for `createTaxLevy`, `createTaxCategory` and `submitTaxSchemeVersion`. Nothing called them before: they were not implemented.
+- **`listTaxSchemeVersions` description** now says what it returns: each version with an empty `cells` array; `getTaxSchemeVersion` returns the full matrix. The old text ("omits cells except on the first version") did not say which version was first. No shape change.
+- **Example:** the 202 example of `submitTaxSchemeVersion` names a `TAX_SCHEME_VERSION` subject instead of a stock adjustment.
+- **`x-error-codes`** on the ten operations. Two new codes, also in `docs/API.md` section 10.3: `TAX_CELL_INVALID` (422, a cell breaks a tax rule, `details[].code` names which: `TAX_RATE_NOT_ALLOWED`, `TAX_BASE_INVALID`, `TAX_BASE_CIRCULAR`, `TAX_CALC_ORDER_DUPLICATE`, `TAX_CALC_ORDER_INVALID`, `TAX_LEVY_DUPLICATE`) and `TAX_SCHEME_NOT_IN_FORCE` (422 on `calculateTax`, no approved scheme covers the tax date). `TAX_MATRIX_INCOMPLETE` names each missing pair as `details[].code`, `CATEGORY/LEVY`.
+- **Behaviour a client should know, with no shape change:**
+  - `submitTaxSchemeVersion` always answers **202 `ApprovalPending`**; activation is always maker-checker, approved by a holder of `mdm.tax.approve` (seeded: Owner). Its documented 200 response is never returned.
+  - A version whose `validFrom` has passed when it is approved starts on the day of approval; `validFrom` and `validTo` are business dates and `validTo` is the first day a version no longer applies.
+  - Only one version can be open (draft or pending) at a time: a second `createTaxSchemeVersion` answers 422 `INVALID_STATE_TRANSITION` with detail `OPEN_VERSION_EXISTS`.
+  - `replaceTaxSchemeCells` takes the whole matrix: a cell for every live category and levy.
+  - `calculateTax` prints `ratePercent` with two places (`15.00`, `2.50`). While `tax.registered` is false on the tax date every levy is 0 and `ratePercent` is `0.00`.
+
 ## 1.4.0 (2026-11-14, B4)
 
 **Additive only.** A client generated from 1.3.x keeps working; it simply does not read the new field.

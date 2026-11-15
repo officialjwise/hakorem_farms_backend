@@ -35,10 +35,16 @@ export class Settings {
     return typeof value === 'boolean' ? value : fallback;
   }
 
-  private async read(key: string, branchId: string | null): Promise<unknown> {
+  /** The value in force at a past or future instant, such as the start of a tax date. Read fresh, never cached. */
+  async booleanAt(key: string, fallback: boolean, at: Date, branchId: string | null = null): Promise<boolean> {
+    const value = await this.read(key, branchId, at);
+    return typeof value === 'boolean' ? value : fallback;
+  }
+
+  private async read(key: string, branchId: string | null, at: Date | null = null): Promise<unknown> {
     const cacheKey = `${key}@${branchId ?? '*'}`;
     const now = this.clock.now().getTime();
-    const cached = this.cache.get(cacheKey);
+    const cached = at === null ? this.cache.get(cacheKey) : undefined;
     if (cached !== undefined && now - cached.readAt < CACHE_MILLISECONDS) {
       return cached.value;
     }
@@ -48,10 +54,12 @@ export class Settings {
           WHERE key = $1 AND deleted_at IS NULL AND valid_from <= $3 AND (branch_id = $2 OR branch_id IS NULL)
           ORDER BY branch_id NULLS LAST, valid_from DESC
           LIMIT 1`,
-        [key, branchId, new Date(now)],
+        [key, branchId, at ?? new Date(now)],
       );
       const value = rows[0]?.value;
-      this.cache.set(cacheKey, { value, readAt: now });
+      if (at === null) {
+        this.cache.set(cacheKey, { value, readAt: now });
+      }
       return value;
     } catch (error) {
       this.logger.warn({ key, err: error }, 'setting could not be read; using its default');

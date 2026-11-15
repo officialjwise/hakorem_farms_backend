@@ -299,7 +299,9 @@ The "Source" column says where the code comes from. **Contract** means the code 
 | `MAKER_CANNOT_CHECK` | 422 | The person who made a request cannot approve it. The database enforces the same rule | `approveRequest` | Contract |
 | `THREE_WAY_MATCH_FAILED` | 422 | A supplier invoice line does not match its purchase order line and goods receipt line. Payment is blocked | `approveSupplierInvoice` | Contract |
 | `JOURNAL_UNBALANCED` | 422 | Debits do not equal credits in a journal | `submitManualJournal` | Contract |
-| `TAX_MATRIX_INCOMPLETE` | 422 | A tax scheme version lacks a cell for some category and levy | `submitTaxSchemeVersion` | Contract |
+| `TAX_MATRIX_INCOMPLETE` | 422 | A tax scheme version lacks a cell for some category and levy. Each `details[].code` names a missing pair, `CATEGORY/LEVY` | `replaceTaxSchemeCells`, `submitTaxSchemeVersion` | Contract |
+| `TAX_CELL_INVALID` | 422 | A tax cell breaks a rule: a rate on a non-standard treatment, a base that does not fit its kind, a base levy of another category or calculated at or after it, a repeated calculation order. `details[].field` points at the cell (1.5.0) | `replaceTaxSchemeCells` | Added |
+| `TAX_SCHEME_NOT_IN_FORCE` | 422 | No approved tax scheme version covers the tax date asked for (1.5.0) | `calculateTax` | Added |
 | `PAYMENT_METHOD_REQUIRES_VERIFICATION` | 422 | Mobile money and card are cleared only by a verified provider callback or lookup, never by a manual entry | `recordPayment` | Contract |
 | `REQUEST_TO_BUY_ONLY` | 422 | A live animal product cannot be added to a cart. Open a quote request | `addCartLine` | Contract |
 | `WITHDRAWAL_CANNOT_BE_RELEASED` | 422 | A veterinary withdrawal hold cannot be released early by anyone | `releaseStockHold` | Contract |
@@ -561,7 +563,7 @@ Price lists in approved, effective-dated versions: draft with `createPriceListVe
 
 ### Tax (`tax`, 10)
 
-Named levies (VAT, NHIL, GETFund, others), tax categories, scheme versions with a cell for every category and levy (`replaceTaxSchemeCells`; `submitTaxSchemeVersion` needs step-up, may return 202, and is refused with `TAX_MATRIX_INCOMPLETE` otherwise), and `POST /tax/calculate`. Each levy has its own rate, base (`NET` or `NET_PLUS_LEVIES`), reclaimable flag and calculation order. Percentages are decimal strings.
+Named levies (VAT, NHIL, GETFund, others), tax categories, scheme versions with a cell for every category and levy (`replaceTaxSchemeCells` takes the whole matrix; `submitTaxSchemeVersion` always returns 202 and is refused with `TAX_MATRIX_INCOMPLETE` if a cell is missing), and `POST /tax/calculate`. Every write needs step-up (`mdm.tax.manage`, 1.5.0); the checker holds `mdm.tax.approve`. Dates are business dates; `validTo` is the first day a version no longer applies; a late approval starts the version on the day of approval; one version is open at a time (ADR-0039). Tax-inclusive lines split with `allocate`, so net plus levies always equals the gross; a tied leftover pesewa goes to the net, then to levies in calculation order. Each levy has its own rate, base (`NET` or `NET_PLUS_LEVIES`), reclaimable flag and calculation order. Percentages are decimal strings.
 
 ### Stock (`inv`, 49)
 
