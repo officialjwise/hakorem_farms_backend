@@ -1,0 +1,113 @@
+operationId: calculateTax
+tags:
+  - tax
+summary: "Calculate levies for lines"
+description: "For tax-inclusive lines the gross is split across net and each levy by largest remainder, so the parts always sum to the gross. In the example, GHS 450.00 gross at 20 percent combined splits to 375.00 net, 56.25 VAT, 9.38 NHIL and 9.37 GETFund. Read-only.\n\nPermission: `mdm.tax.calculate`."
+x-permission: mdm.tax.calculate
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - REFERENCE_NOT_FOUND
+  - TAX_SCHEME_NOT_IN_FORCE
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/TaxCalculationRequest"
+      example:
+        taxInclusive: true
+        taxDate: "2026-11-13"
+        lines:
+          - lineRef: "1"
+            taxCategoryId: "019a7a8a-c7c0-78dd-8e16-96af9a3d0f8d"
+            amountPesewas: 45000
+          - lineRef: "2"
+            taxCategoryId: "019a7a8a-6af3-7b33-906b-bc092d2a34e7"
+            amountPesewas: 85000
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/TaxCalculationResult"
+        example:
+          taxSchemeVersionId: "019a7aa9-78e2-788e-adc6-91ba57db0a98"
+          taxInclusive: true
+          lines:
+            - lineRef: "1"
+              netPesewas: 37500
+              taxPesewas: 7500
+              grossPesewas: 45000
+              levies:
+                - levyCode: VAT
+                  levyName: "Value Added Tax"
+                  treatment: STANDARD
+                  ratePercent: "15.00"
+                  basePesewas: 37500
+                  amountPesewas: 5625
+                - levyCode: NHIL
+                  levyName: "National Health Insurance Levy"
+                  treatment: STANDARD
+                  ratePercent: "2.50"
+                  basePesewas: 37500
+                  amountPesewas: 938
+                - levyCode: GETFUND
+                  levyName: "GETFund Levy"
+                  treatment: STANDARD
+                  ratePercent: "2.50"
+                  basePesewas: 37500
+                  amountPesewas: 937
+            - lineRef: "2"
+              netPesewas: 85000
+              taxPesewas: 0
+              grossPesewas: 85000
+              levies:
+                - levyCode: VAT
+                  levyName: "Value Added Tax"
+                  treatment: ZERO_RATED
+                  ratePercent: "0.00"
+                  basePesewas: 85000
+                  amountPesewas: 0
+                - levyCode: NHIL
+                  levyName: "National Health Insurance Levy"
+                  treatment: ZERO_RATED
+                  ratePercent: "0.00"
+                  basePesewas: 85000
+                  amountPesewas: 0
+                - levyCode: GETFUND
+                  levyName: "GETFund Levy"
+                  treatment: ZERO_RATED
+                  ratePercent: "0.00"
+                  basePesewas: 85000
+                  amountPesewas: 0
+          netPesewas: 122500
+          taxPesewas: 7500
+          grossPesewas: 130000
+          currency: GHS
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

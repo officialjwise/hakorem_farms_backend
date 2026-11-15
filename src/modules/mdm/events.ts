@@ -29,3 +29,19 @@ export interface PriceListVersionActivated {
   /** Versions this one replaced outright. */
   readonly supersededVersionIds: readonly string[];
 }
+
+/**
+ * `mdm.TaxSchemeVersionActivated` v1: a tax scheme version was approved and applies to tax dates from `validFrom`
+ * (a business date, Africa/Accra). Offline price packs and cart totals subscribe (B9b, B7) so a total is never
+ * calculated with a superseded matrix.
+ */
+export interface TaxSchemeVersionActivated {
+  readonly versionId: string;
+  readonly versionNo: number;
+  readonly validFrom: string;
+  readonly validTo: string | null;
+  /** Earlier versions now ending the day this one starts. */
+  readonly endedVersionIds: readonly string[];
+  /** Versions this one replaced outright. */
+  readonly supersededVersionIds: readonly string[];
+}

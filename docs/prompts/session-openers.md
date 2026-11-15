@@ -18,7 +18,9 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B2 | `B02-foundation.md` | `b02-foundation` | B2 — Foundation | One-command setup works on a clean machine; CI green |
 | B3 | `B03-platform-slice.md` | `b03-platform-slice` | B3 — Platform and the first vertical slice | The slice passes all four test layers; the frontend logs in against the real API |
 | B4 | `B04-master-data-pricing.md` | `b04-master-data-pricing` | B4 to B12 | A price resolves for every band, channel and tier; an unresolvable request becomes a quote |
-| B4 continued | `B04c-master-data-continued.md` | `b04c-master-data-continued` | B4 to B12 | The tax calculator's exact cases pass; promotions stack by their rules and a coupon limit holds under concurrency; the A-087 operations are live with wrong-role refusals; the seed is written through services |
+| B4 continued | `B04c-master-data-continued.md` | `b04c-master-data-continued` | B4 to B12 | The tax calculator's exact cases pass (built; the session split, A-097) |
+| B4 continued (d) | `B04d-master-data-promotions.md` | `b04d-master-data-promotions` | B4 to B12 | Promotions stack by their rules and a coupon limit holds under concurrency; the rest of master data refuses the wrong role; the MDM seed, tax scheme included, is written through services |
+| B4 continued (e) | `B04e-iam-carry-overs.md` | `b04e-iam-carry-overs` | B4 to B12 | The A-087 operations are live, each with a wrong-role refusal; the IAM seed is written through services |
 | B5 | `B05-inventory-ledger.md` | `b05-inventory-ledger` | B4 to B12 | On-hand from movements matches a hand count; stock cannot go negative outside allowed types; a lot traces both ways |
 | B6 | `B06-livestock-processing.md` | `b06-livestock-processing` | B4 to B12 | A processing order produces lots whose costs sum exactly to input cost plus direct processing cost |
 | B7 | `B07-procurement-suppliers.md` | `b07-procurement-suppliers` | B4 to B12 | Three-way match blocks payment on disagreement; checkout reserves stock and releases it on timeout |
@@ -160,13 +162,69 @@ gates expose; the gate does not pass on a lowered number.
 Stop at the gate and write docs/sessions/B04c-master-data-continued.md.
 ```
 
+## B4 continued (d) — Promotions, the rest of master data and the MDM seed
+
+Branch `b04d-master-data-promotions`, from `b04c-master-data-continued` (stacked; nothing is merged until the owner approves). Report `docs/sessions/B04d-master-data-promotions.md`. B04 continued built the tax sub-domain and split (A-097, ADR-0026 Amendments). Gate: promotions apply only to tier, channel and base prices and stack by their rules (two in one stack group, only the larger applies; an exclusive 10 percent with a 5 percent in another group applies only the exclusive one), and a coupon limited to 100 refuses the 101st under 20 concurrent redemptions without exceeding 100; every master data write refuses the wrong role; the seeded farm's MDM data, its tax scheme version 1 included, is written through the MDM services, and `calculateTax` answers on a fresh `pnpm run setup`.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B04c-master-data-continued.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
+report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the MDM requirement block of docs/SRS.md (nothing else from the SRS),
+docs/data-model/mdm.md, the MDM card in docs/MODULE_BOUNDARIES.md, and ADR-0004 (the promotions part),
+ADR-0036 and ADR-0039. Use docs/prompts/module-build-prompt.md as the recipe.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Before building: remove the multer override if @nestjs/platform-express 11.2.10 has passed the 14-day
+floor (A-076). Copy the B3 Product slice's shape for every endpoint, with the fragment moved from the
+planned file (scripts/contract/move-to-code.ts), and the tax slice's shape for maker-checker documents.
+Then execute B04d only, on branch b04d-master-data-promotions, branched from b04c-master-data-continued:
+promotions and coupons in the engine after the base price (FR-MDM-018), the promotion rules under
+src/modules/mdm/domain/pricing/ where the 100 percent gate already covers them, the coupon limit held by
+a row lock in the database, the discount a separate recorded adjustment on the line; the rest of master
+data (categories, units of measure with CR-003's displayDecimals, species, grades, weight bands,
+customers and addresses, tiers, suppliers, branches, locations, payment methods, delivery zones, reason
+codes, assignCustomerPriceList, updateProduct, the price list listings); and the MDM seed through the
+new services (A-085), including tax scheme version 1 with the ADR-0020 seed matrix drafted by the
+seeded Accountant and approved by the seeded Owner, keeping src/seed/reference-pricing.ts as the price
+definition. Imports and exports (FR-MDM-019, FR-MDM-020) need the file store, which is B04e's: build
+them there or record them as deferred. Write the failing tests first for every money and permission rule.
+Stop at the gate, write docs/sessions/B04d-master-data-promotions.md, push, and open a stacked pull
+request against b04c-master-data-continued.
+```
+
+## B4 continued (e) — The B3 carry-overs in IAM
+
+Branch `b04e-iam-carry-overs`, from `b04d-master-data-promotions` (stacked). Report `docs/sessions/B04e-iam-carry-overs.md`. Gate: the A-087 operations are live (the file store with uploads, the malware scanner and `evidence_file_id` on `iam.approval_request`; user and grant administration; customer registration and phone verification; password reset with CR-004 point 3's error codes; `approveRequest`, `rejectRequest`, `listApprovals` and `getApproval` over the existing mechanism), each with a wrong-role refusal; the IAM seed is written through the IAM services. When this gate passes, B04 continued's gate as a whole has passed.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B04d-master-data-promotions.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
+report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the IAM requirement block of docs/SRS.md (nothing else from the SRS),
+docs/data-model/iam.md, the IAM card in docs/MODULE_BOUNDARIES.md, ADR-0017, ADR-0034, ADR-0035 and A-057
+in docs/ASSUMPTIONS.md. Use docs/prompts/module-build-prompt.md as the recipe, and run
+hakorem-security-review on every operation: they are authentication, uploads and permissions.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B04e only, on branch b04e-iam-carry-overs, branched from b04d-master-data-promotions: the
+A-087 items listed in the gate, MDM's imports and exports if B04d deferred them, and the IAM seed through
+the IAM services (A-085). Write the failing tests first for every permission rule.
+Stop at the gate, write docs/sessions/B04e-iam-carry-overs.md, push, and open a stacked pull request
+against b04d-master-data-promotions.
+```
+
 ## B5 — Inventory and the stock movement ledger
 
 Branch `b05-inventory-ledger`. Report `docs/sessions/B05-inventory-ledger.md`. Gate: on-hand derived from movements matches a hand count, stock cannot go negative outside the allowed movement types, and a lot traces in both directions.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
-List docs/sessions/ and read only the most recent report (docs/sessions/B04c-master-data-continued.md).
+List docs/sessions/ and read only the most recent report (docs/sessions/B04e-iam-carry-overs.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
 report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the INV requirement block of docs/SRS.md (nothing else from the SRS),

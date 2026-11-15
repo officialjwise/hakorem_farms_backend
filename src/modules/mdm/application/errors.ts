@@ -89,3 +89,44 @@ export class PriceEntryDuplicateError extends BusinessRuleError {
     super('two price list entries match the same request', details(fields, 'mdm.price_entry_duplicate_field'));
   }
 }
+
+registerMessages({
+  'mdm.tax_matrix_incomplete': 'The tax scheme needs a cell for every tax category and levy.',
+  'mdm.tax_matrix_gap': 'This category has no cell for this levy.',
+  'mdm.tax_cell_invalid': 'Some tax cells are not valid.',
+  'mdm.tax_cell_rule': 'This cell breaks a tax rule.',
+  'mdm.tax_scheme_not_in_force': 'No approved tax scheme applies on this tax date.',
+});
+
+/** 422: a tax scheme version lacks a cell for some live category and levy (FR-MDM-012). Missing never means zero. */
+export class TaxMatrixIncompleteError extends BusinessRuleError {
+  readonly code = 'TAX_MATRIX_INCOMPLETE';
+  readonly messageKey = 'mdm.tax_matrix_incomplete';
+
+  constructor(missing: readonly { readonly categoryCode: string; readonly levyCode: string }[]) {
+    super(
+      'the tax matrix lacks cells',
+      missing.map((gap) => ({ field: '/cells', code: `${gap.categoryCode}/${gap.levyCode}`, message: translate('mdm.tax_matrix_gap') })),
+    );
+  }
+}
+
+/** 422: a cell breaks a rule of ADR-0020: a rate on a non-standard treatment, a wrong or circular base, a repeated order. */
+export class TaxCellInvalidError extends BusinessRuleError {
+  readonly code = 'TAX_CELL_INVALID';
+  readonly messageKey = 'mdm.tax_cell_invalid';
+
+  constructor(fields: readonly FieldRule[]) {
+    super('a tax cell breaks a tax rule', details(fields, 'mdm.tax_cell_rule'));
+  }
+}
+
+/** 422: no ACTIVE tax scheme version covers the tax date asked for. */
+export class TaxSchemeNotInForceError extends BusinessRuleError {
+  readonly code = 'TAX_SCHEME_NOT_IN_FORCE';
+  readonly messageKey = 'mdm.tax_scheme_not_in_force';
+
+  constructor(taxDate: string) {
+    super(`no tax scheme version is in force on ${taxDate}`, [{ field: '/taxDate', code: 'NOT_IN_FORCE', message: translate('mdm.tax_scheme_not_in_force') }]);
+  }
+}

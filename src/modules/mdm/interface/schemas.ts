@@ -135,3 +135,74 @@ export const PriceListEntriesReplace = z.strictObject({
 });
 
 export const IdParam = z.uuid();
+
+/** A business date, `YYYY-MM-DD` (tax dates are dates in Africa/Accra, ADR-0039). */
+const BusinessDate = z.iso.date();
+const TaxTreatment = z.enum(['STANDARD', 'ZERO_RATED', 'EXEMPT', 'OUT_OF_SCOPE']);
+const TaxBaseKind = z.enum(['NET', 'NET_PLUS_LEVIES']);
+
+/** The most cells one matrix holds: fifty categories by twenty levies. */
+export const MAX_TAX_CELLS = 1_000;
+/** The most lines one calculateTax call taxes: a large wholesale invoice. */
+export const MAX_TAX_LINES = 500;
+
+/** A cursor page of a list (docs/API.md section 5): the contract's `PageLimit`, 1 to 100, 25 by default. */
+export const PageQuery = z.object({
+  cursor: z.string().min(1).max(512).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+});
+
+/** The contract's `TaxLevyCreate`, strict. The code pattern is migration 0014's. */
+export const TaxLevyCreate = z.strictObject({
+  code: z.string().regex(/^[A-Z][A-Z0-9_]{1,19}$/),
+  name: z.string().trim().min(1).max(120),
+  sortOrder: z.number().int().min(0).max(1_000).optional(),
+});
+
+/** The contract's `TaxCategoryCreate`, strict. The code pattern is migration 0009's. */
+export const TaxCategoryCreate = z.strictObject({
+  code: z.string().regex(/^[A-Z][A-Z_]{2,39}$/),
+  name: z.string().trim().min(1).max(120),
+});
+
+/** The contract's `TaxSchemeVersionCreate`, strict. */
+export const TaxSchemeVersionCreate = z.strictObject({
+  validFrom: BusinessDate,
+  sourceNote: z.string().trim().min(1).max(1_000),
+  copyFromVersionId: z.uuid().optional(),
+});
+
+/** The contract's `TaxCellsReplace`, strict. The matrix rules (completeness, bases, orders) are the domain's. */
+export const TaxCellsReplace = z.strictObject({
+  version: z.number().int().min(1),
+  cells: z
+    .array(
+      z.strictObject({
+        taxCategoryId: z.uuid(),
+        levyId: z.uuid(),
+        treatment: TaxTreatment,
+        ratePercent: Percent,
+        baseKind: TaxBaseKind,
+        baseIncludesLevyIds: z.array(z.uuid()).max(20).optional(),
+        isReclaimable: z.boolean(),
+        calcOrder: z.number().int().min(1).max(100),
+      }),
+    )
+    .max(MAX_TAX_CELLS),
+});
+
+/** The contract's `TaxCalculationRequest`, strict. */
+export const TaxCalculationRequest = z.strictObject({
+  taxInclusive: z.boolean(),
+  taxDate: BusinessDate,
+  lines: z
+    .array(
+      z.strictObject({
+        lineRef: z.string().min(1).max(40),
+        taxCategoryId: z.uuid(),
+        amountPesewas: Pesewas,
+      }),
+    )
+    .min(1)
+    .max(MAX_TAX_LINES),
+});

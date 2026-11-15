@@ -13,7 +13,18 @@ import {
   TotpEnrolmentStart,
   TotpVerifyRequest,
 } from '../../../src/modules/iam/interface/schemas';
-import { PriceListCreate, PriceListEntriesReplace, PriceListVersionCreate, PriceResolveRequest, ProductCreate } from '../../../src/modules/mdm/interface/schemas';
+import {
+  PriceListCreate,
+  PriceListEntriesReplace,
+  PriceListVersionCreate,
+  PriceResolveRequest,
+  ProductCreate,
+  TaxCalculationRequest,
+  TaxCategoryCreate,
+  TaxCellsReplace,
+  TaxLevyCreate,
+  TaxSchemeVersionCreate,
+} from '../../../src/modules/mdm/interface/schemas';
 import { createCatalogue, type TestCatalogue } from '../../support/catalogue';
 import { contractSchema } from '../../support/contract-schemas';
 import { consoleGet, consolePost, createBranch, createUser, enrolAndLogin, login, relaxRateLimits, testStartTime, type TestSession } from '../../support/iam';
@@ -124,6 +135,11 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     createPriceListVersion: PriceListVersionCreate,
     replacePriceListEntries: PriceListEntriesReplace,
     resolvePrices: PriceResolveRequest,
+    createTaxLevy: TaxLevyCreate,
+    createTaxCategory: TaxCategoryCreate,
+    createTaxSchemeVersion: TaxSchemeVersionCreate,
+    replaceTaxSchemeCells: TaxCellsReplace,
+    calculateTax: TaxCalculationRequest,
   };
 
   it('parses every request example of an implemented operation with the schema its route validates with', () => {

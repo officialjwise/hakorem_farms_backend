@@ -62,6 +62,11 @@ const VALID_BODY: Readonly<Record<string, object>> = {
   createPriceList: { code: 'BASE', name: 'Base prices', kind: 'BASE', taxInclusive: true },
   createPriceListVersion: { validFrom: '2026-12-01T00:00:00Z' },
   replacePriceListEntries: { version: 1, entries: [] },
+  createTaxLevy: { code: 'TOURISM', name: 'Tourism Levy' },
+  createTaxCategory: { code: 'SEEDS', name: 'Seeds and seedlings' },
+  createTaxSchemeVersion: { validFrom: '2026-12-01', sourceNote: 'Rates from the accountant' },
+  replaceTaxSchemeCells: { version: 1, cells: [] },
+  calculateTax: { taxInclusive: false, taxDate: '2026-12-01', lines: [{ lineRef: '1', taxCategoryId: randomUUID(), amountPesewas: 100 }] },
 };
 
 beforeAll(async () => {
@@ -79,12 +84,14 @@ afterAll(async () => {
 });
 
 describe('deny by default: the handler walk (ADR-0017, security architecture section 14)', () => {
-  it('finds the B3 and B4 routes, and every one declares its operation', () => {
+  it('finds the B3, B4 and B04 continued routes, and every one declares its operation', () => {
     expect(routes.map((route) => route.spec?.operationId).sort()).toEqual(
       [
         'changePassword', 'confirmTotpEnrolment', 'createProduct', 'getCurrentSession', 'getHealth', 'getProduct', 'listProducts', 'listSessions',
         'loginCustomer', 'loginInvestor', 'loginStaff', 'logout', 'refreshSession', 'revokeSession', 'startTotpEnrolment', 'stepUp', 'verifyTotp',
         'resolvePrices', 'createPriceList', 'getPriceList', 'createPriceListVersion', 'getPriceListVersion', 'replacePriceListEntries', 'submitPriceListVersion',
+        'listTaxLevies', 'createTaxLevy', 'listTaxCategories', 'createTaxCategory', 'listTaxSchemeVersions', 'createTaxSchemeVersion', 'getTaxSchemeVersion',
+        'replaceTaxSchemeCells', 'submitTaxSchemeVersion', 'calculateTax',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);

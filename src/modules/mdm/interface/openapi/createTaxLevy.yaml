@@ -1,0 +1,66 @@
+operationId: createTaxLevy
+tags:
+  - tax
+summary: "Add a levy"
+description: "A new levy becomes chargeable only through a new tax scheme version that gives it a rate for every category.\n\nPermission: `mdm.tax.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+x-permission: mdm.tax.manage
+x-requires-step-up: true
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - STEP_UP_REQUIRED
+  - TOTP_ENROLMENT_REQUIRED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - DUPLICATE_VALUE
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/TaxLevyCreate"
+      example:
+        code: AGRI_LEVY
+        name: "Agricultural Development Levy"
+        sortOrder: 4
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/TaxLevy"
+        example:
+          id: "019a7a8b-437c-706b-85a4-0f8d8101886b"
+          code: VAT
+          name: "Value Added Tax"
+          sortOrder: 0
+          version: 1
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
