@@ -102,10 +102,10 @@ afterAll(async () => {
 });
 
 describe('B5 gate: on hand derived from movements matches a hand count of the seeded farm', () => {
-  it('lists exactly the hand-counted quantity at each Dodowa location, GHS 15,955.01 at cost in all', async () => {
+  it('lists exactly the hand-counted quantity at each Dodowa location, GHS 17,895.01 at cost in all', async () => {
     const { lines, totals } = await allLines(manager, `branchId=${id('branch:DDW')}`);
     expect(counted(lines)).toEqual(Object.fromEntries(SEED_HAND_COUNT.lines.map((l) => [`${l.location}:${l.sku}`, l.onHand])));
-    expect(totals).toEqual([1_595_501]);
+    expect(totals).toEqual([1_789_501]);
     expect(Money.sum(lines.map((line) => Money.fromJsonInteger(line.valueAtCostPesewas))).toJsonInteger()).toBe(SEED_HAND_COUNT.totalValueAtCostPesewas);
   });
 
@@ -140,7 +140,7 @@ describe('B5 gate: on hand derived from movements matches a hand count of the se
     const whole = await allLines(manager, `branchId=${id('branch:DDW')}`);
     const paged = await allLines(manager, `branchId=${id('branch:DDW')}`, 3);
     expect(paged.lines).toEqual(whole.lines);
-    expect(new Set(paged.totals)).toEqual(new Set([1_595_501]));
+    expect(new Set(paged.totals)).toEqual(new Set([1_789_501]));
     expect(paged.totals.length).toBeGreaterThan(3);
   });
 

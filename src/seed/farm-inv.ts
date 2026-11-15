@@ -92,7 +92,8 @@ export const SEED_RECEIPTS: readonly SeedReceipt[] = [
 /**
  * The seeded farm counted by hand: what stands at each Dodowa location after the seed, and the value at cost of all
  * of it. GHS 2,400.00 of goats, 1,500.01 of sheep, 1,100.00 of broilers, 5,400.00 of beef, 3,900.00 of goat meat,
- * 1,050.00 of eggs, 480.00 of yam and 125.00 of cabbage: GHS 15,955.01.
+ * 1,050.00 of eggs, 480.00 of yam and 125.00 of cabbage, and in the store (the LIV seed, B06 continued 2) 1,100.00 of
+ * broiler grower, 600.00 of concentrate and 240.00 of albendazole: GHS 17,895.01.
  */
 export const SEED_HAND_COUNT = {
   lines: [
@@ -104,8 +105,11 @@ export const SEED_HAND_COUNT = {
     { location: 'SHOP', sku: 'EGG-CRATE-BIG', onHand: '30.000' },
     { location: 'SHOP', sku: 'PRD-YAM-TUBER', onHand: '40.000' },
     { location: 'SHOP', sku: 'PRD-CABBAGE-HEAD', onHand: '25.000' },
+    { location: 'STORE', sku: 'FEED-BRL-GROWER', onHand: '200.000' },
+    { location: 'STORE', sku: 'FEED-GOAT-CONC', onHand: '150.000' },
+    { location: 'STORE', sku: 'MED-ALBENDAZOLE', onHand: '2.000' },
   ],
-  totalValueAtCostPesewas: 1_595_501,
+  totalValueAtCostPesewas: 1_789_501,
 } as const;
 
 /**

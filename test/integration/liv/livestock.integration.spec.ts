@@ -122,16 +122,14 @@ beforeAll(async () => {
     wrong.set(role, await login(api.server, await createUser(database, { name: `Wrong ${role.toLowerCase()}`, grants: [{ role, branchId }] })));
   }
 
-  // Feed and medicine, a store for them and two more pens, through MDM; then their stock, through INV.
-  const taxCategoryId = (await admin().query<{ id: string }>("SELECT id FROM mdm.tax_category WHERE code = 'RAW_PRODUCE'")).rows[0]!.id;
-  const category = await post(manager, '/categories', { code: 'FEED-MED', name: 'Feed and medicine', productLine: 'FEED', glGroup: 'FEED_MEDICATION', taxCategoryId });
-  expect(category.status, JSON.stringify(category.body)).toBe(201);
+  // Feed and medicine and two more pens, through MDM; then their stock, through INV.
+  // The seed's feed and medicine category and its store (B06 continued 2); this test's own products keep their own pools.
+  const categoryId = (await admin().query<{ id: string }>("SELECT id FROM mdm.category WHERE code = 'FEED-MED'")).rows[0]!.id;
   const product = (sku: string, name: string, baseUom: string, extra: object = {}) =>
-    post(manager, '/products', { sku, name, categoryId: category.body.id, stockPolicy: 'COUNTABLE', baseUom, saleUom: baseUom, onlineMode: 'HIDDEN', isSellable: false, ...extra });
+    post(manager, '/products', { sku, name, categoryId, stockPolicy: 'COUNTABLE', baseUom, saleUom: baseUom, onlineMode: 'HIDDEN', isSellable: false, ...extra });
   expect((await product('FEED-GROWER-KG', 'Broiler grower pellets, per kg', 'KG')).status).toBe(201);
   expect((await product('MED-OXYTET-L', 'Oxytetracycline 20% injection, per litre', 'LITRE', { withdrawalDays: 28 })).status).toBe(201);
   for (const [code, name, kind] of [
-    ['STORE', 'Feed and medicine store', 'STORE'],
     ['PEN-T', 'Treatment pen', 'PEN'],
     ['PEN-F', 'Broiler house 2', 'PEN'],
   ] as const) {
@@ -396,7 +394,8 @@ describe('rations (FR-LIV-014)', () => {
     expect(changed.body).toMatchObject({ qtyPerHeadPerDay: '0.130', version: 2 });
     const twice = await post(manager, '/rations', { name: 'Broiler grower', speciesId: id('species:BROILER'), feedProductId: id('product:FEED-GROWER-KG'), qtyPerHeadPerDay: '0.100' });
     expect(twice.body.error).toMatchObject({ code: 'RATION_INVALID', details: [expect.objectContaining({ code: 'NAME_TAKEN' })] });
-    expect((await get(storekeeper, '/rations')).body.data).toHaveLength(1);
+    // The seed's three rations (B06 continued 2) and this one.
+    expect((await get(storekeeper, `/rations?speciesId=${id('species:BROILER')}`)).body.data.map((r: { name: string }) => r.name).sort()).toEqual(['Broiler grower', 'Broiler grower (SEED)']);
   });
 });
 
