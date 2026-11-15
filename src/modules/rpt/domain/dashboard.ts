@@ -4,8 +4,9 @@ import { err, ok, type Result } from '@hakorem/kernel';
 export const MAX_SERIES_DAYS = 92;
 /** The days a series covers when no period is asked for, ending today: a month. */
 export const DEFAULT_SERIES_DAYS = 30;
-/** The days the owner dashboard's purchases and sales series cover, ending on its date: a week. */
-export const DASHBOARD_SERIES_DAYS = 7;
+/** The days the owner dashboard's purchases and sales series cover, ending on its date: a week or a month (CR-013). */
+export const DASHBOARD_PERIOD_DAYS = { WEEK: 7, MONTH: 30 } as const;
+export type DashboardPeriod = keyof typeof DASHBOARD_PERIOD_DAYS;
 
 const MS_PER_DAY = 86_400_000;
 
@@ -110,11 +111,18 @@ function minDate(a: string, b: string): string {
   return daysBetween(a, b) < 0 ? b : a;
 }
 
-/** The dashboard's business date (today unless one is asked for, never after today) and the week its series cover. */
-export function dashboardDate(asked: string | undefined, today: string): Result<{ readonly date: string; readonly series: Period }, PeriodRule[]> {
+/**
+ * The dashboard's business date (today unless one is asked for, never after today), the day before it, and the week
+ * or month its series cover, ending on it.
+ */
+export function dashboardDate(
+  asked: string | undefined,
+  today: string,
+  period: DashboardPeriod = 'WEEK',
+): Result<{ readonly date: string; readonly yesterday: string; readonly series: Period }, PeriodRule[]> {
   const date = asked ?? today;
   if (daysBetween(today, date) > 0) return err([{ field: '/date', rule: 'IN_THE_FUTURE' }]);
-  return ok({ date, series: { from: addDays(date, -(DASHBOARD_SERIES_DAYS - 1)), to: date } });
+  return ok({ date, yesterday: addDays(date, -1), series: { from: addDays(date, -(DASHBOARD_PERIOD_DAYS[period] - 1)), to: date } });
 }
 
 /** One day of a series as the store sums it. */

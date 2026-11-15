@@ -111,6 +111,16 @@ describe('B05x gate: getOwnerDashboard answers in one request', () => {
     expect([purchases.totalPesewas, purchases.receiptCount]).toEqual([PURCHASES_ON_SEED_DAY, PURCHASE_RECEIPTS]);
   });
 
+  it("states purchases on its date and the day before, and reaches back a month with period=MONTH (CR-013)", async () => {
+    const onSeedDay = (await get(owner, `/dashboard/owner?date=${SEED_DAY}`)).body;
+    expect([onSeedDay.purchasesTodayPesewas, onSeedDay.purchasesYesterdayPesewas]).toEqual([PURCHASES_ON_SEED_DAY, 0]);
+    const dayAfter = (await get(owner, `/dashboard/owner?date=${addDays(SEED_DAY, 1)}&period=MONTH`)).body;
+    expect([dayAfter.purchasesTodayPesewas, dayAfter.purchasesYesterdayPesewas]).toEqual([0, PURCHASES_ON_SEED_DAY]);
+    expect(dayAfter.purchases.points).toHaveLength(30);
+    expect(dayAfter.purchases).toMatchObject({ from: addDays(SEED_DAY, -28), to: addDays(SEED_DAY, 1), totalPesewas: PURCHASES_ON_SEED_DAY, receiptCount: 4 });
+    expect((await get(owner, '/dashboard/owner?period=YEAR')).status).toBe(400);
+  });
+
   it('refuses a date after today with REPORT_PERIOD_INVALID', async () => {
     const tomorrow = addDays(toBusinessDate(clock.now()), 1);
     const response = await get(owner, `/dashboard/owner?date=${tomorrow}`);

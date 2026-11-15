@@ -9,4 +9,4 @@ export const TileQuery = z.strictObject({ branchId: z.uuid().optional() });
 export const SeriesQuery = z.strictObject({ branchId: z.uuid().optional(), from: CalendarDate.optional(), to: CalendarDate.optional() });
 
 /** The query of `getOwnerDashboard`: a branch and the business date. */
-export const DashboardQuery = z.strictObject({ branchId: z.uuid().optional(), date: CalendarDate.optional() });
+export const DashboardQuery = z.strictObject({ branchId: z.uuid().optional(), date: CalendarDate.optional(), period: z.enum(['WEEK', 'MONTH']).optional() });

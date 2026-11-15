@@ -65349,7 +65349,7 @@ paths:
       tags:
         - rpt
       summary: "The owner dashboard"
-      description: "The owner's first screen in one request (FR-RPT-001, NFR-023). It composes the dashboard tiles: stock value at cost, animals on hand by species, the low stock count and the purchases of the 7 days ending `date`, read from the published views of inventory and master data (ADR-0011, ADR-0023) and scoped to the branch asked for or to every branch where the caller holds `rpt.dashboard.owner` for the whole branch. A figure whose source module is not built yet (sales, top movers and the sales series until B9a, cash and receivables until B8, alerts and the exception count until B12) is null and listed in `pendingFigures` with its reason and phase; it is never answered with a zero. Stock figures are as of `asOf`; `date` (today unless asked, never later) dates the sales figures and ends the purchases period. A `date` after today is 422 `REPORT_PERIOD_INVALID`.\n\nPermission: `rpt.dashboard.owner`."
+      description: "The owner's first screen in one request (FR-RPT-001, NFR-023). It composes the dashboard tiles: stock value at cost, animals on hand by species, the low stock count and purchases on `date` and the day before, and the purchases of the week (or, with `period=MONTH`, the 30 days) ending `date`, read from the published views of inventory and master data (ADR-0011, ADR-0023) and scoped to the branch asked for or to every branch where the caller holds `rpt.dashboard.owner` for the whole branch. A figure whose source module is not built yet (sales, top movers and the sales series until B9a, cash and receivables until B8, alerts and the exception count until B12) is null and listed in `pendingFigures` with its reason and phase; it is never answered with a zero. Stock figures are as of `asOf`; `date` (today unless asked, never later) dates the sales figures and ends the purchases period. A `date` after today is 422 `REPORT_PERIOD_INVALID`.\n\nPermission: `rpt.dashboard.owner`."
       x-permission: rpt.dashboard.owner
       x-error-codes:
         - VALIDATION_FAILED
@@ -65371,6 +65371,15 @@ paths:
           schema:
             type: string
             format: date
+        - name: period
+          in: query
+          required: false
+          description: "How far back the purchases and sales series reach, ending on `date`: `WEEK` (7 days, the default) or `MONTH` (30 days)."
+          schema:
+            type: string
+            enum:
+              - WEEK
+              - MONTH
       security:
         - staffSession: []
         - apiKey: []
@@ -65396,6 +65405,8 @@ paths:
                 salesByChannel: null
                 cash: null
                 stockValueAtCostPesewas: 1595501
+                purchasesTodayPesewas: 0
+                purchasesYesterdayPesewas: 96500
                 receivablesOutstandingPesewas: null
                 receivablesOverduePesewas: null
                 topMovers: null
@@ -90593,6 +90604,14 @@ components:
           allOf:
             - $ref: "#/components/schemas/Pesewas"
           description: "At cost, never at price: the value of every cost pool of the branches, equal to `listStockOnHand`'s `totalValueAtCostPesewas` over the same branches."
+        purchasesTodayPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "Posted purchase receipts at cost received on `date`, the same figure as its point in `purchases`."
+        purchasesYesterdayPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "The same on the day before `date`."
         receivablesOutstandingPesewas:
           anyOf:
             - $ref: "#/components/schemas/Pesewas"
@@ -90647,6 +90666,8 @@ components:
         - salesByChannel
         - cash
         - stockValueAtCostPesewas
+        - purchasesTodayPesewas
+        - purchasesYesterdayPesewas
         - receivablesOutstandingPesewas
         - receivablesOverduePesewas
         - topMovers

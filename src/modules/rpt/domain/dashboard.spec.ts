@@ -36,8 +36,9 @@ describe('the period of a dashboard time series (business dates in Africa/Accra)
 
 describe('the dashboard date', () => {
   it('is today unless asked, an earlier day when asked, and never a later one, with the week ending on it', () => {
-    expect(dashboardDate(undefined, TODAY)).toEqual({ ok: true, value: { date: TODAY, series: { from: '2026-11-09', to: TODAY } } });
-    expect(dashboardDate('2026-11-14', TODAY)).toEqual({ ok: true, value: { date: '2026-11-14', series: { from: '2026-11-08', to: '2026-11-14' } } });
+    expect(dashboardDate(undefined, TODAY)).toEqual({ ok: true, value: { date: TODAY, yesterday: '2026-11-14', series: { from: '2026-11-09', to: TODAY } } });
+    expect(dashboardDate('2026-11-14', TODAY)).toEqual({ ok: true, value: { date: '2026-11-14', yesterday: '2026-11-13', series: { from: '2026-11-08', to: '2026-11-14' } } });
+    expect(dashboardDate('2026-11-01', TODAY, 'MONTH')).toEqual({ ok: true, value: { date: '2026-11-01', yesterday: '2026-10-31', series: { from: '2026-10-03', to: '2026-11-01' } } });
     expect(dashboardDate('2026-11-16', TODAY)).toEqual({ ok: false, error: [{ field: '/date', rule: 'IN_THE_FUTURE' }] });
   });
 });

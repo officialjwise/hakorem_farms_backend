@@ -67974,6 +67974,14 @@ components:
           allOf:
             - $ref: "#/components/schemas/Pesewas"
           description: "At cost, never at price: the value of every cost pool of the branches, equal to `listStockOnHand`'s `totalValueAtCostPesewas` over the same branches."
+        purchasesTodayPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "Posted purchase receipts at cost received on `date`, the same figure as its point in `purchases`."
+        purchasesYesterdayPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "The same on the day before `date`."
         receivablesOutstandingPesewas:
           anyOf:
             - $ref: "#/components/schemas/Pesewas"
@@ -68028,6 +68036,8 @@ components:
         - salesByChannel
         - cash
         - stockValueAtCostPesewas
+        - purchasesTodayPesewas
+        - purchasesYesterdayPesewas
         - receivablesOutstandingPesewas
         - receivablesOverduePesewas
         - topMovers

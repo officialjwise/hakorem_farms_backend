@@ -2,7 +2,7 @@ import { Money, toBusinessDate, type Clock } from '@hakorem/kernel';
 import type { Actor } from '../../../platform/context/request-context';
 import type { Transaction, UnitOfWork } from '../../../platform/database/unit-of-work';
 import type { Authoriser } from '../../iam';
-import { animalsBySpecies, dashboardBranches, dashboardDate, PENDING_FIGURES, seriesPeriod, type Period, type PendingFigure } from '../domain/dashboard';
+import { animalsBySpecies, dashboardBranches, dashboardDate, PENDING_FIGURES, seriesPeriod, type DashboardPeriod, type Period, type PendingFigure } from '../domain/dashboard';
 import { fillSeries } from '../domain/series';
 import type { DashboardStore } from './dashboard-store';
 import { ReportPeriodInvalidError } from './errors';
@@ -66,6 +66,8 @@ export interface OwnerDashboardView {
   readonly salesByChannel: null;
   readonly cash: null;
   readonly stockValueAtCostPesewas: number;
+  readonly purchasesTodayPesewas: number;
+  readonly purchasesYesterdayPesewas: number;
   readonly receivablesOutstandingPesewas: null;
   readonly receivablesOverduePesewas: null;
   readonly topMovers: null;
@@ -90,6 +92,7 @@ export interface SeriesQuery extends TileQuery {
 
 export interface DashboardQuery extends TileQuery {
   readonly date?: string | undefined;
+  readonly period?: DashboardPeriod | undefined;
 }
 
 /**
@@ -142,8 +145,10 @@ export class Dashboards {
   getOwnerDashboard(actor: Actor | undefined, query: DashboardQuery): Promise<OwnerDashboardView> {
     return this.read(actor, OWNER_DASHBOARD_PERMISSION, query.branchId, async (tx, branchIds) => {
       const asOf = this.clock.now();
-      const day = dashboardDate(query.date, toBusinessDate(asOf));
+      const day = dashboardDate(query.date, toBusinessDate(asOf), query.period);
       if (!day.ok) throw new ReportPeriodInvalidError(day.error);
+      const purchases = await this.purchases(tx, branchIds, day.value.series);
+      const onDay = (date: string) => purchases.points.find((point) => point.date === date)!.valueAtCostPesewas;
       return {
         date: day.value.date,
         branchId: query.branchId ?? null,
@@ -155,6 +160,8 @@ export class Dashboards {
         salesByChannel: null,
         cash: null,
         stockValueAtCostPesewas: await this.stockValue(tx, branchIds),
+        purchasesTodayPesewas: onDay(day.value.date),
+        purchasesYesterdayPesewas: onDay(day.value.yesterday),
         receivablesOutstandingPesewas: null,
         receivablesOverduePesewas: null,
         topMovers: null,
@@ -162,7 +169,7 @@ export class Dashboards {
         exceptionsToday: null,
         animalsOnHand: await this.animals(tx, branchIds),
         lowStockCount: await this.lowStock(tx, branchIds),
-        purchases: await this.purchases(tx, branchIds, day.value.series),
+        purchases,
         salesSeries: null,
         pendingFigures: PENDING_FIGURES,
         currency: 'GHS',
