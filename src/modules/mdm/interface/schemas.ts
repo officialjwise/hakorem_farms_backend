@@ -583,3 +583,17 @@ const ImportEntity = z.enum(['PRODUCT', 'CUSTOMER', 'SUPPLIER', 'PRICE_LIST_ENTR
 export const ImportCreate = z.strictObject({ entity: ImportEntity, fileId: z.uuid() });
 export const ExportCreate = z.strictObject({ entity: ImportEntity, format: z.enum(['XLSX', 'CSV']) });
 export const ListImportJobsQuery = PageQuery.extend({ entity: ImportEntity.optional(), direction: z.enum(['IMPORT', 'EXPORT']).optional() });
+
+/** listUomConversions' filters (B06u): one product's, and the archived ones beside the live ones when asked. */
+export const UomConversionPageQuery = PageQuery.extend({
+  productId: z.uuid().optional(),
+  includeArchived: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+});
+
+/** The contract's `UomConversionCreate`, strict: whole numbers only, so a factor never arrives as a float (FR-MDM-003). */
+export const UomConversionCreate = z.strictObject({
+  productId: z.uuid(),
+  fromUom: z.string().regex(/^[A-Z]{2,10}$/),
+  numerator: z.int().min(1).max(1_000_000_000_000),
+  denominator: z.int().min(1).max(1_000_000_000_000),
+});

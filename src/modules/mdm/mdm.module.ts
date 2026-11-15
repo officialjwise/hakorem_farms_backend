@@ -22,6 +22,9 @@ import { PriceListsController } from './interface/price-lists.controller';
 import { PricingController } from './interface/pricing.controller';
 import { ProductCatalogue } from './application/product-catalogue';
 import { ProductGallery } from './application/product-gallery';
+import { UOM_CONVERSION_STORE, UomConversions, type UomConversionStore } from './application/uom-conversions';
+import { PgUomConversionStore } from './infrastructure/pg-uom-conversion-store';
+import { UomConversionsController } from './interface/uom-conversions.controller';
 import { PRODUCT_STORE, type ProductStore } from './application/product-store';
 import { DrizzleProductStore } from './infrastructure/drizzle-product-store';
 import { MdmScopeNames } from './infrastructure/scope-names';
@@ -74,7 +77,7 @@ import { ImportsController } from './interface/imports.controller';
  */
 @Module({
   imports: [IamModule],
-  controllers: [ProductsController, CatalogueController, LocationsController, PartiesController, ReferenceDataController, PricingController, PriceListsController, PromotionsController, TaxController, ImportsController],
+  controllers: [ProductsController, CatalogueController, LocationsController, PartiesController, ReferenceDataController, PricingController, PriceListsController, PromotionsController, TaxController, ImportsController, UomConversionsController],
   providers: [
     { provide: PRODUCT_STORE, useFactory: (files: FileStore) => new DrizzleProductStore(files), inject: [FileStore] },
     { provide: PRICING_STORE, useClass: PgPricingStore },
@@ -209,6 +212,22 @@ import { ImportsController } from './interface/imports.controller';
       useFactory: (uow: UnitOfWork, store: ProductStore, files: FileStore, authoriser: Authoriser, idempotency: Idempotency, audit: AuditTrail, events: DomainEvents, clock: Clock) =>
         new ProductGallery(uow, store, files, authoriser, idempotency, audit, events, clock),
       inject: [UnitOfWork, PRODUCT_STORE, FileStore, Authoriser, Idempotency, AuditTrail, DomainEvents, CLOCK],
+    },
+    { provide: UOM_CONVERSION_STORE, useClass: PgUomConversionStore },
+    {
+      provide: UomConversions,
+      useFactory: (
+        uow: UnitOfWork,
+        store: UomConversionStore,
+        products: ProductStore,
+        authoriser: Authoriser,
+        idempotency: Idempotency,
+        audit: AuditTrail,
+        events: DomainEvents,
+        cursors: Cursors,
+        clock: Clock,
+      ) => new UomConversions(uow, store, products, authoriser, idempotency, audit, events, cursors, clock),
+      inject: [UnitOfWork, UOM_CONVERSION_STORE, PRODUCT_STORE, Authoriser, Idempotency, AuditTrail, DomainEvents, Cursors, CLOCK],
     },
     { provide: IMPORT_STORE, useClass: PgImportStore },
     { provide: SHEET_LOOKUPS, useClass: PgSheetLookups },

@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.26.0"
+  version: "1.27.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -73646,6 +73646,301 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
+  "/uom-conversions":
+    get:
+      operationId: listUomConversions
+      tags:
+        - mdm
+      summary: "List unit conversions"
+      description: "A product's alternative units and their exact factors to its base unit (FR-MDM-003, CR-011): one `fromUom` is `numerator / denominator` of `toUom`, and `factor` is the same value with three decimal places. Only a countable product converts: a 50 kg bag of grower pellets held by the kilogram, a crate of 24 cabbages counted by the head. A catch-weight product never has one, because its weighed kilograms are what is charged (`nominalPackKg` is an estimate). Live conversions only, oldest first, unless `includeArchived=true`; an archived conversion keeps the factor a quantity was converted with.\n\nPermission: `mdm.product.read`."
+      x-permission: mdm.product.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - INVALID_CURSOR
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
+      parameters:
+        - name: productId
+          in: query
+          required: false
+          description: "Only this product's conversions."
+          schema:
+            type: string
+            format: uuid
+        - name: includeArchived
+          in: query
+          required: false
+          description: "Also list archived conversions."
+          schema:
+            type: boolean
+            default: false
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/PageLimit"
+      security:
+        - staffSession: []
+        - apiKey: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UomConversionPage"
+              example:
+                data:
+                  - id: "019a7f10-2b40-7c11-9a20-3e5d7c1b0a01"
+                    product:
+                      id: "019a7a8d-f1c2-7a10-9e3b-5d2c4a6b8e01"
+                      sku: FEED-BRL-GROWER
+                      name: "Broiler grower pellets, per kg"
+                    fromUom: BAG
+                    toUom: KG
+                    numerator: 50
+                    denominator: 1
+                    factor: "50.000"
+                    version: 1
+                    createdAt: "2026-11-15T09:00:00Z"
+                    archivedAt: null
+                    archiveReason: null
+                  - id: "019a7f10-2b41-7d22-8b31-4f6e8d2c1b12"
+                    product:
+                      id: "019a7a8d-f1c2-7a10-9e3b-5d2c4a6b8e01"
+                      sku: FEED-BRL-GROWER
+                      name: "Broiler grower pellets, per kg"
+                    fromUom: PACK
+                    toUom: KG
+                    numerator: 1
+                    denominator: 2
+                    factor: "0.500"
+                    version: 1
+                    createdAt: "2026-11-15T09:02:00Z"
+                    archivedAt: null
+                    archiveReason: null
+                  - id: "019a7f10-2b42-7e33-9c42-5a7f9e3d2c23"
+                    product:
+                      id: "019a7a8d-f1c3-7b21-8f4c-6e3d5b7c9f12"
+                      sku: FEED-GOAT-CONC
+                      name: "Goat and sheep concentrate, per kg"
+                    fromUom: BAG
+                    toUom: KG
+                    numerator: 25
+                    denominator: 1
+                    factor: "25.000"
+                    version: 1
+                    createdAt: "2026-11-15T09:04:00Z"
+                    archivedAt: null
+                    archiveReason: null
+                  - id: "019a7f10-2b43-7f44-8d53-6b8a1f4e3d34"
+                    product:
+                      id: "019a7a8d-f1c4-7c32-9e5d-7f4e6c8d1a23"
+                      sku: PRD-CABBAGE-HEAD
+                      name: "Cabbage, per head"
+                    fromUom: CRATE
+                    toUom: UNIT
+                    numerator: 24
+                    denominator: 1
+                    factor: "24.000"
+                    version: 1
+                    createdAt: "2026-11-15T09:06:00Z"
+                    archivedAt: null
+                    archiveReason: null
+                  - id: "019a7f10-2b44-7a55-9e64-7c9b2a5f4e45"
+                    product:
+                      id: "019a7a8d-f1c5-7d43-8f6e-8a5f7d9e2b34"
+                      sku: PRD-LETTUCE-HEAD
+                      name: "Lettuce, per head"
+                    fromUom: CRATE
+                    toUom: UNIT
+                    numerator: 40
+                    denominator: 1
+                    factor: "40.000"
+                    version: 1
+                    createdAt: "2026-11-15T09:08:00Z"
+                    archivedAt: null
+                    archiveReason: null
+                page:
+                  nextCursor: null
+                  limit: 25
+                  hasMore: false
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      operationId: createUomConversion
+      tags:
+        - mdm
+      summary: "Make a unit conversion"
+      description: "Gives a countable product an alternative unit: one `fromUom` is `numerator / denominator` of the product's base unit, which becomes `toUom` (FR-MDM-003). The factor is kept in lowest terms (250/2000 is stored as 1/8) and must be exact to the three decimal places a quantity carries, so in lowest terms its denominator divides 1,000: a 50 kg bag is 50/1, a 500 g pack 1/2, and a third (1/3, or 3333333/10000000) is refused with 422 `UOM_CONVERSION_INVALID` (`INEXACT_FACTOR`); the database refuses it too. Also refused with `UOM_CONVERSION_INVALID`: a product that is not countable (`NOT_COUNTABLE`: catch-weight meat is charged by its weighed kilograms, so a pack-to-kilogram factor is never a conversion; a goat is counted by the head; a service holds no stock), the base unit itself (`BASE_UNIT`) and a weighed or measured unit (`NOT_COUNTED`). A unit that already has a live conversion for the product is 422 `DUPLICATE_VALUE`; a conversion never changes, so archive it first to give the unit a new factor.\n\nPermission: `mdm.uom_conversion.create`."
+      x-permission: mdm.uom_conversion.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - REFERENCE_NOT_FOUND
+        - DUPLICATE_VALUE
+        - UOM_CONVERSION_INVALID
+        - RATE_LIMITED
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CsrfToken"
+      security:
+        - staffSession: []
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UomConversionCreate"
+            example:
+              productId: "019a7a8d-f1c2-7a10-9e3b-5d2c4a6b8e01"
+              fromUom: BAG
+              numerator: 50
+              denominator: 1
+      responses:
+        "201":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UomConversion"
+              example:
+                id: "019a7f10-2b40-7c11-9a20-3e5d7c1b0a01"
+                product:
+                  id: "019a7a8d-f1c2-7a10-9e3b-5d2c4a6b8e01"
+                  sku: FEED-BRL-GROWER
+                  name: "Broiler grower pellets, per kg"
+                fromUom: BAG
+                toUom: KG
+                numerator: 50
+                denominator: 1
+                factor: "50.000"
+                version: 1
+                createdAt: "2026-11-15T09:00:00Z"
+                archivedAt: null
+                archiveReason: null
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/BusinessRuleViolation"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/uom-conversions/{id}/archive":
+    post:
+      operationId: archiveUomConversion
+      tags:
+        - mdm
+      summary: "Archive a unit conversion"
+      description: "Soft delete with a reason: the conversion stops converting and stays readable with `includeArchived=true`, keeping the factor earlier quantities were converted with. The unit can then be given a new factor with `createUomConversion` (the supplier now packs 25 kg bags). An archived or unknown conversion is 404.\n\nPermission: `mdm.uom_conversion.archive`."
+      x-permission: mdm.uom_conversion.archive
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - RATE_LIMITED
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CsrfToken"
+      security:
+        - staffSession: []
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ArchiveRequest"
+            example:
+              version: 1
+              reason: "Supplier now packs 25 kg bags"
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UomConversion"
+              example:
+                id: "019a7f10-2b40-7c11-9a20-3e5d7c1b0a01"
+                product:
+                  id: "019a7a8d-f1c2-7a10-9e3b-5d2c4a6b8e01"
+                  sku: FEED-BRL-GROWER
+                  name: "Broiler grower pellets, per kg"
+                fromUom: BAG
+                toUom: KG
+                numerator: 50
+                denominator: 1
+                factor: "50.000"
+                version: 2
+                createdAt: "2026-11-15T09:00:00Z"
+                archivedAt: "2026-11-20T10:30:00Z"
+                archiveReason: "Supplier now packs 25 kg bags"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     staffSession:
@@ -76279,7 +76574,7 @@ components:
         - page
     Uom:
       type: object
-      description: "A unit of measure from a fixed list seeded by migration: there is no operation that creates, changes or archives one (CR-011). A unit carries no conversion. A product holds its stock in `baseUom` and is sold in `saleUom`, and the price list entry's `basis` says what a price multiplies. A crate of 30 eggs is a product counted in `CRATE`, the 30 being part of what the product is, not a factor; a meat pack is held and priced by the kilogram (`baseUom` `KG`) with `nominalPackKg` as its standard size for estimates only, and the weighed kilograms are what is charged. Exact conversions between units of one product (FR-MDM-003) are not built yet."
+      description: "A unit of measure from a fixed list seeded by migration: there is no operation that creates, changes or archives one (CR-011). A unit carries no conversion of its own: a product holds its stock in `baseUom` and is sold in `saleUom`, and the price list entry's `basis` says what a price multiplies. A countable product may also have alternative units, each an exact `UomConversion` to its base unit (FR-MDM-003, `listUomConversions`): grower pellets held by the kilogram come in a 50 kg `BAG`. A product sold as a crate of 30 eggs is counted in `CRATE`, the 30 being part of what it is. A meat pack is held and priced by the kilogram (`baseUom` `KG`) with `nominalPackKg` as its standard size for estimates only; the weighed kilograms are what is charged, so a catch-weight product never has a conversion."
       properties:
         code:
           type: string
@@ -76314,6 +76609,97 @@ components:
       required:
         - data
         - page
+    UomConversion:
+      type: object
+      description: "An exact conversion from a countable product's alternative unit to its base unit (FR-MDM-003): one `fromUom` is `numerator / denominator` of `toUom`, in lowest terms, with a denominator that divides 1,000. A conversion never changes; a new factor for a unit is a new conversion after the old one is archived. To put a quantity in the base unit, multiply its thousandths by `numerator` and divide by `denominator`; a result that is not a whole number of thousandths is not a quantity, and the server refuses it rather than rounding."
+      properties:
+        id:
+          type: string
+          format: uuid
+        product:
+          $ref: "#/components/schemas/ProductRef"
+        fromUom:
+          type: string
+          description: "The alternative unit, a counted one (`BAG`, `CRATE`, `PACK`, `BUNCH`)."
+        toUom:
+          type: string
+          description: "The product's base unit."
+        numerator:
+          type: integer
+          minimum: 1
+          maximum: 1000000000
+        denominator:
+          type: integer
+          minimum: 1
+          maximum: 1000
+        factor:
+          type: string
+          pattern: "^[0-9]+\\.[0-9]{3}$"
+          description: "`numerator / denominator` with three decimal places, exact (`50.000` for a 50 kg bag, `0.500` for a 500 g pack)."
+        version:
+          type: integer
+          minimum: 1
+        createdAt:
+          type: string
+          format: date-time
+        archivedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        archiveReason:
+          type:
+            - string
+            - "null"
+      required:
+        - id
+        - product
+        - fromUom
+        - toUom
+        - numerator
+        - denominator
+        - factor
+        - version
+        - createdAt
+        - archivedAt
+        - archiveReason
+    UomConversionPage:
+      type: object
+      description: "A page of `UomConversion` results."
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/UomConversion"
+        page:
+          $ref: "#/components/schemas/PageInfo"
+      required:
+        - data
+        - page
+    UomConversionCreate:
+      type: object
+      additionalProperties: false
+      description: "One `fromUom` of the product is `numerator / denominator` of its base unit. Whole numbers only; the server reduces the fraction and refuses one that is not exact to three decimal places."
+      properties:
+        productId:
+          type: string
+          format: uuid
+        fromUom:
+          type: string
+          pattern: "^[A-Z]{2,10}$"
+        numerator:
+          type: integer
+          minimum: 1
+          maximum: 1000000000000
+        denominator:
+          type: integer
+          minimum: 1
+          maximum: 1000000000000
+      required:
+        - productId
+        - fromUom
+        - numerator
+        - denominator
     Species:
       type: object
       properties:

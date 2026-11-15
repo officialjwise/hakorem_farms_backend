@@ -1,4 +1,6 @@
+import { err, ok, type Quantity, type Result } from '@hakorem/kernel';
 import type { Transaction } from '../../../platform/database/unit-of-work';
+import { toBase, type UomFactor } from '../domain/unit-conversion';
 
 /** What a higher module needs to know about a product it moves or shows: identity, how it is tracked, its unit. */
 export interface ProductFacts {
@@ -86,7 +88,12 @@ export interface MasterDataRefsStore {
   productIdBySku(tx: Transaction, sku: string): Promise<string | null>;
   /** Ids of the live products of a species, in SKU order (LIV's hatch, B06 continued 2). */
   productIdsOfSpecies(tx: Transaction, speciesId: string): Promise<string[]>;
+  /** A product's base unit and the live factor of its alternative unit `uom` (null if none); null for no such product (B06u). */
+  uomFactor(tx: Transaction, productId: string, uom: string): Promise<{ readonly baseUom: string; readonly factor: UomFactor | null } | null>;
 }
+
+/** Why a quantity could not be put in a product's base unit (B06u, FR-MDM-003). */
+export type ToBaseRefusal = 'NO_PRODUCT' | 'NO_CONVERSION' | 'INEXACT_QUANTITY';
 
 function byId<T extends { readonly id: string }>(rows: readonly T[]): ReadonlyMap<string, T> {
   return new Map(rows.map((row) => [row.id, row] as const));
@@ -169,5 +176,18 @@ export class MasterDataRefs {
     const ids = await this.store.productIdsOfSpecies(tx, speciesId);
     const facts = await this.productsIn(tx, ids);
     return ids.map((id) => facts.get(id)!);
+  }
+
+  /**
+   * A quantity of a product in `uom`, in the product's base unit (FR-MDM-003, B06u): the base unit passes through, an
+   * alternative unit converts by its live exact factor (a crate of 30: 3 crates are 90.000), and a result that would
+   * need a fourth decimal place is refused, never rounded. A catch-weight product has no conversion (A-157).
+   */
+  async toBaseIn(tx: Transaction, productId: string, uom: string, quantity: Quantity): Promise<Result<Quantity, ToBaseRefusal>> {
+    const found = await this.store.uomFactor(tx, productId, uom);
+    if (found === null) return err('NO_PRODUCT');
+    if (uom === found.baseUom) return ok(quantity);
+    if (found.factor === null) return err('NO_CONVERSION');
+    return toBase(quantity, found.factor);
   }
 }

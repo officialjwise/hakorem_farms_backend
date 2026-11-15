@@ -24,7 +24,7 @@ Standard columns: `MASTER`. UNIQUE (`parent_id`, `lower(btrim(name))`) among liv
 
 ### `mdm.uom` · LOOKUP
 
-Units of measure. A fixed list seeded by migration (0009, 0019); no operation creates, changes or archives one, and a unit carries no conversion (CR-011, A-157).
+Units of measure. A fixed list seeded by migration (0009, 0019); no operation creates, changes or archives one (CR-011, A-157). A unit carries no conversion of its own; a countable product's alternative units are in `mdm.product_uom_conversion` (B06u).
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
@@ -116,17 +116,22 @@ Standard columns: `MASTER`.
 
 ### `mdm.product_uom_conversion` · MASTER
 
-Exact conversion between two units for a product. **Not built** (CR-011, A-157): no migration creates it and no operation reads or writes it. B9a builds it if an order line needs a unit other than the product's base unit.
+Exact conversion from a countable product's alternative unit to its base unit (FR-MDM-003, CR-011, A-157, A-163). Built in B06u (migration 0090): one `from_uom` is `numerator / denominator` of `to_uom`, two integers and no stored decimal factor (a 50 kg bag of feed is 50/1 `KG`; a crate of 24 cabbages is 24/1 `UNIT`). Read by other modules only through `MasterDataRefs.toBaseIn`.
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
+| `id` | `uuid` | PK | An archived conversion stays beside its replacement (A-163 (c)) |
 | `product_id` | `uuid` | NOT NULL, FK `mdm.product` | |
-| `from_uom` | `text` | NOT NULL, FK `mdm.uom` | |
-| `to_uom` | `text` | NOT NULL, FK `mdm.uom` | |
-| `numerator` | `bigint` | NOT NULL, CHECK `> 0` | Exact ratio; no stored decimal factor |
-| `denominator` | `bigint` | NOT NULL, CHECK `> 0` | |
+| `from_uom` | `text` | NOT NULL, FK `mdm.uom` | The alternative unit, a `COUNT` unit |
+| `to_uom` | `text` | NOT NULL, FK `mdm.uom`; CHECK `<> from_uom` | The product's base unit |
+| `numerator` | `bigint` | NOT NULL, CHECK `BETWEEN 1 AND 1000000000` | Exact ratio; no stored decimal factor |
+| `denominator` | `bigint` | NOT NULL, CHECK `BETWEEN 1 AND 1000` | |
 
-Standard columns: `MASTER`. PK (`product_id`, `from_uom`, `to_uom`).
+Standard columns: `MASTER`. UNIQUE (`product_id`, `from_uom`) among live rows (`uq_uom_conversion_live`).
+
+- CHECK `ck_uom_conversion_exact`: `1000 % denominator = 0 AND gcd(numerator, denominator) = 1`, so the factor is in lowest terms and exact to the three decimal places a quantity carries; a third is refused.
+- Trigger `mdm.uom_conversion_guard` (BEFORE INSERT OR UPDATE): a conversion is made only for a `COUNTABLE` product, to its base unit (HK010 `ck_uom_conversion_product`), from a `COUNT` unit (`ck_uom_conversion_unit`); a catch-weight pack is charged by its weighed kilograms, so it never converts (A-157). A product's policy and base unit never change, so the check at insert holds for the row's life. Only the archive columns change, once (HK004): a new factor is a new row after the old one is archived.
+- `hk_app` holds no DELETE.
 
 ### `mdm.product_image` · MASTER
 

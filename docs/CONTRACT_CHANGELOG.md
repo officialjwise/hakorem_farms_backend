@@ -4,7 +4,9 @@ Every change to `contract/openapi.yaml`, newest first. A breaking change needs a
 
 Version numbers follow semantic versioning: a major bump breaks an existing client, a minor bump adds operations or optional fields, a patch fixes descriptions or examples.
 
-## Reading 1.5.0 to 1.26.0 cold (written 2026-11-15, for the frontend track; 1.19.0 to 1.26.0 added the same day)
+## Reading 1.5.0 to 1.27.0 cold (written 2026-11-15, for the frontend track; 1.19.0 to 1.27.0 added the same day)
+
+**1.27.0, units of measure and their conversions (B06u, CR-011):** three new MDM operations give a countable product exact alternative units: `listUomConversions` (`GET /uom-conversions`, `mdm.product.read`, filters `productId` and `includeArchived`), `createUomConversion` and `archiveUomConversion` (Owner and Manager). A `UomConversion` says one `fromUom` is `numerator / denominator` of the product's base unit (`toUom`), with `factor` the same value to three places: grower pellets held by the kilogram come in a 50 kg `BAG` (50/1, `"50.000"`), cabbages counted by the head go to traders in a `CRATE` of 24. A factor that is not exact to three places is refused (422 `UOM_CONVERSION_INVALID`, `INEXACT_FACTOR`: a third), and so is any conversion of catch-weight meat (`NOT_COUNTABLE`): the weighed kilograms are charged, `nominalPackKg` stays an estimate. A conversion is never edited: archive it and make a new one. The units screen can now show and manage conversions (CR-011); units themselves stay a fixed list, read only. **No existing shape changed;** only `Uom`'s description was reworded.
 
 **1.26.0, the Farm hand's care screens, packs, labels and the reversing order (B06 continued 3):** sixteen new **care** operations under `/care/` give the Vet or Farm hand the register, rations, batches and health events with their withdrawal holds, and the animal work they record, in shapes with no cost and no price (`CareAnimal`, `CareHealthEvent`, `CareBatch`, `CareFeedConsumption`, `CareMortalityRecord`; ADR-0052). **LOUD, for Farm hand screens:** build them on the care operations only. The full writes `updateAnimal`, `moveAnimal`, `createBatch`, `updateBatch`, `closeBatch`, `recordHealthEvent`, `recordFeedConsumption`, `reportMortality` and `submitMortalityRecord` now carry `x-answer-permission` and refuse a caller without that read permission (403), which is only the Farm hand; `listBatches` and `getBatch` refuse the Farm hand too. Packs and labels answer from the real API: `createPacks` (weights must sum **exactly** to the output's weight, not within 0.050 kg as planned), `listPacks`, and **LOUD:** `printPackLabels` now answers `PackLabelSheet`, the label data to draw with a CODE_128 barcode whose payload is `<lot>/<grams, six digits>`, not a `SignedUrl` to a PDF, and it takes an `Idempotency-Key`. `Pack` gains `outputLineNo`, `weightSource` and the status `REVERSED`. `cancelProcessingOrder` on a COMPLETED order now reverses it (Owner and Manager, `prc.order.reverse`); `ProcessingOrder` gains `reversal` (null until reversed; the status stays COMPLETED). No schema, field or enumeration value was removed.
 
@@ -47,6 +49,16 @@ The contract moved from 1.4.0 to 1.20.0 in one night while the frontend track wa
 
 - **Reserving stock** has no HTTP operation: checkout, orders and quotes reserve in process (B7, B9a, B10). `listStockReservations` shows what they hold; until then it lists only what tests create.
 - **Empty until their modules exist:** `quoteDelivery.slots` (B11), `Supplier.hasProfile` (B7), `Customer.hasBusinessAccount` (B10), `StockOnHandLine.priceBand` (null), a trace's `healthEvents` and a sale's `customer` and `billingDocument`, `GoodsReceipt.receiptNo` (null until numbering), and `OPENING_STOCK` imports (422 `IMPORT_ENTITY_NOT_AVAILABLE` until opening stock is built).
+
+## 1.27.0 (2026-11-15, B06u)
+
+Minor. Additive. 261 operations from code, 369 planned, 630 published.
+
+- **New operations:** `listUomConversions` (`GET /uom-conversions`), `createUomConversion` (`POST /uom-conversions`), `archiveUomConversion` (`POST /uom-conversions/{id}/archive`), FR-MDM-003, CR-011, A-163. Reading needs `mdm.product.read`; the writes need the new `mdm.uom_conversion.create` and `mdm.uom_conversion.archive` (Owner, Manager), take an `Idempotency-Key` and `X-CSRF-Token`, and publish `mdm.ProductChanged` with `uomConversions` as the changed field.
+- **New schemas:** `UomConversion` (`id`, `product` as `ProductRef`, `fromUom`, `toUom`, `numerator`, `denominator`, `factor`, `version`, `createdAt`, `archivedAt`, `archiveReason`), `UomConversionPage`, `UomConversionCreate` (`productId`, `fromUom`, whole-number `numerator` and `denominator`).
+- **New error code:** 422 `UOM_CONVERSION_INVALID` with `INEXACT_FACTOR`, `TOO_LARGE`, `NOT_COUNTABLE`, `BASE_UNIT`, `NOT_COUNTED`.
+- **Descriptions only:** `Uom` now points at `UomConversion` instead of saying conversions are not built.
+- Examples in farm terms: 50 kg bags of broiler grower pellets, 500 g packs, 25 kg bags of goat and sheep concentrate, crates of 24 cabbages and of 40 lettuces.
 
 ## 1.26.0 (2026-11-15, B06 continued 3)
 

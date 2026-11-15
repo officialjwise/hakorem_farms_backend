@@ -1,0 +1,78 @@
+operationId: archiveUomConversion
+tags:
+  - mdm
+summary: "Archive a unit conversion"
+description: "Soft delete with a reason: the conversion stops converting and stays readable with `includeArchived=true`, keeping the factor earlier quantities were converted with. The unit can then be given a new factor with `createUomConversion` (the supplier now packs 25 kg bags). An archived or unknown conversion is 404.\n\nPermission: `mdm.uom_conversion.archive`."
+x-permission: mdm.uom_conversion.archive
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - VERSION_CONFLICT
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ArchiveRequest"
+      example:
+        version: 1
+        reason: "Supplier now packs 25 kg bags"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/UomConversion"
+        example:
+          id: "019a7f10-2b40-7c11-9a20-3e5d7c1b0a01"
+          product:
+            id: "019a7a8d-f1c2-7a10-9e3b-5d2c4a6b8e01"
+            sku: FEED-BRL-GROWER
+            name: "Broiler grower pellets, per kg"
+          fromUom: BAG
+          toUom: KG
+          numerator: 50
+          denominator: 1
+          factor: "50.000"
+          version: 2
+          createdAt: "2026-11-15T09:00:00Z"
+          archivedAt: "2026-11-20T10:30:00Z"
+          archiveReason: "Supplier now packs 25 kg bags"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

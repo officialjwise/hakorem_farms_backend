@@ -352,7 +352,7 @@ Default session: B4. Includes the pricing engine, promotions and the tax calcula
 
 **FR-MDM-003** Units of measure and exact conversions
 - Actor: Manager
-- Trigger: `createProduct` with units
+- Trigger: `createProduct` with units; `createUomConversion`, `archiveUomConversion` (B06u, A-163)
 - Rule: Each product has a base unit and optional alternative units with an exact decimal factor (head, kg, 15 kg pack, crate of 30 eggs, bunch, tuber). Conversions are exact decimals to three places; a conversion that cannot be represented exactly is refused. Weight is kilograms to 3 places.
 - Outcome: Quantities in an alternative unit convert to base without rounding error.
 - Acceptance: A 15 kg pack at factor 15.000 converts 2 packs to 30.000 kg; a crate of 30 converts 3 crates to 90.000 eggs; a factor of 0.3333333 is refused.
@@ -3269,7 +3269,7 @@ One row per requirement. Rows are grouped by module; security requirements and t
 | --- | --- | --- | --- |
 | FR-MDM-001 | B4 | `test/int/mdm/product-policy.int.spec.ts › refuses a policy change once movements exist` | createProduct, getProduct, updateProduct, listProducts, archiveProduct |
 | FR-MDM-002 | B4 | `test/int/mdm/categories.int.spec.ts › refuses to archive a category that is still in use` | listCategories, createCategory, getCategory, updateCategory, archiveCategory |
-| FR-MDM-003 | B4 | `test/unit/mdm/unit-conversion.unit.spec.ts › converts packs and crates exactly and refuses inexact factors` | listUnitsOfMeasure, updateProduct |
+| FR-MDM-003 | B06u | `src/modules/mdm/domain/unit-conversion.spec.ts › converts packs and crates exactly and refuses inexact factors` | listUnitsOfMeasure, listUomConversions, createUomConversion, archiveUomConversion |
 | FR-MDM-004 | B4 | `test/int/mdm/product-media.int.spec.ts › lists only visible products and refuses non-image uploads` | addProductImage, removeProductImage, listCatalogue |
 | FR-MDM-005 | B4 | `test/int/mdm/weight-bands.int.spec.ts › rejects overlapping bands and maps a weight to one band` | listSpeciesList, createSpecies, updateSpecies, listGrades, createGrade, updateGrade, archiveGrade, listWeightBands, createWeightBand, updateWeightBand, archiveWeightBand |
 | FR-MDM-006 | B4 | `test/int/mdm/locations.int.spec.ts › keeps parent and child in one branch` | listBranches, createBranch, getBranch, updateBranch, listLocations, createLocation, getLocation, updateLocation, archiveLocation |
