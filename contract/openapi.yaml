@@ -66672,7 +66672,7 @@ paths:
       tags:
         - rpt
       summary: "List the reports available to me"
-      description: "Permission: `rpt.report.read`."
+      description: "The reports the caller may run, each with the parameters it takes as a JSON schema. `from` and `to` are business dates in Africa/Accra, both included; `branchId` narrows to one branch, and without it a report covers every branch the caller holds `rpt.report.read` at. `STOCK_ON_HAND` takes `branchId` and `to` (stock as it stood at the end of that day; today without it). `EXPIRING_LOTS` takes `branchId`, `from` and `to` (lots whose expiry date falls in the period). `AGEING_STOCK` takes `branchId` and `to`. `MORTALITY_RATE`, `FEED_CONVERSION`, `DELIVERY_PERFORMANCE`, `SALES_BY_CASHIER`, `SALES_SUMMARY` (sales by day, channel and payment method) and `PURCHASES` (goods received and supplier invoices) take `branchId`, `from` and `to`. `CUSTOMER_LIST` takes none and is a bulk export above 100 rows. `runReport` answers every code listed here from B12; until then only the mock serves it.\n\nPermission: `rpt.report.read`."
       x-permission: rpt.report.read
       parameters:
         - name: cursor
@@ -66703,9 +66703,6 @@ paths:
                   - parameters:
                       type: object
                       properties:
-                        from:
-                          type: string
-                          format: date
                         to:
                           type: string
                           format: date
@@ -66724,9 +66721,6 @@ paths:
                   - parameters:
                       type: object
                       properties:
-                        from:
-                          type: string
-                          format: date
                         to:
                           type: string
                           format: date
@@ -66864,6 +66858,39 @@ paths:
                       - PDF
                       - XLSX
                     canExport: true
+                    isBulk: false
+                    code: SALES_SUMMARY
+                    name: "Sales by day, channel and payment method"
+                    category: FINANCIAL
+                  - parameters:
+                      type: object
+                      properties:
+                        from:
+                          type: string
+                          format: date
+                        to:
+                          type: string
+                          format: date
+                        branchId:
+                          type: string
+                          format: uuid
+                    formats:
+                      - SCREEN
+                      - PDF
+                      - XLSX
+                    canExport: true
+                    isBulk: false
+                    code: PURCHASES
+                    name: "Purchases: goods received and supplier invoices"
+                    category: FINANCIAL
+                  - parameters:
+                      type: object
+                      properties: {}
+                    formats:
+                      - SCREEN
+                      - PDF
+                      - XLSX
+                    canExport: true
                     isBulk: true
                     code: CUSTOMER_LIST
                     name: "Customer list"
@@ -66888,7 +66915,7 @@ paths:
       tags:
         - rpt
       summary: "Run a report on screen or export it"
-      description: "Runs in the worker against the reporting schema with a statement timeout, so it cannot slow the counter. Export is a separate permission; every run is audited with its row count; a bulk export needs step-up and lands on the exception report.\n\nPermission: `rpt.report.read, plus rpt.report.export for PDF or XLSX`."
+      description: "Runs in the worker against the reporting schema with a statement timeout, so it cannot slow the counter. Export is a separate permission; every run is audited with its row count; a bulk export needs step-up and lands on the exception report. Every code `listReportDefinitions` lists is answered, `SALES_SUMMARY` and `PURCHASES` included, with the parameters it lists; each code has its own named example (`Prefer: example=<CODE>` on the mock). Not answered by the API until B12.\n\nPermission: `rpt.report.read, plus rpt.report.export for PDF or XLSX`."
       x-permission: "rpt.report.read, plus rpt.report.export for PDF or XLSX"
       parameters:
         - name: code
@@ -66923,52 +66950,551 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReportRun"
-              example:
-                id: "019a7abb-98ec-73d6-890e-463ba591bf19"
-                reportCode: MORTALITY_RATE
-                parameters:
-                  from: "2026-10-01"
-                  to: "2026-10-31"
-                format: SCREEN
-                status: READY
-                rowCount: 5
-                result:
-                  columns:
-                    - key: pen
-                      label: Pen
-                      type: TEXT
-                    - key: headKept
-                      label: Head-days
-                      type: INTEGER
-                    - key: deaths
-                      label: Deaths
-                      type: INTEGER
-                    - key: ratePercent
-                      label: "Mortality %"
-                      type: PERCENT
-                    - key: lossPesewas
-                      label: "Loss at cost"
-                      type: PESEWAS
-                  rows:
-                    - pen: "Broiler house 1"
-                      headKept: 13980
-                      deaths: 6
-                      ratePercent: "1.29"
-                      lossPesewas: 81000
-                    - pen: "Goat pen 2"
-                      headKept: 810
-                      deaths: 1
-                      ratePercent: "3.57"
-                      lossPesewas: 58900
-                  totals:
-                    deaths: 7
-                    lossPesewas: 139900
-                file: null
-                dataAsOf: "2026-11-13T09:30:00Z"
-                createdAt: "2026-11-13T09:31:00Z"
-                createdBy:
-                  id: "019a7a86-3046-711a-a652-1a7389f79351"
-                  displayName: "Akua Mensah"
+              examples:
+                STOCK_ON_HAND:
+                  summary: "Stock on hand at cost at Dodowa"
+                  value:
+                    id: "019a7abb-98ec-73d6-890e-463ba591bf01"
+                    reportCode: STOCK_ON_HAND
+                    parameters:
+                      to: "2026-11-15"
+                      branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    format: SCREEN
+                    status: READY
+                    rowCount: 8
+                    result:
+                      columns:
+                        - key: location
+                          label: Location
+                          type: TEXT
+                        - key: product
+                          label: Product
+                          type: TEXT
+                        - key: qty
+                          label: "On hand"
+                          type: QUANTITY
+                        - key: uom
+                          label: Unit
+                          type: TEXT
+                        - key: valueAtCostPesewas
+                          label: "Value at cost"
+                          type: PESEWAS
+                      rows:
+                        - location: "Goat and sheep pens"
+                          product: "Goat (G-0142 to G-0145)"
+                          qty: "4.000"
+                          uom: HEAD
+                          valueAtCostPesewas: 240000
+                        - location: "Goat and sheep pens"
+                          product: "Sheep (S-0031, S-0032)"
+                          qty: "2.000"
+                          uom: HEAD
+                          valueAtCostPesewas: 150001
+                        - location: "Goat and sheep pens"
+                          product: "Broiler, batch BR-2026-1110"
+                          qty: "20.000"
+                          uom: HEAD
+                          valueAtCostPesewas: 110000
+                        - location: "Cold room"
+                          product: "Beef, 15 kg pack, LOT-BEEF-2026-1110"
+                          qty: "45.000"
+                          uom: KG
+                          valueAtCostPesewas: 540000
+                        - location: "Cold room"
+                          product: "Goat meat, 15 kg pack, LOT-GOAT-0001"
+                          qty: "30.000"
+                          uom: KG
+                          valueAtCostPesewas: 390000
+                        - location: "Shop floor"
+                          product: "Eggs, big, crate of 30"
+                          qty: "30.000"
+                          uom: CRATE
+                          valueAtCostPesewas: 105000
+                        - location: "Shop floor"
+                          product: "Yam, tuber"
+                          qty: "40.000"
+                          uom: TUBER
+                          valueAtCostPesewas: 48000
+                        - location: "Shop floor"
+                          product: "Cabbage, head"
+                          qty: "25.000"
+                          uom: HEAD
+                          valueAtCostPesewas: 12500
+                      totals:
+                        valueAtCostPesewas: 1595501
+                    file: null
+                    dataAsOf: "2026-11-15T09:30:00Z"
+                    createdAt: "2026-11-15T09:31:00Z"
+                    createdBy:
+                      id: "019a7a86-3046-711a-a652-1a7389f79351"
+                      displayName: "Akosua Boateng"
+                AGEING_STOCK:
+                  summary: "Lots by age at Dodowa"
+                  value:
+                    id: "019a7abb-98ec-73d6-890e-463ba591bf02"
+                    reportCode: AGEING_STOCK
+                    parameters:
+                      to: "2026-11-15"
+                      branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    format: SCREEN
+                    status: READY
+                    rowCount: 3
+                    result:
+                      columns:
+                        - key: lot
+                          label: Lot
+                          type: TEXT
+                        - key: product
+                          label: Product
+                          type: TEXT
+                        - key: receivedOn
+                          label: Received
+                          type: DATE
+                        - key: ageDays
+                          label: "Age, days"
+                          type: INTEGER
+                        - key: qty
+                          label: "On hand"
+                          type: QUANTITY
+                        - key: valueAtCostPesewas
+                          label: "Value at cost"
+                          type: PESEWAS
+                      rows:
+                        - lot: LOT-BEEF-2026-1110
+                          product: "Beef, 15 kg pack"
+                          receivedOn: "2026-11-10"
+                          ageDays: 5
+                          qty: "45.000"
+                          valueAtCostPesewas: 540000
+                        - lot: LOT-GOAT-0001
+                          product: "Goat meat, 15 kg pack"
+                          receivedOn: "2026-11-10"
+                          ageDays: 5
+                          qty: "30.000"
+                          valueAtCostPesewas: 390000
+                        - lot: EGG-BIG-2026-1110
+                          product: "Eggs, big, crate of 30"
+                          receivedOn: "2026-11-10"
+                          ageDays: 5
+                          qty: "30.000"
+                          valueAtCostPesewas: 105000
+                      totals:
+                        valueAtCostPesewas: 1035000
+                    file: null
+                    dataAsOf: "2026-11-15T09:30:00Z"
+                    createdAt: "2026-11-15T09:31:00Z"
+                    createdBy:
+                      id: "019a7a86-3046-711a-a652-1a7389f79351"
+                      displayName: "Akosua Boateng"
+                EXPIRING_LOTS:
+                  summary: "Lots expiring in the next month"
+                  value:
+                    id: "019a7abb-98ec-73d6-890e-463ba591bf03"
+                    reportCode: EXPIRING_LOTS
+                    parameters:
+                      from: "2026-11-15"
+                      to: "2026-12-15"
+                      branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    format: SCREEN
+                    status: READY
+                    rowCount: 1
+                    result:
+                      columns:
+                        - key: lot
+                          label: Lot
+                          type: TEXT
+                        - key: product
+                          label: Product
+                          type: TEXT
+                        - key: location
+                          label: Location
+                          type: TEXT
+                        - key: expiresOn
+                          label: Expires
+                          type: DATE
+                        - key: daysToExpiry
+                          label: "Days left"
+                          type: INTEGER
+                        - key: qty
+                          label: "On hand"
+                          type: QUANTITY
+                        - key: valueAtCostPesewas
+                          label: "Value at cost"
+                          type: PESEWAS
+                      rows:
+                        - lot: EGG-BIG-2026-1110
+                          product: "Eggs, big, crate of 30"
+                          location: "Shop floor"
+                          expiresOn: "2026-12-01"
+                          daysToExpiry: 16
+                          qty: "30.000"
+                          valueAtCostPesewas: 105000
+                      totals:
+                        valueAtCostPesewas: 105000
+                    file: null
+                    dataAsOf: "2026-11-15T09:30:00Z"
+                    createdAt: "2026-11-15T09:31:00Z"
+                    createdBy:
+                      id: "019a7a86-3046-711a-a652-1a7389f79351"
+                      displayName: "Akosua Boateng"
+                MORTALITY_RATE:
+                  summary: "Mortality in October"
+                  value:
+                    id: "019a7abb-98ec-73d6-890e-463ba591bf19"
+                    reportCode: MORTALITY_RATE
+                    parameters:
+                      from: "2026-10-01"
+                      to: "2026-10-31"
+                    format: SCREEN
+                    status: READY
+                    rowCount: 5
+                    result:
+                      columns:
+                        - key: pen
+                          label: Pen
+                          type: TEXT
+                        - key: headKept
+                          label: Head-days
+                          type: INTEGER
+                        - key: deaths
+                          label: Deaths
+                          type: INTEGER
+                        - key: ratePercent
+                          label: "Mortality %"
+                          type: PERCENT
+                        - key: lossPesewas
+                          label: "Loss at cost"
+                          type: PESEWAS
+                      rows:
+                        - pen: "Broiler house 1"
+                          headKept: 13980
+                          deaths: 6
+                          ratePercent: "1.29"
+                          lossPesewas: 81000
+                        - pen: "Goat pen 2"
+                          headKept: 810
+                          deaths: 1
+                          ratePercent: "3.57"
+                          lossPesewas: 58900
+                      totals:
+                        deaths: 7
+                        lossPesewas: 139900
+                    file: null
+                    dataAsOf: "2026-11-13T09:30:00Z"
+                    createdAt: "2026-11-13T09:31:00Z"
+                    createdBy:
+                      id: "019a7a86-3046-711a-a652-1a7389f79351"
+                      displayName: "Akua Mensah"
+                FEED_CONVERSION:
+                  summary: "Feed conversion by batch and pen"
+                  value:
+                    id: "019a7abb-98ec-73d6-890e-463ba591bf04"
+                    reportCode: FEED_CONVERSION
+                    parameters:
+                      from: "2026-11-09"
+                      to: "2026-11-15"
+                      branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    format: SCREEN
+                    status: READY
+                    rowCount: 2
+                    result:
+                      columns:
+                        - key: pen
+                          label: Pen
+                          type: TEXT
+                        - key: batch
+                          label: Batch
+                          type: TEXT
+                        - key: feedKg
+                          label: "Feed eaten"
+                          type: KG
+                        - key: gainKg
+                          label: "Weight gained"
+                          type: KG
+                        - key: conversion
+                          label: "Feed per kg gained"
+                          type: TEXT
+                      rows:
+                        - pen: "Broiler house 1"
+                          batch: BR-2026-1110
+                          feedKg: "41.250"
+                          gainKg: "23.640"
+                          conversion: "1.74"
+                        - pen: "Goat and sheep pens"
+                          batch: "Goats G-0142 to G-0145"
+                          feedKg: "18.600"
+                          gainKg: "2.130"
+                          conversion: "8.73"
+                      totals:
+                        feedKg: "59.850"
+                        gainKg: "25.770"
+                    file: null
+                    dataAsOf: "2026-11-15T09:30:00Z"
+                    createdAt: "2026-11-15T09:31:00Z"
+                    createdBy:
+                      id: "019a7a86-3046-711a-a652-1a7389f79351"
+                      displayName: "Akosua Boateng"
+                DELIVERY_PERFORMANCE:
+                  summary: "Deliveries on time by driver"
+                  value:
+                    id: "019a7abb-98ec-73d6-890e-463ba591bf05"
+                    reportCode: DELIVERY_PERFORMANCE
+                    parameters:
+                      from: "2026-11-09"
+                      to: "2026-11-15"
+                      branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    format: SCREEN
+                    status: READY
+                    rowCount: 2
+                    result:
+                      columns:
+                        - key: driver
+                          label: Driver
+                          type: TEXT
+                        - key: deliveries
+                          label: Deliveries
+                          type: INTEGER
+                        - key: onTime
+                          label: "On time"
+                          type: INTEGER
+                        - key: onTimePercent
+                          label: "On time %"
+                          type: PERCENT
+                      rows:
+                        - driver: "Selorm Agbeko"
+                          deliveries: 18
+                          onTime: 16
+                          onTimePercent: "88.89"
+                        - driver: "Kwesi Ofori"
+                          deliveries: 12
+                          onTime: 11
+                          onTimePercent: "91.67"
+                      totals:
+                        deliveries: 30
+                        onTime: 27
+                        onTimePercent: "90.00"
+                    file: null
+                    dataAsOf: "2026-11-15T09:30:00Z"
+                    createdAt: "2026-11-15T09:31:00Z"
+                    createdBy:
+                      id: "019a7a86-3046-711a-a652-1a7389f79351"
+                      displayName: "Akosua Boateng"
+                SALES_BY_CASHIER:
+                  summary: "Counter sales by cashier"
+                  value:
+                    id: "019a7abb-98ec-73d6-890e-463ba591bf06"
+                    reportCode: SALES_BY_CASHIER
+                    parameters:
+                      from: "2026-11-09"
+                      to: "2026-11-15"
+                      branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    format: SCREEN
+                    status: READY
+                    rowCount: 2
+                    result:
+                      columns:
+                        - key: cashier
+                          label: Cashier
+                          type: TEXT
+                        - key: sales
+                          label: Sales
+                          type: INTEGER
+                        - key: voids
+                          label: Voids
+                          type: INTEGER
+                        - key: grossPesewas
+                          label: Gross
+                          type: PESEWAS
+                      rows:
+                        - cashier: "Adwoa Darko"
+                          sales: 41
+                          voids: 1
+                          grossPesewas: 912400
+                        - cashier: "Kwame Boadu"
+                          sales: 23
+                          voids: 0
+                          grossPesewas: 371900
+                      totals:
+                        sales: 64
+                        voids: 1
+                        grossPesewas: 1284300
+                    file: null
+                    dataAsOf: "2026-11-15T09:30:00Z"
+                    createdAt: "2026-11-15T09:31:00Z"
+                    createdBy:
+                      id: "019a7a86-3046-711a-a652-1a7389f79351"
+                      displayName: "Akosua Boateng"
+                SALES_SUMMARY:
+                  summary: "Sales by day, channel and payment method"
+                  value:
+                    id: "019a7abb-98ec-73d6-890e-463ba591bf07"
+                    reportCode: SALES_SUMMARY
+                    parameters:
+                      from: "2026-11-13"
+                      to: "2026-11-14"
+                      branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    format: SCREEN
+                    status: READY
+                    rowCount: 5
+                    result:
+                      columns:
+                        - key: date
+                          label: Date
+                          type: DATE
+                        - key: channel
+                          label: Channel
+                          type: TEXT
+                        - key: paymentMethod
+                          label: "Paid by"
+                          type: TEXT
+                        - key: orders
+                          label: Orders
+                          type: INTEGER
+                        - key: grossPesewas
+                          label: Gross
+                          type: PESEWAS
+                      rows:
+                        - date: "2026-11-13"
+                          channel: POS
+                          paymentMethod: Cash
+                          orders: 14
+                          grossPesewas: 388300
+                        - date: "2026-11-13"
+                          channel: POS
+                          paymentMethod: "MTN Mobile Money"
+                          orders: 9
+                          grossPesewas: 446000
+                        - date: "2026-11-13"
+                          channel: WHOLESALE
+                          paymentMethod: "Bank transfer"
+                          orders: 1
+                          grossPesewas: 293000
+                        - date: "2026-11-14"
+                          channel: POS
+                          paymentMethod: Cash
+                          orders: 16
+                          grossPesewas: 452100
+                        - date: "2026-11-14"
+                          channel: ONLINE
+                          paymentMethod: "MTN Mobile Money"
+                          orders: 1
+                          grossPesewas: 45000
+                      totals:
+                        orders: 41
+                        grossPesewas: 1624400
+                    file: null
+                    dataAsOf: "2026-11-15T09:30:00Z"
+                    createdAt: "2026-11-15T09:31:00Z"
+                    createdBy:
+                      id: "019a7a86-3046-711a-a652-1a7389f79351"
+                      displayName: "Akosua Boateng"
+                PURCHASES:
+                  summary: "Goods received and supplier invoices"
+                  value:
+                    id: "019a7abb-98ec-73d6-890e-463ba591bf08"
+                    reportCode: PURCHASES
+                    parameters:
+                      from: "2026-11-10"
+                      to: "2026-11-11"
+                      branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    format: SCREEN
+                    status: READY
+                    rowCount: 5
+                    result:
+                      columns:
+                        - key: date
+                          label: Date
+                          type: DATE
+                        - key: kind
+                          label: Document
+                          type: TEXT
+                        - key: reference
+                          label: Reference
+                          type: TEXT
+                        - key: supplier
+                          label: Supplier
+                          type: TEXT
+                        - key: valuePesewas
+                          label: "Value at cost"
+                          type: PESEWAS
+                      rows:
+                        - date: "2026-11-10"
+                          kind: GOODS_RECEIPT
+                          reference: SEED-KLT-0457
+                          supplier: "Kpone Livestock Traders (SEED)"
+                          valuePesewas: 390001
+                        - date: "2026-11-10"
+                          kind: GOODS_RECEIPT
+                          reference: SEED-APF-1182
+                          supplier: "Awutu Poultry Farm (SEED)"
+                          valuePesewas: 110000
+                        - date: "2026-11-10"
+                          kind: GOODS_RECEIPT
+                          reference: SEED-ACS-0093
+                          supplier: "Ashaiman Cold Store Ltd (SEED)"
+                          valuePesewas: 930000
+                        - date: "2026-11-10"
+                          kind: GOODS_RECEIPT
+                          reference: SEED-APF-1183
+                          supplier: "Awutu Poultry Farm (SEED)"
+                          valuePesewas: 105000
+                        - date: "2026-11-11"
+                          kind: SUPPLIER_INVOICE
+                          reference: KLT/INV/2026/0457
+                          supplier: "Kpone Livestock Traders (SEED)"
+                          valuePesewas: 390001
+                      totals:
+                        receivedPesewas: 1535001
+                        invoicedPesewas: 390001
+                    file: null
+                    dataAsOf: "2026-11-15T09:30:00Z"
+                    createdAt: "2026-11-15T09:31:00Z"
+                    createdBy:
+                      id: "019a7a86-3046-711a-a652-1a7389f79351"
+                      displayName: "Akosua Boateng"
+                CUSTOMER_LIST:
+                  summary: Customers
+                  value:
+                    id: "019a7abb-98ec-73d6-890e-463ba591bf09"
+                    reportCode: CUSTOMER_LIST
+                    parameters: {}
+                    format: SCREEN
+                    status: READY
+                    rowCount: 3
+                    result:
+                      columns:
+                        - key: customerNo
+                          label: Customer
+                          type: TEXT
+                        - key: name
+                          label: Name
+                          type: TEXT
+                        - key: phone
+                          label: Phone
+                          type: TEXT
+                        - key: tier
+                          label: Tier
+                          type: TEXT
+                      rows:
+                        - customerNo: C-000101
+                          name: "Abena Owusu (SEED)"
+                          phone: "+233200000301"
+                          tier: RETAIL
+                        - customerNo: C-000102
+                          name: "Dodowa Chop Bar (SEED)"
+                          phone: "+233200000302"
+                          tier: WHOLESALE
+                        - customerNo: C-000103
+                          name: "Nana Agyei (SEED)"
+                          phone: "+233200000303"
+                          tier: RETAIL
+                      totals: null
+                    file: null
+                    dataAsOf: "2026-11-15T09:30:00Z"
+                    createdAt: "2026-11-15T09:31:00Z"
+                    createdBy:
+                      id: "019a7a86-3046-711a-a652-1a7389f79351"
+                      displayName: "Akosua Boateng"
         "202":
           description: "Queued; poll GET /report-runs/{id}."
           content:
