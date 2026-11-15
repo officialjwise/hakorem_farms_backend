@@ -58,3 +58,26 @@ export interface UpkeepExpensed {
   readonly sourceDocumentId: string;
   readonly sourceLineRef: string | null;
 }
+
+/**
+ * `inv.GoodsReceiptPosted` v1 (B7, A-164): a goods receipt was posted, published once in its transaction after its
+ * movements. Procurement keeps each purchase order line's received quantity from it, inside the same transaction, and
+ * refuses a receipt that would take a line past its ordered quantity plus tolerance (FR-PUR-007). Quantities are in
+ * the product's base unit, as the receipt books them.
+ */
+export interface GoodsReceiptPosted {
+  readonly goodsReceiptId: string;
+  readonly kind: 'PURCHASE' | 'HARVEST' | 'OPENING';
+  readonly branchId: string;
+  readonly locationId: string;
+  readonly supplierId: string | null;
+  readonly purchaseOrderId: string | null;
+  readonly receivedAt: string;
+  readonly lines: readonly {
+    readonly goodsReceiptLineId: string;
+    readonly productId: string;
+    readonly purchaseOrderLineId: string | null;
+    readonly qtyReceived: string;
+    readonly qtyRejected: string;
+  }[];
+}
