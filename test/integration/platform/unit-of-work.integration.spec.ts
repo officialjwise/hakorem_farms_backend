@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import pino from 'pino';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
@@ -7,6 +8,7 @@ import {
   NoUnitOfWorkError,
   SerializationRetriesExhaustedError,
   SERIALIZATION_RETRY_LIMIT,
+  sqlStateOf,
   UnitOfWork,
 } from '../../../src/platform/database/unit-of-work';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
@@ -73,6 +75,32 @@ describe('the unit of work (ADR-0005)', () => {
     expect((failure as SerializationRetriesExhaustedError).sqlState).toBe('40001');
     expect((failure as SerializationRetriesExhaustedError).code).toBe('SERIALIZATION_RETRIES_EXHAUSTED');
     expect(hopelessAttempts).toBe(5);
+  });
+
+  it('retries a serialization failure raised through a drizzle query, which wraps the PostgreSQL error as its cause', async () => {
+    // Drizzle throws DrizzleQueryError("Failed query: ...") with the pg error as `cause` and no `code` of its own, so
+    // reading only the top-level code let a 40001 from any tx.db query escape as a 500 (a staff login in the e2e run on 2d9a6fb).
+    let attempts = 0;
+    const done = await uow.run({ isolation: 'serializable' }, async (tx) => {
+      attempts += 1;
+      if (attempts === 1) {
+        await tx.db.execute(sql.raw(raise('40001')));
+      }
+      return tx.attempt;
+    });
+    expect(done).toBe(2);
+    expect(attempts).toBe(2);
+  });
+
+  it('reads the SQLSTATE through a drizzle-wrapped error, so unique and rule refusals are recognised too', async () => {
+    const wrapped = await uow
+      .run({ isolation: 'read committed' }, (tx) => tx.db.execute(sql.raw(raise('23505'))))
+      .catch((error: unknown) => error);
+    expect((wrapped as { code?: unknown }).code).toBeUndefined();
+    expect((wrapped as { cause?: { code?: unknown } }).cause?.code).toBe('23505');
+    expect(sqlStateOf(wrapped)).toBe('23505');
+    expect(sqlStateOf(new Error('plain'))).toBeUndefined();
+    expect(sqlStateOf({ cause: { cause: { cause: { cause: { cause: { code: '40001' } } } } } })).toBeUndefined();
   });
 
   it('re-runs the whole command on a real write-skew conflict, so the retry sees the committed state', async () => {
