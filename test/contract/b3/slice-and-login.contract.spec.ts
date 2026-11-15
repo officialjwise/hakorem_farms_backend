@@ -10,6 +10,8 @@ import {
   MovementReversal,
   ReasonBody as InvReasonBody,
   StockAdjustmentCreate,
+  StockHoldCreate,
+  StockHoldRelease,
   StockTakeCounts,
   StockTakeCreate,
   StockTransferCreate,
@@ -267,6 +269,8 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     createStockTake: StockTakeCreate,
     recordStockTakeCounts: StockTakeCounts,
     cancelStockTake: InvReasonBody,
+    createStockHold: StockHoldCreate,
+    releaseStockHold: StockHoldRelease,
   };
 
   it('parses every request example of an implemented operation with the schema its route validates with', () => {

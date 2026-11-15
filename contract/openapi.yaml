@@ -18690,8 +18690,14 @@ paths:
       tags:
         - inv
       summary: "List holds that block sale"
-      description: "Permission: `inv.hold.read`."
+      description: "Holds on animals and lots, oldest first. `active=true` lists the holds in force now (begun, not ended, not released); `active=false` the others. Narrowed to the branches the reader's grants reach and, for a grant at one location, to the animals standing there and the lots with stock there.\n\nPermission: `inv.hold.read`."
       x-permission: inv.hold.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: active
           in: query
@@ -18873,8 +18879,20 @@ paths:
       tags:
         - inv
       summary: "Place a quarantine or investigation hold"
-      description: "Permission: `inv.hold.create`."
+      description: "Places a `QUARANTINE` or `INVESTIGATION` hold on an active animal or lot, from now until `endsAt` or until released. While it is in force the lot or animal cannot be sold, processed or dispatched (`STOCK_UNIT_ON_HOLD` on those operations); pen moves and write-offs are not blocked. The hold is its own `STOCK_HOLD` document, which is its `sourceDocument`. A `WITHDRAWAL` hold is placed only by recording a treatment and is refused here (400).\n\nPermission: `inv.hold.create`, scoped to the unit's branch and, for an animal, where it stands."
       x-permission: inv.hold.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - STOCK_HOLD_INVALID
+        - REFERENCE_NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -18905,14 +18923,14 @@ paths:
                 id: "019a7aaf-45b2-7334-a86d-3c21290bb4ff"
                 stockUnit:
                   id: "019a7a8f-9d18-7468-89a0-4f5a9de5c838"
-                  identifier: G-0163
-                  tracking: SERIAL
-                kind: WITHDRAWAL
+                  identifier: MEAT-BEEF-261104-01
+                  tracking: LOT
+                kind: INVESTIGATION
                 startsAt: "2026-11-01T10:00:00Z"
-                endsAt: "2026-11-28T23:59:00Z"
+                endsAt: null
                 sourceDocument:
                   id: "019a7aaf-64a1-7d18-b250-da58a2bc5336"
-                  docType: HEALTH_EVENT
+                  docType: STOCK_HOLD
                   number: null
                 releasedAt: null
                 releasedBy: null
@@ -18941,8 +18959,23 @@ paths:
       tags:
         - inv
       summary: "Release a hold early"
-      description: "Refused with 422 `WITHDRAWAL_CANNOT_BE_RELEASED` for a withdrawal hold.\n\nPermission: `inv.hold.release`."
+      description: "Releases a quarantine or investigation hold early, once, with a reason from the `HOLD_RELEASE` list and a note; the person releasing is never the one who placed it (`RELEASED_BY_PLACER`, also a database rule). A hold already released or ended is refused (`INVALID_STATE_TRANSITION`). Refused with 422 `WITHDRAWAL_CANNOT_BE_RELEASED` for a withdrawal hold, whoever asks: it ends by time.\n\nPermission: `inv.hold.release`, scoped to the unit's branch and, for an animal, where it stands."
       x-permission: inv.hold.release
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - WITHDRAWAL_CANNOT_BE_RELEASED
+        - STOCK_HOLD_INVALID
+        - REFERENCE_NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -18962,7 +18995,7 @@ paths:
             schema:
               $ref: "#/components/schemas/StockHoldRelease"
             example:
-              reasonCode: TEMPERATURE_RECOVERED_CHECKED
+              reasonCode: QUARANTINE_COMPLETE
               note: "Probe reading back to -18.0 within 20 minutes; lots inspected"
       responses:
         "200":
@@ -18978,18 +19011,20 @@ paths:
                 id: "019a7aaf-45b2-7334-a86d-3c21290bb4ff"
                 stockUnit:
                   id: "019a7a8f-9d18-7468-89a0-4f5a9de5c838"
-                  identifier: G-0163
-                  tracking: SERIAL
-                kind: WITHDRAWAL
+                  identifier: BRL-2610-01
+                  tracking: LOT
+                kind: QUARANTINE
                 startsAt: "2026-11-01T10:00:00Z"
-                endsAt: "2026-11-28T23:59:00Z"
+                endsAt: null
                 sourceDocument:
                   id: "019a7aaf-64a1-7d18-b250-da58a2bc5336"
-                  docType: HEALTH_EVENT
+                  docType: TEMPERATURE_READING
                   number: null
-                releasedAt: null
-                releasedBy: null
-                releaseReasonCode: null
+                releasedAt: "2026-11-04T11:00:00Z"
+                releasedBy:
+                  id: "019a7a86-ac02-7ab1-8f9e-1b2c3d4e5f60"
+                  displayName: "Akosua Boateng"
+                releaseReasonCode: QUARANTINE_COMPLETE
                 createdAt: "2026-11-01T10:00:00Z"
                 createdBy:
                   id: "019a7a87-27be-7035-a56e-0c2f577f850d"

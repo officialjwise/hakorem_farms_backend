@@ -1,0 +1,78 @@
+operationId: createStockHold
+tags:
+  - inv
+summary: "Place a quarantine or investigation hold"
+description: "Places a `QUARANTINE` or `INVESTIGATION` hold on an active animal or lot, from now until `endsAt` or until released. While it is in force the lot or animal cannot be sold, processed or dispatched (`STOCK_UNIT_ON_HOLD` on those operations); pen moves and write-offs are not blocked. The hold is its own `STOCK_HOLD` document, which is its `sourceDocument`. A `WITHDRAWAL` hold is placed only by recording a treatment and is refused here (400).\n\nPermission: `inv.hold.create`, scoped to the unit's branch and, for an animal, where it stands."
+x-permission: inv.hold.create
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - STOCK_HOLD_INVALID
+  - REFERENCE_NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/StockHoldCreate"
+      example:
+        stockUnitId: "019a7a91-2f3b-74f5-9a2d-582bcbe2d109"
+        kind: INVESTIGATION
+        note: "Customer reported off smell from a pack of this lot"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/StockHold"
+        example:
+          id: "019a7aaf-45b2-7334-a86d-3c21290bb4ff"
+          stockUnit:
+            id: "019a7a8f-9d18-7468-89a0-4f5a9de5c838"
+            identifier: MEAT-BEEF-261104-01
+            tracking: LOT
+          kind: INVESTIGATION
+          startsAt: "2026-11-01T10:00:00Z"
+          endsAt: null
+          sourceDocument:
+            id: "019a7aaf-64a1-7d18-b250-da58a2bc5336"
+            docType: STOCK_HOLD
+            number: null
+          releasedAt: null
+          releasedBy: null
+          releaseReasonCode: null
+          createdAt: "2026-11-01T10:00:00Z"
+          createdBy:
+            id: "019a7a87-27be-7035-a56e-0c2f577f850d"
+            displayName: "Dr Selorm Agbeko"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

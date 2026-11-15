@@ -186,3 +186,23 @@ export const ListStockTakesQuery = z.object({
   cursor: Cursor,
   limit: Limit,
 });
+
+/** The contract's `StockHoldCreate`, strict: a withdrawal hold is placed only by recording a treatment. */
+export const StockHoldCreate = z.strictObject({
+  stockUnitId: z.uuid(),
+  kind: z.enum(['QUARANTINE', 'INVESTIGATION']),
+  endsAt: DateTime.optional(),
+  note: z.string().trim().min(1).max(1_000),
+});
+
+/** The contract's `StockHoldRelease`, strict. */
+export const StockHoldRelease = z.strictObject({ reasonCode: ReasonCode, note: z.string().trim().min(1).max(1_000) });
+
+/** listStockHolds query. */
+export const ListStockHoldsQuery = z.object({
+  active: Bool.optional(),
+  kind: z.enum(['WITHDRAWAL', 'QUARANTINE', 'INVESTIGATION']).optional(),
+  stockUnitId: z.uuid().optional(),
+  cursor: Cursor,
+  limit: Limit,
+});

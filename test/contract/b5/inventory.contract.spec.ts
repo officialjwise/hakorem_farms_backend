@@ -184,4 +184,17 @@ describe('inventory operations answer in the contract shapes', () => {
     expect(refused.status).toBe(422);
     expectShape('Error', refused.body);
   });
+
+  it('a hold placed, listed and released, and its refusals', async () => {
+    const placed = await post('/stock/holds', { stockUnitId: id('unit:LOT-GOAT-0001'), kind: 'INVESTIGATION', note: 'Pack returned by a customer' });
+    expect(placed.status).toBe(201);
+    expectShape('StockHold', placed.body);
+    expectShape('StockHoldPage', (await get('/stock/holds?active=true')).body);
+    const self = await post(`/stock/holds/${placed.body.id as string}/release`, { reasonCode: 'INVESTIGATION_CLOSED', note: 'Mine' });
+    expect(self.status).toBe(422);
+    expectShape('Error', self.body);
+    const missing = await post(`/stock/holds/${randomUUID()}/release`, { reasonCode: 'INVESTIGATION_CLOSED', note: 'None' });
+    expect(missing.status).toBe(404);
+    expectShape('Error', missing.body);
+  });
 });

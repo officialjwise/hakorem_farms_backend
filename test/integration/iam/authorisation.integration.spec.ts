@@ -106,6 +106,8 @@ const VALID_BODY: Readonly<Record<string, object>> = {
   createStockTake: { locationId: randomUUID(), scope: 'FULL' },
   recordStockTakeCounts: { counts: [] },
   cancelStockTake: { reason: 'Refused' },
+  createStockHold: { stockUnitId: '019a7a91-2f3b-74f5-9a2d-582bcbe2d109', kind: 'INVESTIGATION', note: 'Refused' },
+  releaseStockHold: { reasonCode: 'INVESTIGATION_CLOSED', note: 'Refused' },
   archiveLocation: { version: 1, reason: 'Closed' },
   createCustomer: { kind: 'INDIVIDUAL', name: 'Ama' },
   updateCustomer: { version: 1, name: 'Ama' },
@@ -180,6 +182,7 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'listStockAdjustments', 'createStockAdjustment', 'getStockAdjustment', 'submitStockAdjustment',
         'listStockTakes', 'createStockTake', 'getStockTake', 'startStockTake', 'listStockTakeLines', 'recordStockTakeCounts', 'closeStockTakeCounting',
         'submitStockTake', 'cancelStockTake',
+        'listStockHolds', 'createStockHold', 'releaseStockHold',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);
