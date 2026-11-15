@@ -72,6 +72,14 @@ export interface ApprovalFilter {
 export interface ApproverRule {
   readonly permission: string;
   readonly requiresStepUp: boolean;
+  /** At or above this amount the kind needs approval; null means always. */
+  readonly thresholdPesewas: bigint | null;
+}
+
+/** Whether an action of a kind and amount needs a second person, and the threshold it was judged against. */
+export interface ApprovalJudgement {
+  readonly required: boolean;
+  readonly thresholdPesewas: bigint;
 }
 
 /** IAM's approval tables. */
@@ -126,6 +134,20 @@ export class Approvals {
       throw new Error(`approval kind ${kind} already has a handler`);
     }
     this.handlers.set(kind, handler);
+  }
+
+  /**
+   * Judges an amount against the kind's policy at the branch (`iam.approval_policy`, the branch's own row before the
+   * default): at or above the threshold it needs approval; a policy with no threshold always does. The owning module
+   * keeps the threshold it was judged against on its document, so the database can hold the rule on its own row.
+   */
+  async judgeIn(tx: Transaction, kind: string, branchId: string, amountPesewas: bigint): Promise<ApprovalJudgement> {
+    const rule = await this.store.approverRule(tx, kind, branchId);
+    if (rule === null) {
+      throw new Error(`approval kind ${kind} has no policy at branch ${branchId}`);
+    }
+    const thresholdPesewas = rule.thresholdPesewas ?? 0n;
+    return { required: amountPesewas >= thresholdPesewas, thresholdPesewas };
   }
 
   async request(tx: Transaction, actor: Actor | undefined, request: NewApproval): Promise<ApprovalRecord> {
