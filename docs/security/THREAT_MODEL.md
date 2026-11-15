@@ -246,6 +246,7 @@ The first nine are mandatory in the shared brief. The rest were identified in B0
 | 16 | Manager grants themselves or a friend a higher role | Role and grant changes need step-up and are audited | Permission-change report to the owner | `PERMISSION_CHANGE` |
 | 17 | Shift closed short | Blind close; supervisor sign-off; over and short posted to the ledger | Over and short by cashier | `SHIFT_OVER_SHORT` |
 | 18 | Under-recorded processing yield, with the difference taken | Yield recorded against a standard, with a variance flag | Yield variance report | `YIELD_VARIANCE` |
+| 19 | Storekeeper posts a goods receipt for stock that never arrived, or at an inflated value, to cover a later shortage or a supplier overpayment | Receipt writes are scoped to the receiving location and audited with before and after; the receipt value is a liability awaiting invoice (account 2010) that only becomes payable through three-way match against the purchase order and the supplier invoice (B7); a purchase receipt naming no order is visible as such (B05 continued, A-136) | Receipts without a purchase order, and receipt value by user (B12) | `GOODS_RECEIPT_UNMATCHED` |
 
 ## 5. Residual risk register
 

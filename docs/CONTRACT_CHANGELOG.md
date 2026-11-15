@@ -8,6 +8,17 @@ Version numbers follow semantic versioning: a major bump breaks an existing clie
 
 - **CR-002 (frontend, raised 2026-11-13): weights as decimal strings, never JSON numbers.** Already satisfied by 1.0.0 and 1.1.0, so no version change. `components.schemas.Kilograms` is `type: string` with the pattern `^(0|[1-9][0-9]{0,6})\.[0-9]{3}$` (exactly three decimal places), and its description says it is never a JSON number. The request was raised against a copy taken before re-syncing; re-run `./scripts/sync-contract.sh`. The owner closed it on 2026-11-13: do not reopen it.
 
+## 1.16.0 (2026-11-15, B05 continued)
+
+**Additive.** No schema, field, parameter or request was removed, renamed or retyped, and nothing a client sends was made required. One property was added to two response schemas and made required there, which breaks nothing a client sends (ADR-0038); one error code was added. A client generated from 1.15.x compiles unchanged. The frontend track is paused, so nothing reviewed this entry; read it before resuming.
+
+Nine operations now answer from the real API (147 in all): `listStockOnHand`, `getStockUnit`, `traceStockUnit`, `listGoodsReceipts`, `createGoodsReceipt`, `getGoodsReceipt`, `updateGoodsReceipt`, `postGoodsReceipt` and `cancelGoodsReceipt` (FR-INV-003, FR-INV-005, FR-INV-006, FR-INV-009).
+
+- **`StockOnHandLine` and `StockUnit` gain `uomDisplayDecimals`** (integer 0 to 3, required in responses): the decimals the line's unit is shown with, so a stock screen formats a quantity without fetching the unit list (CR-003 point 2). The examples of `listStockOnHand`, `getStockUnit` and `listStockUnits` show it.
+- **New error code `GOODS_RECEIPT_INVALID`** (422) on `createGoodsReceipt`, `updateGoodsReceipt` and `postGoodsReceipt`, with the broken rule in `details[].code` (docs/API.md section 10.3).
+- **CR-001 is met by the live operation:** `StockOnHandLine` already carried `unitCostPesewas`, `valueAtCostPesewas`, `valuationMethod`, and `StockOnHandPage` `totalValueAtCostPesewas` and `asOf`; they are now computed by the backend, each line's value its exact share of its pool and the total over the whole filter. `priceBand` is null for now (A-137).
+- **Descriptions and `x-error-codes`** of the nine operations state their rules: the receiving location scope, the animal and lot rules, posting through the movement ledger in one transaction, a frozen posted receipt, `OPENING` refused until opening stock is built, `receiptNo` null until numbering exists, the origins' `costByElement` in a trace, and the fields that stay empty until their modules exist (`healthEvents`, a sale's `customer` and `billingDocument`).
+
 ## 1.15.0 (2026-11-15, B04e continued 5)
 
 **Additive.** No schema, field, parameter, enumeration value or error code was added, removed, renamed or retyped, and nothing a client sends was made required. A client generated from 1.14.x compiles unchanged. The frontend track is paused, so nothing reviewed this entry; read it before resuming.
