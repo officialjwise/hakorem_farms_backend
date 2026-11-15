@@ -8,6 +8,20 @@ Version numbers follow semantic versioning: a major bump breaks an existing clie
 
 - **CR-002 (frontend, raised 2026-11-13): weights as decimal strings, never JSON numbers.** Already satisfied by 1.0.0 and 1.1.0, so no version change. `components.schemas.Kilograms` is `type: string` with the pattern `^(0|[1-9][0-9]{0,6})\.[0-9]{3}$` (exactly three decimal places), and its description says it is never a JSON number. The request was raised against a copy taken before re-syncing; re-run `./scripts/sync-contract.sh`. The owner closed it on 2026-11-13: do not reopen it.
 
+## 1.9.0 (2026-11-15, B04d continued 3)
+
+**Additive, with request schemas widened.** No schema, field, parameter or response was removed, renamed or retyped, and nothing a client sends was made required. A client generated from 1.8.x compiles unchanged. The frontend track is paused, so nothing reviewed this entry; read it before resuming.
+
+Nineteen operations now answer from the real API (101 in all), with the schemas 1.2.0 already published: `listSuppliers`, `createSupplier`, `getSupplier`, `updateSupplier`, `archiveSupplier`, `listPaymentMethods`, `updatePaymentMethod`, `listDeliveryZones`, `createDeliveryZone`, `getDeliveryZone`, `updateDeliveryZone`, `quoteDelivery`, `listReasonCodes`, `listPriceLists`, `updatePriceList`, `archivePriceList`, `listPriceListVersions`, `listPriceListEntries`, `archiveProduct`.
+
+- **`PaymentMethodUpdate.requiresProviderVerification`** (new optional field): FR-MDM-009's acceptance sends it. It cannot be switched off for mobile money or card (422 `PAYMENT_METHOD_INVALID`, `VERIFICATION_REQUIRED`).
+- **`listPaymentMethods` `includeDisabled`** (new optional query parameter, default false): a tender screen sees only enabled methods; the settings screen asks for all seven.
+- **`SupplierCreate.phone` and `SupplierUpdate.phone`** take `PhoneInput` instead of `PhoneNumber`, as the customer and branch phones did in 1.8.0. Every E.164 value is still accepted; responses keep `PhoneNumber`.
+- **`quoteDelivery`** is public only: its `security` is `{}` and it no longer lists the optional CSRF header or a customer session. A client that sends either is still answered.
+- **Two new error codes**, also in `docs/API.md` section 10.3: **`PAYMENT_METHOD_INVALID`** and **`DELIVERY_ZONE_INVALID`** (422).
+- **`x-error-codes` and descriptions** on the nineteen operations state their rules: the exact zone fee and "delivery unavailable" with `feePesewas: null` (never zero), one active zone per area, the fixed reason code list with no write operation, the archive refusals of a price list or product still in use, and `taxInclusive` fixed once a version was approved.
+- **Behaviour a client should know, with no shape change:** `CustomerAddress.deliveryZone` is now the zone the address was in when it was saved; `quoteDelivery.slots` is empty and `Supplier.hasProfile` false until delivery scheduling (B11) and procurement (B7) exist.
+
 ## 1.8.0 (2026-11-15, B04d continued 2)
 
 **Additive, with request schemas widened.** No schema, field, parameter or response was removed, renamed or retyped, and nothing a client sends was made required. A client generated from 1.7.x compiles unchanged. The frontend track is paused, so nothing reviewed this entry; read it before resuming.

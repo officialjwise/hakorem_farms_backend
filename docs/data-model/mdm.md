@@ -200,7 +200,7 @@ Saved delivery addresses.
 | `directions` | `text` | NULL | Free-text directions for the driver |
 | `latitude` | `numeric(9,6)` | NULL | |
 | `longitude` | `numeric(9,6)` | NULL | |
-| `delivery_zone_id` | `uuid` | NULL, FK `mdm.delivery_zone` | Resolved at save. Added by B04d continued 3's expand migration with `mdm.delivery_zone` (A-112); not in migration 0021 |
+| `delivery_zone_id` | `uuid` | NULL, FK `mdm.delivery_zone` | Resolved at save (A-112, A-116). Added by migration 0024, B04d continued 3's expand step, with `mdm.delivery_zone` |
 | `is_default` | `boolean` | NOT NULL DEFAULT `false` | |
 
 Standard columns: `MASTER`. Created in B04d continued 2 (migration 0021).
@@ -210,21 +210,36 @@ Standard columns: `MASTER`. Created in B04d continued 2 (migration 0021).
 
 ### `mdm.supplier` · MASTER
 
-Identity only. Terms and payout details are in `pur.supplier_profile`.
+Identity only. Terms and payout details are in `pur.supplier_profile`. Created in B04d continued 3 (migration 0024).
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `id` | `uuid` | PK | Published key |
-| `supplier_no` | `text` | NOT NULL, UNIQUE | |
+| `supplier_no` | `text` | NOT NULL, UNIQUE, CHECK `^S-[0-9]{4,10}$` | From `mdm.supplier_no_seq`; not a financial document, so a gap is harmless |
 | `name` | `text` | NOT NULL | |
 | `contact_name` | `text` | NULL | |
-| `phone_e164` | `text` | NULL | |
+| `phone_e164` | `text` | NULL | Typed any way, stored in E.164 (FR-MDM-007, as FR-MDM-008) |
+| `phone_hash` | `bytea` | NULL, 32 bytes, set with `phone_e164` | Keyed HMAC of the phone, so the number itself is never indexed |
 | `email` | `text` | NULL | |
 | `address` | `text` | NULL | |
-| `tin_enc` | `bytea` | NULL | Encrypted |
+| `tin_enc` | `bytea` | NULL | Encrypted with the supplier's subject key |
 | `status` | `text` | NOT NULL, CHECK in (`ACTIVE`, `BLOCKED`) | |
 
 Standard columns: `MASTER`.
+
+- UNIQUE (`phone_hash`) among live rows: two live suppliers never share a phone (FR-MDM-007).
+
+### `mdm.supplier_category` · MASTER
+
+The catalogue categories a supplier supplies (FR-MDM-007). Created in B04d continued 3 (migration 0024).
+
+| Column | Type | Constraints | Why |
+| --- | --- | --- | --- |
+| `id` | `uuid` | PK | |
+| `supplier_id` | `uuid` | NOT NULL, FK `mdm.supplier` | |
+| `category_id` | `uuid` | NOT NULL, FK `mdm.category` | |
+
+Standard columns: `MASTER`. UNIQUE (`supplier_id`, `category_id`) among live rows. A category dropped from the list is archived, never deleted.
 
 ## Branches and locations
 
@@ -532,7 +547,9 @@ Published key.
 | `channels` | `text[]` | NOT NULL | Where it may be used |
 | `is_enabled` | `boolean` | NOT NULL DEFAULT `true` | |
 
-Standard columns: `MASTER`.
+Standard columns: `MASTER`. Created in B04d continued 3 (migration 0024), with the seven rows written by the System and all disabled; the farm enables the ones it takes (A-115).
+
+- CHECK: verification is required for `MOBILE_MONEY` and `CARD`; `allowed_offline` only for `CASH` and `MOBILE_MONEY` (the handler allows mobile money only under `pos.offline_mobile_money_allowed`); `channels` is non-empty and within `POS`, `ONLINE`, `WHOLESALE`, `QUOTE`.
 
 ### `mdm.delivery_zone` · MASTER
 
@@ -550,7 +567,10 @@ Published key.
 | `cutoff_time` | `time` | NOT NULL | Latest order time for next-slot delivery, Africa/Accra |
 | `is_active` | `boolean` | NOT NULL DEFAULT `true` | |
 
-Standard columns: `MASTER`. UNIQUE (`branch_id`, `code`) among live rows.
+Standard columns: `MASTER`. UNIQUE (`branch_id`, `code`) among live rows. Created in B04d continued 3 (migration 0024).
+
+- CHECK: one to 100 areas, none null; `cutoff_time` in whole minutes. The fee is `platform.pesewas`, so never negative; zero is a fee.
+- An area belongs to one live, active zone farm-wide, so an address maps to one zone or none: checked by the handler under serializable isolation (A-116).
 
 ### `mdm.reason_code` · LOOKUP
 
@@ -563,6 +583,8 @@ The fixed list of reasons. Changed only by migration, as the threat model requir
 | `description` | `text` | NOT NULL | |
 | `requires_note` | `boolean` | NOT NULL DEFAULT `false` | Free-text explanation mandatory |
 | `loss_account_group` | `text` | NULL, CHECK in (`MORTALITY`, `SHRINKAGE`, `WASTAGE`) | Ledger determinant for write-offs |
+
+Created in B04d continued 3 (migration 0024) with 48 codes across the twelve domains. `hk_app` holds `SELECT` only.
 
 ### `mdm.import_job` · DOCUMENT
 
