@@ -1,6 +1,8 @@
 # Table dictionary: `liv`
 
-Owner: LIV module. The animal register, weights, health, breeding, mortality and feed. Stock quantities, locations and cost are inventory's; this module holds the biological record and shares identity with the stock unit (ADR-0002, ADR-0018, ADR-0019). Conventions are in `docs/DATA_MODEL.md`.
+Owner: LIV module. The animal register, weights, health, breeding, mortality and feed.
+
+**Built in B06 continued (migration 0076, A-158):** `liv.animal`, `liv.weight_record`, `liv.health_event`, `liv.health_cost_allocation` (an addition, below), `liv.mortality_record`, `liv.ration`, `liv.feed_consumption` and `liv.feed_cost_allocation`. `liv.batch` and `liv.breeding_record`, and the animal's `batch_id` and `breeding_record_id`, are B06 continued 2's. Additions to the tables below: `branch_id`, `product_id` and `exit_value_pesewas` (the cost the closing movement carried out, set exactly when the status is not ALIVE) on an animal; `branch_id` on a weight record; `branch_id`, `holds_placed`, `medication_value_pesewas` and `issue_movement_id` on a health event, which must name exactly one of its stock unit and its pen; `location_id`, `threshold_pesewas` (the policy's threshold when submitted) and the DOCUMENT columns on a mortality record; `from_location_id` and the DOCUMENT columns on a feed consumption. An animal's status may also return to ALIVE from any closed status, on a customer return or the reversal of the closing movement. Stock quantities, locations and cost are inventory's; this module holds the biological record and shares identity with the stock unit (ADR-0002, ADR-0018, ADR-0019). Conventions are in `docs/DATA_MODEL.md`.
 
 ---
 
@@ -129,7 +131,13 @@ A death or cull. Posted statuses: `POSTED`, `REJECTED`.
 
 Standard columns: `DOCUMENT` (`status` in `REPORTED`, `PENDING_APPROVAL`, `POSTED`, `REJECTED`).
 
-- CHECK: `status = 'POSTED'` with `value_pesewas` at or above the policy threshold requires both `photo_file_id` and `approval_request_id`. The posting function supplies the threshold comparison.
+- CHECK: `status = 'POSTED'` with `value_pesewas` at or above the policy threshold requires both `photo_file_id` and `approval_request_id`. The posting function supplies the threshold comparison. As built (`ck_mortality_record_approved`), the threshold is snapshotted on the row as `threshold_pesewas` when the record is submitted, so the database compares the two itself; the photograph is checked as a CLEAN EVIDENCE file by `platform.require_clean_file`.
+
+### `liv.health_cost_allocation` · LEDGER
+
+Built in B06 continued (A-158). How one health event's cost (medication issued plus any veterinary service charged) was spread across the units treated, as `liv.feed_cost_allocation` is for feed: `health_event_id`, `stock_unit_id`, `head_days`, `amount_pesewas`, `treatment` (`CAPITALISED`, `EXPENSED`), `movement_id` (the VETERINARY value-only movement, when capitalised). PK (`health_event_id`, `stock_unit_id`).
+
+- Deferred trigger (`ck_health_event_spread`): the amounts for one event sum exactly to its `cost_pesewas`.
 
 ### `liv.ration` · MASTER
 

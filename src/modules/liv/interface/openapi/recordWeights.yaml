@@ -1,0 +1,94 @@
+operationId: recordWeights
+tags:
+  - liv
+summary: "Record weights for one or many animals"
+description: "Permission: `liv.weight.record`.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result."
+x-permission: liv.weight.record
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - LIVESTOCK_RECORD_INVALID
+  - REFERENCE_NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/WeightRecordBatch"
+      example:
+        records:
+          - id: "019a7abd-a6cb-7bf1-9129-c7eaba5240c8"
+            stockUnitId: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
+            weightKg: "26.400"
+            weightSource: SCALE
+            measuredAt: "2026-11-11T07:00:00Z"
+          - id: "019a7abd-c5ba-75d5-ab0d-66223403df00"
+            stockUnitId: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
+            weightKg: "31.800"
+            weightSource: SCALE
+            measuredAt: "2026-11-11T07:02:00Z"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/WeightRecordBatchResult"
+        example:
+          accepted: 2
+          duplicates: 0
+          records:
+            - id: "019a7abc-ed31-709c-b5d5-129de02c8b7b"
+              stockUnit:
+                id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
+                identifier: G-0142
+                tracking: SERIAL
+              weightKg: "26.400"
+              weightSource: SCALE
+              headWeighed: 1
+              measuredAt: "2026-11-11T07:00:00Z"
+              actor:
+                id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                displayName: "Abena Quaye"
+            - id: "019a7abd-0c20-7a80-8fb8-b0d559dd29b3"
+              stockUnit:
+                id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
+                identifier: G-0157
+                tracking: SERIAL
+              weightKg: "31.800"
+              weightSource: SCALE
+              headWeighed: 1
+              measuredAt: "2026-11-11T07:01:00Z"
+              actor:
+                id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                displayName: "Abena Quaye"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

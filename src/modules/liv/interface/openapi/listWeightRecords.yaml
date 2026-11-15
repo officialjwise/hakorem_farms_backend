@@ -1,0 +1,148 @@
+operationId: listWeightRecords
+tags:
+  - liv
+summary: "List weight records"
+description: "Permission: `liv.weight.read`."
+x-permission: liv.weight.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: stockUnitId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: locationId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: from
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date-time
+  - name: to
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date-time
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/WeightRecordPage"
+        example:
+          data:
+            - id: "019a7abc-ed31-709c-b5d5-129de02c8b7b"
+              stockUnit:
+                id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
+                identifier: G-0142
+                tracking: SERIAL
+              weightKg: "26.400"
+              weightSource: SCALE
+              headWeighed: 1
+              measuredAt: "2026-11-11T07:00:00Z"
+              actor:
+                id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                displayName: "Abena Quaye"
+            - id: "019a7abd-0c20-7a80-8fb8-b0d559dd29b3"
+              stockUnit:
+                id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
+                identifier: G-0157
+                tracking: SERIAL
+              weightKg: "31.800"
+              weightSource: SCALE
+              headWeighed: 1
+              measuredAt: "2026-11-11T07:01:00Z"
+              actor:
+                id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                displayName: "Abena Quaye"
+            - id: "019a7abd-2b0f-7463-999b-4f0cd38ec7ea"
+              stockUnit:
+                id: "019a7a8f-9d18-7468-89a0-4f5a9de5c838"
+                identifier: G-0163
+                tracking: SERIAL
+              weightKg: "22.150"
+              weightSource: SCALE
+              headWeighed: 1
+              measuredAt: "2026-11-11T07:02:00Z"
+              actor:
+                id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                displayName: "Abena Quaye"
+            - id: "019a7abd-49fe-7e47-a37f-ed444d3f6622"
+              stockUnit:
+                id: "019a7a8f-bc07-7e4c-9384-ed921796666f"
+                identifier: G-0171
+                tracking: SERIAL
+              weightKg: "24.900"
+              weightSource: SCALE
+              headWeighed: 1
+              measuredAt: "2026-11-11T07:03:00Z"
+              actor:
+                id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                displayName: "Abena Quaye"
+            - id: "019a7abd-68ed-782a-bd62-8b7bc6f00459"
+              stockUnit:
+                id: "019a7a8f-daf6-782f-ad67-8bc9914704a7"
+                identifier: S-0031
+                tracking: SERIAL
+              weightKg: "43.200"
+              weightSource: MANUAL
+              headWeighed: 1
+              measuredAt: "2026-11-11T07:04:00Z"
+              actor:
+                id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                displayName: "Abena Quaye"
+            - id: "019a7abd-87dc-720e-8746-29b340a1a291"
+              stockUnit:
+                id: "019a7a91-4e2a-7ed9-a411-f66345936f41"
+                identifier: BRL-2610-01
+                tracking: LOT
+              weightKg: "1.842"
+              weightSource: SCALE
+              headWeighed: 25
+              measuredAt: "2026-11-11T07:05:00Z"
+              actor:
+                id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                displayName: "Abena Quaye"
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

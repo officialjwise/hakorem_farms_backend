@@ -121,6 +121,12 @@ const VALID_BODY: Readonly<Record<string, object>> = {
   cancelProcessingOrder: { reason: 'Buyer wants the goat live' },
   createYieldStandard: { inputProductId: randomUUID(), outputProductId: randomUUID(), expectedPercent: '48' },
   updateYieldStandard: { version: 1, tolerancePercent: '6' },
+  recordWeights: { records: [{ id: randomUUID(), stockUnitId: randomUUID(), weightKg: '18.400', weightSource: 'SCALE', measuredAt: '2026-11-10T08:00:00Z' }] },
+  recordHealthEvent: { kind: 'TREATMENT', stockUnitId: randomUUID(), occurredAt: '2026-11-10T08:00:00Z' },
+  reportMortality: { kind: 'DEATH', stockUnitId: randomUUID(), reasonCode: 'UNKNOWN_CAUSE', foundAt: '2026-11-10T06:00:00Z' },
+  createRation: { name: 'Broiler grower', speciesId: randomUUID(), feedProductId: randomUUID(), qtyPerHeadPerDay: '0.120' },
+  updateRation: { version: 1, qtyPerHeadPerDay: '0.130' },
+  recordFeedConsumption: { locationId: randomUUID(), feedProductId: randomUUID(), qty: '10.000', consumedOn: '2026-11-10' },
   createCustomer: { kind: 'INDIVIDUAL', name: 'Ama' },
   updateCustomer: { version: 1, name: 'Ama' },
   archiveCustomer: { version: 1, reason: 'Duplicate' },
@@ -162,7 +168,7 @@ afterAll(async () => {
 });
 
 describe('deny by default: the handler walk (ADR-0017, security architecture section 14)', () => {
-  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued, B05 continued 3, B05x, B6 and B06m routes, and every one declares its operation', () => {
+  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued, B05 continued 3, B05x, B6, B06m and B06 continued routes, and every one declares its operation', () => {
     expect(routes.map((route) => route.spec?.operationId).sort()).toEqual(
       [
         'changePassword', 'confirmTotpEnrolment', 'createProduct', 'getCurrentSession', 'getHealth', 'getProduct', 'listProducts', 'listSessions',
@@ -202,6 +208,9 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'listProcessingOrders', 'createProcessingOrder', 'getProcessingOrder', 'updateProcessingOrder', 'startProcessingOrder', 'recordProcessingOutputs',
         'addProcessingCost', 'completeProcessingOrder', 'cancelProcessingOrder', 'listYieldStandards', 'createYieldStandard', 'updateYieldStandard',
         'previewPriceListVersion',
+        'listAnimals', 'getAnimal', 'listWeightRecords', 'recordWeights', 'listHealthEvents', 'recordHealthEvent', 'getHealthEvent', 'listMortalityRecords',
+        'reportMortality', 'getMortalityRecord', 'submitMortalityRecord', 'listRations', 'createRation', 'updateRation', 'listFeedConsumption',
+        'recordFeedConsumption', 'getFeedConsumption',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);

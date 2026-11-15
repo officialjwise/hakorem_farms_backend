@@ -1,6 +1,6 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
 import type { NewStockUnit } from '../application/goods-receipt-store';
-import type { StockUnitFactsRecord, StockUnitStore } from '../application/stock-unit-store';
+import type { StockUnitFactsRecord, StockUnitStore, UnitOnHandRecord } from '../application/stock-unit-store';
 
 interface FactsRow {
   id: string;
@@ -11,7 +11,11 @@ interface FactsRow {
   status: StockUnitFactsRecord['status'];
   current_location_id: string | null;
   last_weight_kg: string | null;
+  last_weighed_at: Date | null;
+  grade_id: string | null;
   pool_value: string | null;
+  pool_qty: string | null;
+  reserved: boolean;
   holds: Array<{ id: string; kind: string; endsAt: string | null }>;
 }
 
@@ -21,7 +25,10 @@ export class PgStockUnitStore implements StockUnitStore {
     if (ids.length === 0) return [];
     const { rows } = await tx.query<FactsRow>(
       `SELECT u.id, u.product_id, u.tracking, u.branch_id, u.identifier, u.status, u.current_location_id, u.last_weight_kg::text AS last_weight_kg,
+              u.last_weighed_at, u.grade_id,
               (SELECT c.value_pesewas::text FROM inv.cost_pool c WHERE c.product_id = u.product_id AND c.stock_unit_id = u.id AND c.branch_id = u.branch_id) AS pool_value,
+              (SELECT c.qty::text FROM inv.cost_pool c WHERE c.product_id = u.product_id AND c.stock_unit_id = u.id AND c.branch_id = u.branch_id) AS pool_qty,
+              EXISTS (SELECT 1 FROM inv.stock_reservation r WHERE r.stock_unit_id = u.id AND r.status = 'ACTIVE') AS reserved,
               COALESCE((SELECT jsonb_agg(jsonb_build_object('id', h.id, 'kind', h.kind, 'endsAt', h.ends_at) ORDER BY h.starts_at)
                           FROM inv.stock_hold h
                          WHERE h.stock_unit_id = u.id AND h.released_at IS NULL AND h.starts_at <= $2 AND (h.ends_at IS NULL OR h.ends_at > $2)), '[]'::jsonb) AS holds
@@ -38,7 +45,11 @@ export class PgStockUnitStore implements StockUnitStore {
       status: r.status,
       currentLocationId: r.current_location_id,
       lastWeightKg: r.last_weight_kg,
+      lastWeighedAt: r.last_weighed_at,
+      gradeId: r.grade_id,
       poolValuePesewas: BigInt(r.pool_value ?? '0'),
+      poolQty: r.pool_qty ?? '0.000',
+      reserved: r.reserved,
       holds: r.holds.map((h) => ({ id: h.id, kind: h.kind, endsAt: h.endsAt === null ? null : new Date(h.endsAt) })),
     }));
   }
@@ -60,5 +71,39 @@ export class PgStockUnitStore implements StockUnitStore {
       [unit.id, unit.productId, unit.tracking, unit.branchId, unit.identifier, unit.producedOn, unit.expiresOn, unit.storageTempClass, unit.supplierId,
         unit.sourceDocumentId, unit.lastWeightKg, unit.lastWeighedAt, actorId],
     );
+  }
+
+  async onHandOf(tx: Transaction, unitIds: readonly string[]): Promise<UnitOnHandRecord[]> {
+    if (unitIds.length === 0) return [];
+    const { rows } = await tx.query<{ id: string; product_id: string; tracking: 'SERIAL' | 'LOT'; identifier: string; branch_id: string; location_id: string; on_hand_qty: string }>(
+      `SELECT u.id, u.product_id, u.tracking, u.identifier, u.branch_id, b.location_id, b.on_hand_qty::text AS on_hand_qty
+         FROM inv.stock_balance b JOIN inv.stock_unit u ON u.id = b.stock_unit_id
+        WHERE b.stock_unit_id = ANY($1::uuid[]) AND b.on_hand_qty > 0
+          AND NOT (SELECT f.is_virtual FROM mdm.location_stock_facts(b.location_id) f)
+        ORDER BY u.identifier, u.id, b.location_id`,
+      [unitIds],
+    );
+    return rows.map((r) => ({ id: r.id, productId: r.product_id, tracking: r.tracking, identifier: r.identifier, branchId: r.branch_id, locationId: r.location_id, onHandQty: r.on_hand_qty }));
+  }
+
+  async onHandAt(tx: Transaction, locationIds: readonly string[]): Promise<UnitOnHandRecord[]> {
+    if (locationIds.length === 0) return [];
+    const { rows } = await tx.query<{ id: string; product_id: string; tracking: 'SERIAL' | 'LOT'; identifier: string; branch_id: string; location_id: string; on_hand_qty: string }>(
+      `SELECT u.id, u.product_id, u.tracking, u.identifier, u.branch_id, b.location_id, b.on_hand_qty::text AS on_hand_qty
+         FROM inv.stock_balance b JOIN inv.stock_unit u ON u.id = b.stock_unit_id
+        WHERE b.location_id = ANY($1::uuid[]) AND b.stock_unit_id IS NOT NULL AND b.on_hand_qty > 0
+        ORDER BY u.identifier, u.id`,
+      [locationIds],
+    );
+    return rows.map((r) => ({ id: r.id, productId: r.product_id, tracking: r.tracking, identifier: r.identifier, branchId: r.branch_id, locationId: r.location_id, onHandQty: r.on_hand_qty }));
+  }
+
+  async recordWeight(tx: Transaction, id: string, weightKg: string, at: Date, actorId: string): Promise<boolean> {
+    const { rowCount } = await tx.query(
+      `UPDATE inv.stock_unit SET last_weight_kg = $2, last_weighed_at = $3, version = version + 1, updated_at = now(), updated_by = $4
+        WHERE id = $1 AND (last_weighed_at IS NULL OR last_weighed_at <= $3)`,
+      [id, weightKg, at, actorId],
+    );
+    return rowCount === 1;
   }
 }

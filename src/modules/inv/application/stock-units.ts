@@ -1,6 +1,8 @@
 import { createUuidV7Generator, type Clock } from '@hakorem/kernel';
 import type { Transaction } from '../../../platform/database/unit-of-work';
-import type { StockUnitFactsRecord, StockUnitStore } from './stock-unit-store';
+import type { StockUnitFactsRecord, StockUnitStore, UnitOnHandRecord } from './stock-unit-store';
+
+export type UnitOnHand = UnitOnHandRecord;
 
 export type StockUnitFacts = StockUnitFactsRecord;
 
@@ -64,5 +66,23 @@ export class StockUnits {
       actorId,
     );
     return id;
+  }
+
+  /** Where each unit stands now with what it has there: one row per physical location holding some of it. */
+  onHandOfIn(tx: Transaction, stockUnitIds: readonly string[]): Promise<UnitOnHand[]> {
+    return this.store.onHandOf(tx, [...new Set(stockUnitIds)]);
+  }
+
+  /** The units standing at the locations now, with the quantity on hand of each: the animals and flocks in a pen. */
+  onHandAtIn(tx: Transaction, locationIds: readonly string[]): Promise<UnitOnHand[]> {
+    return this.store.onHandAt(tx, [...new Set(locationIds)]);
+  }
+
+  /**
+   * Keeps a unit's last weight in step with the latest weighing a higher module records (LIV's weight records,
+   * FR-LIV-004), so its label prints it (B05x). A weighing older than the one the unit holds changes nothing.
+   */
+  recordWeightIn(tx: Transaction, actorId: string, stockUnitId: string, weightKg: string, at: Date): Promise<boolean> {
+    return this.store.recordWeight(tx, stockUnitId, weightKg, at, actorId);
   }
 }

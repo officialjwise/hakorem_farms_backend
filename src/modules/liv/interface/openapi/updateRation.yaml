@@ -1,0 +1,81 @@
+operationId: updateRation
+tags:
+  - liv
+summary: "Change a ration"
+description: "Permission: `liv.feed.manage`."
+x-permission: liv.feed.manage
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - NOT_FOUND
+  - VERSION_CONFLICT
+  - RATION_INVALID
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/RationUpdate"
+      example:
+        version: 1
+        qtyPerHeadPerDay: "0.003"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Ration"
+        example:
+          id: "019a7ac1-a39a-7244-a77c-2d116a23a5ef"
+          name: "Broiler starter"
+          species:
+            id: "019a7a8b-fd16-7bc0-a0f8-c4da5b273db8"
+            code: BROILER
+            name: "Broiler chicken"
+          feedProduct:
+            id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+            sku: FD-BRL-FIN
+            name: "Broiler finisher feed, 50 kg bag"
+          qtyPerHeadPerDay: "0.001"
+          uom: BAG
+          stage: "Day 1 to 14"
+          version: 1
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

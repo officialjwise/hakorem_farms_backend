@@ -38,7 +38,9 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B05x | `B05x-dashboard-branches-labels.md` | `b05x-dashboard-branches-labels` | B4 to B12 | getOwnerDashboard answers in one request with its sourceless figures null and listed; every tile whose data exists answers exactly on the seeded farm, the rest are contract-only and scheduled; a branch deactivates with its refusals and lists stay within grants; lot and product label data answers; every operation refuses the wrong role (built) |
 | B6 | `B06-livestock-processing.md` | `b06-livestock-processing` | B4 to B12 | A processing order produces lots whose costs sum exactly to input cost plus direct processing cost (built; the session split, A-154) |
 | B06m | `B06m-master-data-requests.md` | `b06m-master-data-requests` | B4 to B12 | The draft price list preview answers exactly by the engine's identity and refuses the wrong role; price list examples agree; CR-011 answered (built) |
-| B06 continued | `B06b-livestock-packs.md` | `b06b-livestock-packs` | B4 to B12 | Every LIV write refuses the wrong role; a withdrawal hold blocks sale and processing and nobody releases it early; mortality at or above the threshold waits for a photograph and a different approver; feed and veterinary cost spread by head-days sum exactly; pack weights equal the lot weight and a pack label encodes lot and weight |
+| B06 continued | `B06b-livestock-packs.md` | `b06b-livestock-packs` | B4 to B12 | Every LIV write built refuses the wrong role; a withdrawal hold blocks sale and processing and nobody releases it early; mortality at or above the threshold waits for a photograph and a different approver; feed and veterinary cost spread by head-days sum exactly to the value issued (built; the session split, A-158) |
+| B06 continued 2 | `B06c-livestock-growth-breeding.md` | `b06c-livestock-growth-breeding` | B4 to B12 | Every remaining LIV write refuses the wrong role; a move starts only where the animal is; average daily gain and feed conversion match a hand calculation; a batch closes only when empty; a birth registers its offspring at nil cost linked to the dam; the feed, medicine and ration seed is counted by hand |
+| B06 continued 3 | `B06d-packs-labels.md` | `b06d-packs-labels` | B4 to B12 | Pack weights equal the lot weight and a pack label encodes the lot and the weight; a completed order reverses only while its outputs are unsold; every pack write refuses the wrong role |
 | B7 | `B07-procurement-suppliers.md` | `b07-procurement-suppliers` | B4 to B12 | Three-way match blocks payment on disagreement; checkout reserves stock and releases it on timeout |
 | B8 | `B08-ledger-billing.md` | `b08-ledger-billing` | B4 to B12 | Trial balance sums to zero on a seeded day; an unbalanced journal is rejected by the database; numbering is gap-free under concurrent load |
 | B9a | `B09a-order-core-payments.md` | `b09a-order-core-payments` | B4 to B12 | Every payment edge case in the brief passes; an order on any channel posts stock, document, payment and ledger in one transaction |
@@ -789,6 +791,8 @@ every run on the pull request is green.
 
 Branch `b06b-livestock-packs`, from `main` (ADR-0026 Amendments). Report `docs/sessions/B06b-livestock-packs.md`. Gate: every LIV write refuses the wrong role; a withdrawal hold blocks sale and processing and nobody releases it early; mortality at or above the threshold waits for a photograph and a different approver; feed and veterinary cost spread by head-days sum exactly to the value issued; pack weights equal the lot weight and a pack label encodes the lot and the weight.
 
+**Built and split on 2026-11-15 (A-158):** this phase built the livestock core and passed the gate for it; animal edits, growth, batches and breeding are B06 continued 2's, and packs, labels and the reversing order B06 continued 3's (below).
+
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
 List docs/sessions/ and read only the most recent report (docs/sessions/B06m-master-data-requests.md).
@@ -812,13 +816,63 @@ weight and permission tests first. Extend the seed. If this does not fit one con
 boundary as B6 did. Stop at the gate and write docs/sessions/B06b-livestock-packs.md.
 ```
 
+## B06 continued 2 — Animal edits, growth, batches and breeding
+
+Branch `b06c-livestock-growth-breeding`, from `main` (ADR-0026 Amendments). Report `docs/sessions/B06c-livestock-growth-breeding.md`. Inserted on 2026-11-15 when B06 continued split at a LIV sub-domain boundary (A-158). Gate: every remaining LIV write refuses the wrong role; a move starts only where the animal is and changes no cost; average daily gain and feed conversion match a hand calculation (FR-LIV-005, FR-LIV-016); a batch closes only when empty or with a documented reason; a birth registers each live offspring at nil cost linked to its dam, and refuses a dam that was not alive and female; the feed, medicine, store and ration seed is counted by hand in the B5 and B05x hand counts.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B06b-livestock-packs.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read FR-LIV-002, FR-LIV-003, FR-LIV-005, FR-LIV-006, FR-LIV-010, FR-LIV-011 and FR-LIV-016 of
+docs/SRS.md (nothing else from the SRS), docs/data-model/liv.md, the LIV card in docs/MODULE_BOUNDARIES.md, and
+ADR-0018. Use docs/prompts/module-build-prompt.md as the recipe. Do not read any other document unless this phase
+needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B06 continued 2 only, on branch b06c-livestock-growth-breeding, branched from main, on top of the
+livestock core B06 continued built (src/modules/liv): updateAnimal (purpose decides capitalised or expensed; fixed
+attributes refused), moveAnimal (a TRANSFER_INTERNAL movement through INV's Stock.postIn from where the animal is),
+listAnimalTimeline, listGrowth (average daily gain per animal, pen and batch over animals present for the whole
+window, feed conversion from the feed issued, mortality percent), the batches (liv.batch, a flock's lot as its stock
+unit, with an expand migration adding liv.animal.batch_id; a batch's purpose then decides a flock's cost treatment
+instead of A-158's GROWING default), and breeding and births (liv.breeding_record, gestation days from data, recordBirth
+registering offspring through INV at nil cost with a BIRTH movement and lineage to the dam, and the expand migration
+adding liv.animal.breeding_record_id). Extend the seed with feed and medicine products, the Dodowa store, their stock
+and rations, and count them by hand into the B5 and B05x hand counts. Write the money, weight and permission tests
+first. Stop at the gate and write docs/sessions/B06c-livestock-growth-breeding.md.
+```
+
+## B06 continued 3 — Packs, labels and the reversing order
+
+Branch `b06d-packs-labels`, from `main` (ADR-0026 Amendments). Report `docs/sessions/B06d-packs-labels.md`. Inserted on 2026-11-15 with B06 continued 2 (A-158). Gate: pack weights equal the lot weight and a pack label encodes the lot and the weight; a completed processing order is frozen and reverses only while its outputs are unsold, restoring the animal to its pen at its prior cost; every pack write refuses the wrong role; the Farm hand's PRC access is decided (A-153).
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B06c-livestock-growth-breeding.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read FR-PRC-009 to FR-PRC-011 of docs/SRS.md (nothing else from the SRS), docs/data-model/prc.md,
+the PRC card in docs/MODULE_BOUNDARIES.md, and ADR-0018. Use docs/prompts/module-build-prompt.md as the recipe.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B06 continued 3 only, on branch b06d-packs-labels, branched from main: PRC's packs and labels (prc.pack;
+createPacks, listPacks, printPackLabels, whose barcodes follow B05x's LabelBarcode: CODE_128, A-151; the payload
+<lot>/<grams, six digits>), the reversing order of FR-PRC-011 (cancelProcessingOrder on a COMPLETED order, reversing
+its movements through INV's StockMovements only while every output is unsold; the reversed animal is ALIVE again, which
+LIV's register already follows), and the Farm hand's PRC access (A-153). Write the weight and permission tests first.
+Extend the seed. Stop at the gate and write docs/sessions/B06d-packs-labels.md.
+```
+
 ## B7 — Procurement and suppliers, and the storefront cart
 
 Branch `b07-procurement-suppliers`. Report `docs/sessions/B07-procurement-suppliers.md`. Gate: three-way match blocks payment where receipt and supplier invoice disagree, and checkout reserves stock and releases it on timeout.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
-List docs/sessions/ and read only the most recent report (docs/sessions/B06b-livestock-packs.md).
+List docs/sessions/ and read only the most recent report (docs/sessions/B06d-packs-labels.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
 report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the PUR and SHP requirement blocks of docs/SRS.md (nothing else from the SRS),

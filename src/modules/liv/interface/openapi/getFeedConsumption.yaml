@@ -1,0 +1,89 @@
+operationId: getFeedConsumption
+tags:
+  - liv
+summary: "Get a feed consumption with its cost allocation"
+description: "Permission: `liv.feed.read`."
+x-permission: liv.feed.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/FeedConsumption"
+        example:
+          id: "019a7ac2-5d34-7d98-82d1-e25e44495b3c"
+          location:
+            id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+            code: PEN-G1
+            name: "Goat pen 1"
+            kind: PEN
+          feedProduct:
+            id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+            sku: FD-BRL-FIN
+            name: "Broiler finisher feed, 50 kg bag"
+          qty: "4.000"
+          uom: BAG
+          consumedOn: "2026-11-12"
+          ration: null
+          valuePesewas: 208000
+          currency: GHS
+          status: POSTED
+          allocations:
+            - stockUnit:
+                id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
+                identifier: G-0142
+                tracking: SERIAL
+              headDays: 30
+              amountPesewas: 69334
+              treatment: CAPITALISED
+            - stockUnit:
+                id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
+                identifier: G-0157
+                tracking: SERIAL
+              headDays: 30
+              amountPesewas: 69333
+              treatment: CAPITALISED
+            - stockUnit:
+                id: "019a7a8f-f9e5-7212-b74b-2a010af8a2de"
+                identifier: G-0118
+                tracking: SERIAL
+              headDays: 30
+              amountPesewas: 69333
+              treatment: EXPENSED
+          postedAt: "2026-11-12T18:00:00Z"
+          actor:
+            id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+            displayName: "Abena Quaye"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

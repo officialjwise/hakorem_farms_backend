@@ -1,0 +1,225 @@
+operationId: listFeedConsumption
+tags:
+  - liv
+summary: "List feed issued to pens"
+description: "Permission: `liv.feed.read`."
+x-permission: liv.feed.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: locationId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: from
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date
+  - name: to
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/FeedConsumptionPage"
+        example:
+          data:
+            - id: "019a7ac2-5d34-7d98-82d1-e25e44495b3c"
+              location:
+                id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+                code: PEN-G1
+                name: "Goat pen 1"
+                kind: PEN
+              feedProduct:
+                id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                sku: FD-BRL-FIN
+                name: "Broiler finisher feed, 50 kg bag"
+              qty: "4.000"
+              uom: BAG
+              consumedOn: "2026-11-12"
+              ration: null
+              valuePesewas: 208000
+              currency: GHS
+              status: POSTED
+              allocations:
+                - stockUnit:
+                    id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
+                    identifier: G-0142
+                    tracking: SERIAL
+                  headDays: 30
+                  amountPesewas: 69334
+                  treatment: CAPITALISED
+                - stockUnit:
+                    id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
+                    identifier: G-0157
+                    tracking: SERIAL
+                  headDays: 30
+                  amountPesewas: 69333
+                  treatment: CAPITALISED
+                - stockUnit:
+                    id: "019a7a8f-f9e5-7212-b74b-2a010af8a2de"
+                    identifier: G-0118
+                    tracking: SERIAL
+                  headDays: 30
+                  amountPesewas: 69333
+                  treatment: EXPENSED
+              postedAt: "2026-11-12T18:00:00Z"
+              actor:
+                id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                displayName: "Abena Quaye"
+            - id: "019a7ac2-7c23-777c-9cb4-8095bdfaf973"
+              location:
+                id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+                code: HSE-B1
+                name: "Broiler house 1"
+                kind: PEN
+              feedProduct:
+                id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                sku: FD-BRL-FIN
+                name: "Broiler finisher feed, 50 kg bag"
+              qty: "6.000"
+              uom: BAG
+              consumedOn: "2026-11-11"
+              ration:
+                id: "019a7ac1-e178-760a-8b43-69805d85e25e"
+                name: "Broiler finisher"
+              valuePesewas: 312000
+              currency: GHS
+              status: POSTED
+              allocations: []
+              postedAt: "2026-11-11T18:00:00Z"
+              actor:
+                id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                displayName: "Abena Quaye"
+            - id: "019a7ac2-9b12-715f-a698-1ecd37ab97ab"
+              location:
+                id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                code: PEN-G2
+                name: "Goat pen 2"
+                kind: PEN
+              feedProduct:
+                id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                sku: FD-BRL-FIN
+                name: "Broiler finisher feed, 50 kg bag"
+              qty: "3.000"
+              uom: BAG
+              consumedOn: "2026-11-10"
+              ration: null
+              valuePesewas: 156000
+              currency: GHS
+              status: POSTED
+              allocations: []
+              postedAt: "2026-11-10T18:00:00Z"
+              actor:
+                id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                displayName: "Abena Quaye"
+            - id: "019a7ac2-ba01-7b43-b07b-bd04b15c35e2"
+              location:
+                id: "019a7a83-c59a-7b54-a08d-be1e082336fb"
+                code: PEN-S1
+                name: "Sheep pen"
+                kind: PEN
+              feedProduct:
+                id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                sku: FD-BRL-FIN
+                name: "Broiler finisher feed, 50 kg bag"
+              qty: "2.000"
+              uom: BAG
+              consumedOn: "2026-11-09"
+              ration: null
+              valuePesewas: 104000
+              currency: GHS
+              status: POSTED
+              allocations: []
+              postedAt: "2026-11-09T18:00:00Z"
+              actor:
+                id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                displayName: "Abena Quaye"
+            - id: "019a7ac2-d8f0-7526-8a5e-5b3c2b0dd41a"
+              location:
+                id: "019a7a83-e489-7538-ba70-5c5581d4d533"
+                code: PEN-P1
+                name: "Pig pen"
+                kind: PEN
+              feedProduct:
+                id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                sku: FD-BRL-FIN
+                name: "Broiler finisher feed, 50 kg bag"
+              qty: "1.000"
+              uom: BAG
+              consumedOn: "2026-11-08"
+              ration: null
+              valuePesewas: 52000
+              currency: GHS
+              status: POSTED
+              allocations: []
+              postedAt: "2026-11-08T18:00:00Z"
+              actor:
+                id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                displayName: "Abena Quaye"
+            - id: "019a7ac2-f7df-7f0a-9442-f973a4be7251"
+              location:
+                id: "019a7a84-2267-78ff-9e37-98c4753611a2"
+                code: HSE-L1
+                name: "Layer house"
+                kind: PEN
+              feedProduct:
+                id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                sku: FD-BRL-FIN
+                name: "Broiler finisher feed, 50 kg bag"
+              qty: "5.000"
+              uom: BAG
+              consumedOn: "2026-11-07"
+              ration: null
+              valuePesewas: 260000
+              currency: GHS
+              status: POSTED
+              allocations: []
+              postedAt: "2026-11-07T18:00:00Z"
+              actor:
+                id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                displayName: "Abena Quaye"
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
