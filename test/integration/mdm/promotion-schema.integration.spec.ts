@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createCatalogue } from '../../support/catalogue';
 import { createBranch, createUser, SYSTEM_PRINCIPAL } from '../../support/iam';
 import { SQLSTATE, sqlStateOf } from '../../support/sql-state';
-import { createTestDatabase, type TestDatabase } from '../../support/test-database';
+import { createTestDatabase, expectTeardownTermination, type TestDatabase } from '../../support/test-database';
 
 /** Every rule migration 0017 puts in the database, each violated once (FR-MDM-018, ADR-0004, ADR-0040). */
 let database: TestDatabase;
@@ -339,10 +339,7 @@ describe('mdm.coupon and mdm.coupon_redemption', () => {
     const outcomes: string[] = [];
     let next = 0;
     // A pool of 20 at the database's default isolation: only the row locks of the trigger stand between them.
-    const racers = new pg.Pool({
-      connectionString: database.url('app'),
-      max: 20,
-    });
+    const racers = expectTeardownTermination(new pg.Pool({ connectionString: database.url('app'), max: 20 }));
     try {
       await Promise.all(
         Array.from({ length: 20 }, async () => {
