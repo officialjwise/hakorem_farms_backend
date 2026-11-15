@@ -157,3 +157,30 @@ services where these need it. Keep the valuation gate at 100 percent. Run the B5
 walk that every INV write operation refuses the wrong role, stop at it and write
 docs/sessions/B05e-inventory-cold-chain-opening.md.
 ```
+
+## Mutation check of the reservation tests (2026-11-15, parent session, at the owner's request)
+
+The reservation suite was written alongside its code rather than first (disclosed above). The owner asked, instead of rewriting it, for the proof test-first gives: break the implementation on purpose and confirm a test fails each time. Thirteen deliberate breaks were applied one at a time against `src/modules/inv/domain/reservation.spec.ts` and `test/integration/inv/reservations.integration.spec.ts` (20 tests, all passing unbroken), each reverted after its run.
+
+| # | Break | Caught by |
+| --- | --- | --- |
+| M1 | Database: the available check never refuses | 4 tests, among them "41 of 40 yams refused; 50 concurrent reservations of 30 eggs give exactly 30" |
+| M2 | Database: one active exclusive reservation per unit no longer unique | "G-0142 for checkout C1 succeeds; for C2 it is refused" |
+| M3 | Database: ending a reservation gives nothing back | 6 tests, the release and both expiry tests among them |
+| M4 | Database: making a reservation adds nothing to reserved | 7 tests |
+| M5 | Database: an ended reservation can end again | **Nothing. Survived** |
+| M6 | Application: the "only an active reservation ends" guard removed | "the manager releases it ... a second release is refused" |
+| M7 | Database: a unit under a hold can be reserved | 2 tests |
+| M8 | Domain: in-transit stock can be promised | the domain test of places stock is never promised from |
+| M9 | Domain: due one instant late (`<` for `<=`) | "releases an active reservation at or after its expiry" |
+| M10 | Store: the expiry job takes reservations not yet due | both expiry tests |
+| M11 | Domain: availability forgets held stock | 2 tests, domain and integration |
+| M12 | Application: release checks the read permission | the wrong-role refusal test, and the release test |
+| M13 | Store: the expiry job without `SKIP LOCKED` | **Nothing. Survived** |
+
+**The two survivors, and what was added:**
+
+- **M5 was a real gap.** The application refuses a second release before the database sees it, so the database rule `ck_stock_reservation_change` was never proved on its own, as CLAUDE.md requires of a rule in the database. New test: "the database itself refuses to end a reservation twice or to change what it promised". As the application role, without the service, ending an ended reservation again and changing a live reservation's quantity are each refused with `HK010` `ck_stock_reservation_change`, and reserved stays equal to the active sum.
+- **M13 was equivalent for correctness, not for liveness.** Without `SKIP LOCKED` a second expiry run waits and then finds nothing, so "each reservation expires once" still held. What `SKIP LOCKED` buys is that the job never stalls behind a row a checkout holds. New test: "never waits behind a reservation another session holds". One due reservation is locked from another session for the whole run; the run must finish within five seconds, expire the other one, leave the locked one, and the next run expires it.
+
+**After:** M5, M6 and M13 rerun against the extended suite (22 tests) are each caught by the test that names their rule. All thirteen breaks are caught; the suite passes 22 of 22, three runs out of three.

@@ -297,4 +297,50 @@ describe('the expiry job gives back exactly what it reserved, once (FR-INV-021, 
     expect(await reserved('PRD-YAM-TUBER', 'SHOP')).toBe(await activeSum('PRD-YAM-TUBER', 'SHOP'));
     expect(await reserved('PRD-YAM-TUBER', 'SHOP')).toBe('5.500');
   });
+
+  it('never waits behind a reservation another session holds: it expires the rest and leaves that one for the next run', async () => {
+    // FOR UPDATE SKIP LOCKED (ADR-0019): the job must not stall behind a checkout that has the row open. Deterministic:
+    // one due reservation is locked from another session for the whole run.
+    const lockedId = await reserve('PRD-YAM-TUBER', null, 'SHOP', '0.750', await holder(), inMinutes(1));
+    const freeId = await reserve('PRD-YAM-TUBER', null, 'SHOP', '0.250', await holder(), inMinutes(1));
+    clock.advanceBy(2 * 60_000);
+    const expiry = api.app.get(ReservationExpiry);
+    const run = () => runAsSystem(system, randomUUID(), () => expiry.run({ kind: 'SYSTEM', principalId: SYSTEM_PRINCIPAL }));
+    const locker = await admin().connect();
+    try {
+      await locker.query('BEGIN');
+      await locker.query('SELECT id FROM inv.stock_reservation WHERE id = $1 FOR UPDATE', [lockedId]);
+      const stalled = Symbol('stalled');
+      const first = await Promise.race([run(), new Promise<typeof stalled>((resolve) => setTimeout(() => resolve(stalled), 5_000))]);
+      expect(first).not.toBe(stalled);
+      expect(first).toContain(freeId);
+      expect(first).not.toContain(lockedId);
+    } finally {
+      await locker.query('ROLLBACK');
+      locker.release();
+    }
+    expect(await run()).toEqual([lockedId]);
+    expect(await reserved('PRD-YAM-TUBER', 'SHOP')).toBe(await activeSum('PRD-YAM-TUBER', 'SHOP'));
+  });
+
+  it('the database itself refuses to end a reservation twice or to change what it promised, whatever the application does', async () => {
+    // ck_stock_reservation_change (migration 0044): the application refuses a second release first, so this rule is
+    // proved here directly, as the application role, without the service in front of it.
+    const ended = await reserve('PRD-YAM-TUBER', null, 'SHOP', '0.500', await holder(), null);
+    const live = await reserve('PRD-YAM-TUBER', null, 'SHOP', '0.500', await holder(), null);
+    const app = database.pool('app');
+    await app.query("UPDATE inv.stock_reservation SET status = 'RELEASED', released_reason = 'Customer left', version = version + 1, updated_by = $2 WHERE id = $1", [ended, SYSTEM_PRINCIPAL]);
+    const before = await reserved('PRD-YAM-TUBER', 'SHOP');
+    const refusal = (sql: string, params: unknown[]) =>
+      app.query(sql, params).then(
+        () => undefined,
+        (error: { code?: string; constraint?: string }) => ({ code: error.code, constraint: error.constraint }),
+      );
+    const rule = { code: 'HK010', constraint: 'ck_stock_reservation_change' };
+    expect(await refusal("UPDATE inv.stock_reservation SET status = 'EXPIRED', released_reason = 'Again', version = version + 1, updated_by = $2 WHERE id = $1", [ended, SYSTEM_PRINCIPAL])).toEqual(rule);
+    expect(await refusal("UPDATE inv.stock_reservation SET status = 'RELEASED', released_reason = 'Twice', version = version + 1, updated_by = $2 WHERE id = $1", [ended, SYSTEM_PRINCIPAL])).toEqual(rule);
+    expect(await refusal('UPDATE inv.stock_reservation SET qty = 5, version = version + 1, updated_by = $2 WHERE id = $1', [live, SYSTEM_PRINCIPAL])).toEqual(rule);
+    expect(await reserved('PRD-YAM-TUBER', 'SHOP')).toBe(before);
+    expect(await reserved('PRD-YAM-TUBER', 'SHOP')).toBe(await activeSum('PRD-YAM-TUBER', 'SHOP'));
+  });
 });
