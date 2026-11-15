@@ -1,6 +1,6 @@
 # B04e continued 2: The file store, uploads and the malware scanner
 
-Date: 2026-11-15 · Branch `b04e3-file-store-imports`, from `b04e2-auth-approvals` · Pull request PR_PLACEHOLDER (stacked on `b04e2-auth-approvals`, not merged) · Status: **phase split** (A-125). The file store part of the gate passed; product images and MDM's imports and exports move to **B04e continued 3**.
+Date: 2026-11-15 · Branch `b04e3-file-store-imports`, from `b04e2-auth-approvals` · Pull request #15 (stacked on `b04e2-auth-approvals`, not merged) · Status: **phase split** (A-125). The file store part of the gate passed; product images and MDM's imports and exports move to **B04e continued 3**.
 
 Run as a fresh agent inside the 2026-11-15 overnight session: the parent session cannot issue /clear or /compact, so each phase starts in a new context that reads only this handoff from disk.
 
@@ -88,6 +88,7 @@ No schema, field or request changed shape. Redocly lint is clean, and `contract:
 | Integration | 485 passed. New: `doc/file-store.integration.spec.ts` (17 tests, against the real ClamAV); `roles-approvals` gains the evidence test; the handler walk covers 129 routes |
 | Coverage, merged | 1,021 passed. Statements 93.03 percent, branches 84.22 percent (gate 80); every 100 percent gate holds |
 | Contract | 43 passed. New: `b4/file-store.contract.spec.ts` covers `StoredFile`, `SignedUrl` and the 413, 415 and 422 envelopes; the drift probe now claims a B8 operation |
+| Test support | The coupon race in `promotion-schema.integration.spec.ts` built its own pool with no error listener. On CI, the forced drop of its database at teardown terminated that pool's closing clients (57P01), and the unhandled pool error failed the coverage job of push run `43678168649`. `expectTeardownTermination` in `test/support/test-database.ts` now guards every pool a test opens, and the file then passed three times running here |
 | Lint, type check | Clean |
 | End to end | `product-slice.e2e.spec.ts` gains an upload on the built stack: the Manager's file is stored PENDING and typed by its bytes, and the Cashier gets 403. It runs in CI on the production image; I did not run it on this machine |
 
@@ -183,4 +184,7 @@ and open a stacked pull request against b04e3-file-store-imports.
 
 ## CI
 
-CI_PLACEHOLDER
+Every run that exists for each commit, checked through the GitHub API (CLAUDE.md step 6):
+
+- **`3f6a3aa`** (the first report commit): pull_request run `43678190066` **success**. Push run `43678168649` **failed**: every test passed, but the coverage job counted two unhandled 57P01 teardown errors from `promotion-schema.integration.spec.ts`. Fixed in `test(support): guard a pool a test builds itself against the teardown termination`.
+- **This report's final commit:** its runs are named in the session's closing message, since a commit cannot name its own runs.
