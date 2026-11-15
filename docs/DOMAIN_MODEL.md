@@ -112,7 +112,7 @@ Defined in `packages/kernel` and used by every module.
 | Login failures give no indication whether the account exists | Domain |
 | Email and phone are unique within a realm among live accounts | DB (partial unique index) |
 
-**Events:** `iam.UserCreated`, `iam.PasswordChanged`, `iam.AccountLocked`, `iam.SessionRevoked`, `iam.RefreshTokenReuseDetected`, `iam.RoleGranted`, `iam.RoleRevoked`, `iam.RoleChanged`, `iam.ApprovalRequested`, `iam.ApprovalDecided`. Built so far: `iam.ApprovalDecided` (B3), and `iam.RoleGranted` and `iam.RoleRevoked` (B04e, payload `GrantChanged` in `src/modules/iam/events.ts`: grant, principal, role code, branch and location).
+**Events:** `iam.UserCreated`, `iam.PhoneVerified`, `iam.PasswordChanged`, `iam.AccountLocked`, `iam.SessionRevoked`, `iam.RefreshTokenReuseDetected`, `iam.RoleGranted`, `iam.RoleRevoked`, `iam.RoleChanged`, `iam.ApprovalRequested`, `iam.ApprovalDecided`. Built so far: `iam.ApprovalDecided` (B3), and `iam.RoleGranted` and `iam.RoleRevoked` (B04e, payload `GrantChanged` in `src/modules/iam/events.ts`: grant, principal, role code, branch and location); `iam.RoleChanged`, `iam.UserCreated` (a self-registered customer: realm, marketing consent and its time) and `iam.PhoneVerified` (B04e continued).
 
 ### 5.2 AUD: audit, compliance and administration
 

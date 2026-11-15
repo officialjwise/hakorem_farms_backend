@@ -195,11 +195,12 @@ Public media are served from a separate origin so that user-uploaded content nev
 | `PAYSTACK_SECRET_KEY` `[secret]` | Server key; also verifies webhook signatures. Test key in staging, live key in production | Yes | `sk_live_<random>` or `sk_test_<random>` |
 | `PAYMENT_HTTP_TIMEOUT_MS` | Timeout on every provider call (breaker and retry wrap it) | Opt, `10000` | `10000` |
 | `PAYMENT_WEBHOOK_SOURCE_ALLOWLIST` | Provider address ranges, comma-separated CIDRs, used for rate limiting and alerts. Signature, not address, is the authentication | Opt | `203.0.113.0/24` |
-| `MESSAGING_MODE` | `live`, `sandbox` or `capture` | Yes | `live` |
+| `MESSAGING_MODE` | `live`, `sandbox` or `capture`. Defaults to `capture`; the API refuses to start in production unless it is `live`, and `live` or `sandbox` need `SMS_BASE_URL` and `SMS_API_KEY` (B04e continued: phone codes and reset codes go out by SMS) | Yes | `live` |
 | `SMS_PROVIDER` | SMS adapter | Prod | `generic-http` |
 | `SMS_BASE_URL` | SMS provider API | Prod | `https://sms.example-provider.com/v1` |
 | `SMS_API_KEY` `[secret]` | SMS credential | Prod | `<random 32 characters>` |
 | `SMS_SENDER_ID` | Registered sender name | Prod | `HaKorem` |
+| `SMS_TIMEOUT_MS` | How long one send may take before it counts as failed (B04e continued; default 5000) | No | `5000` |
 | `SMS_WEBHOOK_SECRET` `[secret]` | Verifies delivery receipts and STOP replies | Prod | `<random 32 characters>` |
 | `WHATSAPP_ACCESS_TOKEN` `[secret]` | WhatsApp Business token | Prod | `<long token>` |
 | `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_BUSINESS_ACCOUNT_ID` | Sender identifiers | Prod | `100000000000001` |

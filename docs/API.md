@@ -106,6 +106,7 @@ sequenceDiagram
 ### 3.2 Customer and investor flows
 
 - **Customer register:** `POST /auth/customer/register` (name, phone, optional email, password, marketing consent). The response is `VERIFICATION_REQUIRED` with a `challengeToken`; the customer receives an SMS code and the client calls `POST /auth/customer/verify-phone` with the code. The result is `AUTHENTICATED`.
+- **Built in B04e continued (1.11.0, A-123).** Only a Ghana mobile number registers (+233 and nine digits). The answer is the same whether or not the phone has an account; a known phone gets an SMS notice instead of a code, and no second account is made. A code lasts ten minutes and takes five attempts: a wrong one is 422 `VERIFICATION_CODE_INVALID`, the sixth is refused even if right (401 `CHALLENGE_EXPIRED`). A customer who signs in before verifying gets `VERIFICATION_REQUIRED` and a new code. Five registrations per phone in fifteen minutes (429).
 - **Customer and investor login:** `POST /auth/customer/login` and `POST /auth/investor/login`, with the same response shape. TOTP is optional for both.
 - **Investor accounts are created by staff** (`createInvestor`); there is no self-registration.
 
@@ -128,7 +129,7 @@ Every state-changing request authenticated by a session cookie must send `X-CSRF
 
 ### 3.6 Logout and sessions
 
-`POST /auth/logout` ends the current session (204). A user lists their devices and sessions with `GET /iam/sessions` and revokes one with `POST /iam/sessions/{id}/revoke`; a manager can revoke anyone's. `POST /auth/password/change` needs the current password. `POST /auth/password/reset-request` always answers 202 with the same message whether or not the account exists; `POST /auth/password/reset` sets the new password with the code. New passwords are checked against a breached-password list (422 `PASSWORD_BREACHED`).
+`POST /auth/logout` ends the current session (204). A user lists their devices and sessions with `GET /iam/sessions` and revokes one with `POST /iam/sessions/{id}/revoke`; a manager can revoke anyone's. `POST /auth/password/change` needs the current password. `POST /auth/password/reset-request` always answers 202 with the same message whether or not the account exists; `POST /auth/password/reset` sets the new password with the code. From 1.11.0 (A-123) the code goes by SMS to an active account with a phone (an email-only account waits for the email channel, B11), works once for thirty minutes, and replaces any earlier one; a wrong, used or expired code is 422 `RESET_TOKEN_INVALID`, `RESET_TOKEN_USED` or `RESET_TOKEN_EXPIRED` (CR-004 point 3). A reset revokes every session and clears the lockout. Five requests per identifier in fifteen minutes (429). New passwords are checked against a breached-password list (422 `PASSWORD_BREACHED`).
 
 ### 3.7 Guests
 
@@ -360,6 +361,11 @@ The "Source" column says where the code comes from. **Contract** means the code 
 | `DELIVERY_ZONE_INVALID` | 422 | A delivery zone has no areas (`NO_AREAS`), a blank or repeated area (`AREA_BLANK`, `AREA_REPEATED`), or an area another active zone covers (`AREA_IN_ZONE:<code>`) (1.9.0) |
 | `GRANT_INVALID` | 422 | A grant breaks a grant rule: a location outside the branch (`LOCATION_NOT_IN_BRANCH`), a window ending before it starts (`NOT_AFTER_VALID_FROM`), the Customer or Investor role outside its realm (`ROLE_NOT_FOR_REALM`), or the last Owner grant in force revoked (`LAST_OWNER`) (1.10.0) |
 | `USER_INVALID` | 422 | An account change is not allowed: no email and no phone (`NO_IDENTIFIER`), an investor account before investor records exist (`INVESTOR_ACCOUNTS_NOT_AVAILABLE`), or the last active Owner disabled (`LAST_OWNER`) (1.10.0) |
+| `ROLE_INVALID` | 422 | A role change breaks a role rule: an unknown permission code (`UNKNOWN_PERMISSION`), TOTP switched off on the Owner, Manager or Accountant role (`TOTP_REQUIRED_FOR_ROLE`), or one limit kind twice (`DUPLICATE_LIMIT_KIND`) (1.11.0) |
+| `VERIFICATION_CODE_INVALID` | 422 | The six-digit phone code is wrong; the challenge counts the attempt, and the sixth is refused (401 `CHALLENGE_EXPIRED`) (1.11.0) |
+| `RESET_TOKEN_INVALID` | 422 | No password reset code matches what was sent (CR-004 point 3, 1.11.0) |
+| `RESET_TOKEN_USED` | 422 | The password reset code was already used; ask for a new one (CR-004 point 3, 1.11.0) |
+| `RESET_TOKEN_EXPIRED` | 422 | The password reset code is past its thirty minutes; ask for a new one (CR-004 point 3, 1.11.0) |
 
 #### Stock, livestock and processing (Added)
 
@@ -450,6 +456,7 @@ An action that needs a second person returns **202** with this body, and **nothi
 - **Kinds:** `STOCK_WRITE_OFF`, `STOCK_REVERSAL`, `SALE_VOID`, `PRICE_OVERRIDE`, `QUOTE_BELOW_MARGIN`, `CREDIT_OVERRIDE`, `REFUND`, `RETURN`, `PRICE_LIST_ACTIVATION`, `PROMOTION_ACTIVATION`, `TAX_SCHEME_ACTIVATION`, `PURCHASE_ORDER`, `SUPPLIER_PAYMENT`, `SUPPLIER_PAYOUT_CHANGE`, `MANUAL_JOURNAL`, `POSTING_RULE_CHANGE`, `CAPITAL_WITHDRAWAL`, `INVESTOR_DISTRIBUTION`, `DATA_DELETION`, `BAD_DEBT_WRITE_OFF`, `CREDIT_NOTE`, `PAYMENT_REVERSAL`, `PERIOD_REOPEN`.
 - Whether a given call returns 200 or 202 depends on the approval policy (`iam.approval_policy`): below the threshold the action completes and returns 200; at or above it, 202. A client handles both. The operation's description says "May require approval of kind ...".
 - A different user decides: `GET /iam/approvals?decidableByMe=true`, then `POST /iam/approvals/{id}/approve` or `/reject`. The maker cannot approve (422 `MAKER_CANNOT_CHECK`; the database enforces it). The maker may `cancel`. Some kinds need the approver to have stepped up.
+- **Built in B04e continued (1.11.0, A-122).** Reading needs `iam.approval.read` (Owner, Manager, Accountant) through a branch-wide grant at the request's branch; the inbox is newest first. Deciding also needs the permission the kind's policy names at that branch, and a step-up when the policy or that permission asks (403 `STEP_UP_REQUIRED`). `canDecide` is true only for someone else's pending, unlapsed request whose policy permission you hold there. A decided or withdrawn request is 422 `APPROVAL_ALREADY_DECIDED`, a lapsed one 422 `APPROVAL_EXPIRED` (and shows as `EXPIRED`), and one whose subject changed since it was asked 422 `APPROVAL_SUBJECT_CHANGED`. Only the maker withdraws (`iam.approval.cancel.own`; anyone else 403); the request becomes `CANCELLED` with the reason in `decisionReason`. `subject.number` is null until numbering (B8), and `evidenceFileId` until the file store.
 - **On approval, the subject action takes effect in the same transaction as the approval.** The maker learns of the outcome from the order or document status, from the notification, and from `GET /iam/approvals/{id}`.
 - A client must not retry the original action to "push it through". It shows "waiting for approval" and tracks the request.
 
@@ -559,6 +566,12 @@ Users (`createUser` needs step-up and sets a temporary password; `disableUser`, 
 - **Temporary passwords** are shown once, in the response and in a retry with the same idempotency key, and are kept nowhere in the clear. The account must change it at first sign-in; a reset also revokes every session.
 - **Disabling** revokes every session at once; enabling does not bring them back. **Unlocking** clears the lockout in Redis and in the account row at once.
 - Every grant change is audited as `PERMISSION_CHANGE` and published as `iam.RoleGranted` or `iam.RoleRevoked`, for the permission-change report (B12).
+
+**Built in B04e continued (1.11.0):** `createRole`, `updateRole` and the five approval operations (section 11). Role rules (A-122):
+
+- **Only the Owner changes roles** (`iam.role.manage`, step-up). Nobody changes a role they hold, or adds or removes a permission they do not hold (403); so the Owner role changes only by migration.
+- `permissions` and `limits` in `updateRole` replace the whole set; what goes is soft-deleted with the actor and reason, and the audit event carries the role before and after. The Owner, Manager and Accountant roles keep `requiresTotp` (`ROLE_INVALID`). No role is deleted; the database refuses deleting a system role.
+- Every change is audited as `PERMISSION_CHANGE` and published as `iam.RoleChanged`, for the permission-change report (B12). A permission change reaches a holder on their next request.
 
 ### Audit and administration (`aud`, 18)
 

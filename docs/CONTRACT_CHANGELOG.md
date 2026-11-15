@@ -8,6 +8,16 @@ Version numbers follow semantic versioning: a major bump breaks an existing clie
 
 - **CR-002 (frontend, raised 2026-11-13): weights as decimal strings, never JSON numbers.** Already satisfied by 1.0.0 and 1.1.0, so no version change. `components.schemas.Kilograms` is `type: string` with the pattern `^(0|[1-9][0-9]{0,6})\.[0-9]{3}$` (exactly three decimal places), and its description says it is never a JSON number. The request was raised against a copy taken before re-syncing; re-run `./scripts/sync-contract.sh`. The owner closed it on 2026-11-13: do not reopen it.
 
+## 1.11.0 (2026-11-15, B04e continued)
+
+**Additive.** No schema, field, parameter or response was removed, renamed or retyped, and nothing a client sends was made required. A client generated from 1.10.x compiles unchanged. The frontend track is paused, so nothing reviewed this entry; read it before resuming.
+
+Eleven operations now answer from the real API (126 in all), with the schemas 1.2.0 already published: `createRole`, `updateRole`, `listApprovals`, `getApproval`, `approveRequest`, `rejectRequest`, `cancelApprovalRequest`, `registerCustomer`, `verifyCustomerPhone`, `requestPasswordReset`, `resetPassword`.
+
+- **Five new error codes**, also in `docs/API.md` section 10.3: **`ROLE_INVALID`**, **`VERIFICATION_CODE_INVALID`**, and, answering CR-004 point 3, **`RESET_TOKEN_INVALID`**, **`RESET_TOKEN_USED`** and **`RESET_TOKEN_EXPIRED`** (all 422).
+- **`x-error-codes` and descriptions** on the eleven operations state their rules (A-122, A-123): only the Owner changes roles, and never one they hold or beyond what they hold; deciding needs the policy's permission and, where the policy says, a step-up; only the maker withdraws; registration and reset requests answer alike for known and unknown accounts; a sixth phone code is refused.
+- **`loginCustomer`** can now answer `VERIFICATION_REQUIRED` (already in `LoginResult.status`) for a customer whose phone is not yet verified.
+
 ## 1.10.0 (2026-11-15, B04e)
 
 **Additive.** No schema, field, parameter or response was removed, renamed or retyped, and nothing a client sends was made required. A client generated from 1.9.x compiles unchanged. The frontend track is paused, so nothing reviewed this entry; read it before resuming.
