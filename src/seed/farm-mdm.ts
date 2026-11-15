@@ -2,10 +2,11 @@ import { createUuidV7Generator, systemClock } from '@hakorem/kernel';
 import type { INestApplicationContext } from '@nestjs/common';
 import type pg from 'pg';
 import { Approvals } from '../modules/iam';
-import { PriceListAdmin, Promotions, TaxAdmin, type TaxCellRequest } from '../modules/mdm';
+import { CatalogueAdmin, PriceListAdmin, ProductCatalogue, Promotions, TaxAdmin, type TaxCellRequest } from '../modules/mdm';
 import { UnitOfWork } from '../platform/database/unit-of-work';
 import { PG_POOL } from '../platform/platform.module';
-import { SEED_CUSTOMERS, SEED_PRICE_LISTS, SEED_PROMOTIONS, SEED_TAX_SCHEME } from './reference-pricing';
+import { SEED_CATEGORIES, SEED_SPECIES_LIST } from './reference-catalogue';
+import { SEED_CUSTOMERS, SEED_PRICE_LISTS, SEED_PRODUCTS, SEED_PROMOTIONS, SEED_SPECIES, SEED_TAX_SCHEME } from './reference-pricing';
 import { SeedStaff } from './seed-staff';
 import type { ServiceSeedUnit } from './seed-unit';
 
@@ -31,6 +32,10 @@ const LEVY: Readonly<Record<string, string>> = {
   NHIL: '01900000-0000-7000-8000-000000000502',
   GETFUND: '01900000-0000-7000-8000-000000000503',
 };
+
+/** Default shelf lives of new lots: frozen meat packs and eggs (reference catalogue). */
+const MEAT_SHELF_LIFE_DAYS = 90;
+const EGG_SHELF_LIFE_DAYS = 21;
 
 /** A key that is the same on every run, so a second run replays instead of writing twice. */
 const key = (...parts: string[]): string => `seed:${parts.join(':')}`;
@@ -67,7 +72,8 @@ export function seedTaxCells(): TaxCellRequest[] {
 }
 
 /**
- * The MDM slice of the seeded farm written through MDM's services as the seeded staff (A-085): tax scheme version 1
+ * The MDM slice of the seeded farm written through MDM's services as the seeded staff (A-085): the catalogue's
+ * categories, species, grades, weight bands and products, written by the seeded Manager; tax scheme version 1
  * drafted by the seeded Accountant and approved by the seeded Owner; every price list of `reference-pricing.ts`
  * drafted by the seeded Manager and approved by the seeded Owner; and the seeded promotions, drafted by the Manager
  * and approved by the Owner. A record already there (found by its code) is left alone, so a second run writes
@@ -87,6 +93,73 @@ export function farmSeedMdm(): ServiceSeedUnit {
       const nextId = createUuidV7Generator(systemClock);
       let records = 0;
 
+      // The catalogue: categories, species, their grades and weight bands, and the products, written by the Manager.
+      const catalogue = app.get(CatalogueAdmin);
+      const productCatalogue = app.get(ProductCatalogue);
+      const categories = await idsByCode(pool, 'SELECT code, id FROM mdm.category WHERE deleted_at IS NULL');
+      const speciesIds = await idsByCode(pool, 'SELECT code, id FROM mdm.species WHERE deleted_at IS NULL');
+      const grades = await idsByCode(pool, "SELECT s.code || ':' || g.code AS code, g.id FROM mdm.grade g JOIN mdm.species s ON s.id = g.species_id WHERE g.deleted_at IS NULL");
+      const bands = await idsByCode(pool, 'SELECT code, id FROM mdm.weight_band WHERE deleted_at IS NULL');
+      const products = await idsByCode(pool, 'SELECT sku AS code, id FROM mdm.product WHERE deleted_at IS NULL');
+      records += await staff.as('manager', async (manager) => {
+        let written = 0;
+        for (const category of SEED_CATEGORIES) {
+          if (categories.has(category.code)) continue;
+          const created = await catalogue.createCategory(
+            manager,
+            { code: category.code, name: category.name, productLine: category.productLine, glGroup: category.glGroup, taxCategoryId: TAX_CATEGORY[category.taxCategory]!, sortOrder: category.sortOrder },
+            key('category', category.code),
+          );
+          categories.set(category.code, created.body.id);
+          written += 1;
+        }
+        for (const species of SEED_SPECIES_LIST) {
+          if (speciesIds.has(species.code)) continue;
+          speciesIds.set(species.code, (await catalogue.createSpecies(manager, species, key('species', species.code))).body.id);
+          written += 1;
+        }
+        for (const species of SEED_SPECIES) {
+          const speciesId = required(speciesIds, species.code, 'species');
+          for (const [order, grade] of species.grades.entries()) {
+            if (grades.has(`${species.code}:${grade.code}`)) continue;
+            const created = await catalogue.createGrade(manager, { speciesId, code: grade.code, name: grade.name, description: grade.description, sortOrder: order }, key('grade', species.code, grade.code));
+            grades.set(`${species.code}:${grade.code}`, created.body.id);
+            written += 1;
+          }
+          for (const band of species.bands) {
+            if (bands.has(band.code)) continue;
+            bands.set(band.code, (await catalogue.createWeightBand(manager, { speciesId, code: band.code, minKg: band.minKg, maxKg: band.maxKg }, key('weight-band', band.code))).body.id);
+            written += 1;
+          }
+        }
+        for (const product of SEED_PRODUCTS) {
+          if (products.has(product.sku)) continue;
+          const meat = product.category === 'MEAT';
+          const eggs = product.category === 'EGGS';
+          const created = await productCatalogue.create(
+            manager,
+            {
+              sku: product.sku,
+              name: product.name,
+              categoryId: required(categories, product.category, 'category'),
+              stockPolicy: product.policy,
+              speciesId: product.species === null ? undefined : required(speciesIds, product.species, 'species'),
+              baseUom: product.baseUom,
+              saleUom: product.saleUom,
+              nominalPackKg: meat ? '15.000' : undefined,
+              shelfLifeDays: meat ? MEAT_SHELF_LIFE_DAYS : eggs ? EGG_SHELF_LIFE_DAYS : undefined,
+              storageTempClass: meat ? 'FROZEN' : eggs ? 'AMBIENT' : undefined,
+              description: `SEED. ${product.name} from the reference catalogue.`,
+              onlineMode: product.onlineMode,
+            },
+            key('product', product.sku),
+          );
+          products.set(product.sku, created.body.id);
+          written += 1;
+        }
+        return written;
+      });
+
       // Tax scheme version 1 (ADR-0020, ADR-0039): the Accountant drafts and submits, the Owner approves.
       const tax = app.get(TaxAdmin);
       const schemes = await pool.query('SELECT 1 FROM mdm.tax_scheme_version LIMIT 1');
@@ -103,9 +176,6 @@ export function farmSeedMdm(): ServiceSeedUnit {
       // Price lists, each with version 1: the Manager drafts and submits, the Owner approves.
       const priceLists = app.get(PriceListAdmin);
       const existingLists = await idsByCode(pool, 'SELECT code, id FROM mdm.price_list WHERE deleted_at IS NULL');
-      const products = await idsByCode(pool, 'SELECT sku AS code, id FROM mdm.product WHERE deleted_at IS NULL');
-      const grades = await idsByCode(pool, 'SELECT s.code || \':\' || g.code AS code, g.id FROM mdm.grade g JOIN mdm.species s ON s.id = g.species_id WHERE g.deleted_at IS NULL');
-      const bands = await idsByCode(pool, 'SELECT code, id FROM mdm.weight_band WHERE deleted_at IS NULL');
       const productSpecies = await idsByCode(pool, 'SELECT p.sku AS code, s.code AS id FROM mdm.product p JOIN mdm.species s ON s.id = p.species_id WHERE p.deleted_at IS NULL');
       for (const list of SEED_PRICE_LISTS) {
         if (existingLists.has(list.code)) {
@@ -154,7 +224,6 @@ export function farmSeedMdm(): ServiceSeedUnit {
       // Promotions: the Manager drafts, adds the coupon and submits; the Owner approves.
       const promotions = app.get(Promotions);
       const existingPromotions = await idsByCode(pool, 'SELECT code, id FROM mdm.promotion');
-      const categories = await idsByCode(pool, 'SELECT code, id FROM mdm.category WHERE deleted_at IS NULL');
       for (const promotion of SEED_PROMOTIONS) {
         if (existingPromotions.has(promotion.code)) {
           continue;

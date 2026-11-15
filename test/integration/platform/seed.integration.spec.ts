@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { SEED_PRICE_LISTS, SEED_PRODUCTS, SEED_PROMOTIONS } from '../../../src/seed/reference-pricing';
+import { SEED_PRICE_LISTS, SEED_PRODUCTS, SEED_PROMOTIONS, SEED_SPECIES } from '../../../src/seed/reference-pricing';
 import { runSeedUnits } from '../../../src/seed/run-seed';
 import { seedUnits } from '../../../src/seed/seed-units';
 import { startTestApp, TEST_ORIGIN, type TestApp } from '../../support/test-app';
@@ -71,6 +71,32 @@ describe('the seeded farm (hakorem-seed)', () => {
 });
 
 describe('the MDM seed through the services (A-085)', () => {
+  it('writes the catalogue as the seeded Manager: categories, species, grades, bands and products, each audited by the seed', async () => {
+    const admin = database.pool('admin');
+    const { rows } = await admin.query<{ entity_type: string; n: number; actors: string[]; agents: string[] }>(
+      `SELECT e.entity_type, count(*)::int AS n, array_agg(DISTINCT p.display_name) AS actors, array_agg(DISTINCT e.user_agent) AS agents
+         FROM platform.audit_event e JOIN iam.principal p ON p.id = e.actor_id
+        WHERE e.action = 'CREATE' AND e.entity_type IN ('Category', 'Species', 'Grade', 'WeightBand', 'Product')
+        GROUP BY e.entity_type ORDER BY e.entity_type`,
+    );
+    const bands = SEED_SPECIES.reduce((sum, species) => sum + species.bands.length, 0);
+    const grades = SEED_SPECIES.reduce((sum, species) => sum + species.grades.length, 0);
+    expect(rows).toEqual([
+      { entity_type: 'Category', n: 4, actors: ['Akosua Boateng'], agents: ['hakorem-seed'] },
+      { entity_type: 'Grade', n: grades, actors: ['Akosua Boateng'], agents: ['hakorem-seed'] },
+      { entity_type: 'Product', n: SEED_PRODUCTS.length, actors: ['Akosua Boateng'], agents: ['hakorem-seed'] },
+      { entity_type: 'Species', n: 7, actors: ['Akosua Boateng'], agents: ['hakorem-seed'] },
+      { entity_type: 'WeightBand', n: bands, actors: ['Akosua Boateng'], agents: ['hakorem-seed'] },
+    ]);
+    const tracking = await admin.query<{ sku: string; tracking: string }>("SELECT sku, tracking FROM mdm.product WHERE sku IN ('LIV-BROILER', 'LIV-GOAT', 'EGG-CRATE-BIG', 'PRD-YAM-TUBER') ORDER BY sku");
+    expect(tracking.rows).toEqual([
+      { sku: 'EGG-CRATE-BIG', tracking: 'LOT' },
+      { sku: 'LIV-BROILER', tracking: 'LOT' },
+      { sku: 'LIV-GOAT', tracking: 'SERIAL' },
+      { sku: 'PRD-YAM-TUBER', tracking: 'NONE' },
+    ]);
+  });
+
   it('has tax scheme version 1 active, drafted by the seeded Accountant and approved by the seeded Owner', async () => {
     const admin = database.pool('admin');
     const { rows } = await admin.query<{ version_no: number; status: string; maker: string; checker: string; cells: number }>(
