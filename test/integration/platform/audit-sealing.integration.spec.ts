@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { inject } from 'vitest';
 import { AuditAnchor } from '../../../src/platform/audit/audit-anchor';
 import { chainHash, GENESIS_HASH } from '../../../src/platform/audit/audit-chain';
-import { AuditSealer } from '../../../src/platform/audit/audit-sealer';
+import { AuditSealer, SEALER_LOCK_KEY } from '../../../src/platform/audit/audit-sealer';
 import { AuditTrail } from '../../../src/platform/audit/audit-trail';
 import { AuditVerifier } from '../../../src/platform/audit/audit-verifier';
 import { runAsSystem } from '../../../src/platform/context/request-context';
@@ -113,11 +113,25 @@ describe('the audit sealer (ADR-0006, stage two)', () => {
     }
   });
 
-  it('runs one sealer at a time, so the chain stays one gap-free sequence', async () => {
+  it('runs one sealer at a time: while another holds the lock it seals nothing', async () => {
+    // Deterministic: hold the sealer's lock from another session instead of hoping two calls overlap in time.
     const ids = [await record(), await record()];
-    const [a, b] = await Promise.all([sealer.sealOnce(), sealer.sealOnce()]);
-    // The second call finds the lock taken and seals nothing, whatever the first could seal.
-    expect(Math.min(a, b)).toBe(0);
+    const holder = await database.pool('admin').connect();
+    try {
+      await holder.query('SELECT pg_advisory_lock(hashtextextended($1, 0))', [SEALER_LOCK_KEY]);
+      expect(await sealer.sealOnce()).toBe(0);
+      const { rows } = await database.pool('admin').query<{ n: number }>('SELECT count(*)::int AS n FROM platform.audit_chain WHERE audit_event_id = ANY($1::uuid[])', [ids]);
+      expect(rows[0]!.n).toBe(0);
+    } finally {
+      await holder.query('SELECT pg_advisory_unlock(hashtextextended($1, 0))', [SEALER_LOCK_KEY]);
+      holder.release();
+    }
+    await sealUntilChained(ids);
+  });
+
+  it('keeps the chain one gap-free sequence when sealers run concurrently, however their calls interleave', async () => {
+    const ids = [await record(), await record(), await record()];
+    await Promise.all([sealer.sealOnce(), sealer.sealOnce(), sealer.sealOnce()]);
     await sealUntilChained(ids);
     const seqs = (await chain()).map((row) => Number(row.seq));
     expect(seqs).toEqual(seqs.map((_, index) => index + 1));

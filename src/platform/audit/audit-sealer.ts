@@ -3,7 +3,8 @@ import type { Logger } from 'pino';
 import { chainHash, GENESIS_HASH } from './audit-chain';
 
 /** One sealer at a time: the chain is a single sequence (ADR-0006). */
-const SEALER_LOCK_KEY = 'hk.audit-sealer';
+/** The advisory lock that keeps sealing to one process at a time (ADR-0006). */
+export const SEALER_LOCK_KEY = 'hk.audit-sealer';
 
 interface HeadRow {
   seq: string;
