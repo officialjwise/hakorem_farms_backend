@@ -32,6 +32,12 @@ Each item says why it is parked and what would bring it back.
 | BL-042 | A short-lived cache of grants and revoked sessions (ADR-0016's design) | B3 reads both from PostgreSQL on every request, by primary key or index, so a change takes effect at once with no invalidation to get wrong | The B13 load test shows the reads as a bottleneck against the NFR targets | ADR-0034 |
 | BL-043 | Sealing the audit chain with a horizon of the current database only | The sealer's horizon is the oldest transaction on the whole server (ADR-0006); with one database per server that is exact, and it is always safe | Production shares its PostgreSQL server with another busy database, and sealing lag shows on the health report | ADR-0006 |
 
+## Parked in B04d
+
+| ID | Item | Why it is not in version one yet | What would bring it back | Related |
+| --- | --- | --- | --- | --- |
+| BL-044 | Promotions targeted at a customer tier | The SRS names tiers among a promotion's targets, but the contract and `mdm.promotion` carry none; a tier already has its own price list, and channel and coupon restrict a promotion | The owner wants a discount for one tier that a tier price list cannot express | ADR-0040, A-101 |
+
 ## Explicitly outside the brief
 
 These are not mentioned in the shared brief, or are mentioned only conditionally. They are listed so that nobody builds them by accident.
