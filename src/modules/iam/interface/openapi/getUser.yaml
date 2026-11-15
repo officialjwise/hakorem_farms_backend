@@ -1,0 +1,67 @@
+operationId: getUser
+tags:
+  - iam
+summary: "Get a user account"
+description: "Permission: `iam.user.read`."
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - TOTP_ENROLMENT_REQUIRED
+  - RATE_LIMITED
+  - NOT_FOUND
+x-permission: iam.user.read
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/UserAccount"
+        example:
+          id: "019a7a86-3046-711a-a652-1a7389f79351"
+          displayName: "Akua Mensah"
+          realm: STAFF
+          email: "akua.mensah@hakoremfarms.com"
+          phone: "+233244100201"
+          status: ACTIVE
+          totpEnrolled: true
+          totpRequired: true
+          mustChangePassword: false
+          lastLoginAt: "2026-11-13T06:40:00Z"
+          grants:
+            - roleCode: OWNER
+              roleName: Owner
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              branchCode: DDW
+              locationId: null
+              locationCode: null
+          version: 3
+          createdAt: "2026-11-02T08:00:00Z"
+          updatedAt: "2026-11-12T17:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

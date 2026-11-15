@@ -1,0 +1,193 @@
+operationId: listGrants
+tags:
+  - iam
+summary: "List role grants"
+description: "Permission: `iam.grant.read`."
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - TOTP_ENROLMENT_REQUIRED
+  - RATE_LIMITED
+x-permission: iam.grant.read
+parameters:
+  - name: principalId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: roleId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: branchId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/RoleGrantPage"
+        example:
+          data:
+            - id: "019a7a97-58d8-7d46-827e-dd390a255616"
+              principal:
+                id: "019a7a86-3046-711a-a652-1a7389f79351"
+                displayName: "Akua Mensah"
+              role:
+                id: "019a7a97-77c7-7729-9c62-7b7083d6f44e"
+                code: OWNER
+                name: Owner
+              branch:
+                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                code: DDW
+                name: "HaKorem Farms, Dodowa"
+              location: null
+              validFrom: "2026-11-02T08:00:00Z"
+              validTo: null
+              createdAt: "2026-11-02T08:00:00Z"
+              createdBy:
+                id: "019a7a86-3046-711a-a652-1a7389f79351"
+                displayName: "Akua Mensah"
+            - id: "019a7a97-96b6-710d-a645-19a7fd879285"
+              principal:
+                id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                displayName: "Kwabena Owusu"
+              role:
+                id: "019a7a96-be2d-7bd5-b10d-c623a9b03f01"
+                code: MANAGER
+                name: Manager
+              branch:
+                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                code: DDW
+                name: "HaKorem Farms, Dodowa"
+              location: null
+              validFrom: "2026-11-02T08:00:00Z"
+              validTo: null
+              createdAt: "2026-11-02T08:00:00Z"
+              createdBy:
+                id: "019a7a86-3046-711a-a652-1a7389f79351"
+                displayName: "Akua Mensah"
+            - id: "019a7a97-b5a5-7af0-b029-b7df773830bd"
+              principal:
+                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                displayName: "Efua Asante"
+              role:
+                id: "019a7a96-dd1c-75b8-8af0-645b2361dd39"
+                code: ACCOUNTANT
+                name: Accountant
+              branch:
+                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                code: DDW
+                name: "HaKorem Farms, Dodowa"
+              location: null
+              validFrom: "2026-11-02T08:00:00Z"
+              validTo: null
+              createdAt: "2026-11-02T08:00:00Z"
+              createdBy:
+                id: "019a7a86-3046-711a-a652-1a7389f79351"
+                displayName: "Akua Mensah"
+            - id: "019a7a97-d494-74d4-8a0c-5616f0e9cef4"
+              principal:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              role:
+                id: "019a7a96-fc0b-7f9c-94d4-02929d127b70"
+                code: STOREKEEPER
+                name: Storekeeper
+              branch:
+                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                code: DDW
+                name: "HaKorem Farms, Dodowa"
+              location: null
+              validFrom: "2026-11-02T08:00:00Z"
+              validTo: "2026-11-30T23:59:00Z"
+              createdAt: "2026-11-02T08:00:00Z"
+              createdBy:
+                id: "019a7a86-3046-711a-a652-1a7389f79351"
+                displayName: "Akua Mensah"
+            - id: "019a7a97-f383-7eb7-93f0-f44e6a9a6d2c"
+              principal:
+                id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                displayName: "Adwoa Darko"
+              role:
+                id: "019a7a94-7270-7ff3-852b-0805a18d80e3"
+                code: CASHIER
+                name: Cashier
+              branch:
+                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                code: DDW
+                name: "HaKorem Farms, Dodowa"
+              location:
+                id: "019a7a84-7f34-76a9-8be1-736ae249ec48"
+                code: SHOP
+                name: "Shop floor"
+                kind: SHOP_FLOOR
+              validFrom: "2026-11-02T08:00:00Z"
+              validTo: null
+              createdAt: "2026-11-02T08:00:00Z"
+              createdBy:
+                id: "019a7a86-3046-711a-a652-1a7389f79351"
+                displayName: "Akua Mensah"
+            - id: "019a7a98-1272-789b-add3-9285e44b0b63"
+              principal:
+                id: "019a7a86-caf1-728b-b7c3-3188ea6caa66"
+                displayName: "Nana Yeboah"
+              role:
+                id: "019a7a94-7270-7ff3-852b-0805a18d80e3"
+                code: CASHIER
+                name: Cashier
+              branch:
+                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                code: DDW
+                name: "HaKorem Farms, Dodowa"
+              location:
+                id: "019a7a84-7f34-76a9-8be1-736ae249ec48"
+                code: SHOP
+                name: "Shop floor"
+                kind: SHOP_FLOOR
+              validFrom: "2026-11-02T08:00:00Z"
+              validTo: null
+              createdAt: "2026-11-02T08:00:00Z"
+              createdBy:
+                id: "019a7a86-3046-711a-a652-1a7389f79351"
+                displayName: "Akua Mensah"
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

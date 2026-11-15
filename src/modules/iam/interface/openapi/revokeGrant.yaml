@@ -1,0 +1,87 @@
+operationId: revokeGrant
+tags:
+  - iam
+summary: "Revoke a role grant"
+description: "Nobody revokes their own grant (403 `FORBIDDEN`; the database refuses it too), nor a grant of a role holding a permission they lack at that scope (403). The last Owner grant in force stays (422 `GRANT_INVALID`, `LAST_OWNER`). The revocation takes effect on the next request, is audited as `PERMISSION_CHANGE` and is published as `iam.RoleRevoked` (1.10.0).\n\nPermission: `iam.grant.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - TOTP_ENROLMENT_REQUIRED
+  - STEP_UP_REQUIRED
+  - NOT_FOUND
+  - GRANT_INVALID
+  - RATE_LIMITED
+x-permission: iam.grant.manage
+x-requires-step-up: true
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ReasonRequest"
+      example:
+        reason: "Counted twice in error at the morning check"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/RoleGrant"
+        example:
+          id: "019a7a97-58d8-7d46-827e-dd390a255616"
+          principal:
+            id: "019a7a86-3046-711a-a652-1a7389f79351"
+            displayName: "Akua Mensah"
+          role:
+            id: "019a7a97-77c7-7729-9c62-7b7083d6f44e"
+            code: OWNER
+            name: Owner
+          branch:
+            id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+            code: DDW
+            name: "HaKorem Farms, Dodowa"
+          location: null
+          validFrom: "2026-11-02T08:00:00Z"
+          validTo: null
+          createdAt: "2026-11-02T08:00:00Z"
+          createdBy:
+            id: "019a7a86-3046-711a-a652-1a7389f79351"
+            displayName: "Akua Mensah"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

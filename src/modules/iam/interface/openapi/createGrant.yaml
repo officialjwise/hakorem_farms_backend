@@ -1,0 +1,84 @@
+operationId: createGrant
+tags:
+  - iam
+summary: "Grant a role at a branch or location"
+description: "Nobody grants themselves a role (403 `FORBIDDEN`; the database refuses it too), and nobody grants a role holding a permission they do not hold at that branch and location (403 `FORBIDDEN`). The location must be in the branch (`LOCATION_NOT_IN_BRANCH`), the window must end after it starts (`NOT_AFTER_VALID_FROM`), and the Customer and Investor roles are for their own realms (`ROLE_NOT_FOR_REALM`), each 422 `GRANT_INVALID`. The same live grant twice is 422 `DUPLICATE_VALUE`. Every grant is audited as `PERMISSION_CHANGE` and published as `iam.RoleGranted` (1.10.0).\n\nPermission: `iam.grant.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - TOTP_ENROLMENT_REQUIRED
+  - STEP_UP_REQUIRED
+  - DUPLICATE_VALUE
+  - REFERENCE_NOT_FOUND
+  - GRANT_INVALID
+  - RATE_LIMITED
+x-permission: iam.grant.manage
+x-requires-step-up: true
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/GrantCreate"
+      example:
+        principalId: "019a7a86-caf1-728b-b7c3-3188ea6caa66"
+        roleId: "019a7a94-7270-7ff3-852b-0805a18d80e3"
+        branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+        locationId: "019a7a84-7f34-76a9-8be1-736ae249ec48"
+        validFrom: "2026-11-14T06:00:00Z"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/RoleGrant"
+        example:
+          id: "019a7a97-58d8-7d46-827e-dd390a255616"
+          principal:
+            id: "019a7a86-3046-711a-a652-1a7389f79351"
+            displayName: "Akua Mensah"
+          role:
+            id: "019a7a97-77c7-7729-9c62-7b7083d6f44e"
+            code: OWNER
+            name: Owner
+          branch:
+            id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+            code: DDW
+            name: "HaKorem Farms, Dodowa"
+          location: null
+          validFrom: "2026-11-02T08:00:00Z"
+          validTo: null
+          createdAt: "2026-11-02T08:00:00Z"
+          createdBy:
+            id: "019a7a86-3046-711a-a652-1a7389f79351"
+            displayName: "Akua Mensah"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

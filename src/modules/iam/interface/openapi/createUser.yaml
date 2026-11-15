@@ -1,0 +1,91 @@
+operationId: createUser
+tags:
+  - iam
+summary: "Create a staff or investor account"
+description: "Creates a staff account with a temporary password, shown once in this response and in a retry with the same key, never again (it is kept sealed with the user's key, not in the clear). The account must change it at first sign-in. Email and phone are each unique among live staff accounts (422 `DUPLICATE_VALUE`); one of them is required (422 `USER_INVALID`, `NO_IDENTIFIER`). Investor accounts arrive with capital (B12): until then `realm: INVESTOR` is refused (422 `USER_INVALID`, `INVESTOR_ACCOUNTS_NOT_AVAILABLE`). Each grant follows `createGrant`'s rules, and the caller needs this permission at each grant's branch (1.10.0).\n\nPermission: `iam.user.create`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - TOTP_ENROLMENT_REQUIRED
+  - STEP_UP_REQUIRED
+  - DUPLICATE_VALUE
+  - REFERENCE_NOT_FOUND
+  - GRANT_INVALID
+  - USER_INVALID
+  - RATE_LIMITED
+x-permission: iam.user.create
+x-requires-step-up: true
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/UserCreate"
+      example:
+        displayName: "Nana Yeboah"
+        email: "nana.yeboah@hakoremfarms.com"
+        phone: "+233244100205"
+        realm: STAFF
+        grants:
+          - roleId: "019a7a94-7270-7ff3-852b-0805a18d80e3"
+            branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+            locationId: "019a7a84-7f34-76a9-8be1-736ae249ec48"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/UserCreated"
+        example:
+          user:
+            id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+            displayName: "Adwoa Darko"
+            realm: STAFF
+            email: "adwoa.darko@hakoremfarms.com"
+            phone: "+233244100205"
+            status: ACTIVE
+            totpEnrolled: false
+            totpRequired: false
+            mustChangePassword: true
+            lastLoginAt: null
+            grants:
+              - roleCode: CASHIER
+                roleName: Cashier
+                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                branchCode: DDW
+                locationId: "019a7a84-7f34-76a9-8be1-736ae249ec48"
+                locationCode: SHOP
+            version: 1
+            createdAt: "2026-11-02T08:00:00Z"
+            updatedAt: "2026-11-12T17:00:00Z"
+          temporaryPassword: Temp-8841-Farm
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

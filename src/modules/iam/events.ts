@@ -10,3 +10,16 @@ export interface ApprovalDecided {
   readonly decidedBy: string;
   readonly subjectDocumentId: string;
 }
+
+/**
+ * `iam.RoleGranted` v1 and `iam.RoleRevoked` v1: a role was granted, or a grant revoked (FR-IAM-022). Read by the daily
+ * exception report as a `PERMISSION_CHANGE` item (B12); the granter or revoker is the event's actor.
+ */
+export interface GrantChanged {
+  readonly grantId: string;
+  readonly change: 'GRANTED' | 'REVOKED';
+  readonly principalId: string;
+  readonly roleCode: string;
+  readonly branchId: string;
+  readonly locationId: string | null;
+}

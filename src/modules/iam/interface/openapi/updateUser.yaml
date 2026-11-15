@@ -1,0 +1,88 @@
+operationId: updateUser
+tags:
+  - iam
+summary: "Update a user account"
+description: "Send the `version` you read; a stale version is refused with 409. The caller needs this permission at every branch the user holds a grant at (1.10.0).\n\nPermission: `iam.user.update`."
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - TOTP_ENROLMENT_REQUIRED
+  - NOT_FOUND
+  - VERSION_CONFLICT
+  - DUPLICATE_VALUE
+  - RATE_LIMITED
+x-permission: iam.user.update
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/UserUpdate"
+      example:
+        version: 3
+        phone: "+233244100299"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/UserAccount"
+        example:
+          id: "019a7a86-3046-711a-a652-1a7389f79351"
+          displayName: "Akua Mensah"
+          realm: STAFF
+          email: "akua.mensah@hakoremfarms.com"
+          phone: "+233244100201"
+          status: ACTIVE
+          totpEnrolled: true
+          totpRequired: true
+          mustChangePassword: false
+          lastLoginAt: "2026-11-13T06:40:00Z"
+          grants:
+            - roleCode: OWNER
+              roleName: Owner
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              branchCode: DDW
+              locationId: null
+              locationCode: null
+          version: 3
+          createdAt: "2026-11-02T08:00:00Z"
+          updatedAt: "2026-11-12T17:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

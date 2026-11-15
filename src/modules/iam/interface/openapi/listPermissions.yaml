@@ -1,0 +1,82 @@
+operationId: listPermissions
+tags:
+  - iam
+summary: "List permission codes"
+description: "Permission: `iam.role.read`."
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - TOTP_ENROLMENT_REQUIRED
+  - RATE_LIMITED
+x-permission: iam.role.read
+parameters:
+  - name: module
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/PermissionPage"
+        example:
+          data:
+            - code: pos.sale.create
+              module: pos
+              description: "Make a counter sale"
+              requiresStepUp: false
+            - code: ord.order.void.approve
+              module: ord
+              description: "Approve a void of a completed sale"
+              requiresStepUp: false
+            - code: cap.distribution.approve
+              module: cap
+              description: "Approve an investor distribution run"
+              requiresStepUp: true
+            - code: rpt.report.export.bulk
+              module: rpt
+              description: "Export a report of more than 1,000 rows"
+              requiresStepUp: true
+            - code: inv.adjustment.approve
+              module: inv
+              description: "Approve a stock adjustment above the threshold"
+              requiresStepUp: false
+            - code: iam.role.manage
+              module: iam
+              description: "Create and change roles"
+              requiresStepUp: true
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
