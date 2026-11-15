@@ -1,4 +1,5 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
+import type { UomFactor } from '../domain/unit-conversion';
 import type { BranchFacts, GradeFacts, ReasonCodeFacts, LocationFacts, MasterDataRefsStore, ProductFacts, SpeciesFacts, SupplierFacts } from '../application/master-data-refs';
 
 /** MDM's own tables, read by primary key for a higher module's transaction (MasterDataRefs). */
@@ -136,5 +137,18 @@ export class PgMasterDataRefsStore implements MasterDataRefsStore {
   async productIdsOfSpecies(tx: Transaction, speciesId: string): Promise<string[]> {
     const { rows } = await tx.query<{ id: string }>("SELECT id FROM mdm.product WHERE species_id = $1 AND status = 'ACTIVE' AND deleted_at IS NULL ORDER BY sku", [speciesId]);
     return rows.map((r) => r.id);
+  }
+
+  async uomFactor(tx: Transaction, productId: string, uom: string): Promise<{ readonly baseUom: string; readonly factor: UomFactor | null } | null> {
+    const { rows } = await tx.query<{ base_uom: string; numerator: string | null; denominator: string | null }>(
+      `SELECT p.base_uom, c.numerator::text AS numerator, c.denominator::text AS denominator
+         FROM mdm.product p
+         LEFT JOIN mdm.product_uom_conversion c ON c.product_id = p.id AND c.from_uom = $2 AND c.deleted_at IS NULL
+        WHERE p.id = $1`,
+      [productId, uom],
+    );
+    const row = rows[0];
+    if (row === undefined) return null;
+    return { baseUom: row.base_uom, factor: row.numerator === null ? null : { numerator: BigInt(row.numerator), denominator: BigInt(row.denominator!) } };
   }
 }
