@@ -680,13 +680,12 @@ docs/sessions/B05e-inventory-cold-chain-opening.md.
 
 ## B05x — Dashboard tiles, branch management and label data, pulled forward for the frontend
 
-Branch `b05x-dashboard-branches-labels`, from `main` (each phase is merged into `main` when green, ADR-0026 Amendments). Report `docs/sessions/B05x-dashboard-branches-labels.md`. Inserted by the owner on 2026-11-15 between B5 and B6: the frontend's UI phase needs these endpoints earlier than B12 schedules them. Everything is additive. Gate: every tile whose data exists answers from the real API with exact values on the seeded farm (stock value at cost equal to `listStockOnHand`'s total, the animal count equal to a hand count of serialised live stock units, the low stock count equal to the products at or below their reorder point, the purchases series equal to posted goods receipts at cost per day); the tiles whose data does not exist yet are in the contract, live only on the mock, and named in the openers that will build them; a branch can be deactivated, with its refusals, and branches and locations list only within the caller's grants; label data for a lot and a product answers from the real API; every operation refuses the wrong role.
+Branch `b05x-dashboard-branches-labels`, from `main` (each phase is merged into `main` when green, ADR-0026 Amendments). Report `docs/sessions/B05x-dashboard-branches-labels.md`. Inserted by the owner on 2026-11-15 between B5 and B6: the frontend's UI phase needs these endpoints earlier than B12 schedules them. Everything is additive. Gate: getOwnerDashboard answers in one request with its sourceless figures null and listed with their reasons and phases; every tile whose data exists answers from the real API, and in getOwnerDashboard, with exact values on the seeded farm (stock value at cost equal to `listStockOnHand`'s total, the animal count equal to a hand count of serialised live stock units, the low stock count equal to the products at or below their reorder point, the purchases series equal to posted goods receipts at cost per day); the tiles whose data does not exist yet are in the contract, live only on the mock, and named in the openers that will build them; a branch can be deactivated, with its refusals, and branches and locations list only within the caller's grants; label data for a lot and a product answers from the real API; every operation refuses the wrong role.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
 List docs/sessions/ and read only the most recent report.
-Read ../frontend/docs/CONTRACT_REQUESTS.md, and the newer copy from the frontend's f05-stock branch if the
-parent session saved one (it lists CR-009 to CR-012): implement what is reasonable, record in the report
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is reasonable, record in the report
 what you declined and why, never edit that file and never open frontend source.
 For this phase, read the RPT and MDM (branches and locations) requirement blocks of docs/SRS.md and NFR-023
 (nothing else from the SRS), the RPT, MDM and INV cards in docs/MODULE_BOUNDARIES.md, ADR-0011 (published
@@ -696,17 +695,23 @@ Do not read any other document unless this phase needs it.
 
 Confirm in three lines: the phase, its scope, and its gate.
 Then execute B05x only, on branch b05x-dashboard-branches-labels, branched from main:
-1. Dashboard tiles in RPT, one operation per tile, each reading only published views (ADR-0011, ADR-0023),
-   scoped to the branches the caller holds rpt permissions at, money as integer pesewas, with asOf:
-   stock value at cost, animals on hand (serialised live stock units on hand, by species), low stock count
-   (products at or below their reorder point, from INV's published view inv.pub_reorder_level, built in
-   B05 continued 4), and a purchases time series over a period (posted goods
-   receipts at cost, per day in Africa/Accra) - all built now over INV's published views; and, in the
-   contract only, today's sales, cash position, outstanding receivables and a sales time series, whose
-   sources are BIL (B8), ORD and PAY (B9a) and POS (B9b). Never answer one of those from code before its
-   source exists: a 200 with a zero would be a placeholder. Add a line to the B8, B9a and B9b openers
-   naming the tile each must make live. Keep the planned getOwnerDashboard for B12 (NFR-023: one round trip
-   for the whole screen); the per-tile operations are the owner's addition, and each tile is useful alone.
+1. Dashboard in RPT, reading only published views (ADR-0011, ADR-0023), scoped to the branches the caller
+   holds rpt permissions at, money as integer pesewas, with asOf. Build getOwnerDashboard now (owner,
+   2026-11-15: NFR-023 from the start, one call for the frontend to wire, never rewired): it composes the
+   figures below, and its response carries a required list naming each figure that has no source yet and
+   why (figure, reason, and the phase that makes it live), each such figure null exactly while it is
+   listed. B8, B9a and B9b empty that list field by field with no contract change. Making those planned
+   OwnerDashboard fields nullable is a change to a published (never implemented) shape: a LOUD changelog
+   entry and a line at the top of the cold-read summary. If the contract versioning check calls it breaking,
+   do not weaken the check and do not bump the major version: leave getOwnerDashboard out, finish the rest,
+   and report the conflict. B12 keeps the caching and the performance budget. Also one operation per tile,
+   for tiles embedded on other screens: stock value at cost, animals on hand (serialised live stock units
+   on hand, by species), low stock count (products at or below their reorder point, from B05 continued 4's
+   published view), and a purchases time series over a period (posted goods receipts at cost, per day in
+   Africa/Accra), all live now; today's sales, cash position, outstanding receivables and a sales time
+   series in the contract only (mock), never answered from code before their source exists, since a 200
+   with a zero is a placeholder. Add a line to the B8, B9a and B9b openers naming the dashboard figures and
+   tiles each must make live.
 2. Branch and location management where B04d continued 2 left gaps: deactivate (and reactivate) a branch
    with its refusals (not the last active branch, not one holding stock or open documents, not the
    farm's own), and listBranches and listLocations scoped to the caller's grants. Kasoa and KNUST are real

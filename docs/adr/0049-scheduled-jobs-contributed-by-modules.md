@@ -1,6 +1,6 @@
 # ADR-0049: A module contributes its scheduled jobs to the worker through the composition root
 
-- **Status:** Proposed (B05 continued 3b; awaiting the owner)
+- **Status:** Accepted (approved by the owner on 2026-11-15: modules hand their jobs to the worker through this port and never reach into the queue library directly)
 - **Date:** 2026-11-15
 - **Session:** B05 continued 3b
 - **Deciders:** backend track
