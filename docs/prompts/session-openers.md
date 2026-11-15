@@ -23,7 +23,9 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B04d continued | `B04d-continued-master-data.md` | `b04d-continued-master-data` | B4 to B12 | Every catalogue write refuses the wrong role; the catalogue, price lists, tax scheme and promotions are seeded through services, and `calculateTax` answers on a fresh setup (built; the session split, A-108) |
 | B04d continued 2 | `B04d2-parties-locations.md` | `b04d2-parties-locations` | B4 to B12 | Every branch, location, customer and assignment write refuses the wrong role; branches, locations and customers are seeded through services, and nothing in the MDM seed is written as SQL (built; the session split, A-114) |
 | B04d continued 3 | `B04d3-reference-data.md` | `b04d3-reference-data` | B4 to B12 | Every remaining master data write refuses the wrong role; reason codes are a fixed list; `quoteDelivery` returns a zone's exact fee or "delivery unavailable"; the payment methods, zones and their seed are written through services (built) |
-| B4 continued (e) | `B04e-iam-carry-overs.md` | `b04e-iam-carry-overs` | B4 to B12 | The A-087 operations are live, each with a wrong-role refusal; the IAM seed is written through services |
+| B4 continued (e) | `B04e-iam-carry-overs.md` | `b04e-iam-carry-overs` | B4 to B12 | User, role-reading and grant administration refuse the wrong role; the IAM seed is written through the IAM services (built; the session split, A-121) |
+| B04e continued | `B04e2-auth-approvals.md` | `b04e2-auth-approvals` | B4 to B12 | Role writes, the approval endpoints, customer registration and phone verification, and password reset with CR-004 point 3's error codes are live, each with a wrong-role refusal |
+| B04e continued 2 | `B04e3-file-store-imports.md` | `b04e3-file-store-imports` | B4 to B12 | The file store with uploads, the malware scanner and `evidence_file_id` are live, each with a wrong-role refusal; MDM's imports and exports run with a dry run |
 | B5 | `B05-inventory-ledger.md` | `b05-inventory-ledger` | B4 to B12 | On-hand from movements matches a hand count; stock cannot go negative outside allowed types; a lot traces both ways |
 | B6 | `B06-livestock-processing.md` | `b06-livestock-processing` | B4 to B12 | A processing order produces lots whose costs sum exactly to input cost plus direct processing cost |
 | B7 | `B07-procurement-suppliers.md` | `b07-procurement-suppliers` | B4 to B12 | Three-way match blocks payment on disagreement; checkout reserves stock and releases it on timeout |
@@ -301,6 +303,8 @@ and open a stacked pull request against b04d2-parties-locations.
 
 ## B4 continued (e) — The B3 carry-overs in IAM
 
+**Built, and split (A-121).** B04e built user, role-reading and grant administration and moved the IAM seed onto the services (ADR-0043); the rest moved to the two sections that follow. The opener below is kept as it was run.
+
 Branch `b04e-iam-carry-overs`, from `b04d3-reference-data` (stacked). Report `docs/sessions/B04e-iam-carry-overs.md`. Gate: the A-087 operations are live (the file store with uploads, the malware scanner and `evidence_file_id` on `iam.approval_request`; user and grant administration; customer registration and phone verification; password reset with CR-004 point 3's error codes; `approveRequest`, `rejectRequest`, `listApprovals` and `getApproval` over the existing mechanism), each with a wrong-role refusal; the IAM seed is written through the IAM services. When this gate passes, B04 continued's gate as a whole has passed.
 
 ```text
@@ -322,13 +326,64 @@ Stop at the gate, write docs/sessions/B04e-iam-carry-overs.md, push, and open a 
 against b04d3-reference-data.
 ```
 
+## B04e continued — Roles, approvals and the customer realm
+
+Branch `b04e2-auth-approvals`, from `b04e-iam-carry-overs` (stacked; nothing is merged until the owner approves). Report `docs/sessions/B04e2-auth-approvals.md`. B04e built user, role-reading and grant administration (contract 1.10.0, A-120) and moved the IAM seed onto the services (ADR-0043), then split at that sub-domain boundary (A-121, ADR-0026 Amendments). Gate: `createRole` and `updateRole` (step-up, system roles not deletable), `listApprovals`, `getApproval`, `approveRequest`, `rejectRequest` and `cancelApprovalRequest` over the existing mechanism, `registerCustomer` and `verifyCustomerPhone` (FR-IAM-019: an identical answer for a known phone, a 6th wrong code refused even if correct), and `requestPasswordReset` and `resetPassword` (FR-IAM-020, with CR-004 point 3's named error codes for a wrong, used or expired token) are live, each write with a wrong-role refusal.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B04e-iam-carry-overs.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
+report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the IAM requirement block of docs/SRS.md (nothing else from the SRS),
+docs/data-model/iam.md, the IAM card in docs/MODULE_BOUNDARIES.md, ADR-0017, ADR-0034, ADR-0035 and
+ADR-0043. Use docs/prompts/module-build-prompt.md as the recipe, and run hakorem-security-review on every
+operation: they are authentication, approvals and permissions.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Copy the user and grant slice's shape (B04e: AccessAdmin, PgAccessStore, AccessController) for every
+endpoint, with the fragment moved from the planned file (scripts/contract/move-to-code.ts).
+Then execute B04e continued only, on branch b04e2-auth-approvals, branched from b04e-iam-carry-overs:
+role writes (createRole, updateRole), the approval endpoints over the existing Approvals mechanism
+(listApprovals, getApproval, approveRequest, rejectRequest, cancelApprovalRequest), customer registration
+and phone verification (FR-IAM-019), and password reset (FR-IAM-020) with CR-004 point 3's error codes.
+Notification delivery is B11's: send the codes through the existing notification port and record what
+waits. Write the failing tests first for every permission rule. Stop at the gate, write
+docs/sessions/B04e2-auth-approvals.md, push, and open a stacked pull request against b04e-iam-carry-overs.
+```
+
+## B04e continued 2 — The file store, uploads and MDM imports
+
+Branch `b04e3-file-store-imports`, from `b04e2-auth-approvals` (stacked). Report `docs/sessions/B04e3-file-store-imports.md`. Gate: `uploadFile`, `getFile` and `createFileSignedUrl` are live on the platform file store (size cap before the body is read, type by content sniffing, a random key, scan status `PENDING` until the malware scanner (A-057) says `CLEAN`, signed expiring URLs logged), `iam.approval_request.evidence_file_id` exists with its foreign key, product images attach through it, and MDM's imports and exports (FR-MDM-019, FR-MDM-020) run with a dry-run preview, each write with a wrong-role refusal. When this gate passes, B04e's and B04 continued's gates as a whole have passed.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B04e2-auth-approvals.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
+report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the MDM and DOC requirement blocks' file and import requirements in docs/SRS.md
+(FR-MDM-019, FR-MDM-020 and the DOC upload requirements, nothing else), docs/data-model/iam.md,
+docs/data-model/mdm.md, the platform and MDM cards in docs/MODULE_BOUNDARIES.md, ADR-0025, ADR-0032 and
+A-057 in docs/ASSUMPTIONS.md. Use docs/prompts/module-build-prompt.md as the recipe, and run
+hakorem-security-review on every operation: they are uploads, exports and permissions.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B04e continued 2 only, on branch b04e3-file-store-imports, branched from b04e2-auth-approvals:
+the file store with uploadFile, getFile and createFileSignedUrl, the malware scanner (A-057),
+evidence_file_id on iam.approval_request, product images, and MDM's imports and exports with a dry run.
+Write the failing tests first for every permission rule. Stop at the gate, write
+docs/sessions/B04e3-file-store-imports.md, push, and open a stacked pull request against b04e2-auth-approvals.
+```
+
 ## B5 — Inventory and the stock movement ledger
 
 Branch `b05-inventory-ledger`. Report `docs/sessions/B05-inventory-ledger.md`. Gate: on-hand derived from movements matches a hand count, stock cannot go negative outside the allowed movement types, and a lot traces in both directions.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
-List docs/sessions/ and read only the most recent report (docs/sessions/B04e-iam-carry-overs.md).
+List docs/sessions/ and read only the most recent report (docs/sessions/B04e3-file-store-imports.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
 report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the INV requirement block of docs/SRS.md (nothing else from the SRS),

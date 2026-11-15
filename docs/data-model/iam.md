@@ -209,6 +209,7 @@ A role given to a principal at a branch, optionally one location.
 Standard columns: `MASTER`.
 
 - UNIQUE NULLS NOT DISTINCT (`principal_id`, `role_id`, `branch_id`, `location_id`) among live rows.
+- CHECK `created_by <> principal_id` (migration 0004) and, from migration 0027, `deleted_by IS NULL OR deleted_by <> principal_id`: nobody grants themselves a role or revokes their own grant. A revocation is the soft deletion of the row (B04e).
 
 ### `iam.approval_policy` · MASTER
 
