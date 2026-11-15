@@ -4,9 +4,8 @@ import { canCancel, CUSTOMER_COLUMNS, duplicateErrors, isAvailable, isBulkExport
 const cells = (entries: Record<string, string>) => new Map(Object.entries(entries));
 
 describe('which entities have sheets (A-128, A-130)', () => {
-  it('builds every master data sheet; opening stock waits for B5', () => {
-    for (const entity of ['PRODUCT', 'CUSTOMER', 'SUPPLIER', 'PRICE_LIST_ENTRY', 'LOCATION'] as const) expect(isAvailable(entity)).toBe(true);
-    expect(isAvailable('OPENING_STOCK')).toBe(false);
+  it('offers every entity, opening stock through the sheet INV registers (ADR-0050)', () => {
+    for (const entity of ['PRODUCT', 'CUSTOMER', 'SUPPLIER', 'PRICE_LIST_ENTRY', 'LOCATION', 'OPENING_STOCK'] as const) expect(isAvailable(entity)).toBe(true);
   });
 });
 

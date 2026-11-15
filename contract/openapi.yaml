@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.19.0"
+  version: "1.20.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -16199,7 +16199,7 @@ paths:
       tags:
         - mdm
       summary: "Upload a spreadsheet and validate it as a dry run"
-      description: "Upload the spreadsheet first with POST /files, purpose `IMPORT` (XLSX or CSV), and wait until `getFile` shows it `CLEAN`. The first sheet's first row names the columns; each further row is one record. This call runs the dry run and writes nothing but the job and its row errors: the job comes back `VALIDATED` with `rowsTotal`, `rowsValid`, `rowsToCreate` and `rowsToUpdate`, and each row error is listed by `listImportErrors`; a file that cannot be read as this entity's sheet (no header, an unknown or missing column, no rows, more than 5,000 rows) comes back `FAILED` with its errors on row 1. Columns are matched without regard to case; a blank cell on a row that changes a record changes nothing. `CUSTOMER`: `customerNo` (blank creates a customer, a number changes that customer), `kind`, `name`, `phone`, `email`, `tier`. `PRODUCT`: `sku` names the product (a new SKU creates one, ACTIVE and `HIDDEN` online unless `onlineMode` says otherwise), `name`, `category` (code), `stockPolicy`, `species` (code), `baseUom`, `saleUom`, `taxCategory` (code; blank takes the category's), `nominalPackKg`, `shelfLifeDays`, `barcode`, `description`, `onlineMode`; the policy, species and units of an existing product never change. `SUPPLIER`: `supplierNo` (blank registers a supplier), `name`, `contactName`, `phone`, `email`, `address`, `categories` (category codes separated by `;`, replacing the categories supplied); no tax number column. `LOCATION`: `branch` and `code` name the location (a new code creates one), `name`, `kind` (physical kinds only), `parent` (code of a live location of the branch, or of a row above), `isSellable`, `tempClass`, `tempMinC`, `tempMaxC`, `capacityHead`; kind and temperature class never change, and virtual locations are never imported. `PRICE_LIST_ENTRY`: `priceList` (code), `sku`, `grade`, `weightBand` (codes of the product's species), `minQty`, `basis`, `listPricePesewas`, `floorPricePesewas`, `ceilingPricePesewas` (integer pesewas: 85000 is GHS 850.00), `quoteOnly`; rows are written into the list's `DRAFT` version only (a row matching an entry on product, grade, band and minimum quantity replaces it, any other adds one, entries not named stay), a list with no draft or one waiting for approval is a row error, and the draft still needs maker-checker approval to go live. `OPENING_STOCK` is 422 `IMPORT_ENTITY_NOT_AVAILABLE` until inventory is built. A file of another use, or none, is 422 `REFERENCE_NOT_FOUND`; one not `CLEAN` is 422 `FILE_NOT_CLEAN`; someone else's upload also needs `platform.file.read.any`.\n\nPermission: `mdm.import.create`."
+      description: "Upload the spreadsheet first with POST /files, purpose `IMPORT` (XLSX or CSV), and wait until `getFile` shows it `CLEAN`. The first sheet's first row names the columns; each further row is one record. This call runs the dry run and writes nothing but the job and its row errors: the job comes back `VALIDATED` with `rowsTotal`, `rowsValid`, `rowsToCreate` and `rowsToUpdate`, and each row error is listed by `listImportErrors`; a file that cannot be read as this entity's sheet (no header, an unknown or missing column, no rows, more than 5,000 rows) comes back `FAILED` with its errors on row 1. Columns are matched without regard to case; a blank cell on a row that changes a record changes nothing. `CUSTOMER`: `customerNo` (blank creates a customer, a number changes that customer), `kind`, `name`, `phone`, `email`, `tier`. `PRODUCT`: `sku` names the product (a new SKU creates one, ACTIVE and `HIDDEN` online unless `onlineMode` says otherwise), `name`, `category` (code), `stockPolicy`, `species` (code), `baseUom`, `saleUom`, `taxCategory` (code; blank takes the category's), `nominalPackKg`, `shelfLifeDays`, `barcode`, `description`, `onlineMode`; the policy, species and units of an existing product never change. `SUPPLIER`: `supplierNo` (blank registers a supplier), `name`, `contactName`, `phone`, `email`, `address`, `categories` (category codes separated by `;`, replacing the categories supplied); no tax number column. `LOCATION`: `branch` and `code` name the location (a new code creates one), `name`, `kind` (physical kinds only), `parent` (code of a live location of the branch, or of a row above), `isSellable`, `tempClass`, `tempMinC`, `tempMaxC`, `capacityHead`; kind and temperature class never change, and virtual locations are never imported. `PRICE_LIST_ENTRY`: `priceList` (code), `sku`, `grade`, `weightBand` (codes of the product's species), `minQty`, `basis`, `listPricePesewas`, `floorPricePesewas`, `ceilingPricePesewas` (integer pesewas: 85000 is GHS 850.00), `quoteOnly`; rows are written into the list's `DRAFT` version only (a row matching an entry on product, grade, band and minimum quantity replaces it, any other adds one, entries not named stay), a list with no draft or one waiting for approval is a row error, and the draft still needs maker-checker approval to go live. `OPENING_STOCK` (inventory's sheet): `branch` and `location` (codes of a physical stock location, not in transit or a site), `sku`, `qty`, `valuePesewas` (the line's cost, above zero), `batch` and `expiresOn` for a lot (the expiry when the product has a shelf life), `tag` and `sex` for an animal (one row per animal, `qty` 1), `weightKg` (recorded as `MANUAL`); a product that already has stock history at the branch, a batch or tag already in use, or a repeated row is a row error: opening stock is loaded once, before trading. A branch or location the importer cannot reach is refused when the import is applied. A file of another use, or none, is 422 `REFERENCE_NOT_FOUND`; one not `CLEAN` is 422 `FILE_NOT_CLEAN`; someone else's upload also needs `platform.file.read.any`.\n\nPermission: `mdm.import.create`."
       x-error-codes:
         - VALIDATION_FAILED
         - IDEMPOTENCY_KEY_REQUIRED
@@ -16423,7 +16423,7 @@ paths:
       tags:
         - mdm
       summary: "Apply a validated import"
-      description: "Applies every row in one transaction, or none. Only a `VALIDATED` import whose dry run found no row error is applied; anything else is 422 `IMPORT_NOT_VALIDATED`. The rows are checked again inside the transaction: if the database moved since the dry run and a row no longer passes, nothing is written, the new errors are added to the job and the answer is 422 `IMPORT_NOT_VALIDATED`. Each row is written through the entity's own rules and audited, so applying also needs the entity's create or update permission for the rows that create or change records (for customers `mdm.customer.create` and `mdm.customer.update`; for products, suppliers and locations their own `.create` and `.update`; for price list entries `mdm.price_list.update`). Locations and price list entries are also checked at each branch the file writes: a grant at one branch does not write another's (403). Price list entries are written into each list's `DRAFT` version, never an active one. Opening stock waits for the inventory module (B5).\n\nPermission: `mdm.import.apply`."
+      description: "Applies every row in one transaction, or none. Only a `VALIDATED` import whose dry run found no row error is applied; anything else is 422 `IMPORT_NOT_VALIDATED`. The rows are checked again inside the transaction: if the database moved since the dry run and a row no longer passes, nothing is written, the new errors are added to the job and the answer is 422 `IMPORT_NOT_VALIDATED`. Each row is written through the entity's own rules and audited, so applying also needs the entity's create or update permission for the rows that create or change records (for customers `mdm.customer.create` and `mdm.customer.update`; for products, suppliers and locations their own `.create` and `.update`; for price list entries `mdm.price_list.update`). Locations and price list entries are also checked at each branch the file writes: a grant at one branch does not write another's (403). Price list entries are written into each list's `DRAFT` version, never an active one. `OPENING_STOCK` also needs `inv.opening_stock.load` at each location the file writes, and posts one goods receipt of kind `OPENING` per location, its `OPENING_BALANCE` movements from the branch's opening location at the stated cost, in the same transaction.\n\nPermission: `mdm.import.apply`."
       x-error-codes:
         - VALIDATION_FAILED
         - IDEMPOTENCY_KEY_REQUIRED
@@ -16575,7 +16575,7 @@ paths:
       tags:
         - mdm
       summary: "Export master data to a spreadsheet"
-      description: "Export is a permission, and every export needs a fresh step-up, whatever its size. It is audited with the user, the entity, the format and its row count; an export of more than 100 rows is marked bulk for the daily exception report (SEC-009). Exporting also needs the entity's read permission (`mdm.product.read`, `mdm.customer.read`, `mdm.supplier.read`, `mdm.location.read` or `mdm.price_list.read`). The job comes back `APPLIED` with the row count, and its `file` is a private `EXPORT` file: once `getFile` shows it `CLEAN` (the worker scans it like any file), `createFileSignedUrl` issues the download link, which expires after five minutes and is logged. CSV cells that would start a formula are written with a leading apostrophe. The file has the columns `createImportJob` reads, so a corrected export imports back: locations leave out virtual ones, price list entries are those of each list's version active now (drafts are not exported), customers leave out anonymised ones. `OPENING_STOCK` is 422 `IMPORT_ENTITY_NOT_AVAILABLE` until inventory is built.\n\nPermission: `mdm.export.create`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      description: "Export is a permission, and every export needs a fresh step-up, whatever its size. It is audited with the user, the entity, the format and its row count; an export of more than 100 rows is marked bulk for the daily exception report (SEC-009). Exporting also needs the entity's read permission (`mdm.product.read`, `mdm.customer.read`, `mdm.supplier.read`, `mdm.location.read` or `mdm.price_list.read`). The job comes back `APPLIED` with the row count, and its `file` is a private `EXPORT` file: once `getFile` shows it `CLEAN` (the worker scans it like any file), `createFileSignedUrl` issues the download link, which expires after five minutes and is logged. CSV cells that would start a formula are written with a leading apostrophe. The file has the columns `createImportJob` reads, so a corrected export imports back: locations leave out virtual ones, price list entries are those of each list's version active now (drafts are not exported), customers leave out anonymised ones. `OPENING_STOCK` exports the empty template (its header, no rows) and needs `inv.stock.read`: stock on hand is reported by `listStockOnHand`, never re-imported.\n\nPermission: `mdm.export.create`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-error-codes:
         - VALIDATION_FAILED
         - IDEMPOTENCY_KEY_REQUIRED
@@ -20259,7 +20259,7 @@ paths:
       tags:
         - inv
       summary: "Draft a goods receipt"
-      description: "Receiving twenty broilers or four goats. A purchase names its supplier; a harvest names none. For a serialised product list every animal with its tag, one per head; a lot needs a batch number, and an expiry date when the product has a shelf life (422 `GOODS_RECEIPT_INVALID`, each `details[].code` naming the rule). The receiving location is a physical location that holds stock, never in-transit. A receipt of kind `OPENING` is refused (`OPENING_NOT_AVAILABLE`) until the opening stock workflow is built.\n\nPermission: `inv.goods_receipt.create`, scoped to the receiving location."
+      description: "Receiving twenty broilers or four goats. A purchase names its supplier; a harvest names none. For a serialised product list every animal with its tag, one per head; a lot needs a batch number, and an expiry date when the product has a shelf life (422 `GOODS_RECEIPT_INVALID`, each `details[].code` naming the rule). The receiving location is a physical location that holds stock, never in-transit. A receipt of kind `OPENING` is refused here (`OPENING_NOT_AVAILABLE`): opening stock is loaded only by an `OPENING_STOCK` import, with its dry run and `inv.opening_stock.load`.\n\nPermission: `inv.goods_receipt.create`, scoped to the receiving location."
       x-permission: inv.goods_receipt.create
       x-error-codes:
         - VALIDATION_FAILED
@@ -22914,7 +22914,7 @@ paths:
       tags:
         - inv
       summary: "List the lines of a stock take"
-      description: "The lines and, from review on, the variance report: expected, counted and recounted quantity, the variance and its value at cost. While the take is `DRAFT` or `COUNTING`, `expectedQty`, `varianceQty`, `varianceValuePesewas` and `varianceDirection` are null for every reader: the count is blind. In review, `needsRecount` marks every line whose first count differs from the expected figure and has not been recounted.\n\nPermission: `inv.stock_take.read`, scoped to the take's location."
+      description: "The lines and, from review on, the variance report: expected, counted and recounted quantity, the variance and its value at cost. While the take is `DRAFT` or `COUNTING`, `expectedQty`, `varianceQty`, `varianceValuePesewas` and `varianceDirection` are null for every reader: the count is blind. The example is the counting take of `getStockTake`'s example, so its figures are hidden (CR-012). In review, `needsRecount` marks every line whose first count differs from the expected figure and has not been recounted.\n\nPermission: `inv.stock_take.read`, scoped to the take's location."
       x-permission: inv.stock_take.read
       x-error-codes:
         - VALIDATION_FAILED
@@ -22962,13 +22962,13 @@ paths:
                       name: "Yam, tuber"
                     stockUnit: null
                     uom: TUBER
-                    expectedQty: "40.000"
+                    expectedQty: null
                     countedQty: "34.000"
-                    recountQty: "34.000"
+                    recountQty: null
                     countedWeightKg: null
-                    varianceQty: "-6.000"
-                    varianceValuePesewas: 12000
-                    varianceDirection: LOSS
+                    varianceQty: null
+                    varianceValuePesewas: null
+                    varianceDirection: null
                     needsRecount: false
                   - id: "019a7aba-fe41-7265-b79d-2f26451ca804"
                     product:
@@ -22977,13 +22977,13 @@ paths:
                       name: "Cabbage, head"
                     stockUnit: null
                     uom: UNIT
-                    expectedQty: "26.000"
+                    expectedQty: null
                     countedQty: "30.000"
                     recountQty: null
                     countedWeightKg: null
-                    varianceQty: "4.000"
-                    varianceValuePesewas: 3200
-                    varianceDirection: GAIN
+                    varianceQty: null
+                    varianceValuePesewas: null
+                    varianceDirection: null
                     needsRecount: false
                   - id: "019a7abb-1d30-7c48-8181-cd5dbecd463b"
                     product:
@@ -22995,13 +22995,13 @@ paths:
                       identifier: MEAT-BEEF-261104-01
                       tracking: LOT
                     uom: CRATE
-                    expectedQty: "48.000"
+                    expectedQty: null
                     countedQty: "46.000"
                     recountQty: null
                     countedWeightKg: null
-                    varianceQty: "-2.000"
-                    varianceValuePesewas: 8000
-                    varianceDirection: LOSS
+                    varianceQty: null
+                    varianceValuePesewas: null
+                    varianceDirection: null
                     needsRecount: false
                   - id: "019a7abb-3c1f-762c-9b64-6b95387ee473"
                     product:
@@ -23013,13 +23013,13 @@ paths:
                       identifier: BRL-2610-01
                       tracking: LOT
                     uom: KG
-                    expectedQty: "29.750"
+                    expectedQty: null
                     countedQty: "29.750"
                     recountQty: null
                     countedWeightKg: "29.750"
-                    varianceQty: "0.000"
-                    varianceValuePesewas: 0
-                    varianceDirection: NONE
+                    varianceQty: null
+                    varianceValuePesewas: null
+                    varianceDirection: null
                     needsRecount: false
                   - id: "019a7abb-5b0e-700f-a547-09ccb22f82aa"
                     product:
@@ -23031,13 +23031,13 @@ paths:
                       identifier: EGG-261112-L1
                       tracking: LOT
                     uom: KG
-                    expectedQty: "97.800"
+                    expectedQty: null
                     countedQty: "97.800"
                     recountQty: null
                     countedWeightKg: "97.800"
-                    varianceQty: "0.000"
-                    varianceValuePesewas: 0
-                    varianceDirection: NONE
+                    varianceQty: null
+                    varianceValuePesewas: null
+                    varianceDirection: null
                     needsRecount: false
                   - id: "019a7abb-79fd-79f3-bf2b-a8042be020e2"
                     product:
@@ -23049,13 +23049,13 @@ paths:
                       identifier: TOM-261111-COOP
                       tracking: LOT
                     uom: CRATE
-                    expectedQty: "12.000"
+                    expectedQty: null
                     countedQty: "11.000"
                     recountQty: null
                     countedWeightKg: null
-                    varianceQty: "-1.000"
-                    varianceValuePesewas: 51500
-                    varianceDirection: LOSS
+                    varianceQty: null
+                    varianceValuePesewas: null
+                    varianceDirection: null
                     needsRecount: false
                 page:
                   nextCursor: eyJpZCI6IjAxOWE3YyJ9
@@ -23467,8 +23467,14 @@ paths:
       tags:
         - inv
       summary: "List reorder rules"
-      description: "Permission: `inv.reorder_rule.read`."
+      description: "The live reorder rules within the caller's grants, in id order: per product and branch, or one location of it, with the minimum, the reorder point (a `LOW_STOCK` alert is raised when available stock falls to or below it), the maximum (the suggested reorder brings stock back to it) and the expiry alert lead time (null takes the default of 3 days).\n\nPermission: `inv.reorder_rule.read`."
       x-permission: inv.reorder_rule.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: productId
           in: query
@@ -23608,8 +23614,20 @@ paths:
       tags:
         - inv
       summary: "Create a reorder rule"
-      description: "Permission: `inv.reorder_rule.manage`."
+      description: "One rule per product and branch, or per product and one physical stock location of the branch (not in transit, not a site). The minimum is at or under the reorder point, which is at or under the maximum, which is above zero; `expiryAlertDays` is 1 to 365. A broken rule is 422 `REORDER_RULE_INVALID` with each `details[].code` naming it (`BELOW_MINIMUM`, `BELOW_REORDER_POINT`, `MAXIMUM_REQUIRED`, `OUT_OF_RANGE`, `NOT_A_STOCK_PRODUCT`, `NOT_A_STOCK_LOCATION`, `NOT_IN_THE_BRANCH`, `RULE_EXISTS`). The rule is judged at once against available stock (on hand less reserved less held): if that is already at or below the reorder point a `LOW_STOCK` alert is raised.\n\nPermission: `inv.reorder_rule.manage`, scoped to the branch and the location."
       x-permission: inv.reorder_rule.manage
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - REORDER_RULE_INVALID
+        - REFERENCE_NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -23672,8 +23690,21 @@ paths:
       tags:
         - inv
       summary: "Change a reorder rule"
-      description: "Permission: `inv.reorder_rule.manage`."
+      description: "Changes the levels and the lead time; the product, branch and location never change. Send the `version` read; a stale one is 409 `VERSION_CONFLICT`. The rule is judged again at once: an open alert whose level is no longer crossed is cleared, a newly crossed level raises its alert.\n\nPermission: `inv.reorder_rule.manage`, scoped to the rule's branch and location."
       x-permission: inv.reorder_rule.manage
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - REORDER_RULE_INVALID
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -23741,8 +23772,14 @@ paths:
       tags:
         - inv
       summary: "List low-stock and expiring-stock alerts"
-      description: "Permission: `inv.stock.read`."
+      description: "Open alerts within the caller's grants, newest first. `LOW_STOCK` (available at or below the reorder point) and `BELOW_MINIMUM` (under the minimum) belong to a reorder rule and are raised once per crossing, in the transaction of the movement, reservation or hold that crossed it, and cleared once stock rises above the level again; `onHandQty` is what is available now, `thresholdQty` the level crossed and `suggestedQty` what brings it back to the maximum. `EXPIRING` (within the lead time of the product's rule, default 3 days) and `EXPIRED` (past the expiry date, and refused to any sale with `STOCK_UNIT_EXPIRED`, so flagged for write-off) belong to a lot where it stands and are raised by the daily job; `onHandQty` is its on hand there and `daysToExpiry` counts from today in Africa/Accra. Each alert is also published as `inv.StockAlertRaised`.\n\nPermission: `inv.stock.read`."
       x-permission: inv.stock.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: branchId
           in: query
@@ -23795,6 +23832,7 @@ paths:
                     uom: BAG
                     onHandQty: "12.000"
                     thresholdQty: "15.000"
+                    suggestedQty: "48.000"
                     expiresOn: null
                     daysToExpiry: null
                     raisedAt: "2026-11-13T05:00:00Z"
@@ -23815,6 +23853,7 @@ paths:
                     uom: CRATE
                     onHandQty: "12.000"
                     thresholdQty: null
+                    suggestedQty: null
                     expiresOn: "2026-11-18"
                     daysToExpiry: 5
                     raisedAt: "2026-11-13T05:01:00Z"
@@ -23828,6 +23867,7 @@ paths:
                     uom: UNIT
                     onHandQty: "2.000"
                     thresholdQty: "3.000"
+                    suggestedQty: "18.000"
                     expiresOn: null
                     daysToExpiry: null
                     raisedAt: "2026-11-13T05:02:00Z"
@@ -23848,6 +23888,7 @@ paths:
                     uom: CRATE
                     onHandQty: "48.000"
                     thresholdQty: null
+                    suggestedQty: null
                     expiresOn: "2026-12-03"
                     daysToExpiry: 20
                     raisedAt: "2026-11-13T05:03:00Z"
@@ -23865,6 +23906,7 @@ paths:
                     uom: TUBER
                     onHandQty: "22.000"
                     thresholdQty: "25.000"
+                    suggestedQty: "58.000"
                     expiresOn: null
                     daysToExpiry: null
                     raisedAt: "2026-11-13T05:04:00Z"
@@ -23885,6 +23927,7 @@ paths:
                     uom: KG
                     onHandQty: "15.000"
                     thresholdQty: null
+                    suggestedQty: null
                     expiresOn: "2026-11-12"
                     daysToExpiry: -1
                     raisedAt: "2026-11-13T05:05:00Z"
@@ -23908,8 +23951,14 @@ paths:
       tags:
         - inv
       summary: "List cold-chain temperature readings"
-      description: "Permission: `inv.cold_chain.read`."
+      description: "Readings within the caller's grants, oldest first, with `isExcursion` against the range the location had when the reading was recorded.\n\nPermission: `inv.cold_chain.read`."
       x-permission: inv.cold_chain.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: locationId
           in: query
@@ -24062,8 +24111,21 @@ paths:
       tags:
         - inv
       summary: "Record a temperature reading"
-      description: "A reading outside the location's range places a QUARANTINE hold on every lot there and raises an exception, in the same transaction.\n\nPermission: `inv.cold_chain.record`.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result."
+      description: "Records a reading at a cold room or vehicle against its permitted range, which is copied onto the reading; both bounds are in range. A reading outside it is an excursion, and in the same transaction every lot and animal with stock in the location gets a `QUARANTINE` hold (from `measuredAt`, until a person releases it with `releaseStockHold`; never the person who recorded it), every stock line there raises a `TEMPERATURE_EXCURSION` stock exception (`exceptionId` is the first), and `inv.TemperatureExcursionRecorded` is published. A location with no permitted range, a virtual one, or a time more than five minutes ahead of the server is 422 `TEMPERATURE_READING_INVALID` (`NO_TEMPERATURE_RANGE`, `NOT_A_STOCK_LOCATION`, `IN_THE_FUTURE`). Readings are never changed.\n\nPermission: `inv.cold_chain.record`, scoped to the location.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result (`ID_IN_USE` if that id is another location's reading)."
       x-permission: inv.cold_chain.record
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - TEMPERATURE_READING_INVALID
+        - REFERENCE_NOT_FOUND
+        - STOCK_HOLD_INVALID
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -76937,6 +76999,11 @@ components:
           anyOf:
             - $ref: "#/components/schemas/Quantity"
             - type: "null"
+        suggestedQty:
+          anyOf:
+            - $ref: "#/components/schemas/Quantity"
+            - type: "null"
+          description: "For a level alert, what brings available stock back to the rule's maximum (FR-INV-015); null for an expiry alert."
         expiresOn:
           type:
             - string
@@ -76957,6 +77024,7 @@ components:
         - uom
         - onHandQty
         - thresholdQty
+        - suggestedQty
         - expiresOn
         - daysToExpiry
         - raisedAt

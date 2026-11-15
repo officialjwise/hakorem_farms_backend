@@ -61,6 +61,15 @@ export interface GoodsReceiptCreateRequest {
   readonly lines: readonly ReceiptLineInput[];
 }
 
+/**
+ * How a caller inside INV drafts and posts a receipt. Only the `OPENING_STOCK` import sheet sets `openingStock`: an
+ * opening balance enters through the import's dry run, its two permissions and its once-per-branch rule, never as a
+ * goods receipt over HTTP, which stays refused (`OPENING_NOT_AVAILABLE`, A-136 (a), decided in A-147).
+ */
+export interface ReceiptOptions {
+  readonly openingStock?: true;
+}
+
 export interface GoodsReceiptUpdateRequest {
   readonly version: number;
   readonly deliveryNoteRef?: string | undefined;
@@ -129,9 +138,10 @@ export interface Page<V> {
 }
 
 /** The movement type and the virtual location each kind of receipt brings stock in from (ADR-0002). */
-const RECEIPT_SOURCE: Readonly<Record<Exclude<ReceiptKind, 'OPENING'>, { readonly movementType: string; readonly virtualKind: string }>> = {
+const RECEIPT_SOURCE: Readonly<Record<ReceiptKind, { readonly movementType: string; readonly virtualKind: string }>> = {
   PURCHASE: { movementType: 'RECEIPT_PURCHASE', virtualKind: 'SUPPLIER' },
   HARVEST: { movementType: 'RECEIPT_HARVEST', virtualKind: 'PRODUCTION' },
+  OPENING: { movementType: 'OPENING_BALANCE', virtualKind: 'OPENING' },
 };
 /** Where stock may be received: a physical location that holds stock, never in-transit (FR-INV-010). */
 const NOT_RECEIVING: ReadonlySet<string> = new Set(['IN_TRANSIT', 'SITE']);
@@ -146,8 +156,9 @@ const SYSTEM_PRINCIPAL_NAME: PrincipalRef = { id: '', displayName: 'Unknown' };
  * serializable transaction, and publishes `inv.StockUnitRegistered` for each unit; the movement trigger values and
  * books the stock, and each movement publishes its own ledger event. Every handler authorises first, scoped to the
  * receipt's branch and receiving location (a storekeeper granted at the cold room cannot receive into the pens), and
- * every write is idempotent and audited with before and after. A receipt of kind OPENING is refused until the
- * opening stock workflow exists (A-136).
+ * every write is idempotent and audited with before and after. A receipt of kind OPENING is refused over HTTP: opening
+ * stock is loaded only by the `OPENING_STOCK` import, which drafts and posts its receipts here with `openingStock`,
+ * from the branch's virtual OPENING location as `OPENING_BALANCE` movements (A-136, A-147, ADR-0050).
  */
 export class GoodsReceipts {
   private readonly nextId: () => string;
@@ -215,9 +226,9 @@ export class GoodsReceipts {
   }
 
   /** Drafts a receipt in the caller's transaction, every rule of createGoodsReceipt applied and audited; the caller authorised it. */
-  async createIn(tx: Transaction, actor: Actor, body: GoodsReceiptCreateRequest): Promise<GoodsReceiptView> {
+  async createIn(tx: Transaction, actor: Actor, body: GoodsReceiptCreateRequest, options: ReceiptOptions = {}): Promise<GoodsReceiptView> {
     const location = await this.receivingLocation(tx, body.locationId);
-    await this.checkHeader(tx, body);
+    await this.checkHeader(tx, body, false, options);
     await this.checkLines(tx, body.kind, body.receivedAt, body.lines);
     const id = this.nextId();
     await this.documents.register(tx, { id, docType: 'GOODS_RECEIPT', ownerModule: 'inv', branchId: location.branchId, actorId: actor.principalId });
@@ -313,13 +324,10 @@ export class GoodsReceipts {
    * Posts a DRAFT receipt in the caller's serializable transaction; the caller authorised `inv.goods_receipt.post`
    * for its branch and location. The rules are checked again against master data as it is now.
    */
-  async postIn(tx: Transaction, actor: Actor, id: string): Promise<GoodsReceiptView> {
+  async postIn(tx: Transaction, actor: Actor, id: string, options: ReceiptOptions = {}): Promise<GoodsReceiptView> {
     const receipt = await this.lockedDraft(tx, id, null);
-    if (receipt.kind === 'OPENING') {
-      throw new GoodsReceiptInvalidError([{ field: '/kind', rule: 'OPENING_NOT_AVAILABLE' }]);
-    }
     const location = await this.receivingLocation(tx, receipt.locationId);
-    await this.checkHeader(tx, { kind: receipt.kind, supplierId: receipt.supplierId ?? undefined, purchaseOrderId: receipt.orderDocumentId ?? undefined }, true);
+    await this.checkHeader(tx, { kind: receipt.kind, supplierId: receipt.supplierId ?? undefined, purchaseOrderId: receipt.orderDocumentId ?? undefined }, true, options);
     await this.checkLines(tx, receipt.kind, receipt.receivedAt, receipt.lines.map(lineInputOf));
     const source = RECEIPT_SOURCE[receipt.kind];
     const from = await this.refs.virtualLocationIn(tx, location.branchId, source.virtualKind);
@@ -442,8 +450,9 @@ export class GoodsReceipts {
     tx: Transaction,
     header: { readonly kind: ReceiptKind; readonly supplierId?: string | undefined; readonly purchaseOrderId?: string | undefined },
     posting = false,
+    options: ReceiptOptions = {},
   ): Promise<void> {
-    if (header.kind === 'OPENING') {
+    if (header.kind === 'OPENING' && options.openingStock !== true) {
       throw new GoodsReceiptInvalidError([{ field: '/kind', rule: 'OPENING_NOT_AVAILABLE' }]);
     }
     if (header.kind === 'PURCHASE' && header.supplierId === undefined) {

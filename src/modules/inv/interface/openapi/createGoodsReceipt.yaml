@@ -2,7 +2,7 @@ operationId: createGoodsReceipt
 tags:
   - inv
 summary: "Draft a goods receipt"
-description: "Receiving twenty broilers or four goats. A purchase names its supplier; a harvest names none. For a serialised product list every animal with its tag, one per head; a lot needs a batch number, and an expiry date when the product has a shelf life (422 `GOODS_RECEIPT_INVALID`, each `details[].code` naming the rule). The receiving location is a physical location that holds stock, never in-transit. A receipt of kind `OPENING` is refused (`OPENING_NOT_AVAILABLE`) until the opening stock workflow is built.\n\nPermission: `inv.goods_receipt.create`, scoped to the receiving location."
+description: "Receiving twenty broilers or four goats. A purchase names its supplier; a harvest names none. For a serialised product list every animal with its tag, one per head; a lot needs a batch number, and an expiry date when the product has a shelf life (422 `GOODS_RECEIPT_INVALID`, each `details[].code` naming the rule). The receiving location is a physical location that holds stock, never in-transit. A receipt of kind `OPENING` is refused here (`OPENING_NOT_AVAILABLE`): opening stock is loaded only by an `OPENING_STOCK` import, with its dry run and `inv.opening_stock.load`.\n\nPermission: `inv.goods_receipt.create`, scoped to the receiving location."
 x-permission: inv.goods_receipt.create
 x-error-codes:
   - VALIDATION_FAILED

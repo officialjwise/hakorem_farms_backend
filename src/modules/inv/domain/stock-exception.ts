@@ -77,6 +77,8 @@ export function exceptionSummary(e: ExceptionFacts): string {
       return `${text(d['movementType'])} took on hand to ${text(d['onHandAfter'])}; the uncovered quantity carried no cost`;
     case 'RESERVATION_CONFLICT':
       return `${text(d['movementType'])} left ${text(d['onHandAfter'])} on hand against ${text(d['reserved'])} reserved`;
+    case 'TEMPERATURE_EXCURSION':
+      return `${text(d['readingC'])} °C at ${text(d['locationCode'])}, outside ${text(d['minC'])} to ${text(d['maxC'])} °C; ${text(e.qty)} ${d['holdId'] === null ? 'on hand, not tracked by lot, so not held' : 'quarantined'}`;
     case 'BALANCE_DRIFT':
       return `Nightly recompute: ${text(d['projection'])} ${text(d['projectedQty'])}, ledger ${text(d['ledgerQty'])}; nothing was corrected`;
     default:

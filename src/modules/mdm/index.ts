@@ -28,3 +28,11 @@ export { LocationsAdmin } from './application/locations-admin';
 export { PartiesAdmin } from './application/parties-admin';
 export { ReferenceDataAdmin } from './application/reference-data-admin';
 export { MasterDataRefs, type BranchFacts, type GradeFacts, type LocationFacts, type ProductFacts, type ReasonCodeFacts, type SupplierFacts } from './application/master-data-refs';
+/**
+ * B05 continued 4 adds the import sheet port (ADR-0050): a higher module that owns an entity's rows implements
+ * `EntitySheet` and registers it with `MdmImports.registerSheet` when it starts, as INV does for `OPENING_STOCK`; MDM
+ * reads the file, runs the dry run and the all-or-none apply, and the sheet writes through its own module's services.
+ */
+export { MdmImports } from './application/imports';
+export { cached, readRows, type EntitySheet, type SheetCheck, type SheetRecords } from './application/import-sheets';
+export { duplicateErrors, type RowError, type SheetColumns } from './domain/imports';

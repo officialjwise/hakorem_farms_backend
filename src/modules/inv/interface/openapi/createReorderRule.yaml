@@ -1,0 +1,74 @@
+operationId: createReorderRule
+tags:
+  - inv
+summary: "Create a reorder rule"
+description: "One rule per product and branch, or per product and one physical stock location of the branch (not in transit, not a site). The minimum is at or under the reorder point, which is at or under the maximum, which is above zero; `expiryAlertDays` is 1 to 365. A broken rule is 422 `REORDER_RULE_INVALID` with each `details[].code` naming it (`BELOW_MINIMUM`, `BELOW_REORDER_POINT`, `MAXIMUM_REQUIRED`, `OUT_OF_RANGE`, `NOT_A_STOCK_PRODUCT`, `NOT_A_STOCK_LOCATION`, `NOT_IN_THE_BRANCH`, `RULE_EXISTS`). The rule is judged at once against available stock (on hand less reserved less held): if that is already at or below the reorder point a `LOW_STOCK` alert is raised.\n\nPermission: `inv.reorder_rule.manage`, scoped to the branch and the location."
+x-permission: inv.reorder_rule.manage
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - REORDER_RULE_INVALID
+  - REFERENCE_NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ReorderRuleCreate"
+      example:
+        productId: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+        branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+        minQty: "10.000"
+        reorderPointQty: "15.000"
+        maxQty: "60.000"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ReorderRule"
+        example:
+          id: "019a7abb-98ec-73d6-890e-463ba591bf19"
+          product:
+            id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+            sku: FD-BRL-FIN
+            name: "Broiler finisher feed, 50 kg bag"
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          location: null
+          uom: BAG
+          minQty: "10.000"
+          reorderPointQty: "15.000"
+          maxQty: "60.000"
+          expiryAlertDays: null
+          version: 1
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

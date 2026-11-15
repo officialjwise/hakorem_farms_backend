@@ -259,7 +259,7 @@ import { ImportsController } from './interface/imports.controller';
     { provide: MASTER_DATA_REFS_STORE, useClass: PgMasterDataRefsStore },
     { provide: MasterDataRefs, useFactory: (store: MasterDataRefsStore) => new MasterDataRefs(store), inject: [MASTER_DATA_REFS_STORE] },
   ],
-  exports: [PricingService, Promotions, TaxService, MasterDataRefs],
+  exports: [PricingService, Promotions, TaxService, MasterDataRefs, MdmImports],
 })
 export class MdmModule implements OnModuleInit {
   constructor(

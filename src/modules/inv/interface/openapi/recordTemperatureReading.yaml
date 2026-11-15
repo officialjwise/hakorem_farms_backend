@@ -1,0 +1,76 @@
+operationId: recordTemperatureReading
+tags:
+  - inv
+summary: "Record a temperature reading"
+description: "Records a reading at a cold room or vehicle against its permitted range, which is copied onto the reading; both bounds are in range. A reading outside it is an excursion, and in the same transaction every lot and animal with stock in the location gets a `QUARANTINE` hold (from `measuredAt`, until a person releases it with `releaseStockHold`; never the person who recorded it), every stock line there raises a `TEMPERATURE_EXCURSION` stock exception (`exceptionId` is the first), and `inv.TemperatureExcursionRecorded` is published. A location with no permitted range, a virtual one, or a time more than five minutes ahead of the server is 422 `TEMPERATURE_READING_INVALID` (`NO_TEMPERATURE_RANGE`, `NOT_A_STOCK_LOCATION`, `IN_THE_FUTURE`). Readings are never changed.\n\nPermission: `inv.cold_chain.record`, scoped to the location.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result (`ID_IN_USE` if that id is another location's reading)."
+x-permission: inv.cold_chain.record
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - TEMPERATURE_READING_INVALID
+  - REFERENCE_NOT_FOUND
+  - STOCK_HOLD_INVALID
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/TemperatureReadingCreate"
+      example:
+        id: "019a7abc-af53-7cd5-920e-d62eecca4f0c"
+        locationId: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+        readingC: "-18.0"
+        measuredAt: "2026-11-13T10:00:00Z"
+        source: MANUAL
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/TemperatureReading"
+        example:
+          id: "019a7abc-5286-7f2b-a463-fb887fb77466"
+          location:
+            id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+            code: COLD-1
+            name: "Cold room"
+            kind: COLD_ROOM
+          readingC: "-18.5"
+          measuredAt: "2026-11-13T02:00:00Z"
+          source: MANUAL
+          isExcursion: false
+          exceptionId: null
+          actor:
+            id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+            displayName: "Yaw Boateng"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

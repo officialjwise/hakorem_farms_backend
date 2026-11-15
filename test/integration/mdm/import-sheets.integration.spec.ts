@@ -119,11 +119,11 @@ describe('every new sheet refuses the wrong role (ADR-0035, deny by default)', (
     }
   });
 
-  it('answers 422 IMPORT_ENTITY_NOT_AVAILABLE for opening stock only, which waits for B5', async () => {
+  it('hands opening stock to the sheet INV registers (ADR-0050), which reads its own columns', async () => {
     const fileId = await importFile(world, csv('name', 'x'), 'stock.csv');
-    expect((await post(world, world.manager, '/imports', { entity: 'OPENING_STOCK', fileId })).body.error.code).toBe('IMPORT_ENTITY_NOT_AVAILABLE');
-    await stepUp(world, world.manager);
-    expect((await post(world, world.manager, '/exports', { entity: 'OPENING_STOCK', format: 'CSV' })).body.error.code).toBe('IMPORT_ENTITY_NOT_AVAILABLE');
+    const job = await post(world, world.manager, '/imports', { entity: 'OPENING_STOCK', fileId });
+    expect(job.status).toBe(202);
+    expect(job.body).toMatchObject({ entity: 'OPENING_STOCK', status: 'FAILED' });
   });
 });
 

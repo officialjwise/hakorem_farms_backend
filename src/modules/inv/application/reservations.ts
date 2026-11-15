@@ -123,6 +123,7 @@ export class Reservations {
       )
       .catch(translateStockRefusal);
     await this.audit.record(tx, { module: 'inv', action: 'RESERVE', entityType: 'StockReservation', entityId: id, branchId: location.branchId, before: null, after: { ...(await this.store.reservation(tx, id))! } });
+    await this.stock.availabilityChangedIn(tx, actorId, [request.productId]);
     return id;
   }
 
@@ -178,6 +179,7 @@ export class Reservations {
         reason,
       },
     });
+    await this.stock.availabilityChangedIn(tx, actorId, [before.productId]);
     return after;
   }
 

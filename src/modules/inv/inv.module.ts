@@ -9,7 +9,7 @@ import { Cursors } from '../../platform/http/cursor';
 import { Idempotency } from '../../platform/idempotency/idempotency';
 import { CLOCK, LOGGER } from '../../platform/platform.module';
 import { Approvals, Authoriser, IamModule, PRINCIPAL_NAMES, type PrincipalNames } from '../iam';
-import { MasterDataRefs, MdmModule } from '../mdm';
+import { MasterDataRefs, MdmImports, MdmModule } from '../mdm';
 import { GOODS_RECEIPT_STORE, type GoodsReceiptStore } from './application/goods-receipt-store';
 import { GoodsReceipts } from './application/goods-receipts';
 import { Lineage } from './application/lineage';
@@ -46,6 +46,13 @@ import { StockReservationsController } from './interface/stock-reservations.cont
 import { STOCK_RESERVATION_STORE, type StockReservationStore } from './application/stock-reservation-store';
 import { ReservationExpiry, Reservations } from './application/reservations';
 import { PgStockReservationStore } from './infrastructure/pg-stock-reservation-store';
+import { STOCK_ALERT_STORE, type StockAlertStore } from './application/stock-alert-store';
+import { StockAlerts, StockAlertSweep } from './application/stock-alerts';
+import { ColdChain } from './application/cold-chain';
+import { OpeningStockSheet } from './application/opening-stock-sheet';
+import { PgStockAlertStore } from './infrastructure/pg-stock-alert-store';
+import { ColdChainController } from './interface/cold-chain.controller';
+import { StockAlertsController } from './interface/stock-alerts.controller';
 
 /**
  * INV (layer 5): the stock movement ledger (ADR-0002) whose invariants live in migration 0044's triggers, the
@@ -58,7 +65,17 @@ import { PgStockReservationStore } from './infrastructure/pg-stock-reservation-s
  */
 @Module({
   imports: [IamModule, MdmModule],
-  controllers: [GoodsReceiptsController, StockController, StockControlController, StockTakesController, StockHoldsController, StockExceptionsController, StockReservationsController],
+  controllers: [
+    GoodsReceiptsController,
+    StockController,
+    StockControlController,
+    StockTakesController,
+    StockHoldsController,
+    StockExceptionsController,
+    StockReservationsController,
+    StockAlertsController,
+    ColdChainController,
+  ],
   providers: [
     { provide: STOCK_STORE, useClass: PgStockStore },
     { provide: GOODS_RECEIPT_STORE, useClass: PgGoodsReceiptStore },
@@ -68,6 +85,52 @@ import { PgStockReservationStore } from './infrastructure/pg-stock-reservation-s
     { provide: STOCK_HOLD_STORE, useClass: PgStockHoldStore },
     { provide: STOCK_EXCEPTION_STORE, useClass: PgStockExceptionStore },
     { provide: STOCK_RESERVATION_STORE, useClass: PgStockReservationStore },
+    { provide: STOCK_ALERT_STORE, useClass: PgStockAlertStore },
+    {
+      provide: StockAlerts,
+      useFactory: (
+        uow: UnitOfWork,
+        store: StockAlertStore,
+        documentsStore: StockDocumentsStore,
+        refs: MasterDataRefs,
+        authoriser: Authoriser,
+        idempotency: Idempotency,
+        audit: AuditTrail,
+        events: DomainEvents,
+        cursors: Cursors,
+        clock: Clock,
+      ) => new StockAlerts(uow, store, documentsStore, refs, authoriser, idempotency, audit, events, cursors, clock),
+      inject: [UnitOfWork, STOCK_ALERT_STORE, STOCK_DOCUMENTS_STORE, MasterDataRefs, Authoriser, Idempotency, AuditTrail, DomainEvents, Cursors, CLOCK],
+    },
+    {
+      provide: StockAlertSweep,
+      useFactory: (uow: UnitOfWork, alerts: StockAlerts) => new StockAlertSweep(uow, alerts),
+      inject: [UnitOfWork, StockAlerts],
+    },
+    {
+      provide: ColdChain,
+      useFactory: (
+        uow: UnitOfWork,
+        store: StockAlertStore,
+        documentsStore: StockDocumentsStore,
+        refs: MasterDataRefs,
+        holds: StockHolds,
+        authoriser: Authoriser,
+        idempotency: Idempotency,
+        audit: AuditTrail,
+        documents: DocumentRegistry,
+        events: DomainEvents,
+        principals: PrincipalNames,
+        cursors: Cursors,
+        clock: Clock,
+      ) => new ColdChain(uow, store, documentsStore, refs, holds, authoriser, idempotency, audit, documents, events, principals, cursors, clock),
+      inject: [UnitOfWork, STOCK_ALERT_STORE, STOCK_DOCUMENTS_STORE, MasterDataRefs, StockHolds, Authoriser, Idempotency, AuditTrail, DocumentRegistry, DomainEvents, PRINCIPAL_NAMES, Cursors, CLOCK],
+    },
+    {
+      provide: OpeningStockSheet,
+      useFactory: (refs: MasterDataRefs, store: GoodsReceiptStore, receipts: GoodsReceipts, authoriser: Authoriser, clock: Clock) => new OpeningStockSheet(refs, store, receipts, authoriser, clock),
+      inject: [MasterDataRefs, GOODS_RECEIPT_STORE, GoodsReceipts, Authoriser, CLOCK],
+    },
     {
       provide: Reservations,
       useFactory: (
@@ -93,8 +156,8 @@ import { PgStockReservationStore } from './infrastructure/pg-stock-reservation-s
     },
     {
       provide: Stock,
-      useFactory: (store: StockStore, events: DomainEvents, clock: Clock) => new Stock(store, events, clock),
-      inject: [STOCK_STORE, DomainEvents, CLOCK],
+      useFactory: (store: StockStore, events: DomainEvents, clock: Clock, alerts: StockAlerts) => new Stock(store, events, clock, alerts),
+      inject: [STOCK_STORE, DomainEvents, CLOCK, StockAlerts],
     },
     {
       provide: Lineage,
@@ -216,8 +279,9 @@ import { PgStockReservationStore } from './infrastructure/pg-stock-reservation-s
         principals: PrincipalNames,
         cursors: Cursors,
         clock: Clock,
-      ) => new StockHolds(uow, store, documentsStore, refs, authoriser, idempotency, audit, documents, principals, cursors, clock),
-      inject: [UnitOfWork, STOCK_HOLD_STORE, STOCK_DOCUMENTS_STORE, MasterDataRefs, Authoriser, Idempotency, AuditTrail, DocumentRegistry, PRINCIPAL_NAMES, Cursors, CLOCK],
+        alerts: StockAlerts,
+      ) => new StockHolds(uow, store, documentsStore, refs, authoriser, idempotency, audit, documents, principals, cursors, clock, alerts),
+      inject: [UnitOfWork, STOCK_HOLD_STORE, STOCK_DOCUMENTS_STORE, MasterDataRefs, Authoriser, Idempotency, AuditTrail, DocumentRegistry, PRINCIPAL_NAMES, Cursors, CLOCK, StockAlerts],
     },
     {
       provide: StockExceptions,
@@ -239,7 +303,7 @@ import { PgStockReservationStore } from './infrastructure/pg-stock-reservation-s
       inject: [UnitOfWork, STOCK_EXCEPTION_STORE, STOCK_DOCUMENTS_STORE, MasterDataRefs, StockAdjustments, Stock, Authoriser, Idempotency, AuditTrail, DocumentRegistry, PRINCIPAL_NAMES, Cursors, CLOCK],
     },
   ],
-  exports: [Stock, Lineage, BalanceReconciliation, GoodsReceipts, StockQueries, StockMovements, StockTransfers, StockAdjustments, StockTakes, StockHolds, StockExceptions, Reservations, ReservationExpiry],
+  exports: [Stock, Lineage, BalanceReconciliation, GoodsReceipts, StockQueries, StockMovements, StockTransfers, StockAdjustments, StockTakes, StockHolds, StockExceptions, Reservations, ReservationExpiry, StockAlerts, StockAlertSweep, ColdChain],
 })
 export class InvModule implements OnModuleInit {
   constructor(
@@ -248,13 +312,17 @@ export class InvModule implements OnModuleInit {
     @Inject(StockMovements) private readonly movements: StockMovements,
     @Inject(StockTakes) private readonly takes: StockTakes,
     @Inject(DocumentRegistry) private readonly documents: DocumentRegistry,
+    @Inject(MdmImports) private readonly imports: MdmImports,
+    @Inject(OpeningStockSheet) private readonly openingStock: OpeningStockSheet,
   ) {}
 
   /**
    * Registers INV's approval handlers (ADR-0017): a stock write-off (an adjustment, or a stock take's variances, told
-   * apart by the subject's document type) and a movement reversal.
+   * apart by the subject's document type) and a movement reversal; and the `OPENING_STOCK` sheet with MDM's imports
+   * (ADR-0050).
    */
   onModuleInit(): void {
+    this.imports.registerSheet(this.openingStock);
     this.approvals.registerHandler(STOCK_WRITE_OFF, new StockWriteOffs(this.documents, { STOCK_ADJUSTMENT: this.adjustments, STOCK_TAKE: this.takes }));
     this.approvals.registerHandler(STOCK_REVERSAL, this.movements);
   }

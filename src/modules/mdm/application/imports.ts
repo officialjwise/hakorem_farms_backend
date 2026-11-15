@@ -38,7 +38,7 @@ export class ImportFileNotCleanError extends BusinessRuleError {
   readonly messageKey = 'mdm.import_file_not_clean';
 }
 
-/** 422: the entity's sheet is not built yet (A-128, A-130): opening stock waits for B5. */
+/** 422: no sheet is registered for the entity (A-128, A-130, ADR-0050). */
 export class ImportEntityNotAvailableError extends BusinessRuleError {
   readonly code = 'IMPORT_ENTITY_NOT_AVAILABLE';
   readonly messageKey = 'mdm.import_entity_not_available';
@@ -93,7 +93,7 @@ type Reading = { readonly kind: 'UNREADABLE'; readonly errors: readonly RowError
  */
 export class MdmImports {
   private readonly nextId: () => string;
-  private readonly sheets: ReadonlyMap<ImportEntity, EntitySheet>;
+  private readonly sheets: Map<ImportEntity, EntitySheet>;
 
   constructor(
     private readonly uow: UnitOfWork,
@@ -109,6 +109,15 @@ export class MdmImports {
   ) {
     this.nextId = createUuidV7Generator(clock);
     this.sheets = new Map(sheets.map((sheet) => [sheet.entity, sheet]));
+  }
+
+  /**
+   * The import sheet port (ADR-0050): a higher module that owns an entity's rows registers its sheet here when it
+   * starts, as INV does for `OPENING_STOCK`. One sheet per entity; MDM's own are given to the constructor.
+   */
+  registerSheet(sheet: EntitySheet): void {
+    if (this.sheets.has(sheet.entity)) throw new Error(`an import sheet for ${sheet.entity} is already registered`);
+    this.sheets.set(sheet.entity, sheet);
   }
 
   // Reading.

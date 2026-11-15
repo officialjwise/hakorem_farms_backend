@@ -2,7 +2,7 @@ operationId: listStockTakeLines
 tags:
   - inv
 summary: "List the lines of a stock take"
-description: "The lines and, from review on, the variance report: expected, counted and recounted quantity, the variance and its value at cost. While the take is `DRAFT` or `COUNTING`, `expectedQty`, `varianceQty`, `varianceValuePesewas` and `varianceDirection` are null for every reader: the count is blind. In review, `needsRecount` marks every line whose first count differs from the expected figure and has not been recounted.\n\nPermission: `inv.stock_take.read`, scoped to the take's location."
+description: "The lines and, from review on, the variance report: expected, counted and recounted quantity, the variance and its value at cost. While the take is `DRAFT` or `COUNTING`, `expectedQty`, `varianceQty`, `varianceValuePesewas` and `varianceDirection` are null for every reader: the count is blind. The example is the counting take of `getStockTake`'s example, so its figures are hidden (CR-012). In review, `needsRecount` marks every line whose first count differs from the expected figure and has not been recounted.\n\nPermission: `inv.stock_take.read`, scoped to the take's location."
 x-permission: inv.stock_take.read
 x-error-codes:
   - VALIDATION_FAILED
@@ -50,13 +50,13 @@ responses:
                 name: "Yam, tuber"
               stockUnit: null
               uom: TUBER
-              expectedQty: "40.000"
+              expectedQty: null
               countedQty: "34.000"
-              recountQty: "34.000"
+              recountQty: null
               countedWeightKg: null
-              varianceQty: "-6.000"
-              varianceValuePesewas: 12000
-              varianceDirection: LOSS
+              varianceQty: null
+              varianceValuePesewas: null
+              varianceDirection: null
               needsRecount: false
             - id: "019a7aba-fe41-7265-b79d-2f26451ca804"
               product:
@@ -65,13 +65,13 @@ responses:
                 name: "Cabbage, head"
               stockUnit: null
               uom: UNIT
-              expectedQty: "26.000"
+              expectedQty: null
               countedQty: "30.000"
               recountQty: null
               countedWeightKg: null
-              varianceQty: "4.000"
-              varianceValuePesewas: 3200
-              varianceDirection: GAIN
+              varianceQty: null
+              varianceValuePesewas: null
+              varianceDirection: null
               needsRecount: false
             - id: "019a7abb-1d30-7c48-8181-cd5dbecd463b"
               product:
@@ -83,13 +83,13 @@ responses:
                 identifier: MEAT-BEEF-261104-01
                 tracking: LOT
               uom: CRATE
-              expectedQty: "48.000"
+              expectedQty: null
               countedQty: "46.000"
               recountQty: null
               countedWeightKg: null
-              varianceQty: "-2.000"
-              varianceValuePesewas: 8000
-              varianceDirection: LOSS
+              varianceQty: null
+              varianceValuePesewas: null
+              varianceDirection: null
               needsRecount: false
             - id: "019a7abb-3c1f-762c-9b64-6b95387ee473"
               product:
@@ -101,13 +101,13 @@ responses:
                 identifier: BRL-2610-01
                 tracking: LOT
               uom: KG
-              expectedQty: "29.750"
+              expectedQty: null
               countedQty: "29.750"
               recountQty: null
               countedWeightKg: "29.750"
-              varianceQty: "0.000"
-              varianceValuePesewas: 0
-              varianceDirection: NONE
+              varianceQty: null
+              varianceValuePesewas: null
+              varianceDirection: null
               needsRecount: false
             - id: "019a7abb-5b0e-700f-a547-09ccb22f82aa"
               product:
@@ -119,13 +119,13 @@ responses:
                 identifier: EGG-261112-L1
                 tracking: LOT
               uom: KG
-              expectedQty: "97.800"
+              expectedQty: null
               countedQty: "97.800"
               recountQty: null
               countedWeightKg: "97.800"
-              varianceQty: "0.000"
-              varianceValuePesewas: 0
-              varianceDirection: NONE
+              varianceQty: null
+              varianceValuePesewas: null
+              varianceDirection: null
               needsRecount: false
             - id: "019a7abb-79fd-79f3-bf2b-a8042be020e2"
               product:
@@ -137,13 +137,13 @@ responses:
                 identifier: TOM-261111-COOP
                 tracking: LOT
               uom: CRATE
-              expectedQty: "12.000"
+              expectedQty: null
               countedQty: "11.000"
               recountQty: null
               countedWeightKg: null
-              varianceQty: "-1.000"
-              varianceValuePesewas: 51500
-              varianceDirection: LOSS
+              varianceQty: null
+              varianceValuePesewas: null
+              varianceDirection: null
               needsRecount: false
           page:
             nextCursor: eyJpZCI6IjAxOWE3YyJ9

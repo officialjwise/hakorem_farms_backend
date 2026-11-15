@@ -164,7 +164,7 @@ export interface ReversalRecord {
 }
 
 export interface NewStockException {
-  readonly kind: 'TRANSFER_VARIANCE';
+  readonly kind: 'TRANSFER_VARIANCE' | 'TEMPERATURE_EXCURSION';
   readonly branchId: string;
   readonly productId: string;
   readonly stockUnitId: string | null;
