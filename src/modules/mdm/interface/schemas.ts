@@ -268,3 +268,86 @@ export const CouponValidationRequest = z.strictObject({
   cartId: z.uuid().optional(),
   customerId: z.uuid().optional(),
 });
+
+const ProductLine = z.enum(['LIVE', 'MEAT', 'PRODUCE', 'BY_PRODUCT', 'FEED', 'SUPPLY', 'SERVICE']);
+const GlGroup = z.enum(['LIVE_ANIMALS', 'MEAT', 'OFFAL', 'PRODUCE_EGGS', 'FEED_MEDICATION', 'SUPPLIES', 'SERVICE']);
+const Version = z.number().int().min(1);
+const SortOrder = z.number().int().min(0).max(10_000);
+const RecordName = z.string().trim().min(1).max(120);
+
+/** The contract's `CategoryCreate`, strict. Patterns are migration 0009's. */
+export const CategoryCreate = z.strictObject({
+  parentId: z.uuid().optional(),
+  code: z.string().regex(/^[A-Z0-9][A-Z0-9_-]{1,39}$/),
+  name: RecordName,
+  productLine: ProductLine,
+  glGroup: GlGroup,
+  taxCategoryId: z.uuid(),
+  sortOrder: SortOrder.optional(),
+  isOnlineVisible: z.boolean().optional(),
+});
+
+/** The contract's `CategoryUpdate`, strict. */
+export const CategoryUpdate = z.strictObject({
+  version: Version,
+  name: RecordName.optional(),
+  taxCategoryId: z.uuid().optional(),
+  sortOrder: SortOrder.optional(),
+  isOnlineVisible: z.boolean().optional(),
+});
+
+/** The contract's `ArchiveRequest`, strict. */
+export const ArchiveBody = z.strictObject({ version: Version, reason: z.string().trim().min(1).max(500) });
+
+/** The contract's `SpeciesCreate` and `SpeciesUpdate`, strict. The code pattern is migration 0009's. */
+export const SpeciesCreate = z.strictObject({
+  code: z.string().regex(/^[A-Z][A-Z_]{1,39}$/),
+  name: RecordName,
+  trackingDefault: z.enum(['SERIAL', 'LOT']),
+});
+export const SpeciesUpdate = z.strictObject({ version: Version, name: RecordName.optional() });
+
+/** listGrades and listWeightBands: a page, optionally of one species. */
+export const SpeciesPageQuery = PageQuery.extend({ speciesId: z.uuid().optional() });
+
+/** The contract's `GradeCreate` and `GradeUpdate`, strict. Patterns are migration 0011's. */
+export const GradeCreate = z.strictObject({
+  speciesId: z.uuid(),
+  code: z.string().regex(/^[A-Z0-9][A-Z0-9_-]{0,19}$/),
+  name: RecordName,
+  description: z.string().trim().max(500).optional(),
+  sortOrder: SortOrder.optional(),
+});
+export const GradeUpdate = z.strictObject({
+  version: Version,
+  name: RecordName.optional(),
+  description: z.string().trim().max(500).optional(),
+  sortOrder: SortOrder.optional(),
+});
+
+/** The contract's `WeightBandCreate` and `WeightBandUpdate`, strict. */
+export const WeightBandCreate = z.strictObject({
+  speciesId: z.uuid(),
+  code: z.string().regex(/^[A-Z0-9][A-Z0-9_-]{0,19}$/),
+  minKg: Kilograms,
+  maxKg: Kilograms,
+});
+export const WeightBandUpdate = z.strictObject({ version: Version, minKg: Kilograms.optional(), maxKg: Kilograms.optional() });
+
+/** The contract's `ProductUpdate`, strict: the same limits as `ProductCreate`. */
+export const ProductUpdate = z.strictObject({
+  version: Version,
+  name: ProductCreate.shape.name.optional(),
+  categoryId: z.uuid().optional(),
+  nominalPackKg: Kilograms.optional(),
+  weightTolerancePercent: Percent.optional(),
+  taxCategoryId: z.uuid().optional(),
+  shelfLifeDays: ProductCreate.shape.shelfLifeDays,
+  barcode: ProductCreate.shape.barcode,
+  description: ProductCreate.shape.description,
+  onlineMode: OnlineMode.optional(),
+  seo: ProductCreate.shape.seo,
+  isPurchasable: z.boolean().optional(),
+  isSellable: z.boolean().optional(),
+  status: ProductStatus.optional(),
+});

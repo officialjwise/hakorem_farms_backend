@@ -77,3 +77,20 @@ describe('the counter prices seeded goats (B4 gate)', () => {
     expect(priced.body.lines[1]).toEqual({ lineRef: 'huge', outcome: 'QUOTE_REQUIRED', resolved: null, quoteRequiredReason: 'NO_RULE', promotions: [] });
   });
 });
+
+describe('the counter taxes a sale with the seeded scheme (B04d continued gate)', () => {
+  it('answers calculateTax on a fresh setup: a GHS 459.00 beef pack splits into 382.50, 57.38, 9.56 and 9.56', async () => {
+    const taxed = await call('POST', '/v1/tax/calculate', {
+      taxInclusive: true,
+      taxDate: new Date().toISOString().slice(0, 10),
+      lines: [{ lineRef: 'beef', taxCategoryId: '01900000-0000-7000-8000-000000000204', amountPesewas: 45_900 }],
+    });
+    expect(taxed.status).toBe(200);
+    expect(taxed.body.lines[0]).toMatchObject({ netPesewas: 38_250, taxPesewas: 7_650, grossPesewas: 45_900 });
+    expect(taxed.body.lines[0].levies.map((levy: Json) => [levy.levyCode, levy.amountPesewas])).toEqual([
+      ['VAT', 5_738],
+      ['NHIL', 956],
+      ['GETFUND', 956],
+    ]);
+  });
+});

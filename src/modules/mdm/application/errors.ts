@@ -168,3 +168,30 @@ export class CouponUnavailableError extends BusinessRuleError {
     super(`the coupon cannot be used: ${reason}`, [{ field, code: reason, message: translate('mdm.coupon_unavailable') }]);
   }
 }
+
+registerMessages({
+  'mdm.record_in_use': 'This record is still in use, so it cannot be changed this way.',
+  'mdm.record_in_use_rule': 'Still in use.',
+  'mdm.weight_band_invalid': 'This weight band is not valid.',
+  'mdm.weight_band_rule': 'Not a valid range for a weight band.',
+});
+
+/** 422: a category with live products or children, or a grade or band a live price uses, is archived or moved. */
+export class RecordInUseError extends BusinessRuleError {
+  readonly code = 'RECORD_IN_USE';
+  readonly messageKey = 'mdm.record_in_use';
+
+  constructor(rules: ReadonlyArray<{ readonly field: string | null; readonly rule: string }>) {
+    super('the record is still in use', rules.map((rule) => ({ field: rule.field, code: rule.rule, message: translate('mdm.record_in_use_rule') })));
+  }
+}
+
+/** 422: a weight band's range is empty, not three-place kilograms, or meets another band of the species. */
+export class WeightBandInvalidError extends BusinessRuleError {
+  readonly code = 'WEIGHT_BAND_INVALID';
+  readonly messageKey = 'mdm.weight_band_invalid';
+
+  constructor(rules: ReadonlyArray<{ readonly field: string | null; readonly rule: string }>) {
+    super('the weight band is not valid', rules.map((rule) => ({ field: rule.field, code: rule.rule, message: translate('mdm.weight_band_rule') })));
+  }
+}

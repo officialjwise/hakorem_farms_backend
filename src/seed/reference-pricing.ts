@@ -256,3 +256,57 @@ export const SEED_CUSTOMERS: readonly SeedCustomer[] = [
   { customerNo: 'C-00003', name: 'Madina Market Traders (SEED)', kind: 'BUSINESS', tier: 'RESELLER', assignedList: null },
   { customerNo: 'C-00004', name: 'Accra Event Caterers (SEED)', kind: 'BUSINESS', tier: 'WHOLESALE', assignedList: 'CATERERS-2026' },
 ];
+
+export interface SeedPromotion {
+  readonly code: string;
+  readonly name: string;
+  readonly percentOff: string;
+  readonly channel: SeedChannel;
+  /** The category its line discount targets (a category covers the ones below it, A-101). */
+  readonly category: 'LIVE' | 'MEAT' | 'EGGS' | 'PRODUCE';
+  readonly stackGroup: string;
+  readonly validTo: Date;
+  readonly coupon: { readonly code: string; readonly maxUses: number; readonly perCustomerLimit: number } | null;
+}
+
+/**
+ * Seeded promotions (FR-MDM-018). Both need their coupon, so a price asked without one carries no discount and the
+ * B4 gate's oracle, which walks the lists alone, still holds for every line.
+ */
+export const SEED_PROMOTIONS: readonly SeedPromotion[] = [
+  {
+    code: 'WELCOME10',
+    name: 'Welcome offer: 10 percent off eggs online (SEED)',
+    percentOff: '10',
+    channel: 'ONLINE',
+    category: 'EGGS',
+    stackGroup: 'WELCOME',
+    validTo: new Date('2027-03-31T23:59:59Z'),
+    coupon: { code: 'WELCOME10', maxUses: 500, perCustomerLimit: 1 },
+  },
+  {
+    code: 'XMAS-MEAT-5',
+    name: 'Christmas: 5 percent off meat at the counter (SEED)',
+    percentOff: '5',
+    channel: 'POS',
+    category: 'MEAT',
+    stackGroup: 'SEASONAL',
+    validTo: new Date('2027-01-06T23:59:59Z'),
+    coupon: { code: 'XMAS2026', maxUses: 200, perCustomerLimit: 2 },
+  },
+];
+
+/**
+ * Tax scheme version 1 as the seeded Accountant drafts it (ADR-0020, A-021): VAT 15, NHIL 2.5 and GETFund 2.5 percent,
+ * each on the net with no compounding, for processed meat, delivery and other goods; zero-rated for live animals,
+ * raw produce, eggs and farm inputs.
+ */
+export const SEED_TAX_SCHEME = {
+  sourceNote: 'GRA rates as ADR-0020 records them; Accountant to confirm against the current GRA notice (SEED)',
+  levies: [
+    { code: 'VAT', ratePercent: '15' },
+    { code: 'NHIL', ratePercent: '2.5' },
+    { code: 'GETFUND', ratePercent: '2.5' },
+  ],
+  standardCategories: ['PROCESSED_MEAT', 'DELIVERY_SERVICE', 'OTHER_GOODS'] as readonly string[],
+} as const;

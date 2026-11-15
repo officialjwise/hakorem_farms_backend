@@ -37,6 +37,8 @@ export interface ProductDraft {
 export interface ProductReferences {
   readonly category: { readonly id: string; readonly glGroup: GlGroup; readonly taxCategoryId: string } | null;
   readonly speciesFound: boolean;
+  /** How the draft's species is kept (`mdm.species.tracking_default`), when it has one and it was found. */
+  readonly speciesTrackingDefault?: 'SERIAL' | 'LOT' | undefined;
   readonly taxCategoryFound: boolean;
   /** Every unit of measure by code, with its kind. */
   readonly units: ReadonlyMap<string, UomKind>;
@@ -108,15 +110,16 @@ function parseTolerance(text: string | undefined): string | null {
   }
 }
 
-function trackingOf(draft: ProductDraft): Tracking {
+function trackingOf(draft: ProductDraft, references: ProductReferences): Tracking {
   switch (draft.stockPolicy) {
     case 'SERIALISED':
       return 'SERIAL';
     case 'CATCH_WEIGHT':
       return 'LOT';
     case 'COUNTABLE':
-      // A countable with a shelf life is held in lots so its expiry can be tracked (A-082).
-      return draft.shelfLifeDays === undefined ? 'NONE' : 'LOT';
+      // A countable with a shelf life is held in lots so its expiry can be tracked (A-082); so is a flock of a species
+      // kept in lots, such as broilers (A-107).
+      return draft.shelfLifeDays !== undefined || references.speciesTrackingDefault === 'LOT' ? 'LOT' : 'NONE';
     case 'NON_STOCK':
       return 'NONE';
   }
@@ -172,7 +175,7 @@ export function defineProduct(draft: ProductDraft, references: ProductReferences
     name: draft.name,
     categoryId: draft.categoryId,
     stockPolicy: policy,
-    tracking: trackingOf(draft),
+    tracking: trackingOf(draft, references),
     speciesId: draft.speciesId ?? null,
     baseUom: draft.baseUom,
     saleUom: draft.saleUom,

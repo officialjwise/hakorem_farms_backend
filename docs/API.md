@@ -352,6 +352,8 @@ The "Source" column says where the code comes from. **Contract** means the code 
 | `DUPLICATE_VALUE` | 422 | A unique value (SKU, barcode, storefront slug) is already used by another live record. `details` names each field |
 | `REFERENCE_NOT_FOUND` | 422 | An id in the request names no record (an unknown category, species, tax category or unit). `details` names each field |
 | `STOCK_POLICY_CONFLICT` | 422 | The product's fields contradict its stock-keeping policy, for example a serialised animal without a species or listed for the cart, or catch-weight stock not held in kilograms. `details` names each field and rule |
+| `RECORD_IN_USE` | 422 | The record is still in use: a category with live products or live children, or a grade or weight band a pending or active price list version prices with, cannot be archived, and such a band keeps its range. `details[].code` says why (`HAS_LIVE_PRODUCTS`, `HAS_LIVE_CHILDREN`, `USED_BY_LIVE_PRICES`) (1.7.0) |
+| `WEIGHT_BAND_INVALID` | 422 | A weight band's range is empty (`NOT_ABOVE_MIN`) or meets another live band of the species (`OVERLAPS_BAND:<code>`); bands are half-open `[minKg, maxKg)` (1.7.0) |
 
 #### Stock, livestock and processing (Added)
 
@@ -551,6 +553,17 @@ Users (`createUser` needs step-up and sets a temporary password; `disableUser`, 
 
 Categories, units of measure, species, grades, weight bands, products (with images), customers and addresses, tiers, suppliers, branches, locations, payment methods, delivery zones, reason codes, and **imports and exports**. Updates send `version` (409 `VERSION_CONFLICT`). Archive rather than delete: there is no hard delete. `createImportJob` returns 202 with a job in `UPLOADED`; poll `getImportJob` until `VALIDATED`, read `listImportErrors`, then `applyImportJob`, which applies the valid rows in one transaction (nothing is written before). `createExportJob` is a permission, is audited with its row count, and a customer export needs step-up. Entities importable: product, customer, supplier, price list entry, location and opening stock (`docs/DATA_MIGRATION.md`).
 
+**Implemented in B04d continued** (contract 1.7.0): `listCategories`, `createCategory`, `getCategory`, `updateCategory`, `archiveCategory`, `listUnitsOfMeasure`, `listSpeciesList`, `createSpecies`, `updateSpecies`, `listGrades`, `createGrade`, `updateGrade`, `archiveGrade`, `listWeightBands`, `createWeightBand`, `updateWeightBand`, `archiveWeightBand`, `updateProduct`. What a screen needs to know:
+
+- **Permissions** (A-105): Owner and Manager write (`mdm.category.*`, `mdm.species.*`, `mdm.grade.*`, `mdm.weight_band.*`, `mdm.product.update`); Accountant, Storekeeper, Cashier, Sales and Farm Hand read categories, species, grades and bands. No catalogue operation needs step-up.
+- **Units** carry `displayDecimals` (0 for counted units, 3 for kilograms and litres, CR-003). Format quantities with it; the wire keeps three places. Units change only by migration.
+- **Archiving** is a soft delete with a reason, refused with 422 `RECORD_IN_USE` while something live uses the record: a category with live products (`HAS_LIVE_PRODUCTS`) or live children (`HAS_LIVE_CHILDREN`), a grade or band that a pending or active price list version prices with (`USED_BY_LIVE_PRICES`). Move products to another category with `updateProduct` first. Lists show live records only, in creation order; `getCategory` also returns an archived category.
+- **Weight bands** are half-open `[minKg, maxKg)` with exactly three decimals: 10.000 to 20.000 and 20.000 to 30.000 meet at 20.000 without overlapping. A band that meets another live band of the species is 422 `WEIGHT_BAND_INVALID` (`OVERLAPS_BAND:<code>`); the database refuses it too. A band a live price uses keeps its range.
+- **Category names** are unique among siblings, ignoring case and outer spaces (422 `DUPLICATE_VALUE`, `/name`).
+- **`updateProduct`** sends the `version` it read. The stock-keeping policy, units and species never change; the status never returns to `DRAFT`; a shelf-life change that would move a countable between held in lots and not is refused (`STOCK_POLICY_CONFLICT`, `TRACKING_FIXED`). Moving to another category keeps the product's tax category unless the change names one. Publishes `mdm.ProductChanged`.
+- **Not yet:** customers, suppliers, branches, locations, payment methods, delivery zones, reason codes and `archiveProduct` are B04d continued 2; product images, imports and exports need the file store (B04e).
+
+
 ### Pricing (`pricing`, 22)
 
 Price lists in approved, effective-dated versions: draft with `createPriceListVersion`, fill with `replacePriceListEntries` (replaces the whole set), `submitPriceListVersion` (maker-checker, `PRICE_LIST_ACTIVATION`, may return 202). **`POST /pricing/resolve`** prices lines: customer list, then tier and channel, then channel, then base. A line that cannot be priced returns outcome `QUOTE_REQUIRED` with a reason: this is a result, not an error, and never a zero. Promotions and coupons (`submitPromotion` may return 202; `validateCoupon`). A price is always a selling price band: list, floor and ceiling.
@@ -562,7 +575,7 @@ Price lists in approved, effective-dated versions: draft with `createPriceListVe
 - **`weightKg`** maps to the species' half-open band: 18.000 kg is in an 18 to 28 band, not a 8 to 18 one. It must have exactly three decimals; anything else is a 400, never rounded.
 - **Resolving is read-only** and takes `X-CSRF-Token` but no idempotency key. It needs `mdm.price.resolve` only; no branch or location scope is applied, because prices are internal and every selling operation checks its own scope.
 - **A version's life:** `DRAFT` (one per list at a time; entries replaced whole with the version's `version` number, 409 when stale), then `submitPriceListVersion` answers 202 `ApprovalPending` (`PRICE_LIST_ACTIVATION`) and freezes it as `PENDING_APPROVAL`, then a different user with `mdm.price_list.approve` and a fresh step-up approves it. It becomes `ACTIVE` from its `validFrom`, or from the moment of approval if that has passed; an earlier active version is ended there, a later overlapping one is `SUPERSEDED`. A rejected version is `REJECTED` and the list keeps its prices.
-- **Not yet:** `stockUnitId` answers 422 `REFERENCE_NOT_FOUND` until stock units exist (B5). The approval endpoints (`approveRequest`, `rejectRequest`) are B04e; the price list listings are B04d continued.
+- **Not yet:** `stockUnitId` answers 422 `REFERENCE_NOT_FOUND` until stock units exist (B5). The approval endpoints (`approveRequest`, `rejectRequest`) are B04e; the price list listings and `assignCustomerPriceList` are B04d continued 2.
 
 **Implemented in B04d** (contract 1.6.0): `listPromotions`, `createPromotion`, `getPromotion`, `updatePromotion`, `submitPromotion`, `endPromotion`, `listCoupons`, `createCoupon`, `validateCoupon`, and promotions in `resolvePrices` (ADR-0040). What a screen needs to know:
 

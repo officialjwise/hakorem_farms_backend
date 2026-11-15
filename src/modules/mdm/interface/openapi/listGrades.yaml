@@ -1,0 +1,112 @@
+operationId: listGrades
+tags:
+  - mdm
+summary: "List grades"
+description: "Permission: `mdm.grade.read`."
+x-permission: mdm.grade.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: speciesId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/GradePage"
+        example:
+          data:
+            - id: "019a7aa0-68dd-72ea-b822-3779b100b057"
+              speciesId: "019a7a8b-a049-7e16-b34e-ea33ee146311"
+              code: A
+              name: "Grade A, well finished"
+              description: "Body condition score 4 or above, no visible defects"
+              sortOrder: 0
+              version: 2
+              createdAt: "2026-11-02T08:00:00Z"
+              updatedAt: "2026-11-10T14:00:00Z"
+            - id: "019a7aa0-87cc-7ccd-8206-d5b12ab14e8f"
+              speciesId: "019a7a8b-a049-7e16-b34e-ea33ee146311"
+              code: B
+              name: "Grade B, lean"
+              description: "Body condition score 3"
+              sortOrder: 1
+              version: 3
+              createdAt: "2026-11-02T08:01:00Z"
+              updatedAt: "2026-11-11T14:01:00Z"
+            - id: "019a7aa0-a6bb-76b1-9be9-73e8a462ecc6"
+              speciesId: "019a7a8b-bf38-77f9-8d31-886b67c50149"
+              code: A
+              name: "Grade A, well finished"
+              description: null
+              sortOrder: 2
+              version: 4
+              createdAt: "2026-11-02T08:02:00Z"
+              updatedAt: "2026-11-12T14:02:00Z"
+            - id: "019a7aa0-c5aa-7094-a5cd-12201e138afe"
+              speciesId: "019a7a8b-bf38-77f9-8d31-886b67c50149"
+              code: B
+              name: "Grade B, lean"
+              description: "Body condition score 4 or above, no visible defects"
+              sortOrder: 3
+              version: 2
+              createdAt: "2026-11-02T08:03:00Z"
+              updatedAt: "2026-11-10T14:03:00Z"
+            - id: "019a7aa0-e499-7a78-bfb0-b05797c42935"
+              speciesId: "019a7a8b-de27-71dd-9715-26a2e1769f80"
+              code: A
+              name: "Grade A, breeding quality"
+              description: "Body condition score 3"
+              sortOrder: 4
+              version: 3
+              createdAt: "2026-11-02T08:04:00Z"
+              updatedAt: "2026-11-11T14:04:00Z"
+            - id: "019a7aa1-0388-745b-8994-4e8f1175c76c"
+              speciesId: "019a7a8b-a049-7e16-b34e-ea33ee146311"
+              code: C
+              name: "Grade C, cull"
+              description: null
+              sortOrder: 5
+              version: 4
+              createdAt: "2026-11-02T08:05:00Z"
+              updatedAt: "2026-11-12T14:05:00Z"
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

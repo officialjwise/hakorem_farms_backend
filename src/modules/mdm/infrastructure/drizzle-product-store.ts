@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, lt, or, sql, type SQL } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, lt, ne, or, sql, type SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { Transaction } from '../../../platform/database/unit-of-work';
 import type { GlGroup, ProductDefinition, ProductDraft, ProductReferences, UomKind } from '../domain/product';
@@ -86,7 +86,7 @@ export class DrizzleProductStore implements ProductStore {
     const speciesRows =
       draft.speciesId === undefined
         ? []
-        : await tx.db.select({ id: species.id }).from(species).where(and(eq(species.id, draft.speciesId), isNull(species.deletedAt)));
+        : await tx.db.select({ id: species.id, trackingDefault: species.trackingDefault }).from(species).where(and(eq(species.id, draft.speciesId), isNull(species.deletedAt)));
     const taxRows =
       draft.taxCategoryId === undefined
         ? []
@@ -95,19 +95,20 @@ export class DrizzleProductStore implements ProductStore {
     return {
       category: categoryRow === undefined ? null : { id: categoryRow.id, glGroup: categoryRow.glGroup as GlGroup, taxCategoryId: categoryRow.taxCategoryId },
       speciesFound: speciesRows.length === 1,
+      speciesTrackingDefault: speciesRows[0]?.trackingDefault as 'SERIAL' | 'LOT' | undefined,
       taxCategoryFound: taxRows.length === 1,
       units: new Map(units.map((unit) => [unit.code, unit.kind as UomKind])),
     };
   }
 
-  async takenValues(tx: Transaction, definition: ProductDefinition): Promise<UniqueProductField[]> {
+  async takenValues(tx: Transaction, definition: ProductDefinition, exceptId?: string): Promise<UniqueProductField[]> {
     const clauses: SQL[] = [eq(product.sku, definition.sku)];
     if (definition.barcode !== null) clauses.push(eq(product.barcode, definition.barcode));
     if (definition.seoSlug !== null) clauses.push(eq(product.seoSlug, definition.seoSlug));
     const rows = await tx.db
       .select({ sku: product.sku, barcode: product.barcode, seoSlug: product.seoSlug })
       .from(product)
-      .where(and(isNull(product.deletedAt), or(...clauses)));
+      .where(and(isNull(product.deletedAt), or(...clauses), exceptId === undefined ? undefined : ne(product.id, exceptId)));
     const taken = new Set<UniqueProductField>();
     for (const row of rows) {
       if (row.sku === definition.sku) taken.add('sku');
@@ -150,6 +151,40 @@ export class DrizzleProductStore implements ProductStore {
       updatedAt: now,
       updatedBy: actorId,
     });
+  }
+
+  async lock(tx: Transaction, id: string): Promise<boolean> {
+    const { rows } = await tx.query('SELECT 1 FROM mdm.product WHERE id = $1 AND deleted_at IS NULL FOR UPDATE', [id]);
+    return rows.length === 1;
+  }
+
+  async update(tx: Transaction, id: string, expectedVersion: number, d: ProductDefinition, actorId: string, now: Date): Promise<boolean> {
+    const updated = await tx.db
+      .update(product)
+      .set({
+        name: d.name,
+        categoryId: d.categoryId,
+        nominalPackKg: d.nominalPackKg,
+        weightTolerancePercent: d.weightTolerancePercent,
+        taxCategoryId: d.taxCategoryId,
+        glGroup: d.glGroup,
+        shelfLifeDays: d.shelfLifeDays,
+        barcode: d.barcode,
+        description: d.description,
+        onlineMode: d.onlineMode,
+        seoSlug: d.seoSlug,
+        seoTitle: d.seoTitle,
+        seoDescription: d.seoDescription,
+        isPurchasable: d.isPurchasable,
+        isSellable: d.isSellable,
+        status: d.status,
+        version: expectedVersion + 1,
+        updatedAt: now,
+        updatedBy: actorId,
+      })
+      .where(and(eq(product.id, id), eq(product.version, expectedVersion), isNull(product.deletedAt)))
+      .returning({ id: product.id });
+    return updated.length === 1;
   }
 
   async view(tx: Transaction, id: string): Promise<ProductView | null> {

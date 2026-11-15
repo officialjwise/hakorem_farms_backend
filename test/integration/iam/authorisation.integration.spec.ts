@@ -71,6 +71,18 @@ const VALID_BODY: Readonly<Record<string, object>> = {
   updatePromotion: { version: 1, name: 'Christmas chicken' },
   endPromotion: { reason: 'Stock ran out' },
   createCoupon: { code: 'XMAS-26' },
+  createCategory: { code: 'SEASONAL', name: 'Seasonal produce', productLine: 'PRODUCE', glGroup: 'PRODUCE_EGGS', taxCategoryId: randomUUID() },
+  updateCategory: { version: 1, name: 'Seasonal' },
+  archiveCategory: { version: 1, reason: 'No longer used' },
+  createSpecies: { code: 'CATTLE', name: 'Cattle', trackingDefault: 'SERIAL' },
+  updateSpecies: { version: 1, name: 'Cattle' },
+  createGrade: { speciesId: randomUUID(), code: 'A', name: 'Grade A' },
+  updateGrade: { version: 1, name: 'Grade A' },
+  archiveGrade: { version: 1, reason: 'No longer used' },
+  createWeightBand: { speciesId: randomUUID(), code: 'GOAT-S', minKg: '8.000', maxKg: '18.000' },
+  updateWeightBand: { version: 1, maxKg: '19.000' },
+  archiveWeightBand: { version: 1, reason: 'No longer used' },
+  updateProduct: { version: 1, name: 'Goat' },
 };
 
 beforeAll(async () => {
@@ -88,7 +100,7 @@ afterAll(async () => {
 });
 
 describe('deny by default: the handler walk (ADR-0017, security architecture section 14)', () => {
-  it('finds the B3, B4, B04 continued and B04d routes, and every one declares its operation', () => {
+  it('finds the B3, B4, B04 continued, B04d and B04d continued routes, and every one declares its operation', () => {
     expect(routes.map((route) => route.spec?.operationId).sort()).toEqual(
       [
         'changePassword', 'confirmTotpEnrolment', 'createProduct', 'getCurrentSession', 'getHealth', 'getProduct', 'listProducts', 'listSessions',
@@ -97,6 +109,9 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'listTaxLevies', 'createTaxLevy', 'listTaxCategories', 'createTaxCategory', 'listTaxSchemeVersions', 'createTaxSchemeVersion', 'getTaxSchemeVersion',
         'replaceTaxSchemeCells', 'submitTaxSchemeVersion', 'calculateTax',
         'listPromotions', 'createPromotion', 'getPromotion', 'updatePromotion', 'submitPromotion', 'endPromotion', 'listCoupons', 'createCoupon', 'validateCoupon',
+        'listCategories', 'createCategory', 'getCategory', 'updateCategory', 'archiveCategory', 'listUnitsOfMeasure', 'listSpeciesList', 'createSpecies',
+        'updateSpecies', 'listGrades', 'createGrade', 'updateGrade', 'archiveGrade', 'listWeightBands', 'createWeightBand', 'updateWeightBand',
+        'archiveWeightBand', 'updateProduct',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);

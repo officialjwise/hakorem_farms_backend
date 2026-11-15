@@ -20,7 +20,7 @@ Product categories, in a tree. A category fixes the product line, tax category a
 | `sort_order` | `integer` | NOT NULL DEFAULT 0 | Storefront and POS tile order |
 | `is_online_visible` | `boolean` | NOT NULL DEFAULT `true` | |
 
-Standard columns: `MASTER`.
+Standard columns: `MASTER`. UNIQUE (`parent_id`, `lower(btrim(name))`) among live rows, roots counting as siblings (`uq_category_sibling_name`, migration 0019). A category with live products or live children is not archived (application, FR-MDM-002).
 
 ### `mdm.uom` · LOOKUP
 
@@ -31,6 +31,7 @@ Units of measure.
 | `code` | `text` | PK | `HEAD`, `KG`, `CRATE`, `BUNCH`, `TUBER`, `PACK`, `UNIT`, `BAG`, `LITRE` |
 | `name` | `text` | NOT NULL | |
 | `kind` | `text` | NOT NULL, CHECK in (`COUNT`, `WEIGHT`, `VOLUME`) | Whether fractions are allowed |
+| `display_decimals` | `smallint` | NOT NULL, CHECK `BETWEEN 0 AND 3` | Decimal places a quantity in the unit is shown with: 0 for counted units, 3 for weight and volume (CR-003, migration 0019) |
 
 ### `mdm.species` · MASTER
 
@@ -75,6 +76,7 @@ Live-weight ranges within a species, used by pricing and quoting.
 Standard columns: `MASTER`.
 
 - EXCLUDE: for one `species_id`, the ranges `[min_kg, max_kg)` of live rows do not overlap. A weight maps to at most one band.
+- A band (or grade) that a `PENDING_APPROVAL` or `ACTIVE` price list version prices with is not archived, and such a band keeps its range (application, A-106).
 
 ### `mdm.product` · MASTER
 

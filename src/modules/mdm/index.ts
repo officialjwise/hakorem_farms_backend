@@ -4,7 +4,8 @@
  * agreed price with `judgeAgreedPrice`. B04 continued adds the tax calculator: quotes, carts, orders, billing and
  * purchasing tax their lines with `TaxService.calculateIn` inside their own transaction (ADR-0020). B04d adds
  * promotions: `resolveIn` returns each line's discounts, and a selling module redeems or releases a coupon with
- * `Promotions.redeemIn` and `releaseIn` in its transaction, holding `couponLockKey(code)` (ADR-0040).
+ * `Promotions.redeemIn` and `releaseIn` in its transaction, holding `couponLockKey(code)` (ADR-0040). B04d continued
+ * publishes the administration services so the seeded farm is written through them (A-085); no module calls them.
  */
 export { MdmModule } from './mdm.module';
 export { PricingService, type AppliedPromotionView, type PriceResolutionView, type PriceResolveResultView, type ResolveLine, type ResolveRequest } from './application/pricing';
@@ -12,4 +13,9 @@ export { extendPrice, judgeAgreedPrice, type AgreedPriceVerdict, type Channel, t
 export { TaxService, type TaxCalculation, type TaxLineRequest, type TaxRequest } from './application/tax-calculation';
 export type { CategoryTreatment, LevyLine, TaxBreakdown, TaxTotals, TaxTreatment } from './domain/tax/tax-calculator';
 export { couponLockKey, Promotions, type CouponRedemptionRequest } from './application/promotions';
-export type { PriceListVersionActivated, ProductCreated, PromotionActivated, PromotionEnded, TaxSchemeVersionActivated } from './events';
+export type { PriceListVersionActivated, ProductChanged, ProductCreated, PromotionActivated, PromotionEnded, TaxSchemeVersionActivated } from './events';
+export { PriceListAdmin, type PriceListDraft, type VersionDraft } from './application/price-lists';
+export { TaxAdmin, type TaxCellRequest } from './application/tax-admin';
+export type { PromotionCreateRequest } from './application/promotions';
+export { CatalogueAdmin } from './application/catalogue-admin';
+export { ProductCatalogue } from './application/product-catalogue';

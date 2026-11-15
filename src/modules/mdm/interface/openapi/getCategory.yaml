@@ -1,0 +1,62 @@
+operationId: getCategory
+tags:
+  - mdm
+summary: "Get a product category"
+description: "Permission: `mdm.category.read`."
+x-permission: mdm.category.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Category"
+        example:
+          id: "019a7a89-737b-7c17-9150-ca4d5fa2432b"
+          parentId: null
+          code: LIVE
+          name: "Live animals"
+          productLine: LIVE
+          glGroup: LIVE_ANIMALS
+          taxCategory:
+            id: "019a7a8a-6af3-7b33-906b-bc092d2a34e7"
+            code: LIVE_ANIMALS
+            name: "Live Animals"
+          sortOrder: 0
+          isOnlineVisible: true
+          productCount: 3
+          version: 2
+          createdAt: "2026-11-02T08:00:00Z"
+          updatedAt: "2026-11-10T14:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

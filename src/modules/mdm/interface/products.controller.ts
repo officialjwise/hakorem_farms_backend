@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Param, Post, Query, Res } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Patch, Post, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import type { z } from 'zod';
 import type { Actor } from '../../../platform/context/request-context';
@@ -7,10 +7,10 @@ import { IdempotencyKeyHeader, Operation } from '../../../platform/http/operatio
 import { zodPipe } from '../../../platform/http/validation';
 import { ProductCatalogue, type Page } from '../application/product-catalogue';
 import type { ProductView } from '../application/product-store';
-import { ListProductsQuery, ProductCreate, ProductIdParam } from './schemas';
+import { ListProductsQuery, ProductCreate, ProductIdParam, ProductUpdate } from './schemas';
 
 /**
- * `listProducts`, `createProduct`, `getProduct`. The controller parses and delegates; the handler authorises,
+ * `listProducts`, `createProduct`, `getProduct`, `updateProduct`. The controller parses and delegates; the handler authorises,
  * does the work and decides the status (201, or the stored status of a replay).
  */
 @Controller('products')
@@ -41,5 +41,19 @@ export class ProductsController {
   @Operation({ operationId: 'getProduct', access: 'SESSION', realms: ['STAFF'], permission: 'mdm.product.read', idempotent: false, csrf: false, rateLimit: 'console' })
   getProduct(@CurrentActor() actor: Actor | undefined, @Param('id', zodPipe(ProductIdParam)) id: string): Promise<ProductView> {
     return this.catalogue.get(actor, id);
+  }
+
+  @Patch(':id')
+  @Operation({ operationId: 'updateProduct', access: 'SESSION', realms: ['STAFF'], permission: 'mdm.product.update', idempotent: true, csrf: true, rateLimit: 'console' })
+  async updateProduct(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(ProductIdParam)) id: string,
+    @Body(zodPipe(ProductUpdate)) body: z.infer<typeof ProductUpdate>,
+    @IdempotencyKeyHeader() idempotencyKey: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<ProductView> {
+    const response = await this.catalogue.update(actor, id, body, idempotencyKey);
+    res.status(response.status);
+    return response.body;
   }
 }

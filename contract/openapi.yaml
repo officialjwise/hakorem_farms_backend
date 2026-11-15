@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.6.0"
+  version: "1.7.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -5344,9 +5344,15 @@ paths:
       operationId: listCategories
       tags:
         - mdm
-      summary: "List product categorys"
+      summary: "List product categories"
       description: "Permission: `mdm.category.read`."
       x-permission: mdm.category.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: cursor
           in: query
@@ -5488,8 +5494,20 @@ paths:
       tags:
         - mdm
       summary: "Create a product category"
-      description: "Permission: `mdm.category.create`."
+      description: "Codes are unique among live categories, and names among a category's siblings (422 `DUPLICATE_VALUE`).\n\nPermission: `mdm.category.create`."
       x-permission: mdm.category.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - REFERENCE_NOT_FOUND
+        - DUPLICATE_VALUE
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -5558,6 +5576,13 @@ paths:
       summary: "Get a product category"
       description: "Permission: `mdm.category.read`."
       x-permission: mdm.category.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -5612,8 +5637,22 @@ paths:
       tags:
         - mdm
       summary: "Update a product category"
-      description: "Send the `version` you read; a stale version is refused with 409.\n\nPermission: `mdm.category.update`."
+      description: "Send the `version` you read; a stale version is refused with 409. Names are unique among a category's siblings (422 `DUPLICATE_VALUE`).\n\nPermission: `mdm.category.update`."
       x-permission: mdm.category.update
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - REFERENCE_NOT_FOUND
+        - DUPLICATE_VALUE
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -5683,8 +5722,21 @@ paths:
       tags:
         - mdm
       summary: "Archive a product category"
-      description: "Soft delete with a reason. The record stays in history and on documents that used it.\n\nPermission: `mdm.category.archive`."
+      description: "Soft delete with a reason. The record stays in history and on documents that used it. Refused with 422 `RECORD_IN_USE` while the category has live products (`HAS_LIVE_PRODUCTS`) or live child categories (`HAS_LIVE_CHILDREN`).\n\nPermission: `mdm.category.archive`."
       x-permission: mdm.category.archive
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - RECORD_IN_USE
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -5755,8 +5807,14 @@ paths:
       tags:
         - mdm
       summary: "List units of measure"
-      description: "Permission: `mdm.product.read`."
+      description: "A fixed list, changed only by migration. `displayDecimals` is how many decimal places a quantity in the unit is shown with: 0 for counted units, 3 for weight and volume (CR-003); quantities on the wire keep three places.\n\nPermission: `mdm.product.read`."
       x-permission: mdm.product.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: cursor
           in: query
@@ -5786,24 +5844,31 @@ paths:
                   - code: HEAD
                     name: Head
                     kind: COUNT
+                    displayDecimals: 0
                   - code: KG
                     name: Kilogram
                     kind: WEIGHT
+                    displayDecimals: 3
                   - code: CRATE
                     name: Crate
                     kind: COUNT
+                    displayDecimals: 0
                   - code: PACK
                     name: Pack
                     kind: COUNT
+                    displayDecimals: 0
                   - code: TUBER
                     name: Tuber
                     kind: COUNT
+                    displayDecimals: 0
                   - code: BAG
                     name: Bag
                     kind: COUNT
+                    displayDecimals: 0
                   - code: UNIT
                     name: Unit
                     kind: COUNT
+                    displayDecimals: 0
                 page:
                   nextCursor: null
                   limit: 25
@@ -5826,6 +5891,12 @@ paths:
       summary: "List speciess"
       description: "Permission: `mdm.species.read`."
       x-permission: mdm.species.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: cursor
           in: query
@@ -5918,6 +5989,17 @@ paths:
       summary: "Create a species"
       description: "Permission: `mdm.species.create`."
       x-permission: mdm.species.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - DUPLICATE_VALUE
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -6025,6 +6107,18 @@ paths:
       summary: "Update a species"
       description: "Send the `version` you read; a stale version is refused with 409.\n\nPermission: `mdm.species.update`."
       x-permission: mdm.species.update
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -6089,6 +6183,12 @@ paths:
       summary: "List grades"
       description: "Permission: `mdm.grade.read`."
       x-permission: mdm.grade.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: speciesId
           in: query
@@ -6196,6 +6296,18 @@ paths:
       summary: "Create a grade"
       description: "Permission: `mdm.grade.create`."
       x-permission: mdm.grade.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - REFERENCE_NOT_FOUND
+        - DUPLICATE_VALUE
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -6305,6 +6417,18 @@ paths:
       summary: "Update a grade"
       description: "Send the `version` you read; a stale version is refused with 409.\n\nPermission: `mdm.grade.update`."
       x-permission: mdm.grade.update
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -6367,8 +6491,21 @@ paths:
       tags:
         - mdm
       summary: "Archive a grade"
-      description: "Soft delete with a reason. The record stays in history and on documents that used it.\n\nPermission: `mdm.grade.archive`."
+      description: "Soft delete with a reason. The record stays in history and on documents that used it. Refused with 422 `RECORD_IN_USE` (`USED_BY_LIVE_PRICES`) while a pending or active price list version prices with the grade.\n\nPermission: `mdm.grade.archive`."
       x-permission: mdm.grade.archive
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - RECORD_IN_USE
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -6434,6 +6571,12 @@ paths:
       summary: "List weight bands"
       description: "Permission: `mdm.weight_band.read`."
       x-permission: mdm.weight_band.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: speciesId
           in: query
@@ -6533,8 +6676,21 @@ paths:
       tags:
         - mdm
       summary: "Create a weight band"
-      description: "Permission: `mdm.weight_band.create`."
+      description: "A band is the half-open range `[minKg, maxKg)`, so 20.000 kg falls in exactly one of two bands that meet there. A band that meets another live band of the species is refused with 422 `WEIGHT_BAND_INVALID` (`OVERLAPS_BAND:<code>`); the database refuses it too.\n\nPermission: `mdm.weight_band.create`."
       x-permission: mdm.weight_band.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - REFERENCE_NOT_FOUND
+        - DUPLICATE_VALUE
+        - WEIGHT_BAND_INVALID
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -6639,8 +6795,22 @@ paths:
       tags:
         - mdm
       summary: "Update a weight band"
-      description: "Send the `version` you read; a stale version is refused with 409.\n\nPermission: `mdm.weight_band.update`."
+      description: "Send the `version` you read; a stale version is refused with 409. The range stays half-open and may not meet another band of the species (422 `WEIGHT_BAND_INVALID`). A band that a pending or active price list version prices with keeps its range (422 `RECORD_IN_USE`).\n\nPermission: `mdm.weight_band.update`."
       x-permission: mdm.weight_band.update
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - WEIGHT_BAND_INVALID
+        - RECORD_IN_USE
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -6702,8 +6872,21 @@ paths:
       tags:
         - mdm
       summary: "Archive a weight band"
-      description: "Soft delete with a reason. The record stays in history and on documents that used it.\n\nPermission: `mdm.weight_band.archive`."
+      description: "Soft delete with a reason. The record stays in history and on documents that used it. Refused with 422 `RECORD_IN_USE` (`USED_BY_LIVE_PRICES`) while a pending or active price list version prices with the band.\n\nPermission: `mdm.weight_band.archive`."
       x-permission: mdm.weight_band.archive
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - RECORD_IN_USE
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -7418,8 +7601,24 @@ paths:
       tags:
         - mdm
       summary: "Update a product"
-      description: "Send the `version` you read; a stale version is refused with 409.\n\nPermission: `mdm.product.update`."
+      description: "Send the `version` you read; a stale version is refused with 409. The stock-keeping policy, units and species never change here. A status never returns to `DRAFT` (422 `INVALID_STATE_TRANSITION`), and a change that would move a countable product between held in lots and not (a shelf life added or removed) is refused with 422 `STOCK_POLICY_CONFLICT` (`TRACKING_FIXED`). Publishes `mdm.ProductChanged`.\n\nPermission: `mdm.product.update`."
       x-permission: mdm.product.update
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - INVALID_STATE_TRANSITION
+        - REFERENCE_NOT_FOUND
+        - STOCK_POLICY_CONFLICT
+        - DUPLICATE_VALUE
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -70336,10 +70535,16 @@ components:
             - COUNT
             - WEIGHT
             - VOLUME
+        displayDecimals:
+          type: integer
+          minimum: 0
+          maximum: 3
+          description: "Decimal places a quantity in this unit is shown with: 0 for counted units, 3 for weight and volume (CR-003). The wire format keeps three places."
       required:
         - code
         - name
         - kind
+        - displayDecimals
     UomPage:
       type: object
       description: "A page of `Uom` results."

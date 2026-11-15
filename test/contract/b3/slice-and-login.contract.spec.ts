@@ -14,7 +14,17 @@ import {
   TotpVerifyRequest,
 } from '../../../src/modules/iam/interface/schemas';
 import {
+  ArchiveBody,
+  CategoryCreate,
+  CategoryUpdate,
   CouponCreate,
+  GradeCreate,
+  GradeUpdate,
+  ProductUpdate,
+  SpeciesCreate,
+  SpeciesUpdate,
+  WeightBandCreate,
+  WeightBandUpdate,
   CouponValidationRequest,
   PriceListCreate,
   PriceListEntriesReplace,
@@ -150,6 +160,18 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     endPromotion: MdmReasonRequest,
     createCoupon: CouponCreate,
     validateCoupon: CouponValidationRequest,
+    createCategory: CategoryCreate,
+    updateCategory: CategoryUpdate,
+    archiveCategory: ArchiveBody,
+    createSpecies: SpeciesCreate,
+    updateSpecies: SpeciesUpdate,
+    createGrade: GradeCreate,
+    updateGrade: GradeUpdate,
+    archiveGrade: ArchiveBody,
+    createWeightBand: WeightBandCreate,
+    updateWeightBand: WeightBandUpdate,
+    archiveWeightBand: ArchiveBody,
+    updateProduct: ProductUpdate,
   };
 
   it('parses every request example of an implemented operation with the schema its route validates with', () => {

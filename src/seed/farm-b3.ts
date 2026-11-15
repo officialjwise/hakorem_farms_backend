@@ -2,21 +2,20 @@ import { createHash } from 'node:crypto';
 import { hash } from '@node-rs/argon2';
 import { createUuidV7Generator, ManualClock } from '@hakorem/kernel';
 import type pg from 'pg';
-import type { SeedUnit } from './seed-unit';
+import type { SqlSeedUnit } from './seed-unit';
 
 /**
  * B3's slice of the seeded farm (hakorem-seed): the Dodowa farm and shop and the smoke-suite test branch with
- * their locations, the catalogue's categories and species, a staff member in each seeded role, and six products
- * from the reference catalogue. Everything is marked as seed: emails end in `.invalid`, phone numbers come from the
- * seed block +233 20 000 0xxx, descriptions carry SEED.
+ * their locations, and a staff member in each seeded role. Everything is marked as seed: emails end in `.invalid`,
+ * phone numbers come from the seed block +233 20 000 0xxx. The catalogue it once wrote is now written through MDM's
+ * services by farm-mdm.ts.
  *
- * This slice writes SQL because the services it would call arrive in B4 (MDM branches, locations and categories;
- * IAM user creation). B4 regenerates it through the public interfaces (A-085). Ids are UUIDv7 from a fixed clock and
+ * This slice still writes SQL because the services it would call are not built yet: branches and locations
+ * (B04d continued 2) and IAM user creation (B04e) (A-085). Ids are UUIDv7 from a fixed clock and
  * a fixed random source, so a second run finds every row and changes nothing.
  */
 const SYSTEM = '01900000-0000-7000-8000-000000000001';
 const SEED_INSTANT = new Date('2026-11-01T06:00:00Z');
-const TAX = { LIVE_ANIMALS: '01900000-0000-7000-8000-000000000201', RAW_PRODUCE: '01900000-0000-7000-8000-000000000202', EGGS: '01900000-0000-7000-8000-000000000203', PROCESSED_MEAT: '01900000-0000-7000-8000-000000000204' };
 const ROLE = {
   OWNER: '01900000-0000-7000-8000-000000000101',
   MANAGER: '01900000-0000-7000-8000-000000000102',
@@ -43,6 +42,9 @@ function seededRandom(seed: string): (length: number) => Uint8Array {
   };
 }
 
+/** Ids B3 drew for its catalogue rows (4 categories, 7 species, 6 products) before they moved to farm-mdm.ts. */
+const MOVED_CATALOGUE_IDS = 17;
+
 const VIRTUAL_KINDS = ['SUPPLIER', 'CUSTOMER', 'PRODUCTION', 'PROCESSING', 'CONSUMPTION', 'LOSS', 'ADJUSTMENT', 'OPENING'] as const;
 
 interface StaffMember {
@@ -65,8 +67,9 @@ const STAFF: readonly StaffMember[] = [
 ];
 
 /** The seeded farm in B3. Requires SEED_STAFF_PASSWORD: staff passwords are generated per machine, never fixed. */
-export function farmSeedB3(staffPassword: string | undefined): SeedUnit {
+export function farmSeedB3(staffPassword: string | undefined): SqlSeedUnit {
   return {
+    kind: 'SQL',
     name: 'b3-scope-staff-catalogue',
     async run(client: pg.PoolClient) {
       if (staffPassword === undefined || staffPassword.length < 12) {
@@ -124,53 +127,10 @@ export function farmSeedB3(staffPassword: string | undefined): SeedUnit {
         }
       }
 
-      // Categories and species of the reference catalogue.
-      const category: Record<string, string> = {};
-      for (const [code, name, line, gl, tax, order] of [
-        ['LIVE', 'Live animals', 'LIVE', 'LIVE_ANIMALS', TAX.LIVE_ANIMALS, 1],
-        ['MEAT', 'Meat', 'MEAT', 'MEAT', TAX.PROCESSED_MEAT, 2],
-        ['EGGS', 'Eggs', 'PRODUCE', 'PRODUCE_EGGS', TAX.EGGS, 3],
-        ['PRODUCE', 'Fresh produce', 'PRODUCE', 'PRODUCE_EGGS', TAX.RAW_PRODUCE, 4],
-      ] as const) {
-        category[code] = id();
-        await insert(
-          `INSERT INTO mdm.category (id, code, name, product_line, gl_group, tax_category_id, sort_order, created_by, updated_by)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8) ON CONFLICT (id) DO NOTHING`,
-          [category[code], code, name, line, gl, tax, order, SYSTEM],
-        );
-      }
-      const species: Record<string, string> = {};
-      for (const [code, name, tracking] of [
-        ['GOAT', 'Goat', 'SERIAL'],
-        ['SHEEP', 'Sheep', 'SERIAL'],
-        ['PIG', 'Pig', 'SERIAL'],
-        ['BROILER', 'Broiler chicken', 'LOT'],
-        ['LOCAL_CHICKEN', 'Local chicken', 'LOT'],
-        ['DUCK', 'Duck', 'LOT'],
-        ['RABBIT', 'Rabbit', 'SERIAL'],
-      ] as const) {
-        species[code] = id();
-        await insert(
-          `INSERT INTO mdm.species (id, code, name, tracking_default, created_by, updated_by) VALUES ($1, $2, $3, $4, $5, $5) ON CONFLICT (id) DO NOTHING`,
-          [species[code], code, name, tracking, SYSTEM],
-        );
-      }
-
-      // Products from the reference catalogue (shared brief). Prices are price list data and arrive in B4.
-      for (const p of [
-        { sku: 'LIV-GOAT', name: 'Goat', cat: 'LIVE', policy: 'SERIALISED', tracking: 'SERIAL', sp: 'GOAT', base: 'HEAD', sale: 'HEAD', mode: 'REQUEST_TO_BUY', gl: 'LIVE_ANIMALS', tax: TAX.LIVE_ANIMALS, pack: null, life: null, temp: null },
-        { sku: 'LIV-SHEEP', name: 'Sheep', cat: 'LIVE', policy: 'SERIALISED', tracking: 'SERIAL', sp: 'SHEEP', base: 'HEAD', sale: 'HEAD', mode: 'REQUEST_TO_BUY', gl: 'LIVE_ANIMALS', tax: TAX.LIVE_ANIMALS, pack: null, life: null, temp: null },
-        { sku: 'MEAT-GOAT-15KG', name: 'Goat meat, 15 kg pack', cat: 'MEAT', policy: 'CATCH_WEIGHT', tracking: 'LOT', sp: null, base: 'KG', sale: 'PACK', mode: 'LISTED', gl: 'MEAT', tax: TAX.PROCESSED_MEAT, pack: '15.000', life: 90, temp: 'FROZEN' },
-        { sku: 'MEAT-CHICKEN-WINGS-15KG', name: 'Chicken wings, 15 kg pack', cat: 'MEAT', policy: 'CATCH_WEIGHT', tracking: 'LOT', sp: null, base: 'KG', sale: 'PACK', mode: 'LISTED', gl: 'MEAT', tax: TAX.PROCESSED_MEAT, pack: '15.000', life: 90, temp: 'FROZEN' },
-        { sku: 'EGG-CRATE-BIG', name: 'Eggs, big, crate of 30', cat: 'EGGS', policy: 'COUNTABLE', tracking: 'LOT', sp: null, base: 'CRATE', sale: 'CRATE', mode: 'LISTED', gl: 'PRODUCE_EGGS', tax: TAX.EGGS, pack: null, life: 21, temp: 'AMBIENT' },
-        { sku: 'PRD-YAM-TUBER', name: 'Yam, per tuber', cat: 'PRODUCE', policy: 'COUNTABLE', tracking: 'NONE', sp: null, base: 'TUBER', sale: 'TUBER', mode: 'LISTED', gl: 'PRODUCE_EGGS', tax: TAX.RAW_PRODUCE, pack: null, life: null, temp: null },
-      ]) {
-        await insert(
-          `INSERT INTO mdm.product (id, sku, name, category_id, stock_policy, tracking, species_id, base_uom, sale_uom, nominal_pack_kg, tax_category_id,
-                                    gl_group, shelf_life_days, storage_temp_class, description, online_mode, status, created_by, updated_by, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 'ACTIVE', $17, $17, $18, $18) ON CONFLICT (id) DO NOTHING`,
-          [id(), p.sku, p.name, category[p.cat], p.policy, p.tracking, p.sp === null ? null : species[p.sp], p.base, p.sale, p.pack, p.tax, p.gl, p.life, p.temp, `SEED. ${p.name} from the reference catalogue.`, p.mode, SYSTEM, SEED_INSTANT],
-        );
+      // The catalogue's categories, species and six products moved to farm-mdm.ts, which writes them through MDM's
+      // services. Their 17 ids are still drawn, so the staff below keep the ids an earlier run gave them.
+      for (let moved = 0; moved < MOVED_CATALOGUE_IDS; moved += 1) {
+        id();
       }
 
       // Staff: one person per role at Dodowa, each with the seeded password. Owner, Manager and Accountant enrol TOTP
