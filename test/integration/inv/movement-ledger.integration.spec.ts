@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createStockFixture, move, movementValue, onHand, pool, receive, refusal, sell, stockUnit, type StockFixture } from '../../support/inventory';
+import { businessDay, createStockFixture, move, movementValue, onHand, pool, receive, refusal, sell, stockUnit, type StockFixture } from '../../support/inventory';
 import { SQLSTATE, sqlStateOf } from '../../support/sql-state';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
 
@@ -146,7 +146,7 @@ describe('reversal as correction (FR-INV-004)', () => {
 });
 
 async function lot(identifier: string): Promise<string> {
-  return stockUnit(fx, { productId: fx.beef, tracking: 'LOT', identifier, producedOn: '2026-11-13', expiresOn: '2026-11-20' });
+  return stockUnit(fx, { productId: fx.beef, tracking: 'LOT', identifier, producedOn: businessDay(-3), expiresOn: businessDay(4) });
 }
 
 async function receivedGoat(tag: string, value: number): Promise<{ goat: string }> {

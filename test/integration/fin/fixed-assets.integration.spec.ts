@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { ManualClock } from '@hakorem/kernel';
+import { ManualClock, toBusinessDate } from '@hakorem/kernel';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { LedgerReconciliation } from '../../../src/modules/fin';
@@ -22,6 +22,8 @@ import { createTestDatabase, type TestDatabase } from '../../support/test-databa
 let database: TestDatabase;
 let api: TestApp;
 let clock: ManualClock;
+/** Tomorrow in Accra by the application clock: a future date whenever the suite runs. */
+const tomorrow = () => toBusinessDate(new Date(clock.now().getTime() + 86_400_000));
 let branchId: string;
 let testBranchId: string;
 const sessions = new Map<string, TestSession>();
@@ -143,7 +145,7 @@ describe('the register records cost, life and residual and posts nothing (FR-FIN
   });
 
   it('refuses a residual above the cost, a life outside 1 to 600 months, a future date and an unknown branch', async () => {
-    const bad = await post('accountant', '/finance/fixed-assets', { ...scale, branchId, residualPesewas: 420_001, usefulLifeMonths: 0, acquiredOn: '2026-12-01' });
+    const bad = await post('accountant', '/finance/fixed-assets', { ...scale, branchId, residualPesewas: 420_001, usefulLifeMonths: 0, acquiredOn: tomorrow() });
     expect([bad.status, bad.body.error.code]).toEqual([422, 'FIXED_ASSET_INVALID']);
     expect(bad.body.error.details.map((d: { code: string }) => d.code)).toEqual(['RESIDUAL_ABOVE_COST', 'LIFE_OUT_OF_RANGE', 'FUTURE_DATE']);
     const unknown = await post('owner', '/finance/fixed-assets', { ...scale, branchId: randomUUID() });
@@ -226,7 +228,7 @@ describe('disposal posts its exact gain or loss through the balanced-entry path 
 
   it('refuses a disposal dated in the future, before a month already depreciated, or to an unknown account', async () => {
     const other = (await post('accountant', '/finance/fixed-assets', { ...scale, name: 'Egg candler', branchId })).body.id as string;
-    const future = await post('accountant', `/finance/fixed-assets/${other}/dispose`, { disposedOn: '2026-12-01', proceedsPesewas: 0, note: 'Scrapped' });
+    const future = await post('accountant', `/finance/fixed-assets/${other}/dispose`, { disposedOn: tomorrow(), proceedsPesewas: 0, note: 'Scrapped' });
     expect([future.status, future.body.error.details[0].code]).toEqual([422, 'FUTURE_DATE']);
     const seeded = (await admin().query<{ id: string }>("SELECT id FROM fin.fixed_asset WHERE name = 'Platform scale, 300 kg (SEED)'")).rows[0]!.id;
     const early = await post('accountant', `/finance/fixed-assets/${seeded}/dispose`, { disposedOn: '2026-09-30', proceedsPesewas: 0, note: 'Scrapped' });

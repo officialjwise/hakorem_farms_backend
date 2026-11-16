@@ -141,6 +141,7 @@ describe('a period locks, closes and then refuses postings, through the API (FR-
   let previous: PeriodBody;
 
   it('locks the previous period once, as the accountant, and an event dated in it posts on the day it is recorded', async () => {
+    // The period these tests lock and reopen, found once: later steps move the clock and may cross into the next month.
     current = await periodOn(today());
     const dayBefore = toBusinessDate(new Date(Date.parse(`${current.startDate}T12:00:00Z`) - 86_400_000));
     previous = (await allPeriods('accountant')).find((p) => p.endDate === dayBefore)!;
@@ -207,7 +208,7 @@ describe('a period locks, closes and then refuses postings, through the API (FR-
     const asked = await post('owner', `/finance/periods/${current.id}/reopen`, { reason: 'Yam harvest recorded after the lock' });
     expect(asked.status).toBe(202);
     expect(asked.body).toMatchObject({ status: 'PENDING_APPROVAL', kind: 'PERIOD_REOPEN', subject: { docType: 'PERIOD_REOPEN', number: null } });
-    expect((await periodOn(today())).status).toBe('LOCKED');
+    expect((await periodOn(current.startDate)).status).toBe('LOCKED');
     const twice = await post('owner', `/finance/periods/${current.id}/reopen`, { reason: 'Asked twice' });
     expect(twice.body.error).toMatchObject({ code: 'INVALID_STATE_TRANSITION', details: [{ code: 'REOPEN_PENDING' }] });
 
@@ -215,12 +216,12 @@ describe('a period locks, closes and then refuses postings, through the API (FR-
     expect(self.status).toBe(422);
     expect(self.body.error.code).toBe('MAKER_CANNOT_CHECK');
     expect((await post('manager', `/iam/approvals/${asked.body.approvalRequestId as string}/approve`, { reason: 'Not mine to approve' })).status).toBe(403);
-    expect((await periodOn(today())).status).toBe('LOCKED');
+    expect((await periodOn(current.startDate)).status).toBe('LOCKED');
 
     await stepUp('accountant');
     const approved = await post('accountant', `/iam/approvals/${asked.body.approvalRequestId as string}/approve`, { reason: 'Checked the harvest sheet' });
     expect(approved.status, JSON.stringify(approved.body)).toBe(200);
-    const reopened = await periodOn(today());
+    const reopened = await periodOn(current.startDate);
     expect(reopened).toMatchObject({ status: 'OPEN', lockedAt: null, lockedBy: null, version: current.version + 2 });
     const { rows } = await admin().query<{ status: string; decided_by: string; reason: string }>('SELECT status, decided_by, reason FROM fin.period_reopen WHERE id = $1', [asked.body.subject.id]);
     expect(rows[0]).toMatchObject({ status: 'POSTED', reason: 'Yam harvest recorded after the lock' });
@@ -239,7 +240,7 @@ describe('a period locks, closes and then refuses postings, through the API (FR-
     expect(asked.status).toBe(202);
     await stepUp('accountant');
     expect((await post('accountant', `/iam/approvals/${asked.body.approvalRequestId as string}/reject`, { reason: 'Post it next month' })).status).toBe(200);
-    expect((await periodOn(today())).status).toBe('LOCKED');
+    expect((await periodOn(current.startDate)).status).toBe('LOCKED');
     const { rows } = await admin().query<{ status: string }>('SELECT status FROM fin.period_reopen WHERE id = $1', [asked.body.subject.id]);
     expect(rows[0]!.status).toBe('REJECTED');
 
@@ -248,7 +249,7 @@ describe('a period locks, closes and then refuses postings, through the API (FR-
     expect(again.status).toBe(202);
     await stepUp('secondOwner');
     expect((await post('secondOwner', `/iam/approvals/${again.body.approvalRequestId as string}/approve`, { reason: 'Agreed' })).status).toBe(200);
-    expect((await periodOn(today())).status).toBe('OPEN');
+    expect((await periodOn(current.startDate)).status).toBe('OPEN');
   });
 });
 

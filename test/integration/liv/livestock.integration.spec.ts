@@ -284,8 +284,9 @@ describe('a withdrawal hold blocks sale and processing, and nobody releases it e
       const direct = await client
         .query(
           `INSERT INTO inv.stock_movement (id, movement_type, product_id, stock_unit_id, branch_id, from_location_id, to_location_id, qty_base, source_document_id, occurred_at, actor_id)
-           VALUES ($1, 'SALE_ISSUE', $2, $3, $4, $5, $6, 1, $7, now(), $8)`,
-          [randomUUID(), id('product:LIV-GOAT'), id('unit:G-0143'), id('branch:DDW'), id('location:PENS'), id('virtual:CUSTOMER'), doc, SYSTEM_PRINCIPAL],
+           VALUES ($1, 'SALE_ISSUE', $2, $3, $4, $5, $6, 1, $7, $9, $8)`,
+          // Dated by the application clock the hold was placed on, never the database's (ADR-0066).
+          [randomUUID(), id('product:LIV-GOAT'), id('unit:G-0143'), id('branch:DDW'), id('location:PENS'), id('virtual:CUSTOMER'), doc, SYSTEM_PRINCIPAL, clock.now()],
         )
         .then(
           () => null,

@@ -202,16 +202,18 @@ describe('a supplier profile (FR-PUR-001)', () => {
     expect(changed.status).toBe(200);
     expect(changed.body).toMatchObject({ paymentTermsDays: 14, leadTimeDays: 3, notes: 'Delivers frozen chicken on Tuesdays', version: opened.body.version + 1 });
     expect((await put(manager, `/suppliers/${kpone}/profile`, { version: opened.body.version, paymentTermsDays: 30 })).status).toBe(409);
+    // Dated today by the application clock, so the test reads the same in any month; due 14 calendar days on.
+    const invoiceDate = today();
     const invoice = await post(accountant, '/supplier-invoices', {
       kind: 'INVOICE',
       supplierId: kpone,
       supplierInvoiceNo: `ACS-${randomUUID().slice(0, 6)}`,
-      invoiceDate: '2026-11-20',
+      invoiceDate,
       branchId: id('branch:DDW'),
       lines: [{ description: 'Cold store rent, November', qty: '1.000', unitPricePesewas: 15_000, taxCategoryId: id('tax:LIVE_ANIMALS') }],
     });
-    expect(invoice.status).toBe(201);
-    expect(invoice.body.dueDate).toBe('2026-12-04');
+    expect(invoice.status, JSON.stringify(invoice.body)).toBe(201);
+    expect(invoice.body.dueDate).toBe(new Date(Date.parse(`${invoiceDate}T00:00:00Z`) + 14 * 86_400_000).toISOString().slice(0, 10));
   });
 
   it('shows the seeded terms and wallet of Kpone, made by the Owner and approved by the Manager', async () => {
