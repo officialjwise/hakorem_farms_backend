@@ -1,0 +1,66 @@
+operationId: submitSupplierCreditNote
+tags:
+  - pur
+summary: "Submit a supplier credit note for approval"
+description: "A DRAFT credit note (`createSupplierInvoice` with kind `CREDIT_NOTE`) waits for a different person, whatever its amount: 202 `ApprovalPending` of kind `SUPPLIER_CREDIT_NOTE`, approved by a holder of `pur.supplier_invoice.approve` with a fresh step-up who neither submitted nor entered it (422 `MAKER_CANNOT_CHECK` or `INVOICE_MAKER_CANNOT_APPROVE` on `approveRequest`). Nothing is credited until then. On approval the credit note is APPROVED, its gross is added to the invoice's `creditedPesewas`, each line naming `returnFromLocationId` sends its goods back as INV's `SUPPLIER_RETURN` movement (refused if they are not on hand), and `pur.SupplierCreditNoteApproved` is published for the ledger. The cap is judged again on submit (422 `CREDIT_NOTE_EXCEEDS_INVOICE`); a waiting credit cannot change (422 `APPROVAL_PENDING`); a refused or withdrawn one goes back to an editable DRAFT (FR-PUR-011, 1.30.0).\n\nPermission: `pur.supplier_invoice.create`."
+x-permission: pur.supplier_invoice.create
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - INVALID_STATE_TRANSITION
+  - SUPPLIER_INVOICE_INVALID
+  - CREDIT_NOTE_EXCEEDS_INVOICE
+  - APPROVAL_PENDING
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "202":
+    description: "Accepted for approval. Nothing has taken effect yet."
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ApprovalPending"
+        example:
+          status: PENDING_APPROVAL
+          approvalRequestId: "019a7ad0-2b71-7c40-9a3e-6f1d7c0b5e11"
+          kind: SUPPLIER_CREDIT_NOTE
+          subject:
+            id: "019a7ad0-0a42-7f15-8d2c-3b9e5a1c7d20"
+            docType: SUPPLIER_INVOICE
+            number: null
+          summary: "Credit 11000 pesewas from Awutu Poultry Farm (APF-CN-0012) against invoice APF-INV-0088, sending back the goods of 1 line(s)"
+          requestedAt: "2026-11-15T10:20:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

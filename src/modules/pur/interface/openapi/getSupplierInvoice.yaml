@@ -51,9 +51,13 @@ responses:
           taxPesewas: 0
           grossPesewas: 1040000
           paidPesewas: 0
+          creditedPesewas: 0
           outstandingPesewas: 1040000
           currency: GHS
           matchStatus: MATCHED
+          approvalRequestId: null
+          varianceReason: null
+          returnReasonCode: null
           file:
             id: "019a7acb-e8f5-7aca-b002-b57cd1e82e5a"
             originalName: invoice-88120.pdf
@@ -82,6 +86,8 @@ responses:
               priceVarianceDirection: null
               matchStatus: MATCHED
               matchReasons: []
+              returnFromLocationId: null
+              returnStockUnitId: null
           branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
           version: 2
           createdAt: "2026-11-10T09:00:00Z"

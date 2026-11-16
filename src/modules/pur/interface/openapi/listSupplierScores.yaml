@@ -1,0 +1,110 @@
+operationId: listSupplierScores
+tags:
+  - pur
+summary: "Rank suppliers on price, lead time, quality and rejection"
+description: "Every supplier with a receipt, an approved invoice or goods sent back in one calendar month, from its first day (`periodStart` must be a first of the month; 422 `VALIDATION_FAILED` otherwise), newest supplier first. Each score is computed when asked, from the farm's own facts (FR-PUR-014, 1.30.0): price (100 less the percentage paid over the farm's average for the same products on approved invoices), lead time (the share of receipts on or before the promised day), quality (the accepted share of what was received) and rejection (100 less the share of accepted goods sent back on approved credit notes), weighted by the settings in `weights` (30, 25, 25 and 20 by default) and divided by their sum. Components of 90, 80, 100 and 95 give 0.30 x 90 + 0.25 x 80 + 0.25 x 100 + 0.20 x 95 = 91.00. A component without facts is null and so is the score. Suppliers are farm-wide, so any grant of the permission reads every supplier.\n\nPermission: `pur.supplier.read`."
+x-permission: pur.supplier.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - INVALID_CURSOR
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: periodStart
+    in: query
+    required: true
+    schema:
+      type: string
+      format: date
+    description: "The first day of the calendar month scored."
+  - name: supplierId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/SupplierScorePage"
+        example:
+          data:
+            - supplier:
+                id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
+                supplierNo: S-0012
+                name: "Kpone Livestock Traders"
+              periodStart: "2026-10-01"
+              periodEnd: "2026-10-31"
+              ordersCount: 5
+              onTimePercent: "80.00"
+              rejectionPercent: "0.00"
+              priceVariancePercent: "10.00"
+              returnedPercent: "5.00"
+              components:
+                price: "90.00"
+                leadTime: "80.00"
+                quality: "100.00"
+                rejection: "95.00"
+              weights:
+                price: 30
+                leadTime: 25
+                quality: 25
+                rejection: 20
+              score: "91.00"
+            - supplier:
+                id: "019a7a89-16ae-7e6d-a3a5-efa6f28f6884"
+                supplierNo: S-0019
+                name: "Awutu Poultry Farm"
+              periodStart: "2026-10-01"
+              periodEnd: "2026-10-31"
+              ordersCount: 1
+              onTimePercent: "100.00"
+              rejectionPercent: "5.00"
+              priceVariancePercent: null
+              returnedPercent: "0.00"
+              components:
+                price: null
+                leadTime: "100.00"
+                quality: "95.00"
+                rejection: "100.00"
+              weights:
+                price: 30
+                leadTime: 25
+                quality: 25
+                rejection: 20
+              score: null
+          page:
+            nextCursor: null
+            limit: 25
+            hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

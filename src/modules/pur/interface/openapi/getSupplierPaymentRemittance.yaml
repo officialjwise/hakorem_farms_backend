@@ -1,0 +1,70 @@
+operationId: getSupplierPaymentRemittance
+tags:
+  - pur
+summary: "Get a paid supplier payment's remittance advice data"
+description: "The remittance advice data of a PAID supplier payment (FR-PUR-013, 1.30.0): each invoice it pays with the invoice's gross, the credits approved against it, the amount this payment puts on it and what was left after, and the payment's method, masked payee, time and reference. It is fixed once, in the transaction that marks the payment paid, and never changes; replaying or repeating `markSupplierPaymentPaid` makes no second one, and `pur.SupplierRemittanceReady` is published once. A payment not yet paid has none (404 `NOT_FOUND`). Rendering the document, archiving it (`remittanceDocumentId`) and sending it to the supplier follow in B8 and B11.\n\nPermission: `pur.supplier_payment.read`."
+x-permission: pur.supplier_payment.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/SupplierRemittance"
+        example:
+          id: "019a7ad2-7e95-7b84-a3c6-1f9d8b0e2c53"
+          supplierPaymentId: "019a7ad2-5d76-7e49-8c1b-6a2e9f3d0b64"
+          paymentNo: null
+          supplier:
+            id: "019a7a89-16ae-7e6d-a3a5-efa6f28f6884"
+            supplierNo: S-0019
+            name: "Awutu Poultry Farm"
+          method: MOBILE_MONEY
+          payeeDetailsMasked: "MTN Mobile Money, Awutu Poultry Farm, ****0014"
+          amountPesewas: 99000
+          currency: GHS
+          paidAt: "2026-11-15T14:00:00Z"
+          externalReference: "MTN-7741029"
+          lines:
+            - supplierInvoiceId: "019a7ad0-1c33-7b06-9f4e-5d8a2c6b1e75"
+              supplierInvoiceNo: APF-INV-0088
+              invoiceDate: "2026-11-12"
+              grossPesewas: 110000
+              creditedPesewas: 11000
+              amountPesewas: 99000
+              outstandingAfterPesewas: 0
+          remittanceDocumentId: null
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          recordedAt: "2026-11-15T14:00:05Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

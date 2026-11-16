@@ -6,6 +6,7 @@ import { farmSeedMdmUnits } from './farm-mdm-units';
 import { farmSeedPrc } from './farm-prc';
 import { farmSeedPur } from './farm-pur';
 import { farmSeedPurRegister } from './farm-pur-register';
+import { farmSeedPurCredit } from './farm-pur-credit';
 import type { SeedUnit } from './seed-unit';
 
 /** What the seed units read from the environment. Values here are development secrets, generated per machine. */
@@ -23,8 +24,9 @@ export interface SeedEnvironment {
  * LIV (B06 continued), gives the feed bags and the cabbage crate their exact conversions through MDM (B06u), and sets the
  * goat's yield standards through PRC (B6); then the Manager orders feed by the bag and sends the order, and the Accountant
  * enters and approves the goats' transport invoice through PUR (B7); last, Kpone's terms, two suppliers' payout details
- * (made by the Owner, approved by the Manager) and a feed requisition go in through PUR (B07 continued).
+ * (made by the Owner, approved by the Manager) and a feed requisition go in through PUR (B07 continued); then the Accountant
+ * enters Kpone's transport credit note and the Owner approves it (B07 continued 1b).
  */
 export function seedUnits(env: SeedEnvironment): readonly SeedUnit[] {
-  return [farmSeedMdmBootstrap(), farmSeedIam(env.SEED_STAFF_PASSWORD), farmSeedMdm(), seedLocationGrantsIam(), farmSeedInv(), farmSeedLiv(), farmSeedMdmUnits(), farmSeedPrc(), farmSeedPur(), farmSeedPurRegister()];
+  return [farmSeedMdmBootstrap(), farmSeedIam(env.SEED_STAFF_PASSWORD), farmSeedMdm(), seedLocationGrantsIam(), farmSeedInv(), farmSeedLiv(), farmSeedMdmUnits(), farmSeedPrc(), farmSeedPur(), farmSeedPurRegister(), farmSeedPurCredit()];
 }

@@ -2,7 +2,7 @@ operationId: approveSupplierInvoice
 tags:
   - pur
 summary: "Approve a matched invoice for payment"
-description: "Matches the invoice again as things are now and approves it for payment: publishes pur.SupplierInvoiceMatched (or ExpenseInvoiceApproved) for the ledger. Refused with 422 THREE_WAY_MATCH_FAILED while any line is a mismatch, or before the invoice is matched (`UNMATCHED`); each detail names the line and its reason.\n\nPermission: `pur.supplier_invoice.approve`."
+description: "Matches the invoice again as things are now and approves it for payment: publishes pur.SupplierInvoiceMatched (or ExpenseInvoiceApproved) for the ledger. Refused with 422 THREE_WAY_MATCH_FAILED while any line is a mismatch, or before the invoice is matched (`UNMATCHED`); each detail names the line and its reason. A mismatch on price or a levy may instead be paid on an approved variance (`requestSupplierInvoiceVariance`). A credit note is approved through `submitSupplierCreditNote` (422 `SUPPLIER_INVOICE_INVALID`, `CREDIT_NOTE_NEEDS_APPROVAL`); an invoice whose variance waits is 422 `APPROVAL_PENDING` (1.30.0).\n\nPermission: `pur.supplier_invoice.approve`."
 x-permission: pur.supplier_invoice.approve
 x-error-codes:
   - VALIDATION_FAILED
@@ -17,6 +17,8 @@ x-error-codes:
   - VERSION_CONFLICT
   - INVALID_STATE_TRANSITION
   - THREE_WAY_MATCH_FAILED
+  - SUPPLIER_INVOICE_INVALID
+  - APPROVAL_PENDING
   - RATE_LIMITED
 parameters:
   - name: id
@@ -60,9 +62,13 @@ responses:
           taxPesewas: 0
           grossPesewas: 1040000
           paidPesewas: 0
+          creditedPesewas: 0
           outstandingPesewas: 1040000
           currency: GHS
           matchStatus: MATCHED
+          approvalRequestId: null
+          varianceReason: null
+          returnReasonCode: null
           file:
             id: "019a7acb-e8f5-7aca-b002-b57cd1e82e5a"
             originalName: invoice-88120.pdf
@@ -91,6 +97,8 @@ responses:
               priceVarianceDirection: null
               matchStatus: MATCHED
               matchReasons: []
+              returnFromLocationId: null
+              returnStockUnitId: null
           branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
           version: 2
           createdAt: "2026-11-10T09:00:00Z"

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { createUuidV7Generator, Money, Quantity, type Clock } from '@hakorem/kernel';
 import type { AuditTrail } from '../../../platform/audit/audit-trail';
 import type { Actor } from '../../../platform/context/request-context';
@@ -8,24 +9,31 @@ import type { DomainEvents } from '../../../platform/events/domain-events';
 import type { Cursors } from '../../../platform/http/cursor';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
 import type { FileStore } from '../../../platform/storage/file-store';
-import type { Authoriser, PrincipalNames } from '../../iam';
+import type { ApprovalHandler, ApprovalRecord, Approvals, Authoriser, PrincipalNames } from '../../iam';
+import type { Stock } from '../../inv';
 import type { MasterDataRefs, ProductFacts, TaxService } from '../../mdm';
+import { invoicePayable, judgeCreditNote, judgeCreditTarget } from '../domain/credit-note';
 import { orderLineNet } from '../domain/purchasing';
+import { judgeVarianceApprover, judgeVarianceLines } from '../domain/variance';
 import { matchInvoice, matchLine, type MatchReason, type MatchStatus } from '../domain/three-way-match';
 import { dueDateFrom } from '../domain/terms';
-import type { SupplierInvoiceApproved, SupplierInvoiceMismatched } from '../events';
+import type { SupplierCreditNoteApproved, SupplierInvoiceApproved, SupplierInvoiceMismatched } from '../events';
 import {
+  ApprovalPendingError,
+  CreditNoteExceedsInvoiceError,
   DuplicateSupplierInvoiceError,
+  InvoiceMakerCannotApproveError,
   PurReferenceNotFoundError,
   SupplierInvoiceInvalidError,
   ThreeWayMatchFailedError,
   translatePurRefusal,
+  VarianceNotAllowedError,
   wrongStatus,
   type BrokenRule,
 } from './errors';
-import { lineNumber, pesewas, principalRef, productRef, readPage, runPurchaseCommand, supplierRef, wholeBranches, type Page } from './purchase-command';
+import { lineNumber, pesewas, principalRef, productRef, readPage, runPurchaseCommand, supplierRef, wholeBranches, type ApprovalPendingView, type Page } from './purchase-command';
 import type { SupplierRegisterStore } from './supplier-register-store';
-import type { InvoiceFilter, InvoiceHeader, InvoiceLineRecord, InvoiceRecord, InvoiceStatus, LineMatchRecord, OrderRecord, PurchasingStore } from './purchasing-store';
+import type { InvoiceFilter, InvoiceHeader, InvoiceLineRecord, InvoiceMatchStatus, InvoiceRecord, InvoiceStatus, LineMatchRecord, OrderRecord, PurchasingStore } from './purchasing-store';
 
 const DOC_TYPE = 'SUPPLIER_INVOICE';
 const READ = 'pur.supplier_invoice.read';
@@ -33,6 +41,9 @@ const CREATE = 'pur.supplier_invoice.create';
 const MATCH = 'pur.supplier_invoice.match';
 const APPROVE = 'pur.supplier_invoice.approve';
 const INVOICE_FILE = 'SUPPLIER_INVOICE';
+export const SUPPLIER_CREDIT_NOTE_KIND = 'SUPPLIER_CREDIT_NOTE';
+export const SUPPLIER_INVOICE_VARIANCE_KIND = 'SUPPLIER_INVOICE_VARIANCE';
+const WITHDRAWN = 'Approval request withdrawn by its maker';
 /** Orders an invoice may be entered against: sent, being received, received or closed. */
 const INVOICEABLE: ReadonlySet<string> = new Set(['SENT', 'PARTIALLY_RECEIVED', 'RECEIVED', 'CLOSED']);
 const CHANGEABLE: ReadonlySet<InvoiceStatus> = new Set(['DRAFT', 'MATCHED', 'MISMATCH']);
@@ -49,6 +60,10 @@ export interface InvoiceLineInput {
   readonly taxCategoryId: string;
   readonly leviesCharged?: readonly { readonly levyId: string; readonly amountPesewas: number }[] | undefined;
   readonly expenseCategory?: string | undefined;
+  /** A credit note's line only: where goods sent back to the supplier leave from (FR-PUR-011). */
+  readonly returnFromLocationId?: string | undefined;
+  /** The lot or animal sent back, for a tracked product. */
+  readonly returnStockUnitId?: string | undefined;
 }
 
 export interface SupplierInvoiceCreate {
@@ -62,6 +77,7 @@ export interface SupplierInvoiceCreate {
   readonly branchId?: string | undefined;
   readonly fileId?: string | undefined;
   readonly statedGrossPesewas?: number | undefined;
+  readonly returnReasonCode?: string | undefined;
   readonly lines: readonly InvoiceLineInput[];
 }
 
@@ -72,6 +88,7 @@ export interface SupplierInvoiceUpdate {
   readonly dueDate?: string | undefined;
   readonly fileId?: string | undefined;
   readonly statedGrossPesewas?: number | undefined;
+  readonly returnReasonCode?: string | undefined;
   readonly lines?: readonly InvoiceLineInput[] | undefined;
 }
 
@@ -103,6 +120,8 @@ export interface SupplierInvoiceLineView {
   readonly priceVarianceDirection: 'OVER' | 'UNDER' | null;
   readonly matchStatus: MatchStatus;
   readonly matchReasons: readonly MatchReason[];
+  readonly returnFromLocationId: string | null;
+  readonly returnStockUnitId: string | null;
 }
 
 /** The contract's `SupplierInvoice`. */
@@ -120,9 +139,13 @@ export interface SupplierInvoiceView {
   readonly taxPesewas: number;
   readonly grossPesewas: number;
   readonly paidPesewas: number;
+  readonly creditedPesewas: number;
   readonly outstandingPesewas: number;
   readonly currency: 'GHS';
-  readonly matchStatus: MatchStatus;
+  readonly matchStatus: InvoiceMatchStatus;
+  readonly approvalRequestId: string | null;
+  readonly varianceReason: string | null;
+  readonly returnReasonCode: string | null;
   readonly file: { readonly id: string; readonly originalName: string; readonly contentType: string } | null;
   readonly lines: readonly SupplierInvoiceLineView[];
   readonly branchId: string;
@@ -131,13 +154,41 @@ export interface SupplierInvoiceView {
   readonly createdBy: { readonly id: string; readonly displayName: string };
 }
 
+/** What a credit note's approval binds to: the credit as entered (A-172). */
+function creditHash(credit: InvoiceRecord): string {
+  return documentHash(credit, null);
+}
+
+/** What a variance's approval binds to: the invoice as entered and the match it failed (A-172). */
+function varianceHash(invoice: InvoiceRecord): string {
+  return documentHash(invoice, invoice.lines.map((l) => [l.matchStatus, [...l.matchReasons]]));
+}
+
+function documentHash(record: InvoiceRecord, match: unknown): string {
+  const payload = {
+    kind: record.kind,
+    supplierId: record.supplierId,
+    supplierInvoiceNo: record.supplierInvoiceNo,
+    invoiceDate: record.invoiceDate,
+    originalInvoiceId: record.originalInvoiceId,
+    grossPesewas: record.grossPesewas.toString(),
+    returnReasonCode: record.returnReasonCode,
+    lines: record.lines.map((l) => [l.productId, l.purchaseOrderLineId, l.qty, l.unitPricePesewas.toString(), l.lineNetPesewas.toString(), l.returnLocationId, l.returnStockUnitId]),
+    levies: record.lines.map((l) => l.levies.map((levy) => [levy.levyId, levy.amountPesewas.toString()])),
+    match,
+  };
+  return createHash('sha256').update(JSON.stringify(payload)).digest('hex');
+}
+
 /**
  * Supplier invoices with the three-way match (FR-PUR-008 to FR-PUR-010, A-164): entered with each line's levies as
  * the supplier charged them beside MDM's calculation on the invoice date (a reclaimable flag on every levy row,
  * ADR-0020), matched line by line against the order line and what was received (SA-08), and approved for payment only
- * when every payable line matches; approval publishes the ledger event for B8. A line in the order line's unit
- * converts to the base unit through `MasterDataRefs.toBaseIn`. Every handler authorises first, scoped to the
- * invoice's branch; every change is audited.
+ * when every payable line matches, or when a different person approves the price or levy variance (FR-PUR-010,
+ * A-172); approval publishes the ledger event for B8. Supplier credit notes (FR-PUR-011, A-172) reduce an approved
+ * invoice by no more than it has left, wait for a different person, and on approval send returned goods back through
+ * INV's `Stock` and publish their ledger event. A line in the order line's unit converts to the base unit through
+ * `MasterDataRefs.toBaseIn`. Every handler authorises first, scoped to the invoice's branch; every change is audited.
  */
 export class SupplierInvoices {
   private readonly nextId: () => string;
@@ -149,6 +200,8 @@ export class SupplierInvoices {
     private readonly refs: MasterDataRefs,
     private readonly tax: TaxService,
     private readonly files: FileStore,
+    private readonly approvals: Approvals,
+    private readonly stock: Stock,
     private readonly authoriser: Authoriser,
     private readonly idempotency: Idempotency,
     private readonly audit: AuditTrail,
@@ -171,6 +224,7 @@ export class SupplierInvoices {
         'listSupplierInvoices',
         {
           status: filter.status ?? null,
+          kind: filter.kind ?? null,
           supplierId: filter.supplierId ?? null,
           matchStatus: filter.matchStatus ?? null,
           dueBefore: filter.dueBefore ?? null,
@@ -204,12 +258,14 @@ export class SupplierInvoices {
       body,
       idempotencyKey,
       async (tx) => {
+        const original = body.originalInvoiceId === undefined ? null : await this.store.invoice(tx, body.originalInvoiceId);
         const order = body.purchaseOrderId === undefined ? null : await this.store.order(tx, body.purchaseOrderId);
-        const branchId = order?.branchId ?? body.branchId;
+        const branchId = original?.branchId ?? order?.branchId ?? body.branchId;
         return branchId === undefined ? {} : { branchId };
       },
       async (tx) => {
-        if (body.kind === 'CREDIT_NOTE') throw new SupplierInvoiceInvalidError([{ field: '/kind', rule: 'CREDIT_NOTE_NOT_AVAILABLE' }]);
+        if (body.kind === 'CREDIT_NOTE') return this.createCreditNote(tx, actor!, body);
+        refuseCreditFields(body);
         const supplier = (await this.refs.suppliersIn(tx, [body.supplierId])).get(body.supplierId);
         if (supplier === undefined) throw new PurReferenceNotFoundError(['/supplierId']);
         const order = await this.orderFor(tx, body.purchaseOrderId, body.supplierId);
@@ -221,7 +277,7 @@ export class SupplierInvoices {
         if (await this.store.supplierInvoiceNoTaken(tx, body.supplierId, built.header.supplierInvoiceNo, null)) throw new DuplicateSupplierInvoiceError();
         const id = this.nextId();
         await this.documents.register(tx, { id, docType: DOC_TYPE, ownerModule: 'pur', branchId, actorId: actor!.principalId });
-        await this.store.insertInvoice(tx, id, { ...built.header, kind: 'INVOICE', supplierId: supplier.id, purchaseOrderId: order?.id ?? null, branchId }, built.lines, actor!.principalId);
+        await this.store.insertInvoice(tx, id, { ...built.header, kind: 'INVOICE', supplierId: supplier.id, purchaseOrderId: order?.id ?? null, originalInvoiceId: null, branchId }, built.lines, actor!.principalId);
         const view = await this.view(tx, id);
         await this.audit.record(tx, { module: 'pur', action: 'CREATE', entityType: 'SupplierInvoice', entityId: id, branchId, before: null, after: { ...view } });
         return { status: 201, body: view };
@@ -232,20 +288,25 @@ export class SupplierInvoices {
   update(actor: Actor | undefined, id: string, body: SupplierInvoiceUpdate, idempotencyKey: string): Promise<StoredResponse<SupplierInvoiceView>> {
     return this.write(actor, CREATE, 'updateSupplierInvoice', id, body, idempotencyKey, async (tx) => {
       const before = await this.locked(tx, id, CHANGEABLE, body.version);
+      const credit = before.kind === 'CREDIT_NOTE';
+      if (credit && before.status !== 'DRAFT') throw wrongStatus(`credit note ${id}`, before.status);
+      if (!credit) refuseCreditFields(body);
       const order = before.purchaseOrderId === null ? null : await this.store.order(tx, before.purchaseOrderId);
-      const built = await this.build(
-        tx,
-        {
-          supplierInvoiceNo: body.supplierInvoiceNo ?? before.supplierInvoiceNo,
-          invoiceDate: body.invoiceDate ?? before.invoiceDate,
-          dueDate: body.dueDate ?? (body.invoiceDate === undefined ? before.dueDate : undefined),
-          fileId: body.fileId ?? before.fileId ?? undefined,
-          statedGrossPesewas: body.statedGrossPesewas ?? (before.statedGrossPesewas === null ? undefined : pesewas(before.statedGrossPesewas)),
-          lines: body.lines ?? before.lines.map(inputOf),
-        },
-        order,
-        await this.termsDays(tx, before.supplierId),
-      );
+      const fields = {
+        supplierInvoiceNo: body.supplierInvoiceNo ?? before.supplierInvoiceNo,
+        invoiceDate: body.invoiceDate ?? before.invoiceDate,
+        dueDate: body.dueDate ?? (body.invoiceDate === undefined ? before.dueDate : undefined),
+        fileId: body.fileId ?? before.fileId ?? undefined,
+        statedGrossPesewas: body.statedGrossPesewas ?? (before.statedGrossPesewas === null ? undefined : pesewas(before.statedGrossPesewas)),
+        returnReasonCode: body.returnReasonCode ?? before.returnReasonCode ?? undefined,
+        lines: body.lines ?? before.lines.map(inputOf),
+      };
+      const built = await this.build(tx, fields, order, credit ? 0 : await this.termsDays(tx, before.supplierId));
+      if (credit) {
+        const original = (await this.store.lockInvoice(tx, before.originalInvoiceId!))!;
+        await this.judgeReturns(tx, fields, original.branchId);
+        await this.judgeHeadroom(tx, original, built.header.grossPesewas, before.grossPesewas);
+      }
       if (await this.store.supplierInvoiceNoTaken(tx, before.supplierId, built.header.supplierInvoiceNo, id)) throw new DuplicateSupplierInvoiceError();
       await this.store.replaceInvoice(tx, id, built.header, built.lines, actor!.principalId);
       return { status: 200, body: await this.audited(tx, 'UPDATE', before) };
@@ -255,6 +316,7 @@ export class SupplierInvoices {
   match(actor: Actor | undefined, id: string, idempotencyKey: string): Promise<StoredResponse<SupplierInvoiceView>> {
     return this.write(actor, MATCH, 'matchSupplierInvoice', id, {}, idempotencyKey, async (tx) => {
       const before = await this.locked(tx, id, CHANGEABLE, null);
+      if (before.kind === 'CREDIT_NOTE') throw new SupplierInvoiceInvalidError([{ field: '/kind', rule: 'CREDIT_NOTE_NEEDS_APPROVAL' }]);
       const results = await this.matched(tx, before);
       const status = matchInvoice(results.map((r) => ({ ...r, status: r.matchStatus, qtyVariance: null, priceVariance: null })));
       await this.store.recordMatch(tx, id, results, status, this.clock.now(), actor!.principalId);
@@ -282,6 +344,7 @@ export class SupplierInvoices {
   approve(actor: Actor | undefined, id: string, idempotencyKey: string): Promise<StoredResponse<SupplierInvoiceView>> {
     return this.write(actor, APPROVE, 'approveSupplierInvoice', id, {}, idempotencyKey, async (tx) => {
       const before = await this.locked(tx, id, new Set(['DRAFT', 'MATCHED', 'MISMATCH']), null);
+      if (before.kind === 'CREDIT_NOTE') throw new SupplierInvoiceInvalidError([{ field: '/kind', rule: 'CREDIT_NOTE_NEEDS_APPROVAL' }]);
       if (before.status === 'DRAFT') throw new ThreeWayMatchFailedError([{ field: '/matchStatus', rule: 'UNMATCHED' }]);
       // The match again, as things are now: a mismatch recorded earlier, or one that appeared since, blocks approval.
       const results = await this.matched(tx, before);
@@ -291,7 +354,7 @@ export class SupplierInvoices {
       }
       await this.store.markInvoiceApproved(tx, id, this.clock.now(), actor!.principalId);
       const view = await this.audited(tx, 'APPROVE', before);
-      await this.publishApproved(tx, before, view);
+      await this.publishApproved(tx, before, view, null);
       return { status: 200, body: view };
     });
   }
@@ -299,10 +362,241 @@ export class SupplierInvoices {
   cancel(actor: Actor | undefined, id: string, reason: string, idempotencyKey: string): Promise<StoredResponse<SupplierInvoiceView>> {
     return this.write(actor, CREATE, 'cancelSupplierInvoice', id, { reason }, idempotencyKey, async (tx) => {
       const before = await this.locked(tx, id, CANCELLABLE, null);
+      if (before.kind === 'CREDIT_NOTE' && before.status !== 'DRAFT') throw wrongStatus(`credit note ${id}`, before.status);
       if (((await this.store.promised(tx, [id])).get(id) ?? 0n) > 0n) throw new SupplierInvoiceInvalidError([{ field: '/status', rule: 'PAYMENT_ALLOCATED' }]);
+      if (((await this.store.liveCredits(tx, [id])).get(id) ?? 0n) > 0n) throw new SupplierInvoiceInvalidError([{ field: '/status', rule: 'CREDIT_NOTE_ENTERED' }]);
       await this.store.markInvoiceCancelled(tx, id, reason, actor!.principalId);
       return { status: 200, body: await this.audited(tx, 'CANCEL', before, { reason }) };
     });
+  }
+
+  /**
+   * `submitSupplierCreditNote` (FR-PUR-011, A-172): a DRAFT credit note waits for a different person, whatever its
+   * amount, through IAM's SUPPLIER_CREDIT_NOTE kind. Nothing is credited and no goods move until it is approved.
+   */
+  submitCreditNote(actor: Actor | undefined, id: string, idempotencyKey: string): Promise<StoredResponse<ApprovalPendingView>> {
+    return this.write(actor, CREATE, 'submitSupplierCreditNote', id, {}, idempotencyKey, async (tx) => {
+      const before = await this.locked(tx, id, new Set(['DRAFT']), null);
+      if (before.kind !== 'CREDIT_NOTE') throw new SupplierInvoiceInvalidError([{ field: '/kind', rule: 'NOT_A_CREDIT_NOTE' }]);
+      const original = (await this.store.lockInvoice(tx, before.originalInvoiceId!))!;
+      await this.judgeHeadroom(tx, original, before.grossPesewas, before.grossPesewas);
+      const supplier = (await this.refs.suppliersIn(tx, [before.supplierId])).get(before.supplierId)!;
+      const returning = before.lines.filter((l) => l.returnLocationId !== null).length;
+      const summary = `Credit ${before.grossPesewas} pesewas from ${supplier.name} (${before.supplierInvoiceNo}) against invoice ${original.supplierInvoiceNo}${returning > 0 ? `, sending back the goods of ${returning} line(s)` : ''}`;
+      const request = await this.approvals.request(tx, actor, {
+        kind: SUPPLIER_CREDIT_NOTE_KIND,
+        branchId: before.branchId,
+        subjectDocumentId: id,
+        payloadHash: creditHash(before),
+        amountPesewas: before.grossPesewas,
+        summary,
+      });
+      await this.store.markInvoicePending(tx, id, request.id, null, actor!.principalId);
+      await this.audited(tx, 'SUBMIT', before, { approvalRequestId: request.id });
+      return {
+        status: 202,
+        body: { status: 'PENDING_APPROVAL', approvalRequestId: request.id, kind: SUPPLIER_CREDIT_NOTE_KIND, subject: { id, docType: DOC_TYPE, number: null }, summary, requestedAt: request.requestedAt.toISOString() },
+      };
+    });
+  }
+
+  /**
+   * `requestSupplierInvoiceVariance` (FR-PUR-010, A-172): a MISMATCH invoice whose lines fail only on price or a levy
+   * waits for a different person to accept the variance, through IAM's SUPPLIER_INVOICE_VARIANCE kind. The match is
+   * taken again now and recorded, so the approval binds to the mismatch as it stands.
+   */
+  requestVariance(actor: Actor | undefined, id: string, reason: string, idempotencyKey: string): Promise<StoredResponse<ApprovalPendingView>> {
+    return this.write(actor, APPROVE, 'requestSupplierInvoiceVariance', id, { reason }, idempotencyKey, async (tx) => {
+      const before = await this.locked(tx, id, new Set(['MISMATCH']), null);
+      const results = await this.matched(tx, before);
+      const judged = judgeVarianceLines(results);
+      if (!judged.ok && judged.error.length === 0) throw new SupplierInvoiceInvalidError([{ field: '/matchStatus', rule: 'NO_MISMATCH' }]);
+      if (!judged.ok) throw new VarianceNotAllowedError(judged.error.map((e) => ({ field: `/lines/${e.index}`, rule: e.reason })));
+      await this.store.recordMatch(tx, id, results, 'MISMATCH', this.clock.now(), actor!.principalId);
+      const current = (await this.store.invoice(tx, id))!;
+      const supplier = (await this.refs.suppliersIn(tx, [before.supplierId])).get(before.supplierId)!;
+      const lines = results.flatMap((r, i) => (r.reasons.length > 0 ? [`line ${lineNumber(i)} ${r.reasons.join(' and ')}`] : []));
+      const summary = `Pay ${supplier.name} invoice ${before.supplierInvoiceNo} at ${before.grossPesewas} pesewas despite the mismatch (${lines.join('; ')}): ${reason.trim()}`;
+      const request = await this.approvals.request(tx, actor, {
+        kind: SUPPLIER_INVOICE_VARIANCE_KIND,
+        branchId: before.branchId,
+        subjectDocumentId: id,
+        payloadHash: varianceHash(current),
+        amountPesewas: before.grossPesewas,
+        summary,
+      });
+      await this.store.markInvoicePending(tx, id, request.id, reason.trim(), actor!.principalId);
+      await this.audited(tx, 'VARIANCE_REQUEST', before, { approvalRequestId: request.id, reason: reason.trim() });
+      return {
+        status: 202,
+        body: { status: 'PENDING_APPROVAL', approvalRequestId: request.id, kind: SUPPLIER_INVOICE_VARIANCE_KIND, subject: { id, docType: DOC_TYPE, number: null }, summary, requestedAt: request.requestedAt.toISOString() },
+      };
+    });
+  }
+
+  /** IAM's handler for SUPPLIER_CREDIT_NOTE: the credit goes into force, goods go back, the ledger event is published. */
+  readonly creditNoteApprovals: ApprovalHandler = {
+    currentPayloadHash: async (tx, subjectDocumentId) => creditHash(await this.existing(tx, subjectDocumentId)),
+    onApproved: async (tx, request) => {
+      const before = await this.locked(tx, request.subjectDocumentId, new Set(['DRAFT']), null, request.id);
+      const approver = request.decidedBy!;
+      const judged = judgeVarianceApprover({ invoiceMakerId: before.createdBy, requesterId: request.requestedBy, approverId: approver });
+      if (!judged.ok) throw new InvoiceMakerCannotApproveError();
+      const original = (await this.store.lockInvoice(tx, before.originalInvoiceId!))!;
+      const originalBefore = (await this.views(tx, [original]))[0]!;
+      const now = this.clock.now();
+      const returns = await this.sendBack(tx, approver, before, now);
+      await this.store.markCreditApproved(tx, before.id, now, approver);
+      await this.audited(tx, 'APPROVE', before, { approvalRequestId: request.id, returns: returns.map((r) => r.movementId) });
+      const originalAfter = await this.view(tx, original.id);
+      await this.audit.record(tx, { module: 'pur', action: 'CREDIT', entityType: 'SupplierInvoice', entityId: original.id, branchId: original.branchId, before: { ...originalBefore }, after: { ...originalAfter }, metadata: { creditNoteId: before.id } });
+      await this.events.publish<SupplierCreditNoteApproved>(tx, {
+        type: 'pur.SupplierCreditNoteApproved',
+        subjectType: 'SupplierInvoice',
+        subjectId: before.id,
+        branchId: before.branchId,
+        payload: {
+          creditNoteId: before.id,
+          originalInvoiceId: original.id,
+          supplierId: before.supplierId,
+          supplierInvoiceNo: before.supplierInvoiceNo,
+          invoiceDate: before.invoiceDate,
+          purchaseOrderId: before.purchaseOrderId,
+          netPesewas: pesewas(before.netPesewas),
+          taxPesewas: pesewas(before.taxPesewas),
+          grossPesewas: pesewas(before.grossPesewas),
+          approvalRequestId: request.id,
+          ...(await this.postingParts(tx, before)),
+          returns,
+        },
+      });
+    },
+    onRejected: (tx, request) => this.undecided(tx, request, new Set(['DRAFT'])),
+  };
+
+  /** IAM's handler for SUPPLIER_INVOICE_VARIANCE: the invoice is approved for payment as invoiced, on the variance. */
+  readonly varianceApprovals: ApprovalHandler = {
+    currentPayloadHash: async (tx, subjectDocumentId) => varianceHash(await this.existing(tx, subjectDocumentId)),
+    onApproved: async (tx, request) => {
+      const before = await this.locked(tx, request.subjectDocumentId, new Set(['MISMATCH']), null, request.id);
+      const judged = judgeVarianceApprover({ invoiceMakerId: before.createdBy, requesterId: request.requestedBy, approverId: request.decidedBy! });
+      if (!judged.ok) throw new InvoiceMakerCannotApproveError();
+      // The match as things are now must still be the mismatch that was approved, and one a variance covers.
+      const results = await this.matched(tx, before);
+      const stored = new Map(before.lines.map((l) => [l.id, l.matchReasons.join(',')] as const));
+      if (results.some((r) => r.reasons.join(',') !== stored.get(r.lineId))) throw new SupplierInvoiceInvalidError([{ field: '/lines', rule: 'MATCH_CHANGED' }]);
+      const lines = judgeVarianceLines(results);
+      if (!lines.ok) throw new VarianceNotAllowedError(lines.error.map((e) => ({ field: `/lines/${e.index}`, rule: e.reason })));
+      await this.store.markVarianceApproved(tx, before.id, this.clock.now(), request.decidedBy!);
+      const view = await this.audited(tx, 'APPROVE_VARIANCE', before, { approvalRequestId: request.id });
+      await this.publishApproved(tx, before, view, request.id);
+    },
+    onRejected: (tx, request) => this.undecided(tx, request, new Set(['MISMATCH'])),
+  };
+
+  /** A credit or variance refused or withdrawn: the document may be corrected again; nothing was credited or approved. */
+  private async undecided(tx: Transaction, request: ApprovalRecord, allowed: ReadonlySet<InvoiceStatus>): Promise<void> {
+    const before = await this.locked(tx, request.subjectDocumentId, allowed, null, request.id);
+    const withdrawn = request.status === 'CANCELLED';
+    await this.store.clearInvoicePending(tx, before.id, request.decidedBy ?? request.requestedBy);
+    await this.audited(tx, withdrawn ? 'WITHDRAW' : 'REJECT', before, { approvalRequestId: request.id, ...(withdrawn ? { reason: WITHDRAWN } : {}) });
+  }
+
+  private async existing(tx: Transaction, id: string): Promise<InvoiceRecord> {
+    const record = await this.store.invoice(tx, id);
+    if (record === null) throw new NotFoundError(`no supplier invoice ${id}`);
+    return record;
+  }
+
+  /**
+   * The supplier-return movements of an approved credit note (FR-PUR-011): each line that sends goods back moves its
+   * base quantity from where it stands to the branch's virtual SUPPLIER location through INV's `Stock`, at the cost
+   * the database decides, with the credit's return reason. INV refuses more than is on hand.
+   */
+  private async sendBack(tx: Transaction, actorId: string, credit: InvoiceRecord, at: Date): Promise<SupplierCreditNoteApproved['returns'][number][]> {
+    const returning = credit.lines.filter((l) => l.returnLocationId !== null);
+    if (returning.length === 0) return [];
+    const supplierLocation = await this.refs.virtualLocationIn(tx, credit.branchId, 'SUPPLIER');
+    if (supplierLocation === null) throw new Error(`branch ${credit.branchId} has no virtual SUPPLIER location; every branch is created with one (ADR-0042)`);
+    const returns: SupplierCreditNoteApproved['returns'][number][] = [];
+    for (const line of returning) {
+      const posted = await this.stock.postIn(tx, actorId, {
+        movementType: 'SUPPLIER_RETURN',
+        productId: line.productId!,
+        stockUnitId: line.returnStockUnitId,
+        branchId: credit.branchId,
+        fromLocationId: line.returnLocationId!,
+        toLocationId: supplierLocation,
+        qty: Quantity.parse(line.qtyBase!),
+        reasonCode: credit.returnReasonCode,
+        sourceDocumentId: credit.id,
+        sourceLineRef: line.id,
+        occurredAt: at,
+      });
+      returns.push({ lineNo: line.lineNo, movementId: posted.id, productId: line.productId!, qty: Quantity.parse(line.qtyBase!).toDecimalString(), costPesewas: posted.value.toJsonInteger() });
+    }
+    return returns;
+  }
+
+  /** A credit note entered against an approved invoice, within what it has left (FR-PUR-011). */
+  private async createCreditNote(tx: Transaction, actor: Actor, body: SupplierInvoiceCreate): Promise<StoredResponse<SupplierInvoiceView>> {
+    if (body.originalInvoiceId === undefined) throw new SupplierInvoiceInvalidError([{ field: '/originalInvoiceId', rule: 'ORIGINAL_REQUIRED' }]);
+    const original = await this.store.lockInvoice(tx, body.originalInvoiceId);
+    if (original === null) throw new PurReferenceNotFoundError(['/originalInvoiceId']);
+    if ((await this.refs.suppliersIn(tx, [body.supplierId])).get(body.supplierId) === undefined) throw new PurReferenceNotFoundError(['/supplierId']);
+    const target = judgeCreditTarget(original, { supplierId: body.supplierId, purchaseOrderId: body.purchaseOrderId ?? null, branchId: body.branchId ?? null });
+    if (!target.ok) {
+      const field = target.error === 'ORDER_DIFFERS' ? '/purchaseOrderId' : target.error === 'BRANCH_DIFFERS' ? '/branchId' : '/originalInvoiceId';
+      throw new SupplierInvoiceInvalidError([{ field, rule: target.error }]);
+    }
+    const order = original.purchaseOrderId === null ? null : await this.store.order(tx, original.purchaseOrderId);
+    const built = await this.build(tx, body, order, 0);
+    await this.judgeReturns(tx, body, original.branchId);
+    await this.judgeHeadroom(tx, original, built.header.grossPesewas, 0n);
+    if (await this.store.supplierInvoiceNoTaken(tx, body.supplierId, built.header.supplierInvoiceNo, null)) throw new DuplicateSupplierInvoiceError();
+    const id = this.nextId();
+    await this.documents.register(tx, { id, docType: DOC_TYPE, ownerModule: 'pur', branchId: original.branchId, actorId: actor.principalId });
+    await this.store.insertInvoice(
+      tx,
+      id,
+      { ...built.header, kind: 'CREDIT_NOTE', supplierId: original.supplierId, purchaseOrderId: original.purchaseOrderId, originalInvoiceId: original.id, branchId: original.branchId },
+      built.lines,
+      actor.principalId,
+    );
+    const view = await this.view(tx, id);
+    await this.audit.record(tx, { module: 'pur', action: 'CREATE', entityType: 'SupplierInvoice', entityId: id, branchId: original.branchId, before: null, after: { ...view } });
+    return { status: 201, body: view };
+  }
+
+  /** The credit's headroom on its invoice: live credits other than this one's `ownPesewas`, and live payments. */
+  private async judgeHeadroom(tx: Transaction, original: InvoiceRecord, creditPesewas: bigint, ownPesewas: bigint): Promise<void> {
+    const promised = (await this.store.promised(tx, [original.id])).get(original.id) ?? 0n;
+    const live = ((await this.store.liveCredits(tx, [original.id])).get(original.id) ?? 0n) - ownPesewas;
+    const judged = judgeCreditNote({ grossPesewas: original.grossPesewas, liveCreditsPesewas: live, promisedPesewas: promised }, creditPesewas);
+    if (!judged.ok && judged.error === 'CREDIT_EMPTY') throw new SupplierInvoiceInvalidError([{ field: '/lines', rule: 'CREDIT_EMPTY' }]);
+    if (!judged.ok) throw new CreditNoteExceedsInvoiceError(original.grossPesewas - live - promised);
+  }
+
+  /** Where returned goods leave from: a physical location of the invoice's branch, with a RETURN reason. */
+  private async judgeReturns(tx: Transaction, body: Pick<SupplierInvoiceCreate, 'returnReasonCode' | 'lines'>, branchId: string): Promise<void> {
+    const broken: BrokenRule[] = [];
+    const named = body.lines.flatMap((l, i) => (l.returnFromLocationId === undefined ? [] : [{ line: l, i }]));
+    const locations = await this.refs.locationsIn(tx, named.map((n) => n.line.returnFromLocationId!));
+    for (const [i, line] of body.lines.entries()) {
+      if (line.returnStockUnitId !== undefined && line.returnFromLocationId === undefined) broken.push({ field: `/lines/${i}/returnFromLocationId`, rule: 'RETURN_LOCATION_REQUIRED' });
+    }
+    for (const { line, i } of named) {
+      const location = locations.get(line.returnFromLocationId!);
+      if (location === undefined) throw new PurReferenceNotFoundError([`/lines/${i}/returnFromLocationId`]);
+      if (line.productId === undefined && line.purchaseOrderLineId === undefined) broken.push({ field: `/lines/${i}/returnFromLocationId`, rule: 'RETURN_NEEDS_PRODUCT' });
+      else if (location.branchId !== branchId) broken.push({ field: `/lines/${i}/returnFromLocationId`, rule: 'LOCATION_OF_ANOTHER_BRANCH' });
+      else if (location.isVirtual || !location.isLive) broken.push({ field: `/lines/${i}/returnFromLocationId`, rule: 'NOT_A_RETURN_LOCATION' });
+    }
+    if (named.length > 0) {
+      if (body.returnReasonCode === undefined) broken.push({ field: '/returnReasonCode', rule: 'RETURN_REASON_REQUIRED' });
+      else if ((await this.refs.reasonCodesIn(tx, [body.returnReasonCode])).get(body.returnReasonCode)?.domain !== 'RETURN') broken.push({ field: '/returnReasonCode', rule: 'RETURN_REASON_INVALID' });
+    }
+    if (broken.length > 0) throw new SupplierInvoiceInvalidError(broken);
   }
 
   /** The invoices as the contract shows them. */
@@ -332,9 +626,14 @@ export class SupplierInvoices {
       taxPesewas: pesewas(r.taxPesewas),
       grossPesewas: pesewas(r.grossPesewas),
       paidPesewas: pesewas(r.paidPesewas),
-      outstandingPesewas: pesewas(r.grossPesewas - r.paidPesewas),
+      creditedPesewas: pesewas(r.creditedPesewas),
+      // What is still owed on an invoice (FR-PUR-011, FR-PUR-012); a credit note owes nothing.
+      outstandingPesewas: r.kind === 'CREDIT_NOTE' ? 0 : pesewas(invoicePayable(r)),
       currency: 'GHS' as const,
       matchStatus: r.matchStatus,
+      approvalRequestId: r.approvalRequestId,
+      varianceReason: r.varianceReason,
+      returnReasonCode: r.returnReasonCode,
       file: r.fileId === null ? null : files.get(r.fileId)!,
       lines: r.lines.map((l) => ({
         id: l.id,
@@ -363,6 +662,8 @@ export class SupplierInvoices {
         priceVarianceDirection: l.priceVarianceDirection,
         matchStatus: l.matchStatus,
         matchReasons: l.matchReasons,
+        returnFromLocationId: l.returnLocationId,
+        returnStockUnitId: l.returnStockUnitId,
       })),
       branchId: r.branchId,
       version: r.version,
@@ -399,11 +700,15 @@ export class SupplierInvoices {
     ).catch(translatePurRefusal);
   }
 
-  private async locked(tx: Transaction, id: string, allowed: ReadonlySet<InvoiceStatus>, version: number | null): Promise<InvoiceRecord> {
+  /** The invoice locked for a change; one waiting for its credit or variance approval refuses every change (A-172). */
+  private async locked(tx: Transaction, id: string, allowed: ReadonlySet<InvoiceStatus>, version: number | null, pendingRequestId: string | null = null): Promise<InvoiceRecord> {
     const invoice = await this.store.lockInvoice(tx, id);
     if (invoice === null) throw new NotFoundError(`no supplier invoice ${id}`);
     if (version !== null && invoice.version !== version) throw new VersionConflictError(`supplier invoice ${id} is at version ${invoice.version}, not ${version}`);
     if (!allowed.has(invoice.status)) throw wrongStatus(`supplier invoice ${id}`, invoice.status);
+    const pending = invoice.approvalRequestId !== null && (invoice.status === 'DRAFT' || invoice.status === 'MISMATCH');
+    if (pendingRequestId === null && pending) throw new ApprovalPendingError(invoice.approvalRequestId!);
+    if (pendingRequestId !== null && (!pending || invoice.approvalRequestId !== pendingRequestId)) throw wrongStatus(`supplier invoice ${id}`, invoice.status);
     return invoice;
   }
 
@@ -424,7 +729,7 @@ export class SupplierInvoices {
   /** The header and lines an entry or a change makes: each line priced exactly, its levies calculated and as charged. */
   private async build(
     tx: Transaction,
-    body: Pick<SupplierInvoiceCreate, 'supplierInvoiceNo' | 'invoiceDate' | 'dueDate' | 'fileId' | 'statedGrossPesewas' | 'lines'>,
+    body: Pick<SupplierInvoiceCreate, 'supplierInvoiceNo' | 'invoiceDate' | 'dueDate' | 'fileId' | 'statedGrossPesewas' | 'returnReasonCode' | 'lines'>,
     order: OrderRecord | null,
     termsDays: number,
   ): Promise<{ header: InvoiceHeader; lines: InvoiceLineRecord[] }> {
@@ -492,6 +797,8 @@ export class SupplierInvoices {
         priceVarianceDirection: null,
         matchStatus: 'UNMATCHED',
         matchReasons: [],
+        returnLocationId: input.returnFromLocationId ?? null,
+        returnStockUnitId: input.returnStockUnitId ?? null,
       });
     }
     if (broken.length > 0) throw new SupplierInvoiceInvalidError(broken);
@@ -541,6 +848,7 @@ export class SupplierInvoices {
         taxPesewas: tax,
         grossPesewas: net + tax,
         statedGrossPesewas: stated,
+        returnReasonCode: body.returnReasonCode ?? null,
       },
       lines,
     };
@@ -598,19 +906,10 @@ export class SupplierInvoices {
     return view;
   }
 
-  /** ◆ The ledger event of an approved invoice (FR-PUR-015), with each line at its order price for 2010 and 5140. */
-  private async publishApproved(tx: Transaction, invoice: InvoiceRecord, view: SupplierInvoiceView): Promise<void> {
+  /** Each line at its order price, for 2010 and 5140, and each levy row with its reclaimable flag (FR-PUR-015). */
+  private async postingParts(tx: Transaction, invoice: InvoiceRecord): Promise<Pick<SupplierInvoiceApproved, 'lines' | 'levies'>> {
     const orderLines = new Map((await this.store.lockOrderLines(tx, invoice.lines.flatMap((l) => (l.purchaseOrderLineId === null ? [] : [l.purchaseOrderLineId])))).map((l) => [l.id, l] as const));
-    const payload: SupplierInvoiceApproved = {
-      supplierInvoiceId: invoice.id,
-      supplierId: invoice.supplierId,
-      supplierInvoiceNo: invoice.supplierInvoiceNo,
-      purchaseOrderId: invoice.purchaseOrderId,
-      invoiceDate: invoice.invoiceDate,
-      dueDate: invoice.dueDate,
-      netPesewas: view.netPesewas,
-      taxPesewas: view.taxPesewas,
-      grossPesewas: view.grossPesewas,
+    return {
       lines: invoice.lines.map((l) => {
         const orderLine = l.purchaseOrderLineId === null ? undefined : orderLines.get(l.purchaseOrderLineId);
         return {
@@ -625,6 +924,23 @@ export class SupplierInvoices {
       }),
       levies: invoice.lines.flatMap((l) => l.levies.map((levy) => ({ lineNo: l.lineNo, levyId: levy.levyId, levyCode: levy.levyCode, amountPesewas: pesewas(levy.amountPesewas), isReclaimable: levy.isReclaimable }))),
     };
+  }
+
+  /** ◆ The ledger event of an approved invoice (FR-PUR-015), matched or on an approved variance (FR-PUR-010). */
+  private async publishApproved(tx: Transaction, invoice: InvoiceRecord, view: SupplierInvoiceView, varianceApprovalRequestId: string | null): Promise<void> {
+    const payload: SupplierInvoiceApproved = {
+      supplierInvoiceId: invoice.id,
+      supplierId: invoice.supplierId,
+      supplierInvoiceNo: invoice.supplierInvoiceNo,
+      purchaseOrderId: invoice.purchaseOrderId,
+      invoiceDate: invoice.invoiceDate,
+      dueDate: invoice.dueDate,
+      netPesewas: view.netPesewas,
+      taxPesewas: view.taxPesewas,
+      grossPesewas: view.grossPesewas,
+      ...(await this.postingParts(tx, invoice)),
+      varianceApprovalRequestId,
+    };
     await this.events.publish<SupplierInvoiceApproved>(tx, {
       type: invoice.purchaseOrderId === null ? 'pur.ExpenseInvoiceApproved' : 'pur.SupplierInvoiceMatched',
       subjectType: 'SupplierInvoice',
@@ -633,6 +949,17 @@ export class SupplierInvoices {
       payload,
     });
   }
+}
+
+/** An invoice carries no credit note fields: no original, no return reason and no line sending goods back. */
+function refuseCreditFields(body: { readonly originalInvoiceId?: string | undefined; readonly returnReasonCode?: string | undefined; readonly lines?: readonly InvoiceLineInput[] | undefined }): void {
+  const broken: BrokenRule[] = [];
+  if (body.originalInvoiceId !== undefined) broken.push({ field: '/originalInvoiceId', rule: 'NOT_FOR_INVOICE' });
+  if (body.returnReasonCode !== undefined) broken.push({ field: '/returnReasonCode', rule: 'NOT_FOR_INVOICE' });
+  for (const [i, line] of (body.lines ?? []).entries()) {
+    if (line.returnFromLocationId !== undefined || line.returnStockUnitId !== undefined) broken.push({ field: `/lines/${i}/returnFromLocationId`, rule: 'NOT_FOR_INVOICE' });
+  }
+  if (broken.length > 0) throw new SupplierInvoiceInvalidError(broken);
 }
 
 /** A stored line as the input that would make it again, for a change that keeps the lines. */
@@ -647,5 +974,7 @@ function inputOf(line: InvoiceLineRecord): InvoiceLineInput {
     taxCategoryId: line.taxCategoryId,
     leviesCharged: line.levies.map((levy) => ({ levyId: levy.levyId, amountPesewas: pesewas(levy.amountPesewas) })),
     expenseCategory: line.expenseCategory ?? undefined,
+    returnFromLocationId: line.returnLocationId ?? undefined,
+    returnStockUnitId: line.returnStockUnitId ?? undefined,
   };
 }

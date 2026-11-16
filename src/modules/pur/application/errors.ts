@@ -21,6 +21,10 @@ registerMessages({
   'pur.supplier_document_invalid': 'This document cannot be filed for the supplier.',
   'pur.payout_maker_cannot_approve': 'You made the payout change this payment is the first to use, so someone else must approve it.',
   'pur.purchase_requisition_invalid': 'This purchase requisition cannot be made or changed like this.',
+  'pur.credit_note_exceeds_invoice': 'This credit is more than the invoice has left uncredited and unpaid.',
+  'pur.variance_not_allowed': 'An approved variance covers a price or levy difference only; receive the goods or correct the invoice instead.',
+  'pur.invoice_maker_cannot_approve': 'You entered this invoice, so someone else must approve its variance.',
+  'pur.approval_pending': 'This document is waiting for approval and cannot change until it is decided or withdrawn.',
 });
 
 export interface BrokenRule {
@@ -75,7 +79,11 @@ export class ReceiptOrderMismatchError extends BusinessRuleError {
  * 422 SUPPLIER_INVOICE_INVALID (FR-PUR-008): `NO_LINES`, `ORDER_OF_ANOTHER_SUPPLIER`, `ORDER_NOT_RECEIVABLE`,
  * `ORDER_LINE_NOT_ON_ORDER`, `ORDER_REQUIRED`, `PRODUCT_DIFFERS`, `NO_CONVERSION`, `INEXACT_QUANTITY`,
  * `BRANCH_REQUIRED`, `BRANCH_DIFFERS`, `DUE_BEFORE_INVOICE`, `STATED_TOTAL_DIFFERS`, `LEVY_NOT_IN_SCHEME`,
- * `LEVY_REPEATED`, `FILE_NOT_USABLE`, `CREDIT_NOTE_NOT_AVAILABLE`.
+ * `LEVY_REPEATED`, `FILE_NOT_USABLE`; for a credit note (FR-PUR-011) `ORIGINAL_REQUIRED`, `ORIGINAL_NOT_AN_INVOICE`,
+ * `ORIGINAL_NOT_APPROVED`, `ORIGINAL_SETTLED`, `ORIGINAL_OF_ANOTHER_SUPPLIER`, `ORDER_DIFFERS`, `NOT_FOR_INVOICE`,
+ * `RETURN_REASON_REQUIRED`, `RETURN_REASON_INVALID`, `NOT_A_RETURN_LOCATION`, `LOCATION_OF_ANOTHER_BRANCH`,
+ * `CREDIT_EMPTY`, `NOT_A_CREDIT_NOTE` and `CREDIT_NOTE_NEEDS_APPROVAL`; for a variance (FR-PUR-010) `NO_MISMATCH`;
+ * `CREDIT_NOTE_ENTERED` on cancelling an invoice a live credit note reduces.
  */
 export class SupplierInvoiceInvalidError extends BusinessRuleError {
   readonly code = 'SUPPLIER_INVOICE_INVALID';
@@ -193,6 +201,52 @@ export class PayoutMakerCannotApproveError extends BusinessRuleError {
   }
 }
 
+/** 422 CREDIT_NOTE_EXCEEDS_INVOICE (FR-PUR-011): the credit is more than its invoice has left uncredited and unpromised. */
+export class CreditNoteExceedsInvoiceError extends BusinessRuleError {
+  readonly code = 'CREDIT_NOTE_EXCEEDS_INVOICE';
+  readonly messageKey = 'pur.credit_note_exceeds_invoice';
+
+  constructor(leftPesewas: bigint | null) {
+    super(
+      leftPesewas === null ? 'the credit exceeds the invoice' : `the credit exceeds the ${leftPesewas} pesewas the invoice has left`,
+      [{ field: '/lines', code: 'CREDIT_EXCEEDS_UNCREDITED', message: translate('pur.credit_note_exceeds_invoice') }],
+    );
+  }
+}
+
+/**
+ * 422 VARIANCE_NOT_ALLOWED (FR-PUR-010, A-172): a variance asked for, or approved, on a line whose mismatch is not a
+ * price or a levy (`QTY_EXCEEDS_RECEIVED`, `NO_ORDER_LINE`, `PRODUCT_DIFFERS`); each detail names the line.
+ */
+export class VarianceNotAllowedError extends BusinessRuleError {
+  readonly code = 'VARIANCE_NOT_ALLOWED';
+  readonly messageKey = 'pur.variance_not_allowed';
+
+  constructor(rules: readonly BrokenRule[]) {
+    super('a variance cannot cover this mismatch', details(rules, 'pur.variance_not_allowed'));
+  }
+}
+
+/** 422 INVOICE_MAKER_CANNOT_APPROVE (FR-PUR-010, A-172): the person who entered an invoice approving its variance. */
+export class InvoiceMakerCannotApproveError extends BusinessRuleError {
+  readonly code = 'INVOICE_MAKER_CANNOT_APPROVE';
+  readonly messageKey = 'pur.invoice_maker_cannot_approve';
+
+  constructor() {
+    super('the person who entered the invoice may not approve its variance', [{ field: '/approvalRequestId', code: 'INVOICE_MAKER_CANNOT_APPROVE', message: translate('pur.invoice_maker_cannot_approve') }]);
+  }
+}
+
+/** 422 APPROVAL_PENDING (A-172): a credit note or a variance waits for approval, so the invoice cannot change meanwhile. */
+export class ApprovalPendingError extends BusinessRuleError {
+  readonly code = 'APPROVAL_PENDING';
+  readonly messageKey = 'pur.approval_pending';
+
+  constructor(approvalRequestId: string) {
+    super(`approval request ${approvalRequestId} is still open`, [{ field: '/approvalRequestId', code: 'APPROVAL_PENDING', message: translate('pur.approval_pending') }]);
+  }
+}
+
 /** 422 REFERENCE_NOT_FOUND: an id in the request names no record. */
 export class PurReferenceNotFoundError extends BusinessRuleError {
   readonly code = 'REFERENCE_NOT_FOUND';
@@ -225,5 +279,10 @@ export function translatePurRefusal(error: unknown): never {
   if (failure?.code === 'HK010' && failure.constraint === 'ck_supplier_payment_first_use_approver') throw new PayoutMakerCannotApproveError();
   if (failure?.code === 'HK010' && failure.constraint === 'ck_supplier_payment_payee') throw new SupplierPaymentInvalidError([{ field: '/method', rule: 'PAYOUT_DETAILS_MISSING' }]);
   if (failure?.code === 'HK004' && failure.constraint === 'ck_purchase_order_cancel_unreceived') throw new PurchaseOrderInvalidError([{ field: '/status', rule: 'RECEIVED_ALREADY' }]);
+  if (failure?.code === 'HK010' && failure.constraint === 'ck_supplier_credit_note_cap') throw new CreditNoteExceedsInvoiceError(null);
+  if (failure?.code === 'HK010' && failure.constraint === 'ck_supplier_credit_note_original') throw new SupplierInvoiceInvalidError([{ field: '/originalInvoiceId', rule: 'ORIGINAL_NOT_APPROVED' }]);
+  if (failure?.code === 'HK004' && failure.constraint === 'ck_supplier_invoice_cancel_credited') throw new SupplierInvoiceInvalidError([{ field: '/status', rule: 'CREDIT_NOTE_ENTERED' }]);
+  if (failure?.code === 'HK010' && failure.constraint === 'ck_supplier_invoice_variance_cover') throw new VarianceNotAllowedError([{ field: '/lines', rule: 'VARIANCE_NOT_ALLOWED' }]);
+  if (failure?.code === '23514' && failure.constraint === 'ck_supplier_invoice_variance') throw new InvoiceMakerCannotApproveError();
   throw error;
 }

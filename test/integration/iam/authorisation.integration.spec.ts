@@ -107,6 +107,7 @@ const VALID_BODY: Readonly<Record<string, object>> = {
   },
   updateSupplierInvoice: { version: 1, dueDate: '2026-11-30' },
   cancelSupplierInvoice: { reason: 'Entered twice' },
+  requestSupplierInvoiceVariance: { reason: 'Awutu raised the price after the order' },
   createSupplierPayment: { supplierId: randomUUID(), method: 'MOBILE_MONEY', allocations: [{ supplierInvoiceId: randomUUID(), amountPesewas: 110000 }] },
   markSupplierPaymentPaid: { paidAt: '2026-11-15T10:00:00Z', externalReference: 'MOMO-7781' },
   cancelSupplierPayment: { reason: 'Paid in cash instead' },
@@ -214,7 +215,7 @@ afterAll(async () => {
 });
 
 describe('deny by default: the handler walk (ADR-0017, security architecture section 14)', () => {
-  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued, B05 continued 3, B05x, B6, B06m, B06 continued, B06 continued 2, B06 continued 3, B06u, B7 and B07 continued routes, and every one declares its operation', () => {
+  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued, B05 continued 3, B05x, B6, B06m, B06 continued, B06 continued 2, B06 continued 3, B06u, B7, B07 continued and B07 continued 1b routes, and every one declares its operation', () => {
     expect(routes.map((route) => route.spec?.operationId).sort()).toEqual(
       [
         'changePassword', 'confirmTotpEnrolment', 'createProduct', 'getCurrentSession', 'getHealth', 'getProduct', 'listProducts', 'listSessions',
@@ -270,6 +271,7 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'getSupplierProfile', 'updateSupplierProfile', 'getSupplierPayoutDetails', 'listSupplierDocuments', 'addSupplierDocument',
         'listPurchaseRequisitions', 'createPurchaseRequisition', 'getPurchaseRequisition', 'updatePurchaseRequisition', 'submitPurchaseRequisition',
         'rejectPurchaseRequisition', 'convertPurchaseRequisition', 'updateSetting',
+        'submitSupplierCreditNote', 'requestSupplierInvoiceVariance', 'getSupplierPaymentRemittance', 'listSupplierScores',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);
@@ -289,7 +291,7 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
   });
 
   /** Reads whose query has a required parameter: without it the request is refused as invalid before it is authorised. */
-  const VALID_QUERY: Record<string, string> = { listStockAvailability: `?branchId=${randomUUID()}`, listGrowth: '?groupBy=PEN&from=2026-10-01&to=2026-10-31' };
+  const VALID_QUERY: Record<string, string> = { listStockAvailability: `?branchId=${randomUUID()}`, listGrowth: '?groupBy=PEN&from=2026-10-01&to=2026-10-31', listSupplierScores: '?periodStart=2026-10-01' };
 
   it('refuses a staff user who holds no grant on every permissioned operation, with 403 FORBIDDEN', async () => {
     const nobody = await createUser(database, { name: 'Kwame Nkansah' });

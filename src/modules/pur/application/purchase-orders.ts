@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { createUuidV7Generator, Money, Quantity, Rate, type Clock } from '@hakorem/kernel';
+import { createUuidV7Generator, Money, Quantity, Rate, toBusinessDate, type Clock } from '@hakorem/kernel';
 import type { AuditTrail } from '../../../platform/audit/audit-trail';
 import type { Actor } from '../../../platform/context/request-context';
 import type { Transaction, UnitOfWork } from '../../../platform/database/unit-of-work';
@@ -14,6 +14,7 @@ import type { GoodsReceiptPosted } from '../../inv/events';
 import type { MasterDataRefs, TaxService } from '../../mdm';
 import { flagOrderSplitting, splitLookbackStart, type SplitSuspect } from '../domain/order-splitting';
 import { judgeOrderAction, judgeReceipt, orderLimitJudgement, orderLineNet, outstanding, receivedStatus, type OrderAction, type OrderStatus } from '../domain/purchasing';
+import { dueDateFrom } from '../domain/terms';
 import type { PurchaseOrderApproved, PurchaseOrderSent } from '../events';
 import { PurchaseOrderInvalidError, PurReferenceNotFoundError, ReceiptExceedsOrderError, ReceiptOrderMismatchError, translatePurRefusal, wrongStatus, type BrokenRule } from './errors';
 import { lineNumber, locationRef, pesewas, principalRef, productRef, readPage, runPurchaseCommand, supplierRef, type ApprovalPendingView, type Page } from './purchase-command';
@@ -325,6 +326,7 @@ export class PurchaseOrders implements ApprovalHandler {
    */
   readonly received = async (tx: Transaction, event: EventEnvelope): Promise<void> => {
     const receipt = event.payload as unknown as GoodsReceiptPosted;
+    await this.recordReceiptFacts(tx, receipt, event.actorId);
     const named = receipt.lines.map((line, index) => ({ line, index })).filter((l) => l.line.purchaseOrderLineId !== null);
     if (named.length === 0) return;
     if (receipt.purchaseOrderId === null) {
@@ -364,6 +366,35 @@ export class PurchaseOrders implements ApprovalHandler {
     await this.store.markOrderReceived(tx, order.id, receivedStatus(after), event.actorId);
     await this.audited(tx, 'RECEIVE', order, { goodsReceiptId: receipt.goodsReceiptId });
   };
+
+  /**
+   * The facts supplier scores read (FR-PUR-014, A-173), kept in the receipt's transaction: each line of a purchase
+   * receipt from a supplier, accepted and rejected, the day it arrived and the day it was promised (the order's
+   * expected date, else its date plus the supplier's lead time, else none).
+   */
+  private async recordReceiptFacts(tx: Transaction, receipt: GoodsReceiptPosted, actorId: string): Promise<void> {
+    if (receipt.kind !== 'PURCHASE' || receipt.supplierId === null) return;
+    const order = receipt.purchaseOrderId === null ? null : await this.store.order(tx, receipt.purchaseOrderId);
+    const leadTime = order === null || order.expectedOn !== null ? null : await this.store.supplierLeadTimeDays(tx, receipt.supplierId);
+    const promisedOn = order === null ? null : (order.expectedOn ?? (leadTime === null ? null : dueDateFrom(order.orderDate, leadTime)));
+    const receivedOn = toBusinessDate(new Date(receipt.receivedAt));
+    await this.store.insertReceiptFacts(
+      tx,
+      receipt.lines.map((line) => ({
+        goodsReceiptLineId: line.goodsReceiptLineId,
+        goodsReceiptId: receipt.goodsReceiptId,
+        supplierId: receipt.supplierId!,
+        purchaseOrderId: order?.id ?? null,
+        productId: line.productId,
+        receivedOn,
+        promisedOn,
+        qtyAccepted: line.qtyReceived,
+        qtyRejected: line.qtyRejected,
+        branchId: receipt.branchId,
+      })),
+      actorId,
+    );
+  }
 
   /** The orders as the contract shows them, for this module's invoices too. */
   async views(tx: Transaction, records: readonly OrderRecord[]): Promise<PurchaseOrderView[]> {

@@ -79,7 +79,20 @@ describe('allocating a supplier payment (FR-PUR-010, FR-PUR-012)', () => {
     matchStatus: 'MATCHED',
     grossPesewas: gross,
     promisedPesewas: 0n,
+    liveCreditsPesewas: 0n,
     ...over,
+  });
+
+  it('pays only what credit notes leave: 99,000 of a 110,000 invoice with 11,000 credited, and refuses 99,001 (FR-PUR-011)', () => {
+    expect(judgeAllocations('awutu', [{ invoiceId: 'a', amount: Money.ofPesewas(99_000n), invoice: invoice(110_000n, { liveCreditsPesewas: 11_000n }) }])).toEqual({ ok: true, value: Money.ofPesewas(99_000n) });
+    expect(judgeAllocations('awutu', [{ invoiceId: 'a', amount: Money.ofPesewas(99_001n), invoice: invoice(110_000n, { liveCreditsPesewas: 11_000n }) }])).toEqual({
+      ok: false,
+      error: [{ index: 0, rule: 'EXCEEDS_OUTSTANDING' }],
+    });
+  });
+
+  it('pays an invoice whose mismatch a second person approved as a variance (FR-PUR-010)', () => {
+    expect(judgeAllocations('awutu', [{ invoiceId: 'a', amount: Money.ofPesewas(112_000n), invoice: invoice(112_000n, { matchStatus: 'VARIANCE_APPROVED' }) }]).ok).toBe(true);
   });
 
   it('pays 110,000 across invoices of 60,000 and 50,000 exactly', () => {

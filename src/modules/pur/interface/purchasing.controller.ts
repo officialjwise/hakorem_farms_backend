@@ -9,7 +9,8 @@ import type { StoredResponse } from '../../../platform/idempotency/idempotency';
 import type { ApprovalPendingView, Page } from '../application/purchase-command';
 import { PurchaseOrders, type PurchaseOrderView } from '../application/purchase-orders';
 import { SupplierInvoices, type SupplierInvoiceView } from '../application/supplier-invoices';
-import { SupplierPayments, type SupplierPaymentView } from '../application/supplier-payments';
+import { SupplierPayments, type SupplierPaymentView, type SupplierRemittanceView } from '../application/supplier-payments';
+import { SupplierScores, type SupplierScoreView } from '../application/supplier-scores';
 import {
   IdParam,
   PurchaseOrderCreate,
@@ -20,9 +21,11 @@ import {
   SupplierInvoiceCreate,
   SupplierInvoicePageQuery,
   SupplierInvoiceUpdate,
+  SupplierInvoiceVarianceRequest,
   SupplierPaymentCreate,
   SupplierPaymentMarkPaid,
   SupplierPaymentPageQuery,
+  SupplierScorePageQuery,
 } from './schemas';
 
 const READ = { access: 'SESSION', realms: ['STAFF'], idempotent: false, csrf: false, rateLimit: 'console' } as const;
@@ -44,6 +47,7 @@ export class PurchasingController {
     @Inject(PurchaseOrders) private readonly orders: PurchaseOrders,
     @Inject(SupplierInvoices) private readonly invoices: SupplierInvoices,
     @Inject(SupplierPayments) private readonly payments: SupplierPayments,
+    @Inject(SupplierScores) private readonly scores: SupplierScores,
   ) {}
 
   @Get('purchase-orders')
@@ -133,7 +137,7 @@ export class PurchasingController {
   listSupplierInvoices(@CurrentActor() actor: Actor | undefined, @Query(zodPipe(SupplierInvoicePageQuery)) query: z.infer<typeof SupplierInvoicePageQuery>): Promise<Page<SupplierInvoiceView>> {
     return this.invoices.list(
       actor,
-      { status: query.status, supplierId: query.supplierId, matchStatus: query.matchStatus, dueBefore: query.dueBefore, outstandingOnly: query.outstandingOnly ?? false },
+      { status: query.status, kind: query.kind, supplierId: query.supplierId, matchStatus: query.matchStatus, dueBefore: query.dueBefore, outstandingOnly: query.outstandingOnly ?? false },
       query.cursor,
       query.limit,
     );
@@ -190,6 +194,29 @@ export class PurchasingController {
     return reply(res, this.invoices.approve(actor, id, key));
   }
 
+  @Post('supplier-invoices/:id/submit')
+  @Operation({ operationId: 'submitSupplierCreditNote', ...WRITE, permission: 'pur.supplier_invoice.create' })
+  submitSupplierCreditNote(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<ApprovalPendingView> {
+    return reply(res, this.invoices.submitCreditNote(actor, id, key));
+  }
+
+  @Post('supplier-invoices/:id/variance')
+  @Operation({ operationId: 'requestSupplierInvoiceVariance', ...WRITE, permission: 'pur.supplier_invoice.approve' })
+  requestSupplierInvoiceVariance(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(SupplierInvoiceVarianceRequest)) body: z.infer<typeof SupplierInvoiceVarianceRequest>,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<ApprovalPendingView> {
+    return reply(res, this.invoices.requestVariance(actor, id, body.reason, key));
+  }
+
   @Post('supplier-invoices/:id/cancel')
   @Operation({ operationId: 'cancelSupplierInvoice', ...WRITE, permission: 'pur.supplier_invoice.create' })
   cancelSupplierInvoice(
@@ -223,6 +250,18 @@ export class PurchasingController {
   @Operation({ operationId: 'getSupplierPayment', ...READ, permission: 'pur.supplier_payment.read' })
   getSupplierPayment(@CurrentActor() actor: Actor | undefined, @Param('id', zodPipe(IdParam)) id: string): Promise<SupplierPaymentView> {
     return this.payments.get(actor, id);
+  }
+
+  @Get('supplier-payments/:id/remittance')
+  @Operation({ operationId: 'getSupplierPaymentRemittance', ...READ, permission: 'pur.supplier_payment.read' })
+  getSupplierPaymentRemittance(@CurrentActor() actor: Actor | undefined, @Param('id', zodPipe(IdParam)) id: string): Promise<SupplierRemittanceView> {
+    return this.payments.remittance(actor, id);
+  }
+
+  @Get('supplier-scores')
+  @Operation({ operationId: 'listSupplierScores', ...READ, permission: 'pur.supplier.read' })
+  listSupplierScores(@CurrentActor() actor: Actor | undefined, @Query(zodPipe(SupplierScorePageQuery)) query: z.infer<typeof SupplierScorePageQuery>): Promise<Page<SupplierScoreView>> {
+    return this.scores.list(actor, query.periodStart, query.supplierId, query.cursor, query.limit);
   }
 
   @Post('supplier-payments/:id/submit')

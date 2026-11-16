@@ -71,9 +71,12 @@ const SupplierInvoiceLineInput = z.strictObject({
   taxCategoryId: z.uuid(),
   leviesCharged: z.array(z.strictObject({ levyId: z.uuid(), amountPesewas: Pesewas })).max(10).optional(),
   expenseCategory: Text(60).optional(),
+  returnFromLocationId: z.uuid().optional(),
+  returnStockUnitId: z.uuid().optional(),
 });
 
 const InvoiceNo = Text(60);
+const ReasonCode = z.string().regex(/^[A-Z][A-Z0-9_]{1,39}$/);
 
 export const SupplierInvoiceCreate = z.strictObject({
   kind: z.enum(['INVOICE', 'CREDIT_NOTE']),
@@ -86,6 +89,7 @@ export const SupplierInvoiceCreate = z.strictObject({
   branchId: z.uuid().optional(),
   fileId: z.uuid().optional(),
   statedGrossPesewas: Pesewas.optional(),
+  returnReasonCode: ReasonCode.optional(),
   lines: z.array(SupplierInvoiceLineInput).max(MAX_DOCUMENT_LINES),
 });
 
@@ -96,13 +100,24 @@ export const SupplierInvoiceUpdate = z.strictObject({
   dueDate: CalendarDate.optional(),
   fileId: z.uuid().optional(),
   statedGrossPesewas: Pesewas.optional(),
+  returnReasonCode: ReasonCode.optional(),
   lines: z.array(SupplierInvoiceLineInput).max(MAX_DOCUMENT_LINES).optional(),
+});
+
+/** The contract's `SupplierInvoiceVarianceRequest` (FR-PUR-010). */
+export const SupplierInvoiceVarianceRequest = z.strictObject({ reason: z.string().trim().min(1).max(500) });
+
+/** `listSupplierScores`: a calendar month, from its first day (FR-PUR-014). */
+export const SupplierScorePageQuery = PageQuery.extend({
+  periodStart: CalendarDate.refine((d) => d.endsWith('-01'), { message: 'the first day of a month' }),
+  supplierId: z.uuid().optional(),
 });
 
 export const SupplierInvoicePageQuery = PageQuery.extend({
   status: z.enum(['DRAFT', 'MATCHED', 'MISMATCH', 'APPROVED', 'PAID', 'CANCELLED']).optional(),
   supplierId: z.uuid().optional(),
-  matchStatus: z.enum(['UNMATCHED', 'MATCHED', 'MISMATCH', 'NOT_REQUIRED']).optional(),
+  kind: z.enum(['INVOICE', 'CREDIT_NOTE']).optional(),
+  matchStatus: z.enum(['UNMATCHED', 'MATCHED', 'MISMATCH', 'NOT_REQUIRED', 'VARIANCE_APPROVED']).optional(),
   dueBefore: CalendarDate.optional(),
   outstandingOnly: Bool.optional(),
 });

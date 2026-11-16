@@ -9,5 +9,5 @@ export { SupplierInvoices, type SupplierInvoiceCreate, type SupplierInvoiceView 
 export { SupplierPayments, type SupplierPaymentCreate, type SupplierPaymentView } from './application/supplier-payments';
 export { Suppliers, type SupplierProfileUpdate, type SupplierProfileView } from './application/suppliers';
 export { Requisitions, type PurchaseRequisitionCreate, type PurchaseRequisitionView } from './application/requisitions';
-export type { RequisitionSubmitted, SupplierPayoutChanged, SupplierPayoutChangeRequested } from './events';
+export type { RequisitionSubmitted, SupplierCreditNoteApproved, SupplierPayoutChanged, SupplierPayoutChangeRequested, SupplierRemittanceReady } from './events';
 export type { PurchaseOrderApproved, PurchaseOrderSent, SupplierInvoiceApproved, SupplierInvoiceMismatched, SupplierPaymentMade } from './events';

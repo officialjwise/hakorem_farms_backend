@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.29.0"
+  version: "1.30.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -2435,132 +2435,7 @@ paths:
   "/suppliers/{id}/profile": {}
   "/suppliers/{id}/payout-details": {}
   "/suppliers/{id}/documents": {}
-  "/supplier-scores":
-    get:
-      operationId: listSupplierScores
-      tags:
-        - pur
-      summary: "Rank suppliers on price, lead time, quality and rejection"
-      description: "Permission: `pur.supplier.read`."
-      x-permission: pur.supplier.read
-      parameters:
-        - name: periodStart
-          in: query
-          required: true
-          schema:
-            type: string
-            format: date
-        - name: supplierId
-          in: query
-          required: false
-          schema:
-            type: string
-            format: uuid
-        - name: cursor
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: limit
-          in: query
-          required: false
-          schema:
-            $ref: "#/components/schemas/PageLimit"
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SupplierScorePage"
-              example:
-                data:
-                  - supplier:
-                      id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
-                      supplierNo: S-0007
-                      name: "Ashanti Feeds Ltd"
-                    periodStart: "2026-10-01"
-                    periodEnd: "2026-10-31"
-                    ordersCount: 4
-                    onTimePercent: "100.00"
-                    rejectionPercent: "0.00"
-                    priceVariancePercent: "0.00"
-                    score: "98.00"
-                  - supplier:
-                      id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                      supplierNo: S-0012
-                      name: "Kpone Livestock Traders"
-                    periodStart: "2026-10-01"
-                    periodEnd: "2026-10-31"
-                    ordersCount: 3
-                    onTimePercent: "66.67"
-                    rejectionPercent: "0.00"
-                    priceVariancePercent: "2.10"
-                    score: "81.50"
-                  - supplier:
-                      id: "019a7a88-f7bf-7489-99c2-516f78deca4d"
-                      supplierNo: S-0003
-                      name: "Agrivet Ghana Ltd"
-                    periodStart: "2026-10-01"
-                    periodEnd: "2026-10-31"
-                    ordersCount: 2
-                    onTimePercent: "100.00"
-                    rejectionPercent: "0.00"
-                    priceVariancePercent: "0.00"
-                    score: "97.00"
-                  - supplier:
-                      id: "019a7a89-16ae-7e6d-a3a5-efa6f28f6884"
-                      supplierNo: S-0019
-                      name: "Awutu Poultry Farm"
-                    periodStart: "2026-10-01"
-                    periodEnd: "2026-10-31"
-                    ordersCount: 2
-                    onTimePercent: "50.00"
-                    rejectionPercent: "1.20"
-                    priceVariancePercent: "0.00"
-                    score: "72.40"
-                  - supplier:
-                      id: "019a7a89-359d-7850-bd89-8dde6c4006bc"
-                      supplierNo: S-0021
-                      name: "Dodowa Vegetable Growers Cooperative"
-                    periodStart: "2026-10-01"
-                    periodEnd: "2026-10-31"
-                    ordersCount: 6
-                    onTimePercent: "83.33"
-                    rejectionPercent: "8.33"
-                    priceVariancePercent: "0.00"
-                    score: "80.10"
-                  - supplier:
-                      id: "019a7a89-548c-7234-876c-2c15e5f1a4f3"
-                      supplierNo: S-0025
-                      name: "Tema Packaging Supplies"
-                    periodStart: "2026-10-01"
-                    periodEnd: "2026-10-31"
-                    ordersCount: 1
-                    onTimePercent: "100.00"
-                    rejectionPercent: "0.00"
-                    priceVariancePercent: "4.50"
-                    score: "91.00"
-                page:
-                  nextCursor: null
-                  limit: 25
-                  hasMore: false
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+  "/supplier-scores": {}
   "/purchase-requisitions": {}
   "/purchase-requisitions/{id}": {}
   "/purchase-requisitions/{id}/submit": {}
@@ -2576,9 +2451,12 @@ paths:
   "/supplier-invoices/{id}": {}
   "/supplier-invoices/{id}/match": {}
   "/supplier-invoices/{id}/approve": {}
+  "/supplier-invoices/{id}/submit": {}
+  "/supplier-invoices/{id}/variance": {}
   "/supplier-invoices/{id}/cancel": {}
   "/supplier-payments": {}
   "/supplier-payments/{id}": {}
+  "/supplier-payments/{id}/remittance": {}
   "/supplier-payments/{id}/submit": {}
   "/supplier-payments/{id}/mark-paid": {}
   "/supplier-payments/{id}/cancel": {}
@@ -39164,6 +39042,8 @@ components:
         - PURCHASE_ORDER
         - SUPPLIER_PAYMENT
         - SUPPLIER_PAYOUT_CHANGE
+        - SUPPLIER_CREDIT_NOTE
+        - SUPPLIER_INVOICE_VARIANCE
         - MANUAL_JOURNAL
         - POSTING_RULE_CHANGE
         - CAPITAL_WITHDRAWAL
@@ -48789,10 +48669,20 @@ components:
           anyOf:
             - $ref: "#/components/schemas/Percent"
             - type: "null"
+        returnedPercent:
+          anyOf:
+            - $ref: "#/components/schemas/Percent"
+            - type: "null"
+          description: "Of what was accepted in the period, the share sent back to the supplier on approved credit notes (1.30.0)."
+        components:
+          $ref: "#/components/schemas/SupplierScoreComponents"
+        weights:
+          $ref: "#/components/schemas/SupplierScoreWeights"
         score:
           anyOf:
             - $ref: "#/components/schemas/Percent"
             - type: "null"
+          description: "The weighted mean of the four components, divided by the weights as set, rounded half-up once to two places; null while any component has no facts (FR-PUR-014, 1.30.0)."
       required:
         - supplier
         - periodStart
@@ -48801,7 +48691,52 @@ components:
         - onTimePercent
         - rejectionPercent
         - priceVariancePercent
+        - returnedPercent
+        - components
+        - weights
         - score
+    SupplierScoreComponents:
+      type: object
+      description: "The four components of a supplier score, each from 0 to 100, or null without facts in the period (FR-PUR-014, 1.30.0). Price: 100 less the percentage over the farm's average price for the same products on approved invoices. Lead time: the share of receipts on or before the promised day (the order's expected date, else its date plus the supplier's lead time). Quality: the accepted share of what was received. Rejection: 100 less `returnedPercent`."
+      properties:
+        price:
+          anyOf:
+            - $ref: "#/components/schemas/Percent"
+            - type: "null"
+        leadTime:
+          anyOf:
+            - $ref: "#/components/schemas/Percent"
+            - type: "null"
+        quality:
+          anyOf:
+            - $ref: "#/components/schemas/Percent"
+            - type: "null"
+        rejection:
+          anyOf:
+            - $ref: "#/components/schemas/Percent"
+            - type: "null"
+      required:
+        - price
+        - leadTime
+        - quality
+        - rejection
+    SupplierScoreWeights:
+      type: object
+      description: "The weights the score was computed with: the settings `pur.supplier_score.price_weight`, `.lead_time_weight`, `.quality_weight` and `.rejection_weight` (30, 25, 25 and 20 by default), changed with `updateSetting` (1.30.0)."
+      properties:
+        price:
+          type: integer
+        leadTime:
+          type: integer
+        quality:
+          type: integer
+        rejection:
+          type: integer
+      required:
+        - price
+        - leadTime
+        - quality
+        - rejection
     SupplierScorePage:
       type: object
       description: "A page of `SupplierScore` results."
@@ -49350,6 +49285,18 @@ components:
           items:
             type: string
           description: "Why the line does not match, as codes in this fixed order: `NO_ORDER_LINE`, `PRODUCT_DIFFERS`, `QTY_EXCEEDS_RECEIVED`, `PRICE_OUTSIDE_TOLERANCE` (more than 1 percent from the order price, SA-08), `LEVY_DIFFERS`. Empty unless `matchStatus` is `MISMATCH` (1.28.0)."
+        returnFromLocationId:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: "On a credit note only: where the goods sent back to the supplier leave from. They move, as INV's SUPPLIER_RETURN movement, when the credit note is approved (FR-PUR-011, 1.30.0). Null on an invoice and on a credit with no goods returned."
+        returnStockUnitId:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: "On a credit note only: the lot or animal sent back, for a tracked product (1.30.0)."
       required:
         - id
         - lineNo
@@ -49368,6 +49315,8 @@ components:
         - priceVarianceDirection
         - matchStatus
         - matchReasons
+        - returnFromLocationId
+        - returnStockUnitId
     SupplierInvoice:
       type: object
       properties:
@@ -49415,8 +49364,12 @@ components:
           $ref: "#/components/schemas/Pesewas"
         paidPesewas:
           $ref: "#/components/schemas/Pesewas"
+        creditedPesewas:
+          $ref: "#/components/schemas/Pesewas"
+          description: "The gross of the approved credit notes against this invoice (FR-PUR-011); 0 on a credit note (1.30.0)."
         outstandingPesewas:
           $ref: "#/components/schemas/Pesewas"
+          description: "What is still owed: gross less `creditedPesewas` less `paidPesewas`. A credit of 11,000 approved against a 110,000 invoice leaves 99,000. Always 0 on a credit note (1.30.0)."
         currency:
           $ref: "#/components/schemas/Currency"
         matchStatus:
@@ -49426,6 +49379,24 @@ components:
             - MATCHED
             - MISMATCH
             - NOT_REQUIRED
+            - VARIANCE_APPROVED
+          description: "`VARIANCE_APPROVED` (1.30.0): the invoice mismatched on price or a levy only and a different person approved the variance through `requestSupplierInvoiceVariance`, so it is APPROVED and may be paid as invoiced; its lines keep their MISMATCH results. A credit note is UNMATCHED until approved, then NOT_REQUIRED."
+        approvalRequestId:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: "A credit note's approval (SUPPLIER_CREDIT_NOTE) or an invoice's variance approval (SUPPLIER_INVOICE_VARIANCE), waiting or decided. While it waits, the document cannot change (422 `APPROVAL_PENDING`) (1.30.0)."
+        varianceReason:
+          type:
+            - string
+            - "null"
+          description: "Why the variance was asked for, as its maker wrote it; null unless a variance is waiting or approved (1.30.0)."
+        returnReasonCode:
+          type:
+            - string
+            - "null"
+          description: "A credit note's reason for goods sent back (a `RETURN` reason code such as `RETURN_QUALITY`); null otherwise (1.30.0)."
         file:
           anyOf:
             - $ref: "#/components/schemas/StoredFileRef"
@@ -49458,9 +49429,13 @@ components:
         - taxPesewas
         - grossPesewas
         - paidPesewas
+        - creditedPesewas
         - outstandingPesewas
         - currency
         - matchStatus
+        - approvalRequestId
+        - varianceReason
+        - returnReasonCode
         - file
         - lines
         - branchId
@@ -49495,6 +49470,14 @@ components:
           description: "What the supplier actually charged, per levy. A difference from the calculated amount is flagged."
         expenseCategory:
           type: string
+        returnFromLocationId:
+          type: string
+          format: uuid
+          description: "A credit note's line only: the physical location of the invoice's branch the goods go back to the supplier from. Refused on an invoice with `NOT_FOR_INVOICE` (1.30.0)."
+        returnStockUnitId:
+          type: string
+          format: uuid
+          description: "A credit note's line only, with `returnFromLocationId`: the lot or animal sent back, required for a tracked product (1.30.0)."
       required:
         - description
         - qty
@@ -49539,6 +49522,7 @@ components:
         originalInvoiceId:
           type: string
           format: uuid
+          description: "Required for a `CREDIT_NOTE`: the APPROVED invoice of the same supplier it reduces. A credit never exceeds what that invoice has left uncredited and unpaid (422 `CREDIT_NOTE_EXCEEDS_INVOICE`), in the handler and the database (FR-PUR-011, 1.30.0)."
         branchId:
           type: string
           format: uuid
@@ -49549,6 +49533,9 @@ components:
         statedGrossPesewas:
           $ref: "#/components/schemas/Pesewas"
           description: "The total printed on the supplier's invoice. When given, the lines and levies must add up to it exactly, or the invoice is refused with `STATED_TOTAL_DIFFERS` (1.28.0)."
+        returnReasonCode:
+          type: string
+          description: "A credit note that sends goods back: a `RETURN` reason code (`RETURN_QUALITY`, `RETURN_WRONG_ITEM`, `RETURN_UNWANTED`); required when any line names `returnFromLocationId` (1.30.0)."
         lines:
           type: array
           items:
@@ -49579,6 +49566,9 @@ components:
         statedGrossPesewas:
           $ref: "#/components/schemas/Pesewas"
           description: "The total printed on the supplier's invoice; the lines and levies must add up to it (1.28.0)."
+        returnReasonCode:
+          type: string
+          description: "A credit note's return reason (1.30.0)."
         lines:
           type: array
           items:
@@ -49712,6 +49702,112 @@ components:
         - version
         - createdAt
         - createdBy
+    SupplierRemittanceLine:
+      type: object
+      properties:
+        supplierInvoiceId:
+          type: string
+          format: uuid
+        supplierInvoiceNo:
+          type: string
+        invoiceDate:
+          type: string
+          format: date
+        grossPesewas:
+          $ref: "#/components/schemas/Pesewas"
+        creditedPesewas:
+          $ref: "#/components/schemas/Pesewas"
+        amountPesewas:
+          $ref: "#/components/schemas/Pesewas"
+          description: "What this payment puts on the invoice."
+        outstandingAfterPesewas:
+          $ref: "#/components/schemas/Pesewas"
+          description: "What the invoice still owed once this payment was made: gross less credits less everything paid."
+      required:
+        - supplierInvoiceId
+        - supplierInvoiceNo
+        - invoiceDate
+        - grossPesewas
+        - creditedPesewas
+        - amountPesewas
+        - outstandingAfterPesewas
+    SupplierRemittance:
+      type: object
+      description: "A paid supplier payment's remittance advice data (FR-PUR-013, 1.30.0): fixed once, in the transaction that marks the payment paid, and never changed. The rendered and archived document (`remittanceDocumentId`) and the message to the supplier follow with B8 and B11."
+      properties:
+        id:
+          type: string
+          format: uuid
+        supplierPaymentId:
+          type: string
+          format: uuid
+        paymentNo:
+          type:
+            - string
+            - "null"
+        supplier:
+          $ref: "#/components/schemas/SupplierRef"
+        method:
+          type: string
+          enum:
+            - BANK
+            - MOBILE_MONEY
+            - CASH
+            - CHEQUE
+        payeeDetailsMasked:
+          type:
+            - string
+            - "null"
+        amountPesewas:
+          $ref: "#/components/schemas/Pesewas"
+        currency:
+          $ref: "#/components/schemas/Currency"
+        paidAt:
+          type: string
+          format: date-time
+        externalReference:
+          type: string
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/SupplierRemittanceLine"
+        remittanceDocumentId:
+          type:
+            - string
+            - "null"
+          format: uuid
+        branchId:
+          type: string
+          format: uuid
+        recordedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - supplierPaymentId
+        - paymentNo
+        - supplier
+        - method
+        - payeeDetailsMasked
+        - amountPesewas
+        - currency
+        - paidAt
+        - externalReference
+        - lines
+        - remittanceDocumentId
+        - branchId
+        - recordedAt
+    SupplierInvoiceVarianceRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: "Why the invoice should be paid as invoiced despite its price or levy mismatch, for the approver."
+      required:
+        - reason
+      additionalProperties: false
     SupplierPaymentAllocationInput:
       type: object
       properties:

@@ -2,7 +2,7 @@ operationId: updateSupplierInvoice
 tags:
   - pur
 summary: "Change a draft supplier invoice"
-description: "Corrects an invoice that is not yet approved: the header, or the lines, which replace the old ones. The invoice returns to DRAFT and UNMATCHED and must be matched again; correcting it is how a mismatch is resolved.\n\nPermission: `pur.supplier_invoice.create`."
+description: "Corrects an invoice that is not yet approved: the header, or the lines, which replace the old ones. The invoice returns to DRAFT and UNMATCHED and must be matched again; correcting it is how a mismatch is resolved. A DRAFT credit note is corrected the same way, within its invoice's headroom (422 `CREDIT_NOTE_EXCEEDS_INVOICE`). Nothing waiting for approval changes (422 `APPROVAL_PENDING`) (1.30.0).\n\nPermission: `pur.supplier_invoice.create`."
 x-permission: pur.supplier_invoice.create
 x-error-codes:
   - VALIDATION_FAILED
@@ -20,6 +20,8 @@ x-error-codes:
   - SUPPLIER_INVOICE_INVALID
   - DUPLICATE_SUPPLIER_INVOICE
   - TAX_SCHEME_NOT_IN_FORCE
+  - CREDIT_NOTE_EXCEEDS_INVOICE
+  - APPROVAL_PENDING
   - RATE_LIMITED
 parameters:
   - name: id
@@ -72,9 +74,13 @@ responses:
           taxPesewas: 0
           grossPesewas: 1040000
           paidPesewas: 0
+          creditedPesewas: 0
           outstandingPesewas: 1040000
           currency: GHS
           matchStatus: MATCHED
+          approvalRequestId: null
+          varianceReason: null
+          returnReasonCode: null
           file:
             id: "019a7acb-e8f5-7aca-b002-b57cd1e82e5a"
             originalName: invoice-88120.pdf
@@ -103,6 +109,8 @@ responses:
               priceVarianceDirection: null
               matchStatus: MATCHED
               matchReasons: []
+              returnFromLocationId: null
+              returnStockUnitId: null
           branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
           version: 2
           createdAt: "2026-11-10T09:00:00Z"

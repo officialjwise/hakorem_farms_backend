@@ -60,9 +60,10 @@ describe('B7 operations answer in the contract shapes', () => {
     const invoices = await consoleGet(api.server, accountant, v1('/supplier-invoices'));
     expectShape('SupplierInvoicePage', invoices.body);
     expect(invoices.body.data.map((i: { supplierInvoiceNo: string; status: string; matchStatus: string; grossPesewas: number }) => [i.supplierInvoiceNo, i.status, i.matchStatus, i.grossPesewas])).toEqual([
+      ['KLT-CN-0031', 'APPROVED', 'NOT_REQUIRED', 1_500],
       ['KLT-T-0457', 'APPROVED', 'NOT_REQUIRED', 15_000],
     ]);
-    expectShape('SupplierInvoice', (await consoleGet(api.server, accountant, v1(`/supplier-invoices/${invoices.body.data[0].id}`))).body);
+    expectShape('SupplierInvoice', (await consoleGet(api.server, accountant, v1(`/supplier-invoices/${invoices.body.data[1].id}`))).body);
   });
 
   it('an order, its 202 above the limit, an invoice, its match and a payment match their schemas', async () => {
