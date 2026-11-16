@@ -7,7 +7,7 @@ import type { Authoriser } from '../../iam';
 import type { MasterDataRefs } from '../../mdm';
 import { judgeRedemption } from '../domain/receipt';
 import { jsonPesewas as json } from '../domain/tender';
-import { StoreCreditInsufficientError } from './errors';
+import { PaymentInvalidError, StoreCreditInsufficientError } from './errors';
 import type { PaymentStore, StoreCreditEntryRecord } from './payment-store';
 
 const READ = 'pay.store_credit.read';
@@ -51,6 +51,8 @@ export class StoreCredit {
 
   /** Credit issued to a customer by a document (a refund, or the payment reversing a redemption), once per document. */
   async issueIn(tx: Transaction, actorId: string, e: { readonly customerId: string; readonly amountPesewas: bigint; readonly sourceDocumentId: string; readonly branchId: string }): Promise<void> {
+    // Never the walk-in, and only a named customer with a phone number (the owner, 2026-11-16); the database holds it too.
+    if ((await this.refs.customersIn(tx, [e.customerId])).get(e.customerId)?.hasPhone !== true) throw new PaymentInvalidError([{ field: '/customerId', rule: 'STORE_CREDIT_NEEDS_PHONE' }]);
     await this.store.insertStoreCredit(tx, { id: this.nextId(), direction: 'ISSUE', actorId, ...e });
   }
 

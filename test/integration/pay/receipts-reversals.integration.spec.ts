@@ -356,6 +356,30 @@ describe('store credit is a ledger in 2210, never redeemed beyond its balance (F
     await expect(app().query('UPDATE pay.store_credit_balance SET balance_pesewas = 999999 WHERE customer_id = $1', [id('tema')])).rejects.toThrow(/permission denied/);
     await expect(admin().query('UPDATE pay.store_credit_entry SET amount_pesewas = 1 WHERE customer_id = $1', [id('tema')])).rejects.toThrow();
   });
+
+  it('never issues store credit on the walk-in, where anyone could spend it (the owner, 2026-11-16)', async () => {
+    const walkIn = { ...cheque(4_000, []), customerId: undefined };
+    expect((await post('accountant', '/payments', walkIn)).status).toBe(201);
+    expect((await post('accountant', `/payments/${walkIn.id}/clear-cheque`, { clearedOn: today() })).status).toBe(200);
+    const refused = await post('cashier', '/refunds', { originalPaymentId: walkIn.id, amountPesewas: 4_000, destination: 'STORE_CREDIT', reasonCode: 'QUALITY_COMPLAINT', note: 'Credit for a walk-in buyer' });
+    expect([refused.status, refused.body.error.code, refused.body.error.details]).toEqual([422, 'REFUND_INVALID', [expect.objectContaining({ field: '/destination', code: 'DESTINATION_NOT_AVAILABLE' })]]);
+  });
+
+  it('never issues store credit to a customer with no phone number, in the application or by direct SQL (the owner, 2026-11-16)', async () => {
+    const madina = (await admin().query<{ id: string }>('SELECT id FROM mdm.customer WHERE name = $1', ['Madina Market Traders (SEED)'])).rows[0]!.id;
+    await admin().query('UPDATE mdm.customer SET phone_e164 = NULL, phone_hash = NULL, version = version + 1 WHERE id = $1', [madina]);
+    const paid = { ...cheque(4_000, []), customerId: madina };
+    expect((await post('accountant', '/payments', paid)).status).toBe(201);
+    expect((await post('accountant', `/payments/${paid.id}/clear-cheque`, { clearedOn: today() })).status).toBe(200);
+    const refused = await post('cashier', '/refunds', { originalPaymentId: paid.id, amountPesewas: 4_000, destination: 'STORE_CREDIT', reasonCode: 'QUALITY_COMPLAINT', note: 'Credit for a crate' });
+    expect([refused.status, refused.body.error.code, refused.body.error.details]).toEqual([422, 'REFUND_INVALID', [expect.objectContaining({ field: '/destination', code: 'STORE_CREDIT_NEEDS_PHONE' })]]);
+    const docId = randomUUID();
+    await admin().query("INSERT INTO platform.business_document (id, doc_type, owner_module, branch_id, actor_id) VALUES ($1, 'REFUND', 'pay', $2, $3)", [docId, branchId, users.get('cashier')!.principalId]);
+    await expect(
+      app().query("INSERT INTO pay.store_credit_entry (id, customer_id, direction, amount_pesewas, source_document_id, branch_id, actor_id) VALUES ($1, $2, 'ISSUE', 4000, $3, $4, $5)", [randomUUID(), madina, docId, branchId, users.get('cashier')!.principalId]),
+    ).rejects.toMatchObject({ constraint: 'ck_store_credit_entry_customer_phone' });
+    expect((await admin().query<{ n: number }>('SELECT count(*)::int AS n FROM pay.store_credit_entry WHERE customer_id = $1', [madina])).rows[0]!.n).toBe(0);
+  });
 });
 
 describe('what a payment recorded by hand refuses, and the database’s rules (FR-PAY-001, FR-PAY-002, FR-PAY-005)', () => {

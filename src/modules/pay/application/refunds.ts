@@ -133,9 +133,10 @@ export class Refunds {
       if (reason === undefined || reason.domain !== 'REFUND') broken.push({ field: '/reasonCode', rule: 'REASON_UNKNOWN' });
       else if (reason.requiresNote && body.note === null) broken.push({ field: '/note', rule: 'NOTE_REQUIRED' });
       if (body.creditNoteId !== null) broken.push({ field: '/creditNoteId', rule: 'CREDIT_NOTE_NOT_AVAILABLE' });
-      const judged = judgeStoredRefund(payment, body.amountPesewas, body.destination);
+      const customer = payment.customerId === null ? undefined : (await this.refs.customersIn(tx, [payment.customerId])).get(payment.customerId);
+      const judged = judgeStoredRefund({ ...payment, customerHasPhone: customer?.hasPhone === true }, body.amountPesewas, body.destination);
       if (!judged.ok && judged.error.includes('REFUND_EXCEEDS_PAYMENT') && broken.length === 0 && judged.error.length === 1) throw new RefundExceedsPaymentError(refundLeftOf(payment));
-      if (!judged.ok) broken.push(...judged.error.map((rule) => ({ field: rule === 'DESTINATION_NOT_AVAILABLE' ? '/destination' : rule === 'PAYMENT_NOT_CLEARED' ? '/originalPaymentId' : '/amountPesewas', rule })));
+      if (!judged.ok) broken.push(...judged.error.map((rule) => ({ field: rule === 'DESTINATION_NOT_AVAILABLE' || rule === 'STORE_CREDIT_NEEDS_PHONE' ? '/destination' : rule === 'PAYMENT_NOT_CLEARED' ? '/originalPaymentId' : '/amountPesewas', rule })));
       if (broken.length > 0) throw new RefundInvalidError(broken);
 
       const id = this.nextId();

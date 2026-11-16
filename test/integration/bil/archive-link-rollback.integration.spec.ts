@@ -48,6 +48,8 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0176_pay_store_credit_named_customer',
+      '0175_mdm_customer_has_phone',
       '0174_iam_grant_manager_credit_notes',
       '0173_fin_pay_receipt_postings',
       '0172_pay_receipts_store_credit_reversals',

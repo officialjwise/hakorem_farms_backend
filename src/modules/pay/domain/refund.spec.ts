@@ -6,6 +6,7 @@ const cleared = (kind: RefundablePayment['methodKind'], amount: bigint, allocate
   status: 'CLEARED',
   methodKind: kind,
   hasCustomer: true,
+  customerHasPhone: true,
   amount: Money.ofPesewas(amount),
   allocated: Money.ofPesewas(allocated),
   refunded: Money.ofPesewas(refunded),
@@ -55,6 +56,13 @@ describe('a refund request (FR-PAY-012, abuse case 12)', () => {
     expect(judgeRefund({ ...cleared('CASH', 6_000n), hasCustomer: false }, Money.ofPesewas(6_000n), 'STORE_CREDIT')).toEqual({ ok: false, error: ['DESTINATION_NOT_AVAILABLE'] });
   });
 
+  it('never credits the walk-in, and never a customer with no phone number to reach them by (the owner, 2026-11-16)', () => {
+    expect(judgeRefund({ ...cleared('CASH', 6_000n), hasCustomer: false, customerHasPhone: false }, Money.ofPesewas(6_000n), 'STORE_CREDIT')).toEqual({ ok: false, error: ['DESTINATION_NOT_AVAILABLE'] });
+    expect(judgeRefund({ ...cleared('CASH', 6_000n), customerHasPhone: false }, Money.ofPesewas(6_000n), 'STORE_CREDIT')).toEqual({ ok: false, error: ['STORE_CREDIT_NEEDS_PHONE'] });
+    expect(judgeRefund({ ...cleared('STORE_CREDIT', 6_000n), customerHasPhone: false }, Money.ofPesewas(6_000n), 'ORIGINAL_METHOD')).toEqual({ ok: false, error: ['STORE_CREDIT_NEEDS_PHONE'] });
+    expect(judgeRefund({ ...cleared('MOBILE_MONEY', 6_000n), customerHasPhone: false }, Money.ofPesewas(6_000n), 'ORIGINAL_METHOD')).toEqual({ ok: true, value: { route: 'PROVIDER' } });
+  });
+
   it('refuses a cheque back to its original method: a bank payout is built with reconciliation (A-213)', () => {
     expect(judgeRefund(cleared('CHEQUE', 6_000n), Money.ofPesewas(6_000n), 'ORIGINAL_METHOD')).toEqual({ ok: false, error: ['DESTINATION_NOT_AVAILABLE'] });
     expect(judgeRefund(cleared('CHEQUE', 6_000n), Money.ofPesewas(6_000n), 'STORE_CREDIT')).toEqual({ ok: true, value: { route: 'STORE_CREDIT' } });
@@ -86,5 +94,10 @@ describe('the same rules over a payment as it is stored', () => {
     expect(refundLeftOf(stored)).toBe(5_000n);
     expect(judgeStoredRefund(stored, 6_000n, 'ORIGINAL_METHOD')).toEqual({ ok: false, error: ['REFUND_EXCEEDS_PAYMENT'] });
     expect(judgeStoredRefund(stored, 5_000n, 'ORIGINAL_METHOD')).toEqual({ ok: true, value: { route: 'PROVIDER' } });
+  });
+
+  it('credits a stored payment\'s customer only when it is known to have a phone', () => {
+    expect(judgeStoredRefund({ ...stored, customerId: 'cus-1', customerHasPhone: true }, 5_000n, 'STORE_CREDIT')).toEqual({ ok: true, value: { route: 'STORE_CREDIT' } });
+    expect(judgeStoredRefund({ ...stored, customerId: 'cus-1' }, 5_000n, 'STORE_CREDIT')).toEqual({ ok: false, error: ['STORE_CREDIT_NEEDS_PHONE'] });
   });
 });
