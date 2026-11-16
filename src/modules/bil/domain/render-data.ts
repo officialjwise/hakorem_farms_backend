@@ -1,4 +1,7 @@
+import { formatCedis } from '@hakorem/kernel';
 import type { BillingKind } from './billing';
+
+export { formatCedis };
 
 /**
  * What a billing document's template renders (FR-BIL-004, FR-DOC-004, ADR-0061): the issued document as printed, every
@@ -55,15 +58,6 @@ const TITLES: Readonly<Record<BillingKind, string>> = {
   CREDIT_NOTE: 'Credit note',
   DEBIT_NOTE: 'Debit note',
 };
-
-/** Integer pesewas as printed: `GHS 1,244.89`, a minus sign before the currency for a negative amount. */
-export function formatCedis(pesewas: bigint): string {
-  const negative = pesewas < 0n;
-  const abs = negative ? -pesewas : pesewas;
-  const cedis = (abs / 100n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  const rest = (abs % 100n).toString().padStart(2, '0');
-  return `${negative ? '-' : ''}GHS ${cedis}.${rest}`;
-}
 
 /** The render data of an issued billing document: plain strings and lists, nothing a template has to calculate. */
 export function renderDataOf(d: PrintableDocument): Record<string, unknown> {

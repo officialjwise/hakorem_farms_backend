@@ -11,10 +11,12 @@ import type { Idempotency, StoredResponse } from '../../../platform/idempotency/
 import { judgePayoutAccount, type BankAccounts, type PayoutAccountFacts } from '../../fin';
 import type { ApprovalHandler, ApprovalRecord, Approvals, Authoriser, PrincipalNames } from '../../iam';
 import type { MasterDataRefs } from '../../mdm';
+import { DOCUMENT_ARCHIVED, type DocumentArchived, type Documents } from '../../doc';
 import { judgePayee } from '../domain/payout-details';
 import { judgeAllocations, judgeFirstPaymentApprover, paymentApprovalReason, type AllocationRule } from '../domain/purchasing';
-import { remittanceLines } from '../domain/remittance';
+import { remittanceLines, remittanceRenderData } from '../domain/remittance';
 import type { SupplierPaymentMade, SupplierRemittanceReady } from '../events';
+import type { AsyncConsumer } from '../../../platform/events/domain-events';
 import {
   AllocationExceedsAvailableError,
   PayoutMakerCannotApproveError,
@@ -67,7 +69,7 @@ export interface SupplierPaymentView {
   readonly externalReference: string | null;
   readonly approvalRequestId: string | null;
   readonly allocations: readonly { readonly supplierInvoiceId: string; readonly supplierInvoiceNo: string; readonly amountPesewas: number }[];
-  readonly remittanceDocumentId: null;
+  readonly remittanceDocumentId: string | null;
   readonly branchId: string;
   readonly version: number;
   readonly createdAt: string;
@@ -95,7 +97,7 @@ export interface SupplierRemittanceView {
     readonly amountPesewas: number;
     readonly outstandingAfterPesewas: number;
   }[];
-  readonly remittanceDocumentId: null;
+  readonly remittanceDocumentId: string | null;
   readonly branchId: string;
   readonly recordedAt: string;
 }
@@ -134,6 +136,9 @@ function refusal(rules: readonly { readonly index: number; readonly rule: Alloca
  * the method's reference, which publishes the ledger event for B8. Every handler authorises first, scoped to the
  * payment's branch; every change is audited.
  */
+/** The remittance advice's document type (migration 0156): PUR's, unnumbered, rendered by DOC. */
+export const REMITTANCE_ADVICE = 'REMITTANCE_ADVICE';
+
 export class SupplierPayments implements ApprovalHandler {
   private readonly nextId: () => string;
 
@@ -152,6 +157,7 @@ export class SupplierPayments implements ApprovalHandler {
     private readonly bankAccounts: BankAccounts,
     readonly cursors: Cursors,
     private readonly clock: Clock,
+    private readonly archive: Documents,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -366,7 +372,7 @@ export class SupplierPayments implements ApprovalHandler {
       },
       actorId,
     );
-    await this.events.publish<SupplierRemittanceReady>(tx, {
+    const ready = await this.events.publish<SupplierRemittanceReady>(tx, {
       type: 'pur.SupplierRemittanceReady',
       subjectType: 'SupplierPayment',
       subjectId: payment.id,
@@ -380,7 +386,46 @@ export class SupplierPayments implements ApprovalHandler {
         externalReference: payment.externalReference!,
       },
     });
+    // The advice is a business document of its own (ADR-0011), rendered and archived by DOC after commit, once: its
+    // render job is written here, in the transaction that fixes the data (ADR-0062).
+    await this.documents.register(tx, { id, docType: REMITTANCE_ADVICE, ownerModule: 'pur', branchId: payment.branchId, actorId });
+    const supplier = (await this.refs.suppliersIn(tx, [payment.supplierId])).get(payment.supplierId)!;
+    const branch = (await this.refs.branchesIn(tx, [payment.branchId])).get(payment.branchId)!;
+    await this.archive.requestRenderIn(tx, {
+      businessDocumentId: id,
+      docType: REMITTANCE_ADVICE,
+      documentNo: null,
+      branchId: payment.branchId,
+      causationId: ready.id,
+      renderData: remittanceRenderData({
+        supplierPaymentId: payment.id,
+        paymentNo: payment.paymentNo,
+        paidAt: payment.paidAt!,
+        method: payment.method,
+        payeeMasked: payment.payeeMasked,
+        externalReference: payment.externalReference!,
+        supplierName: supplier.name,
+        branch: { code: branch.code, name: branch.name },
+        amountPesewas: payment.amountPesewas,
+        lines: lines.value,
+      }),
+    });
   }
+
+  /**
+   * PUR's consumer of `doc.DocumentArchived` (ADR-0062): a paid payment learns the archived rendering of its remittance
+   * advice, once (`ck_supplier_payment_remittance_document`). A redelivery finds it already named and changes nothing.
+   */
+  readonly remittanceLinks: AsyncConsumer = {
+    name: 'pur.remittance-link',
+    eventTypes: [DOCUMENT_ARCHIVED],
+    isolation: 'read committed',
+    handle: async (tx, event) => {
+      const archived = event.payload as unknown as DocumentArchived;
+      if (archived.docType !== REMITTANCE_ADVICE) return;
+      await this.store.linkRemittanceDocument(tx, archived.businessDocumentId, archived.archivedDocumentId, event.actorId);
+    },
+  };
 
   private async remittanceView(tx: Transaction, payment: PaymentRecord, record: RemittanceRecord): Promise<SupplierRemittanceView> {
     const supplier = (await this.refs.suppliersIn(tx, [record.supplierId])).get(record.supplierId)!;
@@ -404,7 +449,7 @@ export class SupplierPayments implements ApprovalHandler {
         amountPesewas: pesewas(l.amountPesewas),
         outstandingAfterPesewas: pesewas(l.outstandingAfterPesewas),
       })),
-      remittanceDocumentId: null,
+      remittanceDocumentId: payment.remittanceDocumentId,
       branchId: record.branchId,
       recordedAt: record.recordedAt.toISOString(),
     };
@@ -454,7 +499,7 @@ export class SupplierPayments implements ApprovalHandler {
       externalReference: r.externalReference,
       approvalRequestId: r.approvalRequestId,
       allocations: r.allocations.map((a) => ({ supplierInvoiceId: a.supplierInvoiceId, supplierInvoiceNo: a.supplierInvoiceNo, amountPesewas: pesewas(a.amountPesewas) })),
-      remittanceDocumentId: null,
+      remittanceDocumentId: r.remittanceDocumentId,
       branchId: r.branchId,
       version: r.version,
       createdAt: r.createdAt.toISOString(),

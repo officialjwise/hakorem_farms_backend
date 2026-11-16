@@ -9,7 +9,8 @@ An issued billing document asks DOC for its rendering in the transaction that is
 ## Symptoms
 
 - A document shows no archive (`archivedDocumentId` null) for more than a few minutes; reprint answers 422 `DOCUMENT_NOT_ARCHIVED` `RENDERING`, or `NOT_SCANNED` after the render.
-- Log: `outbox delivery failed; will retry` or `outbox delivery is dead` with consumer `doc.render` or `bil.archive-link`.
+- Log: `outbox delivery failed; will retry` or `outbox delivery is dead` with consumer `doc.render`, `bil.archive-link` or `pur.remittance-link`.
+- A paid supplier payment shows `remittanceDocumentId` null for more than a few minutes (B08 continued 2c, ADR-0062): its advice is rendered by `doc.render` like any document (the render job's `business_document_id` is the `pur.supplier_remittance` row's id) and linked by `pur.remittance-link`. Diagnose and fix it as below; the link is set once and is never repaired by hand.
 - Log error: `archived document does not match its SHA-256`, and reprint answers 422 `ARCHIVE_HASH_MISMATCH`.
 - Log error: `billing numbering audit found a gap, an orphan or an unarchived document`; the job run `billing-numbering-audit` is not `clean`.
 

@@ -8,7 +8,8 @@ import type { Idempotency, StoredResponse } from '../../../platform/idempotency/
 import type { Authoriser, PrincipalNames, PrincipalRef } from '../../iam';
 import { checkTemplateBody } from '../domain/templates';
 import type { DocStore, TemplateRecord, VersionRecord } from './doc-store';
-import { TemplateBodyRefusedError } from './errors';
+import { PreviewDataRequiredError, TemplateBodyRefusedError } from './errors';
+import { PLATFORM_RENDERER, renderPreview, type DocumentRenderer } from './rendering';
 
 const READ = 'doc.template.read';
 const MANAGE = 'doc.template.manage';
@@ -42,6 +43,19 @@ export interface TemplatePage<T> {
   readonly page: { readonly nextCursor: string | null; readonly limit: number; readonly hasMore: boolean };
 }
 
+/**
+ * The contract's `TemplatePreviewResult` (ADR-0062): the specimen bytes inline, base64, in the version's output; nothing
+ * is stored, so no link is issued and no unscanned file is ever served.
+ */
+export interface TemplatePreviewView {
+  readonly templateVersionId: string;
+  readonly output: TemplateRecord['output'];
+  readonly pdfBase64: string | null;
+  readonly escPosBase64: string | null;
+  readonly url: null;
+  readonly expiresAt: null;
+}
+
 export interface VersionCreate {
   readonly body: string;
   readonly sampleData?: Record<string, unknown> | undefined;
@@ -66,6 +80,7 @@ export class Templates {
     private readonly audit: AuditTrail,
     private readonly cursors: Cursors,
     private readonly clock: Clock,
+    private readonly renderer: DocumentRenderer = PLATFORM_RENDERER,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -158,6 +173,24 @@ export class Templates {
       const response = { status: 200, body: (await this.versionViews(tx, [activated], false))[0]! };
       await this.idempotency.complete(tx, claim.id, response);
       return response;
+    });
+  }
+
+  /**
+   * `previewTemplateVersion` (FR-DOC-004, ADR-0062): renders any version, a draft included, with the data given or the
+   * version's sample data, between two specimen markers, and returns the bytes inline. It writes nothing: no render
+   * job, no archive row, no stored file, no number, no audit event, so it needs no idempotency key.
+   */
+  preview(actor: Actor | undefined, versionId: string, data: Record<string, unknown> | undefined): Promise<TemplatePreviewView> {
+    return this.uow.run({ isolation: 'read committed' }, async (tx) => {
+      await this.authoriser.authorise(tx, actor, READ);
+      const version = await this.versionOf(tx, versionId);
+      const template = (await this.store.template(tx, version.templateId))!;
+      const values = data ?? version.sampleData;
+      if (values === null) throw new PreviewDataRequiredError(versionId);
+      const bytes = renderPreview(this.renderer, version.body, template.output, values).toString('base64');
+      const pdf = template.output === 'PDF_A4';
+      return { templateVersionId: version.id, output: template.output, pdfBase64: pdf ? bytes : null, escPosBase64: pdf ? null : bytes, url: null, expiresAt: null };
     });
   }
 

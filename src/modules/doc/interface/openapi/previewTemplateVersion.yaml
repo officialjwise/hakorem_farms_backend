@@ -1,0 +1,67 @@
+operationId: previewTemplateVersion
+tags:
+  - doc
+summary: "Render a specimen of a template version"
+description: "Renders any version of a template, a `DRAFT` included, with `data` or, when `data` is absent, the version's saved sample data, and returns the bytes inline (B08 continued 2c, ADR-0062): `pdfBase64` for an A4 template, `escPosBase64` for a thermal one; `url` and `expiresAt` are always null. The specimen carries `SPECIMEN PREVIEW - NOT A VALID DOCUMENT` first and last, so it cannot pass for an issued document. Nothing is written: no render job, no archive row, no stored file, no number and no audit event, so no idempotency key is needed and the bytes are never served from storage unscanned. With no data given and no sample data saved: 422 `PREVIEW_DATA_REQUIRED`.\n\nPermission: `doc.template.read`."
+x-permission: doc.template.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - PREVIEW_DATA_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/TemplatePreviewRequest"
+      example: {}
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/TemplatePreviewResult"
+        example:
+          templateVersionId: "019a7ae0-16de-7e2d-a366-ebad345f648b"
+          output: PDF_A4
+          pdfBase64: "JVBERi0xLjQKJcOkw7zDtsOfCjEgMCBvYmoKPDwgL1R5cGUgL0NhdGFsb2cgL1BhZ2VzIDIgMCBSID4+CmVuZG9iago="
+          escPosBase64: null
+          url: null
+          expiresAt: null
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
