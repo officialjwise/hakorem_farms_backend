@@ -257,10 +257,8 @@ describe('an issued document never changes, and its totals are its lines’, hel
     expect(await sqlStateOf(app().query('DELETE FROM bil.billing_document WHERE id = $1', [id('invoice')]))).toBe('42501');
   });
 
-  it('sets the content hash once and refuses a second one', async () => {
-    const hash = Buffer.alloc(32, 7);
-    await app().query('UPDATE bil.billing_document SET content_hash = $2 WHERE id = $1', [id('invoice'), hash]);
-    expect(await sqlStateOf(app().query('UPDATE bil.billing_document SET content_hash = $2 WHERE id = $1', [id('invoice'), Buffer.alloc(32, 8)]))).toBe('HK004');
+  it('refuses a content hash without its archived document (B08 continued 2b sets both once, doc/document-archive)', async () => {
+    expect(await sqlStateOf(app().query('UPDATE bil.billing_document SET content_hash = $2 WHERE id = $1', [id('invoice'), Buffer.alloc(32, 7)]))).toBe('23514');
   });
 
   it('refuses at commit an issue whose totals are not the sums of its lines, or whose number was not allocated to it', async () => {

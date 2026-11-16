@@ -4,5 +4,6 @@
  * notes, and the reads. Published view: `bil.pub_document`. Events are in `events.ts`.
  */
 export { BilModule } from './bil.module';
+export { BillingNumberingAudit, type NumberingAuditReport } from './application/numbering-audit';
 export { Billing, type BillingDocumentView, type IssueLineRequest, type IssueRequest } from './application/billing';
 export type { CreditNoteIssued, DebitNoteIssued, InvoiceIssued, ProformaIssued } from './events';

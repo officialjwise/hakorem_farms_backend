@@ -1,5 +1,5 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
-import type { BillingStore, DocumentFilter, DocumentRecord, DraftHeader, LevyRecord, LineRecord, SettlementRecord } from '../application/billing-store';
+import type { BillingStore, DocumentFilter, DocumentRecord, DraftHeader, LevyRecord, LineRecord, ReprintRecord, SettlementRecord } from '../application/billing-store';
 
 interface HeaderRow {
   id: string;
@@ -29,6 +29,7 @@ interface HeaderRow {
   note: string | null;
   approval_request_id: string | null;
   content_hash: Buffer | null;
+  archived_document_id: string | null;
   issued_at: Date | null;
   occurred_at: Date | null;
   created_by: string;
@@ -123,7 +124,7 @@ export class PgBillingStore implements BillingStore {
       `SELECT id, kind, status, branch_id, document_no, provisional_ref, customer_id, customer_name, customer_tin, billing_address, order_document_id,
               original_document_id, issue_date::text AS issue_date, due_date::text AS due_date, tax_inclusive, tax_scheme_version_id,
               net_pesewas::text, tax_pesewas::text, gross_pesewas::text, credited_pesewas::text, certified_tax_pesewas::text, certified_gross_pesewas::text,
-              certification_ref, reason_code, note, approval_request_id, content_hash, issued_at, occurred_at, created_by, version
+              certification_ref, reason_code, note, approval_request_id, content_hash, archived_document_id, issued_at, occurred_at, created_by, version
          FROM bil.billing_document WHERE id = ANY($1::uuid[])${forUpdate ? ' FOR UPDATE' : ''}`,
       [ids],
     );
@@ -213,6 +214,7 @@ export class PgBillingStore implements BillingStore {
             h.certified_gross_pesewas === null ? null : { taxPesewas: BigInt(h.certified_tax_pesewas!), grossPesewas: BigInt(h.certified_gross_pesewas), reference: h.certification_ref! },
           approvalRequestId: h.approval_request_id,
           contentHash: h.content_hash,
+          archivedDocumentId: h.archived_document_id,
           issuedAt: h.issued_at,
           createdBy: h.created_by,
           version: h.version,
@@ -280,5 +282,45 @@ export class PgBillingStore implements BillingStore {
       [f.branchIds, f.kind, f.customerId, f.orderId, f.documentNo, f.from, f.to, f.paymentStatus, afterId, limit],
     );
     return rows.map((r) => r.id);
+  }
+  async linkArchive(tx: Transaction, id: string, archivedDocumentId: string, contentHash: Buffer): Promise<boolean> {
+    const result = await tx.query(
+      `UPDATE bil.billing_document SET archived_document_id = $2, content_hash = $3, updated_at = now()
+        WHERE id = $1 AND status = 'ISSUED' AND archived_document_id IS NULL`,
+      [id, archivedDocumentId, contentHash],
+    );
+    return result.rowCount === 1;
+  }
+
+  async reprintCounts(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, number>> {
+    if (ids.length === 0) return new Map();
+    const { rows } = await tx.query<{ id: string; n: number }>('SELECT billing_document_id AS id, count(*)::int AS n FROM bil.reprint_log WHERE billing_document_id = ANY($1::uuid[]) GROUP BY billing_document_id', [ids]);
+    return new Map(rows.map((r) => [r.id, r.n] as const));
+  }
+
+  async appendReprint(tx: Transaction, r: { readonly id: string; readonly billingDocumentId: string; readonly channel: ReprintRecord['channel']; readonly actorId: string; readonly at: Date }): Promise<number> {
+    const { rows } = await tx.query<{ copy_no: number }>(
+      `INSERT INTO bil.reprint_log (id, billing_document_id, copy_no, channel, recorded_at, actor_id)
+       SELECT $1, $2, COALESCE(max(copy_no), 0) + 1, $3, $4, $5 FROM bil.reprint_log WHERE billing_document_id = $2
+       RETURNING copy_no`,
+      [r.id, r.billingDocumentId, r.channel, r.at, r.actorId],
+    );
+    return rows[0]!.copy_no;
+  }
+
+  async reprints(tx: Transaction, billingDocumentId: string, afterCopyNo: number | null, limit: number): Promise<ReprintRecord[]> {
+    const { rows } = await tx.query<{ copy_no: number; channel: ReprintRecord['channel']; actor_id: string; recorded_at: Date }>(
+      `SELECT copy_no, channel, actor_id, recorded_at FROM bil.reprint_log
+        WHERE billing_document_id = $1 AND ($2::int IS NULL OR copy_no > $2) ORDER BY copy_no LIMIT $3`,
+      [billingDocumentId, afterCopyNo, limit],
+    );
+    return rows.map((row) => ({ copyNo: row.copy_no, channel: row.channel, actorId: row.actor_id, recordedAt: row.recorded_at }));
+  }
+
+  async issuedForAudit(tx: Transaction): Promise<{ readonly id: string; readonly documentNo: string; readonly contentHash: Buffer | null; readonly archivedDocumentId: string | null; readonly issuedAt: Date }[]> {
+    const { rows } = await tx.query<{ id: string; document_no: string; content_hash: Buffer | null; archived_document_id: string | null; issued_at: Date }>(
+      "SELECT id, document_no, content_hash, archived_document_id, issued_at FROM bil.billing_document WHERE status = 'ISSUED' ORDER BY id",
+    );
+    return rows.map((r) => ({ id: r.id, documentNo: r.document_no, contentHash: r.content_hash, archivedDocumentId: r.archived_document_id, issuedAt: r.issued_at }));
   }
 }

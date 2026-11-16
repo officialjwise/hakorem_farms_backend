@@ -14,6 +14,13 @@ export interface NumberRequest {
   readonly documentId: string;
 }
 
+/** A number the platform allocated, and the document it went to. */
+export interface NumberAllocation {
+  readonly docType: string;
+  readonly documentId: string;
+  readonly formatted: string;
+}
+
 /** A series whose allocations are not one contiguous run from 1 to `next_value - 1` (ADR-0015, the nightly check). */
 export interface SeriesGap {
   readonly seriesId: string;
@@ -74,5 +81,17 @@ export class NumberSeries {
       allocations: Number(r.allocations),
       maxValue: Number(r.max_value),
     }));
+  }
+
+  /** Every number allocated in series of these document types, with the document it was allocated to (FR-BIL-003). */
+  async allocationsOf(tx: Transaction, docTypes: readonly string[]): Promise<NumberAllocation[]> {
+    const { rows } = await tx.query<{ doc_type: string; document_id: string; formatted: string }>(
+      `SELECT s.doc_type, a.document_id, a.formatted
+         FROM platform.number_allocation a JOIN platform.number_series s ON s.id = a.series_id
+        WHERE s.doc_type = ANY($1::text[])
+        ORDER BY s.doc_type, a.formatted`,
+      [docTypes],
+    );
+    return rows.map((r) => ({ docType: r.doc_type, documentId: r.document_id, formatted: r.formatted }));
   }
 }

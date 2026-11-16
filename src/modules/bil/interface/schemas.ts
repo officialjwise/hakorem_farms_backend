@@ -42,3 +42,7 @@ export const DebitNoteCreate = z.strictObject({
     .min(1)
     .max(200),
 });
+
+export const ReprintRequest = z.strictObject({ channel: z.enum(['THERMAL', 'PDF']) });
+
+export const ReprintPageQuery = z.object({ cursor: Cursor, limit: Limit });
