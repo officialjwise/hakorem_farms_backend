@@ -1812,7 +1812,7 @@ Stop at the gate and write docs/sessions/B12-capital-costing-reporting.md.
 
 ## B13 — Hardening, smoke suite and deploy
 
-Branch `b13-hardening-deploy`. Report `docs/sessions/B13-hardening-deploy.md`. Gate: every non-functional target met and evidenced on the live server.
+Branch `b13-hardening-deploy`. Report `docs/sessions/B13-hardening-deploy.md`. Gate: every non-functional target met and evidenced on the live server, and the smoke suite's real Paystack sandbox payment delivered by webhook to the deployed endpoint posts exactly once.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B13 section of docs/BUILD_PROMPT.md.
@@ -1834,6 +1834,11 @@ abuse cases turned into two tests, one that the control blocks or makes it visib
 attempt appears on GET /exceptions/daily-report under the kind the threat model names, with the actor,
 amount, subject document and its case number in abuseCases (a case that is blocked but absent from the
 report is a failing test); the OWASP ZAP baseline against staging; the smoke suite under 60 seconds;
+the smoke suite on the deployed server includes one real Paystack sandbox payment whose webhook Paystack delivers to
+the live webhook endpoint and which posts exactly once (owner, 2026-11-16): one payment, one journal, the order paid,
+and a redelivery of the same webhook posting nothing; it runs on the deployed staging server with the Paystack test
+key (never a live charge; the live key is configured at deployment and never used by a test), and it is the one
+check of real webhook delivery, which B09a continued 2's sandbox suite cannot make from a container;
 the runbooks, one per failure mode; data migration with a dry-run mode; retention jobs and data-subject
 requests, as ADR-0026 proposes; provisioning of staging and production; and the restore drill with the
 time actually taken. Then run the seven scenarios of docs/UAT.md against staging, with someone
