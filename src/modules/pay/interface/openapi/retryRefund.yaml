@@ -1,0 +1,71 @@
+operationId: retryRefund
+tags:
+  - pay
+summary: "Retry a failed refund"
+description: "A provider refund that failed is tried again now, with the same idempotency key, so it can never pay twice. Refused for any other refund (`REFUND_INVALID`, `NOT_RETRYABLE`) (B09a continued, 1.42.0).\n\nPermission: `pay.refund.create`."
+x-permission: pay.refund.create
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Refund"
+        example:
+          id: "019a7ae9-07f4-79ee-8f26-a7b661892094"
+          refundNo: RFD-2026-DDW-000043
+          status: PROCESSING
+          originalPayment:
+            id: "019a7ae7-75d1-7961-be99-9ee5338c17c3"
+            paymentNo: PAY-2026-DDW-021793
+            method:
+              id: "019a7a92-c15e-7582-aabb-60fcf9dfd9da"
+              code: MOMO
+              name: "Mobile money"
+              kind: MOBILE_MONEY
+          amountPesewas: 4200
+          currency: GHS
+          destination: ORIGINAL_METHOD
+          reasonCode: CATCH_WEIGHT_UNDER
+          creditNote: null
+          isAutomatic: true
+          approvalRequestId: null
+          providerReference: null
+          paidAt: null
+          failureReason: null
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          createdAt: "2026-11-12T15:03:00Z"
+          createdBy:
+            id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+            displayName: "Kwabena Owusu"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

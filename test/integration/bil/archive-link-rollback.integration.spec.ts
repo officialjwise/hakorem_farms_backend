@@ -48,6 +48,11 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0168_platform_refund_document',
+      '0167_fin_pay_provider_postings',
+      '0166_pay_provider_webhooks_refunds',
+      '0165_iam_grant_pay_permissions',
+      '0164_iam_seed_pay_permissions',
       '0163_ord_sales_orders',
       '0162_fin_payment_postings',
       '0161_bil_settlement_allocations',

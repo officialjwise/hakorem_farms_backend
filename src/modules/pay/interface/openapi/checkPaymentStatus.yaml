@@ -1,0 +1,85 @@
+operationId: checkPaymentStatus
+tags:
+  - pay
+summary: "Look up a pending payment with the provider"
+description: "Looks a pending provider payment up with the provider and applies the answer through the one clearing path: cleared on a success for exactly its amount, failed on the provider's failure, held with a break on any other amount; covers a provider that charged the customer but timed out. With the provider down the answer is 503 `PAYMENT_PROVIDER_UNAVAILABLE` (B09a continued, 1.42.0).\n\nPermission: `pay.payment.read`."
+x-permission: pay.payment.read
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Payment"
+        example:
+          id: "019a7ae6-5f6a-7062-a59a-0ef1ec5387cf"
+          paymentNo: PAY-2026-DDW-021800
+          status: CLEARED
+          method:
+            id: "019a7a92-c15e-7582-aabb-60fcf9dfd9da"
+            code: MOMO
+            name: "Mobile money"
+            kind: MOBILE_MONEY
+          amountPesewas: 50000
+          currency: GHS
+          customer: null
+          order:
+            id: "019a7aac-216c-721a-8753-2a7ecd11a35c"
+            docType: SALES_ORDER
+            number: SO-2026-DDW-004211
+          shiftId: "019a7a93-f6b4-7865-8d9d-8f27bac90805"
+          driver: null
+          bankAccount: null
+          provider: PAYSTACK
+          providerReference: T7731049912
+          externalReference: null
+          payerPhoneMasked: "+233 24 *** *876"
+          verification: PROVIDER_CALLBACK
+          chequeDueOn: null
+          allocatedPesewas: 50000
+          unallocatedPesewas: 0
+          refundedPesewas: 0
+          receivedAt: "2026-11-13T09:05:00Z"
+          clearedAt: "2026-11-13T09:06:00Z"
+          reversesPaymentId: null
+          failureReason: null
+          allocations:
+            - id: "019a7ae6-7e59-7a45-bf7d-ad2966042607"
+              billingDocument:
+                id: "019a7ae2-fd46-7b80-a0b9-c0e09cf739be"
+                docType: RECEIPT
+                number: RCP-2026-DDW-T1-018834
+              amountPesewas: 50000
+              direction: APPLY
+              recordedAt: "2026-11-13T09:12:00Z"
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

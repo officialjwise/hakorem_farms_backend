@@ -24,10 +24,18 @@ import { LedgerReconciliation } from './modules/fin';
 import { BalanceReconciliation, ReservationExpiry, StockAlertSweep } from './modules/inv';
 import { MortalityEvidenceReturns } from './modules/liv';
 import { CatalogueListing } from './modules/shp';
+import { ProviderPayments, Refunds } from './modules/pay';
 
 /** Milliseconds a storage call from the worker may take. */
 const STORAGE_TIMEOUT_MS = 10_000;
 const SEALER_POOL_MAX = 2;
+/**
+ * Every minute (FR-PAY-007, the owner, 2026-11-16): the provider's transaction list from where the last sweep ended,
+ * and every charge still open half a minute after it was sent looked up, so no payment waits on a webhook that never came.
+ */
+const PROVIDER_SWEEP_EVERY_MS = 60_000;
+/** Every minute: approved provider refunds sent, asked about, or retried with backoff (FR-PAY-013). */
+const REFUND_DISPATCH_EVERY_MS = 60_000;
 /** Every minute, as docs/OPERATIONS.md schedules it: a checkout reservation lives 15 minutes (A-045). */
 const RESERVATION_EXPIRY_EVERY_MS = 60_000;
 /** A death report whose photograph the scanner rejected goes back to its maker within a minute (B06r). */
@@ -103,10 +111,21 @@ export async function startWorker(config: AppConfig, logger: Logger, clock: Cloc
   const evidenceReturns = app.get(MortalityEvidenceReturns);
   const catalogue = app.get(CatalogueListing);
   const numberingAudit = app.get(BillingNumberingAudit);
+  const providerPayments = app.get(ProviderPayments);
+  const refunds = app.get(Refunds);
   // The modules' scheduled jobs (ADR-0049, docs/OPERATIONS.md "Scheduled jobs").
   const jobs: ScheduledJob[] = [
     { name: 'reservation-expiry', when: { everyMs: RESERVATION_EXPIRY_EVERY_MS }, run: async (system) => ({ expired: (await reservationExpiry.run(system)).length }) },
     { name: 'catalogue-refresh', when: { everyMs: CATALOGUE_REFRESH_EVERY_MS }, run: async () => catalogue.refresh() },
+    {
+      name: 'provider-sweep',
+      when: { everyMs: PROVIDER_SWEEP_EVERY_MS },
+      run: async (system) => {
+        const report = await providerPayments.sweep(system);
+        return { from: report.from.toISOString(), to: report.to.toISOString(), transactions: report.transactions, cleared: report.cleared, failed: report.failed, breaksRaised: report.breaksRaised };
+      },
+    },
+    { name: 'refund-dispatch', when: { everyMs: REFUND_DISPATCH_EVERY_MS }, run: async () => ({ ...(await refunds.dispatch()) }) },
     {
       name: 'stock-balance-recompute',
       when: { cron: STOCK_BALANCE_RECOMPUTE_CRON },

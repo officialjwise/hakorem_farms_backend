@@ -1,0 +1,85 @@
+operationId: initiateMobileMoneyCharge
+tags:
+  - pay
+summary: "Ask a customer to approve a mobile money payment on their phone"
+description: "Creates a PENDING payment with our reference first, then sends the charge through the provider port outside any transaction, with a timeout, a bounded retry with jitter and a circuit breaker: a retry reuses the reference, so the customer is never charged twice, and the same key answers the same payment without a second charge. It clears only on the provider's own answer (the signed webhook's lookup, `checkPaymentStatus` or the provider sweep), as a customer deposit (2200) to be allocated to the order's document. With the provider down the answer is 503 `PAYMENT_PROVIDER_UNAVAILABLE` and cash still works. Without `orderId`, the payment is taken at the caller's one branch; `shiftId` is refused until point of sale (B9b, `SHIFT_NOT_AVAILABLE`). The phone is used for the charge request only and stored masked (B09a continued, 1.42.0).\n\nPermission: `pay.payment.initiate`."
+x-permission: pay.payment.initiate
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/MobileMoneyCharge"
+      example:
+        id: "019a7ae6-5f6a-7062-a59a-0ef1ec5387cf"
+        amountPesewas: 50000
+        payerPhone: "+233244512876"
+        network: MTN
+        orderId: "019a7aac-216c-721a-8753-2a7ecd11a35c"
+        shiftId: "019a7a93-f6b4-7865-8d9d-8f27bac90805"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Payment"
+        example:
+          id: "019a7ae6-5f6a-7062-a59a-0ef1ec5387cf"
+          paymentNo: PAY-2026-DDW-021800
+          status: PENDING
+          method:
+            id: "019a7a92-c15e-7582-aabb-60fcf9dfd9da"
+            code: MOMO
+            name: "Mobile money"
+            kind: MOBILE_MONEY
+          amountPesewas: 50000
+          currency: GHS
+          customer: null
+          order:
+            id: "019a7aac-216c-721a-8753-2a7ecd11a35c"
+            docType: SALES_ORDER
+            number: SO-2026-DDW-004211
+          shiftId: "019a7a93-f6b4-7865-8d9d-8f27bac90805"
+          driver: null
+          bankAccount: null
+          provider: PAYSTACK
+          providerReference: T7731049912
+          externalReference: null
+          payerPhoneMasked: "+233 24 *** *876"
+          verification: UNVERIFIED
+          chequeDueOn: null
+          allocatedPesewas: 0
+          unallocatedPesewas: 0
+          refundedPesewas: 0
+          receivedAt: "2026-11-13T09:05:00Z"
+          clearedAt: null
+          reversesPaymentId: null
+          failureReason: null
+          allocations: []
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
+  "503":
+    $ref: "#/components/responses/ServiceUnavailable"

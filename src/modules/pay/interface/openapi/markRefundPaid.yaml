@@ -1,0 +1,83 @@
+operationId: markRefundPaid
+tags:
+  - pay
+summary: "Record a cash refund handed over"
+description: "An approved refund paid by hand (a cash or bank transfer original, or a provider refund that failed three times), recorded with the payout's `externalReference`, which is required (422 `REFUND_INVALID`, `REFERENCE_REQUIRED`), and a `paidAt` no later than now. Never by the refund's maker (403 `MAKER_CANNOT_CHECK`; the database refuses it too). Posts the refund once and closes its `REFUND_FAILED` break (B09a continued, 1.42.0).\n\nPermission: `pay.refund.pay`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+x-permission: pay.refund.pay
+x-requires-step-up: true
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/RefundMarkPaid"
+      example:
+        paidAt: "2026-11-13T10:00:00Z"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Refund"
+        example:
+          id: "019a7ae9-26e3-73d1-990a-45eddb3abecb"
+          refundNo: RFD-2026-DDW-000044
+          status: PAID
+          originalPayment:
+            id: "019a7ae9-45d2-7db5-a2ed-e42554eb5d03"
+            paymentNo: PAY-2026-DDW-021794
+            method:
+              id: "019a7a92-a26f-7b9f-90d7-c2c5802e3ba3"
+              code: CASH
+              name: Cash
+              kind: CASH
+          amountPesewas: 9600
+          currency: GHS
+          destination: CASH
+          reasonCode: RETURN
+          creditNote:
+            id: "019a7ae0-73ab-7bd8-9110-c653a1723f31"
+            docType: CREDIT_NOTE
+            number: CRN-2026-DDW-000086
+          isAutomatic: false
+          approvalRequestId: "019a7ae9-64c1-7798-bcd0-825cce9cfb3a"
+          providerReference: null
+          paidAt: "2026-11-12T16:04:00Z"
+          failureReason: null
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          createdAt: "2026-11-12T15:04:00Z"
+          createdBy:
+            id: "019a7a86-caf1-728b-b7c3-3188ea6caa66"
+            displayName: "Nana Yeboah"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

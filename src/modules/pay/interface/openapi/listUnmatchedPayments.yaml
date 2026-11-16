@@ -1,0 +1,196 @@
+operationId: listUnmatchedPayments
+tags:
+  - pay
+summary: "List unverified and unidentified payments"
+description: "The unmatched payment queue, detection for abuse case 4: provider payments still pending verification, and payments held with an open `UNMATCHED_PAYMENT` or `PROVIDER_AMOUNT_DIFFERS` break (money that arrived after its order stopped waiting, or for another amount than asked). Newest first (B09a continued, 1.42.0).\n\nPermission: `pay.payment.read`."
+x-permission: pay.payment.read
+parameters:
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/PaymentPage"
+        example:
+          data:
+            - id: "019a7ae7-f18d-70ef-b627-17c31a5090a1"
+              paymentNo: PAY-2026-DDW-021700
+              status: PENDING
+              method:
+                id: "019a7a92-c15e-7582-aabb-60fcf9dfd9da"
+                code: MOMO
+                name: "Mobile money"
+                kind: MOBILE_MONEY
+              amountPesewas: 25000
+              currency: GHS
+              customer: null
+              order: null
+              shiftId: "019a7a93-f6b4-7865-8d9d-8f27bac90805"
+              driver: null
+              bankAccount: null
+              provider: null
+              providerReference: null
+              externalReference: null
+              payerPhoneMasked: "+233 55 *** *224"
+              verification: UNVERIFIED
+              chequeDueOn: null
+              allocatedPesewas: 0
+              unallocatedPesewas: 0
+              refundedPesewas: 0
+              receivedAt: "2026-11-09T09:10:00Z"
+              clearedAt: null
+              reversesPaymentId: null
+              failureReason: null
+              allocations: []
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+            - id: "019a7ae8-107c-7ad2-800a-b5fa94012ed8"
+              paymentNo: PAY-2026-DDW-021701
+              status: PENDING
+              method:
+                id: "019a7a92-c15e-7582-aabb-60fcf9dfd9da"
+                code: MOMO
+                name: "Mobile money"
+                kind: MOBILE_MONEY
+              amountPesewas: 18000
+              currency: GHS
+              customer: null
+              order: null
+              shiftId: "019a7a93-f6b4-7865-8d9d-8f27bac90805"
+              driver: null
+              bankAccount: null
+              provider: null
+              providerReference: null
+              externalReference: null
+              payerPhoneMasked: "+233 55 *** *224"
+              verification: UNVERIFIED
+              chequeDueOn: null
+              allocatedPesewas: 0
+              unallocatedPesewas: 0
+              refundedPesewas: 0
+              receivedAt: "2026-11-09T09:10:00Z"
+              clearedAt: null
+              reversesPaymentId: null
+              failureReason: null
+              allocations: []
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+            - id: "019a7ae8-2f6b-74b6-99ee-54320db2cd0f"
+              paymentNo: PAY-2026-DDW-021702
+              status: CLEARED
+              method:
+                id: "019a7a92-c15e-7582-aabb-60fcf9dfd9da"
+                code: MOMO
+                name: "Mobile money"
+                kind: MOBILE_MONEY
+              amountPesewas: 64000
+              currency: GHS
+              customer: null
+              order: null
+              shiftId: "019a7a93-f6b4-7865-8d9d-8f27bac90805"
+              driver: null
+              bankAccount: null
+              provider: null
+              providerReference: null
+              externalReference: null
+              payerPhoneMasked: "+233 55 *** *224"
+              verification: PROVIDER_CALLBACK
+              chequeDueOn: null
+              allocatedPesewas: 0
+              unallocatedPesewas: 0
+              refundedPesewas: 0
+              receivedAt: "2026-11-09T09:10:00Z"
+              clearedAt: null
+              reversesPaymentId: null
+              failureReason: null
+              allocations: []
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+            - id: "019a7ae8-4e5a-7e99-a3d1-f26987636b47"
+              paymentNo: PAY-2026-DDW-021703
+              status: PENDING
+              method:
+                id: "019a7a92-c15e-7582-aabb-60fcf9dfd9da"
+                code: MOMO
+                name: "Mobile money"
+                kind: MOBILE_MONEY
+              amountPesewas: 9000
+              currency: GHS
+              customer: null
+              order: null
+              shiftId: "019a7a93-f6b4-7865-8d9d-8f27bac90805"
+              driver: null
+              bankAccount: null
+              provider: null
+              providerReference: null
+              externalReference: null
+              payerPhoneMasked: "+233 55 *** *224"
+              verification: UNVERIFIED
+              chequeDueOn: null
+              allocatedPesewas: 0
+              unallocatedPesewas: 0
+              refundedPesewas: 0
+              receivedAt: "2026-11-09T09:10:00Z"
+              clearedAt: null
+              reversesPaymentId: null
+              failureReason: null
+              allocations: []
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+            - id: "019a7ae8-6d49-787c-bdb5-90a10114097e"
+              paymentNo: PAY-2026-DDW-021704
+              status: CLEARED
+              method:
+                id: "019a7a92-c15e-7582-aabb-60fcf9dfd9da"
+                code: MOMO
+                name: "Mobile money"
+                kind: MOBILE_MONEY
+              amountPesewas: 120000
+              currency: GHS
+              customer: null
+              order: null
+              shiftId: "019a7a93-f6b4-7865-8d9d-8f27bac90805"
+              driver: null
+              bankAccount: null
+              provider: null
+              providerReference: null
+              externalReference: null
+              payerPhoneMasked: "+233 55 *** *224"
+              verification: NOT_REQUIRED
+              chequeDueOn: null
+              allocatedPesewas: 0
+              unallocatedPesewas: 0
+              refundedPesewas: 0
+              receivedAt: "2026-11-09T09:10:00Z"
+              clearedAt: null
+              reversesPaymentId: null
+              failureReason: null
+              allocations: []
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          page:
+            nextCursor: null
+            limit: 25
+            hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

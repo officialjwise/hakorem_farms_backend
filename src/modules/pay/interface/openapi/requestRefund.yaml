@@ -1,0 +1,94 @@
+operationId: requestRefund
+tags:
+  - pay
+summary: "Request a refund against an original payment"
+description: "Draws only on the payment's unallocated, unrefunded money (422 `REFUND_EXCEEDS_PAYMENT`; the database holds it too): money settling a document is first taken off with `unallocatePayment`. Every refund a person asks for waits for a different user holding `pay.refund.approve`, with a fresh step-up (`REFUND`, threshold 0, the owner's rule of 2026-11-16), so today the answer is always `202`. Approved, a mobile money or card refund goes back through the provider; any other waits for `markRefundPaid`. `STORE_CREDIT` and `creditNoteId` are refused (`REFUND_INVALID`, `DESTINATION_NOT_AVAILABLE`, `CREDIT_NOTE_NOT_AVAILABLE`) until B09a continued 1b builds them (A-211); a reason that requires a note needs `note` (B09a continued, 1.42.0).\n\nPermission: `pay.refund.create` at the payment's branch.\n\nMay require approval of kind `REFUND`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+x-permission: pay.refund.create
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/RefundCreate"
+      example:
+        originalPaymentId: "019a7ae7-1904-7bb6-80ef-c43ec6793d1c"
+        amountPesewas: 11600
+        destination: ORIGINAL_METHOD
+        reasonCode: DAMAGED_IN_DELIVERY
+        creditNoteId: "019a7ae0-73ab-7bd8-9110-c653a1723f31"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Refund"
+        example:
+          id: "019a7ae8-ab27-7c43-917c-cd0ff47645ed"
+          refundNo: RFD-2026-DDW-000041
+          status: PENDING_APPROVAL
+          originalPayment:
+            id: "019a7ae7-1904-7bb6-80ef-c43ec6793d1c"
+            paymentNo: PAY-2026-DDW-021791
+            method:
+              id: "019a7a92-c15e-7582-aabb-60fcf9dfd9da"
+              code: MOMO
+              name: "Mobile money"
+              kind: MOBILE_MONEY
+          amountPesewas: 11600
+          currency: GHS
+          destination: ORIGINAL_METHOD
+          reasonCode: DAMAGED_IN_DELIVERY
+          creditNote:
+            id: "019a7ae0-73ab-7bd8-9110-c653a1723f31"
+            docType: CREDIT_NOTE
+            number: CRN-2026-DDW-000086
+          isAutomatic: false
+          approvalRequestId: "019a7ae8-ca16-7627-ab5f-6b476e27e425"
+          providerReference: null
+          paidAt: null
+          failureReason: null
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          createdAt: "2026-11-12T15:01:00Z"
+          createdBy:
+            id: "019a7a86-caf1-728b-b7c3-3188ea6caa66"
+            displayName: "Nana Yeboah"
+  "202":
+    description: "Accepted for approval. Nothing has taken effect yet."
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ApprovalPending"
+        example:
+          status: PENDING_APPROVAL
+          approvalRequestId: "019a7ae9-e07d-7f26-b45e-fb3ab5607418"
+          kind: REFUND
+          subject:
+            id: "019a7ae9-ff6c-790a-8e42-99722f111250"
+            docType: STOCK_ADJUSTMENT
+            number: null
+          summary: "Awaiting approval by a different user with the approving permission"
+          requestedAt: "2026-11-13T10:12:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

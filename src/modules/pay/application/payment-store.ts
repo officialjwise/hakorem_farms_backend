@@ -1,7 +1,11 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
+import type { RefundDestination } from '../domain/refund';
 import type { MethodKind } from '../domain/tender';
 
 export const PAYMENT_STORE = Symbol('PAYMENT_STORE');
+
+export type PaymentStatus = 'PENDING' | 'CLEARED' | 'FAILED' | 'REVERSED';
+export type Verification = 'NOT_REQUIRED' | 'PROVIDER_CALLBACK' | 'PROVIDER_LOOKUP' | 'UNVERIFIED';
 
 export interface PaymentRecord {
   readonly id: string;
@@ -12,13 +16,21 @@ export interface PaymentRecord {
   readonly refundedPesewas: bigint;
   readonly customerId: string | null;
   readonly orderDocumentId: string | null;
+  readonly shiftDocumentId: string | null;
   readonly registerRef: string | null;
   readonly registerCode: string | null;
-  readonly verification: 'NOT_REQUIRED' | 'PROVIDER_CALLBACK' | 'PROVIDER_LOOKUP' | 'UNVERIFIED';
-  readonly status: 'PENDING' | 'CLEARED' | 'FAILED' | 'REVERSED';
+  readonly provider: string | null;
+  readonly providerReference: string | null;
+  readonly externalReference: string | null;
+  readonly payerPhoneMasked: string | null;
+  readonly verification: Verification;
+  readonly status: PaymentStatus;
   readonly receivedAt: Date;
   readonly clearedAt: Date | null;
+  readonly failureReason: string | null;
+  readonly reversesPaymentId: string | null;
   readonly branchId: string;
+  readonly createdBy: string;
 }
 
 export interface AllocationRecord {
@@ -27,6 +39,8 @@ export interface AllocationRecord {
   readonly billingDocumentId: string;
   readonly amountPesewas: bigint;
   readonly direction: 'APPLY' | 'UNAPPLY';
+  readonly reversesAllocationId?: string | null;
+  readonly recordedAt?: Date;
 }
 
 export interface NewPayment {
@@ -38,7 +52,11 @@ export interface NewPayment {
   readonly orderDocumentId: string | null;
   readonly shiftDocumentId: string | null;
   readonly register: { readonly id: string; readonly code: string } | null;
-  readonly verification: PaymentRecord['verification'];
+  readonly provider?: string | null;
+  readonly providerReference?: string | null;
+  readonly externalReference?: string | null;
+  readonly payerPhoneMasked?: string | null;
+  readonly verification: Verification;
   readonly status: 'PENDING' | 'CLEARED';
   readonly receivedAt: Date;
   readonly clearedAt: Date | null;
@@ -46,11 +64,171 @@ export interface NewPayment {
   readonly actorId: string;
 }
 
-/** PAY's own tables (schema `pay`). Allocation rows are inserted only; the trigger keeps the payment's allocated amount. */
+/** One attempt to collect through the provider port (`pay.provider_transaction`). */
+export interface ChargeRecord {
+  readonly id: string;
+  readonly paymentId: string;
+  readonly provider: string;
+  readonly reference: string;
+  readonly channel: 'MOBILE_MONEY' | 'CARD';
+  readonly network: 'MTN' | 'TELECEL' | 'AIRTELTIGO' | null;
+  readonly requestedPesewas: bigint;
+  readonly confirmedPesewas: bigint | null;
+  readonly status: 'INITIATED' | 'PENDING' | 'SUCCEEDED' | 'FAILED' | 'ABANDONED';
+  readonly awaitedUntil: Date;
+  readonly releasedAt: Date | null;
+  readonly createdAt: Date;
+  readonly branchId: string;
+}
+
+export interface ChargeChange {
+  readonly status?: ChargeRecord['status'];
+  readonly providerStatus?: string;
+  readonly confirmedPesewas?: bigint;
+  readonly verifiedAt?: Date;
+  readonly lastCheckedAt?: Date;
+  readonly releasedAt?: Date;
+}
+
+export type WebhookOutcome =
+  | 'ACCEPTED'
+  | 'REJECTED_SIGNATURE'
+  | 'REJECTED_STALE'
+  | 'REJECTED_AMOUNT'
+  | 'REJECTED_MALFORMED'
+  | 'IGNORED_UNKNOWN_REFERENCE'
+  | 'IGNORED_EVENT_TYPE'
+  | 'REPLAYED'
+  | 'DEFERRED_LOOKUP';
+
+export interface WebhookRow {
+  readonly id: string;
+  readonly provider: string;
+  readonly eventId: string | null;
+  readonly eventType: string | null;
+  readonly signatureValid: boolean;
+  readonly withinTimeWindow: boolean | null;
+  readonly payloadHash: Buffer;
+  readonly payload: Readonly<Record<string, unknown>>;
+  readonly reference: string | null;
+  readonly paymentId: string | null;
+  readonly outcome: WebhookOutcome;
+  readonly sourceIp: string | null;
+  readonly correlationId: string | null;
+  readonly receivedAt: Date;
+  readonly actorId: string;
+}
+
+export type RefundStatus = 'REQUESTED' | 'PENDING_APPROVAL' | 'APPROVED' | 'PROCESSING' | 'PAID' | 'FAILED' | 'REJECTED';
+
+export interface RefundRecord {
+  readonly id: string;
+  readonly originalPaymentId: string;
+  readonly amountPesewas: bigint;
+  readonly destination: RefundDestination;
+  readonly reasonCode: string;
+  readonly note: string | null;
+  readonly creditNoteId: string | null;
+  readonly isAutomatic: boolean;
+  readonly approvalRequestId: string | null;
+  readonly providerReference: string | null;
+  readonly externalReference: string | null;
+  readonly attempts: number;
+  readonly nextAttemptAt: Date | null;
+  readonly paidAt: Date | null;
+  readonly paidBy: string | null;
+  readonly failureReason: string | null;
+  readonly status: RefundStatus;
+  readonly branchId: string;
+  readonly createdAt: Date;
+  readonly createdBy: string;
+}
+
+export interface RefundChange {
+  readonly status?: RefundStatus;
+  readonly approvalRequestId?: string;
+  readonly providerReference?: string;
+  readonly providerStatus?: string;
+  readonly externalReference?: string;
+  readonly attempts?: number;
+  readonly nextAttemptAt?: Date | null;
+  readonly paid?: { readonly at: Date; readonly by: string };
+  readonly failureReason?: string;
+}
+
+export type BreakKind = 'UNMATCHED_PAYMENT' | 'PROVIDER_AMOUNT_DIFFERS' | 'PROVIDER_REFERENCE_UNKNOWN' | 'PROVIDER_PAYMENT_MISSING' | 'REFUND_FAILED';
+
+export interface NewBreak {
+  readonly id: string;
+  readonly kind: BreakKind;
+  readonly branchId: string | null;
+  readonly paymentId: string | null;
+  readonly refundId: string | null;
+  readonly provider: string | null;
+  readonly reference: string | null;
+  readonly amountPesewas: bigint | null;
+  readonly details: Readonly<Record<string, unknown>>;
+  readonly raisedAt: Date;
+  readonly actorId: string;
+}
+
+export interface PaymentFilter {
+  readonly branchIds: readonly string[];
+  readonly status: PaymentStatus | null;
+  readonly methodKind: MethodKind | null;
+  readonly customerId: string | null;
+  readonly orderId: string | null;
+  readonly shiftId: string | null;
+  readonly from: Date | null;
+  readonly to: Date | null;
+  readonly unallocatedOnly: boolean;
+}
+
+export interface RefundFilter {
+  readonly branchIds: readonly string[];
+  readonly status: RefundStatus | null;
+  readonly createdBy: string | null;
+  readonly from: Date | null;
+  readonly to: Date | null;
+}
+
+/** PAY's own tables (schema `pay`). Ledger rows are inserted only; the database's triggers keep the derived amounts. */
 export interface PaymentStore {
   insert(tx: Transaction, payment: NewPayment): Promise<void>;
-  allocate(tx: Transaction, allocation: AllocationRecord & { readonly actorId: string }): Promise<void>;
-  payments(tx: Transaction, ids: readonly string[]): Promise<PaymentRecord[]>;
+  allocate(tx: Transaction, allocation: AllocationRecord & { readonly actorId: string; readonly reason?: string | null }): Promise<void>;
+  payments(tx: Transaction, ids: readonly string[], forUpdate?: boolean): Promise<PaymentRecord[]>;
   paymentsOfOrder(tx: Transaction, orderDocumentId: string): Promise<PaymentRecord[]>;
   allocationsOf(tx: Transaction, paymentIds: readonly string[]): Promise<AllocationRecord[]>;
+  /** An allocation by id, and whether an unallocation has reversed it. */
+  allocation(tx: Transaction, id: string): Promise<(AllocationRecord & { readonly reversed: boolean }) | null>;
+  /** Payment ids matching the filter, newest first, below `beforeId`. */
+  list(tx: Transaction, filter: PaymentFilter, beforeId: string | null, limit: number): Promise<string[]>;
+  /** The unmatched queue: provider payments still pending, and payments with an open unmatched or amount break. */
+  unmatched(tx: Transaction, branchIds: readonly string[], beforeId: string | null, limit: number): Promise<string[]>;
+  markCleared(tx: Transaction, id: string, verification: Verification, at: Date, actorId: string): Promise<void>;
+  markFailed(tx: Transaction, id: string, reason: string, actorId: string): Promise<void>;
+
+  insertCharge(tx: Transaction, charge: Omit<ChargeRecord, 'confirmedPesewas' | 'status' | 'releasedAt' | 'createdAt'> & { readonly actorId: string }): Promise<void>;
+  chargeOfPayment(tx: Transaction, paymentId: string, forUpdate?: boolean): Promise<ChargeRecord | null>;
+  chargeByReference(tx: Transaction, provider: string, reference: string, forUpdate?: boolean): Promise<ChargeRecord | null>;
+  updateCharge(tx: Transaction, id: string, change: ChargeChange, actorId: string): Promise<void>;
+  /** Charges still open (INITIATED or PENDING) created before `before`, oldest first. */
+  openCharges(tx: Transaction, provider: string, before: Date, limit: number): Promise<ChargeRecord[]>;
+
+  webhookSeen(tx: Transaction, provider: string, eventId: string): Promise<boolean>;
+  insertWebhook(tx: Transaction, row: WebhookRow): Promise<void>;
+
+  insertRefund(tx: Transaction, refund: Omit<RefundRecord, 'approvalRequestId' | 'providerReference' | 'externalReference' | 'attempts' | 'nextAttemptAt' | 'paidAt' | 'paidBy' | 'failureReason' | 'createdAt'>): Promise<void>;
+  refunds(tx: Transaction, ids: readonly string[], forUpdate?: boolean): Promise<RefundRecord[]>;
+  refundsOfPayment(tx: Transaction, paymentId: string): Promise<RefundRecord[]>;
+  listRefunds(tx: Transaction, filter: RefundFilter, beforeId: string | null, limit: number): Promise<string[]>;
+  updateRefund(tx: Transaction, id: string, change: RefundChange, actorId: string): Promise<void>;
+  /** Provider refunds due an attempt or a status check now. */
+  dueRefunds(tx: Transaction, now: Date, limit: number): Promise<RefundRecord[]>;
+
+  /** Raises a break unless the same one is already open; answers whether it was raised. */
+  raiseBreak(tx: Transaction, row: NewBreak): Promise<boolean>;
+  resolveRefundBreaks(tx: Transaction, refundId: string, note: string, at: Date, actorId: string): Promise<void>;
+  lastSweepEnd(tx: Transaction, provider: string): Promise<Date | null>;
+  insertSweep(tx: Transaction, row: { readonly id: string; readonly provider: string; readonly from: Date; readonly to: Date; readonly transactions: number; readonly cleared: number; readonly breaksRaised: number; readonly actorId: string }): Promise<void>;
 }
