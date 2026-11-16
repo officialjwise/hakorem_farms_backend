@@ -130,6 +130,8 @@ What has been paid and credited on each issued document, so an invoice screen ne
 | `settled_at` | `timestamptz` | NULL | When outstanding reached zero |
 | `as_of` | `timestamptz` | NOT NULL | Time of the last event applied |
 
+**As built in B09a continued 1d (migration 0182, A-216, ADR-0066):** `bil.document_settlement` adds `refunded_pesewas` (refunds asked for against the document's credit notes, or on a credit note against it, and not rejected) and `refundable_pesewas` (what an invoice or receipt owes back: its gross less credited less allocated plus refunded, when below zero; outstanding is that balance when above). A credit note beyond what is outstanding is therefore issued. `bil.apply_settlement` refuses an allocation to a document that owes the customer money. Published for PAY's refund triggers (ADR-0047): `bil.credit_note_refund(id, amount, HOLD | RELEASE)` under the credit note's row lock (`ck_credit_note_refund_cap`; executable only by its owner) and `bil.credit_note_facts(id)` (original, customer, branch, maker; read only).
+
 ### `bil.pub_document` · view
 
 Published for costing and reporting: issued documents only, with id, kind, number, branch, customer, issue date, due date, net, tax, gross, credited, allocated, outstanding, order and original document references. No names or addresses. RPT reads it for overdue receivables (B08 continued 2).
