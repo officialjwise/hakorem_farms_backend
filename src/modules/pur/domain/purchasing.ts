@@ -70,12 +70,18 @@ export interface AllocationFacts {
     readonly grossPesewas: bigint;
     /** What live payments (not rejected or cancelled) already allocate to it. */
     readonly promisedPesewas: bigint;
+    /** The gross of the credit notes against it that are not cancelled (FR-PUR-011): a waiting credit already counts. */
+    readonly liveCreditsPesewas: bigint;
   };
 }
 
+/** The match results an invoice is paid on: matched, needing no match, or a mismatch a second person approved. */
+export const PAYABLE_MATCH: ReadonlySet<string> = new Set(['MATCHED', 'NOT_REQUIRED', 'VARIANCE_APPROVED']);
+
 /**
- * A payment's allocations (FR-PUR-010, FR-PUR-012): each to an approved invoice of the payment's supplier that passed
- * the three-way match (or needed none), never more than it has left unpromised. The payment's amount is their sum.
+ * A payment's allocations (FR-PUR-010 to FR-PUR-012): each to an approved invoice of the payment's supplier that passed
+ * the three-way match (or needed none, or had its variance approved), never more than it has left unpromised and
+ * uncredited. The payment's amount is their sum.
  */
 export function judgeAllocations(supplierId: string, allocations: readonly AllocationFacts[]): Result<Money, { readonly index: number; readonly rule: AllocationRule }[]> {
   if (allocations.length === 0) return err([{ index: -1, rule: 'NO_ALLOCATIONS' }]);
@@ -87,11 +93,11 @@ export function judgeAllocations(supplierId: string, allocations: readonly Alloc
       broken.push({ index, rule: 'DUPLICATE_INVOICE' });
     } else if (invoice.supplierId !== supplierId || invoice.kind !== 'INVOICE') {
       broken.push({ index, rule: 'OTHER_SUPPLIER' });
-    } else if (invoice.matchStatus !== 'MATCHED' && invoice.matchStatus !== 'NOT_REQUIRED') {
+    } else if (!PAYABLE_MATCH.has(invoice.matchStatus)) {
       broken.push({ index, rule: 'THREE_WAY_MATCH_FAILED' });
     } else if (invoice.status !== 'APPROVED') {
       broken.push({ index, rule: 'NOT_APPROVED' });
-    } else if (invoice.promisedPesewas + allocation.amount.pesewas > invoice.grossPesewas) {
+    } else if (invoice.promisedPesewas + invoice.liveCreditsPesewas + allocation.amount.pesewas > invoice.grossPesewas) {
       broken.push({ index, rule: 'EXCEEDS_OUTSTANDING' });
     }
     seen.add(allocation.invoiceId);
