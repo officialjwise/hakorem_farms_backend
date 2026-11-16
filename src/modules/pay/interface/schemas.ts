@@ -39,6 +39,32 @@ export const AllocationBody = z.strictObject({
   allocations: z.array(z.strictObject({ billingDocumentId: z.uuid(), amountPesewas: Pesewas })).min(1).max(50),
 });
 
+export const RecordPaymentBody = z.strictObject({
+  id: z.uuid(),
+  paymentMethodId: z.uuid(),
+  amountPesewas: Pesewas,
+  customerId: z.uuid().optional(),
+  orderId: z.uuid().optional(),
+  shiftId: z.uuid().optional(),
+  bankAccountId: z.uuid().optional(),
+  externalReference: z.string().min(1).max(100).refine((text) => text === text.trim(), { message: 'no surrounding spaces' }).optional(),
+  chequeDueOn: z.iso.date().optional(),
+  receivedAt: z.iso.datetime(),
+  allocations: z.array(z.strictObject({ billingDocumentId: z.uuid(), amountPesewas: Pesewas })).max(50).optional(),
+});
+
+export const ReversalBody = z.strictObject({ reasonCode: ReasonCode, note: Text(500).optional() });
+
+export const ChequeClearanceBody = z.strictObject({ clearedOn: z.iso.date() });
+
+export const OpenItemQuery = z.object({
+  customerId: z.uuid().optional(),
+  overdueOnly: Flag.optional(),
+  asOf: z.iso.date().optional(),
+  cursor: Cursor,
+  limit: Limit,
+});
+
 export const UnallocateBody = z.strictObject({ allocationId: z.uuid(), reason: Text(500) });
 
 export const RefundPageQuery = z.object({

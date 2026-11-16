@@ -80,10 +80,12 @@ describe('staff login (ADR-0016, docs/API.md section 3.1)', () => {
       'mdm.species.read',
       'mdm.tax.calculate',
       'mdm.weight_band.read',
+      'pay.payment.create',
       'pay.payment.initiate',
       'pay.payment.read',
       'pay.refund.create',
       'pay.refund.read',
+      'pay.store_credit.read',
     ]);
     expect(Date.parse(session.accessExpiresAt) - clock.now().getTime()).toBeLessThanOrEqual(600_000);
     expect(session.mustChangePassword).toBe(false);

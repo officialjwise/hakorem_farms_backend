@@ -29,8 +29,13 @@ export interface PaymentRecord {
   readonly clearedAt: Date | null;
   readonly failureReason: string | null;
   readonly reversesPaymentId: string | null;
+  readonly bankAccountId: string | null;
+  readonly chequeDueOn: string | null;
+  /** The subject of a cleared cheque's clearing entry (`pay.ChequeCleared`), so a reversal mirrors it too. */
+  readonly clearanceRef: string | null;
   readonly branchId: string;
   readonly createdBy: string;
+  readonly createdAt: Date;
 }
 
 export interface AllocationRecord {
@@ -41,6 +46,8 @@ export interface AllocationRecord {
   readonly direction: 'APPLY' | 'UNAPPLY';
   readonly reversesAllocationId?: string | null;
   readonly recordedAt?: Date;
+  /** Written in the payment's own transaction, so its clearing entry credited it; otherwise applied from deposit later. */
+  readonly atReceipt?: boolean;
 }
 
 export interface NewPayment {
@@ -57,11 +64,39 @@ export interface NewPayment {
   readonly externalReference?: string | null;
   readonly payerPhoneMasked?: string | null;
   readonly verification: Verification;
-  readonly status: 'PENDING' | 'CLEARED';
+  readonly status: 'PENDING' | 'CLEARED' | 'REVERSED';
   readonly receivedAt: Date;
   readonly clearedAt: Date | null;
   readonly branchId: string;
   readonly actorId: string;
+  readonly bankAccountId?: string | null;
+  readonly chequeDueOn?: string | null;
+  /** Set only on a reversing payment, written REVERSED. */
+  readonly reversesPaymentId?: string | null;
+}
+
+/** A reversal asked for (`pay.payment_reversal`), waiting for a different person's approval. */
+export interface ReversalRecord {
+  readonly id: string;
+  readonly paymentId: string;
+  readonly reasonCode: string;
+  readonly note: string;
+  readonly approvalRequestId: string | null;
+  readonly reversingPaymentId: string | null;
+  readonly status: 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
+  readonly branchId: string;
+  readonly createdBy: string;
+}
+
+/** One store credit entry (`pay.store_credit_entry`). */
+export interface StoreCreditEntryRecord {
+  readonly id: string;
+  readonly customerId: string;
+  readonly direction: 'ISSUE' | 'REDEEM' | 'EXPIRE';
+  readonly amountPesewas: bigint;
+  readonly sourceDocumentId: string;
+  readonly branchId: string;
+  readonly recordedAt: Date;
 }
 
 /** One attempt to collect through the provider port (`pay.provider_transaction`). */
@@ -207,6 +242,21 @@ export interface PaymentStore {
   unmatched(tx: Transaction, branchIds: readonly string[], beforeId: string | null, limit: number): Promise<string[]>;
   markCleared(tx: Transaction, id: string, verification: Verification, at: Date, actorId: string): Promise<void>;
   markFailed(tx: Transaction, id: string, reason: string, actorId: string): Promise<void>;
+  /** A pending cheque cleared at the bank, naming its clearing entry's subject. */
+  markChequeCleared(tx: Transaction, id: string, clearanceRef: string, at: Date, actorId: string): Promise<void>;
+  markReversed(tx: Transaction, id: string, actorId: string): Promise<void>;
+  /** The allocations of a payment that no unallocation has reversed, oldest first. */
+  activeAllocations(tx: Transaction, paymentId: string): Promise<AllocationRecord[]>;
+
+  insertReversal(tx: Transaction, reversal: Omit<ReversalRecord, 'approvalRequestId' | 'reversingPaymentId' | 'status'>): Promise<void>;
+  reversalByApproval(tx: Transaction, approvalRequestId: string): Promise<ReversalRecord | null>;
+  /** The reversal of a payment that is not rejected (one at most), locked. */
+  openReversalOf(tx: Transaction, paymentId: string): Promise<ReversalRecord | null>;
+  updateReversal(tx: Transaction, id: string, change: { readonly status?: ReversalRecord['status']; readonly approvalRequestId?: string; readonly reversingPaymentId?: string }, actorId: string): Promise<void>;
+
+  insertStoreCredit(tx: Transaction, entry: Omit<StoreCreditEntryRecord, 'recordedAt'> & { readonly actorId: string }): Promise<void>;
+  storeCreditBalance(tx: Transaction, customerId: string): Promise<bigint>;
+  storeCreditEntries(tx: Transaction, customerId: string, limit: number): Promise<StoreCreditEntryRecord[]>;
 
   insertCharge(tx: Transaction, charge: Omit<ChargeRecord, 'confirmedPesewas' | 'status' | 'releasedAt' | 'createdAt'> & { readonly actorId: string }): Promise<void>;
   chargeOfPayment(tx: Transaction, paymentId: string, forUpdate?: boolean): Promise<ChargeRecord | null>;

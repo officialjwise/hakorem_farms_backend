@@ -192,6 +192,16 @@ export function consolePut(server: Server, session: TestSession, path: string, i
     .set('Idempotency-Key', idempotencyKey);
 }
 
+/** A PATCH as the console sends it, with the same headers as consolePost. */
+export function consolePatch(server: Server, session: TestSession, path: string, idempotencyKey: string = randomUUID()) {
+  return request(server)
+    .patch(path)
+    .set('Cookie', session.jar.header())
+    .set('X-CSRF-Token', session.csrfToken)
+    .set('Origin', TEST_ORIGIN)
+    .set('Idempotency-Key', idempotencyKey);
+}
+
 export function consoleGet(server: Server, session: TestSession, path: string) {
   return request(server).get(path).set('Cookie', session.jar.header()).set('Origin', TEST_ORIGIN);
 }

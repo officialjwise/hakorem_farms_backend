@@ -16,3 +16,11 @@ export function backoffAt(now: Date, baseMs: number, failures: number): Date {
 export function pageProbe(limit: number): number {
   return limit + 1;
 }
+
+const DAY_MS = 86_400_000;
+
+/** Whole days a document is past its due date on a business date (both `YYYY-MM-DD`); never below zero. */
+export function daysOverdue(dueDate: string | null, asOf: string): number {
+  if (dueDate === null || dueDate >= asOf) return 0;
+  return Math.round((Date.parse(`${asOf}T00:00:00Z`) - Date.parse(`${dueDate}T00:00:00Z`)) / DAY_MS);
+}

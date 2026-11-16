@@ -86,3 +86,30 @@ export class RefundMakerCannotPayError extends ApiError {
   readonly code = 'MAKER_CANNOT_CHECK';
   readonly messageKey = 'pay.refund_maker';
 }
+
+registerMessages({
+  'pay.store_credit_insufficient': 'This is more store credit than the customer holds.',
+  'pay.reversal_invalid': 'This payment cannot be reversed like this.',
+});
+
+/** 422 STORE_CREDIT_INSUFFICIENT (FR-PAY-015): a redemption beyond the balance; the database refuses it too (`ck_store_credit_balance`). */
+export class StoreCreditInsufficientError extends BusinessRuleError {
+  readonly code = 'STORE_CREDIT_INSUFFICIENT';
+  readonly messageKey = 'pay.store_credit_insufficient';
+  constructor(field: string, balancePesewas: bigint) {
+    super(`the redemption exceeds the ${balancePesewas} pesewas of store credit held`, [{ field, code: 'STORE_CREDIT_INSUFFICIENT', message: translate('pay.store_credit_insufficient') }]);
+  }
+}
+
+/**
+ * 422 PAYMENT_REVERSAL_INVALID (FR-PAY-011, FR-PAY-014): every rule a reversal or a cheque's clearing breaks, in
+ * `details[].code`: `NOT_REVERSIBLE`, `PAYMENT_HAS_REFUNDS`, `REASON_UNKNOWN`, `REASON_NOT_FOR_METHOD`, `NOTE_REQUIRED`,
+ * `REVERSAL_PENDING`, `NOT_A_CHEQUE`, `CHEQUE_NOT_PENDING`, `CLEARED_ON_OUT_OF_RANGE`.
+ */
+export class PaymentReversalInvalidError extends BusinessRuleError {
+  readonly code = 'PAYMENT_REVERSAL_INVALID';
+  readonly messageKey = 'pay.reversal_invalid';
+  constructor(rules: readonly PaymentRule[]) {
+    super(`reversal breaks ${rules.map((r) => r.rule).join(', ')}`, rules.map((r) => ({ field: r.field, code: r.rule, message: translate('pay.reversal_invalid') })));
+  }
+}

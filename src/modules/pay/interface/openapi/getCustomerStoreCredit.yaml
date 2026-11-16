@@ -1,0 +1,86 @@
+operationId: getCustomerStoreCredit
+tags:
+  - pay
+summary: "Get a customer's store credit balance and history"
+description: "The balance in 2210 and the latest 100 entries, newest first (FR-PAY-015, B09a continued 1b, 1.43.0): `ISSUE` from a refund to store credit or from the reversal of a redemption (its source the refund or the reversing payment), `REDEEM` from a store credit tender (its source the payment). The balance never goes below zero, held by the database.\n\nPermission: `pay.store_credit.read`."
+x-permission: pay.store_credit.read
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/StoreCredit"
+        example:
+          customer:
+            id: "019a7a87-659c-73fc-8935-489e4ae1c17c"
+            customerNo: C-00118
+            name: "Ama Serwaa Ofori"
+          balancePesewas: 5900
+          currency: GHS
+          entries:
+            - id: "019a7aea-1e5b-72ed-9825-37a9a8c2b087"
+              direction: ISSUE
+              amountPesewas: 1850
+              sourceDocument:
+                id: "019a7aea-3d4a-7cd0-a209-d5e122734ebf"
+                docType: REFUND
+                number: null
+              recordedAt: "2026-11-02T12:00:00Z"
+            - id: "019a7aea-5c39-76b4-bbec-74189c24ecf6"
+              direction: REDEEM
+              amountPesewas: 1850
+              sourceDocument:
+                id: "019a7aea-7b28-7097-85d0-125015d58b2d"
+                docType: PAYMENT
+                number: null
+              recordedAt: "2026-11-04T12:00:00Z"
+            - id: "019a7aea-9a17-7a7b-9fb3-b0878f862965"
+              direction: ISSUE
+              amountPesewas: 2700
+              sourceDocument:
+                id: "019a7aea-b906-745e-a997-4ebf0937c79c"
+                docType: REFUND
+                number: null
+              recordedAt: "2026-11-06T12:00:00Z"
+            - id: "019a7aea-d7f5-7e42-b37a-ecf682e865d4"
+              direction: REDEEM
+              amountPesewas: 1000
+              sourceDocument:
+                id: "019a7aea-f6e4-7825-8d5e-8b2dfc99040b"
+                docType: PAYMENT
+                number: null
+              recordedAt: "2026-11-08T12:00:00Z"
+            - id: "019a7aeb-15d3-7209-9741-2965764aa243"
+              direction: ISSUE
+              amountPesewas: 4200
+              sourceDocument:
+                id: "019a7aeb-34c2-7bec-a125-c79ceffb407a"
+                docType: REFUND
+                number: null
+              recordedAt: "2026-11-10T12:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

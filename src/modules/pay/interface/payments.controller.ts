@@ -8,9 +8,12 @@ import { zodPipe } from '../../../platform/http/validation';
 import type { StoredResponse } from '../../../platform/idempotency/idempotency';
 import { Payments, type Page, type PaymentDocumentView } from '../application/payments';
 import { ProviderPayments } from '../application/provider-payments';
+import { Receipts } from '../application/receipts';
+import { Receivables, type OpenItemPageView } from '../application/receivables';
 import { Refunds, type ApprovalPendingView, type RefundView } from '../application/refunds';
+import { StoreCredit, type StoreCreditView } from '../application/store-credit';
 import { PaymentWebhooks, WEBHOOK_ACTOR } from '../application/webhooks';
-import { AllocationBody, IdParam, MobileMoneyChargeBody, PageQuery, PaymentPageQuery, ProviderParam, RefundBody, RefundMarkPaidBody, RefundPageQuery, UnallocateBody } from './schemas';
+import { AllocationBody, ChequeClearanceBody, IdParam, MobileMoneyChargeBody, OpenItemQuery, PageQuery, PaymentPageQuery, ProviderParam, RecordPaymentBody, RefundBody, RefundMarkPaidBody, RefundPageQuery, ReversalBody, UnallocateBody } from './schemas';
 
 const READ = { access: 'SESSION', realms: ['STAFF'], idempotent: false, csrf: false, rateLimit: 'console' } as const;
 const WRITE = { access: 'SESSION', realms: ['STAFF'], idempotent: true, csrf: true, rateLimit: 'console' } as const;
@@ -29,7 +32,38 @@ export class PaymentsController {
   constructor(
     @Inject(Payments) private readonly payments: Payments,
     @Inject(ProviderPayments) private readonly providerPayments: ProviderPayments,
+    @Inject(Receipts) private readonly receipts: Receipts,
   ) {}
+
+  @Post()
+  @Operation({ operationId: 'recordPayment', ...WRITE, permission: 'pay.payment.create' })
+  recordPayment(
+    @CurrentActor() actor: Actor | undefined,
+    @Body(zodPipe(RecordPaymentBody)) body: z.infer<typeof RecordPaymentBody>,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<PaymentDocumentView> {
+    return reply(
+      res,
+      this.receipts.record(
+        actor,
+        {
+          id: body.id,
+          paymentMethodId: body.paymentMethodId,
+          amountPesewas: BigInt(body.amountPesewas),
+          customerId: body.customerId ?? null,
+          orderId: body.orderId ?? null,
+          shiftId: body.shiftId ?? null,
+          bankAccountId: body.bankAccountId ?? null,
+          externalReference: body.externalReference ?? null,
+          chequeDueOn: body.chequeDueOn ?? null,
+          receivedAt: new Date(body.receivedAt),
+          allocations: (body.allocations ?? []).map((a) => ({ billingDocumentId: a.billingDocumentId, amountPesewas: BigInt(a.amountPesewas) })),
+        },
+        key,
+      ),
+    );
+  }
 
   @Get()
   @Operation({ operationId: 'listPayments', ...READ, permission: 'pay.payment.read' })
@@ -98,6 +132,30 @@ export class PaymentsController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<PaymentDocumentView> {
     return reply(res, this.payments.allocate(actor, id, { allocations: body.allocations.map((a) => ({ billingDocumentId: a.billingDocumentId, amountPesewas: BigInt(a.amountPesewas) })) }, key));
+  }
+
+  @Post(':id/reverse')
+  @Operation({ operationId: 'reversePayment', ...WRITE, permission: 'pay.payment.reverse' })
+  reversePayment(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(ReversalBody)) body: z.infer<typeof ReversalBody>,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<ApprovalPendingView> {
+    return reply(res, this.receipts.requestReversal(actor, id, { reasonCode: body.reasonCode, note: body.note ?? null }, key));
+  }
+
+  @Post(':id/clear-cheque')
+  @Operation({ operationId: 'clearCheque', ...WRITE, permission: 'pay.payment.clear_cheque' })
+  clearCheque(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(ChequeClearanceBody)) body: z.infer<typeof ChequeClearanceBody>,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<PaymentDocumentView> {
+    return reply(res, this.receipts.clearCheque(actor, id, body, key));
   }
 
   @Post(':id/unallocate')
@@ -181,5 +239,41 @@ export class WebhooksController {
   receivePaymentWebhook(@Param('provider', zodPipe(ProviderParam)) provider: string, @Headers('x-paystack-signature') signature: string | undefined, @Req() req: Request): Promise<{ readonly received: true }> {
     const raw = (req as Request & { rawBody?: Buffer }).rawBody ?? Buffer.alloc(0);
     return this.webhooks.receive({ provider, rawBody: raw, signature, sourceIp: req.ip ?? null, correlationId: currentRequestContext()?.correlationId ?? null });
+  }
+}
+
+/** A customer's store credit, for staff (FR-PAY-015). Parses and delegates. */
+@Controller('customers')
+export class StoreCreditController {
+  constructor(@Inject(StoreCredit) private readonly storeCredit: StoreCredit) {}
+
+  @Get(':id/store-credit')
+  @Operation({ operationId: 'getCustomerStoreCredit', ...READ, permission: 'pay.store_credit.read' })
+  getCustomerStoreCredit(@CurrentActor() actor: Actor | undefined, @Param('id', zodPipe(IdParam)) id: string): Promise<StoreCreditView> {
+    return this.storeCredit.forCustomer(actor, id);
+  }
+}
+
+/** A signed-in customer's own store credit (FR-PAY-015): ownership, no permission code. */
+@Controller('me')
+export class MyStoreCreditController {
+  constructor(@Inject(StoreCredit) private readonly storeCredit: StoreCredit) {}
+
+  @Get('store-credit')
+  @Operation({ operationId: 'getMyStoreCredit', access: 'SESSION', realms: ['CUSTOMER'], permission: null, idempotent: false, csrf: false, rateLimit: 'console' })
+  getMyStoreCredit(@CurrentActor() actor: Actor | undefined): Promise<StoreCreditView> {
+    return this.storeCredit.mine(actor);
+  }
+}
+
+/** Open items: what customers still owe (FR-PAY-009). Parses and delegates. */
+@Controller('receivables')
+export class ReceivablesController {
+  constructor(@Inject(Receivables) private readonly receivables: Receivables) {}
+
+  @Get('open-items')
+  @Operation({ operationId: 'listOpenItems', ...READ, permission: 'pay.receivable.read' })
+  listOpenItems(@CurrentActor() actor: Actor | undefined, @Query(zodPipe(OpenItemQuery)) query: z.infer<typeof OpenItemQuery>): Promise<OpenItemPageView> {
+    return this.receivables.list(actor, { customerId: query.customerId ?? null, overdueOnly: query.overdueOnly ?? false, asOf: query.asOf ?? null }, query.cursor, query.limit);
   }
 }

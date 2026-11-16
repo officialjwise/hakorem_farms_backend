@@ -6,6 +6,8 @@ import type {
   NewBreak,
   NewPayment,
   PaymentFilter,
+  ReversalRecord,
+  StoreCreditEntryRecord,
   PaymentRecord,
   PaymentStore,
   RefundChange,
@@ -37,13 +39,17 @@ interface PaymentRow {
   cleared_at: Date | null;
   failure_reason: string | null;
   reverses_payment_id: string | null;
+  bank_account_id: string | null;
+  cheque_due_on: string | null;
+  clearance_ref: string | null;
   branch_id: string;
   created_by: string;
+  created_at: Date;
 }
 
 const PAYMENT_COLUMNS = `id, payment_method_id, method_kind, amount_pesewas::text, allocated_pesewas::text, refunded_pesewas::text, customer_id,
   order_document_id, shift_document_id, register_ref, register_code, provider, provider_reference, external_reference, payer_phone_masked,
-  verification, status, received_at, cleared_at, failure_reason, reverses_payment_id, branch_id, created_by`;
+  verification, status, received_at, cleared_at, failure_reason, reverses_payment_id, bank_account_id, cheque_due_on::text, clearance_ref, branch_id, created_by, created_at`;
 
 function toRecord(row: PaymentRow): PaymentRecord {
   return {
@@ -68,8 +74,12 @@ function toRecord(row: PaymentRow): PaymentRecord {
     clearedAt: row.cleared_at,
     failureReason: row.failure_reason,
     reversesPaymentId: row.reverses_payment_id,
+    bankAccountId: row.bank_account_id,
+    chequeDueOn: row.cheque_due_on,
+    clearanceRef: row.clearance_ref,
     branchId: row.branch_id,
     createdBy: row.created_by,
+    createdAt: row.created_at,
   };
 }
 
@@ -167,8 +177,10 @@ export class PgPaymentStore implements PaymentStore {
     await tx.query(
       `INSERT INTO pay.payment (id, payment_method_id, method_kind, amount_pesewas, customer_id, order_document_id, shift_document_id, register_ref, register_code,
                                 provider, provider_reference, external_reference, payer_phone_masked,
-                                verification, received_at, cleared_at, status, branch_id, created_by, updated_by, posted_at, posted_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $16, $17, $18, $19, $10, $11, $12, $13, $14, $15, $15, $12, CASE WHEN $12::timestamptz IS NULL THEN NULL ELSE $15::uuid END)`,
+                                verification, received_at, cleared_at, status, branch_id, created_by, updated_by, posted_at, posted_by,
+                                bank_account_id, cheque_due_on, reverses_payment_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $16, $17, $18, $19, $10, $11, $12, $13, $14, $15, $15, $12, CASE WHEN $12::timestamptz IS NULL THEN NULL ELSE $15::uuid END,
+               $20, $21::date, $22)`,
       [
         p.id,
         p.paymentMethodId,
@@ -189,6 +201,9 @@ export class PgPaymentStore implements PaymentStore {
         p.providerReference ?? null,
         p.externalReference ?? null,
         p.payerPhoneMasked ?? null,
+        p.bankAccountId ?? null,
+        p.chequeDueOn ?? null,
+        p.reversesPaymentId ?? null,
       ],
     );
   }
@@ -214,10 +229,23 @@ export class PgPaymentStore implements PaymentStore {
 
   async allocationsOf(tx: Transaction, paymentIds: readonly string[]): Promise<AllocationRecord[]> {
     if (paymentIds.length === 0) return [];
-    const { rows } = await tx.query<{ id: string; payment_id: string; billing_document_id: string; amount_pesewas: string; direction: 'APPLY' | 'UNAPPLY'; reverses_allocation_id: string | null; recorded_at: Date }>(
-      `SELECT id, payment_id, billing_document_id, amount_pesewas::text, direction, reverses_allocation_id, recorded_at
-         FROM pay.payment_allocation WHERE payment_id = ANY($1::uuid[]) ORDER BY id`,
-      [paymentIds],
+    return this.allocationRows(tx, 'a.payment_id = ANY($1::uuid[])', [paymentIds]);
+  }
+
+  async activeAllocations(tx: Transaction, paymentId: string): Promise<AllocationRecord[]> {
+    return this.allocationRows(
+      tx,
+      "a.payment_id = $1 AND a.direction = 'APPLY' AND NOT EXISTS (SELECT 1 FROM pay.payment_allocation u WHERE u.reverses_allocation_id = a.id)",
+      [paymentId],
+    );
+  }
+
+  /** `atReceipt`: written in the payment's own transaction (the same `now()` as the payment row), so its clearing entry credited it. */
+  private async allocationRows(tx: Transaction, where: string, params: unknown[]): Promise<AllocationRecord[]> {
+    const { rows } = await tx.query<{ id: string; payment_id: string; billing_document_id: string; amount_pesewas: string; direction: 'APPLY' | 'UNAPPLY'; reverses_allocation_id: string | null; recorded_at: Date; at_receipt: boolean }>(
+      `SELECT a.id, a.payment_id, a.billing_document_id, a.amount_pesewas::text, a.direction, a.reverses_allocation_id, a.recorded_at, a.recorded_at = p.created_at AS at_receipt
+         FROM pay.payment_allocation a JOIN pay.payment p ON p.id = a.payment_id WHERE ${where} ORDER BY a.id`,
+      params,
     );
     return rows.map((r) => ({
       id: r.id,
@@ -227,6 +255,7 @@ export class PgPaymentStore implements PaymentStore {
       direction: r.direction,
       reversesAllocationId: r.reverses_allocation_id,
       recordedAt: r.recorded_at,
+      atReceipt: r.at_receipt,
     }));
   }
 
@@ -279,6 +308,75 @@ export class PgPaymentStore implements PaymentStore {
 
   async markFailed(tx: Transaction, id: string, reason: string, actorId: string): Promise<void> {
     await tx.query("UPDATE pay.payment SET status = 'FAILED', failure_reason = $2, updated_by = $3, version = version + 1 WHERE id = $1", [id, reason, actorId]);
+  }
+
+  async markChequeCleared(tx: Transaction, id: string, clearanceRef: string, at: Date, actorId: string): Promise<void> {
+    await tx.query(
+      `UPDATE pay.payment SET status = 'CLEARED', clearance_ref = $2, cleared_at = $3, posted_at = $3, posted_by = $4, updated_by = $4, version = version + 1
+        WHERE id = $1`,
+      [id, clearanceRef, at, actorId],
+    );
+  }
+
+  async markReversed(tx: Transaction, id: string, actorId: string): Promise<void> {
+    await tx.query("UPDATE pay.payment SET status = 'REVERSED', updated_by = $2, version = version + 1 WHERE id = $1", [id, actorId]);
+  }
+
+  async insertReversal(tx: Transaction, r: Omit<ReversalRecord, 'approvalRequestId' | 'reversingPaymentId' | 'status'>): Promise<void> {
+    await tx.query(
+      `INSERT INTO pay.payment_reversal (id, payment_id, reason_code, note, status, branch_id, created_by, updated_by)
+       VALUES ($1, $2, $3, $4, 'PENDING_APPROVAL', $5, $6, $6)`,
+      [r.id, r.paymentId, r.reasonCode, r.note, r.branchId, r.createdBy],
+    );
+  }
+
+  async reversalByApproval(tx: Transaction, approvalRequestId: string): Promise<ReversalRecord | null> {
+    return this.reversalWhere(tx, 'approval_request_id = $1', approvalRequestId);
+  }
+
+  async openReversalOf(tx: Transaction, paymentId: string): Promise<ReversalRecord | null> {
+    return this.reversalWhere(tx, "payment_id = $1 AND status <> 'REJECTED'", paymentId);
+  }
+
+  private async reversalWhere(tx: Transaction, where: string, value: string): Promise<ReversalRecord | null> {
+    const { rows } = await tx.query<{ id: string; payment_id: string; reason_code: string; note: string; approval_request_id: string | null; reversing_payment_id: string | null; status: ReversalRecord['status']; branch_id: string; created_by: string }>(
+      `SELECT id, payment_id, reason_code, note, approval_request_id, reversing_payment_id, status, branch_id, created_by FROM pay.payment_reversal WHERE ${where} FOR UPDATE`,
+      [value],
+    );
+    const r = rows[0];
+    return r === undefined
+      ? null
+      : { id: r.id, paymentId: r.payment_id, reasonCode: r.reason_code, note: r.note, approvalRequestId: r.approval_request_id, reversingPaymentId: r.reversing_payment_id, status: r.status, branchId: r.branch_id, createdBy: r.created_by };
+  }
+
+  async updateReversal(tx: Transaction, id: string, c: { readonly status?: ReversalRecord['status']; readonly approvalRequestId?: string; readonly reversingPaymentId?: string }, actorId: string): Promise<void> {
+    await tx.query(
+      `UPDATE pay.payment_reversal SET status = COALESCE($2, status), approval_request_id = COALESCE($3, approval_request_id),
+              reversing_payment_id = COALESCE($4, reversing_payment_id), updated_by = $5, updated_at = now(), version = version + 1
+        WHERE id = $1`,
+      [id, c.status ?? null, c.approvalRequestId ?? null, c.reversingPaymentId ?? null, actorId],
+    );
+  }
+
+  async insertStoreCredit(tx: Transaction, e: Omit<StoreCreditEntryRecord, 'recordedAt'> & { readonly actorId: string }): Promise<void> {
+    await tx.query(
+      `INSERT INTO pay.store_credit_entry (id, customer_id, direction, amount_pesewas, source_document_id, branch_id, actor_id) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [e.id, e.customerId, e.direction, e.amountPesewas.toString(), e.sourceDocumentId, e.branchId, e.actorId],
+    );
+  }
+
+  async storeCreditBalance(tx: Transaction, customerId: string): Promise<bigint> {
+    const { rows } = await tx.query<{ balance: string }>('SELECT balance_pesewas::text AS balance FROM pay.store_credit_balance WHERE customer_id = $1', [customerId]);
+    return rows[0] === undefined ? 0n : BigInt(rows[0].balance);
+  }
+
+  async storeCreditEntries(tx: Transaction, customerId: string, limit: number): Promise<StoreCreditEntryRecord[]> {
+    const { rows } = await tx.query<{ id: string; customer_id: string; direction: StoreCreditEntryRecord['direction']; amount: string; source_document_id: string; branch_id: string; recorded_at: Date }>(
+      `SELECT id, customer_id, direction, amount_pesewas::text AS amount, source_document_id, branch_id, recorded_at
+         FROM pay.store_credit_entry WHERE customer_id = $1 ORDER BY id DESC LIMIT $2`,
+      [customerId, limit],
+    );
+    return rows.map((r) => ({ id: r.id, customerId: r.customer_id, direction: r.direction, amountPesewas: BigInt(r.amount), sourceDocumentId: r.source_document_id, branchId: r.branch_id, recordedAt: r.recorded_at }));
   }
 
   async insertCharge(tx: Transaction, c: Omit<ChargeRecord, 'confirmedPesewas' | 'status' | 'releasedAt' | 'createdAt'> & { readonly actorId: string }): Promise<void> {

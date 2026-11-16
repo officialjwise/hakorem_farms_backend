@@ -5,6 +5,7 @@ import { judgeRefund, judgeStoredRefund, nextRefundAttempt, REFUND_MAX_ATTEMPTS,
 const cleared = (kind: RefundablePayment['methodKind'], amount: bigint, allocated = 0n, refunded = 0n): RefundablePayment => ({
   status: 'CLEARED',
   methodKind: kind,
+  hasCustomer: true,
   amount: Money.ofPesewas(amount),
   allocated: Money.ofPesewas(allocated),
   refunded: Money.ofPesewas(refunded),
@@ -48,12 +49,19 @@ describe('a refund request (FR-PAY-012, abuse case 12)', () => {
     expect(judgeRefund(cleared('MOBILE_MONEY', 6_000n), Money.ofPesewas(6_000n), 'CASH')).toEqual({ ok: false, error: ['DESTINATION_NOT_AVAILABLE'] });
   });
 
-  it('refuses store credit until store credit is built (A-211)', () => {
-    expect(judgeRefund(cleared('CASH', 6_000n), Money.ofPesewas(6_000n), 'STORE_CREDIT')).toEqual({ ok: false, error: ['DESTINATION_NOT_AVAILABLE'] });
+  it('refunds to store credit for a known customer, paid at once on approval, and a store credit tender back to store credit (FR-PAY-015)', () => {
+    expect(judgeRefund(cleared('CASH', 6_000n), Money.ofPesewas(6_000n), 'STORE_CREDIT')).toEqual({ ok: true, value: { route: 'STORE_CREDIT' } });
+    expect(judgeRefund(cleared('STORE_CREDIT', 6_000n), Money.ofPesewas(6_000n), 'ORIGINAL_METHOD')).toEqual({ ok: true, value: { route: 'STORE_CREDIT' } });
+    expect(judgeRefund({ ...cleared('CASH', 6_000n), hasCustomer: false }, Money.ofPesewas(6_000n), 'STORE_CREDIT')).toEqual({ ok: false, error: ['DESTINATION_NOT_AVAILABLE'] });
+  });
+
+  it('refuses a cheque back to its original method: a bank payout is built with reconciliation (A-213)', () => {
+    expect(judgeRefund(cleared('CHEQUE', 6_000n), Money.ofPesewas(6_000n), 'ORIGINAL_METHOD')).toEqual({ ok: false, error: ['DESTINATION_NOT_AVAILABLE'] });
+    expect(judgeRefund(cleared('CHEQUE', 6_000n), Money.ofPesewas(6_000n), 'STORE_CREDIT')).toEqual({ ok: true, value: { route: 'STORE_CREDIT' } });
   });
 
   it('names every refusal at once', () => {
-    expect(judgeRefund({ ...cleared('MOBILE_MONEY', 1n), status: 'FAILED' }, Money.ofPesewas(2n), 'STORE_CREDIT')).toEqual({ ok: false, error: ['PAYMENT_NOT_CLEARED', 'REFUND_EXCEEDS_PAYMENT', 'DESTINATION_NOT_AVAILABLE'] });
+    expect(judgeRefund({ ...cleared('MOBILE_MONEY', 1n), status: 'FAILED', hasCustomer: false }, Money.ofPesewas(2n), 'STORE_CREDIT')).toEqual({ ok: false, error: ['PAYMENT_NOT_CLEARED', 'REFUND_EXCEEDS_PAYMENT', 'DESTINATION_NOT_AVAILABLE'] });
   });
 });
 

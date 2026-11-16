@@ -1,0 +1,100 @@
+operationId: recordPayment
+tags:
+  - pay
+summary: "Record a cheque, bank transfer or store credit payment"
+description: "A payment received by hand (FR-PAY-001, B09a continued 1b, 1.43.0). A **cheque** is recorded `PENDING` in cheques awaiting clearance: it posts Dr 1130 at once (`pay.PaymentCleared`, marked `awaitingClearance`), its allocations apply at once, and it needs `bankAccountId` (the bank account it is paid into) and `externalReference` (the cheque number); `clearCheque` clears it and `reversePayment` bounces it. A **bank transfer** is recorded `PENDING` with nothing posted and nothing allocated until a bank statement line matches it (B09a continued 1c); it needs `bankAccountId`. **Store credit** clears at once off the customer's balance (Dr 2210), never beyond it (422 `STORE_CREDIT_INSUFFICIENT`, held by the database), and needs `customerId`. Mobile money and card are refused with 422 `PAYMENT_METHOD_REQUIRES_VERIFICATION`: only a verified provider callback or lookup clears them (abuse case 4). Cash is refused (`TENDER_NOT_AVAILABLE`): a sale takes it into the till of an open shift (B9b), a driver on delivery (B11). An amount not allocated is held as the customer's deposit (2200). Other refusals are 422 `PAYMENT_INVALID` (`METHOD_UNKNOWN`, `METHOD_DISABLED`, `AMOUNT_NOT_POSITIVE`, `ALLOCATION_NOT_POSITIVE`, `ALLOCATIONS_EXCEED_AMOUNT`, `ALLOCATION_WHILE_PENDING`, `CUSTOMER_UNKNOWN`, `CUSTOMER_REQUIRED`, `SHIFT_NOT_AVAILABLE`, `RECEIVED_IN_FUTURE`, `BANK_ACCOUNT_REQUIRED`, `BANK_ACCOUNT_NOT_USABLE`, `BANK_ACCOUNT_NOT_FOR_METHOD`, `CHEQUE_NUMBER_REQUIRED`, `ORDER_UNKNOWN`, `ID_IN_USE`, `BRANCH_REQUIRED`, and the allocation rules of `allocatePayment`). The payment belongs to the branch of the documents it settles, or to the caller's one branch.\n\nPermission: `pay.payment.create`.\n\nThe client supplies the record id (UUIDv7). A resubmission with the same `Idempotency-Key` and body returns the first result; the same id under another key is refused (`ID_IN_USE`)."
+x-permission: pay.payment.create
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/PaymentRecord"
+      example:
+        id: "019a7ae7-94c0-7344-887c-3d1cad3db5fa"
+        paymentMethodId: "019a7a92-ff3c-7949-8e81-9d6bed411649"
+        amountPesewas: 300000
+        customerId: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+        bankAccountId: "019a7a92-6491-77d8-bd10-86568cccff34"
+        externalReference: "004512"
+        chequeDueOn: "2026-11-12"
+        receivedAt: "2026-11-12T09:07:00Z"
+        allocations:
+          - billingDocumentId: "019a7adf-f7ef-744a-9982-4d75baaec653"
+            amountPesewas: 300000
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Payment"
+        example:
+          id: "019a7ae7-94c0-7344-887c-3d1cad3db5fa"
+          paymentNo: null
+          status: PENDING
+          method:
+            id: "019a7a92-ff3c-7949-8e81-9d6bed411649"
+            code: CHEQUE
+            name: "Cheque"
+            kind: CHEQUE
+          amountPesewas: 300000
+          currency: GHS
+          customer:
+            id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+            customerNo: C-00042
+            name: "Royal Palm Hotel Ltd"
+          order: null
+          shiftId: null
+          driver: null
+          bankAccount:
+            id: "019a7a92-6491-77d8-bd10-86568cccff34"
+            name: "GCB current account"
+            kind: BANK
+            last4: "4821"
+          provider: null
+          providerReference: null
+          externalReference: "004512"
+          payerPhoneMasked: null
+          verification: NOT_REQUIRED
+          chequeDueOn: "2026-11-12"
+          allocatedPesewas: 300000
+          unallocatedPesewas: 0
+          refundedPesewas: 0
+          receivedAt: "2026-11-12T09:07:00Z"
+          clearedAt: null
+          reversesPaymentId: null
+          failureReason: null
+          allocations:
+            - id: "019a7ae6-fa15-71d3-b70b-26074cc89ee5"
+              billingDocument:
+                id: "019a7adf-f7ef-744a-9982-4d75baaec653"
+                docType: INVOICE
+                number: INV-2026-DDW-001198
+              amountPesewas: 300000
+              direction: APPLY
+              recordedAt: "2026-11-12T09:07:00Z"
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

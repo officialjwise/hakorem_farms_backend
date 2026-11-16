@@ -61,6 +61,9 @@ const VALID_BODY: Readonly<Record<string, object>> = {
   unallocatePayment: { allocationId: randomUUID(), reason: 'Applied to the wrong invoice' },
   requestRefund: { originalPaymentId: randomUUID(), amountPesewas: 1_000, destination: 'ORIGINAL_METHOD', reasonCode: 'OVERCHARGED', note: 'Weighed short' },
   markRefundPaid: { paidAt: '2026-11-16T10:00:00Z', externalReference: 'MTN-REV-0001' },
+  recordPayment: { id: randomUUID(), paymentMethodId: randomUUID(), amountPesewas: 100_000, receivedAt: '2026-11-16T09:00:00Z' },
+  reversePayment: { reasonCode: 'CHEQUE_DISHONOURED', note: 'Returned by the bank unpaid' },
+  clearCheque: { clearedOn: '2026-11-16' },
   generateDeliverySlots: { zoneId: randomUUID(), from: '2026-12-01', to: '2026-12-07', weekdays: [2], times: [{ startsAt: '10:00', endsAt: '12:00', capacity: 8 }] },
   updateDeliverySlot: { version: 1, capacity: 10 },
   createAccount: { code: '6110', name: 'Generator fuel', type: 'EXPENSE', isPostable: true },
@@ -248,7 +251,7 @@ afterAll(async () => {
 });
 
 describe('deny by default: the handler walk (ADR-0017, security architecture section 14)', () => {
-  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued, B05 continued 3, B05x, B6, B06m, B06 continued, B06 continued 2, B06 continued 3, B06u, B7, B07 continued, B07 continued 1b, B06r, B07 continued 2, B08 continued, B08 continued 1b, B08 continued 1b2, B08 continued 1c, B08 continued 1c2, B08 continued 2, B08 continued 2b and B09a continued routes, and every one declares its operation', () => {
+  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued, B05 continued 3, B05x, B6, B06m, B06 continued, B06 continued 2, B06 continued 3, B06u, B7, B07 continued, B07 continued 1b, B06r, B07 continued 2, B08 continued, B08 continued 1b, B08 continued 1b2, B08 continued 1c, B08 continued 1c2, B08 continued 2, B08 continued 2b, B09a continued and B09a continued 1b routes, and every one declares its operation', () => {
     expect(routes.map((route) => route.spec?.operationId).sort()).toEqual(
       [
         'changePassword', 'confirmTotpEnrolment', 'createProduct', 'getCurrentSession', 'getHealth', 'getProduct', 'listProducts', 'listSessions',
@@ -321,13 +324,14 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'previewTemplateVersion',
         'listPayments', 'getPayment', 'initiateMobileMoneyCharge', 'checkPaymentStatus', 'allocatePayment', 'unallocatePayment', 'listUnmatchedPayments',
         'receivePaymentWebhook', 'listRefunds', 'requestRefund', 'getRefund', 'retryRefund', 'markRefundPaid',
+        'recordPayment', 'reversePayment', 'clearCheque', 'getCustomerStoreCredit', 'getMyStoreCredit', 'listOpenItems',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);
   });
 
   it('declares a permission on every staff operation that is not on the caller\'s own account or public', () => {
-    const own = new Set(['logout', 'getCurrentSession', 'changePassword', 'startTotpEnrolment', 'confirmTotpEnrolment', 'stepUp']);
+    const own = new Set(['logout', 'getCurrentSession', 'changePassword', 'startTotpEnrolment', 'confirmTotpEnrolment', 'stepUp', 'getMyStoreCredit']);
     for (const route of routes) {
       const spec = route.spec!;
       if (spec.access === 'PUBLIC' || own.has(spec.operationId) || spec.permissionByPolicy === true) {

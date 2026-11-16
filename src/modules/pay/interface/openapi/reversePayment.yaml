@@ -1,0 +1,111 @@
+operationId: reversePayment
+tags:
+  - pay
+summary: "Reverse a payment, or bounce a cheque"
+description: "For a cheque the bank returned unpaid (reason `CHEQUE_DISHONOURED`, cheques only) or a payment recorded in error (`RECORDED_IN_ERROR`); both need a `note` (FR-PAY-011, FR-PAY-014, B09a continued 1b, 1.43.0). Always 202: nothing changes until a different person holding `pay.reversal.approve` approves with a fresh step-up (`PAYMENT_REVERSAL`, threshold 0, so a single Owner cannot reverse alone). Approved, every allocation of the payment is reopened, the original becomes `REVERSED` (a bounced cheque still awaiting clearance `FAILED`), a reversing payment is written `REVERSED` with `reversesPaymentId` naming the original, and the exact mirror of each entry the payment posted is posted (`pay.PaymentReversed`: its receipt, and a cleared cheque's clearing); store credit redeemed is given back. Refused with 422 `PAYMENT_REVERSAL_INVALID` (`NOT_REVERSIBLE` for a payment that posted nothing, is already reversed or is a reversing payment; `PAYMENT_HAS_REFUNDS`; `REASON_UNKNOWN`; `REASON_NOT_FOR_METHOD`; `NOTE_REQUIRED`; `REVERSAL_PENDING`). Every request is published as `pay.PaymentReversalRequested` carrying abuse case 32 for the daily exception report.\n\nPermission: `pay.payment.reverse`.\n\nRequires approval of kind `PAYMENT_REVERSAL`: the response is `202` with an `ApprovalPending` body whose subject is the payment, and nothing takes effect until a different user approves."
+x-permission: pay.payment.reverse
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ReasonCodeRequest"
+      example:
+        reasonCode: CHEQUE_DISHONOURED
+        note: "Returned by Fidelity Bank: insufficient funds"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Payment"
+        example:
+          id: "019a7ae6-5f6a-7062-a59a-0ef1ec5387cf"
+          paymentNo: PAY-2026-DDW-021800
+          status: CLEARED
+          method:
+            id: "019a7a92-c15e-7582-aabb-60fcf9dfd9da"
+            code: MOMO
+            name: "Mobile money"
+            kind: MOBILE_MONEY
+          amountPesewas: 50000
+          currency: GHS
+          customer: null
+          order:
+            id: "019a7aac-216c-721a-8753-2a7ecd11a35c"
+            docType: SALES_ORDER
+            number: SO-2026-DDW-004211
+          shiftId: "019a7a93-f6b4-7865-8d9d-8f27bac90805"
+          driver: null
+          bankAccount: null
+          provider: PAYSTACK
+          providerReference: T7731049912
+          externalReference: null
+          payerPhoneMasked: "+233 24 *** *876"
+          verification: PROVIDER_CALLBACK
+          chequeDueOn: null
+          allocatedPesewas: 50000
+          unallocatedPesewas: 0
+          refundedPesewas: 0
+          receivedAt: "2026-11-13T09:05:00Z"
+          clearedAt: "2026-11-13T09:06:00Z"
+          reversesPaymentId: null
+          failureReason: null
+          allocations:
+            - id: "019a7ae6-7e59-7a45-bf7d-ad2966042607"
+              billingDocument:
+                id: "019a7ae2-fd46-7b80-a0b9-c0e09cf739be"
+                docType: RECEIPT
+                number: RCP-2026-DDW-T1-018834
+              amountPesewas: 50000
+              direction: APPLY
+              recordedAt: "2026-11-13T09:12:00Z"
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+  "202":
+    description: "Accepted for approval. Nothing has taken effect yet."
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ApprovalPending"
+        example:
+          status: PENDING_APPROVAL
+          approvalRequestId: "019a7ae7-b3af-7d28-9260-db5426ee5432"
+          kind: PAYMENT_REVERSAL
+          subject:
+            id: "019a7ae6-5f6a-7062-a59a-0ef1ec5387cf"
+            docType: PAYMENT
+            number: null
+          summary: "Reverse GHS 1,000.00 cheque payment (CHEQUE_DISHONOURED)"
+          requestedAt: "2026-11-13T10:12:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

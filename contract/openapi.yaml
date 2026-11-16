@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.42.0"
+  version: "1.43.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -16240,6 +16240,7 @@ paths:
               - CASH_MOVEMENT
               - HOLD_RELEASE
               - BILLING_ADJUSTMENT
+              - PAYMENT_REVERSAL
         - name: cursor
           in: query
           required: false
@@ -45284,6 +45285,107 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
   "/payments":
+    post:
+      operationId: recordPayment
+      tags:
+        - pay
+      summary: "Record a cheque, bank transfer or store credit payment"
+      description: "A payment received by hand (FR-PAY-001, B09a continued 1b, 1.43.0). A **cheque** is recorded `PENDING` in cheques awaiting clearance: it posts Dr 1130 at once (`pay.PaymentCleared`, marked `awaitingClearance`), its allocations apply at once, and it needs `bankAccountId` (the bank account it is paid into) and `externalReference` (the cheque number); `clearCheque` clears it and `reversePayment` bounces it. A **bank transfer** is recorded `PENDING` with nothing posted and nothing allocated until a bank statement line matches it (B09a continued 1c); it needs `bankAccountId`. **Store credit** clears at once off the customer's balance (Dr 2210), never beyond it (422 `STORE_CREDIT_INSUFFICIENT`, held by the database), and needs `customerId`. Mobile money and card are refused with 422 `PAYMENT_METHOD_REQUIRES_VERIFICATION`: only a verified provider callback or lookup clears them (abuse case 4). Cash is refused (`TENDER_NOT_AVAILABLE`): a sale takes it into the till of an open shift (B9b), a driver on delivery (B11). An amount not allocated is held as the customer's deposit (2200). Other refusals are 422 `PAYMENT_INVALID` (`METHOD_UNKNOWN`, `METHOD_DISABLED`, `AMOUNT_NOT_POSITIVE`, `ALLOCATION_NOT_POSITIVE`, `ALLOCATIONS_EXCEED_AMOUNT`, `ALLOCATION_WHILE_PENDING`, `CUSTOMER_UNKNOWN`, `CUSTOMER_REQUIRED`, `SHIFT_NOT_AVAILABLE`, `RECEIVED_IN_FUTURE`, `BANK_ACCOUNT_REQUIRED`, `BANK_ACCOUNT_NOT_USABLE`, `BANK_ACCOUNT_NOT_FOR_METHOD`, `CHEQUE_NUMBER_REQUIRED`, `ORDER_UNKNOWN`, `ID_IN_USE`, `BRANCH_REQUIRED`, and the allocation rules of `allocatePayment`). The payment belongs to the branch of the documents it settles, or to the caller's one branch.\n\nPermission: `pay.payment.create`.\n\nThe client supplies the record id (UUIDv7). A resubmission with the same `Idempotency-Key` and body returns the first result; the same id under another key is refused (`ID_IN_USE`)."
+      x-permission: pay.payment.create
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CsrfToken"
+      security:
+        - staffSession: []
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentRecord"
+            example:
+              id: "019a7ae7-94c0-7344-887c-3d1cad3db5fa"
+              paymentMethodId: "019a7a92-ff3c-7949-8e81-9d6bed411649"
+              amountPesewas: 300000
+              customerId: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+              bankAccountId: "019a7a92-6491-77d8-bd10-86568cccff34"
+              externalReference: "004512"
+              chequeDueOn: "2026-11-12"
+              receivedAt: "2026-11-12T09:07:00Z"
+              allocations:
+                - billingDocumentId: "019a7adf-f7ef-744a-9982-4d75baaec653"
+                  amountPesewas: 300000
+      responses:
+        "201":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payment"
+              example:
+                id: "019a7ae7-94c0-7344-887c-3d1cad3db5fa"
+                paymentNo: null
+                status: PENDING
+                method:
+                  id: "019a7a92-ff3c-7949-8e81-9d6bed411649"
+                  code: CHEQUE
+                  name: Cheque
+                  kind: CHEQUE
+                amountPesewas: 300000
+                currency: GHS
+                customer:
+                  id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+                  customerNo: C-00042
+                  name: "Royal Palm Hotel Ltd"
+                order: null
+                shiftId: null
+                driver: null
+                bankAccount:
+                  id: "019a7a92-6491-77d8-bd10-86568cccff34"
+                  name: "GCB current account"
+                  kind: BANK
+                  last4: "4821"
+                provider: null
+                providerReference: null
+                externalReference: "004512"
+                payerPhoneMasked: null
+                verification: NOT_REQUIRED
+                chequeDueOn: "2026-11-12"
+                allocatedPesewas: 300000
+                unallocatedPesewas: 0
+                refundedPesewas: 0
+                receivedAt: "2026-11-12T09:07:00Z"
+                clearedAt: null
+                reversesPaymentId: null
+                failureReason: null
+                allocations:
+                  - id: "019a7ae6-fa15-71d3-b70b-26074cc89ee5"
+                    billingDocument:
+                      id: "019a7adf-f7ef-744a-9982-4d75baaec653"
+                      docType: INVOICE
+                      number: INV-2026-DDW-001198
+                    amountPesewas: 300000
+                    direction: APPLY
+                    recordedAt: "2026-11-12T09:07:00Z"
+                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/BusinessRuleViolation"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
     get:
       operationId: listPayments
       tags:
@@ -45606,106 +45708,6 @@ paths:
           $ref: "#/components/responses/Unauthenticated"
         "403":
           $ref: "#/components/responses/Forbidden"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-    post:
-      operationId: recordPayment
-      tags:
-        - pay
-      summary: "Record a cash, bank transfer, cheque or store credit payment"
-      description: "Refused with 422 PAYMENT_METHOD_REQUIRES_VERIFICATION for mobile money or card, which only a verified provider callback or lookup can clear. This is the control for abuse case 4. An amount not allocated is held as a customer deposit, or in suspense if the payer is unknown.\n\nPermission: `pay.payment.create`.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result."
-      x-permission: pay.payment.create
-      parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/PaymentRecord"
-            example:
-              id: "019a7ae7-94c0-7344-887c-3d1cad3db5fa"
-              paymentMethodId: "019a7a92-ff3c-7949-8e81-9d6bed411649"
-              amountPesewas: 300000
-              customerId: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-              bankAccountId: "019a7a92-6491-77d8-bd10-86568cccff34"
-              externalReference: GCB-TRF-20261112-0119
-              receivedAt: "2026-11-12T15:00:00Z"
-              allocations:
-                - billingDocumentId: "019a7adf-f7ef-744a-9982-4d75baaec653"
-                  amountPesewas: 300000
-      responses:
-        "201":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Payment"
-              example:
-                id: "019a7ae6-db26-77ef-ad28-87cfd31700ad"
-                paymentNo: PAY-2026-DDW-021802
-                status: CLEARED
-                method:
-                  id: "019a7a92-ff3c-7949-8e81-9d6bed411649"
-                  code: BANK_TRANSFER
-                  name: "Bank transfer"
-                  kind: BANK_TRANSFER
-                amountPesewas: 300000
-                currency: GHS
-                customer:
-                  id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
-                  name: "Royal Palm Hotel Ltd"
-                order: null
-                shiftId: null
-                driver: null
-                bankAccount:
-                  id: "019a7a92-6491-77d8-bd10-86568cccff34"
-                  name: "GCB current account"
-                  kind: BANK
-                  last4: "4821"
-                provider: null
-                providerReference: null
-                externalReference: GCB-TRF-20261112-0119
-                payerPhoneMasked: null
-                verification: NOT_REQUIRED
-                chequeDueOn: null
-                allocatedPesewas: 300000
-                unallocatedPesewas: 0
-                refundedPesewas: 0
-                receivedAt: "2026-11-12T09:07:00Z"
-                clearedAt: "2026-11-12T09:08:00Z"
-                reversesPaymentId: null
-                failureReason: null
-                allocations:
-                  - id: "019a7ae6-fa15-71d3-b70b-26074cc89ee5"
-                    billingDocument:
-                      id: "019a7adf-f7ef-744a-9982-4d75baaec653"
-                      docType: INVOICE
-                      number: INV-2026-DDW-001198
-                    amountPesewas: 300000
-                    direction: APPLY
-                    recordedAt: "2026-11-12T09:12:00Z"
-                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
         "429":
           $ref: "#/components/responses/RateLimited"
         "500":
@@ -46166,8 +46168,8 @@ paths:
       operationId: reversePayment
       tags:
         - pay
-      summary: "Reverse a cleared payment"
-      description: "For a bounced cheque or a payment recorded in error. Writes a reversing payment linked to the original.\n\nPermission: `pay.payment.reverse`.\n\nMay require approval of kind `PAYMENT_REVERSAL`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+      summary: "Reverse a payment, or bounce a cheque"
+      description: "For a cheque the bank returned unpaid (reason `CHEQUE_DISHONOURED`, cheques only) or a payment recorded in error (`RECORDED_IN_ERROR`); both need a `note` (FR-PAY-011, FR-PAY-014, B09a continued 1b, 1.43.0). Always 202: nothing changes until a different person holding `pay.reversal.approve` approves with a fresh step-up (`PAYMENT_REVERSAL`, threshold 0, so a single Owner cannot reverse alone). Approved, every allocation of the payment is reopened, the original becomes `REVERSED` (a bounced cheque still awaiting clearance `FAILED`), a reversing payment is written `REVERSED` with `reversesPaymentId` naming the original, and the exact mirror of each entry the payment posted is posted (`pay.PaymentReversed`: its receipt, and a cleared cheque's clearing); store credit redeemed is given back. Refused with 422 `PAYMENT_REVERSAL_INVALID` (`NOT_REVERSIBLE` for a payment that posted nothing, is already reversed or is a reversing payment; `PAYMENT_HAS_REFUNDS`; `REASON_UNKNOWN`; `REASON_NOT_FOR_METHOD`; `NOTE_REQUIRED`; `REVERSAL_PENDING`). Every request is published as `pay.PaymentReversalRequested` carrying abuse case 32 for the daily exception report.\n\nPermission: `pay.payment.reverse`.\n\nRequires approval of kind `PAYMENT_REVERSAL`: the response is `202` with an `ApprovalPending` body whose subject is the payment, and nothing takes effect until a different user approves."
       x-permission: pay.payment.reverse
       parameters:
         - name: id
@@ -46253,10 +46255,10 @@ paths:
                 approvalRequestId: "019a7ae7-b3af-7d28-9260-db5426ee5432"
                 kind: PAYMENT_REVERSAL
                 subject:
-                  id: "019a7ae7-d29e-770b-ac43-798ba09ff269"
-                  docType: STOCK_ADJUSTMENT
+                  id: "019a7ae6-5f6a-7062-a59a-0ef1ec5387cf"
+                  docType: PAYMENT
                   number: null
-                summary: "Awaiting approval by a different user with the approving permission"
+                summary: "Reverse GHS 1,000.00 cheque payment (CHEQUE_DISHONOURED)"
                 requestedAt: "2026-11-13T10:12:00Z"
         "400":
           $ref: "#/components/responses/BadRequest"
@@ -46280,7 +46282,7 @@ paths:
       tags:
         - pay
       summary: "Record that a cheque has cleared"
-      description: "Permission: `pay.payment.clear_cheque`."
+      description: "A cheque awaiting clearance cleared on the bank's confirmation (FR-PAY-011, B09a continued 1b, 1.43.0): it becomes `CLEARED` and posts Dr 1100 against the bank account it was paid into, Cr 1130 (`pay.ChequeCleared`), dated `clearedOn`, a business date from the day it was received to today. Refused with 422 `PAYMENT_REVERSAL_INVALID` (`NOT_A_CHEQUE`, `CHEQUE_NOT_PENDING`, `CLEARED_ON_OUT_OF_RANGE`, `REVERSAL_PENDING`), and `PERIOD_NOT_OPEN` when `clearedOn` is in a period that is not open. A bounced cheque is reversed with `reversePayment`.\n\nPermission: `pay.payment.clear_cheque`."
       x-permission: pay.payment.clear_cheque
       parameters:
         - name: id
@@ -46866,7 +46868,7 @@ paths:
       tags:
         - pay
       summary: "Request a refund against an original payment"
-      description: "Draws only on the payment's unallocated, unrefunded money (422 `REFUND_EXCEEDS_PAYMENT`; the database holds it too): money settling a document is first taken off with `unallocatePayment`. Every refund a person asks for waits for a different user holding `pay.refund.approve`, with a fresh step-up (`REFUND`, threshold 0, the owner's rule of 2026-11-16), so today the answer is always `202`. Approved, a mobile money or card refund goes back through the provider; any other waits for `markRefundPaid`. `STORE_CREDIT` and `creditNoteId` are refused (`REFUND_INVALID`, `DESTINATION_NOT_AVAILABLE`, `CREDIT_NOTE_NOT_AVAILABLE`) until B09a continued 1b builds them (A-211); a reason that requires a note needs `note` (B09a continued, 1.42.0).\n\nPermission: `pay.refund.create` at the payment's branch.\n\nMay require approval of kind `REFUND`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+      description: "Draws only on the payment's unallocated, unrefunded money (422 `REFUND_EXCEEDS_PAYMENT`; the database holds it too): money settling a document is first taken off with `unallocatePayment`. Every refund a person asks for waits for a different user holding `pay.refund.approve`, with a fresh step-up (`REFUND`, threshold 0, the owner's rule of 2026-11-16), so today the answer is always `202`. Approved, a mobile money or card refund goes back through the provider; a refund to `STORE_CREDIT` (or of a store credit tender to its original method) is paid at once by the approver into the customer's store credit (Dr 2200, Cr 2210; 1.43.0), refused for a payment with no customer; any other waits for `markRefundPaid`. A cheque is not refunded to its original method, and `creditNoteId` is refused (`REFUND_INVALID`, `DESTINATION_NOT_AVAILABLE`, `CREDIT_NOTE_NOT_AVAILABLE`), until B09a continued 1c builds the bank payout and the refund against a credit note (A-213); a reason that requires a note needs `note` (B09a continued, 1.42.0).\n\nPermission: `pay.refund.create` at the payment's branch.\n\nMay require approval of kind `REFUND`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
       x-permission: pay.refund.create
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -47187,7 +47189,7 @@ paths:
       tags:
         - pay
       summary: "Get a customer's store credit balance and history"
-      description: "Permission: `pay.store_credit.read`."
+      description: "The balance in 2210 and the latest 100 entries, newest first (FR-PAY-015, B09a continued 1b, 1.43.0): `ISSUE` from a refund to store credit or from the reversal of a redemption (its source the refund or the reversing payment), `REDEEM` from a store credit tender (its source the payment). The balance never goes below zero, held by the database.\n\nPermission: `pay.store_credit.read`."
       x-permission: pay.store_credit.read
       parameters:
         - name: id
@@ -47275,7 +47277,7 @@ paths:
       tags:
         - pay
       summary: "List unpaid and part-paid invoices"
-      description: "Permission: `pay.receivable.read`."
+      description: "Issued invoices, receipts and debit notes with something outstanding at the branches the reader holds the permission for, newest first (FR-PAY-009, B09a continued 1b, 1.43.0). The amounts are what is outstanding now, from the billing document's settlement; `asOf` (a business date, default today in Africa/Accra) sets the day `daysOverdue` and `overdueOnly` count from. `totalOutstandingPesewas` covers everything the filter matches, not only the page.\n\nPermission: `pay.receivable.read`."
       x-permission: pay.receivable.read
       parameters:
         - name: customerId
@@ -57865,6 +57867,7 @@ paths:
       tags:
         - shp
       summary: "Get my store credit"
+      description: "The signed-in customer's own store credit balance and latest 100 entries (FR-PAY-015, B09a continued 1b, 1.43.0); a staff, investor or unlinked sign-in is refused. No permission code: the customer is the owner."
       x-owner-module: pay
       security:
         - customerSession: []

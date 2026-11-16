@@ -134,8 +134,8 @@ describe('a refund never exceeds what is left of its payment, held by the databa
     await expect(app().query("UPDATE pay.refund SET status = 'PAID', version = version + 1 WHERE id = $1", [id('refund')])).rejects.toMatchObject({ constraint: 'ck_refund_transition' });
   });
 
-  it('names what else a refund breaks: a payment still pending, a note its reason requires, store credit not built yet', async () => {
-    const pending = await initiateCharge(api.server, as('cashier'), { amountPesewas: 2_000, customerId: id('tema') });
+  it('names what else a refund breaks: a payment still pending, a note its reason requires, store credit for a payment with no customer', async () => {
+    const pending = await initiateCharge(api.server, as('cashier'), { amountPesewas: 2_000 });
     const refused = await post('cashier', '/refunds', { originalPaymentId: pending.body.id, amountPesewas: 1_000, destination: 'STORE_CREDIT', reasonCode: 'QUALITY_COMPLAINT' });
     expect(refused.status).toBe(422);
     expect(refused.body.error.details.map((d: { code: string }) => d.code).sort()).toEqual(['DESTINATION_NOT_AVAILABLE', 'NOTE_REQUIRED', 'PAYMENT_NOT_CLEARED']);

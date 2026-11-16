@@ -128,6 +128,14 @@ export class PgMasterDataRefsStore implements MasterDataRefsStore {
     return rows;
   }
 
+  async customerOfPrincipal(tx: Transaction, principalId: string): Promise<CustomerFacts | null> {
+    const { rows } = await tx.query<CustomerFacts>(
+      'SELECT id, customer_no AS "customerNo", name, kind, (deleted_at IS NULL AND status = $2) AS "isLive" FROM mdm.customer WHERE principal_id = $1',
+      [principalId, 'ACTIVE'],
+    );
+    return rows[0] ?? null;
+  }
+
   async reasonCodes(tx: Transaction, codes: readonly string[]): Promise<ReasonCodeFacts[]> {
     const { rows } = await tx.query<ReasonCodeFacts>('SELECT code, domain, requires_note AS "requiresNote", loss_account_group AS "lossAccountGroup" FROM mdm.reason_code WHERE code = ANY($1::text[])', [codes]);
     return rows;

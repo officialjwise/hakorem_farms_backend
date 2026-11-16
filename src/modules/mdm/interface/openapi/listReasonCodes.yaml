@@ -30,6 +30,7 @@ parameters:
         - CASH_MOVEMENT
         - HOLD_RELEASE
         - BILLING_ADJUSTMENT
+        - PAYMENT_REVERSAL
   - name: cursor
     in: query
     required: false

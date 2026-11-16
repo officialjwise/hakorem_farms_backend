@@ -1,0 +1,162 @@
+operationId: listOpenItems
+tags:
+  - pay
+summary: "List unpaid and part-paid invoices"
+description: "Issued invoices, receipts and debit notes with something outstanding at the branches the reader holds the permission for, newest first (FR-PAY-009, B09a continued 1b, 1.43.0). The amounts are what is outstanding now, from the billing document's settlement; `asOf` (a business date, default today in Africa/Accra) sets the day `daysOverdue` and `overdueOnly` count from. `totalOutstandingPesewas` covers everything the filter matches, not only the page.\n\nPermission: `pay.receivable.read`."
+x-permission: pay.receivable.read
+parameters:
+  - name: customerId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: overdueOnly
+    in: query
+    required: false
+    schema:
+      type: boolean
+  - name: asOf
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/OpenItemPage"
+        example:
+          data:
+            - billingDocument:
+                id: "019a7aeb-53b1-75d0-bb08-65d469acdeb2"
+                docType: INVOICE
+                number: INV-2026-DDW-001150
+              customer:
+                id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+                customerNo: C-00042
+                name: "Royal Palm Hotel Ltd"
+              issueDate: "2026-09-20"
+              dueDate: "2026-10-20"
+              grossPesewas: 422500
+              creditedPesewas: 0
+              allocatedPesewas: 200000
+              outstandingPesewas: 222500
+              daysOverdue: 24
+              currency: GHS
+            - billingDocument:
+                id: "019a7aeb-72a0-7fb3-84eb-040be35d7ce9"
+                docType: INVOICE
+                number: INV-2026-DDW-001159
+              customer:
+                id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
+                customerNo: C-00056
+                name: "Asantewaa Chop Bar"
+              issueDate: "2026-09-02"
+              dueDate: "2026-10-02"
+              grossPesewas: 186000
+              creditedPesewas: 0
+              allocatedPesewas: 0
+              outstandingPesewas: 186000
+              daysOverdue: 42
+              currency: GHS
+            - billingDocument:
+                id: "019a7aeb-918f-7997-9ecf-a2435d0e1b21"
+                docType: INVOICE
+                number: INV-2026-DDW-001168
+              customer:
+                id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
+                customerNo: C-00061
+                name: "Osu Fresh Mart"
+              issueDate: "2026-09-28"
+              dueDate: "2026-10-28"
+              grossPesewas: 96400
+              creditedPesewas: 0
+              allocatedPesewas: 0
+              outstandingPesewas: 96400
+              daysOverdue: 16
+              currency: GHS
+            - billingDocument:
+                id: "019a7aeb-b07e-737a-a8b2-407ad6bfb958"
+                docType: INVOICE
+                number: INV-2026-DDW-001177
+              customer:
+                id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+                customerNo: C-00042
+                name: "Royal Palm Hotel Ltd"
+              issueDate: "2026-10-15"
+              dueDate: "2026-11-14"
+              grossPesewas: 612000
+              creditedPesewas: 11600
+              allocatedPesewas: 300000
+              outstandingPesewas: 300400
+              daysOverdue: 0
+              currency: GHS
+            - billingDocument:
+                id: "019a7aeb-cf6d-7d5e-b296-deb250705790"
+                docType: INVOICE
+                number: INV-2026-DDW-001186
+              customer:
+                id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
+                customerNo: C-00056
+                name: "Asantewaa Chop Bar"
+              issueDate: "2026-11-01"
+              dueDate: "2026-12-01"
+              grossPesewas: 211800
+              creditedPesewas: 0
+              allocatedPesewas: 0
+              outstandingPesewas: 211800
+              daysOverdue: 0
+              currency: GHS
+            - billingDocument:
+                id: "019a7aeb-ee5c-7741-8c79-7ce9ca21f5c7"
+                docType: INVOICE
+                number: INV-2026-DDW-001195
+              customer:
+                id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
+                customerNo: C-00061
+                name: "Osu Fresh Mart"
+              issueDate: "2026-11-11"
+              dueDate: "2026-12-11"
+              grossPesewas: 147300
+              creditedPesewas: 0
+              allocatedPesewas: 0
+              outstandingPesewas: 147300
+              daysOverdue: 0
+              currency: GHS
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+          totalOutstandingPesewas: 1164400
+          currency: GHS
+          asOf: "2026-11-13T09:30:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

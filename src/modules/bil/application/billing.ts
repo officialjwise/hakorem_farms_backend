@@ -33,7 +33,7 @@ import {
 import { lineNumber, pageProbe } from '../domain/line-numbers';
 import { renderDataOf } from '../domain/render-data';
 import type { BillingDocumentPayload, CreditNoteIssued, DebitNoteIssued } from '../events';
-import type { BillingStore, DocumentFilter, DocumentRecord, DraftHeader, LevyRecord, LineRecord, ReprintRecord, SettlementRecord } from './billing-store';
+import type { BillingStore, DocumentFilter, DocumentRecord, DraftHeader, LevyRecord, LineRecord, OpenItemFilter, OpenItemRecord, ReprintRecord, SettlementRecord } from './billing-store';
 import { AllocationExceedsOutstandingError, BilReferenceNotFoundError, BillingDocumentInvalidError, CreditNoteExceedsOriginalError } from './errors';
 
 export const CREDIT_NOTE_KIND = 'CREDIT_NOTE';
@@ -377,6 +377,16 @@ export class Billing {
       if (failure?.code === 'HK010' && failure.constraint === 'ck_document_settlement_outstanding') throw new AllocationExceedsOutstandingError(documentId);
       throw error;
     }
+  }
+
+  /**
+   * The open items PAY's `listOpenItems` shows (FR-PAY-009): issued invoices, receipts and debit notes with something
+   * outstanding at the branches given, newest first, with the total outstanding over everything the filter matches.
+   * Read in the caller's transaction; it authorises nothing.
+   */
+  async openItemsIn(tx: Transaction, filter: OpenItemFilter, beforeId: string | null, limit: number): Promise<{ readonly rows: OpenItemRecord[]; readonly totalOutstandingPesewas: bigint }> {
+    if (filter.branchIds.length === 0) return { rows: [], totalOutstandingPesewas: 0n };
+    return this.store.openItems(tx, filter, beforeId, limit);
   }
 
   /**
