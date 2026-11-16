@@ -3480,12 +3480,12 @@ One row per requirement. Rows are grouped by module; security requirements and t
 | Id | Session | Proving test | Operations |
 | --- | --- | --- | --- |
 | FR-ORD-001 | B9a | `test/int/ord/order-record.int.spec.ts › holds every channel in one record` | listOrders, createOrder, getOrder |
-| FR-ORD-002 | B9a | `test/unit/ord/order-state-machine.unit.spec.ts › allows only the documented transitions` | listOrderHistory, getOrder, confirmOrder |
-| FR-ORD-003 | B9a | `test/int/ord/order-line-pricing.int.spec.ts › requires a price source and an approval outside the band` | createOrder, approveRequest |
-| FR-ORD-004 | B9a | `test/int/ord/serialised-line.int.spec.ts › names one animal with quantity one` | createOrder |
+| FR-ORD-002 | B9a (machine in domain and database); history read B09a continued 2 | `src/modules/ord/domain/order.spec.ts › allows every listed edge and refuses every other pair of the thirteen statuses`; `test/integration/ord/order-payment-rules.integration.spec.ts › refuses a completed order moved anywhere but VOIDED, and a status outside the machine` | listOrderHistory, getOrder, confirmOrder |
+| FR-ORD-003 | B9a (database rules, engine pricing, override refused, A-208); approval B09a continued 2 | `test/integration/ord/order-payment-rules.integration.spec.ts › refuses an order written other than PLACED, a POS order with no shift, and an agreed price outside the band unflagged`; `› refuses a price below list with no approval, outside the band or not` | createOrder, approveRequest |
+| FR-ORD-004 | B9a | `test/integration/ord/order-payment-rules.integration.spec.ts › refuses an order written other than PLACED, a POS order with no shift, and an agreed price outside the band unflagged`; `› refuses two goats on one line, and a lot product with no lot named` | createOrder |
 | FR-ORD-005 | B9a | `test/int/ord/order-confirm.int.spec.ts › reserves every line or stays placed` | confirmOrder |
-| FR-ORD-006 | B9a | `test/int/ord/sale-posting.int.spec.ts › commits stock document payment and ledger together or none` | completeCounterSale, createOrder, confirmOrder |
-| FR-ORD-007 | B9a | `test/int/ord/order-completion.int.spec.ts › requires a movement or an exception per line` | syncOfflineSales, getOrder |
+| FR-ORD-006 | B9a (`SalePosting.postIn`, A-208); reached by completeCounterSale B9b and the order endpoints B09a continued 2 | `test/integration/ord/sale-posting.integration.spec.ts › leaves nothing of the sale behind when it fails after {stock, billing, payment, journals}`, `› … at commit`, `› posts every part with exact amounts once nothing fails` | completeCounterSale, createOrder, confirmOrder |
+| FR-ORD-007 | B9a (check at completion); the offline exception B9b | `test/integration/ord/order-payment-rules.integration.spec.ts › refuses an order written other than PLACED, …` (`ck_sales_order_settled_lines`) | syncOfflineSales, getOrder |
 | FR-ORD-008 | B11 | `test/int/ord/pick-list.int.spec.ts › creates a fulfilment from a confirmed order` | listFulfilments, createFulfilment, getFulfilment |
 | FR-ORD-009 | B11 | `test/unit/ord/picked-line-total.unit.spec.ts › computes the total from weighed kilograms` | recordPicks |
 | FR-ORD-010 | B11 | `test/int/ord/catch-weight-pick.int.spec.ts › enforces the tolerance and requires consent above it` | recordPicks, recordCustomerConsent, answerMyOrderConsent |
@@ -3494,7 +3494,7 @@ One row per requirement. Rows are grouped by module; security requirements and t
 | FR-ORD-013 | B11 | `test/int/ord/substitution.int.spec.ts › needs recorded customer consent` | proposeSubstitution, recordCustomerConsent, answerMyOrderConsent |
 | FR-ORD-014 | B11 | `test/int/ord/order-cancel.int.spec.ts › releases stock and requests a refund in one transaction` | cancelOrder, cancelFulfilment, requestRefund |
 | FR-ORD-015 | B9a | `test/int/ord/order-return.int.spec.ts › cannot exceed the quantity sold` | createReturn, getReturn, submitReturn |
-| FR-ORD-016 | B9a | `test/unit/ord/payment-status.unit.spec.ts › derives from allocations` | getOrder, listPayments |
+| FR-ORD-016 | B9a (derivation); shown by getOrder B09a continued 2 | `src/modules/ord/domain/order.spec.ts › shows 84,000 deposited against 86,240 invoiced as PART_PAID, then PAID once all of it is allocated` | getOrder, listPayments |
 | SEC-012 | B13 | `test/e2e/ord/abuse-12-false-return.e2e.spec.ts › refuses a return beyond what was sold`<br>`test/e2e/ord/abuse-12-false-return.e2e.spec.ts › reports the refund as REFUND with abuse case 12` | createReturn, requestRefund, approveRequest, getDailyExceptionReport |
 
 #### DEL: Delivery and logistics
@@ -3537,14 +3537,14 @@ One row per requirement. Rows are grouped by module; security requirements and t
 | Id | Session | Proving test | Operations |
 | --- | --- | --- | --- |
 | FR-PAY-001 | B9a | `test/int/pay/payment-capture.int.spec.ts › applies each method's clearing behaviour` | listPayments, recordPayment, getPayment |
-| FR-PAY-002 | B9a | `test/int/pay/payment-freeze.int.spec.ts › refuses edits to a cleared payment` | getPayment |
+| FR-PAY-002 | B9a | `test/integration/ord/order-payment-rules.integration.spec.ts › refuses any change to a cleared payment but its allocated and refunded amounts, and a move back to PENDING` | getPayment |
 | FR-PAY-003 | B9a | `test/int/pay/mobile-money-initiate.int.spec.ts › creates one provider charge per key` | initiateMobileMoneyCharge, checkPaymentStatus |
 | FR-PAY-004 | B9a | `test/int/pay/webhook-verification.int.spec.ts › rejects bad signature stale timestamp replay and wrong amount` | receivePaymentWebhook |
 | FR-PAY-005 | B9a | `test/int/pay/verified-clearing.int.spec.ts › accepts clearing only from provider verification` | recordPayment, checkPaymentStatus, listUnmatchedPayments |
 | FR-PAY-006 | B9a | `test/int/pay/webhook-rejection-log.int.spec.ts › logs and reports every rejection` | receivePaymentWebhook, getDailyExceptionReport |
 | FR-PAY-007 | B9a | `test/int/pay/payment-timeout-after-charge.int.spec.ts › clears once by lookup after a timeout` | initiateMobileMoneyCharge, checkPaymentStatus |
 | FR-PAY-008 | B9a | `test/int/pay/webhook-edge-cases.int.spec.ts › applies once and holds an orphan payment` | receivePaymentWebhook, listUnmatchedPayments |
-| FR-PAY-009 | B9a | `test/int/pay/payment-allocation.int.spec.ts › never exceeds payment or outstanding` | allocatePayment, unallocatePayment, listOpenItems |
+| FR-PAY-009 | B9a (allocation rules); operations B09a continued | `test/integration/ord/order-payment-rules.integration.spec.ts › refuses an allocation beyond the payment, and one beyond what the document has outstanding`; `src/modules/pay/domain/tender.spec.ts` | allocatePayment, unallocatePayment, listOpenItems |
 | FR-PAY-010 | B9a | `test/int/pay/overpayment.int.spec.ts › holds the excess in deposits or suspense` | listPayments, listOpenItems, listUnmatchedPayments |
 | FR-PAY-011 | B9a | `test/int/pay/cheque-clearing.int.spec.ts › clears or bounces and posts` | clearCheque, matchBankStatementLine |
 | FR-PAY-012 | B9a | `test/int/pay/refund.int.spec.ts › limits to the unrefunded amount and approves above the limit` | listRefunds, requestRefund, getRefund, approveRequest |
