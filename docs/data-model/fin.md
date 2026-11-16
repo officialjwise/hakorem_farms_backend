@@ -2,7 +2,7 @@
 
 Owner: FIN module. Chart of accounts, journal, posting rules, periods, fixed assets (ADR-0003). Conventions are in `docs/DATA_MODEL.md`.
 
-Built in B8 (migration 0123, ADR-0056): `account`, `subledger_party`, `accounting_period`, `posting_event_type`, `posting_rule`, `account_determination`, `journal_entry`, `journal_line`. A trigger refusal is SQLSTATE HK012 with the rule as its constraint name (`ck_journal_lines`, `ck_journal_balanced`, `ck_journal_period`, `ck_journal_period_open`, `ck_journal_line_entry`, `ck_journal_line_account`, `ck_journal_line_subledger`, `ck_account_change`, `ck_period_change`). `bank_account`, `manual_journal`, `manual_journal_line`, `period_balance`, `fixed_asset`, `depreciation_run` and `depreciation_line` follow in B08 continued (A-187).
+Built in B8 (migration 0123, ADR-0056): `account`, `subledger_party`, `accounting_period`, `posting_event_type`, `posting_rule`, `account_determination`, `journal_entry`, `journal_line`. A trigger refusal is SQLSTATE HK012 with the rule as its constraint name (`ck_journal_lines`, `ck_journal_balanced`, `ck_journal_period`, `ck_journal_period_open`, `ck_journal_line_entry`, `ck_journal_line_account`, `ck_journal_line_subledger`, `ck_account_change`, `ck_period_change`). B08 continued (A-188, A-189) adds `written_xact_id` on `journal_entry` (migration 0124: an entry written inside a savepoint keeps its own lines), the period lifecycle and close order on `accounting_period` and the table `period_reopen` (0126). `bank_account`, `manual_journal` and `manual_journal_line` follow in B08 continued 1b; `period_balance`, `fixed_asset`, `depreciation_run` and `depreciation_line` in B08 continued 1c.
 
 ## Triggers
 
@@ -13,7 +13,7 @@ Built in B8 (migration 0123, ADR-0056): `account`, `subledger_party`, `accountin
 | `fin.record_written_xact()` on insert of `fin.journal_entry` | Sets `written_xact_id` to the top-level transaction (`pg_current_xact_id()`), whatever the writer supplies (migration 0124) |
 | `fin.assert_line_valid()` on insert of `fin.journal_line` | The account is postable; `subledger_party_id` is present exactly when the account has a `subledger_kind`, and the party is of that kind; the line is written in the top-level transaction that wrote its entry (compared on `written_xact_id`, so an entry written inside a savepoint keeps its own lines; migration 0124) and carries the entry's posting date |
 | `fin.account_guard()` on update of `fin.account` | An account with lines keeps its code, type, normal side and subledger kind and is never archived |
-| `fin.accounting_period_guard()` on update of `fin.accounting_period` | A `CLOSED` period never changes; no period changes its dates |
+| `fin.accounting_period_guard()` on update of `fin.accounting_period` | A `CLOSED` period never changes; no period changes its dates (`ck_period_change`). From 0126: a status moves only `FUTURE` to `OPEN`, `OPEN` to `LOCKED`, `LOCKED` to `OPEN` or `CLOSED`, a locked or closed period names who locked it and an open one nobody (`ck_period_transition`), and a period becomes `CLOSED` only once every earlier period is (`ck_period_close_order`) |
 
 ---
 
@@ -87,7 +87,23 @@ Published key.
 | `version` | `integer` | NOT NULL DEFAULT 1 | Posting transactions read this row; lock and close write it (ADR-0005) |
 
 - UNIQUE (`fiscal_year`, `period_no`). EXCLUDE: date ranges do not overlap.
-- Trigger: `CLOSED` never changes.
+- Trigger: `CLOSED` never changes; the transitions and the close order above (0126). Lock and close are `lockAccountingPeriod` and `closeAccountingPeriod`; a reopen is asked for and approved through `fin.period_reopen` (A-188).
+
+### `fin.period_reopen` · DOCUMENT
+
+A request to reopen one locked period (FR-FIN-010, A-188), the subject of its `PERIOD_REOPEN` approval. Added in B08 continued (0126). Posted statuses: `POSTED` (the period was reopened), `REJECTED`.
+
+| Column | Type | Constraints | Why |
+| --- | --- | --- | --- |
+| `id` | `uuid` | PK, FK `platform.business_document` (doc type `PERIOD_REOPEN`) | The approval's subject |
+| `period_id` | `uuid` | NOT NULL, FK `fin.accounting_period` | |
+| `branch_id` | `uuid` | NOT NULL, FK `mdm.branch` | The head office branch, where the approval policy is read |
+| `reason` | `text` | NOT NULL, 1 to 500 characters | Why the Owner asks |
+| `status` | `text` | NOT NULL, CHECK in (`PENDING_APPROVAL`, `POSTED`, `REJECTED`) | |
+| `approval_request_id` | `uuid` | NOT NULL, FK `iam.approval_request` | Maker-checker |
+| `decided_at`, `decided_by` | `timestamptz`, `uuid` | NULL; set exactly when no longer pending (`ck_period_reopen_decided`) | Who let it happen or refused it |
+
+Standard columns: `DOCUMENT` (`version`, `created_*`, `updated_*`), frozen once decided (`platform.freeze_posted`). UNIQUE (`period_id`) WHERE pending (`uq_period_reopen_pending`): one request waits per period.
 
 ### `fin.posting_event_type` · LOOKUP
 

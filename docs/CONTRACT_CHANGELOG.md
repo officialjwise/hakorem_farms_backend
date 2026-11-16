@@ -4,7 +4,9 @@ Every change to `contract/openapi.yaml`, newest first. A breaking change needs a
 
 Version numbers follow semantic versioning: a major bump breaks an existing client, a minor bump adds operations or optional fields, a patch fixes descriptions or examples.
 
-## Reading 1.5.0 to 1.33.0 cold (written 2026-11-15, for the frontend track; 1.19.0 to 1.32.0 added the same day, 1.33.0 on 2026-11-16)
+## Reading 1.5.0 to 1.34.0 cold (written 2026-11-15, for the frontend track; 1.19.0 to 1.32.0 added the same day, 1.33.0 and 1.34.0 on 2026-11-16)
+
+**1.34.0, the chart of accounts and accounting periods (B08 continued):** seven FIN operations answer from the real API. **Act on these:** (1) `reopenAccountingPeriod` is the Owner's and always answers 202 `PERIOD_REOPEN`: show it in the approvals inbox, where the Accountant (or a second Owner) approves it; (2) handle 422 `ACCOUNT_INVALID` and the period refusals in `details[].code`; (3) a stock, livestock, processing, purchase or approval write may now really answer 422 `PERIOD_NOT_OPEN` once a period is locked: show the message and the correlation id.
 
 **1.33.0, server-side sort on the console lists (B07 continued 3, CR-019):** two optional query parameters, nothing else. **Act on these:** (1) send `sort` and `direction` on `listProducts` (`name`, `sku`, `category`, `status`, `updatedAt`), `listStockOnHand` (`onHandQty`), `listStockUnits` (`identifier`, `expiresOn`) and `listStockMovements` (`occurredAt`, `valuePesewas`), and the "sorts this page only" label can go for those fields; (2) the fields CR-019 asked for and did not get (product and location names on the stock lists, `valueAtCostPesewas` on stock on hand and stock units) answer 400 `SORT_NOT_ALLOWED`: keep those columns page-sorted with their label, or unsortable; (3) never send `direction` without `sort`; (4) start again without a cursor whenever the sort changes. The examples of `listProducts`, `listStockMovements` and `listStockOnHand` were reordered to the default order; a fixture that relied on their old row order must follow.
 
@@ -61,6 +63,14 @@ The contract moved from 1.4.0 to 1.20.0 in one night while the frontend track wa
 
 - **Reserving stock** has no HTTP operation: checkout, orders and quotes reserve in process (B7, B9a, B10). `listStockReservations` shows what they hold; until then it lists only what tests create.
 - **Empty until their modules exist:** `quoteDelivery.slots` (B11), `Supplier.hasProfile` (B7), `Customer.hasBusinessAccount` (B10), `StockOnHandLine.priceBand` (null), a trace's `healthEvents` and a sale's `customer` and `billingDocument`, `GoodsReceipt.receiptNo` (null until numbering), and `OPENING_STOCK` imports (422 `IMPORT_ENTITY_NOT_AVAILABLE` until opening stock is built).
+
+## 1.34.0 (2026-11-16, B08 continued)
+
+Minor. Seven planned FIN operations move into code, one error code is added, and seventeen existing operations list three refusals they could already answer; no field removed, renamed or retyped, and nothing a client sends made required. 324 operations from code, 311 planned, 635 published.
+
+- **The chart of accounts (FR-FIN-001, FR-FIN-002):** `listAccounts`, `createAccount`, `updateAccount` answer from the real API. A new account's `normalSide` follows its type; its code's first digit must be its type's class; a header takes no subledger; a parent is of the same type; an account closes only at a nil balance once no rule or determination in force names it. New error code `ACCOUNT_INVALID` (`CLASS_MISMATCH`, `SUBLEDGER_ON_HEADER`, `PARENT_TYPE_MISMATCH`, `BALANCE_NOT_ZERO`, `IN_USE_BY_RULE`); a code in use is `DUPLICATE_VALUE`.
+- **Accounting periods (FR-FIN-009, FR-FIN-010):** `listAccountingPeriods` (newest first), `lockAccountingPeriod`, `closeAccountingPeriod` (step-up) and `reopenAccountingPeriod` (Owner, step-up, a reason) answer from the real API. **`reopenAccountingPeriod` always answers 202** `ApprovalPending` of kind `PERIOD_REOPEN` with a subject of doc type `PERIOD_REOPEN` (the planned example said `STOCK_ADJUSTMENT`); a different holder of `fin.period.reopen_approve` approves it through `approveRequest`. Refusals are 422 `INVALID_STATE_TRANSITION` with `details[].code` the period's status, `PERIOD_NOT_ENDED`, `EARLIER_PERIOD_NOT_CLOSED` or `REOPEN_PENDING`. Descriptions now state these rules.
+- **Ledger refusals listed (A-187):** `PERIOD_NOT_OPEN`, `POSTING_RULE_MISSING` and `SUBLEDGER_REQUIRED` join the `x-error-codes` of `postGoodsReceipt`, `submitStockAdjustment`, `submitStockTake`, `reverseStockMovement`, `resolveStockException`, `applyImportJob`, `recordHealthEvent`, `recordCareHealthEvent`, `recordFeedConsumption`, `recordCareFeedConsumption`, `submitMortalityRecord`, `submitCareMortalityRecord`, `completeProcessingOrder`, `cancelProcessingOrder`, `approveSupplierInvoice`, `markSupplierPaymentPaid` and `approveRequest`. Since 1.33.0 they could answer them; now a period can actually be locked, so a client can meet `PERIOD_NOT_OPEN`.
 
 ## 1.33.0 (2026-11-16, B07 continued 3)
 

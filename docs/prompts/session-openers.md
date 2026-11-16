@@ -49,7 +49,9 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B07 continued 2 | `B07c-storefront-checkout.md` | `b07c-storefront-checkout` | B4 to B12 | The shared sort pages without skipping or repeating; checkout reserves stock and releases it on timeout; a live animal cannot be added to a cart; the catalogue exposes no cost; every staff write refuses the wrong role (built; the session split, A-179) |
 | B07 continued 3 | `B07c3-console-sort.md` | `b07c3-console-sort` | B4 to B12 | The four console lists sort through the shared keyset by CR-019's fields, each indexed, any other 400, and page without skipping or repeating; every read refuses the wrong role (built; six fields declined, A-181) |
 | B8 | `B08-ledger-billing.md` | `b08-ledger-billing` | B4 to B12 | Trial balance sums to zero on a seeded day; an unbalanced journal is rejected by the database; numbering is gap-free under concurrent load (built and passed; the session split after its gate, A-187) |
-| B08 continued | `B08c-ledger-interface.md` | `b08c-ledger-interface` | B4 to B12 | Every FIN write refuses the wrong role and a maker approving their own manual journal or rule change; a period locks, closes and refuses postings through the API; the four statements tie to the trial balance on the seeded day; depreciation spreads exactly |
+| B08 continued | `B08c-ledger-interface.md` | `b08c-ledger-interface` | B4 to B12 | An entry written inside a savepoint keeps its lines; every chart and period operation refuses the wrong role and the Owner approving their own reopen; a period locks, closes and refuses postings through the API (built; the session split, A-189) |
+| B08 continued 1b | `B08c1b-journals-rules-banks.md` | `b08c1b-journals-rules-banks` | B4 to B12 | Every journal, manual journal, rule, determination and bank account operation refuses the wrong role and a maker approving their own manual journal or rule change; a manual journal posts only after a different approver; a supplier payment posts to its bank account's own party |
+| B08 continued 1c | `B08c1c-statements-assets.md` | `b08c1c-statements-assets` | B4 to B12 | The four statements tie to the trial balance on the seeded day; year close leaves 3200 at zero; depreciation spreads exactly and posts once per period; the cash figure answers from the ledger |
 | B08 continued 2 | `B08c2-billing-documents.md` | `b08c2-billing-documents` | B4 to B12 | A billing document posts exact levy lines and a fourth levy needs data only; numbering stays gap-free under concurrent issue; a reprint is identical with its marker; the trial balance still sums to zero on the seeded day |
 | B9a | `B09a-order-core-payments.md` | `b09a-order-core-payments` | B4 to B12 | Every payment edge case in the brief passes; an order on any channel posts stock, document, payment and ledger in one transaction |
 | B9b | `B09b-pos-shifts-offline.md` | `b09b-pos-shifts-offline` | B4 to B12 | Shift close reconciles; 500 queued offline transactions sync exactly once |
@@ -1162,7 +1164,7 @@ Stop at the gate and write docs/sessions/B08-ledger-billing.md.
 
 ## B08 continued — The ledger's interface, periods, manual journals and the statements
 
-Branch `b08c-ledger-interface`. Report `docs/sessions/B08c-ledger-interface.md`. Gate: every FIN write refuses the wrong role (and a maker approving their own manual journal, posting rule change or period reopen); a period locks, closes and then refuses postings, proved through the API; the trial balance, profit and loss, balance sheet and cash flow tie to each other on the seeded trading day to the pesewa; a depreciation run spreads the depreciable amount exactly and posts once per period.
+Branch `b08c-ledger-interface`. Report `docs/sessions/B08c-ledger-interface.md`. **Built; the session split after its chart and periods (A-189): the remainder is B08 continued 1b and B08 continued 1c below.** Gate as built: an entry written inside a savepoint keeps its own lines and `SET CONSTRAINTS ALL IMMEDIATE` only makes the balance check earlier; every chart and period operation refuses the wrong role and the Owner approving their own period reopen; a period locks, closes and then refuses postings, proved through the API. (Planned gate, now spread over the three sessions: every FIN write refuses the wrong role (and a maker approving their own manual journal, posting rule change or period reopen); a period locks, closes and then refuses postings, proved through the API; the trial balance, profit and loss, balance sheet and cash flow tie to each other on the seeded trading day to the pesewa; a depreciation run spreads the depreciable amount exactly and posts once per period.)
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
@@ -1196,13 +1198,76 @@ If the phase does not fit, split at a sub-domain boundary (for example fixed ass
 Stop at the gate and write docs/sessions/B08c-ledger-interface.md.
 ```
 
+## B08 continued 1b — Journals, manual journals, posting rule changes and bank accounts
+
+Branch `b08c1b-journals-rules-banks`. Report `docs/sessions/B08c1b-journals-rules-banks.md`. Gate: every journal, manual journal, posting rule, determination and bank account operation refuses the wrong role, and a maker approving their own manual journal or posting rule change is refused; a manual journal posts nothing until a different person approves it with step-up, then exactly one balanced entry with its exact amounts, and `fin.ManualJournalApproved` has its matrix row and exact-amount test; a bank account's number is stored encrypted and shown only as its last four digits; a supplier payment naming a bank account posts to that account's own subledger party.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B08c-ledger-interface.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the FIN requirement block of docs/SRS.md (nothing else from the SRS), docs/data-model/fin.md,
+the FIN card in docs/MODULE_BOUNDARIES.md, ADR-0003, ADR-0005, ADR-0017, ADR-0022 and ADR-0056, and the accountant's
+answers on A-024 to A-029 and A-182 to A-189 in docs/ASSUMPTIONS.md (if still open, proceed on them).
+Use docs/prompts/module-build-prompt.md as the recipe.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B08 continued 1b only, on branch b08c1b-journals-rules-banks from main, building on the ledger core and the
+chart and periods already merged (do not rewrite them): FIN's planned operations in contract/openapi.yaml, each
+test-first with its wrong-role refusal: journals read only (listJournalEntries, getJournalEntry, listAccountActivity);
+manual journals with a different approver and step-up (FR-FIN-008, kind MANUAL_JOURNAL, the opening balance journal
+against 3900, A-005, OPENING_ALREADY_POSTED), with `fin.ManualJournalApproved` added to fin.posting_event_type with its
+matrix row and an exact-amount test; posting rule and determination changes through `POSTING_RULE_CHANGE` with step-up
+(listPostingEventTypes, listPostingRules, createPostingRule, listAccountDeterminations, createAccountDetermination),
+keeping the boot assertion whole; bank accounts with encrypted numbers and step-up (`fin.bank_account`, ADR-0022).
+Add, by an expand migration, pur.supplier_payment.bank_account_id and remittance_document_id with their foreign keys
+(docs/DATA_MODEL.md, Migrations), lift PUR's BANK_ACCOUNT_NOT_AVAILABLE refusal and carry the bank account on
+pur.SupplierPaymentMade so FIN posts it to its own subledger party (A-185).
+If the phase does not fit, split at a sub-domain boundary (for example bank accounts) and follow
+"If a session cannot finish".
+Stop at the gate and write docs/sessions/B08c1b-journals-rules-banks.md.
+```
+
+## B08 continued 1c — The statements, period balances, year close, fixed assets and depreciation
+
+Branch `b08c1c-statements-assets`. Report `docs/sessions/B08c1c-statements-assets.md`. Gate: the trial balance, profit and loss, balance sheet and cash flow tie to each other on the seeded trading day to the pesewa, each read refusing the wrong role; year close leaves 3200 at zero and 3100 increased by the year's profit, with `fin.YearClosed`'s exact-amount test; a depreciation run spreads the depreciable amount exactly and posts once per period, with `fin.DepreciationRun`'s exact-amount test; every fixed asset write refuses the wrong role; the owner dashboard's cash figure answers from the ledger.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B08c1b-journals-rules-banks.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the FIN requirement block of docs/SRS.md (nothing else from the SRS), docs/data-model/fin.md,
+the FIN card in docs/MODULE_BOUNDARIES.md, ADR-0001, ADR-0003, ADR-0005 and ADR-0056, and the accountant's answers on
+A-024 to A-029 and A-182 to A-189 in docs/ASSUMPTIONS.md (if still open, proceed on them).
+Use docs/prompts/module-build-prompt.md as the recipe.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B08 continued 1c only, on branch b08c1c-statements-assets from main, building on what is merged (do not
+rewrite it): FIN's planned operations in contract/openapi.yaml, each test-first with its wrong-role refusal: the trial
+balance, profit and loss, balance sheet and cash flow for any range (FR-FIN-011 to FR-FIN-013), the period balance
+projection (`fin.period_balance`, computed at lock and refreshed nightly), year close moving current year earnings to
+retained earnings (FR-FIN-010, `fin.YearClosed`), fixed assets and depreciation runs (FR-FIN-014, FR-FIN-015,
+`fin.DepreciationRun`, `allocate` so the schedule sums exactly), each ◆ event with its matrix row and exact-amount test.
+Coverage: the 100 percent gate on src/modules/fin/domain/ holds for every new rule.
+Make the owner dashboard's cash figure live (B05x, A-149): remove `cash` from RPT's PENDING_FIGURES
+(src/modules/rpt/domain/dashboard.ts) and answer it from the ledger (accounts 1000 to 1130) through a published view,
+and build the planned tile getCashPositionTile, test-first with its wrong-role refusal.
+If the phase does not fit, split at a sub-domain boundary (for example fixed assets and depreciation) and follow
+"If a session cannot finish".
+Stop at the gate and write docs/sessions/B08c1c-statements-assets.md.
+```
+
 ## B08 continued 2 — Billing documents, document rendering and the archive
 
 Branch `b08c2-billing-documents`. Report `docs/sessions/B08c2-billing-documents.md`. Gate: an invoice, credit note and debit note post exact levy lines through the ledger and a fourth levy added as data only produces four levy lines and four subledger postings; billing numbers stay gap-free under concurrent issue; a reprint is byte-identical apart from its reprint marker and the archive's hash holds; the trial balance still sums to zero on the seeded trading day.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
-List docs/sessions/ and read only the most recent report (docs/sessions/B08c-ledger-interface.md).
+List docs/sessions/ and read only the most recent report (docs/sessions/B08c1c-statements-assets.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
 reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the BIL and DOC requirement blocks of docs/SRS.md (nothing else from the SRS),
