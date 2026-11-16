@@ -2,6 +2,7 @@ import { ApiError, BusinessRuleError } from '../../../platform/errors/api-error'
 import { registerMessages, translate } from '../../../platform/i18n/messages';
 import type { AccountRule } from '../domain/accounts';
 import type { BankAccountRule } from '../domain/bank-account';
+import type { FixedAssetRule } from '../domain/fixed-asset';
 import type { ManualJournalRule } from '../domain/manual-journal';
 import type { ChangeRule } from '../domain/rule-change';
 import type { PostingRefusal } from '../domain/posting';
@@ -22,7 +23,45 @@ registerMessages({
   'fin.posting_rule_invalid': 'This posting rule or account mapping cannot be changed like this.',
   'fin.not_maker': 'Only the person who drafted this journal can change or submit it.',
   'fin.bank_account_invalid': 'This bank account or wallet cannot be recorded like this.',
+  'fin.fixed_asset_invalid': 'This fixed asset cannot be recorded like this.',
+  'fin.depreciation_run_exists': 'Depreciation has already been calculated for this period.',
+  'fin.depreciation_run_invalid': 'This depreciation run cannot be calculated or posted like this.',
+  'fin.maker_is_checker': 'A depreciation run is posted by someone other than the person who calculated it.',
 });
+
+/** 422 FIXED_ASSET_INVALID: an asset, a change to it or its disposal breaks a rule; `details[].code` names each (A-199). */
+export class FixedAssetInvalidError extends BusinessRuleError {
+  readonly code = 'FIXED_ASSET_INVALID';
+  readonly messageKey = 'fin.fixed_asset_invalid';
+  constructor(rules: readonly (FixedAssetRule | { readonly field: string | null; readonly rule: 'DEPRECIATION_RUN_PENDING' | 'BANK_ACCOUNT_NOT_AVAILABLE' })[]) {
+    super(`fixed asset breaks ${rules.map((r) => r.rule).join(', ')}`, rules.map((r) => ({ field: r.field, code: r.rule, message: translate('fin.fixed_asset_invalid') })));
+  }
+}
+
+/** 422 DEPRECIATION_RUN_EXISTS: a period has one run, ever (FR-FIN-015; the database holds it, `uq_depreciation_run_period`). */
+export class DepreciationRunExistsError extends BusinessRuleError {
+  readonly code = 'DEPRECIATION_RUN_EXISTS';
+  readonly messageKey = 'fin.depreciation_run_exists';
+  constructor(periodId: string) {
+    super(`period ${periodId} already has a depreciation run`, [{ field: '/periodId', code: 'DEPRECIATION_RUN_EXISTS', message: translate('fin.depreciation_run_exists') }]);
+  }
+}
+
+/** 422 DEPRECIATION_RUN_INVALID: `PERIOD_NOT_ENDED`, `NOTHING_TO_DEPRECIATE` or `RUN_STALE` in `details[].code` (A-199). */
+export class DepreciationRunInvalidError extends BusinessRuleError {
+  readonly code = 'DEPRECIATION_RUN_INVALID';
+  readonly messageKey = 'fin.depreciation_run_invalid';
+  constructor(rule: 'PERIOD_NOT_ENDED' | 'NOTHING_TO_DEPRECIATE' | 'RUN_STALE', field: string | null) {
+    super(`depreciation run refused: ${rule}`, [{ field, code: rule, message: translate('fin.depreciation_run_invalid') }]);
+  }
+}
+
+/** 403 FORBIDDEN: the maker of a depreciation run cannot post it (ADR-0017; the database holds it too). */
+export class MakerIsCheckerError extends ApiError {
+  readonly status = 403;
+  readonly code = 'FORBIDDEN';
+  readonly messageKey = 'fin.maker_is_checker';
+}
 
 /** 422 MANUAL_JOURNAL_INVALID: a manual journal breaks a rule; `details[].code` names each (FR-FIN-004, FR-FIN-008, A-190). */
 export class ManualJournalInvalidError extends BusinessRuleError {

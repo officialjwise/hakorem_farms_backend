@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.37.0"
+  version: "1.38.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -41434,19 +41434,33 @@ paths:
       tags:
         - fin
       summary: "List the fixed asset register"
-      description: "Permission: `fin.fixed_asset.read`."
+      description: "The fixed asset register in asset number order (FR-FIN-014, ADR-0059): cost, residual, useful life, the depreciation charged so far and the net book value (cost less accumulated depreciation), each exact in pesewas. An asset is never removed; one disposed of stays with `status` `DISPOSED` and its `disposedOn`. `category` and `status` filter the list.\n\nPermission: `fin.fixed_asset.read`."
       x-permission: fin.fixed_asset.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - RATE_LIMITED
       parameters:
         - name: category
           in: query
           required: false
           schema:
             type: string
+            enum:
+              - VEHICLE
+              - COLD_ROOM
+              - HOUSING
+              - EQUIPMENT
         - name: status
           in: query
           required: false
           schema:
             type: string
+            enum:
+              - IN_USE
+              - FULLY_DEPRECIATED
+              - DISPOSED
         - name: cursor
           in: query
           required: false
@@ -41485,12 +41499,12 @@ paths:
                     residualPesewas: 2500000
                     usefulLifeMonths: 60
                     method: STRAIGHT_LINE
-                    accumulatedPesewas: 2400000
-                    netBookValuePesewas: 16100000
+                    accumulatedPesewas: 2400003
+                    netBookValuePesewas: 16099997
                     status: IN_USE
                     disposedOn: null
                     currency: GHS
-                    version: 2
+                    version: 11
                   - id: "019a7add-4f65-7abe-bff6-b4b145782d8f"
                     assetNo: FA-0002
                     name: "Cold room, 12 m³"
@@ -41509,7 +41523,7 @@ paths:
                     status: IN_USE
                     disposedOn: null
                     currency: GHS
-                    version: 2
+                    version: 11
                   - id: "019a7add-6e54-74a1-89d9-52e8bf29cbc6"
                     assetNo: FA-0003
                     name: "Broiler house 1"
@@ -41528,7 +41542,7 @@ paths:
                     status: IN_USE
                     disposedOn: null
                     currency: GHS
-                    version: 2
+                    version: 11
                   - id: "019a7add-8d43-7e84-93bd-f12038da69fe"
                     assetNo: FA-0004
                     name: "Platform scale, 300 kg"
@@ -41542,12 +41556,12 @@ paths:
                     residualPesewas: 0
                     usefulLifeMonths: 36
                     method: STRAIGHT_LINE
-                    accumulatedPesewas: 116700
-                    netBookValuePesewas: 303300
+                    accumulatedPesewas: 116670
+                    netBookValuePesewas: 303330
                     status: IN_USE
                     disposedOn: null
                     currency: GHS
-                    version: 2
+                    version: 11
                   - id: "019a7add-ac32-7868-ada0-8f57b28b0835"
                     assetNo: FA-0005
                     name: "Standby generator, 20 kVA"
@@ -41561,12 +41575,12 @@ paths:
                     residualPesewas: 250000
                     usefulLifeMonths: 84
                     method: STRAIGHT_LINE
-                    accumulatedPesewas: 433300
-                    netBookValuePesewas: 2416700
+                    accumulatedPesewas: 433342
+                    netBookValuePesewas: 2416658
                     status: IN_USE
                     disposedOn: null
                     currency: GHS
-                    version: 2
+                    version: 11
                   - id: "019a7add-cb21-724b-b784-2d8f2c3ca66d"
                     assetNo: FA-0006
                     name: "Thermal printer and till tablet"
@@ -41580,16 +41594,16 @@ paths:
                     residualPesewas: 0
                     usefulLifeMonths: 36
                     method: STRAIGHT_LINE
-                    accumulatedPesewas: 84400
-                    netBookValuePesewas: 295600
+                    accumulatedPesewas: 84448
+                    netBookValuePesewas: 295552
                     status: IN_USE
                     disposedOn: null
                     currency: GHS
-                    version: 2
+                    version: 11
                 page:
-                  nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                  nextCursor: null
                   limit: 25
-                  hasMore: true
+                  hasMore: false
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -41605,8 +41619,19 @@ paths:
       tags:
         - fin
       summary: "Register a fixed asset"
-      description: "Permission: `fin.fixed_asset.manage`."
+      description: "Registers an asset at the branch that holds it (FR-FIN-014, A-199). Registering posts nothing: the cost reaches 1510 to 1540 the way the money left (a supplier invoice mapped to the asset account, a manual journal, or the opening balance journal), and the nightly reconciliation compares the register with those accounts and 1590 (ADR-0059). An asset the farm already had is registered at its carrying amount on the opening date with its remaining life. `residualPesewas` defaults to nil and may not exceed the cost; `usefulLifeMonths` is 1 to 600; `acquiredOn` is today or earlier, and its month is the first month of depreciation. Refusals are 422 `FIXED_ASSET_INVALID` (`RESIDUAL_ABOVE_COST`, `LIFE_OUT_OF_RANGE`, `FUTURE_DATE`) and `REFERENCE_NOT_FOUND` for an unknown branch.\n\nPermission: `fin.fixed_asset.manage` at the asset's branch."
       x-permission: fin.fixed_asset.manage
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - FIXED_ASSET_INVALID
+        - REFERENCE_NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -41637,25 +41662,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/FixedAsset"
               example:
-                id: "019a7add-3076-70da-a612-1679cbc78f57"
-                assetNo: FA-0001
-                name: "Delivery van GT-4521-24"
-                category: VEHICLE
+                id: "019a7ae0-5c1e-7b52-9a0d-3f6be2c1a907"
+                assetNo: FA-0007
+                name: "Second chest freezer"
+                category: EQUIPMENT
                 branch:
                   id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                   code: DDW
                   name: "HaKorem Farms, Dodowa"
-                acquiredOn: "2026-02-10"
-                costPesewas: 18500000
-                residualPesewas: 2500000
+                acquiredOn: "2026-11-10"
+                costPesewas: 640000
+                residualPesewas: 0
                 usefulLifeMonths: 60
                 method: STRAIGHT_LINE
-                accumulatedPesewas: 2400000
-                netBookValuePesewas: 16100000
+                accumulatedPesewas: 0
+                netBookValuePesewas: 640000
                 status: IN_USE
                 disposedOn: null
                 currency: GHS
-                version: 2
+                version: 1
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -41676,8 +41701,13 @@ paths:
       tags:
         - fin
       summary: "Get a fixed asset"
-      description: "Permission: `fin.fixed_asset.read`."
+      description: "One asset of the register with its depreciation charged so far and its net book value (FR-FIN-014).\n\nPermission: `fin.fixed_asset.read`."
       x-permission: fin.fixed_asset.read
+      x-error-codes:
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -41712,12 +41742,12 @@ paths:
                 residualPesewas: 2500000
                 usefulLifeMonths: 60
                 method: STRAIGHT_LINE
-                accumulatedPesewas: 2400000
-                netBookValuePesewas: 16100000
+                accumulatedPesewas: 2400003
+                netBookValuePesewas: 16099997
                 status: IN_USE
                 disposedOn: null
                 currency: GHS
-                version: 2
+                version: 11
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -41735,8 +41765,20 @@ paths:
       tags:
         - fin
       summary: "Change a fixed asset"
-      description: "Permission: `fin.fixed_asset.manage`."
+      description: "Renames an asset or changes its estimate, at the `version` read (409 `VERSION_CONFLICT` otherwise). A new useful life or residual is prospective: what is left to depreciate is spread over the months left from the next run, and nothing already charged changes (A-199). The cost, category, branch and acquisition date never change: the database refuses it. Refusals are 422 `FIXED_ASSET_INVALID`: `LIFE_OUT_OF_RANGE`, `LIFE_TOO_SHORT` (the life may not end before the months already charged, nor at them while anything is left to depreciate), `RESIDUAL_ABOVE_NET_BOOK_VALUE`, `ASSET_DISPOSED`, `DEPRECIATION_RUN_PENDING` (a draft run of an open period carries the asset: post it first).\n\nPermission: `fin.fixed_asset.manage` at the asset's branch."
       x-permission: fin.fixed_asset.manage
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - FIXED_ASSET_INVALID
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -41756,7 +41798,7 @@ paths:
             schema:
               $ref: "#/components/schemas/FixedAssetUpdate"
             example:
-              version: 2
+              version: 11
               usefulLifeMonths: 72
       responses:
         "200":
@@ -41780,14 +41822,14 @@ paths:
                 acquiredOn: "2026-02-10"
                 costPesewas: 18500000
                 residualPesewas: 2500000
-                usefulLifeMonths: 60
+                usefulLifeMonths: 72
                 method: STRAIGHT_LINE
-                accumulatedPesewas: 2400000
-                netBookValuePesewas: 16100000
+                accumulatedPesewas: 2400003
+                netBookValuePesewas: 16099997
                 status: IN_USE
                 disposedOn: null
                 currency: GHS
-                version: 2
+                version: 12
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -41810,8 +41852,23 @@ paths:
       tags:
         - fin
       summary: "Dispose of a fixed asset"
-      description: "Permission: `fin.fixed_asset.manage`."
+      description: "Records the sale or scrapping of an asset and posts it through the ledger in the same transaction (FR-FIN-014, ADR-0059, `fin.FixedAssetDisposed`): Dr 1590 its accumulated depreciation, Dr the proceeds account, Cr its cost account (1510 to 1540) at cost, and the exact gain (Cr) or loss (Dr) to 4920, the proceeds less the net book value. Proceeds go to the named `bankAccountId` (an active bank account or wallet, against its own party) or, with none, into the safe (1010) as cash. Posted on `disposedOn` or not at all (422 `PERIOD_NOT_OPEN`). Run the depreciation of the months before the disposal first: a month not charged falls into the gain or loss. Refusals are 422 `FIXED_ASSET_INVALID` (`FUTURE_DATE`, `BEFORE_ACQUISITION`, `BEFORE_LAST_DEPRECIATION`, `ASSET_DISPOSED`, `DEPRECIATION_RUN_PENDING`, `BANK_ACCOUNT_NOT_AVAILABLE`) and `REFERENCE_NOT_FOUND` for an unknown bank account.\n\nPermission: `fin.fixed_asset.manage` at the asset's branch."
       x-permission: fin.fixed_asset.manage
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - NOT_FOUND
+        - FIXED_ASSET_INVALID
+        - REFERENCE_NOT_FOUND
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -41833,7 +41890,7 @@ paths:
             example:
               disposedOn: "2026-11-13"
               proceedsPesewas: 150000
-              bankAccountId: "019a7a92-8380-71bb-86f4-248e067d9d6b"
+              bankAccountId: "019a7a92-6491-77d8-bd10-86568cccff34"
               note: "Old scale sold to a neighbour"
       responses:
         "200":
@@ -41846,25 +41903,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/FixedAsset"
               example:
-                id: "019a7add-3076-70da-a612-1679cbc78f57"
-                assetNo: FA-0001
-                name: "Delivery van GT-4521-24"
-                category: VEHICLE
+                id: "019a7add-8d43-7e84-93bd-f12038da69fe"
+                assetNo: FA-0004
+                name: "Platform scale, 300 kg"
+                category: EQUIPMENT
                 branch:
                   id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                   code: DDW
                   name: "HaKorem Farms, Dodowa"
-                acquiredOn: "2026-02-10"
-                costPesewas: 18500000
-                residualPesewas: 2500000
-                usefulLifeMonths: 60
+                acquiredOn: "2026-01-20"
+                costPesewas: 420000
+                residualPesewas: 0
+                usefulLifeMonths: 36
                 method: STRAIGHT_LINE
-                accumulatedPesewas: 2400000
-                netBookValuePesewas: 16100000
-                status: IN_USE
-                disposedOn: null
+                accumulatedPesewas: 116670
+                netBookValuePesewas: 303330
+                status: DISPOSED
+                disposedOn: "2026-11-13"
                 currency: GHS
-                version: 2
+                version: 12
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -41887,8 +41944,13 @@ paths:
       tags:
         - fin
       summary: "List depreciation runs"
-      description: "Permission: `fin.fixed_asset.read`."
+      description: "Depreciation runs, newest first (FR-FIN-015, ADR-0059): one per accounting period, each with its exact lines per asset and its total. A `DRAFT` run has been calculated and waits for a different person to post it; a `POSTED` run names `journalEntryId`, the first of its entries (one per branch with assets on the run; `listJournalEntries` with `sourceDocumentId` set to the run's id lists them all).\n\nPermission: `fin.fixed_asset.read`."
       x-permission: fin.fixed_asset.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - RATE_LIMITED
       parameters:
         - name: cursor
           in: query
@@ -41921,7 +41983,7 @@ paths:
                       fiscalYear: 2026
                       periodNo: 10
                     status: DRAFT
-                    totalPesewas: 583300
+                    totalPesewas: 519843
                     currency: GHS
                     journalEntryId: null
                     lines:
@@ -41929,7 +41991,7 @@ paths:
                           id: "019a7add-3076-70da-a612-1679cbc78f57"
                           assetNo: FA-0001
                           name: "Delivery van GT-4521-24"
-                        amountPesewas: 266700
+                        amountPesewas: 266667
                       - fixedAsset:
                           id: "019a7add-4f65-7abe-bff6-b4b145782d8f"
                           assetNo: FA-0002
@@ -41941,18 +42003,28 @@ paths:
                           name: "Broiler house 1"
                         amountPesewas: 100000
                       - fixedAsset:
+                          id: "019a7add-8d43-7e84-93bd-f12038da69fe"
+                          assetNo: FA-0004
+                          name: "Platform scale, 300 kg"
+                        amountPesewas: 11667
+                      - fixedAsset:
                           id: "019a7add-ac32-7868-ada0-8f57b28b0835"
                           assetNo: FA-0005
                           name: "Standby generator, 20 kVA"
-                        amountPesewas: 116600
-                    createdAt: "2026-11-05T10:00:00Z"
+                        amountPesewas: 30953
+                      - fixedAsset:
+                          id: "019a7add-cb21-724b-b784-2d8f2c3ca66d"
+                          assetNo: FA-0006
+                          name: "Thermal printer and till tablet"
+                        amountPesewas: 10556
+                    createdAt: "2026-11-02T09:00:00Z"
                   - id: "019a7ade-08ff-7612-9b4b-69fe1f9ee2dc"
                     period:
                       id: "019a7ad1-77e7-71aa-96e2-2374afb69c52"
                       fiscalYear: 2026
                       periodNo: 9
                     status: POSTED
-                    totalPesewas: 583300
+                    totalPesewas: 519843
                     currency: GHS
                     journalEntryId: "019a7ade-27ee-7ff6-a52e-0835994f8113"
                     lines:
@@ -41960,7 +42032,7 @@ paths:
                           id: "019a7add-3076-70da-a612-1679cbc78f57"
                           assetNo: FA-0001
                           name: "Delivery van GT-4521-24"
-                        amountPesewas: 266700
+                        amountPesewas: 266667
                       - fixedAsset:
                           id: "019a7add-4f65-7abe-bff6-b4b145782d8f"
                           assetNo: FA-0002
@@ -41972,135 +42044,21 @@ paths:
                           name: "Broiler house 1"
                         amountPesewas: 100000
                       - fixedAsset:
-                          id: "019a7add-ac32-7868-ada0-8f57b28b0835"
-                          assetNo: FA-0005
-                          name: "Standby generator, 20 kVA"
-                        amountPesewas: 116600
-                    createdAt: "2026-10-05T10:00:00Z"
-                  - id: "019a7ade-46dd-79d9-bf12-a66d13001f4a"
-                    period:
-                      id: "019a7ad1-96d6-7b8d-a0c5-c1ac29673a8a"
-                      fiscalYear: 2026
-                      periodNo: 8
-                    status: POSTED
-                    totalPesewas: 583300
-                    currency: GHS
-                    journalEntryId: "019a7ade-65cc-73bd-88f5-44a48cb1bd82"
-                    lines:
-                      - fixedAsset:
-                          id: "019a7add-3076-70da-a612-1679cbc78f57"
-                          assetNo: FA-0001
-                          name: "Delivery van GT-4521-24"
-                        amountPesewas: 266700
-                      - fixedAsset:
-                          id: "019a7add-4f65-7abe-bff6-b4b145782d8f"
-                          assetNo: FA-0002
-                          name: "Cold room, 12 m³"
-                        amountPesewas: 100000
-                      - fixedAsset:
-                          id: "019a7add-6e54-74a1-89d9-52e8bf29cbc6"
-                          assetNo: FA-0003
-                          name: "Broiler house 1"
-                        amountPesewas: 100000
+                          id: "019a7add-8d43-7e84-93bd-f12038da69fe"
+                          assetNo: FA-0004
+                          name: "Platform scale, 300 kg"
+                        amountPesewas: 11667
                       - fixedAsset:
                           id: "019a7add-ac32-7868-ada0-8f57b28b0835"
                           assetNo: FA-0005
                           name: "Standby generator, 20 kVA"
-                        amountPesewas: 116600
-                    createdAt: "2026-09-05T10:00:00Z"
-                  - id: "019a7ade-84bb-7da0-92d8-e2dc06625bb9"
-                    period:
-                      id: "019a7ad1-b5c5-7571-baa9-5fe3a318d8c1"
-                      fiscalYear: 2026
-                      periodNo: 7
-                    status: POSTED
-                    totalPesewas: 583300
-                    currency: GHS
-                    journalEntryId: "019a7ade-a3aa-7784-acbc-81138013f9f1"
-                    lines:
+                        amountPesewas: 30953
                       - fixedAsset:
-                          id: "019a7add-3076-70da-a612-1679cbc78f57"
-                          assetNo: FA-0001
-                          name: "Delivery van GT-4521-24"
-                        amountPesewas: 266700
-                      - fixedAsset:
-                          id: "019a7add-4f65-7abe-bff6-b4b145782d8f"
-                          assetNo: FA-0002
-                          name: "Cold room, 12 m³"
-                        amountPesewas: 100000
-                      - fixedAsset:
-                          id: "019a7add-6e54-74a1-89d9-52e8bf29cbc6"
-                          assetNo: FA-0003
-                          name: "Broiler house 1"
-                        amountPesewas: 100000
-                      - fixedAsset:
-                          id: "019a7add-ac32-7868-ada0-8f57b28b0835"
-                          assetNo: FA-0005
-                          name: "Standby generator, 20 kVA"
-                        amountPesewas: 116600
-                    createdAt: "2026-08-05T10:00:00Z"
-                  - id: "019a7ade-c299-7167-b69f-1f4af9c49828"
-                    period:
-                      id: "019a7ad1-d4b4-7f54-848c-fe1b1cc976f9"
-                      fiscalYear: 2026
-                      periodNo: 6
-                    status: POSTED
-                    totalPesewas: 583300
-                    currency: GHS
-                    journalEntryId: "019a7ade-e188-7b4b-8083-bd8273753660"
-                    lines:
-                      - fixedAsset:
-                          id: "019a7add-3076-70da-a612-1679cbc78f57"
-                          assetNo: FA-0001
-                          name: "Delivery van GT-4521-24"
-                        amountPesewas: 266700
-                      - fixedAsset:
-                          id: "019a7add-4f65-7abe-bff6-b4b145782d8f"
-                          assetNo: FA-0002
-                          name: "Cold room, 12 m³"
-                        amountPesewas: 100000
-                      - fixedAsset:
-                          id: "019a7add-6e54-74a1-89d9-52e8bf29cbc6"
-                          assetNo: FA-0003
-                          name: "Broiler house 1"
-                        amountPesewas: 100000
-                      - fixedAsset:
-                          id: "019a7add-ac32-7868-ada0-8f57b28b0835"
-                          assetNo: FA-0005
-                          name: "Standby generator, 20 kVA"
-                        amountPesewas: 116600
-                    createdAt: "2026-07-05T10:00:00Z"
-                  - id: "019a7adf-0077-752e-9a66-5bb9ed26d497"
-                    period:
-                      id: "019a7adf-1f66-7f12-a44a-f9f166d772cf"
-                      fiscalYear: 2026
-                      periodNo: 5
-                    status: POSTED
-                    totalPesewas: 571600
-                    currency: GHS
-                    journalEntryId: "019a7adf-3e55-78f5-be2d-9828e0881106"
-                    lines:
-                      - fixedAsset:
-                          id: "019a7add-3076-70da-a612-1679cbc78f57"
-                          assetNo: FA-0001
-                          name: "Delivery van GT-4521-24"
-                        amountPesewas: 266700
-                      - fixedAsset:
-                          id: "019a7add-4f65-7abe-bff6-b4b145782d8f"
-                          assetNo: FA-0002
-                          name: "Cold room, 12 m³"
-                        amountPesewas: 100000
-                      - fixedAsset:
-                          id: "019a7add-6e54-74a1-89d9-52e8bf29cbc6"
-                          assetNo: FA-0003
-                          name: "Broiler house 1"
-                        amountPesewas: 100000
-                      - fixedAsset:
-                          id: "019a7add-ac32-7868-ada0-8f57b28b0835"
-                          assetNo: FA-0005
-                          name: "Standby generator, 20 kVA"
-                        amountPesewas: 104900
-                    createdAt: "2026-06-05T10:00:00Z"
+                          id: "019a7add-cb21-724b-b784-2d8f2c3ca66d"
+                          assetNo: FA-0006
+                          name: "Thermal printer and till tablet"
+                        amountPesewas: 10556
+                    createdAt: "2026-10-02T09:00:00Z"
                 page:
                   nextCursor: eyJpZCI6IjAxOWE3YyJ9
                   limit: 25
@@ -42120,8 +42078,21 @@ paths:
       tags:
         - fin
       summary: "Calculate depreciation for a period"
-      description: "Permission: `fin.fixed_asset.manage`."
+      description: "Calculates the depreciation of one accounting period that has ended (the maker, FR-FIN-015, A-199). Each asset in service is charged every month up to the period that no posted run has charged, its months within its useful life: what is left to depreciate is spread with `allocate` over the months of the life not yet charged, the leftover pesewas in the earliest of them, so the schedule sums exactly to cost less residual (1,200,000 over 120 months is 10,000 a month; 1,000,001 over three months is 333,334, 333,334 and 333,333). Posts nothing. One run per period, ever, held by the database: a second is 422 `DEPRECIATION_RUN_EXISTS`. Other refusals: 422 `DEPRECIATION_RUN_INVALID` (`PERIOD_NOT_ENDED`, `NOTHING_TO_DEPRECIATE`), `PERIOD_NOT_OPEN` for a locked or closed period, `REFERENCE_NOT_FOUND` for an unknown period.\n\nPermission: `fin.fixed_asset.manage`."
       x-permission: fin.fixed_asset.manage
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - REFERENCE_NOT_FOUND
+        - DEPRECIATION_RUN_EXISTS
+        - DEPRECIATION_RUN_INVALID
+        - PERIOD_NOT_OPEN
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -42153,7 +42124,7 @@ paths:
                   fiscalYear: 2026
                   periodNo: 10
                 status: DRAFT
-                totalPesewas: 583300
+                totalPesewas: 519843
                 currency: GHS
                 journalEntryId: null
                 lines:
@@ -42161,7 +42132,7 @@ paths:
                       id: "019a7add-3076-70da-a612-1679cbc78f57"
                       assetNo: FA-0001
                       name: "Delivery van GT-4521-24"
-                    amountPesewas: 266700
+                    amountPesewas: 266667
                   - fixedAsset:
                       id: "019a7add-4f65-7abe-bff6-b4b145782d8f"
                       assetNo: FA-0002
@@ -42173,11 +42144,21 @@ paths:
                       name: "Broiler house 1"
                     amountPesewas: 100000
                   - fixedAsset:
+                      id: "019a7add-8d43-7e84-93bd-f12038da69fe"
+                      assetNo: FA-0004
+                      name: "Platform scale, 300 kg"
+                    amountPesewas: 11667
+                  - fixedAsset:
                       id: "019a7add-ac32-7868-ada0-8f57b28b0835"
                       assetNo: FA-0005
                       name: "Standby generator, 20 kVA"
-                    amountPesewas: 116600
-                createdAt: "2026-11-05T10:00:00Z"
+                    amountPesewas: 30953
+                  - fixedAsset:
+                      id: "019a7add-cb21-724b-b784-2d8f2c3ca66d"
+                      assetNo: FA-0006
+                      name: "Thermal printer and till tablet"
+                    amountPesewas: 10556
+                createdAt: "2026-11-02T09:00:00Z"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -42198,8 +42179,13 @@ paths:
       tags:
         - fin
       summary: "Get a depreciation run"
-      description: "Permission: `fin.fixed_asset.read`."
+      description: "One depreciation run with its lines (FR-FIN-015).\n\nPermission: `fin.fixed_asset.read`."
       x-permission: fin.fixed_asset.read
+      x-error-codes:
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -42227,7 +42213,7 @@ paths:
                   fiscalYear: 2026
                   periodNo: 10
                 status: DRAFT
-                totalPesewas: 583300
+                totalPesewas: 519843
                 currency: GHS
                 journalEntryId: null
                 lines:
@@ -42235,7 +42221,7 @@ paths:
                       id: "019a7add-3076-70da-a612-1679cbc78f57"
                       assetNo: FA-0001
                       name: "Delivery van GT-4521-24"
-                    amountPesewas: 266700
+                    amountPesewas: 266667
                   - fixedAsset:
                       id: "019a7add-4f65-7abe-bff6-b4b145782d8f"
                       assetNo: FA-0002
@@ -42247,11 +42233,21 @@ paths:
                       name: "Broiler house 1"
                     amountPesewas: 100000
                   - fixedAsset:
+                      id: "019a7add-8d43-7e84-93bd-f12038da69fe"
+                      assetNo: FA-0004
+                      name: "Platform scale, 300 kg"
+                    amountPesewas: 11667
+                  - fixedAsset:
                       id: "019a7add-ac32-7868-ada0-8f57b28b0835"
                       assetNo: FA-0005
                       name: "Standby generator, 20 kVA"
-                    amountPesewas: 116600
-                createdAt: "2026-11-05T10:00:00Z"
+                    amountPesewas: 30953
+                  - fixedAsset:
+                      id: "019a7add-cb21-724b-b784-2d8f2c3ca66d"
+                      assetNo: FA-0006
+                      name: "Thermal printer and till tablet"
+                    amountPesewas: 10556
+                createdAt: "2026-11-02T09:00:00Z"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -42270,8 +42266,23 @@ paths:
       tags:
         - fin
       summary: "Post a depreciation run to the ledger"
-      description: "Permission: `fin.fixed_asset.manage`."
+      description: "Posts a draft run (the checker, FR-FIN-015, ADR-0017): only someone other than the person who calculated it (403 `FORBIDDEN` for its maker; the database holds it too). Each line is recomputed from the asset as it stands and must be what was calculated, else 422 `DEPRECIATION_RUN_INVALID` `RUN_STALE` (an asset was changed or charged by another run since; the next period's run catches its months up). The ledger posts `fin.DepreciationRun` once per branch with assets on the run, Dr 6500 and Cr 1590 per asset with the asset as cost object, dated the period's last day and never moved: a locked or closed period is 422 `PERIOD_NOT_OPEN`. A posted run is 422 `INVALID_STATE_TRANSITION`.\n\nPermission: `fin.fixed_asset.manage`."
       x-permission: fin.fixed_asset.manage
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - DEPRECIATION_RUN_INVALID
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -42301,7 +42312,7 @@ paths:
                   fiscalYear: 2026
                   periodNo: 9
                 status: POSTED
-                totalPesewas: 583300
+                totalPesewas: 519843
                 currency: GHS
                 journalEntryId: "019a7ade-27ee-7ff6-a52e-0835994f8113"
                 lines:
@@ -42309,7 +42320,7 @@ paths:
                       id: "019a7add-3076-70da-a612-1679cbc78f57"
                       assetNo: FA-0001
                       name: "Delivery van GT-4521-24"
-                    amountPesewas: 266700
+                    amountPesewas: 266667
                   - fixedAsset:
                       id: "019a7add-4f65-7abe-bff6-b4b145782d8f"
                       assetNo: FA-0002
@@ -42321,11 +42332,21 @@ paths:
                       name: "Broiler house 1"
                     amountPesewas: 100000
                   - fixedAsset:
+                      id: "019a7add-8d43-7e84-93bd-f12038da69fe"
+                      assetNo: FA-0004
+                      name: "Platform scale, 300 kg"
+                    amountPesewas: 11667
+                  - fixedAsset:
                       id: "019a7add-ac32-7868-ada0-8f57b28b0835"
                       assetNo: FA-0005
                       name: "Standby generator, 20 kVA"
-                    amountPesewas: 116600
-                createdAt: "2026-10-05T10:00:00Z"
+                    amountPesewas: 30953
+                  - fixedAsset:
+                      id: "019a7add-cb21-724b-b784-2d8f2c3ca66d"
+                      assetNo: FA-0006
+                      name: "Thermal printer and till tablet"
+                    amountPesewas: 10556
+                createdAt: "2026-10-02T09:00:00Z"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":

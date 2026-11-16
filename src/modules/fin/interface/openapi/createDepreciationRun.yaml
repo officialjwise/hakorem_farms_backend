@@ -1,0 +1,99 @@
+operationId: createDepreciationRun
+tags:
+  - fin
+summary: "Calculate depreciation for a period"
+description: "Calculates the depreciation of one accounting period that has ended (the maker, FR-FIN-015, A-199). Each asset in service is charged every month up to the period that no posted run has charged, its months within its useful life: what is left to depreciate is spread with `allocate` over the months of the life not yet charged, the leftover pesewas in the earliest of them, so the schedule sums exactly to cost less residual (1,200,000 over 120 months is 10,000 a month; 1,000,001 over three months is 333,334, 333,334 and 333,333). Posts nothing. One run per period, ever, held by the database: a second is 422 `DEPRECIATION_RUN_EXISTS`. Other refusals: 422 `DEPRECIATION_RUN_INVALID` (`PERIOD_NOT_ENDED`, `NOTHING_TO_DEPRECIATE`), `PERIOD_NOT_OPEN` for a locked or closed period, `REFERENCE_NOT_FOUND` for an unknown period.\n\nPermission: `fin.fixed_asset.manage`."
+x-permission: fin.fixed_asset.manage
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - REFERENCE_NOT_FOUND
+  - DEPRECIATION_RUN_EXISTS
+  - DEPRECIATION_RUN_INVALID
+  - PERIOD_NOT_OPEN
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/DepreciationRunCreate"
+      example:
+        periodId: "019a7a94-ee2c-7781-8cb9-80e38851f9c1"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/DepreciationRun"
+        example:
+          id: "019a7add-ea10-7c2f-8167-cbc6a5ed44a4"
+          period:
+            id: "019a7a94-ee2c-7781-8cb9-80e38851f9c1"
+            fiscalYear: 2026
+            periodNo: 10
+          status: DRAFT
+          totalPesewas: 519843
+          currency: GHS
+          journalEntryId: null
+          lines:
+            - fixedAsset:
+                id: "019a7add-3076-70da-a612-1679cbc78f57"
+                assetNo: FA-0001
+                name: "Delivery van GT-4521-24"
+              amountPesewas: 266667
+            - fixedAsset:
+                id: "019a7add-4f65-7abe-bff6-b4b145782d8f"
+                assetNo: FA-0002
+                name: "Cold room, 12 m³"
+              amountPesewas: 100000
+            - fixedAsset:
+                id: "019a7add-6e54-74a1-89d9-52e8bf29cbc6"
+                assetNo: FA-0003
+                name: "Broiler house 1"
+              amountPesewas: 100000
+            - fixedAsset:
+                id: "019a7add-8d43-7e84-93bd-f12038da69fe"
+                assetNo: FA-0004
+                name: "Platform scale, 300 kg"
+              amountPesewas: 11667
+            - fixedAsset:
+                id: "019a7add-ac32-7868-ada0-8f57b28b0835"
+                assetNo: FA-0005
+                name: "Standby generator, 20 kVA"
+              amountPesewas: 30953
+            - fixedAsset:
+                id: "019a7add-cb21-724b-b784-2d8f2c3ca66d"
+                assetNo: FA-0006
+                name: "Thermal printer and till tablet"
+              amountPesewas: 10556
+          createdAt: "2026-11-02T09:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

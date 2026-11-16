@@ -135,3 +135,26 @@ export const TrialBalanceQuery = z
 export const StatementRangeQuery = z.object({ from: CalendarDate, to: CalendarDate, branchId: Uuid.optional() }).refine((q) => q.from <= q.to, fromNotAfterTo);
 
 export const BalanceSheetQuery = z.object({ asOf: CalendarDate, branchId: Uuid.optional() });
+
+const AssetCategory = z.enum(['VEHICLE', 'COLD_ROOM', 'HOUSING', 'EQUIPMENT']);
+const PesewasOrNil = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
+
+export const FixedAssetPageQuery = z.object({ category: AssetCategory.optional(), status: z.enum(['IN_USE', 'FULLY_DEPRECIATED', 'DISPOSED']).optional(), cursor: Cursor, limit: Limit });
+
+export const FixedAssetCreate = z.strictObject({
+  name: Text120,
+  category: AssetCategory,
+  branchId: Uuid,
+  acquiredOn: CalendarDate,
+  costPesewas: Pesewas,
+  residualPesewas: PesewasOrNil.optional(),
+  usefulLifeMonths: z.number().int(),
+});
+
+export const FixedAssetUpdate = z.strictObject({ version: z.number().int().min(1), name: Text120.optional(), usefulLifeMonths: z.number().int().optional(), residualPesewas: PesewasOrNil.optional() });
+
+export const FixedAssetDisposal = z.strictObject({ disposedOn: CalendarDate, proceedsPesewas: PesewasOrNil, bankAccountId: Uuid.optional(), note: Text300 });
+
+export const DepreciationRunPageQuery = z.object({ cursor: Cursor, limit: Limit });
+
+export const DepreciationRunCreate = z.strictObject({ periodId: Uuid });

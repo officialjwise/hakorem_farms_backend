@@ -1,0 +1,184 @@
+operationId: listFixedAssets
+tags:
+  - fin
+summary: "List the fixed asset register"
+description: "The fixed asset register in asset number order (FR-FIN-014, ADR-0059): cost, residual, useful life, the depreciation charged so far and the net book value (cost less accumulated depreciation), each exact in pesewas. An asset is never removed; one disposed of stays with `status` `DISPOSED` and its `disposedOn`. `category` and `status` filter the list.\n\nPermission: `fin.fixed_asset.read`."
+x-permission: fin.fixed_asset.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - RATE_LIMITED
+parameters:
+  - name: category
+    in: query
+    required: false
+    schema:
+      type: string
+      enum:
+        - VEHICLE
+        - COLD_ROOM
+        - HOUSING
+        - EQUIPMENT
+  - name: status
+    in: query
+    required: false
+    schema:
+      type: string
+      enum:
+        - IN_USE
+        - FULLY_DEPRECIATED
+        - DISPOSED
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/FixedAssetPage"
+        example:
+          data:
+            - id: "019a7add-3076-70da-a612-1679cbc78f57"
+              assetNo: FA-0001
+              name: "Delivery van GT-4521-24"
+              category: VEHICLE
+              branch:
+                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                code: DDW
+                name: "HaKorem Farms, Dodowa"
+              acquiredOn: "2026-02-10"
+              costPesewas: 18500000
+              residualPesewas: 2500000
+              usefulLifeMonths: 60
+              method: STRAIGHT_LINE
+              accumulatedPesewas: 2400003
+              netBookValuePesewas: 16099997
+              status: IN_USE
+              disposedOn: null
+              currency: GHS
+              version: 11
+            - id: "019a7add-4f65-7abe-bff6-b4b145782d8f"
+              assetNo: FA-0002
+              name: "Cold room, 12 m³"
+              category: COLD_ROOM
+              branch:
+                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                code: DDW
+                name: "HaKorem Farms, Dodowa"
+              acquiredOn: "2025-11-01"
+              costPesewas: 9600000
+              residualPesewas: 0
+              usefulLifeMonths: 96
+              method: STRAIGHT_LINE
+              accumulatedPesewas: 1200000
+              netBookValuePesewas: 8400000
+              status: IN_USE
+              disposedOn: null
+              currency: GHS
+              version: 11
+            - id: "019a7add-6e54-74a1-89d9-52e8bf29cbc6"
+              assetNo: FA-0003
+              name: "Broiler house 1"
+              category: HOUSING
+              branch:
+                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                code: DDW
+                name: "HaKorem Farms, Dodowa"
+              acquiredOn: "2025-06-15"
+              costPesewas: 12000000
+              residualPesewas: 0
+              usefulLifeMonths: 120
+              method: STRAIGHT_LINE
+              accumulatedPesewas: 1700000
+              netBookValuePesewas: 10300000
+              status: IN_USE
+              disposedOn: null
+              currency: GHS
+              version: 11
+            - id: "019a7add-8d43-7e84-93bd-f12038da69fe"
+              assetNo: FA-0004
+              name: "Platform scale, 300 kg"
+              category: EQUIPMENT
+              branch:
+                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                code: DDW
+                name: "HaKorem Farms, Dodowa"
+              acquiredOn: "2026-01-20"
+              costPesewas: 420000
+              residualPesewas: 0
+              usefulLifeMonths: 36
+              method: STRAIGHT_LINE
+              accumulatedPesewas: 116670
+              netBookValuePesewas: 303330
+              status: IN_USE
+              disposedOn: null
+              currency: GHS
+              version: 11
+            - id: "019a7add-ac32-7868-ada0-8f57b28b0835"
+              assetNo: FA-0005
+              name: "Standby generator, 20 kVA"
+              category: EQUIPMENT
+              branch:
+                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                code: DDW
+                name: "HaKorem Farms, Dodowa"
+              acquiredOn: "2025-09-01"
+              costPesewas: 2850000
+              residualPesewas: 250000
+              usefulLifeMonths: 84
+              method: STRAIGHT_LINE
+              accumulatedPesewas: 433342
+              netBookValuePesewas: 2416658
+              status: IN_USE
+              disposedOn: null
+              currency: GHS
+              version: 11
+            - id: "019a7add-cb21-724b-b784-2d8f2c3ca66d"
+              assetNo: FA-0006
+              name: "Thermal printer and till tablet"
+              category: EQUIPMENT
+              branch:
+                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                code: DDW
+                name: "HaKorem Farms, Dodowa"
+              acquiredOn: "2026-03-05"
+              costPesewas: 380000
+              residualPesewas: 0
+              usefulLifeMonths: 36
+              method: STRAIGHT_LINE
+              accumulatedPesewas: 84448
+              netBookValuePesewas: 295552
+              status: IN_USE
+              disposedOn: null
+              currency: GHS
+              version: 11
+          page:
+            nextCursor: null
+            limit: 25
+            hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

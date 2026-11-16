@@ -447,11 +447,13 @@ A counter sale is not a POS aggregate. It is a sales order on channel `POS`, pla
 | Only postable accounts receive lines | DB (trigger) |
 | A manual journal is approved by a different user before posting | DB (approval constraint) |
 | A posting rule change is approved by a different user | DB (approval constraint) |
+| A depreciation run is posted by a different user from its maker, once per period, and only with entries carrying exactly its lines | DB (`ck_depreciation_run_maker_checker`, `uq_depreciation_run_period`, `ck_depreciation_run_post`) |
+| A fixed asset keeps its cost, category, branch and acquisition date; its depreciation moves only when a run posts; it is never removed | DB (trigger) |
 | Every event flagged as posting to the ledger has a handler and a complete rule set | Domain (boot assertion, CI test) |
 | Periods of a fiscal year are contiguous and do not overlap | DB (exclusion constraint) |
 | A closed period is never reopened; a locked period is reopened only by the Owner with a reason | Domain |
 
-**Events:** `fin.JournalPosted`, `fin.PeriodLocked`, `fin.PeriodClosed`, ◆`fin.YearClosed`, ◆`fin.DepreciationRun`, ◆`fin.ManualJournalApproved`, `fin.TrialBalanceDriftDetected`.
+**Events:** `fin.JournalPosted`, `fin.PeriodLocked`, `fin.PeriodClosed`, ◆`fin.YearClosed`, ◆`fin.DepreciationRun`, ◆`fin.FixedAssetDisposed` (ADR-0059), ◆`fin.ManualJournalApproved`, `fin.TrialBalanceDriftDetected`.
 
 ### 5.15 CAP: capital, investors and profit sharing
 

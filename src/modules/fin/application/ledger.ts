@@ -33,6 +33,11 @@ export interface PostingRequest {
    * while it is LOCKED, posted in the transaction that closes it. Never moved to another date.
    */
   readonly closing?: { readonly description: string; readonly postingDate: string } | null;
+  /**
+   * FIN's own dated events (ADR-0059): a depreciation run on its period's last day, a disposal on its date. Posted on
+   * that date or not at all: the late-event rule never moves it (PERIOD_NOT_OPEN).
+   */
+  readonly postingDate?: string | null;
 }
 
 export interface PostedEntry {
@@ -70,8 +75,9 @@ export class Ledger {
     }
     const manual = request.manual ?? null;
     const closing = request.closing ?? null;
-    const occurredDate = manual?.postingDate ?? closing?.postingDate ?? toBusinessDate(request.occurredAt);
-    const recordedDate = manual?.postingDate ?? closing?.postingDate ?? toBusinessDate(request.recordedAt);
+    const fixedDate = manual?.postingDate ?? closing?.postingDate ?? request.postingDate ?? null;
+    const occurredDate = fixedDate ?? toBusinessDate(request.occurredAt);
+    const recordedDate = fixedDate ?? toBusinessDate(request.recordedAt);
     const eventType = await this.store.eventType(tx, request.eventCode);
     if (eventType === null) {
       throw new LedgerPostingRefusedError(request.eventCode, { rule: 'NOT_CATALOGUED', eventCode: request.eventCode });

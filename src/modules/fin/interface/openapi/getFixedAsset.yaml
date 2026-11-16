@@ -1,0 +1,63 @@
+operationId: getFixedAsset
+tags:
+  - fin
+summary: "Get a fixed asset"
+description: "One asset of the register with its depreciation charged so far and its net book value (FR-FIN-014).\n\nPermission: `fin.fixed_asset.read`."
+x-permission: fin.fixed_asset.read
+x-error-codes:
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/FixedAsset"
+        example:
+          id: "019a7add-3076-70da-a612-1679cbc78f57"
+          assetNo: FA-0001
+          name: "Delivery van GT-4521-24"
+          category: VEHICLE
+          branch:
+            id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+            code: DDW
+            name: "HaKorem Farms, Dodowa"
+          acquiredOn: "2026-02-10"
+          costPesewas: 18500000
+          residualPesewas: 2500000
+          usefulLifeMonths: 60
+          method: STRAIGHT_LINE
+          accumulatedPesewas: 2400003
+          netBookValuePesewas: 16099997
+          status: IN_USE
+          disposedOn: null
+          currency: GHS
+          version: 11
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

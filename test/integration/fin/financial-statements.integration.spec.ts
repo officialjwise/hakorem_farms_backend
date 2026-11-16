@@ -30,6 +30,7 @@ let testBranchId: string;
 const SEED_FROM = toBusinessDate(SEED_STOCK_RECEIVED_AT);
 let seedTo: string;
 const get = (session: TestSession, path: string) => consoleGet(api.server, session, `/v1${path}`);
+const post = (session: TestSession, path: string, body: object = {}) => consolePost(api.server, session, `/v1${path}`).send(body);
 const admin = () => database.pool('admin');
 
 interface Section {
@@ -108,12 +109,15 @@ describe('the four statements tie to each other on the seeded trading day, to th
     expect(BigInt(tb.body.totalDebitPesewas)).toBe(BigInt(rows[0]!.d));
     expect(BigInt(tb.body.totalCreditPesewas)).toBe(BigInt(rows[0]!.d));
     expect(BigInt(rows[0]!.c)).toBe(BigInt(rows[0]!.d));
-    const balances = await sqlBalances(SEED_FROM, seedTo);
+    // Closing balances run from the first line; the seeded fixed assets' cost journal (January) is the only opening.
+    const balances = await sqlBalances('2000-01-01', seedTo);
+    const opening = await sqlBalances('2000-01-01', new Date(Date.parse(`${SEED_FROM}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10));
+    expect([...opening.keys()].sort()).toEqual(['1510', '1520', '1530', '1540', '3900']);
     const listed = tb.body.data as { account: { code: string }; type: string; openingDebitPesewas: number; openingCreditPesewas: number; closingDebitPesewas: number; closingCreditPesewas: number }[];
     expect(listed.map((r) => r.account.code)).toEqual([...balances.keys()].sort());
     for (const row of listed) {
       expect([row.account.code, BigInt(row.closingDebitPesewas) - BigInt(row.closingCreditPesewas)]).toEqual([row.account.code, balances.get(row.account.code)]);
-      expect([row.openingDebitPesewas, row.openingCreditPesewas]).toEqual([0, 0]);
+      expect([row.account.code, BigInt(row.openingDebitPesewas) - BigInt(row.openingCreditPesewas)]).toEqual([row.account.code, opening.get(row.account.code) ?? 0n]);
     }
     expect(listed.find((r) => r.account.code === '6800')!.type).toBe('EXPENSE');
   });
@@ -181,6 +185,39 @@ describe('the four statements tie to each other on the seeded trading day, to th
     expect(total(sections, 'OPENING_CASH') + total(sections, 'NET_CHANGE')).toBe(total(sections, 'CLOSING_CASH'));
     expect(total(sections, 'CLOSING_CASH')).toBe(await cash(seedTo));
     expect(cf.body.checks).toEqual([{ name: 'Opening cash plus net change equals closing cash', passed: true }]);
+  });
+});
+
+describe('the statements still tie with the seeded fixed assets and a posted depreciation run (FR-FIN-014, FR-FIN-015, ADR-0059)', () => {
+  it('carries the seeded assets at cost on 1510 to 1540, as the register says, and still ties once October\'s run has posted', async () => {
+    const register = await admin().query<{ code: string; cost: string }>(
+      `SELECT CASE category WHEN 'VEHICLE' THEN '1510' WHEN 'COLD_ROOM' THEN '1520' WHEN 'HOUSING' THEN '1530' ELSE '1540' END AS code, sum(cost_pesewas)::text AS cost
+         FROM fin.fixed_asset WHERE status <> 'DISPOSED' GROUP BY 1 ORDER BY 1`,
+    );
+    expect(register.rows.map((r) => r.code)).toEqual(['1510', '1520', '1530', '1540']);
+    const before = await sqlBalances('2000-01-01', seedTo);
+    for (const row of register.rows) expect(before.get(row.code), row.code).toBe(BigInt(row.cost));
+    const october = (await admin().query<{ id: string }>('SELECT id FROM fin.accounting_period WHERE fiscal_year = 2026 AND period_no = 10')).rows[0]!.id;
+    const run = await post(accountant, '/finance/depreciation-runs', { periodId: october });
+    expect(run.status, JSON.stringify(run.body)).toBe(201);
+    expect((await post(owner, `/finance/depreciation-runs/${run.body.id as string}/post`)).status).toBe(200);
+    const charged = BigInt(run.body.totalPesewas as number);
+    expect(charged).toBeGreaterThan(0n);
+    const balances = await sqlBalances('2000-01-01', seedTo);
+    expect(balances.get('1590')).toBe(-charged);
+    expect(balances.get('6500')).toBe(charged);
+    const pl = (await get(owner, `/finance/profit-and-loss?from=2026-01-01&to=${seedTo}`)).body;
+    expect(rowsOf(pl.sections as Section[], 'EXPENSES').find(([code]) => code === '6500')![1]).toBe(charged);
+    expect(total(pl.sections as Section[], 'NET_PROFIT')).toBe(-byClass(await sqlBalances('2026-01-01', seedTo, { excludeClosing: true }), '456'));
+    const bs = (await get(accountant, `/finance/balance-sheet?asOf=${seedTo}`)).body;
+    const sections = bs.sections as Section[];
+    expect(rowsOf(sections, 'ASSETS').find(([code]) => code === '1590')![1]).toBe(-charged);
+    expect(total(sections, 'ASSETS')).toBe(byClass(balances, '1'));
+    expect(total(sections, 'ASSETS')).toBe(total(sections, 'LIABILITIES_AND_EQUITY'));
+    expect(bs.checks).toEqual([{ name: 'Assets equal liabilities plus equity', passed: true }]);
+    const tb = (await get(accountant, `/finance/trial-balance?from=2026-01-01&to=${seedTo}&limit=100`)).body;
+    expect(tb.totalDebitPesewas).toBe(tb.totalCreditPesewas);
+    expect(tb.balanced).toBe(true);
   });
 });
 
@@ -268,12 +305,13 @@ describe("the SRS's cash flow, and the statements after cash has moved (FR-FIN-0
 
 describe('a locked period is read from its period balances, exactly as its lines (ADR-0058)', () => {
   it('computes the period balances when the period locks, and answers the same statements from them', async () => {
-    const period = (await admin().query<{ id: string; start_date: string; end_date: string }>("SELECT id, start_date::text, end_date::text FROM fin.accounting_period WHERE start_date = '2026-10-01'")).rows[0]!;
-    const before = await get(accountant, `/finance/trial-balance?from=2026-10-01&to=${toBusinessDate(clock.now())}&limit=100`);
+    // September: nothing posts into it on the seeded farm (October carries the depreciation run above).
+    const period = (await admin().query<{ id: string; start_date: string; end_date: string }>("SELECT id, start_date::text, end_date::text FROM fin.accounting_period WHERE start_date = '2026-09-01'")).rows[0]!;
+    const before = await get(accountant, `/finance/trial-balance?from=2026-09-01&to=${toBusinessDate(clock.now())}&limit=100`);
     expect((await consolePostAs(accountant, `/finance/periods/${period.id}/lock`)).status).toBe(200);
     const projected = await admin().query<{ n: number }>('SELECT count(*)::int AS n FROM fin.period_balance WHERE period_id = $1', [period.id]);
     expect(projected.rows[0]!.n).toBe(0);
-    const after = await get(accountant, `/finance/trial-balance?from=2026-10-01&to=${toBusinessDate(clock.now())}&limit=100`);
+    const after = await get(accountant, `/finance/trial-balance?from=2026-09-01&to=${toBusinessDate(clock.now())}&limit=100`);
     expect(after.body.data).toEqual(before.body.data);
   });
 

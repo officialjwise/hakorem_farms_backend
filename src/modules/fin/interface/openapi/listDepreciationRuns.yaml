@@ -1,0 +1,133 @@
+operationId: listDepreciationRuns
+tags:
+  - fin
+summary: "List depreciation runs"
+description: "Depreciation runs, newest first (FR-FIN-015, ADR-0059): one per accounting period, each with its exact lines per asset and its total. A `DRAFT` run has been calculated and waits for a different person to post it; a `POSTED` run names `journalEntryId`, the first of its entries (one per branch with assets on the run; `listJournalEntries` with `sourceDocumentId` set to the run's id lists them all).\n\nPermission: `fin.fixed_asset.read`."
+x-permission: fin.fixed_asset.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - RATE_LIMITED
+parameters:
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/DepreciationRunPage"
+        example:
+          data:
+            - id: "019a7add-ea10-7c2f-8167-cbc6a5ed44a4"
+              period:
+                id: "019a7a94-ee2c-7781-8cb9-80e38851f9c1"
+                fiscalYear: 2026
+                periodNo: 10
+              status: DRAFT
+              totalPesewas: 519843
+              currency: GHS
+              journalEntryId: null
+              lines:
+                - fixedAsset:
+                    id: "019a7add-3076-70da-a612-1679cbc78f57"
+                    assetNo: FA-0001
+                    name: "Delivery van GT-4521-24"
+                  amountPesewas: 266667
+                - fixedAsset:
+                    id: "019a7add-4f65-7abe-bff6-b4b145782d8f"
+                    assetNo: FA-0002
+                    name: "Cold room, 12 m³"
+                  amountPesewas: 100000
+                - fixedAsset:
+                    id: "019a7add-6e54-74a1-89d9-52e8bf29cbc6"
+                    assetNo: FA-0003
+                    name: "Broiler house 1"
+                  amountPesewas: 100000
+                - fixedAsset:
+                    id: "019a7add-8d43-7e84-93bd-f12038da69fe"
+                    assetNo: FA-0004
+                    name: "Platform scale, 300 kg"
+                  amountPesewas: 11667
+                - fixedAsset:
+                    id: "019a7add-ac32-7868-ada0-8f57b28b0835"
+                    assetNo: FA-0005
+                    name: "Standby generator, 20 kVA"
+                  amountPesewas: 30953
+                - fixedAsset:
+                    id: "019a7add-cb21-724b-b784-2d8f2c3ca66d"
+                    assetNo: FA-0006
+                    name: "Thermal printer and till tablet"
+                  amountPesewas: 10556
+              createdAt: "2026-11-02T09:00:00Z"
+            - id: "019a7ade-08ff-7612-9b4b-69fe1f9ee2dc"
+              period:
+                id: "019a7ad1-77e7-71aa-96e2-2374afb69c52"
+                fiscalYear: 2026
+                periodNo: 9
+              status: POSTED
+              totalPesewas: 519843
+              currency: GHS
+              journalEntryId: "019a7ade-27ee-7ff6-a52e-0835994f8113"
+              lines:
+                - fixedAsset:
+                    id: "019a7add-3076-70da-a612-1679cbc78f57"
+                    assetNo: FA-0001
+                    name: "Delivery van GT-4521-24"
+                  amountPesewas: 266667
+                - fixedAsset:
+                    id: "019a7add-4f65-7abe-bff6-b4b145782d8f"
+                    assetNo: FA-0002
+                    name: "Cold room, 12 m³"
+                  amountPesewas: 100000
+                - fixedAsset:
+                    id: "019a7add-6e54-74a1-89d9-52e8bf29cbc6"
+                    assetNo: FA-0003
+                    name: "Broiler house 1"
+                  amountPesewas: 100000
+                - fixedAsset:
+                    id: "019a7add-8d43-7e84-93bd-f12038da69fe"
+                    assetNo: FA-0004
+                    name: "Platform scale, 300 kg"
+                  amountPesewas: 11667
+                - fixedAsset:
+                    id: "019a7add-ac32-7868-ada0-8f57b28b0835"
+                    assetNo: FA-0005
+                    name: "Standby generator, 20 kVA"
+                  amountPesewas: 30953
+                - fixedAsset:
+                    id: "019a7add-cb21-724b-b784-2d8f2c3ca66d"
+                    assetNo: FA-0006
+                    name: "Thermal printer and till tablet"
+                  amountPesewas: 10556
+              createdAt: "2026-10-02T09:00:00Z"
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

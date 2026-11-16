@@ -1,0 +1,80 @@
+operationId: createFixedAsset
+tags:
+  - fin
+summary: "Register a fixed asset"
+description: "Registers an asset at the branch that holds it (FR-FIN-014, A-199). Registering posts nothing: the cost reaches 1510 to 1540 the way the money left (a supplier invoice mapped to the asset account, a manual journal, or the opening balance journal), and the nightly reconciliation compares the register with those accounts and 1590 (ADR-0059). An asset the farm already had is registered at its carrying amount on the opening date with its remaining life. `residualPesewas` defaults to nil and may not exceed the cost; `usefulLifeMonths` is 1 to 600; `acquiredOn` is today or earlier, and its month is the first month of depreciation. Refusals are 422 `FIXED_ASSET_INVALID` (`RESIDUAL_ABOVE_COST`, `LIFE_OUT_OF_RANGE`, `FUTURE_DATE`) and `REFERENCE_NOT_FOUND` for an unknown branch.\n\nPermission: `fin.fixed_asset.manage` at the asset's branch."
+x-permission: fin.fixed_asset.manage
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - FIXED_ASSET_INVALID
+  - REFERENCE_NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/FixedAssetCreate"
+      example:
+        name: "Second chest freezer"
+        category: EQUIPMENT
+        branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+        acquiredOn: "2026-11-10"
+        costPesewas: 640000
+        usefulLifeMonths: 60
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/FixedAsset"
+        example:
+          id: "019a7ae0-5c1e-7b52-9a0d-3f6be2c1a907"
+          assetNo: FA-0007
+          name: "Second chest freezer"
+          category: EQUIPMENT
+          branch:
+            id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+            code: DDW
+            name: "HaKorem Farms, Dodowa"
+          acquiredOn: "2026-11-10"
+          costPesewas: 640000
+          residualPesewas: 0
+          usefulLifeMonths: 60
+          method: STRAIGHT_LINE
+          accumulatedPesewas: 0
+          netBookValuePesewas: 640000
+          status: IN_USE
+          disposedOn: null
+          currency: GHS
+          version: 1
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

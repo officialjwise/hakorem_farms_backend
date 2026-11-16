@@ -4,7 +4,8 @@ import type { DocumentRegistry } from '../../../platform/documents/document-regi
 import type { DomainEvents, EventEnvelope } from '../../../platform/events/domain-events';
 import type { MasterDataRefs } from '../../mdm';
 import { manualPostingAmounts } from '../domain/manual-journal';
-import type { ManualJournalApproved, YearClosed } from '../events';
+import { depreciationPostingAmounts, disposalPostingAmounts } from '../domain/fixed-asset';
+import type { DepreciationRunPosted, FixedAssetDisposed, ManualJournalApproved, YearClosed } from '../events';
 import {
   stockMovementAmounts,
   supplierCreditNoteAmounts,
@@ -31,6 +32,7 @@ interface Translated {
   readonly reversesSubjectId?: string | null;
   readonly manual?: PostingRequest['manual'];
   readonly closing?: PostingRequest['closing'];
+  readonly postingDate?: string | null;
 }
 
 type Translator = (tx: Transaction, event: EventEnvelope) => Promise<Translated>;
@@ -99,6 +101,8 @@ export class LedgerPostings {
       ['pur.SupplierPaymentMade', (tx, event) => this.payment(tx, event.payload as unknown as PaymentPosting)],
       ['fin.ManualJournalApproved', (tx, event) => this.manualJournal(tx, event.payload as unknown as ManualJournalApproved)],
       ['fin.YearClosed', async (_tx, event) => this.yearClose(event.payload as unknown as YearClosed)],
+      ['fin.DepreciationRun', async (_tx, event) => this.depreciationRun(event.payload as unknown as DepreciationRunPosted)],
+      ['fin.FixedAssetDisposed', (tx, event) => this.disposal(tx, event.payload as unknown as FixedAssetDisposed)],
     ]);
   }
 
@@ -131,6 +135,7 @@ export class LedgerPostings {
           reversesSubjectId: translated.reversesSubjectId ?? null,
           manual: translated.manual ?? null,
           closing: translated.closing ?? null,
+          postingDate: translated.postingDate ?? null,
         });
       });
     }
@@ -240,6 +245,37 @@ export class LedgerPostings {
       sourceDocumentId: payload.yearCloseId,
       eventSubjectId: payload.yearCloseId,
       closing: { description: `Year close ${payload.fiscalYear}: income and expenses to retained earnings`, postingDate: payload.postingDate },
+    };
+  }
+
+  /** FIN's own event (ADR-0059): Dr 6500, Cr 1590 per asset, on the period's last day or not at all. */
+  private depreciationRun(payload: DepreciationRunPosted): Translated {
+    return {
+      amounts: depreciationPostingAmounts(payload.lines.map((l) => ({ fixedAssetId: l.fixedAssetId, assetNo: l.assetNo, category: l.category, amount: Money.fromJsonInteger(l.amountPesewas) }))),
+      sourceDocumentId: payload.depreciationRunId,
+      eventSubjectId: payload.depreciationRunId,
+      postingDate: payload.postingDate,
+    };
+  }
+
+  /** FIN's own event (ADR-0059): cost and depreciation out, proceeds in, the gain or loss to 4920, on the disposal date. */
+  private async disposal(tx: Transaction, payload: FixedAssetDisposed): Promise<Translated> {
+    const bankAccount = payload.bankAccountId === null ? null : await this.bankAccounts.subledgerRefIn(tx, payload.bankAccountId);
+    return {
+      amounts: disposalPostingAmounts(
+        {
+          fixedAssetId: payload.fixedAssetId,
+          assetNo: payload.assetNo,
+          category: payload.category,
+          cost: Money.fromJsonInteger(payload.costPesewas),
+          accumulated: Money.fromJsonInteger(payload.accumulatedPesewas),
+          proceeds: Money.fromJsonInteger(payload.proceedsPesewas),
+        },
+        { method: payload.proceedsMethod, bankAccount },
+      ),
+      sourceDocumentId: payload.disposalId,
+      eventSubjectId: payload.fixedAssetId,
+      postingDate: payload.disposedOn,
     };
   }
 

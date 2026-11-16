@@ -41,7 +41,9 @@ afterAll(async () => {
 async function postingEvents(): Promise<PostedEvent[]> {
   const { rows } = await database.pool('app').query<PostedEvent>(
     `SELECT m.id, m.event_type,
-            COALESCE(m.payload->>'valuePesewas', m.payload->>'grossPesewas', m.payload->>'amountPesewas', m.payload->>'directCostPesewas') AS value,
+            COALESCE(m.payload->>'valuePesewas', m.payload->>'grossPesewas', m.payload->>'amountPesewas', m.payload->>'directCostPesewas',
+                     -- A manual journal (the seeded fixed assets' cost, B08 continued 1c2): its debits as entered.
+                     (SELECT sum((l->>'amountPesewas')::bigint)::text FROM jsonb_array_elements(m.payload->'lines') l WHERE l->>'side' = 'D')) AS value,
             e.id AS entry_id
        FROM platform.outbox_message m
        JOIN fin.posting_event_type t ON t.code = m.event_type
@@ -57,7 +59,7 @@ describe('the seeded trading day posts a journal for every financial event (ADR-
     expect(events.length).toBeGreaterThan(10);
     expect(events.filter((e) => BigInt(e.value) > 0n && e.entry_id === null)).toEqual([]);
     expect(events.filter((e) => BigInt(e.value) === 0n && e.entry_id !== null)).toEqual([]);
-    expect(new Set(events.map((e) => e.event_type))).toEqual(new Set(['inv.GoodsReceived', 'inv.ProductionReceived', 'pur.ExpenseInvoiceApproved', 'pur.SupplierCreditNoteApproved']));
+    expect(new Set(events.map((e) => e.event_type))).toEqual(new Set(['inv.GoodsReceived', 'inv.ProductionReceived', 'pur.ExpenseInvoiceApproved', 'pur.SupplierCreditNoteApproved', 'fin.ManualJournalApproved']));
   });
 
   it('has one entry per seeded stock movement that posts, carrying the movement as its subject', async () => {
@@ -113,7 +115,11 @@ describe('the trial balance sums to zero on the seeded trading day (the B8 gate,
   it('agrees with the stock subledger: every inventory account equals the cost pools of its GL groups, and nothing is reported', async () => {
     const reconciliation = api.app.get(LedgerReconciliation);
     const report = await reconciliation.run({ principalId: SYSTEM_PRINCIPAL, kind: 'SYSTEM', displayName: 'Scheduler', realm: null, sessionId: null, steppedUpAt: null });
-    expect(report).toEqual({ signedSumPesewas: 0n, unbalancedEntries: [], sources: [{ source: 'inv.stock-value', breaks: [], unmapped: [] }], seriesGaps: [], periodBalanceDrift: [], clean: true });
+    expect(report).toEqual({ signedSumPesewas: 0n, unbalancedEntries: [], sources: [
+        { source: 'fin.fixed-asset-cost', breaks: [], unmapped: [] },
+        { source: 'fin.fixed-asset-depreciation', breaks: [], unmapped: [] },
+        { source: 'inv.stock-value', breaks: [], unmapped: [] },
+      ], seriesGaps: [], periodBalanceDrift: [], clean: true });
     const { rows } = await database.pool('app').query<{ ledger: string; pools: string }>(
       `SELECT (SELECT sum(CASE l.side WHEN 'D' THEN l.amount_pesewas ELSE -l.amount_pesewas END) FROM fin.journal_line l JOIN fin.account a ON a.id = l.account_id
                 WHERE a.code IN ('1300', '1310', '1320', '1325', '1330', '1340', '1360')) AS ledger,
@@ -156,7 +162,7 @@ describe('the nightly reconciliation reports drift and never corrects it (FR-FIN
     expect(report.clean).toBe(false);
     expect(report.signedSumPesewas).toBe(100n);
     expect(report.unbalancedEntries).toEqual([{ entryId: id, entryNo: 'JNL-TAMPER-1', lineCount: 1, debitPesewas: 100n, creditPesewas: 0n }]);
-    expect(report.sources[0]!.breaks).toEqual([expect.objectContaining({ accountId: '01900000-0000-7000-8100-000000001310', differencePesewas: 100n })]);
+    expect(report.sources.find((s) => s.source === 'inv.stock-value')!.breaks).toEqual([expect.objectContaining({ accountId: '01900000-0000-7000-8100-000000001310', differencePesewas: 100n })]);
     const { rows } = await database.pool('app').query<{ payload: { signedSumPesewas: number; controlBreaks: { accountCode: string; differencePesewas: number }[] } }>(
       "SELECT payload FROM platform.outbox_message WHERE event_type = 'fin.TrialBalanceDriftDetected'",
     );
