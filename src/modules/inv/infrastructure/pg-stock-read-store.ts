@@ -3,8 +3,11 @@ import { keysetClause, positionOf, sortKeySelect, type SortOrder } from '../../.
 import type { ReadScope } from '../application/goods-receipt-store';
 import type { HoldKind, OnHandFilters, OnHandNarrowing, OnHandRow, PoolRow, StockReadStore, StockUnitFilters, StockUnitRow } from '../application/stock-read-store';
 
-/** The holds covering a unit now: unreleased, started, not yet ended. */
-const ACTIVE_HOLD = 'h.released_at IS NULL AND h.starts_at <= now() AND (h.ends_at IS NULL OR h.ends_at > now())';
+/**
+ * The holds covering a unit at the instant bound to `at` (the application clock's now, ADR-0066): unreleased, started,
+ * not yet ended. `inv.pub_stock_on_hand` reads the same window at `platform.app_now()`, the same instant.
+ */
+const activeHold = (at: string) => `h.released_at IS NULL AND h.starts_at <= ${at}::timestamptz AND (h.ends_at IS NULL OR h.ends_at > ${at}::timestamptz)`;
 
 interface OnHandSqlRow {
   product_id: string;
@@ -24,11 +27,11 @@ interface OnHandSqlRow {
   holds: HoldKind[] | null;
 }
 
-/** One balance at a physical location with its unit's dates and holds; `b` is its `inv.stock_balance` row. */
-const ON_HAND_SELECT = `SELECT v.product_id, v.stock_unit_id, v.location_id, v.branch_id, v.on_hand_qty, v.on_hand_weight_kg, v.reserved_qty, v.available_qty,
+/** One balance at a physical location with its unit's dates and holds at `at`; `b` is its `inv.stock_balance` row. */
+const onHandSelect = (at: string) => `SELECT v.product_id, v.stock_unit_id, v.location_id, v.branch_id, v.on_hand_qty, v.on_hand_weight_kg, v.reserved_qty, v.available_qty,
               b.pack_count, u.identifier, u.tracking, u.branch_id AS unit_branch_id,
               to_char(u.produced_on, 'YYYY-MM-DD') AS produced_on, to_char(u.expires_on, 'YYYY-MM-DD') AS expires_on,
-              (SELECT array_agg(DISTINCT h.kind ORDER BY h.kind) FROM inv.stock_hold h WHERE h.stock_unit_id = v.stock_unit_id AND ${ACTIVE_HOLD}) AS holds
+              (SELECT array_agg(DISTINCT h.kind ORDER BY h.kind) FROM inv.stock_hold h WHERE h.stock_unit_id = v.stock_unit_id AND ${activeHold(at)}) AS holds
          FROM inv.pub_stock_on_hand v
          JOIN inv.stock_balance b ON b.product_id = v.product_id AND b.location_id = v.location_id AND b.stock_unit_id IS NOT DISTINCT FROM v.stock_unit_id
          LEFT JOIN inv.stock_unit u ON u.id = v.stock_unit_id`;
@@ -73,8 +76,8 @@ function toOnHandRow(r: OnHandSqlRow): OnHandRow {
   };
 }
 
-/** The reader's scopes ($1, $2) and the stock unit list's filters ($3 to $9), over `inv.stock_unit u`. */
-const STOCK_UNIT_WHERE = `u.deleted_at IS NULL
+/** The reader's scopes ($1, $2) and the stock unit list's filters ($3 to $9), holds at `at`, over `inv.stock_unit u`. */
+const stockUnitWhere = (at: string) => `u.deleted_at IS NULL
           AND EXISTS (SELECT 1 FROM unnest($1::uuid[], $2::uuid[]) s(branch_id, location_id)
                        WHERE s.branch_id = u.branch_id
                          AND (s.location_id IS NULL OR s.location_id = u.current_location_id
@@ -86,7 +89,7 @@ const STOCK_UNIT_WHERE = `u.deleted_at IS NULL
           AND ($6::text IS NULL OR u.status = $6)
           AND ($7::text IS NULL OR u.tracking = $7)
           AND ($8::date IS NULL OR u.expires_on <= $8)
-          AND ($9::boolean IS NULL OR $9 = EXISTS (SELECT 1 FROM inv.stock_hold h WHERE h.stock_unit_id = u.id AND ${ACTIVE_HOLD}))`;
+          AND ($9::boolean IS NULL OR $9 = EXISTS (SELECT 1 FROM inv.stock_hold h WHERE h.stock_unit_id = u.id AND ${activeHold(at)}))`;
 
 function stockUnitValues(filters: StockUnitFilters, scopes: readonly ReadScope[]): unknown[] {
   return [
@@ -104,12 +107,12 @@ function stockUnitValues(filters: StockUnitFilters, scopes: readonly ReadScope[]
 
 /** Stock reads over INV's own tables and published views (migration 0044). */
 export class PgStockReadStore implements StockReadStore {
-  async onHand(tx: Transaction, filters: OnHandFilters, scopes: readonly ReadScope[], includeZero: boolean): Promise<OnHandRow[]> {
+  async onHand(tx: Transaction, filters: OnHandFilters, scopes: readonly ReadScope[], includeZero: boolean, at: Date): Promise<OnHandRow[]> {
     const { rows } = await tx.query<OnHandSqlRow>(
-      `${ON_HAND_SELECT}
+      `${onHandSelect('$8')}
         WHERE ${ON_HAND_WHERE}
         ORDER BY v.location_id, v.product_id, v.stock_unit_id NULLS FIRST`,
-      onHandValues(filters, scopes, includeZero),
+      [...onHandValues(filters, scopes, includeZero), at],
     );
     return rows.map(toOnHandRow);
   }
@@ -123,17 +126,18 @@ export class PgStockReadStore implements StockReadStore {
     order: SortOrder,
     position: readonly string[] | null,
     limit: number,
+    at: Date,
   ): Promise<Array<OnHandRow & { readonly position: string[] }>> {
-    const clause = keysetClause(order, position, 11);
+    const clause = keysetClause(order, position, 12);
     const { rows } = await tx.query<OnHandSqlRow & Record<string, unknown>>(
-      `${ON_HAND_SELECT.replace('SELECT ', `SELECT ${sortKeySelect(order)}, `)}
+      `${onHandSelect('$11').replace('SELECT ', `SELECT ${sortKeySelect(order)}, `)}
         WHERE ${ON_HAND_WHERE}
           AND ($8::uuid[] IS NULL OR v.product_id = ANY($8::uuid[]))
           AND ($9::date IS NULL OR u.expires_on <= $9::date)
           AND ${clause.after}
         ORDER BY ${clause.orderBy}
         LIMIT $10`,
-      [...onHandValues(filters, scopes, includeZero), narrow.productIds, narrow.expiresBy, limit, ...clause.values],
+      [...onHandValues(filters, scopes, includeZero), narrow.productIds, narrow.expiresBy, limit, at, ...clause.values],
     );
     return rows.map((r) => ({ ...toOnHandRow(r), position: positionOf(order, r) }));
   }
@@ -156,14 +160,14 @@ export class PgStockReadStore implements StockReadStore {
     return rows.map((r) => ({ productId: r.product_id, stockUnitId: r.stock_unit_id, branchId: r.branch_id, qty: r.qty, valuePesewas: BigInt(r.value_pesewas) }));
   }
 
-  async stockUnitIds(tx: Transaction, filters: StockUnitFilters, scopes: readonly ReadScope[], afterId: string | null, limit: number): Promise<string[]> {
+  async stockUnitIds(tx: Transaction, filters: StockUnitFilters, scopes: readonly ReadScope[], afterId: string | null, limit: number, at: Date): Promise<string[]> {
     const { rows } = await tx.query<{ id: string }>(
       `SELECT u.id FROM inv.stock_unit u
-        WHERE ${STOCK_UNIT_WHERE}
+        WHERE ${stockUnitWhere('$12')}
           AND ($10::uuid IS NULL OR u.id > $10)
         ORDER BY u.id
         LIMIT $11`,
-      [...stockUnitValues(filters, scopes), afterId, limit],
+      [...stockUnitValues(filters, scopes), afterId, limit, at],
     );
     return rows.map((r) => r.id);
   }
@@ -175,20 +179,21 @@ export class PgStockReadStore implements StockReadStore {
     order: SortOrder,
     position: readonly string[] | null,
     limit: number,
+    at: Date,
   ): Promise<Array<{ readonly id: string; readonly position: string[] }>> {
-    const clause = keysetClause(order, position, 11);
+    const clause = keysetClause(order, position, 12);
     const { rows } = await tx.query<{ id: string } & Record<string, unknown>>(
       `SELECT u.id, ${sortKeySelect(order)} FROM inv.stock_unit u
-        WHERE ${STOCK_UNIT_WHERE}
+        WHERE ${stockUnitWhere('$11')}
           AND ${clause.after}
         ORDER BY ${clause.orderBy}
         LIMIT $10`,
-      [...stockUnitValues(filters, scopes), limit, ...clause.values],
+      [...stockUnitValues(filters, scopes), limit, at, ...clause.values],
     );
     return rows.map((r) => ({ id: r.id, position: positionOf(order, r) }));
   }
 
-  async stockUnit(tx: Transaction, id: string): Promise<StockUnitRow | null> {
+  async stockUnit(tx: Transaction, id: string, at: Date): Promise<StockUnitRow | null> {
     const { rows } = await tx.query<{
       id: string;
       product_id: string;
@@ -220,8 +225,8 @@ export class PgStockReadStore implements StockReadStore {
     const r = rows[0];
     if (r === undefined) return null;
     const holds = await tx.query<{ id: string; kind: HoldKind; starts_at: Date; ends_at: Date | null }>(
-      `SELECT h.id, h.kind, h.starts_at, h.ends_at FROM inv.stock_hold h WHERE h.stock_unit_id = $1 AND ${ACTIVE_HOLD} ORDER BY h.starts_at, h.id`,
-      [id],
+      `SELECT h.id, h.kind, h.starts_at, h.ends_at FROM inv.stock_hold h WHERE h.stock_unit_id = $1 AND ${activeHold('$2')} ORDER BY h.starts_at, h.id`,
+      [id, at],
     );
     const reservation = await tx.query<{ id: string; holder_document_id: string; expires_at: Date | null }>(
       "SELECT id, holder_document_id, expires_at FROM inv.stock_reservation WHERE stock_unit_id = $1 AND status = 'ACTIVE' ORDER BY created_at, id LIMIT 1",
