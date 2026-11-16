@@ -14,6 +14,9 @@ x-error-codes:
   - PASSWORD_CHANGE_REQUIRED
   - NOT_FOUND
   - IMPORT_NOT_VALIDATED
+  - PERIOD_NOT_OPEN
+  - POSTING_RULE_MISSING
+  - SUBLEDGER_REQUIRED
   - RATE_LIMITED
 x-permission: mdm.import.apply
 parameters:

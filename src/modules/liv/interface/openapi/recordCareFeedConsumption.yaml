@@ -16,6 +16,9 @@ x-error-codes:
   - LIVESTOCK_RECORD_INVALID
   - REFERENCE_NOT_FOUND
   - INSUFFICIENT_STOCK
+  - PERIOD_NOT_OPEN
+  - POSTING_RULE_MISSING
+  - SUBLEDGER_REQUIRED
   - RATE_LIMITED
 parameters:
   - $ref: "#/components/parameters/IdempotencyKey"

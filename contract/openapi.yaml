@@ -3386,6 +3386,9 @@ paths:
         - SUPPLIER_INVOICE_INVALID
         - EVIDENCE_NOT_SCANNED
         - PROCESSING_ORDER_INVALID
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
         - RATE_LIMITED
       x-permission: "the approving permission named by the approval policy for the kind"
       parameters:
@@ -16715,6 +16718,9 @@ paths:
         - PASSWORD_CHANGE_REQUIRED
         - NOT_FOUND
         - IMPORT_NOT_VALIDATED
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
         - RATE_LIMITED
       x-permission: mdm.import.apply
       parameters:
@@ -18038,6 +18044,9 @@ paths:
         - INSUFFICIENT_STOCK
         - STOCK_UNIT_NOT_AVAILABLE
         - STOCK_UNIT_RESERVED
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
         - RATE_LIMITED
       parameters:
         - name: id
@@ -20132,6 +20141,9 @@ paths:
         - STOCK_ADJUSTMENT_INVALID
         - REFERENCE_NOT_FOUND
         - INSUFFICIENT_STOCK
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
         - RATE_LIMITED
       parameters:
         - name: id
@@ -21087,6 +21099,9 @@ paths:
         - REFERENCE_NOT_FOUND
         - RECEIPT_EXCEEDS_ORDER
         - RECEIPT_ORDER_MISMATCH
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
         - RATE_LIMITED
       parameters:
         - name: id
@@ -22736,6 +22751,9 @@ paths:
         - INSUFFICIENT_STOCK
         - STOCK_UNIT_NOT_AVAILABLE
         - STOCK_UNIT_RESERVED
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
         - RATE_LIMITED
       parameters:
         - name: id
@@ -23829,6 +23847,9 @@ paths:
         - INSUFFICIENT_STOCK
         - STOCK_UNIT_NOT_AVAILABLE
         - STOCK_UNIT_RESERVED
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
         - RATE_LIMITED
       parameters:
         - name: id
@@ -26811,6 +26832,9 @@ paths:
         - REFERENCE_NOT_FOUND
         - INSUFFICIENT_STOCK
         - STOCK_HOLD_INVALID
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
         - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -28003,6 +28027,9 @@ paths:
         - INVALID_STATE_TRANSITION
         - LIVESTOCK_RECORD_INVALID
         - MORTALITY_PHOTO_REQUIRED
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
         - RATE_LIMITED
       parameters:
         - name: id
@@ -28636,6 +28663,9 @@ paths:
         - LIVESTOCK_RECORD_INVALID
         - REFERENCE_NOT_FOUND
         - INSUFFICIENT_STOCK
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
         - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -29754,6 +29784,9 @@ paths:
         - REFERENCE_NOT_FOUND
         - INSUFFICIENT_STOCK
         - STOCK_HOLD_INVALID
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
         - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -30009,6 +30042,9 @@ paths:
         - INVALID_STATE_TRANSITION
         - LIVESTOCK_RECORD_INVALID
         - MORTALITY_PHOTO_REQUIRED
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
         - RATE_LIMITED
       parameters:
         - name: id
@@ -30254,6 +30290,9 @@ paths:
         - LIVESTOCK_RECORD_INVALID
         - REFERENCE_NOT_FOUND
         - INSUFFICIENT_STOCK
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
         - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -32258,6 +32297,9 @@ paths:
         - STOCK_UNIT_NOT_AVAILABLE
         - STOCK_UNIT_RESERVED
         - REFERENCE_NOT_FOUND
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
         - RATE_LIMITED
       parameters:
         - name: id
@@ -32431,6 +32473,9 @@ paths:
         - NOT_FOUND
         - INVALID_STATE_TRANSITION
         - PROCESSING_ORDER_INVALID
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
         - RATE_LIMITED
       parameters:
         - name: id
@@ -36671,6 +36716,9 @@ paths:
         - THREE_WAY_MATCH_FAILED
         - SUPPLIER_INVOICE_INVALID
         - APPROVAL_PENDING
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
         - RATE_LIMITED
       parameters:
         - name: id
@@ -37683,6 +37731,9 @@ paths:
         - VERSION_CONFLICT
         - INVALID_STATE_TRANSITION
         - DUPLICATE_VALUE
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
         - RATE_LIMITED
       parameters:
         - name: id
