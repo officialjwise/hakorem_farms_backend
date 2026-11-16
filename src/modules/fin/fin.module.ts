@@ -8,9 +8,13 @@ import { NumberSeries } from '../../platform/documents/number-series';
 import { DomainEvents } from '../../platform/events/domain-events';
 import { Cursors } from '../../platform/http/cursor';
 import { Idempotency } from '../../platform/idempotency/idempotency';
-import { CLOCK, LOGGER } from '../../platform/platform.module';
+import { APP_CONFIG, type AppConfig } from '../../platform/config/app-config';
+import type { KeyRing } from '../../platform/crypto/key-ring';
+import { CLOCK, KEY_RING, LOGGER } from '../../platform/platform.module';
 import { Approvals, Authoriser, IamModule, PRINCIPAL_NAMES, type PrincipalNames } from '../iam';
 import { MasterDataRefs, MdmModule } from '../mdm';
+import { BankAccounts } from './application/bank-accounts';
+import { BANK_ACCOUNT_STORE, type BankAccountStore } from './application/bank-account-store';
 import { ChartOfAccounts } from './application/chart';
 import { CHART_STORE, type ChartStore } from './application/chart-store';
 import { LedgerCatalogueIncompleteError } from './application/errors';
@@ -24,10 +28,12 @@ import { JOURNAL_STORE, type JournalStore } from './application/journal-store';
 import { Journals } from './application/journals';
 import { MANUAL_JOURNAL, MANUAL_JOURNAL_APPROVED, ManualJournals } from './application/manual-journals';
 import { POSTING_RULE_CHANGE, PostingRules } from './application/posting-rules';
+import { PgBankAccountStore } from './infrastructure/pg-bank-account-store';
 import { PgChartStore } from './infrastructure/pg-chart-store';
 import { PgJournalStore } from './infrastructure/pg-journal-store';
 import { PgLedgerStore } from './infrastructure/pg-ledger-store';
 import { AccountsController } from './interface/accounts.controller';
+import { BankAccountsController } from './interface/bank-accounts.controller';
 import { JournalsController } from './interface/journals.controller';
 import { ManualJournalsController } from './interface/manual-journals.controller';
 import { PeriodsController } from './interface/periods.controller';
@@ -40,15 +46,34 @@ import { PostingRulesController } from './interface/posting-rules.controller';
  * reconciliation against the subledgers higher modules register, and the trial balance. No module calls FIN to post.
  * B08 continued adds its interface, first the chart of accounts and the accounting periods with lock, close and the
  * reopen under approval (PERIOD_REOPEN); B08 continued 1b journals read only, manual journals (MANUAL_JOURNAL, posted
- * from FIN's own ◆ event `fin.ManualJournalApproved`) and posting rule and determination changes (POSTING_RULE_CHANGE).
+ * from FIN's own ◆ event `fin.ManualJournalApproved`) and posting rule and determination changes (POSTING_RULE_CHANGE);
+ * B08 continued 1b2 the business's bank accounts, each number sealed with a data key of its own (ADR-0057).
  */
 @Module({
   imports: [IamModule, MdmModule],
-  controllers: [AccountsController, PeriodsController, JournalsController, ManualJournalsController, PostingRulesController],
+  controllers: [AccountsController, BankAccountsController, PeriodsController, JournalsController, ManualJournalsController, PostingRulesController],
   providers: [
     { provide: LEDGER_STORE, useClass: PgLedgerStore },
     { provide: CHART_STORE, useClass: PgChartStore },
     { provide: JOURNAL_STORE, useClass: PgJournalStore },
+    { provide: BANK_ACCOUNT_STORE, useClass: PgBankAccountStore },
+    {
+      provide: BankAccounts,
+      useFactory: (
+        uow: UnitOfWork,
+        store: BankAccountStore,
+        ledgerStore: LedgerStore,
+        authoriser: Authoriser,
+        idempotency: Idempotency,
+        audit: AuditTrail,
+        refs: MasterDataRefs,
+        keyRing: KeyRing,
+        cursors: Cursors,
+        clock: Clock,
+        config: AppConfig,
+      ) => new BankAccounts(uow, store, ledgerStore, authoriser, idempotency, audit, refs, keyRing, cursors, clock, Buffer.from(config.LOOKUP_HMAC_KEY, 'base64')),
+      inject: [UnitOfWork, BANK_ACCOUNT_STORE, LEDGER_STORE, Authoriser, Idempotency, AuditTrail, MasterDataRefs, KEY_RING, Cursors, CLOCK, APP_CONFIG],
+    },
     {
       provide: Journals,
       useFactory: (uow: UnitOfWork, store: JournalStore, authoriser: Authoriser, documents: DocumentRegistry, names: PrincipalNames, cursors: Cursors) =>
@@ -122,8 +147,9 @@ import { PostingRulesController } from './interface/posting-rules.controller';
     },
     {
       provide: LedgerPostings,
-      useFactory: (ledger: Ledger, store: LedgerStore, refs: MasterDataRefs, documents: DocumentRegistry, clock: Clock) => new LedgerPostings(ledger, store, refs, documents, clock),
-      inject: [Ledger, LEDGER_STORE, MasterDataRefs, DocumentRegistry, CLOCK],
+      useFactory: (ledger: Ledger, store: LedgerStore, refs: MasterDataRefs, documents: DocumentRegistry, bankAccounts: BankAccounts, clock: Clock) =>
+        new LedgerPostings(ledger, store, refs, documents, bankAccounts, clock),
+      inject: [Ledger, LEDGER_STORE, MasterDataRefs, DocumentRegistry, BankAccounts, CLOCK],
     },
     { provide: SubledgerSources, useFactory: () => new SubledgerSources() },
     {
@@ -134,7 +160,7 @@ import { PostingRulesController } from './interface/posting-rules.controller';
     },
     { provide: FinancialStatements, useFactory: (store: LedgerStore) => new FinancialStatements(store), inject: [LEDGER_STORE] },
   ],
-  exports: [Ledger, LedgerPostings, SubledgerSources, LedgerReconciliation, FinancialStatements, Periods],
+  exports: [Ledger, LedgerPostings, SubledgerSources, LedgerReconciliation, FinancialStatements, Periods, BankAccounts],
 })
 export class FinModule implements OnModuleInit, OnApplicationBootstrap {
   constructor(

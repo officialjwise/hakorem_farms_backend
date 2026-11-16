@@ -73,6 +73,8 @@ const VALID_BODY: Readonly<Record<string, object>> = {
   updateManualJournal: { version: 1, description: 'Accrue electricity for the cold room, November' },
   createPostingRule: { eventCode: 'inv.GoodsReceived', amountKey: 'value', side: 'C', accountId: randomUUID(), validFrom: '2026-12-01' },
   createAccountDetermination: { determinantType: 'TAX_LEVY', determinantKey: 'NHIL', role: 'OUTPUT', accountId: randomUUID(), validFrom: '2027-01-01' },
+  createBankAccount: { kind: 'BANK', name: 'Fidelity savings', institution: 'Fidelity Bank', accountNo: '2040016620' },
+  updateBankAccount: { version: 1, isActive: false },
   createProduct: { sku: 'MEAT-GOAT-5KG', name: 'Goat meat, 5 kg pack', categoryId: randomUUID(), stockPolicy: 'CATCH_WEIGHT', baseUom: 'KG', saleUom: 'PACK', onlineMode: 'LISTED' },
   revokeSession: { reason: 'Tablet left unattended overnight' },
   createUser: { displayName: 'Kojo Asante', email: 'kojo.asante@hakoremfarms.test', realm: 'STAFF', grants: [] },
@@ -232,7 +234,7 @@ afterAll(async () => {
 });
 
 describe('deny by default: the handler walk (ADR-0017, security architecture section 14)', () => {
-  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued, B05 continued 3, B05x, B6, B06m, B06 continued, B06 continued 2, B06 continued 3, B06u, B7, B07 continued, B07 continued 1b, B06r, B07 continued 2 and B08 continued routes, and every one declares its operation', () => {
+  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued, B05 continued 3, B05x, B6, B06m, B06 continued, B06 continued 2, B06 continued 3, B06u, B7, B07 continued, B07 continued 1b, B06r, B07 continued 2, B08 continued, B08 continued 1b and B08 continued 1b2 routes, and every one declares its operation', () => {
     expect(routes.map((route) => route.spec?.operationId).sort()).toEqual(
       [
         'changePassword', 'confirmTotpEnrolment', 'createProduct', 'getCurrentSession', 'getHealth', 'getProduct', 'listProducts', 'listSessions',
@@ -295,6 +297,7 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'listAccounts', 'createAccount', 'updateAccount', 'listAccountingPeriods', 'lockAccountingPeriod', 'closeAccountingPeriod', 'reopenAccountingPeriod',
         'listJournalEntries', 'getJournalEntry', 'listAccountActivity', 'listManualJournals', 'createManualJournal', 'getManualJournal', 'updateManualJournal',
         'submitManualJournal', 'listPostingEventTypes', 'listPostingRules', 'createPostingRule', 'listAccountDeterminations', 'createAccountDetermination',
+        'listBankAccounts', 'createBankAccount', 'updateBankAccount',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);

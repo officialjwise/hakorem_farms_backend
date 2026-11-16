@@ -1,0 +1,81 @@
+operationId: updateBankAccount
+tags:
+  - fin
+summary: "Rename or deactivate a bank account"
+description: "Changes the name or `isActive` at the `version` read (409 `VERSION_CONFLICT` otherwise); a deactivated account can be made active again. The kind, the number and the GL account never change: the database refuses it (A-194). A new supplier payment names only an active account (`BANK_ACCOUNT_NOT_AVAILABLE`); one already prepared keeps its account. Step-up is required because the permission requires it (1.36.0). Refusals are 422 `BANK_ACCOUNT_INVALID` (`NAME_TAKEN`).\n\nPermission: `fin.bank_account.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+x-permission: fin.bank_account.manage
+x-requires-step-up: true
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - STEP_UP_REQUIRED
+  - TOTP_ENROLMENT_REQUIRED
+  - NOT_FOUND
+  - VERSION_CONFLICT
+  - BANK_ACCOUNT_INVALID
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/BankAccountUpdate"
+      example:
+        version: 1
+        isActive: false
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/BankAccount"
+        example:
+          id: "019a7a92-6491-77d8-bd10-86568cccff34"
+          kind: BANK
+          name: "GCB current account"
+          institution: "GCB Bank"
+          accountNoLast4: "4821"
+          glAccount:
+            id: "019a7ad1-3a09-7de3-b31b-e705bc545fe3"
+            code: "1100"
+            name: "Bank accounts"
+          branch: null
+          isActive: true
+          version: 1
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

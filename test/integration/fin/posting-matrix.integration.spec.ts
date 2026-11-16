@@ -252,6 +252,44 @@ describe('every row of the ADR-0003 matrix posts exact debit and credit amounts 
       ['1110', 'C', 40_000, 'BANK_ACCOUNT:Bank account not yet named'],
     ]);
   });
+
+  it("pur.SupplierPaymentMade naming the farm's own account: that account's party credited to the pesewa, by bank, cheque and wallet (A-194)", async () => {
+    // Raw rows for the posting path only: the sealed number is not read here (bank-accounts.integration.spec.ts proves it).
+    const account = async (kind: 'BANK' | 'MOBILE_MONEY', name: string, code: string) => {
+      const id = randomUUID();
+      await fx.app.query("INSERT INTO fin.subledger_party (id, kind, ref_id, display_name) VALUES ($1, 'BANK_ACCOUNT', $2, $3)", [randomUUID(), id, name]);
+      await fx.app.query(
+        `INSERT INTO fin.bank_account (id, kind, name, institution, account_no_enc, account_no_data_key, account_no_kek_version, account_no_last4, gl_account_id, created_by, updated_by)
+         VALUES ($1, $2, $3, 'Test institution', decode(repeat('01', 40), 'hex'), decode(repeat('02', 61), 'hex'), 1, '0001', $4, $5, $5)`,
+        [id, kind, name, `01900000-0000-7000-8100-00000000${code}`, SYSTEM_PRINCIPAL],
+      );
+      return id;
+    };
+    const gcb = await account('BANK', 'GCB current account (matrix)', '1100');
+    const momo = await account('MOBILE_MONEY', 'MTN MoMo merchant wallet (matrix)', '1110');
+    const payment = async (method: string, amountPesewas: number, bankAccountId: string) => ({
+      supplierPaymentId: await stockDocument(fx),
+      supplierId,
+      method,
+      bankAccountId,
+      amountPesewas,
+      paidAt: new Date().toISOString(),
+      approvalRequestId: randomUUID(),
+      allocations: [],
+    });
+    expect(await linesOf('pur.SupplierPaymentMade', await payment('BANK', 1_000_001, gcb))).toEqual([
+      ['2000', 'D', 1_000_001, 'SUPPLIER:Kpone Livestock Traders'],
+      ['1100', 'C', 1_000_001, 'BANK_ACCOUNT:GCB current account (matrix)'],
+    ]);
+    expect(await linesOf('pur.SupplierPaymentMade', await payment('CHEQUE', 250_050, gcb))).toEqual([
+      ['2000', 'D', 250_050, 'SUPPLIER:Kpone Livestock Traders'],
+      ['1100', 'C', 250_050, 'BANK_ACCOUNT:GCB current account (matrix)'],
+    ]);
+    expect(await linesOf('pur.SupplierPaymentMade', await payment('MOBILE_MONEY', 1, momo))).toEqual([
+      ['2000', 'D', 1, 'SUPPLIER:Kpone Livestock Traders'],
+      ['1110', 'C', 1, 'BANK_ACCOUNT:MTN MoMo merchant wallet (matrix)'],
+    ]);
+  });
 });
 
 describe("FIN's own ◆ event (B08 continued 1b, A-190)", () => {

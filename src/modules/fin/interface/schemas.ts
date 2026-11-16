@@ -107,3 +107,21 @@ export const AccountDeterminationCreate = z.strictObject({
   accountId: Uuid,
   validFrom: CalendarDate,
 });
+
+const Text120 = z
+  .string()
+  .max(120)
+  .refine((text) => text.trim().length > 0, { message: 'a value is required' });
+
+export const BankAccountPageQuery = z.object({ cursor: Cursor, limit: Limit });
+
+/** `accountNo` is checked by its kind in the domain, so a refusal never echoes it; here only its length is bounded. */
+export const BankAccountCreate = z.strictObject({
+  kind: z.enum(['BANK', 'MOBILE_MONEY']),
+  name: Text120,
+  institution: Text120,
+  accountNo: z.string().min(1).max(40),
+  branchId: z.uuid().optional(),
+});
+
+export const BankAccountUpdate = z.strictObject({ version: z.number().int().min(1), name: Text120.optional(), isActive: z.boolean().optional() });

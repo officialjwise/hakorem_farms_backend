@@ -2,7 +2,7 @@
  * FIN's public door (MODULE_BOUNDARIES, FIN card). Higher modules import only from here. No module calls FIN to post:
  * FIN subscribes to every financial event (ADR-0003). B8 publishes `SubledgerSources`, where a higher module registers
  * the subledger it keeps for a control account (INV's stock value, ADR-0056), `LedgerReconciliation`, the nightly job,
- * and `FinancialStatements` (the trial balance). B08 continued adds `ChartOfAccounts` and `Periods`; B08 continued 1b `Journals`, `ManualJournals` and `PostingRules`. `Ledger` and `LedgerPostings` are exported for the tests and the
+ * and `FinancialStatements` (the trial balance). B08 continued adds `ChartOfAccounts` and `Periods`; B08 continued 1b `Journals`, `ManualJournals` and `PostingRules`; B08 continued 1b2 `BankAccounts`, whose `payoutAccountsIn` tells PUR whether a supplier payment may name an account. `Ledger` and `LedgerPostings` are exported for the tests and the
  * worker; a module never posts through them.
  */
 export { FinModule } from './fin.module';
@@ -15,6 +15,8 @@ export { Periods } from './application/periods';
 export { Journals } from './application/journals';
 export { ManualJournals } from './application/manual-journals';
 export { PostingRules } from './application/posting-rules';
+export { BankAccounts, type PayoutAccountFacts } from './application/bank-accounts';
+export { judgePayoutAccount } from './domain/bank-account';
 export { LedgerCatalogueIncompleteError, LedgerPostingRefusedError } from './application/errors';
 export type { SubledgerSource } from './application/ledger-store';
 export type { TrialBalance } from './domain/trial-balance';

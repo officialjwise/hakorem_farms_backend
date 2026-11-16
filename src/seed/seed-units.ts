@@ -1,3 +1,4 @@
+import { farmSeedFin } from './farm-fin';
 import { farmSeedIam, seedLocationGrantsIam } from './farm-iam';
 import { farmSeedInv } from './farm-inv';
 import { farmSeedLiv } from './farm-liv';
@@ -30,5 +31,5 @@ export interface SeedEnvironment {
  * delivery slots through DEL and the storefront's listing is built through SHP (B07 continued 2).
  */
 export function seedUnits(env: SeedEnvironment): readonly SeedUnit[] {
-  return [farmSeedMdmBootstrap(), farmSeedIam(env.SEED_STAFF_PASSWORD), farmSeedMdm(), seedLocationGrantsIam(), farmSeedInv(), farmSeedLiv(), farmSeedMdmUnits(), farmSeedPrc(), farmSeedPur(), farmSeedPurRegister(), farmSeedPurCredit(), farmSeedShp()];
+  return [farmSeedMdmBootstrap(), farmSeedIam(env.SEED_STAFF_PASSWORD), farmSeedMdm(), seedLocationGrantsIam(), farmSeedInv(), farmSeedLiv(), farmSeedMdmUnits(), farmSeedPrc(), farmSeedFin(), farmSeedPur(), farmSeedPurRegister(), farmSeedPurCredit(), farmSeedShp()];
 }
