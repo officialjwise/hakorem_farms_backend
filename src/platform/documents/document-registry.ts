@@ -39,4 +39,10 @@ export class DocumentRegistry {
     const { rows } = await tx.query<{ id: string; doc_type: string }>('SELECT id, doc_type FROM platform.business_document WHERE id = ANY($1::uuid[])', [ids]);
     return new Map(rows.map((row) => [row.id, { id: row.id, docType: row.doc_type, number: null }] as const));
   }
+
+  /** The branch a registered document belongs to, or null if no document has the id. */
+  async branchOf(tx: Transaction, id: string): Promise<string | null> {
+    const { rows } = await tx.query<{ branch_id: string }>('SELECT branch_id FROM platform.business_document WHERE id = $1', [id]);
+    return rows[0]?.branch_id ?? null;
+  }
 }

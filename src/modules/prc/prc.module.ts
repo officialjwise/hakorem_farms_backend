@@ -11,7 +11,7 @@ import { Approvals, Authoriser, IamModule, PRINCIPAL_NAMES, type PrincipalNames 
 import { InvModule, Lineage, Stock, StockMovements, StockUnits } from '../inv';
 import { MasterDataRefs, MdmModule, PricingService } from '../mdm';
 import { Packs } from './application/packs';
-import { Processing, PROCESSING_REVERSAL } from './application/processing';
+import { PRC_LEDGER_EVENTS, Processing, PROCESSING_REVERSAL } from './application/processing';
 import { PROCESSING_STORE, type ProcessingStore } from './application/processing-store';
 import { YieldStandards } from './application/yield-standards';
 import { PgProcessingStore } from './infrastructure/pg-processing-store';
@@ -71,10 +71,15 @@ export class PrcModule implements OnModuleInit {
   constructor(
     @Inject(Approvals) private readonly approvals: Approvals,
     @Inject(Processing) private readonly processing: Processing,
+    @Inject(DomainEvents) private readonly events: DomainEvents,
   ) {}
 
-  /** A reversal at or above the adjustment threshold waits for a different approver (ADR-0017, ADR-0048 pattern; B06r). */
+  /**
+   * A reversal at or above the adjustment threshold waits for a different approver (ADR-0017, ADR-0048 pattern; B06r).
+   * PRC's ledger events are declared for FIN's boot assertion (ADR-0003).
+   */
   onModuleInit(): void {
     this.approvals.registerHandler(PROCESSING_REVERSAL, this.processing);
+    this.events.declareLedgerEvents(PRC_LEDGER_EVENTS);
   }
 }

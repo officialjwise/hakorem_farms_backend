@@ -21,9 +21,11 @@ export class PgMasterDataRefsStore implements MasterDataRefsStore {
       is_live: boolean;
       species_id: string | null;
       withdrawal_days: number | null;
+      gl_group: ProductFacts['glGroup'];
     }>(
       `SELECT p.id, p.sku, p.name, p.category_id, p.tax_category_id, p.stock_policy, p.tracking, p.base_uom, u.display_decimals, p.shelf_life_days,
-              p.storage_temp_class, p.is_purchasable, (p.status = 'ACTIVE' AND p.deleted_at IS NULL) AS is_live, p.species_id, p.withdrawal_days
+              p.storage_temp_class, p.is_purchasable, (p.status = 'ACTIVE' AND p.deleted_at IS NULL) AS is_live, p.species_id, p.withdrawal_days,
+              p.gl_group
          FROM mdm.product p JOIN mdm.uom u ON u.code = p.base_uom
         WHERE p.id = ANY($1::uuid[])`,
       [ids],
@@ -44,6 +46,7 @@ export class PgMasterDataRefsStore implements MasterDataRefsStore {
       isLive: r.is_live,
       speciesId: r.species_id,
       withdrawalDays: r.withdrawal_days,
+      glGroup: r.gl_group,
     }));
   }
 
@@ -114,7 +117,7 @@ export class PgMasterDataRefsStore implements MasterDataRefsStore {
   }
 
   async reasonCodes(tx: Transaction, codes: readonly string[]): Promise<ReasonCodeFacts[]> {
-    const { rows } = await tx.query<ReasonCodeFacts>('SELECT code, domain, requires_note AS "requiresNote" FROM mdm.reason_code WHERE code = ANY($1::text[])', [codes]);
+    const { rows } = await tx.query<ReasonCodeFacts>('SELECT code, domain, requires_note AS "requiresNote", loss_account_group AS "lossAccountGroup" FROM mdm.reason_code WHERE code = ANY($1::text[])', [codes]);
     return rows;
   }
 

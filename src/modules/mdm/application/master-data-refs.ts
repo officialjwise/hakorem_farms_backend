@@ -24,6 +24,8 @@ export interface ProductFacts {
   readonly speciesId: string | null;
   /** Days a treated animal may not be sold or slaughtered after this medication (FR-LIV-008); null if none. */
   readonly withdrawalDays: number | null;
+  /** The ledger group its stock, sales and cost of sales post to (ADR-0003); FIN reads it to choose the account (B8). */
+  readonly glGroup: 'LIVE_ANIMALS' | 'MEAT' | 'OFFAL' | 'PRODUCE_EGGS' | 'FEED_MEDICATION' | 'SUPPLIES' | 'SERVICE';
 }
 
 export interface LocationFacts {
@@ -77,6 +79,8 @@ export interface ReasonCodeFacts {
   readonly code: string;
   readonly domain: string;
   readonly requiresNote: boolean;
+  /** Which loss account a write-off with this reason posts to (ADR-0003); null for none. */
+  readonly lossAccountGroup: 'MORTALITY' | 'SHRINKAGE' | 'WASTAGE' | null;
 }
 
 export const MASTER_DATA_REFS_STORE = Symbol('MASTER_DATA_REFS_STORE');

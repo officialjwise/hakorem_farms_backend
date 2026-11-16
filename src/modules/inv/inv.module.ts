@@ -16,7 +16,9 @@ import { GOODS_RECEIPT_STORE, type GoodsReceiptStore } from './application/goods
 import { GoodsReceipts } from './application/goods-receipts';
 import { Lineage } from './application/lineage';
 import { BalanceReconciliation } from './application/reconciliation';
-import { Stock } from './application/stock';
+import { StockValueSource } from './application/stock-value-source';
+import { FinModule, SubledgerSources } from '../fin';
+import { INV_LEDGER_EVENTS, Stock } from './application/stock';
 import { STOCK_DOCUMENTS_STORE, type StockDocumentsStore } from './application/stock-documents-store';
 import { STOCK_WRITE_OFF, StockAdjustments } from './application/stock-adjustments';
 import { STOCK_REVERSAL, StockMovements } from './application/stock-movements';
@@ -69,7 +71,7 @@ import { StockAlertsController } from './interface/stock-alerts.controller';
  * (B05 continued 3b).
  */
 @Module({
-  imports: [IamModule, MdmModule],
+  imports: [IamModule, MdmModule, FinModule],
   controllers: [
     GoodsReceiptsController,
     StockController,
@@ -176,6 +178,11 @@ import { StockAlertsController } from './interface/stock-alerts.controller';
       provide: Lineage,
       useFactory: (uow: UnitOfWork, store: StockStore, authoriser: Authoriser) => new Lineage(uow, store, authoriser),
       inject: [UnitOfWork, STOCK_STORE, Authoriser],
+    },
+    {
+      provide: StockValueSource,
+      useFactory: (store: StockStore, refs: MasterDataRefs) => new StockValueSource(store, refs),
+      inject: [STOCK_STORE, MasterDataRefs],
     },
     {
       provide: BalanceReconciliation,
@@ -329,16 +336,22 @@ export class InvModule implements OnModuleInit {
     @Inject(OpeningStockSheet) private readonly openingStock: OpeningStockSheet,
     @Inject(LocationUsageRegistry) private readonly locationUsage: LocationUsageRegistry,
     @Inject(InventoryLocationUsage) private readonly inventoryUsage: InventoryLocationUsage,
+    @Inject(DomainEvents) private readonly events: DomainEvents,
+    @Inject(SubledgerSources) private readonly subledgers: SubledgerSources,
+    @Inject(StockValueSource) private readonly stockValue: StockValueSource,
   ) {}
 
   /**
    * Registers INV's approval handlers (ADR-0017): a stock write-off (an adjustment, or a stock take's variances, told
    * apart by the subject's document type) and a movement reversal; and the `OPENING_STOCK` sheet with MDM's imports
-   * (ADR-0050); and INV's answer to whether a branch or location is in use (ADR-0051).
+   * (ADR-0050); and INV's answer to whether a branch or location is in use (ADR-0051); its ledger events, declared for FIN's boot
+   * assertion, and the stock value FIN reconciles its inventory accounts against (ADR-0003, ADR-0056).
    */
   onModuleInit(): void {
     this.imports.registerSheet(this.openingStock);
     this.locationUsage.register(this.inventoryUsage);
+    this.events.declareLedgerEvents(INV_LEDGER_EVENTS);
+    this.subledgers.register(this.stockValue);
     this.approvals.registerHandler(STOCK_WRITE_OFF, new StockWriteOffs(this.documents, { STOCK_ADJUSTMENT: this.adjustments, STOCK_TAKE: this.takes }));
     this.approvals.registerHandler(STOCK_REVERSAL, this.movements);
   }

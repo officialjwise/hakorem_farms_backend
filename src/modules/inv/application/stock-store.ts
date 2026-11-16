@@ -85,5 +85,7 @@ export interface StockStore {
   movementsOf(tx: Transaction, unitIds: readonly string[]): Promise<UnitMovement[]>;
   /** Every balance and pool that differs from the ledger: a full recompute, run by the nightly job only. */
   drift(tx: Transaction): Promise<DriftRow[]>;
+  /** The value of every cost pool summed per product, for the ledger's nightly reconciliation (ADR-0056). */
+  poolValueByProduct(tx: Transaction): Promise<{ readonly productId: string; readonly valuePesewas: bigint }[]>;
   raiseDrift(tx: Transaction, row: DriftRow): Promise<string>;
 }

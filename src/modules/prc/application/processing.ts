@@ -181,6 +181,9 @@ function lotIdentifier(orderId: string, producedOn: string, lineNo: number): str
  * IN_PROGRESS order is cancelled with no stock effect, since nothing moves until completion. Every handler authorises
  * first, scoped to the order's branch and processing location; every write is idempotent and audited.
  */
+/** The events PRC publishes that post to the ledger (◆ in docs/DOMAIN_MODEL.md section 5.6), declared for FIN's boot assertion. */
+export const PRC_LEDGER_EVENTS = ['prc.DirectCostIncurred', 'prc.ProcessingOrderReversed'] as const;
+
 export class Processing implements ApprovalHandler {
   private readonly nextId: () => string;
 

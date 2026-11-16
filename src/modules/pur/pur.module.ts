@@ -16,7 +16,7 @@ import { MasterDataRefs, MdmModule, TaxService } from '../mdm';
 import { PURCHASE_ORDER_KIND, PurchaseOrders } from './application/purchase-orders';
 import { PURCHASING_STORE, type PurchasingStore } from './application/purchasing-store';
 import { Requisitions } from './application/requisitions';
-import { SUPPLIER_CREDIT_NOTE_KIND, SUPPLIER_INVOICE_VARIANCE_KIND, SupplierInvoices } from './application/supplier-invoices';
+import { PUR_LEDGER_EVENTS, SUPPLIER_CREDIT_NOTE_KIND, SUPPLIER_INVOICE_VARIANCE_KIND, SupplierInvoices } from './application/supplier-invoices';
 import { SUPPLIER_PAYMENT_KIND, SupplierPayments } from './application/supplier-payments';
 import { SupplierScores } from './application/supplier-scores';
 import { SUPPLIER_REGISTER_STORE, type SupplierRegisterStore } from './application/supplier-register-store';
@@ -168,5 +168,6 @@ export class PurModule implements OnModuleInit {
     this.approvals.registerHandler(SUPPLIER_INVOICE_VARIANCE_KIND, this.invoices.varianceApprovals);
     this.events.subscribeInTransaction('inv.GoodsReceiptPosted', this.orders.received);
     this.events.subscribeInTransaction('mdm.SupplierRegistered', this.suppliers.registered);
+    this.events.declareLedgerEvents(PUR_LEDGER_EVENTS);
   }
 }

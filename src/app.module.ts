@@ -6,6 +6,7 @@ import { AudModule } from './modules/aud';
 import { IamModule } from './modules/iam';
 import { DocModule } from './modules/doc';
 import { MdmModule } from './modules/mdm';
+import { FinModule } from './modules/fin';
 import { InvModule } from './modules/inv';
 import { LivModule } from './modules/liv';
 import { PrcModule } from './modules/prc';
@@ -29,7 +30,7 @@ export class AppModule {
   ): DynamicModule {
     return {
       module: AppModule,
-      imports: [PlatformModule.forRoot(config, logger, clock), IamModule, AudModule, MdmModule, DocModule, InvModule, LivModule, PrcModule, PurModule, DelModule, ShpModule, RptModule, ...extra],
+      imports: [PlatformModule.forRoot(config, logger, clock), IamModule, AudModule, MdmModule, DocModule, FinModule, InvModule, LivModule, PrcModule, PurModule, DelModule, ShpModule, RptModule, ...extra],
     };
   }
 }

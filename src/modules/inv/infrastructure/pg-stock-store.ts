@@ -23,6 +23,11 @@ export class PgStockStore implements StockStore {
     return { valuePesewas: BigInt(rows[0]!.value_pesewas), postingEvent: rows[0]!.posting_event };
   }
 
+  async poolValueByProduct(tx: Transaction): Promise<{ readonly productId: string; readonly valuePesewas: bigint }[]> {
+    const { rows } = await tx.query<{ product_id: string; value: string }>('SELECT product_id, sum(value_pesewas) AS value FROM inv.cost_pool GROUP BY product_id ORDER BY product_id');
+    return rows.map((r) => ({ productId: r.product_id, valuePesewas: BigInt(r.value) }));
+  }
+
   async insertLineage(tx: Transaction, childUnitId: string, parentUnitId: string, linkType: LinkType, sourceDocumentId: string, actorId: string): Promise<void> {
     await tx.query(
       'INSERT INTO inv.stock_unit_lineage (child_unit_id, parent_unit_id, link_type, source_document_id, actor_id) VALUES ($1, $2, $3, $4, $5)',
