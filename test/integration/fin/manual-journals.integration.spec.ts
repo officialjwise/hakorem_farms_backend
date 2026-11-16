@@ -106,7 +106,9 @@ afterAll(async () => {
 
 describe('a manual journal posts only after a different person approves it (FR-FIN-008, ADR-0017)', () => {
   it('posts nothing on submit, refuses the maker and the wrong role, then posts exactly one balanced entry of 500,000', async () => {
-    const created = await post('accountant', '/finance/manual-journals', wages());
+    // The journal's own date, read once: the approval below comes minutes later, and may fall after midnight in Accra.
+    const draft = wages();
+    const created = await post('accountant', '/finance/manual-journals', draft);
     expect(created.status).toBe(201);
     expect(created.body).toMatchObject({
       status: 'DRAFT',
@@ -149,7 +151,7 @@ describe('a manual journal posts only after a different person approves it (FR-F
     expect(approved.status, JSON.stringify(approved.body)).toBe(200);
     const entries = await entriesOf(id);
     expect(entries).toHaveLength(1);
-    expect(entries[0]).toMatchObject({ kind: 'MANUAL', posting_date: today(), lines: [['6000', 'D', 500_000], ['1010', 'C', 500_000]] });
+    expect(entries[0]).toMatchObject({ kind: 'MANUAL', posting_date: draft.postingDate, lines: [['6000', 'D', 500_000], ['1010', 'C', 500_000]] });
     expect(entries[0]!.entry_no).toMatch(/^JNL-\d{4}-DDW-\d{6}$/);
     const after = await get('accountant', `/finance/manual-journals/${id}`);
     expect(after.body).toMatchObject({ status: 'POSTED', journalEntryId: entries[0]!.id, approvalRequestId: approvalId });
@@ -177,7 +179,7 @@ describe('a manual journal posts only after a different person approves it (FR-F
     const listed = await get('owner', '/finance/journal-entries?kind=MANUAL');
     expect(listed.body.data.map((e: { id: string }) => e.id)).toEqual([entries[0]!.id]);
     expect((await get('owner', `/finance/journal-entries?sourceDocumentId=${id}`)).body.data).toHaveLength(1);
-    expect((await get('owner', `/finance/journal-entries?accountId=${accountId('6000')}&from=${today()}&to=${today()}`)).body.data).toHaveLength(1);
+    expect((await get('owner', `/finance/journal-entries?accountId=${accountId('6000')}&from=${draft.postingDate}&to=${draft.postingDate}`)).body.data).toHaveLength(1);
   });
 
   it('with one Owner and one Accountant, the Owner cannot approve their own either; the Accountant can', async () => {

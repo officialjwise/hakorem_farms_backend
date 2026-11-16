@@ -368,12 +368,13 @@ export class Billing {
    * A payment's allocation applied to, or taken off, an issued invoice, receipt or debit note's settlement summary, in
    * the allocating transaction (A-200): the port PAY calls, so BIL alone writes `bil.document_settlement`. The database
    * refuses an allocation beyond the document's outstanding amount (`ck_document_settlement_outstanding`), which arrives
-   * as `AllocationExceedsOutstandingError`. Answers what the document has left outstanding. It authorises nothing.
+   * as `AllocationExceedsOutstandingError`. Answers what the document has left outstanding. It authorises nothing. The
+   * summary is settled and as of this clock's instant, passed in (ADR-0067).
    */
   async settleIn(tx: Transaction, documentId: string, amountPesewas: bigint, direction: 'APPLY' | 'UNAPPLY'): Promise<bigint> {
     if (tx.isolation !== 'serializable') throw new IsolationLevelError(tx.isolation);
     try {
-      const { rows } = await tx.query<{ outstanding: string }>('SELECT bil.apply_settlement($1, $2, $3)::text AS outstanding', [documentId, amountPesewas.toString(), direction]);
+      const { rows } = await tx.query<{ outstanding: string }>('SELECT bil.apply_settlement($1, $2, $3, $4)::text AS outstanding', [documentId, amountPesewas.toString(), direction, this.clock.now()]);
       return BigInt(rows[0]!.outstanding);
     } catch (error) {
       const failure = databaseErrorOf(error);

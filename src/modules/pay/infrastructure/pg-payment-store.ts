@@ -379,11 +379,11 @@ export class PgPaymentStore implements PaymentStore {
     return rows.map((r) => ({ id: r.id, customerId: r.customer_id, direction: r.direction, amountPesewas: BigInt(r.amount), sourceDocumentId: r.source_document_id, branchId: r.branch_id, recordedAt: r.recorded_at }));
   }
 
-  async insertCharge(tx: Transaction, c: Omit<ChargeRecord, 'confirmedPesewas' | 'status' | 'releasedAt' | 'createdAt'> & { readonly actorId: string }): Promise<void> {
+  async insertCharge(tx: Transaction, c: Omit<ChargeRecord, 'confirmedPesewas' | 'status' | 'releasedAt'> & { readonly actorId: string }): Promise<void> {
     await tx.query(
-      `INSERT INTO pay.provider_transaction (id, payment_id, provider, reference, kind, channel, network, requested_pesewas, status, awaited_until, branch_id, created_by, updated_by)
-       VALUES ($1, $2, $3, $4, 'CHARGE', $5, $6, $7, 'INITIATED', $8, $9, $10, $10)`,
-      [c.id, c.paymentId, c.provider, c.reference, c.channel, c.network, c.requestedPesewas.toString(), c.awaitedUntil, c.branchId, c.actorId],
+      `INSERT INTO pay.provider_transaction (id, payment_id, provider, reference, kind, channel, network, requested_pesewas, status, awaited_until, branch_id, created_by, updated_by, created_at)
+       VALUES ($1, $2, $3, $4, 'CHARGE', $5, $6, $7, 'INITIATED', $8, $9, $10, $10, $11)`,
+      [c.id, c.paymentId, c.provider, c.reference, c.channel, c.network, c.requestedPesewas.toString(), c.awaitedUntil, c.branchId, c.actorId, c.createdAt],
     );
   }
 

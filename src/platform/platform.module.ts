@@ -92,7 +92,7 @@ export class PlatformModule {
             }, logger),
         },
         { provide: REDIS, useFactory: () => createRedis(config.REDIS_URL, `hakorem-${config.APP_ROLE}`, config.REDIS_KEY_PREFIX) },
-        { provide: UnitOfWork, useFactory: (pool: pg.Pool) => new UnitOfWork(pool, logger), inject: [PG_POOL] },
+        { provide: UnitOfWork, useFactory: (pool: pg.Pool) => new UnitOfWork(pool, logger, undefined, clock), inject: [PG_POOL] },
         { provide: KEY_RING, useFactory: () => keyRingFromEnvironment(config.env, config.KEK_ACTIVE_VERSION) },
         { provide: SubjectKeys, useFactory: (keyRing: KeyRing) => new SubjectKeys(keyRing, clock), inject: [KEY_RING] },
         { provide: AuditTrail, useFactory: (keys: SubjectKeys, pool: pg.Pool) => new AuditTrail(keys, clock, pool), inject: [SubjectKeys, PG_POOL] },

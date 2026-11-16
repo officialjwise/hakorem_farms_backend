@@ -15,7 +15,7 @@ import { runAsSystem, type Actor } from '../../../src/platform/context/request-c
 import { IsolationLevelError, UnitOfWork } from '../../../src/platform/database/unit-of-work';
 import { ForbiddenError } from '../../../src/platform/errors/api-error';
 import { createUser, SYSTEM_PRINCIPAL } from '../../support/iam';
-import { createStockFixture, onHand, stockDocument, stockUnit, type StockFixture } from '../../support/inventory';
+import { businessDay, createStockFixture, onHand, stockDocument, stockUnit, type StockFixture } from '../../support/inventory';
 import { startTestApp, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
 
@@ -159,7 +159,7 @@ describe('a lot traces in both directions (FR-INV-006)', () => {
     const processing = await stockDocument(fx);
     const consumed = await post({ movementType: 'PROCESS_CONSUME', productId: fx.goat, stockUnitId: g0142, fromLocationId: fx.pens, toLocationId: fx.virtual.PROCESSING, qty: units(1n), sourceDocumentId: processing });
     expect(consumed.value.pesewas).toBe(71_400n);
-    const lot = await stockUnit(fx, { productId: goatMeat, tracking: 'LOT', identifier: 'LOT-GOAT-0001', producedOn: '2026-11-14', expiresOn: '2026-11-21' });
+    const lot = await stockUnit(fx, { productId: goatMeat, tracking: 'LOT', identifier: 'LOT-GOAT-0001', producedOn: businessDay(-2), expiresOn: businessDay(5) });
     await inContext(() => uow.run({ isolation: 'serializable' }, async (tx) => {
       await stock.postIn(tx, fx.actor, {
         movementType: 'PROCESS_OUTPUT', productId: goatMeat, stockUnitId: lot, branchId: fx.branchId, fromLocationId: fx.virtual.PROCESSING, toLocationId: fx.coldRoom,

@@ -48,6 +48,9 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0187_bil_settlement_as_of',
+      '0186_inv_hold_window_app_clock',
+      '0185_platform_app_clock',
       '0184_fin_pay_credit_note_refund_postings',
       '0183_pay_credit_note_refunds',
       '0182_bil_credit_note_refunds',

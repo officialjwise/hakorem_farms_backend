@@ -139,6 +139,8 @@ export interface GrantRecord {
 export interface SessionListFilter {
   readonly principalId: string | null;
   readonly activeOnly: boolean | null;
+  /** The application clock's instant that "active" is judged at (ADR-0067). */
+  readonly now: Date;
   /** Exclusive upper bound on the id, for newest-first cursor paging. */
   readonly beforeId: string | null;
   readonly limit: number;

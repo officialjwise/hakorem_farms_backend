@@ -262,7 +262,8 @@ export interface PaymentStore {
   storeCreditBalance(tx: Transaction, customerId: string): Promise<bigint>;
   storeCreditEntries(tx: Transaction, customerId: string, limit: number): Promise<StoreCreditEntryRecord[]>;
 
-  insertCharge(tx: Transaction, charge: Omit<ChargeRecord, 'confirmedPesewas' | 'status' | 'releasedAt' | 'createdAt'> & { readonly actorId: string }): Promise<void>;
+  /** `createdAt` is the application clock's instant the charge was sent: its grace period runs from it (ADR-0067). */
+  insertCharge(tx: Transaction, charge: Omit<ChargeRecord, 'confirmedPesewas' | 'status' | 'releasedAt'> & { readonly actorId: string }): Promise<void>;
   chargeOfPayment(tx: Transaction, paymentId: string, forUpdate?: boolean): Promise<ChargeRecord | null>;
   chargeByReference(tx: Transaction, provider: string, reference: string, forUpdate?: boolean): Promise<ChargeRecord | null>;
   updateCharge(tx: Transaction, id: string, change: ChargeChange, actorId: string): Promise<void>;

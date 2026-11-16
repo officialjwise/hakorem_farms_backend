@@ -217,3 +217,88 @@ describe('a withdrawal hold is never released early (FR-INV-022, ADR-0019)', () 
     expect(await sqlStateOf(unnoted)).toBe(SQLSTATE.checkViolation);
   });
 });
+
+describe("a hold's window is read on the application's clock, not the database's (ADR-0067)", () => {
+  const goat = () => id('unit:G-0144');
+  let reorderRuleId: string;
+  let endsAt: Date;
+  let startsAt: Date;
+
+  /** What every read says of the goat: the published views, the on-hand list, the unit and the unit list's hold filter. */
+  async function reads(): Promise<{ available: string; reorderHeld: string; listed: unknown; unitHolds: number; onHoldFilter: boolean }> {
+    const views = await inContext(() =>
+      api.app.get(UnitOfWork).run({ isolation: 'read committed' }, async (tx) => ({
+        available: (await tx.query<{ q: string }>('SELECT available_qty::text AS q FROM inv.pub_stock_on_hand WHERE stock_unit_id = $1 AND on_hand_qty > 0', [goat()])).rows[0]!.q,
+        reorderHeld: (await tx.query<{ q: string }>('SELECT held_qty::text AS q FROM inv.pub_reorder_level WHERE reorder_rule_id = $1', [reorderRuleId])).rows[0]!.q,
+      })),
+    );
+    const onHand = await get(manager, `/stock/on-hand?stockUnitId=${goat()}`);
+    expect(onHand.status, JSON.stringify(onHand.body)).toBe(200);
+    const unit = await get(manager, `/stock-units/${goat()}`);
+    const held = await get(manager, `/stock-units?onHold=true&productId=${id('product:LIV-GOAT')}`);
+    return {
+      ...views,
+      listed: onHand.body.data.map((r: { availableQty: string; holds: string[] }) => ({ availableQty: r.availableQty, holds: r.holds })),
+      unitHolds: (unit.body.activeHolds as unknown[]).length,
+      onHoldFilter: (held.body.data as Array<{ id: string }>).some((u) => u.id === goat()),
+    };
+  }
+
+  /** A reservation of the goat written straight into the table as hk_app in a unit of work, then rolled back. */
+  async function reserve(): Promise<string> {
+    const rolledBack = new Error('rolled back on purpose');
+    return inContext(() =>
+      api.app.get(UnitOfWork).run({ isolation: 'serializable' }, async (tx) => {
+        const holder = randomUUID();
+        await api.app.get(DocumentRegistry).register(tx, { id: holder, docType: 'STOCK_HOLD', ownerModule: 'inv', branchId: id('branch:DDW'), actorId: SYSTEM_PRINCIPAL });
+        await tx.query(
+          `INSERT INTO inv.stock_reservation (id, product_id, stock_unit_id, location_id, qty, is_exclusive, holder_document_id, status, branch_id, created_by, updated_by)
+           VALUES ($1, $2, $3, $4, 1, true, $5, 'ACTIVE', $6, $7, $7)`,
+          [randomUUID(), id('product:LIV-GOAT'), goat(), id('location:PENS'), holder, id('branch:DDW'), SYSTEM_PRINCIPAL],
+        );
+        throw rolledBack;
+      }),
+    ).catch((error: unknown) => (error === rolledBack ? 'RESERVED' : ((error as { constraint?: string }).constraint ?? String(error))));
+  }
+
+  it('places a quarantine on G-0144 that ends two minutes on (inside the life of an access token), under a reorder rule over the goats at the pens', async () => {
+    reorderRuleId = randomUUID();
+    await admin().query(
+      `INSERT INTO inv.reorder_rule (id, product_id, branch_id, location_id, min_qty, reorder_point_qty, max_qty, created_by, updated_by)
+       VALUES ($1, $2, $3, $4, 0, 0, 10, $5, $5)`,
+      [reorderRuleId, id('product:LIV-GOAT'), id('branch:DDW'), id('location:PENS'), SYSTEM_PRINCIPAL],
+    );
+    endsAt = new Date(clock.now().getTime() + 2 * 60_000);
+    const placed = await post(manager, '/stock/holds', { stockUnitId: goat(), kind: 'QUARANTINE', endsAt: endsAt.toISOString(), note: 'Coughing; kept apart for observation' });
+    expect(placed.status, JSON.stringify(placed.body)).toBe(201);
+  });
+
+  it('one second before its end by the application clock, the goat is held in every read and a reservation is refused', async () => {
+    clock.set(new Date(endsAt.getTime() - 1_000));
+    expect(await reads()).toEqual({ available: '0.000', reorderHeld: '1.000', listed: [{ availableQty: '0.000', holds: ['QUARANTINE'] }], unitHolds: 1, onHoldFilter: true });
+    expect(await reserve()).toBe('ck_stock_reservation_held');
+  });
+
+  it('at its end by the application clock, whatever the database clock says, the goat is free in every read and may be reserved', async () => {
+    clock.set(endsAt);
+    expect(await reads()).toEqual({ available: '1.000', reorderHeld: '0.000', listed: [{ availableQty: '1.000', holds: [] }], unitHolds: 0, onHoldFilter: false });
+    expect(await reserve()).toBe('RESERVED');
+  });
+
+  it('a withdrawal hold that starts later is not in force one second before its start by the application clock, and is at its start', async () => {
+    startsAt = new Date(clock.now().getTime() + 2 * 60_000);
+    await inContext(() =>
+      api.app.get(UnitOfWork).run({ isolation: 'serializable' }, async (tx) => {
+        const treatment = randomUUID();
+        await api.app.get(DocumentRegistry).register(tx, { id: treatment, docType: 'STOCK_HOLD', ownerModule: 'inv', branchId: id('branch:DDW'), actorId: SYSTEM_PRINCIPAL });
+        return api.app.get(StockHolds).placeIn(tx, SYSTEM_PRINCIPAL, { stockUnitId: goat(), kind: 'WITHDRAWAL', startsAt, endsAt: new Date(startsAt.getTime() + 7 * 86_400_000), sourceDocumentId: treatment, note: 'Penicillin, 7 days' });
+      }),
+    );
+    clock.set(new Date(startsAt.getTime() - 1_000));
+    expect(await reads()).toEqual({ available: '1.000', reorderHeld: '0.000', listed: [{ availableQty: '1.000', holds: [] }], unitHolds: 0, onHoldFilter: false });
+    expect(await reserve()).toBe('RESERVED');
+    clock.set(startsAt);
+    expect(await reads()).toEqual({ available: '0.000', reorderHeld: '1.000', listed: [{ availableQty: '0.000', holds: ['WITHDRAWAL'] }], unitHolds: 1, onHoldFilter: true });
+    expect(await reserve()).toBe('ck_stock_reservation_held');
+  });
+});
