@@ -7,7 +7,13 @@ import { manualPostingAmounts } from '../domain/manual-journal';
 import { depreciationPostingAmounts, disposalPostingAmounts } from '../domain/fixed-asset';
 import type { DepreciationRunPosted, FixedAssetDisposed, ManualJournalApproved, YearClosed } from '../events';
 import {
+  creditNoteIssuedAmounts,
+  customerParty,
+  debitNoteIssuedAmounts,
+  invoiceIssuedAmounts,
   stockMovementAmounts,
+  type BillingLevy,
+  type BillingLine,
   supplierCreditNoteAmounts,
   supplierInvoiceAmounts,
   supplierPaymentAmounts,
@@ -99,6 +105,9 @@ export class LedgerPostings {
       ['pur.ExpenseInvoiceApproved', invoice],
       ['pur.SupplierCreditNoteApproved', (tx, event) => this.creditNote(tx, event.payload as unknown as CreditNotePosting)],
       ['pur.SupplierPaymentMade', (tx, event) => this.payment(tx, event.payload as unknown as PaymentPosting)],
+      ['bil.InvoiceIssued', (tx, event) => this.billing(tx, event.payload as unknown as BillingPosting, invoiceIssuedAmounts)],
+      ['bil.CreditNoteIssued', (tx, event) => this.billing(tx, event.payload as unknown as BillingPosting, creditNoteIssuedAmounts)],
+      ['bil.DebitNoteIssued', (tx, event) => this.billing(tx, event.payload as unknown as BillingPosting, debitNoteIssuedAmounts)],
       ['fin.ManualJournalApproved', (tx, event) => this.manualJournal(tx, event.payload as unknown as ManualJournalApproved)],
       ['fin.YearClosed', async (_tx, event) => this.yearClose(event.payload as unknown as YearClosed)],
       ['fin.DepreciationRun', async (_tx, event) => this.depreciationRun(event.payload as unknown as DepreciationRunPosted)],
@@ -220,6 +229,21 @@ export class LedgerPostings {
     };
   }
 
+  /** Billing's ◆ events (ADR-0003, A-200): the document's amounts against its customer, the walk-in party if none. */
+  private async billing(tx: Transaction, payload: BillingPosting, amountsOf: (payload: BillingPosting, customer: SubledgerRef) => PostingAmount[]): Promise<Translated> {
+    const customer = payload.customerId === null ? undefined : (await this.refs.customersIn(tx, [payload.customerId])).get(payload.customerId);
+    if (payload.customerId !== null && customer === undefined) {
+      throw new Error(`billing document ${payload.billingDocumentId}: customer ${payload.customerId} does not exist`);
+    }
+    return {
+      amounts: amountsOf(payload, customerParty(payload.customerId, customer?.name ?? null)),
+      sourceDocumentId: payload.billingDocumentId,
+      eventSubjectId: payload.billingDocumentId,
+      branchId: payload.branchId,
+      postingDate: payload.issueDate,
+    };
+  }
+
   /** FIN's own event (A-190): each line to the account entered for it, its party as entered, on the journal's own date. */
   private async manualJournal(tx: Transaction, payload: ManualJournalApproved): Promise<Translated> {
     const lines = payload.lines.map((l) => ({ accountId: l.accountId, side: l.side, amountPesewas: l.amountPesewas, subledgerPartyId: l.subledgerPartyId, memo: l.memo }));
@@ -289,6 +313,18 @@ export class LedgerPostings {
       eventSubjectId: payload.supplierPaymentId,
     };
   }
+}
+
+/** The fields of BIL's `bil.InvoiceIssued`, `bil.CreditNoteIssued` and `bil.DebitNoteIssued` FIN reads. */
+interface BillingPosting {
+  readonly billingDocumentId: string;
+  readonly branchId: string;
+  readonly customerId: string | null;
+  readonly issueDate: string;
+  readonly netPesewas: number;
+  readonly grossPesewas: number;
+  readonly lines: readonly BillingLine[];
+  readonly levies: readonly BillingLevy[];
 }
 
 interface UpkeepPosting {

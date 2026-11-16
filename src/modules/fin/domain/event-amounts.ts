@@ -163,3 +163,98 @@ export function supplierPaymentAmounts(
     },
   ];
 }
+
+/** The fields of a billing document line FIN reads from `bil.InvoiceIssued` and `bil.DebitNoteIssued`. */
+export interface BillingLine {
+  readonly lineNo: number;
+  readonly lineKind: 'PRODUCT' | 'DELIVERY_FEE' | 'ADJUSTMENT';
+  readonly glGroup: string;
+  readonly netPesewas: number;
+  readonly taxPesewas: number;
+  readonly grossPesewas: number;
+  /** The promotion and allocated header discount taken off the line (4220). */
+  readonly discountPesewas: number;
+  /** The line extended at its resolved price less at its agreed price: above zero agreed was below resolved. */
+  readonly priceVariancePesewas: number;
+  readonly stockUnitId: string | null;
+}
+
+/** One levy row of a billing document line: the levy and its amount, posted against the levy (ADR-0020). */
+export interface BillingLevy {
+  readonly lineNo: number;
+  readonly levyId: string;
+  readonly levyCode: string;
+  readonly amountPesewas: number;
+}
+
+/**
+ * The customer a billing document is held against on 1200. A walk-in sale has no customer, so its receipt is held
+ * against this one party until the payment clears it (A-200).
+ */
+export const WALK_IN_CUSTOMER: SubledgerRef = { kind: 'CUSTOMER', refId: '01900000-0000-7000-8500-000000000002', displayName: 'Walk-in customer' };
+
+export function customerParty(customerId: string | null, name: string | null): SubledgerRef {
+  return customerId === null ? WALK_IN_CUSTOMER : { kind: 'CUSTOMER', refId: customerId, displayName: name ?? customerId };
+}
+
+function billingLevies(levies: readonly BillingLevy[]): PostingAmount[] {
+  return levies.map((l) => ({
+    key: 'levy',
+    amount: Money.fromJsonInteger(l.amountPesewas),
+    determinants: { TAX_LEVY: l.levyCode },
+    subledgers: [{ kind: 'TAX_LEVY' as const, refId: l.levyId, displayName: l.levyCode }],
+  }));
+}
+
+/** A line's income: sales by GL group, or the delivery fee, at the amount the line would have had at its resolved price. */
+function incomeLine(l: BillingLine, amount: Money): PostingAmount {
+  return l.lineKind === 'DELIVERY_FEE'
+    ? { key: 'deliveryFee', amount }
+    : { key: 'sales', amount, determinants: { GL_GROUP: l.glGroup }, ...(l.stockUnitId === null ? {} : { costObjectId: l.stockUnitId }) };
+}
+
+/**
+ * `bil.InvoiceIssued` (ADR-0003; a RECEIPT posts the same): 1200 owes the agreed gross against the customer; each line
+ * credits its income at what it would have been at the resolved price (its net, plus its discount, plus its variance),
+ * each levy credits 2100 against the levy, a variance below the resolved price debits 4210 and one above credits it,
+ * and a discount debits 4220. The variance and discount are carried as the line shows them (A-200).
+ */
+export function invoiceIssuedAmounts(
+  payload: { readonly grossPesewas: number; readonly lines: readonly BillingLine[]; readonly levies: readonly BillingLevy[] },
+  customer: SubledgerRef,
+): PostingAmount[] {
+  const resolved = (l: BillingLine) => Money.ofPesewas(BigInt(l.netPesewas) + BigInt(l.discountPesewas) + BigInt(l.priceVariancePesewas));
+  return [
+    { key: 'gross', amount: Money.fromJsonInteger(payload.grossPesewas), subledgers: [customer] },
+    ...payload.lines.map((l) => incomeLine(l, resolved(l))),
+    ...billingLevies(payload.levies),
+    ...payload.lines.flatMap((l) => {
+      const variance = BigInt(l.priceVariancePesewas);
+      return [
+        { key: 'priceVarianceBelow', amount: Money.ofPesewas(variance > 0n ? variance : 0n) },
+        { key: 'priceVarianceAbove', amount: Money.ofPesewas(variance < 0n ? -variance : 0n) },
+      ];
+    }),
+    ...payload.lines.map((l) => ({ key: 'promotion', amount: Money.fromJsonInteger(l.discountPesewas) })),
+  ];
+}
+
+/** `bil.CreditNoteIssued` (ADR-0003): 4200 at the net and each levy back from 2100, against 1200 at the gross. */
+export function creditNoteIssuedAmounts(
+  payload: { readonly netPesewas: number; readonly grossPesewas: number; readonly levies: readonly BillingLevy[] },
+  customer: SubledgerRef,
+): PostingAmount[] {
+  return [{ key: 'net', amount: Money.fromJsonInteger(payload.netPesewas) }, ...billingLevies(payload.levies), { key: 'gross', amount: Money.fromJsonInteger(payload.grossPesewas), subledgers: [customer] }];
+}
+
+/** `bil.DebitNoteIssued` (ADR-0003): 1200 at the gross, each charge by GL group (or the delivery fee), each levy. */
+export function debitNoteIssuedAmounts(
+  payload: { readonly grossPesewas: number; readonly lines: readonly BillingLine[]; readonly levies: readonly BillingLevy[] },
+  customer: SubledgerRef,
+): PostingAmount[] {
+  return [
+    { key: 'gross', amount: Money.fromJsonInteger(payload.grossPesewas), subledgers: [customer] },
+    ...payload.lines.map((l) => incomeLine(l, Money.fromJsonInteger(l.netPesewas))),
+    ...billingLevies(payload.levies),
+  ];
+}
