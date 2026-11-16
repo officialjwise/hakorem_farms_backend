@@ -63,6 +63,7 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B09a continued 1c | `B09a2c-payments-settlement.md` | `b09a2c-payments-settlement` | B4 to B12 | A settlement of three payments with a fee posts 1100, 6910 and 1120 exactly and an extra line raises a break; a bank transfer clears only from its matched statement line; a break resolves only through an approved posting; the trial balance still sums to zero; every reconciliation write refuses the wrong role (built; the session split before the refund against a credit note, A-215) |
 | B09a continued 1d | `B09a2d-payments-credit-refunds.md` | `b09a2d-payments-credit-refunds` | B4 to B12 | A refund against a credit note on a paid document posts Dr 1200, never beyond the credit note's amount less what was refunded, held by the database under concurrency, approved by someone other than both makers; a cheque is refunded through a bank payout; the trial balance still sums to zero (built, A-216, ADR-0066) |
 | B09a continued 2 | `B09a3-orders-online.md` | `b09a3-orders-online` | B4 to B12 | The real Paystack sandbox run: every edge case against Paystack's test mode, every difference reported and fixed in the fake and the adapter test-first; the Settlements API's answer recorded; CR-029 (`Cart.checkoutId`) built (built; the session split before the order endpoints, A-219) |
+| B09t2 | `B09t2-dates-from-clock.md` | `b09t2-dates-from-clock` | B4 to B12 | No seed row or test depends on a fixed calendar date real time will pass; the suite passes forced to 2026-12-31 and 2027-03-01 apart from named container-clock artifacts; the refund payout check uses an application-written instant; merged before 2026-12-01 |
 | B09a continued 2b | `B09a3b-orders-online.md` | `b09a3b-orders-online` | B4 to B12 | The order endpoints and online placement post through SalePosting in one transaction; a void needs a supervisor who is not the cashier; a return never exceeds what was sold; the dashboard's sales figures answer exactly; every ORD write refuses the wrong role |
 | B09x | `B09x-contract-requests.md` | `b09x-contract-requests` | B4 to B12 | Every list operation has a named empty example (CR-005) and the seeded role matrix is published in the contract, generated from the IAM seed and checked in CI so it cannot drift (CR-023); no existing shape changes |
 | B9b | `B09b-pos-shifts-offline.md` | `b09b-pos-shifts-offline` | B4 to B12 | Shift close reconciles; 500 queued offline transactions sync exactly once |
@@ -1611,7 +1612,7 @@ pull request is green.
 
 ## B09a continued 2 — The order endpoints, returns and voids, online placement and the dashboard's sales figures
 
-**Run on 2026-11-16 and split (A-218, A-219):** the real Paystack sandbox run and CR-029 were built and proved; everything from ORD's permissions onward moved to B09a continued 2b below. Branch `b09a3-orders-online`, from `main`. Report `docs/sessions/B09a3-orders-online.md`. Inserted by B9a's split (A-209, ADR-0026 Amendments). Gate as planned: an order on any channel built so far posts stock, document, payment and ledger in one transaction through `SalePosting.postIn` (B9a's proof stands), now reached through the order endpoints and online placement; a void is approved by a supervisor who is not the cashier and leaves a credit note and reversing entries; a return never exceeds what was sold; the owner dashboard's B9a figures answer exactly from completed orders; every ORD write refuses the wrong role.
+**Run on 2026-11-16 and split (A-218, A-219):** the real Paystack sandbox run and CR-029 were built and proved; everything from ORD's permissions onward moved to B09a continued 2b below, which runs after B09t2. Branch `b09a3-orders-online`, from `main`. Report `docs/sessions/B09a3-orders-online.md`. Inserted by B9a's split (A-209, ADR-0026 Amendments). Gate as planned: an order on any channel built so far posts stock, document, payment and ledger in one transaction through `SalePosting.postIn` (B9a's proof stands), now reached through the order endpoints and online placement; a void is approved by a supervisor who is not the cashier and leaves a credit note and reversing entries; a return never exceeds what was sold; the owner dashboard's B9a figures answer exactly from completed orders; every ORD write refuses the wrong role.
 
 ```text
 Before anything else in this phase, the real Paystack sandbox run the owner moved into B9 (A-064, 2026-11-16).
@@ -1666,14 +1667,43 @@ Stop at the gate, write docs/sessions/B09a3-orders-online.md, and merge into mai
 request is green.
 ```
 
+## B09t2 — Seed and test dates from the clock, before they expire
+
+Branch `b09t2-dates-from-clock`, from `main`. Report `docs/sessions/B09t2-dates-from-clock.md`. Inserted by the parent session on 2026-11-16 from B09t's findings (ADR-0026 Amendments), urgent: **it must merge before 2026-12-01**, when real CI starts failing. Gate: no seed row and no test depends on a fixed calendar date that real time will pass (every date is built from the seed's or the test's clock, or the test pins its own clock to a fixed instant and passes it everywhere); the full integration suite passes with every test file's clock forced to 2026-12-31T10:00:00Z and to 2027-03-01T10:00:00Z, except failures caused only by a container's own clock, each named; the refund payout check compares against an application-written instant; nothing skipped or loosened.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report, then docs/sessions/B09t-clock-sweep.md (its findings and
+"still failing" list), ADR-0067 and A-217. Load hakorem-seed, hakorem-tests and hakorem-migration.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B09t2 only, on branch b09t2-dates-from-clock, branched from main:
+1. The seeded egg lot EGG-BIG-2026-1110 expires on 2026-12-01 (src/seed/farm-inv.ts:78), so sale-posting,
+   storefront-checkout and order-payment-rules fail from 2026-12-02. Make every seeded expiry, best-before, due and
+   valid-from/to date relative to the seed's clock, keeping each test's exact amounts; search the whole seed and test
+   support for other fixed dates and fix them the same way.
+2. fin/financial-statements "reads a locked period with lines from its balances" pins November 2026: build its period
+   from the test clock so it holds in any month.
+3. src/modules/pay/application/refunds.ts:222 compares a payout date with the refund's database-defaulted created_at:
+   write the refund's created_at from the application clock (or compare against an application-written instant),
+   test-first with a ManualClock across midnight.
+4. file-store's signed links fail under a forced clock because the object store container checks them against its own
+   clock: record it in the report as a container artifact, not a defect.
+Prove each fix with the forced-clock sweep (the scratch method of B09t: shift each test file's clock; never commit it)
+failing before and passing after.
+Stop at the gate, write docs/sessions/B09t2-dates-from-clock.md, and merge into main when every run on the pull
+request is green.
+```
+
 ## B09a continued 2b — The order endpoints, returns and voids, online placement and the dashboard's sales figures
 
-Branch `b09a3b-orders-online`, from `main`. Report `docs/sessions/B09a3b-orders-online.md`. Inserted by B09a continued 2's split (A-219, ADR-0026 Amendments). Gate: an order on any channel built so far posts stock, document, payment and ledger in one transaction through `SalePosting.postIn` (B9a's proof stands), now reached through the order endpoints and online placement; a void is approved by a supervisor who is not the cashier and leaves a credit note and reversing entries; a return never exceeds what was sold; the owner dashboard's B9a figures answer exactly from completed orders; every ORD write refuses the wrong role.
+Branch `b09a3b-orders-online`, from `main`. Report `docs/sessions/B09a3b-orders-online.md`. Inserted by B09a continued 2's split (A-219, ADR-0026 Amendments); runs after B09t2 and before B09x. Gate: an order on any channel built so far posts stock, document, payment and ledger in one transaction through `SalePosting.postIn` (B9a's proof stands), now reached through the order endpoints and online placement; a void is approved by a supervisor who is not the cashier and leaves a credit note and reversing entries; a return never exceeds what was sold; the owner dashboard's B9a figures answer exactly from completed orders; every ORD write refuses the wrong role.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9a row).
-List docs/sessions/ and read only the most recent report (docs/sessions/B09a3-orders-online.md, or the last
-report of its own splits).
+List docs/sessions/ and read only the most recent report (docs/sessions/B09t2-dates-from-clock.md), and also
+docs/sessions/B09a3-orders-online.md, the handoff of the orders work this phase continues.
 Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
 reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the ORD (core) requirement block of docs/SRS.md and FR-RPT-001 (nothing else from the SRS),
@@ -1709,8 +1739,8 @@ which now answers as Paystack's test mode did (A-218): its MTN test number pays 
 is refused, and a refund's idempotency key is honoured only through the adapter's note lookup.
 Two rules from B09t (ADR-0067): no new now() or current_date in business SQL (due dates, expiries, holds, business
 days and as-of times take the application clock, as a parameter or platform.app_now()); and no new fixed calendar
-date in the seed or a test (build dates from the seed's or the test's clock). The seeded egg lot's fixed expiry
-(src/seed/farm-inv.ts) has its own fix scheduled after this phase: leave it unless the seed extension touches it.
+date in the seed or a test (build dates from the seed's or the test's clock); B09t2 made the seed's dates relative
+to its clock, so the seeded trading day this phase adds follows the same rule.
 If it does not fit, split at a sub-domain boundary after a proven, merged gate.
 Stop at the gate, write docs/sessions/B09a3b-orders-online.md, and merge into main when every run on the pull
 request is green.
@@ -1723,7 +1753,7 @@ Branch `b09x-contract-requests`, from `main`. Report `docs/sessions/B09x-contrac
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
 List docs/sessions/ and read only the most recent report (docs/sessions/B09a3b-orders-online.md, or the last
-report of B9a's own splits).
+report of its own splits).
 Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md), in particular CR-005 and
 CR-023: implement them, answer every other request in the report, never edit that file and never open frontend source.
 For this phase, read docs/API.md (examples and lists), scripts/contract/, the IAM seed migrations and
