@@ -120,6 +120,7 @@ Each card gives: what the module owns, its public interface (the services export
 - **Imports:** platform, IAM, MDM.
 - **Subscribes (T):** every event marked ◆ in `docs/DOMAIN_MODEL.md`, from INV, PRC, PUR, BIL, PAY, POS, DEL, WHL and CAP. No module calls FIN to post.
 - **Built in B8 (ADR-0056):** the posting handlers for INV's, PRC's and PUR's ◆ events with the boot assertion; `SubledgerSources`, where a higher module registers the subledger it keeps for a control account (INV registers `inv.stock-value`); `LedgerReconciliation`, the nightly `ledger-reconcile` job; `FinancialStatements.trialBalanceIn`. Publishers declare their ◆ events with `DomainEvents.declareLedgerEvents`. The interface operations follow in B08 continued (A-187).
+- **Built in B08 continued (A-188, A-189):** `ChartOfAccounts` (list, add, rename, close) and `Periods` (list, lock, close, and the reopen under `PERIOD_REOPEN`, whose approval handler FIN registers with IAM's `Approvals`); FIN now imports IAM for the policy engine, approvals and principal names. Journals, manual journals, posting rule changes and bank accounts follow in B08 continued 1b, the statements, fixed assets and depreciation in B08 continued 1c.
 
 ### INV: inventory and stock control (layer 5)
 

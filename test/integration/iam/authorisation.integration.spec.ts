@@ -58,6 +58,9 @@ function registeredRoutes(): RouteInfo[] {
 const VALID_BODY: Readonly<Record<string, object>> = {
   generateDeliverySlots: { zoneId: randomUUID(), from: '2026-12-01', to: '2026-12-07', weekdays: [2], times: [{ startsAt: '10:00', endsAt: '12:00', capacity: 8 }] },
   updateDeliverySlot: { version: 1, capacity: 10 },
+  createAccount: { code: '6110', name: 'Generator fuel', type: 'EXPENSE', isPostable: true },
+  updateAccount: { version: 1, name: 'Generator fuel and servicing' },
+  reopenAccountingPeriod: { reason: 'Supplier invoice for October received late' },
   createProduct: { sku: 'MEAT-GOAT-5KG', name: 'Goat meat, 5 kg pack', categoryId: randomUUID(), stockPolicy: 'CATCH_WEIGHT', baseUom: 'KG', saleUom: 'PACK', onlineMode: 'LISTED' },
   revokeSession: { reason: 'Tablet left unattended overnight' },
   createUser: { displayName: 'Kojo Asante', email: 'kojo.asante@hakoremfarms.test', realm: 'STAFF', grants: [] },
@@ -217,7 +220,7 @@ afterAll(async () => {
 });
 
 describe('deny by default: the handler walk (ADR-0017, security architecture section 14)', () => {
-  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued, B05 continued 3, B05x, B6, B06m, B06 continued, B06 continued 2, B06 continued 3, B06u, B7, B07 continued, B07 continued 1b, B06r and B07 continued 2 routes, and every one declares its operation', () => {
+  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued, B05 continued 3, B05x, B6, B06m, B06 continued, B06 continued 2, B06 continued 3, B06u, B7, B07 continued, B07 continued 1b, B06r, B07 continued 2 and B08 continued routes, and every one declares its operation', () => {
     expect(routes.map((route) => route.spec?.operationId).sort()).toEqual(
       [
         'changePassword', 'confirmTotpEnrolment', 'createProduct', 'getCurrentSession', 'getHealth', 'getProduct', 'listProducts', 'listSessions',
@@ -277,6 +280,7 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'listDeliverySlots', 'generateDeliverySlots', 'updateDeliverySlot',
         'listCatalogue', 'getCatalogueProduct', 'listShopCategories', 'createCart', 'getCart', 'addCartLine', 'updateCartLine', 'removeCartLine',
         'applyCartCoupon', 'removeCartCoupon', 'listDeliverySlotOptions', 'startCheckout', 'getCheckout', 'updateCheckout',
+        'listAccounts', 'createAccount', 'updateAccount', 'listAccountingPeriods', 'lockAccountingPeriod', 'closeAccountingPeriod', 'reopenAccountingPeriod',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);

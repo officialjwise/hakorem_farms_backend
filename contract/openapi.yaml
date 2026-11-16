@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.33.0"
+  version: "1.34.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -3386,6 +3386,9 @@ paths:
         - SUPPLIER_INVOICE_INVALID
         - EVIDENCE_NOT_SCANNED
         - PROCESSING_ORDER_INVALID
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
         - RATE_LIMITED
       x-permission: "the approving permission named by the approval policy for the kind"
       parameters:
@@ -16715,6 +16718,9 @@ paths:
         - PASSWORD_CHANGE_REQUIRED
         - NOT_FOUND
         - IMPORT_NOT_VALIDATED
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
         - RATE_LIMITED
       x-permission: mdm.import.apply
       parameters:
@@ -18038,6 +18044,9 @@ paths:
         - INSUFFICIENT_STOCK
         - STOCK_UNIT_NOT_AVAILABLE
         - STOCK_UNIT_RESERVED
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
         - RATE_LIMITED
       parameters:
         - name: id
@@ -20132,6 +20141,9 @@ paths:
         - STOCK_ADJUSTMENT_INVALID
         - REFERENCE_NOT_FOUND
         - INSUFFICIENT_STOCK
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
         - RATE_LIMITED
       parameters:
         - name: id
@@ -21087,6 +21099,9 @@ paths:
         - REFERENCE_NOT_FOUND
         - RECEIPT_EXCEEDS_ORDER
         - RECEIPT_ORDER_MISMATCH
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
         - RATE_LIMITED
       parameters:
         - name: id
@@ -22736,6 +22751,9 @@ paths:
         - INSUFFICIENT_STOCK
         - STOCK_UNIT_NOT_AVAILABLE
         - STOCK_UNIT_RESERVED
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
         - RATE_LIMITED
       parameters:
         - name: id
@@ -23829,6 +23847,9 @@ paths:
         - INSUFFICIENT_STOCK
         - STOCK_UNIT_NOT_AVAILABLE
         - STOCK_UNIT_RESERVED
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
         - RATE_LIMITED
       parameters:
         - name: id
@@ -26811,6 +26832,9 @@ paths:
         - REFERENCE_NOT_FOUND
         - INSUFFICIENT_STOCK
         - STOCK_HOLD_INVALID
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
         - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -28003,6 +28027,9 @@ paths:
         - INVALID_STATE_TRANSITION
         - LIVESTOCK_RECORD_INVALID
         - MORTALITY_PHOTO_REQUIRED
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
         - RATE_LIMITED
       parameters:
         - name: id
@@ -28636,6 +28663,9 @@ paths:
         - LIVESTOCK_RECORD_INVALID
         - REFERENCE_NOT_FOUND
         - INSUFFICIENT_STOCK
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
         - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -29754,6 +29784,9 @@ paths:
         - REFERENCE_NOT_FOUND
         - INSUFFICIENT_STOCK
         - STOCK_HOLD_INVALID
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
         - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -30009,6 +30042,9 @@ paths:
         - INVALID_STATE_TRANSITION
         - LIVESTOCK_RECORD_INVALID
         - MORTALITY_PHOTO_REQUIRED
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
         - RATE_LIMITED
       parameters:
         - name: id
@@ -30254,6 +30290,9 @@ paths:
         - LIVESTOCK_RECORD_INVALID
         - REFERENCE_NOT_FOUND
         - INSUFFICIENT_STOCK
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
         - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -32258,6 +32297,9 @@ paths:
         - STOCK_UNIT_NOT_AVAILABLE
         - STOCK_UNIT_RESERVED
         - REFERENCE_NOT_FOUND
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
         - RATE_LIMITED
       parameters:
         - name: id
@@ -32431,6 +32473,9 @@ paths:
         - NOT_FOUND
         - INVALID_STATE_TRANSITION
         - PROCESSING_ORDER_INVALID
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
         - RATE_LIMITED
       parameters:
         - name: id
@@ -36671,6 +36716,9 @@ paths:
         - THREE_WAY_MATCH_FAILED
         - SUPPLIER_INVOICE_INVALID
         - APPROVAL_PENDING
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
         - RATE_LIMITED
       parameters:
         - name: id
@@ -37683,6 +37731,9 @@ paths:
         - VERSION_CONFLICT
         - INVALID_STATE_TRANSITION
         - DUPLICATE_VALUE
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - SUBLEDGER_REQUIRED
         - RATE_LIMITED
       parameters:
         - name: id
@@ -37868,8 +37919,13 @@ paths:
       tags:
         - fin
       summary: "List the chart of accounts"
-      description: "Permission: `fin.account.read`."
+      description: "The chart in code order (FR-FIN-001): type, normal side, postable flag, subledger kind and cash flow category of each account.\n\nPermission: `fin.account.read`."
       x-permission: fin.account.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - RATE_LIMITED
       parameters:
         - name: type
           in: query
@@ -38013,8 +38069,20 @@ paths:
       tags:
         - fin
       summary: "Add an account"
-      description: "Permission: `fin.account.manage`."
+      description: "FR-FIN-002. The normal side follows the type (debit for assets, cost of sales and expenses, credit for the rest); a contra account is added by migration (A-188). Refusals are 422 `ACCOUNT_INVALID` with the rule in `details[].code` (`CLASS_MISMATCH`: the code's first digit is not the type's class; `SUBLEDGER_ON_HEADER`; `PARENT_TYPE_MISMATCH`), `DUPLICATE_VALUE` for a code in use and `REFERENCE_NOT_FOUND` for an unknown parent.\n\nPermission: `fin.account.manage`."
       x-permission: fin.account.manage
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - ACCOUNT_INVALID
+        - DUPLICATE_VALUE
+        - REFERENCE_NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -38075,8 +38143,20 @@ paths:
       tags:
         - fin
       summary: "Rename or close an account"
-      description: "Permission: `fin.account.manage`."
+      description: "FR-FIN-002. Changes the name or the status at the `version` read (409 `VERSION_CONFLICT` otherwise). An account is closed only at a nil balance and once no posting rule or determination in force names it: 422 `ACCOUNT_INVALID` with `BALANCE_NOT_ZERO` or `IN_USE_BY_RULE` (A-188). A closed account takes no new lines. Code, type, side and subledger never change here; the database keeps them on an account with lines.\n\nPermission: `fin.account.manage`."
       x-permission: fin.account.manage
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - ACCOUNT_INVALID
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -38380,8 +38460,13 @@ paths:
       tags:
         - fin
       summary: "List accounting periods"
-      description: "Permission: `fin.period.read`."
+      description: "The twelve monthly periods of each calendar year, newest first (A-028).\n\nPermission: `fin.period.read`."
       x-permission: fin.period.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - RATE_LIMITED
       parameters:
         - name: fiscalYear
           in: query
@@ -38522,8 +38607,19 @@ paths:
       tags:
         - fin
       summary: "Lock a period against posting"
-      description: "A posting dated in a locked period is refused by the database. Offline sales dated in it post on the first open date and are flagged.\n\nPermission: `fin.period.lock`."
+      description: "A posting dated in a locked period is refused by the database; an event dated in it posts on the day it is recorded when that day's period is open (A-183), and an operation whose recording day is in a period that is not open is refused 422 `PERIOD_NOT_OPEN`. Only an `OPEN` period is locked, the current one included: 422 `INVALID_STATE_TRANSITION` with `details[].code` the period's status otherwise.\n\nPermission: `fin.period.lock`."
       x-permission: fin.period.lock
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -38582,9 +38678,22 @@ paths:
       tags:
         - fin
       summary: "Reopen a locked period"
-      description: "Owner only. A closed period can never be reopened.\n\nPermission: `fin.period.reopen`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session.\n\nMay require approval of kind `PERIOD_REOPEN`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+      description: "Owner only, with a reason. Always answers `202`: a different user holding `fin.period.reopen_approve` approves the `PERIOD_REOPEN` request (the Accountant, or a second Owner), never the Owner who asked (A-188). A closed period can never be reopened: 422 `INVALID_STATE_TRANSITION` with `details[].code` the period's status, or `REOPEN_PENDING` while a request waits.\n\nPermission: `fin.period.reopen`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session.\n\nMay require approval of kind `PERIOD_REOPEN`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
       x-permission: fin.period.reopen
       x-requires-step-up: true
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - STEP_UP_REQUIRED
+        - TOTP_ENROLMENT_REQUIRED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -38639,7 +38748,7 @@ paths:
                 kind: PERIOD_REOPEN
                 subject:
                   id: "019a7ad2-1292-731b-a853-3a8a102bb367"
-                  docType: STOCK_ADJUSTMENT
+                  docType: PERIOD_REOPEN
                   number: null
                 summary: "Awaiting approval by a different user with the approving permission"
                 requestedAt: "2026-11-13T10:12:00Z"
@@ -38665,9 +38774,22 @@ paths:
       tags:
         - fin
       summary: "Close a locked period permanently"
-      description: "Permission: `fin.period.close`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      description: "Final: a closed period never changes again. Only a `LOCKED` period that has ended is closed, and only once every earlier period is closed (A-188; the database holds both). A refusal is 422 `INVALID_STATE_TRANSITION` with `details[].code` the period's status, `PERIOD_NOT_ENDED` or `EARLIER_PERIOD_NOT_CLOSED`.\n\nPermission: `fin.period.close`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: fin.period.close
       x-requires-step-up: true
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - STEP_UP_REQUIRED
+        - TOTP_ENROLMENT_REQUIRED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path

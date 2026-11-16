@@ -17,6 +17,9 @@ x-error-codes:
   - REFERENCE_NOT_FOUND
   - INSUFFICIENT_STOCK
   - STOCK_HOLD_INVALID
+  - PERIOD_NOT_OPEN
+  - POSTING_RULE_MISSING
+  - SUBLEDGER_REQUIRED
   - RATE_LIMITED
 parameters:
   - $ref: "#/components/parameters/IdempotencyKey"

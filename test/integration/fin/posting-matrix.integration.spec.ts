@@ -305,7 +305,7 @@ describe('around the matrix', () => {
         ),
       ).rejects.toMatchObject({ code: 'PERIOD_NOT_OPEN', status: 422 });
     } finally {
-      await fx.app.query("UPDATE fin.accounting_period SET status = 'OPEN', version = version + 1 WHERE id = $1", [period[0]!.id]);
+      await fx.app.query("UPDATE fin.accounting_period SET status = 'OPEN', locked_at = NULL, locked_by = NULL, version = version + 1 WHERE id = $1", [period[0]!.id]);
     }
     const { rows } = await fx.app.query('SELECT 1 FROM inv.stock_movement WHERE source_document_id = $1', [sourceDocumentId]);
     expect(rows).toHaveLength(0);
