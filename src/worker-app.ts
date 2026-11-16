@@ -19,6 +19,7 @@ import { OBJECT_STORAGE, type ObjectStorage } from './platform/storage/object-st
 import { BullmqJobQueue } from './platform/queue/job-queue';
 import { S3ObjectStorage } from './platform/storage/s3-object-storage';
 import { WorkerRuntime, type ScheduledJob } from './platform/worker/worker-runtime';
+import { LedgerReconciliation } from './modules/fin';
 import { BalanceReconciliation, ReservationExpiry, StockAlertSweep } from './modules/inv';
 import { MortalityEvidenceReturns } from './modules/liv';
 import { CatalogueListing } from './modules/shp';
@@ -34,6 +35,11 @@ const MORTALITY_EVIDENCE_RETURNS_EVERY_MS = 60_000;
 const CATALOGUE_REFRESH_EVERY_MS = 60_000;
 /** Daily at 02:00 Africa/Accra (UTC), in the heavy-work window: the stock recompute (FR-INV-003, docs/OPERATIONS.md). */
 const STOCK_BALANCE_RECOMPUTE_CRON = '0 2 * * *';
+/**
+ * Daily at 02:15 Africa/Accra (UTC), after the stock recompute: the trial balance overall and per entry, the inventory
+ * accounts against the cost pools, and every number series (FR-FIN-016, ADR-0015, docs/OPERATIONS.md).
+ */
+const LEDGER_RECONCILE_CRON = '15 2 * * *';
 /** Daily at 06:30, before the shop opens: low-stock and expiring-lot alerts (FR-INV-015, FR-INV-016). */
 const STOCK_ALERTS_CRON = '30 6 * * *';
 
@@ -90,6 +96,7 @@ export async function startWorker(config: AppConfig, logger: Logger, clock: Cloc
   const reservationExpiry = app.get(ReservationExpiry);
   const balanceReconciliation = app.get(BalanceReconciliation);
   const stockAlerts = app.get(StockAlertSweep);
+  const ledgerReconciliation = app.get(LedgerReconciliation);
   const evidenceReturns = app.get(MortalityEvidenceReturns);
   const catalogue = app.get(CatalogueListing);
   // The modules' scheduled jobs (ADR-0049, docs/OPERATIONS.md "Scheduled jobs").
@@ -102,6 +109,20 @@ export async function startWorker(config: AppConfig, logger: Logger, clock: Cloc
       run: async (system) => {
         const drift = await balanceReconciliation.run({ ...system, displayName: 'Scheduler', realm: null, sessionId: null, steppedUpAt: null });
         return { drift: drift.length, exceptionIds: drift.map((d) => d.exceptionId) };
+      },
+    },
+    {
+      name: 'ledger-reconcile',
+      when: { cron: LEDGER_RECONCILE_CRON },
+      run: async (system) => {
+        const report = await ledgerReconciliation.run({ ...system, displayName: 'Scheduler', realm: null, sessionId: null, steppedUpAt: null });
+        return {
+          clean: report.clean,
+          signedSumPesewas: Number(report.signedSumPesewas),
+          unbalancedEntryIds: report.unbalancedEntries.map((e) => e.entryId),
+          controlBreaks: report.sources.reduce((n, s) => n + s.breaks.length + s.unmapped.length, 0),
+          seriesGapIds: report.seriesGaps.map((g) => g.seriesId),
+        };
       },
     },
     { name: 'stock-alerts', when: { cron: STOCK_ALERTS_CRON }, run: (system) => stockAlerts.run(system) },
