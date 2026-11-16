@@ -1,0 +1,252 @@
+operationId: issueDebitNote
+tags:
+  - bil
+summary: "Issue a debit note against an issued invoice"
+description: "Adds a charge to an issued invoice or receipt (FR-BIL-007): each line's `amountPesewas` is in the original's terms (net if it was tax-exclusive, gross if inclusive) and is taxed by today's tax scheme in its `taxCategoryId`. Issued at once, numbered `DBN-<YEAR>-<BRANCH>-<SEQUENCE>` in the same transaction, and posted as `bil.DebitNoteIssued` (Dr 1200 gross against the customer, Cr 4030 each charge, Cr 2100 each levy). It is due on the original's due date, or today if that has passed. The reason is a `BILLING_ADJUSTMENT` code (`UNDERCHARGED`, `CHARGE_OMITTED`). Refusals are 422 `BILLING_DOCUMENT_INVALID` (`ORIGINAL_NOT_CORRECTABLE`, `REASON_NOT_ALLOWED`, `NOTE_REQUIRED`, `NO_LINES`, `AMOUNT_NOT_POSITIVE`) and `REFERENCE_NOT_FOUND` for an unknown tax category.\n\nPermission: `bil.debit_note.create` at the original's branch."
+x-permission: bil.debit_note.create
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - NOT_FOUND
+  - BILLING_DOCUMENT_INVALID
+  - REFERENCE_NOT_FOUND
+  - PERIOD_NOT_OPEN
+  - POSTING_RULE_MISSING
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/DebitNoteCreate"
+      example:
+        reasonCode: UNDERCHARGED
+        note: "Second delivery attempt fee agreed by phone"
+        lines:
+          - description: "Second delivery attempt"
+            amountPesewas: 3000
+            taxCategoryId: "019a7a8b-059e-7ca4-a1dd-d31e8d9f4bfc"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/BillingDocument"
+        example:
+          id: "019a7ae2-fd46-7b80-a0b9-c0e09cf739be"
+          kind: RECEIPT
+          status: ISSUED
+          documentNo: RCP-2026-DDW-T1-018834
+          provisionalRef: null
+          customer: null
+          customerName: null
+          customerTin: null
+          billingAddress: null
+          order:
+            id: "019a7aac-216c-721a-8753-2a7ecd11a35c"
+            docType: SALES_ORDER
+            number: SO-2026-DDW-004211
+          originalDocument: null
+          issueDate: "2026-11-13"
+          dueDate: null
+          taxInclusive: true
+          taxSchemeVersionId: "019a7aa9-78e2-788e-adc6-91ba57db0a98"
+          netPesewas: 130250
+          taxPesewas: 7650
+          grossPesewas: 137900
+          currency: GHS
+          levyTotals:
+            - levyCode: VAT
+              levyName: "Value Added Tax"
+              amountPesewas: 5738
+            - levyCode: NHIL
+              levyName: "National Health Insurance Levy"
+              amountPesewas: 956
+            - levyCode: GETFUND
+              levyName: "GETFund Levy"
+              amountPesewas: 956
+          lines:
+            - id: "019a7ae3-1c35-7564-ba9c-5f1816a8d7f5"
+              lineNo: 1
+              lineKind: PRODUCT
+              product:
+                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                sku: LIV-GOAT
+                name: Goat
+              description: Goat
+              stockUnit:
+                id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
+                identifier: G-0142
+                tracking: SERIAL
+              quantity: "1.000"
+              uom: HEAD
+              weightKg: "26.400"
+              unitPricePesewas: 80000
+              resolvedUnitPricePesewas: 85000
+              discountPesewas: 0
+              taxCategory:
+                id: "019a7a8a-6af3-7b33-906b-bc092d2a34e7"
+                code: LIVE_ANIMALS
+                name: "Live Animals"
+              lineNetPesewas: 80000
+              lineTaxPesewas: 0
+              lineGrossPesewas: 80000
+              levies:
+                - levyCode: VAT
+                  levyName: "Value Added Tax"
+                  treatment: ZERO_RATED
+                  ratePercent: "0.00"
+                  basePesewas: 80000
+                  amountPesewas: 0
+                - levyCode: NHIL
+                  levyName: "National Health Insurance Levy"
+                  treatment: ZERO_RATED
+                  ratePercent: "0.00"
+                  basePesewas: 80000
+                  amountPesewas: 0
+                - levyCode: GETFUND
+                  levyName: "GETFund Levy"
+                  treatment: ZERO_RATED
+                  ratePercent: "0.00"
+                  basePesewas: 80000
+                  amountPesewas: 0
+            - id: "019a7ae3-3b24-7f47-8480-fd4f9059762d"
+              lineNo: 2
+              lineKind: PRODUCT
+              product:
+                id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                sku: EGG-BIG
+                name: "Eggs, big, crate of 30"
+              description: "Eggs, big, crate of 30"
+              stockUnit:
+                id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
+                identifier: EGG-261112-L1
+                tracking: LOT
+              quantity: "2.000"
+              uom: CRATE
+              weightKg: null
+              unitPricePesewas: 6000
+              resolvedUnitPricePesewas: 6000
+              discountPesewas: 0
+              taxCategory:
+                id: "019a7a8a-a8d1-7efa-b432-f878208c7156"
+                code: EGGS
+                name: Eggs
+              lineNetPesewas: 12000
+              lineTaxPesewas: 0
+              lineGrossPesewas: 12000
+              levies:
+                - levyCode: VAT
+                  levyName: "Value Added Tax"
+                  treatment: ZERO_RATED
+                  ratePercent: "0.00"
+                  basePesewas: 12000
+                  amountPesewas: 0
+                - levyCode: NHIL
+                  levyName: "National Health Insurance Levy"
+                  treatment: ZERO_RATED
+                  ratePercent: "0.00"
+                  basePesewas: 12000
+                  amountPesewas: 0
+                - levyCode: GETFUND
+                  levyName: "GETFund Levy"
+                  treatment: ZERO_RATED
+                  ratePercent: "0.00"
+                  basePesewas: 12000
+                  amountPesewas: 0
+            - id: "019a7ae3-5a13-792b-9e63-9b870a0a1464"
+              lineNo: 3
+              lineKind: PRODUCT
+              product:
+                id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
+                sku: MEAT-BEEF
+                name: "Beef, 15 kg pack"
+              description: "Beef, 15 kg pack"
+              stockUnit:
+                id: "019a7a91-2f3b-74f5-9a2d-582bcbe2d109"
+                identifier: MEAT-BEEF-261104-01
+                tracking: LOT
+              quantity: "15.300"
+              uom: KG
+              weightKg: "15.300"
+              unitPricePesewas: 3000
+              resolvedUnitPricePesewas: 3000
+              discountPesewas: 0
+              taxCategory:
+                id: "019a7a8a-c7c0-78dd-8e16-96af9a3d0f8d"
+                code: PROCESSED_MEAT
+                name: "Processed Meat"
+              lineNetPesewas: 38250
+              lineTaxPesewas: 7650
+              lineGrossPesewas: 45900
+              levies:
+                - levyCode: VAT
+                  levyName: "Value Added Tax"
+                  treatment: STANDARD
+                  ratePercent: "15.00"
+                  basePesewas: 38250
+                  amountPesewas: 5738
+                - levyCode: NHIL
+                  levyName: "National Health Insurance Levy"
+                  treatment: STANDARD
+                  ratePercent: "2.50"
+                  basePesewas: 38250
+                  amountPesewas: 956
+                - levyCode: GETFUND
+                  levyName: "GETFund Levy"
+                  treatment: STANDARD
+                  ratePercent: "2.50"
+                  basePesewas: 38250
+                  amountPesewas: 956
+          settlement:
+            allocatedPesewas: 137900
+            creditedPesewas: 0
+            outstandingPesewas: 0
+            paymentStatus: PAID
+            settledAt: "2026-11-13T09:12:00Z"
+            asOf: "2026-11-13T09:30:00Z"
+          certification: null
+          reasonCode: null
+          archivedDocumentId: "019a7ae3-97f1-7cf2-b22a-d7f5fd6c50d3"
+          contentHash: "sha256:4f2ac1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7f0"
+          issuedAt: "2026-11-13T09:12:00Z"
+          occurredAt: "2026-11-13T09:12:00Z"
+          reprintCount: 1
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
