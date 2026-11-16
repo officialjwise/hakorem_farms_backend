@@ -10,7 +10,8 @@ Built in B8 (migration 0123, ADR-0056): `account`, `subledger_party`, `accountin
 | --- | --- |
 | `fin.assert_balanced()`, a deferred constraint trigger on `fin.journal_line` | At commit, for every entry touched: sum of `D` amounts equals sum of `C` amounts, and the entry has at least two lines. This is the constraint that no journal may post unbalanced |
 | `fin.assert_period_open()` on insert of `fin.journal_entry` | Rejects an entry whose `posting_date` is in a period that is not `OPEN` |
-| `fin.assert_line_valid()` on insert of `fin.journal_line` | The account is postable; `subledger_party_id` is present exactly when the account has a `subledger_kind`, and the party is of that kind; the line is written in the transaction that wrote its entry and carries the entry's posting date |
+| `fin.record_written_xact()` on insert of `fin.journal_entry` | Sets `written_xact_id` to the top-level transaction (`pg_current_xact_id()`), whatever the writer supplies (migration 0124) |
+| `fin.assert_line_valid()` on insert of `fin.journal_line` | The account is postable; `subledger_party_id` is present exactly when the account has a `subledger_kind`, and the party is of that kind; the line is written in the top-level transaction that wrote its entry (compared on `written_xact_id`, so an entry written inside a savepoint keeps its own lines; migration 0124) and carries the entry's posting date |
 | `fin.account_guard()` on update of `fin.account` | An account with lines keeps its code, type, normal side and subledger kind and is never archived |
 | `fin.accounting_period_guard()` on update of `fin.accounting_period` | A `CLOSED` period never changes; no period changes its dates |
 
@@ -162,6 +163,7 @@ Header of a posted journal. Insert-only.
 | `currency` | `char(3)` | NOT NULL DEFAULT `'GHS'`, CHECK `= 'GHS'` | |
 | `reverses_entry_id` | `uuid` | NULL, UNIQUE, FK `fin.journal_entry` | A correction |
 | `occurred_at` | `timestamptz` | NOT NULL | When the business event happened |
+| `written_xact_id` | `xid8` | NULL; set by trigger | The top-level transaction that wrote the entry, so the line trigger admits lines only from it (B08 continued, migration 0124). NULL on entries written before 0124, which no transaction matches |
 
 Standard columns: `LEDGER`.
 

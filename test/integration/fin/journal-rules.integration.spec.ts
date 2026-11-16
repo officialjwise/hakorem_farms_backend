@@ -45,7 +45,19 @@ async function party(kind: string, name: string): Promise<string> {
 }
 
 /** One journal entry and its lines written in one transaction of its own, committed: the commit is what may fail. */
-async function postRaw(lines: readonly RawLine[], options: { date?: string; periodId?: string } = {}): Promise<string> {
+/**
+ * Where a SAVEPOINT (a subtransaction, as drizzle's nested `transaction()` opens) wraps the writes: the entry and its
+ * lines together, only the lines, or only the entry. The savepoint is released before the commit.
+ */
+type SavepointAround = 'entry-and-lines' | 'lines' | 'entry';
+
+interface RawOptions {
+  readonly date?: string;
+  readonly periodId?: string;
+  readonly savepoint?: SavepointAround;
+}
+
+async function postRaw(lines: readonly RawLine[], options: RawOptions = {}): Promise<string> {
   const date = options.date ?? '2026-11-16';
   const [year, month] = date.split('-').map(Number) as [number, number];
   const id = randomUUID();
@@ -54,11 +66,14 @@ async function postRaw(lines: readonly RawLine[], options: { date?: string; peri
   try {
     await client.query('BEGIN');
     await client.query("INSERT INTO platform.business_document (id, doc_type, owner_module, branch_id, actor_id) VALUES ($1, 'JOURNAL', 'fin', $2, $3)", [id, branchId, SYSTEM_PRINCIPAL]);
+    if (options.savepoint === 'entry-and-lines' || options.savepoint === 'entry') await client.query('SAVEPOINT around_entry');
     await client.query(
       `INSERT INTO fin.journal_entry (id, entry_no, posting_date, period_id, branch_id, kind, source_document_id, posting_group_id, description, occurred_at, actor_id)
        VALUES ($1, $2, $3, $4, $5, 'MANUAL', $1, $6, 'Raw SQL test entry', now(), $7)`,
       [id, `RAW-${entryCounter}-${id.slice(0, 8)}`, date, options.periodId ?? period(year, month), branchId, randomUUID(), SYSTEM_PRINCIPAL],
     );
+    if (options.savepoint === 'entry') await client.query('RELEASE SAVEPOINT around_entry');
+    if (options.savepoint === 'lines') await client.query('SAVEPOINT around_lines');
     let lineNo = 0;
     for (const line of lines) {
       lineNo += 1;
@@ -68,6 +83,8 @@ async function postRaw(lines: readonly RawLine[], options: { date?: string; peri
         [id, lineNo, account(line.code), line.side, line.amount, branchId, line.party ?? null, date],
       );
     }
+    if (options.savepoint === 'entry-and-lines') await client.query('RELEASE SAVEPOINT around_entry');
+    if (options.savepoint === 'lines') await client.query('RELEASE SAVEPOINT around_lines');
     await client.query('COMMIT');
     return id;
   } catch (error) {
@@ -178,6 +195,97 @@ describe('a journal must balance, enforced by the database (FR-FIN-003)', () => 
     };
     expect(await refusalOf(add())).toEqual({ code: LEDGER_RULE, constraint: 'ck_journal_line_entry' });
     expect(await entriesNamed(id)).toBe(3);
+  });
+});
+
+describe('an entry written inside a savepoint keeps its own lines (migration 0124)', () => {
+  // A row written inside a SAVEPOINT carries the subtransaction's xid, while pg_current_xact_id() names the top-level
+  // transaction, so a rule comparing the two refuses an entry's own lines. Each case is one transaction, committed.
+  for (const around of ['entry-and-lines', 'lines', 'entry'] as const) {
+    it(`commits a balanced entry with the savepoint around ${around === 'entry-and-lines' ? 'the entry and its lines' : `only the ${around}`}`, async () => {
+      const id = await postRaw(
+        [
+          { code: '1310', side: 'D', amount: 4_200 },
+          { code: '2010', side: 'C', amount: 4_200 },
+        ],
+        { savepoint: around },
+      );
+      expect(await entriesNamed(id)).toBe(3);
+    });
+  }
+
+  it('still refuses an unbalanced entry written inside a savepoint, at commit, as ck_journal_balanced', async () => {
+    expect(
+      await refusalOf(
+        postRaw(
+          [
+            { code: '1310', side: 'D', amount: 4_200 },
+            { code: '2010', side: 'C', amount: 4_199 },
+          ],
+          { savepoint: 'entry-and-lines' },
+        ),
+      ),
+    ).toEqual({ code: LEDGER_RULE, constraint: 'ck_journal_balanced' });
+  });
+
+  it('refuses lines written inside a savepoint of a later transaction to an entry an earlier one committed, as ck_journal_line_entry', async () => {
+    const id = await postRaw([
+      { code: '1310', side: 'D', amount: 1_500 },
+      { code: '2010', side: 'C', amount: 1_500 },
+    ]);
+    const add = async () => {
+      const client = await app.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query('SAVEPOINT later');
+        for (const [lineNo, side] of [
+          [3, 'D'],
+          [4, 'C'],
+        ] as const) {
+          await client.query(
+            "INSERT INTO fin.journal_line (journal_entry_id, line_no, account_id, side, amount_pesewas, branch_id, posting_date) VALUES ($1, $2, $3, $4, 500, $5, '2026-11-16')",
+            [id, lineNo, account('1320'), side, branchId],
+          );
+        }
+        await client.query('RELEASE SAVEPOINT later');
+        await client.query('COMMIT');
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        client.release();
+      }
+    };
+    expect(await refusalOf(add())).toEqual({ code: LEDGER_RULE, constraint: 'ck_journal_line_entry' });
+    expect(await entriesNamed(id)).toBe(3);
+  });
+
+  it('refuses a writer that names the transaction id of the entry itself: the trigger sets it, whatever is supplied', async () => {
+    const id = await postRaw([
+      { code: '1310', side: 'D', amount: 1_700 },
+      { code: '2010', side: 'C', amount: 1_700 },
+    ]);
+    const { rows } = await app.query<{ written: string; current: string }>(
+      'SELECT written_xact_id::text AS written, pg_current_xact_id()::text AS current FROM fin.journal_entry WHERE id = $1',
+      [id],
+    );
+    expect(rows[0]!.written).not.toBe(rows[0]!.current);
+    const forged = randomUUID();
+    const client = await app.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query("INSERT INTO platform.business_document (id, doc_type, owner_module, branch_id, actor_id) VALUES ($1, 'JOURNAL', 'fin', $2, $3)", [forged, branchId, SYSTEM_PRINCIPAL]);
+      await client.query(
+        `INSERT INTO fin.journal_entry (id, entry_no, posting_date, period_id, branch_id, kind, source_document_id, posting_group_id, description, occurred_at, actor_id, written_xact_id)
+         VALUES ($1, $2, '2026-11-16', $3, $4, 'MANUAL', $1, $5, 'Forged transaction id', now(), $6, '1'::xid8)`,
+        [forged, `RAW-FORGED-${forged.slice(0, 8)}`, period(2026, 11), branchId, randomUUID(), SYSTEM_PRINCIPAL],
+      );
+      const { rows: own } = await client.query<{ same: boolean }>('SELECT written_xact_id = pg_current_xact_id() AS same FROM fin.journal_entry WHERE id = $1', [forged]);
+      expect(own[0]!.same).toBe(true);
+    } finally {
+      await client.query('ROLLBACK');
+      client.release();
+    }
   });
 });
 
