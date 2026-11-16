@@ -1,0 +1,93 @@
+operationId: createPurchaseRequisition
+tags:
+  - pur
+summary: "Raise a purchase requisition"
+description: "Raises a DRAFT requisition (FR-PUR-004): products and quantities in each product's base unit, a needed-by date and a justification, at `locationId`, or, when it is left out, at the one location or branch the requester's grants name. Refusals are 422 `PURCHASE_REQUISITION_INVALID`: `NO_LINES`, `LINE_REPEATED`, `PRODUCT_NOT_ACTIVE`, `NOT_PURCHASABLE`, `NEEDED_BY_PAST` and `LOCATION_REQUIRED`; an unknown product is 422 `REFERENCE_NOT_FOUND`.\n\nPermission: `pur.requisition.create`."
+x-permission: pur.requisition.create
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - REFERENCE_NOT_FOUND
+  - PURCHASE_REQUISITION_INVALID
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/PurchaseRequisitionCreate"
+      example:
+        locationId: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+        neededBy: "2026-11-18"
+        justification: "Feed store below reorder point"
+        lines:
+          - productId: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+            qty: "10.000"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/PurchaseRequisition"
+        example:
+          id: "019a7aca-18f4-7676-8bae-703cb089e91a"
+          requisitionNo: REQ-2026-DDW-000033
+          status: DRAFT
+          requestedBy:
+            id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+            displayName: "Yaw Boateng"
+          location:
+            id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+            code: FEED
+            name: "Feed store"
+            kind: STORE
+          neededBy: "2026-11-18"
+          justification: null
+          rejectReason: null
+          lines:
+            - id: "019a7aca-37e3-705a-9592-0e742a3a8752"
+              lineNo: 1
+              product:
+                id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                sku: FD-BRL-FIN
+                name: "Broiler finisher feed, 50 kg bag"
+              qty: "10.000"
+              uom: BAG
+              note: null
+          purchaseOrder: null
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 2
+          createdAt: "2026-11-10T09:03:00Z"
+          createdBy:
+            id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+            displayName: "Yaw Boateng"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

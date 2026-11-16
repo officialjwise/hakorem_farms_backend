@@ -11,6 +11,17 @@ Owner: PUR module. Supplier terms, requisitions, purchase orders, supplier invoi
 - `supplier_payment` has no `bank_account_id` or `remittance_document_id` yet: both arrive with their target tables in B8 (`docs/DATA_MODEL.md`, Migrations).
 - `supplier_payment_allocation` is written when the payment is prepared; allocations of a `REJECTED` or `CANCELLED` payment stop counting. `paid_pesewas` moves by trigger when the payment becomes `PAID`.
 
+
+**As built in B07 continued (migrations 0097 to 0099 and 0104, A-166, A-170):** `supplier_profile`, `supplier_payout_change` (new), `supplier_document`, `purchase_requisition` and `purchase_requisition_line`, and `supplier_payment.payout_change_id`. Credit notes, the approved variance, remittance data and scores arrive with B07 continued 1b (A-167). Differences from the dictionary below:
+
+- `supplier_profile` holds no payout columns: `payout_change_id` points at the approved `supplier_payout_change` in force (`pur.supplier_profile_payout_guard`, HK010), and `payout_method`, the masked form and the ciphertext live on that change. It adds the MASTER `deleted_*` columns. A profile opens in the transaction that registers the supplier (`mdm.SupplierRegistered`).
+- **`supplier_payout_change` · DOCUMENT** (new): `supplier_id`, `payout_method`, `payout_details_enc` (AES-256-GCM under the supplier's subject key, bound to the row; bank and mobile money only), `payout_masked`, the terms asked for with it (`payment_terms_days`, `lead_time_days`, `notes`, applied with the details), `approval_request_id` (NOT NULL), `decision_reason`, standard DOCUMENT columns (`posted_*` is the decision). Inserted `PENDING_APPROVAL`, decided once, content frozen (HK004); one pending per supplier (`uq_supplier_payout_change_pending`); `ck_supplier_payout_change_checker` refuses an approval by its maker.
+- `supplier_category` is not built: categories supplied are MDM's (`mdm.supplier` categories, FR-MDM-007).
+- `supplier_document` adds `version` and the MASTER audit and `deleted_*` columns; one stored file is filed once (`uq_supplier_document_file`).
+- `purchase_requisition` adds `location_id` (where the goods are wanted), `reject_reason`, `posted_*`; `ck_purchase_requisition_converted` (CONVERTED if and only if `purchase_order_id`), `ck_purchase_requisition_rejected`, a status guard and a line guard (lines change only while DRAFT, HK004).
+- `supplier_payment.payout_first_use` (migration 0104, A-170): set by the database on insert for the first live payment to a supplier since the approved payout change in force was decided; never changes (HK004); `ck_supplier_payment_first_use` holds that such a payment is approved by a second person.
+- `supplier_payment.payout_change_id`: the approved details a bank or mobile money payment pays, fixed when it is prepared from the details then in force (`pur.supplier_payment_payee_guard`, HK010), never changed (HK004); null for cash and cheques.
+
 ---
 
 ### `pur.supplier_profile` · MASTER

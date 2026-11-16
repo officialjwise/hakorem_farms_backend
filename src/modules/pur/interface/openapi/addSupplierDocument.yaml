@@ -1,0 +1,75 @@
+operationId: addSupplierDocument
+tags:
+  - pur
+summary: "Attach a document to a supplier"
+description: "Files a document for a supplier (FR-PUR-003): `fileId` is an upload of purpose `SUPPLIER_DOCUMENT` (`uploadFile`, which types the file by its bytes, so a PDF name on an executable is refused there) that the malware scanner passed. Refusals are 422 `SUPPLIER_DOCUMENT_INVALID`: `REFERENCE_NOT_FOUND`, `FILE_NOT_USABLE` (another purpose, or not yet `CLEAN`), `FILE_ALREADY_FILED` and `EXPIRED` (`expiresOn` before today). The expiry reminder is sent once notifications exist (B11).\n\nPermission: `pur.supplier.update`."
+x-permission: pur.supplier.update
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - SUPPLIER_DOCUMENT_INVALID
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/SupplierDocumentCreate"
+      example:
+        kind: HEALTH_CERTIFICATE
+        fileId: "019a7ac8-c4af-79b0-9ee8-a3da75ee1cb8"
+        expiresOn: "2027-02-28"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/SupplierDocument"
+        example:
+          id: "019a7ac8-2a04-783f-8d77-8cc5157905a2"
+          kind: REGISTRATION
+          file:
+            id: "019a7ac8-48f3-7222-975a-2afc8f2aa3da"
+            originalName: business-registration.pdf
+            contentType: application/pdf
+          expiresOn: null
+          createdAt: "2026-11-02T10:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

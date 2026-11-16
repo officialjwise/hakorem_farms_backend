@@ -127,3 +127,67 @@ export const SupplierPaymentPageQuery = PageQuery.extend({
   supplierId: z.uuid().optional(),
   scheduledBefore: CalendarDate.optional(),
 });
+
+const Phone = z.string().regex(/^\+[1-9][0-9]{7,14}$/);
+const Days = z.number().int().min(0).max(365);
+
+/** The contract's `PayoutDetailsInput`, strict: the domain checks which fields the method needs. */
+const PayoutDetailsInput = z.strictObject({
+  method: PaymentMethod,
+  bankName: z.string().max(100).optional(),
+  accountName: z.string().max(160).optional(),
+  accountNumber: z.string().max(40).optional(),
+  bankBranch: z.string().max(100).optional(),
+  momoNetwork: z.enum(['MTN', 'TELECEL', 'AIRTELTIGO']).optional(),
+  momoNumber: Phone.optional(),
+});
+
+export const SupplierProfileUpdate = z.strictObject({
+  version: z.number().int().min(0),
+  paymentTermsDays: Days.optional(),
+  payoutDetails: PayoutDetailsInput.optional(),
+  leadTimeDays: Days.optional(),
+  notes: Text(1000).optional(),
+});
+
+const DocumentKind = z.enum(['REGISTRATION', 'CONTRACT', 'HEALTH_CERTIFICATE', 'TAX_CLEARANCE', 'OTHER']);
+export const SupplierDocumentCreate = z.strictObject({
+  kind: DocumentKind,
+  fileId: z.uuid(),
+  expiresOn: CalendarDate.optional(),
+});
+
+/** The most lines one requisition carries, and the most a conversion orders. */
+export const MAX_REQUISITION_LINES = 100;
+
+const RequisitionLineInput = z.strictObject({
+  productId: z.uuid(),
+  qty: PositiveQuantity,
+  note: Text(200).optional(),
+});
+
+export const PurchaseRequisitionCreate = z.strictObject({
+  locationId: z.uuid().optional(),
+  neededBy: CalendarDate.optional(),
+  justification: Text(500).optional(),
+  lines: z.array(RequisitionLineInput).max(MAX_REQUISITION_LINES),
+});
+
+export const PurchaseRequisitionUpdate = z.strictObject({
+  version: z.number().int().min(1),
+  neededBy: CalendarDate.optional(),
+  justification: Text(500).optional(),
+  lines: z.array(RequisitionLineInput).max(MAX_REQUISITION_LINES).optional(),
+});
+
+export const RequisitionConvert = z.strictObject({
+  supplierId: z.uuid(),
+  deliverToLocationId: z.uuid(),
+  expectedOn: CalendarDate.optional(),
+  lines: z.array(z.strictObject({ lineId: z.uuid(), unitPricePesewas: Pesewas, qty: PositiveQuantity.optional() })).max(MAX_REQUISITION_LINES),
+});
+
+export const PurchaseRequisitionPageQuery = PageQuery.extend({
+  status: z.enum(['DRAFT', 'SUBMITTED', 'CONVERTED', 'REJECTED', 'CANCELLED']).optional(),
+  requestedBy: z.uuid().optional(),
+});

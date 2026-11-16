@@ -98,3 +98,31 @@ export function judgeAllocations(supplierId: string, allocations: readonly Alloc
   });
   return broken.length > 0 ? err(broken) : ok(Money.sum(allocations.map((a) => a.amount)));
 }
+
+/**
+ * Whether an order's gross needs a second person under the approval limit in force (owner, 2026-11-15: a setting):
+ * only above the limit. The threshold the order keeps, which `ck_purchase_order_approved` holds, is the limit plus one.
+ */
+export function orderLimitJudgement(grossPesewas: bigint, limitPesewas: bigint): { readonly required: boolean; readonly thresholdPesewas: bigint } {
+  return { required: grossPesewas > limitPesewas, thresholdPesewas: limitPesewas + 1n };
+}
+
+export type PaymentApprovalReason = 'FIRST_PAYMENT_AFTER_PAYOUT_CHANGE' | 'PAYMENT_POLICY';
+
+/**
+ * Why a supplier payment waits for a second person (owner, 2026-11-15): the first payment to a supplier after its
+ * payout details changed always does, whatever the amount; any other follows the `SUPPLIER_PAYMENT` policy.
+ */
+export function paymentApprovalReason(firstAfterPayoutChange: boolean, policyRequires: boolean): PaymentApprovalReason | null {
+  if (firstAfterPayoutChange) return 'FIRST_PAYMENT_AFTER_PAYOUT_CHANGE';
+  return policyRequires ? 'PAYMENT_POLICY' : null;
+}
+
+/**
+ * Who may approve the first payment to a supplier after its payout details changed (owner, 2026-11-15, A-171): anyone
+ * with the approver permission except the person who made that change. They may still prepare it; the change's
+ * approver is not barred. `changeMakerId` is null for a payment that is not the first after a change.
+ */
+export function judgeFirstPaymentApprover(facts: { readonly changeMakerId: string | null; readonly approverId: string }): Result<void, 'PAYOUT_MAKER_CANNOT_APPROVE'> {
+  return facts.changeMakerId !== null && facts.changeMakerId === facts.approverId ? err('PAYOUT_MAKER_CANNOT_APPROVE') : ok(undefined);
+}

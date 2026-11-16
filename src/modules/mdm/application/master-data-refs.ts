@@ -93,6 +93,8 @@ export interface MasterDataRefsStore {
   reasonCodes(tx: Transaction, codes: readonly string[]): Promise<ReasonCodeFacts[]>;
   physicalLocationOfKind(tx: Transaction, branchId: string, kind: string): Promise<string | null>;
   /** Ids of live records by their codes, for a higher module's import sheet (ADR-0050). */
+  /** The first live, non-test branch registered: where farm-wide records are held (the same rule as MDM's imports). */
+  headOfficeBranchId(tx: Transaction): Promise<string | null>;
   branchIdByCode(tx: Transaction, code: string): Promise<string | null>;
   locationIdByCode(tx: Transaction, branchId: string, code: string): Promise<string | null>;
   productIdBySku(tx: Transaction, sku: string): Promise<string | null>;
@@ -165,6 +167,14 @@ export class MasterDataRefs {
   /** The branch's live physical location of a kind (its in-transit location, for a transfer), or null if it has none. */
   physicalLocationOfKindIn(tx: Transaction, branchId: string, kind: string): Promise<string | null> {
     return this.store.physicalLocationOfKind(tx, branchId, kind);
+  }
+
+  /**
+   * The head office: the first live, non-test branch registered, where a farm-wide record that belongs to no branch is
+   * held and approved (a supplier's payout change, A-166), by the same rule as MDM's own imports. Null with no branch.
+   */
+  headOfficeBranchIn(tx: Transaction): Promise<string | null> {
+    return this.store.headOfficeBranchId(tx);
   }
 
   /** A live branch by its code, for an import sheet a higher module owns (ADR-0050); null if there is none. */

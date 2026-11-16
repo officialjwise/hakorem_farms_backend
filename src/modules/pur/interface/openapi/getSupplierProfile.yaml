@@ -1,0 +1,55 @@
+operationId: getSupplierProfile
+tags:
+  - pur
+summary: "Get a supplier's terms and payout details"
+description: "A supplier's commercial terms (FR-PUR-001): payment terms in days, which set a supplier invoice's due date, the expected lead time and notes, with the payout details in force shown only masked (the bank or network, the account name and the last four characters). `pendingPayoutChangeApprovalId` names a change waiting for a different person's approval; until then the details shown stay in force. Every supplier has a profile from its registration (`createSupplier`); one registered before procurement opened profiles answers 404 until `updateSupplierProfile` opens it with version 0.\n\nPermission: `pur.supplier.read`."
+x-permission: pur.supplier.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/SupplierProfile"
+        example:
+          supplierId: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
+          paymentTermsDays: 30
+          payoutMethod: BANK
+          payoutDetailsMasked: "Ecobank Ghana, Ashanti Feeds Ltd, ****3381"
+          pendingPayoutChangeApprovalId: null
+          leadTimeDays: 3
+          notes: null
+          version: 3
+          updatedAt: "2026-11-04T12:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

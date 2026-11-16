@@ -1,0 +1,119 @@
+operationId: convertPurchaseRequisition
+tags:
+  - pur
+summary: "Turn a requisition into a draft purchase order"
+description: "Turns a SUBMITTED requisition into a DRAFT purchase order in one transaction (FR-PUR-004): each named requisition line is ordered once at the price agreed with the supplier and at its requisitioned quantity unless `qty` says otherwise; a line left out is not ordered. The requisition becomes CONVERTED and names the order; the order then follows its own approval limit (`submitPurchaseOrder`). The caller also needs `pur.requisition.approve` at the requisition's scope (403 `FORBIDDEN`), so a requester cannot convert their own request without it. A rejected or draft requisition is 422 `INVALID_STATE_TRANSITION`; `LINE_NOT_ON_REQUISITION`, `LINE_REPEATED` and `NO_LINES` are 422 `PURCHASE_REQUISITION_INVALID`; the order's own refusals are 422 `PURCHASE_ORDER_INVALID`.\n\nPermission: `pur.purchase_order.create`."
+x-permission: pur.purchase_order.create
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - REFERENCE_NOT_FOUND
+  - PURCHASE_REQUISITION_INVALID
+  - PURCHASE_ORDER_INVALID
+  - INVALID_STATE_TRANSITION
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/RequisitionConvert"
+      example:
+        supplierId: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
+        deliverToLocationId: "019a7a84-6045-7cc6-b1fe-d53368984e11"
+        expectedOn: "2026-11-16"
+        lines:
+          - lineId: "019a7ac9-7e49-7505-ba3d-59275014d205"
+            unitPricePesewas: 52000
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/PurchaseOrder"
+        example:
+          id: "019a7ab3-be3d-7115-b64d-1a25bfa09303"
+          orderNo: PO-2026-DDW-000040
+          status: RECEIVED
+          supplier:
+            id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
+            supplierNo: S-0012
+            name: "Kpone Livestock Traders"
+          deliverToLocation:
+            id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+            code: PEN-G2
+            name: "Goat pen 2"
+            kind: PEN
+          orderDate: "2026-11-10"
+          expectedOn: "2026-11-15"
+          taxInclusive: false
+          netPesewas: 228000
+          taxPesewas: 0
+          grossPesewas: 228000
+          currency: GHS
+          approvalRequestId: null
+          sentAt: "2026-11-10T11:00:00Z"
+          lines:
+            - id: "019a7ab3-fc1b-74dc-9a14-5694b302cf72"
+              lineNo: 1
+              product:
+                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                sku: LIV-GOAT
+                name: Goat
+              description: null
+              qtyOrdered: "4.000"
+              qtyReceived: "4.000"
+              qtyInvoiced: "4.000"
+              uom: HEAD
+              baseUom: HEAD
+              qtyOrderedBase: "4.000"
+              qtyOutstanding: "4.000"
+              unitPricePesewas: 57000
+              lineNetPesewas: 228000
+              overReceiptTolerancePercent: "0.00"
+              expenseCategory: null
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 2
+          createdAt: "2026-11-10T09:00:00Z"
+          createdBy:
+            id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+            displayName: "Efua Asante"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

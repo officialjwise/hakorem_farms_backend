@@ -275,8 +275,11 @@ The audit trail itself (audit events, the chain, anchors and per-subject keys) i
 | A supplier payment is approved by a different user from the one who prepared it | DB (approval constraint) |
 | Allocations of a payment do not exceed its amount, and allocations to an invoice do not exceed its outstanding amount | DB (trigger) |
 | A supplier's invoice number is unique per supplier | DB (unique) |
+| A change of payout details takes effect only when a different user approves it; the details in force are always an approved change | DB (`ck_supplier_payout_change_checker`, `pur.supplier_profile_payout_guard`, B07 continued) and Domain |
+| A bank or mobile money payment pays the approved details of its method in force when it is prepared | DB (`pur.supplier_payment_payee_guard`, B07 continued) and Domain |
+| A converted requisition names its purchase order; a rejected one is never converted | DB (`ck_purchase_requisition_converted`, status guard, B07 continued) and Domain |
 
-**Events:** `pur.RequisitionSubmitted`, `pur.PurchaseOrderApproved`, `pur.PurchaseOrderSent`, ◆`pur.SupplierInvoiceMatched`, `pur.SupplierInvoiceMismatched`, ◆`pur.ExpenseInvoiceApproved`, ◆`pur.SupplierCreditNoteRecorded`, ◆`pur.SupplierPaymentMade`.
+**Events:** `pur.RequisitionSubmitted`, `pur.SupplierPayoutChangeRequested`, `pur.SupplierPayoutChanged` (both for the payout change report and the exception report, THREAT_MODEL case 13), `pur.PurchaseOrderApproved`, `pur.PurchaseOrderSent`, ◆`pur.SupplierInvoiceMatched`, `pur.SupplierInvoiceMismatched`, ◆`pur.ExpenseInvoiceApproved`, ◆`pur.SupplierCreditNoteRecorded`, ◆`pur.SupplierPaymentMade`.
 
 ### 5.8 BIL: invoicing, receipts and credit notes
 

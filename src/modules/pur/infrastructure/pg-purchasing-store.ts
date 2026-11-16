@@ -1,4 +1,5 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
+import type { SubmittedOrder } from '../domain/order-splitting';
 import type { OrderStatus } from '../domain/purchasing';
 import type { MatchReason, MatchStatus } from '../domain/three-way-match';
 import type {
@@ -14,6 +15,7 @@ import type {
   OrderLineRecord,
   OrderRecord,
   PaymentFilter,
+  PaymentHeader,
   PaymentMethod,
   PaymentRecord,
   PaymentStatus,
@@ -156,7 +158,8 @@ interface LevyRow {
 }
 
 const PAYMENT_COLUMNS = `p.id, p.payment_no, p.status, p.supplier_id, p.method, p.amount_pesewas::text AS amount, p.scheduled_for::text AS scheduled_for,
-  p.paid_at, p.external_reference, p.approval_request_id, p.branch_id, p.version, p.created_at, p.created_by`;
+  p.paid_at, p.external_reference, p.approval_request_id, p.branch_id, p.version, p.created_at, p.created_by, p.payout_change_id, p.payout_first_use, p.payout_first_use_change_id,
+  (SELECT c.payout_masked FROM pur.supplier_payout_change c WHERE c.id = p.payout_change_id) AS payee_masked`;
 
 interface PaymentRow {
   id: string;
@@ -173,6 +176,10 @@ interface PaymentRow {
   version: number;
   created_at: Date;
   created_by: string;
+  payout_change_id: string | null;
+  payout_first_use: boolean;
+  payout_first_use_change_id: string | null;
+  payee_masked: string | null;
 }
 
 /** `pur.*` (migration 0094), PUR's own tables, always in the caller's transaction. */
@@ -534,17 +541,29 @@ export class PgPurchasingStore implements PurchasingStore {
 
   // Supplier payments.
 
+  async submittedOrders(tx: Transaction, from: Date, to: Date): Promise<SubmittedOrder[]> {
+    const { rows } = await tx.query<{ id: string; supplier_id: string; created_by: string; submitted_at: Date; gross: string; threshold: string }>(
+      `SELECT id, supplier_id, created_by, COALESCE(posted_at, updated_at) AS submitted_at, gross_pesewas::text AS gross, approval_threshold_pesewas::text AS threshold
+         FROM pur.purchase_order
+        WHERE approval_threshold_pesewas IS NOT NULL AND COALESCE(posted_at, updated_at) BETWEEN $1 AND $2
+        ORDER BY id`,
+      [from, to],
+    );
+    // The order keeps the threshold it was judged by, the limit plus one pesewa (orderLimitJudgement).
+    return rows.map((r) => ({ id: r.id, supplierId: r.supplier_id, makerId: r.created_by, submittedAt: r.submitted_at, grossPesewas: BigInt(r.gross), limitPesewas: BigInt(r.threshold) - 1n }));
+  }
+
   async insertPayment(
     tx: Transaction,
     id: string,
-    header: { readonly supplierId: string; readonly method: PaymentMethod; readonly amountPesewas: bigint; readonly scheduledFor: string | null; readonly branchId: string },
+    header: PaymentHeader,
     allocations: readonly { readonly id: string; readonly supplierInvoiceId: string; readonly amountPesewas: bigint }[],
     actorId: string,
   ): Promise<void> {
     await tx.query(
-      `INSERT INTO pur.supplier_payment (id, supplier_id, method, amount_pesewas, scheduled_for, status, branch_id, created_by, updated_by)
-       VALUES ($1, $2, $3, $4, $5, 'DRAFT', $6, $7, $7)`,
-      [id, header.supplierId, header.method, header.amountPesewas.toString(), header.scheduledFor, header.branchId, actorId],
+      `INSERT INTO pur.supplier_payment (id, supplier_id, method, amount_pesewas, scheduled_for, status, branch_id, payout_change_id, created_by, updated_by)
+       VALUES ($1, $2, $3, $4, $5, 'DRAFT', $6, $7, $8, $8)`,
+      [id, header.supplierId, header.method, header.amountPesewas.toString(), header.scheduledFor, header.branchId, header.payoutChangeId, actorId],
     );
     for (const a of allocations) {
       await tx.query(
@@ -596,6 +615,10 @@ export class PgPurchasingStore implements PurchasingStore {
       version: r.version,
       createdAt: r.created_at,
       createdBy: r.created_by,
+      payoutChangeId: r.payout_change_id,
+      payoutFirstUse: r.payout_first_use,
+      payoutFirstUseChangeId: r.payout_first_use_change_id,
+      payeeMasked: r.payee_masked,
       allocations: allocations
         .filter((a) => a.supplier_payment_id === r.id)
         .map((a) => ({ supplierInvoiceId: a.supplier_invoice_id, supplierInvoiceNo: a.supplier_invoice_no, amountPesewas: BigInt(a.amount) })),

@@ -10,10 +10,12 @@ import type { Cursors } from '../../../platform/http/cursor';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
 import type { ApprovalHandler, ApprovalRecord, Approvals, Authoriser, PrincipalNames } from '../../iam';
 import type { MasterDataRefs } from '../../mdm';
-import { judgeAllocations, type AllocationRule } from '../domain/purchasing';
+import { judgePayee } from '../domain/payout-details';
+import { judgeAllocations, judgeFirstPaymentApprover, paymentApprovalReason, type AllocationRule } from '../domain/purchasing';
 import type { SupplierPaymentMade } from '../events';
 import {
   AllocationExceedsAvailableError,
+  PayoutMakerCannotApproveError,
   PurReferenceNotFoundError,
   SupplierPaymentInvalidError,
   ThreeWayMatchFailedError,
@@ -23,6 +25,7 @@ import {
 } from './errors';
 import { pesewas, principalRef, readPage, runPurchaseCommand, supplierRef, wholeBranches, type ApprovalPendingView, type Page } from './purchase-command';
 import type { PaymentFilter, PaymentMethod, PaymentRecord, PaymentStatus, PurchasingStore } from './purchasing-store';
+import type { SupplierRegisterStore } from './supplier-register-store';
 
 export const SUPPLIER_PAYMENT_KIND = 'SUPPLIER_PAYMENT';
 const DOC_TYPE = 'SUPPLIER_PAYMENT';
@@ -51,6 +54,8 @@ export interface SupplierPaymentView {
   readonly status: PaymentStatus;
   readonly supplier: { readonly id: string; readonly supplierNo: string; readonly name: string };
   readonly method: PaymentMethod;
+  /** Who the payment pays: the approved payout details in force when it was prepared, masked; null for cash and cheques. */
+  readonly payeeDetailsMasked: string | null;
   readonly bankAccount: null;
   readonly amountPesewas: number;
   readonly currency: 'GHS';
@@ -100,6 +105,7 @@ export class SupplierPayments implements ApprovalHandler {
   constructor(
     private readonly uow: UnitOfWork,
     private readonly store: PurchasingStore,
+    private readonly register: SupplierRegisterStore,
     private readonly refs: MasterDataRefs,
     private readonly approvals: Approvals,
     private readonly authoriser: Authoriser,
@@ -182,13 +188,14 @@ export class SupplierPayments implements ApprovalHandler {
           }),
         );
         if (!judged.ok) throw refusal(judged.error);
+        const payee = await this.payee(tx, body.supplierId, body.method);
         const branchId = [...branches][0]!;
         const id = this.nextId();
         await this.documents.register(tx, { id, docType: DOC_TYPE, ownerModule: 'pur', branchId, actorId: actor!.principalId });
         await this.store.insertPayment(
           tx,
           id,
-          { supplierId: body.supplierId, method: body.method, amountPesewas: judged.value.pesewas, scheduledFor: body.scheduledFor ?? null, branchId },
+          { supplierId: body.supplierId, method: body.method, amountPesewas: judged.value.pesewas, scheduledFor: body.scheduledFor ?? null, branchId, payoutChangeId: payee },
           body.allocations.map((a) => ({ id: this.nextId(), supplierInvoiceId: a.supplierInvoiceId, amountPesewas: BigInt(a.amountPesewas) })),
           actor!.principalId,
         );
@@ -203,7 +210,12 @@ export class SupplierPayments implements ApprovalHandler {
     return this.write(actor, CREATE, 'submitSupplierPayment', id, {}, idempotencyKey, async (tx) => {
       const before = await this.locked(tx, id, ['DRAFT']);
       const supplier = (await this.refs.suppliersIn(tx, [before.supplierId])).get(before.supplierId)!;
-      const summary = `Pay ${supplier.name} ${before.amountPesewas} pesewas by ${before.method} against ${before.allocations.length} invoice(s)`;
+      // Every payment waits for a second person (FR-PUR-012, ck_supplier_payment_approval): the policy is the floor. The
+      // first payment since the supplier's payout details changed does whatever the amount (owner, 2026-11-15, A-170).
+      const policy = await this.approvals.judgeIn(tx, SUPPLIER_PAYMENT_KIND, before.branchId, before.amountPesewas);
+      const reason = paymentApprovalReason(before.payoutFirstUse, policy.required) ?? 'PAYMENT_POLICY';
+      const first = reason === 'FIRST_PAYMENT_AFTER_PAYOUT_CHANGE' ? 'First payment since the payout details changed: ' : '';
+      const summary = `${first}Pay ${supplier.name} ${before.amountPesewas} pesewas by ${before.method} against ${before.allocations.length} invoice(s)`;
       const request = await this.approvals.request(tx, actor, {
         kind: SUPPLIER_PAYMENT_KIND,
         branchId: before.branchId,
@@ -213,7 +225,7 @@ export class SupplierPayments implements ApprovalHandler {
         summary,
       });
       await this.store.markPaymentPending(tx, id, request.id, actor!.principalId);
-      await this.audited(tx, 'SUBMIT', before, { approvalRequestId: request.id });
+      await this.audited(tx, 'SUBMIT', before, { approvalRequestId: request.id, approvalReason: reason });
       return {
         status: 202,
         body: { status: 'PENDING_APPROVAL', approvalRequestId: request.id, kind: SUPPLIER_PAYMENT_KIND, subject: { id, docType: DOC_TYPE, number: null }, summary, requestedAt: request.requestedAt.toISOString() },
@@ -265,6 +277,9 @@ export class SupplierPayments implements ApprovalHandler {
   /** ApprovalHandler: approves the payment in the approval's transaction; marking it paid is a separate step. */
   async onApproved(tx: Transaction, request: ApprovalRecord): Promise<void> {
     const before = await this.locked(tx, request.subjectDocumentId, ['PENDING_APPROVAL']);
+    // The person who made the payout change this payment is the first to use never approves it (owner, A-171).
+    const change = before.payoutFirstUseChangeId === null ? null : await this.register.payoutChange(tx, before.payoutFirstUseChangeId, false);
+    if (!judgeFirstPaymentApprover({ changeMakerId: change?.createdBy ?? null, approverId: request.decidedBy! }).ok) throw new PayoutMakerCannotApproveError();
     await this.store.markPaymentDecided(tx, before.id, 'APPROVED', null, request.decidedBy!);
     await this.audited(tx, 'APPROVE', before, { approvalRequestId: request.id });
   }
@@ -286,6 +301,7 @@ export class SupplierPayments implements ApprovalHandler {
       status: r.status,
       supplier: supplierRef(suppliers.get(r.supplierId)!),
       method: r.method,
+      payeeDetailsMasked: r.payeeMasked,
       bankAccount: null,
       amountPesewas: pesewas(r.amountPesewas),
       currency: 'GHS' as const,
@@ -326,6 +342,18 @@ export class SupplierPayments implements ApprovalHandler {
       },
       work,
     ).catch(translatePurRefusal);
+  }
+
+  /**
+   * The payout details a payment pays (FR-PUR-002): for a bank transfer or a wallet payment, the supplier's approved
+   * details of that method in force now. A change still waiting for approval is never used.
+   */
+  private async payee(tx: Transaction, supplierId: string, method: PaymentMethod): Promise<string | null> {
+    const profile = await this.register.profile(tx, supplierId, true);
+    const inForce = profile?.payoutChangeId == null ? null : await this.register.payoutChange(tx, profile.payoutChangeId, false);
+    const judged = judgePayee(method, inForce === null ? null : { id: inForce.id, method: inForce.method });
+    if (!judged.ok) throw new SupplierPaymentInvalidError([{ field: '/method', rule: judged.error }]);
+    return judged.value;
   }
 
   private async locked(tx: Transaction, id: string, allowed: readonly PaymentStatus[]): Promise<PaymentRecord> {

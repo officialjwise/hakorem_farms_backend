@@ -43,7 +43,8 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B06 continued 3 | `B06d-packs-labels.md` | `b06d-packs-labels` | B4 to B12 | Pack weights equal the lot weight and a pack label encodes the lot and the weight; a completed order reverses only while its outputs are unsold; every pack write refuses the wrong role; the Farm hand sees no cost on any LIV or PRC operation its grants reach (built) |
 | B06u | `B06u-uom-conversions.md` | `b06u-uom-conversions` | B4 to B12 | Alternative units convert exactly, an inexact factor is refused by the database, conversions list in the contract, writes refuse the wrong role (built) |
 | B7 | `B07-procurement-suppliers.md` | `b07-procurement-suppliers` | B4 to B12 | Three-way match blocks payment on disagreement (built; the session split, A-165) |
-| B07 continued | `B07b-supplier-register.md` | `b07b-supplier-register` | B4 to B12 | A payout change waits for a different approver and the old details stay in force; a disguised document is refused; a rejected requisition cannot be converted; a credit note cannot exceed its invoice; the score matches a hand calculation; every write refuses the wrong role |
+| B07 continued | `B07b-supplier-register.md` | `b07b-supplier-register` | B4 to B12 | A payout change waits for a different approver and the old details stay in force; a disguised document is refused; a rejected requisition cannot be converted; every write refuses the wrong role (built; the session split, A-167) |
+| B07 continued 1b | `B07b2-supplier-credit-scores.md` | `b07b2-supplier-credit-scores` | B4 to B12 | A credit note cannot exceed its invoice's uncredited amount; an approved variance lets a mismatched invoice be paid; a payment's remittance data is answered once; the score matches a hand calculation; every write refuses the wrong role |
 | B07 continued 2 | `B07c-storefront-checkout.md` | `b07c-storefront-checkout` | B4 to B12 | Checkout reserves stock and releases it on timeout; a live animal cannot be added to a cart; the catalogue exposes no cost; every staff write refuses the wrong role |
 | B8 | `B08-ledger-billing.md` | `b08-ledger-billing` | B4 to B12 | Trial balance sums to zero on a seeded day; an unbalanced journal is rejected by the database; numbering is gap-free under concurrent load |
 | B9a | `B09a-order-core-payments.md` | `b09a-order-core-payments` | B4 to B12 | Every payment edge case in the brief passes; an order on any channel posts stock, document, payment and ledger in one transaction |
@@ -942,6 +943,8 @@ Stop at the gate and write docs/sessions/B07-procurement-suppliers.md.
 
 Branch `b07b-supplier-register`, from `main`. Report `docs/sessions/B07b-supplier-register.md`. Inserted by the B7 split (A-165, ADR-0026 Amendments). Gate: a payout detail change returns 202 and the old details stay in force until a different person approves, with the stored column ciphertext; a document whose content is not what its name says is refused; a rejected requisition cannot be converted and a converted one links its order; a credit note cannot exceed the invoice's uncredited amount; the supplier score matches FR-PUR-014's hand calculation; every write refuses the wrong role.
 
+**Built on 2026-11-15 as the supplier register and requisitions, and split (A-167, ADR-0026 Amendments):** credit notes, the approved variance, the remittance data and supplier scores are **B07 continued 1b**, below.
+
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
 List docs/sessions/ and read only the most recent report (docs/sessions/B07-procurement-suppliers.md).
@@ -966,13 +969,42 @@ summary for every contract change. Stop at the gate, write docs/sessions/B07b-su
 main when every run on the pull request is green.
 ```
 
+## B07 continued 1b — Credit notes, the approved variance, remittance data and supplier scores
+
+Branch `b07b2-supplier-credit-scores`, from `main`. Report `docs/sessions/B07b2-supplier-credit-scores.md`. Inserted by the B07 continued split (A-167, ADR-0026 Amendments). Gate: a credit note cannot exceed the invoice's uncredited amount (a credit of 11,000 against a 110,000 invoice leaves 99,000 payable; a second credit of 100,000 is refused), in the handler and the database, with a supplier-return movement through INV where goods go back; an approved variance lets a mismatched invoice be paid, and never by its maker; a paid payment's remittance data lists its invoices, amounts and reference once; the supplier score matches FR-PUR-014's hand calculation (91.0); every write refuses the wrong role.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B07b-supplier-register.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read FR-PUR-010, FR-PUR-011, FR-PUR-013 and FR-PUR-014 in the PUR block of docs/SRS.md (nothing else
+from the SRS), docs/data-model/pur.md (its "As built" notes first), the PUR and INV cards in docs/MODULE_BOUNDARIES.md,
+ADR-0017, ADR-0020, ADR-0043 and A-164, A-166 to A-171 in docs/ASSUMPTIONS.md (A-168 to A-171 are the owner's
+decisions of 2026-11-15: keep the cross-approval of payout changes and the bar on their maker approving the first
+payment after them). Use docs/prompts/module-build-prompt.md as the recipe. Load hakorem-money, hakorem-stock (the supplier
+return), hakorem-security-review (the variance approval) and hakorem-migration.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B07 continued 1b only, on branch b07b2-supplier-credit-scores, branched from main: supplier credit notes
+(createSupplierInvoice with kind CREDIT_NOTE) against an invoice's uncredited amount, held by the database, reducing
+what is payable, with a supplier-return movement through INV's published interface where goods go back and the
+ledger event for B8 (FR-PUR-011); the approved variance that lets a mismatched invoice be paid, approved by a different
+person (FR-PUR-010); the data of the remittance advice for a paid payment, answered once per payment (FR-PUR-013;
+rendering waits for B8); supplier scores from receipts, rejections, lead times and invoice prices with the weights 30,
+25, 25 and 20 held as settings (FR-PUR-014). Write the money, permission and approval tests first; extend the seed;
+changelog and cold-read summary for every contract change. Stop at the gate, write
+docs/sessions/B07b2-supplier-credit-scores.md, and merge into main when every run on the pull request is green.
+```
+
 ## B07 continued 2 — The storefront catalogue, cart and checkout reservation
 
 Branch `b07c-storefront-checkout`, from `main`. Report `docs/sessions/B07c-storefront-checkout.md`. Inserted by the B7 split (A-165, ADR-0026 Amendments). Gate: the second half of B7's: checkout reserves stock and releases it on timeout. Also: a live animal (`REQUEST_TO_BUY`) cannot be added to a cart; the catalogue carries no cost; `del.delivery_slot` exists with slot generation and checkout stores a chosen slot through its foreign key; every staff write refuses the wrong role.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
-List docs/sessions/ and read only the most recent report (docs/sessions/B07b-supplier-register.md).
+List docs/sessions/ and read only the most recent report (docs/sessions/B07b2-supplier-credit-scores.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
 reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the SHP requirement block of docs/SRS.md and FR-DEL-001 (nothing else from the SRS),
@@ -1177,6 +1209,10 @@ projections and checkpoints, report definitions and schedules, the investor port
 public API with keys and webhooks, and, as ADR-0026 proposes, the daily exception report:
 GET /exceptions/daily-report, with an item kind for every one of the eighteen abuse cases, each item
 carrying its abuse case numbers, actor, amount and subject document, so that B13 can assert it.
+The exception report must include order splitting (abuse case 27, owner 2026-11-15, A-168): read
+PUR's PurchaseOrders.splitSuspectsIn for the report's day and report each run with its maker, supplier,
+orders and total; and the payout changes of case 13 from pur.SupplierPayoutChangeRequested and
+pur.SupplierPayoutChanged, with SA-17's payment within 24 hours after a change.
 Write the five tests of ADR-0028 under the names the ADR gives them, and run scenario 4 of
 docs/UAT.md as a dry run: the net profit for July to September 2026 in the seed is GHS 41,666.70 and
 the hand calculation must match the run to the pesewa.

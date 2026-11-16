@@ -48,6 +48,7 @@ responses:
             supplierNo: S-0007
             name: "Ashanti Feeds Ltd"
           method: BANK
+          payeeDetailsMasked: "Ecobank Ghana, Ashanti Feeds Ltd, ****3381"
           bankAccount:
             id: "019a7a92-6491-77d8-bd10-86568cccff34"
             name: "GCB current account"

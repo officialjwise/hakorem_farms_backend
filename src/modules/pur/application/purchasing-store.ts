@@ -1,4 +1,5 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
+import type { SubmittedOrder } from '../domain/order-splitting';
 import type { OrderStatus } from '../domain/purchasing';
 import type { MatchReason, MatchStatus } from '../domain/three-way-match';
 
@@ -158,7 +159,23 @@ export interface PaymentRecord {
   readonly version: number;
   readonly createdAt: Date;
   readonly createdBy: string;
+  /** The approved payout details the payment pays, fixed when it was prepared (FR-PUR-002); null for cash and cheques. */
+  readonly payoutChangeId: string | null;
+  /** The first payment prepared for the supplier since its payout details changed, as the database decided (A-170). */
+  readonly payoutFirstUse: boolean;
+  /** The approved payout change a first payment follows; its maker may not approve the payment (A-171). */
+  readonly payoutFirstUseChangeId: string | null;
+  readonly payeeMasked: string | null;
   readonly allocations: readonly { readonly supplierInvoiceId: string; readonly supplierInvoiceNo: string; readonly amountPesewas: bigint }[];
+}
+
+export interface PaymentHeader {
+  readonly supplierId: string;
+  readonly method: PaymentMethod;
+  readonly amountPesewas: bigint;
+  readonly scheduledFor: string | null;
+  readonly branchId: string;
+  readonly payoutChangeId: string | null;
 }
 
 export interface PaymentFilter {
@@ -217,10 +234,12 @@ export interface PurchasingStore {
   promised(tx: Transaction, invoiceIds: readonly string[]): Promise<ReadonlyMap<string, bigint>>;
 
   // Supplier payments.
+  /** Orders judged against the approval limit and submitted between two instants, for the order splitting rule. */
+  submittedOrders(tx: Transaction, from: Date, to: Date): Promise<SubmittedOrder[]>;
   insertPayment(
     tx: Transaction,
     id: string,
-    header: { readonly supplierId: string; readonly method: PaymentMethod; readonly amountPesewas: bigint; readonly scheduledFor: string | null; readonly branchId: string },
+    header: PaymentHeader,
     allocations: readonly { readonly id: string; readonly supplierInvoiceId: string; readonly amountPesewas: bigint }[],
     actorId: string,
   ): Promise<void>;

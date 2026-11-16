@@ -110,6 +110,13 @@ const VALID_BODY: Readonly<Record<string, object>> = {
   createSupplierPayment: { supplierId: randomUUID(), method: 'MOBILE_MONEY', allocations: [{ supplierInvoiceId: randomUUID(), amountPesewas: 110000 }] },
   markSupplierPaymentPaid: { paidAt: '2026-11-15T10:00:00Z', externalReference: 'MOMO-7781' },
   cancelSupplierPayment: { reason: 'Paid in cash instead' },
+  updateSupplierProfile: { version: 1, paymentTermsDays: 14 },
+  addSupplierDocument: { kind: 'HEALTH_CERTIFICATE', fileId: randomUUID(), expiresOn: '2027-02-28' },
+  createPurchaseRequisition: { lines: [{ productId: randomUUID(), qty: '20.000' }] },
+  updatePurchaseRequisition: { version: 1, justification: 'Brooder pen 2 is empty' },
+  rejectPurchaseRequisition: { reason: 'Bought at the market last week' },
+  convertPurchaseRequisition: { supplierId: randomUUID(), deliverToLocationId: randomUUID(), lines: [{ lineId: randomUUID(), unitPricePesewas: 5500 }] },
+  updateSetting: { value: 150000, version: 0 },
   updateProduct: { version: 1, name: 'Goat' },
   createBranch: { code: 'KSI', name: 'Kumasi' },
   updateBranch: { version: 1, name: 'Kumasi' },
@@ -207,7 +214,7 @@ afterAll(async () => {
 });
 
 describe('deny by default: the handler walk (ADR-0017, security architecture section 14)', () => {
-  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued, B05 continued 3, B05x, B6, B06m, B06 continued, B06 continued 2, B06 continued 3, B06u and B7 routes, and every one declares its operation', () => {
+  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued, B05 continued 3, B05x, B6, B06m, B06 continued, B06 continued 2, B06 continued 3, B06u, B7 and B07 continued routes, and every one declares its operation', () => {
     expect(routes.map((route) => route.spec?.operationId).sort()).toEqual(
       [
         'changePassword', 'confirmTotpEnrolment', 'createProduct', 'getCurrentSession', 'getHealth', 'getProduct', 'listProducts', 'listSessions',
@@ -260,6 +267,9 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'cancelPurchaseOrder', 'listSupplierInvoices', 'createSupplierInvoice', 'getSupplierInvoice', 'updateSupplierInvoice', 'matchSupplierInvoice',
         'approveSupplierInvoice', 'cancelSupplierInvoice', 'listSupplierPayments', 'createSupplierPayment', 'getSupplierPayment', 'submitSupplierPayment',
         'markSupplierPaymentPaid', 'cancelSupplierPayment',
+        'getSupplierProfile', 'updateSupplierProfile', 'getSupplierPayoutDetails', 'listSupplierDocuments', 'addSupplierDocument',
+        'listPurchaseRequisitions', 'createPurchaseRequisition', 'getPurchaseRequisition', 'updatePurchaseRequisition', 'submitPurchaseRequisition',
+        'rejectPurchaseRequisition', 'convertPurchaseRequisition', 'updateSetting',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);
@@ -287,7 +297,8 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
     const guarded = routes.filter((route) => (route.spec?.permission !== null && route.spec?.permission !== undefined) || route.spec?.permissionByPolicy === true);
     expect(guarded.length).toBeGreaterThanOrEqual(5);
     for (const route of guarded) {
-      const path = route.path.replace(/:[a-zA-Z]+/g, randomUUID());
+      // A setting key is a dotted name, not an id: anything else is refused as invalid before it is authorised.
+      const path = route.path.replace(':key', 'pur.purchase_order.approval_limit_pesewas').replace(/:[a-zA-Z]+/g, randomUUID());
       const body = VALID_BODY[route.spec!.operationId] ?? {};
       const response =
         route.method === 'GET'

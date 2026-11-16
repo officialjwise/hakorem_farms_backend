@@ -165,7 +165,7 @@ describe('wrong roles are refused on every purchase-to-pay write (ADR-0035)', ()
     expect((await get(investor, '/purchase-orders')).status).toBe(403);
   });
 
-  it('refuses supplier invoices and payments to the Storekeeper, Manager (writes), Cashier, Sales, Driver, Farm hand and Investor', async () => {
+  it('refuses supplier invoices and payments to the Storekeeper, Manager (invoice writes and paying), Cashier, Sales, Driver, Farm hand and Investor', async () => {
     const order = await sentOrder();
     for (const session of [pensStorekeeper, cashier, sales, driver, farmHand, investor]) {
       expect((await post(session, '/supplier-invoices', invoiceAgainst(order))).status).toBe(403);
@@ -174,7 +174,8 @@ describe('wrong roles are refused on every purchase-to-pay write (ADR-0035)', ()
       expect((await get(session, '/supplier-payments')).status).toBe(403);
     }
     expect((await post(manager, '/supplier-invoices', invoiceAgainst(order))).status).toBe(403);
-    expect((await post(manager, '/supplier-payments', { supplierId: supplier('Awutu Poultry Farm'), method: 'CASH', allocations: [{ supplierInvoiceId: randomUUID(), amountPesewas: 1 }] })).status).toBe(403);
+    // The Manager may prepare a payment since the owner's cross-approval (A-171); an unknown invoice is refused, not the role.
+    expect((await post(manager, '/supplier-payments', { supplierId: supplier('Awutu Poultry Farm'), method: 'CASH', allocations: [{ supplierInvoiceId: randomUUID(), amountPesewas: 1 }] })).status).toBe(422);
     expect((await post(manager, `/supplier-invoices/${randomUUID()}/match`)).status).toBe(403);
     expect((await post(manager, `/supplier-invoices/${randomUUID()}/approve`)).status).toBe(403);
     expect((await post(manager, `/supplier-payments/${randomUUID()}/mark-paid`, { paidAt: clock.now().toISOString(), externalReference: 'MOMO-1' })).status).toBe(403);
@@ -419,6 +420,19 @@ describe('the three-way match blocks payment on disagreement (FR-PUR-009, FR-PUR
 
 describe('supplier payments (FR-PUR-012)', () => {
   it('pays 110,000 across invoices of 60,000 and 50,000 exactly, refuses 110,001, and needs a different approver', async () => {
+    // A mobile money payment pays only a wallet a different person approved (FR-PUR-002, B07 continued, A-166, A-169).
+    const kpone = supplier('Kpone Livestock Traders');
+    const profile = await get(owner, `/suppliers/${kpone}/profile`);
+    const wallet = await request(api.server)
+      .put(`/v1/suppliers/${kpone}/profile`)
+      .set('Cookie', owner.jar.header())
+      .set('X-CSRF-Token', owner.csrfToken)
+      .set('Origin', TEST_ORIGIN)
+      .set('Idempotency-Key', randomUUID())
+      .send({ version: profile.body.version, payoutDetails: { method: 'MOBILE_MONEY', momoNetwork: 'MTN', momoNumber: '+233240000021' } });
+    expect(wallet.status).toBe(202);
+    const secondOwner = await enrolAndLogin(api.server, await createUser(database, { name: 'Adjoa Owusu', grants: [{ role: 'OWNER', branchId: id('branch:DDW') }] }), () => clock.now());
+    expect((await approve(secondOwner, wallet.body.approvalRequestId)).status).toBe(200);
     const first = await approvedExpenseInvoice(60_000);
     const second = await approvedExpenseInvoice(50_000);
     const over = await post(accountant, '/supplier-payments', {

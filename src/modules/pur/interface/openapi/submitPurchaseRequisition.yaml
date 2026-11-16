@@ -1,0 +1,88 @@
+operationId: submitPurchaseRequisition
+tags:
+  - pur
+summary: "Submit a requisition"
+description: "Submits a DRAFT requisition for a manager; publishes `pur.RequisitionSubmitted`. Its lines are fixed from now on, by the database too.\n\nPermission: `pur.requisition.create`."
+x-permission: pur.requisition.create
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - INVALID_STATE_TRANSITION
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/PurchaseRequisition"
+        example:
+          id: "019a7ac9-5f5a-7b21-a05a-baefd66333cd"
+          requisitionNo: REQ-2026-DDW-000030
+          status: SUBMITTED
+          requestedBy:
+            id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+            displayName: "Yaw Boateng"
+          location:
+            id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+            code: FEED
+            name: "Feed store"
+            kind: STORE
+          neededBy: "2026-11-15"
+          justification: "Feed store below reorder point"
+          rejectReason: null
+          lines:
+            - id: "019a7ac9-7e49-7505-ba3d-59275014d205"
+              lineNo: 1
+              product:
+                id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                sku: FD-BRL-FIN
+                name: "Broiler finisher feed, 50 kg bag"
+              qty: "20.000"
+              uom: BAG
+              note: null
+          purchaseOrder: null
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 2
+          createdAt: "2026-11-10T09:00:00Z"
+          createdBy:
+            id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+            displayName: "Yaw Boateng"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

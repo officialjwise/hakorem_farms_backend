@@ -126,6 +126,11 @@ export class PgMasterDataRefsStore implements MasterDataRefsStore {
     return rows[0]?.id ?? null;
   }
 
+  async headOfficeBranchId(tx: Transaction): Promise<string | null> {
+    const { rows } = await tx.query<{ id: string }>("SELECT id FROM mdm.branch WHERE deleted_at IS NULL AND status = 'ACTIVE' AND NOT is_test ORDER BY created_at, code LIMIT 1");
+    return rows[0]?.id ?? null;
+  }
+
   async branchIdByCode(tx: Transaction, code: string): Promise<string | null> {
     const { rows } = await tx.query<{ id: string }>('SELECT id FROM mdm.branch WHERE code = upper($1) AND deleted_at IS NULL', [code]);
     return rows[0]?.id ?? null;

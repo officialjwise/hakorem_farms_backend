@@ -1,0 +1,68 @@
+operationId: getSupplierPayoutDetails
+tags:
+  - pur
+summary: "Read a supplier's payout details in full"
+description: "The payout details in force and any change waiting for approval, decrypted, so the checker can confirm a change with the supplier before approving it (FR-PUR-002). Restricted data: needs its own permission with a fresh step-up (403 `STEP_UP_REQUIRED`), and every read is audited as a decryption. Nothing here is cached or logged; show it only while the checker is looking. Added in 1.29.0.\n\nPermission: `pur.supplier.payout_read`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+x-permission: pur.supplier.payout_read
+x-requires-step-up: true
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - TOTP_ENROLMENT_REQUIRED
+  - STEP_UP_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/SupplierPayoutDetails"
+        example:
+          supplierId: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
+          inForce:
+            method: BANK
+            bankName: "Ecobank Ghana"
+            accountName: "Ashanti Feeds Ltd"
+            accountNumber: "0000000003381"
+            bankBranch: Adum
+            momoNetwork: null
+            momoNumber: null
+          pending:
+            method: MOBILE_MONEY
+            bankName: null
+            accountName: null
+            accountNumber: null
+            bankBranch: null
+            momoNetwork: MTN
+            momoNumber: "+233240000014"
+            approvalRequestId: "019a7ac7-ec26-7478-a9b0-50562217c934"
+            requestedBy: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+            requestedAt: "2026-11-13T10:12:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
