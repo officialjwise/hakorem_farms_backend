@@ -170,7 +170,7 @@ interface LevyRow {
 }
 
 const PAYMENT_COLUMNS = `p.id, p.payment_no, p.status, p.supplier_id, p.method, p.amount_pesewas::text AS amount, p.scheduled_for::text AS scheduled_for,
-  p.paid_at, p.external_reference, p.approval_request_id, p.branch_id, p.version, p.created_at, p.created_by, p.payout_change_id, p.payout_first_use, p.payout_first_use_change_id, p.bank_account_id,
+  p.paid_at, p.external_reference, p.approval_request_id, p.branch_id, p.version, p.created_at, p.created_by, p.payout_change_id, p.payout_first_use, p.payout_first_use_change_id, p.bank_account_id, p.remittance_document_id,
   (SELECT c.payout_masked FROM pur.supplier_payout_change c WHERE c.id = p.payout_change_id) AS payee_masked`;
 
 interface PaymentRow {
@@ -193,6 +193,7 @@ interface PaymentRow {
   payout_first_use_change_id: string | null;
   payee_masked: string | null;
   bank_account_id: string | null;
+  remittance_document_id: string | null;
 }
 
 /** `pur.*` (migration 0094), PUR's own tables, always in the caller's transaction. */
@@ -690,6 +691,7 @@ export class PgPurchasingStore implements PurchasingStore {
       payoutFirstUseChangeId: r.payout_first_use_change_id,
       payeeMasked: r.payee_masked,
       bankAccountId: r.bank_account_id,
+      remittanceDocumentId: r.remittance_document_id,
       allocations: allocations
         .filter((a) => a.supplier_payment_id === r.id)
         .map((a) => ({ supplierInvoiceId: a.supplier_invoice_id, supplierInvoiceNo: a.supplier_invoice_no, amountPesewas: BigInt(a.amount) })),
@@ -734,6 +736,16 @@ export class PgPurchasingStore implements PurchasingStore {
       [record.id, record.supplierPaymentId, record.supplierId, record.method, record.payeeMasked, record.amountPesewas.toString(), record.paidAt, record.externalReference,
         JSON.stringify(lines), record.branchId, actorId],
     );
+  }
+
+  async linkRemittanceDocument(tx: Transaction, remittanceId: string, archivedDocumentId: string, actorId: string): Promise<boolean> {
+    const { rowCount } = await tx.query(
+      `UPDATE pur.supplier_payment p SET remittance_document_id = $2, version = p.version + 1, updated_by = $3
+         FROM pur.supplier_remittance r
+        WHERE r.id = $1 AND p.id = r.supplier_payment_id AND p.remittance_document_id IS NULL`,
+      [remittanceId, archivedDocumentId, actorId],
+    );
+    return (rowCount ?? 0) > 0;
   }
 
   async remittance(tx: Transaction, supplierPaymentId: string): Promise<RemittanceRecord | null> {

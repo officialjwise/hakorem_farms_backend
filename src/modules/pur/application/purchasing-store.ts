@@ -183,6 +183,8 @@ export interface PaymentRecord {
   readonly payeeMasked: string | null;
   /** The farm's own account the payment leaves from (A-194); null when none was named (A-185). */
   readonly bankAccountId: string | null;
+  /** The archived rendering of its remittance advice, set once by `pur.remittance-link` after DOC archives it (B08 continued 2c). */
+  readonly remittanceDocumentId: string | null;
   readonly allocations: readonly { readonly supplierInvoiceId: string; readonly supplierInvoiceNo: string; readonly amountPesewas: bigint }[];
 }
 
@@ -333,6 +335,8 @@ export interface PurchasingStore {
   // Remittance advice data (FR-PUR-013).
   insertRemittance(tx: Transaction, record: Omit<RemittanceRecord, 'recordedAt'>, actorId: string): Promise<void>;
   remittance(tx: Transaction, supplierPaymentId: string): Promise<RemittanceRecord | null>;
+  /** Names the archived advice on the remittance's payment, once; false when it already names one. */
+  linkRemittanceDocument(tx: Transaction, remittanceId: string, archivedDocumentId: string, actorId: string): Promise<boolean>;
 
   // Supplier score facts (FR-PUR-014).
   insertReceiptFacts(tx: Transaction, facts: readonly ReceiptFact[], actorId: string): Promise<void>;

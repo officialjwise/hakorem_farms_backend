@@ -23,6 +23,19 @@ function thermalLine(line: Line): ThermalLine {
 
 /** A template body rendered with its data in the template's output: PDF for A4, ESC/POS for thermal paper. */
 export function renderBody(renderer: DocumentRenderer, body: string, output: TemplateOutput, data: Record<string, unknown>): Buffer {
-  const lines = layoutMarkup(renderTemplate(body, data));
+  return write(renderer, layoutMarkup(renderTemplate(body, data)), output);
+}
+
+/** Printed first and last on every preview, so a specimen can never pass for an issued document (ADR-0062). */
+export const PREVIEW_MARKER = 'SPECIMEN PREVIEW - NOT A VALID DOCUMENT';
+
+const markerLine: Line = { cells: [PREVIEW_MARKER], style: 'h2', center: true, rule: false };
+
+/** A preview: the body rendered with the data given, between two specimen markers. Nothing is stored or numbered. */
+export function renderPreview(renderer: DocumentRenderer, body: string, output: TemplateOutput, data: Record<string, unknown>): Buffer {
+  return write(renderer, [markerLine, ...layoutMarkup(renderTemplate(body, data)), markerLine], output);
+}
+
+function write(renderer: DocumentRenderer, lines: readonly Line[], output: TemplateOutput): Buffer {
   return output === 'PDF_A4' ? renderer.pdf(lines.map(pdfLine)) : renderer.thermal(lines.map(thermalLine), THERMAL_COLUMNS[output]);
 }

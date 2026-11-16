@@ -10,6 +10,7 @@ import { SubjectKeys } from '../../platform/crypto/subject-keys';
 import { CLOCK } from '../../platform/platform.module';
 import { Settings } from '../../platform/settings/settings';
 import { FileStore } from '../../platform/storage/file-store';
+import { DocModule, Documents } from '../doc';
 import { BankAccounts, FinModule } from '../fin';
 import { Approvals, Authoriser, IamModule, PRINCIPAL_NAMES, type PrincipalNames } from '../iam';
 import { InvModule, Stock } from '../inv';
@@ -34,7 +35,7 @@ import { SupplierRegisterController } from './interface/supplier-register.contro
  * different person's approval, documents) and requisitions converted into purchase orders. Master data and tax come from MDM, approvals from IAM; stock is INV's alone.
  */
 @Module({
-  imports: [IamModule, MdmModule, FinModule, InvModule],
+  imports: [IamModule, MdmModule, FinModule, InvModule, DocModule],
   controllers: [PurchasingController, SupplierRegisterController],
   providers: [
     { provide: PURCHASING_STORE, useClass: PgPurchasingStore },
@@ -104,8 +105,9 @@ import { SupplierRegisterController } from './interface/supplier-register.contro
         bankAccounts: BankAccounts,
         cursors: Cursors,
         clock: Clock,
-      ) => new SupplierPayments(uow, store, register, refs, approvals, authoriser, idempotency, audit, events, documents, principals, bankAccounts, cursors, clock),
-      inject: [UnitOfWork, PURCHASING_STORE, SUPPLIER_REGISTER_STORE, MasterDataRefs, Approvals, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, PRINCIPAL_NAMES, BankAccounts, Cursors, CLOCK],
+        archive: Documents,
+      ) => new SupplierPayments(uow, store, register, refs, approvals, authoriser, idempotency, audit, events, documents, principals, bankAccounts, cursors, clock, archive),
+      inject: [UnitOfWork, PURCHASING_STORE, SUPPLIER_REGISTER_STORE, MasterDataRefs, Approvals, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, PRINCIPAL_NAMES, BankAccounts, Cursors, CLOCK, Documents],
     },
     {
       provide: Suppliers,
@@ -171,5 +173,6 @@ export class PurModule implements OnModuleInit {
     this.events.subscribeInTransaction('inv.GoodsReceiptPosted', this.orders.received);
     this.events.subscribeInTransaction('mdm.SupplierRegistered', this.suppliers.registered);
     this.events.declareLedgerEvents(PUR_LEDGER_EVENTS);
+    this.events.registerConsumer(this.payments.remittanceLinks);
   }
 }

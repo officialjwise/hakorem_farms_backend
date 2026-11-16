@@ -8,8 +8,8 @@ import { zodPipe } from '../../../platform/http/validation';
 import type { StoredResponse } from '../../../platform/idempotency/idempotency';
 import { Documents, type ArchivedDocumentView, type Page } from '../application/documents';
 import type { SignedUrlView } from '../application/files';
-import { Templates, type DocumentTemplateView, type TemplatePage, type TemplateVersionView } from '../application/templates';
-import { ArchivedDocumentPageQuery, DocumentDownloadRequest, IdParam, PageQuery, TemplateVersionCreate } from './schemas';
+import { Templates, type DocumentTemplateView, type TemplatePage, type TemplatePreviewView, type TemplateVersionView } from '../application/templates';
+import { ArchivedDocumentPageQuery, DocumentDownloadRequest, IdParam, PageQuery, TemplatePreviewRequest, TemplateVersionCreate } from './schemas';
 
 const READ = { access: 'SESSION', realms: ['STAFF'], idempotent: false, csrf: false, rateLimit: 'console' } as const;
 const WRITE = { access: 'SESSION', realms: ['STAFF'], idempotent: true, csrf: true, rateLimit: 'console' } as const;
@@ -107,5 +107,17 @@ export class TemplatesController {
   @Operation({ operationId: 'activateTemplateVersion', ...WRITE, permission: 'doc.template.manage' })
   activateTemplateVersion(@CurrentActor() actor: Actor | undefined, @Param('id', zodPipe(IdParam)) id: string, @IdempotencyKeyHeader() key: string, @Res({ passthrough: true }) res: Response): Promise<TemplateVersionView> {
     return reply(res, this.templates.activate(actor, id, key));
+  }
+
+  @Post('template-versions/:id/preview')
+  @Operation({ operationId: 'previewTemplateVersion', access: 'SESSION', realms: ['STAFF'], idempotent: false, csrf: true, rateLimit: 'console', permission: 'doc.template.read' })
+  async previewTemplateVersion(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(TemplatePreviewRequest)) body: z.infer<typeof TemplatePreviewRequest>,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<TemplatePreviewView> {
+    res.status(200);
+    return this.templates.preview(actor, id, body.data);
   }
 }

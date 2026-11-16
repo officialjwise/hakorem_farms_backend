@@ -81,6 +81,7 @@ const VALID_BODY: Readonly<Record<string, object>> = {
   issueCreditNote: { reasonCode: 'OVERCHARGED', note: 'Refused', lines: [{ lineId: randomUUID(), amountPesewas: 1 }] },
   issueDebitNote: { reasonCode: 'UNDERCHARGED', note: 'Refused', lines: [{ description: 'Refused', amountPesewas: 1, taxCategoryId: randomUUID() }] },
   createTemplateVersion: { body: '<p>Refused</p>' },
+  previewTemplateVersion: { data: { title: 'Refused' } },
   reprintBillingDocument: { channel: 'PDF' },
   createDepreciationRun: { periodId: randomUUID() },
   createProduct: { sku: 'MEAT-GOAT-5KG', name: 'Goat meat, 5 kg pack', categoryId: randomUUID(), stockPolicy: 'CATCH_WEIGHT', baseUom: 'KG', saleUom: 'PACK', onlineMode: 'LISTED' },
@@ -312,6 +313,7 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'listBillingDocuments', 'getBillingDocument', 'issueCreditNote', 'issueDebitNote', 'getReceivablesTile',
         'listDocumentTemplates', 'getDocumentTemplate', 'listTemplateVersions', 'createTemplateVersion', 'getTemplateVersion', 'activateTemplateVersion',
         'listArchivedDocuments', 'getArchivedDocument', 'downloadArchivedDocument', 'reprintBillingDocument', 'listBillingDocumentReprints',
+        'previewTemplateVersion',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);

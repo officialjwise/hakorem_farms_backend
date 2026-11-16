@@ -21,4 +21,6 @@ export const TemplateVersionCreate = z.strictObject({
   sampleData: z.record(z.string(), z.unknown()).optional(),
 });
 
+export const TemplatePreviewRequest = z.strictObject({ data: z.record(z.string(), z.unknown()).optional() });
+
 export const DocumentDownloadRequest = z.strictObject({ reprint: z.boolean().optional() });

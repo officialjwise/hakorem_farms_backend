@@ -1,9 +1,10 @@
-import { err, ok, type Result } from '@hakorem/kernel';
+import { err, formatCedis, ok, toBusinessDate, type Result } from '@hakorem/kernel';
 
 /**
  * The remittance advice of a paid supplier payment (FR-PUR-013, A-174): each invoice it pays, with the invoice's
  * gross, the credits approved against it, the amount this payment puts on it and what is left after. Pure. The data is
- * fixed once, when the payment is marked paid; rendering, archiving and sending it wait for B8 and B11.
+ * fixed once, when the payment is marked paid; DOC renders and archives it after commit (B08 continued 2c), NTF sends
+ * it (B11).
  */
 export interface RemittanceInput {
   readonly supplierInvoiceId: string;
@@ -42,4 +43,45 @@ export function remittanceLines(paymentPesewas: bigint, allocations: readonly Re
       outstandingAfterPesewas: a.grossPesewas - a.creditedPesewas - a.paidAfterPesewas,
     })),
   );
+}
+
+/** What the advice prints: the stored remittance, the payment's number and the names as they stand when it is paid. */
+export interface PrintableRemittance {
+  readonly supplierPaymentId: string;
+  /** Null while supplier payments are not numbered (A-205): the advice then quotes the payment's id. */
+  readonly paymentNo: string | null;
+  readonly paidAt: Date;
+  readonly method: 'BANK' | 'MOBILE_MONEY' | 'CASH' | 'CHEQUE';
+  readonly payeeMasked: string | null;
+  readonly externalReference: string;
+  readonly supplierName: string;
+  readonly branch: { readonly code: string; readonly name: string };
+  readonly amountPesewas: bigint;
+  readonly lines: readonly RemittanceLine[];
+}
+
+/**
+ * The advice's render data (ADR-0062): every amount formatted from its integer pesewas, the paid date as the business
+ * date in Africa/Accra. The template never computes; the total printed is the payment's own amount.
+ */
+export function remittanceRenderData(r: PrintableRemittance): Record<string, unknown> {
+  return {
+    title: 'Remittance advice',
+    paymentNo: r.paymentNo ?? r.supplierPaymentId,
+    paidDate: toBusinessDate(r.paidAt),
+    method: r.method,
+    payee: r.payeeMasked,
+    externalReference: r.externalReference,
+    supplier: { name: r.supplierName },
+    branch: { code: r.branch.code, name: r.branch.name },
+    amount: formatCedis(r.amountPesewas),
+    lines: r.lines.map((l) => ({
+      supplierInvoiceNo: l.supplierInvoiceNo,
+      invoiceDate: l.invoiceDate,
+      gross: formatCedis(l.grossPesewas),
+      credited: formatCedis(l.creditedPesewas),
+      amount: formatCedis(l.amountPesewas),
+      outstandingAfter: formatCedis(l.outstandingAfterPesewas),
+    })),
+  };
 }

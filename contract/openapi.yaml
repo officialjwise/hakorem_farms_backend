@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.40.0"
+  version: "1.41.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -37548,7 +37548,7 @@ paths:
       tags:
         - pur
       summary: "Get a paid supplier payment's remittance advice data"
-      description: "The remittance advice data of a PAID supplier payment (FR-PUR-013, 1.30.0): each invoice it pays with the invoice's gross, the credits approved against it, the amount this payment puts on it and what was left after, and the payment's method, masked payee, time and reference. It is fixed once, in the transaction that marks the payment paid, and never changes; replaying or repeating `markSupplierPaymentPaid` makes no second one, and `pur.SupplierRemittanceReady` is published once. A payment not yet paid has none (404 `NOT_FOUND`). Rendering the document, archiving it (`remittanceDocumentId`) and sending it to the supplier follow in B8 and B11.\n\nPermission: `pur.supplier_payment.read`."
+      description: "The remittance advice data of a PAID supplier payment (FR-PUR-013, 1.30.0): each invoice it pays with the invoice's gross, the credits approved against it, the amount this payment puts on it and what was left after, and the payment's method, masked payee, time and reference. It is fixed once, in the transaction that marks the payment paid, and never changes; replaying or repeating `markSupplierPaymentPaid` makes no second one, and `pur.SupplierRemittanceReady` is published once. A payment not yet paid has none (404 `NOT_FOUND`). The advice is rendered and archived by the worker after the payment is marked paid, once (B08 continued 2c, ADR-0062): `remittanceDocumentId` is null until then, usually seconds, and then names the archived PDF (`getArchivedDocument`, `downloadArchivedDocument` once scanned). Sending it to the supplier follows with notifications in B11.\n\nPermission: `pur.supplier_payment.read`."
       x-permission: pur.supplier_payment.read
       x-error-codes:
         - VALIDATION_FAILED
@@ -37727,7 +37727,7 @@ paths:
       tags:
         - pur
       summary: "Record that an approved payment was made"
-      description: "Records an APPROVED payment as paid, with the time and the bank or mobile money reference, which is unique per method so a replayed confirmation collides. Each invoice it allocates to carries the amount as paid, and is PAID once settled. Publishes pur.SupplierPaymentMade for the ledger. In the same transaction the remittance advice data is fixed, once per payment (`getSupplierPaymentRemittance`), and `pur.SupplierRemittanceReady` is published once; rendering and archiving it wait for B8 and sending it for B11 (FR-PUR-013, 1.30.0). Each invoice is PAID once payments and approved credits reach its gross.\n\nPermission: `pur.supplier_payment.pay`."
+      description: "Records an APPROVED payment as paid, with the time and the bank or mobile money reference, which is unique per method so a replayed confirmation collides. Each invoice it allocates to carries the amount as paid, and is PAID once settled. Publishes pur.SupplierPaymentMade for the ledger. In the same transaction the remittance advice data is fixed, once per payment (`getSupplierPaymentRemittance`), and `pur.SupplierRemittanceReady` is published once; the worker then renders and archives the advice once (B08 continued 2c, ADR-0062: `remittanceDocumentId` is null in this answer and set seconds later), and sending it to the supplier waits for B11 (FR-PUR-013, 1.30.0). Each invoice is PAID once payments and approved credits reach its gross.\n\nPermission: `pur.supplier_payment.pay`."
       x-permission: pur.supplier_payment.pay
       x-error-codes:
         - VALIDATION_FAILED
@@ -37802,7 +37802,7 @@ paths:
                   - supplierInvoiceId: "019a7acd-3d3a-7790-acc9-81df0c83fabc"
                     supplierInvoiceNo: AWT-0441
                     amountPesewas: 625000
-                remittanceDocumentId: "019a7acf-6a08-798f-8ec7-a1c59af51aa3"
+                remittanceDocumentId: null
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                 version: 2
                 createdAt: "2026-11-10T09:04:00Z"
@@ -43196,9 +43196,19 @@ paths:
       operationId: previewTemplateVersion
       tags:
         - doc
-      summary: "Render a preview PDF of a template version"
-      description: "Permission: `doc.template.read`."
+      summary: "Render a specimen of a template version"
+      description: "Renders any version of a template, a `DRAFT` included, with `data` or, when `data` is absent, the version's saved sample data, and returns the bytes inline (B08 continued 2c, ADR-0062): `pdfBase64` for an A4 template, `escPosBase64` for a thermal one; `url` and `expiresAt` are always null. The specimen carries `SPECIMEN PREVIEW - NOT A VALID DOCUMENT` first and last, so it cannot pass for an issued document. Nothing is written: no render job, no archive row, no stored file, no number and no audit event, so no idempotency key is needed and the bytes are never served from storage unscanned. With no data given and no sample data saved: 422 `PREVIEW_DATA_REQUIRED`.\n\nPermission: `doc.template.read`."
       x-permission: doc.template.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - PREVIEW_DATA_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -43226,10 +43236,14 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SignedUrl"
+                $ref: "#/components/schemas/TemplatePreviewResult"
               example:
-                url: "https://files.hakoremfarms.com/private/019a7a95-e5a4-769c-8bd5-729f55d9eb7d?X-Amz-Expires=300&X-Amz-Signature=3f9a"
-                expiresAt: "2026-11-13T10:05:00Z"
+                templateVersionId: "019a7ae0-16de-7e2d-a366-ebad345f648b"
+                output: PDF_A4
+                pdfBase64: "JVBERi0xLjQKJcOkw7zDtsOfCjEgMCBvYmoKPDwgL1R5cGUgL0NhdGFsb2cgL1BhZ2VzIDIgMCBSID4+CmVuZG9iago="
+                escPosBase64: null
+                url: null
+                expiresAt: null
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -87385,6 +87399,7 @@ components:
             - string
             - "null"
           format: uuid
+          description: "The archived remittance advice (`ArchivedDocument`), set once by the worker after the payment is paid; null until then (B08 continued 2c)."
         branchId:
           type: string
           format: uuid
@@ -87489,6 +87504,7 @@ components:
             - string
             - "null"
           format: uuid
+          description: "The archived remittance advice (`ArchivedDocument`), set once by the worker after the payment is paid; null until then (B08 continued 2c)."
         branchId:
           type: string
           format: uuid
@@ -89122,6 +89138,43 @@ components:
           type: object
           additionalProperties: true
           description: "Defaults to the version's sample data."
+      additionalProperties: false
+    TemplatePreviewResult:
+      type: object
+      description: "A specimen of a template version, returned inline and stored nowhere (B08 continued 2c, ADR-0062)."
+      properties:
+        templateVersionId:
+          type: string
+          format: uuid
+        output:
+          type: string
+          enum:
+            - PDF_A4
+            - THERMAL_80MM
+            - THERMAL_58MM
+        pdfBase64:
+          type:
+            - string
+            - "null"
+          description: "The specimen PDF, base64, for an A4 template; null for a thermal one."
+        escPosBase64:
+          type:
+            - string
+            - "null"
+          description: "The specimen ESC/POS bytes, base64, for a thermal template; null for an A4 one."
+        url:
+          type: "null"
+          description: "Always null: a preview is never stored, so no link is issued."
+        expiresAt:
+          type: "null"
+          description: "Always null."
+      required:
+        - templateVersionId
+        - output
+        - pdfBase64
+        - escPosBase64
+        - url
+        - expiresAt
       additionalProperties: false
     BillingLine:
       type: object

@@ -31,6 +31,8 @@ export interface RenderRequest {
   readonly branchId: string;
   /** The exact data the template renders, kept with the archive so the document can be verified (doc.md). */
   readonly renderData: Record<string, unknown>;
+  /** The event that asked for the document, when one did (the remittance advice: `pur.SupplierRemittanceReady`). */
+  readonly causationId?: string | undefined;
 }
 
 /** The contract's `ArchivedDocument`. */
@@ -99,7 +101,14 @@ export class Documents {
       templateVersionId: a4.activeVersionId!,
       thermalTemplateVersionId: thermal?.activeVersionId ?? null,
     };
-    const envelope = await this.events.publish(tx, { type: RENDER_REQUESTED, subjectType: 'BusinessDocument', subjectId: request.businessDocumentId, branchId: request.branchId, payload });
+    const envelope = await this.events.publish(tx, {
+      type: RENDER_REQUESTED,
+      subjectType: 'BusinessDocument',
+      subjectId: request.businessDocumentId,
+      branchId: request.branchId,
+      ...(request.causationId === undefined ? {} : { causationId: request.causationId }),
+      payload,
+    });
     await this.store.insertJob(tx, {
       id: this.nextId(),
       businessDocumentId: request.businessDocumentId,

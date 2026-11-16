@@ -60,6 +60,17 @@ describe('B08 continued 2b operations answer in the contract shapes', () => {
     expectShape('Error', refused.body);
   });
 
+  it('a specimen preview of a template version, and its refusal without data (B08 continued 2c)', async () => {
+    const page = await consoleGet(api.server, owner, '/v1/document-templates');
+    const template = page.body.data.find((t: { docType: string; output: string }) => t.docType === 'INVOICE' && t.output === 'PDF_A4');
+    const preview = await consolePost(api.server, owner, `/v1/template-versions/${template.activeVersion.id}/preview`).send({ data: { title: 'Invoice', documentNo: 'INV-X' } });
+    expect(preview.status).toBe(200);
+    expectShape('TemplatePreviewResult', preview.body);
+    const refused = await consolePost(api.server, owner, `/v1/template-versions/${template.activeVersion.id}/preview`).send({});
+    expect([refused.status, refused.body.error.code]).toEqual([422, 'PREVIEW_DATA_REQUIRED']);
+    expectShape('Error', refused.body);
+  });
+
   it('the archive, its download link, a reprint and the reprint log', async () => {
     const page = await consoleGet(api.server, owner, '/v1/documents?limit=10');
     expect(page.status).toBe(200);

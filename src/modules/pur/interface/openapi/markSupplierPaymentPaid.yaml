@@ -2,7 +2,7 @@ operationId: markSupplierPaymentPaid
 tags:
   - pur
 summary: "Record that an approved payment was made"
-description: "Records an APPROVED payment as paid, with the time and the bank or mobile money reference, which is unique per method so a replayed confirmation collides. Each invoice it allocates to carries the amount as paid, and is PAID once settled. Publishes pur.SupplierPaymentMade for the ledger. In the same transaction the remittance advice data is fixed, once per payment (`getSupplierPaymentRemittance`), and `pur.SupplierRemittanceReady` is published once; rendering and archiving it wait for B8 and sending it for B11 (FR-PUR-013, 1.30.0). Each invoice is PAID once payments and approved credits reach its gross.\n\nPermission: `pur.supplier_payment.pay`."
+description: "Records an APPROVED payment as paid, with the time and the bank or mobile money reference, which is unique per method so a replayed confirmation collides. Each invoice it allocates to carries the amount as paid, and is PAID once settled. Publishes pur.SupplierPaymentMade for the ledger. In the same transaction the remittance advice data is fixed, once per payment (`getSupplierPaymentRemittance`), and `pur.SupplierRemittanceReady` is published once; the worker then renders and archives the advice once (B08 continued 2c, ADR-0062: `remittanceDocumentId` is null in this answer and set seconds later), and sending it to the supplier waits for B11 (FR-PUR-013, 1.30.0). Each invoice is PAID once payments and approved credits reach its gross.\n\nPermission: `pur.supplier_payment.pay`."
 x-permission: pur.supplier_payment.pay
 x-error-codes:
   - VALIDATION_FAILED
@@ -77,7 +77,7 @@ responses:
             - supplierInvoiceId: "019a7acd-3d3a-7790-acc9-81df0c83fabc"
               supplierInvoiceNo: AWT-0441
               amountPesewas: 625000
-          remittanceDocumentId: "019a7acf-6a08-798f-8ec7-a1c59af51aa3"
+          remittanceDocumentId: null
           branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
           version: 2
           createdAt: "2026-11-10T09:04:00Z"
