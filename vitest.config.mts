@@ -95,6 +95,8 @@ export default defineConfig({
         ...fullCoverage('packages/kernel/src/**/*.ts'),
         ...fullCoverage('src/modules/mdm/domain/pricing/**/*.ts'), // B4: the ADR-0004 walk and price list rules
         ...fullCoverage('src/modules/mdm/domain/tax/**/*.ts'), // B4 continued: the tax calculator and scheme versions (ADR-0020)
+        ...fullCoverage('src/modules/doc/domain/templates.ts'), // B08 continued 2b: the template sandbox (FR-DOC-004)
+        ...fullCoverage('src/platform/documents/*-writer.ts'), // B08 continued 2b: archived bytes and reprint markers (FR-BIL-009)
         ...fullCoverage('src/modules/mdm/domain/catalogue.ts'), // B04d continued: weight band ranges and archive rules
         ...fullCoverage('src/modules/mdm/domain/parties.ts'), // B04d continued 2: Ghana phones, addresses, price list assignment windows
         ...fullCoverage('src/modules/mdm/domain/locations.ts'), // B04d continued 2: the location tree and virtual locations
