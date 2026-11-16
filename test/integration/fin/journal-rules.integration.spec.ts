@@ -55,6 +55,8 @@ interface RawOptions {
   readonly date?: string;
   readonly periodId?: string;
   readonly savepoint?: SavepointAround;
+  /** SET CONSTRAINTS ALL IMMEDIATE before any write, or once every line is written. */
+  readonly immediate?: 'before-writes' | 'after-lines';
 }
 
 async function postRaw(lines: readonly RawLine[], options: RawOptions = {}): Promise<string> {
@@ -65,6 +67,7 @@ async function postRaw(lines: readonly RawLine[], options: RawOptions = {}): Pro
   const client = await app.connect();
   try {
     await client.query('BEGIN');
+    if (options.immediate === 'before-writes') await client.query('SET CONSTRAINTS ALL IMMEDIATE');
     await client.query("INSERT INTO platform.business_document (id, doc_type, owner_module, branch_id, actor_id) VALUES ($1, 'JOURNAL', 'fin', $2, $3)", [id, branchId, SYSTEM_PRINCIPAL]);
     if (options.savepoint === 'entry-and-lines' || options.savepoint === 'entry') await client.query('SAVEPOINT around_entry');
     await client.query(
@@ -85,6 +88,7 @@ async function postRaw(lines: readonly RawLine[], options: RawOptions = {}): Pro
     }
     if (options.savepoint === 'entry-and-lines') await client.query('RELEASE SAVEPOINT around_entry');
     if (options.savepoint === 'lines') await client.query('RELEASE SAVEPOINT around_lines');
+    if (options.immediate === 'after-lines') await client.query('SET CONSTRAINTS ALL IMMEDIATE');
     await client.query('COMMIT');
     return id;
   } catch (error) {
@@ -286,6 +290,81 @@ describe('an entry written inside a savepoint keeps its own lines (migration 012
       await client.query('ROLLBACK');
       client.release();
     }
+  });
+});
+
+describe('SET CONSTRAINTS ALL IMMEDIATE only makes the balance check earlier (FR-FIN-003)', () => {
+  it('refuses an unbalanced entry at the SET itself, and a balanced one commits', async () => {
+    expect(
+      await refusalOf(
+        postRaw(
+          [
+            { code: '1310', side: 'D', amount: 6_000 },
+            { code: '2010', side: 'C', amount: 5_999 },
+          ],
+          { immediate: 'after-lines' },
+        ),
+      ),
+    ).toEqual({ code: LEDGER_RULE, constraint: 'ck_journal_balanced' });
+    const id = await postRaw(
+      [
+        { code: '1310', side: 'D', amount: 6_000 },
+        { code: '2010', side: 'C', amount: 6_000 },
+      ],
+      { immediate: 'after-lines' },
+    );
+    expect(await entriesNamed(id)).toBe(3);
+  });
+
+  it('refuses the entry at its own statement when the checks are immediate before any line exists, as ck_journal_lines', async () => {
+    expect(
+      await refusalOf(
+        postRaw(
+          [
+            { code: '1310', side: 'D', amount: 6_000 },
+            { code: '2010', side: 'C', amount: 6_000 },
+          ],
+          { immediate: 'before-writes' },
+        ),
+      ),
+    ).toEqual({ code: LEDGER_RULE, constraint: 'ck_journal_lines' });
+  });
+
+  it('refuses at commit a line added after the checks ran immediately on a balanced entry and were deferred again', async () => {
+    const id = randomUUID();
+    const client = await app.connect();
+    const attempt = async () => {
+      await client.query('BEGIN');
+      await client.query("INSERT INTO platform.business_document (id, doc_type, owner_module, branch_id, actor_id) VALUES ($1, 'JOURNAL', 'fin', $2, $3)", [id, branchId, SYSTEM_PRINCIPAL]);
+      await client.query(
+        `INSERT INTO fin.journal_entry (id, entry_no, posting_date, period_id, branch_id, kind, source_document_id, posting_group_id, description, occurred_at, actor_id)
+         VALUES ($1, $2, '2026-11-16', $3, $4, 'MANUAL', $1, $5, 'Checked early, then extended', now(), $6)`,
+        [id, `RAW-IMMEDIATE-${id.slice(0, 8)}`, period(2026, 11), branchId, randomUUID(), SYSTEM_PRINCIPAL],
+      );
+      for (const [lineNo, code, side] of [
+        [1, '1310', 'D'],
+        [2, '2010', 'C'],
+      ] as const) {
+        await client.query(
+          "INSERT INTO fin.journal_line (journal_entry_id, line_no, account_id, side, amount_pesewas, branch_id, posting_date) VALUES ($1, $2, $3, $4, 7000, $5, '2026-11-16')",
+          [id, lineNo, account(code), side, branchId],
+        );
+      }
+      await client.query('SET CONSTRAINTS ALL IMMEDIATE');
+      await client.query('SET CONSTRAINTS ALL DEFERRED');
+      await client.query(
+        "INSERT INTO fin.journal_line (journal_entry_id, line_no, account_id, side, amount_pesewas, branch_id, posting_date) VALUES ($1, 3, $2, 'D', 500, $3, '2026-11-16')",
+        [id, account('1320'), branchId],
+      );
+      await client.query('COMMIT');
+    };
+    try {
+      expect(await refusalOf(attempt())).toEqual({ code: LEDGER_RULE, constraint: 'ck_journal_balanced' });
+    } finally {
+      await client.query('ROLLBACK');
+      client.release();
+    }
+    expect(await entriesNamed(id)).toBe(0);
   });
 });
 
