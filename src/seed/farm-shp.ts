@@ -38,11 +38,19 @@ export function farmSeedShp(): ServiceSeedUnit {
       const now = app.get<Clock>(CLOCK).now();
       const from = toBusinessDate(now);
       const to = toBusinessDate(new Date(now.getTime() + (SEED_SLOTS.days - 1) * MS_PER_DAY));
-      const generated = await staff.as('manager', (manager) =>
-        app.get(Slots).generate(manager, { zoneId: zone.id, from, to, weekdays: [...SEED_SLOTS.weekdays], times: SEED_SLOTS.times.map((t) => ({ ...t })) }, `seed:shp:slots:${from}`),
-      );
+      const existing = Number((await pool.query<{ n: string }>('SELECT count(*)::text AS n FROM del.delivery_slot WHERE delivery_zone_id = $1 AND slot_date BETWEEN $2 AND $3', [zone.id, from, to])).rows[0]!.n);
+      const created =
+        existing > 0
+          ? 0
+          : (
+              await staff.as('manager', (manager) =>
+                app.get(Slots).generate(manager, { zoneId: zone.id, from, to, weekdays: [...SEED_SLOTS.weekdays], times: SEED_SLOTS.times.map((t) => ({ ...t })) }, `seed:shp:slots:${from}`),
+              )
+            ).body.created;
+      const before = Number((await pool.query<{ n: string }>('SELECT count(*)::text AS n FROM shp.product_listing')).rows[0]!.n);
       const listed = await app.get(CatalogueListing).refresh();
-      return { records: generated.body.created + listed.listed };
+      // A rebuild of a listing that already exists writes the same rows: it is not counted as new seed records.
+      return { records: created + (before === 0 ? listed.listed : 0) };
     },
   };
 }
