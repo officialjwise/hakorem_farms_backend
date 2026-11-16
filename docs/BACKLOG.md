@@ -101,6 +101,8 @@ These are not mentioned in the shared brief, or are mentioned only conditionally
 | BL-042 | An unassign operation for a customer's price list (`DELETE /customers/{id}/price-list`) | FR-MDM-021's "unassigning returns to tier" is met by an assignment with a `validTo` (A-113); a separate operation needs a contract addition, worth it when the wholesale screens (F10) ask for it |
 | BL-045 | Re-resolve saved addresses when a delivery zone's areas change | A saved address keeps the zone it was in when saved (A-112, A-116); the checkout quote always matches live, so a stale saved zone only affects what a screen shows |
 | BL-046 | A sweep of unreferenced objects in the private bucket | An upload writes its object before the transaction that registers it (ADR-0044), so a replayed or rolled-back upload leaves an object nothing references; it is never served and costs only storage, worth sweeping when storage cost shows on the bill |
+| BL-069 | The nightly `settlement-match` job: a break for a cleared provider payment no settlement has carried after the provider's settlement period, and a mobile money wallet's statement import (B09a continued 1c, A-214 (g)) | Settlement and statement matching are built on demand (`matchSettlementReport`, `matchBankStatement`); the nightly sweep needs the provider's real settlement period from the A-064 sandbox run, and a wallet statement's format from the owner's mobile money account |
+| BL-070 | Reclassify an unidentified receipt from 2290 to a customer's deposit as a PAY operation (B09a continued 1c, A-214 (e)) | Today the accountant moves it by an approved manual journal; build it when suspense receipts are frequent enough to need their own screen |
 
 ## How to add to this list
 
