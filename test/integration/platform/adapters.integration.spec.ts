@@ -188,7 +188,7 @@ describe('the payment provider port and its Paystack adapter (A-047)', () => {
     expect(paystack.webhookSignatureValid(raw, 'not-hex')).toBe(false);
   });
 
-  it('sends a refund with its idempotency key in the note, and answers a refund already carrying that note without sending another (A-217)', async () => {
+  it('sends a refund with its idempotency key in the note, and answers a refund already carrying that note without sending another (A-218)', async () => {
     const verified = { status: 200, body: { status: true, data: { id: 4_099_260_516, reference: 'PAY-DDW-000231', status: 'success', amount: 45_900, currency: 'GHS' } } };
     const provider = await fakeProvider([
       verified,

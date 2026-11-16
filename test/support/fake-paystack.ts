@@ -8,7 +8,7 @@ import type { AddressInfo } from 'node:net';
  * `GET /transaction`, `POST /refund`, `GET /refund` and `GET /refund/:id`, with Paystack's envelope `{ status, message,
  * data }`, and signs webhooks the way Paystack documents (`X-Paystack-Signature`: HMAC-SHA512 of the raw body with the
  * secret key). It answers the way Paystack's test mode answered on 2026-11-16 (`test/sandbox/paystack.sandbox.spec.ts`,
- * A-217), where that differs from the documentation:
+ * A-218), where that differs from the documentation:
  * - a payer email on the reserved `.example` domain is refused with 400 `Invalid Email Address Passed`;
  * - a charge to the MTN test number, local or E.164, answers `success` at once, already paid; any other number answers
  *   `pay_offline`, as the documentation describes a live charge waiting for the customer's phone;

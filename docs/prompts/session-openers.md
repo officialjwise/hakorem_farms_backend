@@ -62,7 +62,7 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B09a continued 1b | `B09a2b-payments-reconciliation.md` | `b09a2b-payments-reconciliation` | B4 to B12 | A cheque clears 1130 to 1100 or bounces and reopens its item; a reversal posts the mirror of its journal with a different approver; store credit is never redeemed beyond its balance; the trial balance still sums to zero; every PAY write built refuses the wrong role (built; the session split before settlement and bank reconciliation, A-213) |
 | B09a continued 1c | `B09a2c-payments-settlement.md` | `b09a2c-payments-settlement` | B4 to B12 | A settlement of three payments with a fee posts 1100, 6910 and 1120 exactly and an extra line raises a break; a bank transfer clears only from its matched statement line; a break resolves only through an approved posting; the trial balance still sums to zero; every reconciliation write refuses the wrong role (built; the session split before the refund against a credit note, A-215) |
 | B09a continued 1d | `B09a2d-payments-credit-refunds.md` | `b09a2d-payments-credit-refunds` | B4 to B12 | A refund against a credit note on a paid document posts Dr 1200, never beyond the credit note's amount less what was refunded, held by the database under concurrency, approved by someone other than both makers; a cheque is refunded through a bank payout; the trial balance still sums to zero (built, A-216, ADR-0066) |
-| B09a continued 2 | `B09a3-orders-online.md` | `b09a3-orders-online` | B4 to B12 | The real Paystack sandbox run: every edge case against Paystack's test mode, every difference reported and fixed in the fake and the adapter test-first; the Settlements API's answer recorded; CR-029 (`Cart.checkoutId`) built (built; the session split before the order endpoints, A-218) |
+| B09a continued 2 | `B09a3-orders-online.md` | `b09a3-orders-online` | B4 to B12 | The real Paystack sandbox run: every edge case against Paystack's test mode, every difference reported and fixed in the fake and the adapter test-first; the Settlements API's answer recorded; CR-029 (`Cart.checkoutId`) built (built; the session split before the order endpoints, A-219) |
 | B09a continued 2b | `B09a3b-orders-online.md` | `b09a3b-orders-online` | B4 to B12 | The order endpoints and online placement post through SalePosting in one transaction; a void needs a supervisor who is not the cashier; a return never exceeds what was sold; the dashboard's sales figures answer exactly; every ORD write refuses the wrong role |
 | B09x | `B09x-contract-requests.md` | `b09x-contract-requests` | B4 to B12 | Every list operation has a named empty example (CR-005) and the seeded role matrix is published in the contract, generated from the IAM seed and checked in CI so it cannot drift (CR-023); no existing shape changes |
 | B9b | `B09b-pos-shifts-offline.md` | `b09b-pos-shifts-offline` | B4 to B12 | Shift close reconciles; 500 queued offline transactions sync exactly once |
@@ -1611,7 +1611,7 @@ pull request is green.
 
 ## B09a continued 2 — The order endpoints, returns and voids, online placement and the dashboard's sales figures
 
-**Run on 2026-11-16 and split (A-217, A-218):** the real Paystack sandbox run and CR-029 were built and proved; everything from ORD's permissions onward moved to B09a continued 2b below. Branch `b09a3-orders-online`, from `main`. Report `docs/sessions/B09a3-orders-online.md`. Inserted by B9a's split (A-209, ADR-0026 Amendments). Gate as planned: an order on any channel built so far posts stock, document, payment and ledger in one transaction through `SalePosting.postIn` (B9a's proof stands), now reached through the order endpoints and online placement; a void is approved by a supervisor who is not the cashier and leaves a credit note and reversing entries; a return never exceeds what was sold; the owner dashboard's B9a figures answer exactly from completed orders; every ORD write refuses the wrong role.
+**Run on 2026-11-16 and split (A-218, A-219):** the real Paystack sandbox run and CR-029 were built and proved; everything from ORD's permissions onward moved to B09a continued 2b below. Branch `b09a3-orders-online`, from `main`. Report `docs/sessions/B09a3-orders-online.md`. Inserted by B9a's split (A-209, ADR-0026 Amendments). Gate as planned: an order on any channel built so far posts stock, document, payment and ledger in one transaction through `SalePosting.postIn` (B9a's proof stands), now reached through the order endpoints and online placement; a void is approved by a supervisor who is not the cashier and leaves a credit note and reversing entries; a return never exceeds what was sold; the owner dashboard's B9a figures answer exactly from completed orders; every ORD write refuses the wrong role.
 
 ```text
 Before anything else in this phase, the real Paystack sandbox run the owner moved into B9 (A-064, 2026-11-16).
@@ -1668,7 +1668,7 @@ request is green.
 
 ## B09a continued 2b — The order endpoints, returns and voids, online placement and the dashboard's sales figures
 
-Branch `b09a3b-orders-online`, from `main`. Report `docs/sessions/B09a3b-orders-online.md`. Inserted by B09a continued 2's split (A-218, ADR-0026 Amendments). Gate: an order on any channel built so far posts stock, document, payment and ledger in one transaction through `SalePosting.postIn` (B9a's proof stands), now reached through the order endpoints and online placement; a void is approved by a supervisor who is not the cashier and leaves a credit note and reversing entries; a return never exceeds what was sold; the owner dashboard's B9a figures answer exactly from completed orders; every ORD write refuses the wrong role.
+Branch `b09a3b-orders-online`, from `main`. Report `docs/sessions/B09a3b-orders-online.md`. Inserted by B09a continued 2's split (A-219, ADR-0026 Amendments). Gate: an order on any channel built so far posts stock, document, payment and ledger in one transaction through `SalePosting.postIn` (B9a's proof stands), now reached through the order endpoints and online placement; a void is approved by a supervisor who is not the cashier and leaves a credit note and reversing entries; a return never exceeds what was sold; the owner dashboard's B9a figures answer exactly from completed orders; every ORD write refuses the wrong role.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9a row).
@@ -1679,7 +1679,7 @@ reasonable, record in the report what you declined and why, never edit that file
 For this phase, read the ORD (core) requirement block of docs/SRS.md and FR-RPT-001 (nothing else from the SRS),
 docs/data-model/ord.md, the ORD, PAY, BIL and RPT cards in docs/MODULE_BOUNDARIES.md, DOMAIN_MODEL section 7,
 ADR-0010, ADR-0021 and ADR-0026, the abuse cases 1, 3 and 12 in docs/security/THREAT_MODEL.md, and A-149, A-200,
-A-201, A-208, A-209, A-210, A-211, A-212, A-213, A-216 and A-217 in docs/ASSUMPTIONS.md, ADR-0063, ADR-0064 and
+A-201, A-208, A-209, A-210, A-211, A-212, A-213, A-216 and A-218 in docs/ASSUMPTIONS.md, ADR-0063, ADR-0064 and
 ADR-0066 (a void's refund is a reversal or a refund to store credit; returns use the refund against a credit note,
 built in B09a continued 1d). Load hakorem-pricing, hakorem-money, hakorem-stock, hakorem-ledger,
 hakorem-documents, hakorem-security-review, hakorem-endpoint, hakorem-migration and hakorem-tests. Use
@@ -1705,7 +1705,7 @@ with a trading day of sales posted through SalePosting, keeping the B5 hand coun
 CR-029 was built in B09a continued 2 (`Cart.checkoutId`, contract 1.46.0): when placeOrder completes a checkout,
 prove through placeOrder itself that the cart's checkoutId is null again (B09a continued 2 proved it for an expiry,
 and for a completion only by setting the rows directly). The integration tests run against the local Paystack fake,
-which now answers as Paystack's test mode did (A-217): its MTN test number pays at once, a payer email on `.example`
+which now answers as Paystack's test mode did (A-218): its MTN test number pays at once, a payer email on `.example`
 is refused, and a refund's idempotency key is honoured only through the adapter's note lookup.
 If it does not fit, split at a sub-domain boundary after a proven, merged gate.
 Stop at the gate, write docs/sessions/B09a3b-orders-online.md, and merge into main when every run on the pull

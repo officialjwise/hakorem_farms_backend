@@ -9,7 +9,7 @@ Version numbers follow semantic versioning: a major bump breaks an existing clie
 Minor, additive. No operation moves into code; one response field is added. No field removed, renamed or retyped, and nothing a client sends made required. 402 operations from code, 233 planned.
 
 - **CR-029 (`Cart.checkoutId`):** `Cart` gains `checkoutId` (uuid or null, always sent): the cart's open checkout while `status` is `CHECKOUT`, null otherwise, never another cart's. Every cart example, and `reorderMyOrder`'s, carries `checkoutId: null`.
-- The real Paystack sandbox run (A-217) changed no shape: the differences it found were in the adapter and the local fake.
+- The real Paystack sandbox run (A-218) changed no shape: the differences it found were in the adapter and the local fake.
 
 ## 1.45.0 (2026-11-16, B09a continued 1d)
 

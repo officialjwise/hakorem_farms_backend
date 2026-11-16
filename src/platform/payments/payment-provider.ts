@@ -118,7 +118,7 @@ const REFUND_STATUS: Readonly<Record<string, ProviderRefund['status']>> = {
 const REFUND_LIST_PAGE_SIZE = 100;
 const REFUND_LIST_MAX_PAGES = 5;
 
-/** The note a refund carries at Paystack: our idempotency key, read back to tell a refund already made (A-217). */
+/** The note a refund carries at Paystack: our idempotency key, read back to tell a refund already made (A-218). */
 export function refundNoteOf(idempotencyKey: string): string {
   return `ref ${idempotencyKey}`;
 }
@@ -234,7 +234,7 @@ export class PaystackPaymentProvider implements PaymentProvider {
   }
 
   /**
-   * Paystack ignores an `Idempotency-Key` on `POST /refund` (the sandbox run, A-217): the same key twice makes two
+   * Paystack ignores an `Idempotency-Key` on `POST /refund` (the sandbox run, A-218): the same key twice makes two
    * refunds. So the key travels in the refund's `merchant_note`, and before sending, the transaction's refunds are
    * read back (`GET /refund?transaction=<id>`); one carrying the note is the refund already made, whose answer was lost.
    */

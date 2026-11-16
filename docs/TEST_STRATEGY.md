@@ -86,7 +86,7 @@ It never touches non-test branches, never creates customer-visible data, and cle
 
 ### 3.6 The provider sandbox (on demand, never in CI)
 
-`test/sandbox/<provider>.sandbox.spec.ts` runs the real payment adapter against the provider's test mode (A-064, A-217): `pnpm test:sandbox`. It needs the network and the owner's test key, which the session's network proxy puts on every request to the provider's host, so the key is never in the repository, the process or a log; the adapter sends a placeholder. The Vitest project `sandbox` exists only when `PAYSTACK_SANDBOX=1`, which the script sets, so CI and every other command neither run nor skip it. Its first test refuses to go on unless the provider answers from its test domain. Raw answers, with anything key-like removed, go to `PAYSTACK_SANDBOX_LOG` outside the repository. A difference it finds is fixed in the local fake (`test/support/fake-paystack.ts`) and, test-first, in the adapter; the integration suite then proves it on every pull request.
+`test/sandbox/<provider>.sandbox.spec.ts` runs the real payment adapter against the provider's test mode (A-064, A-218): `pnpm test:sandbox`. It needs the network and the owner's test key, which the session's network proxy puts on every request to the provider's host, so the key is never in the repository, the process or a log; the adapter sends a placeholder. The Vitest project `sandbox` exists only when `PAYSTACK_SANDBOX=1`, which the script sets, so CI and every other command neither run nor skip it. Its first test refuses to go on unless the provider answers from its test domain. Raw answers, with anything key-like removed, go to `PAYSTACK_SANDBOX_LOG` outside the repository. A difference it finds is fixed in the local fake (`test/support/fake-paystack.ts`) and, test-first, in the adapter; the integration suite then proves it on every pull request.
 
 ## 4. File naming and location
 
@@ -275,7 +275,7 @@ Written before the happy path. Each is an integration test against the provider 
 | `a webhook for an order that no longer exists is recorded and ignored` |
 | `a refund that fails after the stock was released is queued and appears in the break queue` |
 | `a webhook with an invalid signature, a stale timestamp or a wrong amount is rejected and recorded with its outcome` |
-| `finds a part refund Paystack made while its answer timed out by the note it carries, and never sends it twice` (A-217: Paystack ignores the idempotency key on a refund) |
+| `finds a part refund Paystack made while its answer timed out by the note it carries, and never sends it twice` (A-218: Paystack ignores the idempotency key on a refund) |
 
 ## 11. Money tests: exact values and rounding edge cases
 

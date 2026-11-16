@@ -171,7 +171,7 @@ describe('Paystack test mode, through the real adapter (A-064)', () => {
     for (const reference of [unpaid, momo, timedOut]) expect(references.filter((r) => r === reference)).toHaveLength(1);
   });
 
-  it('makes two refunds when the same Idempotency-Key is sent twice raw: Paystack ignores the header (A-217)', async () => {
+  it('makes two refunds when the same Idempotency-Key is sent twice raw: Paystack ignores the header (A-218)', async () => {
     expect(testDomain).toBe(true);
     const key = `${RUN}-raw-key`;
     const body = { transaction: timedOut, amount: '1000', merchant_note: `raw ${key}` };

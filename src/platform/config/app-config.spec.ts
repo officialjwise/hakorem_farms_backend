@@ -123,7 +123,7 @@ describe('typed configuration', () => {
     expect(problemsFor({ ...configured, PAYSTACK_SECRET_KEY: 'not-a-key' })).toEqual(['PAYSTACK_SECRET_KEY must be a Paystack secret key']);
   });
 
-  it('refuses a payer mailbox on a reserved domain at boot, which Paystack refuses on every charge (A-217)', () => {
+  it('refuses a payer mailbox on a reserved domain at boot, which Paystack refuses on every charge (A-218)', () => {
     const configured = { ...VALID, PAYSTACK_BASE_URL: 'http://127.0.0.1:4010', PAYSTACK_SECRET_KEY: `sk_test_${'a'.repeat(24)}` };
     for (const email of ['payments@farm.example', 'payments@farm.test', 'payments@farm.invalid', 'payments@farm.localhost', 'PAYMENTS@FARM.EXAMPLE']) {
       expect(problemsFor({ ...configured, PAYSTACK_PAYER_EMAIL: email }), email).toEqual(['PAYSTACK_PAYER_EMAIL must not be on a reserved domain: Paystack refuses it']);

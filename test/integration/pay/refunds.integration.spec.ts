@@ -293,7 +293,7 @@ describe('an approved refund is paid once, through the provider or by hand (FR-P
   });
 });
 
-describe('a provider refund is sent once even though Paystack ignores the idempotency key (A-217)', () => {
+describe('a provider refund is sent once even though Paystack ignores the idempotency key (A-218)', () => {
   it('finds a part refund Paystack made while its answer timed out by the note it carries, and never sends it twice', async () => {
     const payment = await deposit('owner', 8_000);
     const asked = await post('cashier', '/refunds', { originalPaymentId: payment, amountPesewas: 3_000, destination: 'ORIGINAL_METHOD', reasonCode: 'WRONG_ITEM', note: 'Wrong size of crate' });

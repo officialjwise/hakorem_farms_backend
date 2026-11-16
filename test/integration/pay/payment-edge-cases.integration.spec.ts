@@ -326,7 +326,7 @@ describe('the payment edge cases of the brief land exactly once, and the money i
     expect(await journalCount(database, started.body.id as string, 'pay.PaymentCleared')).toBe(1);
   });
 
-  it('a charge Paystack answers paid at once, as its test number does, stays PENDING until a lookup confirms its amount, and clears once (A-217)', async () => {
+  it('a charge Paystack answers paid at once, as its test number does, stays PENDING until a lookup confirms its amount, and clears once (A-218)', async () => {
     const started = await initiateCharge(api.server, as('cashier'), { amountPesewas: 17_500, customerId: id('tema'), payerPhone: `+233${PAYSTACK_MTN_TEST_PHONE.slice(1)}` });
     expect(started.status, JSON.stringify(started.body)).toBe(201);
     expect(started.body).toMatchObject({ status: 'PENDING', verification: 'UNVERIFIED', amountPesewas: 17_500 });
