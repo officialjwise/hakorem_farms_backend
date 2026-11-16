@@ -44,7 +44,7 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B06u | `B06u-uom-conversions.md` | `b06u-uom-conversions` | B4 to B12 | Alternative units convert exactly, an inexact factor is refused by the database, conversions list in the contract, writes refuse the wrong role (built) |
 | B7 | `B07-procurement-suppliers.md` | `b07-procurement-suppliers` | B4 to B12 | Three-way match blocks payment on disagreement (built; the session split, A-165) |
 | B07 continued | `B07b-supplier-register.md` | `b07b-supplier-register` | B4 to B12 | A payout change waits for a different approver and the old details stay in force; a disguised document is refused; a rejected requisition cannot be converted; every write refuses the wrong role (built; the session split, A-167) |
-| B07 continued 1b | `B07b2-supplier-credit-scores.md` | `b07b2-supplier-credit-scores` | B4 to B12 | A credit note cannot exceed its invoice's uncredited amount; an approved variance lets a mismatched invoice be paid; a payment's remittance data is answered once; the score matches a hand calculation; every write refuses the wrong role |
+| B07 continued 1b | `B07b2-supplier-credit-scores.md` | `b07b2-supplier-credit-scores` | B4 to B12 | A credit note cannot exceed its invoice's uncredited amount; an approved variance lets a mismatched invoice be paid; a payment's remittance data is answered once; the score matches a hand calculation; every write refuses the wrong role (built) |
 | B06r | `B06r-processing-reversal-approval.md` | `b06r-processing-reversal-approval` | B4 to B12 | A processing reversal waits for a second approver at or above the threshold and is refused once a pack is sold or moved; a farm hand finds an animal by tag, reports and submits a death with its EVIDENCE photograph, and a manager approves it whatever its value; a reused photograph is flagged |
 | B07 continued 2 | `B07c-storefront-checkout.md` | `b07c-storefront-checkout` | B4 to B12 | Checkout reserves stock and releases it on timeout; a live animal cannot be added to a cart; the catalogue exposes no cost; every staff write refuses the wrong role |
 | B8 | `B08-ledger-billing.md` | `b08-ledger-billing` | B4 to B12 | Trial balance sums to zero on a seeded day; an unbalanced journal is rejected by the database; numbering is gap-free under concurrent load |
@@ -974,6 +974,8 @@ main when every run on the pull request is green.
 
 Branch `b07b2-supplier-credit-scores`, from `main`. Report `docs/sessions/B07b2-supplier-credit-scores.md`. Inserted by the B07 continued split (A-167, ADR-0026 Amendments). Gate: a credit note cannot exceed the invoice's uncredited amount (a credit of 11,000 against a 110,000 invoice leaves 99,000 payable; a second credit of 100,000 is refused), in the handler and the database, with a supplier-return movement through INV where goods go back; an approved variance lets a mismatched invoice be paid, and never by its maker; a paid payment's remittance data lists its invoices, amounts and reference once; the supplier score matches FR-PUR-014's hand calculation (91.0); every write refuses the wrong role.
 
+**Built on 2026-11-15** (A-172 to A-174): credit notes with the supplier-return movement, the approved variance, the remittance data and supplier scores, contract 1.30.0. B06r follows.
+
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
 List docs/sessions/ and read only the most recent report (docs/sessions/B07b-supplier-register.md).
@@ -1272,6 +1274,9 @@ The exception report must include order splitting (abuse case 27, owner 2026-11-
 PUR's PurchaseOrders.splitSuspectsIn for the report's day and report each run with its maker, supplier,
 orders and total; and the payout changes of case 13 from pur.SupplierPayoutChangeRequested and
 pur.SupplierPayoutChanged, with SA-17's payment within 24 hours after a change.
+It must include case 28 (B07 continued 1b, A-172): each invoice paid on an approved variance
+(pur.SupplierInvoiceMatched or ExpenseInvoiceApproved with varianceApprovalRequestId) and each approved supplier
+credit note (pur.SupplierCreditNoteApproved with its returned movements), with maker, approver and amount.
 Write the five tests of ADR-0028 under the names the ADR gives them, and run scenario 4 of
 docs/UAT.md as a dry run: the net profit for July to September 2026 in the seed is GHS 41,666.70 and
 the hand calculation must match the run to the pesewa.

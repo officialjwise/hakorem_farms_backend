@@ -278,8 +278,11 @@ The audit trail itself (audit events, the chain, anchors and per-subject keys) i
 | A change of payout details takes effect only when a different user approves it; the details in force are always an approved change | DB (`ck_supplier_payout_change_checker`, `pur.supplier_profile_payout_guard`, B07 continued) and Domain |
 | A bank or mobile money payment pays the approved details of its method in force when it is prepared | DB (`pur.supplier_payment_payee_guard`, B07 continued) and Domain |
 | A converted requisition names its purchase order; a rejected one is never converted | DB (`ck_purchase_requisition_converted`, status guard, B07 continued) and Domain |
+| A credit note never exceeds what its invoice has left after other live credits and payments; it is credited only when a different person approves it | DB (`ck_supplier_credit_note_cap`, `ck_supplier_invoice_credit_approved`, B07 continued 1b) and Domain |
+| An invoice is paid on a variance only when a different person, not its maker, approves a price or levy mismatch; never for goods not received | DB (`ck_supplier_invoice_variance`, `pur.supplier_invoice_variance_cover`, B07 continued 1b) and Domain |
+| A paid payment has one remittance advice, fixed when it was paid | DB (`uq_supplier_remittance_payment`, `pur.supplier_remittance_guard`, B07 continued 1b) |
 
-**Events:** `pur.RequisitionSubmitted`, `pur.SupplierPayoutChangeRequested`, `pur.SupplierPayoutChanged` (both for the payout change report and the exception report, THREAT_MODEL case 13), `pur.PurchaseOrderApproved`, `pur.PurchaseOrderSent`, ◆`pur.SupplierInvoiceMatched`, `pur.SupplierInvoiceMismatched`, ◆`pur.ExpenseInvoiceApproved`, ◆`pur.SupplierCreditNoteRecorded`, ◆`pur.SupplierPaymentMade`.
+**Events:** `pur.RequisitionSubmitted`, `pur.SupplierPayoutChangeRequested`, `pur.SupplierPayoutChanged` (both for the payout change report and the exception report, THREAT_MODEL case 13), `pur.PurchaseOrderApproved`, `pur.PurchaseOrderSent`, ◆`pur.SupplierInvoiceMatched`, `pur.SupplierInvoiceMismatched`, ◆`pur.ExpenseInvoiceApproved`, ◆`pur.SupplierCreditNoteRecorded`, ◆`pur.SupplierPaymentMade`. B07 continued 1b adds ◆`pur.SupplierCreditNoteApproved` (with INV's `inv.SupplierReturnIssued` for goods sent back), `pur.SupplierRemittanceReady` (DOC renders, NTF sends), and `varianceApprovalRequestId` on the invoice ledger events.
 
 ### 5.8 BIL: invoicing, receipts and credit notes
 
