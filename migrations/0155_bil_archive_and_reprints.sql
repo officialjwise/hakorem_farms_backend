@@ -10,13 +10,13 @@
 --   ck_reprint_log_copy_no         a reprint takes the next copy number of an issued, archived document
 --   reject_change                  the reprint log refuses UPDATE, DELETE and TRUNCATE, for every role
 -- Data category: CONFIDENTIAL (DC-24): who reprinted which document.
--- Rollback: tested (`pnpm db:rollback`), safe before the first archived document or reprint; afterwards forward fix only.
+-- Rollback: tested (`pnpm db:rollback`, then applied again). Rolling back keeps every content hash and the archive and
+-- drops only the link column and the reprint log; applying again relinks each hashed document to its archive. After the
+-- first reprint, a rollback loses the reprint log: forward fix only.
 
 -- migrate:up
 ALTER TABLE bil.billing_document ADD COLUMN archived_document_id uuid NULL
   CONSTRAINT fk_billing_document_archived REFERENCES doc.archived_document (id) ON DELETE RESTRICT;
-ALTER TABLE bil.billing_document ADD CONSTRAINT ck_billing_document_archive CHECK ((archived_document_id IS NULL) = (content_hash IS NULL));
-CREATE UNIQUE INDEX uq_billing_document_archived ON bil.billing_document (archived_document_id) WHERE archived_document_id IS NOT NULL;
 
 -- An issued document is frozen but for the listed columns; the hash and the archived document are set once.
 CREATE OR REPLACE FUNCTION bil.billing_document_guard() RETURNS trigger
@@ -51,6 +51,16 @@ BEGIN
   RETURN NEW;
 END
 $$;
+
+-- Applied again after a rollback, a document whose content hash survived relinks to its archive through DOC's
+-- published key, by that hash: the archive and the hash are facts, and only the link column was dropped. The deferred
+-- document check runs at once, so no trigger event is pending when the table is altered below.
+SET CONSTRAINTS ALL IMMEDIATE;
+UPDATE bil.billing_document d SET archived_document_id = a.id, updated_at = now()
+  FROM doc.archived_document a
+ WHERE a.business_document_id = d.id AND a.revision = 1 AND d.status = 'ISSUED' AND d.content_hash = a.sha256 AND d.archived_document_id IS NULL;
+ALTER TABLE bil.billing_document ADD CONSTRAINT ck_billing_document_archive CHECK ((archived_document_id IS NULL) = (content_hash IS NULL));
+CREATE UNIQUE INDEX uq_billing_document_archived ON bil.billing_document (archived_document_id) WHERE archived_document_id IS NOT NULL;
 
 CREATE TABLE bil.reprint_log (
   id                  uuid PRIMARY KEY,
