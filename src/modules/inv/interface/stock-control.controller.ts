@@ -51,8 +51,8 @@ export class StockControlController {
   @Get('stock/movements')
   @Operation({ operationId: 'listStockMovements', ...READ, permission: 'inv.movement.read' })
   listMovements(@CurrentActor() actor: Actor | undefined, @Query(zodPipe(ListStockMovementsQuery)) query: z.infer<typeof ListStockMovementsQuery>): Promise<Page<StockMovementView>> {
-    const { cursor, limit, ...filters } = query;
-    return this.movements.list(actor, filters, cursor, limit);
+    const { cursor, limit, sort, direction, ...filters } = query;
+    return this.movements.list(actor, filters, cursor, limit, { sort, direction });
   }
 
   @Get('stock/movements/:id')

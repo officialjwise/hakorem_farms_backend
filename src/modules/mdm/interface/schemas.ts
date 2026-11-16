@@ -48,6 +48,9 @@ export const ListProductsQuery = z.object({
   onlineMode: OnlineMode.optional(),
   status: ProductStatus.optional(),
   barcode: z.string().min(1).max(40).optional(),
+  // Any text up to 40: a field or direction outside the list's own is refused by the shared sort (400 SORT_NOT_ALLOWED).
+  sort: z.string().min(1).max(40).optional(),
+  direction: z.string().min(1).max(40).optional(),
   cursor: z.string().min(1).max(512).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(25),
 });

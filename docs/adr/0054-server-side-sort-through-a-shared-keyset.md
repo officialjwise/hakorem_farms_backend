@@ -33,7 +33,12 @@ Option 3 (`src/platform/http/keyset-sort.ts`).
 - Cursors grow by the size of the keys (a name, a price), still well inside the 512-character limit lists accept.
 - Binds: `docs/API.md` section 5, `src/platform/http/keyset-sort.ts`, the catalogue and slot lists, and B07 continued 3's console lists.
 
+## Applied to the console lists (B07 continued 3, 2026-11-16)
+
+The decision is unchanged. Two additions to the mechanism, both in `src/platform/http/keyset-sort.ts` and covered by its 100 percent gate: `requestedSort` for a list whose default order is none of its sort fields (no field and no direction keeps the default and its cursors; a direction without a field is refused), and `keysetComparisons`, the same keyset condition as data for Drizzle, which numbers its own parameters (`listProducts`). Six of CR-019's fields are declined as this ADR's index rule requires: other modules' names on the stock lists and the computed values at cost (A-181, BL-062, BL-063). The indexes are in migrations 0120 (MDM) and 0121 (INV), each proved used by the planner with sorting priced out; the expiry, whose nulls-last flag runs ascending both ways, has an index per direction.
+
 ## Verification
 
 - Unit: `src/platform/http/keyset-sort.spec.ts` (the allow-list, directions, nulls last, the keyset condition).
 - Integration: the probe table walk with ties and concurrent inserts; the catalogue walked two at a time by price (`test/integration/shp/storefront-checkout.integration.spec.ts`).
+- Integration, B07 continued 3: `test/integration/mdm/product-sort.integration.spec.ts` and `test/integration/inv/console-sort.integration.spec.ts` walk each console list two rows a page by every allowed field and direction through ties and rows arriving between pages; with the tie-breaker removed every walk over a field with ties goes red.

@@ -1,4 +1,5 @@
 import { and, desc, eq, inArray, isNull, lt, ne, or, sql, type SQL } from 'drizzle-orm';
+import { keysetComparisons, orderByOf, type SortOrder } from '../../../platform/http/keyset-sort';
 import { alias } from 'drizzle-orm/pg-core';
 import type { Transaction } from '../../../platform/database/unit-of-work';
 import type { GlGroup, ProductDefinition, ProductDraft, ProductReferences, UomKind } from '../domain/product';
@@ -273,25 +274,26 @@ export class DrizzleProductStore implements ProductStore {
   }
 
   async list(tx: Transaction, filter: ProductListFilter, beforeId: string | null, limit: number): Promise<ProductView[]> {
-    const clauses: SQL[] = [isNull(product.deletedAt)];
-    if (filter.categoryId !== undefined) clauses.push(eq(product.categoryId, filter.categoryId));
-    if (filter.stockPolicy !== undefined) clauses.push(eq(product.stockPolicy, filter.stockPolicy));
-    if (filter.onlineMode !== undefined) clauses.push(eq(product.onlineMode, filter.onlineMode));
-    if (filter.status !== undefined) clauses.push(eq(product.status, filter.status));
-    if (filter.barcode !== undefined) clauses.push(eq(product.barcode, filter.barcode));
-    if (filter.q !== undefined) {
-      // "Matches the start of words, case-insensitive" (docs/API.md section 6), on name and SKU.
-      const prefix = likePrefix(filter.q);
-      clauses.push(
-        or(
-          sql`lower(${product.name}) LIKE ${prefix} ESCAPE '\\'`,
-          sql`lower(${product.name}) LIKE ${`% ${prefix}`} ESCAPE '\\'`,
-          sql`lower(${product.sku}) LIKE ${prefix} ESCAPE '\\'`,
-        )!,
-      );
-    }
+    const clauses = filterClauses(filter);
     if (beforeId !== null) clauses.push(lt(product.id, beforeId));
     return this.select(tx, and(...clauses)!, limit);
+  }
+
+  async listSorted(tx: Transaction, filter: ProductListFilter, order: SortOrder, position: readonly string[] | null, limit: number) {
+    const clauses = filterClauses(filter);
+    if (position !== null) clauses.push(keysetAfter(order, position));
+    const keys = Object.fromEntries(order.keys.map((key, index) => [`sortKey${index}`, sql<string>`(${sql.raw(key.expression)})::text`]));
+    const rows = (await tx.db
+      .select({ ...VIEW_COLUMNS, ...keys })
+      .from(product)
+      .innerJoin(category, eq(category.id, product.categoryId))
+      .innerJoin(taxCategory, eq(taxCategory.id, product.taxCategoryId))
+      .leftJoin(speciesRef, eq(speciesRef.id, product.speciesId))
+      .where(and(...clauses))
+      .orderBy(sql.raw(orderByOf(order)))
+      .limit(limit)) as unknown as Array<ViewRow & Record<string, unknown>>;
+    const galleries = await this.galleries(tx, rows.map((row) => row.product.id));
+    return rows.map((row) => ({ view: toView(row, galleries.get(row.product.id)!), position: order.keys.map((_key, index) => String(row[`sortKey${index}`])) }));
   }
 
   private async select(tx: Transaction, where: SQL, limit: number): Promise<ProductView[]> {
@@ -307,4 +309,33 @@ export class DrizzleProductStore implements ProductStore {
     const galleries = await this.galleries(tx, rows.map((row) => row.product.id));
     return rows.map((row) => toView(row, galleries.get(row.product.id)!));
   }
+}
+
+/** The list's filters, combined with AND (docs/API.md section 6), live products only. */
+function filterClauses(filter: ProductListFilter): SQL[] {
+  const clauses: SQL[] = [isNull(product.deletedAt)];
+  if (filter.categoryId !== undefined) clauses.push(eq(product.categoryId, filter.categoryId));
+  if (filter.stockPolicy !== undefined) clauses.push(eq(product.stockPolicy, filter.stockPolicy));
+  if (filter.onlineMode !== undefined) clauses.push(eq(product.onlineMode, filter.onlineMode));
+  if (filter.status !== undefined) clauses.push(eq(product.status, filter.status));
+  if (filter.barcode !== undefined) clauses.push(eq(product.barcode, filter.barcode));
+  if (filter.q !== undefined) {
+    // "Matches the start of words, case-insensitive" (docs/API.md section 6), on name and SKU.
+    const prefix = likePrefix(filter.q);
+    clauses.push(
+      or(
+        sql`lower(${product.name}) LIKE ${prefix} ESCAPE '\\'`,
+        sql`lower(${product.name}) LIKE ${`% ${prefix}`} ESCAPE '\\'`,
+        sql`lower(${product.sku}) LIKE ${prefix} ESCAPE '\\'`,
+      )!,
+    );
+  }
+  return clauses;
+}
+
+/** The rows strictly after the cursor's position in `order`: the shared keyset condition, in Drizzle's parameters. */
+function keysetAfter(order: SortOrder, position: readonly string[]): SQL {
+  return or(
+    ...keysetComparisons(order).map((all) => and(...all.map((c) => sql`${sql.raw(c.key.expression)} ${sql.raw(c.operator)} ${position[c.index]}::${sql.raw(c.key.type)}`))),
+  )!;
 }

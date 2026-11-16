@@ -151,6 +151,11 @@ export class PgMasterDataRefsStore implements MasterDataRefsStore {
     return rows.map((r) => r.id);
   }
 
+  async productIdsInCategory(tx: Transaction, categoryId: string): Promise<string[]> {
+    const { rows } = await tx.query<{ id: string }>('SELECT id FROM mdm.product WHERE category_id = $1 ORDER BY id', [categoryId]);
+    return rows.map((r) => r.id);
+  }
+
   async uomFactor(tx: Transaction, productId: string, uom: string): Promise<{ readonly baseUom: string; readonly factor: UomFactor | null } | null> {
     const { rows } = await tx.query<{ base_uom: string; numerator: string | null; denominator: string | null }>(
       `SELECT p.base_uom, c.numerator::text AS numerator, c.denominator::text AS denominator

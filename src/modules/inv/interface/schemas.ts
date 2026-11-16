@@ -93,6 +93,9 @@ export const ListStockOnHandQuery = z.object({
   stockUnitId: z.uuid().optional(),
   includeZero: Bool.optional(),
   expiringWithinDays: z.coerce.number().int().min(0).max(3_650).optional(),
+  // Any text up to 40: a field or direction outside the list's own is refused by the shared sort (400 SORT_NOT_ALLOWED).
+  sort: z.string().min(1).max(40).optional(),
+  direction: z.string().min(1).max(40).optional(),
   cursor: Cursor,
   limit: Limit,
 });
@@ -139,6 +142,9 @@ export const ListStockMovementsQuery = z.object({
   sourceDocumentId: z.uuid().optional(),
   from: DateTime.optional(),
   to: DateTime.optional(),
+  // Any text up to 40: a field or direction outside the list's own is refused by the shared sort (400 SORT_NOT_ALLOWED).
+  sort: z.string().min(1).max(40).optional(),
+  direction: z.string().min(1).max(40).optional(),
   cursor: Cursor,
   limit: Limit,
 });
@@ -256,6 +262,9 @@ export const ListStockUnitsQuery = z.object({
   tracking: z.enum(['SERIAL', 'LOT']).optional(),
   expiringWithinDays: z.coerce.number().int().min(0).max(3_650).optional(),
   onHold: Bool.optional(),
+  // Any text up to 40: a field or direction outside the list's own is refused by the shared sort (400 SORT_NOT_ALLOWED).
+  sort: z.string().min(1).max(40).optional(),
+  direction: z.string().min(1).max(40).optional(),
   cursor: Cursor,
   limit: Limit,
 });

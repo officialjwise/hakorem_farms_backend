@@ -18,8 +18,8 @@ export class StockController {
   @Get('stock/on-hand')
   @Operation({ operationId: 'listStockOnHand', ...READ, permission: 'inv.stock.read' })
   listOnHand(@CurrentActor() actor: Actor | undefined, @Query(zodPipe(ListStockOnHandQuery)) query: z.infer<typeof ListStockOnHandQuery>): Promise<StockOnHandPageView> {
-    const { cursor, limit, ...filters } = query;
-    return this.queries.listOnHand(actor, filters, cursor, limit);
+    const { cursor, limit, sort, direction, ...filters } = query;
+    return this.queries.listOnHand(actor, filters, cursor, limit, { sort, direction });
   }
 
   @Get('stock/availability')
@@ -32,8 +32,8 @@ export class StockController {
   @Get('stock-units')
   @Operation({ operationId: 'listStockUnits', ...READ, permission: 'inv.stock.read' })
   listStockUnits(@CurrentActor() actor: Actor | undefined, @Query(zodPipe(ListStockUnitsQuery)) query: z.infer<typeof ListStockUnitsQuery>): Promise<Page<StockUnitView>> {
-    const { cursor, limit, ...filters } = query;
-    return this.queries.listStockUnits(actor, filters, cursor, limit);
+    const { cursor, limit, sort, direction, ...filters } = query;
+    return this.queries.listStockUnits(actor, filters, cursor, limit, { sort, direction });
   }
 
   @Get('stock-units/:id')

@@ -1,71 +1,141 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
+import { keysetClause, positionOf, sortKeySelect, type SortOrder } from '../../../platform/http/keyset-sort';
 import type { ReadScope } from '../application/goods-receipt-store';
-import type { HoldKind, OnHandFilters, OnHandRow, PoolRow, StockReadStore, StockUnitFilters, StockUnitRow } from '../application/stock-read-store';
+import type { HoldKind, OnHandFilters, OnHandNarrowing, OnHandRow, PoolRow, StockReadStore, StockUnitFilters, StockUnitRow } from '../application/stock-read-store';
 
 /** The holds covering a unit now: unreleased, started, not yet ended. */
 const ACTIVE_HOLD = 'h.released_at IS NULL AND h.starts_at <= now() AND (h.ends_at IS NULL OR h.ends_at > now())';
 
-/** Stock reads over INV's own tables and published views (migration 0044). */
-export class PgStockReadStore implements StockReadStore {
-  async onHand(tx: Transaction, filters: OnHandFilters, scopes: readonly ReadScope[], includeZero: boolean): Promise<OnHandRow[]> {
-    const { rows } = await tx.query<{
-      product_id: string;
-      stock_unit_id: string | null;
-      location_id: string;
-      branch_id: string;
-      on_hand_qty: string;
-      on_hand_weight_kg: string;
-      reserved_qty: string;
-      available_qty: string;
-      pack_count: number;
-      identifier: string | null;
-      tracking: 'SERIAL' | 'LOT' | null;
-      unit_branch_id: string | null;
-      produced_on: string | null;
-      expires_on: string | null;
-      holds: HoldKind[] | null;
-    }>(
-      `SELECT v.product_id, v.stock_unit_id, v.location_id, v.branch_id, v.on_hand_qty, v.on_hand_weight_kg, v.reserved_qty, v.available_qty,
+interface OnHandSqlRow {
+  product_id: string;
+  stock_unit_id: string | null;
+  location_id: string;
+  branch_id: string;
+  on_hand_qty: string;
+  on_hand_weight_kg: string;
+  reserved_qty: string;
+  available_qty: string;
+  pack_count: number;
+  identifier: string | null;
+  tracking: 'SERIAL' | 'LOT' | null;
+  unit_branch_id: string | null;
+  produced_on: string | null;
+  expires_on: string | null;
+  holds: HoldKind[] | null;
+}
+
+/** One balance at a physical location with its unit's dates and holds; `b` is its `inv.stock_balance` row. */
+const ON_HAND_SELECT = `SELECT v.product_id, v.stock_unit_id, v.location_id, v.branch_id, v.on_hand_qty, v.on_hand_weight_kg, v.reserved_qty, v.available_qty,
               b.pack_count, u.identifier, u.tracking, u.branch_id AS unit_branch_id,
               to_char(u.produced_on, 'YYYY-MM-DD') AS produced_on, to_char(u.expires_on, 'YYYY-MM-DD') AS expires_on,
               (SELECT array_agg(DISTINCT h.kind ORDER BY h.kind) FROM inv.stock_hold h WHERE h.stock_unit_id = v.stock_unit_id AND ${ACTIVE_HOLD}) AS holds
          FROM inv.pub_stock_on_hand v
          JOIN inv.stock_balance b ON b.product_id = v.product_id AND b.location_id = v.location_id AND b.stock_unit_id IS NOT DISTINCT FROM v.stock_unit_id
-         LEFT JOIN inv.stock_unit u ON u.id = v.stock_unit_id
-        WHERE EXISTS (SELECT 1 FROM unnest($1::uuid[], $2::uuid[]) s(branch_id, location_id)
+         LEFT JOIN inv.stock_unit u ON u.id = v.stock_unit_id`;
+
+/** The reader's scopes ($1, $2) and the list's filters ($3 to $7). */
+const ON_HAND_WHERE = `EXISTS (SELECT 1 FROM unnest($1::uuid[], $2::uuid[]) s(branch_id, location_id)
                        WHERE s.branch_id = v.branch_id AND (s.location_id IS NULL OR s.location_id = v.location_id))
           AND ($3::uuid IS NULL OR v.branch_id = $3)
           AND ($4::uuid IS NULL OR v.location_id = $4)
           AND ($5::uuid IS NULL OR v.product_id = $5)
           AND ($6::uuid IS NULL OR v.stock_unit_id = $6)
-          AND ($7::boolean OR v.on_hand_qty <> 0)
+          AND ($7::boolean OR v.on_hand_qty <> 0)`;
+
+function onHandValues(filters: OnHandFilters, scopes: readonly ReadScope[], includeZero: boolean): unknown[] {
+  return [
+    scopes.map((s) => s.branchId),
+    scopes.map((s) => s.locationId),
+    filters.branchId ?? null,
+    filters.locationId ?? null,
+    filters.productId ?? null,
+    filters.stockUnitId ?? null,
+    includeZero,
+  ];
+}
+
+function toOnHandRow(r: OnHandSqlRow): OnHandRow {
+  return {
+    productId: r.product_id,
+    stockUnitId: r.stock_unit_id,
+    locationId: r.location_id,
+    branchId: r.branch_id,
+    onHandQty: r.on_hand_qty,
+    onHandWeightKg: r.on_hand_weight_kg,
+    reservedQty: r.reserved_qty,
+    availableQty: r.available_qty,
+    packCount: r.pack_count,
+    unit:
+      r.stock_unit_id === null
+        ? null
+        : { identifier: r.identifier!, tracking: r.tracking!, branchId: r.unit_branch_id!, producedOn: r.produced_on, expiresOn: r.expires_on },
+    holds: r.holds ?? [],
+  };
+}
+
+/** The reader's scopes ($1, $2) and the stock unit list's filters ($3 to $9), over `inv.stock_unit u`. */
+const STOCK_UNIT_WHERE = `u.deleted_at IS NULL
+          AND EXISTS (SELECT 1 FROM unnest($1::uuid[], $2::uuid[]) s(branch_id, location_id)
+                       WHERE s.branch_id = u.branch_id
+                         AND (s.location_id IS NULL OR s.location_id = u.current_location_id
+                              OR EXISTS (SELECT 1 FROM inv.stock_balance b WHERE b.stock_unit_id = u.id AND b.location_id = s.location_id AND b.on_hand_qty <> 0)))
+          AND ($3::text IS NULL OR strpos(lower(u.identifier), lower($3)) > 0)
+          AND ($4::uuid IS NULL OR u.product_id = $4)
+          AND ($5::uuid IS NULL OR u.current_location_id = $5
+               OR EXISTS (SELECT 1 FROM inv.stock_balance b WHERE b.stock_unit_id = u.id AND b.location_id = $5 AND b.on_hand_qty <> 0))
+          AND ($6::text IS NULL OR u.status = $6)
+          AND ($7::text IS NULL OR u.tracking = $7)
+          AND ($8::date IS NULL OR u.expires_on <= $8)
+          AND ($9::boolean IS NULL OR $9 = EXISTS (SELECT 1 FROM inv.stock_hold h WHERE h.stock_unit_id = u.id AND ${ACTIVE_HOLD}))`;
+
+function stockUnitValues(filters: StockUnitFilters, scopes: readonly ReadScope[]): unknown[] {
+  return [
+    scopes.map((s) => s.branchId),
+    scopes.map((s) => s.locationId),
+    filters.q ?? null,
+    filters.productId ?? null,
+    filters.locationId ?? null,
+    filters.status ?? null,
+    filters.tracking ?? null,
+    filters.expiresBy ?? null,
+    filters.onHold ?? null,
+  ];
+}
+
+/** Stock reads over INV's own tables and published views (migration 0044). */
+export class PgStockReadStore implements StockReadStore {
+  async onHand(tx: Transaction, filters: OnHandFilters, scopes: readonly ReadScope[], includeZero: boolean): Promise<OnHandRow[]> {
+    const { rows } = await tx.query<OnHandSqlRow>(
+      `${ON_HAND_SELECT}
+        WHERE ${ON_HAND_WHERE}
         ORDER BY v.location_id, v.product_id, v.stock_unit_id NULLS FIRST`,
-      [
-        scopes.map((s) => s.branchId),
-        scopes.map((s) => s.locationId),
-        filters.branchId ?? null,
-        filters.locationId ?? null,
-        filters.productId ?? null,
-        filters.stockUnitId ?? null,
-        includeZero,
-      ],
+      onHandValues(filters, scopes, includeZero),
     );
-    return rows.map((r) => ({
-      productId: r.product_id,
-      stockUnitId: r.stock_unit_id,
-      locationId: r.location_id,
-      branchId: r.branch_id,
-      onHandQty: r.on_hand_qty,
-      onHandWeightKg: r.on_hand_weight_kg,
-      reservedQty: r.reserved_qty,
-      availableQty: r.available_qty,
-      packCount: r.pack_count,
-      unit:
-        r.stock_unit_id === null
-          ? null
-          : { identifier: r.identifier!, tracking: r.tracking!, branchId: r.unit_branch_id!, producedOn: r.produced_on, expiresOn: r.expires_on },
-      holds: r.holds ?? [],
-    }));
+    return rows.map(toOnHandRow);
+  }
+
+  async onHandSorted(
+    tx: Transaction,
+    filters: OnHandFilters,
+    scopes: readonly ReadScope[],
+    includeZero: boolean,
+    narrow: OnHandNarrowing,
+    order: SortOrder,
+    position: readonly string[] | null,
+    limit: number,
+  ): Promise<Array<OnHandRow & { readonly position: string[] }>> {
+    const clause = keysetClause(order, position, 11);
+    const { rows } = await tx.query<OnHandSqlRow & Record<string, unknown>>(
+      `${ON_HAND_SELECT.replace('SELECT ', `SELECT ${sortKeySelect(order)}, `)}
+        WHERE ${ON_HAND_WHERE}
+          AND ($8::uuid[] IS NULL OR v.product_id = ANY($8::uuid[]))
+          AND ($9::date IS NULL OR u.expires_on <= $9::date)
+          AND ${clause.after}
+        ORDER BY ${clause.orderBy}
+        LIMIT $10`,
+      [...onHandValues(filters, scopes, includeZero), narrow.productIds, narrow.expiresBy, limit, ...clause.values],
+    );
+    return rows.map((r) => ({ ...toOnHandRow(r), position: positionOf(order, r) }));
   }
 
   async poolBalances(tx: Transaction, productIds: readonly string[]) {
@@ -89,37 +159,33 @@ export class PgStockReadStore implements StockReadStore {
   async stockUnitIds(tx: Transaction, filters: StockUnitFilters, scopes: readonly ReadScope[], afterId: string | null, limit: number): Promise<string[]> {
     const { rows } = await tx.query<{ id: string }>(
       `SELECT u.id FROM inv.stock_unit u
-        WHERE u.deleted_at IS NULL
-          AND EXISTS (SELECT 1 FROM unnest($1::uuid[], $2::uuid[]) s(branch_id, location_id)
-                       WHERE s.branch_id = u.branch_id
-                         AND (s.location_id IS NULL OR s.location_id = u.current_location_id
-                              OR EXISTS (SELECT 1 FROM inv.stock_balance b WHERE b.stock_unit_id = u.id AND b.location_id = s.location_id AND b.on_hand_qty <> 0)))
-          AND ($3::text IS NULL OR strpos(lower(u.identifier), lower($3)) > 0)
-          AND ($4::uuid IS NULL OR u.product_id = $4)
-          AND ($5::uuid IS NULL OR u.current_location_id = $5
-               OR EXISTS (SELECT 1 FROM inv.stock_balance b WHERE b.stock_unit_id = u.id AND b.location_id = $5 AND b.on_hand_qty <> 0))
-          AND ($6::text IS NULL OR u.status = $6)
-          AND ($7::text IS NULL OR u.tracking = $7)
-          AND ($8::date IS NULL OR u.expires_on <= $8)
-          AND ($9::boolean IS NULL OR $9 = EXISTS (SELECT 1 FROM inv.stock_hold h WHERE h.stock_unit_id = u.id AND ${ACTIVE_HOLD}))
+        WHERE ${STOCK_UNIT_WHERE}
           AND ($10::uuid IS NULL OR u.id > $10)
         ORDER BY u.id
         LIMIT $11`,
-      [
-        scopes.map((s) => s.branchId),
-        scopes.map((s) => s.locationId),
-        filters.q ?? null,
-        filters.productId ?? null,
-        filters.locationId ?? null,
-        filters.status ?? null,
-        filters.tracking ?? null,
-        filters.expiresBy ?? null,
-        filters.onHold ?? null,
-        afterId,
-        limit,
-      ],
+      [...stockUnitValues(filters, scopes), afterId, limit],
     );
     return rows.map((r) => r.id);
+  }
+
+  async stockUnitIdsSorted(
+    tx: Transaction,
+    filters: StockUnitFilters,
+    scopes: readonly ReadScope[],
+    order: SortOrder,
+    position: readonly string[] | null,
+    limit: number,
+  ): Promise<Array<{ readonly id: string; readonly position: string[] }>> {
+    const clause = keysetClause(order, position, 11);
+    const { rows } = await tx.query<{ id: string } & Record<string, unknown>>(
+      `SELECT u.id, ${sortKeySelect(order)} FROM inv.stock_unit u
+        WHERE ${STOCK_UNIT_WHERE}
+          AND ${clause.after}
+        ORDER BY ${clause.orderBy}
+        LIMIT $10`,
+      [...stockUnitValues(filters, scopes), limit, ...clause.values],
+    );
+    return rows.map((r) => ({ id: r.id, position: positionOf(order, r) }));
   }
 
   async stockUnit(tx: Transaction, id: string): Promise<StockUnitRow | null> {

@@ -4,7 +4,9 @@ Every change to `contract/openapi.yaml`, newest first. A breaking change needs a
 
 Version numbers follow semantic versioning: a major bump breaks an existing client, a minor bump adds operations or optional fields, a patch fixes descriptions or examples.
 
-## Reading 1.5.0 to 1.32.0 cold (written 2026-11-15, for the frontend track; 1.19.0 to 1.32.0 added the same day)
+## Reading 1.5.0 to 1.33.0 cold (written 2026-11-15, for the frontend track; 1.19.0 to 1.32.0 added the same day, 1.33.0 on 2026-11-16)
+
+**1.33.0, server-side sort on the console lists (B07 continued 3, CR-019):** two optional query parameters, nothing else. **Act on these:** (1) send `sort` and `direction` on `listProducts` (`name`, `sku`, `category`, `status`, `updatedAt`), `listStockOnHand` (`onHandQty`), `listStockUnits` (`identifier`, `expiresOn`) and `listStockMovements` (`occurredAt`, `valuePesewas`), and the "sorts this page only" label can go for those fields; (2) the fields CR-019 asked for and did not get (product and location names on the stock lists, `valueAtCostPesewas` on stock on hand and stock units) answer 400 `SORT_NOT_ALLOWED`: keep those columns page-sorted with their label, or unsortable; (3) never send `direction` without `sort`; (4) start again without a cursor whenever the sort changes. The examples of `listProducts`, `listStockMovements` and `listStockOnHand` were reordered to the default order; a fixture that relied on their old row order must follow.
 
 **1.32.0, the storefront catalogue, guest carts, checkout and delivery slots (B07 continued 2, CR-019):** seventeen planned operations answer from the real API with no shape changed. **Act on these:** (1) the cart and checkout operations are anonymous: drop the CSRF header there and keep the `__Host-hk_guest` cookie the first `createCart` answer sets (send credentials with each request); another cart is 404; (2) handle the new codes on cart and checkout writes, chiefly 422 `REQUEST_TO_BUY_ONLY` (offer the quote request), `STOCK_UNAVAILABLE` (its details name the cart lines), `DELIVERY_UNAVAILABLE` (offer collection) and 409 `CART_NOT_ACTIVE`; (3) quantities are whole units; (4) read the checkout's `estimatedTotalPesewas`, `maximumTotalPesewas`, `taxPesewas` and `finalChargeRule`, never sum lines; (5) `listCatalogue`'s `sort` now orders the whole list before paging, so the "sorts this page only" label can go for the catalogue; (6) slots come from `listDeliverySlotOptions`, not `quoteDelivery`. CR-019's four console lists follow in B07 continued 3.
 
@@ -59,6 +61,16 @@ The contract moved from 1.4.0 to 1.20.0 in one night while the frontend track wa
 
 - **Reserving stock** has no HTTP operation: checkout, orders and quotes reserve in process (B7, B9a, B10). `listStockReservations` shows what they hold; until then it lists only what tests create.
 - **Empty until their modules exist:** `quoteDelivery.slots` (B11), `Supplier.hasProfile` (B7), `Customer.hasBusinessAccount` (B10), `StockOnHandLine.priceBand` (null), a trace's `healthEvents` and a sale's `customer` and `billingDocument`, `GoodsReceipt.receiptNo` (null until numbering), and `OPENING_STOCK` imports (422 `IMPORT_ENTITY_NOT_AVAILABLE` until opening stock is built).
+
+## 1.33.0 (2026-11-16, B07 continued 3)
+
+Minor. Two optional query parameters on four existing operations; no field removed, renamed or retyped, nothing a client sends made required, and no default order changed. 317 operations from code, 318 planned, 635 published.
+
+- **Sort (CR-019, ADR-0054):** `sort` and `direction` (`asc`, the default with a field, or `desc`) on `listProducts` (`name`, `sku`, `category`, `status`, `updatedAt`), `listStockOnHand` (`onHandQty`), `listStockUnits` (`identifier`, `expiresOn`) and `listStockMovements` (`occurredAt`, `valuePesewas`), applied before paging through the shared keyset: ties are broken by the row's unique key in the same direction (the product, unit or movement id; a stock line's location, product and unit ids), a unit with no expiry comes last in both directions, `name`, `category` and `identifier` ignore case. Any other field, any other direction, or a `direction` without `sort` is 400 `VALIDATION_FAILED` with detail `SORT_NOT_ALLOWED` (until now an unknown parameter was ignored, so `sort` was silently dropped); a cursor from another sort, or from the unsorted list, is 400 `INVALID_CURSOR`.
+- **Not sortable, declined from CR-019:** a product's name on the three stock lists and a location's name on `listStockOnHand` (master data's names, which inventory cannot index or join), and `valueAtCostPesewas` on `listStockOnHand` and `listStockUnits` (a value computed from the cost pools when read, not a column of the listed row). Each is 400 `SORT_NOT_ALLOWED`.
+- **Who may sort:** whoever may read the list; `valuePesewas` is shown to every reader of movements, so sorting by it needs nothing more, and a role without the list's permission is refused with 403 before the sort is read.
+- **Descriptions:** each of the four states its sort fields, the tie-breaker and its default order (products and movements newest first by id; stock units by id; stock on hand by location, product and unit id).
+- **Examples, reordered only:** `listProducts` and `listStockMovements` now list their rows newest first, and `listStockOnHand` in location, product and unit order, the order the server answers in without `sort`; the rows themselves are unchanged.
 
 ## 1.32.0 (2026-11-15, B07 continued 2)
 

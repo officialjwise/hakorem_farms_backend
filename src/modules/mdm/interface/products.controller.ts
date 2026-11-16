@@ -25,8 +25,8 @@ export class ProductsController {
   @Get()
   @Operation({ operationId: 'listProducts', access: 'SESSION', realms: ['STAFF'], permission: 'mdm.product.read', idempotent: false, csrf: false, rateLimit: 'console' })
   listProducts(@CurrentActor() actor: Actor | undefined, @Query(zodPipe(ListProductsQuery)) query: z.infer<typeof ListProductsQuery>): Promise<Page<ProductView>> {
-    const { cursor, limit, ...filter } = query;
-    return this.catalogue.list(actor, filter, cursor, limit);
+    const { cursor, limit, sort, direction, ...filter } = query;
+    return this.catalogue.list(actor, filter, cursor, limit, { sort, direction });
   }
 
   @Post()

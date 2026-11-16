@@ -1,4 +1,5 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
+import { keysetClause, positionOf, sortKeySelect, type SortOrder } from '../../../platform/http/keyset-sort';
 import type { ResolutionKind } from '../domain/stock-exception';
 import type {
   AdjustmentFilters,
@@ -48,10 +49,35 @@ const MOVEMENT = `SELECT m.id, m.movement_type, m.product_id, m.stock_unit_id, m
                          m.reverses_movement_id, m.occurred_at, m.recorded_at, m.actor_id
                     FROM inv.stock_movement m`;
 
+/** The reader's scopes ($1, $2) and the movement list's filters ($3 to $9), over `inv.stock_movement m`. */
+const MOVEMENT_FILTERS = `AND ($3::uuid IS NULL OR m.product_id = $3)
+          AND ($4::uuid IS NULL OR m.stock_unit_id = $4)
+          AND ($5::uuid IS NULL OR m.from_location_id = $5 OR m.to_location_id = $5)
+          AND ($6::text IS NULL OR m.movement_type = $6)
+          AND ($7::uuid IS NULL OR m.source_document_id = $7)
+          AND ($8::timestamptz IS NULL OR m.occurred_at >= $8)
+          AND ($9::timestamptz IS NULL OR m.occurred_at < $9)`;
+
+function movementValues(filters: MovementFilters, scopes: readonly ReadScope[]): unknown[] {
+  return [
+    ...scopeArrays(scopes),
+    filters.productId ?? null,
+    filters.stockUnitId ?? null,
+    filters.locationId ?? null,
+    filters.movementType ?? null,
+    filters.sourceDocumentId ?? null,
+    filters.from ?? null,
+    filters.to ?? null,
+  ];
+}
+
 /** A row of `unnest($1, $2)` scopes reaches the branch and, when the grant names one, the location. */
 const SCOPED = (branch: string, locations: readonly string[]) =>
   `EXISTS (SELECT 1 FROM unnest($1::uuid[], $2::uuid[]) s(branch_id, location_id)
             WHERE s.branch_id = ${branch} AND (s.location_id IS NULL OR s.location_id IN (${locations.join(', ')})))`;
+
+const MOVEMENT_WHERE = `${SCOPED('m.branch_id', ['m.from_location_id', 'm.to_location_id'])}
+          ${MOVEMENT_FILTERS}`;
 
 function toMovement(r: MovementRow): MovementRecord {
   return {
@@ -144,31 +170,26 @@ export class PgStockDocumentsStore implements StockDocumentsStore {
   async movements(tx: Transaction, filters: MovementFilters, scopes: readonly ReadScope[], beforeId: string | null, limit: number): Promise<MovementRecord[]> {
     const { rows } = await tx.query<MovementRow>(
       `${MOVEMENT}
-        WHERE ${SCOPED('m.branch_id', ['m.from_location_id', 'm.to_location_id'])}
-          AND ($3::uuid IS NULL OR m.product_id = $3)
-          AND ($4::uuid IS NULL OR m.stock_unit_id = $4)
-          AND ($5::uuid IS NULL OR m.from_location_id = $5 OR m.to_location_id = $5)
-          AND ($6::text IS NULL OR m.movement_type = $6)
-          AND ($7::uuid IS NULL OR m.source_document_id = $7)
-          AND ($8::timestamptz IS NULL OR m.occurred_at >= $8)
-          AND ($9::timestamptz IS NULL OR m.occurred_at < $9)
+        WHERE ${MOVEMENT_WHERE}
           AND ($10::uuid IS NULL OR m.id < $10)
         ORDER BY m.id DESC
         LIMIT $11`,
-      [
-        ...scopeArrays(scopes),
-        filters.productId ?? null,
-        filters.stockUnitId ?? null,
-        filters.locationId ?? null,
-        filters.movementType ?? null,
-        filters.sourceDocumentId ?? null,
-        filters.from ?? null,
-        filters.to ?? null,
-        beforeId,
-        limit,
-      ],
+      [...movementValues(filters, scopes), beforeId, limit],
     );
     return rows.map(toMovement);
+  }
+
+  async movementsSorted(tx: Transaction, filters: MovementFilters, scopes: readonly ReadScope[], order: SortOrder, position: readonly string[] | null, limit: number) {
+    const clause = keysetClause(order, position, 11);
+    const { rows } = await tx.query<MovementRow & Record<string, unknown>>(
+      `${MOVEMENT.replace('SELECT ', `SELECT ${sortKeySelect(order)}, `)}
+        WHERE ${MOVEMENT_WHERE}
+          AND ${clause.after}
+        ORDER BY ${clause.orderBy}
+        LIMIT $10`,
+      [...movementValues(filters, scopes), limit, ...clause.values],
+    );
+    return rows.map((r) => ({ record: toMovement(r), position: positionOf(order, r) }));
   }
 
   async reversedBy(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, string>> {

@@ -2,7 +2,7 @@ operationId: listStockUnits
 tags:
   - inv
 summary: "List animals and lots as stock units"
-description: "Animals and lots, in id order. `q` matches part of the tag or batch number without regard to case; `locationId` is where an animal stands or where a lot has stock; `expiringWithinDays` is an expiry on or before that many days from today in Accra; `onHold` is whether a hold is in force now. Narrowed to the branches the reader's grants reach and, for a grant at one location, to the animals standing there and the lots with stock there.\n\nPermission: `inv.stock.read`."
+description: "Animals and lots, in id order. `q` matches part of the tag or batch number without regard to case; `locationId` is where an animal stands or where a lot has stock; `expiringWithinDays` is an expiry on or before that many days from today in Accra; `onHold` is whether a hold is in force now. Narrowed to the branches the reader's grants reach and, for a grant at one location, to the animals standing there and the lots with stock there. `sort` names one field of this list (`identifier`, `expiresOn`) and `direction` is `asc` (the default with a field) or `desc`; the server applies it before paging, through the shared sort (CR-019, ADR-0054), breaking ties by the stock unit id in the same direction, units with no expiry last in both directions, so following `nextCursor` never skips or repeats a row. Any other field, any other direction, or a `direction` without `sort` is 400 `VALIDATION_FAILED` with detail `SORT_NOT_ALLOWED`; a cursor from another sort is 400 `INVALID_CURSOR`. Without `sort` the order is by id, as the example shows. `identifier` sorts without regard to case. A product's name (master data's) and `valueAtCostPesewas` (the sum of the unit's cost pools, computed when read) are not sortable.\n\nPermission: `inv.stock.read`."
 x-error-codes:
   - VALIDATION_FAILED
   - UNAUTHENTICATED
@@ -57,6 +57,22 @@ parameters:
     required: false
     schema:
       type: boolean
+  - name: sort
+    in: query
+    required: false
+    schema:
+      type: string
+      enum:
+        - identifier
+        - expiresOn
+  - name: direction
+    in: query
+    required: false
+    schema:
+      type: string
+      enum:
+        - asc
+        - desc
   - name: cursor
     in: query
     required: false

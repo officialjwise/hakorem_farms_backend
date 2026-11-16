@@ -7,6 +7,7 @@ import { InvalidStateTransitionError, NotFoundError, VersionConflictError } from
 import { translate } from '../../../platform/i18n/messages';
 import type { DomainEvents } from '../../../platform/events/domain-events';
 import type { Cursors } from '../../../platform/http/cursor';
+import { decodePosition, encodePosition, requestedSort, type SortFields, type SortRequest } from '../../../platform/http/keyset-sort';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
 import type { Authoriser } from '../../iam';
 import { canChangeProductStatus, planReferencedArchive } from '../domain/catalogue';
@@ -14,6 +15,21 @@ import { defineProduct, type FieldRule, type OnlineMode, type ProductDraft, type
 import type { ProductArchived, ProductChanged, ProductCreated } from '../events';
 import { DuplicateValueError, RecordInUseError, ReferenceNotFoundError, StockPolicyConflictError } from './errors';
 import type { ProductListFilter, ProductStore, ProductView, UniqueProductField } from './product-store';
+
+/**
+ * listProducts' sort fields (CR-019, ADR-0054), each backed by an index of migration 0120: over the product row and its
+ * category row in MDM's own schema, as the store selects them. The default order (newest first) is none of them.
+ */
+const PRODUCT_SORT: SortFields<'name' | 'sku' | 'category' | 'status' | 'updatedAt'> = {
+  fields: {
+    name: { expression: 'lower("product"."name")', type: 'text' },
+    sku: { expression: '"product"."sku"', type: 'text' },
+    category: { expression: 'lower("category"."name")', type: 'text' },
+    status: { expression: '"product"."status"', type: 'text' },
+    updatedAt: { expression: '"product"."updated_at"', type: 'timestamptz' },
+  },
+  tieBreaker: { expression: '"product"."id"', type: 'uuid' },
+};
 
 export const CREATE_PRODUCT = 'createProduct';
 export const LIST_PRODUCTS = 'listProducts';
@@ -324,9 +340,24 @@ export class ProductCatalogue {
     };
   }
 
-  async list(actor: Actor | undefined, filter: ProductListFilter, cursor: string | undefined, limit: number): Promise<Page<ProductView>> {
+  /**
+   * listProducts (FR-MDM-001): newest first, as it always was, unless the request names a `sort` (CR-019, ADR-0054);
+   * then by that field and `direction` with the product id as the tie-breaker, through the shared keyset. The sort is
+   * part of the cursor's binding. Authorised in the handler before anything is read.
+   */
+  async list(actor: Actor | undefined, filter: ProductListFilter, cursor: string | undefined, limit: number, sort: SortRequest = {}): Promise<Page<ProductView>> {
     return this.uow.run({ isolation: 'read committed' }, async (tx) => {
       await this.authoriser.authorise(tx, actor, 'mdm.product.read');
+      const order = requestedSort(PRODUCT_SORT, sort.sort, sort.direction);
+      if (order !== null) {
+        const binding = { operationId: LIST_PRODUCTS, principalId: actor!.principalId, filters: { ...filter, sort: order.field, direction: order.direction } };
+        const position = cursor === undefined ? null : decodePosition(order, this.cursors.decode(cursor, binding));
+        const found = await this.store.listSorted(tx, filter, order, position, limit + 1);
+        const hasMore = found.length > limit;
+        const page = found.slice(0, limit);
+        const last = page.at(-1);
+        return { data: page.map((row) => row.view), page: { nextCursor: hasMore && last !== undefined ? this.cursors.encode(binding, encodePosition(last.position)) : null, limit, hasMore } };
+      }
       const binding = { operationId: LIST_PRODUCTS, principalId: actor!.principalId, filters: filter };
       const position = cursor === undefined ? null : this.cursors.decode(cursor, binding);
       const rows = await this.store.list(tx, filter, position?.['id'] ?? null, limit + 1);
