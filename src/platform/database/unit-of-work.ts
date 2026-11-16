@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
+import type { Clock } from '@hakorem/kernel';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type pg from 'pg';
 import type { Logger } from 'pino';
@@ -134,6 +135,12 @@ export class UnitOfWork {
     private readonly pool: pg.Pool,
     private readonly logger: Logger,
     private readonly sleep: Sleep = realSleep,
+    /**
+     * The application's clock. Each attempt writes its instant into the transaction-local setting `hk.app_now` right
+     * after BEGIN, which `platform.app_now()` reads for the rules in views and triggers whose "now" decides something
+     * (ADR-0066). Without one, `platform.app_now()` is the database's `now()`.
+     */
+    private readonly clock: Clock | null = null,
   ) {}
 
   /** The transaction of the command running in this context. */
@@ -192,6 +199,9 @@ export class UnitOfWork {
         held += 1;
       }
       await client.query(BEGIN[isolation]);
+      if (this.clock !== null) {
+        await client.query("SELECT set_config('hk.app_now', $1, true)", [this.clock.now().toISOString()]);
+      }
       const tx: Transaction = {
         isolation,
         attempt,
