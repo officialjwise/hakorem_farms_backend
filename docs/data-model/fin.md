@@ -2,7 +2,7 @@
 
 Owner: FIN module. Chart of accounts, journal, posting rules, periods, fixed assets (ADR-0003). Conventions are in `docs/DATA_MODEL.md`.
 
-Built in B8 (migration 0123, ADR-0056): `account`, `subledger_party`, `accounting_period`, `posting_event_type`, `posting_rule`, `account_determination`, `journal_entry`, `journal_line`. A trigger refusal is SQLSTATE HK012 with the rule as its constraint name (`ck_journal_lines`, `ck_journal_balanced`, `ck_journal_period`, `ck_journal_period_open`, `ck_journal_line_entry`, `ck_journal_line_account`, `ck_journal_line_subledger`, `ck_account_change`, `ck_period_change`). B08 continued (A-188, A-189) adds `written_xact_id` on `journal_entry` (migration 0124: an entry written inside a savepoint keeps its own lines), the period lifecycle and close order on `accounting_period` and the table `period_reopen` (0126). B08 continued 1b (migration 0130, A-190, A-191) adds `manual_journal`, `manual_journal_line` and `posting_rule_change`, the `ENTERED` determinant on `posting_rule`, `approval_request_id` on `account_determination` and `ck_journal_entry_manual` on `journal_entry`. B08 continued 1b2 (migration 0133, ADR-0057, A-193, A-194) adds `bank_account`. B08 continued 1c (migration 0138, ADR-0058, A-195 to A-197) adds `period_balance` with `refresh_period_balance()`, the year close's rules on `journal_entry` (`ck_journal_entry_closing`, `uq_journal_entry_closing`, `ck_journal_closing_period`, the exception in `ck_journal_period_open`), the event `fin.YearClosed` with the determinant `CLOSED_ACCOUNT` (`ck_posting_rule_closed_account`), and the published view `pub_cash_balance`; `fixed_asset`, `depreciation_run` and `depreciation_line` in B08 continued 1c2 (A-198).
+Built in B8 (migration 0123, ADR-0056): `account`, `subledger_party`, `accounting_period`, `posting_event_type`, `posting_rule`, `account_determination`, `journal_entry`, `journal_line`. A trigger refusal is SQLSTATE HK012 with the rule as its constraint name (`ck_journal_lines`, `ck_journal_balanced`, `ck_journal_period`, `ck_journal_period_open`, `ck_journal_line_entry`, `ck_journal_line_account`, `ck_journal_line_subledger`, `ck_account_change`, `ck_period_change`). B08 continued (A-188, A-189) adds `written_xact_id` on `journal_entry` (migration 0124: an entry written inside a savepoint keeps its own lines), the period lifecycle and close order on `accounting_period` and the table `period_reopen` (0126). B08 continued 1b (migration 0130, A-190, A-191) adds `manual_journal`, `manual_journal_line` and `posting_rule_change`, the `ENTERED` determinant on `posting_rule`, `approval_request_id` on `account_determination` and `ck_journal_entry_manual` on `journal_entry`. B08 continued 1b2 (migration 0133, ADR-0057, A-193, A-194) adds `bank_account`. B08 continued 1c (migration 0138, ADR-0058, A-195 to A-197) adds `period_balance` with `refresh_period_balance()`, the year close's rules on `journal_entry` (`ck_journal_entry_closing`, `uq_journal_entry_closing`, `ck_journal_closing_period`, the exception in `ck_journal_period_open`), the event `fin.YearClosed` with the determinant `CLOSED_ACCOUNT` (`ck_posting_rule_closed_account`), and the published view `pub_cash_balance`; B08 continued 1c2 (migrations 0141, 0142, ADR-0059, A-199) adds `fixed_asset`, `depreciation_run` and `depreciation_line`, account 4920, the determination roles `ASSET` and `ACCUMULATED_DEPRECIATION`, the events `fin.DepreciationRun` and `fin.FixedAssetDisposed`, and `uq_journal_entry_depreciation` and `uq_journal_entry_disposal` on `journal_entry`.
 
 ## Triggers
 
@@ -154,7 +154,7 @@ Maps a determinant value to an account.
 | `id` | `uuid` | PK | |
 | `determinant_type` | `text` | NOT NULL, CHECK in (`GL_GROUP`, `PAYMENT_METHOD_KIND`, `TAX_LEVY`, `LOSS_GROUP`, `EXPENSE_CATEGORY`, `ASSET_CATEGORY`) | |
 | `determinant_key` | `text` | NOT NULL | For example `MEAT`, `MOBILE_MONEY`, a levy code or `*` for the default |
-| `role` | `text` | NOT NULL, CHECK in the list | `INVENTORY`, `SALES`, `COST_OF_SALES`, `TENDER`, `PAYOUT` (a supplier payment's source account, B8), `OUTPUT`, `INPUT`, `LOSS`, `EXPENSE` |
+| `role` | `text` | NOT NULL, CHECK in the list | `INVENTORY`, `SALES`, `COST_OF_SALES`, `TENDER`, `PAYOUT` (a supplier payment's source account, B8; a disposal's proceeds account, 0142), `OUTPUT`, `INPUT`, `LOSS`, `EXPENSE`, `ASSET` and `ACCUMULATED_DEPRECIATION` (a fixed asset category's accounts, 0142) |
 | `account_id` | `uuid` | NOT NULL, FK `fin.account` | |
 | `valid_from` | `date` | NOT NULL | |
 | `valid_to` | `date` | NULL | |
@@ -301,48 +301,62 @@ The balance (debits less credits) of each cash and bank account, codes 1000 to 1
 
 ### `fin.fixed_asset` · MASTER
 
-The fixed asset register.
+The fixed asset register (FR-FIN-014). Built in B08 continued 1c2 (migration 0142, ADR-0059, A-199). Registering an asset posts nothing: its cost reaches 1510 to 1540 the way the money left, and the nightly reconciliation compares the register with those accounts and 1590 (the subledger sources `fin.fixed-asset-cost` and `fin.fixed-asset-depreciation`).
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `id` | `uuid` | PK | |
-| `asset_no` | `text` | NOT NULL, UNIQUE | |
-| `name` | `text` | NOT NULL | |
-| `category` | `text` | NOT NULL, CHECK in (`VEHICLE`, `COLD_ROOM`, `HOUSING`, `EQUIPMENT`) | Ledger determinant |
-| `branch_id` | `uuid` | NOT NULL, FK `mdm.branch` | |
-| `acquired_on` | `date` | NOT NULL | |
-| `cost_pesewas` | `pesewas` | NOT NULL | |
-| `residual_pesewas` | `pesewas` | NOT NULL DEFAULT 0, CHECK `<= cost_pesewas` | |
-| `useful_life_months` | `integer` | NOT NULL, CHECK `> 0` | |
+| `asset_no` | `text` | NOT NULL, UNIQUE, DEFAULT `FA-` and four digits from `fin.fixed_asset_no_seq` | Not a fiscal document, so not gap-free |
+| `name` | `text` | NOT NULL, 1 to 120 characters | |
+| `category` | `text` | NOT NULL, CHECK in (`VEHICLE`, `COLD_ROOM`, `HOUSING`, `EQUIPMENT`) | Ledger determinant `ASSET_CATEGORY` |
+| `branch_id` | `uuid` | NOT NULL, FK `mdm.branch` | Where it is held; its entries post there |
+| `acquired_on` | `date` | NOT NULL | Its month is the first month of depreciation (A-199) |
+| `cost_pesewas` | `pesewas` | NOT NULL, `> 0` | |
+| `residual_pesewas` | `pesewas` | NOT NULL DEFAULT 0, `<= cost_pesewas` | |
+| `useful_life_months` | `integer` | NOT NULL, 1 to 600 | |
 | `method` | `text` | NOT NULL DEFAULT `'STRAIGHT_LINE'`, CHECK in (`STRAIGHT_LINE`) | |
-| `accumulated_pesewas` | `pesewas` | NOT NULL DEFAULT 0 | Maintained by trigger from depreciation lines |
-| `status` | `text` | NOT NULL, CHECK in (`IN_USE`, `FULLY_DEPRECIATED`, `DISPOSED`) | |
-| `disposed_on` | `date` | NULL | |
+| `accumulated_pesewas` | `pesewas` | NOT NULL DEFAULT 0, `<= cost_pesewas - residual_pesewas` | Moved only by the trigger that posts a run |
+| `depreciated_months` | `integer` | NOT NULL DEFAULT 0, `<= useful_life_months` | Months charged so far; moved with it |
+| `status` | `text` | NOT NULL, CHECK in (`IN_USE`, `FULLY_DEPRECIATED`, `DISPOSED`) | Set by the trigger from the figures, except `DISPOSED` |
+| `disposed_on` | `date` | NULL, `>= acquired_on` | |
+| `disposal_document_id` | `uuid` | NULL, UNIQUE, FK `platform.business_document` (doc type `FIXED_ASSET_DISPOSAL`) | The disposal entry's source document |
+| `disposal_proceeds_pesewas` | `pesewas` | NULL | |
+| `disposal_note` | `text` | NULL, 1 to 300 characters | |
+| `disposal_journal_entry_id` | `uuid` | NULL, UNIQUE, FK `fin.journal_entry` | The entry posted from `fin.FixedAssetDisposed` |
 
-Standard columns: `MASTER`.
+Standard columns: `MASTER`, never deleted (`ck_fixed_asset_never_deleted`). `ck_fixed_asset_figures` holds the figures above; `ck_fixed_asset_status` ties `DISPOSED` to its five disposal columns and otherwise `FULLY_DEPRECIATED` to accumulated depreciation equal to cost less residual. Trigger `fin.fixed_asset_guard()` (HK012 `ck_fixed_asset_change`): an asset starts with nothing charged; it keeps its number, category, branch, acquisition date, cost and method; its accumulated depreciation and months charged move only from `fin.depreciation_run_post()`; a disposed asset never changes; it becomes `DISPOSED` only with the entry posted for its own disposal document.
 
 ### `fin.depreciation_run` · DOCUMENT
 
-Posted status: `POSTED`.
+One per accounting period, ever (FR-FIN-015, ADR-0059). Calculated by one person (`created_by`), posted by another (`posted_by`). Posted status: `POSTED`. Built in B08 continued 1c2 (0142).
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
-| `id` | `uuid` | PK, FK `platform.business_document` | |
-| `period_id` | `uuid` | NOT NULL, UNIQUE, FK `fin.accounting_period` | One run per period |
-| `total_pesewas` | `pesewas` | NOT NULL | |
-| `journal_entry_id` | `uuid` | NULL, FK `fin.journal_entry` | |
+| `id` | `uuid` | PK, FK `platform.business_document` (doc type `DEPRECIATION_RUN`) | The entries' source document |
+| `period_id` | `uuid` | NOT NULL, UNIQUE (`uq_depreciation_run_period`), FK `fin.accounting_period` | One run per period |
+| `branch_id` | `uuid` | NOT NULL, FK `mdm.branch` | The head office, which holds the run; each branch with assets on it has its own entry |
+| `status` | `text` | NOT NULL, CHECK in (`DRAFT`, `POSTED`) | |
+| `total_pesewas` | `pesewas` | NOT NULL, `> 0` | The sum of its lines |
+| `currency` | `char(3)` | NOT NULL DEFAULT `'GHS'` | |
+| `journal_entry_id` | `uuid` | NULL, UNIQUE, FK `fin.journal_entry`; set exactly when posted | The first of its entries, by branch id |
+| `posted_at`, `posted_by` | `timestamptz`, `uuid` | Set exactly when posted; `posted_by <> created_by` (`ck_depreciation_run_maker_checker`) | Maker and checker |
 
-Standard columns: `DOCUMENT` (`status` in `DRAFT`, `POSTED`).
+Standard columns: `DOCUMENT`, a draft frozen but for its posting, a posted run frozen whole. Trigger `fin.depreciation_run_post()` (HK012): a run moves only from `DRAFT` to `POSTED`, by someone other than its maker, only with entries of its own (`fin.DepreciationRun`, one per branch, `uq_journal_entry_depreciation`) whose 6500 debits equal its lines, which equal its total (`ck_depreciation_run_post`); it then applies each line to its asset, and refuses a line whose asset is disposed of or has been charged from another month since (`ck_depreciation_line_stale`).
 
 ### `fin.depreciation_line` · LEDGER
 
-Depreciation charged to one asset in one run.
+Depreciation charged to one asset in one run. Insert only (`platform.reject_change()`), written only while its run is a draft (`ck_depreciation_line_draft`).
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `depreciation_run_id` | `uuid` | NOT NULL, FK `fin.depreciation_run` | |
 | `fixed_asset_id` | `uuid` | NOT NULL, FK `fin.fixed_asset` | |
-| `amount_pesewas` | `pesewas` | NOT NULL | The final period takes the remainder, so the schedule sums exactly to cost minus residual |
+| `from_month` | `integer` | NOT NULL, `>= 0` | The asset's months charged when the line was computed |
+| `months` | `integer` | NOT NULL, `> 0` | The months it covers: a month no run charged is caught up |
+| `amount_pesewas` | `pesewas` | NOT NULL, `> 0` | What is left to depreciate split with `allocate` over the months left, the leftover pesewas in the earliest; the final month takes whatever is left, so the schedule sums exactly to cost less residual (A-199) |
 | `recorded_at` | `timestamptz` | NOT NULL DEFAULT `now()` | |
+| `actor_id` | `uuid` | NOT NULL, FK `iam.principal` | The maker |
 
 - PK (`depreciation_run_id`, `fixed_asset_id`).
+
+Seeded with them (0142): account 4920 "Gain or loss on disposal of fixed assets" (income, normal credit, investing); determinations `ASSET_CATEGORY` with the new roles `ASSET` (1510 to 1540 by category) and `ACCUMULATED_DEPRECIATION` (1590); the events `fin.DepreciationRun` (`depreciation`: Dr 6500, Cr by `ACCUMULATED_DEPRECIATION`) and `fin.FixedAssetDisposed` (`cost` Cr by `ASSET`, `accumulatedDepreciation` Dr by `ACCUMULATED_DEPRECIATION`, `proceeds` Dr by `PAYMENT_METHOD_KIND`/`PAYOUT`, `gain` Cr 4920, `loss` Dr 4920).

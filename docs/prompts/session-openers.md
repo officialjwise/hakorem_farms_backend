@@ -53,7 +53,7 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B08 continued 1b | `B08c1b-journals-rules-banks.md` | `b08c1b-journals-rules-banks` | B4 to B12 | Every journal, manual journal, rule and determination operation refuses the wrong role and a maker approving their own manual journal or rule change; a manual journal posts nothing until a different person approves it, then exactly one balanced entry as entered; `fin.ManualJournalApproved` has its matrix row (built; the session split before its bank accounts, A-192) |
 | B08 continued 1b2 | `B08c1b2-bank-accounts.md` | `b08c1b2-bank-accounts` | B4 to B12 | Every bank account operation refuses the wrong role; a bank account's number is stored encrypted and shown only as its last four digits; a supplier payment naming a bank account posts to that account's own subledger party (built; ADR-0057, A-193, A-194) |
 | B08 continued 1c | `B08c1c-statements-assets.md` | `b08c1c-statements-assets` | B4 to B12 | The four statements tie to the trial balance on the seeded day, each read refusing the wrong role; year close leaves 3200 at zero and 3100 increased by the year's profit; the cash figure answers from the ledger (built; the session split before fixed assets, A-198) |
-| B08 continued 1c2 | `B08c1c2-fixed-assets.md` | `b08c1c2-fixed-assets` | B4 to B12 | Depreciation spreads exactly and posts once per period under concurrent runs; every fixed asset write refuses the wrong role; disposal posts its exact gain or loss; the statements still tie on the seeded day |
+| B08 continued 1c2 | `B08c1c2-fixed-assets.md` | `b08c1c2-fixed-assets` | B4 to B12 | Depreciation spreads exactly and posts once per period under concurrent runs; every fixed asset write refuses the wrong role; disposal posts its exact gain or loss; the statements still tie on the seeded day (built; ADR-0059, A-199) |
 | B08 continued 2 | `B08c2-billing-documents.md` | `b08c2-billing-documents` | B4 to B12 | A billing document posts exact levy lines and a fourth levy needs data only; numbering stays gap-free under concurrent issue; a reprint is identical with its marker; the trial balance still sums to zero on the seeded day |
 | B9a | `B09a-order-core-payments.md` | `b09a-order-core-payments` | B4 to B12 | Every payment edge case in the brief passes; an order on any channel posts stock, document, payment and ledger in one transaction |
 | B9b | `B09b-pos-shifts-offline.md` | `b09b-pos-shifts-offline` | B4 to B12 | Shift close reconciles; 500 queued offline transactions sync exactly once |
@@ -1295,6 +1295,8 @@ Stop at the gate and write docs/sessions/B08c1c-statements-assets.md.
 ```
 
 ## B08 continued 1c2 — Fixed assets and depreciation
+
+**Built on 2026-11-16 (ADR-0059, A-199):** the register, disposal with `fin.FixedAssetDisposed`, depreciation runs with `fin.DepreciationRun`, and the seeded assets; no split.
 
 Branch `b08c1c2-fixed-assets`. Report `docs/sessions/B08c1c2-fixed-assets.md`. Gate: a depreciation run spreads the depreciable amount exactly with `allocate` (FR-FIN-015's 1,200,000 over 120 months at 10,000, and 1,000,001 over 3 months at 333,334, 333,334 and 333,333) and posts once per period, a second run for the same period refused by a database unique key and proved with concurrent runs, with `fin.DepreciationRun`'s exact-amount test; a run posts only once a different person approves it; every fixed asset write refuses the wrong role; disposal posts its exact gain or loss; the four statements still tie on the seeded trading day with the seeded assets.
 
