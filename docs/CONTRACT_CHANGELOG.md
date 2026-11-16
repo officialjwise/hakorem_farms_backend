@@ -4,6 +4,14 @@ Every change to `contract/openapi.yaml`, newest first. A breaking change needs a
 
 Version numbers follow semantic versioning: a major bump breaks an existing client, a minor bump adds operations or optional fields, a patch fixes descriptions or examples.
 
+## 1.41.0 (2026-11-16, B08 continued 2c)
+
+Minor, with one LOUD change to a planned shape. One planned DOC operation moves into code, one schema is added, descriptions and an example are corrected. No field removed, renamed or retyped, and nothing a client sends made required. 371 operations from code, 264 planned. The versioning check against `main` passes.
+
+- **LOUD: `previewTemplateVersion` answers `TemplatePreviewResult`, not `SignedUrl` (FR-DOC-004, ADR-0062).** The specimen comes back inline: `pdfBase64` for an A4 template, `escPosBase64` for a thermal one; `url` and `expiresAt` are always null, because a preview is never stored (a link would name a file the malware scan has not passed). It was planned and never implemented, so no client has read a real answer; a screen built on the planned shape must read the bytes instead of following a link. The specimen prints `SPECIMEN PREVIEW - NOT A VALID DOCUMENT` first and last. `data` is optional: without it the version's saved sample data is used, and with neither the answer is 422 **`PREVIEW_DATA_REQUIRED`** (new). It needs `doc.template.read` (Owner, Manager, Accountant) and writes nothing, so it takes no idempotency key.
+- **The remittance advice (FR-PUR-013, ADR-0062):** a supplier payment marked paid has its advice rendered and archived by the worker, once; `SupplierPayment.remittanceDocumentId` and `SupplierRemittance.remittanceDocumentId` (already in the contract, nullable) are now set seconds later and name the `ArchivedDocument` (`docType` `REMITTANCE_ADVICE`). `markSupplierPaymentPaid`'s example answers `remittanceDocumentId: null`, as the call itself does. Descriptions say so.
+- **Still planned:** `sendBillingDocument` and `sendStatement` (B11, ADR-0062: delivered by NTF); `listStatements`, `createStatement`, `getStatement` (B08 continued 2d, A-206); `issueProforma` (B9a).
+
 ## 1.40.0 (2026-11-16, B08 continued 2b)
 
 Minor. Eleven planned DOC and BIL operations move into code, one nullable response field is added, and examples are corrected. No field removed, renamed or retyped, and nothing a client sends made required. 370 operations from code, 265 planned.

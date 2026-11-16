@@ -56,7 +56,8 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B08 continued 1c2 | `B08c1c2-fixed-assets.md` | `b08c1c2-fixed-assets` | B4 to B12 | Depreciation spreads exactly and posts once per period under concurrent runs; every fixed asset write refuses the wrong role; disposal posts its exact gain or loss; the statements still tie on the seeded day (built; ADR-0059, A-199) |
 | B08 continued 2 | `B08c2-billing-documents.md` | `b08c2-billing-documents` | B4 to B12 | A billing document posts exact levy lines and a fourth levy needs data only; numbering stays gap-free under concurrent issue; the trial balance still sums to zero on the seeded day (built; the session split before rendering and the archive, A-201) |
 | B08 continued 2b | `B08c2b-documents-archive.md` | `b08c2b-documents-archive` | B4 to B12 | A reprint is byte-identical apart from its reprint marker and the archive's hash holds; every issued document of the seeded day is archived once; a template version keeps issued documents unchanged; every write refuses the wrong role (built; the session split before statements, A-203) |
-| B08 continued 2c | `B08c2c-statements-remittance.md` | `b08c2c-statements-remittance` | B4 to B12 | A statement ties to the customer's documents and the ledger's 1200 for its period; a remittance advice is archived once from `pur.SupplierRemittanceReady`; a preview renders without archiving anything; every statement and send write refuses the wrong role |
+| B08 continued 2c | `B08c2c-statements-remittance.md` | `b08c2c-statements-remittance` | B4 to B12 | A supplier remittance advice is rendered from the data fixed with `pur.SupplierRemittanceReady` and archived once, linked from the payment; a template preview renders without archiving or numbering anything; every preview and archive read refuses the wrong role (built; the session split before statements, A-206; sends moved to B11, ADR-0062) |
+| B08 continued 2d | `B08c2d-customer-statements.md` | `b08c2d-customer-statements` | B4 to B12 | A customer statement for a period ties to the customer's documents and the ledger's 1200 for that customer and period, opening plus movements equal to closing to the pesewa, and is rendered after commit and archived once; every statement write refuses the wrong role |
 | B9a | `B09a-order-core-payments.md` | `b09a-order-core-payments` | B4 to B12 | Every payment edge case in the brief passes; an order on any channel posts stock, document, payment and ledger in one transaction |
 | B09x | `B09x-contract-requests.md` | `b09x-contract-requests` | B4 to B12 | Every list operation has a named empty example (CR-005) and the seeded role matrix is published in the contract, generated from the IAM seed and checked in CI so it cannot drift (CR-023); no existing shape changes |
 | B9b | `B09b-pos-shifts-offline.md` | `b09b-pos-shifts-offline` | B4 to B12 | Shift close reconciles; 500 queued offline transactions sync exactly once |
@@ -1399,7 +1400,7 @@ Stop at the gate and write docs/sessions/B08c2b-documents-archive.md. End the re
 
 ## B08 continued 2c — Customer statements, the remittance advice, the template preview and sends
 
-Branch `b08c2c-statements-remittance`. Report `docs/sessions/B08c2c-statements-remittance.md`. Gate: a customer statement for a period lists the customer's issued documents and their settlement, ties to the ledger's 1200 for that customer and period, and is rendered after commit and archived once; a supplier remittance advice is rendered from `pur.SupplierRemittanceReady` and archived once, linked from the payment; a template preview renders without archiving or numbering anything; every statement and send write refuses the wrong role.
+Branch `b08c2c-statements-remittance`. Report `docs/sessions/B08c2c-statements-remittance.md`. **Built; the session split before statements (A-206): the remainder is B08 continued 2d below. `sendBillingDocument` and `sendStatement` move to B11, where NTF delivers them (ADR-0062).** Gate as planned: a customer statement for a period lists the customer's issued documents and their settlement, ties to the ledger's 1200 for that customer and period, and is rendered after commit and archived once; a supplier remittance advice is rendered from `pur.SupplierRemittanceReady` and archived once, linked from the payment; a template preview renders without archiving or numbering anything; every statement and send write refuses the wrong role.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
@@ -1423,13 +1424,44 @@ Stop at the gate and write docs/sessions/B08c2c-statements-remittance.md. End th
 (ADR-0026 verification).
 ```
 
+## B08 continued 2d — Customer statements
+
+Branch `b08c2d-customer-statements`, from `main`. Report `docs/sessions/B08c2d-customer-statements.md`. Inserted by B08 continued 2c's split (A-206, ADR-0026 Amendments). Gate: a customer statement for a period lists the customer's issued documents and their settlement, ties to the ledger's 1200 for that customer's subledger party and period (opening plus invoices and debit notes less credit notes and payments equals closing, to the pesewa, asserted against SQL sums taken straight from `bil.billing_document` and `fin.journal_line`), is numbered from its own gap-free series, rendered after commit and archived exactly once; every statement write refuses the wrong role.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B08c2c-statements-remittance.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read FR-WHL-009 and the DOC requirement block of docs/SRS.md (nothing else from the SRS),
+docs/data-model/whl.md (`whl.statement`), doc.md and bil.md, the WHL, BIL, DOC and FIN cards in
+docs/MODULE_BOUNDARIES.md, and ADR-0010, ADR-0011, ADR-0015, ADR-0056, ADR-0060, ADR-0061 and ADR-0062. Read A-200,
+A-204 and A-206 in docs/ASSUMPTIONS.md. Load hakorem-module, hakorem-migration, hakorem-ledger, hakorem-money,
+hakorem-documents, hakorem-endpoint and hakorem-tests. Use docs/prompts/module-build-prompt.md as the recipe.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B08 continued 2d only, on branch b08c2d-customer-statements, branched from main: the WHL module with
+customer statements only (`whl.statement`, the `STATEMENT` document type and its series, the permissions
+`whl.statement.read` and `whl.statement.create` and their grants, listStatements, createStatement and getStatement,
+the A4 statement template with sample data, rendered and archived through Documents.requestRenderIn and linked by a
+consumer of doc.DocumentArchived). Decide with an ADR where the figures come from: WHL's card imports no FIN today,
+and an opening balance entered by manual journal against a customer is on 1200 but on no billing document, so the
+recommended reading is the customer's 1200 activity by subledger party through FIN's door, each line named by its
+source document, which also brings in B9a's payments without a change. Write the statement arithmetic test first,
+including FR-WHL-009's case (opening 100,000, invoices 250,000, credit note 20,000, payment 150,000, closing 180,000)
+and a customer in credit. sendStatement stays planned for B11 (ADR-0062). Extend the seed with one statement.
+Stop at the gate, write docs/sessions/B08c2d-customer-statements.md, and merge into main when every run on the pull
+request is green. End the report with B09a's opening message (ADR-0026 verification).
+```
+
 ## B9a — Order core and payments, and online order placement
 
 Branch `b09a-order-core-payments`. Report `docs/sessions/B09a-order-core-payments.md`. Gate: every payment edge case in the shared brief passes, and an order on any channel posts stock, document, payment and ledger in one transaction.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9a row).
-List docs/sessions/ and read only the most recent report (docs/sessions/B08c2c-statements-remittance.md).
+List docs/sessions/ and read only the most recent report (docs/sessions/B08c2d-customer-statements.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
 report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the ORD (core) and PAY requirement blocks of docs/SRS.md (nothing else from the SRS),
@@ -1578,6 +1610,11 @@ abandoned-cart messaging. Run steps 1.11 to 1.16 of docs/UAT.md and the driver c
 dry run and record any difference.
 Notify the maker of a death report sent back by the malware scan (B06r, A-175): liv.MortalityReturned names
 the reporter and the reason; the Farm hand reads no death record, so this message is how they learn of it.
+Build the document sends on NTF (ADR-0062, A-204): sendBillingDocument and sendStatement (202 through the outbox,
+a bil.reprint_log row with the channel for a billing document, the archived bytes or a lasting link, never a new
+document), the remittance advice to the supplier from pur.SupplierRemittanceReady (FR-PUR-013, once per payment), and
+a test that a send reaches only the document's own customer or supplier and that a failed send is retried without
+a second archive row.
 Stop at the gate and write docs/sessions/B11-fulfilment-delivery.md.
 ```
 

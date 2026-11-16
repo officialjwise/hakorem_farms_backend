@@ -1,6 +1,6 @@
 # Table dictionary: `doc`
 
-Owner: DOC module. Document templates, rendering and the immutable archive (built in B08 continued 2b, migration 0152, ADR-0061). File storage, signed URLs, access logging and image variants are platform mechanisms (`platform.stored_file`), used by this module and directly by others (ADR-0009). Conventions are in `docs/DATA_MODEL.md`.
+Owner: DOC module. Document templates, rendering and the immutable archive (built in B08 continued 2b, migration 0152, ADR-0061; B08 continued 2c adds the remittance advice template, migration 0157, ADR-0062). File storage, signed URLs, access logging and image variants are platform mechanisms (`platform.stored_file`), used by this module and directly by others (ADR-0009). Conventions are in `docs/DATA_MODEL.md`.
 
 ---
 
@@ -16,7 +16,7 @@ A branded template per document type, editable by an administrator without a dep
 | `name` | `text` | NOT NULL | |
 | `active_version_id` | `uuid` | NULL, FK `doc.template_version` | |
 
-Standard columns: `MASTER`. UNIQUE (`doc_type`, `output`) among live rows (`uq_template_type_output`). The active version is an ACTIVE version of this template (`ck_template_active_version`, deferred). Seeded: version 1 of the A4 template of each billing document type and the counter receipt's 80 mm thermal template, written and activated by the SYSTEM principal.
+Standard columns: `MASTER`. UNIQUE (`doc_type`, `output`) among live rows (`uq_template_type_output`). The active version is an ACTIVE version of this template (`ck_template_active_version`, deferred). Seeded: version 1 of the A4 template of each billing document type and the counter receipt's 80 mm thermal template, written and activated by the SYSTEM principal; from 0157 also the supplier remittance advice's A4 template (`REMITTANCE_ADVICE`), with sample data for the preview.
 
 ### `doc.template_version` · DOCUMENT
 
@@ -28,7 +28,7 @@ Immutable once activated. Published key: an issued document keeps the version it
 | `template_id` | `uuid` | NOT NULL, FK `doc.template` | |
 | `version_no` | `integer` | NOT NULL, CHECK `> 0` | |
 | `body` | `text` | NOT NULL | Sandboxed template source; no script execution, no remote includes |
-| `sample_data` | `jsonb` | NULL | For the administrator's preview |
+| `sample_data` | `jsonb` | NULL | For the administrator's preview: `previewTemplateVersion` renders it when the request gives no data (ADR-0062); a preview writes nothing |
 | `status` | `text` | NOT NULL, CHECK in (`DRAFT`, `ACTIVE`, `RETIRED`) | |
 | `activated_at` | `timestamptz` | NULL | |
 | `activated_by` | `uuid` | NULL, FK `iam.principal` | |
