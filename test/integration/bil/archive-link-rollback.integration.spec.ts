@@ -40,7 +40,14 @@ describe('0155 rolls back and applies again over archived documents', () => {
     expect(before).toHaveLength(5);
     expect(before.every((d) => d.archived !== null && d.hash !== null)).toBe(true);
     const migrations = resolve(process.cwd(), 'migrations');
-    expect(await rollback(database.url('admin'), migrations)).toEqual({ kind: 'ROLLED_BACK', name: '0155_bil_archive_and_reprints' });
+    // The migrations after 0155 roll back first, newest first, then 0155 itself.
+    const rolledBack: string[] = [];
+    while (rolledBack.at(-1) !== '0155_bil_archive_and_reprints') {
+      const step = await rollback(database.url('admin'), migrations);
+      if (step.kind !== 'ROLLED_BACK' || rolledBack.length >= 20) throw new Error(`rollback stopped before 0155: ${JSON.stringify(step)} after ${rolledBack.join(', ')}`);
+      rolledBack.push(step.name);
+    }
+    expect(rolledBack).toEqual(['0158_pur_remittance_document', '0157_doc_remittance_template', '0156_platform_add_remittance_document', '0155_bil_archive_and_reprints']);
     const hashes = (await admin().query<{ hash: string | null }>("SELECT encode(content_hash, 'hex') AS hash FROM bil.billing_document WHERE status = 'ISSUED' ORDER BY id")).rows.map((r) => r.hash);
     expect(hashes).toEqual(before.map((d) => d.hash));
     await migrate(database.url('admin'), migrations);
