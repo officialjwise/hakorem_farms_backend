@@ -5,6 +5,7 @@ import type { Transaction, UnitOfWork } from '../../../platform/database/unit-of
 import type { DocumentRefRecord, DocumentRegistry } from '../../../platform/documents/document-registry';
 import { NotFoundError } from '../../../platform/errors/api-error';
 import type { Cursors } from '../../../platform/http/cursor';
+import { decodePosition, encodePosition, requestedSort, type SortFields, type SortOrder, type SortRequest } from '../../../platform/http/keyset-sort';
 import type { Authoriser } from '../../iam';
 import type { MasterDataRefs, ProductFacts } from '../../mdm';
 import { availabilityOf, type Availability } from '../domain/availability';
@@ -172,6 +173,37 @@ export interface StockTraceView {
 }
 
 const productRef = (p: ProductFacts): ProductRefView => ({ id: p.id, sku: p.sku, name: p.name });
+
+/** One page of stock on hand lines, before they are valued and shown. */
+interface OnHandPage {
+  readonly rows: readonly OnHandRow[];
+  readonly hasMore: boolean;
+  readonly nextCursor: string | null;
+}
+
+/**
+ * listStockOnHand's sort field (CR-019, ADR-0054), over the line's `inv.stock_balance b`, backed by an index of
+ * migration 0121. The tie-breaker is the line's key (location, product, unit) as text in byte order, the order the
+ * list answers in without a sort. A product's or location's name is MDM's and a value at cost is computed from the
+ * cost pools by `allocate`, so neither is sortable here.
+ */
+const ON_HAND_SORT: SortFields<'onHandQty'> = {
+  fields: { onHandQty: { expression: 'b.on_hand_qty', type: 'numeric' } },
+  tieBreaker: { expression: `(b.location_id::text || '|' || b.product_id::text || '|' || COALESCE(b.stock_unit_id::text, '')) COLLATE "C"`, type: 'text' },
+};
+
+/**
+ * listStockUnits' sort fields (CR-019, ADR-0054), over `inv.stock_unit u`, each backed by an index of migration 0121;
+ * units with no expiry come last either way. A product's name is MDM's and a unit's value at cost is the sum of its cost
+ * pools, so neither is sortable here; the default order (by id) is none of them.
+ */
+const STOCK_UNIT_SORT: SortFields<'identifier' | 'expiresOn'> = {
+  fields: {
+    identifier: { expression: 'lower(u.identifier)', type: 'text' },
+    expiresOn: { expression: 'u.expires_on', type: 'date', nullable: true },
+  },
+  tieBreaker: { expression: 'u.id', type: 'uuid' },
+};
 const lineKey = (row: { readonly locationId: string; readonly productId: string; readonly stockUnitId: string | null }) =>
   `${row.locationId}|${row.productId}|${row.stockUnitId ?? ''}`;
 const poolKey = (productId: string, stockUnitId: string | null, branchId: string) => `${productId}|${stockUnitId ?? ''}|${branchId}`;
@@ -238,14 +270,21 @@ export class StockQueries {
       });
   }
 
-  listOnHand(actor: Actor | undefined, query: OnHandQuery, cursor: string | undefined, limit: number): Promise<StockOnHandPageView> {
+  /**
+   * listStockOnHand (FR-INV-003, CR-001): in location, product and unit order, as it always was, unless the request
+   * names a `sort` (CR-019, ADR-0054); then by `onHandQty` and `direction` through the shared keyset, the line's key
+   * (location, product, unit) breaking ties, the page read in SQL with the same filters and scopes. The total and each
+   * line's value at cost are the same either way.
+   */
+  listOnHand(actor: Actor | undefined, query: OnHandQuery, cursor: string | undefined, limit: number, sort: SortRequest = {}): Promise<StockOnHandPageView> {
     return this.uow.run({ isolation: 'read committed' }, async (tx) => {
       await this.authoriser.authorise(tx, actor, 'inv.stock.read', query.branchId === undefined ? {} : { branchId: query.branchId, locationId: query.locationId ?? null });
       const scopes: ReadScope[] = (await this.authoriser.scopes(tx, actor!, 'inv.stock.read')).map((s) => ({ branchId: s.branchId, locationId: s.locationId }));
       const now = this.clock.now();
       const today = toBusinessDate(now);
+      const order = requestedSort(ON_HAND_SORT, sort.sort, sort.direction);
       let rows = await this.store.onHand(tx, query, scopes, query.includeZero ?? false);
-      const products = await this.refs.productsIn(tx, rows.map((r) => r.productId));
+      const products = new Map(await this.refs.productsIn(tx, rows.map((r) => r.productId)));
       if (query.categoryId !== undefined) {
         rows = rows.filter((r) => products.get(r.productId)?.categoryId === query.categoryId);
       }
@@ -253,14 +292,14 @@ export class StockQueries {
         const limitDate = addDays(today, query.expiringWithinDays);
         rows = rows.filter((r) => r.unit?.expiresOn !== null && r.unit?.expiresOn !== undefined && r.unit.expiresOn <= limitDate);
       }
-      const values = await this.lineValues(tx, rows);
-      const binding = { operationId: 'listStockOnHand', principalId: actor!.principalId, filters: { ...query } };
-      const after = cursor === undefined ? null : ((this.cursors.decode(cursor, binding)['key'] as string | undefined) ?? null);
-      const remaining = after === null ? rows : rows.filter((r) => lineKey(r) > after);
-      const pageRows = remaining.slice(0, limit);
-      const hasMore = remaining.length > limit;
+      const page = order === null ? this.onHandInKeyOrder(actor!, query, rows, cursor, limit) : await this.onHandSorted(tx, actor!, query, scopes, today, order, cursor, limit);
+      const pageRows = page.rows;
+      // A sorted page is a second read: a line that arrived after the total was read is valued as its pool's share too.
+      const counted = new Set(rows.map(lineKey));
+      const values = await this.lineValues(tx, [...rows, ...pageRows.filter((r) => !counted.has(lineKey(r)))]);
+      const unknown = pageRows.filter((r) => !products.has(r.productId)).map((r) => r.productId);
+      if (unknown.length > 0) for (const [productId, facts] of await this.refs.productsIn(tx, unknown)) products.set(productId, facts);
       const locations = await this.refs.locationsIn(tx, pageRows.map((r) => r.locationId));
-      const last = pageRows.at(-1);
       return {
         data: pageRows.map((r) => {
           const product = products.get(r.productId)!;
@@ -290,12 +329,50 @@ export class StockQueries {
             holds: r.holds,
           };
         }),
-        page: { nextCursor: hasMore && last !== undefined ? this.cursors.encode(binding, { key: lineKey(last) }) : null, limit, hasMore },
+        page: { nextCursor: page.nextCursor, limit, hasMore: page.hasMore },
         totalValueAtCostPesewas: Money.sum(rows.map((r) => values.get(lineKey(r))!.value)).toJsonInteger(),
         currency: 'GHS',
         asOf: now.toISOString(),
       };
     });
+  }
+
+  /** The default page of stock on hand: the matching lines in key order, strictly after the cursor's key. */
+  private onHandInKeyOrder(actor: Actor, query: OnHandQuery, rows: readonly OnHandRow[], cursor: string | undefined, limit: number): OnHandPage {
+    const binding = { operationId: 'listStockOnHand', principalId: actor.principalId, filters: { ...query } };
+    const after = cursor === undefined ? null : ((this.cursors.decode(cursor, binding)['key'] as string | undefined) ?? null);
+    const remaining = after === null ? rows : rows.filter((r) => lineKey(r) > after);
+    const pageRows = remaining.slice(0, limit);
+    const hasMore = remaining.length > limit;
+    const last = pageRows.at(-1);
+    return { rows: pageRows, hasMore, nextCursor: hasMore && last !== undefined ? this.cursors.encode(binding, { key: lineKey(last) }) : null };
+  }
+
+  /**
+   * A sorted page of stock on hand (CR-019, ADR-0054), read in SQL through the shared keyset with the list's filters:
+   * the category's products from MDM's published interface, the expiry as a business date in Accra.
+   */
+  private async onHandSorted(
+    tx: Transaction,
+    actor: Actor,
+    query: OnHandQuery,
+    scopes: readonly ReadScope[],
+    today: string,
+    order: SortOrder,
+    cursor: string | undefined,
+    limit: number,
+  ): Promise<OnHandPage> {
+    const binding = { operationId: 'listStockOnHand', principalId: actor.principalId, filters: { ...query, sort: order.field, direction: order.direction } };
+    const position = cursor === undefined ? null : decodePosition(order, this.cursors.decode(cursor, binding));
+    const narrow = {
+      productIds: query.categoryId === undefined ? null : await this.refs.productIdsInCategoryIn(tx, query.categoryId),
+      expiresBy: query.expiringWithinDays === undefined ? null : addDays(today, query.expiringWithinDays),
+    };
+    const found = await this.store.onHandSorted(tx, query, scopes, query.includeZero ?? false, narrow, order, position, pageProbe(limit));
+    const pageRows = found.slice(0, limit);
+    const hasMore = found.length > limit;
+    const last = pageRows.at(-1);
+    return { rows: pageRows, hasMore, nextCursor: hasMore && last !== undefined ? this.cursors.encode(binding, encodePosition(last.position)) : null };
   }
 
   getStockUnit(actor: Actor | undefined, id: string): Promise<StockUnitView> {
@@ -343,16 +420,29 @@ export class StockQueries {
   }
 
   /**
-   * Animals and lots as stock units (FR-INV-005, FR-INV-016), in id order: filtered by tag or batch, product, where an
+   * Animals and lots as stock units (FR-INV-005, FR-INV-016), in id order unless a `sort` is asked: filtered by tag or batch, product, where an
    * animal stands or a lot has stock, status, tracking, expiry within days of today in Accra, and whether a hold is in
    * force; narrowed to the branches the reader's grants reach and, for a grant at one location, the units there.
    */
-  listStockUnits(actor: Actor | undefined, query: StockUnitQuery, cursor: string | undefined, limit: number): Promise<Page<StockUnitView>> {
+  listStockUnits(actor: Actor | undefined, query: StockUnitQuery, cursor: string | undefined, limit: number, sort: SortRequest = {}): Promise<Page<StockUnitView>> {
     return this.uow.run({ isolation: 'read committed' }, async (tx) => {
       await this.authoriser.authorise(tx, actor, 'inv.stock.read');
       const scopes: ReadScope[] = (await this.authoriser.scopes(tx, actor!, 'inv.stock.read')).map((s) => ({ branchId: s.branchId, locationId: s.locationId }));
       const { expiringWithinDays, ...rest } = query;
       const filters: StockUnitFilters = { ...rest, expiresBy: expiringWithinDays === undefined ? undefined : addDays(toBusinessDate(this.clock.now()), expiringWithinDays) };
+      const order = requestedSort(STOCK_UNIT_SORT, sort.sort, sort.direction);
+      if (order !== null) {
+        // By `identifier` or `expiresOn` (CR-019, ADR-0054), the unit id breaking ties, through the shared keyset.
+        const binding = { operationId: 'listStockUnits', principalId: actor!.principalId, filters: { ...query, sort: order.field, direction: order.direction } };
+        const position = cursor === undefined ? null : decodePosition(order, this.cursors.decode(cursor, binding));
+        const found = await this.store.stockUnitIdsSorted(tx, filters, scopes, order, position, pageProbe(limit));
+        const pageUnits = found.slice(0, limit);
+        const units: StockUnitRow[] = [];
+        for (const unit of pageUnits) units.push((await this.store.stockUnit(tx, unit.id))!);
+        const last = pageUnits.at(-1);
+        const hasMore = found.length > limit;
+        return { data: await this.unitViews(tx, units), page: { nextCursor: hasMore && last !== undefined ? this.cursors.encode(binding, encodePosition(last.position)) : null, limit, hasMore } };
+      }
       const binding = { operationId: 'listStockUnits', principalId: actor!.principalId, filters: { ...query } };
       const after = cursor === undefined ? null : (this.cursors.decode(cursor, binding)['id'] ?? null);
       const found = await this.store.stockUnitIds(tx, filters, scopes, after, pageProbe(limit));

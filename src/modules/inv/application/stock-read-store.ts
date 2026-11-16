@@ -1,4 +1,5 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
+import type { SortOrder } from '../../../platform/http/keyset-sort';
 import type { ReadScope } from './goods-receipt-store';
 
 export const STOCK_READ_STORE = Symbol('STOCK_READ_STORE');
@@ -80,9 +81,28 @@ export interface StockUnitFilters {
   readonly onHold?: boolean | undefined;
 }
 
+/** The narrowing a sorted stock on hand page applies in SQL that the unsorted list applies to its rows (CR-019). */
+export interface OnHandNarrowing {
+  /** The products of the asked category (MDM's), or null for any. */
+  readonly productIds: readonly string[] | null;
+  /** Units expiring on or before this business date, or null for any. */
+  readonly expiresBy: string | null;
+}
+
 export interface StockReadStore {
   /** Balances at physical locations within the scopes, in a stable order (location, product, unit). */
   onHand(tx: Transaction, filters: OnHandFilters, scopes: readonly ReadScope[], includeZero: boolean): Promise<OnHandRow[]>;
+  /** The same balances in the asked order (CR-019, ADR-0054), strictly after `position`, each with its own position. */
+  onHandSorted(
+    tx: Transaction,
+    filters: OnHandFilters,
+    scopes: readonly ReadScope[],
+    includeZero: boolean,
+    narrow: OnHandNarrowing,
+    order: SortOrder,
+    position: readonly string[] | null,
+    limit: number,
+  ): Promise<Array<OnHandRow & { readonly position: string[] }>>;
   /** Every physical balance of the pools of these products, whatever the filter: a line's value is its share of its pool. */
   poolBalances(tx: Transaction, productIds: readonly string[]): Promise<Array<{ readonly productId: string; readonly stockUnitId: string | null; readonly locationId: string; readonly branchId: string; readonly onHandQty: string }>>;
   pools(tx: Transaction, productIds: readonly string[]): Promise<PoolRow[]>;
@@ -92,4 +112,6 @@ export interface StockReadStore {
    * for a grant at one location, to the animals standing there and the lots with stock there (as holds, A-142).
    */
   stockUnitIds(tx: Transaction, filters: StockUnitFilters, scopes: readonly ReadScope[], afterId: string | null, limit: number): Promise<string[]>;
+  /** The same units in the asked order (CR-019, ADR-0054), strictly after `position`, each with its own position. */
+  stockUnitIdsSorted(tx: Transaction, filters: StockUnitFilters, scopes: readonly ReadScope[], order: SortOrder, position: readonly string[] | null, limit: number): Promise<Array<{ readonly id: string; readonly position: string[] }>>;
 }

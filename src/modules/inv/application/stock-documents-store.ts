@@ -1,4 +1,5 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
+import type { SortOrder } from '../../../platform/http/keyset-sort';
 import type { AdjustmentDirection } from '../domain/stock-documents';
 import type { ResolutionKind } from '../domain/stock-exception';
 import type { CostElement, WeightSource } from './stock-store';
@@ -183,6 +184,15 @@ export interface StockDocumentsStore {
   movement(tx: Transaction, id: string): Promise<MovementRecord | null>;
   /** Newest first; `beforeId` continues a page. Narrowed to movements whose branch and a location a scope reaches. */
   movements(tx: Transaction, filters: MovementFilters, scopes: readonly ReadScope[], beforeId: string | null, limit: number): Promise<MovementRecord[]>;
+  /** The same movements in the asked order (CR-019, ADR-0054), strictly after `position`, each with its own position. */
+  movementsSorted(
+    tx: Transaction,
+    filters: MovementFilters,
+    scopes: readonly ReadScope[],
+    order: SortOrder,
+    position: readonly string[] | null,
+    limit: number,
+  ): Promise<Array<{ readonly record: MovementRecord; readonly position: string[] }>>;
   /** For each id, the movement that reversed it, if any. */
   reversedBy(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, string>>;
   units(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, UnitRecord>>;

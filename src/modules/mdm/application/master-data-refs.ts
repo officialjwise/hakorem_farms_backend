@@ -100,6 +100,8 @@ export interface MasterDataRefsStore {
   productIdBySku(tx: Transaction, sku: string): Promise<string | null>;
   /** Ids of the live products of a species, in SKU order (LIV's hatch, B06 continued 2). */
   productIdsOfSpecies(tx: Transaction, speciesId: string): Promise<string[]>;
+  /** Ids of every product filed under a category, archived or not (INV's sorted stock on hand, CR-019). */
+  productIdsInCategory(tx: Transaction, categoryId: string): Promise<string[]>;
   /** A product's base unit and the live factor of its alternative unit `uom` (null if none); null for no such product (B06u). */
   uomFactor(tx: Transaction, productId: string, uom: string): Promise<{ readonly baseUom: string; readonly factor: UomFactor | null } | null>;
 }
@@ -200,6 +202,14 @@ export class MasterDataRefs {
     const ids = await this.store.productIdsOfSpecies(tx, speciesId);
     const facts = await this.productsIn(tx, ids);
     return ids.map((id) => facts.get(id)!);
+  }
+
+  /**
+   * Every product filed directly under a category, archived or not, in id order: the products a list filtered by
+   * `categoryId` keeps, as the facts of `productsIn` would keep them (INV's sorted stock on hand, CR-019).
+   */
+  productIdsInCategoryIn(tx: Transaction, categoryId: string): Promise<string[]> {
+    return this.store.productIdsInCategory(tx, categoryId);
   }
 
   /**

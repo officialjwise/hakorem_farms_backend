@@ -6,6 +6,7 @@ import type { Transaction, UnitOfWork } from '../../../platform/database/unit-of
 import type { DocumentRegistry } from '../../../platform/documents/document-registry';
 import { InvalidStateTransitionError, NotFoundError } from '../../../platform/errors/api-error';
 import type { Cursors } from '../../../platform/http/cursor';
+import { decodePosition, encodePosition, requestedSort, type SortFields, type SortRequest } from '../../../platform/http/keyset-sort';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
 import type { ApprovalHandler, ApprovalRecord, Approvals, Authoriser, PrincipalNames } from '../../iam';
 import type { MasterDataRefs } from '../../mdm';
@@ -16,6 +17,18 @@ import { movementViews, readScopes, runStockCommand, type ApprovalPendingView, t
 import type { MovementFilters, MovementRecord, MovementTypeRecord, StockDocumentsStore } from './stock-documents-store';
 
 export const STOCK_REVERSAL = 'STOCK_REVERSAL';
+
+/**
+ * listStockMovements' sort fields (CR-019, ADR-0054), over `inv.stock_movement m`, each backed by an index of migration
+ * 0121. A product's name is MDM's and is not sortable here; the default order (newest first) is none of them.
+ */
+const MOVEMENT_SORT: SortFields<'occurredAt' | 'valuePesewas'> = {
+  fields: {
+    occurredAt: { expression: 'm.occurred_at', type: 'timestamptz' },
+    valuePesewas: { expression: 'm.value_pesewas', type: 'bigint' },
+  },
+  tieBreaker: { expression: 'm.id', type: 'uuid' },
+};
 /** A transfer's movements are corrected by the transfer, never one by one: its document would no longer agree. */
 const NOT_REVERSIBLE: ReadonlySet<string> = new Set(['TRANSFER_DISPATCH', 'TRANSFER_RECEIPT']);
 /** The reasons a reversal takes: the stock adjustment list (FR-MDM-011), for a movement booked in error. */
@@ -66,10 +79,28 @@ export class StockMovements implements ApprovalHandler {
     });
   }
 
-  list(actor: Actor | undefined, filters: MovementFilters, cursor: string | undefined, limit: number): Promise<Page<StockMovementView>> {
+  /**
+   * listStockMovements (FR-INV-001): newest first, as it always was, unless the request names a `sort` (CR-019,
+   * ADR-0054); then by `occurredAt` or `valuePesewas` and `direction`, the movement id breaking ties, through the shared
+   * keyset. `valuePesewas` is a cost: only a reader of movements, who sees it in every row, may sort by it, and anyone
+   * else is refused here before the sort is read (ADR-0052).
+   */
+  list(actor: Actor | undefined, filters: MovementFilters, cursor: string | undefined, limit: number, sort: SortRequest = {}): Promise<Page<StockMovementView>> {
     return this.uow.run({ isolation: 'read committed' }, async (tx) => {
       await this.authoriser.authorise(tx, actor, 'inv.movement.read');
-      return this.page(tx, actor!, 'listStockMovements', filters, cursor, limit);
+      const order = requestedSort(MOVEMENT_SORT, sort.sort, sort.direction);
+      if (order === null) return this.page(tx, actor!, 'listStockMovements', filters, cursor, limit);
+      const scopes = readScopes(await this.authoriser.scopes(tx, actor!, 'inv.movement.read'));
+      const binding = { operationId: 'listStockMovements', principalId: actor!.principalId, filters: { ...filters, sort: order.field, direction: order.direction } };
+      const position = cursor === undefined ? null : decodePosition(order, this.cursors.decode(cursor, binding));
+      const found = await this.store.movementsSorted(tx, filters, scopes, order, position, pageProbe(limit));
+      const data = found.slice(0, limit);
+      const last = data.at(-1);
+      const hasMore = found.length > limit;
+      return {
+        data: await this.views(tx, data.map((row) => row.record)),
+        page: { nextCursor: hasMore && last !== undefined ? this.cursors.encode(binding, encodePosition(last.position)) : null, limit, hasMore },
+      };
     });
   }
 
