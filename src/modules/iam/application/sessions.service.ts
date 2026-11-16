@@ -65,6 +65,7 @@ export class SessionsService {
       const rows = await this.store.listSessions(tx, {
         principalId: owner,
         activeOnly: query.active ?? null,
+        now: this.clock.now(),
         beforeId: position?.['id'] ?? null,
         limit: query.limit + 1,
       });

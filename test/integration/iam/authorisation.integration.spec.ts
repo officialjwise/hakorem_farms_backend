@@ -452,6 +452,19 @@ describe('the device list and forced logout (ADR-0016, FR-IAM-016)', () => {
     expect(refused.body.error.details[0].field).toBe('/cursor');
   });
 
+  it('lists a session as active until its absolute end by the application clock, whatever the database clock says (ADR-0066)', async () => {
+    const cashier = await createUser(database, { name: 'Akua Sarpong', grants: [{ role: 'CASHIER', branchId: dodowa.branchId }] });
+    const session = await login(api.server, cashier, 'Shop till tablet');
+    const phone = await login(api.server, cashier, 'Akua phone');
+    const ends = new Date(clock.now().getTime() + 60_000);
+    await database.pool('admin').query('UPDATE iam.session SET idle_expires_at = $2, absolute_expires_at = $2 WHERE id = $1', [phone.sessionId, ends]);
+    const active = async () => ((await consoleGet(api.server, session, '/v1/iam/sessions?active=true')).body.data as Array<{ deviceLabel: string }>).map((row) => row.deviceLabel).sort();
+    clock.set(new Date(ends.getTime() - 1_000));
+    expect(await active()).toEqual(['Akua phone', 'Shop till tablet']);
+    clock.set(ends);
+    expect(await active()).toEqual(['Shop till tablet']);
+  });
+
   it('lets a manager revoke a cashier\'s session, which then fails on its next request, and replays the revoke once', async () => {
     const manager = await createUser(database, { name: 'Kwabena Owusu', grants: [{ role: 'MANAGER', branchId: dodowa.branchId }] });
     const cashier = await createUser(database, { name: 'Efua Mensah', grants: [{ role: 'CASHIER', branchId: dodowa.branchId }] });

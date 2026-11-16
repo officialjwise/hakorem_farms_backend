@@ -290,11 +290,11 @@ export class PgIamStore implements IamStore {
     const { rows } = await tx.query<SessionRow>(
       `${SESSION_SELECT}
         WHERE ($1::uuid IS NULL OR s.principal_id = $1::uuid)
-          AND ($2::boolean IS NULL OR (s.revoked_at IS NULL AND s.absolute_expires_at > now()) = $2::boolean)
+          AND ($2::boolean IS NULL OR (s.revoked_at IS NULL AND s.absolute_expires_at > $5) = $2::boolean)
           AND ($3::uuid IS NULL OR s.id < $3::uuid)
         ORDER BY s.id DESC
         LIMIT $4`,
-      [filter.principalId, filter.activeOnly, filter.beforeId, filter.limit],
+      [filter.principalId, filter.activeOnly, filter.beforeId, filter.limit, filter.now],
     );
     return rows.map(session);
   }
