@@ -129,6 +129,7 @@ export default defineConfig({
         ...fullCoverage('src/modules/prc/domain/**/*.ts'), // B6: cost allocation by relative sales value, yield against standard (ADR-0018)
         ...fullCoverage('src/modules/liv/domain/**/*.ts'), // B06 continued: cost spread by head-days, withdrawal ends, the write-off threshold, animal status
         ...fullCoverage('src/modules/fin/domain/**/*.ts'), // B8: posting rules into journal lines, the late-event rule, the boot assertion, the trial balance, event amounts (ADR-0003)
+        ...fullCoverage('src/modules/ord/domain/**/*.ts'), // B9a: the order machine, tenders against the gross, payment status (FR-ORD-002, FR-ORD-006, FR-ORD-016)
         ...fullCoverage('src/modules/pay/domain/**/*.ts'), // B9a: clearing by method, a tender split into allocated and deposit (FR-PAY-001, FR-PAY-009)
         // ...fullCoverage('src/modules/cap/domain/distribution/**/*.ts'), // B12: distribution, unit-days and allocation (ADR-0028)
       },

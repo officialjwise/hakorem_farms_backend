@@ -127,6 +127,14 @@ export class Reservations {
     return id;
   }
 
+  /**
+   * A reservation as its consumer checks it before issuing (B9a: a sale names the checkout's reservation), under the
+   * reservation's row lock; null if there is none. It authorises nothing.
+   */
+  async heldIn(tx: Transaction, reservationId: string): Promise<StockReservationRecord | null> {
+    return this.store.lock(tx, reservationId);
+  }
+
   /** Issues the reserved stock whole through `Stock.postIn`, naming the reservation so the trigger consumes it. */
   async consumeIn(tx: Transaction, actorId: string, reservationId: string, request: ConsumeRequest): Promise<PostedMovement> {
     const reservation = await this.store.lock(tx, reservationId);

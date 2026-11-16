@@ -155,10 +155,8 @@ describe('table classes (ADR-0012)', () => {
 describe('cross-schema foreign keys (ADR-0011)', () => {
   beforeAll(async () => {
     const admin = database.pool('admin');
-    // iam.principal is the real, migrated table; iam.session_note is an unpublished stand-in.
-    await admin.query('CREATE SCHEMA ord AUTHORIZATION hk_owner');
+    // iam.principal and ord.sales_order are the real, migrated tables (ord since B9a); iam.session_note is an unpublished stand-in.
     await admin.query('CREATE TABLE iam.session_note (id uuid PRIMARY KEY)');
-    await admin.query('CREATE TABLE ord.sales_order (id uuid PRIMARY KEY)');
   });
 
   it('passes a key to a published or universal key, from a higher layer, with ON DELETE RESTRICT', async () => {

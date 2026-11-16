@@ -48,6 +48,7 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0163_ord_sales_orders',
       '0162_fin_payment_postings',
       '0161_bil_settlement_allocations',
       '0160_pay_payments',
