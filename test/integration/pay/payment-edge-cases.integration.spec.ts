@@ -364,6 +364,7 @@ describe('overpayment, underpayment and partial payment allocate exactly (FR-PAY
     const invoice = await issueInvoice(api, actorOf('accountant'), clock, { branchId, customerId: id('tema'), productId: id('goat') }, 100_000n);
     const paymentId = await clearedDeposit(120_000);
     const depositBefore = await balanceOf(database, '2200', 'Tema Cold Store Ltd (SEED)');
+    const allocatedAt = clock.now().toISOString();
     const allocated = await post('accountant', `/payments/${paymentId}/allocate`, { allocations: [{ billingDocumentId: invoice.id, amountPesewas: 100_000 }] });
     expect(allocated.status, JSON.stringify(allocated.body)).toBe(200);
     expect(allocated.body).toMatchObject({ allocatedPesewas: 100_000, unallocatedPesewas: 20_000 });
@@ -374,7 +375,8 @@ describe('overpayment, underpayment and partial payment allocate exactly (FR-PAY
     ]);
     expect((await balanceOf(database, '2200', 'Tema Cold Store Ltd (SEED)')) - depositBefore).toBe(100_000);
     const doc = await get('accountant', `/billing-documents/${invoice.id}`);
-    expect(doc.body.settlement).toMatchObject({ allocatedPesewas: 100_000, outstandingPesewas: 0, paymentStatus: 'PAID' });
+    // Settled and as of the application clock's instant, never the database's (ADR-0066).
+    expect(doc.body.settlement).toMatchObject({ allocatedPesewas: 100_000, outstandingPesewas: 0, paymentStatus: 'PAID', settledAt: allocatedAt, asOf: allocatedAt });
     ids.set('overpayment', paymentId);
   });
 
