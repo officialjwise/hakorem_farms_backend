@@ -98,6 +98,7 @@ responses:
           postedAt: null
           postedBy: null
           reversal: null
+          pendingReversal: null
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

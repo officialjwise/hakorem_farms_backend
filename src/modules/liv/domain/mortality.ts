@@ -39,6 +39,41 @@ export function judgeWriteOff(value: Money, threshold: Money, hasPhoto: boolean)
   return hasPhoto ? ok('APPROVAL') : err('PHOTO_REQUIRED');
 }
 
+/**
+ * Who must confirm a submission (owner, 2026-11-15; B06r, threat model abuse case 2). At or above the threshold the
+ * mortality approver, with a photograph, whoever reports. Below it, a reporter who may post a write-off posts it; one
+ * who may not (the Farm hand) never writes stock off alone: a supervisor who may post a write-off confirms it.
+ */
+export function judgeSubmission(
+  value: Money,
+  threshold: Money,
+  facts: { readonly hasPhoto: boolean; readonly reporterMayPost: boolean },
+): Result<'POST' | 'CONFIRMATION' | 'APPROVAL', 'PHOTO_REQUIRED'> {
+  const verdict = judgeWriteOff(value, threshold, facts.hasPhoto);
+  if (verdict.ok && verdict.value === 'POST' && !facts.reporterMayPost) return ok('CONFIRMATION');
+  return verdict;
+}
+
+export type EvidenceScan = 'PENDING' | 'CLEAN' | 'INFECTED' | 'FAILED';
+export type EvidenceReturnReason = 'EVIDENCE_INFECTED' | 'EVIDENCE_UNSCANNABLE';
+
+/**
+ * What a death photograph's malware scan allows (B06r): a report may be submitted while the scan is PENDING, so nobody
+ * waits at the pen; it posts only once CLEAN; a file the scanner rejected sends a waiting report back to its maker.
+ */
+export function evidenceVerdict(scan: EvidenceScan): { readonly submit: boolean; readonly post: boolean; readonly returnReason: EvidenceReturnReason | null } {
+  switch (scan) {
+    case 'PENDING':
+      return { submit: true, post: false, returnReason: null };
+    case 'CLEAN':
+      return { submit: true, post: true, returnReason: null };
+    case 'INFECTED':
+      return { submit: false, post: false, returnReason: 'EVIDENCE_INFECTED' };
+    case 'FAILED':
+      return { submit: false, post: false, returnReason: 'EVIDENCE_UNSCANNABLE' };
+  }
+}
+
 /** The register's status once the loss is written off (FR-LIV-017). */
 export function statusAfterLoss(kind: MortalityKind): 'DEAD' | 'CULLED' {
   return kind === 'CULL' ? 'CULLED' : 'DEAD';

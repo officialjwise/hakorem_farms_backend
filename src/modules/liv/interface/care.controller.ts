@@ -44,6 +44,7 @@ import {
   ListRationsQuery,
   MortalityRecordCreate,
   ReasonRequest,
+  TagParam,
 } from './schemas';
 
 const READ = { access: 'SESSION', realms: ['STAFF'], idempotent: false, csrf: false, rateLimit: 'console' } as const;
@@ -77,6 +78,12 @@ export class CareController {
   async listCareAnimals(@CurrentActor() actor: Actor | undefined, @Query(zodPipe(ListAnimalsQuery)) query: z.infer<typeof ListAnimalsQuery>): Promise<Page<CareAnimalView>> {
     const { cursor, limit, ...filters } = query;
     return carePage(await this.animals.list(actor, filters, cursor, limit, careRead('listCareAnimals')), careAnimal);
+  }
+
+  @Get('animal-tags/:tagNo')
+  @Operation({ operationId: 'getCareAnimalByTag', ...READ, permission: 'liv.care.read' })
+  async getCareAnimalByTag(@CurrentActor() actor: Actor | undefined, @Param('tagNo', zodPipe(TagParam)) tagNo: string): Promise<CareAnimalView> {
+    return careAnimal(await this.animals.getByTag(actor, tagNo, careRead('getCareAnimalByTag')));
   }
 
   @Get('animals/:id')

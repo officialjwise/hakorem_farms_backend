@@ -7,7 +7,9 @@ export type WeightSource = 'SCALE' | 'MANUAL' | 'ESTIMATE';
 export type Sex = 'MALE' | 'FEMALE' | 'UNKNOWN';
 export type Purpose = 'GROWING' | 'BREEDING';
 export type HealthKind = 'VACCINATION' | 'TREATMENT' | 'CHECK' | 'DEWORMING';
-export type MortalityStatus = 'REPORTED' | 'PENDING_APPROVAL' | 'POSTED' | 'REJECTED';
+export type MortalityStatus = 'REPORTED' | 'PENDING_APPROVAL' | 'POSTED' | 'REJECTED' | 'RETURNED';
+/** Why a waiting record went back to its maker: the scanner rejected its photograph (B06r). */
+export type MortalityReturnReason = 'EVIDENCE_INFECTED' | 'EVIDENCE_UNSCANNABLE';
 
 /**
  * What a list may show the actor (ADR-0035): records at a branch where a branch-wide grant holds the permission, at a
@@ -128,8 +130,13 @@ export interface MortalityRecord {
   readonly foundAt: Date;
   readonly reportedBy: string;
   readonly photoFileId: string | null;
+  /** The photograph's exact bytes' SHA-256, copied from the file store at report; null before B06r. */
+  readonly photoSha256: Buffer | null;
   readonly valuePesewas: bigint;
   readonly thresholdPesewas: bigint | null;
+  /** The reporter may not post a write-off (no `liv.mortality.post`), so the record posts only on an approval. */
+  readonly confirmationRequired: boolean;
+  readonly returnedReason: MortalityReturnReason | null;
   readonly approvalRequestId: string | null;
   readonly movementId: string | null;
   readonly disposalNote: string | null;
@@ -138,7 +145,7 @@ export interface MortalityRecord {
   readonly version: number;
 }
 
-export type NewMortality = Omit<MortalityRecord, 'status' | 'version' | 'thresholdPesewas' | 'approvalRequestId' | 'movementId'>;
+export type NewMortality = Omit<MortalityRecord, 'status' | 'version' | 'thresholdPesewas' | 'approvalRequestId' | 'movementId' | 'confirmationRequired' | 'returnedReason'>;
 
 export interface MortalityFilters {
   readonly status?: MortalityStatus | undefined;
@@ -212,6 +219,10 @@ export interface LivestockStore {
   updateMortality(tx: Transaction, id: string, set: Readonly<Record<string, unknown>>, actorId: string): Promise<void>;
   /** A record of the stock unit waiting for approval, other than `exceptId`: the animal is already on its way out. */
   openMortalityOf(tx: Transaction, stockUnitId: string, exceptId: string | null): Promise<string | null>;
+  /** The other death or cull records whose photograph has exactly these bytes, oldest first. */
+  mortalityWithPhotoHash(tx: Transaction, sha256: Buffer, exceptId: string): Promise<string[]>;
+  /** Waiting records with a photograph, locked, skipping those a concurrent run holds: the evidence returns job. */
+  lockWaitingWithPhoto(tx: Transaction, limit: number): Promise<MortalityRecord[]>;
   listMortality(tx: Transaction, filters: MortalityFilters, scope: ReadScope, after: string | null, limit: number): Promise<MortalityRecord[]>;
 
   insertRation(tx: Transaction, ration: Omit<RationRecord, 'version'>, actorId: string): Promise<void>;

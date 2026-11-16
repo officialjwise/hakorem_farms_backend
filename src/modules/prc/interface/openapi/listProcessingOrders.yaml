@@ -171,6 +171,7 @@ responses:
                 id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
                 displayName: "Yaw Boateng"
               reversal: null
+              pendingReversal: null
             - id: "019a7ac4-0e46-7809-ad41-8966ebf70244"
               orderNo: null
               status: COMPLETED
@@ -232,6 +233,7 @@ responses:
                 id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
                 displayName: "Yaw Boateng"
               reversal: null
+              pendingReversal: null
             - id: "019a7ac4-8a02-7f97-a4cf-0244d2bb7b22"
               orderNo: null
               status: IN_PROGRESS
@@ -291,6 +293,7 @@ responses:
               postedAt: null
               postedBy: null
               reversal: null
+              pendingReversal: null
             - id: "019a7ac5-05be-7725-ac5d-7b22b97ff400"
               orderNo: null
               status: PLANNED
@@ -350,6 +353,7 @@ responses:
               postedAt: null
               postedBy: null
               reversal: null
+              pendingReversal: null
             - id: "019a7ac5-817a-7eb2-a3eb-f400a0436cde"
               orderNo: null
               status: COMPLETED
@@ -411,6 +415,7 @@ responses:
                 id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
                 displayName: "Yaw Boateng"
               reversal: null
+              pendingReversal: null
             - id: "019a7ac5-fd36-7640-ab79-6cde8707e5bc"
               orderNo: null
               status: CANCELLED
@@ -470,6 +475,7 @@ responses:
               postedAt: null
               postedBy: null
               reversal: null
+              pendingReversal: null
           page:
             nextCursor: eyJpZCI6IjAxOWE3YyJ9
             limit: 25

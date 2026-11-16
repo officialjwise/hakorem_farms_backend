@@ -33,6 +33,14 @@ const ids = new Map<string, string>();
 const id = (code: string) => ids.get(code)!;
 const v1 = (path: string) => `/v1${path}`;
 const post = (session: TestSession, path: string, body: object = {}) => consolePost(api.server, session, v1(path)).send(body);
+/** The Farm hand's report, submitted and confirmed by the manager: the Farm hand never writes off alone (owner, 2026-11-15; B06r). */
+async function submitAndConfirm(recordId: string): Promise<void> {
+  const submitted = await post(farmHand, `/care/mortality-records/${recordId}/submit`);
+  expect(submitted.status, JSON.stringify(submitted.body)).toBe(202);
+  expect(submitted.body.kind).toBe('MORTALITY_CONFIRMATION');
+  const confirmed = await post(manager, `/iam/approvals/${submitted.body.approvalRequestId as string}/approve`, { reason: 'Saw the carcass' });
+  expect(confirmed.status, JSON.stringify(confirmed.body)).toBe(200);
+}
 const get = (session: TestSession, path: string) => consoleGet(api.server, session, v1(path));
 const patch = (session: TestSession, path: string, body: object) =>
   request(api.server).patch(v1(path)).set('Cookie', session.jar.header()).set('X-CSRF-Token', session.csrfToken).set('Origin', TEST_ORIGIN).set('Idempotency-Key', randomUUID()).send(body);
@@ -339,7 +347,7 @@ describe('batches (FR-LIV-006)', () => {
     // Two birds die: 2 of 20 head at a pool of 95,000 writes off 9,500, below the threshold, so it posts on submit.
     const reported = await post(farmHand, '/care/mortality-records', { kind: 'DEATH', stockUnitId: id('unit:BRG-01'), head: 2, reasonCode: 'UNKNOWN_CAUSE', foundAt: daysAgo(1).toISOString() });
     expect(reported.status, JSON.stringify(reported.body)).toBe(201);
-    expect((await post(farmHand, `/care/mortality-records/${reported.body.id as string}/submit`)).status).toBe(200);
+    await submitAndConfirm(reported.body.id as string);
     const after = (await get(manager, `/batches/${id('batch:BRG-01')}`)).body;
     expect(after).toMatchObject({ currentHead: 18, mortalityPercent: '10.00', accumulatedCostPesewas: 85_500 });
     const early = await post(manager, `/batches/${id('batch:BRG-01')}/close`, { reason: 'House to be cleaned' });
@@ -501,7 +509,7 @@ describe('breeding and births (FR-LIV-010, FR-LIV-011)', () => {
     const again = await post(farmHand, '/breeding-records', { damId: id('unit:GR-E'), sireId: id('unit:GR-S'), matedOn: dayOf(20) });
     expect(again.status).toBe(201);
     const died = await post(farmHand, '/care/mortality-records', { kind: 'DEATH', stockUnitId: id('unit:GR-E'), reasonCode: 'UNKNOWN_CAUSE', foundAt: daysAgo(0.01).toISOString() });
-    expect((await post(farmHand, `/care/mortality-records/${died.body.id as string}/submit`)).status).toBe(200);
+    await submitAndConfirm(died.body.id as string);
     clock.advanceBy(2 * DAY);
     // Two days on, the session has lapsed; the Farm hand signs in again.
     farmHand = await login(api.server, farmHandUser);

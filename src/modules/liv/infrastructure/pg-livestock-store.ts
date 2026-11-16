@@ -120,8 +120,8 @@ function healthEvent(r: Row): HealthEventRecord {
   };
 }
 
-const MORTALITY_COLUMNS = `id, kind, stock_unit_id, location_id, head, reason_code, found_at, reported_by, photo_file_id, value_pesewas::text AS value_pesewas,
-  threshold_pesewas::text AS threshold_pesewas, approval_request_id, movement_id, disposal_note, status, branch_id, version`;
+const MORTALITY_COLUMNS = `id, kind, stock_unit_id, location_id, head, reason_code, found_at, reported_by, photo_file_id, photo_sha256, value_pesewas::text AS value_pesewas,
+  threshold_pesewas::text AS threshold_pesewas, confirmation_required, returned_reason, approval_request_id, movement_id, disposal_note, status, branch_id, version`;
 
 function mortality(r: Row): MortalityRecord {
   return {
@@ -134,8 +134,11 @@ function mortality(r: Row): MortalityRecord {
     foundAt: r['found_at'] as Date,
     reportedBy: r['reported_by'] as string,
     photoFileId: r['photo_file_id'] as string | null,
+    photoSha256: r['photo_sha256'] as Buffer | null,
     valuePesewas: big(r['value_pesewas']),
     thresholdPesewas: nullableBig(r['threshold_pesewas']),
+    confirmationRequired: r['confirmation_required'] as boolean,
+    returnedReason: r['returned_reason'] as MortalityRecord['returnedReason'],
     approvalRequestId: r['approval_request_id'] as string | null,
     movementId: r['movement_id'] as string | null,
     disposalNote: r['disposal_note'] as string | null,
@@ -186,7 +189,7 @@ function feed(r: Row): FeedConsumptionRecord {
 }
 
 /** Columns a caller may set on a mortality record; anything else is a programming error, refused before any SQL. */
-const MORTALITY_SETTABLE = new Set(['status', 'value_pesewas', 'threshold_pesewas', 'approval_request_id', 'movement_id', 'photo_file_id', 'posted_at', 'posted_by']);
+const MORTALITY_SETTABLE = new Set(['status', 'value_pesewas', 'threshold_pesewas', 'confirmation_required', 'returned_reason', 'approval_request_id', 'movement_id', 'posted_at', 'posted_by']);
 const RATION_SETTABLE = new Set(['name', 'qty_per_head_per_day', 'stage']);
 
 function assignments(set: Readonly<Record<string, unknown>>, allowed: ReadonlySet<string>, params: Params): string[] {
@@ -322,10 +325,10 @@ export class PgLivestockStore implements LivestockStore {
 
   async insertMortality(tx: Transaction, m: NewMortality, actorId: string): Promise<void> {
     await tx.query(
-      `INSERT INTO liv.mortality_record (id, kind, stock_unit_id, location_id, head, reason_code, found_at, reported_by, photo_file_id, value_pesewas,
+      `INSERT INTO liv.mortality_record (id, kind, stock_unit_id, location_id, head, reason_code, found_at, reported_by, photo_file_id, photo_sha256, value_pesewas,
                                          disposal_note, status, branch_id, created_by, updated_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'REPORTED', $12, $13, $13)`,
-      [m.id, m.kind, m.stockUnitId, m.locationId, m.head, m.reasonCode, m.foundAt, m.reportedBy, m.photoFileId, m.valuePesewas.toString(), m.disposalNote, m.branchId, actorId],
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'REPORTED', $13, $14, $14)`,
+      [m.id, m.kind, m.stockUnitId, m.locationId, m.head, m.reasonCode, m.foundAt, m.reportedBy, m.photoFileId, m.photoSha256, m.valuePesewas.toString(), m.disposalNote, m.branchId, actorId],
     );
   }
 
@@ -351,6 +354,19 @@ export class PgLivestockStore implements LivestockStore {
       [stockUnitId, exceptId],
     );
     return rows[0]?.id ?? null;
+  }
+
+  async mortalityWithPhotoHash(tx: Transaction, sha256: Buffer, exceptId: string): Promise<string[]> {
+    const { rows } = await tx.query<{ id: string }>('SELECT id FROM liv.mortality_record WHERE photo_sha256 = $1 AND id <> $2 ORDER BY id', [sha256, exceptId]);
+    return rows.map((r) => r.id);
+  }
+
+  async lockWaitingWithPhoto(tx: Transaction, limit: number): Promise<MortalityRecord[]> {
+    const { rows } = await tx.query<Row>(
+      `SELECT ${MORTALITY_COLUMNS} FROM liv.mortality_record WHERE status = 'PENDING_APPROVAL' AND photo_file_id IS NOT NULL ORDER BY id LIMIT $1 FOR UPDATE SKIP LOCKED`,
+      [limit],
+    );
+    return rows.map(mortality);
   }
 
   async listMortality(tx: Transaction, filters: MortalityFilters, scope: ReadScope, after: string | null, limit: number): Promise<MortalityRecord[]> {

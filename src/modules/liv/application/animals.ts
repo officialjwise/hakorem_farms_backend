@@ -282,6 +282,22 @@ export class Animals {
     });
   }
 
+  /**
+   * The live animal carrying exactly this tag (CR-021): the same tag, character for character, never a prefix or another
+   * case, and only an animal still ALIVE, since one live animal holds a tag at a time (FR-LIV-001); anything else is
+   * 404. Authorised and scoped as `get`.
+   */
+  getByTag(actor: Actor | undefined, tagNo: string, door: ReadDoor): Promise<AnimalView> {
+    return this.uow.run({ isolation: 'read committed' }, async (tx) => {
+      const id = await this.store.liveAnimalByTag(tx, tagNo);
+      const record = id === null ? undefined : (await this.store.animals(tx, [id]))[0];
+      const facts = record === undefined ? undefined : (await this.units.factsIn(tx, [record.stockUnitId], this.clock.now())).get(record.stockUnitId);
+      await this.authoriser.authorise(tx, actor, door.permission, record === undefined ? {} : { branchId: record.branchId, locationId: facts?.currentLocationId ?? null });
+      if (record === undefined) throw new NotFoundError('no live animal carries that tag');
+      return (await this.viewsIn(tx, [record], this.clock.now()))[0]!;
+    });
+  }
+
   /** The contract's `Animal` for each record, read with its stock unit, its references and its band at the counter. */
   async viewsIn(tx: Transaction, records: readonly AnimalRecord[], at: Date): Promise<AnimalView[]> {
     if (records.length === 0) return [];

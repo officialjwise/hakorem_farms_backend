@@ -69,8 +69,41 @@ export interface MortalityReported {
   readonly valuePesewas: number;
   readonly thresholdPesewas: number;
   readonly needsApproval: boolean;
+  /** B06r: `MORTALITY_WRITE_OFF` at or above the threshold, `MORTALITY_CONFIRMATION` below it for a reporter who may not post; null when posted at once. */
+  readonly approvalKind: 'MORTALITY_WRITE_OFF' | 'MORTALITY_CONFIRMATION' | null;
   readonly approvalRequestId: string | null;
   readonly abuseCases: readonly number[];
+}
+
+/**
+ * `liv.MortalityPhotoReused` v1 (B06r, threat model abuse case 2): a death or cull was reported with a photograph whose
+ * exact bytes (SHA-256) were already attached to another record, whatever its file id. The daily exception report (B12)
+ * lists it. A byte hash catches the same file twice, never a re-saved, resized or cropped copy (BL-061).
+ */
+export interface MortalityPhotoReused {
+  readonly mortalityRecordId: string;
+  readonly branchId: string;
+  readonly stockUnitId: string;
+  readonly reportedBy: string;
+  readonly photoFileId: string;
+  readonly photoSha256: string;
+  readonly earlierMortalityRecordIds: readonly string[];
+  readonly matchedBy: 'SHA256';
+  readonly abuseCases: readonly number[];
+}
+
+/**
+ * `liv.MortalityReturned` v1 (B06r): a death or cull waiting for approval went back to its maker because the scanner
+ * rejected its photograph; its approval request was withdrawn and nothing was written off. NTF (B11) tells the maker.
+ */
+export interface MortalityReturned {
+  readonly mortalityRecordId: string;
+  readonly branchId: string;
+  readonly stockUnitId: string;
+  readonly reportedBy: string;
+  readonly photoFileId: string;
+  readonly reason: 'EVIDENCE_INFECTED' | 'EVIDENCE_UNSCANNABLE';
+  readonly approvalRequestId: string;
 }
 
 /** `liv.MortalityApproved` v1: a write-off at or above the threshold was approved by a different person and posted. */

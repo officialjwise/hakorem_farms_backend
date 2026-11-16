@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { createUuidV7Generator, Money, Quantity, toBusinessDate, Weight, type Clock } from '@hakorem/kernel';
 import type { AuditTrail } from '../../../platform/audit/audit-trail';
 import type { Actor } from '../../../platform/context/request-context';
@@ -7,7 +8,7 @@ import { InvalidStateTransitionError, NotFoundError, VersionConflictError } from
 import type { DomainEvents } from '../../../platform/events/domain-events';
 import type { Cursors } from '../../../platform/http/cursor';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
-import type { Authoriser, PrincipalNames } from '../../iam';
+import type { ApprovalHandler, ApprovalRecord, Approvals, Authoriser, PrincipalNames } from '../../iam';
 import { StockMovementAlreadyReversedError, StockReversalNotPossibleError, type Lineage, type Stock, type StockMovements, type StockUnitFacts, type StockUnits } from '../../inv';
 import type { LocationFacts, MasterDataRefs, PricingService, ProductFacts } from '../../mdm';
 import { allocateProcessingCost, type OutputKind, type ProcessingRuleBroken } from '../domain/cost-allocation';
@@ -15,7 +16,7 @@ import { checkOutputWeights, judgeYield, type YieldJudgement } from '../domain/y
 import type { DirectCostIncurred, ProcessingOrderCompleted, ProcessingOrderReversed, ProcessingOrderStarted, YieldVarianceFlagged } from '../events';
 import { addDays, ordinal, pageProbe } from './counting';
 import { InputOnHoldError, PrcReferenceNotFoundError, ProcessingOrderInvalidError } from './errors';
-import type { CostKind, OrderFilters, OrderRecord, OrderStatus, ProcessingStore, ReadScope, WeightSource } from './processing-store';
+import type { CostKind, OrderFilters, OrderRecord, OrderStatus, PackRecord, ProcessingStore, ReadScope, ReversalRecord, WeightSource } from './processing-store';
 
 export interface ProcessingInputRequest {
   readonly stockUnitId: string;
@@ -106,7 +107,37 @@ export interface ProcessingOrderView {
   readonly createdBy: { readonly id: string; readonly displayName: string };
   readonly postedAt: string | null;
   readonly postedBy: { readonly id: string; readonly displayName: string } | null;
-  readonly reversal: { readonly id: string; readonly reason: string; readonly reversedAt: string; readonly reversedBy: { readonly id: string; readonly displayName: string } } | null;
+  /** The posted reversal (FR-PRC-011): who asked, when it posted and, at or above the threshold, who approved it. */
+  readonly reversal: {
+    readonly id: string;
+    readonly reason: string;
+    readonly reversedAt: string;
+    readonly reversedBy: { readonly id: string; readonly displayName: string };
+    readonly approvedBy: { readonly id: string; readonly displayName: string } | null;
+    readonly approvalRequestId: string | null;
+    readonly valuePesewas: number | null;
+    readonly thresholdPesewas: number | null;
+  } | null;
+  /** A reversal waiting for a second approver (B06r): nothing has moved yet. */
+  readonly pendingReversal: {
+    readonly id: string;
+    readonly reason: string;
+    readonly requestedAt: string;
+    readonly requestedBy: { readonly id: string; readonly displayName: string };
+    readonly approvalRequestId: string;
+    readonly valuePesewas: number;
+    readonly thresholdPesewas: number;
+  } | null;
+}
+
+/** The contract's `ApprovalPending`. */
+export interface ApprovalPendingView {
+  readonly status: 'PENDING_APPROVAL';
+  readonly approvalRequestId: string;
+  readonly kind: string;
+  readonly subject: { readonly id: string; readonly docType: string; readonly number: null };
+  readonly summary: string;
+  readonly requestedAt: string;
 }
 
 export interface Page<V> {
@@ -126,6 +157,14 @@ const CHANGEABLE: ReadonlySet<OrderStatus> = new Set(['PLANNED', 'IN_PROGRESS'])
 /** Threat model abuse case 18: a yield shortfall that hides meat taken from the slab. */
 const YIELD_ABUSE_CASE = 18;
 const UNKNOWN_PRINCIPAL = { id: '', displayName: 'Unknown' };
+/** A reversal is judged against the stock adjustment threshold (ADR-0048's write-off rule, owner 2026-11-15). */
+const ADJUSTMENT_THRESHOLD_KIND = 'STOCK_WRITE_OFF';
+/** The approval a reversal at or above that threshold waits for: a different holder of `prc.order.reverse`, with step-up. */
+export const PROCESSING_REVERSAL = 'PROCESSING_REVERSAL';
+/** Threat model abuse case 29: a processing reversal used to put a carcass back after its meat has left. */
+const REVERSAL_ABUSE_CASE = 29;
+/** Packs that have left the cold room, or never will again: once one exists, the order is never reversed. */
+const PACKS_GONE: ReadonlySet<string> = new Set(['PICKED', 'SOLD', 'WRITTEN_OFF']);
 
 /** The batch number of an output lot: the order's production date, the tail of its id and the line, unique per product. */
 function lotIdentifier(orderId: string, producedOn: string, lineNo: number): string {
@@ -142,7 +181,7 @@ function lotIdentifier(orderId: string, producedOn: string, lineNo: number): str
  * IN_PROGRESS order is cancelled with no stock effect, since nothing moves until completion. Every handler authorises
  * first, scoped to the order's branch and processing location; every write is idempotent and audited.
  */
-export class Processing {
+export class Processing implements ApprovalHandler {
   private readonly nextId: () => string;
 
   constructor(
@@ -162,6 +201,7 @@ export class Processing {
     private readonly cursors: Cursors,
     private readonly clock: Clock,
     private readonly movements: StockMovements,
+    private readonly approvals: Approvals,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -297,20 +337,22 @@ export class Processing {
   }
 
   /**
-   * Cancels an order not yet completed, with no stock effect; or reverses a COMPLETED one (FR-PRC-011, A-162), which
-   * also needs `prc.order.reverse` at the order's scope: every movement the completion posted is reversed through INV,
-   * the outputs first and then the inputs, each carrying the value it carried, so the animals stand where they stood at
-   * the cost they had; refused while any output is not whole where the order put it, reserved, or packed into a pack
-   * that has left the cold room. The order stays COMPLETED and frozen; the reversal is its own document.
+   * Cancels an order not yet completed, with no stock effect; or reverses a COMPLETED one (FR-PRC-011; A-162 as
+   * replaced by the owner, B06r), which also needs `prc.order.reverse` at the order's scope. The reversal is valued at
+   * the order's total cost, what it takes back out of stock, and judged against the stock adjustment threshold
+   * (STOCK_WRITE_OFF), copied onto the reversal and never read live again (ADR-0048): at or above it the reversal waits
+   * (202 `ApprovalPending`) for a different holder of `prc.order.reverse` with step-up, and nothing moves until then;
+   * below it the maker's reason posts it at once. Either way it is published for the daily exception report. Refused
+   * outright while any output is not whole where the order put it, reserved, or packed into a pack that has been
+   * picked, sold or written off, in the domain and in the database. The order stays COMPLETED and frozen.
    */
-  cancel(actor: Actor | undefined, id: string, body: { readonly reason: string }, idempotencyKey: string): Promise<StoredResponse<ProcessingOrderView>> {
-    return this.write(actor, 'prc.order.create', 'cancelProcessingOrder', { id, ...body }, idempotencyKey, (tx) => this.scopeOf(tx, id), async (tx) => {
+  cancel(actor: Actor | undefined, id: string, body: { readonly reason: string }, idempotencyKey: string): Promise<StoredResponse<ProcessingOrderView | ApprovalPendingView>> {
+    return this.write<ProcessingOrderView | ApprovalPendingView>(actor, 'prc.order.create', 'cancelProcessingOrder', { id, ...body }, idempotencyKey, (tx) => this.scopeOf(tx, id), async (tx) => {
       const state = await this.store.lock(tx, id);
       if (state?.status === 'COMPLETED') {
         const order = (await this.store.order(tx, id))!;
         await this.authoriser.authorise(tx, actor, 'prc.order.reverse', { branchId: order.branchId, locationId: order.locationId });
-        await this.reverseIn(tx, actor!, order, body.reason);
-        return this.audited(tx, 'REVERSE', order, 200, { reason: body.reason });
+        return this.reverseIn(tx, actor!, order, body.reason);
       }
       const before = await this.locked(tx, id, ['PLANNED', 'IN_PROGRESS'], null);
       await this.store.markCancelled(tx, id, body.reason, actor!.principalId);
@@ -318,38 +360,125 @@ export class Processing {
     });
   }
 
+  /** ApprovalHandler: the reversal as it would post now; a lot or pack that moved since the request voids the approval. */
+  async currentPayloadHash(tx: Transaction, subjectDocumentId: string): Promise<string> {
+    const reversal = await this.store.reversal(tx, subjectDocumentId);
+    if (reversal === null) throw new NotFoundError(`no processing reversal ${subjectDocumentId}`);
+    const order = (await this.store.order(tx, reversal.orderId))!;
+    return reversalHash(order, reversal.reason, await this.outputState(tx, order));
+  }
+
+  /** ApprovalHandler: posts the waiting reversal in the approval's transaction, as the checker who let it happen. */
+  async onApproved(tx: Transaction, request: ApprovalRecord): Promise<void> {
+    const reversal = await this.lockedReversal(tx, request.subjectDocumentId);
+    await this.store.lock(tx, reversal.orderId);
+    const order = (await this.store.order(tx, reversal.orderId))!;
+    const packs = await this.checkUnsold(tx, order);
+    const approver = request.decidedBy!;
+    const now = this.clock.now();
+    await this.store.decideReversal(tx, reversal.id, 'POSTED', now, approver);
+    await this.postReversalIn(tx, approver, order, (await this.store.reversal(tx, reversal.id))!, packs, now);
+    await this.audited(tx, 'REVERSE', order, 200, { reason: reversal.reason, approvalRequestId: request.id, approvedBy: approver });
+  }
+
+  /** ApprovalHandler: a rejected or withdrawn reversal is final; nothing moved, and the order may be reversed again. */
+  async onRejected(tx: Transaction, request: ApprovalRecord): Promise<void> {
+    const reversal = await this.lockedReversal(tx, request.subjectDocumentId);
+    const order = (await this.store.order(tx, reversal.orderId))!;
+    await this.store.decideReversal(tx, reversal.id, 'REJECTED', this.clock.now(), request.decidedBy ?? request.requestedBy);
+    await this.audited(tx, 'REVERSAL_REJECTED', order, 200, { processingReversalId: reversal.id, approvalRequestId: request.id, decision: request.status });
+  }
+
   // Reversal.
 
-  private async reverseIn(tx: Transaction, actor: Actor, order: OrderRecord, reason: string): Promise<void> {
-    if (order.reversal !== null) throw new ProcessingOrderInvalidError([{ field: '/id', rule: 'ORDER_REVERSED' }]);
+  private async reverseIn(tx: Transaction, actor: Actor, order: OrderRecord, reason: string): Promise<StoredResponse<ProcessingOrderView | ApprovalPendingView>> {
+    if (order.reversal?.status === 'POSTED') throw new ProcessingOrderInvalidError([{ field: '/id', rule: 'ORDER_REVERSED' }]);
+    if (order.reversal?.status === 'PENDING_APPROVAL') throw new ProcessingOrderInvalidError([{ field: '/id', rule: 'REVERSAL_PENDING' }]);
+    const packs = await this.checkUnsold(tx, order);
+    const value = Money.ofPesewas(order.totalCostPesewas!);
+    const judgement = await this.approvals.judgeIn(tx, ADJUSTMENT_THRESHOLD_KIND, order.branchId, value.pesewas);
+    const reversalId = this.nextId();
+    const now = this.clock.now();
+    await this.documents.register(tx, { id: reversalId, docType: 'PROCESSING_REVERSAL', ownerModule: 'prc', branchId: order.branchId, actorId: actor.principalId });
+    const base = { id: reversalId, orderId: order.id, branchId: order.branchId, reason, valuePesewas: value.pesewas, thresholdPesewas: judgement.thresholdPesewas, at: now };
+    if (judgement.required) {
+      const tags = (await this.units.factsIn(tx, order.inputs.map((i) => i.stockUnitId), now));
+      const summary = `Reverse the processing of ${order.inputs.map((i) => tags.get(i.stockUnitId)?.identifier ?? i.stockUnitId).join(', ')}, valued ${value.pesewas} pesewas (${reason})`;
+      const request = await this.approvals.request(tx, actor, {
+        kind: PROCESSING_REVERSAL,
+        branchId: order.branchId,
+        subjectDocumentId: reversalId,
+        payloadHash: reversalHash(order, reason, await this.outputState(tx, order)),
+        amountPesewas: value.pesewas,
+        summary,
+      });
+      await this.store.insertReversal(tx, { ...base, status: 'PENDING_APPROVAL', approvalRequestId: request.id }, actor.principalId);
+      await this.audited(tx, 'REQUEST_REVERSAL', order, 202, { reason, processingReversalId: reversalId, approvalRequestId: request.id, valuePesewas: value.pesewas.toString(), thresholdPesewas: judgement.thresholdPesewas.toString() });
+      return {
+        status: 202,
+        body: { status: 'PENDING_APPROVAL', approvalRequestId: request.id, kind: PROCESSING_REVERSAL, subject: { id: reversalId, docType: 'PROCESSING_REVERSAL', number: null }, summary, requestedAt: request.requestedAt.toISOString() },
+      };
+    }
+    await this.store.insertReversal(tx, { ...base, status: 'POSTED', approvalRequestId: null }, actor.principalId);
+    await this.postReversalIn(tx, actor.principalId, order, (await this.store.reversal(tx, reversalId))!, packs, now);
+    return this.audited(tx, 'REVERSE', order, 200, { reason });
+  }
+
+  /**
+   * Every saleable output whole where the order put it and not reserved, and no pack of it picked, sold or written off;
+   * otherwise 422 `OUTPUT_SOLD` (`OUTPUT_RESERVED`) and nothing moves. Answers the order's packs.
+   */
+  private async checkUnsold(tx: Transaction, order: OrderRecord): Promise<readonly PackRecord[]> {
+    const state = await this.outputState(tx, order);
+    for (const output of state.outputs) {
+      if (!output.whole || output.packsGone) throw new ProcessingOrderInvalidError([{ field: `/outputs/${output.lineNo}`, rule: 'OUTPUT_SOLD' }]);
+      if (output.reserved) throw new ProcessingOrderInvalidError([{ field: `/outputs/${output.lineNo}`, rule: 'OUTPUT_RESERVED' }]);
+    }
+    return state.packs;
+  }
+
+  /** Where each saleable output stands now, and the order's packs: what a reversal depends on. */
+  private async outputState(tx: Transaction, order: OrderRecord): Promise<OutputState> {
     const saleable = order.outputs.filter((o) => o.stockUnitId !== null);
     const lots = saleable.map((o) => o.stockUnitId!);
     const onHand = await this.units.onHandOfIn(tx, lots);
     const facts = await this.units.factsIn(tx, lots, this.clock.now());
     const packs = await this.store.packsOf(tx, order.id, null, 1_000_000);
-    for (const output of saleable) {
-      const lot = output.stockUnitId!;
-      const where = onHand.filter((u) => u.id === lot);
-      const here = where.filter((u) => u.locationId === order.outputLocationId).map((u) => Weight.parseKg(u.onHandQty));
-      const whole = where.length === here.length && Weight.sum(here).equals(Weight.parseKg(output.weightKg));
-      const packedAway = packs.some((p) => p.stockUnitId === lot && p.status !== 'IN_STOCK');
-      if (!whole || packedAway) throw new ProcessingOrderInvalidError([{ field: `/outputs/${output.lineNo}`, rule: 'OUTPUT_SOLD' }]);
-      if (facts.get(lot)!.reserved) throw new ProcessingOrderInvalidError([{ field: `/outputs/${output.lineNo}`, rule: 'OUTPUT_RESERVED' }]);
-    }
-    const reversalId = this.nextId();
-    const now = this.clock.now();
-    await this.documents.register(tx, { id: reversalId, docType: 'PROCESSING_REVERSAL', ownerModule: 'prc', branchId: order.branchId, actorId: actor.principalId });
-    await this.store.insertReversal(tx, { id: reversalId, orderId: order.id, branchId: order.branchId, reason, at: now }, actor.principalId);
+    return {
+      packs,
+      outputs: saleable.map((output) => {
+        const lot = output.stockUnitId!;
+        const where = onHand.filter((u) => u.id === lot);
+        const here = where.filter((u) => u.locationId === order.outputLocationId).map((u) => Weight.parseKg(u.onHandQty));
+        return {
+          lineNo: output.lineNo,
+          lot,
+          whole: where.length === here.length && Weight.sum(here).equals(Weight.parseKg(output.weightKg)),
+          reserved: facts.get(lot)!.reserved,
+          packsGone: packs.some((p) => p.stockUnitId === lot && PACKS_GONE.has(p.status)),
+        };
+      }),
+    };
+  }
+
+  /**
+   * Reverses every movement the completion posted through INV, the outputs first and then the inputs, each carrying the
+   * value it carried, so the animals stand where they stood at the cost they had; the packs become REVERSED; and
+   * `prc.ProcessingOrderReversed` carries what B8 posts and the daily exception report (B12) reads.
+   */
+  private async postReversalIn(tx: Transaction, actorId: string, order: OrderRecord, reversal: ReversalRecord, packs: readonly PackRecord[], now: Date): Promise<void> {
+    const saleable = order.outputs.filter((o) => o.stockUnitId !== null);
     try {
-      for (const output of saleable) await this.movements.reverseForDocumentIn(tx, actor.principalId, output.movementId!, reversalId);
-      for (const input of order.inputs) await this.movements.reverseForDocumentIn(tx, actor.principalId, input.movementId!, reversalId);
+      for (const output of saleable) await this.movements.reverseForDocumentIn(tx, actorId, output.movementId!, reversal.id);
+      for (const input of order.inputs) await this.movements.reverseForDocumentIn(tx, actorId, input.movementId!, reversal.id);
     } catch (error) {
       if (error instanceof StockReversalNotPossibleError || error instanceof StockMovementAlreadyReversedError) {
         throw new ProcessingOrderInvalidError([{ field: '/id', rule: 'OUTPUT_CHANGED' }]);
       }
       throw error;
     }
-    await this.store.setPackStatus(tx, packs.map((p) => p.id), 'REVERSED', actor.principalId);
+    await this.store.setPackStatus(tx, packs.map((p) => p.id), 'REVERSED', actorId);
+    const approvedBy = reversal.approvalRequestId === null ? null : actorId;
     await this.events.publish<ProcessingOrderReversed>(tx, {
       type: 'prc.ProcessingOrderReversed',
       subjectType: 'ProcessingOrder',
@@ -358,19 +487,32 @@ export class Processing {
       occurredAt: now,
       payload: {
         processingOrderId: order.id,
-        processingReversalId: reversalId,
+        processingReversalId: reversal.id,
         branchId: order.branchId,
         inputCostPesewas: Money.ofPesewas(order.inputCostPesewas!).toJsonInteger(),
         directCostPesewas: Money.ofPesewas(order.directCostPesewas).toJsonInteger(),
         totalCostPesewas: Money.ofPesewas(order.totalCostPesewas!).toJsonInteger(),
+        valuePesewas: Money.ofPesewas(reversal.valuePesewas!).toJsonInteger(),
+        thresholdPesewas: Money.ofPesewas(reversal.thresholdPesewas!).toJsonInteger(),
+        needsApproval: reversal.approvalRequestId !== null,
+        approvalRequestId: reversal.approvalRequestId,
+        approvedBy,
         processingCostIds: order.costs.map((c) => c.id),
         inputStockUnitIds: order.inputs.map((i) => i.stockUnitId),
-        outputStockUnitIds: lots,
-        reason,
-        actorId: actor.principalId,
+        outputStockUnitIds: saleable.map((o) => o.stockUnitId!),
+        reason: reversal.reason,
+        actorId: reversal.requestedBy,
         reversedAt: now.toISOString(),
+        abuseCases: [REVERSAL_ABUSE_CASE],
       },
     });
+  }
+
+  private async lockedReversal(tx: Transaction, id: string): Promise<ReversalRecord> {
+    const reversal = await this.store.lockReversal(tx, id);
+    if (reversal === null) throw new NotFoundError(`no processing reversal ${id}`);
+    if (reversal.status !== 'PENDING_APPROVAL') throw new InvalidStateTransitionError(`processing reversal ${id} is ${reversal.status}`);
+    return reversal;
   }
 
   // Completion.
@@ -712,7 +854,12 @@ export class Processing {
     const products = await this.refs.productsIn(tx, records.flatMap((r) => [...r.inputs.map((i) => i.productId), ...r.outputs.map((o) => o.productId)]));
     const locations = await this.refs.locationsIn(tx, records.flatMap((r) => [r.locationId, r.outputLocationId]));
     const units = await this.units.factsIn(tx, records.flatMap((r) => [...r.inputs.map((i) => i.stockUnitId), ...r.outputs.flatMap((o) => (o.stockUnitId === null ? [] : [o.stockUnitId]))]), this.clock.now());
-    const principals = await this.principals.refs(tx, records.flatMap((r) => [r.createdBy, ...(r.postedBy === null ? [] : [r.postedBy]), ...(r.reversal === null ? [] : [r.reversal.by])]));
+    const principals = await this.principals.refs(
+      tx,
+      records.flatMap((r) => [r.createdBy, ...(r.postedBy === null ? [] : [r.postedBy]), ...(r.reversal === null ? [] : [r.reversal.requestedBy, ...(r.reversal.postedBy === null ? [] : [r.reversal.postedBy])])]),
+    );
+    const who = (id: string) => principals.get(id) ?? UNKNOWN_PRINCIPAL;
+    const amount = (value: bigint | null) => (value === null ? null : Money.ofPesewas(value).toJsonInteger());
     const ref = (l: LocationFacts) => ({ id: l.id, code: l.code, name: l.name, kind: l.kind });
     const productRef = (id: string) => {
       const p = products.get(id)!;
@@ -773,7 +920,48 @@ export class Processing {
       createdBy: principals.get(r.createdBy) ?? UNKNOWN_PRINCIPAL,
       postedAt: r.postedAt?.toISOString() ?? null,
       postedBy: r.postedBy === null ? null : (principals.get(r.postedBy) ?? UNKNOWN_PRINCIPAL),
-      reversal: r.reversal === null ? null : { id: r.reversal.id, reason: r.reversal.reason, reversedAt: r.reversal.at.toISOString(), reversedBy: principals.get(r.reversal.by) ?? UNKNOWN_PRINCIPAL },
+      reversal:
+        r.reversal?.status !== 'POSTED'
+          ? null
+          : {
+              id: r.reversal.id,
+              reason: r.reversal.reason,
+              reversedAt: r.reversal.postedAt!.toISOString(),
+              reversedBy: who(r.reversal.requestedBy),
+              approvedBy: r.reversal.approvalRequestId === null ? null : who(r.reversal.postedBy!),
+              approvalRequestId: r.reversal.approvalRequestId,
+              valuePesewas: amount(r.reversal.valuePesewas),
+              thresholdPesewas: amount(r.reversal.thresholdPesewas),
+            },
+      pendingReversal:
+        r.reversal?.status !== 'PENDING_APPROVAL'
+          ? null
+          : {
+              id: r.reversal.id,
+              reason: r.reversal.reason,
+              requestedAt: r.reversal.requestedAt.toISOString(),
+              requestedBy: who(r.reversal.requestedBy),
+              approvalRequestId: r.reversal.approvalRequestId!,
+              valuePesewas: amount(r.reversal.valuePesewas)!,
+              thresholdPesewas: amount(r.reversal.thresholdPesewas)!,
+            },
     }));
   }
+}
+
+interface OutputState {
+  readonly packs: readonly PackRecord[];
+  readonly outputs: ReadonlyArray<{ readonly lineNo: number; readonly lot: string; readonly whole: boolean; readonly reserved: boolean; readonly packsGone: boolean }>;
+}
+
+/** The canonical payload a reversal's approval is taken against: the order, the reason, and where every output and pack stands. */
+function reversalHash(order: OrderRecord, reason: string, state: OutputState): string {
+  const payload = {
+    orderId: order.id,
+    totalCostPesewas: order.totalCostPesewas?.toString() ?? null,
+    reason,
+    outputs: state.outputs.map((o) => [o.lineNo, o.lot, o.whole, o.reserved, o.packsGone]),
+    packs: state.packs.map((p) => [p.id, p.status]),
+  };
+  return createHash('sha256').update(JSON.stringify(payload)).digest('hex');
 }

@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.30.0"
+  version: "1.31.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -227,7 +227,7 @@ paths:
       tags:
         - platform
       summary: "Upload a file"
-      description: "Stores the file under a random key outside the web root and queues a malware scan; it is `PENDING` until the scanner says `CLEAN`, and only a `CLEAN` file is ever served. The type is found from the bytes, never the name or the declared type, and must be on the purpose's allow-list: images (JPEG, PNG, WebP) for photographs, signatures and proof of delivery; images and PDF for supplier, investor and evidence documents; PDF for statements and agreements; XLSX or CSV for imports. `EXPORT` files are written by the server for a master data export and take no upload (415 `FILE_TYPE_NOT_ALLOWED`). Images are capped at 5 MB and PDF and spreadsheets at 10 MB; a body over 10 MB is refused while it arrives. Reference the returned id from the record that uses it.\n\nPermission: `platform.file.upload`."
+      description: "Stores the file under a random key outside the web root and queues a malware scan; it is `PENDING` until the scanner says `CLEAN`, and only a `CLEAN` file is ever served. The type is found from the bytes, never the name or the declared type, and must be on the purpose's allow-list: images (JPEG, PNG, WebP) for photographs, signatures and proof of delivery; images and PDF for supplier, investor and evidence documents; PDF for statements and agreements; XLSX or CSV for imports. `EXPORT` files are written by the server for a master data export and take no upload (415 `FILE_TYPE_NOT_ALLOWED`). Images are capped at 5 MB and PDF and spreadsheets at 10 MB; a body over 10 MB is refused while it arrives. Reference the returned id from the record that uses it.\n\n**EVIDENCE (1.31.0, B06r):** a holder of `platform.file.upload.evidence` alone (the Farm hand) may upload `EVIDENCE` and nothing else; any other purpose is refused to them with 403 `FORBIDDEN`. A death's photograph is used while still `PENDING` its scan and approved only once `CLEAN`. The client should open the camera directly for death evidence, never the gallery (the owner's rule, 2026-11-15): a deterrent only, since the server cannot tell a camera photograph from a gallery one. A photograph whose exact bytes are attached to a second death report is flagged for the exception report; it is matched by exact bytes (SHA-256) only, so a re-saved, resized or cropped copy is not.\n\nPermission: `platform.file.upload`, or `platform.file.upload.evidence` for an `EVIDENCE` file."
       x-error-codes:
         - VALIDATION_FAILED
         - IDEMPOTENCY_KEY_REQUIRED
@@ -3363,7 +3363,7 @@ paths:
       tags:
         - iam
       summary: "Approve a request"
-      description: "You need `iam.approval.read` and the permission the kind's policy names at the request's branch (403 `FORBIDDEN`), and a step-up when the policy or that permission asks for one (403 `STEP_UP_REQUIRED`). Refused with 422 `MAKER_CANNOT_CHECK` when the caller made the request; the database enforces the same rule. A decided or withdrawn request is 422 `APPROVAL_ALREADY_DECIDED`, a lapsed one 422 `APPROVAL_EXPIRED`, and one whose subject changed since it was asked 422 `APPROVAL_SUBJECT_CHANGED`. A `SUPPLIER_PAYMENT` that is the first to a supplier since its payout details changed is refused with 422 `PAYOUT_MAKER_CANNOT_APPROVE` to the person who made that change (1.29.0, A-171). A `SUPPLIER_CREDIT_NOTE` or `SUPPLIER_INVOICE_VARIANCE` is refused with 422 `INVOICE_MAKER_CANNOT_APPROVE` to the person who entered the document; a variance whose invoice no longer mismatches as it did is 422 `SUPPLIER_INVOICE_INVALID` (`MATCH_CHANGED`) or `VARIANCE_NOT_ALLOWED`, and a credit note whose goods are no longer on hand is refused by INV (1.30.0, A-172). The subject action takes effect in the same transaction as the approval, and the decision is audited and published as `iam.ApprovalDecided` (1.11.0).\n\nPermission: `the approving permission named by the approval policy for the kind`."
+      description: "You need `iam.approval.read` and the permission the kind's policy names at the request's branch (403 `FORBIDDEN`), and a step-up when the policy or that permission asks for one (403 `STEP_UP_REQUIRED`). Refused with 422 `MAKER_CANNOT_CHECK` when the caller made the request; the database enforces the same rule. A decided or withdrawn request is 422 `APPROVAL_ALREADY_DECIDED`, a lapsed one 422 `APPROVAL_EXPIRED`, and one whose subject changed since it was asked 422 `APPROVAL_SUBJECT_CHANGED`. A `SUPPLIER_PAYMENT` that is the first to a supplier since its payout details changed is refused with 422 `PAYOUT_MAKER_CANNOT_APPROVE` to the person who made that change (1.29.0, A-171). A `SUPPLIER_CREDIT_NOTE` or `SUPPLIER_INVOICE_VARIANCE` is refused with 422 `INVOICE_MAKER_CANNOT_APPROVE` to the person who entered the document; a variance whose invoice no longer mismatches as it did is 422 `SUPPLIER_INVOICE_INVALID` (`MATCH_CHANGED`) or `VARIANCE_NOT_ALLOWED`, and a credit note whose goods are no longer on hand is refused by INV (1.30.0, A-172). A `MORTALITY_WRITE_OFF` or `MORTALITY_CONFIRMATION` whose photograph has not passed its malware scan is 422 `EVIDENCE_NOT_SCANNED`; a `PROCESSING_REVERSAL` whose order's lots or packs have moved since it was asked is `APPROVAL_SUBJECT_CHANGED`, and one whose outputs are no longer unsold 422 `PROCESSING_ORDER_INVALID` (`OUTPUT_SOLD`) (1.31.0, B06r). The subject action takes effect in the same transaction as the approval, and the decision is audited and published as `iam.ApprovalDecided` (1.11.0).\n\nPermission: `the approving permission named by the approval policy for the kind`."
       x-error-codes:
         - VALIDATION_FAILED
         - IDEMPOTENCY_KEY_REQUIRED
@@ -3384,6 +3384,8 @@ paths:
         - INVOICE_MAKER_CANNOT_APPROVE
         - VARIANCE_NOT_ALLOWED
         - SUPPLIER_INVOICE_INVALID
+        - EVIDENCE_NOT_SCANNED
+        - PROCESSING_ORDER_INVALID
         - RATE_LIMITED
       x-permission: "the approving permission named by the approval policy for the kind"
       parameters:
@@ -23114,34 +23116,67 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StockTake"
-              example:
-                id: "019a7aba-06c9-7349-b881-3d6a7794b648"
-                stockTakeNo: STK-2026-DDW-000014
-                status: COUNTING
-                location:
-                  id: "019a7a84-7f34-76a9-8be1-736ae249ec48"
-                  code: SHOP
-                  name: "Shop floor"
-                  kind: SHOP_FLOOR
-                scope: CYCLE
-                snapshotAt: "2026-11-13T06:00:00Z"
-                countedBy:
-                  id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                  displayName: "Yaw Boateng"
-                lineCount: 24
-                countedLineCount: 11
-                gainValuePesewas: null
-                lossValuePesewas: null
-                currency: GHS
-                approvalRequestId: null
-                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                version: 2
-                createdAt: "2026-11-12T08:00:00Z"
-                createdBy:
-                  id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                  displayName: "Yaw Boateng"
-                postedAt: null
-                postedBy: null
+              examples:
+                counting:
+                  summary: "Counting on the shop floor: the count is blind, so no gain or loss is known yet"
+                  value:
+                    id: "019a7aba-06c9-7349-b881-3d6a7794b648"
+                    stockTakeNo: STK-2026-DDW-000014
+                    status: COUNTING
+                    location:
+                      id: "019a7a84-7f34-76a9-8be1-736ae249ec48"
+                      code: SHOP
+                      name: "Shop floor"
+                      kind: SHOP_FLOOR
+                    scope: CYCLE
+                    snapshotAt: "2026-11-13T06:00:00Z"
+                    countedBy:
+                      id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                      displayName: "Yaw Boateng"
+                    lineCount: 24
+                    countedLineCount: 11
+                    gainValuePesewas: null
+                    lossValuePesewas: null
+                    currency: GHS
+                    approvalRequestId: null
+                    branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    version: 2
+                    createdAt: "2026-11-12T08:00:00Z"
+                    createdBy:
+                      id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                      displayName: "Yaw Boateng"
+                    postedAt: null
+                    postedBy: null
+                inReview:
+                  summary: "The same take in REVIEW: counts closed, the variance report's gain and loss at cost (listStockTakeLines' inReview example, CR-020)"
+                  value:
+                    id: "019a7aba-06c9-7349-b881-3d6a7794b648"
+                    stockTakeNo: STK-2026-DDW-000014
+                    status: REVIEW
+                    location:
+                      id: "019a7a84-7f34-76a9-8be1-736ae249ec48"
+                      code: SHOP
+                      name: "Shop floor"
+                      kind: SHOP_FLOOR
+                    scope: CYCLE
+                    snapshotAt: "2026-11-13T06:00:00Z"
+                    countedBy:
+                      id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                      displayName: "Yaw Boateng"
+                    lineCount: 24
+                    countedLineCount: 24
+                    gainValuePesewas: 4000
+                    lossValuePesewas: 22950
+                    currency: GHS
+                    approvalRequestId: null
+                    branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    version: 3
+                    createdAt: "2026-11-12T08:00:00Z"
+                    createdBy:
+                      id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                      displayName: "Yaw Boateng"
+                    postedAt: null
+                    postedBy: null
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -23247,7 +23282,7 @@ paths:
       tags:
         - inv
       summary: "List the lines of a stock take"
-      description: "The lines and, from review on, the variance report: expected, counted and recounted quantity, the variance and its value at cost. While the take is `DRAFT` or `COUNTING`, `expectedQty`, `varianceQty`, `varianceValuePesewas` and `varianceDirection` are null for every reader: the count is blind. The example is the counting take of `getStockTake`'s example, so its figures are hidden (CR-012). In review, `needsRecount` marks every line whose first count differs from the expected figure and has not been recounted.\n\nPermission: `inv.stock_take.read`, scoped to the take's location."
+      description: "The lines and, from review on, the variance report: expected, counted and recounted quantity, the variance and its value at cost. While the take is `DRAFT` or `COUNTING`, `expectedQty`, `varianceQty`, `varianceValuePesewas` and `varianceDirection` are null for every reader: the count is blind. The `counting` example (the default) is the counting take of `getStockTake`'s `counting` example, so its figures are hidden (CR-012); the `inReview` example is the same take in `REVIEW`, its variances summing to `getStockTake`'s `inReview` gain and loss totals (CR-020). In review, `needsRecount` marks every line whose first count differs from the expected figure and has not been recounted.\n\nPermission: `inv.stock_take.read`, scoped to the take's location."
       x-permission: inv.stock_take.read
       x-error-codes:
         - VALIDATION_FAILED
@@ -23286,114 +23321,227 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StockTakeLinePage"
-              example:
-                data:
-                  - id: "019a7aba-df52-7881-adba-90eecb6b09cc"
-                    product:
-                      id: "019a7a8e-a5a0-754c-8a85-5d9ed05dd67c"
-                      sku: PRD-YAM
-                      name: "Yam, tuber"
-                    stockUnit: null
-                    uom: TUBER
-                    expectedQty: null
-                    countedQty: "34.000"
-                    recountQty: null
-                    countedWeightKg: null
-                    varianceQty: null
-                    varianceValuePesewas: null
-                    varianceDirection: null
-                    needsRecount: false
-                  - id: "019a7aba-fe41-7265-b79d-2f26451ca804"
-                    product:
-                      id: "019a7a8e-c48f-7f30-9468-fbd64a0e74b4"
-                      sku: PRD-CABBAGE
-                      name: "Cabbage, head"
-                    stockUnit: null
-                    uom: UNIT
-                    expectedQty: null
-                    countedQty: "30.000"
-                    recountQty: null
-                    countedWeightKg: null
-                    varianceQty: null
-                    varianceValuePesewas: null
-                    varianceDirection: null
-                    needsRecount: false
-                  - id: "019a7abb-1d30-7c48-8181-cd5dbecd463b"
-                    product:
-                      id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                      sku: EGG-BIG
-                      name: "Eggs, big, crate of 30"
-                    stockUnit:
-                      id: "019a7a91-2f3b-74f5-9a2d-582bcbe2d109"
-                      identifier: MEAT-BEEF-261104-01
-                      tracking: LOT
-                    uom: CRATE
-                    expectedQty: null
-                    countedQty: "46.000"
-                    recountQty: null
-                    countedWeightKg: null
-                    varianceQty: null
-                    varianceValuePesewas: null
-                    varianceDirection: null
-                    needsRecount: false
-                  - id: "019a7abb-3c1f-762c-9b64-6b95387ee473"
-                    product:
-                      id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
-                      sku: MEAT-GOAT
-                      name: "Goat meat, 15 kg pack"
-                    stockUnit:
-                      id: "019a7a91-4e2a-7ed9-a411-f66345936f41"
-                      identifier: BRL-2610-01
-                      tracking: LOT
-                    uom: KG
-                    expectedQty: null
-                    countedQty: "29.750"
-                    recountQty: null
-                    countedWeightKg: "29.750"
-                    varianceQty: null
-                    varianceValuePesewas: null
-                    varianceDirection: null
-                    needsRecount: false
-                  - id: "019a7abb-5b0e-700f-a547-09ccb22f82aa"
-                    product:
-                      id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
-                      name: "Full chicken, 15 kg pack"
-                    stockUnit:
-                      id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
-                      identifier: EGG-261112-L1
-                      tracking: LOT
-                    uom: KG
-                    expectedQty: null
-                    countedQty: "97.800"
-                    recountQty: null
-                    countedWeightKg: "97.800"
-                    varianceQty: null
-                    varianceValuePesewas: null
-                    varianceDirection: null
-                    needsRecount: false
-                  - id: "019a7abb-79fd-79f3-bf2b-a8042be020e2"
-                    product:
-                      id: "019a7a8e-86b1-7b69-b0a1-bf6756ac3845"
-                      sku: PRD-TOMATO
-                      name: "Tomatoes, crate"
-                    stockUnit:
-                      id: "019a7a91-8c08-72a0-87d8-32d238f5abb0"
-                      identifier: TOM-261111-COOP
-                      tracking: LOT
-                    uom: CRATE
-                    expectedQty: null
-                    countedQty: "11.000"
-                    recountQty: null
-                    countedWeightKg: null
-                    varianceQty: null
-                    varianceValuePesewas: null
-                    varianceDirection: null
-                    needsRecount: false
-                page:
-                  nextCursor: eyJpZCI6IjAxOWE3YyJ9
-                  limit: 25
-                  hasMore: true
+              examples:
+                counting:
+                  summary: "The take of getStockTake's counting example: a blind count, so expected quantities and variances are hidden (CR-012)"
+                  value:
+                    data:
+                      - id: "019a7aba-df52-7881-adba-90eecb6b09cc"
+                        product:
+                          id: "019a7a8e-a5a0-754c-8a85-5d9ed05dd67c"
+                          sku: PRD-YAM
+                          name: "Yam, tuber"
+                        stockUnit: null
+                        uom: TUBER
+                        expectedQty: null
+                        countedQty: "34.000"
+                        recountQty: null
+                        countedWeightKg: null
+                        varianceQty: null
+                        varianceValuePesewas: null
+                        varianceDirection: null
+                        needsRecount: false
+                      - id: "019a7aba-fe41-7265-b79d-2f26451ca804"
+                        product:
+                          id: "019a7a8e-c48f-7f30-9468-fbd64a0e74b4"
+                          sku: PRD-CABBAGE
+                          name: "Cabbage, head"
+                        stockUnit: null
+                        uom: UNIT
+                        expectedQty: null
+                        countedQty: "30.000"
+                        recountQty: null
+                        countedWeightKg: null
+                        varianceQty: null
+                        varianceValuePesewas: null
+                        varianceDirection: null
+                        needsRecount: false
+                      - id: "019a7abb-1d30-7c48-8181-cd5dbecd463b"
+                        product:
+                          id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                          sku: EGG-BIG
+                          name: "Eggs, big, crate of 30"
+                        stockUnit:
+                          id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
+                          identifier: EGG-261112-L1
+                          tracking: LOT
+                        uom: CRATE
+                        expectedQty: null
+                        countedQty: "46.000"
+                        recountQty: null
+                        countedWeightKg: null
+                        varianceQty: null
+                        varianceValuePesewas: null
+                        varianceDirection: null
+                        needsRecount: false
+                      - id: "019a7abb-3c1f-762c-9b64-6b95387ee473"
+                        product:
+                          id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
+                          sku: MEAT-GOAT
+                          name: "Goat meat, 15 kg pack"
+                        stockUnit:
+                          id: "019a7a91-ab17-7c3e-9d42-1e5b7f0c2a61"
+                          identifier: MEAT-GOAT-261108-01
+                          tracking: LOT
+                        uom: KG
+                        expectedQty: null
+                        countedQty: "29.750"
+                        recountQty: null
+                        countedWeightKg: "29.750"
+                        varianceQty: null
+                        varianceValuePesewas: null
+                        varianceDirection: null
+                        needsRecount: false
+                      - id: "019a7abb-5b0e-700f-a547-09ccb22f82aa"
+                        product:
+                          id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                          sku: MEAT-CHK-FULL
+                          name: "Full chicken, 15 kg pack"
+                        stockUnit:
+                          id: "019a7a91-ca06-7f4d-8e31-2d6c8a1b3f72"
+                          identifier: MEAT-CHK-261110-01
+                          tracking: LOT
+                        uom: KG
+                        expectedQty: null
+                        countedQty: "97.800"
+                        recountQty: null
+                        countedWeightKg: "97.800"
+                        varianceQty: null
+                        varianceValuePesewas: null
+                        varianceDirection: null
+                        needsRecount: false
+                      - id: "019a7abb-79fd-79f3-bf2b-a8042be020e2"
+                        product:
+                          id: "019a7a8e-86b1-7b69-b0a1-bf6756ac3845"
+                          sku: PRD-TOMATO
+                          name: "Tomatoes, crate"
+                        stockUnit:
+                          id: "019a7a91-8c08-72a0-87d8-32d238f5abb0"
+                          identifier: TOM-261111-COOP
+                          tracking: LOT
+                        uom: CRATE
+                        expectedQty: null
+                        countedQty: "11.000"
+                        recountQty: null
+                        countedWeightKg: null
+                        varianceQty: null
+                        varianceValuePesewas: null
+                        varianceDirection: null
+                        needsRecount: false
+                    page:
+                      nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                      limit: 25
+                      hasMore: true
+                inReview:
+                  summary: "The same take in REVIEW (CR-020): counts closed, every differing line recounted. The 18 lines on later pages counted exactly as expected, so these six carry the take's whole gain of 4,000 and loss of 22,950 pesewas (getStockTake's inReview example)"
+                  value:
+                    data:
+                      - id: "019a7aba-df52-7881-adba-90eecb6b09cc"
+                        product:
+                          id: "019a7a8e-a5a0-754c-8a85-5d9ed05dd67c"
+                          sku: PRD-YAM
+                          name: "Yam, tuber"
+                        stockUnit: null
+                        uom: TUBER
+                        expectedQty: "40.000"
+                        countedQty: "34.000"
+                        recountQty: "34.000"
+                        countedWeightKg: null
+                        varianceQty: "-6.000"
+                        varianceValuePesewas: 12000
+                        varianceDirection: LOSS
+                        needsRecount: false
+                      - id: "019a7aba-fe41-7265-b79d-2f26451ca804"
+                        product:
+                          id: "019a7a8e-c48f-7f30-9468-fbd64a0e74b4"
+                          sku: PRD-CABBAGE
+                          name: "Cabbage, head"
+                        stockUnit: null
+                        uom: UNIT
+                        expectedQty: "30.000"
+                        countedQty: "30.000"
+                        recountQty: null
+                        countedWeightKg: null
+                        varianceQty: "0.000"
+                        varianceValuePesewas: 0
+                        varianceDirection: NONE
+                        needsRecount: false
+                      - id: "019a7abb-1d30-7c48-8181-cd5dbecd463b"
+                        product:
+                          id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                          sku: EGG-BIG
+                          name: "Eggs, big, crate of 30"
+                        stockUnit:
+                          id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
+                          identifier: EGG-261112-L1
+                          tracking: LOT
+                        uom: CRATE
+                        expectedQty: "45.000"
+                        countedQty: "46.000"
+                        recountQty: "46.000"
+                        countedWeightKg: null
+                        varianceQty: "1.000"
+                        varianceValuePesewas: 4000
+                        varianceDirection: GAIN
+                        needsRecount: false
+                      - id: "019a7abb-3c1f-762c-9b64-6b95387ee473"
+                        product:
+                          id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
+                          sku: MEAT-GOAT
+                          name: "Goat meat, 15 kg pack"
+                        stockUnit:
+                          id: "019a7a91-ab17-7c3e-9d42-1e5b7f0c2a61"
+                          identifier: MEAT-GOAT-261108-01
+                          tracking: LOT
+                        uom: KG
+                        expectedQty: "30.500"
+                        countedQty: "29.750"
+                        recountQty: "29.750"
+                        countedWeightKg: "29.750"
+                        varianceQty: "-0.750"
+                        varianceValuePesewas: 1950
+                        varianceDirection: LOSS
+                        needsRecount: false
+                      - id: "019a7abb-5b0e-700f-a547-09ccb22f82aa"
+                        product:
+                          id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                          sku: MEAT-CHK-FULL
+                          name: "Full chicken, 15 kg pack"
+                        stockUnit:
+                          id: "019a7a91-ca06-7f4d-8e31-2d6c8a1b3f72"
+                          identifier: MEAT-CHK-261110-01
+                          tracking: LOT
+                        uom: KG
+                        expectedQty: "97.800"
+                        countedQty: "97.800"
+                        recountQty: null
+                        countedWeightKg: "97.800"
+                        varianceQty: "0.000"
+                        varianceValuePesewas: 0
+                        varianceDirection: NONE
+                        needsRecount: false
+                      - id: "019a7abb-79fd-79f3-bf2b-a8042be020e2"
+                        product:
+                          id: "019a7a8e-86b1-7b69-b0a1-bf6756ac3845"
+                          sku: PRD-TOMATO
+                          name: "Tomatoes, crate"
+                        stockUnit:
+                          id: "019a7a91-8c08-72a0-87d8-32d238f5abb0"
+                          identifier: TOM-261111-COOP
+                          tracking: LOT
+                        uom: CRATE
+                        expectedQty: "12.000"
+                        countedQty: "11.000"
+                        recountQty: "11.000"
+                        countedWeightKg: null
+                        varianceQty: "-1.000"
+                        varianceValuePesewas: 9000
+                        varianceDirection: LOSS
+                        needsRecount: false
+                    page:
+                      nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                      limit: 25
+                      hasMore: true
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -27439,6 +27587,7 @@ paths:
                     valuePesewas: 58900
                     currency: GHS
                     status: PENDING_APPROVAL
+                    returnedReason: null
                     approvalRequestId: "019a7ac0-4f55-757d-bab6-60af2f88d98d"
                     movementId: null
                     disposalNote: null
@@ -27465,6 +27614,7 @@ paths:
                     valuePesewas: 40500
                     currency: GHS
                     status: POSTED
+                    returnedReason: null
                     approvalRequestId: null
                     movementId: "019a7ac0-8d33-7944-9e7d-9d1e22ea15fc"
                     disposalNote: "Buried behind the broiler house, lime applied"
@@ -27491,6 +27641,7 @@ paths:
                     valuePesewas: 27000
                     currency: GHS
                     status: POSTED
+                    returnedReason: null
                     approvalRequestId: null
                     movementId: "019a7ac0-cb11-7d0b-b244-d98d164c526a"
                     disposalNote: "Buried behind the broiler house, lime applied"
@@ -27519,6 +27670,7 @@ paths:
                     valuePesewas: 38700
                     currency: GHS
                     status: REPORTED
+                    returnedReason: null
                     approvalRequestId: null
                     movementId: null
                     disposalNote: null
@@ -27545,6 +27697,7 @@ paths:
                     valuePesewas: 13500
                     currency: GHS
                     status: POSTED
+                    returnedReason: null
                     approvalRequestId: null
                     movementId: "019a7ac1-27de-7ab6-afee-b433835f2d11"
                     disposalNote: "Buried behind the broiler house, lime applied"
@@ -27573,6 +27726,7 @@ paths:
                     valuePesewas: 61250
                     currency: GHS
                     status: REJECTED
+                    returnedReason: null
                     approvalRequestId: "019a7ac1-65bc-7e7d-83b5-f0a276c16980"
                     movementId: null
                     disposalNote: null
@@ -27596,7 +27750,7 @@ paths:
       tags:
         - liv
       summary: "Report a death or cull"
-      description: "Permission: `liv.mortality.report`.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result. The answer carries the value written off, so the caller also needs `liv.mortality.read` at the same scope (`x-answer-permission`, ADR-0052); the Farm hand, who holds the write but not the read, uses `reportCareMortality`."
+      description: "Permission: `liv.mortality.report`.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result. The answer carries the value written off, so the caller also needs `liv.mortality.read` at the same scope (`x-answer-permission`, ADR-0052); the Farm hand, who holds the write but not the read, uses `reportCareMortality`\n\n**Death photographs (1.31.0, B06r):** the photograph is an `EVIDENCE` file and may still be `PENDING` its malware scan when the record is reported and submitted, so nobody waits at the pen; a file the scanner has already rejected is refused (`PHOTO_NOT_USABLE`). The record is approved only once the photograph is `CLEAN` (422 `EVIDENCE_NOT_SCANNED` until then); if the scan rejects it, the waiting record goes back to its maker as `RETURNED` with its `returnedReason`, and its approval request is withdrawn. The client should open the camera directly for death evidence, never the gallery (the owner's rule, 2026-11-15): a deterrent only, since the server cannot tell a camera photograph from a gallery one. A photograph whose exact bytes (SHA-256) are already on another death or cull record is published for the daily exception report (`liv.MortalityPhotoReused`, abuse case 2); a re-saved, resized or cropped copy has other bytes and is not matched.."
       x-permission: liv.mortality.report
       x-answer-permission: liv.mortality.read
       x-error-codes:
@@ -27665,6 +27819,7 @@ paths:
                 valuePesewas: 58900
                 currency: GHS
                 status: REPORTED
+                returnedReason: null
                 approvalRequestId: null
                 movementId: null
                 disposalNote: null
@@ -27743,6 +27898,7 @@ paths:
                 valuePesewas: 58900
                 currency: GHS
                 status: PENDING_APPROVAL
+                returnedReason: null
                 approvalRequestId: "019a7ac0-4f55-757d-bab6-60af2f88d98d"
                 movementId: null
                 disposalNote: null
@@ -27765,7 +27921,7 @@ paths:
       tags:
         - liv
       summary: "Submit a mortality for write-off"
-      description: "Values the record again from the cost pool and writes the stock off. At or above the value threshold (50,000 pesewas on the seeded farm) a photograph is required first (422 `MORTALITY_PHOTO_REQUIRED`) and a second approver after: this is the control for abuse case 2. Only the person who reported the record submits it, so the approver is never the reporter.\n\nPermission: `liv.mortality.report`.\n\nMay require approval of kind `MORTALITY_WRITE_OFF`, decided with `approveRequest` by a different user holding `liv.mortality.approve`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves: the animal stays on hand. The answer carries the value written off, so the caller also needs `liv.mortality.read` at the same scope (`x-answer-permission`, ADR-0052); the Farm hand, who holds the write but not the read, uses `submitCareMortalityRecord`."
+      description: "Values the record again from the cost pool and writes the stock off. At or above the value threshold (50,000 pesewas on the seeded farm) a photograph is required first (422 `MORTALITY_PHOTO_REQUIRED`) and a second approver after: this is the control for abuse case 2. Only the person who reported the record submits it, so the approver is never the reporter.\n\n**Who confirms (1.31.0, B06r):** a reporter who holds `liv.mortality.post` (the Owner, the Manager, the Storekeeper) writes off below the threshold at once, and a photograph attached must then be `CLEAN` (422 `EVIDENCE_NOT_SCANNED`). One who does not (the Farm hand) never writes stock off alone: below the threshold the answer is 202 `ApprovalPending` of kind `MORTALITY_CONFIRMATION`, confirmed with `approveRequest` by a different holder of `liv.mortality.confirm` (the Owner, the Manager), with no step-up; at or above it `MORTALITY_WRITE_OFF`, as for every reporter.\n\n**Death photographs (1.31.0, B06r):** the photograph is an `EVIDENCE` file and may still be `PENDING` its malware scan when the record is reported and submitted, so nobody waits at the pen; a file the scanner has already rejected is refused (`PHOTO_NOT_USABLE`). The record is approved only once the photograph is `CLEAN` (422 `EVIDENCE_NOT_SCANNED` until then); if the scan rejects it, the waiting record goes back to its maker as `RETURNED` with its `returnedReason`, and its approval request is withdrawn. The client should open the camera directly for death evidence, never the gallery (the owner's rule, 2026-11-15): a deterrent only, since the server cannot tell a camera photograph from a gallery one. A photograph whose exact bytes (SHA-256) are already on another death or cull record is published for the daily exception report (`liv.MortalityPhotoReused`, abuse case 2); a re-saved, resized or cropped copy has other bytes and is not matched.\n\nPermission: `liv.mortality.report`.\n\nMay require approval of kind `MORTALITY_WRITE_OFF`, decided with `approveRequest` by a different user holding `liv.mortality.approve`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves: the animal stays on hand. The answer carries the value written off, so the caller also needs `liv.mortality.read` at the same scope (`x-answer-permission`, ADR-0052); the Farm hand, who holds the write but not the read, uses `submitCareMortalityRecord`."
       x-permission: liv.mortality.report
       x-answer-permission: liv.mortality.read
       x-error-codes:
@@ -27827,6 +27983,7 @@ paths:
                 valuePesewas: 40500
                 currency: GHS
                 status: POSTED
+                returnedReason: null
                 approvalRequestId: null
                 movementId: "019a7ac0-8d33-7944-9e7d-9d1e22ea15fc"
                 disposalNote: "Buried behind the broiler house, lime applied"
@@ -29680,7 +29837,7 @@ paths:
       tags:
         - liv
       summary: "Report a death or cull, answered without cost"
-      description: "The Farm hand's cost-free door to `reportMortality` (ADR-0052): the same rules, checks and effects, answered in a shape that carries no cost and no price. Unlike `reportMortality` it needs no read permission, because its answer shows nothing the write's own permission does not.\n\nPermission: `liv.mortality.report`.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result.\n\nPermission: `liv.mortality.report`, scoped as `reportMortality` is."
+      description: "The Farm hand's cost-free door to `reportMortality` (ADR-0052): the same rules, checks and effects, answered in a shape that carries no cost and no price. Unlike `reportMortality` it needs no read permission, because its answer shows nothing the write's own permission does not.\n\n**Death photographs (1.31.0, B06r):** the photograph is an `EVIDENCE` file and may still be `PENDING` its malware scan when the record is reported and submitted, so nobody waits at the pen; a file the scanner has already rejected is refused (`PHOTO_NOT_USABLE`). The record is approved only once the photograph is `CLEAN` (422 `EVIDENCE_NOT_SCANNED` until then); if the scan rejects it, the waiting record goes back to its maker as `RETURNED` with its `returnedReason`, and its approval request is withdrawn. The client should open the camera directly for death evidence, never the gallery (the owner's rule, 2026-11-15): a deterrent only, since the server cannot tell a camera photograph from a gallery one. A photograph whose exact bytes (SHA-256) are already on another death or cull record is published for the daily exception report (`liv.MortalityPhotoReused`, abuse case 2); a re-saved, resized or cropped copy has other bytes and is not matched.\n\nPermission: `liv.mortality.report`.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result.\n\nPermission: `liv.mortality.report`, scoped as `reportMortality` is."
       x-permission: liv.mortality.report
       x-error-codes:
         - VALIDATION_FAILED
@@ -29746,6 +29903,7 @@ paths:
                   displayName: "Abena Quaye"
                 photoFileId: "019a7ac0-3066-7b9a-a0d2-c277b5d73b55"
                 status: REPORTED
+                returnedReason: null
                 approvalRequestId: null
                 movementId: null
                 disposalNote: null
@@ -29770,7 +29928,7 @@ paths:
       tags:
         - liv
       summary: "Submit a mortality record, answered without cost"
-      description: "The Farm hand's cost-free door to `submitMortalityRecord` (ADR-0052): the same rules, checks and effects, answered in a shape that carries no cost and no price. Unlike `submitMortalityRecord` it needs no read permission, because its answer shows nothing the write's own permission does not.\n\nValues the record again from the cost pool and writes the stock off. At or above the value threshold (50,000 pesewas on the seeded farm) a photograph is required first (422 `MORTALITY_PHOTO_REQUIRED`) and a second approver after: this is the control for abuse case 2. Only the person who reported the record submits it, so the approver is never the reporter.\n\nPermission: `liv.mortality.report`, scoped as `submitMortalityRecord` is."
+      description: "The Farm hand's cost-free door to `submitMortalityRecord` (ADR-0052): the same rules, checks and effects, answered in a shape that carries no cost and no price. Unlike `submitMortalityRecord` it needs no read permission, because its answer shows nothing the write's own permission does not.\n\nValues the record again from the cost pool and writes the stock off. At or above the value threshold (50,000 pesewas on the seeded farm) a photograph is required first (422 `MORTALITY_PHOTO_REQUIRED`) and a second approver after: this is the control for abuse case 2. Only the person who reported the record submits it, so the approver is never the reporter.\n\n**Who confirms (1.31.0, B06r):** a reporter who holds `liv.mortality.post` (the Owner, the Manager, the Storekeeper) writes off below the threshold at once, and a photograph attached must then be `CLEAN` (422 `EVIDENCE_NOT_SCANNED`). One who does not (the Farm hand) never writes stock off alone: below the threshold the answer is 202 `ApprovalPending` of kind `MORTALITY_CONFIRMATION`, confirmed with `approveRequest` by a different holder of `liv.mortality.confirm` (the Owner, the Manager), with no step-up; at or above it `MORTALITY_WRITE_OFF`, as for every reporter.\n\n**Death photographs (1.31.0, B06r):** the photograph is an `EVIDENCE` file and may still be `PENDING` its malware scan when the record is reported and submitted, so nobody waits at the pen; a file the scanner has already rejected is refused (`PHOTO_NOT_USABLE`). The record is approved only once the photograph is `CLEAN` (422 `EVIDENCE_NOT_SCANNED` until then); if the scan rejects it, the waiting record goes back to its maker as `RETURNED` with its `returnedReason`, and its approval request is withdrawn. The client should open the camera directly for death evidence, never the gallery (the owner's rule, 2026-11-15): a deterrent only, since the server cannot tell a camera photograph from a gallery one. A photograph whose exact bytes (SHA-256) are already on another death or cull record is published for the daily exception report (`liv.MortalityPhotoReused`, abuse case 2); a re-saved, resized or cropped copy has other bytes and is not matched.\n\nPermission: `liv.mortality.report`, scoped as `submitMortalityRecord` is."
       x-permission: liv.mortality.report
       x-error-codes:
         - VALIDATION_FAILED
@@ -29829,6 +29987,7 @@ paths:
                   displayName: "Abena Quaye"
                 photoFileId: null
                 status: POSTED
+                returnedReason: null
                 approvalRequestId: null
                 movementId: "019a7ac0-8d33-7944-9e7d-9d1e22ea15fc"
                 disposalNote: "Buried behind the broiler house, lime applied"
@@ -30798,6 +30957,7 @@ paths:
                       id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
                       displayName: "Yaw Boateng"
                     reversal: null
+                    pendingReversal: null
                   - id: "019a7ac4-0e46-7809-ad41-8966ebf70244"
                     orderNo: null
                     status: COMPLETED
@@ -30859,6 +31019,7 @@ paths:
                       id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
                       displayName: "Yaw Boateng"
                     reversal: null
+                    pendingReversal: null
                   - id: "019a7ac4-8a02-7f97-a4cf-0244d2bb7b22"
                     orderNo: null
                     status: IN_PROGRESS
@@ -30918,6 +31079,7 @@ paths:
                     postedAt: null
                     postedBy: null
                     reversal: null
+                    pendingReversal: null
                   - id: "019a7ac5-05be-7725-ac5d-7b22b97ff400"
                     orderNo: null
                     status: PLANNED
@@ -30977,6 +31139,7 @@ paths:
                     postedAt: null
                     postedBy: null
                     reversal: null
+                    pendingReversal: null
                   - id: "019a7ac5-817a-7eb2-a3eb-f400a0436cde"
                     orderNo: null
                     status: COMPLETED
@@ -31038,6 +31201,7 @@ paths:
                       id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
                       displayName: "Yaw Boateng"
                     reversal: null
+                    pendingReversal: null
                   - id: "019a7ac5-fd36-7640-ab79-6cde8707e5bc"
                     orderNo: null
                     status: CANCELLED
@@ -31097,6 +31261,7 @@ paths:
                     postedAt: null
                     postedBy: null
                     reversal: null
+                    pendingReversal: null
                 page:
                   nextCursor: eyJpZCI6IjAxOWE3YyJ9
                   limit: 25
@@ -31212,6 +31377,7 @@ paths:
                 postedAt: null
                 postedBy: null
                 reversal: null
+                pendingReversal: null
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -31374,6 +31540,7 @@ paths:
                   id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
                   displayName: "Yaw Boateng"
                 reversal: null
+                pendingReversal: null
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -31498,6 +31665,7 @@ paths:
                 postedAt: null
                 postedBy: null
                 reversal: null
+                pendingReversal: null
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -31619,6 +31787,7 @@ paths:
                 postedAt: null
                 postedBy: null
                 reversal: null
+                pendingReversal: null
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -31807,6 +31976,7 @@ paths:
                 postedAt: null
                 postedBy: null
                 reversal: null
+                pendingReversal: null
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -31981,6 +32151,7 @@ paths:
                 postedAt: null
                 postedBy: null
                 reversal: null
+                pendingReversal: null
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -32157,6 +32328,7 @@ paths:
                   id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
                   displayName: "Yaw Boateng"
                 reversal: null
+                pendingReversal: null
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -32179,7 +32351,7 @@ paths:
       tags:
         - prc
       summary: "Cancel a processing order, or reverse a completed one"
-      description: "Cancels a PLANNED or IN_PROGRESS order with a reason: nothing has moved before completion, so it has no stock or cost effect.\n\nA COMPLETED order is never edited; cancelling it reverses it (FR-PRC-011): every movement its completion posted is reversed through inventory, the outputs first and then the inputs, each carrying the value it carried, so the animal stands in its pen again, ALIVE, at exactly its prior cost, and the output lots are empty. Its packs become REVERSED. The order stays COMPLETED and frozen and answers its `reversal`. This needs `prc.order.reverse` as well (the Owner and the Manager), at the same scope.\n\nRefusals (422 PROCESSING_ORDER_INVALID, `details[].code`): ORDER_REVERSED (reversed already); OUTPUT_SOLD (an output lot is not whole where the order put it, or a pack of it has been picked, sold or written off); OUTPUT_RESERVED; OUTPUT_CHANGED (inventory cannot give back exactly what the order received).\n\nPermission: `prc.order.create`, scoped to the order's branch and processing location; and `prc.order.reverse` to reverse a completed order."
+      description: "Cancels a PLANNED or IN_PROGRESS order with a reason: nothing has moved before completion, so it has no stock or cost effect.\n\nA COMPLETED order is never edited; cancelling it reverses it (FR-PRC-011): every movement its completion posted is reversed through inventory, the outputs first and then the inputs, each carrying the value it carried, so the animal stands in its pen again, ALIVE, at exactly its prior cost, and the output lots are empty. Its packs become REVERSED. The order stays COMPLETED and frozen and answers its `reversal`. This needs `prc.order.reverse` as well (the Owner and the Manager), at the same scope.\n\n**Under approval (1.31.0, B06r, ADR-0048's write-off rule):** the reversal is valued at the order's `totalCostPesewas`, what it takes back out of stock, and judged against the stock adjustment threshold (the `STOCK_WRITE_OFF` policy, 50,000 pesewas on the seeded farm), which is copied onto the reversal and never read again. At or above it the answer is 202 `ApprovalPending` of kind `PROCESSING_REVERSAL`: nothing moves, the order shows the waiting reversal as `pendingReversal`, and a different holder of `prc.order.reverse`, with step-up, approves it through `approveRequest` (the maker is refused with `MAKER_CANNOT_CHECK`); the approval posts it in its own transaction. Below it the reason posts the reversal at once (200). Either way the reversal is published as `prc.ProcessingOrderReversed` for the daily exception report. A rejected reversal frees the order to be asked again.\n\nRefusals (422 PROCESSING_ORDER_INVALID, `details[].code`): ORDER_REVERSED (reversed already); REVERSAL_PENDING (a reversal is waiting for approval); OUTPUT_SOLD (an output lot is not whole where the order put it, or a pack of it has been picked, sold or written off: refused outright, by the database too, and again at approval); OUTPUT_RESERVED; OUTPUT_CHANGED (inventory cannot give back exactly what the order received).\n\nPermission: `prc.order.create`, scoped to the order's branch and processing location; and `prc.order.reverse` to reverse a completed order."
       x-permission: prc.order.create
       x-error-codes:
         - VALIDATION_FAILED
@@ -32276,6 +32448,26 @@ paths:
                 postedAt: null
                 postedBy: null
                 reversal: null
+                pendingReversal: null
+        "202":
+          description: "Accepted for approval: a reversal at or above the adjustment threshold waits for a different approver. Nothing has moved yet."
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalPending"
+              example:
+                status: PENDING_APPROVAL
+                approvalRequestId: "019a7ac6-3b1e-7d40-9a2c-5e8f71b0c4d2"
+                kind: PROCESSING_REVERSAL
+                subject:
+                  id: "019a7ac6-1c2f-7a93-8e64-2b9d0f5a7e31"
+                  docType: PROCESSING_REVERSAL
+                  number: null
+                summary: "Reverse the processing of G-0109, valued 67800 pesewas (Wrong goat slaughtered, the order named G-0109)"
+                requestedAt: "2026-11-13T11:40:00Z"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -74825,6 +75017,99 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
+  "/care/animal-tags/{tagNo}":
+    get:
+      operationId: getCareAnimalByTag
+      tags:
+        - liv
+      summary: "Find a live animal by its exact tag, without cost"
+      description: "The Farm hand's lookup at the pen (CR-021, 1.31.0; ADR-0052): the live animal carrying exactly this tag, answered in the cost-free `CareAnimal` shape, so a goat, sheep or pig can be weighed, treated or reported dead by its ear tag. The match is exact, character for character: another case, a prefix or a longer tag is not the same tag. Only an animal still `ALIVE` is found, since one live animal holds a tag at a time; an unknown tag, or one whose animal has died, been sold or slaughtered, is 404 `NOT_FOUND`. A tag containing `/` is sent percent-encoded (`%2F`).\n\nPermission: `liv.care.read`, scoped as `getCareAnimal` is."
+      x-permission: liv.care.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
+      parameters:
+        - name: tagNo
+          in: path
+          required: true
+          description: "The ear tag exactly as it is registered, for example `G-0142`."
+          schema:
+            type: string
+            pattern: "^[A-Za-z0-9][A-Za-z0-9/_-]{0,39}$"
+      security:
+        - staffSession: []
+        - apiKey: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareAnimal"
+              example:
+                id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
+                tagNo: G-0142
+                species:
+                  id: "019a7a8b-a049-7e16-b34e-ea33ee146311"
+                  code: GOAT
+                  name: Goat
+                product:
+                  id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                  sku: LIV-GOAT
+                  name: Goat
+                breed: "West African Dwarf"
+                sex: MALE
+                dateOfBirth: null
+                acquiredOn: "2026-10-03"
+                source: PURCHASE
+                supplier:
+                  id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
+                  supplierNo: S-0012
+                  name: "Kpone Livestock Traders"
+                dam: null
+                sire: null
+                batch: null
+                purpose: GROWING
+                status: ALIVE
+                currentLocation:
+                  id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+                  code: PEN-G1
+                  name: "Goat pen 1"
+                  kind: PEN
+                grade:
+                  id: "019a7a8c-d59f-70f8-9631-185eaefe913c"
+                  code: A
+                  name: "Grade A, well finished"
+                lastWeightKg: "26.400"
+                lastWeighedAt: "2026-11-11T07:00:00Z"
+                weightBand:
+                  id: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
+                  code: GOAT-M
+                  minKg: "18.000"
+                  maxKg: "28.000"
+                withdrawalUntil: null
+                sellable: true
+                version: 4
+                createdAt: "2026-11-03T11:00:00Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     staffSession:
@@ -75631,6 +75916,8 @@ components:
         - PAYMENT_REVERSAL
         - PERIOD_REOPEN
         - MORTALITY_WRITE_OFF
+        - MORTALITY_CONFIRMATION
+        - PROCESSING_REVERSAL
     ApprovalPending:
       type: object
       description: "Returned with 202 when an action needs a second person. Nothing has taken effect."
@@ -83897,6 +84184,16 @@ components:
             - PENDING_APPROVAL
             - POSTED
             - REJECTED
+            - RETURNED
+        returnedReason:
+          description: "Why the record went back to its maker (status RETURNED, 1.31.0): the malware scan found its photograph infected (EVIDENCE_INFECTED) or could not read it (EVIDENCE_UNSCANNABLE). Nothing was written off and its approval request was withdrawn; the animal may be reported again with a new photograph. Null otherwise."
+          type:
+            - string
+            - "null"
+          enum:
+            - EVIDENCE_INFECTED
+            - EVIDENCE_UNSCANNABLE
+            - null
         approvalRequestId:
           type:
             - string
@@ -83927,6 +84224,7 @@ components:
         - valuePesewas
         - currency
         - status
+        - returnedReason
         - approvalRequestId
         - movementId
         - disposalNote
@@ -84021,6 +84319,16 @@ components:
             - PENDING_APPROVAL
             - POSTED
             - REJECTED
+            - RETURNED
+        returnedReason:
+          description: "Why the record went back to its maker (status RETURNED, 1.31.0): the malware scan found its photograph infected (EVIDENCE_INFECTED) or could not read it (EVIDENCE_UNSCANNABLE). Nothing was written off and its approval request was withdrawn; the animal may be reported again with a new photograph. Null otherwise."
+          type:
+            - string
+            - "null"
+          enum:
+            - EVIDENCE_INFECTED
+            - EVIDENCE_UNSCANNABLE
+            - null
         approvalRequestId:
           type:
             - string
@@ -84049,6 +84357,7 @@ components:
         - reportedBy
         - photoFileId
         - status
+        - returnedReason
         - approvalRequestId
         - movementId
         - disposalNote
@@ -84540,7 +84849,7 @@ components:
             - $ref: "#/components/schemas/PrincipalRef"
             - type: "null"
         reversal:
-          description: "The reversal that corrected this completed order (FR-PRC-011), or null. The order itself stays COMPLETED and frozen; its movements were reversed under the reversal, the source document of the reversing movements."
+          description: "The posted reversal that corrected this completed order (FR-PRC-011), or null. The order itself stays COMPLETED and frozen; its movements were reversed under the reversal, the source document of the reversing movements. `reversedBy` asked for it; at or above the adjustment threshold `approvedBy` approved it, and the movements were posted as them (1.31.0). `valuePesewas` and `thresholdPesewas` are null only on a reversal posted before 1.31.0."
           anyOf:
             - type: object
               properties:
@@ -84554,11 +84863,65 @@ components:
                   format: date-time
                 reversedBy:
                   $ref: "#/components/schemas/PrincipalRef"
+                approvedBy:
+                  anyOf:
+                    - $ref: "#/components/schemas/PrincipalRef"
+                    - type: "null"
+                approvalRequestId:
+                  type:
+                    - string
+                    - "null"
+                  format: uuid
+                valuePesewas:
+                  description: "What the reversal took back out of stock: the order's total cost."
+                  anyOf:
+                    - $ref: "#/components/schemas/Pesewas"
+                    - type: "null"
+                thresholdPesewas:
+                  description: "The stock adjustment threshold in force when the reversal was asked for, copied onto it (ADR-0048)."
+                  anyOf:
+                    - $ref: "#/components/schemas/Pesewas"
+                    - type: "null"
               required:
                 - id
                 - reason
                 - reversedAt
                 - reversedBy
+                - approvedBy
+                - approvalRequestId
+                - valuePesewas
+                - thresholdPesewas
+            - type: "null"
+        pendingReversal:
+          description: "A reversal at or above the adjustment threshold waiting for a different approver (1.31.0, B06r), or null. Nothing has moved: the lots are still in stock and the animals still processed. Approved, it becomes `reversal`; rejected, it disappears and the order may be reversed again."
+          anyOf:
+            - type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                reason:
+                  type: string
+                requestedAt:
+                  type: string
+                  format: date-time
+                requestedBy:
+                  $ref: "#/components/schemas/PrincipalRef"
+                approvalRequestId:
+                  type: string
+                  format: uuid
+                valuePesewas:
+                  $ref: "#/components/schemas/Pesewas"
+                thresholdPesewas:
+                  $ref: "#/components/schemas/Pesewas"
+              required:
+                - id
+                - reason
+                - requestedAt
+                - requestedBy
+                - approvalRequestId
+                - valuePesewas
+                - thresholdPesewas
             - type: "null"
       required:
         - id
@@ -84588,6 +84951,7 @@ components:
         - postedAt
         - postedBy
         - reversal
+        - pendingReversal
     ProcessingInputInput:
       type: object
       properties:

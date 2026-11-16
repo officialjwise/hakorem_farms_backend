@@ -66,8 +66,8 @@ export interface OrderRecord {
   readonly createdBy: string;
   readonly postedAt: Date | null;
   readonly postedBy: string | null;
-  /** The order's reversal (FR-PRC-011), when it was reversed. */
-  readonly reversal: { readonly id: string; readonly reason: string; readonly at: Date; readonly by: string } | null;
+  /** The order's live reversal (FR-PRC-011): posted, or waiting for approval (B06r); a rejected one is not shown. */
+  readonly reversal: ReversalRecord | null;
   readonly inputs: readonly InputRecord[];
   readonly outputs: readonly OutputRecord[];
   readonly costs: readonly CostRecord[];
@@ -126,6 +126,38 @@ export interface YieldStandardRecord {
   readonly expectedPercent: string;
   readonly tolerancePercent: string;
   readonly version: number;
+}
+
+export type ReversalStatus = 'PENDING_APPROVAL' | 'POSTED' | 'REJECTED';
+
+/** A processing reversal (`prc.processing_reversal`, migrations 0087 and 0114). */
+export interface ReversalRecord {
+  readonly id: string;
+  readonly orderId: string;
+  readonly branchId: string;
+  readonly reason: string;
+  readonly status: ReversalStatus;
+  /** The value moved back out of stock (the order's total cost), judged against the threshold; null only before B06r. */
+  readonly valuePesewas: bigint | null;
+  /** The adjustment threshold in force when it was asked for, copied, never read live (ADR-0048); null only before B06r. */
+  readonly thresholdPesewas: bigint | null;
+  readonly approvalRequestId: string | null;
+  readonly requestedAt: Date;
+  readonly requestedBy: string;
+  readonly postedAt: Date | null;
+  readonly postedBy: string | null;
+}
+
+export interface NewReversal {
+  readonly id: string;
+  readonly orderId: string;
+  readonly branchId: string;
+  readonly reason: string;
+  readonly status: 'PENDING_APPROVAL' | 'POSTED';
+  readonly valuePesewas: bigint;
+  readonly thresholdPesewas: bigint;
+  readonly approvalRequestId: string | null;
+  readonly at: Date;
 }
 
 export type PackStatus = 'IN_STOCK' | 'PICKED' | 'SOLD' | 'WRITTEN_OFF' | 'REVERSED';
@@ -192,5 +224,10 @@ export interface ProcessingStore {
   /** Sets the first print time of each pack that has none. */
   markPrinted(tx: Transaction, ids: readonly string[], at: Date, actorId: string): Promise<void>;
   setPackStatus(tx: Transaction, ids: readonly string[], status: PackStatus, actorId: string): Promise<void>;
-  insertReversal(tx: Transaction, reversal: { id: string; orderId: string; branchId: string; reason: string; at: Date }, actorId: string): Promise<void>;
+  insertReversal(tx: Transaction, reversal: NewReversal, actorId: string): Promise<void>;
+  /** A reversal by its id, locked for the command. */
+  lockReversal(tx: Transaction, id: string): Promise<ReversalRecord | null>;
+  reversal(tx: Transaction, id: string): Promise<ReversalRecord | null>;
+  /** A waiting reversal decided: POSTED by its checker, or REJECTED. */
+  decideReversal(tx: Transaction, id: string, status: 'POSTED' | 'REJECTED', at: Date, actorId: string): Promise<void>;
 }

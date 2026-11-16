@@ -55,7 +55,7 @@ export interface YieldVarianceFlagged {
 }
 
 /**
- * ◆ `prc.ProcessingOrderReversed` v1 (FR-PRC-011, A-162): a completed order was corrected by reversing its movements
+ * ◆ `prc.ProcessingOrderReversed` v1 (FR-PRC-011, A-162, B06r): a completed order was corrected by reversing its movements
  * through INV, which publishes each reversing movement's own event with `reversesMovementId`. This event names what
  * INV's do not: the direct cost the completion capitalised into the lots, which the reversal takes out of stock and
  * which B8 must post (the labour was spent; the accountant decides where it lands, A-162), and the costs it came from.
@@ -67,10 +67,19 @@ export interface ProcessingOrderReversed {
   readonly inputCostPesewas: number;
   readonly directCostPesewas: number;
   readonly totalCostPesewas: number;
+  /** B06r: the value moved back out of stock, the threshold it was judged against (copied, ADR-0048), and the approval. */
+  readonly valuePesewas: number;
+  readonly thresholdPesewas: number;
+  readonly needsApproval: boolean;
+  readonly approvalRequestId: string | null;
+  readonly approvedBy: string | null;
   readonly processingCostIds: readonly string[];
   readonly inputStockUnitIds: readonly string[];
   readonly outputStockUnitIds: readonly string[];
   readonly reason: string;
+  /** Who asked for the reversal (its maker). */
   readonly actorId: string;
   readonly reversedAt: string;
+  /** Threat model abuse case 29, for the daily exception report (B12), which lists every reversal with its reason. */
+  readonly abuseCases: readonly number[];
 }

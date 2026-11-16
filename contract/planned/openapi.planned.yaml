@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.30.0"
+  version: "1.31.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -39054,6 +39054,8 @@ components:
         - PAYMENT_REVERSAL
         - PERIOD_REOPEN
         - MORTALITY_WRITE_OFF
+        - MORTALITY_CONFIRMATION
+        - PROCESSING_REVERSAL
     ApprovalPending:
       type: object
       description: "Returned with 202 when an action needs a second person. Nothing has taken effect."
@@ -47320,6 +47322,16 @@ components:
             - PENDING_APPROVAL
             - POSTED
             - REJECTED
+            - RETURNED
+        returnedReason:
+          description: "Why the record went back to its maker (status RETURNED, 1.31.0): the malware scan found its photograph infected (EVIDENCE_INFECTED) or could not read it (EVIDENCE_UNSCANNABLE). Nothing was written off and its approval request was withdrawn; the animal may be reported again with a new photograph. Null otherwise."
+          type:
+            - string
+            - "null"
+          enum:
+            - EVIDENCE_INFECTED
+            - EVIDENCE_UNSCANNABLE
+            - null
         approvalRequestId:
           type:
             - string
@@ -47350,6 +47362,7 @@ components:
         - valuePesewas
         - currency
         - status
+        - returnedReason
         - approvalRequestId
         - movementId
         - disposalNote
@@ -47444,6 +47457,16 @@ components:
             - PENDING_APPROVAL
             - POSTED
             - REJECTED
+            - RETURNED
+        returnedReason:
+          description: "Why the record went back to its maker (status RETURNED, 1.31.0): the malware scan found its photograph infected (EVIDENCE_INFECTED) or could not read it (EVIDENCE_UNSCANNABLE). Nothing was written off and its approval request was withdrawn; the animal may be reported again with a new photograph. Null otherwise."
+          type:
+            - string
+            - "null"
+          enum:
+            - EVIDENCE_INFECTED
+            - EVIDENCE_UNSCANNABLE
+            - null
         approvalRequestId:
           type:
             - string
@@ -47472,6 +47495,7 @@ components:
         - reportedBy
         - photoFileId
         - status
+        - returnedReason
         - approvalRequestId
         - movementId
         - disposalNote
@@ -47963,7 +47987,7 @@ components:
             - $ref: "#/components/schemas/PrincipalRef"
             - type: "null"
         reversal:
-          description: "The reversal that corrected this completed order (FR-PRC-011), or null. The order itself stays COMPLETED and frozen; its movements were reversed under the reversal, the source document of the reversing movements."
+          description: "The posted reversal that corrected this completed order (FR-PRC-011), or null. The order itself stays COMPLETED and frozen; its movements were reversed under the reversal, the source document of the reversing movements. `reversedBy` asked for it; at or above the adjustment threshold `approvedBy` approved it, and the movements were posted as them (1.31.0). `valuePesewas` and `thresholdPesewas` are null only on a reversal posted before 1.31.0."
           anyOf:
             - type: object
               properties:
@@ -47977,11 +48001,65 @@ components:
                   format: date-time
                 reversedBy:
                   $ref: "#/components/schemas/PrincipalRef"
+                approvedBy:
+                  anyOf:
+                    - $ref: "#/components/schemas/PrincipalRef"
+                    - type: "null"
+                approvalRequestId:
+                  type:
+                    - string
+                    - "null"
+                  format: uuid
+                valuePesewas:
+                  description: "What the reversal took back out of stock: the order's total cost."
+                  anyOf:
+                    - $ref: "#/components/schemas/Pesewas"
+                    - type: "null"
+                thresholdPesewas:
+                  description: "The stock adjustment threshold in force when the reversal was asked for, copied onto it (ADR-0048)."
+                  anyOf:
+                    - $ref: "#/components/schemas/Pesewas"
+                    - type: "null"
               required:
                 - id
                 - reason
                 - reversedAt
                 - reversedBy
+                - approvedBy
+                - approvalRequestId
+                - valuePesewas
+                - thresholdPesewas
+            - type: "null"
+        pendingReversal:
+          description: "A reversal at or above the adjustment threshold waiting for a different approver (1.31.0, B06r), or null. Nothing has moved: the lots are still in stock and the animals still processed. Approved, it becomes `reversal`; rejected, it disappears and the order may be reversed again."
+          anyOf:
+            - type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                reason:
+                  type: string
+                requestedAt:
+                  type: string
+                  format: date-time
+                requestedBy:
+                  $ref: "#/components/schemas/PrincipalRef"
+                approvalRequestId:
+                  type: string
+                  format: uuid
+                valuePesewas:
+                  $ref: "#/components/schemas/Pesewas"
+                thresholdPesewas:
+                  $ref: "#/components/schemas/Pesewas"
+              required:
+                - id
+                - reason
+                - requestedAt
+                - requestedBy
+                - approvalRequestId
+                - valuePesewas
+                - thresholdPesewas
             - type: "null"
       required:
         - id
@@ -48011,6 +48089,7 @@ components:
         - postedAt
         - postedBy
         - reversal
+        - pendingReversal
     ProcessingInputInput:
       type: object
       properties:

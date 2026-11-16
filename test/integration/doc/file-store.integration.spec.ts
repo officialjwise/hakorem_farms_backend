@@ -101,11 +101,12 @@ afterAll(async () => {
 });
 
 describe('the file store refuses the wrong role (ADR-0035, deny by default)', () => {
-  it('refuses an upload to the cashier, sales, driver, farm hand and a user with no grant, stores nothing and audits each refusal', async () => {
+  it('refuses an upload to the cashier, sales, driver and a user with no grant, and the farm hand anything but EVIDENCE, stores nothing and audits each refusal', async () => {
     const before = await storedFiles();
     const failed = await failures();
     for (const [role, session] of Object.entries(refused)) {
-      const response = await upload(session, 'EVIDENCE', jpeg(), 'goat-pen.jpg');
+      // The Farm hand may upload EVIDENCE and nothing else (owner, 2026-11-15; B06r, ADR-0053): any other use is refused.
+      const response = await upload(session, role === 'FARM_HAND' ? 'PRODUCT_IMAGE' : 'EVIDENCE', jpeg(), 'goat-pen.jpg');
       expect(response.status, role).toBe(403);
       expect(response.body.error.code).toBe('FORBIDDEN');
     }

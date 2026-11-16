@@ -9,6 +9,7 @@ registerMessages({
   'liv.reference_not_found': 'Something this record refers to does not exist.',
   'liv.mortality_photo_required': 'A photograph is required: the value written off is at or above the threshold.',
   'liv.ration_invalid': 'This ration is not valid.',
+  'liv.evidence_not_scanned': 'The photograph is still being checked for viruses. Approve it once the check has passed.',
 });
 
 function details(fields: readonly LivRuleBroken[], messageKey: string): ErrorDetail[] {
@@ -41,6 +42,16 @@ export class MortalityPhotoRequiredError extends BusinessRuleError {
     super(`a write-off of ${valuePesewas} pesewas is at or above the threshold of ${thresholdPesewas}`, [
       { field: '/photoFileId', code: 'PHOTO_REQUIRED', message: translate('liv.mortality_photo_required') },
     ]);
+  }
+}
+
+/** 422 EVIDENCE_NOT_SCANNED (B06r): a death's photograph has not passed its malware scan yet, so nothing is written off. */
+export class EvidenceNotScannedError extends BusinessRuleError {
+  readonly code = 'EVIDENCE_NOT_SCANNED';
+  readonly messageKey = 'liv.evidence_not_scanned';
+
+  constructor(fileId: string) {
+    super(`photograph ${fileId} has not passed its scan`, [{ field: '/photoFileId', code: 'EVIDENCE_NOT_SCANNED', message: translate('liv.evidence_not_scanned') }]);
   }
 }
 

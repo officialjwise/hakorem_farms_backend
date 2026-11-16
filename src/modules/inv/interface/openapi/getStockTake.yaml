@@ -31,34 +31,67 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/StockTake"
-        example:
-          id: "019a7aba-06c9-7349-b881-3d6a7794b648"
-          stockTakeNo: STK-2026-DDW-000014
-          status: COUNTING
-          location:
-            id: "019a7a84-7f34-76a9-8be1-736ae249ec48"
-            code: SHOP
-            name: "Shop floor"
-            kind: SHOP_FLOOR
-          scope: CYCLE
-          snapshotAt: "2026-11-13T06:00:00Z"
-          countedBy:
-            id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-            displayName: "Yaw Boateng"
-          lineCount: 24
-          countedLineCount: 11
-          gainValuePesewas: null
-          lossValuePesewas: null
-          currency: GHS
-          approvalRequestId: null
-          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-          version: 2
-          createdAt: "2026-11-12T08:00:00Z"
-          createdBy:
-            id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-            displayName: "Yaw Boateng"
-          postedAt: null
-          postedBy: null
+        examples:
+          counting:
+            summary: "Counting on the shop floor: the count is blind, so no gain or loss is known yet"
+            value:
+              id: "019a7aba-06c9-7349-b881-3d6a7794b648"
+              stockTakeNo: STK-2026-DDW-000014
+              status: COUNTING
+              location:
+                id: "019a7a84-7f34-76a9-8be1-736ae249ec48"
+                code: SHOP
+                name: "Shop floor"
+                kind: SHOP_FLOOR
+              scope: CYCLE
+              snapshotAt: "2026-11-13T06:00:00Z"
+              countedBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              lineCount: 24
+              countedLineCount: 11
+              gainValuePesewas: null
+              lossValuePesewas: null
+              currency: GHS
+              approvalRequestId: null
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 2
+              createdAt: "2026-11-12T08:00:00Z"
+              createdBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              postedAt: null
+              postedBy: null
+          inReview:
+            summary: "The same take in REVIEW: counts closed, the variance report's gain and loss at cost (listStockTakeLines' inReview example, CR-020)"
+            value:
+              id: "019a7aba-06c9-7349-b881-3d6a7794b648"
+              stockTakeNo: STK-2026-DDW-000014
+              status: REVIEW
+              location:
+                id: "019a7a84-7f34-76a9-8be1-736ae249ec48"
+                code: SHOP
+                name: "Shop floor"
+                kind: SHOP_FLOOR
+              scope: CYCLE
+              snapshotAt: "2026-11-13T06:00:00Z"
+              countedBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              lineCount: 24
+              countedLineCount: 24
+              gainValuePesewas: 4000
+              lossValuePesewas: 22950
+              currency: GHS
+              approvalRequestId: null
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              version: 3
+              createdAt: "2026-11-12T08:00:00Z"
+              createdBy:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              postedAt: null
+              postedBy: null
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

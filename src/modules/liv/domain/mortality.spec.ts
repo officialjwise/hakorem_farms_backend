@@ -1,6 +1,6 @@
 import { Money } from '@hakorem/kernel';
 import { describe, expect, it } from 'vitest';
-import { checkMortalityReport, judgeWriteOff, statusAfterLoss } from './mortality';
+import { checkMortalityReport, evidenceVerdict, judgeSubmission, judgeWriteOff, statusAfterLoss } from './mortality';
 
 const now = new Date('2026-11-10T10:00:00Z');
 const goat = { kind: 'DEATH' as const, reasonDomain: 'MORTALITY', tracking: 'SERIAL' as const, head: 1, headOnHand: 1n, alive: true, foundAt: new Date('2026-11-10T06:30:00Z'), now };
@@ -56,5 +56,38 @@ describe('the status a loss leaves the animal in (FR-LIV-017)', () => {
   it('is DEAD for a death and CULLED for a cull', () => {
     expect(statusAfterLoss('DEATH')).toBe('DEAD');
     expect(statusAfterLoss('CULL')).toBe('CULLED');
+  });
+});
+
+describe('who confirms a submission: the reporter alone, a supervisor, or the mortality approver (owner, 2026-11-15; B06r)', () => {
+  const threshold = Money.ofPesewas(50_000n);
+
+  it('posts below the threshold when the reporter may post a write-off', () => {
+    expect(judgeSubmission(Money.ofPesewas(49_999n), threshold, { hasPhoto: false, reporterMayPost: true })).toEqual({ ok: true, value: 'POST' });
+  });
+
+  it('waits for a supervisor below the threshold when the reporter may not, with or without a photograph', () => {
+    expect(judgeSubmission(Money.ofPesewas(18_000n), threshold, { hasPhoto: false, reporterMayPost: false })).toEqual({ ok: true, value: 'CONFIRMATION' });
+    expect(judgeSubmission(Money.ofPesewas(49_999n), threshold, { hasPhoto: true, reporterMayPost: false })).toEqual({ ok: true, value: 'CONFIRMATION' });
+    expect(judgeSubmission(Money.zero(), threshold, { hasPhoto: false, reporterMayPost: false })).toEqual({ ok: true, value: 'CONFIRMATION' });
+  });
+
+  it('sends exactly the threshold and above to the approver, whoever reports, only with a photograph', () => {
+    for (const reporterMayPost of [true, false]) {
+      expect(judgeSubmission(Money.ofPesewas(50_000n), threshold, { hasPhoto: true, reporterMayPost })).toEqual({ ok: true, value: 'APPROVAL' });
+      expect(judgeSubmission(Money.ofPesewas(50_000n), threshold, { hasPhoto: false, reporterMayPost })).toEqual({ ok: false, error: 'PHOTO_REQUIRED' });
+    }
+  });
+});
+
+describe("what the photograph's scan allows (B06r)", () => {
+  it('lets a report be submitted while the scan is PENDING and approved only once CLEAN', () => {
+    expect(evidenceVerdict('PENDING')).toEqual({ submit: true, post: false, returnReason: null });
+    expect(evidenceVerdict('CLEAN')).toEqual({ submit: true, post: true, returnReason: null });
+  });
+
+  it('sends a report back to its maker when the scan finds the file infected or cannot read it', () => {
+    expect(evidenceVerdict('INFECTED')).toEqual({ submit: false, post: false, returnReason: 'EVIDENCE_INFECTED' });
+    expect(evidenceVerdict('FAILED')).toEqual({ submit: false, post: false, returnReason: 'EVIDENCE_UNSCANNABLE' });
   });
 });
