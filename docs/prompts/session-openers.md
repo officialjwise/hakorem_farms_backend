@@ -1681,7 +1681,7 @@ docs/data-model/ord.md, the ORD, PAY, BIL and RPT cards in docs/MODULE_BOUNDARIE
 ADR-0010, ADR-0021 and ADR-0026, the abuse cases 1, 3 and 12 in docs/security/THREAT_MODEL.md, and A-149, A-200,
 A-201, A-208, A-209, A-210, A-211, A-212, A-213, A-216 and A-218 in docs/ASSUMPTIONS.md, ADR-0063, ADR-0064 and
 ADR-0066 (a void's refund is a reversal or a refund to store credit; returns use the refund against a credit note,
-built in B09a continued 1d). Load hakorem-pricing, hakorem-money, hakorem-stock, hakorem-ledger,
+built in B09a continued 1d), and ADR-0067 with A-217 (a rule's "now" is the application clock's). Load hakorem-pricing, hakorem-money, hakorem-stock, hakorem-ledger,
 hakorem-documents, hakorem-security-review, hakorem-endpoint, hakorem-migration and hakorem-tests. Use
 docs/prompts/module-build-prompt.md as the recipe.
 Do not read any other document unless this phase needs it.
@@ -1707,6 +1707,10 @@ prove through placeOrder itself that the cart's checkoutId is null again (B09a c
 and for a completion only by setting the rows directly). The integration tests run against the local Paystack fake,
 which now answers as Paystack's test mode did (A-218): its MTN test number pays at once, a payer email on `.example`
 is refused, and a refund's idempotency key is honoured only through the adapter's note lookup.
+Two rules from B09t (ADR-0067): no new now() or current_date in business SQL (due dates, expiries, holds, business
+days and as-of times take the application clock, as a parameter or platform.app_now()); and no new fixed calendar
+date in the seed or a test (build dates from the seed's or the test's clock). The seeded egg lot's fixed expiry
+(src/seed/farm-inv.ts) has its own fix scheduled after this phase: leave it unless the seed extension touches it.
 If it does not fit, split at a sub-domain boundary after a proven, merged gate.
 Stop at the gate, write docs/sessions/B09a3b-orders-online.md, and merge into main when every run on the pull
 request is green.
