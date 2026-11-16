@@ -1,0 +1,71 @@
+operationId: generateDeliverySlots
+tags:
+  - del
+summary: "Create slots for a zone over a date range"
+description: "Creates a zone's slots on the listed weekdays (1 is Monday) of a date range, one per time window (FR-DEL-001, ADR-0026). The range starts today or later and covers at most 92 days; windows end after they start, do not overlap, and hold 1 to 1,000 deliveries. A slot that already exists for the zone, date and start is skipped and counted in `skippedExisting`, so generating twice adds nothing. Refused with 422 `SLOT_REQUEST_INVALID` naming the rule (`IN_THE_PAST`, `BEFORE_FROM`, `RANGE_TOO_LONG`, `NOT_A_WEEKDAY`, `DUPLICATE`, `INVALID_TIME`, `NOT_AFTER_START`, `OVERLAPS`, `OUT_OF_RANGE`, `TOO_MANY`), and 422 `REFERENCE_NOT_FOUND` for a zone that does not deliver. Checked at the zone's branch.\n\nPermission: `del.slot.manage`."
+x-permission: del.slot.manage
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - SLOT_REQUEST_INVALID
+  - REFERENCE_NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/SlotGenerate"
+      example:
+        zoneId: "019a7a93-5c09-76f4-bc2c-78125a54f0f0"
+        from: "2026-11-16"
+        to: "2026-11-29"
+        weekdays:
+          - 2
+          - 4
+          - 6
+        times:
+          - startsAt: "10:00"
+            endsAt: "12:00"
+            capacity: 8
+          - startsAt: "14:00"
+            endsAt: "16:00"
+            capacity: 8
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/SlotGenerateResult"
+        example:
+          created: 24
+          skippedExisting: 4
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

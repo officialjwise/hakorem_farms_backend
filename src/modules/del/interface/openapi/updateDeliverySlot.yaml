@@ -1,0 +1,83 @@
+operationId: updateDeliverySlot
+tags:
+  - del
+summary: "Change a slot's capacity"
+description: "Cannot be set below the number already booked (422 `CAPACITY_BELOW_BOOKED`); the database holds the same rule. A capacity outside 1 to 1,000 is 422 `SLOT_REQUEST_INVALID`; a stale `version` is 409 `VERSION_CONFLICT`.\n\nPermission: `del.slot.manage`."
+x-permission: del.slot.manage
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - NOT_FOUND
+  - VERSION_CONFLICT
+  - CAPACITY_BELOW_BOOKED
+  - SLOT_REQUEST_INVALID
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/SlotUpdate"
+      example:
+        version: 3
+        capacity: 10
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/DeliverySlot"
+        example:
+          id: "019a7afd-16ee-736d-a8a6-3faf4a4fb88d"
+          branch:
+            id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+            code: DDW
+            name: "HaKorem Farms, Dodowa"
+          deliveryZone:
+            id: "019a7a93-5c09-76f4-bc2c-78125a54f0f0"
+            code: ACC-EAST
+            name: "Accra East: Madina, Adenta, East Legon"
+          slotDate: "2026-11-14"
+          startsAt: "10:00"
+          endsAt: "12:00"
+          capacity: 8
+          booked: 4
+          remaining: 4
+          version: 3
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

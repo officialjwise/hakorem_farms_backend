@@ -45,3 +45,9 @@ export { duplicateErrors, type RowError, type SheetColumns } from './domain/impo
  */
 export { LocationUsageRegistry, type LocationUsageCheck } from './application/location-usage';
 export type { PlaceUsage } from './domain/locations';
+/**
+ * B07 continued 2 adds `Storefront`, the read side the online store needs in its own transaction: the products and
+ * categories the public sees (never a cost, floor or ceiling), the delivery zone of an address, the delivery fee's tax
+ * category and the weight bands a price range is read over.
+ */
+export { Storefront, type DeliveryZoneFacts, type OnlineCategoryFacts, type OnlineProductFacts } from './application/storefront';

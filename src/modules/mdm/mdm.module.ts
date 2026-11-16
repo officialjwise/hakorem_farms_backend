@@ -63,6 +63,8 @@ import { ProductSheet } from './application/product-sheet';
 import { SupplierSheet } from './application/supplier-sheet';
 import { IMPORT_STORE, SHEET_LOOKUPS, type ImportStore, type SheetLookups } from './application/import-store';
 import { MASTER_DATA_REFS_STORE, MasterDataRefs, type MasterDataRefsStore } from './application/master-data-refs';
+import { Storefront, STOREFRONT_STORE, type StorefrontStore } from './application/storefront';
+import { PgStorefrontStore } from './infrastructure/pg-storefront-store';
 import { PgMasterDataRefsStore } from './infrastructure/pg-master-data-refs-store';
 import { PgImportStore, PgSheetLookups } from './infrastructure/pg-import-store';
 import { ImportsController } from './interface/imports.controller';
@@ -287,8 +289,10 @@ import { ImportsController } from './interface/imports.controller';
     },
     { provide: MASTER_DATA_REFS_STORE, useClass: PgMasterDataRefsStore },
     { provide: MasterDataRefs, useFactory: (store: MasterDataRefsStore) => new MasterDataRefs(store), inject: [MASTER_DATA_REFS_STORE] },
+    { provide: STOREFRONT_STORE, useFactory: (files: FileStore) => new PgStorefrontStore(files), inject: [FileStore] },
+    { provide: Storefront, useFactory: (store: StorefrontStore) => new Storefront(store), inject: [STOREFRONT_STORE] },
   ],
-  exports: [PricingService, Promotions, TaxService, MasterDataRefs, MdmImports, LocationUsageRegistry],
+  exports: [PricingService, Promotions, TaxService, MasterDataRefs, MdmImports, LocationUsageRegistry, Storefront],
 })
 export class MdmModule implements OnModuleInit {
   constructor(
