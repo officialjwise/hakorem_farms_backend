@@ -170,7 +170,7 @@ interface LevyRow {
 }
 
 const PAYMENT_COLUMNS = `p.id, p.payment_no, p.status, p.supplier_id, p.method, p.amount_pesewas::text AS amount, p.scheduled_for::text AS scheduled_for,
-  p.paid_at, p.external_reference, p.approval_request_id, p.branch_id, p.version, p.created_at, p.created_by, p.payout_change_id, p.payout_first_use, p.payout_first_use_change_id,
+  p.paid_at, p.external_reference, p.approval_request_id, p.branch_id, p.version, p.created_at, p.created_by, p.payout_change_id, p.payout_first_use, p.payout_first_use_change_id, p.bank_account_id,
   (SELECT c.payout_masked FROM pur.supplier_payout_change c WHERE c.id = p.payout_change_id) AS payee_masked`;
 
 interface PaymentRow {
@@ -192,6 +192,7 @@ interface PaymentRow {
   payout_first_use: boolean;
   payout_first_use_change_id: string | null;
   payee_masked: string | null;
+  bank_account_id: string | null;
 }
 
 /** `pur.*` (migration 0094), PUR's own tables, always in the caller's transaction. */
@@ -630,9 +631,9 @@ export class PgPurchasingStore implements PurchasingStore {
     actorId: string,
   ): Promise<void> {
     await tx.query(
-      `INSERT INTO pur.supplier_payment (id, supplier_id, method, amount_pesewas, scheduled_for, status, branch_id, payout_change_id, created_by, updated_by)
-       VALUES ($1, $2, $3, $4, $5, 'DRAFT', $6, $7, $8, $8)`,
-      [id, header.supplierId, header.method, header.amountPesewas.toString(), header.scheduledFor, header.branchId, header.payoutChangeId, actorId],
+      `INSERT INTO pur.supplier_payment (id, supplier_id, method, amount_pesewas, scheduled_for, status, branch_id, payout_change_id, bank_account_id, created_by, updated_by)
+       VALUES ($1, $2, $3, $4, $5, 'DRAFT', $6, $7, $8, $9, $9)`,
+      [id, header.supplierId, header.method, header.amountPesewas.toString(), header.scheduledFor, header.branchId, header.payoutChangeId, header.bankAccountId, actorId],
     );
     for (const a of allocations) {
       await tx.query(
@@ -688,6 +689,7 @@ export class PgPurchasingStore implements PurchasingStore {
       payoutFirstUse: r.payout_first_use,
       payoutFirstUseChangeId: r.payout_first_use_change_id,
       payeeMasked: r.payee_masked,
+      bankAccountId: r.bank_account_id,
       allocations: allocations
         .filter((a) => a.supplier_payment_id === r.id)
         .map((a) => ({ supplierInvoiceId: a.supplier_invoice_id, supplierInvoiceNo: a.supplier_invoice_no, amountPesewas: BigInt(a.amount) })),

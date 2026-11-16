@@ -114,11 +114,16 @@ export interface SupplierRemittanceReady {
   readonly externalReference: string;
 }
 
-/** ◆ `pur.SupplierPaymentMade` v1: an approved payment left the farm; B8 debits 2000 and credits the bank or cash account. */
+/**
+ * ◆ `pur.SupplierPaymentMade` v1: an approved payment left the farm; FIN debits 2000 and credits the bank or cash
+ * account. `bankAccountId` (added in B08 continued 1b2, optional, so v1 is unchanged for readers) names the farm's own
+ * account it left from, whose subledger party FIN posts to; null or absent posts as A-185 says.
+ */
 export interface SupplierPaymentMade {
   readonly supplierPaymentId: string;
   readonly supplierId: string;
   readonly method: 'BANK' | 'MOBILE_MONEY' | 'CASH' | 'CHEQUE';
+  readonly bankAccountId?: string | null;
   readonly amountPesewas: number;
   readonly paidAt: string;
   readonly approvalRequestId: string;

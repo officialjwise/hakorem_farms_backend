@@ -10,6 +10,7 @@ import { SubjectKeys } from '../../platform/crypto/subject-keys';
 import { CLOCK } from '../../platform/platform.module';
 import { Settings } from '../../platform/settings/settings';
 import { FileStore } from '../../platform/storage/file-store';
+import { BankAccounts, FinModule } from '../fin';
 import { Approvals, Authoriser, IamModule, PRINCIPAL_NAMES, type PrincipalNames } from '../iam';
 import { InvModule, Stock } from '../inv';
 import { MasterDataRefs, MdmModule, TaxService } from '../mdm';
@@ -33,7 +34,7 @@ import { SupplierRegisterController } from './interface/supplier-register.contro
  * different person's approval, documents) and requisitions converted into purchase orders. Master data and tax come from MDM, approvals from IAM; stock is INV's alone.
  */
 @Module({
-  imports: [IamModule, MdmModule, InvModule],
+  imports: [IamModule, MdmModule, FinModule, InvModule],
   controllers: [PurchasingController, SupplierRegisterController],
   providers: [
     { provide: PURCHASING_STORE, useClass: PgPurchasingStore },
@@ -100,10 +101,11 @@ import { SupplierRegisterController } from './interface/supplier-register.contro
         events: DomainEvents,
         documents: DocumentRegistry,
         principals: PrincipalNames,
+        bankAccounts: BankAccounts,
         cursors: Cursors,
         clock: Clock,
-      ) => new SupplierPayments(uow, store, register, refs, approvals, authoriser, idempotency, audit, events, documents, principals, cursors, clock),
-      inject: [UnitOfWork, PURCHASING_STORE, SUPPLIER_REGISTER_STORE, MasterDataRefs, Approvals, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, PRINCIPAL_NAMES, Cursors, CLOCK],
+      ) => new SupplierPayments(uow, store, register, refs, approvals, authoriser, idempotency, audit, events, documents, principals, bankAccounts, cursors, clock),
+      inject: [UnitOfWork, PURCHASING_STORE, SUPPLIER_REGISTER_STORE, MasterDataRefs, Approvals, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, PRINCIPAL_NAMES, BankAccounts, Cursors, CLOCK],
     },
     {
       provide: Suppliers,

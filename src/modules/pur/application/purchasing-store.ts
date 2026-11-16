@@ -181,6 +181,8 @@ export interface PaymentRecord {
   /** The approved payout change a first payment follows; its maker may not approve the payment (A-171). */
   readonly payoutFirstUseChangeId: string | null;
   readonly payeeMasked: string | null;
+  /** The farm's own account the payment leaves from (A-194); null when none was named (A-185). */
+  readonly bankAccountId: string | null;
   readonly allocations: readonly { readonly supplierInvoiceId: string; readonly supplierInvoiceNo: string; readonly amountPesewas: bigint }[];
 }
 
@@ -191,6 +193,7 @@ export interface PaymentHeader {
   readonly scheduledFor: string | null;
   readonly branchId: string;
   readonly payoutChangeId: string | null;
+  readonly bankAccountId: string | null;
 }
 
 export interface PaymentFilter {
