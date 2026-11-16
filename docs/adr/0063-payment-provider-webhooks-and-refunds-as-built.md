@@ -1,6 +1,6 @@
 # ADR-0063: The payment provider port, webhooks, the provider sweep and refunds as built
 
-- **Status:** Proposed
+- **Status:** Accepted (owner, 2026-11-16)
 - **Date:** 2026-11-16
 - **Session:** B09a continued
 - **Deciders:** backend track; the owner gave the webhook order, the sweep and the refund rule on 2026-11-16; the accountant reviews the two posting rows (A-210)
