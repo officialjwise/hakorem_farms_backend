@@ -316,13 +316,8 @@ describe('a locked period is read from its period balances, exactly as its lines
   });
 
   it('reads a locked period with lines from its balances: a tampered row changes the statement, and the nightly check reports it', async () => {
-    // The period the seeded farm's postings fall in: the one holding today, never a calendar month fixed in the test.
-    const november = (
-      await admin().query<{ id: string; start_date: string; end_date: string }>('SELECT id, start_date::text, end_date::text FROM fin.accounting_period WHERE $1::date BETWEEN start_date AND end_date', [
-        toBusinessDate(clock.now()),
-      ])
-    ).rows[0]!;
-    const range = `from=${november.start_date}&to=${november.end_date}`;
+    const november = (await admin().query<{ id: string }>("SELECT id FROM fin.accounting_period WHERE start_date = '2026-11-01'")).rows[0]!;
+    const range = `from=2026-11-01&to=2026-11-30`;
     const before = await get(accountant, `/finance/trial-balance?${range}&limit=100`);
     expect((await consolePostAs(accountant, `/finance/periods/${november.id}/lock`)).status).toBe(200);
     const { rows } = await admin().query<{ account_code: string; d: string; c: string }>(
@@ -330,7 +325,7 @@ describe('a locked period is read from its period balances, exactly as its lines
          FROM fin.period_balance b JOIN fin.account a ON a.id = b.account_id WHERE b.period_id = $1 GROUP BY a.code ORDER BY a.code`,
       [november.id],
     );
-    const lines = await sqlBalances(november.start_date, november.end_date);
+    const lines = await sqlBalances('2026-11-01', '2026-11-30');
     expect(new Map(rows.map((r) => [r.account_code, BigInt(r.d) - BigInt(r.c)]))).toEqual(lines);
     const locked = await get(accountant, `/finance/trial-balance?${range}&limit=100`);
     expect(locked.body.data).toEqual(before.body.data);

@@ -234,8 +234,9 @@ describe('a run never posts into a locked period, and the next run catches the m
   });
 
   it('refuses a run for a period not yet ended or with nothing left to charge', async () => {
-    // The period holding today has not ended, whatever month the suite runs in.
-    const current = (await admin().query<{ id: string }>('SELECT id FROM fin.accounting_period WHERE $1::date BETWEEN start_date AND end_date', [toBusinessDate(clock.now())])).rows[0]!.id;
+    // The period holding tomorrow has not ended, whatever day the suite runs on (a period may run on its last day).
+    const tomorrow = toBusinessDate(new Date(clock.now().getTime() + 86_400_000));
+    const current = (await admin().query<{ id: string }>('SELECT id FROM fin.accounting_period WHERE $1::date BETWEEN start_date AND end_date', [tomorrow])).rows[0]!.id;
     const unended = await post(accountant, '/finance/depreciation-runs', { periodId: current });
     expect([unended.status, unended.body.error.code, unended.body.error.details[0].code]).toEqual([422, 'DEPRECIATION_RUN_INVALID', 'PERIOD_NOT_ENDED']);
     const february = await post(accountant, '/finance/depreciation-runs', { periodId: await periodId(2) });
