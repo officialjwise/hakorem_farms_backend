@@ -8,11 +8,11 @@ Owner: INV module. The stock movement ledger, tracked stock units, balances, val
 | --- | --- |
 | `inv.apply_movement()` on `AFTER INSERT` of `inv.stock_movement` | The seven steps in ADR-0002: lock the unit, check and move a serial unit's location, check holds, update balances, enforce non-negative stock or raise an exception, protect reserved stock, apply value to the cost pool |
 | `inv.apply_reservation()` on `AFTER INSERT OR UPDATE` of `inv.stock_reservation` | Maintains `stock_balance.reserved_qty` and refuses reserved above on-hand |
-| `inv.pub_stock_on_hand` (view) | Product, stock unit, location, branch, on-hand, reserved, available (nothing of a unit under a hold in force at `platform.app_now()`, the application clock's instant, 0183, ADR-0066) |
+| `inv.pub_stock_on_hand` (view) | Product, stock unit, location, branch, on-hand, reserved, available (nothing of a unit under a hold in force at `platform.app_now()`, the application clock's instant, 0186, ADR-0067) |
 | `inv.pub_stock_value` (view) | Product, stock unit, branch, quantity, value |
 | `inv.pub_movement` (view) | Movements with type, product, locations, quantity, weight, value, document and time; no actor detail |
 | `inv.protect_expired()` on `BEFORE INSERT` of `inv.stock_movement` | A movement type `blocked_when_expired` (sale, offline sale) of a lot whose `expires_on` is before the movement's Africa/Accra date is refused (HK010 `ck_stock_expired`, migration 0064, A-134 (j)) |
-| `inv.pub_reorder_level` (view) | Each live reorder rule with on hand, reserved, held and available stock over the branch's physical stock locations (or the rule's one location; in transit and sites left out), and `at_or_below_reorder_point` and `below_minimum`; a hold is in force at `platform.app_now()` (0183, ADR-0066). Read by RPT's low stock tile (B05x, ADR-0011) and by `StockAlerts` |
+| `inv.pub_reorder_level` (view) | Each live reorder rule with on hand, reserved, held and available stock over the branch's physical stock locations (or the rule's one location; in transit and sites left out), and `at_or_below_reorder_point` and `below_minimum`; a hold is in force at `platform.app_now()` (0186, ADR-0067). Read by RPT's low stock tile (B05x, ADR-0011) and by `StockAlerts` |
 | `inv.pub_goods_receipt` (view) | Each goods receipt's kind, status, branch, location, supplier, `received_at`, `posted_at`, value at cost (the sum of its lines) and line count. Read by RPT's purchases tile (B05x, migration 0068) |
 
 ---
@@ -168,7 +168,7 @@ Standard columns: `DOCUMENT`.
 
 - Partial UNIQUE (`stock_unit_id`) where `status = 'ACTIVE' AND is_exclusive`: one goat cannot be promised twice.
 - Index (`expires_at`) where `status = 'ACTIVE'`, for the expiry job.
-- `inv.check_reservation_place` (BEFORE INSERT, migration 0060): only at a physical location other than in-transit (HK010 `ck_stock_reservation_place`), never of a unit under a hold in force at `platform.app_now()` (`ck_stock_reservation_held`; 0183, ADR-0066). `released_reason` takes up to 500 characters. Ended by `Reservations` and the `reservation-expiry` job (A-144).
+- `inv.check_reservation_place` (BEFORE INSERT, migration 0060): only at a physical location other than in-transit (HK010 `ck_stock_reservation_place`), never of a unit under a hold in force at `platform.app_now()` (`ck_stock_reservation_held`; 0186, ADR-0067). `released_reason` takes up to 500 characters. Ended by `Reservations` and the `reservation-expiry` job (A-144).
 
 ### `inv.stock_hold` · DOCUMENT
 

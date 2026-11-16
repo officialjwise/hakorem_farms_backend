@@ -61,7 +61,7 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B09a continued | `B09a2-payments-provider.md` | `b09a2-payments-provider` | B4 to B12 | Every payment edge case in the brief passes; a webhook is accepted only signed, in its window, unseen and with its amount re-verified; every PAY write refuses the wrong role (built; the session split, A-211) |
 | B09a continued 1b | `B09a2b-payments-reconciliation.md` | `b09a2b-payments-reconciliation` | B4 to B12 | A cheque clears 1130 to 1100 or bounces and reopens its item; a reversal posts the mirror of its journal with a different approver; store credit is never redeemed beyond its balance; the trial balance still sums to zero; every PAY write built refuses the wrong role (built; the session split before settlement and bank reconciliation, A-213) |
 | B09a continued 1c | `B09a2c-payments-settlement.md` | `b09a2c-payments-settlement` | B4 to B12 | A settlement of three payments with a fee posts 1100, 6910 and 1120 exactly and an extra line raises a break; a bank transfer clears only from its matched statement line; a break resolves only through an approved posting; the trial balance still sums to zero; every reconciliation write refuses the wrong role (built; the session split before the refund against a credit note, A-215) |
-| B09a continued 1d | `B09a2d-payments-credit-refunds.md` | `b09a2d-payments-credit-refunds` | B4 to B12 | A refund against a credit note on a paid document posts Dr 1200, never beyond the credit note's amount less what was refunded, held by the database under concurrency, approved by someone other than both makers; a cheque is refunded through a bank payout; the trial balance still sums to zero |
+| B09a continued 1d | `B09a2d-payments-credit-refunds.md` | `b09a2d-payments-credit-refunds` | B4 to B12 | A refund against a credit note on a paid document posts Dr 1200, never beyond the credit note's amount less what was refunded, held by the database under concurrency, approved by someone other than both makers; a cheque is refunded through a bank payout; the trial balance still sums to zero (built, A-216, ADR-0066) |
 | B09a continued 2 | `B09a3-orders-online.md` | `b09a3-orders-online` | B4 to B12 | The order endpoints and online placement post through SalePosting in one transaction; a void needs a supervisor who is not the cashier; a return never exceeds what was sold; the dashboard's sales figures answer exactly; every ORD write refuses the wrong role |
 | B09x | `B09x-contract-requests.md` | `b09x-contract-requests` | B4 to B12 | Every list operation has a named empty example (CR-005) and the seeded role matrix is published in the contract, generated from the IAM seed and checked in CI so it cannot drift (CR-023); no existing shape changes |
 | B9b | `B09b-pos-shifts-offline.md` | `b09b-pos-shifts-offline` | B4 to B12 | Shift close reconciles; 500 queued offline transactions sync exactly once |
@@ -1636,7 +1636,7 @@ reasonable, record in the report what you declined and why, never edit that file
 For this phase, read the ORD (core) requirement block of docs/SRS.md and FR-RPT-001 (nothing else from the SRS),
 docs/data-model/ord.md, the ORD, PAY, BIL and RPT cards in docs/MODULE_BOUNDARIES.md, DOMAIN_MODEL section 7,
 ADR-0010, ADR-0021 and ADR-0026, the abuse cases 1, 3 and 12 in docs/security/THREAT_MODEL.md, and A-149, A-200,
-A-201, A-208, A-209, A-210, A-211, A-212 and A-213 in docs/ASSUMPTIONS.md, ADR-0063 and ADR-0064 (a void's refund is a reversal or a refund to store credit; returns use the refund against a credit note). Load hakorem-pricing, hakorem-money, hakorem-stock, hakorem-ledger,
+A-201, A-208, A-209, A-210, A-211, A-212, A-213 and A-216 in docs/ASSUMPTIONS.md, ADR-0063, ADR-0064 and ADR-0066 (a void's refund is a reversal or a refund to store credit; returns use the refund against a credit note, built in B09a continued 1d). Load hakorem-pricing, hakorem-money, hakorem-stock, hakorem-ledger,
 hakorem-documents, hakorem-security-review, hakorem-endpoint, hakorem-migration and hakorem-tests. Use
 docs/prompts/module-build-prompt.md as the recipe.
 Do not read any other document unless this phase needs it.
@@ -1745,6 +1745,11 @@ account, so they can reclaim the input tax: optional buyer name and TIN on the c
 validated in format, printed on the invoice, and never creating a customer; the walk-in party stays.
 The owner, 2026-11-16 (A-212 (a)): cash enters only through a till shift. Build a customer paying an invoice at the till
 inside the shift, counted at close, and refuse any cash payment outside an open shift, test-first.
+The frontend's CR-031 and CR-032 (planned in contract 1.45.0 by B09a continued 1d): fill OfflineProduct.taxInclusive
+from each product's price list, SyncResultItem.grossPesewas (null when nothing was recorded) and its currency, and the
+pack's CASH_MOVEMENT reason codes; decide CR-032 point 2, the offline PIN verifier (an operation that sets a till
+PIN and the salted verifier the device stores, or a statement in OFFLINE_SYNC.md that the device derives it from the
+PIN typed at an online sign-in), record it as an ADR and answer it in the report.
 Stop at the gate and write docs/sessions/B09b-pos-shifts-offline.md.
 ```
 

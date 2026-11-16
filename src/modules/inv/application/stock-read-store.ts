@@ -92,7 +92,7 @@ export interface OnHandNarrowing {
 export interface StockReadStore {
   /**
    * Balances at physical locations within the scopes, in a stable order (location, product, unit). Holds, and so what
-   * is available, are read at `at`, the application clock's now (ADR-0066); so are a unit's holds below.
+   * is available, are read at `at`, the application clock's now (ADR-0067); so are a unit's holds below.
    */
   onHand(tx: Transaction, filters: OnHandFilters, scopes: readonly ReadScope[], includeZero: boolean, at: Date): Promise<OnHandRow[]>;
   /** The same balances in the asked order (CR-019, ADR-0054), strictly after `position`, each with its own position. */

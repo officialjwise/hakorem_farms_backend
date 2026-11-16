@@ -218,7 +218,7 @@ describe('a withdrawal hold is never released early (FR-INV-022, ADR-0019)', () 
   });
 });
 
-describe("a hold's window is read on the application's clock, not the database's (ADR-0066)", () => {
+describe("a hold's window is read on the application's clock, not the database's (ADR-0067)", () => {
   const goat = () => id('unit:G-0144');
   let reorderRuleId: string;
   let endsAt: Date;

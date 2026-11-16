@@ -375,7 +375,7 @@ describe('overpayment, underpayment and partial payment allocate exactly (FR-PAY
     ]);
     expect((await balanceOf(database, '2200', 'Tema Cold Store Ltd (SEED)')) - depositBefore).toBe(100_000);
     const doc = await get('accountant', `/billing-documents/${invoice.id}`);
-    // Settled and as of the application clock's instant, never the database's (ADR-0066).
+    // Settled and as of the application clock's instant, never the database's (ADR-0067).
     expect(doc.body.settlement).toMatchObject({ allocatedPesewas: 100_000, outstandingPesewas: 0, paymentStatus: 'PAID', settledAt: allocatedAt, asOf: allocatedAt });
     ids.set('overpayment', paymentId);
   });

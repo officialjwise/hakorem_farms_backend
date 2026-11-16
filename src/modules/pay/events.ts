@@ -133,6 +133,9 @@ export interface RefundRequested {
   readonly amountPesewas: number;
   readonly approvalRequestId: string;
   readonly requestedBy: string;
+  /** The credit note it draws on, and who raised it, for the refund report (abuse case 12, ADR-0066). */
+  readonly creditNoteId: string | null;
+  readonly creditNoteMakerId: string | null;
   readonly abuseCases: readonly number[];
 }
 
@@ -151,6 +154,10 @@ export interface RefundPaid {
   readonly register: RegisterRefPayload | null;
   readonly provider: string | null;
   readonly paidBy: 'PROVIDER' | 'MANUAL' | 'STORE_CREDIT';
+  /** The credit note the refund draws on: FIN posts it out of receivables (Dr 1200) rather than deposit (ADR-0066). */
+  readonly creditNoteId: string | null;
+  /** A cheque's bank payout (tender `BANK_TRANSFER`): the bank account it leaves from, the cheque's own. */
+  readonly bankAccountId: string | null;
 }
 
 /** `pay.RefundFailed` v1: a provider refund attempt failed; `exhausted` when it now waits for a person. */

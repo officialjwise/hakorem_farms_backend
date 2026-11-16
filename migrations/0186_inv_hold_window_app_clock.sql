@@ -1,6 +1,6 @@
--- 0183_inv_hold_window_app_clock
--- B09t (owner, 2026-11-16; ADR-0066, A-216): a hold "in force now" is in force at the application's clock. The three
--- rules that read the hold window against the database's `now()` read `platform.app_now()` (0182) instead, unchanged
+-- 0186_inv_hold_window_app_clock
+-- B09t (owner, 2026-11-16; ADR-0067, A-217): a hold "in force now" is in force at the application's clock. The three
+-- rules that read the hold window against the database's `now()` read `platform.app_now()` (0185) instead, unchanged
 -- otherwise:
 --   inv.pub_stock_on_hand.available_qty    nothing is available of a unit under a hold in force (0044)
 --   inv.pub_reorder_level.held_qty         a held unit's positive on hand counts as held (0064)

@@ -452,7 +452,7 @@ describe('the device list and forced logout (ADR-0016, FR-IAM-016)', () => {
     expect(refused.body.error.details[0].field).toBe('/cursor');
   });
 
-  it('lists a session as active until its absolute end by the application clock, whatever the database clock says (ADR-0066)', async () => {
+  it('lists a session as active until its absolute end by the application clock, whatever the database clock says (ADR-0067)', async () => {
     const cashier = await createUser(database, { name: 'Akua Sarpong', grants: [{ role: 'CASHIER', branchId: dodowa.branchId }] });
     const session = await login(api.server, cashier, 'Shop till tablet');
     const phone = await login(api.server, cashier, 'Akua phone');

@@ -230,7 +230,7 @@ describe('the unit of work (ADR-0005)', () => {
   });
 });
 
-describe("the application's clock inside the database (ADR-0066)", () => {
+describe("the application's clock inside the database (ADR-0067)", () => {
   const instant = new Date('2031-12-31T23:59:59.250Z');
   const appNow = (tx: Transaction) => tx.query<{ app_now: Date; db_now: boolean }>('SELECT platform.app_now() AS app_now, platform.app_now() = now() AS db_now');
 

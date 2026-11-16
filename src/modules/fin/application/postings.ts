@@ -305,10 +305,11 @@ export class LedgerPostings {
     };
   }
 
-  /** PAY's ◆ event (A-210): a refund paid out of the deposit to the original tender. */
+  /** PAY's ◆ event (A-210, ADR-0066): a refund paid out of the deposit, or of receivables against a credit note, to the original tender or a bank payout. */
   private async refundPaid(tx: Transaction, payload: RefundPaidPosting): Promise<Translated> {
+    const bankAccount = payload.bankAccountId === undefined || payload.bankAccountId === null || payload.methodKind !== 'BANK_TRANSFER' ? null : await this.bankAccounts.subledgerRefIn(tx, payload.bankAccountId);
     return {
-      amounts: refundPaidAmounts(payload, await this.customerOf(tx, payload.customerId, `refund ${payload.refundId}`)),
+      amounts: refundPaidAmounts(payload, await this.customerOf(tx, payload.customerId, `refund ${payload.refundId}`), bankAccount),
       sourceDocumentId: payload.refundId,
       eventSubjectId: payload.refundId,
       branchId: payload.branchId,
@@ -438,6 +439,10 @@ interface RefundPaidPosting {
   readonly methodKind: string;
   readonly register: { readonly id: string; readonly code: string } | null;
   readonly provider: string | null;
+  /** The credit note a refund draws on (Dr 1200), or null for a refund out of deposit (Dr 2200). */
+  readonly creditNoteId?: string | null;
+  /** The bank account a bank payout leaves from (tender `BANK_TRANSFER`). */
+  readonly bankAccountId?: string | null;
 }
 
 /** The fields of PAY's `pay.ChequeCleared` FIN reads. */

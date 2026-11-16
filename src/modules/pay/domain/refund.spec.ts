@@ -1,6 +1,6 @@
 import { Money } from '@hakorem/kernel';
 import { describe, expect, it } from 'vitest';
-import { judgeRefund, judgeStoredRefund, nextRefundAttempt, REFUND_MAX_ATTEMPTS, refundableOf, refundLeftOf, type RefundablePayment } from './refund';
+import { judgeRefund, judgeStoredRefund, nextRefundAttempt, REFUND_MAX_ATTEMPTS, refundableOf, refundLeftOf, type CreditNoteFacts, type RefundablePayment } from './refund';
 
 const cleared = (kind: RefundablePayment['methodKind'], amount: bigint, allocated = 0n, refunded = 0n): RefundablePayment => ({
   status: 'CLEARED',
@@ -63,13 +63,69 @@ describe('a refund request (FR-PAY-012, abuse case 12)', () => {
     expect(judgeRefund({ ...cleared('MOBILE_MONEY', 6_000n), customerHasPhone: false }, Money.ofPesewas(6_000n), 'ORIGINAL_METHOD')).toEqual({ ok: true, value: { route: 'PROVIDER' } });
   });
 
-  it('refuses a cheque back to its original method: a bank payout is built with reconciliation (A-213)', () => {
-    expect(judgeRefund(cleared('CHEQUE', 6_000n), Money.ofPesewas(6_000n), 'ORIGINAL_METHOD')).toEqual({ ok: false, error: ['DESTINATION_NOT_AVAILABLE'] });
+  it('pays a cheque back to its original method through a bank payout, paid by hand with its reference (ADR-0066)', () => {
+    expect(judgeRefund(cleared('CHEQUE', 6_000n), Money.ofPesewas(6_000n), 'ORIGINAL_METHOD')).toEqual({ ok: true, value: { route: 'BANK_PAYOUT' } });
     expect(judgeRefund(cleared('CHEQUE', 6_000n), Money.ofPesewas(6_000n), 'STORE_CREDIT')).toEqual({ ok: true, value: { route: 'STORE_CREDIT' } });
+    expect(judgeRefund(cleared('CHEQUE', 6_000n), Money.ofPesewas(6_000n), 'CASH')).toEqual({ ok: false, error: ['DESTINATION_NOT_AVAILABLE'] });
   });
 
   it('names every refusal at once', () => {
     expect(judgeRefund({ ...cleared('MOBILE_MONEY', 1n), status: 'FAILED', hasCustomer: false }, Money.ofPesewas(2n), 'STORE_CREDIT')).toEqual({ ok: false, error: ['PAYMENT_NOT_CLEARED', 'REFUND_EXCEEDS_PAYMENT', 'DESTINATION_NOT_AVAILABLE'] });
+  });
+});
+
+describe('a refund against a credit note on a paid document (FR-PAY-012, FR-BIL-007, ADR-0066)', () => {
+  // An invoice of 86,240 paid in full by one payment, then credited 30,000: the payment has nothing unallocated, and the
+  // credit note leaves 30,000 owed back to the customer.
+  const paid = cleared('MOBILE_MONEY', 86_240n, 86_240n);
+  const note = (left: bigint, paidByPayment = 86_240n, over: Partial<CreditNoteFacts> = {}): CreditNoteFacts => ({
+    issued: true,
+    matchesPayment: true,
+    left: Money.ofPesewas(left),
+    paidByPayment: Money.ofPesewas(paidByPayment),
+    ...over,
+  });
+
+  it('draws on the credit note, not on the payment\'s unallocated money: 30,000 of a fully allocated payment', () => {
+    expect(judgeRefund(paid, Money.ofPesewas(30_000n), 'ORIGINAL_METHOD', note(30_000n))).toEqual({ ok: true, value: { route: 'PROVIDER' } });
+    expect(judgeRefund(paid, Money.ofPesewas(30_000n), 'ORIGINAL_METHOD')).toEqual({ ok: false, error: ['REFUND_EXCEEDS_PAYMENT'] });
+  });
+
+  it('never exceeds the credit note\'s amount less what was already refunded against it: one pesewa over is refused', () => {
+    expect(judgeRefund(paid, Money.ofPesewas(20_000n), 'ORIGINAL_METHOD', note(20_000n))).toEqual({ ok: true, value: { route: 'PROVIDER' } });
+    expect(judgeRefund(paid, Money.ofPesewas(20_001n), 'ORIGINAL_METHOD', note(20_000n))).toEqual({ ok: false, error: ['REFUND_EXCEEDS_CREDIT_NOTE'] });
+    expect(judgeRefund(paid, Money.ofPesewas(1n), 'ORIGINAL_METHOD', note(0n))).toEqual({ ok: false, error: ['REFUND_EXCEEDS_CREDIT_NOTE'] });
+  });
+
+  it('goes back only through a payment that paid the credited document, and never more than it paid there', () => {
+    expect(judgeRefund(paid, Money.ofPesewas(10_001n), 'ORIGINAL_METHOD', note(30_000n, 10_000n))).toEqual({ ok: false, error: ['REFUND_EXCEEDS_PAYMENT'] });
+    expect(judgeRefund(paid, Money.ofPesewas(10_000n), 'ORIGINAL_METHOD', note(30_000n, 10_000n))).toEqual({ ok: true, value: { route: 'PROVIDER' } });
+    expect(judgeRefund(paid, Money.ofPesewas(1n), 'ORIGINAL_METHOD', note(30_000n, 0n))).toEqual({ ok: false, error: ['REFUND_EXCEEDS_PAYMENT'] });
+  });
+
+  it('refuses a credit note that is not issued, or is another customer\'s or another branch\'s', () => {
+    expect(judgeRefund(paid, Money.ofPesewas(1n), 'ORIGINAL_METHOD', note(30_000n, 86_240n, { issued: false }))).toEqual({ ok: false, error: ['CREDIT_NOTE_NOT_AVAILABLE'] });
+    expect(judgeRefund(paid, Money.ofPesewas(1n), 'ORIGINAL_METHOD', note(30_000n, 86_240n, { matchesPayment: false }))).toEqual({ ok: false, error: ['CREDIT_NOTE_NOT_AVAILABLE'] });
+  });
+
+  it('pays a cheque\'s credit back through a bank payout and keeps the store credit rules', () => {
+    expect(judgeRefund(cleared('CHEQUE', 86_240n, 86_240n), Money.ofPesewas(30_000n), 'ORIGINAL_METHOD', note(30_000n))).toEqual({ ok: true, value: { route: 'BANK_PAYOUT' } });
+    expect(judgeRefund({ ...paid, customerHasPhone: false }, Money.ofPesewas(30_000n), 'STORE_CREDIT', note(30_000n))).toEqual({ ok: false, error: ['STORE_CREDIT_NEEDS_PHONE'] });
+    expect(judgeRefund({ ...paid, hasCustomer: false }, Money.ofPesewas(30_000n), 'STORE_CREDIT', note(30_000n))).toEqual({ ok: false, error: ['DESTINATION_NOT_AVAILABLE'] });
+  });
+
+  it('names every refusal at once', () => {
+    expect(judgeRefund({ ...paid, status: 'REVERSED' }, Money.ofPesewas(0n), 'CASH', note(30_000n, 86_240n, { issued: false }))).toEqual({
+      ok: false,
+      error: ['AMOUNT_NOT_POSITIVE', 'PAYMENT_NOT_CLEARED', 'CREDIT_NOTE_NOT_AVAILABLE', 'DESTINATION_NOT_AVAILABLE'],
+    });
+  });
+
+  it('judges a stored payment and credit note in integer pesewas', () => {
+    const stored = { status: 'CLEARED' as const, methodKind: 'CASH' as const, amountPesewas: 86_240n, allocatedPesewas: 86_240n, refundedPesewas: 0n };
+    const facts = { issued: true, matchesPayment: true, leftPesewas: 30_000n, paidByPaymentPesewas: 86_240n };
+    expect(judgeStoredRefund(stored, 30_000n, 'ORIGINAL_METHOD', facts)).toEqual({ ok: true, value: { route: 'MANUAL' } });
+    expect(judgeStoredRefund(stored, 30_001n, 'ORIGINAL_METHOD', facts)).toEqual({ ok: false, error: ['REFUND_EXCEEDS_CREDIT_NOTE'] });
   });
 });
 

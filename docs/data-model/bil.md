@@ -130,7 +130,9 @@ What has been paid and credited on each issued document, so an invoice screen ne
 | `settled_at` | `timestamptz` | NULL | When outstanding reached zero |
 | `as_of` | `timestamptz` | NOT NULL | Time of the last event applied |
 
-An allocation reaches the row only through `bil.apply_settlement(document, amount, direction, at)` (0184), which `Billing.settleIn` calls with the application clock's instant: `settled_at` and `as_of` are that instant, never the database's `now()` (ADR-0066). 0161's three-argument form remains for one release and delegates with `platform.app_now()`.
+**As built in B09a continued 1d (migration 0182, A-216, ADR-0066):** `bil.document_settlement` adds `refunded_pesewas` (refunds asked for against the document's credit notes, or on a credit note against it, and not rejected) and `refundable_pesewas` (what an invoice or receipt owes back: its gross less credited less allocated plus refunded, when below zero; outstanding is that balance when above). A credit note beyond what is outstanding is therefore issued. `bil.apply_settlement` refuses an allocation to a document that owes the customer money. Published for PAY's refund triggers (ADR-0047): `bil.credit_note_refund(id, amount, HOLD | RELEASE)` under the credit note's row lock (`ck_credit_note_refund_cap`; executable only by its owner) and `bil.credit_note_facts(id)` (original, customer, branch, maker; read only).
+
+An allocation reaches the row only through `bil.apply_settlement(document, amount, direction, at)` (0187), which `Billing.settleIn` calls with the application clock's instant: `settled_at` and `as_of` are that instant, never the database's `now()` (ADR-0067). The three-argument form remains for one release and delegates with `platform.app_now()`.
 
 ### `bil.pub_document` · view
 

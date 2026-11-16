@@ -82,6 +82,10 @@ export interface SettlementRecord {
   readonly allocatedPesewas: bigint;
   readonly creditedPesewas: bigint;
   readonly outstandingPesewas: bigint;
+  /** Refunds asked for against its credit notes (or, on a credit note, against it) and not rejected (ADR-0066). */
+  readonly refundedPesewas: bigint;
+  /** What an invoice or receipt owes back to the customer once credited beyond what it had outstanding; 0 on a credit note. */
+  readonly refundablePesewas: bigint;
   readonly paymentStatus: 'UNPAID' | 'PART_PAID' | 'PAID' | 'CREDITED' | 'NOT_APPLICABLE';
   readonly settledAt: Date | null;
   readonly asOf: Date;

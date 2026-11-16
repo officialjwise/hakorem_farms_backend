@@ -48,9 +48,12 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
-      '0184_bil_settlement_as_of',
-      '0183_inv_hold_window_app_clock',
-      '0182_platform_app_clock',
+      '0187_bil_settlement_as_of',
+      '0186_inv_hold_window_app_clock',
+      '0185_platform_app_clock',
+      '0184_fin_pay_credit_note_refund_postings',
+      '0183_pay_credit_note_refunds',
+      '0182_bil_credit_note_refunds',
       '0181_fin_pay_settlement_postings',
       '0180_pay_settlement_bank_statements',
       '0179_iam_grant_pay_reconciliation_permissions',

@@ -138,7 +138,7 @@ export class UnitOfWork {
     /**
      * The application's clock. Each attempt writes its instant into the transaction-local setting `hk.app_now` right
      * after BEGIN, which `platform.app_now()` reads for the rules in views and triggers whose "now" decides something
-     * (ADR-0066). Without one, `platform.app_now()` is the database's `now()`.
+     * (ADR-0067). Without one, `platform.app_now()` is the database's `now()`.
      */
     private readonly clock: Clock | null = null,
   ) {}

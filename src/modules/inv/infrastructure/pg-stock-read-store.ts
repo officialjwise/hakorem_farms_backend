@@ -4,7 +4,7 @@ import type { ReadScope } from '../application/goods-receipt-store';
 import type { HoldKind, OnHandFilters, OnHandNarrowing, OnHandRow, PoolRow, StockReadStore, StockUnitFilters, StockUnitRow } from '../application/stock-read-store';
 
 /**
- * The holds covering a unit at the instant bound to `at` (the application clock's now, ADR-0066): unreleased, started,
+ * The holds covering a unit at the instant bound to `at` (the application clock's now, ADR-0067): unreleased, started,
  * not yet ended. `inv.pub_stock_on_hand` reads the same window at `platform.app_now()`, the same instant.
  */
 const activeHold = (at: string) => `h.released_at IS NULL AND h.starts_at <= ${at}::timestamptz AND (h.ends_at IS NULL OR h.ends_at > ${at}::timestamptz)`;
