@@ -318,22 +318,30 @@ describe('a locked period is read from its period balances, exactly as its lines
   });
 
   it('reads a locked period with lines from its balances: a tampered row changes the statement, and the nightly check reports it', async () => {
-    const november = (await admin().query<{ id: string }>("SELECT id FROM fin.accounting_period WHERE start_date = '2026-11-01'")).rows[0]!;
-    const range = `from=2026-11-01&to=2026-11-30`;
+    // The period that holds the seeded farm's 6800 posting (Kpone's transport, on the seeded day), whatever month the
+    // suite runs in (B09t2): that is the row tampered below.
+    const seededPeriod = (
+      await admin().query<{ id: string; start_date: string; end_date: string }>(
+        `SELECT p.id, p.start_date::text, p.end_date::text FROM fin.accounting_period p
+          WHERE p.start_date <= $1::date AND p.end_date >= $1::date`,
+        [(await admin().query<{ d: string }>("SELECT min(l.posting_date)::text AS d FROM fin.journal_line l JOIN fin.account a ON a.id = l.account_id WHERE a.code = '6800' AND l.branch_id = $1", [branchId])).rows[0]!.d],
+      )
+    ).rows[0]!;
+    const range = `from=${seededPeriod.start_date}&to=${seededPeriod.end_date}`;
     const before = await get(accountant, `/finance/trial-balance?${range}&limit=100`);
-    expect((await consolePostAs(accountant, `/finance/periods/${november.id}/lock`)).status).toBe(200);
+    expect((await consolePostAs(accountant, `/finance/periods/${seededPeriod.id}/lock`)).status).toBe(200);
     const { rows } = await admin().query<{ account_code: string; d: string; c: string }>(
       `SELECT a.code AS account_code, sum(b.debit_total_pesewas)::text AS d, sum(b.credit_total_pesewas)::text AS c
          FROM fin.period_balance b JOIN fin.account a ON a.id = b.account_id WHERE b.period_id = $1 GROUP BY a.code ORDER BY a.code`,
-      [november.id],
+      [seededPeriod.id],
     );
-    const lines = await sqlBalances('2026-11-01', '2026-11-30');
+    const lines = await sqlBalances(seededPeriod.start_date, seededPeriod.end_date);
     expect(new Map(rows.map((r) => [r.account_code, BigInt(r.d) - BigInt(r.c)]))).toEqual(lines);
     const locked = await get(accountant, `/finance/trial-balance?${range}&limit=100`);
     expect(locked.body.data).toEqual(before.body.data);
     expect(locked.body.totalDebitPesewas).toBe(before.body.totalDebitPesewas);
     // A superuser's edit of the projection shows the statement reads it, and is reported, never corrected.
-    await admin().query("UPDATE fin.period_balance SET debit_total_pesewas = debit_total_pesewas + 1 WHERE period_id = $1 AND account_id = (SELECT id FROM fin.account WHERE code = '6800')", [november.id]);
+    await admin().query("UPDATE fin.period_balance SET debit_total_pesewas = debit_total_pesewas + 1 WHERE period_id = $1 AND account_id = (SELECT id FROM fin.account WHERE code = '6800')", [seededPeriod.id]);
     const tampered = await get(accountant, `/finance/trial-balance?${range}&limit=100`);
     expect(tampered.body.totalDebitPesewas).toBe(before.body.totalDebitPesewas + 1);
     expect(tampered.body.balanced).toBe(false);
@@ -344,10 +352,10 @@ describe('a locked period is read from its period balances, exactly as its lines
     const account6800 = (await admin().query<{ id: string }>("SELECT id FROM fin.account WHERE code = '6800'")).rows[0]!.id;
     expect(report.periodBalanceDrift).toHaveLength(1);
     const drift = report.periodBalanceDrift[0]!;
-    expect([drift.periodId, drift.accountId, drift.branchId]).toEqual([november.id, account6800, branchId]);
+    expect([drift.periodId, drift.accountId, drift.branchId]).toEqual([seededPeriod.id, account6800, branchId]);
     expect(drift.projectedDebitPesewas - drift.lineDebitPesewas).toBe(1n);
     expect(drift.projectedCreditPesewas).toBe(drift.lineCreditPesewas);
-    await admin().query("UPDATE fin.period_balance SET debit_total_pesewas = debit_total_pesewas - 1 WHERE period_id = $1 AND account_id = (SELECT id FROM fin.account WHERE code = '6800')", [november.id]);
+    await admin().query("UPDATE fin.period_balance SET debit_total_pesewas = debit_total_pesewas - 1 WHERE period_id = $1 AND account_id = (SELECT id FROM fin.account WHERE code = '6800')", [seededPeriod.id]);
   });
 });
 
