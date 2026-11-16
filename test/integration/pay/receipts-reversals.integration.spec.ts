@@ -184,6 +184,8 @@ describe('a cheque is received PENDING in 1130 and clears into the bank (FR-PAY-
 
   it('bounces a cheque on a different person’s approval with step-up: FAILED, the mirror posted, the 100,000 item open again', async () => {
     ids.set('inv2', await invoice(100_000n));
+    // The day it fell due: the test clock moves on by more than three hours, so read the open item as of that day.
+    const issuedOn = today();
     const body = cheque(100_000, [{ billingDocumentId: id('inv2'), amountPesewas: 100_000 }]);
     expect((await post('accountant', '/payments', body)).status).toBe(201);
     ids.set('cheque2', body.id);
@@ -222,7 +224,7 @@ describe('a cheque is received PENDING in 1130 and clears into the bank (FR-PAY-
     expect(view.body.allocations.map((a: { direction: string; amountPesewas: number }) => [a.direction, a.amountPesewas])).toEqual([['APPLY', 100_000], ['UNAPPLY', 100_000]]);
     const mirror = await get('accountant', `/payments/${reversing}`);
     expect(mirror.body).toMatchObject({ status: 'REVERSED', reversesPaymentId: body.id, amountPesewas: 100_000, unallocatedPesewas: 0 });
-    const open = await get('accountant', `/receivables/open-items?customerId=${id('tema')}`);
+    const open = await get('accountant', `/receivables/open-items?customerId=${id('tema')}&asOf=${issuedOn}`);
     expect(open.body.data.find((i: { billingDocument: { id: string } }) => i.billingDocument.id === id('inv2'))).toMatchObject({ grossPesewas: 100_000, allocatedPesewas: 0, outstandingPesewas: 100_000, daysOverdue: 0 });
   });
 
