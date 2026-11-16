@@ -11,7 +11,7 @@ Last reviewed: 2026-11-16 (B8: `ledger-reconcile`). Severity: Critical when a jo
 | Job (time, Accra) | Compares | On a difference |
 | --- | --- | --- |
 | `stock-balance-recompute` (02:00) | Every `inv.stock_balance` and `inv.cost_pool` row with the movement ledger | Alert; `inv.stock_exception` of kind `BALANCE_DRIFT` (see `stock-balance-drift.md`) |
-| `ledger-reconcile` (02:15; B8 runs the planned `trial-balance-check`, `subledger-reconcile` and `numbering-check` as this one job, A-187) | Total debits equal total credits overall and per entry; each control account with its registered subledger (B8: inventory accounts with cost pools, summed across branches; receivables, provider clearing, tills and drivers join with their modules); every number series contiguous | Alert; `fin.TrialBalanceDriftDetected` with the unbalanced entries, each control break with both figures, and the series with gaps. Read them in `platform.job_run.summary` and the event's payload |
+| `ledger-reconcile` (02:15; B8 runs the planned `trial-balance-check`, `subledger-reconcile` and `numbering-check` as this one job, A-187) | Total debits equal total credits overall and per entry; each control account with its registered subledger (B8: inventory accounts with cost pools, summed across branches; receivables, provider clearing, tills and drivers join with their modules); every number series contiguous; from B08 continued 1c each LOCKED or CLOSED period's `fin.period_balance` rows equal its lines (it first refreshes the open periods' rows, ADR-0058) | Alert; `fin.TrialBalanceDriftDetected` with the unbalanced entries, each control break with both figures, the series with gaps and each period balance that differs (`periodBalanceDrift`). Read them in `platform.job_run.summary` and the event's payload |
 | `settlement-match` (02:45) | Imported provider settlement lines with recorded payments | `pay.reconciliation_break` rows |
 | `audit-verify` (03:10) | Hash chain, gaps, head against the anchor | See `audit-chain-integrity.md` |
 | `projection-compare` (03:30) | Key totals in `rpt` against the modules of record | Alert; `rpt.ProjectionDriftDetected` |
@@ -104,6 +104,10 @@ Every resolution carries a note, and the resolving user is recorded. The maker o
 ## E. Projection drift
 
 `rpt` and `cst` hold read models fed by events. The books are not wrong; the report is. Find the projector that lags or errs (`queue-backlog.md`), fix the cause, and rebuild the projection from events with the projector's rebuild command (specified in B11 and B12 for each projection). Re-run `projection-compare` and confirm `SUCCESS`. Until then, figures of record come from the module that owns them (the ledger, the stock ledger), and the owner is told the dashboard may be stale.
+
+## E2. Period balance drift (the ledger's own projection, ADR-0058)
+
+`periodBalanceDrift` names a locked or closed period, an account and a branch whose `fin.period_balance` totals differ from the journal lines of that period. The lines are the record; the statements of ranges covering that period read the projection and are wrong until it is fixed. Nothing writes the projection but `fin.refresh_period_balance()`, so a difference means someone wrote it by hand (a superuser) or the function changed. Diagnose: `SELECT * FROM platform.audit_event` and the database log for writes to `fin.period_balance`; compare `SELECT account_id, sum(debit_total_pesewas), sum(credit_total_pesewas) FROM fin.period_balance WHERE period_id = $1 GROUP BY 1` with the same sums over `fin.journal_line` joined to `fin.journal_entry` on `period_id`. Fix, after the evidence is captured (`incident-response.md`): as the migrator, `SELECT fin.refresh_period_balance('<period id>')` for that period only; re-run `ledger-reconcile` and confirm `SUCCESS`. Never edit a journal line to match the projection.
 
 ## F. The job failed
 
