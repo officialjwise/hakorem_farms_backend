@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.35.0"
+  version: "1.36.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -37360,7 +37360,7 @@ paths:
       tags:
         - pur
       summary: "Prepare a supplier payment"
-      description: "Prepares a payment as DRAFT, its amount the sum of its allocations (FR-PUR-012). Each allocation is to an APPROVED invoice of the same supplier that matched or needed no match, and never more than the invoice has left after other live payments and its credit notes not cancelled (1.30.0), and an invoice approved on a variance (`VARIANCE_APPROVED`) may be paid: paying 110,000 across invoices of 60,000 and 50,000 allocates exactly, and 60,001 against the first is 422 `ALLOCATION_EXCEEDS_AVAILABLE`. An unmatched invoice is 422 `THREE_WAY_MATCH_FAILED` (FR-PUR-010), and the database refuses the allocation too. Other refusals are 422 `SUPPLIER_PAYMENT_INVALID`: `NO_ALLOCATIONS`, `OTHER_SUPPLIER`, `DUPLICATE_INVOICE`, `NOT_APPROVED`, `BRANCH_DIFFERS`, `BANK_ACCOUNT_NOT_AVAILABLE` (`bankAccountId` is taken once bank accounts exist, B8), and `PAYOUT_DETAILS_MISSING` or `PAYOUT_METHOD_DIFFERS` (1.29.0): a bank or mobile money payment pays the supplier's approved payout details of that method in force now, fixed on the payment as `payeeDetailsMasked`; a change still waiting for approval is never used (FR-PUR-002).\n\nPermission: `pur.supplier_payment.create`."
+      description: "Prepares a payment as DRAFT, its amount the sum of its allocations (FR-PUR-012). Each allocation is to an APPROVED invoice of the same supplier that matched or needed no match, and never more than the invoice has left after other live payments and its credit notes not cancelled (1.30.0), and an invoice approved on a variance (`VARIANCE_APPROVED`) may be paid: paying 110,000 across invoices of 60,000 and 50,000 allocates exactly, and 60,001 against the first is 422 `ALLOCATION_EXCEEDS_AVAILABLE`. An unmatched invoice is 422 `THREE_WAY_MATCH_FAILED` (FR-PUR-010), and the database refuses the allocation too. Other refusals are 422 `SUPPLIER_PAYMENT_INVALID`: `NO_ALLOCATIONS`, `OTHER_SUPPLIER`, `DUPLICATE_INVOICE`, `NOT_APPROVED`, `BRANCH_DIFFERS`, `BANK_ACCOUNT_NOT_AVAILABLE` (the optional `bankAccountId`, the farm's own account the payment leaves from, must be an active account of the method's kind: a bank for `BANK` and `CHEQUE`, a wallet for `MOBILE_MONEY`, none for `CASH`; the ledger then credits that account's own subledger party, and a payment that names none posts to the \"Bank account not yet named\" party, A-185, A-194, 1.36.0), and `PAYOUT_DETAILS_MISSING` or `PAYOUT_METHOD_DIFFERS` (1.29.0): a bank or mobile money payment pays the supplier's approved payout details of that method in force now, fixed on the payment as `payeeDetailsMasked`; a change still waiting for approval is never used (FR-PUR-002).\n\nPermission: `pur.supplier_payment.create`."
       x-permission: pur.supplier_payment.create
       x-error-codes:
         - VALIDATION_FAILED
@@ -38222,8 +38222,13 @@ paths:
       tags:
         - fin
       summary: "List the business's bank accounts and wallets"
-      description: "Permission: `fin.bank_account.read`."
+      description: "The farm's own bank accounts and mobile money wallets, active and inactive, ordered by name (ADR-0057). Each number is shown only as `accountNoLast4`: the full number is stored encrypted and never leaves the ledger module in any response. Each account posts to its `glAccount` (1100 for a bank, 1110 for a wallet) against its own subledger party (A-194).\n\nPermission: `fin.bank_account.read`."
       x-permission: fin.bank_account.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - RATE_LIMITED
       parameters:
         - name: cursor
           in: query
@@ -38329,9 +38334,22 @@ paths:
       tags:
         - fin
       summary: "Add a bank account or wallet"
-      description: "Permission: `fin.bank_account.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      description: "Adds one of the business's own accounts (ADR-0057, A-194). `accountNo` is stored encrypted with a data key of its own and is never returned: the response, the audit trail and every log show only `accountNoLast4`. A bank account number is 6 to 20 digits (spaces and dashes are dropped); a wallet number is a Ghana mobile number, +233 and nine digits or 0 and nine digits, kept as +233. The account posts to 1100 (`BANK`) or 1110 (`MOBILE_MONEY`), chosen by its kind, against its own new subledger party. Refusals are 422 `BANK_ACCOUNT_INVALID` with `details[].code` (`ACCOUNT_NUMBER_INVALID`, `MOMO_NUMBER_INVALID`, `NAME_TAKEN`) or 422 `REFERENCE_NOT_FOUND` for an unknown `branchId`. A wrong number is corrected by adding a new account and deactivating the old one.\n\nPermission: `fin.bank_account.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: fin.bank_account.manage
       x-requires-step-up: true
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - STEP_UP_REQUIRED
+        - TOTP_ENROLMENT_REQUIRED
+        - BANK_ACCOUNT_INVALID
+        - REFERENCE_NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -38360,11 +38378,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/BankAccount"
               example:
-                id: "019a7a92-6491-77d8-bd10-86568cccff34"
+                id: "019a7ad0-fc2b-7a1c-9f54-aa96c8f22374"
                 kind: BANK
-                name: "GCB current account"
-                institution: "GCB Bank"
-                accountNoLast4: "4821"
+                name: "Fidelity savings"
+                institution: "Fidelity Bank"
+                accountNoLast4: "6620"
                 glAccount:
                   id: "019a7ad1-3a09-7de3-b31b-e705bc545fe3"
                   code: "1100"
@@ -38392,8 +38410,23 @@ paths:
       tags:
         - fin
       summary: "Rename or deactivate a bank account"
-      description: "Permission: `fin.bank_account.manage`."
+      description: "Changes the name or `isActive` at the `version` read (409 `VERSION_CONFLICT` otherwise); a deactivated account can be made active again. The kind, the number and the GL account never change: the database refuses it (A-194). A new supplier payment names only an active account (`BANK_ACCOUNT_NOT_AVAILABLE`); one already prepared keeps its account. Step-up is required because the permission requires it (1.36.0). Refusals are 422 `BANK_ACCOUNT_INVALID` (`NAME_TAKEN`).\n\nPermission: `fin.bank_account.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: fin.bank_account.manage
+      x-requires-step-up: true
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - STEP_UP_REQUIRED
+        - TOTP_ENROLMENT_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - BANK_ACCOUNT_INVALID
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path

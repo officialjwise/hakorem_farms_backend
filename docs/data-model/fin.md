@@ -2,7 +2,7 @@
 
 Owner: FIN module. Chart of accounts, journal, posting rules, periods, fixed assets (ADR-0003). Conventions are in `docs/DATA_MODEL.md`.
 
-Built in B8 (migration 0123, ADR-0056): `account`, `subledger_party`, `accounting_period`, `posting_event_type`, `posting_rule`, `account_determination`, `journal_entry`, `journal_line`. A trigger refusal is SQLSTATE HK012 with the rule as its constraint name (`ck_journal_lines`, `ck_journal_balanced`, `ck_journal_period`, `ck_journal_period_open`, `ck_journal_line_entry`, `ck_journal_line_account`, `ck_journal_line_subledger`, `ck_account_change`, `ck_period_change`). B08 continued (A-188, A-189) adds `written_xact_id` on `journal_entry` (migration 0124: an entry written inside a savepoint keeps its own lines), the period lifecycle and close order on `accounting_period` and the table `period_reopen` (0126). B08 continued 1b (migration 0130, A-190, A-191) adds `manual_journal`, `manual_journal_line` and `posting_rule_change`, the `ENTERED` determinant on `posting_rule`, `approval_request_id` on `account_determination` and `ck_journal_entry_manual` on `journal_entry`. `bank_account` follows in B08 continued 1b2 (A-192); `period_balance`, `fixed_asset`, `depreciation_run` and `depreciation_line` in B08 continued 1c.
+Built in B8 (migration 0123, ADR-0056): `account`, `subledger_party`, `accounting_period`, `posting_event_type`, `posting_rule`, `account_determination`, `journal_entry`, `journal_line`. A trigger refusal is SQLSTATE HK012 with the rule as its constraint name (`ck_journal_lines`, `ck_journal_balanced`, `ck_journal_period`, `ck_journal_period_open`, `ck_journal_line_entry`, `ck_journal_line_account`, `ck_journal_line_subledger`, `ck_account_change`, `ck_period_change`). B08 continued (A-188, A-189) adds `written_xact_id` on `journal_entry` (migration 0124: an entry written inside a savepoint keeps its own lines), the period lifecycle and close order on `accounting_period` and the table `period_reopen` (0126). B08 continued 1b (migration 0130, A-190, A-191) adds `manual_journal`, `manual_journal_line` and `posting_rule_change`, the `ENTERED` determinant on `posting_rule`, `approval_request_id` on `account_determination` and `ck_journal_entry_manual` on `journal_entry`. B08 continued 1b2 (migration 0133, ADR-0057, A-193, A-194) adds `bank_account`; `period_balance`, `fixed_asset`, `depreciation_run` and `depreciation_line` in B08 continued 1c.
 
 ## Triggers
 
@@ -40,21 +40,23 @@ Standard columns: `MASTER`. An account with lines is never soft-deleted.
 
 ### `fin.bank_account` · MASTER
 
-The business's own bank accounts and mobile money wallets. Published key.
+The business's own bank accounts and mobile money wallets. Published key. Built in B08 continued 1b2 (migration 0133, ADR-0057, A-193, A-194).
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `id` | `uuid` | PK | |
-| `kind` | `text` | NOT NULL, CHECK in (`BANK`, `MOBILE_MONEY`) | |
-| `name` | `text` | NOT NULL | "GCB current account", "MTN MoMo merchant" |
-| `institution` | `text` | NOT NULL | |
-| `account_no_enc` | `bytea` | NOT NULL | Encrypted |
-| `account_no_last4` | `text` | NOT NULL | For display and matching |
-| `gl_account_id` | `uuid` | NOT NULL, FK `fin.account` | 1100 or 1110 |
+| `kind` | `text` | NOT NULL, CHECK in (`BANK`, `MOBILE_MONEY`) | Never changes |
+| `name` | `text` | NOT NULL, 1 to 120 characters; UNIQUE (`lower(btrim(name))`) among live accounts | "GCB current account", "MTN MoMo merchant" |
+| `institution` | `text` | NOT NULL, 1 to 120 characters | |
+| `account_no_enc` | `bytea` | NOT NULL, more than 29 bytes | RESTRICTED (DC-40): AES-256-GCM under the row's own data key, bound to `fin.bank_account.account_no_enc:<id>` (ADR-0057). A bank number is 6 to 20 digits, a wallet number +233 and nine digits |
+| `account_no_data_key` | `bytea` | NOT NULL, exactly 61 bytes | RESTRICTED: the data key wrapped by the key-encryption key, bound to `fin.bank_account.account_no:<id>` |
+| `account_no_kek_version` | `integer` | NOT NULL, `> 0` | Which key-encryption key wrapped it; a rotation re-wraps the data key and raises this (BL-066) |
+| `account_no_last4` | `text` | NOT NULL, four digits | For display and matching; the only form that leaves FIN |
+| `gl_account_id` | `uuid` | NOT NULL, FK `fin.account` | 1100 for `BANK`, 1110 for `MOBILE_MONEY`, by kind (`ck_bank_account_gl`) |
 | `branch_id` | `uuid` | NULL, FK `mdm.branch` | |
-| `is_active` | `boolean` | NOT NULL DEFAULT `true` | |
+| `is_active` | `boolean` | NOT NULL DEFAULT `true` | Only an active account is named on a new supplier payment |
 
-Standard columns: `MASTER`.
+Standard columns: `MASTER`. Triggers: `fin.bank_account_guard()` (HK012) refuses a GL account that is not the postable, active `BANK_ACCOUNT` control account of the kind (`ck_bank_account_gl`), and any change to the kind, the sealed number, its last four digits or the GL account, a re-wrap without a higher key version, or archiving (`ck_bank_account_change`): a wrong number is a new account. A deferred constraint trigger refuses, at commit, an account without its own `BANK_ACCOUNT` row in `fin.subledger_party` (`ck_bank_account_party`).
 
 ### `fin.subledger_party` · MASTER
 
@@ -68,7 +70,7 @@ Registry of parties that appear on control accounts, so that a journal line's su
 | `display_name` | `text` | NOT NULL | Snapshot for statements |
 | `created_at` | `timestamptz` | NOT NULL DEFAULT `now()` | |
 
-- UNIQUE (`kind`, `ref_id`). Created by the posting handler the first time a party is posted to. Never deleted.
+- UNIQUE (`kind`, `ref_id`). Created by the posting handler the first time a party is posted to, except a bank account's, which is created with the account (A-194). Never deleted.
 
 ### `fin.accounting_period` · DOCUMENT
 

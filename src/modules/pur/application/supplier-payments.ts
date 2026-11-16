@@ -8,6 +8,7 @@ import { NotFoundError } from '../../../platform/errors/api-error';
 import type { DomainEvents } from '../../../platform/events/domain-events';
 import type { Cursors } from '../../../platform/http/cursor';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
+import { judgePayoutAccount, type BankAccounts, type PayoutAccountFacts } from '../../fin';
 import type { ApprovalHandler, ApprovalRecord, Approvals, Authoriser, PrincipalNames } from '../../iam';
 import type { MasterDataRefs } from '../../mdm';
 import { judgePayee } from '../domain/payout-details';
@@ -57,7 +58,8 @@ export interface SupplierPaymentView {
   readonly method: PaymentMethod;
   /** Who the payment pays: the approved payout details in force when it was prepared, masked; null for cash and cheques. */
   readonly payeeDetailsMasked: string | null;
-  readonly bankAccount: null;
+  /** The farm's own account it leaves from, as its last four digits (A-194); null when none was named (A-185). */
+  readonly bankAccount: { readonly id: string; readonly name: string; readonly kind: 'BANK' | 'MOBILE_MONEY'; readonly last4: string } | null;
   readonly amountPesewas: number;
   readonly currency: 'GHS';
   readonly scheduledFor: string | null;
@@ -105,8 +107,14 @@ function paymentHash(payment: PaymentRecord): string {
     amountPesewas: payment.amountPesewas.toString(),
     scheduledFor: payment.scheduledFor,
     allocations: payment.allocations.map((a) => [a.supplierInvoiceId, a.amountPesewas.toString()]),
+    // Only when one is named, so a payment that names none keeps the hash it was approved under (A-194).
+    ...(payment.bankAccountId === null ? {} : { bankAccountId: payment.bankAccountId }),
   };
   return createHash('sha256').update(JSON.stringify(payload)).digest('hex');
+}
+
+function bankAccountRef(account: PayoutAccountFacts): NonNullable<SupplierPaymentView['bankAccount']> {
+  return { id: account.id, name: account.name, kind: account.kind, last4: account.last4 };
 }
 
 /** How a broken allocation rule is answered: a failed three-way match by its own code (FR-PUR-010). */
@@ -141,6 +149,7 @@ export class SupplierPayments implements ApprovalHandler {
     private readonly events: DomainEvents,
     private readonly documents: DocumentRegistry,
     private readonly principals: PrincipalNames,
+    private readonly bankAccounts: BankAccounts,
     readonly cursors: Cursors,
     private readonly clock: Clock,
   ) {
@@ -188,7 +197,11 @@ export class SupplierPayments implements ApprovalHandler {
         return first === null ? {} : { branchId: first.branchId };
       },
       async (tx) => {
-        if (body.bankAccountId !== undefined) throw new SupplierPaymentInvalidError([{ field: '/bankAccountId', rule: 'BANK_ACCOUNT_NOT_AVAILABLE' }]);
+        const bankAccountId = body.bankAccountId ?? null;
+        if (bankAccountId !== null) {
+          const named = (await this.bankAccounts.payoutAccountsIn(tx, [bankAccountId])).get(bankAccountId);
+          if (!judgePayoutAccount(body.method, named ?? 'UNKNOWN').ok) throw new SupplierPaymentInvalidError([{ field: '/bankAccountId', rule: 'BANK_ACCOUNT_NOT_AVAILABLE' }]);
+        }
         if ((await this.refs.suppliersIn(tx, [body.supplierId])).get(body.supplierId) === undefined) throw new PurReferenceNotFoundError(['/supplierId']);
         const invoices = new Map((await this.store.invoices(tx, body.allocations.map((a) => a.supplierInvoiceId))).map((i) => [i.id, i] as const));
         const missing = body.allocations.flatMap((a, i) => (invoices.has(a.supplierInvoiceId) ? [] : [`/allocations/${i}/supplierInvoiceId`]));
@@ -224,7 +237,7 @@ export class SupplierPayments implements ApprovalHandler {
         await this.store.insertPayment(
           tx,
           id,
-          { supplierId: body.supplierId, method: body.method, amountPesewas: judged.value.pesewas, scheduledFor: body.scheduledFor ?? null, branchId, payoutChangeId: payee },
+          { supplierId: body.supplierId, method: body.method, amountPesewas: judged.value.pesewas, scheduledFor: body.scheduledFor ?? null, branchId, payoutChangeId: payee, bankAccountId },
           body.allocations.map((a) => ({ id: this.nextId(), supplierInvoiceId: a.supplierInvoiceId, amountPesewas: BigInt(a.amountPesewas) })),
           actor!.principalId,
         );
@@ -279,6 +292,7 @@ export class SupplierPayments implements ApprovalHandler {
           supplierPaymentId: id,
           supplierId: before.supplierId,
           method: before.method,
+          bankAccountId: before.bankAccountId,
           amountPesewas: pesewas(before.amountPesewas),
           paidAt: paidAt.toISOString(),
           approvalRequestId: before.approvalRequestId!,
@@ -424,6 +438,7 @@ export class SupplierPayments implements ApprovalHandler {
   async views(tx: Transaction, records: readonly PaymentRecord[]): Promise<SupplierPaymentView[]> {
     const suppliers = await this.refs.suppliersIn(tx, records.map((r) => r.supplierId));
     const names = await this.principals.refs(tx, records.map((r) => r.createdBy));
+    const accounts = await this.bankAccounts.payoutAccountsIn(tx, records.flatMap((r) => (r.bankAccountId === null ? [] : [r.bankAccountId])));
     return records.map((r) => ({
       id: r.id,
       paymentNo: r.paymentNo,
@@ -431,7 +446,7 @@ export class SupplierPayments implements ApprovalHandler {
       supplier: supplierRef(suppliers.get(r.supplierId)!),
       method: r.method,
       payeeDetailsMasked: r.payeeMasked,
-      bankAccount: null,
+      bankAccount: r.bankAccountId === null ? null : bankAccountRef(accounts.get(r.bankAccountId)!),
       amountPesewas: pesewas(r.amountPesewas),
       currency: 'GHS' as const,
       scheduledFor: r.scheduledFor,

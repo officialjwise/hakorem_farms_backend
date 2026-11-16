@@ -1,6 +1,7 @@
 import { ApiError, BusinessRuleError } from '../../../platform/errors/api-error';
 import { registerMessages, translate } from '../../../platform/i18n/messages';
 import type { AccountRule } from '../domain/accounts';
+import type { BankAccountRule } from '../domain/bank-account';
 import type { ManualJournalRule } from '../domain/manual-journal';
 import type { ChangeRule } from '../domain/rule-change';
 import type { PostingRefusal } from '../domain/posting';
@@ -20,6 +21,7 @@ registerMessages({
   'fin.opening_already_posted': 'The opening balance journal has already been entered.',
   'fin.posting_rule_invalid': 'This posting rule or account mapping cannot be changed like this.',
   'fin.not_maker': 'Only the person who drafted this journal can change or submit it.',
+  'fin.bank_account_invalid': 'This bank account or wallet cannot be recorded like this.',
 });
 
 /** 422 MANUAL_JOURNAL_INVALID: a manual journal breaks a rule; `details[].code` names each (FR-FIN-004, FR-FIN-008, A-190). */
@@ -64,6 +66,15 @@ export class PostingRuleInvalidError extends BusinessRuleError {
   readonly messageKey = 'fin.posting_rule_invalid';
   constructor(rules: readonly (ChangeRule | { readonly field: string; readonly rule: 'CHANGE_PENDING' })[]) {
     super(`posting rule change breaks ${rules.map((r) => r.rule).join(', ')}`, rules.map((r) => ({ field: r.field, code: r.rule, message: translate('fin.posting_rule_invalid') })));
+  }
+}
+
+/** 422 BANK_ACCOUNT_INVALID: a bank account breaks a rule; `details[].code` names it, never the number (A-194). */
+export class BankAccountInvalidError extends BusinessRuleError {
+  readonly code = 'BANK_ACCOUNT_INVALID';
+  readonly messageKey = 'fin.bank_account_invalid';
+  constructor(rules: readonly BankAccountRule[]) {
+    super(`bank account breaks ${rules.map((r) => r.rule).join(', ')}`, rules.map((r) => ({ field: r.field, code: r.rule, message: translate('fin.bank_account_invalid') })));
   }
 }
 

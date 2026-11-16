@@ -17,6 +17,7 @@ import {
 } from '../domain/event-amounts';
 import type { PostingAmount, SubledgerRef } from '../domain/posting';
 import { postingCatalogueGaps } from '../domain/rule-set';
+import type { BankAccounts } from './bank-accounts';
 import { LedgerCatalogueIncompleteError } from './errors';
 import type { Ledger, PostingRequest } from './ledger';
 import type { LedgerStore } from './ledger-store';
@@ -81,6 +82,7 @@ export class LedgerPostings {
     private readonly store: LedgerStore,
     private readonly refs: MasterDataRefs,
     private readonly documents: DocumentRegistry,
+    private readonly bankAccounts: BankAccounts,
     private readonly clock: Clock,
   ) {
     const stock: Translator = (tx, event) => this.stockMovement(tx, event.payload as unknown as StockPosting);
@@ -222,9 +224,12 @@ export class LedgerPostings {
     };
   }
 
+  /** A payment naming the account it left from posts to that account's own party; one naming none as A-185 says (A-194). */
   private async payment(tx: Transaction, payload: PaymentPosting): Promise<Translated> {
+    const bankAccountId = payload.bankAccountId ?? null;
+    const bankAccount = bankAccountId === null ? null : await this.bankAccounts.subledgerRefIn(tx, bankAccountId);
     return {
-      amounts: supplierPaymentAmounts(payload, await this.supplier(tx, payload.supplierId)),
+      amounts: supplierPaymentAmounts({ ...payload, bankAccount }, await this.supplier(tx, payload.supplierId)),
       sourceDocumentId: payload.supplierPaymentId,
       eventSubjectId: payload.supplierPaymentId,
     };
@@ -268,4 +273,6 @@ interface PaymentPosting {
   readonly supplierId: string;
   readonly method: string;
   readonly amountPesewas: number;
+  /** v1 events published before B08 continued 1b2 carry no such field (A-185). */
+  readonly bankAccountId?: string | null;
 }

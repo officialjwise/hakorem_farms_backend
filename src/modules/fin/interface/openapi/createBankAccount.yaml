@@ -1,0 +1,74 @@
+operationId: createBankAccount
+tags:
+  - fin
+summary: "Add a bank account or wallet"
+description: "Adds one of the business's own accounts (ADR-0057, A-194). `accountNo` is stored encrypted with a data key of its own and is never returned: the response, the audit trail and every log show only `accountNoLast4`. A bank account number is 6 to 20 digits (spaces and dashes are dropped); a wallet number is a Ghana mobile number, +233 and nine digits or 0 and nine digits, kept as +233. The account posts to 1100 (`BANK`) or 1110 (`MOBILE_MONEY`), chosen by its kind, against its own new subledger party. Refusals are 422 `BANK_ACCOUNT_INVALID` with `details[].code` (`ACCOUNT_NUMBER_INVALID`, `MOMO_NUMBER_INVALID`, `NAME_TAKEN`) or 422 `REFERENCE_NOT_FOUND` for an unknown `branchId`. A wrong number is corrected by adding a new account and deactivating the old one.\n\nPermission: `fin.bank_account.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+x-permission: fin.bank_account.manage
+x-requires-step-up: true
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - STEP_UP_REQUIRED
+  - TOTP_ENROLMENT_REQUIRED
+  - BANK_ACCOUNT_INVALID
+  - REFERENCE_NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/BankAccountCreate"
+      example:
+        kind: BANK
+        name: "Fidelity savings"
+        institution: "Fidelity Bank"
+        accountNo: "2040016620"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/BankAccount"
+        example:
+          id: "019a7ad0-fc2b-7a1c-9f54-aa96c8f22374"
+          kind: BANK
+          name: "Fidelity savings"
+          institution: "Fidelity Bank"
+          accountNoLast4: "6620"
+          glAccount:
+            id: "019a7ad1-3a09-7de3-b31b-e705bc545fe3"
+            code: "1100"
+            name: "Bank accounts"
+          branch: null
+          isActive: true
+          version: 1
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -8,7 +8,7 @@ Owner: PUR module. Supplier terms, requisitions, purchase orders, supplier invoi
 - `purchase_order_line` adds `uom` (the unit bought by), `qty_ordered_base` (by MDM's exact conversion), `tax_category_id` and `tax_pesewas`; `qty_ordered` and `unit_price_pesewas` are in `uom`. **`qty_invoiced` is not stored:** it is derived from the base quantities of matched, approved and paid invoices. `ck_purchase_order_line_net` (line net = round(qty x price)) and `ck_purchase_order_line_tolerance` (received within ordered plus tolerance) are checks.
 - `supplier_invoice` adds `stated_gross_pesewas`, `matched_at`, `cancel_reason`, `posted_at`/`posted_by`; the unique number per supplier is a partial index among invoices not cancelled. A deferred trigger holds net, tax and gross to the lines and levy rows, and `paid_pesewas` to the allocations of PAID payments.
 - `supplier_invoice_line` adds `uom`, `qty_base` and `match_reasons text[]`; `supplier_invoice_line_tax` adds `levy_name`, `calculated_amount_pesewas` (beside the amount charged) and `calc_order`.
-- `supplier_payment` has no `bank_account_id` or `remittance_document_id` yet: both arrive with their target tables in B8 (`docs/DATA_MODEL.md`, Migrations).
+- `supplier_payment` has no `bank_account_id` or `remittance_document_id` yet: both arrive with their target tables in B8 (`docs/DATA_MODEL.md`, Migrations). **`bank_account_id` added in B08 continued 1b2** (migration 0134, A-194), optional; `remittance_document_id` follows in B08 continued 2 (A-192).
 - `supplier_payment_allocation` is written when the payment is prepared; allocations of a `REJECTED` or `CANCELLED` payment stop counting. `paid_pesewas` moves by trigger when the payment becomes `PAID`.
 
 
@@ -226,7 +226,7 @@ An outgoing payment to a supplier. Posted statuses: `PAID`, `REJECTED`, `CANCELL
 | `payment_no` | `text` | NULL, UNIQUE | Remittance advice number |
 | `supplier_id` | `uuid` | NOT NULL, FK `mdm.supplier` | |
 | `method` | `text` | NOT NULL, CHECK in (`BANK`, `MOBILE_MONEY`, `CASH`, `CHEQUE`) | |
-| `bank_account_id` | `uuid` | NULL, FK `fin.bank_account`; required unless `CASH` | Where the money leaves from |
+| `bank_account_id` | `uuid` | NULL, FK `fin.bank_account`; NULL for `CASH` (`ck_supplier_payment_bank_account`); never changes once written (HK004) | Where the money leaves from. Optional for the other methods (A-185, A-194): an active account of the method's kind, checked by PUR through FIN's `BankAccounts`; a payment naming none posts to "Bank account not yet named" |
 | `amount_pesewas` | `pesewas` | NOT NULL, CHECK `> 0` | |
 | `scheduled_for` | `date` | NULL | Payment scheduling |
 | `paid_at` | `timestamptz` | NULL | |

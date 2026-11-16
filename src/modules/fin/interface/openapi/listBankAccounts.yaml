@@ -1,0 +1,111 @@
+operationId: listBankAccounts
+tags:
+  - fin
+summary: "List the business's bank accounts and wallets"
+description: "The farm's own bank accounts and mobile money wallets, active and inactive, ordered by name (ADR-0057). Each number is shown only as `accountNoLast4`: the full number is stored encrypted and never leaves the ledger module in any response. Each account posts to its `glAccount` (1100 for a bank, 1110 for a wallet) against its own subledger party (A-194).\n\nPermission: `fin.bank_account.read`."
+x-permission: fin.bank_account.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - RATE_LIMITED
+parameters:
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/BankAccountPage"
+        example:
+          data:
+            - id: "019a7a92-6491-77d8-bd10-86568cccff34"
+              kind: BANK
+              name: "GCB current account"
+              institution: "GCB Bank"
+              accountNoLast4: "4821"
+              glAccount:
+                id: "019a7ad1-3a09-7de3-b31b-e705bc545fe3"
+                code: "1100"
+                name: "Bank accounts"
+              branch: null
+              isActive: true
+              version: 1
+            - id: "019a7a92-8380-71bb-86f4-248e067d9d6b"
+              kind: MOBILE_MONEY
+              name: "MTN MoMo merchant wallet"
+              institution: "MTN Mobile Money"
+              accountNoLast4: "7310"
+              glAccount:
+                id: "019a7ad0-23a2-74e4-aa1c-5712751bcff0"
+                code: "1110"
+                name: "Mobile money wallets"
+              branch: null
+              isActive: true
+              version: 1
+            - id: "019a7ad0-dd3c-7038-8571-0c5f4f41853d"
+              kind: BANK
+              name: "Paystack settlement"
+              institution: "GCB Bank"
+              accountNoLast4: "0912"
+              glAccount:
+                id: "019a7ad1-3a09-7de3-b31b-e705bc545fe3"
+                code: "1100"
+                name: "Bank accounts"
+              branch: null
+              isActive: true
+              version: 1
+            - id: "019a7ad0-fc2b-7a1c-9f54-aa96c8f22374"
+              kind: BANK
+              name: "Fidelity savings"
+              institution: "Fidelity Bank"
+              accountNoLast4: "6620"
+              glAccount:
+                id: "019a7ad1-3a09-7de3-b31b-e705bc545fe3"
+                code: "1100"
+                name: "Bank accounts"
+              branch: null
+              isActive: true
+              version: 1
+            - id: "019a7ad1-1b1a-73ff-a938-48ce42a3c1ac"
+              kind: MOBILE_MONEY
+              name: "Telecel Cash wallet"
+              institution: "Telecel Cash"
+              accountNoLast4: "2284"
+              glAccount:
+                id: "019a7ad0-23a2-74e4-aa1c-5712751bcff0"
+                code: "1110"
+                name: "Mobile money wallets"
+              branch: null
+              isActive: true
+              version: 1
+          page:
+            nextCursor: null
+            limit: 25
+            hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
