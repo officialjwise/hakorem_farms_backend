@@ -158,6 +158,8 @@ export class Refunds {
           status: 'PENDING_APPROVAL',
           branchId: payment.branchId,
           createdBy: actor!.principalId,
+          // The application's instant, not the column default: a payout recorded by hand is checked against it (ADR-0067).
+          createdAt: this.clock.now(),
         });
       } catch (error) {
         const failure = databaseErrorOf(error);

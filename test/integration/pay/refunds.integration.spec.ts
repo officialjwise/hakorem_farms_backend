@@ -337,6 +337,46 @@ describe('every refund write refuses the wrong role, in the handler (ADR-0035)',
   });
 });
 
+describe('a payout recorded by hand is dated against the refund by the application clock (FR-PAY-013, ADR-0067)', () => {
+  it('asks a refund at 23:58 Accra, records its payout after midnight: refused a second before the refund was asked, paid at its own instant', async () => {
+    // The clock moves to the next Accra midnight (UTC, no daylight saving), later than every earlier session's idle end,
+    // so this test logs its own team in after the move. Always forward: two minutes before a midnight still ahead.
+    const DAY = 86_400_000;
+    let midnight = Math.ceil(clock.now().getTime() / DAY) * DAY;
+    if (midnight - clock.now().getTime() < 3 * 60_000) midnight += DAY;
+    clock.set(new Date(midnight - 2 * 60_000));
+    const team: [string, string, string, boolean][] = [
+      ['nightCashier', 'Esi Addo', 'CASHIER', false],
+      ['nightManager', 'Kojo Appiah', 'MANAGER', true],
+      ['nightAccountant', 'Efua Asante', 'ACCOUNTANT', true],
+    ];
+    for (const [who, name, role, privileged] of team) {
+      const user = await createUser(database, { name, grants: [{ role: role as 'OWNER', branchId }] });
+      sessions.set(who, privileged ? await enrolAndLogin(api.server, user, () => clock.now()) : await login(api.server, user));
+    }
+    const payment = await deposit('nightCashier', 2_000);
+    const askedAt = clock.now();
+    const asked = await post('nightCashier', '/refunds', { originalPaymentId: payment, amountPesewas: 2_000, destination: 'ORIGINAL_METHOD', reasonCode: 'OVERCHARGED', note: 'Crate counted twice' });
+    expect(asked.status, JSON.stringify(asked.body)).toBe(202);
+    const refundId = asked.body.subject.id as string;
+    const written = await admin().query<{ created_at: Date }>('SELECT created_at FROM pay.refund WHERE id = $1', [refundId]);
+    expect(written.rows[0]!.created_at.toISOString(), 'the refund is created at the application clock’s instant').toBe(askedAt.toISOString());
+    await step('nightManager');
+    expect((await post('nightManager', `/iam/approvals/${asked.body.approvalRequestId as string}/approve`, { reason: 'Till roll checked' })).status).toBe(200);
+    clock.set(new Date(midnight + 5_000));
+    await step('nightAccountant');
+    expect(clock.now().getTime() - midnight, 'the payout is recorded on the next business day').toBeGreaterThan(0);
+    const early = await post('nightAccountant', `/refunds/${refundId}/mark-paid`, { paidAt: new Date(askedAt.getTime() - 1_000).toISOString(), externalReference: 'GCB-TRF-0917' });
+    expect([early.status, early.body.error?.details?.[0]?.code], JSON.stringify(early.body)).toEqual([422, 'PAID_AT_OUT_OF_RANGE']);
+    const paid = await post('nightAccountant', `/refunds/${refundId}/mark-paid`, { paidAt: askedAt.toISOString(), externalReference: 'GCB-TRF-0917' });
+    expect([paid.status, paid.body.status], JSON.stringify(paid.body)).toEqual([200, 'PAID']);
+    expect(await journalOf(database, refundId)).toEqual([
+      ['2200', 'D', 2_000, 'Tema Cold Store Ltd (SEED)'],
+      ['1120', 'C', 2_000, 'Paystack'],
+    ]);
+  });
+});
+
 describe('after the day’s refunds the books still tie (FR-FIN-011)', () => {
   it('sums the trial balance to exactly zero', async () => {
     expect(await trialBalanceSum(database)).toBe('0');
