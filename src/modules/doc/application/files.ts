@@ -50,6 +50,9 @@ export interface UploadedContent {
 }
 
 const UPLOAD = 'platform.file.upload';
+/** Uploads an EVIDENCE file and nothing else: the Farm hand's death photograph (owner, 2026-11-15; B06r, ADR-0053). */
+const UPLOAD_EVIDENCE = 'platform.file.upload.evidence';
+const EVIDENCE: FilePurpose = 'EVIDENCE';
 const READ = 'platform.file.read';
 const READ_ANY = 'platform.file.read.any';
 const OWNER_MODULE = 'doc';
@@ -69,7 +72,8 @@ function view(file: StoredFileRecord): StoredFileView {
 
 /**
  * The file store's operations (FR-DOC-006, FR-DOC-007, SEC-027, ADR-0044). Each authorises first, deny by default:
- * uploading needs `platform.file.upload`; reading or linking needs `platform.file.read` and, for a file someone else
+ * uploading needs `platform.file.upload`, or for an EVIDENCE file alone `platform.file.upload.evidence` (ADR-0053),
+ * which opens no other use; reading or linking needs `platform.file.read` and, for a file someone else
  * uploaded, `platform.file.read.any`. Uploads are typed by their bytes against the use's allow-list and capped by
  * SA-11; a quarantined file is never shown, and only a CLEAN one is linked, by a link that expires and is logged.
  */
@@ -84,7 +88,7 @@ export class Files {
 
   async uploadFile(actor: Actor | undefined, purpose: FilePurpose, upload: UploadedContent, idempotencyKey: string): Promise<StoredResponse<StoredFileView>> {
     // Nothing reaches storage before the permission is checked.
-    await this.uow.run({ isolation: 'read committed' }, (tx) => this.authoriser.authorise(tx, actor, UPLOAD));
+    await this.uow.run({ isolation: 'read committed' }, (tx) => this.authoriseUpload(tx, actor, purpose));
     const sniffed = sniffContentType(upload.content);
     const judgement = judgeUpload(purpose, sniffed, upload.content.length);
     if (!judgement.allowed) {
@@ -100,7 +104,7 @@ export class Files {
     const contentType = sniffed!;
     const object = await this.store.put(judgement.use.keyPrefix, upload.content, contentType);
     return this.uow.run({ isolation: 'serializable' }, async (tx) => {
-      await this.authoriser.authorise(tx, actor, UPLOAD);
+      await this.authoriseUpload(tx, actor, purpose);
       const request = { purpose, sha256: object.sha256.toString('hex'), sizeBytes: object.sizeBytes, originalName: upload.originalName };
       const claim = await this.idempotency.claim(tx, { operationId: 'uploadFile', principalId: actor!.principalId, key: idempotencyKey, request });
       // A replay leaves the object just written unreferenced in the private bucket, where it is never served.
@@ -118,6 +122,16 @@ export class Files {
       await this.idempotency.complete(tx, claim.id, response);
       return response;
     });
+  }
+
+  /**
+   * Deny by default: any use needs `platform.file.upload`; an EVIDENCE file is also allowed to a holder of
+   * `platform.file.upload.evidence` alone. A holder of that alone asking for any other use is refused on
+   * `platform.file.upload`, which they do not hold, and the refusal is audited as any other.
+   */
+  private async authoriseUpload(tx: Transaction, actor: Actor | undefined, purpose: FilePurpose): Promise<void> {
+    const evidenceOnly = purpose === EVIDENCE && actor !== undefined && !(await this.authoriser.holds(tx, actor, UPLOAD));
+    await this.authoriser.authorise(tx, actor, evidenceOnly ? UPLOAD_EVIDENCE : UPLOAD);
   }
 
   getFile(actor: Actor | undefined, id: string): Promise<StoredFileView> {
