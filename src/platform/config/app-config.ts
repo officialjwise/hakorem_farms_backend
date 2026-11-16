@@ -110,6 +110,14 @@ const environmentSchema = z
     CLAMAV_PORT: z.coerce.number().int().min(1).max(65_535).default(3_310),
     CLAMAV_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(300_000).default(60_000),
     FILE_SCAN_INTERVAL_MS: z.coerce.number().int().min(100).default(2_000),
+    // The payment provider (A-047, A-210): Paystack's API, its secret key from the server's secrets file only. Unset,
+    // provider payments are unavailable (503) and cash still works. A live key is refused outside production, so no
+    // development or test run can reach a live account.
+    PAYSTACK_BASE_URL: z.string().url().optional(),
+    PAYSTACK_SECRET_KEY: z.string().regex(/^sk_(test|live)_[A-Za-z0-9]{16,}$/, 'must be a Paystack secret key').optional(),
+    PAYSTACK_TIMEOUT_MS: z.coerce.number().int().min(500).max(30_000).default(10_000),
+    // The farm's own payments mailbox, sent as the payer's email Paystack requires, so no customer's address leaves.
+    PAYSTACK_PAYER_EMAIL: z.string().email().optional(),
     // The worker (docs/OPERATIONS.md section 3.8).
     WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(50).default(5),
     SCHEDULER_ENABLED: booleanFlag.default(true),
@@ -133,6 +141,13 @@ const environmentSchema = z
     }
     if (deployed && env.NODE_ENV !== 'production') {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['NODE_ENV'], message: 'must be production in staging and production' });
+    }
+    if (env.PAYSTACK_SECRET_KEY !== undefined) {
+      require('PAYSTACK_BASE_URL', 'is required with PAYSTACK_SECRET_KEY');
+      require('PAYSTACK_PAYER_EMAIL', 'is required with PAYSTACK_SECRET_KEY');
+      if (env.PAYSTACK_SECRET_KEY.startsWith('sk_live_') && env.APP_ENV !== 'production') {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['PAYSTACK_SECRET_KEY'], message: 'a live key is refused outside production' });
+      }
     }
     if (env.MESSAGING_MODE !== 'capture') {
       for (const key of ['SMS_BASE_URL', 'SMS_API_KEY'] as const) {

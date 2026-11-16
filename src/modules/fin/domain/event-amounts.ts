@@ -204,6 +204,30 @@ export interface PaymentClearedFields {
   readonly allocatedPesewas: number;
   readonly unallocatedPesewas: number;
   readonly register: { readonly id: string; readonly code: string } | null;
+  /** The provider that took a mobile money or card payment (its party on 1120), null for any other tender. */
+  readonly provider?: string | null;
+}
+
+/**
+ * The payment providers' parties on 1120 Payment provider clearing: one stable party per provider PAY's port names
+ * (A-210). A provider FIN does not know refuses the posting, so the payment rolls back rather than post to no one.
+ */
+const PROVIDER_PARTIES: Readonly<Record<string, SubledgerRef>> = {
+  PAYSTACK: { kind: 'PROVIDER', refId: '01900000-0000-7000-8500-000000000003', displayName: 'Paystack' },
+};
+
+export function providerParty(provider: string): SubledgerRef {
+  const party = PROVIDER_PARTIES[provider];
+  if (party === undefined) throw new Error(`payment provider ${provider} has no subledger party`);
+  return party;
+}
+
+/** The till or the provider a tender is held against, by what the payment names. */
+function tenderParties(register: { readonly id: string; readonly code: string } | null, provider: string | null | undefined): SubledgerRef[] {
+  return [
+    ...(register === null ? [] : [{ kind: 'REGISTER' as const, refId: register.id, displayName: register.code }]),
+    ...(provider === null || provider === undefined ? [] : [providerParty(provider)]),
+  ];
 }
 
 /**
@@ -218,11 +242,45 @@ export function paymentClearedAmounts(payload: PaymentClearedFields, customer: S
   if (!allocated.plus(unallocated).equals(tender)) {
     throw new Error(`pay.PaymentCleared: allocated ${allocated.pesewas} and unallocated ${unallocated.pesewas} do not sum to the tender ${tender.pesewas}`);
   }
-  const till: SubledgerRef[] = payload.register === null ? [] : [{ kind: 'REGISTER', refId: payload.register.id, displayName: payload.register.code }];
   return [
-    { key: 'tender', amount: tender, determinants: { PAYMENT_METHOD_KIND: payload.methodKind }, subledgers: till },
+    { key: 'tender', amount: tender, determinants: { PAYMENT_METHOD_KIND: payload.methodKind }, subledgers: tenderParties(payload.register, payload.provider) },
     { key: 'allocated', amount: allocated, subledgers: [customer] },
     { key: 'unallocated', amount: unallocated, subledgers: [customer] },
+  ];
+}
+
+/**
+ * `pay.DepositAllocated` (ADR-0003, A-210): a cleared payment's deposit applied to a billing document (Dr 2200, Cr
+ * 1200), or an allocation taken off back to deposit (Dr 1200, Cr 2200), both against the customer. One event does one
+ * of the two.
+ */
+export function depositAllocatedAmounts(payload: { readonly appliedPesewas: number; readonly unappliedPesewas: number }, customer: SubledgerRef): PostingAmount[] {
+  const applied = Money.fromJsonInteger(payload.appliedPesewas);
+  const unapplied = Money.fromJsonInteger(payload.unappliedPesewas);
+  if (!applied.isZero() && !unapplied.isZero()) {
+    throw new Error('pay.DepositAllocated: an allocation event applies or takes off, only one of the two');
+  }
+  return [
+    { key: 'applied', amount: applied, subledgers: [customer] },
+    { key: 'unapplied', amount: unapplied, subledgers: [customer] },
+  ];
+}
+
+/**
+ * `pay.RefundPaid` (ADR-0003, A-210): the refund paid out of the customer's deposit (Dr 2200 against the customer) to
+ * the original payment's tender account by its method's kind (against its till or its provider).
+ */
+export function refundPaidAmounts(
+  payload: { readonly amountPesewas: number; readonly methodKind: string; readonly register: { readonly id: string; readonly code: string } | null; readonly provider: string | null },
+  customer: SubledgerRef,
+): PostingAmount[] {
+  return [
+    {
+      key: 'refund',
+      amount: Money.fromJsonInteger(payload.amountPesewas),
+      determinants: { PAYMENT_METHOD_KIND: payload.methodKind },
+      subledgers: [customer, ...tenderParties(payload.register, payload.provider)],
+    },
   ];
 }
 

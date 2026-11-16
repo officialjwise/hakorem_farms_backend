@@ -11,6 +11,8 @@ export const CORRELATION_ID_HEADER = 'X-Correlation-Id';
 export const JSON_BODY_LIMIT = '256kb';
 const ANY_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const NANOSECONDS_PER_MILLISECOND = 1_000_000n;
+/** Routes whose raw request body is kept for a signature check (docs/API.md section 13). */
+const WEBHOOK_PATH_PREFIX = '/v1/webhooks/';
 /** Longest user agent kept for the audit trail (platform.audit_event.user_agent). */
 const MAX_USER_AGENT = 512;
 
@@ -72,7 +74,13 @@ function bodyParserError(error: unknown): ApiError | undefined {
  * through the same mapping as every other error, because it happens before any route is chosen.
  */
 export function jsonBody(logger: Logger): RequestHandler {
-  const parse = express.json({ limit: JSON_BODY_LIMIT });
+  // A webhook's signature is over the bytes the provider sent, so its raw body is kept beside the parsed one.
+  const parse = express.json({
+    limit: JSON_BODY_LIMIT,
+    verify: (req: Request, _res: Response, buffer: Buffer) => {
+      if (req.url.startsWith(WEBHOOK_PATH_PREFIX)) (req as Request & { rawBody?: Buffer }).rawBody = Buffer.from(buffer);
+    },
+  });
   return (req: Request, res: Response, next: NextFunction) => {
     parse(req, res, (error?: unknown) => {
       if (error === undefined || error === null) {

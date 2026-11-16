@@ -20,6 +20,8 @@ import { Idempotency } from './idempotency/idempotency';
 import { createRedis } from './redis/redis-client';
 import { Settings } from './settings/settings';
 import { GenericHttpSms, SMS_CHANNEL } from './notifications/notification-channel';
+import { PAYMENT_PROVIDER, PaystackPaymentProvider } from './payments/payment-provider';
+import { ResilientPaymentProvider } from './payments/resilient-provider';
 import { FileStore } from './storage/file-store';
 import { OBJECT_STORAGE, type ObjectStorage } from './storage/object-storage';
 import { S3ObjectStorage } from './storage/s3-object-storage';
@@ -119,6 +121,18 @@ export class PlatformModule {
               logger,
             ),
         },
+        {
+          // The payment provider port (ADR-0009, A-210): Paystack behind a timeout, a bounded retry and a circuit breaker;
+          // unconfigured, every provider call is unavailable and cash still works.
+          provide: PAYMENT_PROVIDER,
+          useFactory: () =>
+            new ResilientPaymentProvider(
+              config.PAYSTACK_SECRET_KEY === undefined || config.PAYSTACK_BASE_URL === undefined
+                ? null
+                : new PaystackPaymentProvider({ baseUrl: config.PAYSTACK_BASE_URL, secretKey: config.PAYSTACK_SECRET_KEY, timeoutMs: config.PAYSTACK_TIMEOUT_MS }),
+              clock,
+            ),
+        },
         { provide: OBJECT_STORAGE, useFactory: () => fileObjectStorage(config) },
         {
           provide: FileStore,
@@ -152,6 +166,7 @@ export class PlatformModule {
         Cursors,
         HealthService,
         SMS_CHANNEL,
+        PAYMENT_PROVIDER,
         OBJECT_STORAGE,
         FileStore,
       ],

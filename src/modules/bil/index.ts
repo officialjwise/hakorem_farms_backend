@@ -5,6 +5,6 @@
  */
 export { BilModule } from './bil.module';
 export { BillingNumberingAudit, type NumberingAuditReport } from './application/numbering-audit';
-export { Billing, type BillingDocumentView, type IssueLineRequest, type IssueRequest } from './application/billing';
+export { Billing, type BillingDocumentView, type IssueLineRequest, type IssueRequest, type SettleableDocument } from './application/billing';
 export { AllocationExceedsOutstandingError } from './application/errors';
 export type { BillingLinePayload, BillingDocumentPayload, CreditNoteIssued, DebitNoteIssued, InvoiceIssued, ProformaIssued } from './events';

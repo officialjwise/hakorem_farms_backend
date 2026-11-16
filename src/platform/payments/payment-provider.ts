@@ -23,35 +23,104 @@ export interface ProviderTransaction {
   readonly providerTransactionId: string;
 }
 
+/** A mobile money charge: the customer approves it on their phone (FR-PAY-003). The phone is used for this call only. */
+export interface MobileMoneyCharge {
+  readonly reference: string;
+  readonly amountPesewas: bigint;
+  readonly email: string;
+  readonly phone: string;
+  readonly network: 'MTN' | 'TELECEL' | 'AIRTELTIGO';
+}
+
+/** One refund as the provider holds it: `PENDING` until it is processed or fails. */
+export interface ProviderRefund {
+  readonly refundId: string;
+  readonly status: 'PENDING' | 'PROCESSED' | 'FAILED';
+}
+
+/** A webhook body read into the fields PAY acts on; the event id is what the provider processes once (A-210). */
+export interface ProviderWebhookEvent {
+  readonly eventId: string;
+  readonly eventType: string;
+  readonly reference: string;
+  readonly amountPesewas: bigint;
+  readonly occurredAt: Date | null;
+  /** The fields stored as evidence (`pay.webhook_event.payload`): never card or personal detail. */
+  readonly evidence: Readonly<Record<string, unknown>>;
+}
+
+/** One page of the provider's own transaction list, for the sweep (the owner, 2026-11-16). */
+export interface ProviderTransactionPage {
+  readonly transactions: readonly ProviderTransaction[];
+  readonly hasMore: boolean;
+}
+
 export interface PaymentProvider {
   readonly name: string;
   initiate(request: PaymentInitiation): Promise<{ readonly authorizationUrl: string; readonly accessCode: string }>;
+  /** Sends a mobile money charge; a reference sent before (a retry after a timeout) answers PENDING, never a second charge. */
+  chargeMobileMoney(request: MobileMoneyCharge): Promise<{ readonly status: ProviderTransaction['status'] }>;
   /** The server-to-server lookup: the only source of truth for an amount and status (security architecture section 8). */
   lookup(reference: string): Promise<ProviderTransaction>;
+  /** The provider's transactions created in a window, a page at a time (page 1 first). */
+  listTransactions(window: { readonly from: Date; readonly to: Date; readonly page: number; readonly perPage: number }): Promise<ProviderTransactionPage>;
   refund(request: { readonly reference: string; readonly amountPesewas: bigint; readonly idempotencyKey: string }): Promise<{ readonly refundId: string; readonly status: string }>;
+  refundStatus(refundId: string): Promise<ProviderRefund>;
   /** Signature over the raw body, compared in constant time. */
   webhookSignatureValid(rawBody: Buffer, signatureHeader: string | undefined): boolean;
+  /** The body of a validly signed webhook read into the fields PAY acts on, or null if it has none of them. */
+  readWebhook(body: unknown): ProviderWebhookEvent | null;
 }
 
 export const PAYMENT_PROVIDER = Symbol('PAYMENT_PROVIDER');
 
+/**
+ * A provider call that failed. `retryable` when the provider may answer if asked again (unreachable, timed out, 5xx,
+ * 429); `kind` names the two answers PAY acts on: the provider has no such record (`NOT_FOUND`), or it is not
+ * configured or the circuit is open (`UNAVAILABLE`).
+ */
 export class PaymentProviderError extends Error {
   readonly code = 'PAYMENT_PROVIDER_FAILED';
 
   constructor(
     message: string,
     readonly retryable: boolean,
-    options?: ErrorOptions,
+    options?: ErrorOptions & { readonly kind?: 'NOT_FOUND' | 'UNAVAILABLE' | 'REFUSED' },
   ) {
     super(message, options);
     this.name = 'PaymentProviderError';
+    this.kind = options?.kind ?? (retryable ? 'UNAVAILABLE' : 'REFUSED');
   }
+
+  readonly kind: 'NOT_FOUND' | 'UNAVAILABLE' | 'REFUSED';
+  /** The provider's own message, kept to tell a duplicate reference from other refusals; never logged. */
+  providerMessage: string | null = null;
 }
 
 export interface PaystackSettings {
   readonly baseUrl: string;
   readonly secretKey: string;
   readonly timeoutMs: number;
+}
+
+/** Paystack's mobile money provider codes for Ghana's networks (Paystack's charge API, A-210). */
+const NETWORK_CODES: Readonly<Record<MobileMoneyCharge['network'], string>> = { MTN: 'mtn', TELECEL: 'vod', AIRTELTIGO: 'atl' };
+
+const REFUND_STATUS: Readonly<Record<string, ProviderRefund['status']>> = {
+  pending: 'PENDING',
+  processing: 'PENDING',
+  'needs-attention': 'PENDING',
+  processed: 'PROCESSED',
+  failed: 'FAILED',
+};
+
+interface PaystackTransaction {
+  id?: number;
+  reference?: string;
+  status?: string;
+  amount?: number | string;
+  currency?: string;
+  paid_at?: string | null;
 }
 
 const STATUS: Readonly<Record<string, ProviderTransaction['status']>> = {
@@ -99,22 +168,59 @@ export class PaystackPaymentProvider implements PaymentProvider {
     return { authorizationUrl: data.authorization_url, accessCode: data.access_code };
   }
 
-  async lookup(reference: string): Promise<ProviderTransaction> {
-    const data = await this.call<{ id?: number; reference?: string; status?: string; amount?: number | string; currency?: string; paid_at?: string | null }>(
-      'GET',
-      `/transaction/verify/${encodeURIComponent(reference)}`,
-    );
-    const amount = data.amount;
-    if (data.reference !== reference || (typeof amount !== 'number' && typeof amount !== 'string') || !/^\d+$/.test(String(amount))) {
-      throw new PaymentProviderError('Paystack verify answered for another reference or without an integer amount', false);
+  async chargeMobileMoney(request: MobileMoneyCharge): Promise<{ status: ProviderTransaction['status'] }> {
+    try {
+      const data = await this.call<{ status?: string }>('POST', '/charge', {
+        reference: request.reference,
+        amount: request.amountPesewas.toString(),
+        currency: 'GHS',
+        email: request.email,
+        mobile_money: { phone: request.phone, provider: NETWORK_CODES[request.network] },
+      });
+      return { status: data.status === 'success' ? 'SUCCESS' : data.status === 'failed' ? 'FAILED' : 'PENDING' };
+    } catch (error) {
+      // A reference Paystack has seen is a charge already sent (a retry after a timeout): its outcome is the lookup's.
+      if (error instanceof PaymentProviderError && /duplicate/i.test(error.providerMessage ?? '')) return { status: 'PENDING' };
+      throw error;
     }
+  }
+
+  async lookup(reference: string): Promise<ProviderTransaction> {
+    const data = await this.call<PaystackTransaction>('GET', `/transaction/verify/${encodeURIComponent(reference)}`);
+    if (data.reference !== reference) {
+      throw new PaymentProviderError('Paystack verify answered for another reference', false);
+    }
+    return transactionOf(data);
+  }
+
+  async listTransactions(window: { from: Date; to: Date; page: number; perPage: number }): Promise<ProviderTransactionPage> {
+    const query = new URLSearchParams({ from: window.from.toISOString(), to: window.to.toISOString(), page: String(window.page), perPage: String(window.perPage) });
+    const { data, meta } = await this.callWithMeta<PaystackTransaction[]>('GET', `/transaction?${query.toString()}`);
+    if (!Array.isArray(data)) throw new PaymentProviderError('Paystack list answered without a list', false);
+    const pageCount = Number(meta?.pageCount ?? 1);
+    return { transactions: data.map(transactionOf), hasMore: window.page < pageCount };
+  }
+
+  async refundStatus(refundId: string): Promise<ProviderRefund> {
+    const data = await this.call<{ id?: number; status?: string }>('GET', `/refund/${encodeURIComponent(refundId)}`);
+    return { refundId: String(data.id ?? refundId), status: REFUND_STATUS[data.status ?? ''] ?? 'PENDING' };
+  }
+
+  readWebhook(body: unknown): ProviderWebhookEvent | null {
+    const event = body as { event?: unknown; data?: PaystackTransaction & { created_at?: string; channel?: string } } | null;
+    const data = event?.data;
+    if (typeof event?.event !== 'string' || typeof data?.reference !== 'string' || !isInteger(data.amount)) return null;
+    const time = data.paid_at ?? data.created_at ?? null;
     return {
-      reference,
-      status: STATUS[data.status ?? ''] ?? 'PENDING',
-      amountPesewas: BigInt(String(amount)),
-      currency: data.currency ?? '',
-      paidAt: data.paid_at === null || data.paid_at === undefined ? null : new Date(data.paid_at),
-      providerTransactionId: String(data.id ?? ''),
+      eventId: `${event.event}:${data.reference}`,
+      eventType: event.event,
+      reference: data.reference,
+      amountPesewas: BigInt(String(data.amount)),
+      occurredAt: time === null ? null : new Date(time),
+      evidence: {
+        event: event.event,
+        data: { id: data.id ?? null, reference: data.reference, amount: Number(data.amount), currency: data.currency ?? null, status: data.status ?? null, channel: data.channel ?? null, paid_at: data.paid_at ?? null },
+      },
     };
   }
 
@@ -137,6 +243,10 @@ export class PaystackPaymentProvider implements PaymentProvider {
   }
 
   private async call<T>(method: 'GET' | 'POST', path: string, body?: object, idempotencyKey?: string): Promise<T> {
+    return (await this.callWithMeta<T>(method, path, body, idempotencyKey)).data;
+  }
+
+  private async callWithMeta<T>(method: 'GET' | 'POST', path: string, body?: object, idempotencyKey?: string): Promise<{ data: T; meta: { pageCount?: number } | undefined }> {
     let response: Response;
     try {
       response = await this.fetchImpl(`${this.settings.baseUrl}${path}`, {
@@ -152,10 +262,31 @@ export class PaystackPaymentProvider implements PaymentProvider {
     } catch (error) {
       throw new PaymentProviderError(`Paystack ${method} ${path.split('/')[1]} could not be reached`, true, { cause: error });
     }
-    const envelope = (await response.json().catch(() => ({}))) as PaystackEnvelope<T>;
+    const envelope = (await response.json().catch(() => ({}))) as PaystackEnvelope<T> & { meta?: { pageCount?: number } };
     if (!response.ok || envelope.status !== true || envelope.data === undefined) {
-      throw new PaymentProviderError(`Paystack ${method} ${path.split('/')[1]} answered ${response.status}`, response.status >= 500 || response.status === 429);
+      const notFound = response.status === 404 || (response.status === 400 && /not found/i.test(envelope.message ?? ''));
+      const error = new PaymentProviderError(`Paystack ${method} ${path.split(/[/?]/)[1]} answered ${response.status}`, response.status >= 500 || response.status === 429, notFound ? { kind: 'NOT_FOUND' } : undefined);
+      error.providerMessage = typeof envelope.message === 'string' ? envelope.message.slice(0, 200) : null;
+      throw error;
     }
-    return envelope.data;
+    return { data: envelope.data, meta: envelope.meta };
   }
+}
+
+function isInteger(value: unknown): value is number | string {
+  return (typeof value === 'number' || typeof value === 'string') && /^\d+$/.test(String(value));
+}
+
+function transactionOf(data: PaystackTransaction): ProviderTransaction {
+  if (typeof data.reference !== 'string' || !isInteger(data.amount)) {
+    throw new PaymentProviderError('Paystack answered a transaction without a reference or an integer amount', false);
+  }
+  return {
+    reference: data.reference,
+    status: STATUS[data.status ?? ''] ?? 'PENDING',
+    amountPesewas: BigInt(String(data.amount)),
+    currency: data.currency ?? '',
+    paidAt: data.paid_at === null || data.paid_at === undefined ? null : new Date(data.paid_at),
+    providerTransactionId: String(data.id ?? ''),
+  };
 }

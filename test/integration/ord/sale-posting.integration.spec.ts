@@ -485,4 +485,25 @@ describe('after a trading day of sales the books still tie (FR-FIN-011, FR-FIN-0
     expect(walkIn.rows[0]!.balance).toBe('0');
     expect(toBusinessDate(clock.now())).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
+
+  it('links every cleared payment of the day in full to a numbered receipt or invoice the customer holds, none left unlinked (the owner, A-208 (f))', async () => {
+    const payments = await admin().query<{ id: string; amount: string; linked: string; unlinked_docs: string }>(
+      `SELECT p.id, p.amount_pesewas::text AS amount,
+              COALESCE(sum(CASE a.direction WHEN 'APPLY' THEN a.amount_pesewas ELSE -a.amount_pesewas END)
+                         FILTER (WHERE d.kind IN ('RECEIPT', 'INVOICE') AND d.document_no IS NOT NULL), 0)::text AS linked,
+              count(a.id) FILTER (WHERE d.document_no IS NULL OR d.kind NOT IN ('RECEIPT', 'INVOICE'))::text AS unlinked_docs
+         FROM pay.payment p
+         LEFT JOIN pay.payment_allocation a ON a.payment_id = p.id
+         LEFT JOIN bil.billing_document d ON d.id = a.billing_document_id
+        WHERE p.status = 'CLEARED' GROUP BY p.id ORDER BY p.id`,
+    );
+    expect(payments.rows.length).toBeGreaterThan(0);
+    for (const row of payments.rows) {
+      expect({ id: row.id, linked: row.linked, unlinkedDocuments: row.unlinked_docs }).toEqual({ id: row.id, linked: row.amount, unlinkedDocuments: '0' });
+    }
+    const deposits = await admin().query<{ deposits: string }>(
+      `SELECT count(*)::text AS deposits FROM pay.payment WHERE status = 'CLEARED' AND amount_pesewas - allocated_pesewas - refunded_pesewas > 0`,
+    );
+    expect(deposits.rows[0]!.deposits).toBe('0');
+  });
 });

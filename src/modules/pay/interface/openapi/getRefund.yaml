@@ -1,0 +1,65 @@
+operationId: getRefund
+tags:
+  - pay
+summary: "Get a refund"
+description: "Permission: `pay.refund.read`."
+x-permission: pay.refund.read
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Refund"
+        example:
+          id: "019a7ae8-8c38-7260-8798-2ed87ac5a7b6"
+          refundNo: RFD-2026-DDW-000040
+          status: PAID
+          originalPayment:
+            id: "019a7ae6-db26-77ef-ad28-87cfd31700ad"
+            paymentNo: PAY-2026-DDW-021790
+            method:
+              id: "019a7a92-e04d-7f66-b49e-ff3473907812"
+              code: CARD
+              name: Card
+              kind: CARD
+          amountPesewas: 2700
+          currency: GHS
+          destination: ORIGINAL_METHOD
+          reasonCode: CATCH_WEIGHT_UNDER
+          creditNote: null
+          isAutomatic: true
+          approvalRequestId: null
+          providerReference: RF889201
+          paidAt: "2026-11-12T16:00:00Z"
+          failureReason: null
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          createdAt: "2026-11-12T15:00:00Z"
+          createdBy:
+            id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+            displayName: "Kwabena Owusu"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

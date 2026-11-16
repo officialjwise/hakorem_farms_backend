@@ -1,0 +1,58 @@
+operationId: receivePaymentWebhook
+tags:
+  - pay
+summary: "Receive a payment provider webhook"
+description: "Every request is logged in the rejection log (`pay.webhook_event`), with only the provider's fields this system reads. Checked in this order (security architecture section 8, the owner's order of 2026-11-16): the signature over the raw body, in constant time (a bad one gets 401 with no detail); the event's own time inside the window (`pay.webhook_window_seconds`, 300: Paystack signs no separate timestamp); the event processed once by its provider reference (`<event>:<reference>`, a unique key: a second delivery is acknowledged with no effect); the reference one this system created; and only then the amount and status confirmed by a server-to-server lookup. The webhook's own amount is never trusted. Every signed event, accepted or not, is answered 200 `{ received: true }`; a payment whose lookup cannot be made now is cleared later by the provider sweep (B09a continued, 1.42.0)."
+parameters:
+  - name: provider
+    in: path
+    required: true
+    schema:
+      type: string
+      enum:
+        - PAYSTACK
+  - name: X-Paystack-Signature
+    in: header
+    required: true
+    schema:
+      type: string
+    description: "HMAC-SHA512 of the raw body with the provider secret."
+security: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        type: object
+        additionalProperties: true
+        description: "The provider payload, verified before use."
+      example:
+        event: charge.success
+        data:
+          reference: T7731049912
+          amount: 50000
+          currency: GHS
+          channel: mobile_money
+          status: success
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/WebhookAck"
+        example:
+          received: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

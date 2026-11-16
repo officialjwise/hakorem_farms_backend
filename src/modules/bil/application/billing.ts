@@ -379,6 +379,30 @@ export class Billing {
     }
   }
 
+  /**
+   * What a payment needs to know of the documents it would settle, read in the caller's transaction (A-210): kind,
+   * status, branch, customer, number and what each has outstanding. Unknown ids are absent. It authorises nothing.
+   */
+  async settleableIn(tx: Transaction, ids: readonly string[]): Promise<Map<string, SettleableDocument>> {
+    if (ids.length === 0) return new Map();
+    const records = await this.store.documents(tx, ids);
+    const settlements = await this.store.settlements(tx, records.map((r) => r.id));
+    return new Map(
+      records.map((r) => [
+        r.id,
+        {
+          id: r.id,
+          kind: r.kind,
+          status: r.status,
+          branchId: r.branchId,
+          customerId: r.customerId,
+          documentNo: r.documentNo,
+          outstandingPesewas: settlements.get(r.id)?.outstandingPesewas ?? 0n,
+        },
+      ] as const),
+    );
+  }
+
   list(actor: Actor | undefined, query: DocumentQuery, cursor: string | undefined, limit: number): Promise<Page<BillingDocumentView>> {
     return this.uow.run({ isolation: 'read committed' }, async (tx) => {
       await this.authoriser.authorise(tx, actor, READ);
@@ -874,6 +898,17 @@ export class Billing {
 
 function figures(l: LineRecord): { net: Money; tax: Money; gross: Money } {
   return { net: Money.ofPesewas(l.lineNetPesewas), tax: Money.ofPesewas(l.lineTaxPesewas), gross: Money.ofPesewas(l.lineGrossPesewas) };
+}
+
+/** A billing document as a payment sees it (`Billing.settleableIn`). */
+export interface SettleableDocument {
+  readonly id: string;
+  readonly kind: string;
+  readonly status: 'DRAFT' | 'ISSUED';
+  readonly branchId: string;
+  readonly customerId: string | null;
+  readonly documentNo: string | null;
+  readonly outstandingPesewas: bigint;
 }
 
 /** What a credit note's approval binds to: the draft as priced, line by line and levy by levy. */

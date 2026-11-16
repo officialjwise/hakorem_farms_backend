@@ -1,6 +1,6 @@
 import { Money } from '@hakorem/kernel';
 import { describe, expect, it } from 'vitest';
-import { clearingOf, planTender } from './tender';
+import { clearingOf, jsonPesewas, planTender } from './tender';
 
 const m = (pesewas: bigint) => Money.ofPesewas(pesewas);
 
@@ -45,5 +45,12 @@ describe('a tender splits exactly into what it settles and what it leaves on dep
     const max = Money.MAX_PESEWAS;
     const plan = planTender(m(max), [m(max - 1n)]);
     expect(plan.ok && plan.value.unallocated.pesewas).toBe(1n);
+  });
+});
+
+describe('pesewas as JSON', () => {
+  it('carries an integer of pesewas exactly, up to the largest safe integer', () => {
+    expect(jsonPesewas(44_000n)).toBe(44_000);
+    expect(jsonPesewas(9_007_199_254_740_991n)).toBe(9_007_199_254_740_991);
   });
 });

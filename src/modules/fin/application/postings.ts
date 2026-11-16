@@ -10,6 +10,8 @@ import {
   creditNoteIssuedAmounts,
   customerParty,
   debitNoteIssuedAmounts,
+  depositAllocatedAmounts,
+  refundPaidAmounts,
   invoiceIssuedAmounts,
   paymentClearedAmounts,
   type PaymentClearedFields,
@@ -111,6 +113,8 @@ export class LedgerPostings {
       ['bil.CreditNoteIssued', (tx, event) => this.billing(tx, event.payload as unknown as BillingPosting, creditNoteIssuedAmounts)],
       ['bil.DebitNoteIssued', (tx, event) => this.billing(tx, event.payload as unknown as BillingPosting, debitNoteIssuedAmounts)],
       ['pay.PaymentCleared', (tx, event) => this.paymentCleared(tx, event.payload as unknown as PaymentClearedPosting)],
+      ['pay.DepositAllocated', (tx, event) => this.depositAllocated(tx, event.payload as unknown as DepositAllocatedPosting)],
+      ['pay.RefundPaid', (tx, event) => this.refundPaid(tx, event.payload as unknown as RefundPaidPosting)],
       ['fin.ManualJournalApproved', (tx, event) => this.manualJournal(tx, event.payload as unknown as ManualJournalApproved)],
       ['fin.YearClosed', async (_tx, event) => this.yearClose(event.payload as unknown as YearClosed)],
       ['fin.DepreciationRun', async (_tx, event) => this.depreciationRun(event.payload as unknown as DepreciationRunPosted)],
@@ -261,6 +265,34 @@ export class LedgerPostings {
     };
   }
 
+  /** PAY's ◆ event (A-210): a deposit applied to a document or taken off it, against the customer or walk-in party. */
+  private async depositAllocated(tx: Transaction, payload: DepositAllocatedPosting): Promise<Translated> {
+    return {
+      amounts: depositAllocatedAmounts(payload, await this.customerOf(tx, payload.customerId, `allocation ${payload.allocationId}`)),
+      sourceDocumentId: payload.paymentId,
+      eventSubjectId: payload.allocationId,
+      branchId: payload.branchId,
+    };
+  }
+
+  /** PAY's ◆ event (A-210): a refund paid out of the deposit to the original tender. */
+  private async refundPaid(tx: Transaction, payload: RefundPaidPosting): Promise<Translated> {
+    return {
+      amounts: refundPaidAmounts(payload, await this.customerOf(tx, payload.customerId, `refund ${payload.refundId}`)),
+      sourceDocumentId: payload.refundId,
+      eventSubjectId: payload.refundId,
+      branchId: payload.branchId,
+    };
+  }
+
+  private async customerOf(tx: Transaction, customerId: string | null, what: string): Promise<ReturnType<typeof customerParty>> {
+    const customer = customerId === null ? undefined : (await this.refs.customersIn(tx, [customerId])).get(customerId);
+    if (customerId !== null && customer === undefined) {
+      throw new Error(`${what}: customer ${customerId} does not exist`);
+    }
+    return customerParty(customerId, customer?.name ?? null);
+  }
+
   /** FIN's own event (A-190): each line to the account entered for it, its party as entered, on the journal's own date. */
   private async manualJournal(tx: Transaction, payload: ManualJournalApproved): Promise<Translated> {
     const lines = payload.lines.map((l) => ({ accountId: l.accountId, side: l.side, amountPesewas: l.amountPesewas, subledgerPartyId: l.subledgerPartyId, memo: l.memo }));
@@ -330,6 +362,27 @@ export class LedgerPostings {
       eventSubjectId: payload.supplierPaymentId,
     };
   }
+}
+
+/** The fields of PAY's `pay.DepositAllocated` FIN reads. */
+interface DepositAllocatedPosting {
+  readonly allocationId: string;
+  readonly paymentId: string;
+  readonly branchId: string;
+  readonly customerId: string | null;
+  readonly appliedPesewas: number;
+  readonly unappliedPesewas: number;
+}
+
+/** The fields of PAY's `pay.RefundPaid` FIN reads. */
+interface RefundPaidPosting {
+  readonly refundId: string;
+  readonly branchId: string;
+  readonly customerId: string | null;
+  readonly amountPesewas: number;
+  readonly methodKind: string;
+  readonly register: { readonly id: string; readonly code: string } | null;
+  readonly provider: string | null;
 }
 
 /** The fields of PAY's `pay.PaymentCleared` FIN reads. */

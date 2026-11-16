@@ -330,7 +330,7 @@ A `RECEIPT` is the billing document for a sale paid at once; it posts as `bil.In
 | An unallocated receipt sits in customer deposits or suspense until allocated | Domain (posting event) |
 | Reconciliation never corrects; it raises a break | Domain |
 
-**Events:** `pay.PaymentInitiated`, ◆`pay.PaymentCleared`, `pay.PaymentFailed`, ◆`pay.PaymentReversed`, ◆`pay.DepositAllocated`, `pay.RefundRequested`, ◆`pay.RefundPaid`, `pay.RefundFailed`, ◆`pay.ProviderSettled`, ◆`pay.ChequeCleared`, `pay.WebhookRejected`, `pay.ReconciliationBreakRaised`.
+**Events:** `pay.PaymentInitiated`, ◆`pay.PaymentCleared`, `pay.PaymentFailed`, ◆`pay.PaymentReversed`, ◆`pay.DepositAllocated`, `pay.RefundRequested`, ◆`pay.RefundPaid`, `pay.RefundFailed`, ◆`pay.ProviderSettled`, ◆`pay.ChequeCleared`, `pay.WebhookRejected`, `pay.ReconciliationBreakRaised`. As built in B09a continued (ADR-0063): ◆`pay.DepositAllocated` carries `appliedPesewas` (a deposit applied to a document) or `unappliedPesewas` (an allocation taken off, its mirror); `pay.PaymentCleared` carries `provider` and `heldAsUnmatched` (money that arrived after its order stopped waiting).
 
 ### 5.10 ORD: order management and fulfilment
 

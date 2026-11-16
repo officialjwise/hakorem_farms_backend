@@ -3,6 +3,9 @@ import {
   creditNoteIssuedAmounts,
   customerParty,
   debitNoteIssuedAmounts,
+  depositAllocatedAmounts,
+  providerParty,
+  refundPaidAmounts,
   expenseCategoryKey,
   invoiceIssuedAmounts,
   paymentClearedAmounts,
@@ -306,5 +309,44 @@ describe('the amounts of a cleared payment (ADR-0003, pay.PaymentCleared)', () =
 
   it('names no till for a tender that has none', () => {
     expect(paymentClearedAmounts({ methodKind: 'BANK_TRANSFER', amountPesewas: 5, allocatedPesewas: 0, unallocatedPesewas: 5, register: null }, tema)[0]!.subledgers).toEqual([]);
+  });
+});
+
+describe('the amounts of a provider payment, an allocation from deposit and a refund (ADR-0003, A-210)', () => {
+  const tema = customerParty('cus-1', 'Tema Cold Store Ltd');
+  const till = { id: 'reg-1', code: 'T1' };
+
+  it('debits a mobile money tender against the provider that took it, and holds it all on deposit', () => {
+    expect(flat(paymentClearedAmounts({ methodKind: 'MOBILE_MONEY', amountPesewas: 50_000, allocatedPesewas: 0, unallocatedPesewas: 50_000, register: null, provider: 'PAYSTACK' }, tema))).toEqual([
+      ['tender', 50_000n, { PAYMENT_METHOD_KIND: 'MOBILE_MONEY' }, [providerParty('PAYSTACK').refId]],
+      ['allocated', 0n, null, ['cus-1']],
+      ['unallocated', 50_000n, null, ['cus-1']],
+    ]);
+  });
+
+  it('names one stable party per provider, and refuses a provider it does not know', () => {
+    expect(providerParty('PAYSTACK')).toEqual({ kind: 'PROVIDER', refId: '01900000-0000-7000-8500-000000000003', displayName: 'Paystack' });
+    expect(() => providerParty('HUBTEL')).toThrow(/HUBTEL/);
+  });
+
+  it('applies a deposit to a document, or takes an allocation off back to deposit, against the customer', () => {
+    expect(flat(depositAllocatedAmounts({ appliedPesewas: 100_000, unappliedPesewas: 0 }, tema))).toEqual([
+      ['applied', 100_000n, null, ['cus-1']],
+      ['unapplied', 0n, null, ['cus-1']],
+    ]);
+    expect(flat(depositAllocatedAmounts({ appliedPesewas: 0, unappliedPesewas: 1 }, tema)).map((a) => a[1])).toEqual([0n, 1n]);
+  });
+
+  it('refuses an allocation event that both applies and takes off', () => {
+    expect(() => depositAllocatedAmounts({ appliedPesewas: 5, unappliedPesewas: 5 }, tema)).toThrow(/one/);
+  });
+
+  it('pays a refund out of the deposit to the original tender, against its till or its provider', () => {
+    expect(flat(refundPaidAmounts({ amountPesewas: 25_000, methodKind: 'MOBILE_MONEY', register: null, provider: 'PAYSTACK' }, tema))).toEqual([
+      ['refund', 25_000n, { PAYMENT_METHOD_KIND: 'MOBILE_MONEY' }, ['cus-1', providerParty('PAYSTACK').refId]],
+    ]);
+    expect(flat(refundPaidAmounts({ amountPesewas: 6_000, methodKind: 'CASH', register: till, provider: null }, tema))).toEqual([
+      ['refund', 6_000n, { PAYMENT_METHOD_KIND: 'CASH' }, ['cus-1', 'reg-1']],
+    ]);
   });
 });

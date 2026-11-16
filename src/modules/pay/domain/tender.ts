@@ -40,3 +40,8 @@ export function planTender(amount: Money, allocations: readonly Money[]): Result
   if (allocated.compareTo(amount) > 0) return err('ALLOCATIONS_EXCEED_AMOUNT');
   return ok({ allocated, unallocated: amount.minus(allocated) });
 }
+
+/** Integer pesewas as the contract and the events carry them: a JSON integer (ADR-0001). */
+export function jsonPesewas(pesewas: bigint): number {
+  return Money.ofPesewas(pesewas).toJsonInteger();
+}

@@ -195,8 +195,10 @@ Public media are served from a separate origin so that user-uploaded content nev
 | Variable | Purpose | Required | Example |
 | --- | --- | --- | --- |
 | `PAYMENT_PROVIDER` | Adapter in use | Yes | `paystack` |
-| `PAYSTACK_BASE_URL` | Provider API | Opt | `https://api.paystack.co` |
-| `PAYSTACK_SECRET_KEY` `[secret]` | Server key; also verifies webhook signatures. Test key in staging, live key in production | Yes | `sk_live_<random>` or `sk_test_<random>` |
+| `PAYSTACK_BASE_URL` | Provider API. Unset with the key, provider payments answer 503 and cash still works (B09a continued, A-210) | Opt | `https://api.paystack.co` |
+| `PAYSTACK_SECRET_KEY` `[secret]` | Server key; also verifies webhook signatures. Test key in staging, live key in production; a live key is refused outside `APP_ENV=production`. Needs `PAYSTACK_BASE_URL` and `PAYSTACK_PAYER_EMAIL` | Yes | `sk_live_<random>` or `sk_test_<random>` |
+| `PAYSTACK_TIMEOUT_MS` | Timeout of one provider call; three attempts with jitter and a circuit breaker sit above it | Opt | `10000` |
+| `PAYSTACK_PAYER_EMAIL` | The farm's own payments mailbox, sent as the payer's email Paystack requires, so no customer's address leaves | With the key | `payments@hakoremfarms.com` |
 | `PAYMENT_HTTP_TIMEOUT_MS` | Timeout on every provider call (breaker and retry wrap it) | Opt, `10000` | `10000` |
 | `PAYMENT_WEBHOOK_SOURCE_ALLOWLIST` | Provider address ranges, comma-separated CIDRs, used for rate limiting and alerts. Signature, not address, is the authentication | Opt | `203.0.113.0/24` |
 | `MESSAGING_MODE` | `live`, `sandbox` or `capture`. Defaults to `capture`; the API refuses to start in production unless it is `live`, and `live` or `sandbox` need `SMS_BASE_URL` and `SMS_API_KEY` (B04e continued: phone codes and reset codes go out by SMS) | Yes | `live` |
@@ -408,8 +410,8 @@ One worker instance runs the scheduler (`SCHEDULER_ENABLED=true`); jobs are Bull
 
 B07 continued 2 settings (defaults in code, each a `platform.setting` row the owner may add): `shp.low_stock_units` (5, SA-19), `shp.checkout_reservation_minutes` (15, A-045), `rate_limit.checkout.per_address_10m` (30, fails closed).
 | Every minute | `mortality-evidence-returns` | Returns each death or cull waiting for approval whose photograph the malware scan rejected (INFECTED or FAILED) to its maker as `RETURNED`, withdraws its approval request and publishes `liv.MortalityReturned` (up to 200 a run); contributed by LIV through `ScheduledJob` in `src/worker-app.ts` (B06r) | ADR-0049, ADR-0053 |
-| Every 5 minutes | `payment-status-poll` | Looks up `PENDING` payments older than 2 minutes at the provider | Architecture 7.2 |
-| Every 15 minutes | `refund-retry` | Retries `FAILED` refunds under their policy | Architecture 7.2 |
+| Every minute | `provider-sweep` | Reads the provider's transaction list from where the last run ended (`pay.provider_sweep`), clears every payment of ours it shows through the one clearing path, raises a success under a reference we never initiated as a break, and looks up every charge still open 30 seconds after it was sent; a charge missing at the provider after 30 minutes fails with a break. A run that cannot reach the provider records no window, so the next one reads it again (B09a continued, the owner, 2026-11-16) | ADR-0063, A-210 |
+| Every minute | `refund-dispatch` | Sends approved provider refunds (the refund's id as the idempotency key), asks after those the provider is processing, and retries a failure after 5 then 10 minutes; after the third it leaves the refund `FAILED` with a `REFUND_FAILED` break (B09a continued) | ADR-0063, FR-PAY-013 |
 | Hourly, at :15 | `idempotency-purge` | Deletes `platform.idempotency_key` rows past `expires_at` (kept at least 72 hours) | ADR-0014 |
 | Hourly, at :30 | `abandoned-cart-notice` | Sends abandoned cart notices to customers who agreed | `shp` |
 | Every 15 minutes | `offline-device-watch` | Updates `hk_offline_device_unsynced_seconds` and raises the unsynced-device alert | OFFLINE_SYNC |

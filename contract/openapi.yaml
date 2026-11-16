@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.41.0"
+  version: "1.42.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -45798,7 +45798,7 @@ paths:
       tags:
         - pay
       summary: "Ask a customer to approve a mobile money payment on their phone"
-      description: "Creates a PENDING payment and sends the charge through the provider port. It clears only when the signed webhook arrives and the amount is confirmed by lookup. Works at the counter and for delivery.\n\nPermission: `pay.payment.initiate`."
+      description: "Creates a PENDING payment with our reference first, then sends the charge through the provider port outside any transaction, with a timeout, a bounded retry with jitter and a circuit breaker: a retry reuses the reference, so the customer is never charged twice, and the same key answers the same payment without a second charge. It clears only on the provider's own answer (the signed webhook's lookup, `checkPaymentStatus` or the provider sweep), as a customer deposit (2200) to be allocated to the order's document. With the provider down the answer is 503 `PAYMENT_PROVIDER_UNAVAILABLE` and cash still works. Without `orderId`, the payment is taken at the caller's one branch; `shiftId` is refused until point of sale (B9b, `SHIFT_NOT_AVAILABLE`). The phone is used for the charge request only and stored masked (B09a continued, 1.42.0).\n\nPermission: `pay.payment.initiate`."
       x-permission: pay.payment.initiate
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -45885,7 +45885,7 @@ paths:
       tags:
         - pay
       summary: "Look up a pending payment with the provider"
-      description: "Clears the payment if the provider confirms it; covers a provider that charged the customer but timed out.\n\nPermission: `pay.payment.read`."
+      description: "Looks a pending provider payment up with the provider and applies the answer through the one clearing path: cleared on a success for exactly its amount, failed on the provider's failure, held with a break on any other amount; covers a provider that charged the customer but timed out. With the provider down the answer is 503 `PAYMENT_PROVIDER_UNAVAILABLE` (B09a continued, 1.42.0).\n\nPermission: `pay.payment.read`."
       x-permission: pay.payment.read
       parameters:
         - name: id
@@ -45972,7 +45972,7 @@ paths:
       tags:
         - pay
       summary: "Allocate a payment or deposit to invoices"
-      description: "Allocations cannot exceed the payment's unallocated amount or any invoice's outstanding amount.\n\nPermission: `pay.payment.allocate`."
+      description: "A cleared payment's unallocated money applied to issued invoices, receipts or debit notes of the same customer at its branch. Allocations cannot exceed the payment's unallocated amount or any document's outstanding amount (422 `ALLOCATION_EXCEEDS_AVAILABLE`, held by the database on both sides); each posts Dr 2200 Cr 1200 (`pay.DepositAllocated`). Other refusals are `PAYMENT_INVALID` (`PAYMENT_NOT_CLEARED`, `DOCUMENT_UNKNOWN`, `DOCUMENT_NOT_PAYABLE`, `BRANCH_DIFFERS`, `CUSTOMER_DIFFERS`, `DUPLICATE_DOCUMENT`) (B09a continued, 1.42.0).\n\nPermission: `pay.payment.allocate`."
       x-permission: pay.payment.allocate
       parameters:
         - name: id
@@ -46070,7 +46070,7 @@ paths:
       tags:
         - pay
       summary: "Reverse one allocation"
-      description: "Permission: `pay.payment.allocate`."
+      description: "One allocation taken off with a reason, once: the document is outstanding again and the money is back on the customer's deposit (Dr 1200 Cr 2200). Refusals: `PAYMENT_INVALID` (`ALLOCATION_UNKNOWN`, `ALREADY_UNALLOCATED`, `PAYMENT_NOT_CLEARED`) (B09a continued, 1.42.0).\n\nPermission: `pay.payment.allocate`."
       x-permission: pay.payment.allocate
       parameters:
         - name: id
@@ -46376,7 +46376,7 @@ paths:
       tags:
         - pay
       summary: "List unverified and unidentified payments"
-      description: "The unmatched payment queue: detection for abuse case 4.\n\nPermission: `pay.payment.read`."
+      description: "The unmatched payment queue, detection for abuse case 4: provider payments still pending verification, and payments held with an open `UNMATCHED_PAYMENT` or `PROVIDER_AMOUNT_DIFFERS` break (money that arrived after its order stopped waiting, or for another amount than asked). Newest first (B09a continued, 1.42.0).\n\nPermission: `pay.payment.read`."
       x-permission: pay.payment.read
       parameters:
         - name: cursor
@@ -46574,7 +46574,7 @@ paths:
       tags:
         - pay
       summary: "Receive a payment provider webhook"
-      description: "Every request is logged. A webhook takes effect only if the signature over the raw body is valid, the timestamp is inside the window, the event id is unseen, the reference is one this system created, and the amount is confirmed by a server-to-server lookup. A replay is acknowledged with no effect. A bad signature gets 401 with no detail."
+      description: "Every request is logged in the rejection log (`pay.webhook_event`), with only the provider's fields this system reads. Checked in this order (security architecture section 8, the owner's order of 2026-11-16): the signature over the raw body, in constant time (a bad one gets 401 with no detail); the event's own time inside the window (`pay.webhook_window_seconds`, 300: Paystack signs no separate timestamp); the event processed once by its provider reference (`<event>:<reference>`, a unique key: a second delivery is acknowledged with no effect); the reference one this system created; and only then the amount and status confirmed by a server-to-server lookup. The webhook's own amount is never trusted. Every signed event, accepted or not, is answered 200 `{ received: true }`; a payment whose lookup cannot be made now is cleared later by the provider sweep (B09a continued, 1.42.0)."
       parameters:
         - name: provider
           in: path
@@ -46866,7 +46866,7 @@ paths:
       tags:
         - pay
       summary: "Request a refund against an original payment"
-      description: "Cannot exceed what is left unrefunded on the payment. Above the automatic limit a different user must approve.\n\nPermission: `pay.refund.create`.\n\nMay require approval of kind `REFUND`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+      description: "Draws only on the payment's unallocated, unrefunded money (422 `REFUND_EXCEEDS_PAYMENT`; the database holds it too): money settling a document is first taken off with `unallocatePayment`. Every refund a person asks for waits for a different user holding `pay.refund.approve`, with a fresh step-up (`REFUND`, threshold 0, the owner's rule of 2026-11-16), so today the answer is always `202`. Approved, a mobile money or card refund goes back through the provider; any other waits for `markRefundPaid`. `STORE_CREDIT` and `creditNoteId` are refused (`REFUND_INVALID`, `DESTINATION_NOT_AVAILABLE`, `CREDIT_NOTE_NOT_AVAILABLE`) until B09a continued 1b builds them (A-211); a reason that requires a note needs `note` (B09a continued, 1.42.0).\n\nPermission: `pay.refund.create` at the payment's branch.\n\nMay require approval of kind `REFUND`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
       x-permission: pay.refund.create
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -47029,7 +47029,7 @@ paths:
       tags:
         - pay
       summary: "Retry a failed refund"
-      description: "Permission: `pay.refund.create`."
+      description: "A provider refund that failed is tried again now, with the same idempotency key, so it can never pay twice. Refused for any other refund (`REFUND_INVALID`, `NOT_RETRYABLE`) (B09a continued, 1.42.0).\n\nPermission: `pay.refund.create`."
       x-permission: pay.refund.create
       parameters:
         - name: id
@@ -47102,8 +47102,9 @@ paths:
       tags:
         - pay
       summary: "Record a cash refund handed over"
-      description: "Permission: `pay.refund.pay`."
+      description: "An approved refund paid by hand (a cash or bank transfer original, or a provider refund that failed three times), recorded with the payout's `externalReference`, which is required (422 `REFUND_INVALID`, `REFERENCE_REQUIRED`), and a `paidAt` no later than now. Never by the refund's maker (403 `MAKER_CANNOT_CHECK`; the database refuses it too). Posts the refund once and closes its `REFUND_FAILED` break (B09a continued, 1.42.0).\n\nPermission: `pay.refund.pay`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: pay.refund.pay
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path

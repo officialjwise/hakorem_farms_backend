@@ -237,6 +237,16 @@ describe('the database holds the payment record (FR-PAY-001, FR-PAY-002, FR-PAY-
          VALUES ($1, '01900000-0000-7000-8001-000000000002', 'MOBILE_MONEY', 6000, 'NOT_REQUIRED', now(), now(), 'CLEARED', $2, $3, $3, now(), $3)`,
         [paymentId, branchId, cashier.principalId],
       ),
+    ).toBe('HK004:ck_payment_provider_confirmed');
+    // B09a continued's insert trigger now refuses it first; ck_payment_verified still holds for an unverified tender.
+    const cashId = randomUUID();
+    await admin().query("INSERT INTO platform.business_document (id, doc_type, owner_module, branch_id, actor_id) VALUES ($1, 'PAYMENT', 'pay', $2, $3)", [cashId, branchId, cashier.principalId]);
+    expect(
+      await refusedBy(
+        `INSERT INTO pay.payment (id, payment_method_id, method_kind, amount_pesewas, verification, register_ref, register_code, received_at, cleared_at, status, branch_id, created_by, updated_by, posted_at, posted_by)
+         VALUES ($1, '01900000-0000-7000-8001-000000000001', 'CASH', 6000, 'UNVERIFIED', $4, 'T1', now(), now(), 'CLEARED', $2, $3, $3, now(), $3)`,
+        [cashId, branchId, cashier.principalId, randomUUID()],
+      ),
     ).toBe('23514:ck_payment_verified');
   });
 
