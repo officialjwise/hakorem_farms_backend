@@ -4,17 +4,14 @@ import { GoodsReceipts } from '../modules/inv';
 import { Feeding, Weighing } from '../modules/liv';
 import { CatalogueAdmin, LocationsAdmin, ProductCatalogue } from '../modules/mdm';
 import { PG_POOL } from '../platform/platform.module';
-import { SEED_STOCK_RECEIVED_AT } from './farm-inv';
+import type { SeedCalendar } from './seed-calendar';
 import { SeedStaff } from './seed-staff';
 import type { ServiceSeedUnit } from './seed-unit';
-
-/** When the seeded animals were first weighed: an hour after they came off the lorry. */
-export const SEED_WEIGHED_AT = new Date('2026-11-10T08:00:00Z');
 
 /**
  * The first weighing of the seeded animals at Dodowa's pens (FR-LIV-004), SEED: West African Dwarf goats of 19 to 27
  * kg and Djallonke sheep near 30 kg on the scale, and a sample of ten of the twenty broilers, averaging 1.850 kg a
- * bird. Fixed client ids, so a second run counts each as a duplicate and records nothing. The register itself needs
+ * bird, at the seed calendar's `weighedAt`. Fixed client ids, so a second run counts each as a duplicate and records nothing. The register itself needs
  * no seed: receiving the animals opened them (inv.StockUnitRegistered). Weights change neither stock nor cost.
  */
 export const SEED_WEIGHINGS = [
@@ -79,7 +76,7 @@ function required(map: ReadonlyMap<string, string>, code: string, what: string):
  * The store, its feed and medicine, their first delivery and the rations (B06 continued 2, A-159), each written through
  * its own module's service as the seeded Manager, and each skipped when it is already there.
  */
-async function seedStore(app: INestApplicationContext, staff: SeedStaff, pool: pg.Pool): Promise<number> {
+async function seedStore(app: INestApplicationContext, staff: SeedStaff, pool: pg.Pool, calendar: SeedCalendar): Promise<number> {
   const branchId = required(await idsByCode(pool, "SELECT code, id FROM mdm.branch WHERE code = 'DDW'"), 'DDW', 'branch');
   const locations = await idsByCode(pool, "SELECT l.code, l.id FROM mdm.location l JOIN mdm.branch b ON b.id = l.branch_id WHERE b.code = 'DDW' AND l.deleted_at IS NULL");
   const categories = await idsByCode(pool, 'SELECT code, id FROM mdm.category WHERE deleted_at IS NULL');
@@ -129,7 +126,7 @@ async function seedStore(app: INestApplicationContext, staff: SeedStaff, pool: p
           supplierId: required(suppliers, SEED_STORE_RECEIPT.supplier, 'supplier'),
           locationId: required(locations, SEED_STORE.code, 'location'),
           deliveryNoteRef: SEED_STORE_RECEIPT.deliveryNoteRef,
-          receivedAt: SEED_STOCK_RECEIVED_AT,
+          receivedAt: calendar.stockReceivedAt,
           notes: 'SEED stock',
           lines: SEED_STORE_RECEIPT.lines.map((line) => ({ productId: required(products, line.sku, 'product'), qtyReceived: line.qty, valuePesewas: line.valuePesewas })),
         },
@@ -157,7 +154,7 @@ async function seedStore(app: INestApplicationContext, staff: SeedStaff, pool: p
  * feed, medicine, first delivery and rations (B06 continued 2), then the first weighing of the animals the receipts
  * opened in the register. The broiler flock's batch needs no seed either: its receipt opened it.
  */
-export function farmSeedLiv(): ServiceSeedUnit {
+export function farmSeedLiv(calendarOf: (app: INestApplicationContext) => SeedCalendar): ServiceSeedUnit {
   return {
     kind: 'SERVICE',
     name: 'liv-services',
@@ -166,13 +163,14 @@ export function farmSeedLiv(): ServiceSeedUnit {
       const pool = app.get<pg.Pool>(PG_POOL);
       const units = new Map((await pool.query<{ identifier: string; id: string }>('SELECT identifier, id FROM inv.stock_unit')).rows.map((r) => [r.identifier, r.id]));
       const recorded = new Set((await pool.query<{ id: string }>('SELECT id FROM liv.weight_record WHERE id = ANY($1::uuid[])', [SEED_WEIGHINGS.map((w) => w.id)])).rows.map((r) => r.id));
-      const stored = await seedStore(app, staff, pool);
+      const calendar = calendarOf(app);
+      const stored = await seedStore(app, staff, pool, calendar);
       const fresh = SEED_WEIGHINGS.filter((w) => !recorded.has(w.id));
       if (fresh.length === 0) return { records: stored };
       const records = fresh.map((w) => {
         const stockUnitId = units.get(w.tag);
         if (stockUnitId === undefined) throw new Error(`the LIV seed needs ${w.tag}, which the INV seed receives; run the seed units in order`);
-        return { id: w.id, stockUnitId, weightKg: w.weightKg, weightSource: 'SCALE' as const, headWeighed: w.headWeighed, measuredAt: SEED_WEIGHED_AT };
+        return { id: w.id, stockUnitId, weightKg: w.weightKg, weightSource: 'SCALE' as const, headWeighed: w.headWeighed, measuredAt: calendar.weighedAt };
       });
       return staff.as('manager', async (manager) => {
         const result = await app.get(Weighing).record(manager, records, `seed:liv:first-weighing:${fresh.map((w) => w.id.slice(-4)).join('-')}`);

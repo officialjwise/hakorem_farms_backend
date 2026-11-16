@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { totpAt } from '../../../src/modules/iam/domain/totp';
 import { runSeedUnits } from '../../../src/seed/run-seed';
 import { SEED_TRANSPORT_INVOICE } from '../../../src/seed/farm-pur';
+import { seedCalendar } from '../../../src/seed/seed-calendar';
 import { seedUnits } from '../../../src/seed/seed-units';
 import { contractSchema } from '../../support/contract-schemas';
 import { consoleGet, consolePost, createUser, enrolAndLogin, relaxRateLimits, testStartTime, type TestSession } from '../../support/iam';
@@ -18,6 +19,8 @@ type TotpSession = TestSession & { readonly secret: Buffer };
 let manager: TotpSession;
 let accountant: TotpSession;
 let owner: TotpSession;
+/** The month the seeded stock arrived in, from the clock the seed ran on (B09t2): the month its suppliers are scored for. */
+let seededMonth: string;
 const ids = new Map<string, string>();
 const post = (session: TestSession, path: string, body: object = {}) => consolePost(api.server, session, `/v1${path}`).send(body);
 const get = (session: TestSession, path: string) => consoleGet(api.server, session, `/v1${path}`);
@@ -39,6 +42,7 @@ beforeAll(async () => {
   await relaxRateLimits(database);
   api = await startTestApp(database, { clock });
   await runSeedUnits(database.pool('app'), api.app, seedUnits({ SEED_STAFF_PASSWORD: `Seed-${randomUUID()}` }));
+  seededMonth = `${seedCalendar(clock.now()).stockReceivedOn.slice(0, 7)}-01`;
   for (const row of (
     await database.pool('admin').query<{ code: string; id: string }>(
       `SELECT 'branch:' || code AS code, id FROM mdm.branch
@@ -90,7 +94,7 @@ describe('B07 continued 1b operations answer in the contract shapes', () => {
     expect(remittance.status).toBe(200);
     expectShape('SupplierRemittance', remittance.body);
 
-    const scores = await get(manager, `/supplier-scores?periodStart=${toBusinessDate(clock.now()).slice(0, 7)}-01`);
+    const scores = await get(manager, `/supplier-scores?periodStart=${seededMonth}`);
     expect(scores.status).toBe(200);
     expectShape('SupplierScorePage', scores.body);
     expect(scores.body.data.length).toBeGreaterThan(0);

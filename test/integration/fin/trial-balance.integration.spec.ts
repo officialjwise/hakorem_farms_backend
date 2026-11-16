@@ -5,6 +5,7 @@ import { FinancialStatements, LedgerReconciliation, STOCK_POSTING_EVENTS } from 
 import { runAsSystem } from '../../../src/platform/context/request-context';
 import { UnitOfWork } from '../../../src/platform/database/unit-of-work';
 import { runSeedUnits } from '../../../src/seed/run-seed';
+import { seedCalendar } from '../../../src/seed/seed-calendar';
 import { seedUnits } from '../../../src/seed/seed-units';
 import { SYSTEM_PRINCIPAL } from '../../support/iam';
 import { startTestApp, type TestApp } from '../../support/test-app';
@@ -18,6 +19,8 @@ import { createTestDatabase, type TestDatabase } from '../../support/test-databa
  */
 let database: TestDatabase;
 let api: TestApp;
+/** The day the seeded stock arrived, from the real clock the seed ran on (B09t2): a run across midnight only widens the range. */
+let seedFrom: string;
 
 /** A posting event whose outbox message carries a value, with the journal entry it posted (null if none). */
 interface PostedEvent {
@@ -30,6 +33,7 @@ interface PostedEvent {
 beforeAll(async () => {
   database = await createTestDatabase();
   api = await startTestApp(database);
+  seedFrom = seedCalendar(new Date()).stockReceivedOn;
   await runSeedUnits(database.pool('app'), api.app, seedUnits({ SEED_STAFF_PASSWORD: `Seed-${randomUUID()}` }));
 });
 
@@ -108,7 +112,7 @@ describe('the trial balance sums to zero on the seeded trading day (the B8 gate,
   it('answers the same from FinancialStatements for the seeded range, each account equal to the sum of its lines', async () => {
     const today = toBusinessDate(new Date());
     const uow = api.app.get(UnitOfWork);
-    const tb = await uow.run({ isolation: 'read committed' }, (tx) => api.app.get(FinancialStatements).trialBalanceIn(tx, '2026-11-10', today));
+    const tb = await uow.run({ isolation: 'read committed' }, (tx) => api.app.get(FinancialStatements).trialBalanceIn(tx, seedFrom, today));
     expect(tb.balanced).toBe(true);
     expect(tb.signedSum).toBe(0n);
     expect(tb.totals.debit).toBe(tb.totals.credit);

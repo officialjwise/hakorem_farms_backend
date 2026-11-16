@@ -10,6 +10,7 @@ import { farmSeedPur } from './farm-pur';
 import { farmSeedPurRegister } from './farm-pur-register';
 import { farmSeedPurCredit } from './farm-pur-credit';
 import { farmSeedShp } from './farm-shp';
+import { seedRunCalendar } from './seed-calendar';
 import type { SeedUnit } from './seed-unit';
 
 /** What the seed units read from the environment. Values here are development secrets, generated per machine. */
@@ -31,8 +32,10 @@ export interface SeedEnvironment {
  * enters Kpone's transport credit note and the Owner approves it (B07 continued 1b); last, the Manager generates Dodowa's
  * delivery slots through DEL and the storefront's listing is built through SHP (B07 continued 2); last, the trading day's
  * billing documents (an invoice on terms, a walk-in receipt, a credit note approved by the Manager, a debit note and a
- * proforma) are issued through BIL and posted by the ledger (B08 continued 2).
+ * proforma) are issued through BIL and posted by the ledger (B08 continued 2). Every date the units write comes from one
+ * seed calendar per run, built from the application clock (B09t2, `seed-calendar.ts`).
  */
 export function seedUnits(env: SeedEnvironment): readonly SeedUnit[] {
-  return [farmSeedMdmBootstrap(), farmSeedIam(env.SEED_STAFF_PASSWORD), farmSeedMdm(), seedLocationGrantsIam(), farmSeedInv(), farmSeedLiv(), farmSeedMdmUnits(), farmSeedPrc(), farmSeedFin(), farmSeedFinAssets(), farmSeedPur(), farmSeedPurRegister(), farmSeedPurCredit(), farmSeedShp(), farmSeedBil()];
+  const calendar = seedRunCalendar();
+  return [farmSeedMdmBootstrap(), farmSeedIam(env.SEED_STAFF_PASSWORD), farmSeedMdm(calendar), seedLocationGrantsIam(), farmSeedInv(calendar), farmSeedLiv(calendar), farmSeedMdmUnits(), farmSeedPrc(), farmSeedFin(), farmSeedFinAssets(), farmSeedPur(), farmSeedPurRegister(), farmSeedPurCredit(), farmSeedShp(), farmSeedBil()];
 }

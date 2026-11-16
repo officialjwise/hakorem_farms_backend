@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { ManualClock } from '@hakorem/kernel';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runSeedUnits } from '../../../src/seed/run-seed';
+import { seedCalendar, type SeedCalendar } from '../../../src/seed/seed-calendar';
 import { seedUnits } from '../../../src/seed/seed-units';
 import { consoleGet, createUser, enrolAndLogin, login, relaxRateLimits, testStartTime, type RoleCode, type TestSession } from '../../support/iam';
 import { startTestApp, type TestApp } from '../../support/test-app';
@@ -18,6 +19,8 @@ let manager: TestSession;
 let coldStorekeeper: TestSession;
 let cashier: TestSession;
 let investor: TestSession;
+/** The seeded farm's dates, from the clock the seed ran on (B09t2). */
+let seeded: SeedCalendar;
 const wrongForStock = new Map<string, TestSession>();
 const ids = new Map<string, string>();
 const id = (code: string) => ids.get(code)!;
@@ -29,6 +32,7 @@ beforeAll(async () => {
   await relaxRateLimits(database);
   api = await startTestApp(database, { clock });
   await runSeedUnits(database.pool('app'), api.app, seedUnits({ SEED_STAFF_PASSWORD: `Seed-${randomUUID()}` }));
+  seeded = seedCalendar(clock.now());
   for (const row of (
     await database.pool('admin').query<{ code: string; id: string }>(
       `SELECT 'branch:' || code AS code, id FROM mdm.branch
@@ -70,7 +74,7 @@ describe('B05x gate: lot and animal label data answers from the real API', () =>
       onHandQty: '45.000',
       uom: 'KG',
       uomDisplayDecimals: 3,
-      expiresOn: '2027-02-08',
+      expiresOn: seeded.meatExpiresOn,
       barcode: { symbology: 'CODE_128', payload: 'MEAT-BEEF-15KG/LOT-BEEF-2026-1110', text: 'MEAT-BEEF-15KG/LOT-BEEF-2026-1110' },
     });
   });
@@ -82,7 +86,7 @@ describe('B05x gate: lot and animal label data answers from the real API', () =>
     const weight = await database.pool('admin').query<{ kg: string | null }>('SELECT last_weight_kg::text AS kg FROM inv.stock_unit WHERE id = $1', [id('unit:G-0143')]);
     expect(goat.body.weightKg).toBe(weight.rows[0]!.kg);
     const eggs = await get(manager, `/stock-units/${id('unit:EGG-BIG-2026-1110')}/label`);
-    expect(eggs.body).toMatchObject({ kind: 'LOT', lotNo: 'EGG-BIG-2026-1110', weightKg: null, onHandQty: '30.000', uom: 'CRATE', expiresOn: '2026-12-01' });
+    expect(eggs.body).toMatchObject({ kind: 'LOT', lotNo: 'EGG-BIG-2026-1110', weightKg: null, onHandQty: '30.000', uom: 'CRATE', expiresOn: seeded.eggsExpireOn });
   });
 
   it('refuses a stock unit label to the Cashier, Sales, Driver and Farm hand, and to a Storekeeper at another location', async () => {

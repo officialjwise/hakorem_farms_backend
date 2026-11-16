@@ -8,11 +8,10 @@ import { UnitOfWork } from '../platform/database/unit-of-work';
 import { PG_POOL } from '../platform/platform.module';
 import { SEED_CATEGORIES, SEED_SPECIES_LIST } from './reference-catalogue';
 import { SEED_CUSTOMERS, SEED_PRICE_LISTS, SEED_PRODUCTS, SEED_PROMOTIONS, SEED_SPECIES, SEED_TAX_SCHEME } from './reference-pricing';
+import type { SeedCalendar } from './seed-calendar';
 import { SEED_USER_AGENT, SeedStaff } from './seed-staff';
 import type { ServiceSeedUnit } from './seed-unit';
 
-/** The instant the seeded farm's prices and tax scheme take effect. */
-export const SEED_INSTANT = new Date('2026-11-01T06:00:00Z');
 const TIER: Readonly<Record<string, string>> = {
   RETAIL: '01900000-0000-7000-8000-000000000301',
   WHOLESALE: '01900000-0000-7000-8000-000000000302',
@@ -131,12 +130,13 @@ export function farmSeedMdmBootstrap(): ServiceSeedUnit {
  * and approved by the Owner. A record already there (found by its code) is left alone, so a second run writes
  * nothing; every call also carries a fixed idempotency key.
  */
-export function farmSeedMdm(): ServiceSeedUnit {
+export function farmSeedMdm(calendarOf: (app: INestApplicationContext) => SeedCalendar): ServiceSeedUnit {
   return {
     kind: 'SERVICE',
     name: 'mdm-services',
     async run(app: INestApplicationContext) {
       const staff = await SeedStaff.load(app);
+      const calendar = calendarOf(app);
       const pool = app.get<pg.Pool>(PG_POOL);
       const uow = app.get(UnitOfWork);
       const approvals = app.get(Approvals);
@@ -285,7 +285,7 @@ export function farmSeedMdm(): ServiceSeedUnit {
       const schemes = await pool.query('SELECT 1 FROM mdm.tax_scheme_version LIMIT 1');
       if (schemes.rows.length === 0) {
         const pending = await staff.as('accountant', async (accountant) => {
-          const created = await tax.createVersion(accountant, { validFrom: SEED_INSTANT.toISOString().slice(0, 10), sourceNote: SEED_TAX_SCHEME.sourceNote }, key('tax', 'v1'));
+          const created = await tax.createVersion(accountant, { validFrom: calendar.pricesFrom.toISOString().slice(0, 10), sourceNote: SEED_TAX_SCHEME.sourceNote }, key('tax', 'v1'));
           const filled = await tax.replaceCells(accountant, created.body.id, { version: created.body.version, cells: seedTaxCells() }, key('tax', 'v1', 'cells'));
           return tax.submit(accountant, filled.body.id, key('tax', 'v1', 'submit'));
         });
@@ -308,7 +308,7 @@ export function farmSeedMdm(): ServiceSeedUnit {
             key('price-list', list.code),
           );
           existingLists.set(list.code, created.body.id);
-          const version = await priceLists.createVersion(manager, created.body.id, { validFrom: SEED_INSTANT, notes: 'SEED opening prices' }, key('price-list', list.code, 'v1'));
+          const version = await priceLists.createVersion(manager, created.body.id, { validFrom: calendar.pricesFrom, notes: 'SEED opening prices' }, key('price-list', list.code, 'v1'));
           const entries = list.entries.map((entry) => ({
             productId: required(products, entry.sku, 'product'),
             gradeId: entry.grade === null ? undefined : required(grades, `${required(productSpecies, entry.sku, 'the species of product')}:${entry.grade}`, 'grade'),
@@ -332,7 +332,7 @@ export function farmSeedMdm(): ServiceSeedUnit {
         const customerId = required(customers, customer.name, 'customer');
         if (customer.assignedList === null || assigned.has(customerId)) continue;
         await staff.as('manager', (manager) =>
-          parties.assignPriceList(manager, customerId, { priceListId: required(existingLists, customer.assignedList!, 'price list'), validFrom: SEED_INSTANT }, key('customer', customer.customerNo, 'price-list')),
+          parties.assignPriceList(manager, customerId, { priceListId: required(existingLists, customer.assignedList!, 'price list'), validFrom: calendar.pricesFrom }, key('customer', customer.customerNo, 'price-list')),
         );
         records += 1;
       }
@@ -356,8 +356,8 @@ export function farmSeedMdm(): ServiceSeedUnit {
               channel: promotion.channel,
               stackGroup: promotion.stackGroup,
               requiresCoupon: promotion.coupon !== null,
-              validFrom: SEED_INSTANT,
-              validTo: promotion.validTo,
+              validFrom: calendar.pricesFrom,
+              validTo: calendar[promotion.endsAt],
               targets: [{ categoryId: required(categories, promotion.category, 'category') }],
             },
             key('promotion', promotion.code),

@@ -4,9 +4,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { addDays } from '../../../src/modules/rpt/domain/dashboard';
 import { PgDashboardStore } from '../../../src/modules/rpt/infrastructure/pg-dashboard-store';
 import type { Transaction } from '../../../src/platform/database/unit-of-work';
-import { SEED_HAND_COUNT, SEED_RECEIPTS, SEED_REORDER_RULES, SEED_STOCK_RECEIVED_AT } from '../../../src/seed/farm-inv';
+import { SEED_HAND_COUNT, SEED_RECEIPTS, SEED_REORDER_RULES } from '../../../src/seed/farm-inv';
 import { SEED_STORE_RECEIPT } from '../../../src/seed/farm-liv';
 import { runSeedUnits } from '../../../src/seed/run-seed';
+import { seedCalendar } from '../../../src/seed/seed-calendar';
 import { seedUnits } from '../../../src/seed/seed-units';
 import { ledgerIds, postManualJournal, type TotpSession } from '../../support/fin';
 import { consoleGet, CookieJar, createUser, enrolAndLogin, login, relaxRateLimits, testStartTime, type RoleCode, type TestSession } from '../../support/iam';
@@ -32,7 +33,8 @@ const wrong = new Map<string, TestSession>();
 const ids = new Map<string, string>();
 const id = (code: string) => ids.get(code)!;
 const get = (session: TestSession, path: string) => consoleGet(api.server, session, `/v1${path}`);
-const SEED_DAY = toBusinessDate(SEED_STOCK_RECEIVED_AT);
+/** The day the seeded stock arrived, from the clock the seed ran on (B09t2). */
+let SEED_DAY: string;
 
 /** The hand counts, written out from the seed's own receipts and rules rather than read back from the database. */
 const PURCHASES_ON_SEED_DAY = Money.sum(
@@ -61,6 +63,7 @@ beforeAll(async () => {
   await relaxRateLimits(database);
   api = await startTestApp(database, { clock });
   await runSeedUnits(database.pool('app'), api.app, seedUnits({ SEED_STAFF_PASSWORD: `Seed-${randomUUID()}` }));
+  SEED_DAY = seedCalendar(clock.now()).stockReceivedOn;
   for (const row of (await database.pool('admin').query<{ code: string; id: string }>("SELECT 'branch:' || code AS code, id FROM mdm.branch")).rows) {
     ids.set(row.code, row.id);
   }
@@ -162,18 +165,18 @@ describe('B05x gate: each tile answers alone, with the dashboard value and the m
   });
 
   it('sums posted purchase receipts at cost per day, a zero for each day without one, and leaves the harvest out', async () => {
-    const tile = await get(manager, `/dashboard/tiles/purchases?from=2026-11-09&to=2026-11-11`);
+    const tile = await get(manager, `/dashboard/tiles/purchases?from=${addDays(SEED_DAY, -1)}&to=${addDays(SEED_DAY, 1)}`);
     expect(tile.status).toBe(200);
     expect(tile.body).toMatchObject({
       branchIds: [id('branch:DDW')],
       currency: 'GHS',
       purchases: {
-        from: '2026-11-09',
-        to: '2026-11-11',
+        from: addDays(SEED_DAY, -1),
+        to: addDays(SEED_DAY, 1),
         points: [
-          { date: '2026-11-09', valueAtCostPesewas: 0, receiptCount: 0 },
+          { date: addDays(SEED_DAY, -1), valueAtCostPesewas: 0, receiptCount: 0 },
           { date: SEED_DAY, valueAtCostPesewas: PURCHASES_ON_SEED_DAY, receiptCount: 5 },
-          { date: '2026-11-11', valueAtCostPesewas: 0, receiptCount: 0 },
+          { date: addDays(SEED_DAY, 1), valueAtCostPesewas: 0, receiptCount: 0 },
         ],
         totalPesewas: 1_729_001,
         receiptCount: 5,
@@ -187,9 +190,9 @@ describe('B05x gate: each tile answers alone, with the dashboard value and the m
     expect(tile.body.purchases.to).toBe(today);
     expect(tile.body.purchases.points).toHaveLength(30);
     for (const [query, rule] of [
-      ['from=2026-01-01&to=2026-11-10', 'PERIOD_TOO_LONG'],
-      ['from=2026-11-11&to=2026-11-10', 'FROM_AFTER_TO'],
-      [`from=2026-11-01&to=${addDays(toBusinessDate(clock.now()), 1)}`, 'IN_THE_FUTURE'],
+      [`from=${addDays(SEED_DAY, -313)}&to=${SEED_DAY}`, 'PERIOD_TOO_LONG'],
+      [`from=${addDays(SEED_DAY, 1)}&to=${SEED_DAY}`, 'FROM_AFTER_TO'],
+      [`from=${SEED_DAY}&to=${addDays(toBusinessDate(clock.now()), 1)}`, 'IN_THE_FUTURE'],
     ] as const) {
       const refused = await get(manager, `/dashboard/tiles/purchases?${query}`);
       expect(refused.status, query).toBe(422);

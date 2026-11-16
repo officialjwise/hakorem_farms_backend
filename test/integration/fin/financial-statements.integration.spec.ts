@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { ManualClock, toBusinessDate } from '@hakorem/kernel';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { SEED_STOCK_RECEIVED_AT } from '../../../src/seed/farm-inv';
 import { runSeedUnits } from '../../../src/seed/run-seed';
+import { seedCalendar } from '../../../src/seed/seed-calendar';
 import { seedUnits } from '../../../src/seed/seed-units';
 import { ledgerIds, postManualJournal, type TotpSession } from '../../support/fin';
 import { LedgerReconciliation } from '../../../src/modules/fin';
@@ -27,7 +27,8 @@ const others = new Map<string, TestSession>();
 let branchId: string;
 let testBranchId: string;
 
-const SEED_FROM = toBusinessDate(SEED_STOCK_RECEIVED_AT);
+/** The seeded trading day's first date, from the clock the seed ran on (B09t2). */
+let SEED_FROM: string;
 let seedTo: string;
 const get = (session: TestSession, path: string) => consoleGet(api.server, session, `/v1${path}`);
 const post = (session: TestSession, path: string, body: object = {}) => consolePost(api.server, session, `/v1${path}`).send(body);
@@ -68,6 +69,7 @@ beforeAll(async () => {
   await relaxRateLimits(database);
   api = await startTestApp(database, { clock });
   await runSeedUnits(database.pool('app'), api.app, seedUnits({ SEED_STAFF_PASSWORD: `Seed-${randomUUID()}` }));
+  SEED_FROM = seedCalendar(clock.now()).stockReceivedOn;
   seedTo = toBusinessDate(clock.now());
   const branches = new Map((await admin().query<{ code: string; id: string }>('SELECT code, id FROM mdm.branch')).rows.map((r) => [r.code, r.id] as const));
   branchId = branches.get('DDW')!;
