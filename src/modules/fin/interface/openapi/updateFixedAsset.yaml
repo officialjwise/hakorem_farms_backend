@@ -1,0 +1,85 @@
+operationId: updateFixedAsset
+tags:
+  - fin
+summary: "Change a fixed asset"
+description: "Renames an asset or changes its estimate, at the `version` read (409 `VERSION_CONFLICT` otherwise). A new useful life or residual is prospective: what is left to depreciate is spread over the months left from the next run, and nothing already charged changes (A-199). The cost, category, branch and acquisition date never change: the database refuses it. Refusals are 422 `FIXED_ASSET_INVALID`: `LIFE_OUT_OF_RANGE`, `LIFE_TOO_SHORT` (the life may not end before the months already charged, nor at them while anything is left to depreciate), `RESIDUAL_ABOVE_NET_BOOK_VALUE`, `ASSET_DISPOSED`, `DEPRECIATION_RUN_PENDING` (a draft run of an open period carries the asset: post it first).\n\nPermission: `fin.fixed_asset.manage` at the asset's branch."
+x-permission: fin.fixed_asset.manage
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - NOT_FOUND
+  - VERSION_CONFLICT
+  - FIXED_ASSET_INVALID
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/FixedAssetUpdate"
+      example:
+        version: 11
+        usefulLifeMonths: 72
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/FixedAsset"
+        example:
+          id: "019a7add-3076-70da-a612-1679cbc78f57"
+          assetNo: FA-0001
+          name: "Delivery van GT-4521-24"
+          category: VEHICLE
+          branch:
+            id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+            code: DDW
+            name: "HaKorem Farms, Dodowa"
+          acquiredOn: "2026-02-10"
+          costPesewas: 18500000
+          residualPesewas: 2500000
+          usefulLifeMonths: 72
+          method: STRAIGHT_LINE
+          accumulatedPesewas: 2400003
+          netBookValuePesewas: 16099997
+          status: IN_USE
+          disposedOn: null
+          currency: GHS
+          version: 12
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

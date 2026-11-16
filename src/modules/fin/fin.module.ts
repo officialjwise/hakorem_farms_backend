@@ -26,17 +26,21 @@ import { LedgerReconciliation, SubledgerSources } from './application/reconcilia
 import { FinancialStatements } from './application/statements';
 import { STATEMENT_STORE, type StatementStore } from './application/statement-store';
 import { YEAR_CLOSED, YearClose } from './application/year-close';
+import { FIXED_ASSET_STORE, type FixedAssetStore } from './application/fixed-asset-store';
+import { DEPRECIATION_RUN, FIXED_ASSET_DISPOSED, FixedAssets } from './application/fixed-assets';
 import { JOURNAL_STORE, type JournalStore } from './application/journal-store';
 import { Journals } from './application/journals';
 import { MANUAL_JOURNAL, MANUAL_JOURNAL_APPROVED, ManualJournals } from './application/manual-journals';
 import { POSTING_RULE_CHANGE, PostingRules } from './application/posting-rules';
 import { PgBankAccountStore } from './infrastructure/pg-bank-account-store';
 import { PgChartStore } from './infrastructure/pg-chart-store';
+import { PgFixedAssetStore } from './infrastructure/pg-fixed-asset-store';
 import { PgJournalStore } from './infrastructure/pg-journal-store';
 import { PgLedgerStore } from './infrastructure/pg-ledger-store';
 import { PgStatementStore } from './infrastructure/pg-statement-store';
 import { AccountsController } from './interface/accounts.controller';
 import { BankAccountsController } from './interface/bank-accounts.controller';
+import { DepreciationRunsController, FixedAssetsController } from './interface/fixed-assets.controller';
 import { JournalsController } from './interface/journals.controller';
 import { ManualJournalsController } from './interface/manual-journals.controller';
 import { PeriodsController } from './interface/periods.controller';
@@ -52,17 +56,38 @@ import { StatementsController } from './interface/statements.controller';
  * reopen under approval (PERIOD_REOPEN); B08 continued 1b journals read only, manual journals (MANUAL_JOURNAL, posted
  * from FIN's own ◆ event `fin.ManualJournalApproved`) and posting rule and determination changes (POSTING_RULE_CHANGE);
  * B08 continued 1b2 the business's bank accounts, each number sealed with a data key of its own (ADR-0057);
- * B08 continued 1c the four financial statements, the period balances and the year close (`fin.YearClosed`, ADR-0058).
+ * B08 continued 1c the four financial statements, the period balances and the year close (`fin.YearClosed`, ADR-0058);
+ * B08 continued 1c2 the fixed asset register, depreciation runs and disposal (`fin.DepreciationRun`,
+ * `fin.FixedAssetDisposed`, ADR-0059), with the register reconciled nightly against 1510 to 1540 and 1590.
  */
 @Module({
   imports: [IamModule, MdmModule],
-  controllers: [AccountsController, BankAccountsController, PeriodsController, JournalsController, ManualJournalsController, PostingRulesController, StatementsController],
+  controllers: [AccountsController, BankAccountsController, PeriodsController, JournalsController, ManualJournalsController, PostingRulesController, StatementsController, FixedAssetsController, DepreciationRunsController],
   providers: [
     { provide: LEDGER_STORE, useClass: PgLedgerStore },
     { provide: CHART_STORE, useClass: PgChartStore },
     { provide: JOURNAL_STORE, useClass: PgJournalStore },
     { provide: BANK_ACCOUNT_STORE, useClass: PgBankAccountStore },
     { provide: STATEMENT_STORE, useClass: PgStatementStore },
+    { provide: FIXED_ASSET_STORE, useClass: PgFixedAssetStore },
+    {
+      provide: FixedAssets,
+      useFactory: (
+        uow: UnitOfWork,
+        store: FixedAssetStore,
+        chart: ChartStore,
+        authoriser: Authoriser,
+        idempotency: Idempotency,
+        audit: AuditTrail,
+        documents: DocumentRegistry,
+        events: DomainEvents,
+        refs: MasterDataRefs,
+        bankAccounts: BankAccounts,
+        cursors: Cursors,
+        clock: Clock,
+      ) => new FixedAssets(uow, store, chart, authoriser, idempotency, audit, documents, events, refs, bankAccounts, cursors, clock),
+      inject: [UnitOfWork, FIXED_ASSET_STORE, CHART_STORE, Authoriser, Idempotency, AuditTrail, DocumentRegistry, DomainEvents, MasterDataRefs, BankAccounts, Cursors, CLOCK],
+    },
     {
       provide: YearClose,
       useFactory: (store: StatementStore, journals: JournalStore, events: DomainEvents, documents: DocumentRegistry, audit: AuditTrail, clock: Clock) =>
@@ -178,7 +203,7 @@ import { StatementsController } from './interface/statements.controller';
       inject: [LEDGER_STORE, STATEMENT_STORE, UnitOfWork, Authoriser, Cursors, CLOCK],
     },
   ],
-  exports: [Ledger, LedgerPostings, SubledgerSources, LedgerReconciliation, FinancialStatements, Periods, BankAccounts],
+  exports: [Ledger, LedgerPostings, SubledgerSources, LedgerReconciliation, FinancialStatements, Periods, BankAccounts, FixedAssets],
 })
 export class FinModule implements OnModuleInit, OnApplicationBootstrap {
   constructor(
@@ -190,11 +215,16 @@ export class FinModule implements OnModuleInit, OnApplicationBootstrap {
     @Inject(Periods) private readonly periods: Periods,
     @Inject(ManualJournals) private readonly manualJournals: ManualJournals,
     @Inject(PostingRules) private readonly postingRules: PostingRules,
+    @Inject(SubledgerSources) private readonly sources: SubledgerSources,
+    @Inject(FIXED_ASSET_STORE) private readonly fixedAssets: FixedAssetStore,
   ) {}
 
   /** Subscribes the posting handlers inside every publisher's transaction (ADR-0003), and FIN's approval kinds. */
   onModuleInit(): void {
-    this.events.declareLedgerEvents([MANUAL_JOURNAL_APPROVED, YEAR_CLOSED]);
+    this.events.declareLedgerEvents([MANUAL_JOURNAL_APPROVED, YEAR_CLOSED, DEPRECIATION_RUN, FIXED_ASSET_DISPOSED]);
+    // The register against 1510 to 1540 and 1590, night by night (ADR-0059): FIN's own subledger.
+    this.sources.register({ name: 'fin.fixed-asset-cost', determinantType: 'ASSET_CATEGORY', role: 'ASSET', valuesIn: (tx) => this.fixedAssets.costByCategory(tx) });
+    this.sources.register({ name: 'fin.fixed-asset-depreciation', determinantType: 'ASSET_CATEGORY', role: 'ACCUMULATED_DEPRECIATION', valuesIn: (tx) => this.fixedAssets.accumulatedByCategory(tx) });
     this.postings.registerIn(this.events);
     this.approvals.registerHandler(PERIOD_REOPEN, this.periods);
     this.approvals.registerHandler(MANUAL_JOURNAL, this.manualJournals);

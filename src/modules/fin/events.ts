@@ -65,3 +65,43 @@ export interface YearClosed {
     readonly amountPesewas: number;
   }[];
 }
+
+/**
+ * `fin.DepreciationRun` v1 ◆ (FR-FIN-015, ADR-0003, ADR-0059): a depreciation run was posted by someone other than the
+ * person who calculated it. One event per branch with assets on the run: each asset's exact charge for the months it
+ * covers. The ledger posts it as the branch's entry, Dr 6500 and Cr 1590 per asset, dated the period's last day.
+ */
+export interface DepreciationRunPosted {
+  readonly depreciationRunId: string;
+  readonly periodId: string;
+  readonly postingDate: string;
+  readonly lines: readonly {
+    readonly fixedAssetId: string;
+    readonly assetNo: string;
+    readonly category: 'VEHICLE' | 'COLD_ROOM' | 'HOUSING' | 'EQUIPMENT';
+    readonly months: number;
+    readonly amountPesewas: number;
+  }[];
+}
+
+/**
+ * `fin.FixedAssetDisposed` v1 ◆ (FR-FIN-014, ADR-0059): a fixed asset was sold or scrapped. The ledger posts its cost
+ * and accumulated depreciation out, the proceeds into the farm's own account of the kind they came in by, and the exact
+ * gain or loss to 4920, on the disposal date.
+ */
+export interface FixedAssetDisposed {
+  readonly fixedAssetId: string;
+  readonly disposalId: string;
+  readonly assetNo: string;
+  readonly category: 'VEHICLE' | 'COLD_ROOM' | 'HOUSING' | 'EQUIPMENT';
+  readonly disposedOn: string;
+  readonly costPesewas: number;
+  readonly accumulatedPesewas: number;
+  readonly proceedsPesewas: number;
+  readonly gainPesewas: number;
+  readonly lossPesewas: number;
+  readonly proceedsMethod: 'CASH' | 'BANK' | 'MOBILE_MONEY';
+  readonly bankAccountId: string | null;
+  /** The threat model's abuse cases this event lets B12's daily exception report detect (30: a disposal at a loss). */
+  readonly abuseCases: readonly number[];
+}
