@@ -482,8 +482,10 @@ describe('the subledger rule and postable accounts (FR-FIN-004, FR-FIN-002)', ()
 describe('nothing posts into a period that is not open (FR-FIN-009)', () => {
   it('refuses an entry dated in a LOCKED period and in a CLOSED period, as ck_journal_period_open', async () => {
     await app.query("UPDATE fin.accounting_period SET status = 'LOCKED', locked_at = now(), locked_by = $1, version = version + 1 WHERE id = $2", [SYSTEM_PRINCIPAL, period(2030, 11)]);
-    await app.query("UPDATE fin.accounting_period SET status = 'CLOSED', closed_at = now(), closed_by = $1, version = version + 1 WHERE id = $2", [SYSTEM_PRINCIPAL, period(2030, 12)]);
-    for (const date of ['2030-11-15', '2030-12-15']) {
+    // The first period, so no earlier one stands open (ck_period_close_order, migration 0126): locked, then closed.
+    await app.query("UPDATE fin.accounting_period SET status = 'LOCKED', locked_at = now(), locked_by = $1, version = version + 1 WHERE id = $2", [SYSTEM_PRINCIPAL, period(2026, 1)]);
+    await app.query("UPDATE fin.accounting_period SET status = 'CLOSED', closed_at = now(), closed_by = $1, version = version + 1 WHERE id = $2", [SYSTEM_PRINCIPAL, period(2026, 1)]);
+    for (const date of ['2030-11-15', '2026-01-15']) {
       expect(
         await refusalOf(
           postRaw(
@@ -513,7 +515,9 @@ describe('nothing posts into a period that is not open (FR-FIN-009)', () => {
   });
 
   it('refuses any change to a CLOSED period and a change of dates to any period, as ck_period_change', async () => {
-    expect(await refusalOf(app.query("UPDATE fin.accounting_period SET status = 'OPEN', closed_at = NULL, closed_by = NULL, version = version + 1 WHERE id = $1", [period(2030, 12)]))).toEqual({
+    await app.query("UPDATE fin.accounting_period SET status = 'LOCKED', locked_at = now(), locked_by = $1, version = version + 1 WHERE id = $2 AND status = 'OPEN'", [SYSTEM_PRINCIPAL, period(2026, 1)]);
+    await app.query("UPDATE fin.accounting_period SET status = 'CLOSED', closed_at = now(), closed_by = $1, version = version + 1 WHERE id = $2 AND status = 'LOCKED'", [SYSTEM_PRINCIPAL, period(2026, 1)]);
+    expect(await refusalOf(app.query("UPDATE fin.accounting_period SET status = 'OPEN', closed_at = NULL, closed_by = NULL, version = version + 1 WHERE id = $1", [period(2026, 1)]))).toEqual({
       code: LEDGER_RULE,
       constraint: 'ck_period_change',
     });
@@ -521,6 +525,36 @@ describe('nothing posts into a period that is not open (FR-FIN-009)', () => {
       code: LEDGER_RULE,
       constraint: 'ck_period_change',
     });
+  });
+
+  it('moves a status only FUTURE to OPEN, OPEN to LOCKED, LOCKED to OPEN or CLOSED, with who locked it, as ck_period_transition', async () => {
+    const lock = "UPDATE fin.accounting_period SET status = 'LOCKED', locked_at = now(), locked_by = $1, version = version + 1 WHERE id = $2";
+    expect(await refusalOf(app.query("UPDATE fin.accounting_period SET status = 'CLOSED', closed_at = now(), closed_by = $1, version = version + 1 WHERE id = $2", [SYSTEM_PRINCIPAL, period(2027, 3)]))).toEqual({
+      code: LEDGER_RULE,
+      constraint: 'ck_period_transition',
+    });
+    expect(await refusalOf(app.query("UPDATE fin.accounting_period SET status = 'FUTURE', version = version + 1 WHERE id = $1", [period(2027, 3)]))).toEqual({ code: LEDGER_RULE, constraint: 'ck_period_transition' });
+    expect(await refusalOf(app.query("UPDATE fin.accounting_period SET status = 'LOCKED', version = version + 1 WHERE id = $1", [period(2027, 3)]))).toEqual({ code: LEDGER_RULE, constraint: 'ck_period_transition' });
+    await app.query(lock, [SYSTEM_PRINCIPAL, period(2027, 3)]);
+    expect(await refusalOf(app.query("UPDATE fin.accounting_period SET status = 'OPEN', version = version + 1 WHERE id = $1", [period(2027, 3)]))).toEqual({ code: LEDGER_RULE, constraint: 'ck_period_transition' });
+    await app.query("UPDATE fin.accounting_period SET status = 'OPEN', locked_at = NULL, locked_by = NULL, version = version + 1 WHERE id = $1", [period(2027, 3)]);
+    const { rows } = await app.query<{ status: string }>('SELECT status FROM fin.accounting_period WHERE id = $1', [period(2027, 3)]);
+    expect(rows[0]!.status).toBe('OPEN');
+  });
+
+  it('closes a period only once every earlier period is closed, as ck_period_close_order', async () => {
+    const lock = "UPDATE fin.accounting_period SET status = 'LOCKED', locked_at = now(), locked_by = $1, version = version + 1 WHERE id = $2";
+    const close = "UPDATE fin.accounting_period SET status = 'CLOSED', closed_at = now(), closed_by = $1, version = version + 1 WHERE id = $2";
+    // January may already be closed by the test above; this one does not depend on it.
+    await app.query(`${lock} AND status = 'OPEN'`, [SYSTEM_PRINCIPAL, period(2026, 1)]);
+    await app.query(`${close} AND status = 'LOCKED'`, [SYSTEM_PRINCIPAL, period(2026, 1)]);
+    await app.query(lock, [SYSTEM_PRINCIPAL, period(2026, 3)]);
+    expect(await refusalOf(app.query(close, [SYSTEM_PRINCIPAL, period(2026, 3)]))).toEqual({ code: LEDGER_RULE, constraint: 'ck_period_close_order' });
+    await app.query(lock, [SYSTEM_PRINCIPAL, period(2026, 2)]);
+    await app.query(close, [SYSTEM_PRINCIPAL, period(2026, 2)]);
+    await app.query(close, [SYSTEM_PRINCIPAL, period(2026, 3)]);
+    const { rows } = await app.query<{ status: string }>('SELECT status FROM fin.accounting_period WHERE id = ANY($1::uuid[]) ORDER BY start_date', [[period(2026, 2), period(2026, 3)]]);
+    expect(rows.map((r) => r.status)).toEqual(['CLOSED', 'CLOSED']);
   });
 
   it('refuses a period that overlaps another', async () => {
