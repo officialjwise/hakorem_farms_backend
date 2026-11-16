@@ -130,6 +130,8 @@ What has been paid and credited on each issued document, so an invoice screen ne
 | `settled_at` | `timestamptz` | NULL | When outstanding reached zero |
 | `as_of` | `timestamptz` | NOT NULL | Time of the last event applied |
 
+An allocation reaches the row only through `bil.apply_settlement(document, amount, direction, at)` (0184), which `Billing.settleIn` calls with the application clock's instant: `settled_at` and `as_of` are that instant, never the database's `now()` (ADR-0066). 0161's three-argument form remains for one release and delegates with `platform.app_now()`.
+
 ### `bil.pub_document` · view
 
 Published for costing and reporting: issued documents only, with id, kind, number, branch, customer, issue date, due date, net, tax, gross, credited, allocated, outstanding, order and original document references. No names or addresses. RPT reads it for overdue receivables (B08 continued 2).

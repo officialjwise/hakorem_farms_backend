@@ -30,7 +30,7 @@ This document describes the target schema for version one. No migration exists y
 | `qty` | `platform.qty` | `NUMERIC(14,3)`, not negative |
 | `kg` | `platform.kg` | `NUMERIC(10,3)` kilograms, not negative. Weight always travels with a `weight_source` of `SCALE`, `MANUAL` or `ESTIMATE` |
 | `percent` | `platform.percent` | `NUMERIC(7,4)`, 0 to 100 |
-| `timestamptz` | `TIMESTAMPTZ` | Stored in UTC, rendered in Africa/Accra. No `TIMESTAMP WITHOUT TIME ZONE` anywhere |
+| `timestamptz` | `TIMESTAMPTZ` | Stored in UTC, rendered in Africa/Accra. No `TIMESTAMP WITHOUT TIME ZONE` anywhere. A rule's "now" is the application clock's (an argument, else `platform.app_now()`, ADR-0066); `now()` is for audit columns only |
 | `date` | `DATE` | A business date in Africa/Accra |
 | `text` | `TEXT` | No `VARCHAR(n)`; length rules are `CHECK` constraints where they matter |
 | `jsonb` | `JSONB` | Snapshots and payloads only. Never for a value that is filtered, summed or constrained |
