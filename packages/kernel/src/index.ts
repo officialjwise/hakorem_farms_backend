@@ -1,4 +1,5 @@
 export { allocate, type AllocationShare } from './allocate';
+export { formatCedis } from './cedis';
 export { BUSINESS_TIME_ZONE, ManualClock, systemClock, toBusinessDate, type Clock } from './clock';
 export { halfUpDivide } from './half-up';
 export {
