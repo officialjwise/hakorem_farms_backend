@@ -69,6 +69,7 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B10 | `B10-quotations-wholesale.md` | `b10-quotations-wholesale` | B4 to B12 | Quote revisions are versioned; conversion to invoice preserves every link; a credit limit blocks with an audited override |
 | B11 | `B11-fulfilment-delivery.md` | `b11-fulfilment-delivery` | B4 to B12 | A catch-weight order re-prices at pick; cash on delivery lands against the driver; the outbox guarantees the customer notification |
 | B12 | `B12-capital-costing-reporting.md` | `b12-capital-costing-reporting` | B4 to B12 | A distribution matches a hand calculation on unit-days and ties exactly to the ledger |
+| B09r | `B09r-reconciliation-real-files.md` | `b09r-reconciliation-real-files` | B4 to B12 | Settlements read from Paystack's Settlements API and the bank parser written against the bank's real export; every matching rule names its source file; no real file committed; runs when both files exist, before B13 at the latest |
 | B13 | `B13-hardening-deploy.md` | `b13-hardening-deploy` | B13 — Hardening, smoke suite and deploy | Every non-functional target met and evidenced on the live server |
 
 The gates come from the amended schedule in `docs/adr/0026-session-schedule-amendment.md`. Its three further assignments were **confirmed by the owner on 2026-11-13, exactly as proposed** (A-040 in `docs/ASSUMPTIONS.md`, resolved): the online store split across B7, B9a and B11; the daily exception report in B12; retention and data-subject requests in B13. The openers below build them that way.
@@ -1622,6 +1623,11 @@ list the sweep reads, refunds, a timeout retry reusing our reference), run again
 cannot reach this machine; say so, and check the signature scheme against a captured sandbox payload if one can
 be obtained. Report every place where Paystack's real behaviour differs from its documentation or from the fake,
 and fix the fake (and the adapter, test-first) to match the real behaviour.
+Also in the sandbox run (owner, 2026-11-16, ADR-0065): call Paystack's Settlements API (the settlements list and the
+transactions inside a settlement) and report exactly what it returns, field by field, and whether it covers what the
+settlement matching needs (our reference, the amount, the fee, the settlement date and id, the bank payout). The
+settlement is to be read from that API, never from a dashboard CSV export. A sandbox account may hold no settlement:
+say so plainly, and record what the empty answer looks like. Do not rewrite the matching here; that is B09r.
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9a row).
 List docs/sessions/ and read only the most recent report (docs/sessions/B09a2d-payments-credit-refunds.md, or the
 last report of its own splits).
@@ -1894,6 +1900,31 @@ every report code listReportDefinitions lists, SALES_SUMMARY and PURCHASES inclu
 contract example's columns.
 The owner, 2026-11-16 (A-212 (a)): investor capital arrives through the investor module to the bank, never as cash.
 Stop at the gate and write docs/sessions/B12-capital-costing-reporting.md.
+```
+
+## B09r — The reconciliation rules rewritten against the real files
+
+Branch `b09r-reconciliation-real-files`, from `main`. Report `docs/sessions/B09r-reconciliation-real-files.md`. Inserted by the owner on 2026-11-16 (ADR-0065, A-214). It runs as soon as both real files exist, and before B13 at the latest: the owner supplies one real statement export from the farm's bank, and one real Paystack settlement covering real payments is available through the Settlements API. Gate: the settlement is read from Paystack's Settlements API, not a CSV export; the bank statement parser reads the bank's real export format; every format and matching rule names the file it came from, in ADR-0065 and in the test that holds it; fixtures replicate each real file's layout and quirks with invented values, and no real file or production value is committed; B09a continued 1c's database rules (a matched line posts once, ties never auto-match, idempotent import, a break resolves only through an approved posting) still hold; ADR-0065 is ready for the owner and the Accountant to accept.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report.
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md).
+For this phase, read ADR-0065 (its "Evidence required" section first), A-214, docs/data-model/pay.md, the PAY card in
+docs/MODULE_BOUNDARIES.md, B09a continued 2's report on the Settlements API, and the two real files the owner provides
+(read them where the owner puts them; never copy them into the repository). Load hakorem-ledger, hakorem-money,
+hakorem-migration, hakorem-seed, hakorem-security-review and hakorem-tests.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B09r only: replace the settlement CSV import with a scheduled pull from Paystack's Settlements API
+(idempotent by settlement id, the transactions matched by our reference), keeping the import endpoint only if the
+owner asks; rewrite the bank statement parser against the bank's real export (header rows, date and amount formats,
+debit and credit columns, references in the narration, charges, reversals); rewrite each matching rule against what
+the files actually contain, test-first, each test naming its source file; invented fixtures only. Any rule the files
+cannot settle goes to the owner as a question, never a guess.
+Stop at the gate, write docs/sessions/B09r-reconciliation-real-files.md, and merge into main when every run on the pull
+request is green.
 ```
 
 ## B13 — Hardening, smoke suite and deploy
