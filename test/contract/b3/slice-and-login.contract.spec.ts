@@ -133,7 +133,15 @@ import {
 } from '../../../src/modules/pur/interface/schemas';
 import { SettingUpdate as AudSettingUpdate } from '../../../src/modules/aud/interface/schemas';
 import { SlotGenerate, SlotUpdate } from '../../../src/modules/del/interface/schemas';
-import { AccountCreate, AccountUpdate, ReasonRequest as FinReasonRequest } from '../../../src/modules/fin/interface/schemas';
+import {
+  AccountCreate,
+  AccountDeterminationCreate,
+  AccountUpdate,
+  ManualJournalCreate,
+  ManualJournalUpdate,
+  PostingRuleCreate,
+  ReasonRequest as FinReasonRequest,
+} from '../../../src/modules/fin/interface/schemas';
 import { CartLineAdd, CartLineUpdate, CheckoutStart, CheckoutUpdate, CouponApply } from '../../../src/modules/shp/interface/schemas';
 import { createCatalogue, type TestCatalogue } from '../../support/catalogue';
 import { contractSchema } from '../../support/contract-schemas';
@@ -391,6 +399,10 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     createAccount: AccountCreate,
     updateAccount: AccountUpdate,
     reopenAccountingPeriod: FinReasonRequest,
+    createManualJournal: ManualJournalCreate,
+    updateManualJournal: ManualJournalUpdate,
+    createPostingRule: PostingRuleCreate,
+    createAccountDetermination: AccountDeterminationCreate,
     addCartLine: CartLineAdd,
     updateCartLine: CartLineUpdate,
     applyCartCoupon: CouponApply,
