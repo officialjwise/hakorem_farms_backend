@@ -235,7 +235,10 @@ function tenderParties(register: { readonly id: string; readonly code: string } 
  * it); the allocated part off 1200 and the unallocated part into 2200, both against the customer. The two parts are
  * the tender exactly, or the payload is refused before anything posts.
  */
-export function paymentClearedAmounts(payload: PaymentClearedFields, customer: SubledgerRef): PostingAmount[] {
+export function paymentClearedAmounts(payload: PaymentClearedFields, customer: SubledgerRef, bankAccount: SubledgerRef | null = null): PostingAmount[] {
+  if (payload.methodKind === 'BANK_TRANSFER' && bankAccount === null) {
+    throw new Error('pay.PaymentCleared: a bank transfer names the bank account it landed in');
+  }
   const tender = Money.fromJsonInteger(payload.amountPesewas);
   const allocated = Money.fromJsonInteger(payload.allocatedPesewas);
   const unallocated = Money.fromJsonInteger(payload.unallocatedPesewas);
@@ -248,7 +251,8 @@ export function paymentClearedAmounts(payload: PaymentClearedFields, customer: S
       amount: tender,
       determinants: { PAYMENT_METHOD_KIND: payload.methodKind },
       // Store credit redeemed comes off the customer's own credit (2210); every other tender is held against its till or provider.
-      subledgers: payload.methodKind === 'STORE_CREDIT' ? [customer] : tenderParties(payload.register, payload.provider),
+      // A bank transfer lands in the bank account its statement line names (ADR-0065).
+      subledgers: payload.methodKind === 'STORE_CREDIT' ? [customer] : bankAccount !== null ? [bankAccount] : tenderParties(payload.register, payload.provider),
     },
     { key: 'allocated', amount: allocated, subledgers: [customer] },
     { key: 'unallocated', amount: unallocated, subledgers: [customer] },
@@ -278,6 +282,44 @@ export function depositAllocatedAmounts(payload: { readonly appliedPesewas: numb
  */
 export function chequeClearedAmounts(payload: { readonly amountPesewas: number }, bankAccount: SubledgerRef): PostingAmount[] {
   return [{ key: 'cheque', amount: Money.fromJsonInteger(payload.amountPesewas), subledgers: [bankAccount] }];
+}
+
+/**
+ * `pay.ProviderSettled` (ADR-0003, ADR-0065): the provider paid out the payments a settlement report matched: the net
+ * into the bank account it paid into (1100, against that account's party), its fee to 6910, the gross off the
+ * provider's clearing account (1120, against the provider). Net and fee sum to the gross, or nothing posts.
+ */
+export function providerSettledAmounts(
+  payload: { readonly provider: string; readonly grossPesewas: number; readonly feePesewas: number; readonly netPesewas: number },
+  bankAccount: SubledgerRef,
+): PostingAmount[] {
+  const gross = Money.fromJsonInteger(payload.grossPesewas);
+  const fee = Money.fromJsonInteger(payload.feePesewas);
+  const net = Money.fromJsonInteger(payload.netPesewas);
+  if (!net.plus(fee).equals(gross)) {
+    throw new Error(`pay.ProviderSettled: net ${net.pesewas} and fee ${fee.pesewas} do not sum to the gross ${gross.pesewas}`);
+  }
+  return [
+    { key: 'net', amount: net, subledgers: [bankAccount] },
+    { key: 'fee', amount: fee },
+    { key: 'gross', amount: gross, subledgers: [providerParty(payload.provider)] },
+  ];
+}
+
+/**
+ * `pay.UnidentifiedReceiptHeld` (FR-PAY-010, FR-PAY-017, ADR-0065): money that reached the bank from a payer nobody can
+ * name, approved by a second person: what was banked (the line less any provider fee) into 1100 against the bank
+ * account, the fee to 6910, the whole held in 2290 Suspense until the payer is found. Never revenue.
+ */
+export function unidentifiedReceiptAmounts(payload: { readonly amountPesewas: number; readonly feePesewas: number }, bankAccount: SubledgerRef): PostingAmount[] {
+  const held = Money.fromJsonInteger(payload.amountPesewas);
+  const fee = Money.fromJsonInteger(payload.feePesewas);
+  if (fee.compareTo(held) > 0) throw new Error(`pay.UnidentifiedReceiptHeld: the fee ${fee.pesewas} is more than the amount ${held.pesewas}`);
+  return [
+    { key: 'banked', amount: held.minus(fee), subledgers: [bankAccount] },
+    { key: 'fee', amount: fee },
+    { key: 'held', amount: held },
+  ];
 }
 
 /**

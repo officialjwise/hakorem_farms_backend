@@ -40,4 +40,8 @@ export interface BankAccountStore {
   glAccountIdOf(tx: Transaction, code: string): Promise<string | null>;
   insert(tx: Transaction, row: NewBankAccount, actorId: string): Promise<void>;
   update(tx: Transaction, id: string, change: { readonly name: string; readonly isActive: boolean }, actorId: string): Promise<void>;
+  /** The debits and the credits of one journal entry on a bank account's own GL account and party. */
+  bankLegOf(tx: Transaction, journalEntryId: string, bankAccountId: string): Promise<{ readonly debitPesewas: bigint; readonly creditPesewas: bigint }>;
+  /** The journal entry an event posted for a source document, if any. */
+  entryOf(tx: Transaction, eventCode: string, sourceDocumentId: string): Promise<string | null>;
 }

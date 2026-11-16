@@ -16,6 +16,8 @@ import {
   invoiceIssuedAmounts,
   paymentClearedAmounts,
   type PaymentClearedFields,
+  providerSettledAmounts,
+  unidentifiedReceiptAmounts,
   stockMovementAmounts,
   type BillingLevy,
   type BillingLine,
@@ -118,6 +120,8 @@ export class LedgerPostings {
       ['pay.RefundPaid', (tx, event) => this.refundPaid(tx, event.payload as unknown as RefundPaidPosting)],
       ['pay.ChequeCleared', (tx, event) => this.chequeCleared(tx, event.payload as unknown as ChequeClearedPosting)],
       ['pay.PaymentReversed', async (_tx, event) => this.paymentReversed(event.payload as unknown as PaymentReversedPosting)],
+      ['pay.ProviderSettled', (tx, event) => this.providerSettled(tx, event.payload as unknown as ProviderSettledPosting)],
+      ['pay.UnidentifiedReceiptHeld', (tx, event) => this.unidentifiedReceipt(tx, event.payload as unknown as UnidentifiedReceiptPosting)],
       ['fin.ManualJournalApproved', (tx, event) => this.manualJournal(tx, event.payload as unknown as ManualJournalApproved)],
       ['fin.YearClosed', async (_tx, event) => this.yearClose(event.payload as unknown as YearClosed)],
       ['fin.DepreciationRun', async (_tx, event) => this.depreciationRun(event.payload as unknown as DepreciationRunPosted)],
@@ -260,10 +264,33 @@ export class LedgerPostings {
     if (payload.customerId !== null && customer === undefined) {
       throw new Error(`payment ${payload.paymentId}: customer ${payload.customerId} does not exist`);
     }
+    const bankAccount = payload.bankAccountId === undefined || payload.bankAccountId === null || payload.methodKind !== 'BANK_TRANSFER' ? null : await this.bankAccounts.subledgerRefIn(tx, payload.bankAccountId);
     return {
-      amounts: paymentClearedAmounts(payload, customerParty(payload.customerId, customer?.name ?? null)),
+      amounts: paymentClearedAmounts(payload, customerParty(payload.customerId, customer?.name ?? null), bankAccount),
       sourceDocumentId: payload.paymentId,
       eventSubjectId: payload.paymentId,
+      branchId: payload.branchId,
+      ...(payload.clearedOn === undefined || payload.clearedOn === null ? {} : { postingDate: payload.clearedOn }),
+    };
+  }
+
+  /** PAY's ◆ event (ADR-0003, ADR-0065): a settlement's matched payments out of 1120 into the bank, less the fee, on the day settled. */
+  private async providerSettled(tx: Transaction, payload: ProviderSettledPosting): Promise<Translated> {
+    return {
+      amounts: providerSettledAmounts(payload, await this.bankAccounts.subledgerRefIn(tx, payload.bankAccountId)),
+      sourceDocumentId: payload.settlementReportId,
+      eventSubjectId: payload.settlementReportId,
+      branchId: payload.branchId,
+      postingDate: payload.settledOn,
+    };
+  }
+
+  /** PAY's ◆ event (FR-PAY-010, ADR-0065): an unknown payer's money held in 2290 on an approved break resolution, once per line. */
+  private async unidentifiedReceipt(tx: Transaction, payload: UnidentifiedReceiptPosting): Promise<Translated> {
+    return {
+      amounts: unidentifiedReceiptAmounts(payload, await this.bankAccounts.subledgerRefIn(tx, payload.bankAccountId)),
+      sourceDocumentId: payload.sourceDocumentId,
+      eventSubjectId: payload.lineId,
       branchId: payload.branchId,
     };
   }
@@ -436,6 +463,32 @@ interface PaymentClearedPosting extends PaymentClearedFields {
   readonly paymentId: string;
   readonly branchId: string;
   readonly customerId: string | null;
+  /** The bank account a bank transfer landed in (ADR-0065). */
+  readonly bankAccountId?: string | null;
+  /** The business date a bank transfer's statement line is valued, its posting date. */
+  readonly clearedOn?: string | null;
+}
+
+/** The fields of PAY's `pay.ProviderSettled` FIN reads. */
+interface ProviderSettledPosting {
+  readonly settlementReportId: string;
+  readonly branchId: string;
+  readonly provider: string;
+  readonly bankAccountId: string;
+  readonly grossPesewas: number;
+  readonly feePesewas: number;
+  readonly netPesewas: number;
+  readonly settledOn: string;
+}
+
+/** The fields of PAY's `pay.UnidentifiedReceiptHeld` FIN reads. */
+interface UnidentifiedReceiptPosting {
+  readonly lineId: string;
+  readonly sourceDocumentId: string;
+  readonly branchId: string;
+  readonly bankAccountId: string;
+  readonly amountPesewas: number;
+  readonly feePesewas: number;
 }
 
 /** The fields of BIL's `bil.InvoiceIssued`, `bil.CreditNoteIssued` and `bil.DebitNoteIssued` FIN reads. */
