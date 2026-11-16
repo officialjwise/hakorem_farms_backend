@@ -45,7 +45,7 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B7 | `B07-procurement-suppliers.md` | `b07-procurement-suppliers` | B4 to B12 | Three-way match blocks payment on disagreement (built; the session split, A-165) |
 | B07 continued | `B07b-supplier-register.md` | `b07b-supplier-register` | B4 to B12 | A payout change waits for a different approver and the old details stay in force; a disguised document is refused; a rejected requisition cannot be converted; every write refuses the wrong role (built; the session split, A-167) |
 | B07 continued 1b | `B07b2-supplier-credit-scores.md` | `b07b2-supplier-credit-scores` | B4 to B12 | A credit note cannot exceed its invoice's uncredited amount; an approved variance lets a mismatched invoice be paid; a payment's remittance data is answered once; the score matches a hand calculation; every write refuses the wrong role (built) |
-| B06r | `B06r-processing-reversal-approval.md` | `b06r-processing-reversal-approval` | B4 to B12 | A processing reversal waits for a second approver at or above the threshold and is refused once a pack is sold or moved; a farm hand finds an animal by tag, reports and submits a death with its EVIDENCE photograph, and a manager approves it whatever its value; a reused photograph is flagged |
+| B06r | `B06r-processing-reversal-approval.md` | `b06r-processing-reversal-approval` | B4 to B12 | A processing reversal waits for a second approver at or above the threshold and is refused once a pack is sold or moved; a farm hand finds an animal by tag, reports and submits a death with its EVIDENCE photograph, and a manager approves it whatever its value; a reused photograph is flagged (built) |
 | B07 continued 2 | `B07c-storefront-checkout.md` | `b07c-storefront-checkout` | B4 to B12 | Checkout reserves stock and releases it on timeout; a live animal cannot be added to a cart; the catalogue exposes no cost; every staff write refuses the wrong role |
 | B8 | `B08-ledger-billing.md` | `b08-ledger-billing` | B4 to B12 | Trial balance sums to zero on a seeded day; an unbalanced journal is rejected by the database; numbering is gap-free under concurrent load |
 | B9a | `B09a-order-core-payments.md` | `b09a-order-core-payments` | B4 to B12 | Every payment edge case in the brief passes; an order on any channel posts stock, document, payment and ledger in one transaction |
@@ -1242,6 +1242,8 @@ dispatch and the driver reconciliation by someone else, the driver's offline syn
 the outbox (SMS, WhatsApp, email, in-app) with opt-out and templates, and, as ADR-0026 proposes,
 abandoned-cart messaging. Run steps 1.11 to 1.16 of docs/UAT.md and the driver case in scenario 5 as a
 dry run and record any difference.
+Notify the maker of a death report sent back by the malware scan (B06r, A-175): liv.MortalityReturned names
+the reporter and the reason; the Farm hand reads no death record, so this message is how they learn of it.
 Stop at the gate and write docs/sessions/B11-fulfilment-delivery.md.
 ```
 
@@ -1277,6 +1279,10 @@ pur.SupplierPayoutChanged, with SA-17's payment within 24 hours after a change.
 It must include case 28 (B07 continued 1b, A-172): each invoice paid on an approved variance
 (pur.SupplierInvoiceMatched or ExpenseInvoiceApproved with varianceApprovalRequestId) and each approved supplier
 credit note (pur.SupplierCreditNoteApproved with its returned movements), with maker, approver and amount.
+It must include case 2's reused death photographs (B06r, A-175): each liv.MortalityPhotoReused with the record,
+the reporter and the earlier records whose photograph had the same bytes; and case 29 (A-176): every processing
+reversal from prc.ProcessingOrderReversed with its value, the threshold copied onto it, the maker, the approver
+when one was needed, and the reason.
 Write the five tests of ADR-0028 under the names the ADR gives them, and run scenario 4 of
 docs/UAT.md as a dry run: the net profit for July to September 2026 in the seed is GHS 41,666.70 and
 the hand calculation must match the run to the pesewa.
