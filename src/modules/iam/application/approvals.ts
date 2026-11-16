@@ -240,6 +240,34 @@ export class Approvals {
   }
 
   /**
+   * The owning module withdraws a pending request whose subject can no longer be decided, with the reason (B06r: a
+   * death report whose photograph the scanner rejected goes back to its maker). Only the module that asked calls it,
+   * in its own transaction; the request is CANCELLED with no decider, the handler's `onRejected` is not called (the
+   * module undoes its own effect), and the withdrawal is audited. A request no longer pending is left as it is.
+   */
+  async withdrawIn(tx: Transaction, id: string, reason: string): Promise<ApprovalRecord | null> {
+    const request = await this.store.byIdForUpdate(tx, id);
+    if (request === null) {
+      throw new NotFoundError('no such approval request');
+    }
+    if (request.status !== 'PENDING') {
+      return null;
+    }
+    await this.store.decide(tx, id, 'CANCELLED', null, reason, this.clock.now());
+    await this.audit.record(tx, {
+      module: 'iam',
+      action: 'APPROVAL_CANCELLED',
+      entityType: 'ApprovalRequest',
+      entityId: id,
+      branchId: request.branchId,
+      before: { status: request.status },
+      after: { status: 'CANCELLED', reason },
+      metadata: { kind: request.kind, subjectDocumentId: request.subjectDocumentId, withdrawnBy: 'OWNING_MODULE' },
+    });
+    return { ...request, status: 'CANCELLED', version: request.version + 1 };
+  }
+
+  /**
    * The maker withdraws their own pending request (A-122). The owning module's `onRejected` undoes any pending
    * effect in the same transaction, as for a rejection. Nobody else may withdraw it.
    */
