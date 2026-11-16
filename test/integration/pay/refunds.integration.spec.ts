@@ -190,7 +190,8 @@ describe('an approved refund is paid once, through the provider or by hand (FR-P
     fake.refundBehaviour = 'pending';
     await runRefundDispatch(api);
     expect((await refundState(id('refund'))).status).toBe('PROCESSING');
-    expect(fake.calls.filter((c) => c.path === '/refund').map((c) => c.idempotencyKey)).toEqual([id('refund')]);
+    expect(fake.calls.filter((c) => c.method === 'POST' && c.path === '/refund').map((c) => c.idempotencyKey)).toEqual([id('refund')]);
+    expect([...fake.refunds.values()].map((r) => r.merchant_note), 'the refund carries its id in the note Paystack keeps').toEqual([`ref ${id('refund')}`]);
     tick(61_000);
     await runRefundDispatch(api);
     expect((await refundState(id('refund'))).status, 'still processing at the provider').toBe('PROCESSING');
@@ -289,6 +290,33 @@ describe('an approved refund is paid once, through the provider or by hand (FR-P
     expect(await journalCount(database, refundId, 'pay.RefundPaid')).toBe(1);
     const open = await admin().query<{ n: string }>("SELECT count(*)::text AS n FROM pay.reconciliation_break WHERE refund_id = $1 AND status = 'OPEN'", [refundId]);
     expect(open.rows[0]!.n).toBe('0');
+  });
+});
+
+describe('a provider refund is sent once even though Paystack ignores the idempotency key (A-217)', () => {
+  it('finds a part refund Paystack made while its answer timed out by the note it carries, and never sends it twice', async () => {
+    const payment = await deposit('owner', 8_000);
+    const asked = await post('cashier', '/refunds', { originalPaymentId: payment, amountPesewas: 3_000, destination: 'ORIGINAL_METHOD', reasonCode: 'WRONG_ITEM', note: 'Wrong size of crate' });
+    const refundId = asked.body.subject.id as string;
+    await step('manager');
+    expect((await post('manager', `/iam/approvals/${asked.body.approvalRequestId as string}/approve`, { reason: 'Crate returned' })).status).toBe(200);
+    fake.refundBehaviour = 'timeout';
+    await runRefundDispatch(api);
+    fake.refundBehaviour = 'pending';
+    const made = [...fake.refunds.values()].filter((r) => r.transaction_reference === referenceFor(payment));
+    expect(made.map((r) => [r.amount, r.merchant_note]), 'one refund at Paystack, however often the answer timed out').toEqual([[3_000, `ref ${refundId}`]]);
+    const { rows } = await admin().query<{ status: string; provider_reference: string | null }>('SELECT status, provider_reference FROM pay.refund WHERE id = $1', [refundId]);
+    expect(rows[0], 'the retry after the timeout found it, and sent nothing').toEqual({ status: 'PROCESSING', provider_reference: String(made[0]!.id) });
+    expect(fake.calls.filter((c) => c.method === 'POST' && c.path === '/refund' && c.idempotencyKey === refundId)).toHaveLength(1);
+    made[0]!.status = 'processed';
+    tick(61_000);
+    await runRefundDispatch(api);
+    expect((await refundState(refundId)).status).toBe('PAID');
+    expect([...fake.refunds.values()].filter((r) => r.transaction_reference === referenceFor(payment))).toHaveLength(1);
+    expect(await journalOf(database, refundId)).toEqual([
+      ['2200', 'D', 3_000, 'Tema Cold Store Ltd (SEED)'],
+      ['1120', 'C', 3_000, 'Paystack'],
+    ]);
   });
 });
 

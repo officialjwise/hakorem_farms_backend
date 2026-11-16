@@ -114,6 +114,15 @@ const REFUND_STATUS: Readonly<Record<string, ProviderRefund['status']>> = {
   failed: 'FAILED',
 };
 
+/** The refunds of one transaction read before a refund is sent: a transaction never has this many. */
+const REFUND_LIST_PAGE_SIZE = 100;
+const REFUND_LIST_MAX_PAGES = 5;
+
+/** The note a refund carries at Paystack: our idempotency key, read back to tell a refund already made (A-217). */
+export function refundNoteOf(idempotencyKey: string): string {
+  return `ref ${idempotencyKey}`;
+}
+
 interface PaystackTransaction {
   id?: number;
   reference?: string;
@@ -224,14 +233,39 @@ export class PaystackPaymentProvider implements PaymentProvider {
     };
   }
 
+  /**
+   * Paystack ignores an `Idempotency-Key` on `POST /refund` (the sandbox run, A-217): the same key twice makes two
+   * refunds. So the key travels in the refund's `merchant_note`, and before sending, the transaction's refunds are
+   * read back (`GET /refund?transaction=<id>`); one carrying the note is the refund already made, whose answer was lost.
+   */
   async refund(request: { reference: string; amountPesewas: bigint; idempotencyKey: string }): Promise<{ refundId: string; status: string }> {
+    const note = refundNoteOf(request.idempotencyKey);
+    const made = await this.refundCarrying(request.reference, note);
+    if (made !== null) return made;
     const data = await this.call<{ id?: number; status?: string }>(
       'POST',
       '/refund',
-      { transaction: request.reference, amount: request.amountPesewas.toString(), merchant_note: `ref ${request.idempotencyKey}` },
+      { transaction: request.reference, amount: request.amountPesewas.toString(), merchant_note: note },
       request.idempotencyKey,
     );
     return { refundId: String(data.id ?? ''), status: data.status ?? 'pending' };
+  }
+
+  /** The refund of a transaction that carries `note`, or null; read a page at a time, never more than a bounded few. */
+  private async refundCarrying(reference: string, note: string): Promise<{ refundId: string; status: string } | null> {
+    const transaction = await this.call<PaystackTransaction>('GET', `/transaction/verify/${encodeURIComponent(reference)}`);
+    if (transaction.reference !== reference || !isInteger(transaction.id)) {
+      throw new PaymentProviderError('Paystack verify answered without the transaction to refund', false);
+    }
+    for (let page = 1; page <= REFUND_LIST_MAX_PAGES; page += 1) {
+      const query = new URLSearchParams({ transaction: String(transaction.id), page: String(page), perPage: String(REFUND_LIST_PAGE_SIZE) });
+      const { data, meta } = await this.callWithMeta<Array<{ id?: number; status?: string; merchant_note?: string | null }>>('GET', `/refund?${query.toString()}`);
+      if (!Array.isArray(data)) throw new PaymentProviderError('Paystack refund list answered without a list', false);
+      const found = data.find((refund) => refund.merchant_note === note);
+      if (found !== undefined) return { refundId: String(found.id ?? ''), status: found.status ?? 'pending' };
+      if (page >= Number(meta?.pageCount ?? 0)) return null;
+    }
+    throw new PaymentProviderError('Paystack lists more refunds of one transaction than are read before a refund', false);
   }
 
   webhookSignatureValid(rawBody: Buffer, signatureHeader: string | undefined): boolean {

@@ -11,6 +11,7 @@ const LAYERS: ReadonlyArray<readonly [folder: string, suffix: string]> = [
   ['test/contract/', '.contract.spec.ts'],
   ['test/e2e/', '.e2e.spec.ts'],
   ['test/smoke/', '.smoke.spec.ts'],
+  ['test/sandbox/', '.sandbox.spec.ts'],
 ];
 const SKIP = new Set(['node_modules', 'dist', 'coverage', '.git', 'lint-fixtures']);
 

@@ -72,8 +72,10 @@ const realSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(reso
 /**
  * The payment provider behind a timeout (the adapter's), a bounded retry with jitter and a circuit breaker. While the
  * breaker is open every call fails at once as `UNAVAILABLE`, so a down provider costs the counter nothing and cash
- * stays available (FR-PAY-003). A retried charge or refund reuses its reference or idempotency key, so it can never
- * charge or pay twice. A provider that is not configured is always unavailable.
+ * stays available (FR-PAY-003). A retried charge reuses its reference, which the provider refuses as a duplicate; a
+ * retried refund reuses its idempotency key, which the adapter finds again on the provider's refund before sending
+ * (Paystack ignores the header, A-217), so neither can charge or pay twice. A provider that is not configured is
+ * always unavailable.
  */
 export class ResilientPaymentProvider implements PaymentProvider {
   readonly name: string;

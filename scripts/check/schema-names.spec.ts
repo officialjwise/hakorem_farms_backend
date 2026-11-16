@@ -79,7 +79,7 @@ describe('test placement (TEST_STRATEGY section 4)', () => {
     expect(
       placementProblems(['test/integration/inv/goods-receipt.spec.ts', 'test/e2e/health.contract.spec.ts', 'src/platform/health/health.integration.spec.ts']),
     ).toEqual([
-      'test/integration/inv/goods-receipt.spec.ts: a spec under test/ needs a layer suffix (.integration.spec.ts, .contract.spec.ts, .e2e.spec.ts, .smoke.spec.ts)',
+      'test/integration/inv/goods-receipt.spec.ts: a spec under test/ needs a layer suffix (.integration.spec.ts, .contract.spec.ts, .e2e.spec.ts, .smoke.spec.ts, .sandbox.spec.ts)',
       'test/e2e/health.contract.spec.ts: a .contract.spec.ts file belongs under test/contract/',
       'src/platform/health/health.integration.spec.ts: only unit specs sit beside the code; move it under test/integration/',
     ]);

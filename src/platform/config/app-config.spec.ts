@@ -117,10 +117,19 @@ describe('typed configuration', () => {
   it('needs Paystack’s address and the farm’s payer mailbox with its key, and refuses a live key outside production (A-210)', () => {
     const key = `sk_test_${'a'.repeat(24)}`;
     expect(problemsFor({ ...VALID, PAYSTACK_SECRET_KEY: key })).toEqual(['PAYSTACK_BASE_URL is required with PAYSTACK_SECRET_KEY', 'PAYSTACK_PAYER_EMAIL is required with PAYSTACK_SECRET_KEY']);
-    const configured = { ...VALID, PAYSTACK_BASE_URL: 'http://127.0.0.1:4010', PAYSTACK_PAYER_EMAIL: 'payments@farm.example' };
+    const configured = { ...VALID, PAYSTACK_BASE_URL: 'http://127.0.0.1:4010', PAYSTACK_PAYER_EMAIL: 'payments@example.com' };
     expect(problemsFor({ ...configured, PAYSTACK_SECRET_KEY: key })).toEqual([]);
     expect(problemsFor({ ...configured, PAYSTACK_SECRET_KEY: `sk_live_${'a'.repeat(24)}` })).toEqual(['PAYSTACK_SECRET_KEY a live key is refused outside production']);
     expect(problemsFor({ ...configured, PAYSTACK_SECRET_KEY: 'not-a-key' })).toEqual(['PAYSTACK_SECRET_KEY must be a Paystack secret key']);
+  });
+
+  it('refuses a payer mailbox on a reserved domain at boot, which Paystack refuses on every charge (A-217)', () => {
+    const configured = { ...VALID, PAYSTACK_BASE_URL: 'http://127.0.0.1:4010', PAYSTACK_SECRET_KEY: `sk_test_${'a'.repeat(24)}` };
+    for (const email of ['payments@farm.example', 'payments@farm.test', 'payments@farm.invalid', 'payments@farm.localhost', 'PAYMENTS@FARM.EXAMPLE']) {
+      expect(problemsFor({ ...configured, PAYSTACK_PAYER_EMAIL: email }), email).toEqual(['PAYSTACK_PAYER_EMAIL must not be on a reserved domain: Paystack refuses it']);
+    }
+    expect(problemsFor({ ...configured, PAYSTACK_PAYER_EMAIL: 'payments@example.com' })).toEqual([]);
+    expect(problemsFor({ ...configured, PAYSTACK_PAYER_EMAIL: 'payments@farm.examples.com.gh' })).toEqual([]);
   });
 
   it('needs the malware scanner for a deployed worker, so no upload waits for a scan that never comes', () => {

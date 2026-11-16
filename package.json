@@ -24,6 +24,7 @@
     "test:contract": "vitest run --project contract",
     "test:e2e": "vitest run --project e2e",
     "test:smoke": "tsx scripts/test-smoke.ts",
+    "test:sandbox": "PAYSTACK_SANDBOX=1 NODE_USE_ENV_PROXY=1 vitest run --project sandbox",
     "test:coverage": "vitest run --project unit --project integration --coverage",
     "contract:generate": "tsx scripts/contract/generate.ts"
   },
