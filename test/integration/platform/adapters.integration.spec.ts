@@ -188,13 +188,23 @@ describe('the payment provider port and its Paystack adapter (A-047)', () => {
     expect(paystack.webhookSignatureValid(raw, 'not-hex')).toBe(false);
   });
 
-  it('sends a refund with the idempotency key, so a retried refund cannot pay twice', async () => {
-    const provider = await fakeProvider([{ status: 200, body: { status: true, data: { id: 3_018_284, status: 'pending' } } }]);
+  it('sends a refund with its idempotency key in the note, and answers a refund already carrying that note without sending another (A-218)', async () => {
+    const verified = { status: 200, body: { status: true, data: { id: 4_099_260_516, reference: 'PAY-DDW-000231', status: 'success', amount: 45_900, currency: 'GHS' } } };
+    const provider = await fakeProvider([
+      verified,
+      { status: 200, body: { status: true, data: [{ id: 3_018_200, status: 'processed', merchant_note: 'ref outbox-019a7aaa' }], meta: { pageCount: 1 } } },
+      { status: 200, body: { status: true, data: { id: 3_018_284, status: 'pending' } } },
+      verified,
+      { status: 200, body: { status: true, data: [{ id: 3_018_284, status: 'pending', merchant_note: 'ref outbox-019a7b2c' }], meta: { pageCount: 1 } } },
+    ]);
     try {
       const paystack = new PaystackPaymentProvider({ baseUrl: provider.url, secretKey, timeoutMs: 2_000 });
-      expect(await paystack.refund({ reference: 'PAY-DDW-000231', amountPesewas: 4_000n, idempotencyKey: 'outbox-019a7b2c' })).toEqual({ refundId: '3018284', status: 'pending' });
-      expect(provider.received[0]!.headers['idempotency-key']).toBe('outbox-019a7b2c');
-      expect(JSON.parse(provider.received[0]!.body)).toMatchObject({ transaction: 'PAY-DDW-000231', amount: '4000' });
+      const refund = { reference: 'PAY-DDW-000231', amountPesewas: 4_000n, idempotencyKey: 'outbox-019a7b2c' };
+      expect(await paystack.refund(refund)).toEqual({ refundId: '3018284', status: 'pending' });
+      expect(provider.received.map((r) => r.url)).toEqual(['/transaction/verify/PAY-DDW-000231', '/refund?transaction=4099260516&page=1&perPage=100', '/refund']);
+      expect(JSON.parse(provider.received[2]!.body)).toEqual({ transaction: 'PAY-DDW-000231', amount: '4000', merchant_note: 'ref outbox-019a7b2c' });
+      expect(await paystack.refund(refund), 'the retry finds the refund by its note').toEqual({ refundId: '3018284', status: 'pending' });
+      expect(provider.received.filter((r) => r.url === '/refund'), 'and sends no second refund').toHaveLength(1);
     } finally {
       await provider.close();
     }

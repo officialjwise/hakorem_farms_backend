@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+/** The top-level domains reserved by RFC 2606 and RFC 6761: never a mailbox Paystack takes (A-218). */
+const RESERVED_EMAIL_DOMAIN = /\.(example|test|invalid|localhost)$/i;
+
 /** Exit code for a configuration error (sysexits EX_CONFIG), so a supervisor can tell it from a crash. */
 export const CONFIG_ERROR_EXIT_CODE = 78;
 
@@ -117,7 +120,12 @@ const environmentSchema = z
     PAYSTACK_SECRET_KEY: z.string().regex(/^sk_(test|live)_[A-Za-z0-9]{16,}$/, 'must be a Paystack secret key').optional(),
     PAYSTACK_TIMEOUT_MS: z.coerce.number().int().min(500).max(30_000).default(10_000),
     // The farm's own payments mailbox, sent as the payer's email Paystack requires, so no customer's address leaves.
-    PAYSTACK_PAYER_EMAIL: z.string().email().optional(),
+    // Paystack refuses an address on a reserved domain (`.example` in the sandbox run, A-218), so one is refused here.
+    PAYSTACK_PAYER_EMAIL: z
+      .string()
+      .email()
+      .refine((email) => !RESERVED_EMAIL_DOMAIN.test(email), 'must not be on a reserved domain: Paystack refuses it')
+      .optional(),
     // The worker (docs/OPERATIONS.md section 3.8).
     WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(50).default(5),
     SCHEDULER_ENABLED: booleanFlag.default(true),

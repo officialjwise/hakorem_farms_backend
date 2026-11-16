@@ -77,6 +77,22 @@ export default defineConfig({
           testTimeout: 10_000,
         },
       },
+      // The real Paystack sandbox run (A-064): it needs the network and the owner's test key, so it never runs in CI or
+      // under any other command; the project exists only when PAYSTACK_SANDBOX=1 (`pnpm test:sandbox`).
+      ...(process.env['PAYSTACK_SANDBOX'] === '1'
+        ? [
+            {
+              ...shared,
+              test: {
+                name: 'sandbox',
+                include: ['test/sandbox/**/*.sandbox.spec.ts'],
+                testTimeout: 180_000,
+                fileParallelism: false,
+                sequence: { concurrent: false },
+              },
+            },
+          ]
+        : []),
     ],
     coverage: {
       provider: 'v8',

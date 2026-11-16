@@ -84,6 +84,10 @@ The deployment gate. It must be fast and safe to run against production repeated
 
 It never touches non-test branches, never creates customer-visible data, and cleans up nothing it cannot reverse (the voided sale is itself the clean-up). It takes `--base-url`; it refuses to run without both smoke users configured.
 
+### 3.6 The provider sandbox (on demand, never in CI)
+
+`test/sandbox/<provider>.sandbox.spec.ts` runs the real payment adapter against the provider's test mode (A-064, A-218): `pnpm test:sandbox`. It needs the network and the owner's test key, which the session's network proxy puts on every request to the provider's host, so the key is never in the repository, the process or a log; the adapter sends a placeholder. The Vitest project `sandbox` exists only when `PAYSTACK_SANDBOX=1`, which the script sets, so CI and every other command neither run nor skip it. Its first test refuses to go on unless the provider answers from its test domain. Raw answers, with anything key-like removed, go to `PAYSTACK_SANDBOX_LOG` outside the repository. A difference it finds is fixed in the local fake (`test/support/fake-paystack.ts`) and, test-first, in the adapter; the integration suite then proves it on every pull request.
+
 ## 4. File naming and location
 
 Unit tests sit **beside the code**; every other layer lives under `test/`. This is the rule, stated once.
@@ -97,6 +101,7 @@ Unit tests sit **beside the code**; every other layer lives under `test/`. This 
 | Smoke | `test/smoke/` | `<subject>.smoke.spec.ts` | `test/smoke/health.smoke.spec.ts` |
 | Load | `test/load/` | `<scenario>.k6.js` | `test/load/counter-sale.k6.js` |
 | Factories | `test/factories/` | `<aggregate>.factory.ts` | `test/factories/stock-unit.factory.ts` |
+| Provider sandbox | `test/sandbox/` | `<provider>.sandbox.spec.ts` | `test/sandbox/paystack.sandbox.spec.ts` |
 | Shared harness | `test/support/` | any | `test/support/postgres.ts` |
 
 - `<module>` is the lower-case module code (`inv`, `ord`, `pay`, `platform` for `src/platform`).
@@ -115,6 +120,7 @@ pnpm test:integration                                 # Testcontainers PostgreSQ
 pnpm test:contract                                    # responses against contract/openapi.yaml, and the generated-contract diff
 pnpm test:e2e                                         # full stack in Docker Compose
 pnpm test:smoke -- --base-url=https://api.hakoremfarms.com
+pnpm test:sandbox                                     # the payment adapter against Paystack's test mode, on demand only (section 3.6)
 pnpm contract:generate                                # writes contract/openapi.yaml from code; CI fails on any diff
 npx @redocly/cli lint contract/openapi.yaml           # no errors, no warnings
 k6 run test/load/counter-sale.k6.js                   # load, one script per scenario
@@ -269,6 +275,7 @@ Written before the happy path. Each is an integration test against the provider 
 | `a webhook for an order that no longer exists is recorded and ignored` |
 | `a refund that fails after the stock was released is queued and appears in the break queue` |
 | `a webhook with an invalid signature, a stale timestamp or a wrong amount is rejected and recorded with its outcome` |
+| `finds a part refund Paystack made while its answer timed out by the note it carries, and never sends it twice` (A-218: Paystack ignores the idempotency key on a refund) |
 
 ## 11. Money tests: exact values and rounding edge cases
 

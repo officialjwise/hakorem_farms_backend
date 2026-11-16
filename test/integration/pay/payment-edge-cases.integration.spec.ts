@@ -7,7 +7,7 @@ import { DocumentRegistry } from '../../../src/platform/documents/document-regis
 import { UnitOfWork } from '../../../src/platform/database/unit-of-work';
 import { runSeedUnits } from '../../../src/seed/run-seed';
 import { seedUnits } from '../../../src/seed/seed-units';
-import { paystackEnvironment, startFakePaystack, type FakePaystack } from '../../support/fake-paystack';
+import { PAYSTACK_MTN_TEST_PHONE, paystackEnvironment, startFakePaystack, type FakePaystack } from '../../support/fake-paystack';
 import { consoleGet, consolePost, createUser, enrolAndLogin, login, relaxRateLimits, testStartTime, type TestSession, type TestUser } from '../../support/iam';
 import { approveAndDeliver, balanceOf, deliverWebhook, initiateCharge, issueInvoice, journalCount, journalOf, referenceFor, runSweep, trialBalanceSum } from '../../support/pay';
 import { sqlStateOf } from '../../support/sql-state';
@@ -323,6 +323,22 @@ describe('the payment edge cases of the brief land exactly once, and the money i
     expect(breaksAfter.rows[0]!.n).toBe(breaksBefore.rows[0]!.n);
     const windows = await admin().query<{ from: Date; to: Date }>("SELECT window_from AS from, window_to AS to FROM pay.provider_sweep ORDER BY window_to");
     for (let i = 1; i < windows.rows.length; i += 1) expect(windows.rows[i]!.from).toEqual(windows.rows[i - 1]!.to);
+    expect(await journalCount(database, started.body.id as string, 'pay.PaymentCleared')).toBe(1);
+  });
+
+  it('a charge Paystack answers paid at once, as its test number does, stays PENDING until a lookup confirms its amount, and clears once (A-218)', async () => {
+    const started = await initiateCharge(api.server, as('cashier'), { amountPesewas: 17_500, customerId: id('tema'), payerPhone: `+233${PAYSTACK_MTN_TEST_PHONE.slice(1)}` });
+    expect(started.status, JSON.stringify(started.body)).toBe(201);
+    expect(started.body).toMatchObject({ status: 'PENDING', verification: 'UNVERIFIED', amountPesewas: 17_500 });
+    expect(fake.transactions.get(referenceFor(started.body.id as string))).toMatchObject({ status: 'success', amount: 17_500 });
+    const charge = await admin().query<{ status: string; provider_status: string }>('SELECT status, provider_status FROM pay.provider_transaction WHERE payment_id = $1', [started.body.id]);
+    expect(charge.rows).toEqual([{ status: 'PENDING', provider_status: 'SUCCESS' }]);
+    expect(await journalCount(database, started.body.id as string, 'pay.PaymentCleared'), 'the charge answer is never the confirmation').toBe(0);
+    tick(60_000);
+    await runSweep(api);
+    expect(await paymentRow(started.body.id as string)).toMatchObject({ status: 'CLEARED', verification: 'PROVIDER_LOOKUP' });
+    tick(60_000);
+    await runSweep(api);
     expect(await journalCount(database, started.body.id as string, 'pay.PaymentCleared')).toBe(1);
   });
 

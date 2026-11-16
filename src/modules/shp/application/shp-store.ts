@@ -134,6 +134,8 @@ export interface ShpStore {
   insertCart(tx: Transaction, cart: { readonly id: string; readonly guestTokenHash: Buffer; readonly branchId: string }): Promise<void>;
   /** The cart, locked for the rest of the transaction when `lock` is set. */
   cart(tx: Transaction, id: string, lock: boolean): Promise<CartRecord | null>;
+  /** The id of the cart's one open checkout (STARTED or AWAITING_PAYMENT, `uq_checkout_session_live`), or null. */
+  openCheckoutOf(tx: Transaction, cartId: string): Promise<string | null>;
   cartLines(tx: Transaction, cartId: string): Promise<CartLineRecord[]>;
   upsertCartLine(tx: Transaction, cartId: string, line: { readonly id: string; readonly productId: string; readonly qty: string; readonly uom: string; readonly displayedUnitPricePesewas: bigint }): Promise<void>;
   setCartLineQty(tx: Transaction, cartId: string, lineId: string, qty: string, displayedUnitPricePesewas: bigint): Promise<boolean>;

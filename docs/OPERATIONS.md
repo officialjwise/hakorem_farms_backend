@@ -198,7 +198,7 @@ Public media are served from a separate origin so that user-uploaded content nev
 | `PAYSTACK_BASE_URL` | Provider API. Unset with the key, provider payments answer 503 and cash still works (B09a continued, A-210) | Opt | `https://api.paystack.co` |
 | `PAYSTACK_SECRET_KEY` `[secret]` | Server key; also verifies webhook signatures. Test key in staging, live key in production; a live key is refused outside `APP_ENV=production`. Needs `PAYSTACK_BASE_URL` and `PAYSTACK_PAYER_EMAIL` | Yes | `sk_live_<random>` or `sk_test_<random>` |
 | `PAYSTACK_TIMEOUT_MS` | Timeout of one provider call; three attempts with jitter and a circuit breaker sit above it | Opt | `10000` |
-| `PAYSTACK_PAYER_EMAIL` | The farm's own payments mailbox, sent as the payer's email Paystack requires, so no customer's address leaves | With the key | `payments@hakoremfarms.com` |
+| `PAYSTACK_PAYER_EMAIL` | The farm's own payments mailbox, sent as the payer's email Paystack requires, so no customer's address leaves. An address on a reserved domain (`.example`, `.test`, `.invalid`, `.localhost`) is refused at boot: Paystack refuses it on every charge (A-218) | With the key | `payments@hakoremfarms.com` |
 | `PAYMENT_HTTP_TIMEOUT_MS` | Timeout on every provider call (breaker and retry wrap it) | Opt, `10000` | `10000` |
 | `PAYMENT_WEBHOOK_SOURCE_ALLOWLIST` | Provider address ranges, comma-separated CIDRs, used for rate limiting and alerts. Signature, not address, is the authentication | Opt | `203.0.113.0/24` |
 | `MESSAGING_MODE` | `live`, `sandbox` or `capture`. Defaults to `capture`; the API refuses to start in production unless it is `live`, and `live` or `sandbox` need `SMS_BASE_URL` and `SMS_API_KEY` (B04e continued: phone codes and reset codes go out by SMS) | Yes | `live` |
