@@ -1,8 +1,17 @@
 import { randomUUID } from 'node:crypto';
+import { toBusinessDate } from '@hakorem/kernel';
 import type pg from 'pg';
 import { createCatalogue, TAX_CATEGORY } from './catalogue';
 import { createBranch, SYSTEM_PRINCIPAL } from './iam';
 import type { TestDatabase } from './test-database';
+
+/**
+ * The business date in Accra `offsetDays` from now, on the same clock `move` dates a movement by: a lot's produced and
+ * expiry dates built from it stay on the right side of "today" whenever the suite runs, never a fixed calendar date.
+ */
+export function businessDay(offsetDays: number): string {
+  return toBusinessDate(new Date(Date.now() + offsetDays * 86_400_000));
+}
 
 /** The virtual locations ADR-0002 models the outside world with. */
 export const VIRTUAL = ['SUPPLIER', 'CUSTOMER', 'PRODUCTION', 'PROCESSING', 'CONSUMPTION', 'LOSS', 'ADJUSTMENT', 'OPENING'] as const;

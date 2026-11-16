@@ -1,3 +1,4 @@
+import { ManualClock } from '@hakorem/kernel';
 import { sql } from 'drizzle-orm';
 import pino from 'pino';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -11,6 +12,7 @@ import {
   databaseErrorOf,
   sqlStateOf,
   UnitOfWork,
+  type Transaction,
 } from '../../../src/platform/database/unit-of-work';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
 
@@ -225,5 +227,44 @@ describe('the unit of work (ADR-0005)', () => {
     const failure = await uow.run({ isolation: 'read committed' }, (tx) => assertSerializable(tx)).catch((error: unknown) => error);
     expect(failure).toBeInstanceOf(IsolationLevelError);
     expect((failure as IsolationLevelError).actual).toBe('read committed');
+  });
+});
+
+describe("the application's clock inside the database (ADR-0067)", () => {
+  const instant = new Date('2031-12-31T23:59:59.250Z');
+  const appNow = (tx: Transaction) => tx.query<{ app_now: Date; db_now: boolean }>('SELECT platform.app_now() AS app_now, platform.app_now() = now() AS db_now');
+
+  it("writes its clock's instant at BEGIN, so platform.app_now() is the application's now in every statement of the transaction", async () => {
+    const clock = new ManualClock(instant);
+    const clocked = new UnitOfWork(database.pool('app'), pino({ level: 'silent' }), noWait, clock);
+    const seen = await clocked.run({ isolation: 'serializable' }, async (tx) => {
+      const first = (await appNow(tx)).rows[0]!;
+      clock.advanceBy(60_000);
+      const second = (await appNow(tx)).rows[0]!;
+      return [first, second];
+    });
+    expect(seen.map((row) => [row.app_now.toISOString(), row.db_now])).toEqual([
+      [instant.toISOString(), false],
+      [instant.toISOString(), false],
+    ]);
+    expect((await clocked.run({ isolation: 'read committed' }, async (tx) => (await appNow(tx)).rows[0]!.app_now)).toISOString()).toBe('2032-01-01T00:00:59.250Z');
+  });
+
+  it("falls back to the database's now() in a unit of work without a clock and outside any unit of work", async () => {
+    expect((await uow.run({ isolation: 'read committed' }, async (tx) => (await appNow(tx)).rows[0]!.db_now))).toBe(true);
+    expect((await database.pool('app').query<{ db_now: boolean }>('SELECT platform.app_now() = now() AS db_now')).rows[0]!.db_now).toBe(true);
+  });
+
+  it('keeps the instant to its own transaction: the next transaction on the same connection reads now() again', async () => {
+    const client = await database.pool('app').connect();
+    try {
+      await client.query('BEGIN');
+      await client.query("SELECT set_config('hk.app_now', $1, true)", [instant.toISOString()]);
+      expect((await client.query<{ app_now: Date }>('SELECT platform.app_now() AS app_now')).rows[0]!.app_now.toISOString()).toBe(instant.toISOString());
+      await client.query('COMMIT');
+      expect((await client.query<{ db_now: boolean }>('SELECT platform.app_now() = now() AS db_now')).rows[0]!.db_now).toBe(true);
+    } finally {
+      client.release();
+    }
   });
 });

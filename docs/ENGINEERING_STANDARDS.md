@@ -178,6 +178,7 @@ Also: weights and quantities are decimal strings at the boundary and kernel type
 
 - Money is integer pesewas in the kernel `Money` type. Never `number` for money, quantity or weight in a file that imports `Money` (lint). Percentages are decimals from strings. Round half-up once at the line anchor; split only with `allocate` (SC-05, ADR-0001).
 - Time comes from the kernel `Clock`, never `new Date()` or `Date.now()` in domain or application code, so tests control it. Instants are UTC; business dates are calendar dates in Africa/Accra.
+- The same holds in SQL (ADR-0067): a query, view, trigger or function whose "now" decides a due date, an overdue count, an expiry, an active window, a settlement or as-of time or a business day takes the application clock's instant as a bound parameter or a function argument, or, in a view or trigger the application cannot pass it to, reads `platform.app_now()` (the unit of work writes it from its `Clock` at BEGIN). Never `now()`, `current_date` or `current_timestamp` for those; audit columns keep `now()`.
 - Identifiers are UUIDv7 from the kernel (ADR-0013). Offline clients generate their own.
 - No magic numbers: a threshold, limit or timeout is a named constant or a setting.
 

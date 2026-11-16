@@ -250,7 +250,7 @@ export class StockQueries {
   async promisableIn(tx: Transaction, branchId: string, productIds: readonly string[]): Promise<PromisableStock[]> {
     const wanted = [...new Set(productIds)];
     const rows: OnHandRow[] = [];
-    for (const productId of wanted) rows.push(...(await this.store.onHand(tx, { branchId, productId }, [{ branchId, locationId: null }], false)));
+    for (const productId of wanted) rows.push(...(await this.store.onHand(tx, { branchId, productId }, [{ branchId, locationId: null }], false, this.clock.now())));
     const locations = await this.refs.locationsIn(tx, rows.map((r) => r.locationId));
     const today = toBusinessDate(this.clock.now());
     return rows
@@ -283,7 +283,7 @@ export class StockQueries {
       const now = this.clock.now();
       const today = toBusinessDate(now);
       const order = requestedSort(ON_HAND_SORT, sort.sort, sort.direction);
-      let rows = await this.store.onHand(tx, query, scopes, query.includeZero ?? false);
+      let rows = await this.store.onHand(tx, query, scopes, query.includeZero ?? false, now);
       const products = new Map(await this.refs.productsIn(tx, rows.map((r) => r.productId)));
       if (query.categoryId !== undefined) {
         rows = rows.filter((r) => products.get(r.productId)?.categoryId === query.categoryId);
@@ -368,7 +368,7 @@ export class StockQueries {
       productIds: query.categoryId === undefined ? null : await this.refs.productIdsInCategoryIn(tx, query.categoryId),
       expiresBy: query.expiringWithinDays === undefined ? null : addDays(today, query.expiringWithinDays),
     };
-    const found = await this.store.onHandSorted(tx, query, scopes, query.includeZero ?? false, narrow, order, position, pageProbe(limit));
+    const found = await this.store.onHandSorted(tx, query, scopes, query.includeZero ?? false, narrow, order, position, pageProbe(limit), this.clock.now());
     const pageRows = found.slice(0, limit);
     const hasMore = found.length > limit;
     const last = pageRows.at(-1);
@@ -377,7 +377,7 @@ export class StockQueries {
 
   getStockUnit(actor: Actor | undefined, id: string): Promise<StockUnitView> {
     return this.uow.run({ isolation: 'read committed' }, async (tx) => {
-      const unit = await this.store.stockUnit(tx, id);
+      const unit = await this.store.stockUnit(tx, id, this.clock.now());
       await this.authoriser.authorise(tx, actor, 'inv.stock.read', unit === null ? {} : { branchId: unit.branchId, locationId: unit.currentLocationId });
       if (unit === null) throw new NotFoundError(`no stock unit ${id}`);
       return (await this.unitViews(tx, [unit]))[0]!;
@@ -391,11 +391,11 @@ export class StockQueries {
    */
   getStockUnitLabel(actor: Actor | undefined, id: string): Promise<StockUnitLabelView> {
     return this.uow.run({ isolation: 'read committed' }, async (tx) => {
-      const unit = await this.store.stockUnit(tx, id);
+      const unit = await this.store.stockUnit(tx, id, this.clock.now());
       await this.authoriser.authorise(tx, actor, 'inv.stock.read', unit === null ? {} : { branchId: unit.branchId, locationId: unit.currentLocationId });
       if (unit === null) throw new NotFoundError(`no stock unit ${id}`);
       const view = (await this.unitViews(tx, [unit]))[0]!;
-      const balances = await this.store.onHand(tx, { stockUnitId: id }, [{ branchId: unit.branchId, locationId: null }], false);
+      const balances = await this.store.onHand(tx, { stockUnitId: id }, [{ branchId: unit.branchId, locationId: null }], false, this.clock.now());
       const print = stockUnitLabel({
         tracking: view.tracking,
         sku: view.product.sku,
@@ -429,26 +429,27 @@ export class StockQueries {
       await this.authoriser.authorise(tx, actor, 'inv.stock.read');
       const scopes: ReadScope[] = (await this.authoriser.scopes(tx, actor!, 'inv.stock.read')).map((s) => ({ branchId: s.branchId, locationId: s.locationId }));
       const { expiringWithinDays, ...rest } = query;
-      const filters: StockUnitFilters = { ...rest, expiresBy: expiringWithinDays === undefined ? undefined : addDays(toBusinessDate(this.clock.now()), expiringWithinDays) };
+      const now = this.clock.now();
+      const filters: StockUnitFilters = { ...rest, expiresBy: expiringWithinDays === undefined ? undefined : addDays(toBusinessDate(now), expiringWithinDays) };
       const order = requestedSort(STOCK_UNIT_SORT, sort.sort, sort.direction);
       if (order !== null) {
         // By `identifier` or `expiresOn` (CR-019, ADR-0054), the unit id breaking ties, through the shared keyset.
         const binding = { operationId: 'listStockUnits', principalId: actor!.principalId, filters: { ...query, sort: order.field, direction: order.direction } };
         const position = cursor === undefined ? null : decodePosition(order, this.cursors.decode(cursor, binding));
-        const found = await this.store.stockUnitIdsSorted(tx, filters, scopes, order, position, pageProbe(limit));
+        const found = await this.store.stockUnitIdsSorted(tx, filters, scopes, order, position, pageProbe(limit), now);
         const pageUnits = found.slice(0, limit);
         const units: StockUnitRow[] = [];
-        for (const unit of pageUnits) units.push((await this.store.stockUnit(tx, unit.id))!);
+        for (const unit of pageUnits) units.push((await this.store.stockUnit(tx, unit.id, now))!);
         const last = pageUnits.at(-1);
         const hasMore = found.length > limit;
         return { data: await this.unitViews(tx, units), page: { nextCursor: hasMore && last !== undefined ? this.cursors.encode(binding, encodePosition(last.position)) : null, limit, hasMore } };
       }
       const binding = { operationId: 'listStockUnits', principalId: actor!.principalId, filters: { ...query } };
       const after = cursor === undefined ? null : (this.cursors.decode(cursor, binding)['id'] ?? null);
-      const found = await this.store.stockUnitIds(tx, filters, scopes, after, pageProbe(limit));
+      const found = await this.store.stockUnitIds(tx, filters, scopes, after, pageProbe(limit), now);
       const pageIds = found.slice(0, limit);
       const units: StockUnitRow[] = [];
-      for (const unitId of pageIds) units.push((await this.store.stockUnit(tx, unitId))!);
+      for (const unitId of pageIds) units.push((await this.store.stockUnit(tx, unitId, now))!);
       const last = pageIds.at(-1);
       const hasMore = found.length > limit;
       return { data: await this.unitViews(tx, units), page: { nextCursor: hasMore && last !== undefined ? this.cursors.encode(binding, { id: last }) : null, limit, hasMore } };
@@ -466,7 +467,7 @@ export class StockQueries {
       await this.authoriser.authorise(tx, actor, 'inv.stock.read', { branchId: query.branchId, locationId: query.locationId ?? null });
       const scopes: ReadScope[] = (await this.authoriser.scopes(tx, actor!, 'inv.stock.read')).map((s) => ({ branchId: s.branchId, locationId: s.locationId }));
       const wanted = query.productId === undefined || query.productId.length === 0 ? null : new Set(query.productId);
-      const rows = (await this.store.onHand(tx, { branchId: query.branchId, locationId: query.locationId }, scopes, false)).filter((r) => wanted === null || wanted.has(r.productId));
+      const rows = (await this.store.onHand(tx, { branchId: query.branchId, locationId: query.locationId }, scopes, false, this.clock.now())).filter((r) => wanted === null || wanted.has(r.productId));
       const locations = await this.refs.locationsIn(tx, rows.map((r) => r.locationId));
       const totals = new Map<string, { onHand: Quantity; reserved: Quantity; held: Quantity }>();
       for (const productId of wanted ?? []) totals.set(productId, { onHand: Quantity.zero(), reserved: Quantity.zero(), held: Quantity.zero() });

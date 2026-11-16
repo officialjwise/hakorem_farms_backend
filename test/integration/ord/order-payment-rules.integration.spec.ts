@@ -254,6 +254,9 @@ describe('the database holds the payment record (FR-PAY-001, FR-PAY-002, FR-PAY-
     const paymentId = sold.payments[0]!.id;
     expect(await refusedBy("INSERT INTO pay.payment_allocation (id, payment_id, billing_document_id, amount_pesewas, actor_id) VALUES ($1, $2, $3, 1, $4)", [randomUUID(), paymentId, sold.billingDocument!.id, cashier.principalId])).toBe('HK010:ck_payment_allocation_cap');
     expect(await refusedBy('SELECT bil.apply_settlement($1, 1, $2)', [sold.billingDocument!.id, 'APPLY'])).toBe('HK010:ck_document_settlement_outstanding');
+    // The form with the application's instant (0187, ADR-0067) holds the same rule, and refuses no instant at all.
+    expect(await refusedBy('SELECT bil.apply_settlement($1, 1, $2, now())', [sold.billingDocument!.id, 'APPLY'])).toBe('HK010:ck_document_settlement_outstanding');
+    expect(await refusedBy('SELECT bil.apply_settlement($1, 1, $2, NULL)', [sold.billingDocument!.id, 'APPLY'])).toBe('HK010:ck_document_settlement_outstanding');
     expect(await refusedBy('DELETE FROM pay.payment_allocation WHERE payment_id = $1', [paymentId])).toBe('42501:');
   });
 

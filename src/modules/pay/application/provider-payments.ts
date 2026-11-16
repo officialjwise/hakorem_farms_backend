@@ -138,6 +138,7 @@ export class ProviderPayments {
         network: body.network,
         requestedPesewas: body.amountPesewas,
         awaitedUntil: addMs(now, CHARGE_WINDOW_MS),
+        createdAt: now,
         branchId,
         actorId: actor!.principalId,
       });
