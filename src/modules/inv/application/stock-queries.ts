@@ -183,6 +183,19 @@ const poolKey = (productId: string, stockUnitId: string | null, branchId: string
  * total covers everything the filter matches, not the page. Every read is authorised in the handler and narrowed
  * to the branches and locations the reader's grants reach.
  */
+/** Where stock is never promised to a buyer who is not at the counter: in transit, a whole site, awaiting inspection, on a van. */
+const NOT_PROMISED_ONLINE: ReadonlySet<string> = new Set(['IN_TRANSIT', 'SITE', 'RETURNS_HOLD', 'VEHICLE']);
+
+/** One balance a reservation may promise from (`StockQueries.promisableIn`), first to be promised first. */
+export interface PromisableStock {
+  readonly productId: string;
+  readonly stockUnitId: string | null;
+  readonly locationId: string;
+  /** On hand less reserved, above zero. */
+  readonly availableQty: Quantity;
+  readonly expiresOn: string | null;
+}
+
 export class StockQueries {
   constructor(
     private readonly uow: UnitOfWork,
@@ -194,6 +207,36 @@ export class StockQueries {
     private readonly cursors: Cursors,
     private readonly clock: Clock,
   ) {}
+
+  /**
+   * The balances of these products at a branch that a remote buyer may be promised (FR-SHP-002, FR-SHP-005, A-178),
+   * in the caller's transaction: physical, live locations other than in transit, a site, a returns hold or a van; no
+   * unit under a hold in force, and no lot past its expiry date; on hand less reserved above zero. First to expire
+   * first, then by unit and location, so a checkout reserves the oldest stock. Whether a reservation is still possible
+   * when it is made is the database's (`ck_stock_reservation`).
+   */
+  async promisableIn(tx: Transaction, branchId: string, productIds: readonly string[]): Promise<PromisableStock[]> {
+    const wanted = [...new Set(productIds)];
+    const rows: OnHandRow[] = [];
+    for (const productId of wanted) rows.push(...(await this.store.onHand(tx, { branchId, productId }, [{ branchId, locationId: null }], false)));
+    const locations = await this.refs.locationsIn(tx, rows.map((r) => r.locationId));
+    const today = toBusinessDate(this.clock.now());
+    return rows
+      .filter((r) => {
+        const location = locations.get(r.locationId);
+        if (location === undefined || !location.isLive || location.isVirtual || NOT_PROMISED_ONLINE.has(location.kind)) return false;
+        if (r.holds.length > 0 || (r.unit?.expiresOn !== null && r.unit?.expiresOn !== undefined && r.unit.expiresOn < today)) return false;
+        return Quantity.parse(r.availableQty).compareTo(Quantity.zero()) > 0;
+      })
+      .map((r) => ({ productId: r.productId, stockUnitId: r.stockUnitId, locationId: r.locationId, availableQty: Quantity.parse(r.availableQty), expiresOn: r.unit?.expiresOn ?? null }))
+      .sort((a, b) => {
+        if (a.expiresOn !== b.expiresOn) return a.expiresOn === null ? 1 : b.expiresOn === null ? -1 : a.expiresOn < b.expiresOn ? -1 : 1;
+        const unitA = a.stockUnitId ?? '';
+        const unitB = b.stockUnitId ?? '';
+        if (unitA !== unitB) return unitA < unitB ? -1 : 1;
+        return a.locationId < b.locationId ? -1 : a.locationId > b.locationId ? 1 : 0;
+      });
+  }
 
   listOnHand(actor: Actor | undefined, query: OnHandQuery, cursor: string | undefined, limit: number): Promise<StockOnHandPageView> {
     return this.uow.run({ isolation: 'read committed' }, async (tx) => {

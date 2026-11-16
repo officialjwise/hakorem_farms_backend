@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.31.0"
+  version: "1.32.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -54364,7 +54364,10 @@ paths:
       tags:
         - shp
       summary: "Browse and search the public catalogue"
-      description: "Anonymous and cacheable. One request renders a listing page: no per-item calls. Live animals show a price range and request-to-buy."
+      description: "Anonymous and cacheable (FR-SHP-001). One request renders a listing page: no per-item calls. Active products listed online or on request, by category, with search over name and description, filters and cursor pagination. Prices come from the pricing engine on the ONLINE channel: a banded live animal shows the range of its band list prices and `REQUEST_TO_BUY`. No cost, floor, ceiling or stock quantity is ever in the response; availability is a level. `sort` is applied before paging, through the shared sort (CR-019): `RELEVANCE` (the default, the shop's category order then name), `PRICE_ASC` and `PRICE_DESC` (unpriced items last either way) and `NAME`; ties are broken by the product id, so a cursor never skips or repeats an item. Any other value is 400 `VALIDATION_FAILED` with detail `SORT_NOT_ALLOWED`. The listing is refreshed every minute (A-178); a cart and a checkout price live."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - RATE_LIMITED
       parameters:
         - name: q
           in: query
@@ -54728,6 +54731,11 @@ paths:
       tags:
         - shp
       summary: "Get a product page"
+      description: "Anonymous (FR-SHP-002): a listed product by its slug, with its photographs, SEO fields, price or price range and availability as `IN_STOCK`, `LOW_STOCK` (five sale units or fewer, a setting), `OUT_OF_STOCK` or `ON_REQUEST`, never the quantity. A catch-weight product carries its tolerance and the final-charge rule. 404 for a slug that is not listed."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: slug
           in: path
@@ -54796,6 +54804,10 @@ paths:
       tags:
         - shp
       summary: "List storefront categories"
+      description: "Anonymous: the categories shown online that hold at least one listed product, in the shop's order, with the number of listed products in each (a parent counts its children's)."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - RATE_LIMITED
       parameters:
         - name: cursor
           in: query
@@ -54861,13 +54873,17 @@ paths:
       tags:
         - shp
       summary: "Start a cart"
-      description: "For a guest, also sets the host-bound cookie `__Host-hk_guest` that identifies the cart."
+      description: "A guest cart (FR-SHP-003, A-177), at the storefront's branch. The first answer sets the host-only cookie `__Host-hk_guest` (httpOnly, Secure, SameSite=Strict) whose token proves the cart is the caller's; it is stored only as a keyed hash. A replay with the same Idempotency-Key answers the same cart without the cookie. Requires an allowed `Origin`. Customer accounts and adopting a cart at sign-in arrive with registered checkout (B09a)."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - ORIGIN_NOT_ALLOWED
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfTokenOptional"
       security:
         - {}
-        - customerSession: []
       responses:
         "201":
           description: OK
@@ -54907,6 +54923,11 @@ paths:
       tags:
         - shp
       summary: "Get a cart"
+      description: "The cart the guest cookie proves is the caller's, every price re-resolved now by the pricing engine (FR-SHP-003): line totals and the subtotal are computed by the server, never summed by the client. `displayedUnitPricePesewas` is today's price; `available` says whether the stock that may be promised covers the line. Any other cart, or none, is 404."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -54916,7 +54937,6 @@ paths:
             format: uuid
       security:
         - {}
-        - customerSession: []
       responses:
         "200":
           description: OK
@@ -54982,7 +55002,18 @@ paths:
       tags:
         - shp
       summary: "Add a product to the cart"
-      description: "A REQUEST_TO_BUY product is refused with 422 REQUEST_TO_BUY_ONLY; open a quote request instead."
+      description: "Adds a product in whole units of its sale unit (FR-SHP-003): a pack, a crate, a head. Adding a product already in the cart adds to its quantity. A `REQUEST_TO_BUY` product (a live animal) is refused with 422 `REQUEST_TO_BUY_ONLY`: open a quote request instead. A product not listed, or with no online price, is 422 `PRODUCT_UNAVAILABLE`; a fraction or a 51st line is 422 `QUANTITY_INVALID`; a cart at checkout is 409 `CART_NOT_ACTIVE`. A catch-weight line is estimated at packs times the nominal pack weight."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - ORIGIN_NOT_ALLOWED
+        - NOT_FOUND
+        - CART_NOT_ACTIVE
+        - REQUEST_TO_BUY_ONLY
+        - PRODUCT_UNAVAILABLE
+        - QUANTITY_INVALID
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -54991,10 +55022,8 @@ paths:
             type: string
             format: uuid
         - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfTokenOptional"
       security:
         - {}
-        - customerSession: []
       requestBody:
         required: true
         content:
@@ -55073,6 +55102,17 @@ paths:
       tags:
         - shp
       summary: "Change a cart line quantity"
+      description: "Sets a line's quantity, in whole units, and records today's price as the one shown (FR-SHP-003)."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - ORIGIN_NOT_ALLOWED
+        - NOT_FOUND
+        - CART_NOT_ACTIVE
+        - PRODUCT_UNAVAILABLE
+        - QUANTITY_INVALID
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -55087,10 +55127,8 @@ paths:
             type: string
             format: uuid
         - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfTokenOptional"
       security:
         - {}
-        - customerSession: []
       requestBody:
         required: true
         content:
@@ -55167,6 +55205,15 @@ paths:
       tags:
         - shp
       summary: "Remove a cart line"
+      description: "Removes a line from an active cart."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - ORIGIN_NOT_ALLOWED
+        - NOT_FOUND
+        - CART_NOT_ACTIVE
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -55181,10 +55228,8 @@ paths:
             type: string
             format: uuid
         - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfTokenOptional"
       security:
         - {}
-        - customerSession: []
       responses:
         "200":
           description: OK
@@ -55254,6 +55299,18 @@ paths:
       tags:
         - shp
       summary: "Apply a coupon code"
+      description: "Applies one coupon (FR-SHP-004): the pricing engine judges its limits, validity, targets and stack group, and a refusal is its 422 `COUPON_UNAVAILABLE` (an unknown code is 422 `REFERENCE_NOT_FOUND`). A second, different coupon is 422 `COUPON_ALREADY_APPLIED`. The discount is shown at checkout as a separate adjustment."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - ORIGIN_NOT_ALLOWED
+        - NOT_FOUND
+        - CART_NOT_ACTIVE
+        - COUPON_UNAVAILABLE
+        - COUPON_ALREADY_APPLIED
+        - REFERENCE_NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -55262,10 +55319,8 @@ paths:
             type: string
             format: uuid
         - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfTokenOptional"
       security:
         - {}
-        - customerSession: []
       requestBody:
         required: true
         content:
@@ -55342,6 +55397,15 @@ paths:
       tags:
         - shp
       summary: "Remove the coupon code"
+      description: "Removes the cart's coupon."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - ORIGIN_NOT_ALLOWED
+        - NOT_FOUND
+        - CART_NOT_ACTIVE
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -55350,10 +55414,8 @@ paths:
             type: string
             format: uuid
         - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfTokenOptional"
       security:
         - {}
-        - customerSession: []
       responses:
         "200":
           description: OK
@@ -55521,6 +55583,10 @@ paths:
       tags:
         - shp
       summary: "List delivery slots for a zone"
+      description: "Anonymous (FR-SHP-009): a zone's delivery slots that have not started, from `from` (default today), in the order they start. `remaining` is capacity less bookings; capacity is not enforced until B11 (SA-13)."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - RATE_LIMITED
       parameters:
         - name: zoneId
           in: query
@@ -55609,7 +55675,24 @@ paths:
       tags:
         - shp
       summary: "Start checkout: price, reserve stock and show the totals"
-      description: "Re-resolves every price and reserves every line at serializable isolation, or reserves none. The checkout holds stock for 15 minutes; after that the reservations expire and the checkout ends."
+      description: "Re-resolves every price and reserves every line at serializable isolation, or reserves none (FR-SHP-005): a line the stock that may be promised cannot cover is 422 `STOCK_UNAVAILABLE`, naming it, and nothing is held. The checkout holds stock for 15 minutes (a setting, A-045); after that the reservations expire, the checkout ends `EXPIRED` and the cart is active again (FR-SHP-006). Delivery is priced from the zone of `address` (a guest gives the address; `deliveryAddressId` needs an account, B09a): an address in no zone is 422 `DELIVERY_UNAVAILABLE`, collection only. A chosen `deliverySlotId` is stored through its foreign key; it must be of the address's zone and not started (422 `SLOT_UNAVAILABLE`); capacity is B11's. Cash on delivery needs delivery. `priceChanged` is true when a price moved since it was added. Rate limited as checkout: 30 per address per 10 minutes, refused while the limiter is down."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - ORIGIN_NOT_ALLOWED
+        - NOT_FOUND
+        - CART_NOT_ACTIVE
+        - CART_EMPTY
+        - REQUEST_TO_BUY_ONLY
+        - PRODUCT_UNAVAILABLE
+        - STOCK_UNAVAILABLE
+        - DELIVERY_UNAVAILABLE
+        - SLOT_UNAVAILABLE
+        - CHECKOUT_INVALID
+        - COUPON_UNAVAILABLE
+        - RATE_LIMITED
+        - SERVICE_UNAVAILABLE
       parameters:
         - name: id
           in: path
@@ -55618,10 +55701,8 @@ paths:
             type: string
             format: uuid
         - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfTokenOptional"
       security:
         - {}
-        - customerSession: []
       requestBody:
         required: true
         content:
@@ -55737,6 +55818,11 @@ paths:
       tags:
         - shp
       summary: "Get a checkout"
+      description: "The checkout of the caller's cart (FR-SHP-007): the estimated total, the most that can be charged without asking (estimate plus each catch-weight line's tolerance), the tax in it and the final-charge rule in words. Any other checkout is 404."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -55746,7 +55832,6 @@ paths:
             format: uuid
       security:
         - {}
-        - customerSession: []
       responses:
         "200":
           description: OK
@@ -55843,6 +55928,19 @@ paths:
       tags:
         - shp
       summary: "Change the address, slot or payment terms of a checkout"
+      description: "Changes the address, slot, payment terms or difference preference of a started checkout, and re-prices the delivery (FR-SHP-008); the lines and their reservations do not change. An ended or lapsed checkout is 409 `CHECKOUT_NOT_OPEN`."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - ORIGIN_NOT_ALLOWED
+        - NOT_FOUND
+        - CHECKOUT_NOT_OPEN
+        - DELIVERY_UNAVAILABLE
+        - SLOT_UNAVAILABLE
+        - CHECKOUT_INVALID
+        - RATE_LIMITED
+        - SERVICE_UNAVAILABLE
       parameters:
         - name: id
           in: path
@@ -55851,10 +55949,8 @@ paths:
             type: string
             format: uuid
         - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfTokenOptional"
       security:
         - {}
-        - customerSession: []
       requestBody:
         required: true
         content:
@@ -62167,8 +62263,13 @@ paths:
       tags:
         - del
       summary: "List delivery slots with capacity"
-      description: "Permission: `del.slot.read`."
+      description: "Slots at the branches the caller's grants name, in the order they start, with capacity, bookings and what remains (FR-DEL-001). Bookings stay 0 until B11 books deliveries into slots (SA-13).\n\nPermission: `del.slot.read`."
       x-permission: del.slot.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - RATE_LIMITED
       parameters:
         - name: zoneId
           in: query
@@ -62329,8 +62430,19 @@ paths:
       tags:
         - del
       summary: "Create slots for a zone over a date range"
-      description: "Permission: `del.slot.manage`."
+      description: "Creates a zone's slots on the listed weekdays (1 is Monday) of a date range, one per time window (FR-DEL-001, ADR-0026). The range starts today or later and covers at most 92 days; windows end after they start, do not overlap, and hold 1 to 1,000 deliveries. A slot that already exists for the zone, date and start is skipped and counted in `skippedExisting`, so generating twice adds nothing. Refused with 422 `SLOT_REQUEST_INVALID` naming the rule (`IN_THE_PAST`, `BEFORE_FROM`, `RANGE_TOO_LONG`, `NOT_A_WEEKDAY`, `DUPLICATE`, `INVALID_TIME`, `NOT_AFTER_START`, `OVERLAPS`, `OUT_OF_RANGE`, `TOO_MANY`), and 422 `REFERENCE_NOT_FOUND` for a zone that does not deliver. Checked at the zone's branch.\n\nPermission: `del.slot.manage`."
       x-permission: del.slot.manage
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - SLOT_REQUEST_INVALID
+        - REFERENCE_NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -62391,8 +62503,21 @@ paths:
       tags:
         - del
       summary: "Change a slot's capacity"
-      description: "Cannot be set below the number already booked.\n\nPermission: `del.slot.manage`."
+      description: "Cannot be set below the number already booked (422 `CAPACITY_BELOW_BOOKED`); the database holds the same rule. A capacity outside 1 to 1,000 is 422 `SLOT_REQUEST_INVALID`; a stale `version` is 409 `VERSION_CONFLICT`.\n\nPermission: `del.slot.manage`."
       x-permission: del.slot.manage
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - CAPACITY_BELOW_BOOKED
+        - SLOT_REQUEST_INVALID
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
