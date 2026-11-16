@@ -153,6 +153,8 @@ const MAX_BATCH_HEAD = 100_000;
 /** The largest litter or clutch one birth records. */
 const MAX_LITTER = 30;
 const Tag = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9/_-]{0,39}$/);
+/** A tag in a path (getCareAnimalByTag, CR-021): the register's own pattern, matched exactly. */
+export const TagParam = Tag;
 
 /** The contract's `AnimalUpdate`, strict: species, acquisition, source and cost are not fields at all (FR-LIV-002). */
 export const AnimalUpdate = z.strictObject({

@@ -125,6 +125,7 @@ let rationId: string;
 let breedingId: string;
 let failingId: string;
 let mortalityId: string;
+let confirmationId: string;
 let healthEventId: string;
 let hatchVersion = 1;
 
@@ -155,6 +156,7 @@ const calls: Record<string, () => Promise<Response>> = {
   },
   listCareAnimals: () => send(farmHand, 'GET', '/care/animals'),
   getCareAnimal: () => send(farmHand, 'GET', `/care/animals/${id('unit:CARE-G1')}`),
+  getCareAnimalByTag: () => send(farmHand, 'GET', '/care/animal-tags/CARE-G1'),
   updateCareAnimal: async () => {
     const goat = await send(farmHand, 'GET', `/care/animals/${id('unit:CARE-G2')}`);
     return send(farmHand, 'PATCH', `/care/animals/${id('unit:CARE-G2')}`, { version: goat.body.version, breed: 'Sahelian cross' });
@@ -191,8 +193,17 @@ const calls: Record<string, () => Promise<Response>> = {
     mortalityId = reported.body.id as string;
     return reported;
   },
-  submitCareMortalityRecord: () => send(farmHand, 'POST', `/care/mortality-records/${mortalityId}/submit`),
-  closeCareBatch: () => send(farmHand, 'POST', `/care/batches/${id('batch:CARE-HATCH')}/close`, { reason: 'Whole hatch lost in the first week' }),
+  submitCareMortalityRecord: async () => {
+    // The Farm hand never writes stock off alone (owner, 2026-11-15; B06r): below the threshold a supervisor confirms.
+    const submitted = await send(farmHand, 'POST', `/care/mortality-records/${mortalityId}/submit`);
+    confirmationId = submitted.body.approvalRequestId as string;
+    return submitted;
+  },
+  closeCareBatch: async () => {
+    const confirmed = await send(manager, 'POST', `/iam/approvals/${confirmationId}/approve`, { reason: 'Saw the hatch at the house' });
+    expect(confirmed.status, JSON.stringify(confirmed.body)).toBe(200);
+    return send(farmHand, 'POST', `/care/batches/${id('batch:CARE-HATCH')}/close`, { reason: 'Whole hatch lost in the first week' });
+  },
 };
 
 /** The order the walk calls them in: each write after the reads it would change, each read after what it reads. */

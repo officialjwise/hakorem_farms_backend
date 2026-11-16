@@ -215,7 +215,7 @@ afterAll(async () => {
 });
 
 describe('deny by default: the handler walk (ADR-0017, security architecture section 14)', () => {
-  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued, B05 continued 3, B05x, B6, B06m, B06 continued, B06 continued 2, B06 continued 3, B06u, B7, B07 continued and B07 continued 1b routes, and every one declares its operation', () => {
+  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued, B05 continued 3, B05x, B6, B06m, B06 continued, B06 continued 2, B06 continued 3, B06u, B7, B07 continued, B07 continued 1b and B06r routes, and every one declares its operation', () => {
     expect(routes.map((route) => route.spec?.operationId).sort()).toEqual(
       [
         'changePassword', 'confirmTotpEnrolment', 'createProduct', 'getCurrentSession', 'getHealth', 'getProduct', 'listProducts', 'listSessions',
@@ -260,7 +260,7 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'recordFeedConsumption', 'getFeedConsumption',
         'updateAnimal', 'moveAnimal', 'listAnimalTimeline', 'listGrowth', 'listBatches', 'createBatch', 'getBatch', 'updateBatch', 'closeBatch',
         'listBreedingRecords', 'createBreedingRecord', 'getBreedingRecord', 'updateBreedingRecord', 'recordBirth', 'failBreedingRecord',
-        'listCareAnimals', 'getCareAnimal', 'updateCareAnimal', 'moveCareAnimal', 'listCareHealthEvents', 'recordCareHealthEvent', 'getCareHealthEvent',
+        'listCareAnimals', 'getCareAnimal', 'getCareAnimalByTag', 'updateCareAnimal', 'moveCareAnimal', 'listCareHealthEvents', 'recordCareHealthEvent', 'getCareHealthEvent',
         'reportCareMortality', 'submitCareMortalityRecord', 'listCareRations', 'recordCareFeedConsumption', 'listCareBatches', 'createCareBatch', 'getCareBatch',
         'updateCareBatch', 'closeCareBatch', 'listPacks', 'createPacks', 'printPackLabels',
         'listUomConversions', 'createUomConversion', 'archiveUomConversion',

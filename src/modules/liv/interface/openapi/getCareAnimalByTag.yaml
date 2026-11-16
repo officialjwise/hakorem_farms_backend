@@ -1,0 +1,91 @@
+operationId: getCareAnimalByTag
+tags:
+  - liv
+summary: "Find a live animal by its exact tag, without cost"
+description: "The Farm hand's lookup at the pen (CR-021, 1.31.0; ADR-0052): the live animal carrying exactly this tag, answered in the cost-free `CareAnimal` shape, so a goat, sheep or pig can be weighed, treated or reported dead by its ear tag. The match is exact, character for character: another case, a prefix or a longer tag is not the same tag. Only an animal still `ALIVE` is found, since one live animal holds a tag at a time; an unknown tag, or one whose animal has died, been sold or slaughtered, is 404 `NOT_FOUND`. A tag containing `/` is sent percent-encoded (`%2F`).\n\nPermission: `liv.care.read`, scoped as `getCareAnimal` is."
+x-permission: liv.care.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: tagNo
+    in: path
+    required: true
+    description: "The ear tag exactly as it is registered, for example `G-0142`."
+    schema:
+      type: string
+      pattern: "^[A-Za-z0-9][A-Za-z0-9/_-]{0,39}$"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/CareAnimal"
+        example:
+          id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
+          tagNo: G-0142
+          species:
+            id: "019a7a8b-a049-7e16-b34e-ea33ee146311"
+            code: GOAT
+            name: Goat
+          product:
+            id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+            sku: LIV-GOAT
+            name: Goat
+          breed: "West African Dwarf"
+          sex: MALE
+          dateOfBirth: null
+          acquiredOn: "2026-10-03"
+          source: PURCHASE
+          supplier:
+            id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
+            supplierNo: S-0012
+            name: "Kpone Livestock Traders"
+          dam: null
+          sire: null
+          batch: null
+          purpose: GROWING
+          status: ALIVE
+          currentLocation:
+            id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+            code: PEN-G1
+            name: "Goat pen 1"
+            kind: PEN
+          grade:
+            id: "019a7a8c-d59f-70f8-9631-185eaefe913c"
+            code: A
+            name: "Grade A, well finished"
+          lastWeightKg: "26.400"
+          lastWeighedAt: "2026-11-11T07:00:00Z"
+          weightBand:
+            id: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
+            code: GOAT-M
+            minKg: "18.000"
+            maxKg: "28.000"
+          withdrawalUntil: null
+          sellable: true
+          version: 4
+          createdAt: "2026-11-03T11:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
