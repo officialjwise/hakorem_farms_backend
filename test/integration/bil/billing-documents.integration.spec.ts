@@ -112,6 +112,7 @@ beforeAll(async () => {
     ['accountant', 'Yaw Agyeman', 'ACCOUNTANT', branchId, true],
     ['otherAccountant', 'Ama Mensah', 'ACCOUNTANT', testBranchId, true],
     ['manager', 'Akosua Boateng', 'MANAGER', branchId, true],
+    ['otherManager', 'Kojo Asamoah', 'MANAGER', branchId, true],
     ['storekeeper', 'Kwesi Ofori', 'STOREKEEPER', branchId, false],
     ['cashier', 'Adwoa Darko', 'CASHIER', branchId, false],
     ['sales', 'Esi Appiah', 'SALES', branchId, false],
@@ -350,6 +351,26 @@ describe('a credit note waits for a different person and never exceeds the origi
     expect(await sqlStateOf(app().query('UPDATE bil.billing_document SET credited_pesewas = gross_pesewas + 1 WHERE id = $1', [id('zeroRated')]))).toBe('23514');
     const raised = await app().query('UPDATE bil.billing_document SET credited_pesewas = 31000 WHERE id = $1', [id('zeroRated')]).catch((error: unknown) => error);
     expect(raised).toMatchObject({ code: 'HK010', constraint: 'ck_billing_document_credit_cap' });
+  });
+
+  it('lets a Manager raise a credit note but never approve it herself; another Manager, or the Owner, approves (the owner, 2026-11-16)', async () => {
+    const lineId = (await get('accountant', `/billing-documents/${id('zeroRated')}`)).body.lines[0].id as string;
+    const cashier = await post('cashier', `/billing-documents/${id('zeroRated')}/credit-notes`, { reasonCode: 'QUALITY_COMPLAINT', note: 'At the counter', lines: [{ lineId, amountPesewas: 1_000 }] });
+    expect([cashier.status, cashier.body.error.code]).toEqual([403, 'FORBIDDEN']);
+    const raised = await post('manager', `/billing-documents/${id('zeroRated')}/credit-notes`, { reasonCode: 'QUALITY_COMPLAINT', note: 'Two trays short on delivery', lines: [{ lineId, amountPesewas: 2_000 }] });
+    expect(raised.status, JSON.stringify(raised.body)).toBe(202);
+    await stepUp(api.server, as('manager') as TotpSession, clock);
+    const own = await post('manager', `/iam/approvals/${raised.body.approvalRequestId as string}/approve`, { reason: 'My own' });
+    expect([own.status, own.body.error.code]).toEqual([422, 'MAKER_CANNOT_CHECK']);
+    await stepUp(api.server, as('otherManager') as TotpSession, clock);
+    const approved = await post('otherManager', `/iam/approvals/${raised.body.approvalRequestId as string}/approve`, { reason: 'Delivery note checked' });
+    expect(approved.status, JSON.stringify(approved.body)).toBe(200);
+    expect((await get('accountant', `/billing-documents/${raised.body.subject.id as string}`)).body).toMatchObject({ status: 'ISSUED', grossPesewas: 2_000 });
+    const second = await post('manager', `/billing-documents/${id('zeroRated')}/credit-notes`, { reasonCode: 'OVERCHARGED', note: 'One crate priced twice', lines: [{ lineId, amountPesewas: 1_000 }] });
+    expect(second.status, JSON.stringify(second.body)).toBe(202);
+    await stepUp(api.server, as('owner') as TotpSession, clock);
+    expect((await post('owner', `/iam/approvals/${second.body.approvalRequestId as string}/approve`, { reason: 'Agreed' })).status).toBe(200);
+    expect((await get('accountant', `/billing-documents/${id('zeroRated')}`)).body.settlement).toMatchObject({ creditedPesewas: 33_000, outstandingPesewas: 53_240 });
   });
 
   it('credits the levies back exactly on a standard-rated line: Dr 4200 net, Dr 2100 per levy, Cr 1200 gross', async () => {
