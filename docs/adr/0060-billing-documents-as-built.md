@@ -1,6 +1,6 @@
 # ADR-0060: Billing documents as built: the issue port, the rules the database holds, and the three posting rows
 
-- **Status:** Proposed
+- **Status:** Accepted (owner, 2026-11-16)
 - **Date:** 2026-11-16
 - **Session:** B08 continued 2
 - **Deciders:** backend track; the accountant reviews the posting reading and the credit note policy (A-200)
