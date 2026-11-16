@@ -12,7 +12,7 @@ Run as a fresh agent inside the 2026-11-15 overnight session: the parent session
 | A-213 | **B09a continued 1b split (ADR-0026 Amendments).** B09a continued 1c builds settlement and bank statement import and matching (`pay.ProviderSettled`: 1100, 6910, 1120; a bank transfer cleared by its line; 2290), the break endpoints with their approved postings, and the refund against a credit note (Dr 1200, with a credit note on a paid document, which BIL refuses today because outstanding would go below zero). It runs next, before B09a continued 2. | Owner |
 | A-200 (c) | **Amended by the owner, 2026-11-16** (from F8): credit notes are raised by the Owner, the Accountant and the Manager (migration 0174), never a Cashier; approved by the Owner or a Manager other than the maker. | Owner (done) |
 
-Still open, proceeded on as stated: A-033, A-034, A-062, A-064, A-182 to A-207, A-209 to A-211.
+Still open, proceeded on as stated: A-033, A-034, A-062, A-182 to A-207, A-209, A-211. A-210 and ADR-0063 were approved by the owner on 2026-11-16 (merged from `main`, PR #63); A-064, the real Paystack sandbox run, is now the first step of B09a continued 2 (still after 1c, which does not change its opener).
 
 Phase, scope and gate, as confirmed at the start:
 1. **Phase:** B09a continued 1b (`b09a2b-payments-reconciliation`, from `main` at `3a74d76`).
