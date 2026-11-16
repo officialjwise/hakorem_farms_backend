@@ -36,6 +36,12 @@ describe('log scrubbing (SC-08, ENGINEERING_STANDARDS section 4)', () => {
     });
   });
 
+  it('redacts a full account number by its field name, and keeps its last four digits (ADR-0057, DC-40)', () => {
+    expect(scrub({ body: { accountNo: '2040016620', account_no: '2040016620', accountNumber: '2040016620', accountNoLast4: '6620' } })).toEqual({
+      body: { accountNo: REDACTED, account_no: REDACTED, accountNumber: REDACTED, accountNoLast4: '6620' },
+    });
+  });
+
   it('scrubs the message and stack of an error object', () => {
     const scrubbed = scrub(new Error('could not reach +233244123456')) as { type: string; message: string; stack: string };
     expect(scrubbed.type).toBe('Error');

@@ -1,9 +1,10 @@
 /**
  * Removes what must never leave the process in a log line (ENGINEERING_STANDARDS section 4, SC-08):
- * secrets by key name, and phone numbers inside any string, keeping only the last three digits.
+ * secrets and full account numbers (DC-40, ADR-0057) by key name, and phone numbers inside any string, keeping only
+ * the last three digits.
  * A new sensitive field is added here and to log-scrubber.spec.ts in the same change.
  */
-const SENSITIVE_KEY = /pass(word)?|secret|token|authori[sz]ation|cookie|otp|totp|api[-_]?key|private[-_]?key|signature|card|cvv|pin$/i;
+const SENSITIVE_KEY = /pass(word)?|secret|token|authori[sz]ation|cookie|otp|totp|api[-_]?key|private[-_]?key|signature|card|cvv|pin$|account[-_]?(no|number)$/i;
 
 /** Ghana numbers in E.164 (+233 and nine digits) or national form (0 and nine digits), with optional spaces or dashes. */
 const PHONE_NUMBER = /(?:\+233|\b0)(?:[\s-]?\d){9}\b/g;
