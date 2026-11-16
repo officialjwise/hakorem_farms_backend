@@ -57,10 +57,10 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B08 continued 2 | `B08c2-billing-documents.md` | `b08c2-billing-documents` | B4 to B12 | A billing document posts exact levy lines and a fourth levy needs data only; numbering stays gap-free under concurrent issue; the trial balance still sums to zero on the seeded day (built; the session split before rendering and the archive, A-201) |
 | B08 continued 2b | `B08c2b-documents-archive.md` | `b08c2b-documents-archive` | B4 to B12 | A reprint is byte-identical apart from its reprint marker and the archive's hash holds; every issued document of the seeded day is archived once; a template version keeps issued documents unchanged; every write refuses the wrong role (built; the session split before statements, A-203) |
 | B08 continued 2c | `B08c2c-statements-remittance.md` | `b08c2c-statements-remittance` | B4 to B12 | A supplier remittance advice is rendered from the data fixed with `pur.SupplierRemittanceReady` and archived once, linked from the payment; a template preview renders without archiving or numbering anything; every preview and archive read refuses the wrong role (built; the session split before statements, A-206; sends moved to B11, ADR-0062) |
-| B08 continued 2d | `B08c2d-customer-statements.md` | `b08c2d-customer-statements` | B4 to B12 | A customer statement for a period ties to the customer's documents and the ledger's 1200 for that customer and period, opening plus movements equal to closing to the pesewa, and is rendered after commit and archived once; every statement write refuses the wrong role |
 | B9a | `B09a-order-core-payments.md` | `b09a-order-core-payments` | B4 to B12 | Every payment edge case in the brief passes; an order on any channel posts stock, document, payment and ledger in one transaction |
 | B09x | `B09x-contract-requests.md` | `b09x-contract-requests` | B4 to B12 | Every list operation has a named empty example (CR-005) and the seeded role matrix is published in the contract, generated from the IAM seed and checked in CI so it cannot drift (CR-023); no existing shape changes |
 | B9b | `B09b-pos-shifts-offline.md` | `b09b-pos-shifts-offline` | B4 to B12 | Shift close reconciles; 500 queued offline transactions sync exactly once |
+| B08 continued 2d | `B08c2d-customer-statements.md` | `b08c2d-customer-statements` | B4 to B12 | A customer statement for a period ties to the customer's documents and the ledger's 1200 for that customer and period, opening plus movements equal to closing to the pesewa, and is rendered after commit and archived once; every statement write refuses the wrong role |
 | B10 | `B10-quotations-wholesale.md` | `b10-quotations-wholesale` | B4 to B12 | Quote revisions are versioned; conversion to invoice preserves every link; a credit limit blocks with an audited override |
 | B11 | `B11-fulfilment-delivery.md` | `b11-fulfilment-delivery` | B4 to B12 | A catch-weight order re-prices at pick; cash on delivery lands against the driver; the outbox guarantees the customer notification |
 | B12 | `B12-capital-costing-reporting.md` | `b12-capital-costing-reporting` | B4 to B12 | A distribution matches a hand calculation on unit-days and ties exactly to the ledger |
@@ -1424,44 +1424,13 @@ Stop at the gate and write docs/sessions/B08c2c-statements-remittance.md. End th
 (ADR-0026 verification).
 ```
 
-## B08 continued 2d — Customer statements
-
-Branch `b08c2d-customer-statements`, from `main`. Report `docs/sessions/B08c2d-customer-statements.md`. Inserted by B08 continued 2c's split (A-206, ADR-0026 Amendments). Gate: a customer statement for a period lists the customer's issued documents and their settlement, ties to the ledger's 1200 for that customer's subledger party and period (opening plus invoices and debit notes less credit notes and payments equals closing, to the pesewa, asserted against SQL sums taken straight from `bil.billing_document` and `fin.journal_line`), is numbered from its own gap-free series, rendered after commit and archived exactly once; every statement write refuses the wrong role.
-
-```text
-Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
-List docs/sessions/ and read only the most recent report (docs/sessions/B08c2c-statements-remittance.md).
-Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
-reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
-For this phase, read FR-WHL-009 and the DOC requirement block of docs/SRS.md (nothing else from the SRS),
-docs/data-model/whl.md (`whl.statement`), doc.md and bil.md, the WHL, BIL, DOC and FIN cards in
-docs/MODULE_BOUNDARIES.md, and ADR-0010, ADR-0011, ADR-0015, ADR-0056, ADR-0060, ADR-0061 and ADR-0062. Read A-200,
-A-204 and A-206 in docs/ASSUMPTIONS.md. Load hakorem-module, hakorem-migration, hakorem-ledger, hakorem-money,
-hakorem-documents, hakorem-endpoint and hakorem-tests. Use docs/prompts/module-build-prompt.md as the recipe.
-Do not read any other document unless this phase needs it.
-
-Confirm in three lines: the phase, its scope, and its gate.
-Then execute B08 continued 2d only, on branch b08c2d-customer-statements, branched from main: the WHL module with
-customer statements only (`whl.statement`, the `STATEMENT` document type and its series, the permissions
-`whl.statement.read` and `whl.statement.create` and their grants, listStatements, createStatement and getStatement,
-the A4 statement template with sample data, rendered and archived through Documents.requestRenderIn and linked by a
-consumer of doc.DocumentArchived). Decide with an ADR where the figures come from: WHL's card imports no FIN today,
-and an opening balance entered by manual journal against a customer is on 1200 but on no billing document, so the
-recommended reading is the customer's 1200 activity by subledger party through FIN's door, each line named by its
-source document, which also brings in B9a's payments without a change. Write the statement arithmetic test first,
-including FR-WHL-009's case (opening 100,000, invoices 250,000, credit note 20,000, payment 150,000, closing 180,000)
-and a customer in credit. sendStatement stays planned for B11 (ADR-0062). Extend the seed with one statement.
-Stop at the gate, write docs/sessions/B08c2d-customer-statements.md, and merge into main when every run on the pull
-request is green. End the report with B09a's opening message (ADR-0026 verification).
-```
-
 ## B9a — Order core and payments, and online order placement
 
 Branch `b09a-order-core-payments`. Report `docs/sessions/B09a-order-core-payments.md`. Gate: every payment edge case in the shared brief passes, and an order on any channel posts stock, document, payment and ledger in one transaction.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9a row).
-List docs/sessions/ and read only the most recent report (docs/sessions/B08c2d-customer-statements.md).
+List docs/sessions/ and read only the most recent report (docs/sessions/B08c2c-statements-remittance.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
 report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the ORD (core) and PAY requirement blocks of docs/SRS.md (nothing else from the SRS),
@@ -1496,7 +1465,7 @@ Stop at the gate and write docs/sessions/B09a-order-core-payments.md.
 
 ## B09x — Contract requests: empty list examples and the seeded role matrix
 
-Branch `b09x-contract-requests`, from `main`. Report `docs/sessions/B09x-contract-requests.md`. Inserted by the owner on 2026-11-16 after B9a (ADR-0026 Amendments): CR-005 was declined only for its size, and CR-023 was named for scheduling by B08 continued 2b. Gate: every list operation in the contract, from code and planned, has a named empty example beside its populated one, checked by a contract test that fails when a list operation lacks it; the seeded role matrix (every seeded role with its full permissions) is published in the contract as an `x-seeded-roles` extension or a complete `listRoles` example, generated from the IAM seed by `pnpm contract:generate` and failing CI on drift; nothing removed, renamed or retyped.
+Branch `b09x-contract-requests`, from `main`. Report `docs/sessions/B09x-contract-requests.md`. Inserted by the owner on 2026-11-16 after B9a (ADR-0026 Amendments): CR-005 was declined only for its size, and CR-023 was named for scheduling by B08 continued 2b. Gate: every list operation in the contract, from code and planned, has a named empty example beside its populated one, checked by a contract test that fails when a list operation lacks it; the seeded role matrix (every seeded role with its full permissions) is published in the contract as an `x-seeded-roles` extension or a complete `listRoles` example, generated from the IAM seed by `pnpm contract:generate` and failing CI on drift; nothing removed, renamed or retyped; and a supplier payment is numbered from its `SPY` series when it is marked paid, gap-free, and its remittance advice prints that number (A-205).
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
@@ -1512,7 +1481,10 @@ Confirm in three lines: the phase, its scope, and its gate.
 Then execute B09x only, on branch b09x-contract-requests, branched from main: a named empty example (`empty`) on
 every list operation, generated by one scripted pass over the fragments and the planned file and kept by a contract
 test; the seeded role matrix published in the contract from the IAM seed, generated and checked in CI; CR-023's
-confirmation of the Farm hand's grants answered from the seed in the report. Examples and an extension only: a
+confirmation of the Farm hand's grants answered from the seed in the report.
+Also (A-205): allocate `pur.supplier_payment.payment_no` from its `SPY` series through `platform.allocate_number` in the
+transaction that marks the payment paid, test-first with a concurrent gap-free test, and print it on the remittance
+advice in place of the payment id (load hakorem-documents and hakorem-migration). Examples and an extension only: a
 contract minor version, a changelog entry, and the cold-read summary updated.
 Stop at the gate, write docs/sessions/B09x-contract-requests.md, and merge into main when every run on the pull
 request is green.
@@ -1557,13 +1529,44 @@ validated in format, printed on the invoice, and never creating a customer; the 
 Stop at the gate and write docs/sessions/B09b-pos-shifts-offline.md.
 ```
 
+## B08 continued 2d — Customer statements
+
+Branch `b08c2d-customer-statements`, from `main`. Report `docs/sessions/B08c2d-customer-statements.md`. Inserted by B08 continued 2c's split (A-206, ADR-0026 Amendments), and placed after B9b by the parent session (A-207): a statement nets payments, which PAY builds in B9a, and its home module WHL is B10's. Gate: a customer statement for a period lists the customer's issued documents and their settlement, ties to the ledger's 1200 for that customer's subledger party and period (opening plus invoices and debit notes less credit notes and payments equals closing, to the pesewa, asserted against SQL sums taken straight from `bil.billing_document` and `fin.journal_line`), is numbered from its own gap-free series, rendered after commit and archived exactly once; every statement write refuses the wrong role.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B09b-pos-shifts-offline.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read FR-WHL-009 and the DOC requirement block of docs/SRS.md (nothing else from the SRS),
+docs/data-model/whl.md (`whl.statement`), doc.md and bil.md, the WHL, BIL, DOC and FIN cards in
+docs/MODULE_BOUNDARIES.md, and ADR-0010, ADR-0011, ADR-0015, ADR-0056, ADR-0060, ADR-0061 and ADR-0062. Read A-200,
+A-204 and A-206 in docs/ASSUMPTIONS.md. Load hakorem-module, hakorem-migration, hakorem-ledger, hakorem-money,
+hakorem-documents, hakorem-endpoint and hakorem-tests. Use docs/prompts/module-build-prompt.md as the recipe.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B08 continued 2d only, on branch b08c2d-customer-statements, branched from main: the WHL module with
+customer statements only (`whl.statement`, the `STATEMENT` document type and its series, the permissions
+`whl.statement.read` and `whl.statement.create` and their grants, listStatements, createStatement and getStatement,
+the A4 statement template with sample data, rendered and archived through Documents.requestRenderIn and linked by a
+consumer of doc.DocumentArchived). Decide with an ADR where the figures come from: WHL's card imports no FIN today,
+and an opening balance entered by manual journal against a customer is on 1200 but on no billing document, so the
+recommended reading is the customer's 1200 activity by subledger party through FIN's door, each line named by its
+source document, which also brings in B9a's payments without a change. Write the statement arithmetic test first,
+including FR-WHL-009's case (opening 100,000, invoices 250,000, credit note 20,000, payment 150,000, closing 180,000)
+and a customer in credit. sendStatement stays planned for B11 (ADR-0062). Extend the seed with one statement.
+Stop at the gate, write docs/sessions/B08c2d-customer-statements.md, and merge into main when every run on the pull
+request is green. End the report with B09a's opening message (ADR-0026 verification).
+```
+
 ## B10 — Quotations, wholesale and credit control
 
 Branch `b10-quotations-wholesale`. Report `docs/sessions/B10-quotations-wholesale.md`. Gate: quote revisions are versioned, conversion to invoice preserves every link, and a credit limit blocks with an audited override.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
-List docs/sessions/ and read only the most recent report (docs/sessions/B09b-pos-shifts-offline.md).
+List docs/sessions/ and read only the most recent report (docs/sessions/B08c2d-customer-statements.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
 report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the QUO and WHL requirement blocks of docs/SRS.md (nothing else from the SRS),
