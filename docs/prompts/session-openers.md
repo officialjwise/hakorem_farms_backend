@@ -48,7 +48,9 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B06r | `B06r-processing-reversal-approval.md` | `b06r-processing-reversal-approval` | B4 to B12 | A processing reversal waits for a second approver at or above the threshold and is refused once a pack is sold or moved; a farm hand finds an animal by tag, reports and submits a death with its EVIDENCE photograph, and a manager approves it whatever its value; a reused photograph is flagged (built) |
 | B07 continued 2 | `B07c-storefront-checkout.md` | `b07c-storefront-checkout` | B4 to B12 | The shared sort pages without skipping or repeating; checkout reserves stock and releases it on timeout; a live animal cannot be added to a cart; the catalogue exposes no cost; every staff write refuses the wrong role (built; the session split, A-179) |
 | B07 continued 3 | `B07c3-console-sort.md` | `b07c3-console-sort` | B4 to B12 | The four console lists sort through the shared keyset by CR-019's fields, each indexed, any other 400, and page without skipping or repeating; every read refuses the wrong role (built; six fields declined, A-181) |
-| B8 | `B08-ledger-billing.md` | `b08-ledger-billing` | B4 to B12 | Trial balance sums to zero on a seeded day; an unbalanced journal is rejected by the database; numbering is gap-free under concurrent load |
+| B8 | `B08-ledger-billing.md` | `b08-ledger-billing` | B4 to B12 | Trial balance sums to zero on a seeded day; an unbalanced journal is rejected by the database; numbering is gap-free under concurrent load (built and passed; the session split after its gate, A-187) |
+| B08 continued | `B08c-ledger-interface.md` | `b08c-ledger-interface` | B4 to B12 | Every FIN write refuses the wrong role and a maker approving their own manual journal or rule change; a period locks, closes and refuses postings through the API; the four statements tie to the trial balance on the seeded day; depreciation spreads exactly |
+| B08 continued 2 | `B08c2-billing-documents.md` | `b08c2-billing-documents` | B4 to B12 | A billing document posts exact levy lines and a fourth levy needs data only; numbering stays gap-free under concurrent issue; a reprint is identical with its marker; the trial balance still sums to zero on the seeded day |
 | B9a | `B09a-order-core-payments.md` | `b09a-order-core-payments` | B4 to B12 | Every payment edge case in the brief passes; an order on any channel posts stock, document, payment and ledger in one transaction |
 | B9b | `B09b-pos-shifts-offline.md` | `b09b-pos-shifts-offline` | B4 to B12 | Shift close reconciles; 500 queued offline transactions sync exactly once |
 | B10 | `B10-quotations-wholesale.md` | `b10-quotations-wholesale` | B4 to B12 | Quote revisions are versioned; conversion to invoice preserves every link; a credit limit blocks with an audited override |
@@ -1122,7 +1124,7 @@ request is green.
 
 ## B8 — General ledger, billing and document generation
 
-Branch `b08-ledger-billing`. Report `docs/sessions/B08-ledger-billing.md`. Gate: the trial balance sums to zero on a seeded trading day, an unbalanced journal is rejected by the database itself, and numbering stays gap-free under concurrent load.
+Branch `b08-ledger-billing`. Report `docs/sessions/B08-ledger-billing.md`. **Built and passed; the session split after its gate (A-187): the remainder is B08 continued and B08 continued 2 below.** Gate: the trial balance sums to zero on a seeded trading day, an unbalanced journal is rejected by the database itself, and numbering stays gap-free under concurrent load.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
@@ -1158,13 +1160,83 @@ add, by an expand migration, pur.supplier_payment.bank_account_id and remittance
 Stop at the gate and write docs/sessions/B08-ledger-billing.md.
 ```
 
+## B08 continued — The ledger's interface, periods, manual journals and the statements
+
+Branch `b08c-ledger-interface`. Report `docs/sessions/B08c-ledger-interface.md`. Gate: every FIN write refuses the wrong role (and a maker approving their own manual journal, posting rule change or period reopen); a period locks, closes and then refuses postings, proved through the API; the trial balance, profit and loss, balance sheet and cash flow tie to each other on the seeded trading day to the pesewa; a depreciation run spreads the depreciable amount exactly and posts once per period.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B08-ledger-billing.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the FIN requirement block of docs/SRS.md (nothing else from the SRS), docs/data-model/fin.md,
+the FIN card in docs/MODULE_BOUNDARIES.md, ADR-0003, ADR-0005, ADR-0017, ADR-0022 and ADR-0056, and the accountant's
+answers on A-024 to A-029 and A-182 to A-187 in docs/ASSUMPTIONS.md (if still open, proceed on them).
+Use docs/prompts/module-build-prompt.md as the recipe.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B08 continued only, on branch b08c-ledger-interface, building on the ledger core B8 merged (do not
+rewrite it): FIN's planned operations in contract/openapi.yaml, each test-first with its wrong-role refusal: the chart
+of accounts (FR-FIN-001, FR-FIN-002), bank accounts with encrypted numbers and step-up (`fin.bank_account`), periods with
+lock, close and reopen (FR-FIN-009, FR-FIN-010, `PERIOD_REOPEN`), journals read only, manual journals with a different
+approver and step-up (FR-FIN-008, the opening balance journal), posting rule and determination changes through
+`POSTING_RULE_CHANGE`, the trial balance, profit and loss, balance sheet and cash flow for any range (FR-FIN-011 to
+FR-FIN-013), the period balance projection, fixed assets and depreciation (FR-FIN-014, FR-FIN-015), and FIN's ◆ events
+(`fin.ManualJournalApproved`, `fin.DepreciationRun`, `fin.YearClosed`) with their matrix rows and exact-amount tests.
+List PERIOD_NOT_OPEN, POSTING_RULE_MISSING and SUBLEDGER_REQUIRED in the x-error-codes of every operation that posts
+(A-187). Add, by an expand migration, pur.supplier_payment.bank_account_id and remittance_document_id with their
+foreign keys (docs/DATA_MODEL.md, Migrations), lift PUR's BANK_ACCOUNT_NOT_AVAILABLE refusal and carry the bank account
+on pur.SupplierPaymentMade so FIN posts it to its own subledger party (A-185).
+Make the owner dashboard's cash figure live (B05x, A-149): remove `cash` from RPT's PENDING_FIGURES
+(src/modules/rpt/domain/dashboard.ts) and answer it from the ledger (accounts 1000 to 1130) through a published view,
+and build the planned tile getCashPositionTile, test-first with its wrong-role refusal.
+If the phase does not fit, split at a sub-domain boundary (for example fixed assets and depreciation) and follow
+"If a session cannot finish".
+Stop at the gate and write docs/sessions/B08c-ledger-interface.md.
+```
+
+## B08 continued 2 — Billing documents, document rendering and the archive
+
+Branch `b08c2-billing-documents`. Report `docs/sessions/B08c2-billing-documents.md`. Gate: an invoice, credit note and debit note post exact levy lines through the ledger and a fourth levy added as data only produces four levy lines and four subledger postings; billing numbers stay gap-free under concurrent issue; a reprint is byte-identical apart from its reprint marker and the archive's hash holds; the trial balance still sums to zero on the seeded trading day.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B08c-ledger-interface.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the BIL and DOC requirement blocks of docs/SRS.md (nothing else from the SRS),
+docs/data-model/bil.md and doc.md, the BIL and DOC cards in docs/MODULE_BOUNDARIES.md, and ADR-0001, ADR-0015,
+ADR-0020 and ADR-0056. Read the accountant's answers on A-020, A-033 and A-034 in docs/ASSUMPTIONS.md: if they are
+still open, proceed on the stated assumptions, record that in the report, and make each answerable as data.
+Use docs/prompts/module-build-prompt.md as the recipe.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B08 continued 2 only, on branch b08c2-billing-documents: billing documents (proforma, invoice, credit
+note, debit note, receipt) with levy lines from MDM's tax calculator, numbered through platform.allocate_number in
+the issuing transaction, and their ◆ events (bil.InvoiceIssued, bil.CreditNoteIssued, bil.DebitNoteIssued) added to
+fin.posting_event_type with their rules and an exact-amount matrix test for each row; the test that adds a fourth levy
+as data only; document templates, rendering (HTML to PDF and ESC/POS), the immutable archive with its content hash, and
+reprint with the reprint marker; customer statements; DOC's rendering of the supplier remittance advice from
+pur.SupplierRemittanceReady (FR-PUR-013). Extend the seed through the services so the seeded trading day carries billing
+documents, and prove the trial balance still sums to zero on it.
+Make the owner dashboard's receivables figures live (B05x, A-149): remove `receivablesOutstandingPesewas` and
+`receivablesOverduePesewas` from RPT's PENDING_FIGURES and answer them from the ledger (account 1200) and billing's due
+dates through published views, and build the planned tile getReceivablesTile, test-first with its wrong-role refusal.
+If the phase does not fit, split at a sub-domain boundary (for example rendering and the archive) and follow
+"If a session cannot finish".
+Stop at the gate and write docs/sessions/B08c2-billing-documents.md. End the report with B09a's opening message
+(ADR-0026 verification).
+```
+
 ## B9a — Order core and payments, and online order placement
 
 Branch `b09a-order-core-payments`. Report `docs/sessions/B09a-order-core-payments.md`. Gate: every payment edge case in the shared brief passes, and an order on any channel posts stock, document, payment and ledger in one transaction.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9a row).
-List docs/sessions/ and read only the most recent report (docs/sessions/B08-ledger-billing.md).
+List docs/sessions/ and read only the most recent report (docs/sessions/B08c2-billing-documents.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
 report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the ORD (core) and PAY requirement blocks of docs/SRS.md (nothing else from the SRS),
@@ -1189,6 +1261,8 @@ from completed orders through a published view, and build the planned tiles getS
 each test-first with its wrong-role refusal.
 Unit conversions are built in B06u (A-157, A-163): an order line in a unit other than the product's base unit
 converts through MasterDataRefs.toBaseIn, never with a factor of its own.
+Add PAY's ◆ events to fin.posting_event_type with their rules, each with an exact-amount matrix test (ADR-0056), and
+declare the journal series lock on the sale command, where tills post at once (A-186).
 Stop at the gate and write docs/sessions/B09a-order-core-payments.md.
 ```
 

@@ -131,4 +131,22 @@ describe('the worker process (ADR-0006, ADR-0010)', () => {
       { job_name: 'stock-balance-recompute', outcome: 'SUCCESS', summary: { drift: 0, exceptionIds: [] }, actor_id: '01900000-0000-7000-8000-000000000004' },
     ]);
   });
+
+  it('runs the nightly ledger reconciliation FIN contributes (FR-FIN-016), recording a clean summary', async () => {
+    const admin = database.pool('admin');
+    const url = new URL(inject('redisUrl'));
+    const queue = new BullmqJobQueue({ host: url.hostname, port: Number(url.port) }, `${prefix}bull`, silent);
+    try {
+      await queue.add('ledger-reconcile', {});
+      await waitFor(async () => (await admin.query("SELECT 1 FROM platform.job_run WHERE job_name = 'ledger-reconcile'")).rowCount === 1);
+    } finally {
+      await queue.close();
+    }
+    const run = (await admin.query<{ outcome: string; summary: unknown; actor_id: string }>("SELECT outcome, summary, actor_id FROM platform.job_run WHERE job_name = 'ledger-reconcile'")).rows[0];
+    expect(run).toEqual({
+      outcome: 'SUCCESS',
+      summary: { clean: true, signedSumPesewas: 0, unbalancedEntryIds: [], controlBreaks: 0, seriesGapIds: [] },
+      actor_id: '01900000-0000-7000-8000-000000000004',
+    });
+  });
 });

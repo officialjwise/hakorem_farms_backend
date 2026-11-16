@@ -468,6 +468,8 @@ The "Source" column says where the code comes from. **Contract** means the code 
 | Code | HTTP | Meaning |
 | --- | --- | --- |
 | `PERIOD_NOT_OPEN` | 422 | The posting date falls in a period that is not open. Interactive posting is refused; offline sales post on the first open date instead (`OFFLINE_SYNC.md`) |
+
+From B8 (ADR-0056, A-187) any operation that publishes a ◆ event (goods receipts, adjustments, stock takes, processing, supplier invoices, credit notes and payments) can answer `PERIOD_NOT_OPEN`, `POSTING_RULE_MISSING` or `SUBLEDGER_REQUIRED` when FIN refuses its posting; the whole operation rolls back. An event dated in a period that is not open posts on the day it is recorded when that day's period is open (A-183), so only the recording day's period refuses. B08 continued lists the three codes in those operations' `x-error-codes` with the period endpoints.
 | `SUBLEDGER_REQUIRED` | 422 | A journal line on an account with a subledger has no subledger party, or has one on an account without |
 | `POSTING_RULE_MISSING` | 422 | No posting rule exists for the event. Nothing was committed. Contact the accountant |
 | `OPENING_ALREADY_POSTED` | 422 | An opening balance was already applied for the branch: the opening balance journal for the fiscal year, or the opening stock import (`DATA_MIGRATION.md`) |

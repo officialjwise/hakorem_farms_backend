@@ -81,6 +81,7 @@ function findSecretField(value: unknown, path: string): string | undefined {
 export class DomainEvents {
   private readonly transactional = new Map<string, TransactionalSubscriber[]>();
   private readonly consumers = new Map<string, AsyncConsumer>();
+  private readonly ledgerEvents = new Set<string>();
   private readonly nextId: () => string;
 
   constructor(private readonly clock: Clock) {
@@ -110,6 +111,28 @@ export class DomainEvents {
       }
     }
     this.consumers.set(consumer.name, consumer);
+  }
+
+  /**
+   * A publishing module declares the event types it publishes that post to the ledger (◆ in docs/DOMAIN_MODEL.md,
+   * ADR-0003), so FIN's boot assertion can refuse to start when one has no handler or rule set.
+   */
+  declareLedgerEvents(eventTypes: readonly string[]): void {
+    for (const type of eventTypes) {
+      if (!EVENT_TYPE.test(type)) {
+        throw new Error(`"${type}" is not an event type (<module>.<Name>)`);
+      }
+      this.ledgerEvents.add(type);
+    }
+  }
+
+  declaredLedgerEvents(): string[] {
+    return [...this.ledgerEvents].sort();
+  }
+
+  /** The event types with at least one transactional subscriber. */
+  subscribedTypes(): string[] {
+    return [...this.transactional.keys()].sort();
   }
 
   consumer(name: string): AsyncConsumer | undefined {

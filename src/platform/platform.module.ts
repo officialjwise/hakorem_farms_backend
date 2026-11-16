@@ -15,6 +15,7 @@ import { HealthController } from './health/health.controller';
 import { Cursors } from './http/cursor';
 import { RateLimiter } from './http/rate-limiter';
 import { DocumentRegistry } from './documents/document-registry';
+import { NumberSeries } from './documents/number-series';
 import { Idempotency } from './idempotency/idempotency';
 import { createRedis } from './redis/redis-client';
 import { Settings } from './settings/settings';
@@ -96,6 +97,7 @@ export class PlatformModule {
         { provide: DomainEvents, useFactory: () => new DomainEvents(clock) },
         { provide: Idempotency, useFactory: () => new Idempotency(clock) },
         DocumentRegistry,
+        NumberSeries,
         { provide: Settings, useFactory: (pool: pg.Pool) => new Settings(pool, clock, logger), inject: [PG_POOL] },
         { provide: RateLimiter, useFactory: (redis: Redis) => new RateLimiter(redis, logger), inject: [REDIS] },
         { provide: Cursors, useFactory: () => new Cursors(Buffer.from(config.LOOKUP_HMAC_KEY, 'base64'), clock) },
@@ -144,6 +146,7 @@ export class PlatformModule {
         DomainEvents,
         Idempotency,
         DocumentRegistry,
+        NumberSeries,
         Settings,
         RateLimiter,
         Cursors,

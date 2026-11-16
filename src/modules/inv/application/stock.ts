@@ -62,6 +62,27 @@ export interface AvailabilityWatch {
  * transaction, with the value the database decided. Every movement then has the product's reorder rules judged in
  * the same transaction, so a low-stock alert is raised once, when available stock crosses its level (FR-INV-015).
  */
+/**
+ * The events INV publishes that post to the ledger (◆ in docs/DOMAIN_MODEL.md section 5): the posting events of its
+ * movement types (`inv.movement_type.posting_event`, migration 0044) and `inv.UpkeepExpensed`. Declared to the event bus
+ * at module init, so FIN's boot assertion refuses to start without a handler and rules for each (ADR-0003).
+ * `inv.StockTransferredBetweenBranches` is not published yet: no movement type carries it (A-184).
+ */
+export const INV_LEDGER_EVENTS = [
+  'inv.GoodsReceived',
+  'inv.ProductionReceived',
+  'inv.OpeningStockLoaded',
+  'inv.CostCapitalised',
+  'inv.UpkeepExpensed',
+  'inv.StockConsumedInProcessing',
+  'inv.ProcessingOutputReceived',
+  'inv.StockIssuedForSale',
+  'inv.SaleReturnReceived',
+  'inv.StockWrittenOff',
+  'inv.StockGainRecorded',
+  'inv.SupplierReturnIssued',
+] as const;
+
 export class Stock {
   private readonly nextId: () => string;
 

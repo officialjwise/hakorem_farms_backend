@@ -15,7 +15,8 @@ Owner: `src/platform`. Mechanisms only, no business rules (ADR-0009). Convention
 
 | Function | Purpose |
 | --- | --- |
-| `platform.allocate_number(series_id uuid, document_id uuid) RETURNS text` | Increments the series, inserts the allocation row and returns the formatted number, inside the caller's transaction (ADR-0015) |
+| `platform.allocate_number(series_id uuid, document_id uuid) RETURNS text` | Increments the series, inserts the allocation row and returns the formatted number, inside the caller's transaction (ADR-0015). Built in B8 (migration 0122); the only writer of `number_allocation` (HK011 `ck_number_allocation_writer`) |
+| `platform.open_number_series(doc_type, fiscal_year, branch_id, branch_code, sub_scope) RETURNS uuid` | The series for a numbered document type, written on first use with the type's prefix; HK011 `ck_number_series_unknown` for a type that is not numbered (B8) |
 | `platform.reject_change() RETURNS trigger` | Raises an error. Attached `BEFORE UPDATE OR DELETE` and `BEFORE TRUNCATE` to every `LEDGER` table in every schema |
 | `platform.freeze_posted() RETURNS trigger` | Generic document freeze: once `status` is in the table's posted set, rejects changes outside the column list given as trigger arguments (ADR-0012). The first argument is the comma-separated posted statuses, the rest the columns that may still change. SQLSTATE HK004 |
 | `platform.audit_event_content_hash(e) RETURNS bytea` | SHA-256 of an audit event's canonical bytes, independent of session settings; used by the insert trigger and the verifier (ADR-0006) |
@@ -60,6 +61,7 @@ The row-locked counter for one series of document numbers. `next_value` is deriv
 | `doc_type` | `text` | NOT NULL, FK `platform.document_type` | Series are per document type |
 | `fiscal_year` | `integer` | NOT NULL, CHECK between 2020 and 2100 | Series restart each year, as the brief requires |
 | `branch_id` | `uuid` | NOT NULL, FK `mdm.branch` | A branch contends only with itself (ADR-0005) |
+| `branch_code` | `text` | NOT NULL | The branch's code as printed in the number, given by the caller when the year's series opens (platform reads no module's table; B8) |
 | `sub_scope` | `text` | NOT NULL DEFAULT `''` | Register code for receipts; empty otherwise |
 | `prefix` | `text` | NOT NULL | Printed prefix |
 | `padding` | `integer` | NOT NULL DEFAULT 6, CHECK between 4 and 10 | Zero padding of the sequence |

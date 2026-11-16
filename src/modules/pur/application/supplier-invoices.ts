@@ -190,6 +190,12 @@ function documentHash(record: InvoiceRecord, match: unknown): string {
  * INV's `Stock` and publish their ledger event. A line in the order line's unit converts to the base unit through
  * `MasterDataRefs.toBaseIn`. Every handler authorises first, scoped to the invoice's branch; every change is audited.
  */
+/**
+ * The events PUR publishes that post to the ledger (◆ in docs/DOMAIN_MODEL.md section 5.7), declared for FIN's boot
+ * assertion (ADR-0003). `pur.SupplierCreditNoteRecorded` of ADR-0003's matrix is published as `pur.SupplierCreditNoteApproved`.
+ */
+export const PUR_LEDGER_EVENTS = ['pur.SupplierInvoiceMatched', 'pur.ExpenseInvoiceApproved', 'pur.SupplierCreditNoteApproved', 'pur.SupplierPaymentMade'] as const;
+
 export class SupplierInvoices {
   private readonly nextId: () => string;
 
