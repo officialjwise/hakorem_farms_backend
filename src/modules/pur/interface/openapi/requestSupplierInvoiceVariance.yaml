@@ -1,0 +1,74 @@
+operationId: requestSupplierInvoiceVariance
+tags:
+  - pur
+summary: "Ask for a mismatched invoice's variance to be approved"
+description: "A MISMATCH invoice whose lines fail the three-way match only on price (`PRICE_OUTSIDE_TOLERANCE`) or a levy (`LEVY_DIFFERS`) may be paid as invoiced once a different person approves the variance (FR-PUR-010, 1.30.0). The match is taken again and recorded, then the request answers 202 `ApprovalPending` of kind `SUPPLIER_INVOICE_VARIANCE`, approved by a holder of `pur.supplier_invoice.variance_approve` (the Owner and the Manager) with a fresh step-up, never the person who asked (422 `MAKER_CANNOT_CHECK`) nor the one who entered the invoice (422 `INVOICE_MAKER_CANNOT_APPROVE`), in the domain and the database. On approval the invoice is APPROVED with match `VARIANCE_APPROVED` and its ledger event names the variance. A variance never covers goods not received, a line with no order line or another product: 422 `VARIANCE_NOT_ALLOWED` names the line (receive the goods or correct the invoice instead); an invoice that now matches is 422 `SUPPLIER_INVOICE_INVALID` (`NO_MISMATCH`). While it waits the invoice cannot change (422 `APPROVAL_PENDING`); a refused or withdrawn request leaves it MISMATCH to be corrected.\n\nPermission: `pur.supplier_invoice.approve`."
+x-permission: pur.supplier_invoice.approve
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - INVALID_STATE_TRANSITION
+  - SUPPLIER_INVOICE_INVALID
+  - VARIANCE_NOT_ALLOWED
+  - APPROVAL_PENDING
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/SupplierInvoiceVarianceRequest"
+      example:
+        reason: "Awutu raised the price of six-week broilers after the order went out; the manager agreed it by phone"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "202":
+    description: "Accepted for approval. Nothing has taken effect yet."
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ApprovalPending"
+        example:
+          status: PENDING_APPROVAL
+          approvalRequestId: "019a7ad1-5c83-7a62-b1d4-2e8f6a9c0b31"
+          kind: SUPPLIER_INVOICE_VARIANCE
+          subject:
+            id: "019a7ad1-3b64-7d27-9e5f-4a0c8b2d1e42"
+            docType: SUPPLIER_INVOICE
+            number: null
+          summary: "Pay Awutu Poultry Farm invoice APF-INV-0090 at 112000 pesewas despite the mismatch (line 1 PRICE_OUTSIDE_TOLERANCE): Awutu raised the price of six-week broilers after the order went out; the manager agreed it by phone"
+          requestedAt: "2026-11-15T11:05:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

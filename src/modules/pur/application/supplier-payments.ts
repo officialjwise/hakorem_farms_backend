@@ -12,7 +12,8 @@ import type { ApprovalHandler, ApprovalRecord, Approvals, Authoriser, PrincipalN
 import type { MasterDataRefs } from '../../mdm';
 import { judgePayee } from '../domain/payout-details';
 import { judgeAllocations, judgeFirstPaymentApprover, paymentApprovalReason, type AllocationRule } from '../domain/purchasing';
-import type { SupplierPaymentMade } from '../events';
+import { remittanceLines } from '../domain/remittance';
+import type { SupplierPaymentMade, SupplierRemittanceReady } from '../events';
 import {
   AllocationExceedsAvailableError,
   PayoutMakerCannotApproveError,
@@ -24,7 +25,7 @@ import {
   type BrokenRule,
 } from './errors';
 import { pesewas, principalRef, readPage, runPurchaseCommand, supplierRef, wholeBranches, type ApprovalPendingView, type Page } from './purchase-command';
-import type { PaymentFilter, PaymentMethod, PaymentRecord, PaymentStatus, PurchasingStore } from './purchasing-store';
+import type { PaymentFilter, PaymentMethod, PaymentRecord, PaymentStatus, PurchasingStore, RemittanceRecord } from './purchasing-store';
 import type { SupplierRegisterStore } from './supplier-register-store';
 
 export const SUPPLIER_PAYMENT_KIND = 'SUPPLIER_PAYMENT';
@@ -69,6 +70,32 @@ export interface SupplierPaymentView {
   readonly version: number;
   readonly createdAt: string;
   readonly createdBy: { readonly id: string; readonly displayName: string };
+}
+
+/** The contract's `SupplierRemittance` (FR-PUR-013): a paid payment's advice data, fixed once when it was paid. */
+export interface SupplierRemittanceView {
+  readonly id: string;
+  readonly supplierPaymentId: string;
+  readonly paymentNo: string | null;
+  readonly supplier: { readonly id: string; readonly supplierNo: string; readonly name: string };
+  readonly method: PaymentMethod;
+  readonly payeeDetailsMasked: string | null;
+  readonly amountPesewas: number;
+  readonly currency: 'GHS';
+  readonly paidAt: string;
+  readonly externalReference: string;
+  readonly lines: readonly {
+    readonly supplierInvoiceId: string;
+    readonly supplierInvoiceNo: string;
+    readonly invoiceDate: string;
+    readonly grossPesewas: number;
+    readonly creditedPesewas: number;
+    readonly amountPesewas: number;
+    readonly outstandingAfterPesewas: number;
+  }[];
+  readonly remittanceDocumentId: null;
+  readonly branchId: string;
+  readonly recordedAt: string;
 }
 
 function paymentHash(payment: PaymentRecord): string {
@@ -169,6 +196,7 @@ export class SupplierPayments implements ApprovalHandler {
         const branches = new Set([...invoices.values()].map((i) => i.branchId));
         if (branches.size > 1) throw new SupplierPaymentInvalidError([{ field: '/allocations', rule: 'BRANCH_DIFFERS' }]);
         const promised = await this.store.promised(tx, [...invoices.keys()]);
+        const credits = await this.store.liveCredits(tx, [...invoices.keys()]);
         const judged = judgeAllocations(
           body.supplierId,
           body.allocations.map((a) => {
@@ -183,6 +211,7 @@ export class SupplierPayments implements ApprovalHandler {
                 matchStatus: invoice.matchStatus,
                 grossPesewas: invoice.grossPesewas,
                 promisedPesewas: promised.get(invoice.id) ?? 0n,
+                liveCreditsPesewas: credits.get(invoice.id) ?? 0n,
               },
             };
           }),
@@ -239,6 +268,7 @@ export class SupplierPayments implements ApprovalHandler {
       const paidAt = new Date(body.paidAt);
       await this.store.markPaymentPaid(tx, id, paidAt, body.externalReference.trim(), this.clock.now(), actor!.principalId);
       const view = await this.audited(tx, 'PAY', before);
+      await this.recordRemittance(tx, actor!.principalId, id);
       await this.events.publish<SupplierPaymentMade>(tx, {
         type: 'pur.SupplierPaymentMade',
         subjectType: 'SupplierPayment',
@@ -265,6 +295,105 @@ export class SupplierPayments implements ApprovalHandler {
       await this.store.markPaymentDecided(tx, id, 'CANCELLED', reason, actor!.principalId);
       return { status: 200, body: await this.audited(tx, 'CANCEL', before, { reason }) };
     });
+  }
+
+  /**
+   * `getSupplierPaymentRemittance` (FR-PUR-013): the remittance advice data of a paid payment, as fixed when it was
+   * paid. A payment not yet paid has none (404).
+   */
+  remittance(actor: Actor | undefined, id: string): Promise<SupplierRemittanceView> {
+    return this.uow.run({ isolation: 'read committed' }, async (tx) => {
+      const payment = await this.store.payment(tx, id);
+      await this.authoriser.authorise(tx, actor, READ, payment === null ? {} : { branchId: payment.branchId });
+      const record = payment === null ? null : await this.store.remittance(tx, id);
+      if (payment === null || record === null) throw new NotFoundError(`no remittance advice for supplier payment ${id}`);
+      return this.remittanceView(tx, payment, record);
+    });
+  }
+
+  /**
+   * The remittance advice data, written once in the transaction that marks the payment paid (FR-PUR-013, A-174): the
+   * invoices it pays as they stand now, with what is left on each. `uq_supplier_remittance_payment` holds it to one per
+   * payment, and `pur.SupplierRemittanceReady` is published once, for DOC to render (B8) and NTF to send (B11).
+   */
+  private async recordRemittance(tx: Transaction, actorId: string, paymentId: string): Promise<void> {
+    const payment = (await this.store.payment(tx, paymentId))!;
+    const invoices = new Map((await this.store.invoices(tx, payment.allocations.map((a) => a.supplierInvoiceId))).map((i) => [i.id, i] as const));
+    const lines = remittanceLines(
+      payment.amountPesewas,
+      payment.allocations.map((a) => {
+        const invoice = invoices.get(a.supplierInvoiceId)!;
+        return {
+          supplierInvoiceId: invoice.id,
+          supplierInvoiceNo: invoice.supplierInvoiceNo,
+          invoiceDate: invoice.invoiceDate,
+          grossPesewas: invoice.grossPesewas,
+          creditedPesewas: invoice.creditedPesewas,
+          paidAfterPesewas: invoice.paidPesewas,
+          amountPesewas: a.amountPesewas,
+        };
+      }),
+    );
+    if (!lines.ok) throw new Error(`supplier payment ${paymentId}: its allocations do not make a remittance advice (${lines.error})`);
+    const id = this.nextId();
+    await this.store.insertRemittance(
+      tx,
+      {
+        id,
+        supplierPaymentId: payment.id,
+        supplierId: payment.supplierId,
+        method: payment.method,
+        payeeMasked: payment.payeeMasked,
+        amountPesewas: payment.amountPesewas,
+        paidAt: payment.paidAt!,
+        externalReference: payment.externalReference!,
+        branchId: payment.branchId,
+        lines: lines.value,
+      },
+      actorId,
+    );
+    await this.events.publish<SupplierRemittanceReady>(tx, {
+      type: 'pur.SupplierRemittanceReady',
+      subjectType: 'SupplierPayment',
+      subjectId: payment.id,
+      branchId: payment.branchId,
+      payload: {
+        remittanceId: id,
+        supplierPaymentId: payment.id,
+        supplierId: payment.supplierId,
+        amountPesewas: pesewas(payment.amountPesewas),
+        paidAt: payment.paidAt!.toISOString(),
+        externalReference: payment.externalReference!,
+      },
+    });
+  }
+
+  private async remittanceView(tx: Transaction, payment: PaymentRecord, record: RemittanceRecord): Promise<SupplierRemittanceView> {
+    const supplier = (await this.refs.suppliersIn(tx, [record.supplierId])).get(record.supplierId)!;
+    return {
+      id: record.id,
+      supplierPaymentId: record.supplierPaymentId,
+      paymentNo: payment.paymentNo,
+      supplier: supplierRef(supplier),
+      method: record.method,
+      payeeDetailsMasked: record.payeeMasked,
+      amountPesewas: pesewas(record.amountPesewas),
+      currency: 'GHS',
+      paidAt: record.paidAt.toISOString(),
+      externalReference: record.externalReference,
+      lines: record.lines.map((l) => ({
+        supplierInvoiceId: l.supplierInvoiceId,
+        supplierInvoiceNo: l.supplierInvoiceNo,
+        invoiceDate: l.invoiceDate,
+        grossPesewas: pesewas(l.grossPesewas),
+        creditedPesewas: pesewas(l.creditedPesewas),
+        amountPesewas: pesewas(l.amountPesewas),
+        outstandingAfterPesewas: pesewas(l.outstandingAfterPesewas),
+      })),
+      remittanceDocumentId: null,
+      branchId: record.branchId,
+      recordedAt: record.recordedAt.toISOString(),
+    };
   }
 
   /** ApprovalHandler: the payment as it is now; a change since the request voids the approval. */

@@ -11,13 +11,14 @@ import { CLOCK } from '../../platform/platform.module';
 import { Settings } from '../../platform/settings/settings';
 import { FileStore } from '../../platform/storage/file-store';
 import { Approvals, Authoriser, IamModule, PRINCIPAL_NAMES, type PrincipalNames } from '../iam';
-import { InvModule } from '../inv';
+import { InvModule, Stock } from '../inv';
 import { MasterDataRefs, MdmModule, TaxService } from '../mdm';
 import { PURCHASE_ORDER_KIND, PurchaseOrders } from './application/purchase-orders';
 import { PURCHASING_STORE, type PurchasingStore } from './application/purchasing-store';
 import { Requisitions } from './application/requisitions';
-import { SupplierInvoices } from './application/supplier-invoices';
+import { SUPPLIER_CREDIT_NOTE_KIND, SUPPLIER_INVOICE_VARIANCE_KIND, SupplierInvoices } from './application/supplier-invoices';
 import { SUPPLIER_PAYMENT_KIND, SupplierPayments } from './application/supplier-payments';
+import { SupplierScores } from './application/supplier-scores';
 import { SUPPLIER_REGISTER_STORE, type SupplierRegisterStore } from './application/supplier-register-store';
 import { SUPPLIER_PAYOUT_CHANGE_KIND, Suppliers } from './application/suppliers';
 import { PgPurchasingStore } from './infrastructure/pg-purchasing-store';
@@ -66,6 +67,8 @@ import { SupplierRegisterController } from './interface/supplier-register.contro
         refs: MasterDataRefs,
         tax: TaxService,
         files: FileStore,
+        approvals: Approvals,
+        stock: Stock,
         authoriser: Authoriser,
         idempotency: Idempotency,
         audit: AuditTrail,
@@ -74,8 +77,14 @@ import { SupplierRegisterController } from './interface/supplier-register.contro
         principals: PrincipalNames,
         cursors: Cursors,
         clock: Clock,
-      ) => new SupplierInvoices(uow, store, register, refs, tax, files, authoriser, idempotency, audit, events, documents, principals, cursors, clock),
-      inject: [UnitOfWork, PURCHASING_STORE, SUPPLIER_REGISTER_STORE, MasterDataRefs, TaxService, FileStore, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, PRINCIPAL_NAMES, Cursors, CLOCK],
+      ) => new SupplierInvoices(uow, store, register, refs, tax, files, approvals, stock, authoriser, idempotency, audit, events, documents, principals, cursors, clock),
+      inject: [UnitOfWork, PURCHASING_STORE, SUPPLIER_REGISTER_STORE, MasterDataRefs, TaxService, FileStore, Approvals, Stock, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, PRINCIPAL_NAMES, Cursors, CLOCK],
+    },
+    {
+      provide: SupplierScores,
+      useFactory: (uow: UnitOfWork, store: PurchasingStore, refs: MasterDataRefs, authoriser: Authoriser, settings: Settings, cursors: Cursors, clock: Clock) =>
+        new SupplierScores(uow, store, refs, authoriser, settings, cursors, clock),
+      inject: [UnitOfWork, PURCHASING_STORE, MasterDataRefs, Authoriser, Settings, Cursors, CLOCK],
     },
     {
       provide: SupplierPayments,
@@ -134,26 +143,29 @@ import { SupplierRegisterController } from './interface/supplier-register.contro
       inject: [UnitOfWork, SUPPLIER_REGISTER_STORE, PurchaseOrders, MasterDataRefs, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, PRINCIPAL_NAMES, Cursors, CLOCK],
     },
   ],
-  exports: [PurchaseOrders, SupplierInvoices, SupplierPayments, Suppliers, Requisitions],
+  exports: [PurchaseOrders, SupplierInvoices, SupplierPayments, SupplierScores, Suppliers, Requisitions],
 })
 export class PurModule implements OnModuleInit {
   constructor(
     @Inject(Approvals) private readonly approvals: Approvals,
     @Inject(DomainEvents) private readonly events: DomainEvents,
     @Inject(PurchaseOrders) private readonly orders: PurchaseOrders,
+    @Inject(SupplierInvoices) private readonly invoices: SupplierInvoices,
     @Inject(SupplierPayments) private readonly payments: SupplierPayments,
     @Inject(Suppliers) private readonly suppliers: Suppliers,
   ) {}
 
   /**
-   * Registers PUR's approval handlers (ADR-0017), a purchase order above the limit, every supplier payment and every
-   * payout detail change, and the transactional subscribers that keep an order line's received quantity in the goods
+   * Registers PUR's approval handlers (ADR-0017), a purchase order above the limit, every supplier payment, every
+   * payout detail change, every supplier credit note and every invoice variance (A-172), and the transactional subscribers that keep an order line's received quantity in the goods
    * receipt's transaction (A-164) and open each new supplier's profile in its registration's transaction (A-166).
    */
   onModuleInit(): void {
     this.approvals.registerHandler(PURCHASE_ORDER_KIND, this.orders);
     this.approvals.registerHandler(SUPPLIER_PAYMENT_KIND, this.payments);
     this.approvals.registerHandler(SUPPLIER_PAYOUT_CHANGE_KIND, this.suppliers);
+    this.approvals.registerHandler(SUPPLIER_CREDIT_NOTE_KIND, this.invoices.creditNoteApprovals);
+    this.approvals.registerHandler(SUPPLIER_INVOICE_VARIANCE_KIND, this.invoices.varianceApprovals);
     this.events.subscribeInTransaction('inv.GoodsReceiptPosted', this.orders.received);
     this.events.subscribeInTransaction('mdm.SupplierRegistered', this.suppliers.registered);
   }

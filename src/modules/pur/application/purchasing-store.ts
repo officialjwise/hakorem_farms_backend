@@ -91,6 +91,9 @@ export interface InvoiceLineRecord {
   readonly priceVarianceDirection: 'OVER' | 'UNDER' | null;
   readonly matchStatus: MatchStatus;
   readonly matchReasons: readonly MatchReason[];
+  /** On a credit note, where goods sent back to the supplier leave from, and the lot or animal (FR-PUR-011). */
+  readonly returnLocationId: string | null;
+  readonly returnStockUnitId: string | null;
   readonly levies: readonly LevyRecord[];
 }
 
@@ -106,7 +109,12 @@ export interface InvoiceHeader {
   readonly taxPesewas: bigint;
   readonly grossPesewas: bigint;
   readonly statedGrossPesewas: bigint | null;
+  /** A credit note's reason for goods sent back (a RETURN reason code); null otherwise. */
+  readonly returnReasonCode: string | null;
 }
+
+/** An invoice's match result, or a credit note's (never matched), with the variance a second person approved. */
+export type InvoiceMatchStatus = MatchStatus | 'VARIANCE_APPROVED';
 
 export interface InvoiceRecord extends InvoiceHeader {
   readonly id: string;
@@ -116,7 +124,13 @@ export interface InvoiceRecord extends InvoiceHeader {
   readonly purchaseOrderId: string | null;
   readonly originalInvoiceId: string | null;
   readonly paidPesewas: bigint;
-  readonly matchStatus: MatchStatus;
+  /** The gross of the approved credit notes against this invoice (FR-PUR-011). */
+  readonly creditedPesewas: bigint;
+  readonly matchStatus: InvoiceMatchStatus;
+  /** A credit note's approval, or an invoice's variance approval, waiting or decided (A-172). */
+  readonly approvalRequestId: string | null;
+  readonly varianceReason: string | null;
+  readonly postedBy: string | null;
   readonly branchId: string;
   readonly version: number;
   readonly createdAt: Date;
@@ -126,8 +140,9 @@ export interface InvoiceRecord extends InvoiceHeader {
 
 export interface InvoiceFilter {
   readonly status?: InvoiceStatus | undefined;
+  readonly kind?: 'INVOICE' | 'CREDIT_NOTE' | undefined;
   readonly supplierId?: string | undefined;
-  readonly matchStatus?: MatchStatus | undefined;
+  readonly matchStatus?: InvoiceMatchStatus | undefined;
   readonly dueBefore?: string | undefined;
   readonly outstandingOnly: boolean;
 }
@@ -184,6 +199,52 @@ export interface PaymentFilter {
   readonly scheduledBefore?: string | undefined;
 }
 
+/** A paid payment's remittance advice data, fixed when it was marked paid (FR-PUR-013). */
+export interface RemittanceRecord {
+  readonly id: string;
+  readonly supplierPaymentId: string;
+  readonly supplierId: string;
+  readonly method: PaymentMethod;
+  readonly payeeMasked: string | null;
+  readonly amountPesewas: bigint;
+  readonly paidAt: Date;
+  readonly externalReference: string;
+  readonly branchId: string;
+  readonly recordedAt: Date;
+  readonly lines: readonly {
+    readonly supplierInvoiceId: string;
+    readonly supplierInvoiceNo: string;
+    readonly invoiceDate: string;
+    readonly grossPesewas: bigint;
+    readonly creditedPesewas: bigint;
+    readonly amountPesewas: bigint;
+    readonly outstandingAfterPesewas: bigint;
+  }[];
+}
+
+/** One goods receipt line from a supplier, as the score reads it (FR-PUR-014). */
+export interface ReceiptFact {
+  readonly goodsReceiptLineId: string;
+  readonly goodsReceiptId: string;
+  readonly supplierId: string;
+  readonly purchaseOrderId: string | null;
+  readonly productId: string;
+  readonly receivedOn: string;
+  readonly promisedOn: string | null;
+  readonly qtyAccepted: string;
+  readonly qtyRejected: string;
+  readonly branchId: string;
+}
+
+/** What a period's scores are computed from, every supplier at once; quantities in base thousandths. */
+export interface ScoreFacts {
+  readonly receipts: readonly Pick<ReceiptFact, 'supplierId' | 'purchaseOrderId' | 'receivedOn' | 'promisedOn' | 'qtyAccepted' | 'qtyRejected'>[];
+  /** Approved and paid invoice lines with a product, by supplier and product. */
+  readonly priced: readonly { readonly supplierId: string; readonly productId: string; readonly netPesewas: bigint; readonly qtyBase: string }[];
+  /** Base quantities sent back on approved credit notes, by supplier. */
+  readonly returned: readonly { readonly supplierId: string; readonly qtyBase: string }[];
+}
+
 export const PURCHASING_STORE = Symbol('PURCHASING_STORE');
 
 /** PUR's own tables (migration 0094), always in the caller's transaction. */
@@ -217,7 +278,13 @@ export interface PurchasingStore {
   insertInvoice(
     tx: Transaction,
     id: string,
-    header: InvoiceHeader & { readonly kind: 'INVOICE'; readonly supplierId: string; readonly purchaseOrderId: string | null; readonly branchId: string },
+    header: InvoiceHeader & {
+      readonly kind: 'INVOICE' | 'CREDIT_NOTE';
+      readonly supplierId: string;
+      readonly purchaseOrderId: string | null;
+      readonly originalInvoiceId: string | null;
+      readonly branchId: string;
+    },
     lines: readonly InvoiceLineRecord[],
     actorId: string,
   ): Promise<void>;
@@ -232,6 +299,16 @@ export interface PurchasingStore {
   markInvoiceCancelled(tx: Transaction, id: string, reason: string, actorId: string): Promise<void>;
   /** Per invoice, what live payments (not REJECTED or CANCELLED) allocate to it. */
   promised(tx: Transaction, invoiceIds: readonly string[]): Promise<ReadonlyMap<string, bigint>>;
+  /** Per invoice, the gross of the credit notes against it that are not CANCELLED (FR-PUR-011). */
+  liveCredits(tx: Transaction, invoiceIds: readonly string[]): Promise<ReadonlyMap<string, bigint>>;
+  /** A credit note's approval or an invoice's variance asked for: it waits, frozen (A-172). */
+  markInvoicePending(tx: Transaction, id: string, approvalRequestId: string, varianceReason: string | null, actorId: string): Promise<void>;
+  /** The approval refused or withdrawn: the document may be corrected again. */
+  clearInvoicePending(tx: Transaction, id: string, actorId: string): Promise<void>;
+  /** A credit note approved, needing no match; the database adds it to its invoice's credited amount. */
+  markCreditApproved(tx: Transaction, id: string, at: Date, approverId: string): Promise<void>;
+  /** A mismatched invoice approved for payment on its approved variance (FR-PUR-010). */
+  markVarianceApproved(tx: Transaction, id: string, at: Date, approverId: string): Promise<void>;
 
   // Supplier payments.
   /** Orders judged against the approval limit and submitted between two instants, for the order splitting rule. */
@@ -249,4 +326,15 @@ export interface PurchasingStore {
   markPaymentPending(tx: Transaction, id: string, approvalRequestId: string, actorId: string): Promise<void>;
   markPaymentDecided(tx: Transaction, id: string, status: 'APPROVED' | 'REJECTED' | 'CANCELLED', reason: string | null, actorId: string): Promise<void>;
   markPaymentPaid(tx: Transaction, id: string, paidAt: Date, externalReference: string, at: Date, actorId: string): Promise<void>;
+
+  // Remittance advice data (FR-PUR-013).
+  insertRemittance(tx: Transaction, record: Omit<RemittanceRecord, 'recordedAt'>, actorId: string): Promise<void>;
+  remittance(tx: Transaction, supplierPaymentId: string): Promise<RemittanceRecord | null>;
+
+  // Supplier score facts (FR-PUR-014).
+  insertReceiptFacts(tx: Transaction, facts: readonly ReceiptFact[], actorId: string): Promise<void>;
+  /** The supplier's expected lead time in days from its profile, or null when none is set. */
+  supplierLeadTimeDays(tx: Transaction, supplierId: string): Promise<number | null>;
+  /** Every supplier's facts for the days `from` to `to` inclusive (business dates, Africa/Accra). */
+  scoreFacts(tx: Transaction, from: string, to: string): Promise<ScoreFacts>;
 }

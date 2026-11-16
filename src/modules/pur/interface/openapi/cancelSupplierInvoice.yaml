@@ -2,7 +2,7 @@ operationId: cancelSupplierInvoice
 tags:
   - pur
 summary: "Cancel a supplier invoice entered in error"
-description: "Cancels an invoice entered in error, until it is paid. With a live payment allocated to it the answer is 422 `SUPPLIER_INVOICE_INVALID` (`PAYMENT_ALLOCATED`), and the database refuses it too. A cancelled invoice's number may be entered again.\n\nPermission: `pur.supplier_invoice.create`."
+description: "Cancels an invoice entered in error, until it is paid. With a live payment allocated to it the answer is 422 `SUPPLIER_INVOICE_INVALID` (`PAYMENT_ALLOCATED`), and the database refuses it too. A cancelled invoice's number may be entered again. An invoice a live credit note reduces is refused (`CREDIT_NOTE_ENTERED`); a credit note is cancelled only while DRAFT and not waiting for approval (422 `APPROVAL_PENDING`) (1.30.0).\n\nPermission: `pur.supplier_invoice.create`."
 x-permission: pur.supplier_invoice.create
 x-error-codes:
   - VALIDATION_FAILED
@@ -17,6 +17,7 @@ x-error-codes:
   - VERSION_CONFLICT
   - INVALID_STATE_TRANSITION
   - SUPPLIER_INVOICE_INVALID
+  - APPROVAL_PENDING
   - RATE_LIMITED
 parameters:
   - name: id
@@ -68,9 +69,13 @@ responses:
           taxPesewas: 0
           grossPesewas: 1040000
           paidPesewas: 0
+          creditedPesewas: 0
           outstandingPesewas: 1040000
           currency: GHS
           matchStatus: MATCHED
+          approvalRequestId: null
+          varianceReason: null
+          returnReasonCode: null
           file:
             id: "019a7acb-e8f5-7aca-b002-b57cd1e82e5a"
             originalName: invoice-88120.pdf
@@ -99,6 +104,8 @@ responses:
               priceVarianceDirection: null
               matchStatus: MATCHED
               matchReasons: []
+              returnFromLocationId: null
+              returnStockUnitId: null
           branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
           version: 2
           createdAt: "2026-11-10T09:00:00Z"

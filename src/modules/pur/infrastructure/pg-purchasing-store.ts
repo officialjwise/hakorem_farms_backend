@@ -2,9 +2,14 @@ import type { Transaction } from '../../../platform/database/unit-of-work';
 import type { SubmittedOrder } from '../domain/order-splitting';
 import type { OrderStatus } from '../domain/purchasing';
 import type { MatchReason, MatchStatus } from '../domain/three-way-match';
+import { toBusinessDate } from '@hakorem/kernel';
 import type {
   InvoiceFilter,
   InvoiceHeader,
+  InvoiceMatchStatus,
+  ReceiptFact,
+  RemittanceRecord,
+  ScoreFacts,
   InvoiceLineRecord,
   InvoiceRecord,
   InvoiceStatus,
@@ -94,8 +99,8 @@ function orderLine(r: LineRow): OrderLineRecord & { purchaseOrderId: string } {
 
 const INVOICE_COLUMNS = `i.id, i.kind, i.status, i.supplier_id, i.supplier_invoice_no, i.invoice_date::text AS invoice_date, i.due_date::text AS due_date,
   i.purchase_order_id, i.original_invoice_id, i.net_pesewas::text AS net, i.tax_pesewas::text AS tax, i.gross_pesewas::text AS gross,
-  i.stated_gross_pesewas::text AS stated, i.paid_pesewas::text AS paid, i.match_status, i.file_id, i.tax_scheme_version_id, i.branch_id,
-  i.version, i.created_at, i.created_by`;
+  i.stated_gross_pesewas::text AS stated, i.paid_pesewas::text AS paid, i.credited_pesewas::text AS credited, i.match_status, i.file_id, i.tax_scheme_version_id, i.branch_id,
+  i.approval_request_id, i.variance_reason, i.return_reason_code, i.posted_by, i.version, i.created_at, i.created_by`;
 
 interface InvoiceRow {
   id: string;
@@ -112,10 +117,15 @@ interface InvoiceRow {
   gross: string;
   stated: string | null;
   paid: string;
-  match_status: MatchStatus;
+  credited: string;
+  match_status: InvoiceMatchStatus;
   file_id: string | null;
   tax_scheme_version_id: string;
   branch_id: string;
+  approval_request_id: string | null;
+  variance_reason: string | null;
+  return_reason_code: string | null;
+  posted_by: string | null;
   version: number;
   created_at: Date;
   created_by: string;
@@ -141,6 +151,8 @@ interface InvoiceLineRow {
   price_variance_direction: 'OVER' | 'UNDER' | null;
   match_status: MatchStatus;
   match_reasons: MatchReason[];
+  return_location_id: string | null;
+  return_stock_unit_id: string | null;
 }
 
 interface LevyRow {
@@ -343,17 +355,24 @@ export class PgPurchasingStore implements PurchasingStore {
   async insertInvoice(
     tx: Transaction,
     id: string,
-    header: InvoiceHeader & { readonly kind: 'INVOICE'; readonly supplierId: string; readonly purchaseOrderId: string | null; readonly branchId: string },
+    header: InvoiceHeader & {
+      readonly kind: 'INVOICE' | 'CREDIT_NOTE';
+      readonly supplierId: string;
+      readonly purchaseOrderId: string | null;
+      readonly originalInvoiceId: string | null;
+      readonly branchId: string;
+    },
     lines: readonly InvoiceLineRecord[],
     actorId: string,
   ): Promise<void> {
     await tx.query(
       `INSERT INTO pur.supplier_invoice (id, kind, supplier_id, supplier_invoice_no, invoice_date, due_date, purchase_order_id, net_pesewas, tax_pesewas,
-                                         gross_pesewas, stated_gross_pesewas, file_id, tax_scheme_version_id, status, branch_id, created_by, updated_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'DRAFT', $14, $15, $15)`,
+                                         gross_pesewas, stated_gross_pesewas, file_id, tax_scheme_version_id, status, branch_id, created_by, updated_by,
+                                         original_invoice_id, return_reason_code)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'DRAFT', $14, $15, $15, $16, $17)`,
       [id, header.kind, header.supplierId, header.supplierInvoiceNo, header.invoiceDate, header.dueDate, header.purchaseOrderId, header.netPesewas.toString(),
         header.taxPesewas.toString(), header.grossPesewas.toString(), header.statedGrossPesewas?.toString() ?? null, header.fileId, header.taxSchemeVersionId,
-        header.branchId, actorId],
+        header.branchId, actorId, header.originalInvoiceId, header.returnReasonCode],
     );
     await this.insertInvoiceLines(tx, id, lines);
   }
@@ -366,10 +385,10 @@ export class PgPurchasingStore implements PurchasingStore {
     await tx.query('SELECT pur.clear_supplier_invoice_lines($1)', [id]);
     await tx.query(
       `UPDATE pur.supplier_invoice SET version = version + 1, supplier_invoice_no = $2, invoice_date = $3, due_date = $4, file_id = $5, tax_scheme_version_id = $6,
-              net_pesewas = $7, tax_pesewas = $8, gross_pesewas = $9, stated_gross_pesewas = $10, updated_at = now(), updated_by = $11
+              net_pesewas = $7, tax_pesewas = $8, gross_pesewas = $9, stated_gross_pesewas = $10, return_reason_code = $12, updated_at = now(), updated_by = $11
         WHERE id = $1`,
       [id, header.supplierInvoiceNo, header.invoiceDate, header.dueDate, header.fileId, header.taxSchemeVersionId, header.netPesewas.toString(),
-        header.taxPesewas.toString(), header.grossPesewas.toString(), header.statedGrossPesewas?.toString() ?? null, actorId],
+        header.taxPesewas.toString(), header.grossPesewas.toString(), header.statedGrossPesewas?.toString() ?? null, actorId, header.returnReasonCode],
     );
     await this.insertInvoiceLines(tx, id, lines);
   }
@@ -378,10 +397,10 @@ export class PgPurchasingStore implements PurchasingStore {
     for (const l of lines) {
       await tx.query(
         `INSERT INTO pur.supplier_invoice_line (id, supplier_invoice_id, line_no, product_id, description, purchase_order_line_id, goods_receipt_line_id, uom,
-                                                qty, qty_base, unit_price_pesewas, line_net_pesewas, tax_category_id, expense_category)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+                                                qty, qty_base, unit_price_pesewas, line_net_pesewas, tax_category_id, expense_category, return_location_id, return_stock_unit_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
         [l.id, invoiceId, l.lineNo, l.productId, l.description, l.purchaseOrderLineId, l.goodsReceiptLineId, l.uom, l.qty, l.qtyBase, l.unitPricePesewas.toString(),
-          l.lineNetPesewas.toString(), l.taxCategoryId, l.expenseCategory],
+          l.lineNetPesewas.toString(), l.taxCategoryId, l.expenseCategory, l.returnLocationId, l.returnStockUnitId],
       );
       for (const levy of l.levies) {
         await tx.query(
@@ -412,8 +431,9 @@ export class PgPurchasingStore implements PurchasingStore {
       tx,
       `i.branch_id = ANY($1::uuid[]) AND ($2::text IS NULL OR i.status = $2) AND ($3::uuid IS NULL OR i.supplier_id = $3)
          AND ($4::text IS NULL OR i.match_status = $4) AND ($5::date IS NULL OR i.due_date < $5)
-         AND (NOT $6 OR (i.status IN ('DRAFT', 'MATCHED', 'MISMATCH', 'APPROVED') AND i.paid_pesewas < i.gross_pesewas)) AND ($7::uuid IS NULL OR i.id < $7)`,
-      [branches, filter.status ?? null, filter.supplierId ?? null, filter.matchStatus ?? null, filter.dueBefore ?? null, filter.outstandingOnly, beforeId, limit],
+         AND (NOT $6 OR (i.kind = 'INVOICE' AND i.status IN ('DRAFT', 'MATCHED', 'MISMATCH', 'APPROVED') AND i.paid_pesewas + i.credited_pesewas < i.gross_pesewas))
+         AND ($7::uuid IS NULL OR i.id < $7) AND ($9::text IS NULL OR i.kind = $9)`,
+      [branches, filter.status ?? null, filter.supplierId ?? null, filter.matchStatus ?? null, filter.dueBefore ?? null, filter.outstandingOnly, beforeId, limit, filter.kind ?? null],
       ' ORDER BY i.id DESC LIMIT $8',
     );
   }
@@ -426,7 +446,7 @@ export class PgPurchasingStore implements PurchasingStore {
       `SELECT l.id, l.supplier_invoice_id, l.line_no, l.product_id, l.description, l.purchase_order_line_id, l.goods_receipt_line_id, l.uom,
               l.qty::text AS qty, l.qty_base::text AS qty_base, l.unit_price_pesewas::text AS unit_price, l.line_net_pesewas::text AS line_net,
               l.tax_category_id, l.expense_category, l.qty_variance::text AS qty_variance, l.price_variance_pesewas::text AS price_variance,
-              l.price_variance_direction, l.match_status, l.match_reasons
+              l.price_variance_direction, l.match_status, l.match_reasons, l.return_location_id, l.return_stock_unit_id
          FROM pur.supplier_invoice_line l WHERE l.supplier_invoice_id = ANY($1::uuid[]) ORDER BY l.line_no`,
       [ids],
     );
@@ -464,7 +484,12 @@ export class PgPurchasingStore implements PurchasingStore {
       grossPesewas: BigInt(r.gross),
       statedGrossPesewas: big(r.stated),
       paidPesewas: BigInt(r.paid),
+      creditedPesewas: BigInt(r.credited),
       matchStatus: r.match_status,
+      approvalRequestId: r.approval_request_id,
+      varianceReason: r.variance_reason,
+      returnReasonCode: r.return_reason_code,
+      postedBy: r.posted_by,
       fileId: r.file_id,
       taxSchemeVersionId: r.tax_scheme_version_id,
       branchId: r.branch_id,
@@ -492,6 +517,8 @@ export class PgPurchasingStore implements PurchasingStore {
           priceVarianceDirection: l.price_variance_direction,
           matchStatus: l.match_status,
           matchReasons: l.match_reasons,
+          returnLocationId: l.return_location_id,
+          returnStockUnitId: l.return_stock_unit_id,
           levies: levyRows.filter((t) => t.supplier_invoice_line_id === l.id).map(levy),
         })),
     }));
@@ -537,6 +564,48 @@ export class PgPurchasingStore implements PurchasingStore {
       [invoiceIds],
     );
     return new Map(rows.map((r) => [r.invoice_id, BigInt(r.amount)] as const));
+  }
+
+  async liveCredits(tx: Transaction, invoiceIds: readonly string[]): Promise<ReadonlyMap<string, bigint>> {
+    if (invoiceIds.length === 0) return new Map();
+    const { rows } = await tx.query<{ invoice_id: string; amount: string }>(
+      `SELECT c.original_invoice_id AS invoice_id, sum(c.gross_pesewas)::text AS amount
+         FROM pur.supplier_invoice c WHERE c.original_invoice_id = ANY($1::uuid[]) AND c.status <> 'CANCELLED'
+        GROUP BY c.original_invoice_id`,
+      [invoiceIds],
+    );
+    return new Map(rows.map((r) => [r.invoice_id, BigInt(r.amount)] as const));
+  }
+
+  async markInvoicePending(tx: Transaction, id: string, approvalRequestId: string, varianceReason: string | null, actorId: string): Promise<void> {
+    await tx.query(`UPDATE pur.supplier_invoice SET version = version + 1, approval_request_id = $2, variance_reason = $3, updated_at = now(), updated_by = $4 WHERE id = $1`, [
+      id,
+      approvalRequestId,
+      varianceReason,
+      actorId,
+    ]);
+  }
+
+  async clearInvoicePending(tx: Transaction, id: string, actorId: string): Promise<void> {
+    await tx.query(`UPDATE pur.supplier_invoice SET version = version + 1, approval_request_id = NULL, variance_reason = NULL, updated_at = now(), updated_by = $2 WHERE id = $1`, [id, actorId]);
+  }
+
+  async markCreditApproved(tx: Transaction, id: string, at: Date, approverId: string): Promise<void> {
+    await tx.query(
+      `UPDATE pur.supplier_invoice SET version = version + 1, status = 'APPROVED', match_status = 'NOT_REQUIRED', matched_at = $2, posted_at = $2, posted_by = $3,
+              updated_at = $2, updated_by = $3
+        WHERE id = $1`,
+      [id, at, approverId],
+    );
+  }
+
+  async markVarianceApproved(tx: Transaction, id: string, at: Date, approverId: string): Promise<void> {
+    await tx.query(
+      `UPDATE pur.supplier_invoice SET version = version + 1, status = 'APPROVED', match_status = 'VARIANCE_APPROVED', matched_at = $2, posted_at = $2, posted_by = $3,
+              updated_at = $2, updated_by = $3
+        WHERE id = $1`,
+      [id, at, approverId],
+    );
   }
 
   // Supplier payments.
@@ -643,5 +712,115 @@ export class PgPurchasingStore implements PurchasingStore {
         WHERE id = $1`,
       [id, paidAt, externalReference, at, actorId],
     );
+  }
+
+  // Remittance advice data (FR-PUR-013).
+
+  async insertRemittance(tx: Transaction, record: Omit<RemittanceRecord, 'recordedAt'>, actorId: string): Promise<void> {
+    const lines = record.lines.map((l) => ({
+      supplierInvoiceId: l.supplierInvoiceId,
+      supplierInvoiceNo: l.supplierInvoiceNo,
+      invoiceDate: l.invoiceDate,
+      grossPesewas: l.grossPesewas.toString(),
+      creditedPesewas: l.creditedPesewas.toString(),
+      amountPesewas: l.amountPesewas.toString(),
+      outstandingAfterPesewas: l.outstandingAfterPesewas.toString(),
+    }));
+    await tx.query(
+      `INSERT INTO pur.supplier_remittance (id, supplier_payment_id, supplier_id, method, payee_masked, amount_pesewas, paid_at, external_reference, lines, branch_id, actor_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+      [record.id, record.supplierPaymentId, record.supplierId, record.method, record.payeeMasked, record.amountPesewas.toString(), record.paidAt, record.externalReference,
+        JSON.stringify(lines), record.branchId, actorId],
+    );
+  }
+
+  async remittance(tx: Transaction, supplierPaymentId: string): Promise<RemittanceRecord | null> {
+    const { rows } = await tx.query<{
+      id: string;
+      supplier_payment_id: string;
+      supplier_id: string;
+      method: PaymentMethod;
+      payee_masked: string | null;
+      amount: string;
+      paid_at: Date;
+      external_reference: string;
+      branch_id: string;
+      recorded_at: Date;
+      lines: { supplierInvoiceId: string; supplierInvoiceNo: string; invoiceDate: string; grossPesewas: string; creditedPesewas: string; amountPesewas: string; outstandingAfterPesewas: string }[];
+    }>(
+      `SELECT id, supplier_payment_id, supplier_id, method, payee_masked, amount_pesewas::text AS amount, paid_at, external_reference, branch_id, recorded_at, lines
+         FROM pur.supplier_remittance WHERE supplier_payment_id = $1`,
+      [supplierPaymentId],
+    );
+    const r = rows[0];
+    if (r === undefined) return null;
+    return {
+      id: r.id,
+      supplierPaymentId: r.supplier_payment_id,
+      supplierId: r.supplier_id,
+      method: r.method,
+      payeeMasked: r.payee_masked,
+      amountPesewas: BigInt(r.amount),
+      paidAt: r.paid_at,
+      externalReference: r.external_reference,
+      branchId: r.branch_id,
+      recordedAt: r.recorded_at,
+      lines: r.lines.map((l) => ({
+        supplierInvoiceId: l.supplierInvoiceId,
+        supplierInvoiceNo: l.supplierInvoiceNo,
+        invoiceDate: l.invoiceDate,
+        grossPesewas: BigInt(l.grossPesewas),
+        creditedPesewas: BigInt(l.creditedPesewas),
+        amountPesewas: BigInt(l.amountPesewas),
+        outstandingAfterPesewas: BigInt(l.outstandingAfterPesewas),
+      })),
+    };
+  }
+
+  // Supplier score facts (FR-PUR-014).
+
+  async insertReceiptFacts(tx: Transaction, facts: readonly ReceiptFact[], actorId: string): Promise<void> {
+    for (const f of facts) {
+      await tx.query(
+        `INSERT INTO pur.supplier_receipt_line (goods_receipt_line_id, goods_receipt_id, supplier_id, purchase_order_id, product_id, received_on, promised_on,
+                                                qty_accepted, qty_rejected, branch_id, actor_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+        [f.goodsReceiptLineId, f.goodsReceiptId, f.supplierId, f.purchaseOrderId, f.productId, f.receivedOn, f.promisedOn, f.qtyAccepted, f.qtyRejected, f.branchId, actorId],
+      );
+    }
+  }
+
+  async supplierLeadTimeDays(tx: Transaction, supplierId: string): Promise<number | null> {
+    const { rows } = await tx.query<{ lead_time_days: number | null }>('SELECT lead_time_days FROM pur.supplier_profile WHERE supplier_id = $1', [supplierId]);
+    return rows[0]?.lead_time_days ?? null;
+  }
+
+  async scoreFacts(tx: Transaction, from: string, to: string): Promise<ScoreFacts> {
+    const receipts = await tx.query<{ supplier_id: string; purchase_order_id: string | null; received_on: string; promised_on: string | null; accepted: string; rejected: string }>(
+      `SELECT supplier_id, purchase_order_id, received_on::text AS received_on, promised_on::text AS promised_on, qty_accepted::text AS accepted, qty_rejected::text AS rejected
+         FROM pur.supplier_receipt_line WHERE received_on BETWEEN $1::date AND $2::date ORDER BY goods_receipt_line_id`,
+      [from, to],
+    );
+    const priced = await tx.query<{ supplier_id: string; product_id: string; net: string; qty: string }>(
+      `SELECT i.supplier_id, l.product_id, sum(l.line_net_pesewas)::text AS net, sum(l.qty_base)::text AS qty
+         FROM pur.supplier_invoice_line l JOIN pur.supplier_invoice i ON i.id = l.supplier_invoice_id
+        WHERE i.kind = 'INVOICE' AND i.status IN ('APPROVED', 'PAID') AND l.product_id IS NOT NULL AND i.invoice_date BETWEEN $1::date AND $2::date
+        GROUP BY i.supplier_id, l.product_id`,
+      [from, to],
+    );
+    const returned = await tx.query<{ supplier_id: string; posted_at: Date; qty: string }>(
+      `SELECT c.supplier_id, c.posted_at, sum(l.qty_base)::text AS qty
+         FROM pur.supplier_invoice_line l JOIN pur.supplier_invoice c ON c.id = l.supplier_invoice_id
+        WHERE c.kind = 'CREDIT_NOTE' AND c.status = 'APPROVED' AND l.return_location_id IS NOT NULL
+          AND c.posted_at >= ($1::date - 1) AND c.posted_at < ($2::date + 2)
+        GROUP BY c.supplier_id, c.id, c.posted_at`,
+      [from, to],
+    );
+    return {
+      receipts: receipts.rows.map((r) => ({ supplierId: r.supplier_id, purchaseOrderId: r.purchase_order_id, receivedOn: r.received_on, promisedOn: r.promised_on, qtyAccepted: r.accepted, qtyRejected: r.rejected })),
+      priced: priced.rows.map((r) => ({ supplierId: r.supplier_id, productId: r.product_id, netPesewas: BigInt(r.net), qtyBase: r.qty })),
+      // Approved on a business day (Africa/Accra) within the period; the query reads a day either side for the time zone.
+      returned: returned.rows.filter((r) => toBusinessDate(r.posted_at) >= from && toBusinessDate(r.posted_at) <= to).map((r) => ({ supplierId: r.supplier_id, qtyBase: r.qty })),
+    };
   }
 }

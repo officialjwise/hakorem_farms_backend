@@ -72,6 +72,46 @@ export interface SupplierInvoiceApproved {
   readonly grossPesewas: number;
   readonly lines: readonly PurchasePostingLine[];
   readonly levies: readonly PurchasePostingLevy[];
+  /**
+   * The approved variance it was approved on (FR-PUR-010, A-172), or null for an invoice that matched. B8 posts the
+   * price above the order to purchase price variance (5140) the same way; the exception report reads it (B12).
+   */
+  readonly varianceApprovalRequestId: string | null;
+}
+
+/**
+ * ◆ `pur.SupplierCreditNoteApproved` v1 (FR-PUR-011, A-172): a second person approved a supplier credit note, which
+ * reduced what its invoice is owed. B8 debits trade payables (2000) with the supplier as subledger, reverses the
+ * reclaimable levies from 1400 and credits the purchase side; goods sent back are INV's `inv.SupplierReturnIssued`
+ * movements, at their cost, named here so B8 can post the difference between credit and cost.
+ */
+export interface SupplierCreditNoteApproved {
+  readonly creditNoteId: string;
+  readonly originalInvoiceId: string;
+  readonly supplierId: string;
+  readonly supplierInvoiceNo: string;
+  readonly invoiceDate: string;
+  readonly purchaseOrderId: string | null;
+  readonly netPesewas: number;
+  readonly taxPesewas: number;
+  readonly grossPesewas: number;
+  readonly approvalRequestId: string;
+  readonly lines: readonly PurchasePostingLine[];
+  readonly levies: readonly PurchasePostingLevy[];
+  readonly returns: readonly { readonly lineNo: number; readonly movementId: string; readonly productId: string; readonly qty: string; readonly costPesewas: number }[];
+}
+
+/**
+ * `pur.SupplierRemittanceReady` v1 (FR-PUR-013, A-174): a payment was marked paid and its remittance advice data is
+ * fixed, once. DOC renders and archives it (B8) and NTF sends it to the supplier (B11), each once per payment.
+ */
+export interface SupplierRemittanceReady {
+  readonly remittanceId: string;
+  readonly supplierPaymentId: string;
+  readonly supplierId: string;
+  readonly amountPesewas: number;
+  readonly paidAt: string;
+  readonly externalReference: string;
 }
 
 /** ◆ `pur.SupplierPaymentMade` v1: an approved payment left the farm; B8 debits 2000 and credits the bank or cash account. */

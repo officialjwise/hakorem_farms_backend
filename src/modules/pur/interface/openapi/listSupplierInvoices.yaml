@@ -2,7 +2,7 @@ operationId: listSupplierInvoices
 tags:
   - pur
 summary: "List supplier invoices and credit notes"
-description: "Supplier invoices newest first, within the branches the caller holds the permission at as a whole. Filters: `status`, `supplierId`, `matchStatus`, `dueBefore` (due before that date) and `outstandingOnly` (not paid in full, not cancelled).\n\nPermission: `pur.supplier_invoice.read`."
+description: "Supplier invoices newest first, within the branches the caller holds the permission at as a whole. Filters: `status`, `kind` (`INVOICE` or `CREDIT_NOTE`, 1.30.0), `supplierId`, `matchStatus` (with `VARIANCE_APPROVED`, 1.30.0), `dueBefore` (due before that date) and `outstandingOnly` (invoices not settled by payments and credits, not cancelled).\n\nPermission: `pur.supplier_invoice.read`."
 x-permission: pur.supplier_invoice.read
 x-error-codes:
   - VALIDATION_FAILED
@@ -17,6 +17,14 @@ parameters:
     required: false
     schema:
       type: string
+  - name: kind
+    in: query
+    required: false
+    schema:
+      type: string
+      enum:
+        - INVOICE
+        - CREDIT_NOTE
   - name: supplierId
     in: query
     required: false
@@ -83,9 +91,13 @@ responses:
               taxPesewas: 0
               grossPesewas: 1040000
               paidPesewas: 0
+              creditedPesewas: 0
               outstandingPesewas: 1040000
               currency: GHS
               matchStatus: MATCHED
+              approvalRequestId: null
+              varianceReason: null
+              returnReasonCode: null
               file:
                 id: "019a7acb-e8f5-7aca-b002-b57cd1e82e5a"
                 originalName: invoice-88120.pdf
@@ -114,6 +126,8 @@ responses:
                   priceVarianceDirection: null
                   matchStatus: MATCHED
                   matchReasons: []
+                  returnFromLocationId: null
+                  returnStockUnitId: null
               branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
               version: 2
               createdAt: "2026-11-10T09:00:00Z"
@@ -139,9 +153,13 @@ responses:
               taxPesewas: 0
               grossPesewas: 228000
               paidPesewas: 228000
+              creditedPesewas: 0
               outstandingPesewas: 0
               currency: GHS
               matchStatus: MATCHED
+              approvalRequestId: null
+              varianceReason: null
+              returnReasonCode: null
               file:
                 id: "019a7acc-45c2-7875-adad-90233efb0901"
                 originalName: invoice-KLT-1193.pdf
@@ -170,6 +188,8 @@ responses:
                   priceVarianceDirection: null
                   matchStatus: MATCHED
                   matchReasons: []
+                  returnFromLocationId: null
+                  returnStockUnitId: null
               branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
               version: 2
               createdAt: "2026-11-10T09:01:00Z"
@@ -195,9 +215,13 @@ responses:
               taxPesewas: 0
               grossPesewas: 645000
               paidPesewas: 0
+              creditedPesewas: 0
               outstandingPesewas: 645000
               currency: GHS
               matchStatus: MISMATCH
+              approvalRequestId: null
+              varianceReason: null
+              returnReasonCode: null
               file:
                 id: "019a7acc-a28f-761f-9b57-6ac9ac0ee3a7"
                 originalName: invoice-AWT-0457.pdf
@@ -227,6 +251,8 @@ responses:
                   matchStatus: MISMATCH
                   matchReasons:
                     - PRICE_OUTSIDE_TOLERANCE
+                  returnFromLocationId: null
+                  returnStockUnitId: null
               branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
               version: 2
               createdAt: "2026-11-10T09:02:00Z"
@@ -252,9 +278,13 @@ responses:
               taxPesewas: 0
               grossPesewas: 618000
               paidPesewas: 618000
+              creditedPesewas: 0
               outstandingPesewas: 0
               currency: GHS
               matchStatus: MATCHED
+              approvalRequestId: null
+              varianceReason: null
+              returnReasonCode: null
               file:
                 id: "019a7acc-ff5c-73c9-8902-45701921be4d"
                 originalName: invoice-DVG-221.pdf
@@ -283,6 +313,8 @@ responses:
                   priceVarianceDirection: null
                   matchStatus: MATCHED
                   matchReasons: []
+                  returnFromLocationId: null
+                  returnStockUnitId: null
               branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
               version: 2
               createdAt: "2026-11-10T09:03:00Z"
@@ -308,9 +340,13 @@ responses:
               taxPesewas: 0
               grossPesewas: 85000
               paidPesewas: 0
+              creditedPesewas: 0
               outstandingPesewas: 85000
               currency: GHS
               matchStatus: UNMATCHED
+              approvalRequestId: null
+              varianceReason: null
+              returnReasonCode: null
               file:
                 id: "019a7acd-5c29-7174-b6ac-2016863498f4"
                 originalName: invoice-AGV-55012.pdf
@@ -339,6 +375,8 @@ responses:
                   priceVarianceDirection: null
                   matchStatus: UNMATCHED
                   matchReasons: []
+                  returnFromLocationId: null
+                  returnStockUnitId: null
               branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
               version: 2
               createdAt: "2026-11-10T09:04:00Z"
@@ -361,9 +399,13 @@ responses:
               taxPesewas: 12000
               grossPesewas: 72000
               paidPesewas: 0
+              creditedPesewas: 0
               outstandingPesewas: 72000
               currency: GHS
               matchStatus: NOT_REQUIRED
+              approvalRequestId: null
+              varianceReason: null
+              returnReasonCode: null
               file:
                 id: "019a7acd-b8f6-7f1e-a457-fabcf347739a"
                 originalName: invoice-TPS-3310.pdf
@@ -413,6 +455,8 @@ responses:
                   priceVarianceDirection: null
                   matchStatus: NOT_REQUIRED
                   matchReasons: []
+                  returnFromLocationId: null
+                  returnStockUnitId: null
               branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
               version: 2
               createdAt: "2026-11-10T09:05:00Z"

@@ -2,7 +2,7 @@ operationId: markSupplierPaymentPaid
 tags:
   - pur
 summary: "Record that an approved payment was made"
-description: "Records an APPROVED payment as paid, with the time and the bank or mobile money reference, which is unique per method so a replayed confirmation collides. Each invoice it allocates to carries the amount as paid, and is PAID once settled. Publishes pur.SupplierPaymentMade for the ledger. The remittance advice is rendered and archived once document rendering exists (B8).\n\nPermission: `pur.supplier_payment.pay`."
+description: "Records an APPROVED payment as paid, with the time and the bank or mobile money reference, which is unique per method so a replayed confirmation collides. Each invoice it allocates to carries the amount as paid, and is PAID once settled. Publishes pur.SupplierPaymentMade for the ledger. In the same transaction the remittance advice data is fixed, once per payment (`getSupplierPaymentRemittance`), and `pur.SupplierRemittanceReady` is published once; rendering and archiving it wait for B8 and sending it for B11 (FR-PUR-013, 1.30.0). Each invoice is PAID once payments and approved credits reach its gross.\n\nPermission: `pur.supplier_payment.pay`."
 x-permission: pur.supplier_payment.pay
 x-error-codes:
   - VALIDATION_FAILED

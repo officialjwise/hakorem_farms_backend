@@ -126,6 +126,7 @@ import {
   SupplierDocumentCreate,
   SupplierInvoiceCreate,
   SupplierInvoiceUpdate,
+  SupplierInvoiceVarianceRequest,
   SupplierPaymentCreate,
   SupplierPaymentMarkPaid,
   SupplierProfileUpdate,
@@ -375,6 +376,7 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     updatePurchaseRequisition: PurchaseRequisitionUpdate,
     rejectPurchaseRequisition: PurReasonBody,
     convertPurchaseRequisition: RequisitionConvert,
+    requestSupplierInvoiceVariance: SupplierInvoiceVarianceRequest,
     updateSetting: AudSettingUpdate,
   };
 

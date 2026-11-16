@@ -2,7 +2,7 @@ operationId: approveRequest
 tags:
   - iam
 summary: "Approve a request"
-description: "You need `iam.approval.read` and the permission the kind's policy names at the request's branch (403 `FORBIDDEN`), and a step-up when the policy or that permission asks for one (403 `STEP_UP_REQUIRED`). Refused with 422 `MAKER_CANNOT_CHECK` when the caller made the request; the database enforces the same rule. A decided or withdrawn request is 422 `APPROVAL_ALREADY_DECIDED`, a lapsed one 422 `APPROVAL_EXPIRED`, and one whose subject changed since it was asked 422 `APPROVAL_SUBJECT_CHANGED`. A `SUPPLIER_PAYMENT` that is the first to a supplier since its payout details changed is refused with 422 `PAYOUT_MAKER_CANNOT_APPROVE` to the person who made that change (1.29.0, A-171). The subject action takes effect in the same transaction as the approval, and the decision is audited and published as `iam.ApprovalDecided` (1.11.0).\n\nPermission: `the approving permission named by the approval policy for the kind`."
+description: "You need `iam.approval.read` and the permission the kind's policy names at the request's branch (403 `FORBIDDEN`), and a step-up when the policy or that permission asks for one (403 `STEP_UP_REQUIRED`). Refused with 422 `MAKER_CANNOT_CHECK` when the caller made the request; the database enforces the same rule. A decided or withdrawn request is 422 `APPROVAL_ALREADY_DECIDED`, a lapsed one 422 `APPROVAL_EXPIRED`, and one whose subject changed since it was asked 422 `APPROVAL_SUBJECT_CHANGED`. A `SUPPLIER_PAYMENT` that is the first to a supplier since its payout details changed is refused with 422 `PAYOUT_MAKER_CANNOT_APPROVE` to the person who made that change (1.29.0, A-171). A `SUPPLIER_CREDIT_NOTE` or `SUPPLIER_INVOICE_VARIANCE` is refused with 422 `INVOICE_MAKER_CANNOT_APPROVE` to the person who entered the document; a variance whose invoice no longer mismatches as it did is 422 `SUPPLIER_INVOICE_INVALID` (`MATCH_CHANGED`) or `VARIANCE_NOT_ALLOWED`, and a credit note whose goods are no longer on hand is refused by INV (1.30.0, A-172). The subject action takes effect in the same transaction as the approval, and the decision is audited and published as `iam.ApprovalDecided` (1.11.0).\n\nPermission: `the approving permission named by the approval policy for the kind`."
 x-error-codes:
   - VALIDATION_FAILED
   - IDEMPOTENCY_KEY_REQUIRED
@@ -20,6 +20,9 @@ x-error-codes:
   - APPROVAL_EXPIRED
   - APPROVAL_SUBJECT_CHANGED
   - PAYOUT_MAKER_CANNOT_APPROVE
+  - INVOICE_MAKER_CANNOT_APPROVE
+  - VARIANCE_NOT_ALLOWED
+  - SUPPLIER_INVOICE_INVALID
   - RATE_LIMITED
 x-permission: "the approving permission named by the approval policy for the kind"
 parameters:

@@ -28,6 +28,42 @@ export const SETTING_CATALOGUE: Readonly<Record<string, SettingDefinition>> = {
     max: Number.MAX_SAFE_INTEGER,
     branchScoped: true,
   },
+  'pur.supplier_score.price_weight': {
+    key: 'pur.supplier_score.price_weight',
+    valueType: 'INTEGER',
+    description: 'The weight of price (against the average paid for the product) in a supplier score (FR-PUR-014); the score divides by the four weights together',
+    defaultValue: 30,
+    min: 0,
+    max: 100,
+    branchScoped: false,
+  },
+  'pur.supplier_score.lead_time_weight': {
+    key: 'pur.supplier_score.lead_time_weight',
+    valueType: 'INTEGER',
+    description: 'The weight of lead time (on or before the promised day) in a supplier score (FR-PUR-014); the score divides by the four weights together',
+    defaultValue: 25,
+    min: 0,
+    max: 100,
+    branchScoped: false,
+  },
+  'pur.supplier_score.quality_weight': {
+    key: 'pur.supplier_score.quality_weight',
+    valueType: 'INTEGER',
+    description: 'The weight of quality (the accepted share of what was received) in a supplier score (FR-PUR-014); the score divides by the four weights together',
+    defaultValue: 25,
+    min: 0,
+    max: 100,
+    branchScoped: false,
+  },
+  'pur.supplier_score.rejection_weight': {
+    key: 'pur.supplier_score.rejection_weight',
+    valueType: 'INTEGER',
+    description: 'The weight of rejection (100 less the share sent back) in a supplier score (FR-PUR-014); the score divides by the four weights together',
+    defaultValue: 20,
+    min: 0,
+    max: 100,
+    branchScoped: false,
+  },
 };
 
 export type SettingRefusal = 'UNKNOWN_SETTING' | 'WRONG_TYPE' | 'OUT_OF_RANGE';
