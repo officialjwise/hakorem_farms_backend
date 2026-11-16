@@ -1,4 +1,5 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
+import type { SortOrder } from '../../../platform/http/keyset-sort';
 import type { OnlineMode, ProductDefinition, ProductDraft, ProductReferences, ProductStatus, StockPolicy } from '../domain/product';
 import type { GalleryVariant } from '../domain/product-images';
 
@@ -94,6 +95,8 @@ export interface ProductStore {
   removeImage(tx: Transaction, productId: string, imageId: string, reason: string, actorId: string, now: Date): Promise<boolean>;
   /** Newest first; `beforeId` is the exclusive upper bound for the next page. */
   list(tx: Transaction, filter: ProductListFilter, beforeId: string | null, limit: number): Promise<ProductView[]>;
+  /** In the asked order (CR-019, ADR-0054), strictly after `position`, each product with its own position. */
+  listSorted(tx: Transaction, filter: ProductListFilter, order: SortOrder, position: readonly string[] | null, limit: number): Promise<Array<{ readonly view: ProductView; readonly position: string[] }>>;
 }
 
 export const PRODUCT_STORE = Symbol('PRODUCT_STORE');

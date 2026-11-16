@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ValidationFailedError } from '../errors/api-error';
-import { decodePosition, encodePosition, keysetClause, positionOf, resolveSort, sortKeySelect, type SortSpec } from './keyset-sort';
+import { decodePosition, encodePosition, keysetClause, keysetComparisons, orderByOf, positionOf, requestedSort, resolveSort, sortKeySelect, type SortFields, type SortSpec } from './keyset-sort';
 
 const spec: SortSpec<'name' | 'price'> = {
   fields: {
@@ -92,5 +92,35 @@ describe('the shared sort (CR-019)', () => {
     expect(second('d')).toBe("COALESCE(x.d, '00000000-0000-0000-0000-000000000000'::uuid) ASC");
     expect(second('e')).toBe('COALESCE(x.e, false) ASC');
     expect(second('f')).toBe("COALESCE(x.f, 'epoch'::timestamp) ASC");
+  });
+});
+
+describe('a console list sorted on request (CR-019, B07 continued 3)', () => {
+  const fields: SortFields<'name' | 'price'> = { fields: spec.fields, tieBreaker: spec.tieBreaker };
+
+  it('keeps the list default (null) when neither a field nor a direction is asked', () => {
+    expect(requestedSort(fields, undefined, undefined)).toBeNull();
+  });
+
+  it('refuses a direction asked without a field', () => {
+    expect(refusal(() => requestedSort(fields, undefined, 'desc'))).toEqual({ field: '/direction', code: 'SORT_NOT_ALLOWED' });
+  });
+
+  it('sorts by the asked field, ascending unless told otherwise, and refuses a field or direction outside the list', () => {
+    expect(requestedSort(fields, 'name', undefined)).toEqual(resolveSort(spec, 'name', 'asc'));
+    expect(requestedSort(fields, 'price', 'desc')!.direction).toBe('desc');
+    expect(refusal(() => requestedSort(fields, 'cost', 'asc'))).toEqual({ field: '/sort', code: 'SORT_NOT_ALLOWED' });
+    expect(refusal(() => requestedSort(fields, 'name', 'up'))).toEqual({ field: '/direction', code: 'SORT_NOT_ALLOWED' });
+  });
+
+  it('gives the keyset condition as data, the comparisons keysetClause renders, in each key direction', () => {
+    const order = requestedSort(fields, 'price', 'desc')!;
+    const rendered = keysetComparisons(order).map((all) => all.map((c) => `${c.key.expression} ${c.operator} v${c.index}`).join(' AND '));
+    expect(rendered).toEqual([
+      '((p.price_pesewas) IS NULL) > v0',
+      '((p.price_pesewas) IS NULL) = v0 AND COALESCE(p.price_pesewas, 0) < v1',
+      '((p.price_pesewas) IS NULL) = v0 AND COALESCE(p.price_pesewas, 0) = v1 AND p.id < v2',
+    ]);
+    expect(orderByOf(order)).toBe(keysetClause(order, null, 1).orderBy);
   });
 });

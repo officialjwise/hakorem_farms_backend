@@ -18,17 +18,27 @@ export interface SortFieldSpec {
 }
 
 /**
- * A list's allow-list of sort fields, its unique tie-breaker (the row id) and its default order. Any field outside the
- * allow-list is a 400 with the code `SORT_NOT_ALLOWED`; nothing in the request reaches the SQL text.
+ * A list's allow-list of sort fields and its unique tie-breaker (the row id). Any field outside the allow-list is a
+ * 400 with the code `SORT_NOT_ALLOWED`; nothing in the request reaches the SQL text.
  */
-export interface SortSpec<F extends string = string> {
+export interface SortFields<F extends string = string> {
   readonly fields: Readonly<Record<F, SortFieldSpec>>;
   readonly tieBreaker: { readonly expression: string; readonly type: SortKeyType };
+}
+
+/** The allow-list of a list whose default order is one of its own sort fields (the catalogue, the delivery slots). */
+export interface SortSpec<F extends string = string> extends SortFields<F> {
   readonly defaultOrder: { readonly field: F; readonly direction: SortDirection };
 }
 
+/** The `sort` and `direction` query parameters of a sorted list, as the request sent them, checked by `requestedSort`. */
+export interface SortRequest {
+  readonly sort?: string | undefined;
+  readonly direction?: string | undefined;
+}
+
 /** One key of the order: the expression, how its cursor value is cast, and which way it runs. */
-interface SortKey {
+export interface SortKey {
   readonly expression: string;
   readonly type: SortKeyType;
   readonly direction: SortDirection;
@@ -51,9 +61,22 @@ function notAllowed(field: string, pointer: string): ValidationFailedError {
  * field itself is coalesced so every key is comparable. A field not on the allow-list is refused.
  */
 export function resolveSort<F extends string>(spec: SortSpec<F>, field: string | undefined, direction: string | undefined): SortOrder {
-  const chosen = field ?? spec.defaultOrder.field;
+  return field === undefined ? orderOf(spec, spec.defaultOrder.field, direction ?? spec.defaultOrder.direction) : orderOf(spec, field, direction ?? 'asc');
+}
+
+/**
+ * The sort a console list was asked for (CR-019), or null for the list's own default order, which is none of its sort
+ * fields and answers exactly as it did before the list could be sorted: neither a field nor a direction was asked. A
+ * field with no direction sorts ascending; a direction with no field is refused, since it has no field to turn.
+ */
+export function requestedSort<F extends string>(spec: SortFields<F>, field: string | undefined, direction: string | undefined): SortOrder | null {
+  if (field !== undefined) return orderOf(spec, field, direction ?? 'asc');
+  if (direction !== undefined) throw notAllowed(direction, '/direction');
+  return null;
+}
+
+function orderOf<F extends string>(spec: SortFields<F>, chosen: string, dir: string): SortOrder {
   if (!Object.prototype.hasOwnProperty.call(spec.fields, chosen)) throw notAllowed(chosen, '/sort');
-  const dir = direction ?? (field === undefined ? spec.defaultOrder.direction : 'asc');
   if (dir !== 'asc' && dir !== 'desc') throw notAllowed(dir, '/direction');
   const definition = spec.fields[chosen as F];
   const keys: SortKey[] = [];
@@ -100,16 +123,36 @@ export interface KeysetClause {
  * and whatever rows arrive between pages (a row inserted before the cursor is simply not on a later page).
  */
 export function keysetClause(order: SortOrder, position: readonly string[] | null, firstParameter: number): KeysetClause {
-  const orderBy = order.keys.map((key) => `${key.expression} ${key.direction === 'asc' ? 'ASC' : 'DESC'}`).join(', ');
+  const orderBy = orderByOf(order);
   if (position === null) return { after: 'true', orderBy, values: [] };
   if (position.length !== order.keys.length) throw new Error('a cursor position names every sort key');
   const placeholder = (index: number) => `$${firstParameter + index}::${order.keys[index]!.type}`;
-  const disjuncts = order.keys.map((key, index) => {
-    const equal = order.keys.slice(0, index).map((earlier, j) => `${earlier.expression} = ${placeholder(j)}`);
-    const past = `${key.expression} ${key.direction === 'asc' ? '>' : '<'} ${placeholder(index)}`;
-    return `(${[...equal, past].join(' AND ')})`;
-  });
+  const disjuncts = keysetComparisons(order).map((all) => `(${all.map((c) => `${c.key.expression} ${c.operator} ${placeholder(c.index)}`).join(' AND ')})`);
   return { after: `(${disjuncts.join(' OR ')})`, orderBy, values: [...position] };
+}
+
+/** The ORDER BY text of an order: each key in its direction. */
+export function orderByOf(order: SortOrder): string {
+  return order.keys.map((key) => `${key.expression} ${key.direction === 'asc' ? 'ASC' : 'DESC'}`).join(', ');
+}
+
+/** One comparison of the keyset condition: key `index` against the cursor's value `index`. */
+export interface KeysetComparison {
+  readonly key: SortKey;
+  readonly index: number;
+  readonly operator: '=' | '>' | '<';
+}
+
+/**
+ * The keyset condition as data, for a query builder that numbers its own parameters (Drizzle): a disjunction of
+ * conjunctions, the n-th saying "the keys before key n equal the cursor's and key n is strictly past it" in its
+ * direction. `keysetClause` renders exactly these comparisons as SQL text.
+ */
+export function keysetComparisons(order: SortOrder): KeysetComparison[][] {
+  return order.keys.map((key, index) => [
+    ...order.keys.slice(0, index).map((earlier, j): KeysetComparison => ({ key: earlier, index: j, operator: '=' })),
+    { key, index, operator: key.direction === 'asc' ? '>' : '<' },
+  ]);
 }
 
 /** The select-list items that return each key's value as text, aliased `sort_key_0` onward, for the next cursor. */
