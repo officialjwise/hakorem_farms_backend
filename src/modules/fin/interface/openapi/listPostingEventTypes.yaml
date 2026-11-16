@@ -1,0 +1,97 @@
+operationId: listPostingEventTypes
+tags:
+  - fin
+summary: "List the events the ledger posts from"
+description: "The events the ledger posts from, in code order, with the named amounts each carries; `hasCompleteRules` says whether every amount has a rule in force today on both sides and a handler (FR-FIN-005, the boot assertion).\n\nPermission: `fin.posting_rule.read`."
+x-permission: fin.posting_rule.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - INVALID_CURSOR
+  - RATE_LIMITED
+parameters:
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/PostingEventTypePage"
+        example:
+          data:
+            - hasCompleteRules: true
+              code: inv.StockIssuedForSale
+              ownerModule: inv
+              description: "Stock issued for a sale"
+              amountKeys:
+                - value
+            - hasCompleteRules: true
+              code: bil.InvoiceIssued
+              ownerModule: bil
+              description: "Invoice or receipt issued"
+              amountKeys:
+                - receivable
+                - net
+                - levies
+                - priceVariance
+                - deliveryFee
+            - hasCompleteRules: true
+              code: pay.PaymentCleared
+              ownerModule: pay
+              description: "Payment cleared"
+              amountKeys:
+                - tender
+                - allocated
+                - unallocated
+            - hasCompleteRules: true
+              code: inv.StockWrittenOff
+              ownerModule: inv
+              description: "Mortality, cull, shrinkage or wastage"
+              amountKeys:
+                - value
+            - hasCompleteRules: true
+              code: cap.DistributionDeclared
+              ownerModule: cap
+              description: "Investor distribution declared"
+              amountKeys:
+                - declared
+                - withheld
+            - hasCompleteRules: true
+              code: pos.ShiftClosed
+              ownerModule: pos
+              description: "Shift closed with over or short"
+              amountKeys:
+                - returnedToSafe
+                - over
+                - short
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -1,0 +1,135 @@
+operationId: listPostingRules
+tags:
+  - fin
+summary: "List posting rules"
+description: "Posting rules, with their validity `[validFrom, validTo)`; `at` keeps the rules in force on that date. `approvalRequestId` is null only for a rule seeded by migration (A-182). A rule whose `determinantType` is `ENTERED` posts each amount to the account a person entered (a manual journal, A-190).\n\nPermission: `fin.posting_rule.read`."
+x-permission: fin.posting_rule.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - INVALID_CURSOR
+  - RATE_LIMITED
+parameters:
+  - name: eventCode
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: at
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/PostingRulePage"
+        example:
+          data:
+            - id: "019a7ad8-98fc-7916-8e4f-9a3dbb81131b"
+              eventCode: bil.InvoiceIssued
+              amountKey: receivable
+              side: D
+              account:
+                id: "019a7a95-0d1b-7164-969c-1f1b020297f8"
+                code: "1200"
+                name: "Trade receivables"
+              determinantType: null
+              determinantRole: null
+              subledgerFrom: customerId
+              validFrom: "2026-11-01"
+              validTo: null
+              approvalRequestId: "019a7ad8-b7eb-72fa-9832-38753532b153"
+            - id: "019a7ad8-d6da-7cdd-a215-d6acaee34f8a"
+              eventCode: bil.InvoiceIssued
+              amountKey: net
+              side: C
+              account: null
+              determinantType: GL_GROUP
+              determinantRole: SALES
+              subledgerFrom: null
+              validFrom: "2026-11-01"
+              validTo: null
+              approvalRequestId: "019a7ad8-f5c9-76c1-bbf9-74e42894edc2"
+            - id: "019a7ad9-14b8-70a4-85dc-131ba2458bf9"
+              eventCode: bil.InvoiceIssued
+              amountKey: levies
+              side: C
+              account: null
+              determinantType: TAX_LEVY
+              determinantRole: OUTPUT
+              subledgerFrom: levyId
+              validFrom: "2026-11-01"
+              validTo: null
+              approvalRequestId: "019a7ad9-33a7-7a88-9fc0-b1531bf62a31"
+            - id: "019a7ad9-5296-746b-a9a3-4f8a95a7c868"
+              eventCode: bil.InvoiceIssued
+              amountKey: priceVariance
+              side: D
+              account:
+                id: "019a7ad2-cc2c-7e70-83a8-efd6ea5168b4"
+                code: "4210"
+                name: "Price variance, overrides and negotiated prices"
+              determinantType: null
+              determinantRole: null
+              subledgerFrom: null
+              validFrom: "2026-11-01"
+              validTo: null
+              approvalRequestId: "019a7ad9-7185-7e4f-b387-edc20f58669f"
+            - id: "019a7ad9-9074-7832-8d6a-8bf9890904d7"
+              eventCode: inv.StockIssuedForSale
+              amountKey: value
+              side: D
+              account: null
+              determinantType: GL_GROUP
+              determinantRole: COST_OF_SALES
+              subledgerFrom: null
+              validFrom: "2026-11-01"
+              validTo: null
+              approvalRequestId: "019a7ad9-af63-7215-974e-2a3102baa30e"
+            - id: "019a7ad9-ce52-7bf9-a131-c8687c6b4146"
+              eventCode: inv.StockIssuedForSale
+              amountKey: value
+              side: C
+              account: null
+              determinantType: GL_GROUP
+              determinantRole: INVENTORY
+              subledgerFrom: null
+              validFrom: "2026-11-01"
+              validTo: null
+              approvalRequestId: "019a7ad9-ed41-75dc-bb15-669ff61cdf7d"
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

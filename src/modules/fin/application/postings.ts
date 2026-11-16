@@ -3,6 +3,8 @@ import type { Transaction } from '../../../platform/database/unit-of-work';
 import type { DocumentRegistry } from '../../../platform/documents/document-registry';
 import type { DomainEvents, EventEnvelope } from '../../../platform/events/domain-events';
 import type { MasterDataRefs } from '../../mdm';
+import { manualPostingAmounts } from '../domain/manual-journal';
+import type { ManualJournalApproved } from '../events';
 import {
   stockMovementAmounts,
   supplierCreditNoteAmounts,
@@ -16,7 +18,7 @@ import {
 import type { PostingAmount, SubledgerRef } from '../domain/posting';
 import { postingCatalogueGaps } from '../domain/rule-set';
 import { LedgerCatalogueIncompleteError } from './errors';
-import type { Ledger } from './ledger';
+import type { Ledger, PostingRequest } from './ledger';
 import type { LedgerStore } from './ledger-store';
 
 /** What a handler takes from an event: the amounts, the document that caused it, and what it is about. */
@@ -26,6 +28,7 @@ interface Translated {
   readonly eventSubjectId: string;
   readonly branchId?: string | null;
   readonly reversesSubjectId?: string | null;
+  readonly manual?: PostingRequest['manual'];
 }
 
 type Translator = (tx: Transaction, event: EventEnvelope) => Promise<Translated>;
@@ -91,6 +94,7 @@ export class LedgerPostings {
       ['pur.ExpenseInvoiceApproved', invoice],
       ['pur.SupplierCreditNoteApproved', (tx, event) => this.creditNote(tx, event.payload as unknown as CreditNotePosting)],
       ['pur.SupplierPaymentMade', (tx, event) => this.payment(tx, event.payload as unknown as PaymentPosting)],
+      ['fin.ManualJournalApproved', (tx, event) => this.manualJournal(tx, event.payload as unknown as ManualJournalApproved)],
     ]);
   }
 
@@ -121,6 +125,7 @@ export class LedgerPostings {
           actorId: event.actorId,
           amounts: translated.amounts,
           reversesSubjectId: translated.reversesSubjectId ?? null,
+          manual: translated.manual ?? null,
         });
       });
     }
@@ -202,6 +207,18 @@ export class LedgerPostings {
       amounts: supplierCreditNoteAmounts(payload, await this.supplier(tx, payload.supplierId)),
       sourceDocumentId: payload.creditNoteId,
       eventSubjectId: payload.creditNoteId,
+    };
+  }
+
+  /** FIN's own event (A-190): each line to the account entered for it, its party as entered, on the journal's own date. */
+  private async manualJournal(tx: Transaction, payload: ManualJournalApproved): Promise<Translated> {
+    const lines = payload.lines.map((l) => ({ accountId: l.accountId, side: l.side, amountPesewas: l.amountPesewas, subledgerPartyId: l.subledgerPartyId, memo: l.memo }));
+    const parties = await this.store.subledgerParties(tx, [...new Set(lines.flatMap((l) => (l.subledgerPartyId === null ? [] : [l.subledgerPartyId])))]);
+    return {
+      amounts: manualPostingAmounts(lines, parties),
+      sourceDocumentId: payload.manualJournalId,
+      eventSubjectId: payload.manualJournalId,
+      manual: { kind: payload.kind, description: payload.description, postingDate: payload.postingDate },
     };
   }
 

@@ -138,8 +138,8 @@ describe('the nightly reconciliation reports drift and never corrects it (FR-FIN
       const at = rows[0]!;
       await client.query("INSERT INTO platform.business_document (id, doc_type, owner_module, branch_id, actor_id) VALUES ($1, 'JOURNAL', 'fin', $2, $3)", [id, at.branch_id, SYSTEM_PRINCIPAL]);
       await client.query(
-        `INSERT INTO fin.journal_entry (id, entry_no, posting_date, period_id, branch_id, kind, source_document_id, posting_group_id, description, occurred_at, actor_id)
-         VALUES ($1, 'JNL-TAMPER-1', $2, $3, $4, 'MANUAL', $1, $1, 'Slipped in by a superuser', now(), $5)`,
+        `INSERT INTO fin.journal_entry (id, entry_no, posting_date, period_id, branch_id, kind, event_code, event_id, source_document_id, posting_group_id, description, occurred_at, actor_id)
+         VALUES ($1, 'JNL-TAMPER-1', $2, $3, $4, 'MANUAL', 'fin.ManualJournalApproved', gen_random_uuid(), $1, $1, 'Slipped in by a superuser', now(), $5)`,
         [id, at.posting_date, at.period_id, at.branch_id, SYSTEM_PRINCIPAL],
       );
       await client.query(

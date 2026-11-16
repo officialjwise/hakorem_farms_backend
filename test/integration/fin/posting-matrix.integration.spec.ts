@@ -254,6 +254,46 @@ describe('every row of the ADR-0003 matrix posts exact debit and credit amounts 
   });
 });
 
+describe("FIN's own ◆ event (B08 continued 1b, A-190)", () => {
+  it('fin.ManualJournalApproved: each line posted as entered, to its account and party, on the date entered, as one MANUAL entry', async () => {
+    const accountId = (code: string) => `01900000-0000-7000-8100-00000000${code}`;
+    const partyId = randomUUID();
+    await fx.app.query("INSERT INTO fin.subledger_party (id, kind, ref_id, display_name) VALUES ($1, 'SUPPLIER', $2, 'Kpone Livestock Traders') ON CONFLICT (kind, ref_id) DO NOTHING", [partyId, supplierId]);
+    const party = (await fx.app.query<{ id: string }>("SELECT id FROM fin.subledger_party WHERE kind = 'SUPPLIER' AND ref_id = $1", [supplierId])).rows[0]!.id;
+    const postingDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Accra' });
+    const journal = await stockDocument(fx);
+    const eventId = await publish(
+      'fin.ManualJournalApproved',
+      {
+        manualJournalId: journal,
+        kind: 'MANUAL',
+        postingDate,
+        description: 'November wages, and the feed bill paid from the safe',
+        approvalRequestId: randomUUID(),
+        requestedBy: SYSTEM_PRINCIPAL,
+        lines: [
+          { lineNo: 1, accountId: accountId('6000'), side: 'D', amountPesewas: 960_000, subledgerPartyId: null, memo: 'Farm hands' },
+          { lineNo: 2, accountId: accountId('2000'), side: 'D', amountPesewas: 40_001, subledgerPartyId: party, memo: null },
+          { lineNo: 3, accountId: accountId('1010'), side: 'C', amountPesewas: 1_000_001, subledgerPartyId: null, memo: null },
+        ],
+      },
+      journal,
+    );
+    const posted = await journalOf(eventId);
+    expect(posted).toMatchObject({ kind: 'MANUAL', reverses: null });
+    expect(posted!.lines).toEqual([
+      ['6000', 'D', 960_000, null],
+      ['2000', 'D', 40_001, 'SUPPLIER:Kpone Livestock Traders'],
+      ['1010', 'C', 1_000_001, null],
+    ]);
+    const { rows } = await fx.app.query<{ posting_date: string; description: string; source_document_id: string; event_code: string }>(
+      'SELECT posting_date::text, description, source_document_id, event_code FROM fin.journal_entry WHERE event_id = $1',
+      [eventId],
+    );
+    expect(rows[0]).toEqual({ posting_date: postingDate, description: 'November wages, and the feed bill paid from the safe', source_document_id: journal, event_code: 'fin.ManualJournalApproved' });
+  });
+});
+
 describe('around the matrix', () => {
   it('reverses a movement by swapping the original lines, linking the entry it reverses', async () => {
     const original = await movement(fx.goat, 'RECEIPT_PURCHASE', 64_000);

@@ -1,0 +1,408 @@
+operationId: listJournalEntries
+tags:
+  - fin
+summary: "Search posted journals"
+description: "Posted journal entries, newest first (posting date, then entry), each with its lines (FR-FIN-004). Journals are never edited: a correction is a REVERSAL entry. `accountId` keeps entries with a line on that account; `kind` is AUTO, MANUAL, OPENING, CLOSING or REVERSAL. A line's `subledger.id` is the party's ledger id, the one a manual journal line names as `subledgerPartyId`.\n\nPermission: `fin.journal.read`."
+x-permission: fin.journal.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - INVALID_CURSOR
+  - RATE_LIMITED
+parameters:
+  - name: from
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date
+  - name: to
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date
+  - name: accountId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: sourceDocumentId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: postingGroupId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: eventCode
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: kind
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/JournalEntryPage"
+        example:
+          data:
+            - id: "019a7ad2-5070-76e2-8c1a-76f9038defd6"
+              entryNo: JNL-2026-DDW-030540
+              postingDate: "2026-11-13"
+              period:
+                id: "019a7ad1-58f8-77c6-8cff-853d3605fe1b"
+                fiscalYear: 2026
+                periodNo: 11
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              kind: AUTO
+              eventCode: inv.StockIssuedForSale
+              sourceDocument:
+                id: "019a7aac-216c-721a-8753-2a7ecd11a35c"
+                docType: SALES_ORDER
+                number: SO-2026-DDW-004211
+              postingGroupId: "019a7ad2-3181-7cff-b237-d8c189dc519f"
+              description: "Cost of goat G-0171 sold"
+              currency: GHS
+              reversesEntryId: null
+              occurredAt: "2026-11-13T09:12:00Z"
+              recordedAt: "2026-11-13T09:12:00Z"
+              actor:
+                id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                displayName: "Adwoa Darko"
+              totalPesewas: 58900
+              lines:
+                - lineNo: 1
+                  account:
+                    id: "019a7ad2-6f5f-70c5-95fe-15307d3e8e0e"
+                    code: "5000"
+                    name: "Cost of sales, live animals"
+                  side: D
+                  amountPesewas: 58900
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  subledger: null
+                  productLine: LIVE
+                  memo: null
+                - lineNo: 2
+                  account:
+                    id: "019a7ad0-4291-7ec7-b3ff-f549eecc6e27"
+                    code: "1310"
+                    name: "Inventory, live animals"
+                  side: C
+                  amountPesewas: 58900
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  subledger: null
+                  productLine: null
+                  memo: null
+            - id: "019a7ad2-8e4e-7aa9-afe1-b367f6ef2c45"
+              entryNo: JNL-2026-DDW-030541
+              postingDate: "2026-11-13"
+              period:
+                id: "019a7ad1-58f8-77c6-8cff-853d3605fe1b"
+                fiscalYear: 2026
+                periodNo: 11
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              kind: AUTO
+              eventCode: bil.InvoiceIssued
+              sourceDocument:
+                id: "019a7aac-216c-721a-8753-2a7ecd11a35c"
+                docType: SALES_ORDER
+                number: SO-2026-DDW-004211
+              postingGroupId: "019a7ad2-3181-7cff-b237-d8c189dc519f"
+              description: "Receipt RCP-2026-DDW-T1-018834"
+              currency: GHS
+              reversesEntryId: null
+              occurredAt: "2026-11-13T09:12:00Z"
+              recordedAt: "2026-11-13T09:12:00Z"
+              actor:
+                id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                displayName: "Adwoa Darko"
+              totalPesewas: 85000
+              lines:
+                - lineNo: 1
+                  account:
+                    id: "019a7a95-0d1b-7164-969c-1f1b020297f8"
+                    code: "1200"
+                    name: "Trade receivables"
+                  side: D
+                  amountPesewas: 80000
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  subledger:
+                    kind: CUSTOMER
+                    id: "019a7ad2-ad3d-748c-b9c5-519f70a0ca7d"
+                    displayName: "Walk-in customer"
+                  productLine: null
+                  memo: null
+                - lineNo: 2
+                  account:
+                    id: "019a7ad2-cc2c-7e70-83a8-efd6ea5168b4"
+                    code: "4210"
+                    name: "Price variance, overrides and negotiated prices"
+                  side: D
+                  amountPesewas: 5000
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  subledger: null
+                  productLine: null
+                  memo: null
+                - lineNo: 3
+                  account:
+                    id: "019a7ad2-eb1b-7853-9d8c-8e0e640206ec"
+                    code: "4000"
+                    name: "Sales, live animals"
+                  side: C
+                  amountPesewas: 85000
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  subledger: null
+                  productLine: LIVE
+                  memo: null
+            - id: "019a7ad3-0a0a-7237-a76f-2c45ddb3a523"
+              entryNo: JNL-2026-DDW-030542
+              postingDate: "2026-11-13"
+              period:
+                id: "019a7ad1-58f8-77c6-8cff-853d3605fe1b"
+                fiscalYear: 2026
+                periodNo: 11
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              kind: AUTO
+              eventCode: pay.PaymentCleared
+              sourceDocument:
+                id: "019a7aac-216c-721a-8753-2a7ecd11a35c"
+                docType: SALES_ORDER
+                number: SO-2026-DDW-004211
+              postingGroupId: "019a7ad2-3181-7cff-b237-d8c189dc519f"
+              description: "Cash and mobile money for SO-2026-DDW-004211"
+              currency: GHS
+              reversesEntryId: null
+              occurredAt: "2026-11-13T09:12:00Z"
+              recordedAt: "2026-11-13T09:12:00Z"
+              actor:
+                id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                displayName: "Adwoa Darko"
+              totalPesewas: 80000
+              lines:
+                - lineNo: 1
+                  account:
+                    id: "019a7ad0-04b3-7b00-9038-b8dafb6a31b8"
+                    code: "1000"
+                    name: "Cash on hand, tills"
+                  side: D
+                  amountPesewas: 30000
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  subledger:
+                    kind: REGISTER
+                    id: "019a7a94-15a3-7248-9781-2d5f347aa63d"
+                    displayName: "Till T1"
+                  productLine: null
+                  memo: null
+                - lineNo: 2
+                  account:
+                    id: "019a7ad3-28f9-7c1a-b153-ca7d5764435b"
+                    code: "1120"
+                    name: "Payment provider clearing"
+                  side: D
+                  amountPesewas: 50000
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  subledger: null
+                  productLine: null
+                  memo: null
+                - lineNo: 3
+                  account:
+                    id: "019a7a95-0d1b-7164-969c-1f1b020297f8"
+                    code: "1200"
+                    name: "Trade receivables"
+                  side: C
+                  amountPesewas: 80000
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  subledger:
+                    kind: CUSTOMER
+                    id: "019a7ad2-ad3d-748c-b9c5-519f70a0ca7d"
+                    displayName: "Walk-in customer"
+                  productLine: null
+                  memo: null
+            - id: "019a7ad3-47e8-75fe-8b36-68b4d115e192"
+              entryNo: JNL-2026-DDW-030543
+              postingDate: "2026-11-13"
+              period:
+                id: "019a7ad1-58f8-77c6-8cff-853d3605fe1b"
+                fiscalYear: 2026
+                periodNo: 11
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              kind: AUTO
+              eventCode: inv.GoodsReceived
+              sourceDocument:
+                id: "019a7ad3-66d7-7fe1-9519-06ec4ac67fca"
+                docType: GOODS_RECEIPT
+                number: null
+              postingGroupId: "019a7ad3-85c6-79c5-aefd-a523c4771e01"
+              description: "GRN-2026-DDW-000073 feed"
+              currency: GHS
+              reversesEntryId: null
+              occurredAt: "2026-11-13T09:12:00Z"
+              recordedAt: "2026-11-13T09:12:00Z"
+              actor:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              totalPesewas: 1040000
+              lines:
+                - lineNo: 1
+                  account:
+                    id: "019a7ad3-a4b5-73a8-b8e0-435b3e28bc39"
+                    code: "1300"
+                    name: "Inventory, feed and medication"
+                  side: D
+                  amountPesewas: 1040000
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  subledger: null
+                  productLine: null
+                  memo: null
+                - lineNo: 2
+                  account:
+                    id: "019a7ad3-c3a4-7d8c-82c4-e192b7d95a70"
+                    code: "2010"
+                    name: "Goods received not invoiced"
+                  side: C
+                  amountPesewas: 1040000
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  subledger: null
+                  productLine: null
+                  memo: null
+            - id: "019a7ad3-e293-776f-9ca7-7fca318af8a8"
+              entryNo: JNL-2026-DDW-030544
+              postingDate: "2026-11-13"
+              period:
+                id: "019a7ad1-58f8-77c6-8cff-853d3605fe1b"
+                fiscalYear: 2026
+                periodNo: 11
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              kind: AUTO
+              eventCode: inv.StockWrittenOff
+              sourceDocument:
+                id: "019a7ad4-0182-7153-a68b-1e01ab3b96df"
+                docType: MORTALITY_RECORD
+                number: null
+              postingGroupId: "019a7ad4-2071-7b36-b06e-bc3924ec3517"
+              description: "Mortality, 3 broilers BRL-2610-01"
+              currency: GHS
+              reversesEntryId: null
+              occurredAt: "2026-11-13T09:12:00Z"
+              recordedAt: "2026-11-13T09:12:00Z"
+              actor:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              totalPesewas: 40500
+              lines:
+                - lineNo: 1
+                  account:
+                    id: "019a7ad0-be4d-7655-bb8d-6e27d590e705"
+                    code: "5100"
+                    name: "Mortality and cull losses"
+                  side: D
+                  amountPesewas: 40500
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  subledger: null
+                  productLine: null
+                  memo: null
+                - lineNo: 2
+                  account:
+                    id: "019a7ad0-4291-7ec7-b3ff-f549eecc6e27"
+                    code: "1310"
+                    name: "Inventory, live animals"
+                  side: C
+                  amountPesewas: 40500
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  subledger: null
+                  productLine: null
+                  memo: null
+            - id: "019a7ad4-3f60-7519-8a52-5a709e9dd34e"
+              entryNo: JNL-2026-DDW-030545
+              postingDate: "2026-11-13"
+              period:
+                id: "019a7ad1-58f8-77c6-8cff-853d3605fe1b"
+                fiscalYear: 2026
+                periodNo: 11
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              kind: AUTO
+              eventCode: cap.CapitalContributed
+              sourceDocument:
+                id: "019a7ad4-5e4f-7efd-9435-f8a8184e7185"
+                docType: CAPITAL_TRANSACTION
+                number: null
+              postingGroupId: "019a7ad4-7d3e-78e0-ae19-96df91ff0fbd"
+              description: "Contribution INV-002 Kofi Ampofo"
+              currency: GHS
+              reversesEntryId: null
+              occurredAt: "2026-11-13T09:12:00Z"
+              recordedAt: "2026-11-13T09:12:00Z"
+              actor:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              totalPesewas: 5000000
+              lines:
+                - lineNo: 1
+                  account:
+                    id: "019a7ad1-3a09-7de3-b31b-e705bc545fe3"
+                    code: "1100"
+                    name: "Bank accounts"
+                  side: D
+                  amountPesewas: 5000000
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  subledger: null
+                  productLine: null
+                  memo: null
+                - lineNo: 2
+                  account:
+                    id: "019a7ad0-806f-728e-97c6-31b8e22eaa96"
+                    code: "3000"
+                    name: "Investor capital"
+                  side: C
+                  amountPesewas: 5000000
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  subledger:
+                    kind: INVESTOR
+                    id: "019a7a91-e8d5-704a-b582-0d78a6088656"
+                    displayName: "Kofi Ampofo"
+                  productLine: null
+                  memo: null
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

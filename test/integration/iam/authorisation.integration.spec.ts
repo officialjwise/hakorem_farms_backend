@@ -61,6 +61,18 @@ const VALID_BODY: Readonly<Record<string, object>> = {
   createAccount: { code: '6110', name: 'Generator fuel', type: 'EXPENSE', isPostable: true },
   updateAccount: { version: 1, name: 'Generator fuel and servicing' },
   reopenAccountingPeriod: { reason: 'Supplier invoice for October received late' },
+  createManualJournal: {
+    kind: 'MANUAL',
+    postingDate: '2026-11-13',
+    description: 'Accrue electricity for the cold room',
+    lines: [
+      { accountId: randomUUID(), side: 'D', amountPesewas: 65_000 },
+      { accountId: randomUUID(), side: 'C', amountPesewas: 65_000 },
+    ],
+  },
+  updateManualJournal: { version: 1, description: 'Accrue electricity for the cold room, November' },
+  createPostingRule: { eventCode: 'inv.GoodsReceived', amountKey: 'value', side: 'C', accountId: randomUUID(), validFrom: '2026-12-01' },
+  createAccountDetermination: { determinantType: 'TAX_LEVY', determinantKey: 'NHIL', role: 'OUTPUT', accountId: randomUUID(), validFrom: '2027-01-01' },
   createProduct: { sku: 'MEAT-GOAT-5KG', name: 'Goat meat, 5 kg pack', categoryId: randomUUID(), stockPolicy: 'CATCH_WEIGHT', baseUom: 'KG', saleUom: 'PACK', onlineMode: 'LISTED' },
   revokeSession: { reason: 'Tablet left unattended overnight' },
   createUser: { displayName: 'Kojo Asante', email: 'kojo.asante@hakoremfarms.test', realm: 'STAFF', grants: [] },
@@ -281,6 +293,8 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'listCatalogue', 'getCatalogueProduct', 'listShopCategories', 'createCart', 'getCart', 'addCartLine', 'updateCartLine', 'removeCartLine',
         'applyCartCoupon', 'removeCartCoupon', 'listDeliverySlotOptions', 'startCheckout', 'getCheckout', 'updateCheckout',
         'listAccounts', 'createAccount', 'updateAccount', 'listAccountingPeriods', 'lockAccountingPeriod', 'closeAccountingPeriod', 'reopenAccountingPeriod',
+        'listJournalEntries', 'getJournalEntry', 'listAccountActivity', 'listManualJournals', 'createManualJournal', 'getManualJournal', 'updateManualJournal',
+        'submitManualJournal', 'listPostingEventTypes', 'listPostingRules', 'createPostingRule', 'listAccountDeterminations', 'createAccountDetermination',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);
@@ -300,7 +314,7 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
   });
 
   /** Reads whose query has a required parameter: without it the request is refused as invalid before it is authorised. */
-  const VALID_QUERY: Record<string, string> = { listStockAvailability: `?branchId=${randomUUID()}`, listGrowth: '?groupBy=PEN&from=2026-10-01&to=2026-10-31', listSupplierScores: '?periodStart=2026-10-01' };
+  const VALID_QUERY: Record<string, string> = { listStockAvailability: `?branchId=${randomUUID()}`, listGrowth: '?groupBy=PEN&from=2026-10-01&to=2026-10-31', listSupplierScores: '?periodStart=2026-10-01', listAccountActivity: '?from=2026-11-01&to=2026-11-30' };
 
   it('refuses a staff user who holds no grant on every permissioned operation, with 403 FORBIDDEN', async () => {
     const nobody = await createUser(database, { name: 'Kwame Nkansah' });

@@ -139,3 +139,47 @@ describe('the signed total of lines', () => {
     expect(signedTotal([])).toBe(0n);
   });
 });
+
+describe('a manual journal posts its lines as entered (ADR-0003 row fin.ManualJournalApproved, A-190)', () => {
+  const entered = ruleSet([determined('debit', 'D', 'ENTERED', 'AS_ENTERED'), determined('credit', 'C', 'ENTERED', 'AS_ENTERED')]);
+  const supplier = { kind: 'SUPPLIER' as const, refId: 'supplier-1', displayName: 'Asante Feeds' };
+  const line = (key: 'debit' | 'credit', code: string, pesewas: bigint, extra: Partial<PostingAmount> = {}): PostingAmount => ({
+    key,
+    amount: Money.ofPesewas(pesewas),
+    enteredAccountId: `acct-${code}`,
+    ...extra,
+  });
+
+  it('puts each amount on the account entered for it, with its party and memo, in the order entered', () => {
+    const result = buildJournalLines(
+      [line('debit', '5110', 500_000n, { memo: 'Opening count loss' }), line('credit', '2000', 499_999n, { subledgers: [supplier] }), line('credit', '2010', 1n)],
+      entered,
+      ['debit', 'credit'],
+    );
+    expect(result.ok && result.value.map((l) => [l.lineNo, l.accountCode, l.side, l.amount.pesewas, l.subledger?.refId ?? null, l.memo])).toEqual([
+      [1, '5110', 'D', 500_000n, null, 'Opening count loss'],
+      [2, '2000', 'C', 499_999n, 'supplier-1', null],
+      [3, '2010', 'C', 1n, null, null],
+    ]);
+  });
+
+  it('refuses an amount that names no account when its rule takes the account entered', () => {
+    expect(buildJournalLines([{ key: 'debit', amount: Money.ofPesewas(5n) }], entered, ['debit', 'credit'])).toEqual({
+      ok: false,
+      error: { rule: 'NO_ACCOUNT', amountKey: 'debit', determinantType: 'ENTERED', key: '*', role: 'AS_ENTERED' },
+    });
+  });
+
+  it('refuses an entered account that is not postable, and still refuses an unbalanced journal', () => {
+    expect(buildJournalLines([line('debit', '1999', 5n), line('credit', '5110', 5n)], entered, ['debit', 'credit'])).toEqual({ ok: false, error: { rule: 'ACCOUNT_NOT_POSTABLE', accountCode: '1999' } });
+    expect(buildJournalLines([line('debit', '5110', 10_000n), line('credit', '2010', 9_999n)], entered, ['debit', 'credit'])).toEqual({
+      ok: false,
+      error: { rule: 'UNBALANCED', debits: 10_000n, credits: 9_999n },
+    });
+  });
+
+  it('never takes an entered account for a rule that names its own account or determinant', () => {
+    const result = buildJournalLines([value(7n, { determinants: { GL_GROUP: 'MEAT' }, enteredAccountId: 'acct-5100' })], receipt, ['value']);
+    expect(result.ok && result.value.map((l) => l.accountCode)).toEqual(['1320', '2010']);
+  });
+});

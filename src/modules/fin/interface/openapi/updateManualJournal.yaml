@@ -1,0 +1,105 @@
+operationId: updateManualJournal
+tags:
+  - fin
+summary: "Change a draft manual journal"
+description: "Changes a DRAFT at the `version` read (409 `VERSION_CONFLICT` otherwise); `lines`, when sent, replace them all. Only the person who drafted it may change it (403), and any other status is 422 `INVALID_STATE_TRANSITION`. The same checks as `createManualJournal` apply (A-190).\n\nPermission: `fin.journal.create`."
+x-permission: fin.journal.create
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - NOT_FOUND
+  - VERSION_CONFLICT
+  - INVALID_STATE_TRANSITION
+  - MANUAL_JOURNAL_INVALID
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ManualJournalUpdate"
+      example:
+        version: 2
+        postingDate: "2026-11-12"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ManualJournal"
+        example:
+          id: "019a7ad4-9c2d-72c4-b7fc-35170bb0adf4"
+          status: PENDING_APPROVAL
+          kind: MANUAL
+          postingDate: "2026-11-12"
+          description: "November wages, farm hands"
+          debitTotalPesewas: 960000
+          creditTotalPesewas: 960000
+          balanced: true
+          currency: GHS
+          approvalRequestId: "019a7ad4-bb1c-7ca7-81e0-d34e85614c2c"
+          journalEntryId: null
+          lines:
+            - id: "019a7ad4-da0b-768b-9bc3-7185ff12ea63"
+              lineNo: 1
+              account:
+                id: "019a7ad4-f8fa-706e-a5a7-0fbd78c3889b"
+                code: "6000"
+                name: Wages
+              side: D
+              amountPesewas: 960000
+              subledger: null
+              memo: null
+            - id: "019a7ad5-17e9-7a52-bf8a-adf4f27426d2"
+              lineNo: 2
+              account:
+                id: "019a7ad5-36d8-7435-896d-4c2c6c25c50a"
+                code: "1010"
+                name: "Cash, safe"
+              side: C
+              amountPesewas: 960000
+              subledger: null
+              memo: null
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 2
+          createdAt: "2026-11-10T09:00:00Z"
+          createdBy:
+            id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+            displayName: "Efua Asante"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

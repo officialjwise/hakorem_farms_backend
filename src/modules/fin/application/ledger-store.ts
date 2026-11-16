@@ -17,7 +17,7 @@ export interface EntryRow {
   readonly postingDate: string;
   readonly periodId: string;
   readonly branchId: string;
-  readonly kind: 'AUTO' | 'REVERSAL';
+  readonly kind: 'AUTO' | 'REVERSAL' | 'MANUAL' | 'OPENING';
   readonly eventCode: string;
   readonly eventId: string;
   readonly eventSubjectId: string;
@@ -70,6 +70,8 @@ export interface LedgerStore {
   unbalancedEntries(tx: Transaction): Promise<UnbalancedEntry[]>;
   /** Debits less credits of each account over the whole ledger. */
   accountBalances(tx: Transaction, accountIds: readonly string[]): Promise<Map<string, bigint>>;
+  /** The subledger parties among `ids`, as a manual journal names them. */
+  subledgerParties(tx: Transaction, ids: readonly string[]): Promise<Map<string, SubledgerRef>>;
   /** Accounts by code, for statements and reconciliation. */
   accountCodes(tx: Transaction): Promise<Map<string, string>>;
 }

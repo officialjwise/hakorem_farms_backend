@@ -169,4 +169,10 @@ export class PgLedgerStore implements LedgerStore {
     const { rows } = await tx.query<{ id: string; code: string }>('SELECT id, code FROM fin.account');
     return new Map(rows.map((r) => [r.id, r.code] as const));
   }
+
+  async subledgerParties(tx: Transaction, ids: readonly string[]): Promise<Map<string, SubledgerRef>> {
+    if (ids.length === 0) return new Map();
+    const { rows } = await tx.query<{ id: string } & SubledgerRef>('SELECT id, kind, ref_id AS "refId", display_name AS "displayName" FROM fin.subledger_party WHERE id = ANY($1::uuid[])', [ids]);
+    return new Map(rows.map((r) => [r.id, { kind: r.kind, refId: r.refId, displayName: r.displayName }]));
+  }
 }

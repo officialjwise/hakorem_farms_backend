@@ -23,6 +23,11 @@ export interface PostingRequest {
   readonly amounts: readonly PostingAmount[];
   /** Set when the event corrects an earlier one: its entry is reversed line for line instead of posting afresh. */
   readonly reversesSubjectId?: string | null;
+  /**
+   * A manual journal (FR-FIN-008, A-190): its entry's kind and description, and the exact date it was entered for. That
+   * date posts as it is or not at all: the late-event rule never moves a journal a person dated (PERIOD_NOT_OPEN).
+   */
+  readonly manual?: { readonly kind: 'MANUAL' | 'OPENING'; readonly description: string; readonly postingDate: string } | null;
 }
 
 export interface PostedEntry {
@@ -58,8 +63,9 @@ export class Ledger {
     if (tx.isolation !== 'serializable') {
       throw new IsolationLevelError(tx.isolation);
     }
-    const occurredDate = toBusinessDate(request.occurredAt);
-    const recordedDate = toBusinessDate(request.recordedAt);
+    const manual = request.manual ?? null;
+    const occurredDate = manual?.postingDate ?? toBusinessDate(request.occurredAt);
+    const recordedDate = manual?.postingDate ?? toBusinessDate(request.recordedAt);
     const eventType = await this.store.eventType(tx, request.eventCode);
     if (eventType === null) {
       throw new LedgerPostingRefusedError(request.eventCode, { rule: 'NOT_CATALOGUED', eventCode: request.eventCode });
@@ -125,13 +131,13 @@ export class Ledger {
         postingDate,
         periodId,
         branchId: request.branchId,
-        kind: reversesEntryId === null ? 'AUTO' : 'REVERSAL',
+        kind: manual?.kind ?? (reversesEntryId === null ? 'AUTO' : 'REVERSAL'),
         eventCode: request.eventCode,
         eventId: request.eventId,
         eventSubjectId: request.eventSubjectId,
         sourceDocumentId: request.sourceDocumentId,
         postingGroupId,
-        description: eventType.description,
+        description: manual?.description ?? eventType.description,
         reversesEntryId,
         occurredAt: request.occurredAt,
         actorId: request.actorId,
