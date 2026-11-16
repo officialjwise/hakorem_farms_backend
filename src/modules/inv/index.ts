@@ -35,6 +35,7 @@ export { ColdChain, type TemperatureExcursionRecorded, type TemperatureReadingVi
 export { ReservationExpiry, Reservations, reservationLockKey, type ConsumeRequest, type ReservationRequest, type StockReservationView } from './application/reservations';
 export type { ReservationEnded, StockUnitRegistered, UpkeepExpensed } from './events';
 export type { CostElement, LinkType, WeightSource } from './application/stock-store';
+export type { StockReservationRecord } from './application/stock-reservation-store';
 export {
   InsufficientStockError,
   StockMovementAlreadyReversedError,

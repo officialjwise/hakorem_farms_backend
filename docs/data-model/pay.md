@@ -2,6 +2,8 @@
 
 Owner: PAY module. Payments, allocations, online provider transactions and webhooks, refunds, store credit, settlement and bank reconciliation (ADR-0014, ADR-0021). Conventions are in `docs/DATA_MODEL.md`.
 
+**As built in B9a (migration 0160, A-208):** `pay.payment` and `pay.payment_allocation` only. `pay.payment` adds `register_code` (text, `^[A-Z0-9]{1,10}$`) beside `register_ref`, so the till's subledger party on 1000 is named without reading POS, and holds `ck_payment_verified` (no mobile money or card CLEARED without a provider callback or lookup, no UNVERIFIED tender CLEARED), `ck_payment_cash_holder` (cash lands in a till or with a driver) and `trg_payment_guard` (written PENDING or CLEARED; PENDING to CLEARED or FAILED, CLEARED to REVERSED; once cleared only the allocated and refunded amounts change). The allocation trigger keeps `allocated_pesewas` within the amount less refunds (`ck_payment_allocation_cap`); what a document has outstanding is held by BIL's `bil.apply_settlement` through `Billing.settleIn` (A-200), so `pay.invoice_settlement` is not built. The other tables follow in B09a continued (A-209).
+
 ---
 
 ### `pay.payment` · DOCUMENT

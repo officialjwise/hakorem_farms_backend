@@ -197,6 +197,35 @@ export function customerParty(customerId: string | null, name: string | null): S
   return customerId === null ? WALK_IN_CUSTOMER : { kind: 'CUSTOMER', refId: customerId, displayName: name ?? customerId };
 }
 
+/** The fields of PAY's `pay.PaymentCleared` FIN reads. */
+export interface PaymentClearedFields {
+  readonly methodKind: string;
+  readonly amountPesewas: number;
+  readonly allocatedPesewas: number;
+  readonly unallocatedPesewas: number;
+  readonly register: { readonly id: string; readonly code: string } | null;
+}
+
+/**
+ * `pay.PaymentCleared` (ADR-0003): the tender to its account by the method's kind (cash against the till that took
+ * it); the allocated part off 1200 and the unallocated part into 2200, both against the customer. The two parts are
+ * the tender exactly, or the payload is refused before anything posts.
+ */
+export function paymentClearedAmounts(payload: PaymentClearedFields, customer: SubledgerRef): PostingAmount[] {
+  const tender = Money.fromJsonInteger(payload.amountPesewas);
+  const allocated = Money.fromJsonInteger(payload.allocatedPesewas);
+  const unallocated = Money.fromJsonInteger(payload.unallocatedPesewas);
+  if (!allocated.plus(unallocated).equals(tender)) {
+    throw new Error(`pay.PaymentCleared: allocated ${allocated.pesewas} and unallocated ${unallocated.pesewas} do not sum to the tender ${tender.pesewas}`);
+  }
+  const till: SubledgerRef[] = payload.register === null ? [] : [{ kind: 'REGISTER', refId: payload.register.id, displayName: payload.register.code }];
+  return [
+    { key: 'tender', amount: tender, determinants: { PAYMENT_METHOD_KIND: payload.methodKind }, subledgers: till },
+    { key: 'allocated', amount: allocated, subledgers: [customer] },
+    { key: 'unallocated', amount: unallocated, subledgers: [customer] },
+  ];
+}
+
 function billingLevies(levies: readonly BillingLevy[]): PostingAmount[] {
   return levies.map((l) => ({
     key: 'levy',

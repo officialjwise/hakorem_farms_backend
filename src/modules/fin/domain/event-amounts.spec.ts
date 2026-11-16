@@ -5,6 +5,7 @@ import {
   debitNoteIssuedAmounts,
   expenseCategoryKey,
   invoiceIssuedAmounts,
+  paymentClearedAmounts,
   WALK_IN_CUSTOMER,
   type BillingLevy,
   type BillingLine,
@@ -274,5 +275,36 @@ describe('the amounts of an issued debit note (ADR-0003, bil.DebitNoteIssued)', 
       ['deliveryFee', 1_000n, null, []],
       ['levy', 1_500n, { TAX_LEVY: 'VAT' }, ['vat']],
     ]);
+  });
+});
+
+describe('the amounts of a cleared payment (ADR-0003, pay.PaymentCleared)', () => {
+  const tema = customerParty('cus-1', 'Tema Cold Store Ltd');
+  const till = { id: 'reg-1', code: 'T1' };
+
+  it('debits the tender by the method kind against its till and credits the allocated part to receivables against the customer', () => {
+    expect(flat(paymentClearedAmounts({ methodKind: 'CASH', amountPesewas: 44_000, allocatedPesewas: 44_000, unallocatedPesewas: 0, register: till }, tema))).toEqual([
+      ['tender', 44_000n, { PAYMENT_METHOD_KIND: 'CASH' }, ['reg-1']],
+      ['allocated', 44_000n, null, ['cus-1']],
+      ['unallocated', 0n, null, ['cus-1']],
+    ]);
+  });
+
+  it('holds what was not allocated as the customer’s deposit, the two parts summing to the tender exactly', () => {
+    const amounts = paymentClearedAmounts({ methodKind: 'CASH', amountPesewas: 120_000, allocatedPesewas: 100_000, unallocatedPesewas: 20_000, register: till }, tema);
+    expect(amounts.map((a) => a.amount.pesewas)).toEqual([120_000n, 100_000n, 20_000n]);
+  });
+
+  it('names a walk-in sale’s receivable against the one walk-in party', () => {
+    const amounts = paymentClearedAmounts({ methodKind: 'CASH', amountPesewas: 1, allocatedPesewas: 1, unallocatedPesewas: 0, register: till }, customerParty(null, null));
+    expect(amounts[1]!.subledgers).toEqual([WALK_IN_CUSTOMER]);
+  });
+
+  it('refuses a payload whose parts do not sum to the tender', () => {
+    expect(() => paymentClearedAmounts({ methodKind: 'CASH', amountPesewas: 44_000, allocatedPesewas: 44_000, unallocatedPesewas: 1, register: till }, tema)).toThrow(/sum/);
+  });
+
+  it('names no till for a tender that has none', () => {
+    expect(paymentClearedAmounts({ methodKind: 'BANK_TRANSFER', amountPesewas: 5, allocatedPesewas: 0, unallocatedPesewas: 5, register: null }, tema)[0]!.subledgers).toEqual([]);
   });
 });

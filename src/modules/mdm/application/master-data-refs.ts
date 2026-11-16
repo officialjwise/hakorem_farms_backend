@@ -93,6 +93,19 @@ export interface ReasonCodeFacts {
   readonly lossAccountGroup: 'MORTALITY' | 'SHRINKAGE' | 'WASTAGE' | null;
 }
 
+/** A payment method as a module taking a tender reads it (B9a, FR-PAY-001): its kind decides its clearing behaviour. */
+export interface PaymentMethodFacts {
+  readonly id: string;
+  readonly code: string;
+  readonly name: string;
+  readonly kind: 'CASH' | 'MOBILE_MONEY' | 'CARD' | 'BANK_TRANSFER' | 'CHEQUE' | 'STORE_CREDIT';
+  readonly requiresProviderVerification: boolean;
+  readonly allowedOffline: boolean;
+  readonly channels: readonly ('POS' | 'ONLINE' | 'WHOLESALE' | 'QUOTE')[];
+  /** Enabled and not archived. */
+  readonly isLive: boolean;
+}
+
 export const MASTER_DATA_REFS_STORE = Symbol('MASTER_DATA_REFS_STORE');
 
 export interface MasterDataRefsStore {
@@ -106,6 +119,8 @@ export interface MasterDataRefsStore {
   taxCategories(tx: Transaction, ids: readonly string[]): Promise<TaxCategoryFacts[]>;
   customers(tx: Transaction, ids: readonly string[]): Promise<CustomerFacts[]>;
   reasonCodes(tx: Transaction, codes: readonly string[]): Promise<ReasonCodeFacts[]>;
+  paymentMethodsByCode(tx: Transaction, codes: readonly string[]): Promise<PaymentMethodFacts[]>;
+  paymentMethods(tx: Transaction, ids: readonly string[]): Promise<PaymentMethodFacts[]>;
   physicalLocationOfKind(tx: Transaction, branchId: string, kind: string): Promise<string | null>;
   /** Ids of live records by their codes, for a higher module's import sheet (ADR-0050). */
   /** The first live, non-test branch registered: where farm-wide records are held (the same rule as MDM's imports). */
@@ -185,6 +200,17 @@ export class MasterDataRefs {
   async reasonCodesIn(tx: Transaction, codes: readonly string[]): Promise<ReadonlyMap<string, ReasonCodeFacts>> {
     if (codes.length === 0) return new Map();
     return new Map((await this.store.reasonCodes(tx, unique(codes))).map((row) => [row.code, row] as const));
+  }
+
+  /** Payment methods by code (B9a); an unknown code is simply absent. */
+  async paymentMethodsByCodeIn(tx: Transaction, codes: readonly string[]): Promise<ReadonlyMap<string, PaymentMethodFacts>> {
+    if (codes.length === 0) return new Map();
+    return new Map((await this.store.paymentMethodsByCode(tx, unique(codes))).map((row) => [row.code, row] as const));
+  }
+
+  /** Payment methods by id (B9a); an unknown id is simply absent. */
+  async paymentMethodsIn(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, PaymentMethodFacts>> {
+    return ids.length === 0 ? new Map() : byId(await this.store.paymentMethods(tx, unique(ids)));
   }
 
   /** The branch's live physical location of a kind (its in-transit location, for a transfer), or null if it has none. */

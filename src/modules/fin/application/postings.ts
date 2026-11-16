@@ -11,6 +11,8 @@ import {
   customerParty,
   debitNoteIssuedAmounts,
   invoiceIssuedAmounts,
+  paymentClearedAmounts,
+  type PaymentClearedFields,
   stockMovementAmounts,
   type BillingLevy,
   type BillingLine,
@@ -108,6 +110,7 @@ export class LedgerPostings {
       ['bil.InvoiceIssued', (tx, event) => this.billing(tx, event.payload as unknown as BillingPosting, invoiceIssuedAmounts)],
       ['bil.CreditNoteIssued', (tx, event) => this.billing(tx, event.payload as unknown as BillingPosting, creditNoteIssuedAmounts)],
       ['bil.DebitNoteIssued', (tx, event) => this.billing(tx, event.payload as unknown as BillingPosting, debitNoteIssuedAmounts)],
+      ['pay.PaymentCleared', (tx, event) => this.paymentCleared(tx, event.payload as unknown as PaymentClearedPosting)],
       ['fin.ManualJournalApproved', (tx, event) => this.manualJournal(tx, event.payload as unknown as ManualJournalApproved)],
       ['fin.YearClosed', async (_tx, event) => this.yearClose(event.payload as unknown as YearClosed)],
       ['fin.DepreciationRun', async (_tx, event) => this.depreciationRun(event.payload as unknown as DepreciationRunPosted)],
@@ -244,6 +247,20 @@ export class LedgerPostings {
     };
   }
 
+  /** PAY's ◆ event (ADR-0003): the tender, and the part allocated and the part held, against the customer or walk-in party. */
+  private async paymentCleared(tx: Transaction, payload: PaymentClearedPosting): Promise<Translated> {
+    const customer = payload.customerId === null ? undefined : (await this.refs.customersIn(tx, [payload.customerId])).get(payload.customerId);
+    if (payload.customerId !== null && customer === undefined) {
+      throw new Error(`payment ${payload.paymentId}: customer ${payload.customerId} does not exist`);
+    }
+    return {
+      amounts: paymentClearedAmounts(payload, customerParty(payload.customerId, customer?.name ?? null)),
+      sourceDocumentId: payload.paymentId,
+      eventSubjectId: payload.paymentId,
+      branchId: payload.branchId,
+    };
+  }
+
   /** FIN's own event (A-190): each line to the account entered for it, its party as entered, on the journal's own date. */
   private async manualJournal(tx: Transaction, payload: ManualJournalApproved): Promise<Translated> {
     const lines = payload.lines.map((l) => ({ accountId: l.accountId, side: l.side, amountPesewas: l.amountPesewas, subledgerPartyId: l.subledgerPartyId, memo: l.memo }));
@@ -313,6 +330,13 @@ export class LedgerPostings {
       eventSubjectId: payload.supplierPaymentId,
     };
   }
+}
+
+/** The fields of PAY's `pay.PaymentCleared` FIN reads. */
+interface PaymentClearedPosting extends PaymentClearedFields {
+  readonly paymentId: string;
+  readonly branchId: string;
+  readonly customerId: string | null;
 }
 
 /** The fields of BIL's `bil.InvoiceIssued`, `bil.CreditNoteIssued` and `bil.DebitNoteIssued` FIN reads. */

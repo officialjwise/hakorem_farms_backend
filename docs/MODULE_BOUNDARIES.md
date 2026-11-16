@@ -155,6 +155,7 @@ Each card gives: what the module owns, its public interface (the services export
 - **Owns:** schema `bil`. Billing documents, lines, levy rows, reprint log, and a read-only settlement summary per document.
 - **Public interface:** `Billing` (issue, credit, debit, fetch, reprint). Published view: `bil.pub_document`.
 - **Built in B08 continued 2 (ADR-0060, A-200):** `Billing.issueIn` (an invoice, receipt or proforma in the caller's serializable transaction, numbered there through `platform.allocate_number`, its levy rows from MDM's `TaxService.calculateIn`; it authorises nothing) with `seriesLocksFor`, the reads, and the credit and debit notes; IAM's approval handler for `CREDIT_NOTE`. BIL publishes and declares its ◆ events (`DomainEvents.declareLedgerEvents`) and FIN posts them; BIL reads customers, products, tax categories and reasons through MDM's `MasterDataRefs` (B08 continued 2 adds `customersIn`) and stores the stock unit's identifier as the seller names it, so it never reads INV. `bil.document_settlement` is kept by BIL's trigger until PAY's subscribers write allocations (B9a). B08 continued 2b: every issued document asks DOC to render it (`Documents.requestRenderIn`) in its issuing transaction; `bil.archive-link` subscribes to `doc.DocumentArchived` and sets `archived_document_id` and `content_hash` once; `Billing.reprint` serves the archived bytes through `Documents.content` with a marker and `bil.reprint_log`; `BillingNumberingAudit` is the nightly `billing-numbering-audit` job.
+- **Built in B9a (A-200, A-208):** `Billing.settleIn`, the port PAY moves a document's settlement summary through (`bil.apply_settlement`, the only writer of `allocated_pesewas`, refusing more than is outstanding). BIL's planned subscribers to PAY's events are not needed: PAY calls down instead.
 - **Imports:** platform, IAM, MDM, DOC.
 - **Subscribes (A):** `doc.DocumentArchived` (B08 continued 2b), to link each issued document to its archive and hash; `pay.PaymentCleared`, `pay.DepositAllocated`, `pay.PaymentReversed`, `pay.RefundPaid`, to keep the settlement summary on its documents (`bil.document_settlement`). The figure of record stays in PAY.
 
@@ -164,6 +165,7 @@ Each card gives: what the module owns, its public interface (the services export
 - **Public interface:** `Payments` (initiate, record, allocate, reverse), `Refunds`, `StoreCredit`, `Settlement` (what is outstanding on a document), `Reconciliation`. Published view: `pay.pub_open_item`.
 - **Imports:** platform, IAM, MDM, FIN (read only, for reconciliation against the ledger), BIL.
 - **Subscribes (T):** `bil.CreditNoteIssued`, `bil.DebitNoteIssued`, to keep settlement exact.
+- **Built in B9a (A-208):** `Payments.recordIn`, a tender recorded and allocated in the caller's serializable transaction (cash only, cleared at once into the till the caller names; mobile money and card never cleared by hand), its allocations PAY's ledger rows with BIL's settlement moved through `Billing.settleIn` (no `pay.invoice_settlement`); ◆ `pay.PaymentCleared`, declared with `DomainEvents.declareLedgerEvents` and posted by FIN; reads payment methods through MDM's `MasterDataRefs.paymentMethodsByCodeIn` and `paymentMethodsIn`. Imports platform, MDM and BIL; IAM and FIN arrive with its endpoints and reconciliation (B09a continued, A-209).
 
 ### PUR: procurement and suppliers (layer 7)
 
@@ -188,6 +190,7 @@ Each card gives: what the module owns, its public interface (the services export
 - **Imports:** platform, IAM, MDM, INV, BIL, PAY, DEL.
 - **Subscribes (T):** `pay.PaymentCleared` and `pay.PaymentFailed` (confirm or cancel an online order), `del.DeliveryCompleted`, `del.DeliveryFailed`, `del.DeliveryReturned` (advance the order and move stock).
 - **Subscribes (A):** `inv.ReservationExpired`.
+- **Built in B9a (A-208):** `SalePosting` (the `Orders` interface's "complete a sale"): `postIn` posts a sale on any channel B9a admits in the caller's serializable transaction, its order id the idempotency key, pricing each line through MDM's `PricingService.resolveIn` and `judgeAgreedPrice`, issuing stock through INV's `Stock.postIn` or `Reservations.consumeIn` (after `Reservations.heldIn`), the receipt through BIL's `Billing.issueIn` and the tenders through PAY's `Payments.recordIn`, and publishing `ord.OrderCompleted`; `locksFor` names its series locks (A-186). The endpoints, the port `OrderConfirmationPolicy` and DEL follow in B09a continued 2 (A-209).
 
 ### POS: retail point of sale (layer 10)
 
