@@ -82,6 +82,10 @@ export class Ledger {
     if (eventType === null) {
       throw new LedgerPostingRefusedError(request.eventCode, { rule: 'NOT_CATALOGUED', eventCode: request.eventCode });
     }
+    // An event that carries no amounts posts only as the mirror of the entry its subject names (ADR-0064).
+    if (eventType.amountKeys.length === 0 && (request.reversesSubjectId ?? null) === null) {
+      throw new LedgerPostingRefusedError(request.eventCode, { rule: 'MIRROR_WITHOUT_ORIGINAL', eventCode: request.eventCode });
+    }
     const periods = await this.store.periodsOn(tx, [occurredDate, recordedDate]);
     const dated = closing === null ? choosePostingDate(occurredDate, recordedDate, periods) : closingPostingDate(closing.postingDate, periods);
     if (!dated.ok) {

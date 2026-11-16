@@ -6,6 +6,7 @@ import {
   depositAllocatedAmounts,
   providerParty,
   refundPaidAmounts,
+  chequeClearedAmounts,
   expenseCategoryKey,
   invoiceIssuedAmounts,
   paymentClearedAmounts,
@@ -348,5 +349,37 @@ describe('the amounts of a provider payment, an allocation from deposit and a re
     expect(flat(refundPaidAmounts({ amountPesewas: 6_000, methodKind: 'CASH', register: till, provider: null }, tema))).toEqual([
       ['refund', 6_000n, { PAYMENT_METHOD_KIND: 'CASH' }, ['cus-1', 'reg-1']],
     ]);
+  });
+});
+
+describe('the amounts of a cheque, store credit and a cheque’s clearing (ADR-0003, ADR-0064)', () => {
+  const tema = customerParty('cus-1', 'Tema Cold Store Ltd');
+  const gcb = { kind: 'BANK_ACCOUNT' as const, refId: 'bank-1', displayName: 'GCB current account' };
+
+  it('debits a cheque of 100,000 to its tender, with no party, and credits the allocated part to receivables', () => {
+    expect(flat(paymentClearedAmounts({ methodKind: 'CHEQUE', amountPesewas: 100_000, allocatedPesewas: 100_000, unallocatedPesewas: 0, register: null }, tema))).toEqual([
+      ['tender', 100_000n, { PAYMENT_METHOD_KIND: 'CHEQUE' }, []],
+      ['allocated', 100_000n, null, ['cus-1']],
+      ['unallocated', 0n, null, ['cus-1']],
+    ]);
+  });
+
+  it('debits store credit redeemed against the customer whose credit it was', () => {
+    expect(flat(paymentClearedAmounts({ methodKind: 'STORE_CREDIT', amountPesewas: 6_000, allocatedPesewas: 6_000, unallocatedPesewas: 0, register: null }, tema))).toEqual([
+      ['tender', 6_000n, { PAYMENT_METHOD_KIND: 'STORE_CREDIT' }, ['cus-1']],
+      ['allocated', 6_000n, null, ['cus-1']],
+      ['unallocated', 0n, null, ['cus-1']],
+    ]);
+  });
+
+  it('refunds to store credit against the customer: the tender is store credit', () => {
+    expect(flat(refundPaidAmounts({ amountPesewas: 6_000, methodKind: 'STORE_CREDIT', register: null, provider: null }, tema))).toEqual([
+      ['refund', 6_000n, { PAYMENT_METHOD_KIND: 'STORE_CREDIT' }, ['cus-1']],
+    ]);
+  });
+
+  it('clears a cheque of 100,000 into the bank account it was paid into', () => {
+    expect(flat(chequeClearedAmounts({ amountPesewas: 100_000 }, gcb))).toEqual([['cheque', 100_000n, null, ['bank-1']]]);
+    expect(flat(chequeClearedAmounts({ amountPesewas: 1 }, gcb))).toEqual([['cheque', 1n, null, ['bank-1']]]);
   });
 });

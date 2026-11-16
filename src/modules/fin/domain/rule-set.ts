@@ -35,10 +35,12 @@ export function postingCatalogueGaps(facts: CatalogueFacts): string[] {
         gaps.push(`${type.code}: amount "${key}" has no posting rule in force`);
       }
     }
-    if (!rules.some((r) => r.side === 'D')) {
+    // An event that carries no amounts posts only as the mirror of an earlier entry (ADR-0064): it has no rules.
+    const mirrors = type.amountKeys.length === 0;
+    if (!mirrors && !rules.some((r) => r.side === 'D')) {
       gaps.push(`${type.code}: its rules in force have no debit side`);
     }
-    if (!rules.some((r) => r.side === 'C')) {
+    if (!mirrors && !rules.some((r) => r.side === 'C')) {
       gaps.push(`${type.code}: its rules in force have no credit side`);
     }
     for (const rule of rules) {

@@ -11,6 +11,7 @@ import {
   customerParty,
   debitNoteIssuedAmounts,
   depositAllocatedAmounts,
+  chequeClearedAmounts,
   refundPaidAmounts,
   invoiceIssuedAmounts,
   paymentClearedAmounts,
@@ -115,6 +116,8 @@ export class LedgerPostings {
       ['pay.PaymentCleared', (tx, event) => this.paymentCleared(tx, event.payload as unknown as PaymentClearedPosting)],
       ['pay.DepositAllocated', (tx, event) => this.depositAllocated(tx, event.payload as unknown as DepositAllocatedPosting)],
       ['pay.RefundPaid', (tx, event) => this.refundPaid(tx, event.payload as unknown as RefundPaidPosting)],
+      ['pay.ChequeCleared', (tx, event) => this.chequeCleared(tx, event.payload as unknown as ChequeClearedPosting)],
+      ['pay.PaymentReversed', async (_tx, event) => this.paymentReversed(event.payload as unknown as PaymentReversedPosting)],
       ['fin.ManualJournalApproved', (tx, event) => this.manualJournal(tx, event.payload as unknown as ManualJournalApproved)],
       ['fin.YearClosed', async (_tx, event) => this.yearClose(event.payload as unknown as YearClosed)],
       ['fin.DepreciationRun', async (_tx, event) => this.depreciationRun(event.payload as unknown as DepreciationRunPosted)],
@@ -285,6 +288,31 @@ export class LedgerPostings {
     };
   }
 
+  /** PAY's ◆ event (ADR-0064): a cheque out of 1130 into the bank account it was paid into, on the day it cleared. */
+  private async chequeCleared(tx: Transaction, payload: ChequeClearedPosting): Promise<Translated> {
+    return {
+      amounts: chequeClearedAmounts(payload, await this.bankAccounts.subledgerRefIn(tx, payload.bankAccountId)),
+      sourceDocumentId: payload.paymentId,
+      eventSubjectId: payload.clearanceRef,
+      branchId: payload.branchId,
+      postingDate: payload.clearedOn,
+    };
+  }
+
+  /**
+   * PAY's ◆ event (ADR-0003 "Reverse of the original", ADR-0056, ADR-0064): the mirror of the entry its subject names,
+   * nothing recomputed. The amount is the original's, so an entry that is missing refuses the reversal.
+   */
+  private paymentReversed(payload: PaymentReversedPosting): Translated {
+    return {
+      amounts: [{ key: 'reversed', amount: Money.fromJsonInteger(payload.amountPesewas) }],
+      sourceDocumentId: payload.reversingPaymentId,
+      eventSubjectId: payload.reversingPaymentId,
+      branchId: payload.branchId,
+      reversesSubjectId: payload.reversesSubjectId,
+    };
+  }
+
   private async customerOf(tx: Transaction, customerId: string | null, what: string): Promise<ReturnType<typeof customerParty>> {
     const customer = customerId === null ? undefined : (await this.refs.customersIn(tx, [customerId])).get(customerId);
     if (customerId !== null && customer === undefined) {
@@ -383,6 +411,24 @@ interface RefundPaidPosting {
   readonly methodKind: string;
   readonly register: { readonly id: string; readonly code: string } | null;
   readonly provider: string | null;
+}
+
+/** The fields of PAY's `pay.ChequeCleared` FIN reads. */
+interface ChequeClearedPosting {
+  readonly paymentId: string;
+  readonly clearanceRef: string;
+  readonly branchId: string;
+  readonly bankAccountId: string;
+  readonly amountPesewas: number;
+  readonly clearedOn: string;
+}
+
+/** The fields of PAY's `pay.PaymentReversed` FIN reads. */
+interface PaymentReversedPosting {
+  readonly reversingPaymentId: string;
+  readonly reversesSubjectId: string;
+  readonly branchId: string;
+  readonly amountPesewas: number;
 }
 
 /** The fields of PAY's `pay.PaymentCleared` FIN reads. */
