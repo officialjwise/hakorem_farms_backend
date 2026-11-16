@@ -14,15 +14,19 @@ import { startTestApp, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
 
 /**
- * The reversing order (FR-PRC-011; A-162), over the real API on the seeded farm: a completed order is frozen, and a
- * mistake is corrected by reversing its movements through INV, only while every output is unsold; the reversed goat is
- * back in its pen, ALIVE, at exactly its prior cost. Each seeded goat at the pens carries 60,000 pesewas.
+ * The reversing order (FR-PRC-011; A-162 as replaced by the owner, B06r; ADR-0048's pattern), over the real API on the
+ * seeded farm: a completed order is frozen, and a mistake is corrected by reversing its movements through INV, only
+ * while every output is unsold; the reversed goat is back in its pen, ALIVE, at exactly its prior cost. A reversal
+ * valued at or above the adjustment threshold (50,000, copied onto the reversal) waits for a different approver with
+ * step-up; below it the maker's reason posts it and the reversal is published for the exception report. Each seeded
+ * goat at the pens carries 60,000 pesewas, so its order with 5,000 of labour reverses at 65,000.
  */
 let database: TestDatabase;
 let api: TestApp;
 let clock: ManualClock;
 let manager: TestSession;
 let storekeeper: TestSession;
+let approver: TestSession;
 const wrong = new Map<string, TestSession>();
 const ids = new Map<string, string>();
 const id = (code: string) => ids.get(code)!;
@@ -42,6 +46,7 @@ async function refresh(): Promise<void> {
        UNION ALL SELECT 'location:' || l.code, l.id FROM mdm.location l JOIN mdm.branch b ON b.id = l.branch_id WHERE b.code = 'DDW'
        UNION ALL SELECT 'virtual:' || l.kind, l.id FROM mdm.location l JOIN mdm.branch b ON b.id = l.branch_id WHERE b.code = 'DDW' AND l.is_virtual
        UNION ALL SELECT 'product:' || sku, id FROM mdm.product
+       UNION ALL SELECT 'supplier:' || name, id FROM mdm.supplier
        UNION ALL SELECT 'unit:' || identifier, id FROM inv.stock_unit`,
     )
   ).rows) {
@@ -70,6 +75,21 @@ async function process(tag: string): Promise<{ orderId: string; lots: string[]; 
   await refresh();
   const lots = (completed.body.outputs as Array<{ stockUnit: { id: string } | null }>).flatMap((o) => (o.stockUnit === null ? [] : [o.stockUnit.id]));
   return { orderId, lots, body: completed.body };
+}
+
+/** A goat bought from Kpone into the pens at its own value. */
+async function buyGoat(tag: string, valuePesewas: number): Promise<void> {
+  const created = await post(manager, '/goods-receipts', {
+    kind: 'PURCHASE',
+    supplierId: id('supplier:Kpone Livestock Traders (SEED)'),
+    locationId: id('location:PENS'),
+    deliveryNoteRef: `RV-${randomUUID().slice(0, 8)}`,
+    receivedAt: new Date(clock.now().getTime() - 86_400_000).toISOString(),
+    lines: [{ productId: id('product:LIV-GOAT'), qtyReceived: '1.000', valuePesewas, animals: [{ tagNo: tag, sex: 'MALE', breed: 'West African Dwarf', purpose: 'GROWING' }] }],
+  });
+  expect(created.status, JSON.stringify(created.body)).toBe(201);
+  expect((await post(manager, `/goods-receipts/${created.body.id as string}/post`)).status).toBe(200);
+  await refresh();
 }
 
 async function sellFromLot(lotId: string, kg: string): Promise<void> {
@@ -102,6 +122,7 @@ beforeAll(async () => {
   await refresh();
   const branchId = id('branch:DDW');
   manager = await enrolAndLogin(api.server, await createUser(database, { name: 'Akosua Boateng', grants: [{ role: 'MANAGER', branchId }] }), () => clock.now());
+  approver = await enrolAndLogin(api.server, await createUser(database, { name: 'Yaw Darko', grants: [{ role: 'MANAGER', branchId }] }), () => clock.now());
   storekeeper = await login(api.server, await createUser(database, { name: 'Kwabena Owusu', grants: [{ role: 'STOREKEEPER', branchId }] }));
   for (const role of ['CASHIER', 'SALES', 'DRIVER', 'FARM_HAND', 'INVESTOR'] as const satisfies readonly RoleCode[]) {
     wrong.set(role, await login(api.server, await createUser(database, { name: `Wrong ${role.toLowerCase()}`, grants: [{ role, branchId }] })));
@@ -116,6 +137,7 @@ afterAll(async () => {
 describe('a completed order is frozen and reverses only while its outputs are unsold (FR-PRC-011)', () => {
   let orderId: string;
   let lots: string[];
+  let requestId: string;
 
   it('refuses an edit of a completed order, in the API and in the database', async () => {
     ({ orderId, lots } = await process('G-0142'));
@@ -133,13 +155,61 @@ describe('a completed order is frozen and reverses only while its outputs are un
     }
   });
 
-  it('reverses it: the goat is back in the pens, ALIVE, at exactly its prior 60,000, the lots are empty and the packs REVERSED', async () => {
+  it('waits at 65,000, at or above the 50,000 adjustment threshold, for a different approver, and moves nothing meanwhile', async () => {
     const key = randomUUID();
-    const reversed = await post(manager, `/processing-orders/${orderId}/cancel`, { reason: 'Wrong goat slaughtered, the order named G-0142' }, key);
-    expect(reversed.status, JSON.stringify(reversed.body)).toBe(200);
+    const asked = await post(manager, `/processing-orders/${orderId}/cancel`, { reason: 'Wrong goat slaughtered, the order named G-0142' }, key);
+    expect(asked.status, JSON.stringify(asked.body)).toBe(202);
+    expect(contractSchema('ApprovalPending')(asked.body)).toBe(true);
+    expect(asked.body).toMatchObject({ status: 'PENDING_APPROVAL', kind: 'PROCESSING_REVERSAL', subject: { docType: 'PROCESSING_REVERSAL', number: null } });
+    requestId = asked.body.approvalRequestId as string;
+    expect((await post(manager, `/processing-orders/${orderId}/cancel`, { reason: 'Wrong goat slaughtered, the order named G-0142' }, key)).body).toEqual(asked.body);
+
+    const order = await get(manager, `/processing-orders/${orderId}`);
+    expect(contractSchema('ProcessingOrder')(order.body)).toBe(true);
+    expect(order.body.reversal).toBeNull();
+    expect(order.body.pendingReversal).toMatchObject({ id: asked.body.subject.id, valuePesewas: GOAT_COST + 5_000, thresholdPesewas: 50_000, approvalRequestId: requestId, requestedBy: { displayName: 'Akosua Boateng' } });
+    expect(await poolOf(id('unit:G-0142'))).toEqual({ qty: '0.000', value: '0' });
+    for (const lot of lots) expect((await poolOf(lot))!.qty).not.toBe('0.000');
+    const row = await admin().query('SELECT status, value_pesewas::int AS value, threshold_pesewas::int AS threshold FROM prc.processing_reversal WHERE processing_order_id = $1', [orderId]);
+    expect(row.rows).toEqual([{ status: 'PENDING_APPROVAL', value: 65_000, threshold: 50_000 }]);
+
+    const twice = await post(manager, `/processing-orders/${orderId}/cancel`, { reason: 'Asking again' });
+    expect(twice.status).toBe(422);
+    expect(codes(twice.body)).toEqual(['REVERSAL_PENDING']);
+  });
+
+  it('keeps the threshold it was judged against: raising the policy afterwards changes nothing on the reversal', async () => {
+    await admin().query("UPDATE iam.approval_policy SET threshold_pesewas = 100000, version = version + 1 WHERE kind = 'STOCK_WRITE_OFF' AND branch_id IS NULL");
+    expect((await get(manager, `/processing-orders/${orderId}`)).body.pendingReversal.thresholdPesewas).toBe(50_000);
+    await admin().query("UPDATE iam.approval_policy SET threshold_pesewas = 50000, version = version + 1 WHERE kind = 'STOCK_WRITE_OFF' AND branch_id IS NULL");
+  });
+
+  it('refuses the maker as checker and the Storekeeper as approver', async () => {
+    const own = await post(manager, `/iam/approvals/${requestId}/approve`, {});
+    expect(own.status).toBe(422);
+    expect(own.body.error.code).toBe('MAKER_CANNOT_CHECK');
+    expect((await post(storekeeper, `/iam/approvals/${requestId}/approve`, {})).status).toBe(403);
+    for (const [role, session] of wrong) expect((await post(session, `/iam/approvals/${requestId}/approve`, {})).status, role).toBe(403);
+  });
+
+  it('reverses it on the second manager\'s approval: the goat is back in the pens, ALIVE, at exactly its prior 60,000, the lots are empty and the packs REVERSED', async () => {
+    const approved = await post(approver, `/iam/approvals/${requestId}/approve`, { reason: 'Checked the slaughter sheet' });
+    expect(approved.status, JSON.stringify(approved.body)).toBe(200);
+    const reversed = await get(manager, `/processing-orders/${orderId}`);
     expect(contractSchema('ProcessingOrder')(reversed.body)).toBe(true);
-    expect(reversed.body).toMatchObject({ id: orderId, status: 'COMPLETED', reversal: { reason: 'Wrong goat slaughtered, the order named G-0142', reversedBy: { displayName: 'Akosua Boateng' } } });
-    expect((await post(manager, `/processing-orders/${orderId}/cancel`, { reason: 'Wrong goat slaughtered, the order named G-0142' }, key)).body).toEqual(reversed.body);
+    expect(reversed.body).toMatchObject({
+      id: orderId,
+      status: 'COMPLETED',
+      pendingReversal: null,
+      reversal: {
+        reason: 'Wrong goat slaughtered, the order named G-0142',
+        reversedBy: { displayName: 'Akosua Boateng' },
+        approvedBy: { displayName: 'Yaw Darko' },
+        approvalRequestId: requestId,
+        valuePesewas: 65_000,
+        thresholdPesewas: 50_000,
+      },
+    });
 
     expect(await poolOf(id('unit:G-0142'))).toEqual({ qty: '1.000', value: String(GOAT_COST) });
     for (const lot of lots) expect(await poolOf(lot)).toEqual({ qty: '0.000', value: '0' });
@@ -163,7 +233,21 @@ describe('a completed order is frozen and reverses only while its outputs are un
     const packs = await get(manager, `/processing-orders/${orderId}/packs`);
     expect(packs.body.data.map((p: { status: string }) => p.status)).toEqual(['REVERSED', 'REVERSED']);
     const events = await admin().query<{ payload: Record<string, unknown> }>("SELECT payload FROM platform.outbox_message WHERE event_type = 'prc.ProcessingOrderReversed' AND subject_id = $1", [orderId]);
-    expect(events.rows).toEqual([{ payload: expect.objectContaining({ processingOrderId: orderId, directCostPesewas: 5_000, inputCostPesewas: GOAT_COST, totalCostPesewas: GOAT_COST + 5_000 }) }]);
+    expect(events.rows).toEqual([
+      {
+        payload: expect.objectContaining({
+          processingOrderId: orderId,
+          directCostPesewas: 5_000,
+          inputCostPesewas: GOAT_COST,
+          totalCostPesewas: GOAT_COST + 5_000,
+          valuePesewas: GOAT_COST + 5_000,
+          thresholdPesewas: 50_000,
+          needsApproval: true,
+          approvalRequestId: requestId,
+          abuseCases: [29],
+        }),
+      },
+    ]);
     const audit = await admin().query("SELECT 1 FROM platform.audit_event WHERE module = 'prc' AND action = 'REVERSE' AND entity_id = $1", [orderId]);
     expect(audit.rowCount).toBe(1);
   });
@@ -202,5 +286,93 @@ describe('a reversal refuses an order whose outputs are not all unsold (FR-PRC-0
     await admin().query("UPDATE prc.pack SET status = 'PICKED', version = version + 1 WHERE id = $1", [packed.body.packs[0].id]);
     const refused = await post(manager, `/processing-orders/${orderId}/cancel`, { reason: 'Wrong goat' });
     expect(codes(refused.body)).toEqual(['OUTPUT_SOLD']);
+  });
+});
+
+describe('below the threshold the maker\'s reason posts the reversal, and it reaches the exception report\'s sources (ADR-0048 pattern)', () => {
+  it('reverses a 30,000 goat\'s order (35,000 with its labour) at once, with the threshold on the document', async () => {
+    await buyGoat('RV-G01', 30_000);
+    const { orderId } = await process('RV-G01');
+    const reversed = await post(manager, `/processing-orders/${orderId}/cancel`, { reason: 'Slaughtered for an order the buyer cancelled the same hour' });
+    expect(reversed.status, JSON.stringify(reversed.body)).toBe(200);
+    expect(contractSchema('ProcessingOrder')(reversed.body)).toBe(true);
+    expect(reversed.body.reversal).toMatchObject({ valuePesewas: 35_000, thresholdPesewas: 50_000, approvalRequestId: null, approvedBy: null, reversedBy: { displayName: 'Akosua Boateng' } });
+    expect(await poolOf(id('unit:RV-G01'))).toEqual({ qty: '1.000', value: '30000' });
+    const events = await admin().query<{ payload: Record<string, unknown> }>("SELECT payload FROM platform.outbox_message WHERE event_type = 'prc.ProcessingOrderReversed' AND subject_id = $1", [orderId]);
+    expect(events.rows).toEqual([
+      { payload: expect.objectContaining({ valuePesewas: 35_000, thresholdPesewas: 50_000, needsApproval: false, approvalRequestId: null, approvedBy: null, reason: 'Slaughtered for an order the buyer cancelled the same hour', abuseCases: [29] }) },
+    ]);
+  });
+
+  it('requires the reason: an empty or missing one is refused before anything is judged', async () => {
+    await buyGoat('RV-G02', 30_000);
+    const { orderId } = await process('RV-G02');
+    expect((await post(manager, `/processing-orders/${orderId}/cancel`, { reason: '' })).status).toBe(400);
+    expect((await post(manager, `/processing-orders/${orderId}/cancel`, {})).status).toBe(400);
+    expect((await get(manager, `/processing-orders/${orderId}`)).body.reversal).toBeNull();
+  });
+});
+
+describe('a reversal is refused outright once a pack it produced has been sold or moved, by the domain and the database (FR-PRC-011)', () => {
+  it('refuses the approval of a waiting reversal once a pack has been picked meanwhile, and nothing moves', async () => {
+    const { orderId } = await process('G-0145');
+    const packed = await post(storekeeper, `/processing-orders/${orderId}/packs`, { outputLineNo: 1, packs: [{ weightKg: '14.200', weightSource: 'SCALE' }] });
+    expect(packed.status).toBe(201);
+    const asked = await post(manager, `/processing-orders/${orderId}/cancel`, { reason: 'Wrong goat' });
+    expect(asked.status).toBe(202);
+    await admin().query("UPDATE prc.pack SET status = 'PICKED', version = version + 1 WHERE id = $1", [packed.body.packs[0].id]);
+    const before = await admin().query('SELECT count(*)::int AS n FROM inv.stock_movement');
+    const refused = await post(approver, `/iam/approvals/${asked.body.approvalRequestId as string}/approve`, {});
+    expect(refused.status, JSON.stringify(refused.body)).toBe(422);
+    expect(refused.body.error.code).toBe('APPROVAL_SUBJECT_CHANGED');
+    expect((await admin().query('SELECT count(*)::int AS n FROM inv.stock_movement')).rows).toEqual(before.rows);
+    expect((await get(manager, `/animals/${id('unit:G-0145')}`)).body.status).toBe('SLAUGHTERED');
+    // Rejected, it frees the order for a reversal asked again, which is refused outright while the pack is picked.
+    expect((await post(approver, `/iam/approvals/${asked.body.approvalRequestId as string}/reject`, { reason: 'The pack has gone to the counter' })).status).toBe(200);
+    const again = await post(manager, `/processing-orders/${orderId}/cancel`, { reason: 'Wrong goat' });
+    expect(codes(again.body)).toEqual(['OUTPUT_SOLD']);
+  });
+
+  it('refuses, in the database alone, a POSTED reversal of an order one of whose packs is picked, sold or written off', async () => {
+    const order = (await admin().query<{ id: string; branch_id: string }>(
+      `SELECT o.id, o.branch_id FROM prc.processing_order o JOIN prc.processing_output po ON po.processing_order_id = o.id JOIN prc.pack p ON p.processing_output_id = po.id
+        WHERE p.status = 'PICKED' AND NOT EXISTS (SELECT 1 FROM prc.processing_reversal r WHERE r.processing_order_id = o.id AND r.status <> 'REJECTED') LIMIT 1`,
+    )).rows[0]!;
+    const documentId = randomUUID();
+    await admin().query("INSERT INTO platform.business_document (id, doc_type, owner_module, branch_id, actor_id) VALUES ($1, 'PROCESSING_REVERSAL', 'prc', $2, $3)", [documentId, order.branch_id, SYSTEM_PRINCIPAL]);
+    const refused = await admin()
+      .query(
+        `INSERT INTO prc.processing_reversal (id, processing_order_id, branch_id, reason, status, value_pesewas, threshold_pesewas, posted_at, posted_by, created_by, updated_by)
+         VALUES ($1, $2, $3, 'Straight into the table', 'POSTED', 1000, 50000, now(), $4, $4, $4)`,
+        [documentId, order.id, order.branch_id, SYSTEM_PRINCIPAL],
+      )
+      .then(
+        () => null,
+        (error: { constraint?: string }) => error.constraint ?? 'refused',
+      );
+    expect(refused).toBe('ck_processing_reversal_unsold');
+  });
+
+  it('refuses, in the database, a POSTED reversal at or above its threshold without a different approver', async () => {
+    await buyGoat('RV-G03', 30_000);
+    const { orderId } = await process('RV-G03');
+    const branchId = id('branch:DDW');
+    const insert = async (approval: string | null, postedBy: string) => {
+      const documentId = randomUUID();
+      await admin().query("INSERT INTO platform.business_document (id, doc_type, owner_module, branch_id, actor_id) VALUES ($1, 'PROCESSING_REVERSAL', 'prc', $2, $3)", [documentId, branchId, SYSTEM_PRINCIPAL]);
+      return admin()
+        .query(
+          `INSERT INTO prc.processing_reversal (id, processing_order_id, branch_id, reason, status, value_pesewas, threshold_pesewas, approval_request_id, posted_at, posted_by, created_by, updated_by)
+           VALUES ($1, $2, $3, 'Straight into the table', 'POSTED', 60000, 50000, $4, now(), $5, $6, $6)`,
+          [documentId, orderId, branchId, approval, postedBy, SYSTEM_PRINCIPAL],
+        )
+        .then(
+          () => null,
+          (error: { constraint?: string }) => error.constraint ?? 'refused',
+        );
+    };
+    expect(await insert(null, SYSTEM_PRINCIPAL)).toBe('ck_processing_reversal_approved');
+    const anyRequest = (await admin().query<{ id: string }>('SELECT id FROM iam.approval_request LIMIT 1')).rows[0]!.id;
+    expect(await insert(anyRequest, SYSTEM_PRINCIPAL)).toBe('ck_processing_reversal_approved');
   });
 });

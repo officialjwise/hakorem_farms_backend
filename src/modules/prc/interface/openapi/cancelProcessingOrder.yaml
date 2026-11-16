@@ -2,7 +2,7 @@ operationId: cancelProcessingOrder
 tags:
   - prc
 summary: "Cancel a processing order, or reverse a completed one"
-description: "Cancels a PLANNED or IN_PROGRESS order with a reason: nothing has moved before completion, so it has no stock or cost effect.\n\nA COMPLETED order is never edited; cancelling it reverses it (FR-PRC-011): every movement its completion posted is reversed through inventory, the outputs first and then the inputs, each carrying the value it carried, so the animal stands in its pen again, ALIVE, at exactly its prior cost, and the output lots are empty. Its packs become REVERSED. The order stays COMPLETED and frozen and answers its `reversal`. This needs `prc.order.reverse` as well (the Owner and the Manager), at the same scope.\n\nRefusals (422 PROCESSING_ORDER_INVALID, `details[].code`): ORDER_REVERSED (reversed already); OUTPUT_SOLD (an output lot is not whole where the order put it, or a pack of it has been picked, sold or written off); OUTPUT_RESERVED; OUTPUT_CHANGED (inventory cannot give back exactly what the order received).\n\nPermission: `prc.order.create`, scoped to the order's branch and processing location; and `prc.order.reverse` to reverse a completed order."
+description: "Cancels a PLANNED or IN_PROGRESS order with a reason: nothing has moved before completion, so it has no stock or cost effect.\n\nA COMPLETED order is never edited; cancelling it reverses it (FR-PRC-011): every movement its completion posted is reversed through inventory, the outputs first and then the inputs, each carrying the value it carried, so the animal stands in its pen again, ALIVE, at exactly its prior cost, and the output lots are empty. Its packs become REVERSED. The order stays COMPLETED and frozen and answers its `reversal`. This needs `prc.order.reverse` as well (the Owner and the Manager), at the same scope.\n\n**Under approval (1.31.0, B06r, ADR-0048's write-off rule):** the reversal is valued at the order's `totalCostPesewas`, what it takes back out of stock, and judged against the stock adjustment threshold (the `STOCK_WRITE_OFF` policy, 50,000 pesewas on the seeded farm), which is copied onto the reversal and never read again. At or above it the answer is 202 `ApprovalPending` of kind `PROCESSING_REVERSAL`: nothing moves, the order shows the waiting reversal as `pendingReversal`, and a different holder of `prc.order.reverse`, with step-up, approves it through `approveRequest` (the maker is refused with `MAKER_CANNOT_CHECK`); the approval posts it in its own transaction. Below it the reason posts the reversal at once (200). Either way the reversal is published as `prc.ProcessingOrderReversed` for the daily exception report. A rejected reversal frees the order to be asked again.\n\nRefusals (422 PROCESSING_ORDER_INVALID, `details[].code`): ORDER_REVERSED (reversed already); REVERSAL_PENDING (a reversal is waiting for approval); OUTPUT_SOLD (an output lot is not whole where the order put it, or a pack of it has been picked, sold or written off: refused outright, by the database too, and again at approval); OUTPUT_RESERVED; OUTPUT_CHANGED (inventory cannot give back exactly what the order received).\n\nPermission: `prc.order.create`, scoped to the order's branch and processing location; and `prc.order.reverse` to reverse a completed order."
 x-permission: prc.order.create
 x-error-codes:
   - VALIDATION_FAILED
@@ -99,6 +99,26 @@ responses:
           postedAt: null
           postedBy: null
           reversal: null
+          pendingReversal: null
+  "202":
+    description: "Accepted for approval: a reversal at or above the adjustment threshold waits for a different approver. Nothing has moved yet."
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ApprovalPending"
+        example:
+          status: PENDING_APPROVAL
+          approvalRequestId: "019a7ac6-3b1e-7d40-9a2c-5e8f71b0c4d2"
+          kind: PROCESSING_REVERSAL
+          subject:
+            id: "019a7ac6-1c2f-7a93-8e64-2b9d0f5a7e31"
+            docType: PROCESSING_REVERSAL
+            number: null
+          summary: "Reverse the processing of G-0109, valued 67800 pesewas (Wrong goat slaughtered, the order named G-0109)"
+          requestedAt: "2026-11-13T11:40:00Z"
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

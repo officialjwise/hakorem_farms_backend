@@ -6,7 +6,7 @@ import { CurrentActor } from '../../../platform/http/actor-param';
 import { IdempotencyKeyHeader, Operation } from '../../../platform/http/operation';
 import { zodPipe } from '../../../platform/http/validation';
 import type { StoredResponse } from '../../../platform/idempotency/idempotency';
-import { Processing, type Page, type ProcessingOrderView } from '../application/processing';
+import { Processing, type ApprovalPendingView, type Page, type ProcessingOrderView } from '../application/processing';
 import { YieldStandards, type YieldStandardView } from '../application/yield-standards';
 import {
   IdParam,
@@ -117,7 +117,7 @@ export class ProcessingController {
     @Body(zodPipe(ReasonBody)) body: z.infer<typeof ReasonBody>,
     @IdempotencyKeyHeader() key: string,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<ProcessingOrderView> {
+  ): Promise<ProcessingOrderView | ApprovalPendingView> {
     return reply(res, this.processing.cancel(actor, id, body, key));
   }
 

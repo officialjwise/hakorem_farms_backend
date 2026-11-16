@@ -13,6 +13,7 @@ let database: TestDatabase;
 let api: TestApp;
 let clock: ManualClock;
 let manager: TestSession;
+let approver: TestSession;
 let farmHand: TestSession;
 const ids = new Map<string, string>();
 const id = (code: string) => ids.get(code)!;
@@ -40,6 +41,7 @@ beforeAll(async () => {
     ids.set(row.code, row.id);
   }
   manager = await enrolAndLogin(api.server, await createUser(database, { name: 'Akosua Boateng', grants: [{ role: 'MANAGER', branchId: id('branch:DDW') }] }), () => clock.now());
+  approver = await enrolAndLogin(api.server, await createUser(database, { name: 'Yaw Darko', grants: [{ role: 'MANAGER', branchId: id('branch:DDW') }] }), () => clock.now());
   farmHand = await login(api.server, await createUser(database, { name: 'Abena Quaye', grants: [{ role: 'FARM_HAND', branchId: id('branch:DDW') }] }));
 });
 
@@ -81,8 +83,15 @@ describe('B06 continued 3 operations answer in the contract shapes', () => {
     const labels = await consolePost(api.server, manager, v1(`/processing-orders/${orderId}/labels`)).send({ packIds: [packed.body.packs[0].id] });
     expect(labels.status).toBe(200);
     expectShape('PackLabelSheet', labels.body);
-    const reversed = await consolePost(api.server, manager, v1(`/processing-orders/${orderId}/cancel`)).send({ reason: 'Wrong goat slaughtered' });
-    expect(reversed.status).toBe(200);
+    // At or above the adjustment threshold the reversal waits for a second approver (B06r, A-176).
+    const asked = await consolePost(api.server, manager, v1(`/processing-orders/${orderId}/cancel`)).send({ reason: 'Wrong goat slaughtered' });
+    expect(asked.status).toBe(202);
+    expectShape('ApprovalPending', asked.body);
+    const waiting = await consoleGet(api.server, manager, v1(`/processing-orders/${orderId}`));
+    expectShape('ProcessingOrder', waiting.body);
+    expect(waiting.body.pendingReversal).not.toBeNull();
+    expect((await consolePost(api.server, approver, v1(`/iam/approvals/${asked.body.approvalRequestId as string}/approve`)).send({})).status).toBe(200);
+    const reversed = await consoleGet(api.server, manager, v1(`/processing-orders/${orderId}`));
     expectShape('ProcessingOrder', reversed.body);
     expect(reversed.body.reversal).not.toBeNull();
   });

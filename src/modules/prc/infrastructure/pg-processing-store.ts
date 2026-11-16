@@ -9,11 +9,13 @@ import type {
   OrderRecord,
   OrderStatus,
   NewPack,
+  NewReversal,
   OutputRecord,
   PackRecord,
   PackStatus,
   ProcessingStore,
   ReadScope,
+  ReversalRecord,
   YieldStandardRecord,
 } from '../application/processing-store';
 
@@ -25,14 +27,22 @@ const ORDER = `SELECT o.id, o.order_no AS "orderNo", o.status, o.location_id AS 
                       o.direct_cost_pesewas::text AS "directCostPesewas", o.total_cost_pesewas::text AS "totalCostPesewas",
                       o.cancel_reason AS "cancelReason", o.branch_id AS "branchId", o.version, o.created_at AS "createdAt",
                       o.created_by AS "createdBy", o.posted_at AS "postedAt", o.posted_by AS "postedBy",
-                      rv.id AS "reversalId", rv.reason AS "reversalReason", rv.posted_at AS "reversedAt", rv.posted_by AS "reversedBy"
-                 FROM prc.processing_order o LEFT JOIN prc.processing_reversal rv ON rv.processing_order_id = o.id`;
+                      rv.id AS "reversalId"
+                 FROM prc.processing_order o LEFT JOIN prc.processing_reversal rv ON rv.processing_order_id = o.id AND rv.status <> 'REJECTED'`;
+
+const REVERSAL = `SELECT id, processing_order_id AS "orderId", branch_id AS "branchId", reason, status, value_pesewas::text AS "valuePesewas",
+                         threshold_pesewas::text AS "thresholdPesewas", approval_request_id AS "approvalRequestId", created_at AS "requestedAt",
+                         created_by AS "requestedBy", posted_at AS "postedAt", posted_by AS "postedBy"
+                    FROM prc.processing_reversal`;
+
+type ReversalRow = Omit<ReversalRecord, 'valuePesewas' | 'thresholdPesewas'> & { valuePesewas: string | null; thresholdPesewas: string | null };
+
+function reversalOf(row: ReversalRow): ReversalRecord {
+  return { ...row, valuePesewas: big(row.valuePesewas), thresholdPesewas: big(row.thresholdPesewas) };
+}
 
 type OrderRow = Omit<OrderRecord, 'inputs' | 'outputs' | 'costs' | 'inputCostPesewas' | 'directCostPesewas' | 'totalCostPesewas' | 'reversal'> & {
   reversalId: string | null;
-  reversalReason: string | null;
-  reversedAt: Date | null;
-  reversedBy: string | null;
   inputCostPesewas: string | null;
   directCostPesewas: string;
   totalCostPesewas: string | null;
@@ -240,9 +250,13 @@ export class PgProcessingStore implements ProcessingStore {
          FROM prc.processing_cost WHERE processing_order_id = ANY($1::uuid[]) ORDER BY created_at, id`,
       [ids],
     );
-    return rows.map(({ reversalId, reversalReason, reversedAt, reversedBy, ...r }) => ({
+    const reversalIds = rows.flatMap((r) => (r.reversalId === null ? [] : [r.reversalId]));
+    const reversals = new Map(
+      reversalIds.length === 0 ? [] : (await tx.query<ReversalRow>(`${REVERSAL} WHERE id = ANY($1::uuid[])`, [reversalIds])).rows.map((r) => [r.id, reversalOf(r)] as const),
+    );
+    return rows.map(({ reversalId, ...r }) => ({
       ...r,
-      reversal: reversalId === null ? null : { id: reversalId, reason: reversalReason!, at: reversedAt!, by: reversedBy! },
+      reversal: reversalId === null ? null : reversals.get(reversalId)!,
       expectedYieldPercent: percent3(r.expectedYieldPercent),
       actualYieldPercent: percent3(r.actualYieldPercent),
       inputCostPesewas: big(r.inputCostPesewas),
@@ -288,11 +302,31 @@ export class PgProcessingStore implements ProcessingStore {
     await tx.query('UPDATE prc.pack SET status = $2, version = version + 1, updated_at = now(), updated_by = $3 WHERE id = ANY($1::uuid[]) AND status <> $2', [ids, status, actorId]);
   }
 
-  async insertReversal(tx: Transaction, reversal: { id: string; orderId: string; branchId: string; reason: string; at: Date }, actorId: string): Promise<void> {
+  async insertReversal(tx: Transaction, r: NewReversal, actorId: string): Promise<void> {
+    const posted = r.status === 'POSTED';
     await tx.query(
-      `INSERT INTO prc.processing_reversal (id, processing_order_id, branch_id, reason, status, posted_at, posted_by, created_by, updated_by)
-       VALUES ($1, $2, $3, $4, 'POSTED', $5, $6, $6, $6)`,
-      [reversal.id, reversal.orderId, reversal.branchId, reversal.reason, reversal.at, actorId],
+      `INSERT INTO prc.processing_reversal (id, processing_order_id, branch_id, reason, status, value_pesewas, threshold_pesewas, approval_request_id,
+                                            posted_at, posted_by, created_by, updated_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11)`,
+      [r.id, r.orderId, r.branchId, r.reason, r.status, r.valuePesewas.toString(), r.thresholdPesewas.toString(), r.approvalRequestId, posted ? r.at : null, posted ? actorId : null, actorId],
+    );
+  }
+
+  async lockReversal(tx: Transaction, id: string): Promise<ReversalRecord | null> {
+    const { rows } = await tx.query<ReversalRow>(`${REVERSAL} WHERE id = $1 FOR UPDATE`, [id]);
+    return rows[0] === undefined ? null : reversalOf(rows[0]);
+  }
+
+  async reversal(tx: Transaction, id: string): Promise<ReversalRecord | null> {
+    const { rows } = await tx.query<ReversalRow>(`${REVERSAL} WHERE id = $1`, [id]);
+    return rows[0] === undefined ? null : reversalOf(rows[0]);
+  }
+
+  async decideReversal(tx: Transaction, id: string, status: 'POSTED' | 'REJECTED', at: Date, actorId: string): Promise<void> {
+    const posted = status === 'POSTED';
+    await tx.query(
+      'UPDATE prc.processing_reversal SET status = $2, posted_at = $3, posted_by = $4, version = version + 1, updated_at = now(), updated_by = $5 WHERE id = $1',
+      [id, status, posted ? at : null, posted ? actorId : null, actorId],
     );
   }
 }
