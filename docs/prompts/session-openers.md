@@ -46,7 +46,8 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B07 continued | `B07b-supplier-register.md` | `b07b-supplier-register` | B4 to B12 | A payout change waits for a different approver and the old details stay in force; a disguised document is refused; a rejected requisition cannot be converted; every write refuses the wrong role (built; the session split, A-167) |
 | B07 continued 1b | `B07b2-supplier-credit-scores.md` | `b07b2-supplier-credit-scores` | B4 to B12 | A credit note cannot exceed its invoice's uncredited amount; an approved variance lets a mismatched invoice be paid; a payment's remittance data is answered once; the score matches a hand calculation; every write refuses the wrong role (built) |
 | B06r | `B06r-processing-reversal-approval.md` | `b06r-processing-reversal-approval` | B4 to B12 | A processing reversal waits for a second approver at or above the threshold and is refused once a pack is sold or moved; a farm hand finds an animal by tag, reports and submits a death with its EVIDENCE photograph, and a manager approves it whatever its value; a reused photograph is flagged (built) |
-| B07 continued 2 | `B07c-storefront-checkout.md` | `b07c-storefront-checkout` | B4 to B12 | Checkout reserves stock and releases it on timeout; a live animal cannot be added to a cart; the catalogue exposes no cost; every staff write refuses the wrong role |
+| B07 continued 2 | `B07c-storefront-checkout.md` | `b07c-storefront-checkout` | B4 to B12 | The shared sort pages without skipping or repeating; checkout reserves stock and releases it on timeout; a live animal cannot be added to a cart; the catalogue exposes no cost; every staff write refuses the wrong role (built; the session split, A-179) |
+| B07 continued 3 | `B07c3-console-sort.md` | `b07c3-console-sort` | B4 to B12 | The four console lists sort through the shared keyset by CR-019's fields, each indexed, any other 400, and page without skipping or repeating; every read refuses the wrong role |
 | B8 | `B08-ledger-billing.md` | `b08-ledger-billing` | B4 to B12 | Trial balance sums to zero on a seeded day; an unbalanced journal is rejected by the database; numbering is gap-free under concurrent load |
 | B9a | `B09a-order-core-payments.md` | `b09a-order-core-payments` | B4 to B12 | Every payment edge case in the brief passes; an order on any channel posts stock, document, payment and ledger in one transaction |
 | B9b | `B09b-pos-shifts-offline.md` | `b09b-pos-shifts-offline` | B4 to B12 | Shift close reconciles; 500 queued offline transactions sync exactly once |
@@ -1090,13 +1091,42 @@ Stop at the gate, write docs/sessions/B07c-storefront-checkout.md, and merge int
 request is green.
 ```
 
+## B07 continued 3 — Server-side sort on the console lists (CR-019)
+
+Branch `b07c3-console-sort`, from `main`. Report `docs/sessions/B07c3-console-sort.md`. Inserted by the B07 continued 2 split (A-179, ADR-0026 Amendments). Gate: `listProducts`, `listStockOnHand`, `listStockUnits` and `listStockMovements` take CR-019's `sort` and `direction` through the shared keyset (ADR-0054), each allowed field backed by an index, any other field 400 `SORT_NOT_ALLOWED`; each list pages without skipping or repeating a row through ties and rows inserted between pages, proved per list; each operation's example shows its default order; every read still refuses the wrong role and the Farm hand still sees no cost.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B07c-storefront-checkout.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read CR-019 in that file, ADR-0054, docs/API.md section 5 and the as-built notes of
+docs/data-model/mdm.md and inv.md for the four lists' tables (nothing else from the SRS). Use
+docs/prompts/module-build-prompt.md as the recipe. Load hakorem-endpoint, hakorem-migration and hakorem-tests.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B07 continued 3 only, on branch b07c3-console-sort, branched from main: apply the shared sort of
+src/platform/http/keyset-sort.ts (ADR-0054, built and proved in B07 continued 2) to the console lists of products,
+stock on hand, lots and movements, with CR-019's fields (listProducts: name, sku, category, status, updatedAt;
+listStockOnHand: product name, location name, onHandQty, valueAtCostPesewas; listStockUnits: product name,
+identifier, expiresOn, valueAtCostPesewas; listStockMovements: occurredAt, product name, valuePesewas), `sort` and
+`direction` query parameters, an index per allowed field in each module's own migration (a field whose value is
+computed, such as a value at cost or another module's name, is sorted only if it can be indexed honestly in the
+owning schema: otherwise decline that field in the report with the reason), and each list's default order unchanged
+and shown in its example. A cost field stays readable only with its cost permission (ADR-0052): sorting by it is
+refused to a role that cannot read it. Write a test per list that pages through ties and concurrent inserts.
+Stop at the gate, write docs/sessions/B07c3-console-sort.md, and merge into main when every run on the pull
+request is green.
+```
+
 ## B8 — General ledger, billing and document generation
 
 Branch `b08-ledger-billing`. Report `docs/sessions/B08-ledger-billing.md`. Gate: the trial balance sums to zero on a seeded trading day, an unbalanced journal is rejected by the database itself, and numbering stays gap-free under concurrent load.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
-List docs/sessions/ and read only the most recent report (docs/sessions/B07c-storefront-checkout.md).
+List docs/sessions/ and read only the most recent report (docs/sessions/B07c3-console-sort.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
 report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the FIN, BIL and DOC requirement blocks of docs/SRS.md (nothing else from the SRS),
@@ -1282,7 +1312,9 @@ credit note (pur.SupplierCreditNoteApproved with its returned movements), with m
 It must include case 2's reused death photographs (B06r, A-175): each liv.MortalityPhotoReused with the record,
 the reporter and the earlier records whose photograph had the same bytes; and case 29 (A-176): every processing
 reversal from prc.ProcessingOrderReversed with its value, the threshold copied onto it, the maker, the approver
-when one was needed, and the reason.
+when one was needed, and the reason. Residual risk R18 (B07 continued 2): count the storefront checkouts
+started and expired per address a day from shp.CheckoutStarted and shp.CheckoutExpired, as an item when one
+address holds stock repeatedly without placing an order.
 Write the five tests of ADR-0028 under the names the ADR gives them, and run scenario 4 of
 docs/UAT.md as a dry run: the net profit for July to September 2026 in the seed is GHS 41,666.70 and
 the hand calculation must match the run to the pesewa.

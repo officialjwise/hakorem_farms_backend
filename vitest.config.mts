@@ -105,6 +105,8 @@ export default defineConfig({
         ...fullCoverage('src/modules/iam/domain/self-service.ts'), // B04e continued: phone codes, attempts, reset tokens
         ...fullCoverage('src/modules/doc/domain/file-use.ts'), // B04e continued 2: upload allow-lists, SA-11 caps, what is served
         ...fullCoverage('src/platform/storage/content-sniffer.ts'), // B04e continued 2: the type from the bytes (SC-12)
+        ...fullCoverage('src/modules/shp/domain/**/*.ts'), // B07 continued 2: storefront line estimates, fees, totals, reservation spread, levels
+        ...fullCoverage('src/platform/http/keyset-sort.ts'), // B07 continued 2: the shared sort (CR-019, ADR-0054)
         ...fullCoverage('src/platform/storage/image-variant-plan.ts'), // B04e continued 3: variant widths, byte budgets, the quality ladder
         ...fullCoverage('src/modules/mdm/domain/product-images.ts'), // B04e continued 3: which photograph is attached, gallery order
         ...fullCoverage('src/modules/mdm/domain/unit-conversion.ts'), // B06u: exact unit conversion factors and quantities (FR-MDM-003)

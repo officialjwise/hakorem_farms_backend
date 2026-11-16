@@ -1,0 +1,77 @@
+operationId: getCart
+tags:
+  - shp
+summary: "Get a cart"
+description: "The cart the guest cookie proves is the caller's, every price re-resolved now by the pricing engine (FR-SHP-003): line totals and the subtotal are computed by the server, never summed by the client. `displayedUnitPricePesewas` is today's price; `available` says whether the stock that may be promised covers the line. Any other cart, or none, is 404."
+x-error-codes:
+  - VALIDATION_FAILED
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - {}
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Cart"
+        example:
+          id: "019a7aa9-1c15-7ae4-b01c-b713eac82ff1"
+          status: ACTIVE
+          lines:
+            - id: "019a7afc-d910-7fa6-84df-034056ed7c1e"
+              product:
+                id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                slug: full-chicken-15-kg-pack
+                name: "Full chicken, 15 kg pack"
+                image: null
+              quantity: "1.000"
+              uom: PACK
+              displayedUnitPricePesewas: 2000
+              priceBasis: PER_KG
+              catchWeight: true
+              estimatedWeightKg: "15.000"
+              estimatedLineTotalPesewas: 30000
+              available: true
+            - id: "019a7afc-f7ff-798a-9ec2-a177d09e1a55"
+              product:
+                id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                slug: eggs-big-crate-of-30
+                name: "Eggs, big, crate of 30"
+                image: null
+              quantity: "2.000"
+              uom: CRATE
+              displayedUnitPricePesewas: 6000
+              priceBasis: PER_UNIT
+              catchWeight: false
+              estimatedWeightKg: null
+              estimatedLineTotalPesewas: 12000
+              available: true
+          itemCount: 3
+          estimatedSubtotalPesewas: 42000
+          couponCode: null
+          currency: GHS
+          updatedAt: "2026-11-13T07:30:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

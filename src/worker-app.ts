@@ -21,6 +21,7 @@ import { S3ObjectStorage } from './platform/storage/s3-object-storage';
 import { WorkerRuntime, type ScheduledJob } from './platform/worker/worker-runtime';
 import { BalanceReconciliation, ReservationExpiry, StockAlertSweep } from './modules/inv';
 import { MortalityEvidenceReturns } from './modules/liv';
+import { CatalogueListing } from './modules/shp';
 
 /** Milliseconds a storage call from the worker may take. */
 const STORAGE_TIMEOUT_MS = 10_000;
@@ -29,6 +30,8 @@ const SEALER_POOL_MAX = 2;
 const RESERVATION_EXPIRY_EVERY_MS = 60_000;
 /** A death report whose photograph the scanner rejected goes back to its maker within a minute (B06r). */
 const MORTALITY_EVIDENCE_RETURNS_EVERY_MS = 60_000;
+/** The storefront's listing is at most a minute behind prices and stock (A-178); carts and checkouts price live. */
+const CATALOGUE_REFRESH_EVERY_MS = 60_000;
 /** Daily at 02:00 Africa/Accra (UTC), in the heavy-work window: the stock recompute (FR-INV-003, docs/OPERATIONS.md). */
 const STOCK_BALANCE_RECOMPUTE_CRON = '0 2 * * *';
 /** Daily at 06:30, before the shop opens: low-stock and expiring-lot alerts (FR-INV-015, FR-INV-016). */
@@ -88,9 +91,11 @@ export async function startWorker(config: AppConfig, logger: Logger, clock: Cloc
   const balanceReconciliation = app.get(BalanceReconciliation);
   const stockAlerts = app.get(StockAlertSweep);
   const evidenceReturns = app.get(MortalityEvidenceReturns);
+  const catalogue = app.get(CatalogueListing);
   // The modules' scheduled jobs (ADR-0049, docs/OPERATIONS.md "Scheduled jobs").
   const jobs: ScheduledJob[] = [
     { name: 'reservation-expiry', when: { everyMs: RESERVATION_EXPIRY_EVERY_MS }, run: async (system) => ({ expired: (await reservationExpiry.run(system)).length }) },
+    { name: 'catalogue-refresh', when: { everyMs: CATALOGUE_REFRESH_EVERY_MS }, run: async () => catalogue.refresh() },
     {
       name: 'stock-balance-recompute',
       when: { cron: STOCK_BALANCE_RECOMPUTE_CRON },

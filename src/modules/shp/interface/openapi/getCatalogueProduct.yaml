@@ -1,0 +1,71 @@
+operationId: getCatalogueProduct
+tags:
+  - shp
+summary: "Get a product page"
+description: "Anonymous (FR-SHP-002): a listed product by its slug, with its photographs, SEO fields, price or price range and availability as `IN_STOCK`, `LOW_STOCK` (five sale units or fewer, a setting), `OUT_OF_STOCK` or `ON_REQUEST`, never the quantity. A catch-weight product carries its tolerance and the final-charge rule. 404 for a slug that is not listed."
+x-error-codes:
+  - VALIDATION_FAILED
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: slug
+    in: path
+    required: true
+    schema:
+      type: string
+security: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ProductDetail"
+        example:
+          productId: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
+          slug: goat-meat-15-kg-pack
+          name: "Goat meat, 15 kg pack"
+          description: "Fresh goat meat from animals raised and slaughtered on our Dodowa farm. Vacuum packed and frozen at -18 °C."
+          categoryPath:
+            - Meat
+          productLine: MEAT
+          onlineMode: LISTED
+          priceFromPesewas: 2600
+          priceToPesewas: null
+          priceBasis: PER_KG
+          taxInclusive: true
+          saleUom: PACK
+          nominalPackKg: "15.000"
+          catchWeight: true
+          weightTolerancePercent: "10.00"
+          finalChargeRule: "Priced at GHS 26.00 per kg. Each pack is weighed before dispatch and you pay for the weighed amount, at most 10% above the estimate. If it weighs less we refund the difference."
+          availability: IN_STOCK
+          images:
+            - alt: "Goat meat pack"
+              variants:
+                - variant: full
+                  url: "https://media.hakoremfarms.com/p/019a7a8e-48d3-77a2-9cda-82f8634afbd6/full.webp"
+                  width: 1280
+                  height: 1280
+                  sizeBytes: 118940
+                  fallbackUrl: "https://media.hakoremfarms.com/p/019a7a8e-48d3-77a2-9cda-82f8634afbd6/full.jpg"
+                  fallbackSizeBytes: 152377
+          seo:
+            slug: goat-meat-15-kg-pack
+            title: "Goat meat, 15 kg pack | HaKorem Farms"
+            description: "Farm-raised goat meat, delivered in Accra and Tema."
+          relatedSlugs:
+            - beef-15-kg-pack
+            - full-chicken-15-kg-pack
+          currency: GHS
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

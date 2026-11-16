@@ -1,0 +1,365 @@
+operationId: listCatalogue
+tags:
+  - shp
+summary: "Browse and search the public catalogue"
+description: "Anonymous and cacheable (FR-SHP-001). One request renders a listing page: no per-item calls. Active products listed online or on request, by category, with search over name and description, filters and cursor pagination. Prices come from the pricing engine on the ONLINE channel: a banded live animal shows the range of its band list prices and `REQUEST_TO_BUY`. No cost, floor, ceiling or stock quantity is ever in the response; availability is a level. `sort` is applied before paging, through the shared sort (CR-019): `RELEVANCE` (the default, the shop's category order then name), `PRICE_ASC` and `PRICE_DESC` (unpriced items last either way) and `NAME`; ties are broken by the product id, so a cursor never skips or repeats an item. Any other value is 400 `VALIDATION_FAILED` with detail `SORT_NOT_ALLOWED`. The listing is refreshed every minute (A-178); a cart and a checkout price live."
+x-error-codes:
+  - VALIDATION_FAILED
+  - RATE_LIMITED
+parameters:
+  - name: q
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: category
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: productLine
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/ProductLine"
+  - name: availability
+    in: query
+    required: false
+    schema:
+      type: string
+      enum:
+        - IN_STOCK
+        - LOW_STOCK
+        - OUT_OF_STOCK
+        - ON_REQUEST
+  - name: sort
+    in: query
+    required: false
+    schema:
+      type: string
+      enum:
+        - RELEVANCE
+        - PRICE_ASC
+        - PRICE_DESC
+        - NAME
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/CataloguePage"
+        example:
+          data:
+            - productId: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+              slug: goat
+              name: Goat
+              categoryPath:
+                - "Live animals"
+              productLine: LIVE
+              onlineMode: REQUEST_TO_BUY
+              priceFromPesewas: 12000
+              priceToPesewas: 195000
+              priceBasis: PER_HEAD
+              taxInclusive: true
+              saleUom: HEAD
+              nominalPackKg: null
+              catchWeight: false
+              availability: ON_REQUEST
+              image:
+                alt: Goat
+                variants:
+                  - variant: thumb
+                    url: "https://media.hakoremfarms.com/p/019a7a8d-137d-74bf-b9f8-54cda260cdab/thumb.webp"
+                    width: 320
+                    height: 320
+                    sizeBytes: 9214
+                    fallbackUrl: "https://media.hakoremfarms.com/p/019a7a8d-137d-74bf-b9f8-54cda260cdab/thumb.jpg"
+                    fallbackSizeBytes: 12480
+                  - variant: card
+                    url: "https://media.hakoremfarms.com/p/019a7a8d-137d-74bf-b9f8-54cda260cdab/card.webp"
+                    width: 640
+                    height: 640
+                    sizeBytes: 31872
+                    fallbackUrl: "https://media.hakoremfarms.com/p/019a7a8d-137d-74bf-b9f8-54cda260cdab/card.jpg"
+                    fallbackSizeBytes: 41356
+              currency: GHS
+            - productId: "019a7a8d-326c-7ea3-83db-f3051c116be3"
+              slug: sheep
+              name: Sheep
+              categoryPath:
+                - "Live animals"
+              productLine: LIVE
+              onlineMode: REQUEST_TO_BUY
+              priceFromPesewas: 15000
+              priceToPesewas: 300000
+              priceBasis: PER_HEAD
+              taxInclusive: true
+              saleUom: HEAD
+              nominalPackKg: null
+              catchWeight: false
+              availability: ON_REQUEST
+              image:
+                alt: Sheep
+                variants:
+                  - variant: thumb
+                    url: "https://media.hakoremfarms.com/p/019a7a8d-326c-7ea3-83db-f3051c116be3/thumb.webp"
+                    width: 320
+                    height: 320
+                    sizeBytes: 9214
+                    fallbackUrl: "https://media.hakoremfarms.com/p/019a7a8d-326c-7ea3-83db-f3051c116be3/thumb.jpg"
+                    fallbackSizeBytes: 12480
+                  - variant: card
+                    url: "https://media.hakoremfarms.com/p/019a7a8d-326c-7ea3-83db-f3051c116be3/card.webp"
+                    width: 640
+                    height: 640
+                    sizeBytes: 31872
+                    fallbackUrl: "https://media.hakoremfarms.com/p/019a7a8d-326c-7ea3-83db-f3051c116be3/card.jpg"
+                    fallbackSizeBytes: 41356
+              currency: GHS
+            - productId: "019a7a8d-515b-7886-9dbe-913c95c20a1a"
+              slug: baby-pig
+              name: "Baby pig"
+              categoryPath:
+                - "Live animals"
+              productLine: LIVE
+              onlineMode: REQUEST_TO_BUY
+              priceFromPesewas: 15000
+              priceToPesewas: 220000
+              priceBasis: PER_HEAD
+              taxInclusive: true
+              saleUom: HEAD
+              nominalPackKg: null
+              catchWeight: false
+              availability: ON_REQUEST
+              image:
+                alt: "Baby pig"
+                variants:
+                  - variant: thumb
+                    url: "https://media.hakoremfarms.com/p/019a7a8d-515b-7886-9dbe-913c95c20a1a/thumb.webp"
+                    width: 320
+                    height: 320
+                    sizeBytes: 9214
+                    fallbackUrl: "https://media.hakoremfarms.com/p/019a7a8d-515b-7886-9dbe-913c95c20a1a/thumb.jpg"
+                    fallbackSizeBytes: 12480
+                  - variant: card
+                    url: "https://media.hakoremfarms.com/p/019a7a8d-515b-7886-9dbe-913c95c20a1a/card.webp"
+                    width: 640
+                    height: 640
+                    sizeBytes: 31872
+                    fallbackUrl: "https://media.hakoremfarms.com/p/019a7a8d-515b-7886-9dbe-913c95c20a1a/card.jpg"
+                    fallbackSizeBytes: 41356
+              currency: GHS
+            - productId: "019a7a8d-704a-726a-a7a2-2f740f73a851"
+              slug: broiler-chicken
+              name: "Broiler chicken"
+              categoryPath:
+                - "Live poultry"
+              productLine: LIVE
+              onlineMode: LISTED
+              priceFromPesewas: 17000
+              priceToPesewas: null
+              priceBasis: PER_HEAD
+              taxInclusive: true
+              saleUom: HEAD
+              nominalPackKg: null
+              catchWeight: false
+              availability: IN_STOCK
+              image:
+                alt: "Broiler chicken"
+                variants:
+                  - variant: thumb
+                    url: "https://media.hakoremfarms.com/p/019a7a8d-704a-726a-a7a2-2f740f73a851/thumb.webp"
+                    width: 320
+                    height: 320
+                    sizeBytes: 9214
+                    fallbackUrl: "https://media.hakoremfarms.com/p/019a7a8d-704a-726a-a7a2-2f740f73a851/thumb.jpg"
+                    fallbackSizeBytes: 12480
+                  - variant: card
+                    url: "https://media.hakoremfarms.com/p/019a7a8d-704a-726a-a7a2-2f740f73a851/card.webp"
+                    width: 640
+                    height: 640
+                    sizeBytes: 31872
+                    fallbackUrl: "https://media.hakoremfarms.com/p/019a7a8d-704a-726a-a7a2-2f740f73a851/card.jpg"
+                    fallbackSizeBytes: 41356
+              currency: GHS
+            - productId: "019a7a8d-8f39-7c4d-b185-cdab89244689"
+              slug: local-chicken
+              name: "Local chicken"
+              categoryPath:
+                - "Live poultry"
+              productLine: LIVE
+              onlineMode: LISTED
+              priceFromPesewas: 14000
+              priceToPesewas: null
+              priceBasis: PER_HEAD
+              taxInclusive: true
+              saleUom: HEAD
+              nominalPackKg: null
+              catchWeight: false
+              availability: OUT_OF_STOCK
+              image:
+                alt: "Local chicken"
+                variants:
+                  - variant: thumb
+                    url: "https://media.hakoremfarms.com/p/019a7a8d-8f39-7c4d-b185-cdab89244689/thumb.webp"
+                    width: 320
+                    height: 320
+                    sizeBytes: 9214
+                    fallbackUrl: "https://media.hakoremfarms.com/p/019a7a8d-8f39-7c4d-b185-cdab89244689/thumb.jpg"
+                    fallbackSizeBytes: 12480
+                  - variant: card
+                    url: "https://media.hakoremfarms.com/p/019a7a8d-8f39-7c4d-b185-cdab89244689/card.webp"
+                    width: 640
+                    height: 640
+                    sizeBytes: 31872
+                    fallbackUrl: "https://media.hakoremfarms.com/p/019a7a8d-8f39-7c4d-b185-cdab89244689/card.jpg"
+                    fallbackSizeBytes: 41356
+              currency: GHS
+            - productId: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+              slug: eggs-big-crate-of-30
+              name: "Eggs, big, crate of 30"
+              categoryPath:
+                - Eggs
+              productLine: PRODUCE
+              onlineMode: LISTED
+              priceFromPesewas: 6000
+              priceToPesewas: null
+              priceBasis: PER_UNIT
+              taxInclusive: true
+              saleUom: CRATE
+              nominalPackKg: null
+              catchWeight: false
+              availability: IN_STOCK
+              image:
+                alt: "Eggs, big, crate of 30"
+                variants:
+                  - variant: thumb
+                    url: "https://media.hakoremfarms.com/p/019a7a8d-ae28-7631-8b69-6be302d5e4c0/thumb.webp"
+                    width: 320
+                    height: 320
+                    sizeBytes: 9214
+                    fallbackUrl: "https://media.hakoremfarms.com/p/019a7a8d-ae28-7631-8b69-6be302d5e4c0/thumb.jpg"
+                    fallbackSizeBytes: 12480
+                  - variant: card
+                    url: "https://media.hakoremfarms.com/p/019a7a8d-ae28-7631-8b69-6be302d5e4c0/card.webp"
+                    width: 640
+                    height: 640
+                    sizeBytes: 31872
+                    fallbackUrl: "https://media.hakoremfarms.com/p/019a7a8d-ae28-7631-8b69-6be302d5e4c0/card.jpg"
+                    fallbackSizeBytes: 41356
+              currency: GHS
+            - productId: "019a7a8d-cd17-7014-954c-0a1a7c8682f8"
+              slug: eggs-small-crate-of-30
+              name: "Eggs, small, crate of 30"
+              categoryPath:
+                - Eggs
+              productLine: PRODUCE
+              onlineMode: LISTED
+              priceFromPesewas: 4500
+              priceToPesewas: null
+              priceBasis: PER_UNIT
+              taxInclusive: true
+              saleUom: CRATE
+              nominalPackKg: null
+              catchWeight: false
+              availability: IN_STOCK
+              image:
+                alt: "Eggs, small, crate of 30"
+                variants:
+                  - variant: thumb
+                    url: "https://media.hakoremfarms.com/p/019a7a8d-cd17-7014-954c-0a1a7c8682f8/thumb.webp"
+                    width: 320
+                    height: 320
+                    sizeBytes: 9214
+                    fallbackUrl: "https://media.hakoremfarms.com/p/019a7a8d-cd17-7014-954c-0a1a7c8682f8/thumb.jpg"
+                    fallbackSizeBytes: 12480
+                  - variant: card
+                    url: "https://media.hakoremfarms.com/p/019a7a8d-cd17-7014-954c-0a1a7c8682f8/card.webp"
+                    width: 640
+                    height: 640
+                    sizeBytes: 31872
+                    fallbackUrl: "https://media.hakoremfarms.com/p/019a7a8d-cd17-7014-954c-0a1a7c8682f8/card.jpg"
+                    fallbackSizeBytes: 41356
+              currency: GHS
+            - productId: "019a7a8d-ec06-79f8-af30-a851f637212f"
+              slug: full-chicken-15-kg-pack
+              name: "Full chicken, 15 kg pack"
+              categoryPath:
+                - Meat
+              productLine: MEAT
+              onlineMode: LISTED
+              priceFromPesewas: 2000
+              priceToPesewas: null
+              priceBasis: PER_KG
+              taxInclusive: true
+              saleUom: PACK
+              nominalPackKg: "15.000"
+              catchWeight: true
+              availability: LOW_STOCK
+              image:
+                alt: "Full chicken, 15 kg pack"
+                variants:
+                  - variant: thumb
+                    url: "https://media.hakoremfarms.com/p/019a7a8d-ec06-79f8-af30-a851f637212f/thumb.webp"
+                    width: 320
+                    height: 320
+                    sizeBytes: 9214
+                    fallbackUrl: "https://media.hakoremfarms.com/p/019a7a8d-ec06-79f8-af30-a851f637212f/thumb.jpg"
+                    fallbackSizeBytes: 12480
+                  - variant: card
+                    url: "https://media.hakoremfarms.com/p/019a7a8d-ec06-79f8-af30-a851f637212f/card.webp"
+                    width: 640
+                    height: 640
+                    sizeBytes: 31872
+                    fallbackUrl: "https://media.hakoremfarms.com/p/019a7a8d-ec06-79f8-af30-a851f637212f/card.jpg"
+                    fallbackSizeBytes: 41356
+              currency: GHS
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+          facets:
+            categories:
+              - code: MEAT
+                name: Meat
+                count: 5
+              - code: LIVE
+                name: "Live animals"
+                count: 3
+              - code: POULTRY
+                name: "Live poultry"
+                count: 2
+              - code: EGGS
+                name: Eggs
+                count: 2
+              - code: PRODUCE
+                name: "Fresh produce"
+                count: 3
+            productLines:
+              - value: MEAT
+                count: 5
+              - value: LIVE
+                count: 5
+              - value: PRODUCE
+                count: 5
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

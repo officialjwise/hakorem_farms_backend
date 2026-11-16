@@ -106,3 +106,14 @@ Abandoned-cart reminders requested.
 | `recorded_at` | `timestamptz` | NOT NULL DEFAULT `now()` | |
 
 - UNIQUE (`cart_id`, `sequence_no`): each reminder is requested once. Sent only when `recovery_consent` is true.
+
+---
+
+## As built (B07 continued 2, migration 0119; A-177, A-178)
+
+- **`shp.cart`:** as above, plus `version` (optimistic lock, `platform.touch_version`). B07 continued 2 creates guest carts only: `guest_token_hash` is the 32-byte HMAC of the cookie token; `customer_id` stays null until registered checkout (B09a). `coupon_code` is checked by `ck_cart_coupon_code`.
+- **`shp.cart_line`:** adds `uom` (the product's sale unit) and `updated_at`. Quantities are whole sale units (checked in the handler, A-178).
+- **`shp.checkout_session`:** as above, plus `coupon_code`, `discount_pesewas`, `promotions` (jsonb snapshot of the applied promotions as shown), `tax_pesewas` (the levies inside the tax-inclusive total), `version` and `posted_at`/`posted_by` for the ended statuses. `order_id` has no foreign key yet: B09a adds `fk_checkout_session_order` to `ord.sales_order` when the table exists (expand). `ck_checkout_session_delivery`: a delivered checkout names its zone and address; a collected one has no zone, slot or fee. Frozen once `COMPLETED`, `EXPIRED` or `CANCELLED` (`platform.freeze_posted`). The reservations are INV's, keyed by `holder_document_id` = the checkout id (document type `CHECKOUT_SESSION`, migration 0117).
+- **`shp.checkout_line` (DOCUMENT, new):** the lines as priced when the checkout started: product, quantity and unit, `base_qty` reserved (a catch-weight line's packs times the nominal pack weight), the price list entry, unit price and basis, the estimated weight, estimated and maximum line totals, the discount taken from the line and its tax category. PK (`checkout_id`, `line_no`). Written once, while the checkout is `STARTED` (`shp.checkout_line_guard`, HK004); `ck_checkout_line_totals`.
+- **`shp.product_listing`:** as above, plus `description`, `category_code` (leaf), `category_codes` (root first, GIN index), `category_sort`, `sale_uom`, `nominal_pack_kg`, `catch_weight`, `weight_tolerance_percent` and `images` (jsonb snapshot of the public variants). Indexes for the shared sort (ADR-0054): name, price (unpriced last) and the shop's order. Written only by `shp.replace_product_listing(branch, rows)` (SECURITY DEFINER); `hk_app` reads it. Rebuilt every minute by the `catalogue-refresh` job.
+- **`shp.abandoned_cart_notice`:** not created yet (B11).

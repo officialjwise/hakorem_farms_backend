@@ -10,6 +10,8 @@ import { InvModule } from './modules/inv';
 import { LivModule } from './modules/liv';
 import { PrcModule } from './modules/prc';
 import { PurModule } from './modules/pur';
+import { DelModule } from './modules/del';
+import { ShpModule } from './modules/shp';
 import { RptModule } from './modules/rpt';
 import { PlatformModule } from './platform/platform.module';
 
@@ -27,7 +29,7 @@ export class AppModule {
   ): DynamicModule {
     return {
       module: AppModule,
-      imports: [PlatformModule.forRoot(config, logger, clock), IamModule, AudModule, MdmModule, DocModule, InvModule, LivModule, PrcModule, PurModule, RptModule, ...extra],
+      imports: [PlatformModule.forRoot(config, logger, clock), IamModule, AudModule, MdmModule, DocModule, InvModule, LivModule, PrcModule, PurModule, DelModule, ShpModule, RptModule, ...extra],
     };
   }
 }

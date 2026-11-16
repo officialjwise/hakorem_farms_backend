@@ -132,3 +132,9 @@ End-of-day reconciliation of a driver's cash. Posted status: `POSTED`.
 | `note` | `text` | NULL | |
 
 Standard columns: `DOCUMENT` (`status` in `DRAFT`, `POSTED`). UNIQUE (`driver_id`, `reconciliation_date`).
+
+---
+
+## As built (B07 continued 2, migration 0118; SA-13)
+
+Only `del.delivery_slot` exists, as above, plus `ck_delivery_slot_capacity` (1 to 1,000), `uq_delivery_slot_start` as a partial unique index on live rows, and `ix_delivery_slot_start` on (`slot_date + starts_at`, `id`), the order of every slot list. `booked` stays 0 until B11 books deliveries under a row lock; `ck_delivery_slot_booked` already refuses a capacity below it. The other tables are B11's.

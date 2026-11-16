@@ -1,0 +1,67 @@
+operationId: listShopCategories
+tags:
+  - shp
+summary: "List storefront categories"
+description: "Anonymous: the categories shown online that hold at least one listed product, in the shop's order, with the number of listed products in each (a parent counts its children's)."
+x-error-codes:
+  - VALIDATION_FAILED
+  - RATE_LIMITED
+parameters:
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ShopCategoryPage"
+        example:
+          data:
+            - code: LIVE
+              name: "Live animals"
+              parentCode: null
+              productCount: 3
+              image: null
+            - code: POULTRY
+              name: "Live poultry"
+              parentCode: LIVE
+              productCount: 2
+              image: null
+            - code: MEAT
+              name: Meat
+              parentCode: null
+              productCount: 5
+              image: null
+            - code: EGGS
+              name: Eggs
+              parentCode: null
+              productCount: 2
+              image: null
+            - code: PRODUCE
+              name: "Fresh produce"
+              parentCode: null
+              productCount: 3
+              image: null
+          page:
+            nextCursor: null
+            limit: 25
+            hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -132,6 +132,8 @@ import {
   SupplierProfileUpdate,
 } from '../../../src/modules/pur/interface/schemas';
 import { SettingUpdate as AudSettingUpdate } from '../../../src/modules/aud/interface/schemas';
+import { SlotGenerate, SlotUpdate } from '../../../src/modules/del/interface/schemas';
+import { CartLineAdd, CartLineUpdate, CheckoutStart, CheckoutUpdate, CouponApply } from '../../../src/modules/shp/interface/schemas';
 import { createCatalogue, type TestCatalogue } from '../../support/catalogue';
 import { contractSchema } from '../../support/contract-schemas';
 import { consoleGet, consolePost, createBranch, createUser, enrolAndLogin, login, relaxRateLimits, testStartTime, type TestSession } from '../../support/iam';
@@ -378,6 +380,13 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     convertPurchaseRequisition: RequisitionConvert,
     requestSupplierInvoiceVariance: SupplierInvoiceVarianceRequest,
     updateSetting: AudSettingUpdate,
+    generateDeliverySlots: SlotGenerate,
+    updateDeliverySlot: SlotUpdate,
+    addCartLine: CartLineAdd,
+    updateCartLine: CartLineUpdate,
+    applyCartCoupon: CouponApply,
+    startCheckout: CheckoutStart,
+    updateCheckout: CheckoutUpdate,
   };
 
   it('parses every request example of an implemented operation with the schema its route validates with', () => {

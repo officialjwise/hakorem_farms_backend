@@ -1,0 +1,48 @@
+operationId: createCart
+tags:
+  - shp
+summary: "Start a cart"
+description: "A guest cart (FR-SHP-003, A-177), at the storefront's branch. The first answer sets the host-only cookie `__Host-hk_guest` (httpOnly, Secure, SameSite=Strict) whose token proves the cart is the caller's; it is stored only as a keyed hash. A replay with the same Idempotency-Key answers the same cart without the cookie. Requires an allowed `Origin`. Customer accounts and adopting a cart at sign-in arrive with registered checkout (B09a)."
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - ORIGIN_NOT_ALLOWED
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+security:
+  - {}
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Cart"
+        example:
+          id: "019a7aa9-1c15-7ae4-b01c-b713eac82ff1"
+          status: ACTIVE
+          lines: []
+          itemCount: 0
+          estimatedSubtotalPesewas: 0
+          couponCode: null
+          currency: GHS
+          updatedAt: "2026-11-13T07:30:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
