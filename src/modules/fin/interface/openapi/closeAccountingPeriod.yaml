@@ -2,7 +2,7 @@ operationId: closeAccountingPeriod
 tags:
   - fin
 summary: "Close a locked period permanently"
-description: "Final: a closed period never changes again. Only a `LOCKED` period that has ended is closed, and only once every earlier period is closed (A-188; the database holds both). A refusal is 422 `INVALID_STATE_TRANSITION` with `details[].code` the period's status, `PERIOD_NOT_ENDED` or `EARLIER_PERIOD_NOT_CLOSED`.\n\nPermission: `fin.period.close`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+description: "Final: a closed period never changes again. Only a `LOCKED` period that has ended is closed, and only once every earlier period is closed (A-188; the database holds both). A refusal is 422 `INVALID_STATE_TRANSITION` with `details[].code` the period's status, `PERIOD_NOT_ENDED` or `EARLIER_PERIOD_NOT_CLOSED`. Closing the last period of a year (`periodNo` 12) also closes the year (FR-FIN-010, since 1.37.0), in the same transaction: for each branch with a balance to close the ledger posts one `CLOSING` journal entry dated 31 December that closes every income, cost of sales and expense account to current year earnings (3200), then 3200 to retained earnings (3100) by the exact profit or loss, and distributions declared (3300) to 3100; afterwards they are all at nil. If that posting is refused (a closed account, say) nothing closes: 422 `POSTING_RULE_MISSING` or `SUBLEDGER_REQUIRED`.\n\nPermission: `fin.period.close`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
 x-permission: fin.period.close
 x-requires-step-up: true
 x-error-codes:
@@ -17,6 +17,8 @@ x-error-codes:
   - TOTP_ENROLMENT_REQUIRED
   - NOT_FOUND
   - INVALID_STATE_TRANSITION
+  - POSTING_RULE_MISSING
+  - SUBLEDGER_REQUIRED
   - RATE_LIMITED
 parameters:
   - name: id

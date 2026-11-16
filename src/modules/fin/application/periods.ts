@@ -14,6 +14,7 @@ import type { PeriodFacts } from '../domain/period';
 import { judgeClose, judgeLock, judgeReopen } from '../domain/period-lifecycle';
 import type { ChartStore, PeriodRow, ReopenRow } from './chart-store';
 import { PeriodStateError } from './errors';
+import { LAST_PERIOD_NO, type YearClose } from './year-close';
 
 export const LOCK_ACCOUNTING_PERIOD = 'lockAccountingPeriod';
 export const CLOSE_ACCOUNTING_PERIOD = 'closeAccountingPeriod';
@@ -76,6 +77,7 @@ export class Periods implements ApprovalHandler {
     private readonly names: PrincipalNames,
     private readonly cursors: Cursors,
     private readonly clock: Clock,
+    private readonly yearClose: YearClose,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -105,6 +107,8 @@ export class Periods implements ApprovalHandler {
     return this.change(actor, CLOSE, CLOSE_ACCOUNTING_PERIOD, 'CLOSE', id, idempotencyKey, async (tx, period) => {
       const verdict = judgeClose(period, await this.store.allPeriods(tx), toBusinessDate(this.clock.now()));
       if (!verdict.ok) throw new PeriodStateError('close', verdict.error);
+      // The last period closes the year (FR-FIN-010): its CLOSING entries post while it is still LOCKED, then it closes.
+      if (period.periodNo === LAST_PERIOD_NO) await this.yearClose.closeIn(tx, period, actor!.principalId);
       await this.store.closePeriod(tx, id, actor!.principalId, this.clock.now());
     });
   }

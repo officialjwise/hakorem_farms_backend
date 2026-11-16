@@ -41,6 +41,18 @@ export function choosePostingDate(occurredDate: string, recordedDate: string, pe
   return ok({ postingDate: recordedDate, periodId: late.id, late: true });
 }
 
+/**
+ * The posting date of a year close (FR-FIN-010, ADR-0058): the last day of the fiscal year, in its last period, which
+ * must be LOCKED (the close is what closes it). The date is never moved: a year close posts on 31 December or not at all.
+ */
+export function closingPostingDate(date: string, periods: readonly PeriodFacts[]): Result<PostingDate, PeriodNotOpen> {
+  const last = periods.find((p) => p.endDate === date && p.status === 'LOCKED' && date.endsWith(YEAR_END));
+  return last === undefined ? err({ rule: 'PERIOD_NOT_OPEN', date }) : ok({ postingDate: date, periodId: last.id, late: false });
+}
+
+/** The last day of the fiscal year, which is the calendar year (A-028). */
+export const YEAR_END = '-12-31';
+
 /** The fiscal year is the calendar year (A-028), so a number series restarts each 1 January. */
 export function fiscalYearOf(postingDate: string): number {
   return Number(postingDate.slice(0, 4));

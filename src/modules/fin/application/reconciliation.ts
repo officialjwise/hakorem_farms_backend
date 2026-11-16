@@ -6,6 +6,7 @@ import type { NumberSeries, SeriesGap } from '../../../platform/documents/number
 import type { DomainEvents } from '../../../platform/events/domain-events';
 import { controlAccountBreaks, subledgerByAccount, type ControlAccountBreak, type SubledgerValue } from '../domain/trial-balance';
 import type { LedgerStore, SubledgerSource, UnbalancedEntry } from './ledger-store';
+import type { PeriodBalanceDrift, StatementStore } from './statement-store';
 
 /** The subledgers higher modules keep for FIN's control accounts (ADR-0056), registered at module init. */
 export class SubledgerSources {
@@ -36,13 +37,16 @@ export interface ReconciliationReport {
   readonly unbalancedEntries: readonly UnbalancedEntry[];
   readonly sources: readonly SourceBreaks[];
   readonly seriesGaps: readonly SeriesGap[];
+  /** LOCKED or CLOSED periods whose period balances no longer equal their lines (ADR-0058). */
+  readonly periodBalanceDrift: readonly PeriodBalanceDrift[];
   readonly clean: boolean;
 }
 
 /**
  * The nightly ledger reconciliation (FR-FIN-016, ADR-0003 safeguard two): the trial balance sums to zero overall and
  * per entry, each control account equals its subledger (the inventory accounts against INV's cost pools, through the
- * registered sources), and every number series is contiguous (ADR-0015). A finding is published as
+ * registered sources), every number series is contiguous (ADR-0015), and every locked or closed period's balances equal
+ * its lines (ADR-0058; the open periods' balances are refreshed first). A finding is published as
  * `fin.TrialBalanceDriftDetected` with the offending records and logged as an alert; nothing is ever corrected. Read
  * committed: it only reads, and writes its events.
  */
@@ -55,6 +59,7 @@ export class LedgerReconciliation {
     private readonly events: DomainEvents,
     private readonly clock: Clock,
     private readonly logger: Logger,
+    private readonly statements: StatementStore,
   ) {}
 
   /** The findings, read in the caller's transaction; publishes nothing. */
@@ -73,8 +78,14 @@ export class LedgerReconciliation {
       sources.push({ source: source.name, breaks: controlAccountBreaks(ledger, mapped.byAccount), unmapped: mapped.unmapped });
     }
     const seriesGaps = await this.numbers.gapsIn(tx);
-    const clean = signedSumPesewas === 0n && unbalancedEntries.length === 0 && seriesGaps.length === 0 && sources.every((s) => s.breaks.length === 0 && s.unmapped.length === 0);
-    return { signedSumPesewas, unbalancedEntries, sources, seriesGaps, clean };
+    const periodBalanceDrift = await this.statements.periodBalanceDrift(tx);
+    const clean =
+      signedSumPesewas === 0n &&
+      unbalancedEntries.length === 0 &&
+      seriesGaps.length === 0 &&
+      periodBalanceDrift.length === 0 &&
+      sources.every((s) => s.breaks.length === 0 && s.unmapped.length === 0);
+    return { signedSumPesewas, unbalancedEntries, sources, seriesGaps, periodBalanceDrift, clean };
   }
 
   run(system: Actor): Promise<ReconciliationReport> {
@@ -82,6 +93,8 @@ export class LedgerReconciliation {
       throw new Error('the ledger reconciliation runs as a SYSTEM principal only');
     }
     return this.uow.run({ isolation: 'read committed' }, async (tx) => {
+      // The period balances of every open period are refreshed nightly (ADR-0058); a locked one keeps its own.
+      await this.statements.refreshPeriodBalances(tx, await this.statements.openPeriodsUpTo(tx, toBusinessDate(this.clock.now())));
       const report = await this.reportIn(tx);
       if (!report.clean) {
         const codes = await this.store.accountCodes(tx);
@@ -97,6 +110,15 @@ export class LedgerReconciliation {
             ),
             unmapped: report.sources.flatMap((s) => s.unmapped.map((u) => ({ source: s.source, key: u.key, pesewas: Number(u.pesewas) }))),
             seriesGaps: report.seriesGaps,
+            periodBalanceDrift: report.periodBalanceDrift.map((d) => ({
+              periodId: d.periodId,
+              accountCode: codes.get(d.accountId) ?? d.accountId,
+              branchId: d.branchId,
+              projectedDebitPesewas: Number(d.projectedDebitPesewas),
+              projectedCreditPesewas: Number(d.projectedCreditPesewas),
+              lineDebitPesewas: Number(d.lineDebitPesewas),
+              lineCreditPesewas: Number(d.lineCreditPesewas),
+            })),
           },
         });
         this.logger.error({ signedSum: report.signedSumPesewas.toString(), unbalanced: report.unbalancedEntries.length, seriesGaps: report.seriesGaps.length }, 'ledger reconciliation break; nothing was corrected');

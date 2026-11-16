@@ -234,7 +234,7 @@ afterAll(async () => {
 });
 
 describe('deny by default: the handler walk (ADR-0017, security architecture section 14)', () => {
-  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued, B05 continued 3, B05x, B6, B06m, B06 continued, B06 continued 2, B06 continued 3, B06u, B7, B07 continued, B07 continued 1b, B06r, B07 continued 2, B08 continued, B08 continued 1b and B08 continued 1b2 routes, and every one declares its operation', () => {
+  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued, B05 continued 3, B05x, B6, B06m, B06 continued, B06 continued 2, B06 continued 3, B06u, B7, B07 continued, B07 continued 1b, B06r, B07 continued 2, B08 continued, B08 continued 1b, B08 continued 1b2 and B08 continued 1c routes, and every one declares its operation', () => {
     expect(routes.map((route) => route.spec?.operationId).sort()).toEqual(
       [
         'changePassword', 'confirmTotpEnrolment', 'createProduct', 'getCurrentSession', 'getHealth', 'getProduct', 'listProducts', 'listSessions',
@@ -298,6 +298,7 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'listJournalEntries', 'getJournalEntry', 'listAccountActivity', 'listManualJournals', 'createManualJournal', 'getManualJournal', 'updateManualJournal',
         'submitManualJournal', 'listPostingEventTypes', 'listPostingRules', 'createPostingRule', 'listAccountDeterminations', 'createAccountDetermination',
         'listBankAccounts', 'createBankAccount', 'updateBankAccount',
+        'getTrialBalance', 'getProfitAndLoss', 'getBalanceSheet', 'getCashFlow', 'getCashPositionTile',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);
@@ -317,7 +318,12 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
   });
 
   /** Reads whose query has a required parameter: without it the request is refused as invalid before it is authorised. */
-  const VALID_QUERY: Record<string, string> = { listStockAvailability: `?branchId=${randomUUID()}`, listGrowth: '?groupBy=PEN&from=2026-10-01&to=2026-10-31', listSupplierScores: '?periodStart=2026-10-01', listAccountActivity: '?from=2026-11-01&to=2026-11-30' };
+  const VALID_QUERY: Record<string, string> = { listStockAvailability: `?branchId=${randomUUID()}`, listGrowth: '?groupBy=PEN&from=2026-10-01&to=2026-10-31', listSupplierScores: '?periodStart=2026-10-01', listAccountActivity: '?from=2026-11-01&to=2026-11-30',
+    getTrialBalance: '?from=2026-11-01&to=2026-11-30',
+    getProfitAndLoss: '?from=2026-11-01&to=2026-11-30',
+    getBalanceSheet: '?asOf=2026-11-30',
+    getCashFlow: '?from=2026-11-01&to=2026-11-30',
+  };
 
   it('refuses a staff user who holds no grant on every permissioned operation, with 403 FORBIDDEN', async () => {
     const nobody = await createUser(database, { name: 'Kwame Nkansah' });

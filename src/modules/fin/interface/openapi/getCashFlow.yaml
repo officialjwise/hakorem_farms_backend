@@ -1,0 +1,158 @@
+operationId: getCashFlow
+tags:
+  - fin
+summary: "Cash flow statement for any date range"
+description: "The cash flow by the direct method over the cash and bank accounts 1000 to 1130 (FR-FIN-013): `OPENING_CASH` per account, then each account on the other side of the cash lines from `from` to `to` inclusive in its cash flow category (`OPERATING` when it has none), its credits less debits on those entries as an inflow or an outflow (`isNegative`), the `NET_CHANGE` and `CLOSING_CASH` per account. A move between two cash accounts is no flow. `checks` says whether opening cash plus the net change equals closing cash. Each figure is an exact sum of journal lines in integer pesewas; a LOCKED or CLOSED period lying wholly inside the range, or wholly before it, is read from its period balances, computed by the database when it locked or closed (ADR-0058). `branchId` narrows every figure to one branch (each entry's lines carry its branch); without it, every branch. `from` after `to` is 400.\n\nPermission: `fin.report.read`."
+x-permission: fin.report.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - RATE_LIMITED
+parameters:
+  - name: from
+    in: query
+    required: true
+    schema:
+      type: string
+      format: date
+  - name: to
+    in: query
+    required: true
+    schema:
+      type: string
+      format: date
+  - name: branchId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/FinancialStatement"
+        example:
+          statement: CASH_FLOW
+          from: "2026-10-01"
+          to: "2026-10-31"
+          asOfDate: null
+          branchId: null
+          sections:
+          - key: OPENING_CASH
+            label: "Opening cash"
+            rows:
+              - account:
+                  id: "019a7ad0-1fa2-7b3c-8a01-2b0c7d1e1010"
+                  code: "1010"
+                  name: "Cash, safe"
+                label: "Cash, safe"
+                amountPesewas: 900000
+                isNegative: false
+              - account:
+                  id: "019a7ad0-2c4d-7e11-9b02-3c1d8e2f1100"
+                  code: "1100"
+                  name: "Bank accounts"
+                label: "Bank accounts"
+                amountPesewas: 4540500
+                isNegative: false
+            totalPesewas: 5440500
+            totalIsNegative: false
+          - key: OPERATING
+            label: "Operating activities"
+            rows:
+              - account:
+                  id: "019a7ad0-8d61-7c53-bf06-7051c2632000"
+                  code: "2000"
+                  name: "Trade payables"
+                label: "Trade payables"
+                amountPesewas: 6310100
+                isNegative: true
+              - account:
+                  id: "019a7ad2-eb1b-7853-9d8c-8e0e640206ec"
+                  code: "4000"
+                  name: "Sales, live animals"
+                label: "Sales, live animals"
+                amountPesewas: 8840000
+                isNegative: false
+              - account:
+                  id: "019a7ad4-f8fa-706e-a5a7-0fbd78c3889b"
+                  code: "6000"
+                  name: "Wages"
+                label: "Wages"
+                amountPesewas: 1920000
+                isNegative: true
+            totalPesewas: 609900
+            totalIsNegative: false
+          - key: INVESTING
+            label: "Investing activities"
+            rows:
+              - account:
+                  id: "019a7ad0-6b4f-7a31-9d04-5e3fa0411520"
+                  code: "1520"
+                  name: "Cold rooms at cost"
+                label: "Cold rooms at cost"
+                amountPesewas: 1850000
+                isNegative: true
+            totalPesewas: 1850000
+            totalIsNegative: true
+          - key: FINANCING
+            label: "Financing activities"
+            rows:
+              - account:
+                  id: "019a7ad0-806f-728e-97c6-31b8e22eaa96"
+                  code: "3000"
+                  name: "Investor capital"
+                label: "Investor capital"
+                amountPesewas: 1920000
+                isNegative: false
+            totalPesewas: 1920000
+            totalIsNegative: false
+          - key: NET_CHANGE
+            label: "Net change in cash"
+            rows: []
+            totalPesewas: 679900
+            totalIsNegative: false
+          - key: CLOSING_CASH
+            label: "Closing cash"
+            rows:
+              - account:
+                  id: "019a7ad0-1fa2-7b3c-8a01-2b0c7d1e1010"
+                  code: "1010"
+                  name: "Cash, safe"
+                label: "Cash, safe"
+                amountPesewas: 900000
+                isNegative: false
+              - account:
+                  id: "019a7ad0-2c4d-7e11-9b02-3c1d8e2f1100"
+                  code: "1100"
+                  name: "Bank accounts"
+                label: "Bank accounts"
+                amountPesewas: 5220400
+                isNegative: false
+            totalPesewas: 6120400
+            totalIsNegative: false
+          checks:
+            - name: "Opening cash plus net change equals closing cash"
+              passed: true
+          currency: GHS
+          generatedAt: "2026-11-13T09:33:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

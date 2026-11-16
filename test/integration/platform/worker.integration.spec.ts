@@ -145,7 +145,7 @@ describe('the worker process (ADR-0006, ADR-0010)', () => {
     const run = (await admin.query<{ outcome: string; summary: unknown; actor_id: string }>("SELECT outcome, summary, actor_id FROM platform.job_run WHERE job_name = 'ledger-reconcile'")).rows[0];
     expect(run).toEqual({
       outcome: 'SUCCESS',
-      summary: { clean: true, signedSumPesewas: 0, unbalancedEntryIds: [], controlBreaks: 0, seriesGapIds: [] },
+      summary: { clean: true, signedSumPesewas: 0, unbalancedEntryIds: [], controlBreaks: 0, seriesGapIds: [], periodBalanceDriftPeriodIds: [] },
       actor_id: '01900000-0000-7000-8000-000000000004',
     });
   });

@@ -3,7 +3,7 @@ import { IsolationLevelError, type Transaction } from '../../../platform/databas
 import type { DocumentRegistry } from '../../../platform/documents/document-registry';
 import type { NumberSeries } from '../../../platform/documents/number-series';
 import type { MasterDataRefs } from '../../mdm';
-import { choosePostingDate, fiscalYearOf } from '../domain/period';
+import { choosePostingDate, closingPostingDate, fiscalYearOf } from '../domain/period';
 import { buildJournalLines, reverseLines, type PostingAmount } from '../domain/posting';
 import { LedgerPostingRefusedError } from './errors';
 import type { LedgerStore, LineRow } from './ledger-store';
@@ -28,6 +28,11 @@ export interface PostingRequest {
    * date posts as it is or not at all: the late-event rule never moves a journal a person dated (PERIOD_NOT_OPEN).
    */
   readonly manual?: { readonly kind: 'MANUAL' | 'OPENING'; readonly description: string; readonly postingDate: string } | null;
+  /**
+   * A year close (FR-FIN-010, ADR-0058): a CLOSING entry on the last day of the year, into that year's last period
+   * while it is LOCKED, posted in the transaction that closes it. Never moved to another date.
+   */
+  readonly closing?: { readonly description: string; readonly postingDate: string } | null;
 }
 
 export interface PostedEntry {
@@ -64,13 +69,15 @@ export class Ledger {
       throw new IsolationLevelError(tx.isolation);
     }
     const manual = request.manual ?? null;
-    const occurredDate = manual?.postingDate ?? toBusinessDate(request.occurredAt);
-    const recordedDate = manual?.postingDate ?? toBusinessDate(request.recordedAt);
+    const closing = request.closing ?? null;
+    const occurredDate = manual?.postingDate ?? closing?.postingDate ?? toBusinessDate(request.occurredAt);
+    const recordedDate = manual?.postingDate ?? closing?.postingDate ?? toBusinessDate(request.recordedAt);
     const eventType = await this.store.eventType(tx, request.eventCode);
     if (eventType === null) {
       throw new LedgerPostingRefusedError(request.eventCode, { rule: 'NOT_CATALOGUED', eventCode: request.eventCode });
     }
-    const dated = choosePostingDate(occurredDate, recordedDate, await this.store.periodsOn(tx, [occurredDate, recordedDate]));
+    const periods = await this.store.periodsOn(tx, [occurredDate, recordedDate]);
+    const dated = closing === null ? choosePostingDate(occurredDate, recordedDate, periods) : closingPostingDate(closing.postingDate, periods);
     if (!dated.ok) {
       throw new LedgerPostingRefusedError(request.eventCode, dated.error);
     }
@@ -131,13 +138,13 @@ export class Ledger {
         postingDate,
         periodId,
         branchId: request.branchId,
-        kind: manual?.kind ?? (reversesEntryId === null ? 'AUTO' : 'REVERSAL'),
+        kind: manual?.kind ?? (closing === null ? (reversesEntryId === null ? 'AUTO' : 'REVERSAL') : 'CLOSING'),
         eventCode: request.eventCode,
         eventId: request.eventId,
         eventSubjectId: request.eventSubjectId,
         sourceDocumentId: request.sourceDocumentId,
         postingGroupId,
-        description: manual?.description ?? eventType.description,
+        description: manual?.description ?? closing?.description ?? eventType.description,
         reversesEntryId,
         occurredAt: request.occurredAt,
         actorId: request.actorId,

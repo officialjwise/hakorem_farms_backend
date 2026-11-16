@@ -183,3 +183,28 @@ describe('a manual journal posts its lines as entered (ADR-0003 row fin.ManualJo
     expect(result.ok && result.value.map((l) => l.accountCode)).toEqual(['1320', '2010']);
   });
 });
+
+describe('the year close posts each balance to the account it closes (ADR-0003 row fin.YearClosed)', () => {
+  const closing = ruleSet([determined('closeDebitToCurrent', 'C', 'CLOSED_ACCOUNT', 'CLOSED'), fixed('closeDebitToCurrent', 'D', '5110')]);
+
+  it('credits the closed account by its exact balance and debits the fixed account', () => {
+    const result = buildJournalLines([{ key: 'closeDebitToCurrent', amount: Money.ofPesewas(71_401n), closedAccountId: 'acct-5100' }], closing, ['closeDebitToCurrent']);
+    expect(result.ok && result.value.map((l) => [l.accountCode, l.side, l.amount.pesewas])).toEqual([
+      ['5100', 'C', 71_401n],
+      ['5110', 'D', 71_401n],
+    ]);
+  });
+
+  it('refuses an amount that names no closed account', () => {
+    expect(buildJournalLines([{ key: 'closeDebitToCurrent', amount: Money.ofPesewas(1n) }], closing, ['closeDebitToCurrent'])).toEqual({
+      ok: false,
+      error: { rule: 'NO_ACCOUNT', amountKey: 'closeDebitToCurrent', determinantType: 'CLOSED_ACCOUNT', key: '*', role: 'CLOSED' },
+    });
+  });
+
+  it('never takes an entered account for a closed-account rule, nor a closed account for an entered one', () => {
+    const entered = ruleSet([determined('debit', 'D', 'ENTERED', 'AS_ENTERED'), fixed('debit', 'C', '2010')]);
+    expect(buildJournalLines([{ key: 'closeDebitToCurrent', amount: Money.ofPesewas(1n), enteredAccountId: 'acct-5100' }], closing, ['closeDebitToCurrent']).ok).toBe(false);
+    expect(buildJournalLines([{ key: 'debit', amount: Money.ofPesewas(1n), closedAccountId: 'acct-5100' }], entered, ['debit']).ok).toBe(false);
+  });
+});

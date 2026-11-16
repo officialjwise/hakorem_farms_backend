@@ -17,7 +17,7 @@ export interface EntryRow {
   readonly postingDate: string;
   readonly periodId: string;
   readonly branchId: string;
-  readonly kind: 'AUTO' | 'REVERSAL' | 'MANUAL' | 'OPENING';
+  readonly kind: 'AUTO' | 'REVERSAL' | 'MANUAL' | 'OPENING' | 'CLOSING';
   readonly eventCode: string;
   readonly eventId: string;
   readonly eventSubjectId: string;

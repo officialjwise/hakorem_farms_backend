@@ -1,0 +1,162 @@
+operationId: getProfitAndLoss
+tags:
+  - fin
+summary: "Profit and loss for any date range"
+description: "Income (net credits; a contra account such as 4210 price variance is a negative row), cost of sales and operating expenses (net debits), with gross and net profit, from `from` to `to` inclusive. Year close entries are left out, so a closed year still shows the profit it made. Rows are accounts with a figure; `checks` says whether net profit equals every income, cost and expense account's net credit summed directly, and whether the range's debits equal its credits. Each figure is an exact sum of journal lines in integer pesewas; a LOCKED or CLOSED period lying wholly inside the range, or wholly before it, is read from its period balances, computed by the database when it locked or closed (ADR-0058). `branchId` narrows every figure to one branch (each entry's lines carry its branch); without it, every branch. `from` after `to` is 400.\n\nPermission: `fin.report.read`."
+x-permission: fin.report.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - RATE_LIMITED
+parameters:
+  - name: from
+    in: query
+    required: true
+    schema:
+      type: string
+      format: date
+  - name: to
+    in: query
+    required: true
+    schema:
+      type: string
+      format: date
+  - name: branchId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/FinancialStatement"
+        example:
+          statement: PROFIT_AND_LOSS
+          from: "2026-10-01"
+          to: "2026-10-31"
+          asOfDate: null
+          branchId: null
+          sections:
+            - key: INCOME
+              label: Income
+              rows:
+                - account:
+                    id: "019a7ad2-eb1b-7853-9d8c-8e0e640206ec"
+                    code: "4000"
+                    name: "Sales, live animals"
+                  label: "Sales, live animals"
+                  amountPesewas: 8840000
+                  isNegative: false
+                - account:
+                    id: "019a7ad0-9f5e-7c71-a1aa-cff05bdf48ce"
+                    code: "4010"
+                    name: "Sales, meat"
+                  label: "Sales, meat"
+                  amountPesewas: 4215500
+                  isNegative: false
+                - account:
+                    id: "019a7adb-7f64-7669-8ba2-6f712419e84f"
+                    code: "4020"
+                    name: "Sales, produce and eggs"
+                  label: "Sales, produce and eggs"
+                  amountPesewas: 1622000
+                  isNegative: false
+                - account:
+                    id: "019a7ad2-cc2c-7e70-83a8-efd6ea5168b4"
+                    code: "4210"
+                    name: "Price variance, overrides and negotiated prices"
+                  label: "Price variance, overrides and negotiated prices"
+                  amountPesewas: 96500
+                  isNegative: true
+              totalPesewas: 14581000
+              totalIsNegative: false
+            - key: COST_OF_SALES
+              label: "Cost of sales"
+              rows:
+                - account:
+                    id: "019a7ad2-6f5f-70c5-95fe-15307d3e8e0e"
+                    code: "5000"
+                    name: "Cost of sales, live animals"
+                  label: "Cost of sales, live animals"
+                  amountPesewas: 6110000
+                  isNegative: false
+                - account:
+                    id: "019a7ada-e4b9-74f8-ba30-585bc3a4d139"
+                    code: "5010"
+                    name: "Cost of sales, meat"
+                  label: "Cost of sales, meat"
+                  amountPesewas: 2890400
+                  isNegative: false
+                - account:
+                    id: "019a7ad0-be4d-7655-bb8d-6e27d590e705"
+                    code: "5100"
+                    name: "Mortality and cull losses"
+                  label: "Mortality and cull losses"
+                  amountPesewas: 213000
+                  isNegative: false
+              totalPesewas: 9213400
+              totalIsNegative: false
+            - key: GROSS_PROFIT
+              label: "Gross profit"
+              rows: []
+              totalPesewas: 5367600
+              totalIsNegative: false
+            - key: EXPENSES
+              label: "Operating expenses"
+              rows:
+                - account:
+                    id: "019a7ad4-f8fa-706e-a5a7-0fbd78c3889b"
+                    code: "6000"
+                    name: Wages
+                  label: Wages
+                  amountPesewas: 1920000
+                  isNegative: false
+                - account:
+                    id: "019a7ad8-1d40-7188-86c1-215fd4bd9a3d"
+                    code: "6200"
+                    name: "Utilities and cold chain"
+                  label: "Utilities and cold chain"
+                  amountPesewas: 384000
+                  isNegative: false
+                - account:
+                    id: "019a7adb-9e53-704d-9585-0da89dca8686"
+                    code: "6500"
+                    name: Depreciation
+                  label: Depreciation
+                  amountPesewas: 291600
+                  isNegative: false
+              totalPesewas: 2595600
+              totalIsNegative: false
+            - key: NET_PROFIT
+              label: "Net profit"
+              rows: []
+              totalPesewas: 2772000
+              totalIsNegative: false
+          checks:
+            - name: "Income less costs equals net profit"
+              passed: true
+            - name: "Trial balance balanced for the period"
+              passed: true
+          currency: GHS
+          generatedAt: "2026-11-13T09:31:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

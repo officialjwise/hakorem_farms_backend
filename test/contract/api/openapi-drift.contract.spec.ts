@@ -20,11 +20,11 @@ class ProbeSlotController {
   }
 }
 
-/** Claims an operation that is still planned (B8): GET /finance/trial-balance (getTrialBalance). */
-@Controller('finance/trial-balance')
+/** Claims an operation that is still planned (B08 continued 1c2): GET /finance/fixed-assets (listFixedAssets). */
+@Controller('finance/fixed-assets')
 class DuplicateUploadController {
   @Get()
-  @Operation({ operationId: 'getTrialBalance', access: 'SESSION', realms: ['STAFF'], permission: 'fin.report.read', idempotent: false, csrf: false, rateLimit: 'console' })
+  @Operation({ operationId: 'listFixedAssets', access: 'SESSION', realms: ['STAFF'], permission: 'fin.fixed_asset.read', idempotent: false, csrf: false, rateLimit: 'console' })
   upload(): string {
     return 'duplicate';
   }
@@ -91,20 +91,20 @@ describe('the contract is generated from code (FR-API-002, ADR-0030, ADR-0031)',
   });
 
   it('refuses an operation that is both in the code and still in the planned contract', async () => {
-    const getTrialBalance = {
-      operationId: 'getTrialBalance',
+    const listFixedAssets = {
+      operationId: 'listFixedAssets',
       tags: ['fin'],
       summary: 'duplicate',
-      'x-permission': 'fin.report.read',
+      'x-permission': 'fin.fixed_asset.read',
       security: [{ staffSession: [] }],
       responses: { '200': { description: 'OK' } },
     };
-    const duplicate = await documentModule(DuplicateUploadModule, fragments({ getTrialBalance }));
+    const duplicate = await documentModule(DuplicateUploadModule, fragments({ listFixedAssets }));
     expect(() => buildContract(readYaml(PLANNED_PATH), duplicate)).toThrow(ContractMergeError);
   });
 
-  it('keeps all 635 operations in the published contract, 340 of them now implemented in code', async () => {
+  it('keeps all 635 operations in the published contract, 345 of them now implemented in code', async () => {
     expect(operationsOf(readYaml(PUBLISHED_PATH))).toHaveLength(635);
-    expect(operationsOf(readYaml(PLANNED_PATH))).toHaveLength(295);
+    expect(operationsOf(readYaml(PLANNED_PATH))).toHaveLength(290);
   });
 });
