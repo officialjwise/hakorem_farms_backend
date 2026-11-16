@@ -63,6 +63,7 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B09a continued 1c | `B09a2c-payments-settlement.md` | `b09a2c-payments-settlement` | B4 to B12 | A settlement of three payments with a fee posts 1100, 6910 and 1120 exactly and an extra line raises a break; a bank transfer clears only from its matched statement line; a break resolves only through an approved posting; the trial balance still sums to zero; every reconciliation write refuses the wrong role (built; the session split before the refund against a credit note, A-215) |
 | B09a continued 1d | `B09a2d-payments-credit-refunds.md` | `b09a2d-payments-credit-refunds` | B4 to B12 | A refund against a credit note on a paid document posts Dr 1200, never beyond the credit note's amount less what was refunded, held by the database under concurrency, approved by someone other than both makers; a cheque is refunded through a bank payout; the trial balance still sums to zero (built, A-216, ADR-0066) |
 | B09a continued 2 | `B09a3-orders-online.md` | `b09a3-orders-online` | B4 to B12 | The order endpoints and online placement post through SalePosting in one transaction; a void needs a supervisor who is not the cashier; a return never exceeds what was sold; the dashboard's sales figures answer exactly; every ORD write refuses the wrong role |
+| B09t2 | `B09t2-dates-from-clock.md` | `b09t2-dates-from-clock` | B4 to B12 | No seed row or test depends on a fixed calendar date real time will pass; the suite passes forced to 2026-12-31 and 2027-03-01 apart from named container-clock artifacts; the refund payout check uses an application-written instant; merged before 2026-12-01 |
 | B09x | `B09x-contract-requests.md` | `b09x-contract-requests` | B4 to B12 | Every list operation has a named empty example (CR-005) and the seeded role matrix is published in the contract, generated from the IAM seed and checked in CI so it cannot drift (CR-023); no existing shape changes |
 | B9b | `B09b-pos-shifts-offline.md` | `b09b-pos-shifts-offline` | B4 to B12 | Shift close reconciles; 500 queued offline transactions sync exactly once |
 | B08 continued 2d | `B08c2d-customer-statements.md` | `b08c2d-customer-statements` | B4 to B12 | A customer statement for a period ties to the customer's documents and the ledger's 1200 for that customer and period, opening plus movements equal to closing to the pesewa, and is rendered after commit and archived once; every statement write refuses the wrong role |
@@ -1665,14 +1666,42 @@ Stop at the gate, write docs/sessions/B09a3-orders-online.md, and merge into mai
 request is green.
 ```
 
+## B09t2 — Seed and test dates from the clock, before they expire
+
+Branch `b09t2-dates-from-clock`, from `main`. Report `docs/sessions/B09t2-dates-from-clock.md`. Inserted by the parent session on 2026-11-16 from B09t's findings (ADR-0026 Amendments), urgent: **it must merge before 2026-12-01**, when real CI starts failing. Gate: no seed row and no test depends on a fixed calendar date that real time will pass (every date is built from the seed's or the test's clock, or the test pins its own clock to a fixed instant and passes it everywhere); the full integration suite passes with every test file's clock forced to 2026-12-31T10:00:00Z and to 2027-03-01T10:00:00Z, except failures caused only by a container's own clock, each named; the refund payout check compares against an application-written instant; nothing skipped or loosened.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report, then docs/sessions/B09t-clock-sweep.md (its findings and
+"still failing" list), ADR-0067 and A-217. Load hakorem-seed, hakorem-tests and hakorem-migration.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B09t2 only, on branch b09t2-dates-from-clock, branched from main:
+1. The seeded egg lot EGG-BIG-2026-1110 expires on 2026-12-01 (src/seed/farm-inv.ts:78), so sale-posting,
+   storefront-checkout and order-payment-rules fail from 2026-12-02. Make every seeded expiry, best-before, due and
+   valid-from/to date relative to the seed's clock, keeping each test's exact amounts; search the whole seed and test
+   support for other fixed dates and fix them the same way.
+2. fin/financial-statements "reads a locked period with lines from its balances" pins November 2026: build its period
+   from the test clock so it holds in any month.
+3. src/modules/pay/application/refunds.ts:222 compares a payout date with the refund's database-defaulted created_at:
+   write the refund's created_at from the application clock (or compare against an application-written instant),
+   test-first with a ManualClock across midnight.
+4. file-store's signed links fail under a forced clock because the object store container checks them against its own
+   clock: record it in the report as a container artifact, not a defect.
+Prove each fix with the forced-clock sweep (the scratch method of B09t: shift each test file's clock; never commit it)
+failing before and passing after.
+Stop at the gate, write docs/sessions/B09t2-dates-from-clock.md, and merge into main when every run on the pull
+request is green.
+```
+
 ## B09x — Contract requests: empty list examples, the seeded role matrix and the owner's catch-ups
 
 Branch `b09x-contract-requests`, from `main`. Report `docs/sessions/B09x-contract-requests.md`. Inserted by the owner on 2026-11-16 after B9a (ADR-0026 Amendments): CR-005 was declined only for its size, and CR-023 was named for scheduling by B08 continued 2b. Gate: every list operation in the contract, from code and planned, has a named empty example beside its populated one, checked by a contract test that fails when a list operation lacks it; the seeded role matrix (every seeded role with its full permissions) is published in the contract as an `x-seeded-roles` extension or a complete `listRoles` example, generated from the IAM seed by `pnpm contract:generate` and failing CI on drift; nothing removed, renamed or retyped; and a supplier payment is numbered from its `SPY` series when it is marked paid, gap-free, and its remittance advice prints that number (A-205); a Farm hand death report without its photograph is refused whatever its value while other makers keep the threshold; a processing reversal's approval links to its order (CR-027); getShopProfile answers anonymously with the contact fields only (CR-028).
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
-List docs/sessions/ and read only the most recent report (docs/sessions/B09a3-orders-online.md, or the last
-report of B9a's own splits).
+List docs/sessions/ and read only the most recent report (docs/sessions/B09t2-dates-from-clock.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md), in particular CR-005 and
 CR-023: implement them, answer every other request in the report, never edit that file and never open frontend source.
 For this phase, read docs/API.md (examples and lists), scripts/contract/, the IAM seed migrations and
