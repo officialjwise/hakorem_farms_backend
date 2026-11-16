@@ -53,12 +53,12 @@ END
 $$;
 
 -- Applied again after a rollback, a document whose content hash survived relinks to its archive through DOC's
--- published key, by that hash: the archive and the hash are facts, and only the link column was dropped. The deferred
+-- published function `doc.archived_rendering` (ADR-0047), by that hash: the archive and the hash are facts, and only
+-- the link column was dropped. The deferred
 -- document check runs at once, so no trigger event is pending when the table is altered below.
 SET CONSTRAINTS ALL IMMEDIATE;
-UPDATE bil.billing_document d SET archived_document_id = a.id, updated_at = now()
-  FROM doc.archived_document a
- WHERE a.business_document_id = d.id AND a.revision = 1 AND d.status = 'ISSUED' AND d.content_hash = a.sha256 AND d.archived_document_id IS NULL;
+UPDATE bil.billing_document SET archived_document_id = doc.archived_rendering(id, content_hash), updated_at = now()
+ WHERE status = 'ISSUED' AND content_hash IS NOT NULL AND archived_document_id IS NULL;
 ALTER TABLE bil.billing_document ADD CONSTRAINT ck_billing_document_archive CHECK ((archived_document_id IS NULL) = (content_hash IS NULL));
 CREATE UNIQUE INDEX uq_billing_document_archived ON bil.billing_document (archived_document_id) WHERE archived_document_id IS NOT NULL;
 

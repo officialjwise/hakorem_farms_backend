@@ -156,6 +156,19 @@ CREATE TABLE doc.render_job (
 COMMENT ON TABLE doc.render_job IS 'class=WORK';
 CREATE INDEX ix_render_job_document ON doc.render_job (business_document_id);
 
+-- Published (ADR-0047): the archived rendering of a document with this SHA-256, for BIL's migration 0155 to relink a
+-- document to its archive by its content hash when it is applied again after a rollback. Read only, by primary key.
+CREATE FUNCTION doc.archived_rendering(p_business_document_id uuid, p_sha256 bytea) RETURNS uuid
+  LANGUAGE sql
+  STABLE
+  SECURITY DEFINER
+  SET search_path = pg_catalog
+AS $$
+  SELECT a.id FROM doc.archived_document a WHERE a.business_document_id = p_business_document_id AND a.revision = 1 AND a.sha256 = p_sha256
+$$;
+REVOKE ALL ON FUNCTION doc.archived_rendering(uuid, bytea) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION doc.archived_rendering(uuid, bytea) TO hk_app, hk_worker;
+
 REVOKE ALL ON doc.template, doc.template_version, doc.archived_document, doc.render_job FROM PUBLIC;
 GRANT SELECT, INSERT, UPDATE ON doc.template, doc.template_version TO hk_app, hk_worker;
 GRANT SELECT, INSERT ON doc.archived_document TO hk_app, hk_worker;
@@ -218,6 +231,7 @@ DROP TABLE doc.archived_document;
 ALTER TABLE doc.template DROP CONSTRAINT fk_template_active_version;
 DROP TABLE doc.template_version;
 DROP TABLE doc.template;
+DROP FUNCTION doc.archived_rendering(uuid, bytea);
 DROP FUNCTION doc.template_active_guard();
 DROP FUNCTION doc.template_version_guard();
 DROP SCHEMA doc;
