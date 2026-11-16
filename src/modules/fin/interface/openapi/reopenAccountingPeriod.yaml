@@ -1,0 +1,94 @@
+operationId: reopenAccountingPeriod
+tags:
+  - fin
+summary: "Reopen a locked period"
+description: "Owner only, with a reason. Always answers `202`: a different user holding `fin.period.reopen_approve` approves the `PERIOD_REOPEN` request (the Accountant, or a second Owner), never the Owner who asked (A-188). A closed period can never be reopened: 422 `INVALID_STATE_TRANSITION` with `details[].code` the period's status, or `REOPEN_PENDING` while a request waits.\n\nPermission: `fin.period.reopen`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session.\n\nMay require approval of kind `PERIOD_REOPEN`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+x-permission: fin.period.reopen
+x-requires-step-up: true
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - STEP_UP_REQUIRED
+  - TOTP_ENROLMENT_REQUIRED
+  - NOT_FOUND
+  - INVALID_STATE_TRANSITION
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ReasonRequest"
+      example:
+        reason: "Supplier invoice for October received late"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/AccountingPeriod"
+        example:
+          id: "019a7ad1-58f8-77c6-8cff-853d3605fe1b"
+          fiscalYear: 2026
+          periodNo: 11
+          startDate: "2026-11-01"
+          endDate: "2026-11-30"
+          status: OPEN
+          lockedAt: null
+          lockedBy: null
+          closedAt: null
+          closedBy: null
+          version: 3
+  "202":
+    description: "Accepted for approval. Nothing has taken effect yet."
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ApprovalPending"
+        example:
+          status: PENDING_APPROVAL
+          approvalRequestId: "019a7ad1-f3a3-7938-9e70-9c52967a1530"
+          kind: PERIOD_REOPEN
+          subject:
+            id: "019a7ad2-1292-731b-a853-3a8a102bb367"
+            docType: PERIOD_REOPEN
+            number: null
+          summary: "Awaiting approval by a different user with the approving permission"
+          requestedAt: "2026-11-13T10:12:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

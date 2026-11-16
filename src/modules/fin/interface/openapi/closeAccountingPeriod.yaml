@@ -1,0 +1,74 @@
+operationId: closeAccountingPeriod
+tags:
+  - fin
+summary: "Close a locked period permanently"
+description: "Final: a closed period never changes again. Only a `LOCKED` period that has ended is closed, and only once every earlier period is closed (A-188; the database holds both). A refusal is 422 `INVALID_STATE_TRANSITION` with `details[].code` the period's status, `PERIOD_NOT_ENDED` or `EARLIER_PERIOD_NOT_CLOSED`.\n\nPermission: `fin.period.close`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+x-permission: fin.period.close
+x-requires-step-up: true
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - STEP_UP_REQUIRED
+  - TOTP_ENROLMENT_REQUIRED
+  - NOT_FOUND
+  - INVALID_STATE_TRANSITION
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/AccountingPeriod"
+        example:
+          id: "019a7ad1-77e7-71aa-96e2-2374afb69c52"
+          fiscalYear: 2026
+          periodNo: 9
+          startDate: "2026-09-01"
+          endDate: "2026-09-30"
+          status: CLOSED
+          lockedAt: "2026-10-05T16:00:00Z"
+          lockedBy:
+            id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+            displayName: "Efua Asante"
+          closedAt: "2026-10-10T16:00:00Z"
+          closedBy:
+            id: "019a7a86-3046-711a-a652-1a7389f79351"
+            displayName: "Akua Mensah"
+          version: 3
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

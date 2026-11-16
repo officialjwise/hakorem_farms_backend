@@ -133,6 +133,7 @@ import {
 } from '../../../src/modules/pur/interface/schemas';
 import { SettingUpdate as AudSettingUpdate } from '../../../src/modules/aud/interface/schemas';
 import { SlotGenerate, SlotUpdate } from '../../../src/modules/del/interface/schemas';
+import { AccountCreate, AccountUpdate, ReasonRequest as FinReasonRequest } from '../../../src/modules/fin/interface/schemas';
 import { CartLineAdd, CartLineUpdate, CheckoutStart, CheckoutUpdate, CouponApply } from '../../../src/modules/shp/interface/schemas';
 import { createCatalogue, type TestCatalogue } from '../../support/catalogue';
 import { contractSchema } from '../../support/contract-schemas';
@@ -387,6 +388,9 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     updateSetting: AudSettingUpdate,
     generateDeliverySlots: SlotGenerate,
     updateDeliverySlot: SlotUpdate,
+    createAccount: AccountCreate,
+    updateAccount: AccountUpdate,
+    reopenAccountingPeriod: FinReasonRequest,
     addCartLine: CartLineAdd,
     updateCartLine: CartLineUpdate,
     applyCartCoupon: CouponApply,

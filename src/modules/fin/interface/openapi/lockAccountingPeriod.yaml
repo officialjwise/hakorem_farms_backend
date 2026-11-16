@@ -1,0 +1,69 @@
+operationId: lockAccountingPeriod
+tags:
+  - fin
+summary: "Lock a period against posting"
+description: "A posting dated in a locked period is refused by the database; an event dated in it posts on the day it is recorded when that day's period is open (A-183), and an operation whose recording day is in a period that is not open is refused 422 `PERIOD_NOT_OPEN`. Only an `OPEN` period is locked, the current one included: 422 `INVALID_STATE_TRANSITION` with `details[].code` the period's status otherwise.\n\nPermission: `fin.period.lock`."
+x-permission: fin.period.lock
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - NOT_FOUND
+  - INVALID_STATE_TRANSITION
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/AccountingPeriod"
+        example:
+          id: "019a7a94-ee2c-7781-8cb9-80e38851f9c1"
+          fiscalYear: 2026
+          periodNo: 10
+          startDate: "2026-10-01"
+          endDate: "2026-10-31"
+          status: LOCKED
+          lockedAt: "2026-11-05T16:00:00Z"
+          lockedBy:
+            id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+            displayName: "Efua Asante"
+          closedAt: null
+          closedBy: null
+          version: 3
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -1,0 +1,149 @@
+operationId: listAccounts
+tags:
+  - fin
+summary: "List the chart of accounts"
+description: "The chart in code order (FR-FIN-001): type, normal side, postable flag, subledger kind and cash flow category of each account.\n\nPermission: `fin.account.read`."
+x-permission: fin.account.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - RATE_LIMITED
+parameters:
+  - name: type
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: postableOnly
+    in: query
+    required: false
+    schema:
+      type: boolean
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/AccountPage"
+        example:
+          data:
+            - id: "019a7ad0-04b3-7b00-9038-b8dafb6a31b8"
+              code: "1000"
+              name: "Cash on hand, tills"
+              type: ASSET
+              normalSide: D
+              parentId: null
+              isPostable: true
+              subledgerKind: REGISTER
+              cashFlowCategory: OPERATING
+              status: ACTIVE
+              version: 1
+            - id: "019a7ad0-23a2-74e4-aa1c-5712751bcff0"
+              code: "1110"
+              name: "Mobile money wallets"
+              type: ASSET
+              normalSide: D
+              parentId: null
+              isPostable: true
+              subledgerKind: BANK_ACCOUNT
+              cashFlowCategory: OPERATING
+              status: ACTIVE
+              version: 1
+            - id: "019a7a95-0d1b-7164-969c-1f1b020297f8"
+              code: "1200"
+              name: "Trade receivables"
+              type: ASSET
+              normalSide: D
+              parentId: null
+              isPostable: true
+              subledgerKind: CUSTOMER
+              cashFlowCategory: OPERATING
+              status: ACTIVE
+              version: 1
+            - id: "019a7ad0-4291-7ec7-b3ff-f549eecc6e27"
+              code: "1310"
+              name: "Inventory, live animals"
+              type: ASSET
+              normalSide: D
+              parentId: null
+              isPostable: true
+              subledgerKind: null
+              cashFlowCategory: OPERATING
+              status: ACTIVE
+              version: 1
+            - id: "019a7ad0-6180-78ab-8de3-9381687d0c5f"
+              code: "2100"
+              name: "Output VAT and levies payable"
+              type: LIABILITY
+              normalSide: C
+              parentId: null
+              isPostable: true
+              subledgerKind: TAX_LEVY
+              cashFlowCategory: OPERATING
+              status: ACTIVE
+              version: 1
+            - id: "019a7ad0-806f-728e-97c6-31b8e22eaa96"
+              code: "3000"
+              name: "Investor capital"
+              type: EQUITY
+              normalSide: C
+              parentId: null
+              isPostable: true
+              subledgerKind: INVESTOR
+              cashFlowCategory: FINANCING
+              status: ACTIVE
+              version: 1
+            - id: "019a7ad0-9f5e-7c71-a1aa-cff05bdf48ce"
+              code: "4010"
+              name: "Sales, meat"
+              type: INCOME
+              normalSide: C
+              parentId: null
+              isPostable: true
+              subledgerKind: null
+              cashFlowCategory: OPERATING
+              status: ACTIVE
+              version: 1
+            - id: "019a7ad0-be4d-7655-bb8d-6e27d590e705"
+              code: "5100"
+              name: "Mortality and cull losses"
+              type: COST_OF_SALES
+              normalSide: D
+              parentId: null
+              isPostable: true
+              subledgerKind: null
+              cashFlowCategory: OPERATING
+              status: ACTIVE
+              version: 1
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

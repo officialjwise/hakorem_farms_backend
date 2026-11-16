@@ -1,0 +1,145 @@
+operationId: listAccountingPeriods
+tags:
+  - fin
+summary: "List accounting periods"
+description: "The twelve monthly periods of each calendar year, newest first (A-028).\n\nPermission: `fin.period.read`."
+x-permission: fin.period.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - RATE_LIMITED
+parameters:
+  - name: fiscalYear
+    in: query
+    required: false
+    schema:
+      type: integer
+  - name: status
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/AccountingPeriodPage"
+        example:
+          data:
+            - id: "019a7ad1-58f8-77c6-8cff-853d3605fe1b"
+              fiscalYear: 2026
+              periodNo: 11
+              startDate: "2026-11-01"
+              endDate: "2026-11-30"
+              status: OPEN
+              lockedAt: null
+              lockedBy: null
+              closedAt: null
+              closedBy: null
+              version: 3
+            - id: "019a7a94-ee2c-7781-8cb9-80e38851f9c1"
+              fiscalYear: 2026
+              periodNo: 10
+              startDate: "2026-10-01"
+              endDate: "2026-10-31"
+              status: LOCKED
+              lockedAt: "2026-11-05T16:00:00Z"
+              lockedBy:
+                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                displayName: "Efua Asante"
+              closedAt: null
+              closedBy: null
+              version: 3
+            - id: "019a7ad1-77e7-71aa-96e2-2374afb69c52"
+              fiscalYear: 2026
+              periodNo: 9
+              startDate: "2026-09-01"
+              endDate: "2026-09-30"
+              status: CLOSED
+              lockedAt: "2026-10-05T16:00:00Z"
+              lockedBy:
+                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                displayName: "Efua Asante"
+              closedAt: "2026-10-10T16:00:00Z"
+              closedBy:
+                id: "019a7a86-3046-711a-a652-1a7389f79351"
+                displayName: "Akua Mensah"
+              version: 3
+            - id: "019a7ad1-96d6-7b8d-a0c5-c1ac29673a8a"
+              fiscalYear: 2026
+              periodNo: 8
+              startDate: "2026-08-01"
+              endDate: "2026-08-31"
+              status: CLOSED
+              lockedAt: "2026-09-05T16:00:00Z"
+              lockedBy:
+                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                displayName: "Efua Asante"
+              closedAt: "2026-09-10T16:00:00Z"
+              closedBy:
+                id: "019a7a86-3046-711a-a652-1a7389f79351"
+                displayName: "Akua Mensah"
+              version: 3
+            - id: "019a7ad1-b5c5-7571-baa9-5fe3a318d8c1"
+              fiscalYear: 2026
+              periodNo: 7
+              startDate: "2026-07-01"
+              endDate: "2026-07-31"
+              status: CLOSED
+              lockedAt: "2026-08-05T16:00:00Z"
+              lockedBy:
+                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                displayName: "Efua Asante"
+              closedAt: "2026-08-10T16:00:00Z"
+              closedBy:
+                id: "019a7a86-3046-711a-a652-1a7389f79351"
+                displayName: "Akua Mensah"
+              version: 3
+            - id: "019a7ad1-d4b4-7f54-848c-fe1b1cc976f9"
+              fiscalYear: 2026
+              periodNo: 6
+              startDate: "2026-06-01"
+              endDate: "2026-06-30"
+              status: CLOSED
+              lockedAt: "2026-07-05T16:00:00Z"
+              lockedBy:
+                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                displayName: "Efua Asante"
+              closedAt: "2026-07-10T16:00:00Z"
+              closedBy:
+                id: "019a7a86-3046-711a-a652-1a7389f79351"
+                displayName: "Akua Mensah"
+              version: 3
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -1,0 +1,72 @@
+operationId: createAccount
+tags:
+  - fin
+summary: "Add an account"
+description: "FR-FIN-002. The normal side follows the type (debit for assets, cost of sales and expenses, credit for the rest); a contra account is added by migration (A-188). Refusals are 422 `ACCOUNT_INVALID` with the rule in `details[].code` (`CLASS_MISMATCH`: the code's first digit is not the type's class; `SUBLEDGER_ON_HEADER`; `PARENT_TYPE_MISMATCH`), `DUPLICATE_VALUE` for a code in use and `REFERENCE_NOT_FOUND` for an unknown parent.\n\nPermission: `fin.account.manage`."
+x-permission: fin.account.manage
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - ACCOUNT_INVALID
+  - DUPLICATE_VALUE
+  - REFERENCE_NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/AccountCreate"
+      example:
+        code: "6110"
+        name: "Generator fuel"
+        type: EXPENSE
+        isPostable: true
+        cashFlowCategory: OPERATING
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Account"
+        example:
+          id: "019a7ad0-04b3-7b00-9038-b8dafb6a31b8"
+          code: "1000"
+          name: "Cash on hand, tills"
+          type: ASSET
+          normalSide: D
+          parentId: null
+          isPostable: true
+          subledgerKind: REGISTER
+          cashFlowCategory: OPERATING
+          status: ACTIVE
+          version: 1
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
