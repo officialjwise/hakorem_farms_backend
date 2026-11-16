@@ -366,7 +366,7 @@ describe('the guest cart (FR-SHP-003, FR-SHP-004)', () => {
     it('is null once the checkout completes or the cart is abandoned', async () => {
       const [completed, abandoned] = atCheckout;
       const admin = database.pool('admin');
-      await admin.query("UPDATE shp.checkout_session SET status = 'COMPLETED', posted_at = now(), posted_by = created_by, version = version + 1 WHERE id = $1", [completed!.checkoutId]);
+      await admin.query("UPDATE shp.checkout_session SET status = 'COMPLETED', posted_at = $2, posted_by = created_by, version = version + 1 WHERE id = $1", [completed!.checkoutId, clock.now()]);
       await admin.query("UPDATE shp.cart SET status = 'CONVERTED', version = version + 1 WHERE id = $1", [completed!.guest.cartId]);
       await admin.query("UPDATE shp.cart SET status = 'ABANDONED', version = version + 1 WHERE id = $1", [abandoned!.guest.cartId]);
       expect((await read(`/shop/carts/${completed!.guest.cartId}`, completed!.guest)).body).toMatchObject({ status: 'CONVERTED', checkoutId: null });
