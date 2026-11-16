@@ -1,8 +1,12 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
 import type { UomFactor } from '../domain/unit-conversion';
-import type { BranchFacts, GradeFacts, ReasonCodeFacts, LocationFacts, MasterDataRefsStore, ProductFacts, SpeciesFacts, SupplierFacts, TaxCategoryFacts, CustomerFacts } from '../application/master-data-refs';
+import type { BranchFacts, GradeFacts, ReasonCodeFacts, LocationFacts, MasterDataRefsStore, ProductFacts, SpeciesFacts, SupplierFacts, TaxCategoryFacts, CustomerFacts, PaymentMethodFacts } from '../application/master-data-refs';
 
 /** MDM's own tables, read by primary key for a higher module's transaction (MasterDataRefs). */
+const PAYMENT_METHOD_FACTS = `SELECT id, code, name, kind, requires_provider_verification AS "requiresProviderVerification", allowed_offline AS "allowedOffline", channels,
+       (is_enabled AND deleted_at IS NULL) AS "isLive"
+  FROM mdm.payment_method`;
+
 export class PgMasterDataRefsStore implements MasterDataRefsStore {
   async products(tx: Transaction, ids: readonly string[]): Promise<ProductFacts[]> {
     const { rows } = await tx.query<{
@@ -126,6 +130,16 @@ export class PgMasterDataRefsStore implements MasterDataRefsStore {
 
   async reasonCodes(tx: Transaction, codes: readonly string[]): Promise<ReasonCodeFacts[]> {
     const { rows } = await tx.query<ReasonCodeFacts>('SELECT code, domain, requires_note AS "requiresNote", loss_account_group AS "lossAccountGroup" FROM mdm.reason_code WHERE code = ANY($1::text[])', [codes]);
+    return rows;
+  }
+
+  async paymentMethodsByCode(tx: Transaction, codes: readonly string[]): Promise<PaymentMethodFacts[]> {
+    const { rows } = await tx.query<PaymentMethodFacts>(`${PAYMENT_METHOD_FACTS} WHERE code = ANY($1::text[])`, [codes]);
+    return rows;
+  }
+
+  async paymentMethods(tx: Transaction, ids: readonly string[]): Promise<PaymentMethodFacts[]> {
+    const { rows } = await tx.query<PaymentMethodFacts>(`${PAYMENT_METHOD_FACTS} WHERE id = ANY($1::uuid[])`, [ids]);
     return rows;
   }
 

@@ -7,6 +7,7 @@ registerMessages({
   'bil.document_invalid': 'This billing document cannot be issued like this.',
   'bil.credit_note_exceeds_original': 'This credit is more than the original document has left uncredited.',
   'bil.reference_not_found': 'Something this request refers to does not exist.',
+  'bil.allocation_exceeds_outstanding': 'This payment is more than the document has left to pay.',
 });
 
 /** 422 BILLING_DOCUMENT_INVALID: every rule a billing request breaks, each in `details[].code` (A-200). */
@@ -35,5 +36,16 @@ export class BilReferenceNotFoundError extends BusinessRuleError {
   readonly messageKey = 'bil.reference_not_found';
   constructor(fields: readonly string[]) {
     super(`unknown ${fields.join(', ')}`, fields.map((field) => ({ field, code: 'UNKNOWN', message: translate('bil.reference_not_found') })));
+  }
+}
+
+/** 422 ALLOCATION_EXCEEDS_AVAILABLE (FR-PAY-009): more than the document has outstanding, refused by the database. */
+export class AllocationExceedsOutstandingError extends BusinessRuleError {
+  readonly code = 'ALLOCATION_EXCEEDS_AVAILABLE';
+  readonly messageKey = 'bil.allocation_exceeds_outstanding';
+  constructor(documentId: string) {
+    super(`the allocation exceeds what billing document ${documentId} has outstanding`, [
+      { field: '/allocations', code: 'EXCEEDS_OUTSTANDING', message: translate('bil.allocation_exceeds_outstanding') },
+    ]);
   }
 }

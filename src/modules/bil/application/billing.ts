@@ -34,7 +34,7 @@ import { lineNumber, pageProbe } from '../domain/line-numbers';
 import { renderDataOf } from '../domain/render-data';
 import type { BillingDocumentPayload, CreditNoteIssued, DebitNoteIssued } from '../events';
 import type { BillingStore, DocumentFilter, DocumentRecord, DraftHeader, LevyRecord, LineRecord, ReprintRecord, SettlementRecord } from './billing-store';
-import { BilReferenceNotFoundError, BillingDocumentInvalidError, CreditNoteExceedsOriginalError } from './errors';
+import { AllocationExceedsOutstandingError, BilReferenceNotFoundError, BillingDocumentInvalidError, CreditNoteExceedsOriginalError } from './errors';
 
 export const CREDIT_NOTE_KIND = 'CREDIT_NOTE';
 /** THREAT_MODEL section 4, case 31: a customer credit note used to take money or hide a shortage (A-200). */
@@ -359,6 +359,24 @@ export class Billing {
     };
     await this.writeDraft(tx, header, lines);
     return this.issueDraft(tx, header.id, actor.principalId, null, new Map(priced.map((p) => [p.record.id, p.variance] as const)));
+  }
+
+  /**
+   * A payment's allocation applied to, or taken off, an issued invoice, receipt or debit note's settlement summary, in
+   * the allocating transaction (A-200): the port PAY calls, so BIL alone writes `bil.document_settlement`. The database
+   * refuses an allocation beyond the document's outstanding amount (`ck_document_settlement_outstanding`), which arrives
+   * as `AllocationExceedsOutstandingError`. Answers what the document has left outstanding. It authorises nothing.
+   */
+  async settleIn(tx: Transaction, documentId: string, amountPesewas: bigint, direction: 'APPLY' | 'UNAPPLY'): Promise<bigint> {
+    if (tx.isolation !== 'serializable') throw new IsolationLevelError(tx.isolation);
+    try {
+      const { rows } = await tx.query<{ outstanding: string }>('SELECT bil.apply_settlement($1, $2, $3)::text AS outstanding', [documentId, amountPesewas.toString(), direction]);
+      return BigInt(rows[0]!.outstanding);
+    } catch (error) {
+      const failure = databaseErrorOf(error);
+      if (failure?.code === 'HK010' && failure.constraint === 'ck_document_settlement_outstanding') throw new AllocationExceedsOutstandingError(documentId);
+      throw error;
+    }
   }
 
   list(actor: Actor | undefined, query: DocumentQuery, cursor: string | undefined, limit: number): Promise<Page<BillingDocumentView>> {
