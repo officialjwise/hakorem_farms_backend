@@ -41,9 +41,13 @@ afterAll(async () => {
 async function postingEvents(): Promise<PostedEvent[]> {
   const { rows } = await database.pool('app').query<PostedEvent>(
     `SELECT m.id, m.event_type,
-            COALESCE(m.payload->>'valuePesewas', m.payload->>'grossPesewas', m.payload->>'amountPesewas', m.payload->>'directCostPesewas',
+            CASE WHEN m.event_type = 'bil.InvoiceIssued' THEN
+              -- An invoice's debits (ADR-0003): the gross, each line's promotion and each variance below the resolved price.
+              ((m.payload->>'grossPesewas')::bigint + (SELECT COALESCE(sum((l->>'discountPesewas')::bigint + greatest((l->>'priceVariancePesewas')::bigint, 0)), 0)
+                                                      FROM jsonb_array_elements(m.payload->'lines') l))::text
+            ELSE COALESCE(m.payload->>'valuePesewas', m.payload->>'grossPesewas', m.payload->>'amountPesewas', m.payload->>'directCostPesewas',
                      -- A manual journal (the seeded fixed assets' cost, B08 continued 1c2): its debits as entered.
-                     (SELECT sum((l->>'amountPesewas')::bigint)::text FROM jsonb_array_elements(m.payload->'lines') l WHERE l->>'side' = 'D')) AS value,
+                     (SELECT sum((l->>'amountPesewas')::bigint)::text FROM jsonb_array_elements(m.payload->'lines') l WHERE l->>'side' = 'D')) END AS value,
             e.id AS entry_id
        FROM platform.outbox_message m
        JOIN fin.posting_event_type t ON t.code = m.event_type
@@ -59,7 +63,17 @@ describe('the seeded trading day posts a journal for every financial event (ADR-
     expect(events.length).toBeGreaterThan(10);
     expect(events.filter((e) => BigInt(e.value) > 0n && e.entry_id === null)).toEqual([]);
     expect(events.filter((e) => BigInt(e.value) === 0n && e.entry_id !== null)).toEqual([]);
-    expect(new Set(events.map((e) => e.event_type))).toEqual(new Set(['inv.GoodsReceived', 'inv.ProductionReceived', 'pur.ExpenseInvoiceApproved', 'pur.SupplierCreditNoteApproved', 'fin.ManualJournalApproved']));
+    expect(new Set(events.map((e) => e.event_type))).toEqual(new Set([
+        'inv.GoodsReceived',
+        'inv.ProductionReceived',
+        'pur.ExpenseInvoiceApproved',
+        'pur.SupplierCreditNoteApproved',
+        'fin.ManualJournalApproved',
+        // B08 continued 2: the seeded invoice, receipt, credit note and debit note (the proforma posts nothing).
+        'bil.InvoiceIssued',
+        'bil.CreditNoteIssued',
+        'bil.DebitNoteIssued',
+      ]));
   });
 
   it('has one entry per seeded stock movement that posts, carrying the movement as its subject', async () => {
