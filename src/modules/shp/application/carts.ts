@@ -31,6 +31,8 @@ export interface CartProductView {
 export interface CartView {
   readonly id: string;
   readonly status: CartRecord['status'];
+  /** The open checkout while the cart is at checkout, so another tab or device can open it (CR-029); null otherwise. */
+  readonly checkoutId: string | null;
   readonly lines: readonly {
     readonly id: string;
     readonly product: CartProductView;
@@ -198,6 +200,7 @@ export class Carts {
     return {
       id: cart.id,
       status: cart.status,
+      checkoutId: cart.status === 'CHECKOUT' ? await this.store.openCheckoutOf(tx, cart.id) : null,
       lines: views,
       itemCount: Number(Quantity.sum(lines.map((l) => Quantity.parse(l.qty))).thousandths / THOUSANDTHS_PER_UNIT),
       estimatedSubtotalPesewas: Number(subtotal.pesewas),

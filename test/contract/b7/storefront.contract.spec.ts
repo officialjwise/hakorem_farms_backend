@@ -72,6 +72,9 @@ describe('the storefront in the contract (FR-SHP-001 to FR-SHP-008)', () => {
     expect(started.status).toBe(201);
     conforms('Checkout', started.body);
     conforms('Checkout', (await request(api.server).get(`/v1/shop/checkouts/${started.body.id}`).set('Cookie', cookie)).body);
+    const atCheckout = (await request(api.server).get(`/v1/shop/carts/${created.body.id}`).set('Cookie', cookie)).body;
+    conforms('Cart', atCheckout);
+    expect([atCheckout.status, atCheckout.checkoutId], 'CR-029').toEqual(['CHECKOUT', started.body.id]);
     conforms('DeliverySlotPage', (await consoleGet(api.server, manager, '/v1/delivery-slots')).body);
   });
 });

@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.45.0"
+  version: "1.46.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -55539,6 +55539,7 @@ paths:
               example:
                 id: "019a7aa9-1c15-7ae4-b01c-b713eac82ff1"
                 status: ACTIVE
+                checkoutId: null
                 lines: []
                 itemCount: 0
                 estimatedSubtotalPesewas: 0
@@ -55592,6 +55593,7 @@ paths:
               example:
                 id: "019a7aa9-1c15-7ae4-b01c-b713eac82ff1"
                 status: ACTIVE
+                checkoutId: null
                 lines:
                   - id: "019a7afc-d910-7fa6-84df-034056ed7c1e"
                     product:
@@ -55688,6 +55690,7 @@ paths:
               example:
                 id: "019a7aa9-1c15-7ae4-b01c-b713eac82ff1"
                 status: ACTIVE
+                checkoutId: null
                 lines:
                   - id: "019a7afc-d910-7fa6-84df-034056ed7c1e"
                     product:
@@ -55792,6 +55795,7 @@ paths:
               example:
                 id: "019a7aa9-1c15-7ae4-b01c-b713eac82ff1"
                 status: ACTIVE
+                checkoutId: null
                 lines:
                   - id: "019a7afc-d910-7fa6-84df-034056ed7c1e"
                     product:
@@ -55885,6 +55889,7 @@ paths:
               example:
                 id: "019a7aa9-1c15-7ae4-b01c-b713eac82ff1"
                 status: ACTIVE
+                checkoutId: null
                 lines:
                   - id: "019a7afc-d910-7fa6-84df-034056ed7c1e"
                     product:
@@ -55984,6 +55989,7 @@ paths:
               example:
                 id: "019a7aa9-1c15-7ae4-b01c-b713eac82ff1"
                 status: ACTIVE
+                checkoutId: null
                 lines:
                   - id: "019a7afc-d910-7fa6-84df-034056ed7c1e"
                     product:
@@ -56071,6 +56077,7 @@ paths:
               example:
                 id: "019a7aa9-1c15-7ae4-b01c-b713eac82ff1"
                 status: ACTIVE
+                checkoutId: null
                 lines:
                   - id: "019a7afc-d910-7fa6-84df-034056ed7c1e"
                     product:
@@ -57672,6 +57679,7 @@ paths:
               example:
                 id: "019a7aa9-1c15-7ae4-b01c-b713eac82ff1"
                 status: ACTIVE
+                checkoutId: null
                 lines:
                   - id: "019a7afc-d910-7fa6-84df-034056ed7c1e"
                     product:
@@ -92951,6 +92959,12 @@ components:
             - CONVERTED
             - ABANDONED
             - EXPIRED
+        checkoutId:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: "The cart's open checkout while `status` is `CHECKOUT`, so a second tab or device with the same cart cookie can open it with `getCheckout` (CR-029); null in every other status, and never another cart's checkout."
         lines:
           type: array
           items:
@@ -92971,6 +92985,7 @@ components:
       required:
         - id
         - status
+        - checkoutId
         - lines
         - itemCount
         - estimatedSubtotalPesewas

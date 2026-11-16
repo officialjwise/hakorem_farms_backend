@@ -26,6 +26,7 @@ responses:
         example:
           id: "019a7aa9-1c15-7ae4-b01c-b713eac82ff1"
           status: ACTIVE
+          checkoutId: null
           lines: []
           itemCount: 0
           estimatedSubtotalPesewas: 0

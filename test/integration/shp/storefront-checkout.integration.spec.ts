@@ -341,4 +341,47 @@ describe('the guest cart (FR-SHP-003, FR-SHP-004)', () => {
       await expect(admin.query('INSERT INTO shp.product_listing (product_id) VALUES ($1)', [id('product:LIV-GOAT')])).rejects.toMatchObject({ code: '42501' });
     });
   });
+  describe('the cart names its open checkout, and only its own (CR-029)', () => {
+    const atCheckout: Array<{ guest: Guest; checkoutId: string }> = [];
+
+    it('is null on an active cart and names the checkout while the cart is at checkout, never another cart’s', async () => {
+      for (const quantity of ['1.000', '2.000']) {
+        const guest = await newCart();
+        await add(guest, 'PRD-CABBAGE-HEAD', quantity);
+        expect((await read(`/shop/carts/${guest.cartId}`, guest)).body).toMatchObject({ status: 'ACTIVE', checkoutId: null });
+        const started = await checkout(guest);
+        expect(started.status, JSON.stringify(started.body)).toBe(201);
+        atCheckout.push({ guest, checkoutId: started.body.id as string });
+      }
+      const [first, second] = atCheckout;
+      expect(first!.checkoutId).not.toBe(second!.checkoutId);
+      for (const { guest, checkoutId } of atCheckout) {
+        const seen = await read(`/shop/carts/${guest.cartId}`, guest);
+        expect(seen.body).toMatchObject({ status: 'CHECKOUT', checkoutId });
+        expect((await read(`/shop/checkouts/${seen.body.checkoutId as string}`, guest)).body.id, 'a second tab opens the checkout from the cart').toBe(checkoutId);
+      }
+      expect((await read(`/shop/carts/${first!.guest.cartId}`, second!.guest)).status, 'another guest learns nothing').toBe(404);
+    });
+
+    it('is null once the checkout completes or the cart is abandoned', async () => {
+      const [completed, abandoned] = atCheckout;
+      const admin = database.pool('admin');
+      await admin.query("UPDATE shp.checkout_session SET status = 'COMPLETED', posted_at = now(), posted_by = created_by, version = version + 1 WHERE id = $1", [completed!.checkoutId]);
+      await admin.query("UPDATE shp.cart SET status = 'CONVERTED', version = version + 1 WHERE id = $1", [completed!.guest.cartId]);
+      await admin.query("UPDATE shp.cart SET status = 'ABANDONED', version = version + 1 WHERE id = $1", [abandoned!.guest.cartId]);
+      expect((await read(`/shop/carts/${completed!.guest.cartId}`, completed!.guest)).body).toMatchObject({ status: 'CONVERTED', checkoutId: null });
+      expect((await read(`/shop/carts/${abandoned!.guest.cartId}`, abandoned!.guest)).body).toMatchObject({ status: 'ABANDONED', checkoutId: null });
+    });
+
+    it('is null again once the checkout expires and the cart is given back', async () => {
+      const guest = await newCart();
+      await add(guest, 'PRD-CABBAGE-HEAD', '1.000');
+      const started = await checkout(guest);
+      expect((await read(`/shop/carts/${guest.cartId}`, guest)).body.checkoutId).toBe(started.body.id);
+      clock.advanceBy(15 * 60_000 + 1_000);
+      await runAsSystem({ principalId: SCHEDULER, displayName: 'Scheduler' }, randomUUID(), () => api.app.get(ReservationExpiry).run({ kind: 'SYSTEM', principalId: SCHEDULER }));
+      expect((await read(`/shop/checkouts/${started.body.id as string}`, guest)).body.status).toBe('EXPIRED');
+      expect((await read(`/shop/carts/${guest.cartId}`, guest)).body).toMatchObject({ status: 'ACTIVE', checkoutId: null });
+    });
+  });
 });

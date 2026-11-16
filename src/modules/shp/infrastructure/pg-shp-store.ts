@@ -194,6 +194,11 @@ export class PgShpStore implements ShpStore {
     await tx.query(`INSERT INTO shp.cart (id, guest_token_hash, branch_id, status) VALUES ($1, $2, $3, 'ACTIVE')`, [cart.id, cart.guestTokenHash, cart.branchId]);
   }
 
+  async openCheckoutOf(tx: Transaction, cartId: string): Promise<string | null> {
+    const { rows } = await tx.query<{ id: string }>("SELECT id FROM shp.checkout_session WHERE cart_id = $1 AND status IN ('STARTED', 'AWAITING_PAYMENT')", [cartId]);
+    return rows[0]?.id ?? null;
+  }
+
   async cart(tx: Transaction, id: string, lock: boolean): Promise<CartRecord | null> {
     const { rows } = await tx.query<CartDbRow>(`SELECT id, guest_token_hash, branch_id, coupon_code, status, updated_at FROM shp.cart WHERE id = $1${lock ? ' FOR UPDATE' : ''}`, [id]);
     const row = rows[0];
