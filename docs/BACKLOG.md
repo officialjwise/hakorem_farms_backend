@@ -74,6 +74,7 @@ Each item says why it is parked and what would bring it back.
 | --- | --- | --- | --- | --- |
 | BL-062 | Sorting INV's stock lists by product name and stock on hand by location name | The names are MDM's: INV cannot index them in its own schema or join MDM's tables (ADR-0008, ADR-0011). It needs an INV projection of product and location names kept by MDM's change events, with its own ADR (a new table class use and a subscription), and its indexes | The console's users ask for an alphabetical stock list across more than one page | CR-019, A-181, ADR-0054 |
 | BL-063 | Sorting stock on hand and stock units by value at cost | A line's value is its share of its pool by `allocate`, and a unit's the sum of its pools, both computed when read; an index needs the value stored on the listed row, maintained by the movement trigger, a change to the valuation projection (ADR-0018) | The owner wants the most valuable stock first across pages; until then the page on screen sorts | CR-019, A-181, ADR-0054 |
+| BL-064 | Posting an inter-branch transfer of untracked stock | INV publishes `inv.StockTransferredBetweenBranches` from the transfer receipt when the pool moves between branches, FIN posts 13xx at the receiving branch against 13xx at the sending branch (ADR-0003's row), and the stock reconciliation compares per branch | A second branch starts trading and moves untracked stock between branches | A-184, ADR-0056 |
 
 ## Explicitly outside the brief
 

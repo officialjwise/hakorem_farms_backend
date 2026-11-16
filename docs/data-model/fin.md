@@ -2,13 +2,17 @@
 
 Owner: FIN module. Chart of accounts, journal, posting rules, periods, fixed assets (ADR-0003). Conventions are in `docs/DATA_MODEL.md`.
 
+Built in B8 (migration 0123, ADR-0056): `account`, `subledger_party`, `accounting_period`, `posting_event_type`, `posting_rule`, `account_determination`, `journal_entry`, `journal_line`. A trigger refusal is SQLSTATE HK012 with the rule as its constraint name (`ck_journal_lines`, `ck_journal_balanced`, `ck_journal_period`, `ck_journal_period_open`, `ck_journal_line_entry`, `ck_journal_line_account`, `ck_journal_line_subledger`, `ck_account_change`, `ck_period_change`). `bank_account`, `manual_journal`, `manual_journal_line`, `period_balance`, `fixed_asset`, `depreciation_run` and `depreciation_line` follow in B08 continued (A-187).
+
 ## Triggers
 
 | Trigger | Purpose |
 | --- | --- |
 | `fin.assert_balanced()`, a deferred constraint trigger on `fin.journal_line` | At commit, for every entry touched: sum of `D` amounts equals sum of `C` amounts, and the entry has at least two lines. This is the constraint that no journal may post unbalanced |
 | `fin.assert_period_open()` on insert of `fin.journal_entry` | Rejects an entry whose `posting_date` is in a period that is not `OPEN` |
-| `fin.assert_line_valid()` on insert of `fin.journal_line` | The account is postable; `subledger_party_id` is present exactly when the account has a `subledger_kind`, and the party is of that kind |
+| `fin.assert_line_valid()` on insert of `fin.journal_line` | The account is postable; `subledger_party_id` is present exactly when the account has a `subledger_kind`, and the party is of that kind; the line is written in the transaction that wrote its entry and carries the entry's posting date |
+| `fin.account_guard()` on update of `fin.account` | An account with lines keeps its code, type, normal side and subledger kind and is never archived |
+| `fin.accounting_period_guard()` on update of `fin.accounting_period` | A `CLOSED` period never changes; no period changes its dates |
 
 ---
 
@@ -111,7 +115,7 @@ How one named amount of one event becomes a journal line. Effective-dated; a cha
 | `subledger_from` | `text` | NULL | Which field of the event names the subledger party |
 | `valid_from` | `date` | NOT NULL | |
 | `valid_to` | `date` | NULL | |
-| `approval_request_id` | `uuid` | NOT NULL, FK `iam.approval_request` | Maker-checker |
+| `approval_request_id` | `uuid` | NULL, FK `iam.approval_request` | Maker-checker. NULL only for a rule seeded by migration, created by the System principal (`ck_posting_rule_approved`, A-182) |
 
 Standard columns: `MASTER`.
 
@@ -127,7 +131,7 @@ Maps a determinant value to an account.
 | `id` | `uuid` | PK | |
 | `determinant_type` | `text` | NOT NULL, CHECK in (`GL_GROUP`, `PAYMENT_METHOD_KIND`, `TAX_LEVY`, `LOSS_GROUP`, `EXPENSE_CATEGORY`, `ASSET_CATEGORY`) | |
 | `determinant_key` | `text` | NOT NULL | For example `MEAT`, `MOBILE_MONEY`, a levy code or `*` for the default |
-| `role` | `text` | NOT NULL | `INVENTORY`, `SALES`, `COST_OF_SALES`, `TENDER`, `OUTPUT`, `INPUT`, `LOSS`, `EXPENSE` |
+| `role` | `text` | NOT NULL, CHECK in the list | `INVENTORY`, `SALES`, `COST_OF_SALES`, `TENDER`, `PAYOUT` (a supplier payment's source account, B8), `OUTPUT`, `INPUT`, `LOSS`, `EXPENSE` |
 | `account_id` | `uuid` | NOT NULL, FK `fin.account` | |
 | `valid_from` | `date` | NOT NULL | |
 | `valid_to` | `date` | NULL | |
@@ -151,6 +155,7 @@ Header of a posted journal. Insert-only.
 | `kind` | `text` | NOT NULL, CHECK in (`AUTO`, `MANUAL`, `OPENING`, `CLOSING`, `REVERSAL`) | |
 | `event_code` | `text` | NULL, FK `fin.posting_event_type`; required for `AUTO` | Which event produced it |
 | `event_id` | `uuid` | NULL, UNIQUE | The outbox message id of that event. A replayed event collides here |
+| `event_subject_id` | `uuid` | NULL | What the event is about (a movement, an invoice, a payment), so a correcting event finds the entry it reverses (B8, ADR-0056). Indexed |
 | `source_document_id` | `uuid` | NOT NULL, FK `platform.business_document` | The business document behind it |
 | `posting_group_id` | `uuid` | NOT NULL | Ties the entries of one business operation together |
 | `description` | `text` | NOT NULL | |

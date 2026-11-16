@@ -1,6 +1,6 @@
 # Runbook: reconciliation break
 
-Last reviewed: 2026-11-13. Severity: Critical when a job reports `DRIFT` or `FAILED`; Warning for an ordinary payments break. Related: `docs/ARCHITECTURE.md` section 8 (nightly reconciliation), ADR-0003, ADR-0015, `docs/data-model/pay.md`, `docs/runbooks/stock-balance-drift.md`, `docs/runbooks/audit-chain-integrity.md`, `docs/runbooks/payment-provider-down.md`.
+Last reviewed: 2026-11-16 (B8: `ledger-reconcile`). Severity: Critical when a job reports `DRIFT` or `FAILED`; Warning for an ordinary payments break. Related: `docs/ARCHITECTURE.md` section 8 (nightly reconciliation), ADR-0003, ADR-0015, `docs/data-model/pay.md`, `docs/runbooks/stock-balance-drift.md`, `docs/runbooks/audit-chain-integrity.md`, `docs/runbooks/payment-provider-down.md`.
 
 ## The rule
 
@@ -11,10 +11,8 @@ Last reviewed: 2026-11-13. Severity: Critical when a job reports `DRIFT` or `FAI
 | Job (time, Accra) | Compares | On a difference |
 | --- | --- | --- |
 | `stock-balance-recompute` (02:00) | Every `inv.stock_balance` and `inv.cost_pool` row with the movement ledger | Alert; `inv.stock_exception` of kind `BALANCE_DRIFT` (see `stock-balance-drift.md`) |
-| `trial-balance-check` (02:15) | Total debits equal total credits overall and per entry | Alert; `fin.TrialBalanceDriftDetected` |
-| `subledger-reconcile` (02:25) | Each control account with its subledger: inventory accounts with cost pools, receivables with open items, provider clearing with unsettled payments, tills with shifts, drivers with driver cash | Alert with both figures |
+| `ledger-reconcile` (02:15; B8 runs the planned `trial-balance-check`, `subledger-reconcile` and `numbering-check` as this one job, A-187) | Total debits equal total credits overall and per entry; each control account with its registered subledger (B8: inventory accounts with cost pools, summed across branches; receivables, provider clearing, tills and drivers join with their modules); every number series contiguous | Alert; `fin.TrialBalanceDriftDetected` with the unbalanced entries, each control break with both figures, and the series with gaps. Read them in `platform.job_run.summary` and the event's payload |
 | `settlement-match` (02:45) | Imported provider settlement lines with recorded payments | `pay.reconciliation_break` rows |
-| `numbering-check` (02:55) | Each series: allocations equal `next_value - 1`; every number has a document | Alert |
 | `audit-verify` (03:10) | Hash chain, gaps, head against the anchor | See `audit-chain-integrity.md` |
 | `projection-compare` (03:30) | Key totals in `rpt` against the modules of record | Alert; `rpt.ProjectionDriftDetected` |
 
