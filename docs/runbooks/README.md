@@ -15,6 +15,7 @@ Other documents they rely on: `docs/OPERATIONS.md` (alerts, jobs, backups, confi
 | [`reconciliation-break.md`](reconciliation-break.md) | A nightly job reports `DRIFT` or `FAILED`, or the payments module raises a reconciliation break | Reconciliation job outcome, trial balance, numbering, settlement | Accountant, with the administrator |
 | [`queue-backlog.md`](queue-backlog.md) | The outbox, a queue, a projection or the CPU is behind, or a delivery is dead-lettered | Outbox backlog and age, dead letters, queue depth, projection lag, latency | Administrator |
 | [`audit-chain-integrity.md`](audit-chain-integrity.md) | The audit sealer is behind, or the chain, a gap or an anchor does not verify | Audit sealing lag, chain verification, long transaction, clock offset | Administrator; the owner for any mismatch |
+| [`document-rendering.md`](document-rendering.md) | A document is not archived, its archive no longer matches its hash, or the nightly numbering audit finds a gap or an orphan | Failed `doc.render` deliveries; `ARCHIVE_HASH_MISMATCH`; `billing-numbering-audit` not clean | Administrator; the Owner for tamper findings |
 | [`stock-balance-drift.md`](stock-balance-drift.md) | The nightly recompute finds a stock balance or cost pool that does not equal the movement ledger | Stock balance drift rows | Storekeeper and administrator |
 | [`offline-sync-conflicts.md`](offline-sync-conflicts.md) | Offline sales and driver records arrived with conflicts, gaps, rejections, or a device is stuck | Offline alerts; the daily exception report | Manager |
 

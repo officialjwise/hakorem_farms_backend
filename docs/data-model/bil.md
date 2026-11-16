@@ -37,7 +37,7 @@ Posted statuses: `ISSUED`. An issued document is immutable; it is corrected by a
 | `approval_request_id` | `uuid` | NULL, FK `iam.approval_request` | The `CREDIT_NOTE` approval a credit note waits for (B08 continued 2) |
 | `issued_by` | `uuid` | NULL, FK `iam.principal`; required when `ISSUED` | Who issued it, or who approved a credit note (B08 continued 2) |
 | `content_hash` | `bytea` | NULL; set once, by the DOC module after it renders and archives the document | Hash of the rendered document: tamper evidence. Rendering happens after the issuing transaction commits (ADR-0010), so an issued document is briefly without its hash; the nightly numbering check reports any issued document still without one |
-| `archived_document_id` | `uuid` | NULL, FK `doc.archived_document` | The stored PDF. Added by B08 continued 2b's expand migration, with the archive (A-201) |
+| `archived_document_id` | `uuid` | NULL, FK `doc.archived_document`, UNIQUE where set | The archived rendering. Added by B08 continued 2b's expand migration 0155; set once with `content_hash` by BIL's subscriber to `doc.DocumentArchived` (`ck_billing_document_archive`: both or neither) |
 | `issued_at` | `timestamptz` | NULL | |
 | `occurred_at` | `timestamptz` | NULL | When the sale happened, if earlier than issue (offline) |
 
@@ -103,7 +103,7 @@ One row per line and levy, including levies at zero (ADR-0020). Snapshots that n
 
 ### `bil.reprint_log` · LEDGER
 
-Built in B08 continued 2b, with the archive (A-201).
+Built in B08 continued 2b (migration 0155, ADR-0061). A copy number is the next one of an issued, archived document (`ck_reprint_log_copy_no`, HK004); insert-only for every role.
 
 Every reprint or resend. A reprint is the archived bytes with a marker, never a new document.
 

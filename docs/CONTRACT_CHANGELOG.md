@@ -4,6 +4,17 @@ Every change to `contract/openapi.yaml`, newest first. A breaking change needs a
 
 Version numbers follow semantic versioning: a major bump breaks an existing client, a minor bump adds operations or optional fields, a patch fixes descriptions or examples.
 
+## 1.40.0 (2026-11-16, B08 continued 2b)
+
+Minor. Eleven planned DOC and BIL operations move into code, one nullable response field is added, and examples are corrected. No field removed, renamed or retyped, and nothing a client sends made required. 370 operations from code, 265 planned.
+
+- **Templates (FR-DOC-004, ADR-0061, A-202):** `listDocumentTemplates`, `getDocumentTemplate`, `listTemplateVersions`, `getTemplateVersion` (`doc.template.read`: Owner, Manager, Accountant), `createTemplateVersion` and `activateTemplateVersion` (`doc.template.manage`: Owner, Manager). A body that breaks the sandbox is 422 `TEMPLATE_BODY_INVALID`. `previewTemplateVersion` stays planned (B08 continued 2c).
+- **The archive (FR-DOC-001, FR-DOC-003, FR-DOC-007):** `listArchivedDocuments`, `getArchivedDocument`, `downloadArchivedDocument` (`doc.document.read`: Owner, Manager, Accountant). Documents are rendered after commit and archived once; `sha256` is the hex SHA-256 of the stored PDF. `reprint: true` on the download is 400 (`REPRINT_THROUGH_BILLING`).
+- **Reprints (FR-BIL-009):** `reprintBillingDocument` (`bil.document.reprint`: Owner, Manager, Cashier) and `listBillingDocumentReprints`. **`ReprintResult` gains `pdfBase64`** (string or null): a `PDF` reprint is returned inline there, a `THERMAL` one in `escPosBase64`; `url` and `expiresAt` are null. `BillingDocument.archivedDocumentId`, `contentHash` and `reprintCount` are now filled.
+- **New error codes:** `TEMPLATE_BODY_INVALID`, `DOCUMENT_NOT_ARCHIVED` (`RENDERING`, `NOT_SCANNED`, `NO_THERMAL_RENDITION`), `ARCHIVE_HASH_MISMATCH` (all 422).
+- **Examples:** the billing documents' `contentHash` is plain hex, as returned (it was `sha256:` and 68 characters). CR-026: `submitPurchaseOrder` and `submitSupplierPayment` name their own subject types in the 202; `resolveStockException` says its write-off's subject is the stock adjustment it posts; `listApprovalPolicies` shows the seeded purchase order threshold (200,001) and the supplier payment policy.
+- **Still planned:** `previewTemplateVersion`, `sendBillingDocument`, the statement operations (B08 continued 2c); `issueProforma` (B9a).
+
 ## 1.39.0 (2026-11-16, B08 continued 2)
 
 Minor. Four planned BIL operations and one RPT tile move into code; one enum value added to a query parameter. No field removed, renamed or retyped, no schema changed, and nothing a client sends made required. 359 operations from code, 276 planned.
