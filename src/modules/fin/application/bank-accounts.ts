@@ -180,6 +180,22 @@ export class BankAccounts {
     return new Map(rows.map((r) => [r.id, { id: r.id, name: r.name, kind: r.kind, last4: r.accountNoLast4, isActive: r.isActive }] as const));
   }
 
+  /**
+   * For PAY's bank reconciliation, through FIN's public door (ADR-0065): one journal entry's net leg on a bank account
+   * (its own GL account and party), as the side and amount a statement line must show to match it; null when the entry
+   * does not touch the account or nets to nothing. Read only; not authorised here: the matching command has.
+   */
+  async bankLegIn(tx: Transaction, journalEntryId: string, bankAccountId: string): Promise<{ readonly side: 'D' | 'C'; readonly amountPesewas: bigint } | null> {
+    const { debitPesewas, creditPesewas } = await this.store.bankLegOf(tx, journalEntryId, bankAccountId);
+    if (debitPesewas === creditPesewas) return null;
+    return debitPesewas > creditPesewas ? { side: 'D', amountPesewas: debitPesewas - creditPesewas } : { side: 'C', amountPesewas: creditPesewas - debitPesewas };
+  }
+
+  /** For PAY's bank reconciliation: the journal entry a PAY event posted for a source document, if any. */
+  entryOfIn(tx: Transaction, eventCode: string, sourceDocumentId: string): Promise<string | null> {
+    return this.store.entryOf(tx, eventCode, sourceDocumentId);
+  }
+
   /** For the ledger's posting handlers: the account's own subledger party (A-194). */
   async subledgerRefIn(tx: Transaction, id: string): Promise<SubledgerRef> {
     const row = await this.store.find(tx, id, false);

@@ -1,0 +1,79 @@
+operationId: importBankStatement
+tags:
+  - pay
+summary: "Import a bank or mobile money statement"
+description: "Imports a bank statement (FR-PAY-016, B09a continued 1c, 1.44.0): a `BANK` account and an uploaded `IMPORT` file, scanned `CLEAN`, with the header `value_date,direction,amount,balance,reference,narration` and one row per line in the bank's order (A-214). The running balance must add up to the pesewa (`BALANCE_BROKEN`), each line dated in the period, the period ending no later than today. Answers 202 with the statement `IMPORTED`; nothing posts. Idempotent by the file: the same file, or a period overlapping one already imported for the account, is 422 `RECONCILIATION_INVALID` (`ALREADY_IMPORTED`); the database holds both (`uq_bank_statement_file`, `ex_bank_statement_period`).\n\nPermission: `pay.reconciliation.manage`."
+x-permission: pay.reconciliation.manage
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/BankStatementImport"
+      example:
+        bankAccountId: "019a7a92-6491-77d8-bd10-86568cccff34"
+        fileId: "019a7aee-3a19-7323-b85b-3b07d244b3e5"
+        periodStart: "2026-11-01"
+        periodEnd: "2026-11-12"
+responses:
+  "202":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/BankStatement"
+        example:
+          id: "019a7aed-23b2-7a24-af5c-ab148b0b23f2"
+          bankAccount:
+            id: "019a7a92-6491-77d8-bd10-86568cccff34"
+            name: "GCB current account"
+            kind: BANK
+            last4: "4821"
+          periodStart: "2026-11-01"
+          periodEnd: "2026-11-12"
+          openingPesewas: 4120400
+          closingPesewas: 6250300
+          status: HAS_BREAKS
+          lineCount: 38
+          unmatchedCount: 2
+          currency: GHS
+          lines:
+            - id: "019a7aed-42a1-7407-b93f-494c04bcc229"
+              valueDate: "2026-11-12"
+              direction: IN
+              amountPesewas: 300000
+              narration: "ROYAL PALM HOTEL LTD INV1198"
+              bankReference: GCB-TRF-20261112-0119
+              matchedJournalEntryId: "019a7aed-6190-7deb-8323-e7837e6d6061"
+              matchStatus: MATCHED
+            - id: "019a7aed-807f-77ce-9d06-85baf81efe98"
+              valueDate: "2026-11-12"
+              direction: OUT
+              amountPesewas: 2500
+              narration: "SMS ALERT CHARGES"
+              bankReference: null
+              matchedJournalEntryId: null
+              matchStatus: UNMATCHED
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

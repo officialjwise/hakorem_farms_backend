@@ -60,7 +60,8 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B9a | `B09a-order-core-payments.md` | `b09a-order-core-payments` | B4 to B12 | Every payment edge case in the brief passes; an order on any channel posts stock, document, payment and ledger in one transaction (sale posting built and proved; the session split, A-209) |
 | B09a continued | `B09a2-payments-provider.md` | `b09a2-payments-provider` | B4 to B12 | Every payment edge case in the brief passes; a webhook is accepted only signed, in its window, unseen and with its amount re-verified; every PAY write refuses the wrong role (built; the session split, A-211) |
 | B09a continued 1b | `B09a2b-payments-reconciliation.md` | `b09a2b-payments-reconciliation` | B4 to B12 | A cheque clears 1130 to 1100 or bounces and reopens its item; a reversal posts the mirror of its journal with a different approver; store credit is never redeemed beyond its balance; the trial balance still sums to zero; every PAY write built refuses the wrong role (built; the session split before settlement and bank reconciliation, A-213) |
-| B09a continued 1c | `B09a2c-payments-settlement.md` | `b09a2c-payments-settlement` | B4 to B12 | A settlement of three payments with a fee posts 1100, 6910 and 1120 exactly and an extra line raises a break; a bank transfer clears only from its matched statement line; a break resolves only through an approved posting; a refund against a credit note posts Dr 1200; the trial balance still sums to zero; every remaining PAY write refuses the wrong role |
+| B09a continued 1c | `B09a2c-payments-settlement.md` | `b09a2c-payments-settlement` | B4 to B12 | A settlement of three payments with a fee posts 1100, 6910 and 1120 exactly and an extra line raises a break; a bank transfer clears only from its matched statement line; a break resolves only through an approved posting; the trial balance still sums to zero; every reconciliation write refuses the wrong role (built; the session split before the refund against a credit note, A-215) |
+| B09a continued 1d | `B09a2d-payments-credit-refunds.md` | `b09a2d-payments-credit-refunds` | B4 to B12 | A refund against a credit note on a paid document posts Dr 1200, never beyond the credit note's amount less what was refunded, held by the database under concurrency, approved by someone other than both makers; a cheque is refunded through a bank payout; the trial balance still sums to zero |
 | B09a continued 2 | `B09a3-orders-online.md` | `b09a3-orders-online` | B4 to B12 | The order endpoints and online placement post through SalePosting in one transaction; a void needs a supervisor who is not the cashier; a return never exceeds what was sold; the dashboard's sales figures answer exactly; every ORD write refuses the wrong role |
 | B09x | `B09x-contract-requests.md` | `b09x-contract-requests` | B4 to B12 | Every list operation has a named empty example (CR-005) and the seeded role matrix is published in the contract, generated from the IAM seed and checked in CI so it cannot drift (CR-023); no existing shape changes |
 | B9b | `B09b-pos-shifts-offline.md` | `b09b-pos-shifts-offline` | B4 to B12 | Shift close reconciles; 500 queued offline transactions sync exactly once |
@@ -1538,7 +1539,7 @@ request is green.
 
 ## B09a continued 1c — Settlement reports, bank statements, the break queue and the refund against a credit note
 
-Branch `b09a2c-payments-settlement`, from `main`. Report `docs/sessions/B09a2c-payments-settlement.md`. Inserted by B09a continued 1b's split (A-213, ADR-0026 Amendments). Gate: a settlement of three payments totalling 150,000 with a 1,500 fee matches all three and posts Dr 1100 148,500, Dr 6910 1,500, Cr 1120 150,000, and an extra 2,000 line not in the system raises a break; a bank transfer recorded PENDING clears (Dr 1100) only from its matched statement line, and an unmatched line raises `BANK_LINE_UNMATCHED`; a break resolves only through an approved posting (2290 for an unidentified receipt), never by hand; a refund against a credit note on a paid document posts Dr 1200; the trial balance still sums to zero; every remaining PAY write refuses the wrong role.
+**Run on 2026-11-16 and split (A-215):** the reconciliation part below was built and its gate proved; the refund against a credit note and the cheque's bank payout moved to B09a continued 1d. Branch `b09a2c-payments-settlement`, from `main`. Report `docs/sessions/B09a2c-payments-settlement.md`. Inserted by B09a continued 1b's split (A-213, ADR-0026 Amendments). Gate: a settlement of three payments totalling 150,000 with a 1,500 fee matches all three and posts Dr 1100 148,500, Dr 6910 1,500, Cr 1120 150,000, and an extra 2,000 line not in the system raises a break; a bank transfer recorded PENDING clears (Dr 1100) only from its matched statement line, and an unmatched line raises `BANK_LINE_UNMATCHED`; a break resolves only through an approved posting (2290 for an unidentified receipt), never by hand; a refund against a credit note on a paid document posts Dr 1200; the trial balance still sums to zero; every remaining PAY write refuses the wrong role.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9a row).
@@ -1573,6 +1574,39 @@ Stop at the gate, write docs/sessions/B09a2c-payments-settlement.md, and merge i
 request is green.
 ```
 
+## B09a continued 1d — The refund against a credit note and the cheque's bank payout
+
+Branch `b09a2d-payments-credit-refunds`, from `main`. Report `docs/sessions/B09a2d-payments-credit-refunds.md`. Inserted by B09a continued 1c's split (A-215, ADR-0026 Amendments). Gate: a credit note on a paid document is issued and a refund against it posts Dr 1200 against the customer and Cr the tender; the refund never exceeds the credit note's amount less what was already refunded against it, held by the database, and two refunds of the last amount at once leave exactly one; the refund is approved with step-up by someone other than its maker and other than the credit note's maker; a cheque is refunded to its original method through a bank payout; the trial balance still sums to zero; every write refuses the wrong role.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9a row).
+List docs/sessions/ and read only the most recent report (docs/sessions/B09a2c-payments-settlement.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read FR-PAY-012, FR-PAY-013 and FR-BIL-007 to FR-BIL-009 of docs/SRS.md (nothing else from the SRS),
+docs/data-model/pay.md, docs/data-model/bil.md (credit notes and the settlement summary), the PAY, BIL and FIN cards
+in docs/MODULE_BOUNDARIES.md, DOMAIN_MODEL section 5.9, ADR-0003, ADR-0017, ADR-0056, ADR-0060, ADR-0063, ADR-0064
+and ADR-0065, the abuse case 12 in docs/security/THREAT_MODEL.md, and A-200, A-210, A-212, A-214 and A-215 in
+docs/ASSUMPTIONS.md. Load hakorem-money, hakorem-ledger, hakorem-security-review, hakorem-endpoint,
+hakorem-migration and hakorem-tests. Use docs/prompts/module-build-prompt.md as the recipe. Do not read any other
+document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B09a continued 1d only, on branch b09a2d-payments-credit-refunds, branched from main: a credit note on
+a paid document (BIL refuses it today because outstanding would go below zero: a credit beyond what is outstanding
+leaves the credited money refundable instead), and requestRefund with creditNoteId: the refund draws on the credit
+note's uncredited amount, never beyond the credit note's amount less what was already refunded against it, held by
+the database (a trigger under the credit note's lock) and proved under concurrency (two refunds of the last amount
+at once: exactly one succeeds); approved by someone other than the refund's maker and other than the credit note's
+maker, with step-up (the owner, 2026-11-16: refunds are where till fraud lives); paid, ◆ pay.RefundPaid posts Dr
+1200 against the customer and Cr the tender (its rule and an exact-amount matrix test, ADR-0056). A cheque refunded
+to its original method through a bank payout (Cr 1100 against the bank account, paid by hand with its reference by
+someone other than the maker). Write every money rule test-first. Keep the A-208 receipt-link test green.
+If it does not fit, split at a sub-domain boundary after a proven, merged gate.
+Stop at the gate, write docs/sessions/B09a2d-payments-credit-refunds.md, and merge into main when every run on the
+pull request is green.
+```
+
 ## B09a continued 2 — The order endpoints, returns and voids, online placement and the dashboard's sales figures
 
 Branch `b09a3-orders-online`, from `main`. Report `docs/sessions/B09a3-orders-online.md`. Inserted by B9a's split (A-209, ADR-0026 Amendments). Gate: an order on any channel built so far posts stock, document, payment and ledger in one transaction through `SalePosting.postIn` (B9a's proof stands), now reached through the order endpoints and online placement; a void is approved by a supervisor who is not the cashier and leaves a credit note and reversing entries; a return never exceeds what was sold; the owner dashboard's B9a figures answer exactly from completed orders; every ORD write refuses the wrong role.
@@ -1589,7 +1623,7 @@ cannot reach this machine; say so, and check the signature scheme against a capt
 be obtained. Report every place where Paystack's real behaviour differs from its documentation or from the fake,
 and fix the fake (and the adapter, test-first) to match the real behaviour.
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9a row).
-List docs/sessions/ and read only the most recent report (docs/sessions/B09a2c-payments-settlement.md, or the
+List docs/sessions/ and read only the most recent report (docs/sessions/B09a2d-payments-credit-refunds.md, or the
 last report of its own splits).
 Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
 reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
@@ -1703,6 +1737,8 @@ period has since locked posts on the first open date, flagged, keeping its occur
 (2) A business buyer at the counter may have their name and TIN printed on the VAT invoice without opening a customer
 account, so they can reclaim the input tax: optional buyer name and TIN on the counter sale and the billing document,
 validated in format, printed on the invoice, and never creating a customer; the walk-in party stays.
+The owner, 2026-11-16 (A-212 (a)): cash enters only through a till shift. Build a customer paying an invoice at the till
+inside the shift, counted at close, and refuse any cash payment outside an open shift, test-first.
 Stop at the gate and write docs/sessions/B09b-pos-shifts-offline.md.
 ```
 
@@ -1760,6 +1796,8 @@ accounts with credit limit, terms and exposure, the credit override with a diffe
 computed from invoice due dates, statements, dunning, standing orders, overdue hold. Run scenario 2
 of docs/UAT.md as a dry run and record any difference, including the two rules that scenario flags
 for the owner (credit check and delivery fee on a partial dispatch).
+The owner, 2026-11-16 (A-212 (d)): a bounced cheque (a reversal with CHEQUE_DISHONOURED) counts against the customer's
+credit standing.
 Stop at the gate and write docs/sessions/B10-quotations-wholesale.md.
 ```
 
@@ -1795,6 +1833,8 @@ a bil.reprint_log row with the channel for a billing document, the archived byte
 document), the remittance advice to the supplier from pur.SupplierRemittanceReady (FR-PUR-013, once per payment), and
 a test that a send reaches only the document's own customer or supplier and that a failed send is retried without
 a second archive row.
+The owner, 2026-11-16 (A-212 (a)): a driver's delivery cash is handed in at a till shift and counted at that shift's close,
+never typed in outside one.
 Stop at the gate and write docs/sessions/B11-fulfilment-delivery.md.
 ```
 
@@ -1852,6 +1892,7 @@ NFR-023 performance budget, move its reads onto the hk_report connection, and re
 `exceptionsToday` from RPT's PENDING_FIGURES once the daily exception report answers them. runReport must implement
 every report code listReportDefinitions lists, SALES_SUMMARY and PURCHASES included (CR-018), each matching its
 contract example's columns.
+The owner, 2026-11-16 (A-212 (a)): investor capital arrives through the investor module to the bank, never as cash.
 Stop at the gate and write docs/sessions/B12-capital-costing-reporting.md.
 ```
 

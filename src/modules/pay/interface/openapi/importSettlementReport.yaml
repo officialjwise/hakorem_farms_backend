@@ -1,0 +1,64 @@
+operationId: importSettlementReport
+tags:
+  - pay
+summary: "Import a provider settlement file"
+description: "Imports a provider's settlement file (FR-PAY-016, B09a continued 1c, 1.44.0): an uploaded `IMPORT` file (CSV or XLSX), scanned `CLEAN`, with the header `settlement_ref,settled_on,reference,amount,fee` and one row per transaction, amounts in cedis with two places, one settlement on one date no later than today (A-214). `bankAccountId` names the `BANK` account it was paid into. Answers 202 with the report `IMPORTED`, every line `UNMATCHED`; nothing posts until it is matched. Idempotent by the file: the same file (by SHA-256) or the same settlement reference again is 422 `RECONCILIATION_INVALID` (`ALREADY_IMPORTED`) and posts nothing; a provider reference already settled in another report collides in the database. Broken rows are named at once (`details[].field` `/file/rows/<n>`).\n\nPermission: `pay.reconciliation.manage`."
+x-permission: pay.reconciliation.manage
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/SettlementImport"
+      example:
+        provider: PAYSTACK
+        fileId: "019a7aed-04c3-7040-9579-0cdd115a85ba"
+        bankAccountId: "019a7a92-6491-77d8-bd10-86568cccff34"
+responses:
+  "202":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/SettlementReport"
+        example:
+          id: "019a7aec-0d4b-7125-965d-1b2143d293ff"
+          provider: PAYSTACK
+          settlementRef: STL-40881
+          settledOn: "2026-11-13"
+          bankAccount:
+            id: "019a7a92-6491-77d8-bd10-86568cccff34"
+            name: "GCB current account"
+            kind: BANK
+            last4: "4821"
+          grossPesewas: 1842500
+          feePesewas: 35927
+          netPesewas: 1806573
+          status: IMPORTED
+          matchedCount: 0
+          breakCount: 0
+          currency: GHS
+          lines: []
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

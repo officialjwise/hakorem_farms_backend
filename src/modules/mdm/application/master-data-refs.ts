@@ -76,6 +76,8 @@ export interface CustomerFacts {
   readonly kind: 'INDIVIDUAL' | 'BUSINESS';
   /** Live, not archived. */
   readonly isLive: boolean;
+  /** Whether a phone number is held for the customer (the number itself is never read here). */
+  readonly hasPhone: boolean;
 }
 
 export interface BranchFacts {

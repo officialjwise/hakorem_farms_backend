@@ -4,6 +4,18 @@ Every change to `contract/openapi.yaml`, newest first. A breaking change needs a
 
 Version numbers follow semantic versioning: a major bump breaks an existing client, a minor bump adds operations or optional fields, a patch fixes descriptions or examples.
 
+## 1.44.0 (2026-11-16, B09a continued 1c)
+
+Minor, with one LOUD change to a planned operation. Twelve planned PAY operations move into code with their descriptions made exact; one error code, one approval kind and several enumeration values are added; three optional fields are added to request schemas. No field removed, renamed or retyped, and nothing a client sends made required in a schema. 402 operations from code, 233 planned. The versioning check against `main` passes.
+
+- **LOUD: `resolveReconciliationBreak` answers 202 `ApprovalPending`, not 200 `ReconciliationBreak` (FR-PAY-017, ADR-0065).** It was planned and never implemented. Every resolution waits for a different holder of the new `pay.reconciliation.approve` (Owner, Manager) with step-up: kind `RECONCILIATION_BREAK` (new in `ApprovalKind`), subject a `BREAK_RESOLUTION` document. `BreakResolve` gains optional `posting` (`NONE`, default, or `UNIDENTIFIED_RECEIPT`, which holds the line's money in 2290 on approval).
+- **Settlement reports (FR-PAY-016, A-214):** `listSettlementReports`, `getSettlementReport` (`pay.reconciliation.read`: Owner, Manager, Accountant), `importSettlementReport` and `matchSettlementReport` (`pay.reconciliation.manage`: Owner, Accountant). `SettlementImport` gains optional `bankAccountId`, required by the rule (422 `BANK_ACCOUNT_REQUIRED` without it). `SettlementLine.matchStatus` gains `UNMATCHED` (a line not yet matched): a client validating against the old list must add it. The file formats are in the operation's description.
+- **Bank statements (FR-PAY-011, FR-PAY-016):** `listBankStatements`, `getBankStatement`, `importBankStatement`, `matchBankStatement`, `matchBankStatementLine`. `BankLineMatch` gains optional `paymentId` (a pending bank transfer) and `journalEntryId` is no longer required: send exactly one.
+- **The break queue (FR-PAY-017):** `listReconciliationBreaks`, `getReconciliationBreak`. `ReconciliationBreak.kind` gains `PROVIDER_AMOUNT_DIFFERS`, `PROVIDER_REFERENCE_UNKNOWN` and `PROVIDER_PAYMENT_MISSING` (raised since 1.42.0); `WEBHOOK_UNKNOWN_ORDER` stays and is never raised. A break no branch is known for shows the head office's `branchId`.
+- **New error code:** `RECONCILIATION_INVALID` (422).
+- **Store credit (the owner, 2026-11-16):** `requestRefund` to `STORE_CREDIT` for a customer with no phone number is 422 `REFUND_INVALID` (`STORE_CREDIT_NEEDS_PHONE`); the walk-in stays `DESTINATION_NOT_AVAILABLE`. Behaviour only; no schema changed.
+- **Still planned in PAY:** none of the reconciliation operations. The refund against a credit note (`requestRefund` with `creditNoteId`) is B09a continued 1d's (A-215).
+
 ## 1.43.0 (2026-11-16, B09a continued 1b)
 
 Minor. Six planned PAY operations move into code with their descriptions made exact; two error codes and one reason code domain are added; examples corrected (CR-030). No field removed, renamed or retyped, no schema changed, and nothing a client sends made required in a schema. 390 operations from code, 245 planned.

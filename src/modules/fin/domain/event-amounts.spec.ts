@@ -10,6 +10,8 @@ import {
   expenseCategoryKey,
   invoiceIssuedAmounts,
   paymentClearedAmounts,
+  providerSettledAmounts,
+  unidentifiedReceiptAmounts,
   WALK_IN_CUSTOMER,
   type BillingLevy,
   type BillingLine,
@@ -309,7 +311,7 @@ describe('the amounts of a cleared payment (ADR-0003, pay.PaymentCleared)', () =
   });
 
   it('names no till for a tender that has none', () => {
-    expect(paymentClearedAmounts({ methodKind: 'BANK_TRANSFER', amountPesewas: 5, allocatedPesewas: 0, unallocatedPesewas: 5, register: null }, tema)[0]!.subledgers).toEqual([]);
+    expect(paymentClearedAmounts({ methodKind: 'CHEQUE', amountPesewas: 5, allocatedPesewas: 0, unallocatedPesewas: 5, register: null }, tema)[0]!.subledgers).toEqual([]);
   });
 });
 
@@ -381,5 +383,59 @@ describe('the amounts of a cheque, store credit and a cheque’s clearing (ADR-0
   it('clears a cheque of 100,000 into the bank account it was paid into', () => {
     expect(flat(chequeClearedAmounts({ amountPesewas: 100_000 }, gcb))).toEqual([['cheque', 100_000n, null, ['bank-1']]]);
     expect(flat(chequeClearedAmounts({ amountPesewas: 1 }, gcb))).toEqual([['cheque', 1n, null, ['bank-1']]]);
+  });
+});
+
+describe('the amounts of a provider settlement, a bank transfer cleared by its line and a receipt held in suspense (ADR-0003, ADR-0065)', () => {
+  const gcb = { kind: 'BANK_ACCOUNT' as const, refId: 'bank-1', displayName: 'GCB current account' };
+  const tema = customerParty('cus-1', 'Tema Cold Store Ltd');
+
+  it('settles three payments of 150,000 with a fee of 1,500: 148,500 into the bank, 1,500 to fees, 150,000 off the provider', () => {
+    expect(flat(providerSettledAmounts({ provider: 'PAYSTACK', grossPesewas: 150_000, feePesewas: 1_500, netPesewas: 148_500 }, gcb))).toEqual([
+      ['net', 148_500n, null, ['bank-1']],
+      ['fee', 1_500n, null, []],
+      ['gross', 150_000n, null, [providerParty('PAYSTACK').refId]],
+    ]);
+  });
+
+  it('settles a single pesewa with no fee', () => {
+    expect(flat(providerSettledAmounts({ provider: 'PAYSTACK', grossPesewas: 1, feePesewas: 0, netPesewas: 1 }, gcb))).toEqual([
+      ['net', 1n, null, ['bank-1']],
+      ['fee', 0n, null, []],
+      ['gross', 1n, null, [providerParty('PAYSTACK').refId]],
+    ]);
+  });
+
+  it('refuses a settlement whose net and fee do not sum to its gross, before anything posts', () => {
+    expect(() => providerSettledAmounts({ provider: 'PAYSTACK', grossPesewas: 150_000, feePesewas: 1_500, netPesewas: 148_501 }, gcb)).toThrow(/sum/);
+  });
+
+  it('clears a bank transfer of 75,000 into the bank account its statement line names, held as the customer\'s deposit', () => {
+    expect(flat(paymentClearedAmounts({ methodKind: 'BANK_TRANSFER', amountPesewas: 75_000, allocatedPesewas: 0, unallocatedPesewas: 75_000, register: null }, tema, gcb))).toEqual([
+      ['tender', 75_000n, { PAYMENT_METHOD_KIND: 'BANK_TRANSFER' }, ['bank-1']],
+      ['allocated', 0n, null, ['cus-1']],
+      ['unallocated', 75_000n, null, ['cus-1']],
+    ]);
+  });
+
+  it('refuses a bank transfer with no bank account to land in', () => {
+    expect(() => paymentClearedAmounts({ methodKind: 'BANK_TRANSFER', amountPesewas: 75_000, allocatedPesewas: 0, unallocatedPesewas: 75_000, register: null }, tema)).toThrow(/bank account/);
+  });
+
+  it('holds an unidentified receipt of 2,000 in suspense: the bank less its fee, the fee, the whole in 2290', () => {
+    expect(flat(unidentifiedReceiptAmounts({ amountPesewas: 2_000, feePesewas: 0 }, gcb))).toEqual([
+      ['banked', 2_000n, null, ['bank-1']],
+      ['fee', 0n, null, []],
+      ['held', 2_000n, null, []],
+    ]);
+    expect(flat(unidentifiedReceiptAmounts({ amountPesewas: 2_000, feePesewas: 39 }, gcb))).toEqual([
+      ['banked', 1_961n, null, ['bank-1']],
+      ['fee', 39n, null, []],
+      ['held', 2_000n, null, []],
+    ]);
+  });
+
+  it('refuses an unidentified receipt whose fee is more than its amount', () => {
+    expect(() => unidentifiedReceiptAmounts({ amountPesewas: 100, feePesewas: 101 }, gcb)).toThrow(/fee/);
   });
 });

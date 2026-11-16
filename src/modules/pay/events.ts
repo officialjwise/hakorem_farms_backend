@@ -39,6 +39,10 @@ export interface PaymentCleared {
    * an order must not treat it as cleared money (ADR-0064).
    */
   readonly awaitingClearance?: boolean;
+  /** The bank account a bank transfer landed in, from its matched statement line (ADR-0065); null for any other tender. */
+  readonly bankAccountId?: string | null;
+  /** A bank transfer's statement value date, the business date it is posted on (ADR-0065). */
+  readonly clearedOn?: string | null;
 }
 
 /** ◆ `pay.ChequeCleared` v1: a cheque awaiting clearance cleared at the bank, into the bank account it was paid into. */
@@ -174,4 +178,54 @@ export interface ReconciliationBreakRaised {
   readonly refundId: string | null;
   readonly reference: string | null;
   readonly amountPesewas: number | null;
+  /** The settlement report or bank statement, and the line in it, a reconciliation break was raised for (B09a continued 1c). */
+  readonly sourceDocumentId?: string | null;
+  readonly settlementLineId?: string | null;
+  readonly bankStatementLineId?: string | null;
+}
+
+/**
+ * ◆ `pay.ProviderSettled` v1: a payment provider paid out the payments a settlement report matched (ADR-0003,
+ * ADR-0065): `grossPesewas` off provider clearing, `feePesewas` to fees, `netPesewas` into the bank account; net and fee
+ * sum to the gross. Lines that did not match post nothing and are breaks.
+ */
+export interface ProviderSettled {
+  readonly settlementReportId: string;
+  readonly branchId: string;
+  readonly provider: string;
+  readonly settlementRef: string;
+  readonly bankAccountId: string;
+  readonly grossPesewas: number;
+  readonly feePesewas: number;
+  readonly netPesewas: number;
+  readonly settledOn: string;
+  readonly paymentIds: readonly string[];
+}
+
+/**
+ * ◆ `pay.UnidentifiedReceiptHeld` v1: money from a payer nobody can name, held in suspense (2290) on a second person's
+ * approval of a break's resolution (FR-PAY-010, FR-PAY-017, ADR-0065). `amountPesewas` is what the line says was paid,
+ * `feePesewas` what the provider kept of it (0 for a bank line); the bank received the difference.
+ */
+export interface UnidentifiedReceiptHeld {
+  readonly breakId: string;
+  readonly lineId: string;
+  readonly sourceDocumentId: string;
+  readonly branchId: string;
+  readonly bankAccountId: string;
+  readonly amountPesewas: number;
+  readonly feePesewas: number;
+  readonly approvalRequestId: string;
+}
+
+/** `pay.BreakResolutionRequested` v1: a break's resolution waits for a different person's approval (the daily report's `RECONCILIATION_BREAK`). */
+export interface BreakResolutionRequested {
+  readonly resolutionId: string;
+  readonly breakId: string;
+  readonly kind: string;
+  readonly branchId: string;
+  readonly posting: 'NONE' | 'UNIDENTIFIED_RECEIPT';
+  readonly amountPesewas: number | null;
+  readonly approvalRequestId: string;
+  readonly requestedBy: string;
 }

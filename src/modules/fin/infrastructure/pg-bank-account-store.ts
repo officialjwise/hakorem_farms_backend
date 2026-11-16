@@ -36,6 +36,23 @@ export class PgBankAccountStore implements BankAccountStore {
     return rows.length > 0;
   }
 
+  async bankLegOf(tx: Transaction, journalEntryId: string, bankAccountId: string): Promise<{ readonly debitPesewas: bigint; readonly creditPesewas: bigint }> {
+    const { rows } = await tx.query<{ d: string; c: string }>(
+      `SELECT COALESCE(sum(l.amount_pesewas) FILTER (WHERE l.side = 'D'), 0)::text AS d, COALESCE(sum(l.amount_pesewas) FILTER (WHERE l.side = 'C'), 0)::text AS c
+         FROM fin.journal_line l
+         JOIN fin.bank_account b ON b.id = $2 AND b.gl_account_id = l.account_id
+         JOIN fin.subledger_party p ON p.id = l.subledger_party_id AND p.kind = 'BANK_ACCOUNT' AND p.ref_id = b.id
+        WHERE l.journal_entry_id = $1`,
+      [journalEntryId, bankAccountId],
+    );
+    return { debitPesewas: BigInt(rows[0]!.d), creditPesewas: BigInt(rows[0]!.c) };
+  }
+
+  async entryOf(tx: Transaction, eventCode: string, sourceDocumentId: string): Promise<string | null> {
+    const { rows } = await tx.query<{ id: string }>('SELECT id FROM fin.journal_entry WHERE source_document_id = $1 AND event_code = $2 ORDER BY posting_date, id LIMIT 1', [sourceDocumentId, eventCode]);
+    return rows[0]?.id ?? null;
+  }
+
   async glAccountIdOf(tx: Transaction, code: string): Promise<string | null> {
     const { rows } = await tx.query<{ id: string }>('SELECT id FROM fin.account WHERE code = $1 AND deleted_at IS NULL', [code]);
     return rows[0]?.id ?? null;

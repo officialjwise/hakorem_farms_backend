@@ -501,9 +501,13 @@ export class PgPaymentStore implements PaymentStore {
 
   async raiseBreak(tx: Transaction, b: NewBreak): Promise<boolean> {
     const inserted = await tx.query(
-      `INSERT INTO pay.reconciliation_break (id, branch_id, kind, payment_id, refund_id, provider, reference, amount_pesewas, details, raised_at, created_by, updated_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11) ON CONFLICT DO NOTHING`,
-      [b.id, b.branchId, b.kind, b.paymentId, b.refundId, b.provider, b.reference, b.amountPesewas?.toString() ?? null, JSON.stringify(b.details), b.raisedAt, b.actorId],
+      `INSERT INTO pay.reconciliation_break (id, branch_id, kind, payment_id, refund_id, provider, reference, amount_pesewas, details, raised_at, created_by, updated_by,
+                                             source_document_id, settlement_line_id, bank_statement_line_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11, $12, $13, $14) ON CONFLICT DO NOTHING`,
+      [
+        b.id, b.branchId, b.kind, b.paymentId, b.refundId, b.provider, b.reference, b.amountPesewas?.toString() ?? null, JSON.stringify(b.details), b.raisedAt, b.actorId,
+        b.sourceDocumentId ?? null, b.settlementLineId ?? null, b.bankStatementLineId ?? null,
+      ],
     );
     return inserted.rowCount === 1;
   }

@@ -1,0 +1,76 @@
+operationId: matchSettlementReport
+tags:
+  - pay
+summary: "Match settlement lines to payments and post the settlement"
+description: "Matches every line once (FR-PAY-016, B09a continued 1c, 1.44.0), each to the cleared payment of the same provider its reference names for exactly its amount, and posts the matched lines as one `pay.ProviderSettled`: Dr 1100 the net against the bank account, Dr 6910 the fee, Cr 1120 the gross against the provider, dated `settledOn`. Never corrects anything: a line at another amount is `AMOUNT_DIFFERS` with a `SETTLEMENT_AMOUNT_DIFFERS` break, a line no cleared payment of ours carries (unknown, not yet cleared, or already settled) is `NOT_FOUND` with a `SETTLEMENT_NOT_FOUND` break; neither posts. The report becomes `POSTED`, or `HAS_BREAKS` when any line did not match. A second match is 422 `RECONCILIATION_INVALID` (`ALREADY_MATCHED`).\n\nPermission: `pay.reconciliation.manage`."
+x-permission: pay.reconciliation.manage
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/SettlementReport"
+        example:
+          id: "019a7aec-0d4b-7125-965d-1b2143d293ff"
+          provider: PAYSTACK
+          settlementRef: STL-40881
+          settledOn: "2026-11-13"
+          bankAccount:
+            id: "019a7a92-6491-77d8-bd10-86568cccff34"
+            name: "GCB current account"
+            kind: BANK
+            last4: "4821"
+          grossPesewas: 1842500
+          feePesewas: 35927
+          netPesewas: 1806573
+          status: HAS_BREAKS
+          matchedCount: 41
+          breakCount: 1
+          currency: GHS
+          lines:
+            - id: "019a7aec-2c3a-7b08-a040-b958bd833236"
+              providerReference: T7731049912
+              amountPesewas: 50000
+              feePesewas: 975
+              matchedPayment:
+                id: "019a7ae6-5f6a-7062-a59a-0ef1ec5387cf"
+                paymentNo: PAY-2026-DDW-021800
+              matchStatus: MATCHED
+            - id: "019a7aec-4b29-74eb-ba24-57903734d06e"
+              providerReference: T7730994017
+              amountPesewas: 18000
+              feePesewas: 351
+              matchedPayment: null
+              matchStatus: NOT_FOUND
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
