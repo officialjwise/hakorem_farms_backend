@@ -1,6 +1,6 @@
 # Runbook: reconciliation break
 
-Last reviewed: 2026-11-16 (B8: `ledger-reconcile`). Severity: Critical when a job reports `DRIFT` or `FAILED`; Warning for an ordinary payments break. Related: `docs/ARCHITECTURE.md` section 8 (nightly reconciliation), ADR-0003, ADR-0015, `docs/data-model/pay.md`, `docs/runbooks/stock-balance-drift.md`, `docs/runbooks/audit-chain-integrity.md`, `docs/runbooks/payment-provider-down.md`.
+Last reviewed: 2026-11-16 (B8: `ledger-reconcile`; B09a continued 1b: cheques, reversals, store credit). Severity: Critical when a job reports `DRIFT` or `FAILED`; Warning for an ordinary payments break. Related: `docs/ARCHITECTURE.md` section 8 (nightly reconciliation), ADR-0003, ADR-0015, `docs/data-model/pay.md`, `docs/runbooks/stock-balance-drift.md`, `docs/runbooks/audit-chain-integrity.md`, `docs/runbooks/payment-provider-down.md`.
 
 ## The rule
 
@@ -88,6 +88,13 @@ These are `pay.reconciliation_break` rows. Kinds: `UNMATCHED_PAYMENT`, `UNVERIFI
 ```
 SELECT kind, payment_id, refund_id, reference, amount_pesewas, details, raised_at FROM pay.reconciliation_break WHERE status = 'OPEN' ORDER BY raised_at;
 ```
+
+**As built in B09a continued 1b (2026-11-16, A-212, ADR-0064):** the break endpoints are still B09a continued 1c's (A-213); read breaks as above. Every break of every kind is also published as the view `pay.pub_reconciliation_break` for the daily exception report. Cheques, reversals and store credit:
+
+- **A cheque returned unpaid by the bank.** Never mark it failed by hand. Ask for `POST /payments/{id}/reverse` with `reasonCode: CHEQUE_DISHONOURED` and a note quoting the bank's letter (Owner, Manager or Accountant); a different Owner or Manager approves with step-up. Approved, the cheque is `FAILED`, Dr 1200 Cr 1130 is posted as the mirror of its receipt, and the invoice it settled is open again (check `GET /receivables/open-items?customerId=...`). A cheque that had already cleared is reversed with `RECORDED_IN_ERROR` or `CHEQUE_DISHONOURED`: both its receipt and its clearing are mirrored, so 1100 drops by the cheque.
+- **1130 does not equal the cheques awaiting clearance.** Read-only: `SELECT COALESCE(sum(amount_pesewas), 0) FROM pay.payment WHERE method_kind = 'CHEQUE' AND status = 'PENDING';` against the 1130 balance from `GET /finance/accounts/{id}/activity`. They are equal by construction (proved in `test/integration/pay/receipts-reversals.integration.spec.ts`); a difference is Section B's control break.
+- **A store credit balance looks wrong.** Read-only: `SELECT direction, sum(amount_pesewas) FROM pay.store_credit_entry WHERE customer_id = $1 GROUP BY 1;` (issues less redemptions and expiries equal `pay.store_credit_balance`), and 2210 against the customer's party. The balance is written only by its trigger and never goes below zero; never edit an entry or the balance. A wrong credit is corrected by reversing the payment or refund that caused it, through approval.
+- **A reversal waits.** `pay.payment_reversal` rows in `PENDING_APPROVAL` are in the approvals inbox (kind `PAYMENT_REVERSAL`); a single Owner cannot approve their own: the Manager or a second Owner must. Each request is on the daily exception report (abuse case 32).
 
 A `REFUND_FAILED` break is closed by the refund being paid (`POST /refunds/{id}/retry` until the provider pays it, or `POST /refunds/{id}/mark-paid` with the payout's reference by someone other than the refund's maker), never by hand.
 
