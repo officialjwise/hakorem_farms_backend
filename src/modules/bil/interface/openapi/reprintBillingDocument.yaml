@@ -35,8 +35,15 @@ requestBody:
     application/json:
       schema:
         $ref: "#/components/schemas/ReprintRequest"
-      example:
-        channel: THERMAL
+      examples:
+        thermal:
+          summary: "A copy of receipt RCP-2026-DDW-T1-018834 for the till's thermal printer"
+          value:
+            channel: THERMAL
+        pdf:
+          summary: "The same receipt as an A4 PDF, for the customer's email"
+          value:
+            channel: PDF
 responses:
   "200":
     description: OK
@@ -47,13 +54,25 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/ReprintResult"
-        example:
-          copyNo: 2
-          channel: THERMAL
-          url: null
-          escPosBase64: "G0AbYQEbRQEqKiogUkVQUklOVCAyICoqKgobRQAbYQAKG0A="
-          pdfBase64: null
-          expiresAt: null
+        examples:
+          thermal:
+            summary: "Copy 6 for the thermal printer: ESC/POS bytes with the reprint marker, no PDF"
+            value:
+              copyNo: 6
+              channel: THERMAL
+              url: null
+              escPosBase64: "G0AbYQEbRQEqKiogUkVQUklOVCA2ICoqKgobRQAbYQAKG0A="
+              pdfBase64: null
+              expiresAt: null
+          pdf:
+            summary: "Copy 6 as a PDF: the archived bytes with the reprint marker, no ESC/POS"
+            value:
+              copyNo: 6
+              channel: PDF
+              url: null
+              escPosBase64: null
+              pdfBase64: "JVBERi0xLjcKJcOkw7zDtsOfCjEgMCBvYmoKPDwvVHlwZS9DYXRhbG9nL1BhZ2VzIDIgMCBSPj4KZW5kb2JqCiUlRU9GCg=="
+              expiresAt: null
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

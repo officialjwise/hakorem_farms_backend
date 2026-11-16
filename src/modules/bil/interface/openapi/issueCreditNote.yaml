@@ -161,9 +161,9 @@ responses:
           kind: CREDIT_NOTE
           subject:
             id: "019a7ae6-407b-767e-9bb6-70ba72a2e998"
-            docType: STOCK_ADJUSTMENT
+            docType: CREDIT_NOTE
             number: null
-          summary: "Awaiting approval by a different user with the approving permission"
+          summary: "Credit note of GHS 300.00 against INV-2026-DDW-001198 (QUALITY_COMPLAINT), awaiting a different approver"
           requestedAt: "2026-11-13T10:12:00Z"
   "400":
     $ref: "#/components/responses/BadRequest"

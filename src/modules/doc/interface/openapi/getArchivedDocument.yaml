@@ -32,16 +32,16 @@ responses:
         schema:
           $ref: "#/components/schemas/ArchivedDocument"
         example:
-          id: "019a7adf-5d44-72d8-8811-36605a39af3e"
+          id: "019a7ae3-97f1-7cf2-b22a-d7f5fd6c50d3"
           businessDocument:
-            id: "019a7adf-7c33-7cbc-91f4-d497d3ea4d75"
+            id: "019a7ae2-fd46-7b80-a0b9-c0e09cf739be"
             docType: RECEIPT
             number: RCP-2026-DDW-T1-018834
           docType: RECEIPT
           documentNo: RCP-2026-DDW-T1-018834
           branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
           templateVersionId: "019a7adf-9b22-769f-abd8-72cf4d9bebad"
-          sha256: "4f2ae8c1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8"
+          sha256: "4f2ac1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7"
           revision: 1
           file:
             id: "019a7adf-ba11-7083-b5bb-1106c74c89e4"
