@@ -1540,6 +1540,16 @@ request is green.
 Branch `b09a3-orders-online`, from `main`. Report `docs/sessions/B09a3-orders-online.md`. Inserted by B9a's split (A-209, ADR-0026 Amendments). Gate: an order on any channel built so far posts stock, document, payment and ledger in one transaction through `SalePosting.postIn` (B9a's proof stands), now reached through the order endpoints and online placement; a void is approved by a supervisor who is not the cashier and leaves a credit note and reversing entries; a return never exceeds what was sold; the owner dashboard's B9a figures answer exactly from completed orders; every ORD write refuses the wrong role.
 
 ```text
+Before anything else in this phase, the real Paystack sandbox run the owner moved into B9 (A-064, 2026-11-16).
+The parent session obtains the owner's Paystack TEST key through the secure credential form before this phase
+starts; the network proxy injects it for the Paystack host, so the key never appears in the repository, a log,
+a test or a fixture (send a dummy bearer value; the proxy replaces it). Never use or ask for a live key (B13).
+Write a sandbox suite, run on demand and never in CI (it needs the network and the owner's key): every edge case
+B09a continued proved against the local fake, mobile money included (initialise, charge, verify, the transaction
+list the sweep reads, refunds, a timeout retry reusing our reference), run against the real sandbox. Webhooks
+cannot reach this machine; say so, and check the signature scheme against a captured sandbox payload if one can
+be obtained. Report every place where Paystack's real behaviour differs from its documentation or from the fake,
+and fix the fake (and the adapter, test-first) to match the real behaviour.
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9a row).
 List docs/sessions/ and read only the most recent report (docs/sessions/B09a2b-payments-reconciliation.md, or the
 last report of its own splits).
