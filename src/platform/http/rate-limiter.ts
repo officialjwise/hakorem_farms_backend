@@ -5,7 +5,7 @@ import type { Logger } from 'pino';
  * Endpoint groups of docs/API.md section 12. Each names who it counts by and what happens when Redis is down:
  * sensitive groups fail closed (the request is refused), the rest fail open.
  */
-export type RateLimitGroup = 'auth' | 'console' | 'public' | 'health';
+export type RateLimitGroup = 'auth' | 'console' | 'public' | 'checkout' | 'health';
 
 export interface RateLimitRule {
   /** Settings key holding the limit, so the owner can change it without a deployment (`platform.setting`). */
@@ -20,6 +20,8 @@ export const RATE_LIMIT_RULES: Readonly<Record<RateLimitGroup, RateLimitRule>> =
   auth: { settingKey: 'rate_limit.auth.per_address_15m', defaultLimit: 20, windowSeconds: 900, failClosed: true },
   console: { settingKey: 'rate_limit.console.per_account_1m', defaultLimit: 600, windowSeconds: 60, failClosed: false },
   public: { settingKey: 'rate_limit.public.per_address_1m', defaultLimit: 300, windowSeconds: 60, failClosed: false },
+  // Checkout reserves stock, so a script cannot hold the farm's stock hostage by starting checkouts (B07 continued 2).
+  checkout: { settingKey: 'rate_limit.checkout.per_address_10m', defaultLimit: 30, windowSeconds: 600, failClosed: true },
   health: { settingKey: 'rate_limit.health.per_address_1m', defaultLimit: 60, windowSeconds: 60, failClosed: false },
 };
 

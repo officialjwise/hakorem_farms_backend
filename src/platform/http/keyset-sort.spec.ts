@@ -69,13 +69,14 @@ describe('the shared sort (CR-019)', () => {
   });
 
   it('coalesces each key type to a comparable zero', () => {
-    const typed: SortSpec<'a' | 'b' | 'c' | 'd' | 'e'> = {
+    const typed: SortSpec<'a' | 'b' | 'c' | 'd' | 'e' | 'f'> = {
       fields: {
         a: { expression: 'x.a', type: 'text', nullable: true },
         b: { expression: 'x.b', type: 'date', nullable: true },
         c: { expression: 'x.c', type: 'timestamptz', nullable: true },
         d: { expression: 'x.d', type: 'uuid', nullable: true },
         e: { expression: 'x.e', type: 'boolean', nullable: true },
+        f: { expression: 'x.f', type: 'timestamp', nullable: true },
       },
       tieBreaker: { expression: 'x.id', type: 'uuid' },
       defaultOrder: { field: 'a', direction: 'asc' },
@@ -86,5 +87,6 @@ describe('the shared sort (CR-019)', () => {
     expect(second('c')).toBe("COALESCE(x.c, 'epoch'::timestamptz) ASC");
     expect(second('d')).toBe("COALESCE(x.d, '00000000-0000-0000-0000-000000000000'::uuid) ASC");
     expect(second('e')).toBe('COALESCE(x.e, false) ASC');
+    expect(second('f')).toBe("COALESCE(x.f, 'epoch'::timestamp) ASC");
   });
 });

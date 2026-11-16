@@ -67,6 +67,7 @@ export class AuthenticationGuard implements CanActivate {
       if (spec.originRequired === true && !originAllowed(req, allowedOrigins)) {
         throw new OriginNotAllowedError(`${spec.operationId} from ${req.header('Origin') ?? 'no origin'}`);
       }
+      if (spec.publicActor !== undefined) bindActor(spec.publicActor);
       return true;
     }
     if (/^Bearer\s/i.test(req.header('Authorization') ?? '')) {

@@ -2,7 +2,7 @@ import { ValidationFailedError } from '../errors/api-error';
 import { translate } from '../i18n/messages';
 
 /** The SQL types a sort key may be cast to when it comes back from a cursor. */
-export type SortKeyType = 'text' | 'bigint' | 'integer' | 'numeric' | 'date' | 'timestamptz' | 'uuid' | 'boolean';
+export type SortKeyType = 'text' | 'bigint' | 'integer' | 'numeric' | 'date' | 'timestamp' | 'timestamptz' | 'uuid' | 'boolean';
 
 export type SortDirection = 'asc' | 'desc';
 
@@ -73,6 +73,8 @@ function zeroOf(type: SortKeyType): string {
       return "''";
     case 'date':
       return "'epoch'::date";
+    case 'timestamp':
+      return "'epoch'::timestamp";
     case 'timestamptz':
       return "'epoch'::timestamptz";
     case 'uuid':

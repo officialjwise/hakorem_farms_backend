@@ -1,7 +1,7 @@
 import { applyDecorators, createParamDecorator, SetMetadata, type ExecutionContext } from '@nestjs/common';
 import { ApiOperation } from '@nestjs/swagger';
 import type { Request } from 'express';
-import type { Realm } from '../context/request-context';
+import type { Actor, Realm } from '../context/request-context';
 import { IdempotencyKeyRequiredError } from '../errors/api-error';
 import { translate } from '../i18n/messages';
 import type { RateLimitGroup } from './rate-limiter';
@@ -46,6 +46,12 @@ export interface OperationSpec {
    * names it. A role without it works through the operation's cost-free twin.
    */
   readonly answerPermission?: string;
+  /**
+   * A public route that writes on behalf of someone with no account (the storefront's guest, A-177): the SYSTEM
+   * principal the guard binds as the request's actor, so idempotency keys, audit rows and events name who acted. It
+   * grants nothing: the handler still decides who may reach what (a guest's cart by its token).
+   */
+  readonly publicActor?: Actor;
 }
 
 /** The contract's `x-permission` text for an operation whose permission the approval policy names. */
@@ -69,6 +75,9 @@ export function Operation(spec: OperationSpec): MethodDecorator {
   }
   if (spec.answerPermission !== undefined && (spec.permission === null || !PERMISSION.test(spec.answerPermission))) {
     throw new Error(`${spec.operationId}: an answer permission needs a fixed permission and must be a permission code`);
+  }
+  if (spec.publicActor !== undefined && (spec.access !== 'PUBLIC' || spec.publicActor.kind !== 'SYSTEM')) {
+    throw new Error(`${spec.operationId}: only a public route acts as a SYSTEM principal`);
   }
   if (spec.access === 'PUBLIC' && (spec.permission !== null || spec.csrf)) {
     throw new Error(`${spec.operationId}: a public operation has no permission and no CSRF token`);
