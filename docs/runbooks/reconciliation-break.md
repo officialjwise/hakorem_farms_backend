@@ -81,7 +81,15 @@ Outcomes are recorded in `platform.job_run` (`SUCCESS`, `DRIFT`, `FAILED`) with 
 
 ## D. Settlement and payment breaks (the payments module)
 
-These are `pay.reconciliation_break` rows. Kinds: `UNMATCHED_PAYMENT`, `UNVERIFIED_PAYMENT`, `SETTLEMENT_AMOUNT_DIFFERS`, `SETTLEMENT_NOT_FOUND`, `BANK_LINE_UNMATCHED`, `LEDGER_CASH_DIFFERS`, `REFUND_FAILED`.
+These are `pay.reconciliation_break` rows. Kinds: `UNMATCHED_PAYMENT`, `UNVERIFIED_PAYMENT`, `PROVIDER_AMOUNT_DIFFERS`, `PROVIDER_REFERENCE_UNKNOWN`, `PROVIDER_PAYMENT_MISSING`, `SETTLEMENT_AMOUNT_DIFFERS`, `SETTLEMENT_NOT_FOUND`, `BANK_LINE_UNMATCHED`, `LEDGER_CASH_DIFFERS`, `REFUND_FAILED`.
+
+**As built in B09a continued (2026-11-16, A-210):** the payments flows raise `UNMATCHED_PAYMENT`, `PROVIDER_AMOUNT_DIFFERS`, `PROVIDER_REFERENCE_UNKNOWN`, `PROVIDER_PAYMENT_MISSING` and `REFUND_FAILED`, each once while it is open, each published as `pay.ReconciliationBreakRaised` for the daily exception report. The break endpoints below (list, get, resolve with a posting through approval) arrive with B09a continued 1b (A-211); until then read them as the administrator, read-only, and log the use:
+
+```
+SELECT kind, payment_id, refund_id, reference, amount_pesewas, details, raised_at FROM pay.reconciliation_break WHERE status = 'OPEN' ORDER BY raised_at;
+```
+
+A `REFUND_FAILED` break is closed by the refund being paid (`POST /refunds/{id}/retry` until the provider pays it, or `POST /refunds/{id}/mark-paid` with the payout's reference by someone other than the refund's maker), never by hand.
 
 ```
 GET /reconciliation/breaks?status=OPEN
@@ -91,7 +99,10 @@ POST /reconciliation/breaks/{id}/resolve      # body: a note, and the resolution
 
 | Kind | Meaning | Resolution |
 | --- | --- | --- |
-| `UNMATCHED_PAYMENT` | A cleared payment with no order, or a provider line with no payment | Find the order or customer (the reference, the phone, the amount, the time). Allocate it (`POST /payments/{id}/allocate`) or hold it as a customer deposit; if the order no longer exists, refund (`POST /refunds`, approval above the limit). Resolve with the note |
+| `UNMATCHED_PAYMENT` | A cleared payment with no order, or a provider line with no payment | Find the order or customer (the reference, the phone, the amount, the time). Allocate it (`POST /payments/{id}/allocate`) or hold it as a customer deposit; if the order no longer exists (the break's `details.reason` is `ORDER_RELEASED` or `PAID_AFTER_WINDOW`), refund (`POST /refunds`; every refund waits for a different approver with step-up). Resolve with the note |
+| `PROVIDER_AMOUNT_DIFFERS` | The provider's own record of a charge is for another amount (or currency) than we asked: the payment is not cleared | Read the provider's dashboard for the reference. Never clear it by hand. If the customer paid a different amount, agree with them: refund what they paid through the provider's dashboard or, once B09a continued 1b builds it, resolve the break with the approved posting |
+| `PROVIDER_REFERENCE_UNKNOWN` | The provider holds a success under a reference this system never created (from a webhook or the sweep): nothing was posted | Find who paid (the provider's dashboard: phone, time, amount). It is usually a payment made through the provider's own page or another integration. Resolve it as an unidentified receipt (2290) or a customer's deposit with the approved posting (B09a continued 1b), or refund it from the dashboard |
+| `PROVIDER_PAYMENT_MISSING` | A charge we sent has no record at the provider 30 minutes later: the payment was failed | The charge never reached the provider (it was down). Confirm in the dashboard that nothing was taken; ask the customer to pay again. If the dashboard does show the money, raise it with the owner: the provider answered "not found" for a real charge |
 | `UNVERIFIED_PAYMENT` | An offline unverified mobile money tender (`OFFLINE_SYNC.md` 9.9) | Match it to a settlement or statement line by reference and amount, then resolve. If there is no match within `pay.unverified_window_days` (default 3), ask the provider's dashboard and the mobile money statement; if the money never arrived, request a payment reversal (approval), and deal with the loss under the owner's decision |
 | `SETTLEMENT_AMOUNT_DIFFERS` | The provider settled a different amount than we recorded | The difference is usually the provider's fee (posts to 6910 on settlement), a refund netted, or a chargeback. Check the line detail; if the fee is expected, resolve with the note and let the settlement post it. A difference that is not a fee or a refund is queried with the provider in writing |
 | `SETTLEMENT_NOT_FOUND` | A cleared payment with no settlement line yet | Wait for the next report (settlement is not instant); if it stays beyond the provider's settlement period, query the provider |

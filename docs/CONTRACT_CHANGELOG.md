@@ -4,6 +4,15 @@ Every change to `contract/openapi.yaml`, newest first. A breaking change needs a
 
 Version numbers follow semantic versioning: a major bump breaks an existing client, a minor bump adds operations or optional fields, a patch fixes descriptions or examples.
 
+## 1.42.0 (2026-11-16, B09a continued)
+
+Minor. Thirteen planned PAY operations move into code with their descriptions made exact; one error code is added. No field removed, renamed or retyped, no schema changed, and nothing a client sends made required in a schema.
+
+- **Payments (FR-PAY-003 to FR-PAY-010, ADR-0063, A-210):** `listPayments`, `getPayment`, `listUnmatchedPayments`, `checkPaymentStatus` (`pay.payment.read`), `initiateMobileMoneyCharge` (`pay.payment.initiate`), `allocatePayment` and `unallocatePayment` (`pay.payment.allocate`), and `receivePaymentWebhook`. A provider payment clears only on the provider's own answer, as a customer deposit; with the provider down, initiation is 503 `PAYMENT_PROVIDER_UNAVAILABLE`. `payerPhoneMasked` is filled for mobile money; `paymentNo`, `driver`, `bankAccount` and `chequeDueOn` stay null until the sessions that record them (B09a continued 1b, B11).
+- **Refunds (FR-PAY-012, FR-PAY-013):** `listRefunds`, `getRefund` (`pay.refund.read`), `requestRefund`, `retryRefund` (`pay.refund.create`) and `markRefundPaid` (`pay.refund.pay`, now marked `x-requires-step-up`). `requestRefund` always answers 202 today: every refund a person asks for waits for a different approver with step-up. `markRefundPaid` refuses a missing `externalReference` (422 `REFUND_INVALID`, `REFERENCE_REQUIRED`; the schema keeps the field optional) and the refund's maker (403 `MAKER_CANNOT_CHECK`). `STORE_CREDIT` and `creditNoteId` are refused until B09a continued 1b.
+- **New error code:** `REFUND_INVALID` (422).
+- **Still planned:** `recordPayment`, `reversePayment`, `clearCheque`, `getCustomerStoreCredit`, `getMyStoreCredit`, `listOpenItems`, the settlement report, bank statement and reconciliation break operations (B09a continued 1b, A-211).
+
 ## 1.41.0 (2026-11-16, B08 continued 2c)
 
 Minor, with one LOUD change to a planned shape. One planned DOC operation moves into code, one schema is added, descriptions and an example are corrected. No field removed, renamed or retyped, and nothing a client sends made required. 371 operations from code, 264 planned. The versioning check against `main` passes.
