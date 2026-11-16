@@ -13,6 +13,7 @@ Minor. Eleven planned DOC and BIL operations move into code, one nullable respon
 - **Reprints (FR-BIL-009):** `reprintBillingDocument` (`bil.document.reprint`: Owner, Manager, Cashier) and `listBillingDocumentReprints`. **`ReprintResult` gains `pdfBase64`** (string or null): a `PDF` reprint is returned inline there, a `THERMAL` one in `escPosBase64`; `url` and `expiresAt` are null. `BillingDocument.archivedDocumentId`, `contentHash` and `reprintCount` are now filled.
 - **New error codes:** `TEMPLATE_BODY_INVALID`, `DOCUMENT_NOT_ARCHIVED` (`RENDERING`, `NOT_SCANNED`, `NO_THERMAL_RENDITION`), `ARCHIVE_HASH_MISMATCH` (all 422).
 - **Examples:** the billing documents' `contentHash` is plain hex, as returned (it was `sha256:` and 68 characters). CR-026: `submitPurchaseOrder` and `submitSupplierPayment` name their own subject types in the 202; `resolveStockException` says its write-off's subject is the stock adjustment it posts; `listApprovalPolicies` shows the seeded purchase order threshold (200,001) and the supplier payment policy.
+- **Descriptions (CR-022 points 3 and 4):** `reportMortality` and `reportCareMortality` say who uploads a death's photograph (the Farm hand with `platform.file.upload.evidence`, the Owner and the Manager with `platform.file.upload`) and that its approvers, the Owner and the Manager, open it with `platform.file.read.any`.
 - **Still planned:** `previewTemplateVersion`, `sendBillingDocument`, the statement operations (B08 continued 2c); `issueProforma` (B9a).
 
 ## 1.39.0 (2026-11-16, B08 continued 2)
