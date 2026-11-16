@@ -43,4 +43,12 @@ export class PgDashboardStore implements DashboardStore {
     );
     return rows.map((r) => ({ date: r.day, valuePesewas: BigInt(r.value), count: r.receipts }));
   }
+
+  async cashBalances(tx: Transaction, branchIds: readonly string[]): Promise<{ readonly code: string; readonly balance: bigint }[]> {
+    const { rows } = await tx.query<{ code: string; balance: string }>(
+      'SELECT c.account_code AS code, sum(c.balance_pesewas)::text AS balance FROM fin.pub_cash_balance c WHERE c.branch_id = ANY($1::uuid[]) GROUP BY c.account_code ORDER BY c.account_code',
+      [branchIds],
+    );
+    return rows.map((r) => ({ code: r.code, balance: BigInt(r.balance) }));
+  }
 }

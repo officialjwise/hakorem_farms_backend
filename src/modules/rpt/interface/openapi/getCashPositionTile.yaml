@@ -1,0 +1,56 @@
+operationId: getCashPositionTile
+tags:
+  - rpt
+summary: "Cash position"
+description: "The balances of ledger accounts 1000 to 1130 (see `CashPosition`), read from the ledger's published `fin.pub_cash_balance` over the branches covered, as at the moment of the read (`asOf`). Answered by the API since 1.37.0 (B08 continued 1c).\n\nPermission: `rpt.tile.read`."
+x-permission: rpt.tile.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: branchId
+    in: query
+    required: false
+    description: "One branch; without it, every branch where the caller holds `rpt.tile.read` for the whole branch."
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/CashPositionTile"
+        example:
+          branchIds:
+            - "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          cash:
+            tillsPesewas: 742300
+            safePesewas: 900000
+            driversPesewas: 154000
+            bankPesewas: 6250300
+            mobileMoneyPesewas: 1394400
+            totalPesewas: 9441000
+            negativeFigures: []
+          currency: GHS
+          asOf: "2026-11-15T09:30:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -1,6 +1,7 @@
 import { Money, toBusinessDate, type Clock } from '@hakorem/kernel';
 import type { Actor } from '../../../platform/context/request-context';
 import type { Transaction, UnitOfWork } from '../../../platform/database/unit-of-work';
+import { cashPosition } from '../../fin';
 import type { Authoriser } from '../../iam';
 import { animalsBySpecies, dashboardBranches, dashboardDate, PENDING_FIGURES, seriesPeriod, type DashboardPeriod, type Period, type PendingFigure } from '../domain/dashboard';
 import { fillSeries } from '../domain/series';
@@ -23,6 +24,24 @@ export interface PurchasesSeriesView {
   readonly points: ReadonlyArray<{ readonly date: string; readonly valueAtCostPesewas: number; readonly receiptCount: number }>;
   readonly totalPesewas: number;
   readonly receiptCount: number;
+}
+
+/** The contract's `CashPosition`: each figure as a non-negative amount, the negative ones named (A-196). */
+export interface CashPositionView {
+  readonly tillsPesewas: number;
+  readonly safePesewas: number;
+  readonly driversPesewas: number;
+  readonly bankPesewas: number;
+  readonly mobileMoneyPesewas: number;
+  readonly totalPesewas: number;
+  readonly negativeFigures: readonly string[];
+}
+
+export interface CashPositionTileView {
+  readonly branchIds: readonly string[];
+  readonly cash: CashPositionView;
+  readonly currency: 'GHS';
+  readonly asOf: string;
 }
 
 export interface StockValueTileView {
@@ -64,7 +83,7 @@ export interface OwnerDashboardView {
   readonly salesYesterdayPesewas: null;
   readonly salesMonthToDatePesewas: null;
   readonly salesByChannel: null;
-  readonly cash: null;
+  readonly cash: CashPositionView;
   readonly stockValueAtCostPesewas: number;
   readonly purchasesTodayPesewas: number;
   readonly purchasesYesterdayPesewas: number;
@@ -118,6 +137,10 @@ export class Dashboards {
     }));
   }
 
+  getCashPositionTile(actor: Actor | undefined, query: TileQuery): Promise<CashPositionTileView> {
+    return this.read(actor, TILE_PERMISSION, query.branchId, async (tx, branchIds) => ({ branchIds, cash: await this.cash(tx, branchIds), currency: 'GHS', asOf: this.clock.now().toISOString() }));
+  }
+
   getAnimalsOnHandTile(actor: Actor | undefined, query: TileQuery): Promise<AnimalsOnHandTileView> {
     return this.read(actor, TILE_PERMISSION, query.branchId, async (tx, branchIds) => ({
       branchIds,
@@ -158,7 +181,7 @@ export class Dashboards {
         salesYesterdayPesewas: null,
         salesMonthToDatePesewas: null,
         salesByChannel: null,
-        cash: null,
+        cash: await this.cash(tx, branchIds),
         stockValueAtCostPesewas: await this.stockValue(tx, branchIds),
         purchasesTodayPesewas: onDay(day.value.date),
         purchasesYesterdayPesewas: onDay(day.value.yesterday),
@@ -188,6 +211,20 @@ export class Dashboards {
 
   private async stockValue(tx: Transaction, branchIds: readonly string[]): Promise<number> {
     return Money.ofPesewas(await this.store.stockValueAtCost(tx, branchIds)).toJsonInteger();
+  }
+
+  private async cash(tx: Transaction, branchIds: readonly string[]): Promise<CashPositionView> {
+    const figures = cashPosition(await this.store.cashBalances(tx, branchIds));
+    const fields = [
+      ['tillsPesewas', figures.tills],
+      ['safePesewas', figures.safe],
+      ['driversPesewas', figures.drivers],
+      ['bankPesewas', figures.bank],
+      ['mobileMoneyPesewas', figures.mobileMoney],
+      ['totalPesewas', figures.total],
+    ] as const;
+    const view = Object.fromEntries(fields.map(([name, value]) => [name, Money.ofPesewas(value < 0n ? -value : value).toJsonInteger()]));
+    return { ...(view as Omit<CashPositionView, 'negativeFigures'>), negativeFigures: fields.filter(([, value]) => value < 0n).map(([name]) => name) };
   }
 
   private async animals(tx: Transaction, branchIds: readonly string[]): Promise<AnimalsOnHandView> {

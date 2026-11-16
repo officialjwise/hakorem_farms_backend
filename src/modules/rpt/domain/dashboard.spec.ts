@@ -108,7 +108,6 @@ describe('the figures without a source yet', () => {
       ['salesMonthToDatePesewas', 'B9a'],
       ['salesByChannel', 'B9a'],
       ['salesSeries', 'B9a'],
-      ['cash', 'B8'],
       ['receivablesOutstandingPesewas', 'B8'],
       ['receivablesOverduePesewas', 'B8'],
       ['topMovers', 'B9a'],
@@ -116,7 +115,8 @@ describe('the figures without a source yet', () => {
       ['exceptionsToday', 'B12'],
     ]);
     expect(PENDING_FIGURES.every((f) => f.reason.length > 0 && f.source.length === 3)).toBe(true);
-    expect(isPending('cash')).toBe(true);
+    expect(isPending('cash')).toBe(false);
+    expect(isPending('receivablesOutstandingPesewas')).toBe(true);
     expect(isPending('stockValueAtCostPesewas')).toBe(false);
   });
 });

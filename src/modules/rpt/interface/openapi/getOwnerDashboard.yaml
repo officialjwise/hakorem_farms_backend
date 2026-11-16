@@ -2,7 +2,7 @@ operationId: getOwnerDashboard
 tags:
   - rpt
 summary: "The owner dashboard"
-description: "The owner's first screen in one request (FR-RPT-001, NFR-023). It composes the dashboard tiles: stock value at cost, animals on hand by species, the low stock count and purchases on `date` and the day before, and the purchases of the week (or, with `period=MONTH`, the 30 days) ending `date`, read from the published views of inventory and master data (ADR-0011, ADR-0023) and scoped to the branch asked for or to every branch where the caller holds `rpt.dashboard.owner` for the whole branch. A figure whose source module is not built yet (sales, top movers and the sales series until B9a, cash and receivables until B8, alerts and the exception count until B12) is null and listed in `pendingFigures` with its reason and phase; it is never answered with a zero. Stock figures are as of `asOf`; `date` (today unless asked, never later) dates the sales figures and ends the purchases period. A `date` after today is 422 `REPORT_PERIOD_INVALID`.\n\nPermission: `rpt.dashboard.owner`."
+description: "The owner's first screen in one request (FR-RPT-001, NFR-023). It composes the dashboard tiles: stock value at cost, animals on hand by species, the low stock count and purchases on `date` and the day before, and the purchases of the week (or, with `period=MONTH`, the 30 days) ending `date`, and the cash position (the balances of ledger accounts 1000 to 1130, as `getCashPositionTile` answers it, since 1.37.0), read from the published views of inventory, master data and the ledger (ADR-0011, ADR-0023) and scoped to the branch asked for or to every branch where the caller holds `rpt.dashboard.owner` for the whole branch. A figure whose source module is not built yet (sales, top movers and the sales series until B9a, receivables until B08 continued 2, alerts and the exception count until B12) is null and listed in `pendingFigures` with its reason and phase; it is never answered with a zero. Stock figures are as of `asOf`; `date` (today unless asked, never later) dates the sales figures and ends the purchases period. A `date` after today is 422 `REPORT_PERIOD_INVALID`.\n\nPermission: `rpt.dashboard.owner`."
 x-permission: rpt.dashboard.owner
 x-error-codes:
   - VALIDATION_FAILED
@@ -78,6 +78,7 @@ responses:
                 bankPesewas: 6250300
                 mobileMoneyPesewas: 1394400
                 totalPesewas: 9441000
+                negativeFigures: []
               stockValueAtCostPesewas: 1595501
               purchasesTodayPesewas: 0
               purchasesYesterdayPesewas: 96500
@@ -190,7 +191,7 @@ responses:
               pendingFigures: []
               currency: GHS
           beforeSalesAndBilling:
-            summary: "Today: sales, cash and receivables have no source yet, so they are null and listed in pendingFigures"
+            summary: "Today: sales and receivables have no source yet, so they are null and listed in pendingFigures; cash answers from the ledger"
             value:
               date: "2026-11-15"
               branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
@@ -201,7 +202,15 @@ responses:
               salesYesterdayPesewas: null
               salesMonthToDatePesewas: null
               salesByChannel: null
-              cash: null
+              cash:
+                tillsPesewas: 0
+                safePesewas: 900000
+                driversPesewas: 0
+                bankPesewas: 675030
+                mobileMoneyPesewas: 60560
+                totalPesewas: 1514470
+                negativeFigures:
+                  - mobileMoneyPesewas
               stockValueAtCostPesewas: 1595501
               purchasesTodayPesewas: 0
               purchasesYesterdayPesewas: 96500
@@ -273,10 +282,6 @@ responses:
                   source: ord
                   reason: "Sales are completed orders; the order core that records them on every channel is built in B9a, and counter sales reach it from B9b."
                   phase: B9a
-                - figure: cash
-                  source: fin
-                  reason: "The cash position is the balance of ledger accounts 1000 to 1130; the general ledger is built in B8."
-                  phase: B8
                 - figure: receivablesOutstandingPesewas
                   source: fin
                   reason: "Receivables are the balance of ledger account 1200 from issued invoices; the ledger and billing are built in B8."

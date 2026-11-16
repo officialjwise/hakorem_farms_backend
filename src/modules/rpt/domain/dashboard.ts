@@ -29,7 +29,8 @@ const SALES = 'Sales are completed orders; the order core that records them on e
 
 /**
  * Every figure of the owner dashboard that has no source today, in the order of the `OwnerDashboard` schema. B8, B9a,
- * B9b and B12 each remove their own entries, and set the figure, with no contract change.
+ * B9b and B12 each remove their own entries, and set the figure, with no contract change. B08 continued 1c made `cash`
+ * live, from the ledger's published `fin.pub_cash_balance` (A-196).
  */
 export const PENDING_FIGURES: readonly PendingFigure[] = [
   { figure: 'salesTodayPesewas', source: 'ord', reason: SALES, phase: 'B9a' },
@@ -37,12 +38,6 @@ export const PENDING_FIGURES: readonly PendingFigure[] = [
   { figure: 'salesMonthToDatePesewas', source: 'ord', reason: SALES, phase: 'B9a' },
   { figure: 'salesByChannel', source: 'ord', reason: SALES, phase: 'B9a' },
   { figure: 'salesSeries', source: 'ord', reason: SALES, phase: 'B9a' },
-  {
-    figure: 'cash',
-    source: 'fin',
-    reason: 'The cash position is the balance of ledger accounts 1000 to 1130; the general ledger is built in B8.',
-    phase: 'B8',
-  },
   {
     figure: 'receivablesOutstandingPesewas',
     source: 'fin',
