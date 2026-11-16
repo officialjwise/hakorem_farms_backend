@@ -1,6 +1,6 @@
 # ADR-0064: Payments recorded by hand, cheques, reversals and store credit as built
 
-- **Status:** Proposed
+- **Status:** Accepted (owner, 2026-11-16)
 - **Date:** 2026-11-16
 - **Session:** B09a continued 1b
 - **Deciders:** backend track; the accountant reviews the posting rows (A-212); the owner's rules of 2026-11-16 (reversals and refunds keep maker and checker apart with step-up; store credit never negative, held in the database)

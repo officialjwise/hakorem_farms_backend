@@ -1703,6 +1703,8 @@ period has since locked posts on the first open date, flagged, keeping its occur
 (2) A business buyer at the counter may have their name and TIN printed on the VAT invoice without opening a customer
 account, so they can reclaim the input tax: optional buyer name and TIN on the counter sale and the billing document,
 validated in format, printed on the invoice, and never creating a customer; the walk-in party stays.
+The owner, 2026-11-16 (A-212 (a)): cash enters only through a till shift. Build a customer paying an invoice at the till
+inside the shift, counted at close, and refuse any cash payment outside an open shift, test-first.
 Stop at the gate and write docs/sessions/B09b-pos-shifts-offline.md.
 ```
 
@@ -1760,6 +1762,8 @@ accounts with credit limit, terms and exposure, the credit override with a diffe
 computed from invoice due dates, statements, dunning, standing orders, overdue hold. Run scenario 2
 of docs/UAT.md as a dry run and record any difference, including the two rules that scenario flags
 for the owner (credit check and delivery fee on a partial dispatch).
+The owner, 2026-11-16 (A-212 (d)): a bounced cheque (a reversal with CHEQUE_DISHONOURED) counts against the customer's
+credit standing.
 Stop at the gate and write docs/sessions/B10-quotations-wholesale.md.
 ```
 
@@ -1795,6 +1799,8 @@ a bil.reprint_log row with the channel for a billing document, the archived byte
 document), the remittance advice to the supplier from pur.SupplierRemittanceReady (FR-PUR-013, once per payment), and
 a test that a send reaches only the document's own customer or supplier and that a failed send is retried without
 a second archive row.
+The owner, 2026-11-16 (A-212 (a)): a driver's delivery cash is handed in at a till shift and counted at that shift's close,
+never typed in outside one.
 Stop at the gate and write docs/sessions/B11-fulfilment-delivery.md.
 ```
 
@@ -1852,6 +1858,7 @@ NFR-023 performance budget, move its reads onto the hk_report connection, and re
 `exceptionsToday` from RPT's PENDING_FIGURES once the daily exception report answers them. runReport must implement
 every report code listReportDefinitions lists, SALES_SUMMARY and PURCHASES included (CR-018), each matching its
 contract example's columns.
+The owner, 2026-11-16 (A-212 (a)): investor capital arrives through the investor module to the bank, never as cash.
 Stop at the gate and write docs/sessions/B12-capital-costing-reporting.md.
 ```
 
