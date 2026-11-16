@@ -45,6 +45,7 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B7 | `B07-procurement-suppliers.md` | `b07-procurement-suppliers` | B4 to B12 | Three-way match blocks payment on disagreement (built; the session split, A-165) |
 | B07 continued | `B07b-supplier-register.md` | `b07b-supplier-register` | B4 to B12 | A payout change waits for a different approver and the old details stay in force; a disguised document is refused; a rejected requisition cannot be converted; every write refuses the wrong role (built; the session split, A-167) |
 | B07 continued 1b | `B07b2-supplier-credit-scores.md` | `b07b2-supplier-credit-scores` | B4 to B12 | A credit note cannot exceed its invoice's uncredited amount; an approved variance lets a mismatched invoice be paid; a payment's remittance data is answered once; the score matches a hand calculation; every write refuses the wrong role |
+| B06r | `B06r-processing-reversal-approval.md` | `b06r-processing-reversal-approval` | B4 to B12 | A processing reversal waits for a second approver at or above the threshold and is refused once a pack is sold or moved; a farm hand finds an animal by tag, reports and submits a death with its EVIDENCE photograph, and a manager approves it whatever its value; a reused photograph is flagged |
 | B07 continued 2 | `B07c-storefront-checkout.md` | `b07c-storefront-checkout` | B4 to B12 | Checkout reserves stock and releases it on timeout; a live animal cannot be added to a cart; the catalogue exposes no cost; every staff write refuses the wrong role |
 | B8 | `B08-ledger-billing.md` | `b08-ledger-billing` | B4 to B12 | Trial balance sums to zero on a seeded day; an unbalanced journal is rejected by the database; numbering is gap-free under concurrent load |
 | B9a | `B09a-order-core-payments.md` | `b09a-order-core-payments` | B4 to B12 | Every payment edge case in the brief passes; an order on any channel posts stock, document, payment and ledger in one transaction |
@@ -998,13 +999,64 @@ changelog and cold-read summary for every contract change. Stop at the gate, wri
 docs/sessions/B07b2-supplier-credit-scores.md, and merge into main when every run on the pull request is green.
 ```
 
-## B07 continued 2 — The storefront catalogue, cart and checkout reservation
+## B06r — The processing reversal and the farm hand's death reports under approval (A-162, F6)
 
-Branch `b07c-storefront-checkout`, from `main`. Report `docs/sessions/B07c-storefront-checkout.md`. Inserted by the B7 split (A-165, ADR-0026 Amendments). Gate: the second half of B7's: checkout reserves stock and releases it on timeout. Also: a live animal (`REQUEST_TO_BUY`) cannot be added to a cart; the catalogue carries no cost; `del.delivery_slot` exists with slot generation and checkout stores a chosen slot through its foreign key; every staff write refuses the wrong role.
+Branch `b06r-processing-reversal-approval`, from `main`. Report `docs/sessions/B06r-processing-reversal-approval.md`. Inserted by the owner on 2026-11-15, answering A-162 and the frontend's F6: reversing a completed processing order moves stock value back, so it follows the transfer write-off pattern of ADR-0048; and a farm hand's death report must be completable by the farm hand as maker, with a person above them confirming every write-off. Small. Gate: a farm hand finds an animal by its exact tag with no cost field; a farm hand reports a death, uploads its photograph (EVIDENCE) and submits it, and a manager approves it, whatever its value (below the direct write-off threshold a supervisor confirms; at or above it the existing second approver with step-up), the farm hand never writing stock off alone; uploads are EVIDENCE only for the role; approval waits for a CLEAN photograph and a rejected one returns the report to its maker; a reused photograph is flagged for the exception report; and a reversal at or above the adjustment threshold waits for a second approver with step-up and the maker is refused as checker; below it the maker's reason is required and the reversal reaches the exception report's sources; a reversal is refused outright, by the domain and the database, once any pack it produced has been sold or moved; the threshold is copied onto the reversal document; every write refuses the wrong role.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
-List docs/sessions/ and read only the most recent report (docs/sessions/B07b2-supplier-credit-scores.md).
+List docs/sessions/ and read only the most recent report.
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read FR-PRC-011 of docs/SRS.md (nothing else from the SRS), docs/data-model/prc.md (the reversal),
+ADR-0048 (the pattern to copy), A-139, A-153 and A-162 in docs/ASSUMPTIONS.md, and src/modules/inv/application/
+stock-exceptions.ts and stock-adjustments.ts as the approval pattern. Load hakorem-stock, hakorem-money and
+hakorem-security-review. Use docs/prompts/module-build-prompt.md as the recipe.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Also, before the reversal (owner, 2026-11-15, the frontend's F6 and CR-021):
+- CR-021: a cost-free exact tag lookup for the Farm hand (ADR-0052), for example getCareAnimalByTag or an exact
+  `tagNo` filter on listCareAnimals, documented as exact, refusing the wrong role.
+- Death reports: the farm hand is the maker; they report, upload the photograph and submit, and a manager
+  approves. Today the role holds no platform.file.upload, so a report at or above the threshold dead-ends. A farm
+  hand may upload EVIDENCE files and nothing else: if the file store cannot restrict upload by purpose, build that
+  check (in the application layer, deny by default, with a test that a farm hand's PRODUCT_IMAGE or any other
+  purpose is refused) rather than falling back to a broader grant. Below the direct write-off threshold a farm hand must
+  not write stock off alone: their submission waits for a supervisor's confirmation (a role that may post a
+  write-off) instead of posting at once; other makers keep the direct write-off below the threshold. Maker is
+  never the checker. Test-first, including the full farm hand path and a refusal for each wrong role.
+- Scan state: a death report may be submitted while its photograph is still PENDING, so nobody waits at the pen;
+  approval is refused until the file is CLEAN; if the scan rejects the file (infected or unscannable), the report
+  goes back to its maker with a reason. Test all three.
+- Reused photographs: every stored file already has its sha256 (migration 0033). If an EVIDENCE photograph with
+  the same sha256 is attached to a second death report, it goes on the exception report: build the detection as
+  an LIV published view (ADR-0011) or event the daily exception report (B12) reads, with a test, and a line in
+  B12's opener. A byte hash catches the same file twice, not a re-saved or cropped copy: say so, and park
+  perceptual matching in docs/BACKLOG.md. State it in the contract too: uploadFile's EVIDENCE description and the
+  death report operations say that the client should open the camera directly for death evidence (the owner's
+  frontend rule, 2026-11-15) as a deterrent, that the server cannot tell a camera photo from a gallery one, and
+  that a reused photograph is matched by exact bytes only.
+- Record the role matrix change in A-158 as the owner's decision.
+Then execute B06r only, on branch b06r-processing-reversal-approval, branched from main: cancelling a COMPLETED
+processing order (A-162 as built: Owner and Manager, its own reversal document, refused once an output is sold)
+now follows ADR-0048. At or above the adjustment threshold (copied onto the document, never read live) it
+answers 202 ApprovalPending and posts only on a different approver's approval with step-up; below it, a reason
+is required and the reversal is recorded where the daily exception report (B12) will read it, through a
+published view or event, with a line added to B12's opener. Refuse it outright, in the domain and in the
+database, once any pack or output it produced has been sold or moved, because putting the carcass back would
+hide the stock that left. Each rule test-first, including a mutation check that the database refusal stands
+on its own. Stop at the gate, write docs/sessions/B06r-processing-reversal-approval.md, and merge into main when
+every run on the pull request is green.
+```
+
+## B07 continued 2 — The storefront catalogue, cart and checkout reservation
+
+Branch `b07c-storefront-checkout`, from `main`. Report `docs/sessions/B07c-storefront-checkout.md`. Inserted by the B7 split (A-165, ADR-0026 Amendments). Gate: the shared sort mechanism (CR-019) pages without skipping or repeating a row through ties and concurrent inserts; the second half of B7's: checkout reserves stock and releases it on timeout. Also: a live animal (`REQUEST_TO_BUY`) cannot be added to a cart; the catalogue carries no cost; `del.delivery_slot` exists with slot generation and checkout stores a chosen slot through its foreign key; every staff write refuses the wrong role.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B06r-processing-reversal-approval.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
 reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the SHP requirement block of docs/SRS.md and FR-DEL-001 (nothing else from the SRS),
@@ -1025,6 +1077,13 @@ generation, with checkout storing a chosen slot through its foreign key but not 
 cut-offs are B11). A live animal cannot be added to a cart (422 REQUEST_TO_BUY_ONLY). A cart line in a unit other
 than the product's base unit converts through MasterDataRefs.toBaseIn, never with a factor of its own. Order
 placement and online payment are B09a. Write the reservation, money and permission tests first; extend the seed.
+CR-019, server-side sort (owner, 2026-11-15): build the shared sort mechanism once, here, because the
+storefront catalogue needs sorting by price and name anyway: an allow-list of sort fields per list (any other
+field is 400), each backed by an index, and the cursor carrying the sort key and the id as a tie-breaker, so
+pages never skip or repeat a row even when values tie or rows arrive between pages (prove it with a test that
+pages through ties and concurrent inserts). Apply it to the storefront catalogue, then to the console lists of
+products, stock on hand, lots and movements. If those four console lists make the phase too big, put them in a
+small phase right after this one, still before B8, and say so.
 Stop at the gate, write docs/sessions/B07c-storefront-checkout.md, and merge into main when every run on the pull
 request is green.
 ```

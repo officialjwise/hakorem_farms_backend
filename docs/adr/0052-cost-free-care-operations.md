@@ -1,6 +1,6 @@
 # ADR-0052: The Farm hand works through cost-free care operations, and a full answer needs its read permission
 
-- **Status:** Proposed (B06 continued 3; the owner approves by merging the B06 continued 3 pull request)
+- **Status:** Accepted (approved by the owner on 2026-11-15 on the condition, checked: farm hands read the register, health events with withdrawal holds and feed with every cost field removed, and tests prove they see the hold and never a cost)
 - **Date:** 2026-11-15
 - **Session:** B06 continued 3
 - **Deciders:** backend track; owner (the decision it builds is the owner's, 2026-11-15)
