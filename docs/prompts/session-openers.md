@@ -54,7 +54,8 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B08 continued 1b2 | `B08c1b2-bank-accounts.md` | `b08c1b2-bank-accounts` | B4 to B12 | Every bank account operation refuses the wrong role; a bank account's number is stored encrypted and shown only as its last four digits; a supplier payment naming a bank account posts to that account's own subledger party (built; ADR-0057, A-193, A-194) |
 | B08 continued 1c | `B08c1c-statements-assets.md` | `b08c1c-statements-assets` | B4 to B12 | The four statements tie to the trial balance on the seeded day, each read refusing the wrong role; year close leaves 3200 at zero and 3100 increased by the year's profit; the cash figure answers from the ledger (built; the session split before fixed assets, A-198) |
 | B08 continued 1c2 | `B08c1c2-fixed-assets.md` | `b08c1c2-fixed-assets` | B4 to B12 | Depreciation spreads exactly and posts once per period under concurrent runs; every fixed asset write refuses the wrong role; disposal posts its exact gain or loss; the statements still tie on the seeded day (built; ADR-0059, A-199) |
-| B08 continued 2 | `B08c2-billing-documents.md` | `b08c2-billing-documents` | B4 to B12 | A billing document posts exact levy lines and a fourth levy needs data only; numbering stays gap-free under concurrent issue; a reprint is identical with its marker; the trial balance still sums to zero on the seeded day |
+| B08 continued 2 | `B08c2-billing-documents.md` | `b08c2-billing-documents` | B4 to B12 | A billing document posts exact levy lines and a fourth levy needs data only; numbering stays gap-free under concurrent issue; the trial balance still sums to zero on the seeded day (built; the session split before rendering and the archive, A-201) |
+| B08 continued 2b | `B08c2b-documents-archive.md` | `b08c2b-documents-archive` | B4 to B12 | A reprint is byte-identical apart from its reprint marker and the archive's hash holds; every issued document of the seeded day is archived once; a template version keeps issued documents unchanged; every write refuses the wrong role |
 | B9a | `B09a-order-core-payments.md` | `b09a-order-core-payments` | B4 to B12 | Every payment edge case in the brief passes; an order on any channel posts stock, document, payment and ledger in one transaction |
 | B9b | `B09b-pos-shifts-offline.md` | `b09b-pos-shifts-offline` | B4 to B12 | Shift close reconciles; 500 queued offline transactions sync exactly once |
 | B10 | `B10-quotations-wholesale.md` | `b10-quotations-wholesale` | B4 to B12 | Quote revisions are versioned; conversion to invoice preserves every link; a credit limit blocks with an audited override |
@@ -1331,7 +1332,7 @@ Stop at the gate and write docs/sessions/B08c1c2-fixed-assets.md.
 
 ## B08 continued 2 — Billing documents, document rendering and the archive
 
-Branch `b08c2-billing-documents`. Report `docs/sessions/B08c2-billing-documents.md`. Gate: an invoice, credit note and debit note post exact levy lines through the ledger and a fourth levy added as data only produces four levy lines and four subledger postings; billing numbers stay gap-free under concurrent issue; a reprint is byte-identical apart from its reprint marker and the archive's hash holds; the trial balance still sums to zero on the seeded trading day.
+Branch `b08c2-billing-documents`. Report `docs/sessions/B08c2-billing-documents.md`. **Built; the session split before rendering and the archive (A-201): the remainder is B08 continued 2b below.** Gate: an invoice, credit note and debit note post exact levy lines through the ledger and a fourth levy added as data only produces four levy lines and four subledger postings; billing numbers stay gap-free under concurrent issue; a reprint is byte-identical apart from its reprint marker and the archive's hash holds; the trial balance still sums to zero on the seeded trading day.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
@@ -1363,13 +1364,44 @@ Stop at the gate and write docs/sessions/B08c2-billing-documents.md. End the rep
 (ADR-0026 verification).
 ```
 
+## B08 continued 2b — Document rendering, the archive, reprints and statements
+
+Branch `b08c2b-documents-archive`. Report `docs/sessions/B08c2b-documents-archive.md`. Gate: every issued document of the seeded trading day is rendered after commit and archived exactly once with the SHA-256 of its stored bytes, the archive refusing change by trigger; a reprint returns the archived bytes with its reprint marker, byte-identical apart from the marker, with copy numbers 1 and 2 and no new number; a template version keeps issued documents unchanged and a template with a script or remote include is refused at save; every DOC and reprint write refuses the wrong role.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B08c2-billing-documents.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the BIL and DOC requirement blocks of docs/SRS.md (nothing else from the SRS),
+docs/data-model/bil.md and doc.md, the BIL and DOC cards in docs/MODULE_BOUNDARIES.md, and ADR-0010, ADR-0012,
+ADR-0015 and ADR-0060. Use docs/prompts/module-build-prompt.md as the recipe.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B08 continued 2b only, on branch b08c2b-documents-archive: document templates and their versions
+(listDocumentTemplates, getDocumentTemplate, listTemplateVersions, createTemplateVersion, getTemplateVersion,
+activateTemplateVersion, previewTemplateVersion; sandboxed, no script and no remote include), rendering after commit
+through the outbox in the worker (HTML to PDF for A4, ESC/POS for thermal), the immutable archive doc.archived_document
+with its SHA-256 and render job (listArchivedDocuments, getArchivedDocument, downloadArchivedDocument by signed URL),
+bil.billing_document.archived_document_id (an expand migration) and content_hash set once by DOC, reprint with its
+marker and bil.reprint_log (reprintBillingDocument, listBillingDocumentReprints, sendBillingDocument through the outbox),
+the nightly numbering audit's hash and orphan check (FR-BIL-003), customer statements (listStatements, createStatement,
+getStatement, sendStatement) and DOC's rendering of the supplier remittance advice from pur.SupplierRemittanceReady
+(FR-PUR-013). Render and archive the seeded trading day's billing documents, and prove every one is archived once.
+If the phase does not fit, split at a sub-domain boundary (for example statements) and follow "If a session cannot
+finish".
+Stop at the gate and write docs/sessions/B08c2b-documents-archive.md. End the report with B09a's opening message
+(ADR-0026 verification).
+```
+
 ## B9a — Order core and payments, and online order placement
 
 Branch `b09a-order-core-payments`. Report `docs/sessions/B09a-order-core-payments.md`. Gate: every payment edge case in the shared brief passes, and an order on any channel posts stock, document, payment and ledger in one transaction.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9a row).
-List docs/sessions/ and read only the most recent report (docs/sessions/B08c2-billing-documents.md).
+List docs/sessions/ and read only the most recent report (docs/sessions/B08c2b-documents-archive.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
 report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the ORD (core) and PAY requirement blocks of docs/SRS.md (nothing else from the SRS),
@@ -1396,6 +1428,9 @@ Unit conversions are built in B06u (A-157, A-163): an order line in a unit other
 converts through MasterDataRefs.toBaseIn, never with a factor of its own.
 Add PAY's ◆ events to fin.posting_event_type with their rules, each with an exact-amount matrix test (ADR-0056), and
 declare the journal series lock on the sale command, where tills post at once (A-186).
+Issue each sale's billing document through BIL's Billing.issueIn in the sale's own transaction, its locks from
+Billing.seriesLocksFor (ADR-0060), and build issueProforma (POST /orders/{id}/proforma) on it (A-201); write PAY's
+allocations into bil.document_settlement through BIL, never directly (A-200).
 Stop at the gate and write docs/sessions/B09a-order-core-payments.md.
 ```
 
