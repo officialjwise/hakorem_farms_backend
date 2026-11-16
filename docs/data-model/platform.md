@@ -16,6 +16,7 @@ Owner: `src/platform`. Mechanisms only, no business rules (ADR-0009). Convention
 | Function | Purpose |
 | --- | --- |
 | `platform.allocate_number(series_id uuid, document_id uuid) RETURNS text` | Increments the series, inserts the allocation row and returns the formatted number, inside the caller's transaction (ADR-0015). Built in B8 (migration 0122); the only writer of `number_allocation` (HK011 `ck_number_allocation_writer`) |
+| `platform.number_allocated(document_id uuid, formatted text, doc_type text) RETURNS boolean` | Whether the platform allocated that number of that type to that document; read only, `SECURITY DEFINER`, so a module's trigger holds its issued number to its allocation without reading platform's tables (B08 continued 2, migration 0145) |
 | `platform.open_number_series(doc_type, fiscal_year, branch_id, branch_code, sub_scope) RETURNS uuid` | The series for a numbered document type, written on first use with the type's prefix; HK011 `ck_number_series_unknown` for a type that is not numbered (B8) |
 | `platform.reject_change() RETURNS trigger` | Raises an error. Attached `BEFORE UPDATE OR DELETE` and `BEFORE TRUNCATE` to every `LEDGER` table in every schema |
 | `platform.freeze_posted() RETURNS trigger` | Generic document freeze: once `status` is in the table's posted set, rejects changes outside the column list given as trigger arguments (ADR-0012). The first argument is the comma-separated posted statuses, the rest the columns that may still change. SQLSTATE HK004 |

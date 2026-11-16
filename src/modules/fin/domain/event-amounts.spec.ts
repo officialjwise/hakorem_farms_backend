@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  creditNoteIssuedAmounts,
+  customerParty,
+  debitNoteIssuedAmounts,
   expenseCategoryKey,
+  invoiceIssuedAmounts,
+  WALK_IN_CUSTOMER,
+  type BillingLevy,
+  type BillingLine,
   stockMovementAmounts,
   supplierCreditNoteAmounts,
   supplierInvoiceAmounts,
@@ -155,5 +162,117 @@ describe('the determination key of an expense category', () => {
     expect(expenseCategoryKey('  ')).toBe('*');
     expect(expenseCategoryKey('2026 rent')).toBe('*');
     expect(expenseCategoryKey('x'.repeat(70))).toBe('X'.repeat(60));
+  });
+});
+
+describe('the amounts of an issued invoice or receipt (ADR-0003, bil.InvoiceIssued, A-200)', () => {
+  const customer = { kind: 'CUSTOMER' as const, refId: 'cus-1', displayName: 'Royal Palm Hotel Ltd' };
+  const billed = (overrides: Partial<BillingLine> & Pick<BillingLine, 'lineNo'>): BillingLine => ({
+    lineKind: 'PRODUCT',
+    glGroup: 'MEAT',
+    netPesewas: 0,
+    taxPesewas: 0,
+    grossPesewas: 0,
+    discountPesewas: 0,
+    priceVariancePesewas: 0,
+    stockUnitId: null,
+    ...overrides,
+  });
+  const billedLevy = (lineNo: number, levyId: string, levyCode: string, amountPesewas: number): BillingLevy => ({ lineNo, levyId, levyCode, amountPesewas });
+
+  it('owes the agreed gross, credits sales at the resolved amount by GL group and each levy, and the variance and promotion apart', () => {
+    const amounts = invoiceIssuedAmounts(
+      {
+        grossPesewas: 136_000 + 42_560 + 3_000,
+        lines: [
+          // A goat resolved at 85,000 sold at 80,000 (zero-rated): 5,000 below.
+          billed({ lineNo: 1, glGroup: 'LIVE_ANIMALS', netPesewas: 80_000, grossPesewas: 80_000, priceVariancePesewas: 5_000, stockUnitId: 'goat-1' }),
+          // Meat above its resolved price by 1,000, with a 500 promotion; inclusive 42,560 split as FR-BIL-004 shows.
+          billed({ lineNo: 2, netPesewas: 35_467, taxPesewas: 7_093, grossPesewas: 42_560, discountPesewas: 500, priceVariancePesewas: -1_000 }),
+          billed({ lineNo: 3, lineKind: 'DELIVERY_FEE', glGroup: 'SERVICE', netPesewas: 2_500, taxPesewas: 500, grossPesewas: 3_000 }),
+          billed({ lineNo: 4, glGroup: 'PRODUCE_EGGS', netPesewas: 56_000, grossPesewas: 56_000 }),
+        ],
+        levies: [billedLevy(2, 'vat', 'VAT', 5_320), billedLevy(2, 'nhil', 'NHIL', 887), billedLevy(2, 'getfund', 'GETFUND', 886), billedLevy(3, 'vat', 'VAT', 500), billedLevy(1, 'vat', 'VAT', 0)],
+      },
+      customer,
+    );
+    expect(flat(amounts)).toEqual([
+      ['gross', 181_560n, null, ['cus-1']],
+      ['sales', 85_000n, { GL_GROUP: 'LIVE_ANIMALS' }, []],
+      ['sales', 34_967n, { GL_GROUP: 'MEAT' }, []],
+      ['deliveryFee', 2_500n, null, []],
+      ['sales', 56_000n, { GL_GROUP: 'PRODUCE_EGGS' }, []],
+      ['levy', 5_320n, { TAX_LEVY: 'VAT' }, ['vat']],
+      ['levy', 887n, { TAX_LEVY: 'NHIL' }, ['nhil']],
+      ['levy', 886n, { TAX_LEVY: 'GETFUND' }, ['getfund']],
+      ['levy', 500n, { TAX_LEVY: 'VAT' }, ['vat']],
+      ['levy', 0n, { TAX_LEVY: 'VAT' }, ['vat']],
+      ['priceVarianceBelow', 5_000n, null, []],
+      ['priceVarianceAbove', 0n, null, []],
+      ['priceVarianceBelow', 0n, null, []],
+      ['priceVarianceAbove', 1_000n, null, []],
+      ['priceVarianceBelow', 0n, null, []],
+      ['priceVarianceAbove', 0n, null, []],
+      ['priceVarianceBelow', 0n, null, []],
+      ['priceVarianceAbove', 0n, null, []],
+      ['promotion', 0n, null, []],
+      ['promotion', 500n, null, []],
+      ['promotion', 0n, null, []],
+      ['promotion', 0n, null, []],
+    ]);
+    const debit = amounts.filter((a) => ['gross', 'priceVarianceBelow', 'promotion'].includes(a.key)).reduce((s, a) => s + a.amount.pesewas, 0n);
+    const credit = amounts.filter((a) => ['sales', 'deliveryFee', 'levy', 'priceVarianceAbove'].includes(a.key)).reduce((s, a) => s + a.amount.pesewas, 0n);
+    expect(debit).toBe(credit);
+  });
+
+  it('carries the goat as the cost object of its sales line', () => {
+    const [, sales] = invoiceIssuedAmounts({ grossPesewas: 80_000, lines: [billed({ lineNo: 1, netPesewas: 80_000, grossPesewas: 80_000, stockUnitId: 'goat-1' })], levies: [] }, customer);
+    expect(sales!.costObjectId).toBe('goat-1');
+  });
+
+  it('holds a walk-in receipt against the one walk-in customer party', () => {
+    expect(customerParty(null, null)).toEqual(WALK_IN_CUSTOMER);
+    expect(customerParty('cus-1', 'Royal Palm Hotel Ltd')).toEqual(customer);
+    expect(customerParty('cus-2', null)).toEqual({ kind: 'CUSTOMER', refId: 'cus-2', displayName: 'cus-2' });
+  });
+});
+
+describe('the amounts of an issued credit note (ADR-0003, bil.CreditNoteIssued)', () => {
+  const customer = { kind: 'CUSTOMER' as const, refId: 'cus-1', displayName: 'Royal Palm Hotel Ltd' };
+  it('debits returns and allowances at the net and each levy back, and credits receivables at the gross', () => {
+    const amounts = creditNoteIssuedAmounts(
+      { netPesewas: 25_000, grossPesewas: 30_000, levies: [{ lineNo: 1, levyId: 'vat', levyCode: 'VAT', amountPesewas: 3_750 }, { lineNo: 1, levyId: 'nhil', levyCode: 'NHIL', amountPesewas: 625 }, { lineNo: 1, levyId: 'getfund', levyCode: 'GETFUND', amountPesewas: 625 }] },
+      customer,
+    );
+    expect(flat(amounts)).toEqual([
+      ['net', 25_000n, null, []],
+      ['levy', 3_750n, { TAX_LEVY: 'VAT' }, ['vat']],
+      ['levy', 625n, { TAX_LEVY: 'NHIL' }, ['nhil']],
+      ['levy', 625n, { TAX_LEVY: 'GETFUND' }, ['getfund']],
+      ['gross', 30_000n, null, ['cus-1']],
+    ]);
+  });
+});
+
+describe('the amounts of an issued debit note (ADR-0003, bil.DebitNoteIssued)', () => {
+  const customer = { kind: 'CUSTOMER' as const, refId: 'cus-1', displayName: 'Royal Palm Hotel Ltd' };
+  it('debits receivables at the gross and credits each charge by GL group, a delivery fee to its own key, and each levy', () => {
+    const amounts = debitNoteIssuedAmounts(
+      {
+        grossPesewas: 11_500 + 1_000,
+        lines: [
+          { lineNo: 1, lineKind: 'ADJUSTMENT', glGroup: 'OTHER', netPesewas: 10_000, taxPesewas: 1_500, grossPesewas: 11_500, discountPesewas: 0, priceVariancePesewas: 0, stockUnitId: null },
+          { lineNo: 2, lineKind: 'DELIVERY_FEE', glGroup: 'SERVICE', netPesewas: 1_000, taxPesewas: 0, grossPesewas: 1_000, discountPesewas: 0, priceVariancePesewas: 0, stockUnitId: null },
+        ],
+        levies: [{ lineNo: 1, levyId: 'vat', levyCode: 'VAT', amountPesewas: 1_500 }],
+      },
+      customer,
+    );
+    expect(flat(amounts)).toEqual([
+      ['gross', 12_500n, null, ['cus-1']],
+      ['sales', 10_000n, { GL_GROUP: 'OTHER' }, []],
+      ['deliveryFee', 1_000n, null, []],
+      ['levy', 1_500n, { TAX_LEVY: 'VAT' }, ['vat']],
+    ]);
   });
 });

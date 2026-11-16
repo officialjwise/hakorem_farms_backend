@@ -1,0 +1,183 @@
+operationId: issueCreditNote
+tags:
+  - bil
+summary: "Issue a credit note against an issued invoice or receipt"
+description: "Raises a credit note against an issued invoice or receipt (FR-BIL-007). Each line names a line of the original once, with a `quantity` (credited at the line's price less the same share of its discount) or an `amountPesewas` (in the original's terms: net if it was tax-exclusive, gross if inclusive); the levies are recomputed by the original's tax scheme version. A credit never exceeds what a line, or the original, has left uncredited (422 `CREDIT_NOTE_EXCEEDS_ORIGINAL`, also held by the database). The reason is a `REFUND` or `RETURN` code. A credit note raised on its own needs approval of kind `CREDIT_NOTE`, whatever its amount: the response is `202` with an `ApprovalPending` body, nothing is numbered or posted, and a holder of `bil.credit_note.approve` other than its maker approves it with step-up; the approval numbers it (`CRN-<YEAR>-<BRANCH>-<SEQUENCE>`), issues it and posts `bil.CreditNoteIssued` (Dr 4200 net, Dr 2100 each levy, Cr 1200 gross). Credit notes raised by a return are issued by the return (B9a). Other refusals are 422 `BILLING_DOCUMENT_INVALID` (`ORIGINAL_NOT_CORRECTABLE`, `REASON_NOT_ALLOWED`, `NOTE_REQUIRED`, `NO_LINES`, `LINE_NOT_ON_ORIGINAL`, `LINE_REPEATED`, `QUANTITY_OR_AMOUNT`, `QUANTITY_EXCEEDS_LINE`, `AMOUNT_EXCEEDS_LINE`, `LINE_ALREADY_CREDITED`).\n\nPermission: `bil.credit_note.create` at the original's branch.\n\nMay require approval of kind `CREDIT_NOTE`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+x-permission: bil.credit_note.create
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - NOT_FOUND
+  - BILLING_DOCUMENT_INVALID
+  - CREDIT_NOTE_EXCEEDS_ORIGINAL
+  - REFERENCE_NOT_FOUND
+  - PERIOD_NOT_OPEN
+  - POSTING_RULE_MISSING
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/CreditNoteCreate"
+      example:
+        reasonCode: DAMAGED_IN_DELIVERY
+        note: "Two crates broken, photographed by the driver"
+        lines:
+          - lineId: "019a7ae3-f4be-7a9c-afd4-b29c6a7f2b7a"
+            quantity: "2.000"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/BillingDocument"
+        example:
+          id: "019a7ae0-73ab-7bd8-9110-c653a1723f31"
+          kind: CREDIT_NOTE
+          status: ISSUED
+          documentNo: CRN-2026-DDW-000086
+          provisionalRef: null
+          customer:
+            id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+            customerNo: C-00042
+            name: "Royal Palm Hotel Ltd"
+          customerName: "Royal Palm Hotel Ltd"
+          customerTin: C0034412290
+          billingAddress: "7 Liberation Road, Airport Residential, Accra"
+          order:
+            id: "019a7ae4-707a-722a-a762-2b7a5143a458"
+            docType: SALES_ORDER
+            number: SO-2026-DDW-004202
+          originalDocument:
+            id: "019a7adf-f7ef-744a-9982-4d75baaec653"
+            docType: INVOICE
+            number: INV-2026-DDW-001198
+          issueDate: "2026-11-11"
+          dueDate: null
+          taxInclusive: false
+          taxSchemeVersionId: "019a7aa9-78e2-788e-adc6-91ba57db0a98"
+          netPesewas: 11600
+          taxPesewas: 0
+          grossPesewas: 11600
+          currency: GHS
+          levyTotals:
+            - levyCode: VAT
+              levyName: "Value Added Tax"
+              amountPesewas: 0
+            - levyCode: NHIL
+              levyName: "National Health Insurance Levy"
+              amountPesewas: 0
+            - levyCode: GETFUND
+              levyName: "GETFund Levy"
+              amountPesewas: 0
+          lines:
+            - id: "019a7ae4-518b-7847-9d7f-8d42d7920620"
+              lineNo: 1
+              lineKind: PRODUCT
+              product:
+                id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                sku: EGG-BIG
+                name: "Eggs, big, crate of 30"
+              description: "Eggs, big, crate of 30: broken in delivery"
+              stockUnit: null
+              quantity: "2.000"
+              uom: CRATE
+              weightKg: null
+              unitPricePesewas: 5800
+              resolvedUnitPricePesewas: 5800
+              discountPesewas: 0
+              taxCategory:
+                id: "019a7a8a-a8d1-7efa-b432-f878208c7156"
+                code: EGGS
+                name: Eggs
+              lineNetPesewas: 11600
+              lineTaxPesewas: 0
+              lineGrossPesewas: 11600
+              levies:
+                - levyCode: VAT
+                  levyName: "Value Added Tax"
+                  treatment: ZERO_RATED
+                  ratePercent: "0.00"
+                  basePesewas: 11600
+                  amountPesewas: 0
+                - levyCode: NHIL
+                  levyName: "National Health Insurance Levy"
+                  treatment: ZERO_RATED
+                  ratePercent: "0.00"
+                  basePesewas: 11600
+                  amountPesewas: 0
+                - levyCode: GETFUND
+                  levyName: "GETFund Levy"
+                  treatment: ZERO_RATED
+                  ratePercent: "0.00"
+                  basePesewas: 11600
+                  amountPesewas: 0
+          settlement:
+            allocatedPesewas: 0
+            creditedPesewas: 0
+            outstandingPesewas: 0
+            paymentStatus: NOT_APPLICABLE
+            settledAt: null
+            asOf: "2026-11-13T09:30:00Z"
+          certification: null
+          reasonCode: DAMAGED_IN_DELIVERY
+          archivedDocumentId: "019a7ae4-8f69-7c0e-b146-c9b1caf4428f"
+          contentHash: "sha256:c03ec1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7f0"
+          issuedAt: "2026-11-11T09:12:00Z"
+          occurredAt: "2026-11-11T09:12:00Z"
+          reprintCount: 0
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+  "202":
+    description: "Accepted for approval. Nothing has taken effect yet."
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ApprovalPending"
+        example:
+          status: PENDING_APPROVAL
+          approvalRequestId: "019a7ae6-218c-7c9b-81d3-d282f8f14b60"
+          kind: CREDIT_NOTE
+          subject:
+            id: "019a7ae6-407b-767e-9bb6-70ba72a2e998"
+            docType: STOCK_ADJUSTMENT
+            number: null
+          summary: "Awaiting approval by a different user with the approving permission"
+          requestedAt: "2026-11-13T10:12:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

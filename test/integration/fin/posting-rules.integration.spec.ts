@@ -214,7 +214,7 @@ describe('a posting rule change waits for a different approver, then takes effec
     const base = { eventCode: 'inv.GoodsReceived', amountKey: 'value', side: 'C', accountId: accountId('2020'), validFrom: tomorrow() };
     expect(await refuse({ ...base, validFrom: '2026-01-01' })).toMatchObject({ code: 'POSTING_RULE_INVALID', details: [{ code: 'VALID_FROM_PAST' }] });
     expect(await refuse({ ...base, amountKey: 'gross' })).toMatchObject({ details: [{ code: 'UNKNOWN_AMOUNT' }] });
-    expect(await refuse({ ...base, eventCode: 'bil.InvoiceIssued' })).toMatchObject({ details: [{ code: 'UNKNOWN_EVENT' }] });
+    expect(await refuse({ ...base, eventCode: 'pay.PaymentCleared' })).toMatchObject({ details: [{ code: 'UNKNOWN_EVENT' }] });
     expect(await refuse({ ...base, eventCode: 'fin.ManualJournalApproved', amountKey: 'debit', side: 'D' })).toMatchObject({ details: [{ code: 'POSTS_AS_ENTERED' }] });
     expect(await refuse({ ...base, accountId: undefined })).toMatchObject({ details: [{ code: 'TARGET_INVALID' }] });
     expect(await refuse({ ...base, accountId: accountId('2010') })).toMatchObject({ details: [{ code: 'UNCHANGED' }] });

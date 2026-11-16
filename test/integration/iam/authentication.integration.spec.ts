@@ -63,6 +63,7 @@ describe('staff login (ADR-0016, docs/API.md section 3.1)', () => {
       { roleCode: 'CASHIER', roleName: 'Cashier', branchId: dodowa.branchId, branchCode: 'DDW', locationId: dodowa.shopId, locationCode: 'SHOP' },
     ]);
     expect(session.permissions).toEqual([
+      'bil.document.read',
       'iam.session.read',
       'iam.session.revoke',
       'mdm.branch.read',

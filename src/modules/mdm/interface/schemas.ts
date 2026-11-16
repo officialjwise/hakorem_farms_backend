@@ -572,7 +572,7 @@ export const DeliveryQuoteRequest = z.strictObject({
 /** listReasonCodes. */
 export const ListReasonCodesQuery = PageQuery.extend({
   domain: z
-    .enum(['STOCK_ADJUSTMENT', 'MORTALITY', 'CULL', 'WASTAGE', 'PRICE_OVERRIDE', 'VOID', 'REFUND', 'RETURN', 'CANCELLATION', 'DELIVERY_FAILURE', 'CASH_MOVEMENT', 'HOLD_RELEASE'])
+    .enum(['STOCK_ADJUSTMENT', 'MORTALITY', 'CULL', 'WASTAGE', 'PRICE_OVERRIDE', 'VOID', 'REFUND', 'RETURN', 'CANCELLATION', 'DELIVERY_FAILURE', 'CASH_MOVEMENT', 'HOLD_RELEASE', 'BILLING_ADJUSTMENT'])
     .optional(),
 });
 

@@ -3,7 +3,7 @@ import type { Actor } from '../../../platform/context/request-context';
 import type { Transaction, UnitOfWork } from '../../../platform/database/unit-of-work';
 import { cashPosition } from '../../fin';
 import type { Authoriser } from '../../iam';
-import { animalsBySpecies, dashboardBranches, dashboardDate, PENDING_FIGURES, seriesPeriod, type DashboardPeriod, type Period, type PendingFigure } from '../domain/dashboard';
+import { animalsBySpecies, dashboardBranches, dashboardDate, PENDING_FIGURES, receivablesFigures, seriesPeriod, type DashboardPeriod, type Period, type PendingFigure } from '../domain/dashboard';
 import { fillSeries } from '../domain/series';
 import type { DashboardStore } from './dashboard-store';
 import { ReportPeriodInvalidError } from './errors';
@@ -35,6 +35,15 @@ export interface CashPositionView {
   readonly mobileMoneyPesewas: number;
   readonly totalPesewas: number;
   readonly negativeFigures: readonly string[];
+}
+
+/** The contract's `ReceivablesTile`. */
+export interface ReceivablesTileView {
+  readonly branchIds: readonly string[];
+  readonly outstandingPesewas: number;
+  readonly overduePesewas: number;
+  readonly currency: 'GHS';
+  readonly asOf: string;
 }
 
 export interface CashPositionTileView {
@@ -87,8 +96,8 @@ export interface OwnerDashboardView {
   readonly stockValueAtCostPesewas: number;
   readonly purchasesTodayPesewas: number;
   readonly purchasesYesterdayPesewas: number;
-  readonly receivablesOutstandingPesewas: null;
-  readonly receivablesOverduePesewas: null;
+  readonly receivablesOutstandingPesewas: number;
+  readonly receivablesOverduePesewas: number;
   readonly topMovers: null;
   readonly alerts: null;
   readonly exceptionsToday: null;
@@ -149,6 +158,11 @@ export class Dashboards {
     }));
   }
 
+  /** `getReceivablesTile` (FR-RPT-001, A-149): 1200's balance and the part of it past its due date (A-200). */
+  getReceivablesTile(actor: Actor | undefined, query: TileQuery): Promise<ReceivablesTileView> {
+    return this.read(actor, TILE_PERMISSION, query.branchId, async (tx, branchIds) => ({ branchIds, ...(await this.receivables(tx, branchIds)), currency: 'GHS', asOf: this.clock.now().toISOString() }));
+  }
+
   getLowStockTile(actor: Actor | undefined, query: TileQuery): Promise<LowStockTileView> {
     return this.read(actor, TILE_PERMISSION, query.branchId, async (tx, branchIds) => ({
       branchIds,
@@ -185,8 +199,7 @@ export class Dashboards {
         stockValueAtCostPesewas: await this.stockValue(tx, branchIds),
         purchasesTodayPesewas: onDay(day.value.date),
         purchasesYesterdayPesewas: onDay(day.value.yesterday),
-        receivablesOutstandingPesewas: null,
-        receivablesOverduePesewas: null,
+        ...(await this.receivables(tx, branchIds).then((r) => ({ receivablesOutstandingPesewas: r.outstandingPesewas, receivablesOverduePesewas: r.overduePesewas }))),
         topMovers: null,
         alerts: null,
         exceptionsToday: null,
@@ -207,6 +220,11 @@ export class Dashboards {
       const branchIds = dashboardBranches(branchId, branchId === undefined ? await this.authoriser.scopes(tx, actor!, permission) : []);
       return work(tx, branchIds);
     });
+  }
+
+  private async receivables(tx: Transaction, branchIds: readonly string[]): Promise<{ readonly outstandingPesewas: number; readonly overduePesewas: number }> {
+    const figures = receivablesFigures(await this.store.receivablesBalance(tx, branchIds), await this.store.overdueOutstanding(tx, branchIds, toBusinessDate(this.clock.now())));
+    return { outstandingPesewas: Money.ofPesewas(figures.outstanding).toJsonInteger(), overduePesewas: Money.ofPesewas(figures.overdue).toJsonInteger() };
   }
 
   private async stockValue(tx: Transaction, branchIds: readonly string[]): Promise<number> {

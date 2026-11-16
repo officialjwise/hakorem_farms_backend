@@ -10,6 +10,7 @@ import {
   TILE_PERMISSION,
   type AnimalsOnHandTileView,
   type CashPositionTileView,
+  type ReceivablesTileView,
   type LowStockTileView,
   type OwnerDashboardView,
   type PurchasesSeriesTileView,
@@ -44,6 +45,12 @@ export class DashboardController {
   @Operation({ operationId: 'getCashPositionTile', ...READ, permission: TILE_PERMISSION })
   cashPosition(@CurrentActor() actor: Actor | undefined, @Query(zodPipe(TileQuery)) query: z.infer<typeof TileQuery>): Promise<CashPositionTileView> {
     return this.dashboards.getCashPositionTile(actor, query);
+  }
+
+  @Get('tiles/receivables')
+  @Operation({ operationId: 'getReceivablesTile', ...READ, permission: TILE_PERMISSION })
+  receivables(@CurrentActor() actor: Actor | undefined, @Query(zodPipe(TileQuery)) query: z.infer<typeof TileQuery>): Promise<ReceivablesTileView> {
+    return this.dashboards.getReceivablesTile(actor, query);
   }
 
   @Get('tiles/animals-on-hand')

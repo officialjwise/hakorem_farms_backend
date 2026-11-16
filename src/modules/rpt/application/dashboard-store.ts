@@ -4,7 +4,7 @@ import type { DayTotal, Period, SpeciesCount } from '../domain/dashboard';
 /**
  * The figures the dashboard reads, each from published views only (ADR-0011, ADR-0023): inventory's
  * `pub_stock_value`, `pub_stock_on_hand`, `pub_reorder_level` and `pub_goods_receipt`, and master data's
- * `pub_product`, and the ledger's `fin.pub_cash_balance`. Never a module's own table. Each call covers exactly the branches it is given; none is an empty sum.
+ * `pub_product`, the ledger's `fin.pub_cash_balance` and `fin.pub_receivable_balance`, and billing's `bil.pub_document`. Never a module's own table. Each call covers exactly the branches it is given; none is an empty sum.
  */
 export interface DashboardStore {
   /** The value at cost of every cost pool of the branches, in pesewas. */
@@ -17,6 +17,10 @@ export interface DashboardStore {
   purchasesByDay(tx: Transaction, branchIds: readonly string[], period: Period): Promise<DayTotal[]>;
   /** Each cash and bank account's balance (debits less credits) over the branches, from `fin.pub_cash_balance`. */
   cashBalances(tx: Transaction, branchIds: readonly string[]): Promise<{ readonly code: string; readonly balance: bigint }[]>;
+  /** Trade receivables (1200) over the branches, debits less credits, from `fin.pub_receivable_balance`. */
+  receivablesBalance(tx: Transaction, branchIds: readonly string[]): Promise<bigint>;
+  /** The outstanding amount of issued invoices, receipts and debit notes due before `today`, from `bil.pub_document`. */
+  overdueOutstanding(tx: Transaction, branchIds: readonly string[], today: string): Promise<bigint>;
 }
 
 export const DASHBOARD_STORE = Symbol('DASHBOARD_STORE');

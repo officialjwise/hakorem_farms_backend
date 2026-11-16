@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.38.0"
+  version: "1.39.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -16229,6 +16229,7 @@ paths:
               - DELIVERY_FAILURE
               - CASH_MOVEMENT
               - HOLD_RELEASE
+              - BILLING_ADJUSTMENT
         - name: cursor
           in: query
           required: false
@@ -43166,8 +43167,14 @@ paths:
       tags:
         - bil
       summary: "List invoices, receipts, proformas and notes"
-      description: "Permission: `bil.document.read`."
+      description: "Invoices, receipts, proformas, credit notes and debit notes of every branch where the caller holds `bil.document.read` for the whole branch, newest first (B08 continued 2). `documentNo` finds a document by its official number or by the provisional reference an offline device printed (FR-BIL-011). A credit note waiting for approval is listed as a `DRAFT` with no number. `settlement` is billing's summary: `allocatedPesewas` stays 0 until payments are built (B9a).\n\nPermission: `bil.document.read`."
       x-permission: bil.document.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: kind
           in: query
@@ -44110,8 +44117,15 @@ paths:
       tags:
         - bil
       summary: "Get a billing document with its levy breakdown"
-      description: "Permission: `bil.document.read`."
+      description: "One billing document with every line's levy rows as issued, including levies at zero, and the document's totals, which are the sums of its lines (FR-BIL-004, ADR-0020). An issued document never changes; it is corrected by a credit or debit note naming it as `originalDocument`. `archivedDocumentId` and `contentHash` stay null until rendering and the archive are built (B08 continued 2b); `reprintCount` is 0 until then.\n\nPermission: `bil.document.read` at the document's branch."
       x-permission: bil.document.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
+        - NOT_FOUND
       parameters:
         - name: id
           in: path
@@ -44511,8 +44525,23 @@ paths:
       tags:
         - bil
       summary: "Issue a credit note against an issued invoice or receipt"
-      description: "Cannot exceed the uncredited amount of the original. Credit notes raised by a return are issued by the return; a standalone credit note needs approval.\n\nPermission: `bil.credit_note.create`.\n\nMay require approval of kind `CREDIT_NOTE`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+      description: "Raises a credit note against an issued invoice or receipt (FR-BIL-007). Each line names a line of the original once, with a `quantity` (credited at the line's price less the same share of its discount) or an `amountPesewas` (in the original's terms: net if it was tax-exclusive, gross if inclusive); the levies are recomputed by the original's tax scheme version. A credit never exceeds what a line, or the original, has left uncredited (422 `CREDIT_NOTE_EXCEEDS_ORIGINAL`, also held by the database). The reason is a `REFUND` or `RETURN` code. A credit note raised on its own needs approval of kind `CREDIT_NOTE`, whatever its amount: the response is `202` with an `ApprovalPending` body, nothing is numbered or posted, and a holder of `bil.credit_note.approve` other than its maker approves it with step-up; the approval numbers it (`CRN-<YEAR>-<BRANCH>-<SEQUENCE>`), issues it and posts `bil.CreditNoteIssued` (Dr 4200 net, Dr 2100 each levy, Cr 1200 gross). Credit notes raised by a return are issued by the return (B9a). Other refusals are 422 `BILLING_DOCUMENT_INVALID` (`ORIGINAL_NOT_CORRECTABLE`, `REASON_NOT_ALLOWED`, `NOTE_REQUIRED`, `NO_LINES`, `LINE_NOT_ON_ORIGINAL`, `LINE_REPEATED`, `QUANTITY_OR_AMOUNT`, `QUANTITY_EXCEEDS_LINE`, `AMOUNT_EXCEEDS_LINE`, `LINE_ALREADY_CREDITED`).\n\nPermission: `bil.credit_note.create` at the original's branch.\n\nMay require approval of kind `CREDIT_NOTE`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
       x-permission: bil.credit_note.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - NOT_FOUND
+        - BILLING_DOCUMENT_INVALID
+        - CREDIT_NOTE_EXCEEDS_ORIGINAL
+        - REFERENCE_NOT_FOUND
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -44681,8 +44710,22 @@ paths:
       tags:
         - bil
       summary: "Issue a debit note against an issued invoice"
-      description: "Permission: `bil.debit_note.create`."
+      description: "Adds a charge to an issued invoice or receipt (FR-BIL-007): each line's `amountPesewas` is in the original's terms (net if it was tax-exclusive, gross if inclusive) and is taxed by today's tax scheme in its `taxCategoryId`. Issued at once, numbered `DBN-<YEAR>-<BRANCH>-<SEQUENCE>` in the same transaction, and posted as `bil.DebitNoteIssued` (Dr 1200 gross against the customer, Cr 4030 each charge, Cr 2100 each levy). It is due on the original's due date, or today if that has passed. The reason is a `BILLING_ADJUSTMENT` code (`UNDERCHARGED`, `CHARGE_OMITTED`). Refusals are 422 `BILLING_DOCUMENT_INVALID` (`ORIGINAL_NOT_CORRECTABLE`, `REASON_NOT_ALLOWED`, `NOTE_REQUIRED`, `NO_LINES`, `AMOUNT_NOT_POSITIVE`) and `REFERENCE_NOT_FOUND` for an unknown tax category.\n\nPermission: `bil.debit_note.create` at the original's branch."
       x-permission: bil.debit_note.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - NOT_FOUND
+        - BILLING_DOCUMENT_INVALID
+        - REFERENCE_NOT_FOUND
+        - PERIOD_NOT_OPEN
+        - POSTING_RULE_MISSING
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -69576,7 +69619,7 @@ paths:
       tags:
         - rpt
       summary: "The owner dashboard"
-      description: "The owner's first screen in one request (FR-RPT-001, NFR-023). It composes the dashboard tiles: stock value at cost, animals on hand by species, the low stock count and purchases on `date` and the day before, and the purchases of the week (or, with `period=MONTH`, the 30 days) ending `date`, and the cash position (the balances of ledger accounts 1000 to 1130, as `getCashPositionTile` answers it, since 1.37.0), read from the published views of inventory, master data and the ledger (ADR-0011, ADR-0023) and scoped to the branch asked for or to every branch where the caller holds `rpt.dashboard.owner` for the whole branch. A figure whose source module is not built yet (sales, top movers and the sales series until B9a, receivables until B08 continued 2, alerts and the exception count until B12) is null and listed in `pendingFigures` with its reason and phase; it is never answered with a zero. Stock figures are as of `asOf`; `date` (today unless asked, never later) dates the sales figures and ends the purchases period. A `date` after today is 422 `REPORT_PERIOD_INVALID`.\n\nPermission: `rpt.dashboard.owner`."
+      description: "The owner's first screen in one request (FR-RPT-001, NFR-023). It composes the dashboard tiles: stock value at cost, animals on hand by species, the low stock count and purchases on `date` and the day before, and the purchases of the week (or, with `period=MONTH`, the 30 days) ending `date`, the cash position (the balances of ledger accounts 1000 to 1130, as `getCashPositionTile` answers it, since 1.37.0), and receivables (the balance of 1200 and the part past its due date, as `getReceivablesTile` answers them, since 1.39.0), read from the published views of inventory, master data and the ledger (ADR-0011, ADR-0023) and scoped to the branch asked for or to every branch where the caller holds `rpt.dashboard.owner` for the whole branch. A figure whose source module is not built yet (sales, top movers and the sales series until B9a, alerts and the exception count until B12) is null and listed in `pendingFigures` with its reason and phase; it is never answered with a zero. Stock figures are as of `asOf`; `date` (today unless asked, never later) dates the sales figures and ends the purchases period. A `date` after today is 422 `REPORT_PERIOD_INVALID`.\n\nPermission: `rpt.dashboard.owner`."
       x-permission: rpt.dashboard.owner
       x-error-codes:
         - VALIDATION_FAILED
@@ -69765,7 +69808,7 @@ paths:
                     pendingFigures: []
                     currency: GHS
                 beforeSalesAndBilling:
-                  summary: "Today: sales and receivables have no source yet, so they are null and listed in pendingFigures; cash answers from the ledger"
+                  summary: "Today: sales have no source yet, so they are null and listed in pendingFigures; cash and receivables answer from the ledger and billing"
                   value:
                     date: "2026-11-15"
                     branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
@@ -69788,8 +69831,8 @@ paths:
                     stockValueAtCostPesewas: 1595501
                     purchasesTodayPesewas: 0
                     purchasesYesterdayPesewas: 96500
-                    receivablesOutstandingPesewas: null
-                    receivablesOverduePesewas: null
+                    receivablesOutstandingPesewas: 109389
+                    receivablesOverduePesewas: 0
                     topMovers: null
                     alerts: null
                     exceptionsToday: null
@@ -69856,14 +69899,6 @@ paths:
                         source: ord
                         reason: "Sales are completed orders; the order core that records them on every channel is built in B9a, and counter sales reach it from B9b."
                         phase: B9a
-                      - figure: receivablesOutstandingPesewas
-                        source: fin
-                        reason: "Receivables are the balance of ledger account 1200 from issued invoices; the ledger and billing are built in B8."
-                        phase: B8
-                      - figure: receivablesOverduePesewas
-                        source: bil
-                        reason: "Overdue receivables are invoices past their due date; billing is built in B8."
-                        phase: B8
                       - figure: topMovers
                         source: ord
                         reason: "Top movers rank the products sold today by revenue, from completed orders built in B9a."
@@ -70263,8 +70298,14 @@ paths:
       tags:
         - rpt
       summary: "Outstanding receivables"
-      description: "The balance of ledger account 1200 and the part of it past its due date. Not answered by the API until the ledger and billing exist (B8): until then only the mock serves it.\n\nPermission: `rpt.tile.read`."
+      description: "The balance of ledger account 1200 (debits less credits, from the ledger's published `fin.pub_receivable_balance`) and the part of it past its due date (the outstanding amount of issued invoices, receipts and debit notes due before today, from billing's `bil.pub_document`), over the branches covered, as at `asOf` (A-200). A credit balance answers 0; overdue never exceeds outstanding. Answered by the API since 1.39.0 (B08 continued 2).\n\nPermission: `rpt.tile.read`."
       x-permission: rpt.tile.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: branchId
           in: query

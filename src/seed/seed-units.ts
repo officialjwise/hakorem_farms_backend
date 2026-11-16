@@ -1,3 +1,4 @@
+import { farmSeedBil } from './farm-bil';
 import { farmSeedFin, farmSeedFinAssets } from './farm-fin';
 import { farmSeedIam, seedLocationGrantsIam } from './farm-iam';
 import { farmSeedInv } from './farm-inv';
@@ -28,8 +29,10 @@ export interface SeedEnvironment {
  * enters and approves the goats' transport invoice through PUR (B7); last, Kpone's terms, two suppliers' payout details
  * (made by the Owner, approved by the Manager) and a feed requisition go in through PUR (B07 continued); then the Accountant
  * enters Kpone's transport credit note and the Owner approves it (B07 continued 1b); last, the Manager generates Dodowa's
- * delivery slots through DEL and the storefront's listing is built through SHP (B07 continued 2).
+ * delivery slots through DEL and the storefront's listing is built through SHP (B07 continued 2); last, the trading day's
+ * billing documents (an invoice on terms, a walk-in receipt, a credit note approved by the Manager, a debit note and a
+ * proforma) are issued through BIL and posted by the ledger (B08 continued 2).
  */
 export function seedUnits(env: SeedEnvironment): readonly SeedUnit[] {
-  return [farmSeedMdmBootstrap(), farmSeedIam(env.SEED_STAFF_PASSWORD), farmSeedMdm(), seedLocationGrantsIam(), farmSeedInv(), farmSeedLiv(), farmSeedMdmUnits(), farmSeedPrc(), farmSeedFin(), farmSeedFinAssets(), farmSeedPur(), farmSeedPurRegister(), farmSeedPurCredit(), farmSeedShp()];
+  return [farmSeedMdmBootstrap(), farmSeedIam(env.SEED_STAFF_PASSWORD), farmSeedMdm(), seedLocationGrantsIam(), farmSeedInv(), farmSeedLiv(), farmSeedMdmUnits(), farmSeedPrc(), farmSeedFin(), farmSeedFinAssets(), farmSeedPur(), farmSeedPurRegister(), farmSeedPurCredit(), farmSeedShp(), farmSeedBil()];
 }

@@ -68,6 +68,16 @@ export interface TaxCategoryFacts {
   readonly name: string;
 }
 
+/** A customer as a selling or billing module names it (B08 continued 2): the contract's `CustomerRef`, and the kind. */
+export interface CustomerFacts {
+  readonly id: string;
+  readonly customerNo: string;
+  readonly name: string;
+  readonly kind: 'INDIVIDUAL' | 'BUSINESS';
+  /** Live, not archived. */
+  readonly isLive: boolean;
+}
+
 export interface BranchFacts {
   readonly id: string;
   readonly code: string;
@@ -94,6 +104,7 @@ export interface MasterDataRefsStore {
   species(tx: Transaction, ids: readonly string[]): Promise<SpeciesFacts[]>;
   branches(tx: Transaction, ids: readonly string[]): Promise<BranchFacts[]>;
   taxCategories(tx: Transaction, ids: readonly string[]): Promise<TaxCategoryFacts[]>;
+  customers(tx: Transaction, ids: readonly string[]): Promise<CustomerFacts[]>;
   reasonCodes(tx: Transaction, codes: readonly string[]): Promise<ReasonCodeFacts[]>;
   physicalLocationOfKind(tx: Transaction, branchId: string, kind: string): Promise<string | null>;
   /** Ids of live records by their codes, for a higher module's import sheet (ADR-0050). */
@@ -158,6 +169,12 @@ export class MasterDataRefs {
 
   async taxCategoriesIn(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, TaxCategoryFacts>> {
     return byId(await this.store.taxCategories(tx, unique(ids)));
+  }
+
+  /** Customers by id, for a billing document's party and its `CustomerRef` (B08 continued 2). */
+  async customersIn(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, CustomerFacts>> {
+    if (ids.length === 0) return new Map();
+    return byId(await this.store.customers(tx, unique(ids)));
   }
 
   async branchesIn(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, BranchFacts>> {

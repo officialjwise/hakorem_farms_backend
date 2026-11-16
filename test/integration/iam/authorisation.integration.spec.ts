@@ -78,6 +78,8 @@ const VALID_BODY: Readonly<Record<string, object>> = {
   createFixedAsset: { name: 'Chest freezer', category: 'EQUIPMENT', branchId: randomUUID(), acquiredOn: '2026-11-10', costPesewas: 640_000, usefulLifeMonths: 60 },
   updateFixedAsset: { version: 1, name: 'Chest freezer, 300 l' },
   disposeFixedAsset: { disposedOn: '2026-11-10', proceedsPesewas: 0, note: 'Scrapped' },
+  issueCreditNote: { reasonCode: 'OVERCHARGED', note: 'Refused', lines: [{ lineId: randomUUID(), amountPesewas: 1 }] },
+  issueDebitNote: { reasonCode: 'UNDERCHARGED', note: 'Refused', lines: [{ description: 'Refused', amountPesewas: 1, taxCategoryId: randomUUID() }] },
   createDepreciationRun: { periodId: randomUUID() },
   createProduct: { sku: 'MEAT-GOAT-5KG', name: 'Goat meat, 5 kg pack', categoryId: randomUUID(), stockPolicy: 'CATCH_WEIGHT', baseUom: 'KG', saleUom: 'PACK', onlineMode: 'LISTED' },
   revokeSession: { reason: 'Tablet left unattended overnight' },
@@ -238,7 +240,7 @@ afterAll(async () => {
 });
 
 describe('deny by default: the handler walk (ADR-0017, security architecture section 14)', () => {
-  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued, B05 continued 3, B05x, B6, B06m, B06 continued, B06 continued 2, B06 continued 3, B06u, B7, B07 continued, B07 continued 1b, B06r, B07 continued 2, B08 continued, B08 continued 1b, B08 continued 1b2, B08 continued 1c and B08 continued 1c2 routes, and every one declares its operation', () => {
+  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued, B05 continued 3, B05x, B6, B06m, B06 continued, B06 continued 2, B06 continued 3, B06u, B7, B07 continued, B07 continued 1b, B06r, B07 continued 2, B08 continued, B08 continued 1b, B08 continued 1b2, B08 continued 1c, B08 continued 1c2 and B08 continued 2 routes, and every one declares its operation', () => {
     expect(routes.map((route) => route.spec?.operationId).sort()).toEqual(
       [
         'changePassword', 'confirmTotpEnrolment', 'createProduct', 'getCurrentSession', 'getHealth', 'getProduct', 'listProducts', 'listSessions',
@@ -305,6 +307,7 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'getTrialBalance', 'getProfitAndLoss', 'getBalanceSheet', 'getCashFlow', 'getCashPositionTile',
         'listFixedAssets', 'createFixedAsset', 'getFixedAsset', 'updateFixedAsset', 'disposeFixedAsset',
         'listDepreciationRuns', 'createDepreciationRun', 'getDepreciationRun', 'postDepreciationRun',
+        'listBillingDocuments', 'getBillingDocument', 'issueCreditNote', 'issueDebitNote', 'getReceivablesTile',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);

@@ -29,6 +29,7 @@ parameters:
         - DELIVERY_FAILURE
         - CASH_MOVEMENT
         - HOLD_RELEASE
+        - BILLING_ADJUSTMENT
   - name: cursor
     in: query
     required: false

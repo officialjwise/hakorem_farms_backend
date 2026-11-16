@@ -1,6 +1,6 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
 import type { UomFactor } from '../domain/unit-conversion';
-import type { BranchFacts, GradeFacts, ReasonCodeFacts, LocationFacts, MasterDataRefsStore, ProductFacts, SpeciesFacts, SupplierFacts, TaxCategoryFacts } from '../application/master-data-refs';
+import type { BranchFacts, GradeFacts, ReasonCodeFacts, LocationFacts, MasterDataRefsStore, ProductFacts, SpeciesFacts, SupplierFacts, TaxCategoryFacts, CustomerFacts } from '../application/master-data-refs';
 
 /** MDM's own tables, read by primary key for a higher module's transaction (MasterDataRefs). */
 export class PgMasterDataRefsStore implements MasterDataRefsStore {
@@ -113,6 +113,14 @@ export class PgMasterDataRefsStore implements MasterDataRefsStore {
 
   async taxCategories(tx: Transaction, ids: readonly string[]): Promise<TaxCategoryFacts[]> {
     const { rows } = await tx.query<TaxCategoryFacts>('SELECT id, code, name FROM mdm.tax_category WHERE id = ANY($1::uuid[])', [ids]);
+    return rows;
+  }
+
+  async customers(tx: Transaction, ids: readonly string[]): Promise<CustomerFacts[]> {
+    const { rows } = await tx.query<CustomerFacts>(
+      'SELECT id, customer_no AS "customerNo", name, kind, (deleted_at IS NULL AND status = $2) AS "isLive" FROM mdm.customer WHERE id = ANY($1::uuid[])',
+      [ids, 'ACTIVE'],
+    );
     return rows;
   }
 

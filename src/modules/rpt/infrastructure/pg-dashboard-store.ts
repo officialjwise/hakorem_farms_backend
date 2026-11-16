@@ -51,4 +51,18 @@ export class PgDashboardStore implements DashboardStore {
     );
     return rows.map((r) => ({ code: r.code, balance: BigInt(r.balance) }));
   }
+
+  async receivablesBalance(tx: Transaction, branchIds: readonly string[]): Promise<bigint> {
+    const { rows } = await tx.query<{ balance: string }>('SELECT COALESCE(sum(r.balance_pesewas), 0)::text AS balance FROM fin.pub_receivable_balance r WHERE r.branch_id = ANY($1::uuid[])', [branchIds]);
+    return BigInt(rows[0]!.balance);
+  }
+
+  async overdueOutstanding(tx: Transaction, branchIds: readonly string[], today: string): Promise<bigint> {
+    const { rows } = await tx.query<{ overdue: string }>(
+      `SELECT COALESCE(sum(d.outstanding_pesewas), 0)::text AS overdue FROM bil.pub_document d
+        WHERE d.branch_id = ANY($1::uuid[]) AND d.kind IN ('INVOICE', 'RECEIPT', 'DEBIT_NOTE') AND d.due_date < $2::date AND d.outstanding_pesewas > 0`,
+      [branchIds, today],
+    );
+    return BigInt(rows[0]!.overdue);
+  }
 }
