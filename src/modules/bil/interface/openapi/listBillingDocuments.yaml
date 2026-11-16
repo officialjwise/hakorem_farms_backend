@@ -250,7 +250,7 @@ responses:
               certification: null
               reasonCode: null
               archivedDocumentId: "019a7ae3-97f1-7cf2-b22a-d7f5fd6c50d3"
-              contentHash: "sha256:4f2ac1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7f0"
+              contentHash: 4f2ac1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7
               issuedAt: "2026-11-13T09:12:00Z"
               occurredAt: "2026-11-13T09:12:00Z"
               reprintCount: 1
@@ -430,7 +430,7 @@ responses:
               certification: null
               reasonCode: null
               archivedDocumentId: "019a7ae4-329c-7e63-839b-ef0b5de167e9"
-              contentHash: "sha256:9b11c1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7f0"
+              contentHash: 9b11c1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7
               issuedAt: "2026-11-12T09:12:00Z"
               occurredAt: "2026-11-12T09:12:00Z"
               reprintCount: 0
@@ -525,7 +525,7 @@ responses:
               certification: null
               reasonCode: DAMAGED_IN_DELIVERY
               archivedDocumentId: "019a7ae4-8f69-7c0e-b146-c9b1caf4428f"
-              contentHash: "sha256:c03ec1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7f0"
+              contentHash: c03ec1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7
               issuedAt: "2026-11-11T09:12:00Z"
               occurredAt: "2026-11-11T09:12:00Z"
               reprintCount: 0
@@ -661,7 +661,7 @@ responses:
               certification: null
               reasonCode: null
               archivedDocumentId: "019a7ae5-0b25-739b-b8d4-428fb1b8bb6d"
-              contentHash: "sha256:71ddc1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7f0"
+              contentHash: 71ddc1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7
               issuedAt: "2026-11-10T09:12:00Z"
               occurredAt: "2026-11-10T09:12:00Z"
               reprintCount: 0
@@ -794,7 +794,7 @@ responses:
               certification: null
               reasonCode: null
               archivedDocumentId: "019a7ae5-86e1-7b29-b062-bb6d987c344b"
-              contentHash: "sha256:aa90c1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7f0"
+              contentHash: aa90c1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7
               issuedAt: "2026-11-09T09:12:00Z"
               occurredAt: "2026-11-09T09:12:00Z"
               reprintCount: 0
@@ -927,7 +927,7 @@ responses:
               certification: null
               reasonCode: null
               archivedDocumentId: "019a7ae6-029d-72b7-b7ef-344b7f40ad29"
-              contentHash: "sha256:5e6cc1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7f0"
+              contentHash: 5e6cc1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7
               issuedAt: "2026-11-08T09:12:00Z"
               occurredAt: "2026-11-08T09:12:00Z"
               reprintCount: 0

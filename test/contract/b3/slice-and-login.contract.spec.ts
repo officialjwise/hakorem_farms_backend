@@ -133,7 +133,8 @@ import {
 } from '../../../src/modules/pur/interface/schemas';
 import { SettingUpdate as AudSettingUpdate } from '../../../src/modules/aud/interface/schemas';
 import { SlotGenerate, SlotUpdate } from '../../../src/modules/del/interface/schemas';
-import { CreditNoteCreate, DebitNoteCreate } from '../../../src/modules/bil/interface/schemas';
+import { CreditNoteCreate, DebitNoteCreate, ReprintRequest } from '../../../src/modules/bil/interface/schemas';
+import { DocumentDownloadRequest, TemplateVersionCreate } from '../../../src/modules/doc/interface/schemas';
 import {
   AccountCreate,
   AccountDeterminationCreate,
@@ -418,6 +419,9 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     createDepreciationRun: DepreciationRunCreate,
     issueCreditNote: CreditNoteCreate,
     issueDebitNote: DebitNoteCreate,
+    reprintBillingDocument: ReprintRequest,
+    createTemplateVersion: TemplateVersionCreate,
+    downloadArchivedDocument: DocumentDownloadRequest,
     addCartLine: CartLineAdd,
     updateCartLine: CartLineUpdate,
     applyCartCoupon: CouponApply,

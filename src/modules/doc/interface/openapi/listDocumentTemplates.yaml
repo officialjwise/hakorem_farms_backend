@@ -1,0 +1,112 @@
+operationId: listDocumentTemplates
+tags:
+  - doc
+summary: "List document templates"
+description: "Every document template, one per document type and output (`PDF_A4`, `THERMAL_80MM`, `THERMAL_58MM`), with its active version (FR-DOC-004). The built-in version 1 of each billing document's template is seeded active.\n\nPermission: `doc.template.read`."
+x-permission: doc.template.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/DocumentTemplatePage"
+        example:
+          data:
+            - id: "019a7ae2-43ac-702c-8564-0b93c2d18471"
+              docType: RECEIPT
+              output: THERMAL_80MM
+              name: "Counter receipt"
+              activeVersion:
+                id: "019a7adf-9b22-769f-abd8-72cf4d9bebad"
+                versionNo: 3
+                activatedAt: "2026-11-01T08:00:00Z"
+              versionCount: 3
+              version: 2
+            - id: "019a7ae2-629b-7a0f-9f47-a9cb3c8222a9"
+              docType: INVOICE
+              output: PDF_A4
+              name: "Tax invoice"
+              activeVersion:
+                id: "019a7ae0-16de-7e2d-a366-ebad345f648b"
+                versionNo: 2
+                activatedAt: "2026-11-01T08:00:00Z"
+              versionCount: 2
+              version: 2
+            - id: "019a7ae2-818a-73f3-a92b-4802b633c0e0"
+              docType: QUOTE
+              output: PDF_A4
+              name: Quotation
+              activeVersion:
+                id: "019a7ae0-929a-75bb-aaf3-648b1b23dd69"
+                versionNo: 3
+                activatedAt: "2026-11-01T08:00:00Z"
+              versionCount: 3
+              version: 2
+            - id: "019a7ae2-a079-7dd6-b30e-e63a2fe45f18"
+              docType: DELIVERY_NOTE
+              output: PDF_A4
+              name: "Delivery note"
+              activeVersion:
+                id: "019a7ae1-0e56-7d49-a281-dd6901e75646"
+                versionNo: 2
+                activatedAt: "2026-11-01T08:00:00Z"
+              versionCount: 2
+              version: 2
+            - id: "019a7ae2-bf68-77ba-8cf2-8471a995fd4f"
+              docType: CUSTOMER_STATEMENT
+              output: PDF_A4
+              name: "Customer statement"
+              activeVersion:
+                id: "019a7ae1-8a12-74d7-aa0f-5646e8abcf24"
+                versionNo: 3
+                activatedAt: "2026-11-01T08:00:00Z"
+              versionCount: 3
+              version: 2
+            - id: "019a7ae2-de57-719d-96d5-22a923469b87"
+              docType: RECEIPT
+              output: PDF_A4
+              name: "Receipt, A4"
+              activeVersion:
+                id: "019a7ae2-05ce-7c65-a19d-cf24cf6f4802"
+                versionNo: 2
+                activatedAt: "2026-11-01T08:00:00Z"
+              versionCount: 2
+              version: 2
+          page:
+            nextCursor: null
+            limit: 25
+            hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

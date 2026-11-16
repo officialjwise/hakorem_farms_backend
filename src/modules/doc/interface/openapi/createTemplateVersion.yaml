@@ -1,0 +1,76 @@
+operationId: createTemplateVersion
+tags:
+  - doc
+summary: "Draft a new template version"
+description: "Drafts the template's next version (FR-DOC-004). A template is logic-less: `{{path}}` inserts a value (escaped), `{{#each path}}...{{/each}}` repeats over a list, `{{#if path}}...{{/if}}` shows a part when the value is present; nothing else. Layout tags take no attributes: containers `header`, `footer`, `section`, `levies`; lines `h1`, `h2`, `p`, `small` and `row` with its `cell` columns; the rule `<hr/>`. A body that uses a script, any other tag, an attribute, a URL, a protocol-relative link, a CSS import or `url()`, or a data URI, or that leaves a tag or block open, is refused at save with 422 `TEMPLATE_BODY_INVALID`, every broken rule in `details[].code` (`SCRIPT_NOT_ALLOWED`, `REMOTE_INCLUDE_NOT_ALLOWED`, `TAG_NOT_ALLOWED`, `ATTRIBUTE_NOT_ALLOWED`, `TAG_NOT_CLOSED`, `TAG_NOT_OPENED`, `EXPRESSION_NOT_ALLOWED`, `BLOCK_NOT_CLOSED`, `BLOCK_NOT_OPENED`, `TEMPLATE_TOO_LARGE`). A version's body never changes. Audited.\n\nPermission: `doc.template.manage`."
+x-permission: doc.template.manage
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - TEMPLATE_BODY_INVALID
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/TemplateVersionCreate"
+      example:
+        body: "<header>{{business.tradingName}}</header><h1>Receipt {{documentNo}}</h1>{{#each lines}}<row>{{description}} {{quantity}} {{lineGross}}</row>{{/each}}<levies>{{#each levyTotals}}{{levyName}} {{amount}}{{/each}}</levies>"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/TemplateVersion"
+        example:
+          id: "019a7adf-9b22-769f-abd8-72cf4d9bebad"
+          templateId: "019a7ae2-43ac-702c-8564-0b93c2d18471"
+          versionNo: 3
+          status: DRAFT
+          body: null
+          activatedAt: null
+          activatedBy: null
+          createdAt: "2026-11-12T15:00:00Z"
+          createdBy:
+            id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+            displayName: "Kwabena Owusu"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

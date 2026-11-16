@@ -144,7 +144,7 @@ responses:
           certification: null
           reasonCode: DAMAGED_IN_DELIVERY
           archivedDocumentId: "019a7ae4-8f69-7c0e-b146-c9b1caf4428f"
-          contentHash: "sha256:c03ec1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7f0"
+          contentHash: c03ec1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7
           issuedAt: "2026-11-11T09:12:00Z"
           occurredAt: "2026-11-11T09:12:00Z"
           reprintCount: 0

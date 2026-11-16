@@ -2,7 +2,7 @@ operationId: getBillingDocument
 tags:
   - bil
 summary: "Get a billing document with its levy breakdown"
-description: "One billing document with every line's levy rows as issued, including levies at zero, and the document's totals, which are the sums of its lines (FR-BIL-004, ADR-0020). An issued document never changes; it is corrected by a credit or debit note naming it as `originalDocument`. `archivedDocumentId` and `contentHash` stay null until rendering and the archive are built (B08 continued 2b); `reprintCount` is 0 until then.\n\nPermission: `bil.document.read` at the document's branch."
+description: "One billing document with every line's levy rows as issued, including levies at zero, and the document's totals, which are the sums of its lines (FR-BIL-004, ADR-0020). An issued document never changes; it is corrected by a credit or debit note naming it as `originalDocument`. Once issued, a document is rendered by the worker after its transaction commits and archived once (FR-BIL-008, FR-DOC-003): until then `archivedDocumentId` and `contentHash` are null (the screen shows it as rendering), then they name the archived rendering and the hex SHA-256 of its stored PDF, set once. `reprintCount` counts its reprints (B08 continued 2b).\n\nPermission: `bil.document.read` at the document's branch."
 x-permission: bil.document.read
 x-error-codes:
   - VALIDATION_FAILED
@@ -207,7 +207,7 @@ responses:
           certification: null
           reasonCode: null
           archivedDocumentId: "019a7ae3-97f1-7cf2-b22a-d7f5fd6c50d3"
-          contentHash: "sha256:4f2ac1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7f0"
+          contentHash: 4f2ac1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7
           issuedAt: "2026-11-13T09:12:00Z"
           occurredAt: "2026-11-13T09:12:00Z"
           reprintCount: 1

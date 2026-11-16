@@ -1,0 +1,91 @@
+operationId: listBillingDocumentReprints
+tags:
+  - bil
+summary: "List reprints and sends of a document"
+description: "Every reprint of a document, by copy number, with who made it and when (FR-BIL-009).\n\nPermission: `bil.document.read` at the document's branch."
+x-permission: bil.document.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+  - NOT_FOUND
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ReprintLogPage"
+        example:
+          data:
+            - copyNo: 1
+              channel: THERMAL
+              actor:
+                id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                displayName: "Adwoa Darko"
+              recordedAt: "2026-11-13T09:12:00Z"
+            - copyNo: 2
+              channel: WHATSAPP
+              actor:
+                id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                displayName: "Adwoa Darko"
+              recordedAt: "2026-11-13T09:21:00Z"
+            - copyNo: 3
+              channel: PDF
+              actor:
+                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                displayName: "Efua Asante"
+              recordedAt: "2026-11-13T09:30:00Z"
+            - copyNo: 4
+              channel: THERMAL
+              actor:
+                id: "019a7a86-caf1-728b-b7c3-3188ea6caa66"
+                displayName: "Nana Yeboah"
+              recordedAt: "2026-11-13T09:39:00Z"
+            - copyNo: 5
+              channel: EMAIL
+              actor:
+                id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                displayName: "Kojo Antwi"
+              recordedAt: "2026-11-13T09:48:00Z"
+          page:
+            nextCursor: null
+            limit: 25
+            hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
