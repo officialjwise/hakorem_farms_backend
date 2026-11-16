@@ -6,7 +6,7 @@ import { runAsSystem } from '../../../src/platform/context/request-context';
 import { runSeedUnits } from '../../../src/seed/run-seed';
 import { seedUnits } from '../../../src/seed/seed-units';
 import { ledgerIds, postManualJournal, stepUp, type TotpSession } from '../../support/fin';
-import { SYSTEM_PRINCIPAL, consoleGet, consolePost, createUser, enrolAndLogin, relaxRateLimits, testStartTime, type TestSession } from '../../support/iam';
+import { SYSTEM_PRINCIPAL, consoleGet, consolePost, createUser, enrolAndLogin, relaxRateLimits, type TestSession } from '../../support/iam';
 import { startTestApp, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
 
@@ -54,7 +54,9 @@ async function periodsOf2026(): Promise<{ id: string; period_no: number; status:
 
 beforeAll(async () => {
   database = await createTestDatabase();
-  clock = new ManualClock(testStartTime());
+  // This file closes the year 2026, so it pins its own clock in that year's November and passes it to the application
+  // and the seed (B09t2): on a real clock, December's trading and the close would fall in whatever year the suite ran.
+  clock = new ManualClock(new Date('2026-11-16T10:00:00Z'));
   await relaxRateLimits(database);
   api = await startTestApp(database, { clock });
   await runSeedUnits(database.pool('app'), api.app, seedUnits({ SEED_STAFF_PASSWORD: `Seed-${randomUUID()}` }));

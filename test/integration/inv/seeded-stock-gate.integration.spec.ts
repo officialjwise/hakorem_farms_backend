@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { ManualClock, Money, Quantity, Weight } from '@hakorem/kernel';
+import { ManualClock, Money, Quantity, toBusinessDate, Weight } from '@hakorem/kernel';
 import { RequestMethod } from '@nestjs/common';
 import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { ModulesContainer } from '@nestjs/core';
@@ -11,6 +11,7 @@ import { runAsSystem, type Actor } from '../../../src/platform/context/request-c
 import { UnitOfWork } from '../../../src/platform/database/unit-of-work';
 import { SEED_HAND_COUNT } from '../../../src/seed/farm-inv';
 import { runSeedUnits } from '../../../src/seed/run-seed';
+import { addDays } from '../../../src/seed/seed-calendar';
 import { seedUnits } from '../../../src/seed/seed-units';
 import { consoleGet, consolePost, createUser, enrolAndLogin, login, relaxRateLimits, SYSTEM_PRINCIPAL, testStartTime, type TestSession } from '../../support/iam';
 import { startTestApp, TEST_ORIGIN, type TestApp } from '../../support/test-app';
@@ -204,8 +205,8 @@ describe('B5 gate: a lot traces in both directions over the API (FR-INV-006)', (
     lot = randomUUID();
     await admin().query(
       `INSERT INTO inv.stock_unit (id, product_id, tracking, branch_id, identifier, status, produced_on, expires_on, source_document_id, created_by, updated_by)
-       VALUES ($1, $2, 'LOT', $3, 'LOT-GOAT-0002', 'ACTIVE', '2026-11-14', '2027-02-12', $4, $5, $5)`,
-      [lot, id('product:MEAT-GOAT-15KG'), id('branch:DDW'), processingOrder, SYSTEM_PRINCIPAL],
+       VALUES ($1, $2, 'LOT', $3, 'LOT-GOAT-0002', 'ACTIVE', $6::date, $7::date, $4, $5, $5)`,
+      [lot, id('product:MEAT-GOAT-15KG'), id('branch:DDW'), processingOrder, SYSTEM_PRINCIPAL, addDays(toBusinessDate(clock.now()), -2), addDays(toBusinessDate(clock.now()), 88)],
     );
     await postAll(
       [
