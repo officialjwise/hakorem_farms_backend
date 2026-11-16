@@ -125,3 +125,13 @@ export const BankAccountCreate = z.strictObject({
 });
 
 export const BankAccountUpdate = z.strictObject({ version: z.number().int().min(1), name: Text120.optional(), isActive: z.boolean().optional() });
+
+const fromNotAfterTo = { message: 'from must not be after to', path: ['to'] };
+
+export const TrialBalanceQuery = z
+  .object({ from: CalendarDate, to: CalendarDate, branchId: Uuid.optional(), includeZero: booleanQuery.optional(), cursor: Cursor, limit: Limit })
+  .refine((q) => q.from <= q.to, fromNotAfterTo);
+
+export const StatementRangeQuery = z.object({ from: CalendarDate, to: CalendarDate, branchId: Uuid.optional() }).refine((q) => q.from <= q.to, fromNotAfterTo);
+
+export const BalanceSheetQuery = z.object({ asOf: CalendarDate, branchId: Uuid.optional() });

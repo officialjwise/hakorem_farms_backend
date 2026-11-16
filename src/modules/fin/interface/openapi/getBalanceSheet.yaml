@@ -1,0 +1,160 @@
+operationId: getBalanceSheet
+tags:
+  - fin
+summary: "Balance sheet at a date"
+description: "Every asset (a debit balance; accumulated depreciation is a negative row), liability and equity account (credit balances) at the end of `asOf`, with the earnings not yet closed to retained earnings as one equity row with no account (every income, cost and expense balance to date). `LIABILITIES_AND_EQUITY` is their sum; `checks` says whether assets equal it, as they do exactly whenever the ledger balances. Each figure is an exact sum of journal lines in integer pesewas; a LOCKED or CLOSED period lying wholly inside the range, or wholly before it, is read from its period balances, computed by the database when it locked or closed (ADR-0058). `branchId` narrows every figure to one branch (each entry's lines carry its branch); without it, every branch.\n\nPermission: `fin.report.read`."
+x-permission: fin.report.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - RATE_LIMITED
+parameters:
+  - name: asOf
+    in: query
+    required: true
+    schema:
+      type: string
+      format: date
+  - name: branchId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/FinancialStatement"
+        example:
+          statement: BALANCE_SHEET
+          from: null
+          to: null
+          asOfDate: "2026-10-31"
+          branchId: null
+          sections:
+          - key: ASSETS
+            label: "Assets"
+            rows:
+              - account:
+                  id: "019a7ad0-1fa2-7b3c-8a01-2b0c7d1e1010"
+                  code: "1010"
+                  name: "Cash, safe"
+                label: "Cash, safe"
+                amountPesewas: 900000
+                isNegative: false
+              - account:
+                  id: "019a7ad0-2c4d-7e11-9b02-3c1d8e2f1100"
+                  code: "1100"
+                  name: "Bank accounts"
+                label: "Bank accounts"
+                amountPesewas: 5220400
+                isNegative: false
+              - account:
+                  id: "019a7a95-0d1b-7164-969c-1f1b020297f8"
+                  code: "1200"
+                  name: "Trade receivables"
+                label: "Trade receivables"
+                amountPesewas: 3840000
+                isNegative: false
+              - account:
+                  id: "019a7ad0-4291-7ec7-b3ff-f549eecc6e27"
+                  code: "1310"
+                  name: "Inventory, live animals"
+                label: "Inventory, live animals"
+                amountPesewas: 9467400
+                isNegative: false
+              - account:
+                  id: "019a7ad0-5a3e-7f20-8c03-4d2e9f301320"
+                  code: "1320"
+                  name: "Inventory, meat"
+                label: "Inventory, meat"
+                amountPesewas: 4935200
+                isNegative: false
+              - account:
+                  id: "019a7ad0-6b4f-7a31-9d04-5e3fa0411520"
+                  code: "1520"
+                  name: "Cold rooms at cost"
+                label: "Cold rooms at cost"
+                amountPesewas: 24000000
+                isNegative: false
+              - account:
+                  id: "019a7ad0-7c50-7b42-ae05-6f40b1521590"
+                  code: "1590"
+                  name: "Accumulated depreciation"
+                label: "Accumulated depreciation"
+                amountPesewas: 2130000
+                isNegative: true
+            totalPesewas: 46233000
+            totalIsNegative: false
+          - key: LIABILITIES
+            label: "Liabilities"
+            rows:
+              - account:
+                  id: "019a7ad0-8d61-7c53-bf06-7051c2632000"
+                  code: "2000"
+                  name: "Trade payables"
+                label: "Trade payables"
+                amountPesewas: 2961000
+                isNegative: false
+              - account:
+                  id: "019a7ad0-6180-78ab-8de3-9381687d0c5f"
+                  code: "2100"
+                  name: "Output VAT and levies payable"
+                label: "Output VAT and levies payable"
+                amountPesewas: 98000
+                isNegative: false
+            totalPesewas: 3059000
+            totalIsNegative: false
+          - key: EQUITY
+            label: "Equity"
+            rows:
+              - account:
+                  id: "019a7ad0-806f-728e-97c6-31b8e22eaa96"
+                  code: "3000"
+                  name: "Investor capital"
+                label: "Investor capital"
+                amountPesewas: 25000000
+                isNegative: false
+              - account:
+                  id: "019a7ad0-9e72-7d64-8007-8162d3743100"
+                  code: "3100"
+                  name: "Retained earnings"
+                label: "Retained earnings"
+                amountPesewas: 15402000
+                isNegative: false
+              - account: null
+                label: "Earnings not yet closed to retained earnings"
+                amountPesewas: 2772000
+                isNegative: false
+            totalPesewas: 43174000
+            totalIsNegative: false
+          - key: LIABILITIES_AND_EQUITY
+            label: "Liabilities and equity"
+            rows: []
+            totalPesewas: 46233000
+            totalIsNegative: false
+          checks:
+            - name: "Assets equal liabilities plus equity"
+              passed: true
+          currency: GHS
+          generatedAt: "2026-11-13T09:32:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -2,14 +2,16 @@
 
 Owner: FIN module. Chart of accounts, journal, posting rules, periods, fixed assets (ADR-0003). Conventions are in `docs/DATA_MODEL.md`.
 
-Built in B8 (migration 0123, ADR-0056): `account`, `subledger_party`, `accounting_period`, `posting_event_type`, `posting_rule`, `account_determination`, `journal_entry`, `journal_line`. A trigger refusal is SQLSTATE HK012 with the rule as its constraint name (`ck_journal_lines`, `ck_journal_balanced`, `ck_journal_period`, `ck_journal_period_open`, `ck_journal_line_entry`, `ck_journal_line_account`, `ck_journal_line_subledger`, `ck_account_change`, `ck_period_change`). B08 continued (A-188, A-189) adds `written_xact_id` on `journal_entry` (migration 0124: an entry written inside a savepoint keeps its own lines), the period lifecycle and close order on `accounting_period` and the table `period_reopen` (0126). B08 continued 1b (migration 0130, A-190, A-191) adds `manual_journal`, `manual_journal_line` and `posting_rule_change`, the `ENTERED` determinant on `posting_rule`, `approval_request_id` on `account_determination` and `ck_journal_entry_manual` on `journal_entry`. B08 continued 1b2 (migration 0133, ADR-0057, A-193, A-194) adds `bank_account`; `period_balance`, `fixed_asset`, `depreciation_run` and `depreciation_line` in B08 continued 1c.
+Built in B8 (migration 0123, ADR-0056): `account`, `subledger_party`, `accounting_period`, `posting_event_type`, `posting_rule`, `account_determination`, `journal_entry`, `journal_line`. A trigger refusal is SQLSTATE HK012 with the rule as its constraint name (`ck_journal_lines`, `ck_journal_balanced`, `ck_journal_period`, `ck_journal_period_open`, `ck_journal_line_entry`, `ck_journal_line_account`, `ck_journal_line_subledger`, `ck_account_change`, `ck_period_change`). B08 continued (A-188, A-189) adds `written_xact_id` on `journal_entry` (migration 0124: an entry written inside a savepoint keeps its own lines), the period lifecycle and close order on `accounting_period` and the table `period_reopen` (0126). B08 continued 1b (migration 0130, A-190, A-191) adds `manual_journal`, `manual_journal_line` and `posting_rule_change`, the `ENTERED` determinant on `posting_rule`, `approval_request_id` on `account_determination` and `ck_journal_entry_manual` on `journal_entry`. B08 continued 1b2 (migration 0133, ADR-0057, A-193, A-194) adds `bank_account`. B08 continued 1c (migration 0138, ADR-0058, A-195 to A-197) adds `period_balance` with `refresh_period_balance()`, the year close's rules on `journal_entry` (`ck_journal_entry_closing`, `uq_journal_entry_closing`, `ck_journal_closing_period`, the exception in `ck_journal_period_open`), the event `fin.YearClosed` with the determinant `CLOSED_ACCOUNT` (`ck_posting_rule_closed_account`), and the published view `pub_cash_balance`; `fixed_asset`, `depreciation_run` and `depreciation_line` in B08 continued 1c2 (A-198).
 
 ## Triggers
 
 | Trigger | Purpose |
 | --- | --- |
 | `fin.assert_balanced()`, a deferred constraint trigger on `fin.journal_line` | At commit, for every entry touched: sum of `D` amounts equals sum of `C` amounts, and the entry has at least two lines. This is the constraint that no journal may post unbalanced |
-| `fin.assert_period_open()` on insert of `fin.journal_entry` | Rejects an entry whose `posting_date` is in a period that is not `OPEN` |
+| `fin.assert_period_open()` on insert of `fin.journal_entry` | Rejects an entry whose `posting_date` is in a period that is not `OPEN`, with one exception from 0138: a `CLOSING` entry dated the last day of the year into that year's period 12 while it is `LOCKED` (the year close, ADR-0058) |
+| `fin.assert_closing_period_closed()`, a deferred constraint trigger on insert of a `CLOSING` `fin.journal_entry` | At commit, the entry's period is `CLOSED`: a year close commits only with the close of its period (`ck_journal_closing_period`, 0138) |
+| `fin.period_balance_at_lock()` after update of `fin.accounting_period.status` | When a period becomes `LOCKED` or `CLOSED`, recomputes its `fin.period_balance` rows in that transaction (0138) |
 | `fin.record_written_xact()` on insert of `fin.journal_entry` | Sets `written_xact_id` to the top-level transaction (`pg_current_xact_id()`), whatever the writer supplies (migration 0124) |
 | `fin.assert_line_valid()` on insert of `fin.journal_line` | The account is postable; `subledger_party_id` is present exactly when the account has a `subledger_kind`, and the party is of that kind; the line is written in the top-level transaction that wrote its entry (compared on `written_xact_id`, so an entry written inside a savepoint keeps its own lines; migration 0124) and carries the entry's posting date |
 | `fin.account_guard()` on update of `fin.account` | An account with lines keeps its code, type, normal side and subledger kind and is never archived |
@@ -131,7 +133,7 @@ How one named amount of one event becomes a journal line. Effective-dated; a cha
 | `amount_key` | `text` | NOT NULL | Which amount of the event |
 | `side` | `char(1)` | NOT NULL, CHECK in (`D`, `C`) | |
 | `account_id` | `uuid` | NULL, FK `fin.account` | A fixed account |
-| `determinant_type` | `text` | NULL, CHECK in the determination types or `ENTERED` | Or: look the account up in `fin.account_determination` by this determinant; `ENTERED` takes the account each amount names, and only `fin.ManualJournalApproved` posts so (`ck_posting_rule_entered`, 0130, A-190) |
+| `determinant_type` | `text` | NULL, CHECK in the determination types, `ENTERED` or `CLOSED_ACCOUNT` | Or: look the account up in `fin.account_determination` by this determinant; `ENTERED` takes the account each amount names, and only `fin.ManualJournalApproved` posts so (`ck_posting_rule_entered`, 0130, A-190); `CLOSED_ACCOUNT` takes the account whose balance the amount closes, only on the closing side of `fin.YearClosed`'s four closing amounts (`ck_posting_rule_closed_account`, 0138, ADR-0058) |
 | `determinant_role` | `text` | NULL | Which role of the determinant, for example `INVENTORY`, `SALES`, `COST_OF_SALES` |
 | `subledger_from` | `text` | NULL | Which field of the event names the subledger party |
 | `valid_from` | `date` | NOT NULL | |
@@ -190,6 +192,7 @@ Standard columns: `LEDGER`.
 
 - Indexes: (`period_id`, `posting_date`); (`source_document_id`); (`posting_group_id`); (`posting_date`, `id`) for the journal search (0130).
 - CHECK `ck_journal_entry_manual` (0130): a `MANUAL` or `OPENING` entry has `event_code` `fin.ManualJournalApproved` and an `event_id`, so it is only ever posted from an approved manual journal (A-190).
+- CHECK `ck_journal_entry_closing` (0138): an entry is `CLOSING` exactly when its event is `fin.YearClosed`, and then has an `event_id`. UNIQUE (`period_id`, `branch_id`) WHERE `kind = 'CLOSING'` (`uq_journal_entry_closing`): one year close per year and branch (ADR-0058).
 
 ### `fin.journal_line` · LEDGER
 
@@ -277,7 +280,7 @@ Standard columns: `DOCUMENT`, frozen once decided. `ck_posting_rule_change_shape
 
 ### `fin.period_balance` · PROJECTION
 
-Totals per period, account, branch and subledger party. Computed when a period is locked and refreshed nightly for open periods. Trial balance is these rows plus lines since.
+Totals per period, account, branch, subledger party and whether a year close entry posted them. Written only by `fin.refresh_period_balance(period_id)` (`SECURITY DEFINER`): a trigger runs it whenever a period becomes `LOCKED` or `CLOSED`, and the nightly `ledger-reconcile` job for each open period. Statements read a LOCKED or CLOSED period from these rows and every other line from the journal; the nightly job reports a locked or closed period whose rows differ from its lines (ADR-0058). Built in B08 continued 1c (0138).
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
@@ -285,11 +288,16 @@ Totals per period, account, branch and subledger party. Computed when a period i
 | `account_id` | `uuid` | NOT NULL, FK `fin.account` | |
 | `branch_id` | `uuid` | NOT NULL, FK `mdm.branch` | |
 | `subledger_party_id` | `uuid` | NULL, FK `fin.subledger_party` | |
+| `is_closing` | `boolean` | NOT NULL | Posted by a year close entry; the profit and loss leaves these out |
 | `debit_total_pesewas` | `pesewas` | NOT NULL | |
 | `credit_total_pesewas` | `pesewas` | NOT NULL | |
 | `computed_at` | `timestamptz` | NOT NULL | Shown on reports |
 
-- UNIQUE NULLS NOT DISTINCT (`period_id`, `account_id`, `branch_id`, `subledger_party_id`).
+- UNIQUE NULLS NOT DISTINCT (`period_id`, `account_id`, `branch_id`, `subledger_party_id`, `is_closing`).
+
+### `fin.pub_cash_balance` · published view
+
+The balance (debits less credits) of each cash and bank account, codes 1000 to 1130, per branch: `branch_id`, `account_code`, `account_name`, `balance_pesewas` (signed). Read by RPT's dashboard (A-196). Built in B08 continued 1c (0138).
 
 ### `fin.fixed_asset` · MASTER
 

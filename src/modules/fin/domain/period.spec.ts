@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { choosePostingDate, fiscalYearOf, type PeriodFacts } from './period';
+import { choosePostingDate, closingPostingDate, fiscalYearOf, type PeriodFacts } from './period';
 
 const period = (id: string, startDate: string, endDate: string, status: PeriodFacts['status']): PeriodFacts => ({ id, startDate, endDate, status });
 const periods = [
@@ -41,5 +41,19 @@ describe('the fiscal year of a posting date (A-028: the calendar year)', () => {
   it('is the year of the date', () => {
     expect(fiscalYearOf('2026-12-31')).toBe(2026);
     expect(fiscalYearOf('2027-01-01')).toBe(2027);
+  });
+});
+
+describe('the posting date of a year close (FR-FIN-010)', () => {
+  it('posts on the last day of the year into its locked last period, and nowhere else', () => {
+    expect(closingPostingDate('2026-12-31', periods)).toEqual({ ok: true, value: { postingDate: '2026-12-31', periodId: '2026-12', late: false } });
+    expect(closingPostingDate('2026-12-30', periods)).toEqual({ ok: false, error: { rule: 'PERIOD_NOT_OPEN', date: '2026-12-30' } });
+    expect(closingPostingDate('2026-10-31', periods)).toEqual({ ok: false, error: { rule: 'PERIOD_NOT_OPEN', date: '2026-10-31' } });
+    expect(closingPostingDate('2027-12-31', periods)).toEqual({ ok: false, error: { rule: 'PERIOD_NOT_OPEN', date: '2027-12-31' } });
+  });
+
+  it('refuses the last day of a year whose last period is still open or already closed', () => {
+    expect(closingPostingDate('2026-12-31', [period('2026-12', '2026-12-01', '2026-12-31', 'OPEN')]).ok).toBe(false);
+    expect(closingPostingDate('2026-12-31', [period('2026-12', '2026-12-01', '2026-12-31', 'CLOSED')]).ok).toBe(false);
   });
 });

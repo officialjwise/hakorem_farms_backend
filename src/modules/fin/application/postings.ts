@@ -1,10 +1,10 @@
-import { toBusinessDate, type Clock } from '@hakorem/kernel';
+import { Money, toBusinessDate, type Clock } from '@hakorem/kernel';
 import type { Transaction } from '../../../platform/database/unit-of-work';
 import type { DocumentRegistry } from '../../../platform/documents/document-registry';
 import type { DomainEvents, EventEnvelope } from '../../../platform/events/domain-events';
 import type { MasterDataRefs } from '../../mdm';
 import { manualPostingAmounts } from '../domain/manual-journal';
-import type { ManualJournalApproved } from '../events';
+import type { ManualJournalApproved, YearClosed } from '../events';
 import {
   stockMovementAmounts,
   supplierCreditNoteAmounts,
@@ -30,6 +30,7 @@ interface Translated {
   readonly branchId?: string | null;
   readonly reversesSubjectId?: string | null;
   readonly manual?: PostingRequest['manual'];
+  readonly closing?: PostingRequest['closing'];
 }
 
 type Translator = (tx: Transaction, event: EventEnvelope) => Promise<Translated>;
@@ -97,6 +98,7 @@ export class LedgerPostings {
       ['pur.SupplierCreditNoteApproved', (tx, event) => this.creditNote(tx, event.payload as unknown as CreditNotePosting)],
       ['pur.SupplierPaymentMade', (tx, event) => this.payment(tx, event.payload as unknown as PaymentPosting)],
       ['fin.ManualJournalApproved', (tx, event) => this.manualJournal(tx, event.payload as unknown as ManualJournalApproved)],
+      ['fin.YearClosed', async (_tx, event) => this.yearClose(event.payload as unknown as YearClosed)],
     ]);
   }
 
@@ -128,6 +130,7 @@ export class LedgerPostings {
           amounts: translated.amounts,
           reversesSubjectId: translated.reversesSubjectId ?? null,
           manual: translated.manual ?? null,
+          closing: translated.closing ?? null,
         });
       });
     }
@@ -221,6 +224,22 @@ export class LedgerPostings {
       sourceDocumentId: payload.manualJournalId,
       eventSubjectId: payload.manualJournalId,
       manual: { kind: payload.kind, description: payload.description, postingDate: payload.postingDate },
+    };
+  }
+
+  /** FIN's own event (ADR-0058): each balance to the account it closes, as the branch's CLOSING entry on the year's last day. */
+  private yearClose(payload: YearClosed): Translated {
+    return {
+      amounts: payload.amounts.map((a) => ({
+        key: a.key,
+        amount: Money.fromJsonInteger(a.amountPesewas),
+        ...(a.accountId === null ? {} : { closedAccountId: a.accountId }),
+        subledgers: a.subledger === null ? [] : [a.subledger as SubledgerRef],
+        memo: `Year close ${payload.fiscalYear}`,
+      })),
+      sourceDocumentId: payload.yearCloseId,
+      eventSubjectId: payload.yearCloseId,
+      closing: { description: `Year close ${payload.fiscalYear}: income and expenses to retained earnings`, postingDate: payload.postingDate },
     };
   }
 

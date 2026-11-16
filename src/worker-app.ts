@@ -122,6 +122,7 @@ export async function startWorker(config: AppConfig, logger: Logger, clock: Cloc
           unbalancedEntryIds: report.unbalancedEntries.map((e) => e.entryId),
           controlBreaks: report.sources.reduce((n, s) => n + s.breaks.length + s.unmapped.length, 0),
           seriesGapIds: report.seriesGaps.map((g) => g.seriesId),
+          periodBalanceDriftPeriodIds: [...new Set(report.periodBalanceDrift.map((d) => d.periodId))],
         };
       },
     },

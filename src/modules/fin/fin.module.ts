@@ -24,6 +24,8 @@ import { PERIOD_REOPEN, Periods } from './application/periods';
 import { LedgerPostings } from './application/postings';
 import { LedgerReconciliation, SubledgerSources } from './application/reconciliation';
 import { FinancialStatements } from './application/statements';
+import { STATEMENT_STORE, type StatementStore } from './application/statement-store';
+import { YEAR_CLOSED, YearClose } from './application/year-close';
 import { JOURNAL_STORE, type JournalStore } from './application/journal-store';
 import { Journals } from './application/journals';
 import { MANUAL_JOURNAL, MANUAL_JOURNAL_APPROVED, ManualJournals } from './application/manual-journals';
@@ -32,12 +34,14 @@ import { PgBankAccountStore } from './infrastructure/pg-bank-account-store';
 import { PgChartStore } from './infrastructure/pg-chart-store';
 import { PgJournalStore } from './infrastructure/pg-journal-store';
 import { PgLedgerStore } from './infrastructure/pg-ledger-store';
+import { PgStatementStore } from './infrastructure/pg-statement-store';
 import { AccountsController } from './interface/accounts.controller';
 import { BankAccountsController } from './interface/bank-accounts.controller';
 import { JournalsController } from './interface/journals.controller';
 import { ManualJournalsController } from './interface/manual-journals.controller';
 import { PeriodsController } from './interface/periods.controller';
 import { PostingRulesController } from './interface/posting-rules.controller';
+import { StatementsController } from './interface/statements.controller';
 
 /**
  * FIN (layer 4): the general ledger. B8 builds its core: the chart of accounts, posting rules and account determination
@@ -47,16 +51,24 @@ import { PostingRulesController } from './interface/posting-rules.controller';
  * B08 continued adds its interface, first the chart of accounts and the accounting periods with lock, close and the
  * reopen under approval (PERIOD_REOPEN); B08 continued 1b journals read only, manual journals (MANUAL_JOURNAL, posted
  * from FIN's own ◆ event `fin.ManualJournalApproved`) and posting rule and determination changes (POSTING_RULE_CHANGE);
- * B08 continued 1b2 the business's bank accounts, each number sealed with a data key of its own (ADR-0057).
+ * B08 continued 1b2 the business's bank accounts, each number sealed with a data key of its own (ADR-0057);
+ * B08 continued 1c the four financial statements, the period balances and the year close (`fin.YearClosed`, ADR-0058).
  */
 @Module({
   imports: [IamModule, MdmModule],
-  controllers: [AccountsController, BankAccountsController, PeriodsController, JournalsController, ManualJournalsController, PostingRulesController],
+  controllers: [AccountsController, BankAccountsController, PeriodsController, JournalsController, ManualJournalsController, PostingRulesController, StatementsController],
   providers: [
     { provide: LEDGER_STORE, useClass: PgLedgerStore },
     { provide: CHART_STORE, useClass: PgChartStore },
     { provide: JOURNAL_STORE, useClass: PgJournalStore },
     { provide: BANK_ACCOUNT_STORE, useClass: PgBankAccountStore },
+    { provide: STATEMENT_STORE, useClass: PgStatementStore },
+    {
+      provide: YearClose,
+      useFactory: (store: StatementStore, journals: JournalStore, events: DomainEvents, documents: DocumentRegistry, audit: AuditTrail, clock: Clock) =>
+        new YearClose(store, journals, events, documents, audit, clock),
+      inject: [STATEMENT_STORE, JOURNAL_STORE, DomainEvents, DocumentRegistry, AuditTrail, CLOCK],
+    },
     {
       provide: BankAccounts,
       useFactory: (
@@ -137,8 +149,9 @@ import { PostingRulesController } from './interface/posting-rules.controller';
         names: PrincipalNames,
         cursors: Cursors,
         clock: Clock,
-      ) => new Periods(uow, store, authoriser, approvals, idempotency, audit, documents, refs, names, cursors, clock),
-      inject: [UnitOfWork, CHART_STORE, Authoriser, Approvals, Idempotency, AuditTrail, DocumentRegistry, MasterDataRefs, PRINCIPAL_NAMES, Cursors, CLOCK],
+        yearClose: YearClose,
+      ) => new Periods(uow, store, authoriser, approvals, idempotency, audit, documents, refs, names, cursors, clock, yearClose),
+      inject: [UnitOfWork, CHART_STORE, Authoriser, Approvals, Idempotency, AuditTrail, DocumentRegistry, MasterDataRefs, PRINCIPAL_NAMES, Cursors, CLOCK, YearClose],
     },
     {
       provide: Ledger,
@@ -154,11 +167,16 @@ import { PostingRulesController } from './interface/posting-rules.controller';
     { provide: SubledgerSources, useFactory: () => new SubledgerSources() },
     {
       provide: LedgerReconciliation,
-      useFactory: (uow: UnitOfWork, store: LedgerStore, sources: SubledgerSources, numbers: NumberSeries, events: DomainEvents, clock: Clock, logger: Logger) =>
-        new LedgerReconciliation(uow, store, sources, numbers, events, clock, logger),
-      inject: [UnitOfWork, LEDGER_STORE, SubledgerSources, NumberSeries, DomainEvents, CLOCK, LOGGER],
+      useFactory: (uow: UnitOfWork, store: LedgerStore, sources: SubledgerSources, numbers: NumberSeries, events: DomainEvents, clock: Clock, logger: Logger, statements: StatementStore) =>
+        new LedgerReconciliation(uow, store, sources, numbers, events, clock, logger, statements),
+      inject: [UnitOfWork, LEDGER_STORE, SubledgerSources, NumberSeries, DomainEvents, CLOCK, LOGGER, STATEMENT_STORE],
     },
-    { provide: FinancialStatements, useFactory: (store: LedgerStore) => new FinancialStatements(store), inject: [LEDGER_STORE] },
+    {
+      provide: FinancialStatements,
+      useFactory: (ledgerStore: LedgerStore, store: StatementStore, uow: UnitOfWork, authoriser: Authoriser, cursors: Cursors, clock: Clock) =>
+        new FinancialStatements(ledgerStore, store, uow, authoriser, cursors, clock),
+      inject: [LEDGER_STORE, STATEMENT_STORE, UnitOfWork, Authoriser, Cursors, CLOCK],
+    },
   ],
   exports: [Ledger, LedgerPostings, SubledgerSources, LedgerReconciliation, FinancialStatements, Periods, BankAccounts],
 })
@@ -176,7 +194,7 @@ export class FinModule implements OnModuleInit, OnApplicationBootstrap {
 
   /** Subscribes the posting handlers inside every publisher's transaction (ADR-0003), and FIN's approval kinds. */
   onModuleInit(): void {
-    this.events.declareLedgerEvents([MANUAL_JOURNAL_APPROVED]);
+    this.events.declareLedgerEvents([MANUAL_JOURNAL_APPROVED, YEAR_CLOSED]);
     this.postings.registerIn(this.events);
     this.approvals.registerHandler(PERIOD_REOPEN, this.periods);
     this.approvals.registerHandler(MANUAL_JOURNAL, this.manualJournals);

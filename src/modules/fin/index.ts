@@ -17,6 +17,7 @@ export { ManualJournals } from './application/manual-journals';
 export { PostingRules } from './application/posting-rules';
 export { BankAccounts, type PayoutAccountFacts } from './application/bank-accounts';
 export { judgePayoutAccount } from './domain/bank-account';
+export { cashPosition, type CashPositionFigures } from './domain/statements';
 export { LedgerCatalogueIncompleteError, LedgerPostingRefusedError } from './application/errors';
 export type { SubledgerSource } from './application/ledger-store';
 export type { TrialBalance } from './domain/trial-balance';

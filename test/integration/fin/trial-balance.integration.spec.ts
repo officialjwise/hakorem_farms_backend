@@ -113,7 +113,7 @@ describe('the trial balance sums to zero on the seeded trading day (the B8 gate,
   it('agrees with the stock subledger: every inventory account equals the cost pools of its GL groups, and nothing is reported', async () => {
     const reconciliation = api.app.get(LedgerReconciliation);
     const report = await reconciliation.run({ principalId: SYSTEM_PRINCIPAL, kind: 'SYSTEM', displayName: 'Scheduler', realm: null, sessionId: null, steppedUpAt: null });
-    expect(report).toEqual({ signedSumPesewas: 0n, unbalancedEntries: [], sources: [{ source: 'inv.stock-value', breaks: [], unmapped: [] }], seriesGaps: [], clean: true });
+    expect(report).toEqual({ signedSumPesewas: 0n, unbalancedEntries: [], sources: [{ source: 'inv.stock-value', breaks: [], unmapped: [] }], seriesGaps: [], periodBalanceDrift: [], clean: true });
     const { rows } = await database.pool('app').query<{ ledger: string; pools: string }>(
       `SELECT (SELECT sum(CASE l.side WHEN 'D' THEN l.amount_pesewas ELSE -l.amount_pesewas END) FROM fin.journal_line l JOIN fin.account a ON a.id = l.account_id
                 WHERE a.code IN ('1300', '1310', '1320', '1325', '1330', '1340', '1360')) AS ledger,

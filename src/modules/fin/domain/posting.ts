@@ -11,11 +11,18 @@ export type DeterminantType = 'GL_GROUP' | 'PAYMENT_METHOD_KIND' | 'TAX_LEVY' | 
  * Only `fin.ManualJournalApproved` posts as entered (ADR-0003's "As entered", A-190): a person chose each account, and
  * the approval checked it; every other event's accounts come from the rules and determinations.
  */
-export type RuleDeterminant = DeterminantType | 'ENTERED';
+export type RuleDeterminant = DeterminantType | 'ENTERED' | 'CLOSED_ACCOUNT';
 
 /** The determinant and role of a rule that posts each amount to the account entered for it. */
 export const ENTERED_DETERMINANT = 'ENTERED';
 export const ENTERED_ROLE = 'AS_ENTERED';
+/**
+ * The determinant and role of a rule that posts each amount to the account whose balance it closes: only
+ * `fin.YearClosed` posts so (ADR-0003, ADR-0058), each income, cost, expense and distributions account at its exact
+ * balance on the last day of the year; the other side of each of its rules names 3200 or 3100.
+ */
+export const CLOSED_ACCOUNT_DETERMINANT = 'CLOSED_ACCOUNT';
+export const CLOSED_ACCOUNT_ROLE = 'CLOSED';
 
 export type SubledgerKind = 'CUSTOMER' | 'SUPPLIER' | 'INVESTOR' | 'TAX_LEVY' | 'REGISTER' | 'DRIVER' | 'BANK_ACCOUNT' | 'PROVIDER';
 
@@ -39,6 +46,8 @@ export interface PostingAmount {
   readonly costObjectId?: string | null;
   /** The account a person entered for this amount; read only by a rule whose determinant is `ENTERED`. */
   readonly enteredAccountId?: string;
+  /** The account whose balance this amount closes; read only by a rule whose determinant is `CLOSED_ACCOUNT`. */
+  readonly closedAccountId?: string;
 }
 
 /** `fin.posting_rule`: one named amount, one side, to a fixed account or to the account a determinant maps to. */
@@ -101,8 +110,9 @@ function accountOf(rule: PostingRule, amount: PostingAmount, set: RuleSet): Resu
   }
   const type = rule.determinantType!;
   const role = rule.determinantRole!;
-  if (type === ENTERED_DETERMINANT) {
-    return amount.enteredAccountId === undefined ? err({ rule: 'NO_ACCOUNT', amountKey: amount.key, determinantType: type, key: DEFAULT_DETERMINANT_KEY, role }) : ok(amount.enteredAccountId);
+  if (type === ENTERED_DETERMINANT || type === CLOSED_ACCOUNT_DETERMINANT) {
+    const named = type === ENTERED_DETERMINANT ? amount.enteredAccountId : amount.closedAccountId;
+    return named === undefined ? err({ rule: 'NO_ACCOUNT', amountKey: amount.key, determinantType: type, key: DEFAULT_DETERMINANT_KEY, role }) : ok(named);
   }
   const key = amount.determinants?.[type] ?? DEFAULT_DETERMINANT_KEY;
   const candidates = set.determinations.filter((d) => d.type === type && d.role === role);

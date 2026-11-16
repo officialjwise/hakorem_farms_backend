@@ -8,6 +8,7 @@ import { SEED_HAND_COUNT, SEED_RECEIPTS, SEED_REORDER_RULES, SEED_STOCK_RECEIVED
 import { SEED_STORE_RECEIPT } from '../../../src/seed/farm-liv';
 import { runSeedUnits } from '../../../src/seed/run-seed';
 import { seedUnits } from '../../../src/seed/seed-units';
+import { ledgerIds, postManualJournal, type TotpSession } from '../../support/fin';
 import { consoleGet, CookieJar, createUser, enrolAndLogin, login, relaxRateLimits, testStartTime, type RoleCode, type TestSession } from '../../support/iam';
 import { startTestApp, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
@@ -23,9 +24,9 @@ import { createTestDatabase, type TestDatabase } from '../../support/test-databa
 let database: TestDatabase;
 let api: TestApp;
 let clock: ManualClock;
-let owner: TestSession;
+let owner: TotpSession;
 let manager: TestSession;
-let accountant: TestSession;
+let accountant: TotpSession;
 let testBranchOwner: TestSession;
 const wrong = new Map<string, TestSession>();
 const ids = new Map<string, string>();
@@ -47,14 +48,14 @@ const PENDING = [
   'salesMonthToDatePesewas',
   'salesByChannel',
   'salesSeries',
-  'cash',
   'receivablesOutstandingPesewas',
   'receivablesOverduePesewas',
   'topMovers',
   'alerts',
   'exceptionsToday',
 ];
-const TILES = ['/dashboard/tiles/stock-value', '/dashboard/tiles/animals-on-hand', '/dashboard/tiles/low-stock', '/dashboard/tiles/purchases'];
+const TILES = ['/dashboard/tiles/stock-value', '/dashboard/tiles/animals-on-hand', '/dashboard/tiles/low-stock', '/dashboard/tiles/purchases', '/dashboard/tiles/cash-position'];
+const NO_CASH = { tillsPesewas: 0, safePesewas: 0, driversPesewas: 0, bankPesewas: 0, mobileMoneyPesewas: 0, totalPesewas: 0, negativeFigures: [] };
 
 beforeAll(async () => {
   database = await createTestDatabase();
@@ -97,7 +98,9 @@ describe('B05x gate: getOwnerDashboard answers in one request', () => {
     });
     expect(body.asOf).toBe(clock.now().toISOString());
     expect(body.pendingFigures.map((f) => f.figure)).toEqual(PENDING);
-    expect(Object.fromEntries(body.pendingFigures.map((f) => [f.figure, f.phase]))).toMatchObject({ salesTodayPesewas: 'B9a', cash: 'B8', receivablesOutstandingPesewas: 'B8', exceptionsToday: 'B12' });
+    expect(Object.fromEntries(body.pendingFigures.map((f) => [f.figure, f.phase]))).toMatchObject({ salesTodayPesewas: 'B9a', receivablesOutstandingPesewas: 'B8', exceptionsToday: 'B12' });
+    // The seeded trading day moves no cash: every cash account is at nil, from the ledger (B08 continued 1c).
+    expect(body.cash).toEqual(NO_CASH);
     expect(body.pendingFigures.every((f) => f.reason.length > 20 && /^[a-z]{3}$/.test(f.source))).toBe(true);
     for (const figure of PENDING) expect(body[figure], figure).toBeNull();
     for (const [figure, value] of Object.entries(body)) if (![...PENDING, 'branchId'].includes(figure)) expect(value, figure).not.toBeNull();
@@ -203,8 +206,8 @@ describe('B05x gate: each tile answers alone, with the dashboard value and the m
     expect((await get(owner, `/dashboard/tiles/purchases?from=${dashboard.purchases.from}&to=${dashboard.purchases.to}`)).body.purchases).toEqual(dashboard.purchases);
   });
 
-  it('serves no tile for a figure without a source: today, cash, receivables and the sales series are the mock\'s alone', async () => {
-    for (const path of ['/dashboard/tiles/sales-today', '/dashboard/tiles/cash-position', '/dashboard/tiles/receivables', '/dashboard/tiles/sales']) {
+  it('serves no tile for a figure without a source: today, receivables and the sales series are the mock\'s alone', async () => {
+    for (const path of ['/dashboard/tiles/sales-today', '/dashboard/tiles/receivables', '/dashboard/tiles/sales']) {
       expect((await get(owner, path)).status, path).toBe(404);
     }
   });
@@ -238,6 +241,52 @@ describe('B05x gate: the dashboard is scoped to the grants and refuses the wrong
   });
 });
 
+describe('the cash figure answers from the ledger (B08 continued 1c, A-196)', () => {
+  const GCB = 'GCB current account (SEED)';
+  const MTN = 'MTN MoMo merchant wallet (SEED)';
+
+  it('buckets the cash and bank accounts 1000 to 1130 exactly as journals posted them, an overdrawn wallet listed as negative', async () => {
+    const ledger = await ledgerIds(database);
+    const people = { maker: accountant, checker: owner };
+    await postManualJournal(api.server, clock, people, {
+      kind: 'OPENING',
+      postingDate: SEED_DAY,
+      description: 'Opening balances: safe, GCB, MTN wallet and an uncleared cheque',
+      lines: [
+        { accountId: ledger.account('1010'), side: 'D', amountPesewas: 900_000 },
+        { accountId: ledger.account('1100'), side: 'D', amountPesewas: 625_030, subledgerPartyId: ledger.bankParty(GCB) },
+        { accountId: ledger.account('1110'), side: 'D', amountPesewas: 139_440, subledgerPartyId: ledger.bankParty(MTN) },
+        { accountId: ledger.account('1130'), side: 'D', amountPesewas: 50_000 },
+        { accountId: ledger.account('3900'), side: 'C', amountPesewas: 1_714_470 },
+      ],
+    });
+    await postManualJournal(api.server, clock, people, {
+      postingDate: SEED_DAY,
+      description: 'Office rent paid from the MTN wallet',
+      lines: [
+        { accountId: ledger.account('6800'), side: 'D', amountPesewas: 200_000 },
+        { accountId: ledger.account('1110'), side: 'C', amountPesewas: 200_000, subledgerPartyId: ledger.bankParty(MTN) },
+      ],
+    });
+    const expected = { tillsPesewas: 0, safePesewas: 900_000, driversPesewas: 0, bankPesewas: 675_030, mobileMoneyPesewas: 60_560, totalPesewas: 1_514_470, negativeFigures: ['mobileMoneyPesewas'] };
+    // Independently of the view: every line on accounts 1000 to 1130, debits less credits.
+    const { rows } = await database.pool('admin').query<{ total: string }>(
+      `SELECT sum(CASE l.side WHEN 'D' THEN l.amount_pesewas ELSE -l.amount_pesewas END)::text AS total
+         FROM fin.journal_line l JOIN fin.account a ON a.id = l.account_id WHERE a.code BETWEEN '1000' AND '1130'`,
+    );
+    expect(BigInt(rows[0]!.total)).toBe(1_514_470n);
+    for (const session of [owner, manager, accountant]) {
+      const tile = await get(session, '/dashboard/tiles/cash-position');
+      expect(tile.status).toBe(200);
+      expect(tile.body).toEqual({ branchIds: [id('branch:DDW')], cash: expected, currency: 'GHS', asOf: clock.now().toISOString() });
+    }
+    expect((await get(owner, `/dashboard/owner?date=${SEED_DAY}`)).body.cash).toEqual(expected);
+    expect((await get(testBranchOwner, '/dashboard/tiles/cash-position')).body.cash).toEqual(NO_CASH);
+    expect((await get(owner, `/dashboard/tiles/cash-position?branchId=${id('branch:DDW')}`)).body.cash).toEqual(expected);
+    expect((await get(manager, `/dashboard/tiles/cash-position?branchId=${id('branch:TST')}`)).status).toBe(403);
+  });
+});
+
 describe('the dashboard reads published views only (ADR-0011, ADR-0023)', () => {
   it('answers every figure on a connection as the reporting role, which can read no module table', async () => {
     const client = await database.pool('report').connect();
@@ -249,6 +298,13 @@ describe('the dashboard reads published views only (ADR-0011, ADR-0023)', () => 
       expect((await store.animalsOnHand(tx, branchIds)).map((r) => [r.code, r.count]).sort()).toEqual([['GOAT', 4], ['SHEEP', 2]]);
       expect(await store.lowStockProducts(tx, branchIds)).toBe(1);
       expect(await store.purchasesByDay(tx, branchIds, { from: SEED_DAY, to: SEED_DAY })).toEqual([{ date: SEED_DAY, valuePesewas: 1_729_001n, count: 5 }]);
+      expect(await store.cashBalances(tx, branchIds)).toEqual([
+        { code: '1010', balance: 900_000n },
+        { code: '1100', balance: 625_030n },
+        { code: '1110', balance: -60_560n },
+        { code: '1130', balance: 50_000n },
+      ]);
+      await expect(client.query('SELECT 1 FROM fin.journal_line LIMIT 1')).rejects.toMatchObject({ code: '42501' });
       await expect(client.query('SELECT 1 FROM inv.cost_pool LIMIT 1')).rejects.toMatchObject({ code: '42501' });
       await expect(client.query('SELECT 1 FROM mdm.product LIMIT 1')).rejects.toMatchObject({ code: '42501' });
     } finally {

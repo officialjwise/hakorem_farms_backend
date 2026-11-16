@@ -9,6 +9,7 @@ import {
   OWNER_DASHBOARD_PERMISSION,
   TILE_PERMISSION,
   type AnimalsOnHandTileView,
+  type CashPositionTileView,
   type LowStockTileView,
   type OwnerDashboardView,
   type PurchasesSeriesTileView,
@@ -20,8 +21,8 @@ const READ = { access: 'SESSION', realms: ['STAFF'], idempotent: false, csrf: fa
 
 /**
  * The owner dashboard and the tiles whose data exists (FR-RPT-001, NFR-023). Parses and delegates; the handler
- * authorises. Today's sales, cash, receivables and the sales series are in the contract only until their source
- * modules exist (B8, B9a, B9b).
+ * authorises. Today's sales, receivables and the sales series are in the contract only until their source modules
+ * exist (B08 continued 2, B9a, B9b); the cash position answers from the ledger since B08 continued 1c.
  */
 @Controller('dashboard')
 export class DashboardController {
@@ -37,6 +38,12 @@ export class DashboardController {
   @Operation({ operationId: 'getStockValueTile', ...READ, permission: TILE_PERMISSION })
   stockValue(@CurrentActor() actor: Actor | undefined, @Query(zodPipe(TileQuery)) query: z.infer<typeof TileQuery>): Promise<StockValueTileView> {
     return this.dashboards.getStockValueTile(actor, query);
+  }
+
+  @Get('tiles/cash-position')
+  @Operation({ operationId: 'getCashPositionTile', ...READ, permission: TILE_PERMISSION })
+  cashPosition(@CurrentActor() actor: Actor | undefined, @Query(zodPipe(TileQuery)) query: z.infer<typeof TileQuery>): Promise<CashPositionTileView> {
+    return this.dashboards.getCashPositionTile(actor, query);
   }
 
   @Get('tiles/animals-on-hand')
