@@ -4,6 +4,16 @@ Every change to `contract/openapi.yaml`, newest first. A breaking change needs a
 
 Version numbers follow semantic versioning: a major bump breaks an existing client, a minor bump adds operations or optional fields, a patch fixes descriptions or examples.
 
+## 1.39.0 (2026-11-16, B08 continued 2)
+
+Minor. Four planned BIL operations and one RPT tile move into code; one enum value added to a query parameter. No field removed, renamed or retyped, no schema changed, and nothing a client sends made required. 359 operations from code, 276 planned.
+
+- **Billing documents (FR-BIL-004, FR-BIL-006, FR-BIL-007, ADR-0060, A-200):** `listBillingDocuments` and `getBillingDocument` answer from the real API (`bil.document.read`: Owner, Manager, Accountant, Sales, Cashier, at the whole branch); `documentNo` also finds a provisional reference. `issueCreditNote` always answers 202 `CREDIT_NOTE` (a holder of the new `bil.credit_note.approve`, the Owner or the Manager, other than its maker, approves with step-up; then it is numbered, issued and posted); `issueDebitNote` answers 201 (the Owner and the Accountant). A credit line takes a `quantity` or an `amountPesewas`, in the original's terms.
+- **`getReceivablesTile`** answers from the ledger's 1200 and billing's due dates; `getOwnerDashboard`'s `receivablesOutstandingPesewas` and `receivablesOverduePesewas` are no longer pending (no longer in `pendingFigures`).
+- **`listReasonCodes`:** the `domain` filter takes `BILLING_ADJUSTMENT` (the debit note reasons `UNDERCHARGED`, `CHARGE_OMITTED`).
+- **New error code:** `BILLING_DOCUMENT_INVALID` (422, `details[].code` one of `NO_LINES`, `CUSTOMER_REQUIRED`, `CUSTOMER_NOT_ACTIVE`, `DUE_BEFORE_ISSUE`, `RECEIPT_HAS_NO_DUE_DATE`, `PRODUCT_LINE_NEEDS_PRODUCT`, `TAX_CATEGORY_REQUIRED`, `DESCRIPTION_REQUIRED`, `QUANTITY_NOT_POSITIVE`, `DISCOUNT_EXCEEDS_LINE`, `ORIGINAL_NOT_CORRECTABLE`, `REASON_NOT_ALLOWED`, `NOTE_REQUIRED`, `LINE_NOT_ON_ORIGINAL`, `LINE_REPEATED`, `QUANTITY_OR_AMOUNT`, `QUANTITY_EXCEEDS_LINE`, `AMOUNT_EXCEEDS_LINE`, `LINE_ALREADY_CREDITED`, `AMOUNT_NOT_POSITIVE`); `CREDIT_NOTE_EXCEEDS_ORIGINAL` is now raised.
+- **Still planned:** `issueProforma` (B9a, it needs the order), `reprintBillingDocument`, `listBillingDocumentReprints`, `sendBillingDocument`, the archive, templates and statements (B08 continued 2b). Until 2b, `archivedDocumentId` and `contentHash` are null and `reprintCount` is 0.
+
 ## 1.38.0 (2026-11-16, B08 continued 1c2)
 
 Minor. Nine planned FIN operations move into code; no field removed, renamed or retyped, no schema changed, and nothing a client sends made required. 354 operations from code, 281 planned.

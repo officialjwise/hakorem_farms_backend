@@ -458,7 +458,8 @@ The "Source" column says where the code comes from. **Contract** means the code 
 | `PAYMENT_PROVIDER_UNAVAILABLE` | 503 | The provider cannot take a charge now. Cash and cash on delivery still work |
 | `ALLOCATION_EXCEEDS_AVAILABLE` | 422 | An allocation exceeds the payment's unallocated amount or the invoice's outstanding amount |
 | `REFUND_EXCEEDS_PAYMENT` | 422 | A refund exceeds what is left unrefunded on the payment |
-| `CREDIT_NOTE_EXCEEDS_ORIGINAL` | 422 | A credit note exceeds the uncredited amount of the original document |
+| `CREDIT_NOTE_EXCEEDS_ORIGINAL` | 422 | A credit note exceeds the uncredited amount of the original document (`issueCreditNote`, 1.39.0; the database refuses it too) |
+| `BILLING_DOCUMENT_INVALID` | 422 | A billing document or a credit or debit note breaks a rule, every one in `details[].code` (1.39.0, A-200) |
 | `DUPLICATE_SUPPLIER_INVOICE` | 422 | The supplier's invoice number was already entered for this supplier |
 | `INVOICE_NOT_MATCHED` | 422 | Not raised: a payment allocation to an unmatched invoice answers `THREE_WAY_MATCH_FAILED`, as FR-PUR-010 names it (1.28.0, A-164) |
 | `MESSAGE_SUPPRESSED` | 422 | The customer opted out; an opt-out is never overridden |
@@ -902,6 +903,8 @@ Slots and capacity (not below the number booked), deliveries, assignment, routes
 ### Billing (`bil`, 8)
 
 Billing documents (proforma, invoice, receipt, credit note, debit note) with the full levy breakdown, `issueProforma`, `issueCreditNote` (a standalone credit note needs approval; it cannot exceed the uncredited amount), `issueDebitNote`, `reprintBillingDocument` (same bytes with a marker), `sendBillingDocument`. Issued documents are immutable. A document shows its official number; an offline sale also stores the provisional reference.
+
+**As built in B08 continued 2 (1.39.0, ADR-0060, A-200).** `listBillingDocuments`, `getBillingDocument`, `issueCreditNote` and `issueDebitNote`. A selling module issues an invoice, receipt or proforma through `Billing.issueIn` in its own transaction (B9a); there is no HTTP operation that issues an invoice. Numbers are `INV`, `RCP`, `PRO`, `CRN` and `DBN`-`<YEAR>-<BRANCH>-<SEQUENCE>`, gap-free, allocated in the issuing transaction. Every line carries a row per levy, zero-rated and exempt ones included; totals are the sums of the lines; the database refuses any change to an issued document. A credit note is raised by the Owner or the Accountant, always waits for `CREDIT_NOTE` approval by the Owner or the Manager (not its maker, with step-up), takes a `REFUND` or `RETURN` reason and credits by quantity or amount in the original's terms; a debit note is issued at once with a `BILLING_ADJUSTMENT` reason. The ledger posts each issued invoice, receipt, credit note and debit note in the same transaction (ADR-0003). `settlement.allocatedPesewas` stays 0 until payments (B9a); the archive, reprints and templates are B08 continued 2b's.
 
 ### Payments (`pay`, 30)
 
