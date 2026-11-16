@@ -1533,14 +1533,17 @@ listMyOrders, getMyOrder) on B09a continued's provider port; and the owner dashb
 `topMovers` from RPT's PENDING_FIGURES and answer them from completed orders through a published view, and build
 the planned tiles getSalesTodayTile and getSalesSeries, each test-first with its wrong-role refusal. Extend the seed
 with a trading day of sales posted through SalePosting, keeping the B5 hand count and the trial balance tests true.
+CR-029 (owner, 2026-11-16): `Cart.checkoutId` (uuid or null), the open checkout while the cart's status is CHECKOUT
+and null otherwise, additive, so a second device or tab with the same cart cookie can open the checkout it is in;
+test that it is null again once the checkout completes, expires or is abandoned, and never names another cart's.
 If it does not fit, split at a sub-domain boundary after a proven, merged gate.
 Stop at the gate, write docs/sessions/B09a3-orders-online.md, and merge into main when every run on the pull
 request is green.
 ```
 
-## B09x — Contract requests: empty list examples and the seeded role matrix
+## B09x — Contract requests: empty list examples, the seeded role matrix and the owner's catch-ups
 
-Branch `b09x-contract-requests`, from `main`. Report `docs/sessions/B09x-contract-requests.md`. Inserted by the owner on 2026-11-16 after B9a (ADR-0026 Amendments): CR-005 was declined only for its size, and CR-023 was named for scheduling by B08 continued 2b. Gate: every list operation in the contract, from code and planned, has a named empty example beside its populated one, checked by a contract test that fails when a list operation lacks it; the seeded role matrix (every seeded role with its full permissions) is published in the contract as an `x-seeded-roles` extension or a complete `listRoles` example, generated from the IAM seed by `pnpm contract:generate` and failing CI on drift; nothing removed, renamed or retyped; and a supplier payment is numbered from its `SPY` series when it is marked paid, gap-free, and its remittance advice prints that number (A-205).
+Branch `b09x-contract-requests`, from `main`. Report `docs/sessions/B09x-contract-requests.md`. Inserted by the owner on 2026-11-16 after B9a (ADR-0026 Amendments): CR-005 was declined only for its size, and CR-023 was named for scheduling by B08 continued 2b. Gate: every list operation in the contract, from code and planned, has a named empty example beside its populated one, checked by a contract test that fails when a list operation lacks it; the seeded role matrix (every seeded role with its full permissions) is published in the contract as an `x-seeded-roles` extension or a complete `listRoles` example, generated from the IAM seed by `pnpm contract:generate` and failing CI on drift; nothing removed, renamed or retyped; and a supplier payment is numbered from its `SPY` series when it is marked paid, gap-free, and its remittance advice prints that number (A-205); a Farm hand death report without its photograph is refused whatever its value while other makers keep the threshold; a processing reversal's approval links to its order (CR-027); getShopProfile answers anonymously with the contact fields only (CR-028).
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
@@ -1561,6 +1564,19 @@ Also (A-205): allocate `pur.supplier_payment.payment_no` from its `SPY` series t
 transaction that marks the payment paid, test-first with a concurrent gap-free test, and print it on the remittance
 advice in place of the payment id (load hakorem-documents and hakorem-migration). Examples and an extension only: a
 contract minor version, a changelog entry, and the cold-read summary updated.
+Also, from the owner (2026-11-16), each test-first with its wrong-role refusal:
+(1) The Farm hand's death report always needs a photograph, whatever its value: the role cannot see the value, so it
+cannot know when the threshold applies (the frontend already requires it). Enforce it on the server in the care
+operations (reportCareMortality and submitCareMortalityRecord refuse a Farm hand report without its EVIDENCE photograph,
+MORTALITY_PHOTO_REQUIRED), with a test below the 50,000 threshold; every other maker keeps the threshold rule unchanged,
+also tested.
+(2) CR-027: an approval request for a processing reversal links to its order, additively: an optional
+`ApprovalRequest.relatedDocument` (`DocumentRef`) naming the order, or `reversalId` on listProcessingOrders, whichever
+is cheaper. Never change the existing `subject`, which stays the reversal.
+(3) CR-028: getShopProfile (GET /shop/profile), anonymous and cacheable: the trading name, a phone and a WhatsApp number
+in E.164, the farm's address and directions, and opening hours, read from the business profile; it exposes nothing
+else from it (no TIN, bank or staff detail), proved by a test of the response's keys; the seed uses invented,
+clearly fictional numbers (hakorem-seed).
 Stop at the gate, write docs/sessions/B09x-contract-requests.md, and merge into main when every run on the pull
 request is green.
 ```
