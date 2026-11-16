@@ -86,6 +86,7 @@ The frontend's `main` was fetched on 2026-11-16 (`cd810af`); it lists CR-001 to 
 ## CI
 
 - **`c2fcbfd`** (the code, CR-030 included, pushed before the pull request was opened): run **43918110154 (push)**, completed, success. No `pull_request` run existed for it: the pull request was opened after the documentation commits.
+- **`3175943`** (the report's first commit, pull request #64 opened on it): run **43920035313 (push)**, completed, success. No `pull_request` run existed for it: the pull request was in conflict with `main` (the owner's PR #63 had changed ADR-0026 and the decision index), so GitHub ran none; that commit is not called green on the pull request's side. `main` was merged in, keeping both sides.
 - The runs on the final head (this report's commit), the `push` run and the `pull_request` run that compares the contract with `main`, are named in the session's closing message: a commit cannot name its own runs. The pull request is merged with a merge commit only once every run on its head is green. No red run on this branch; nothing was re-run.
 
 ## Next session
