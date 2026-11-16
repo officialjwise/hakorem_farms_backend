@@ -50,7 +50,7 @@ responses:
                 displayName: "Adwoa Darko"
               recordedAt: "2026-11-13T09:12:00Z"
             - copyNo: 2
-              channel: WHATSAPP
+              channel: PDF
               actor:
                 id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
                 displayName: "Adwoa Darko"
@@ -68,7 +68,7 @@ responses:
                 displayName: "Nana Yeboah"
               recordedAt: "2026-11-13T09:39:00Z"
             - copyNo: 5
-              channel: EMAIL
+              channel: PDF
               actor:
                 id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
                 displayName: "Kojo Antwi"

@@ -8,19 +8,22 @@ import type { DomainEvents } from '../../../platform/events/domain-events';
 import type { Cursors } from '../../../platform/http/cursor';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
 import type { Billing } from '../../bil';
+import type { BankAccounts } from '../../fin';
 import type { Authoriser } from '../../iam';
 import type { MasterDataRefs } from '../../mdm';
 import { clearingOf, planTender, type MethodKind } from '../domain/tender';
 import { pageProbe } from '../domain/time';
 import type { DepositAllocated, PaymentCleared } from '../events';
 import { AllocationExceedsAvailableError, PaymentInvalidError, PaymentRequiresVerificationError, type PaymentRule } from './errors';
-import type { AllocationRecord, PaymentFilter, PaymentRecord, PaymentStatus, PaymentStore } from './payment-store';
+import type { AllocationRecord, NewPayment, PaymentFilter, PaymentRecord, PaymentStatus, PaymentStore } from './payment-store';
 
 export const PAYMENT_CLEARED = 'pay.PaymentCleared';
 export const DEPOSIT_ALLOCATED = 'pay.DepositAllocated';
 export const REFUND_PAID = 'pay.RefundPaid';
+export const CHEQUE_CLEARED = 'pay.ChequeCleared';
+export const PAYMENT_REVERSED = 'pay.PaymentReversed';
 /** PAY's ◆ events (ADR-0056), declared for the ledger's boot assertion. */
-export const PAY_LEDGER_EVENTS = [PAYMENT_CLEARED, DEPOSIT_ALLOCATED, REFUND_PAID] as const;
+export const PAY_LEDGER_EVENTS = [PAYMENT_CLEARED, DEPOSIT_ALLOCATED, REFUND_PAID, CHEQUE_CLEARED, PAYMENT_REVERSED] as const;
 
 const READ = 'pay.payment.read';
 const ALLOCATE = 'pay.payment.allocate';
@@ -86,13 +89,13 @@ export interface PaymentDocumentView {
   readonly order: DocumentRefView | null;
   readonly shiftId: string | null;
   readonly driver: null;
-  readonly bankAccount: null;
+  readonly bankAccount: { readonly id: string; readonly name: string; readonly kind: string; readonly last4: string } | null;
   readonly provider: string | null;
   readonly providerReference: string | null;
   readonly externalReference: string | null;
   readonly payerPhoneMasked: string | null;
   readonly verification: PaymentRecord['verification'];
-  readonly chequeDueOn: null;
+  readonly chequeDueOn: string | null;
   readonly allocatedPesewas: number;
   readonly unallocatedPesewas: number;
   readonly refundedPesewas: number;
@@ -122,6 +125,9 @@ export interface PaymentQuery {
 
 const json = (pesewas: bigint) => Money.ofPesewas(pesewas).toJsonInteger();
 
+/** What a payment holds on deposit: nothing once it is reversed or failed, whatever its amounts read. */
+const unallocatedOf = (r: PaymentRecord): bigint => (r.status === 'REVERSED' || r.status === 'FAILED' ? 0n : r.amountPesewas - r.allocatedPesewas - r.refundedPesewas);
+
 /**
  * Payments (FR-PAY-001, FR-PAY-002, FR-PAY-005, FR-PAY-009, FR-PAY-010). `recordIn` is the port ORD's sale posting
  * calls (ADR-0010): a tender recorded in the caller's serializable transaction, cash cleared at once; a mobile money or
@@ -144,6 +150,7 @@ export class Payments {
     private readonly authoriser: Authoriser,
     private readonly idempotency: Idempotency,
     private readonly cursors: Cursors,
+    private readonly bankAccounts: BankAccounts,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -167,8 +174,7 @@ export class Payments {
     if (broken.length > 0 || !plan.ok) throw new PaymentInvalidError(broken);
 
     const id = this.nextId();
-    await this.documents.register(tx, { id, docType: 'PAYMENT', ownerModule: 'pay', branchId: request.branchId, actorId: actor.principalId });
-    await this.store.insert(tx, {
+    await this.writeIn(tx, actor.principalId, {
       id,
       paymentMethodId: method.id,
       methodKind: method.kind,
@@ -183,30 +189,78 @@ export class Payments {
       clearedAt: request.receivedAt,
       branchId: request.branchId,
       actorId: actor.principalId,
+      allocations: request.allocations,
+      postsAtReceipt: true,
     });
-    for (const allocation of request.allocations) {
-      await this.store.allocate(tx, { id: this.nextId(), paymentId: id, billingDocumentId: allocation.billingDocumentId, amountPesewas: allocation.amountPesewas, direction: 'APPLY', actorId: actor.principalId });
-      await this.billing.settleIn(tx, allocation.billingDocumentId, allocation.amountPesewas, 'APPLY');
-    }
-    const payload: PaymentCleared = {
-      paymentId: id,
-      branchId: request.branchId,
-      methodKind: method.kind,
-      amountPesewas: json(request.amountPesewas),
-      allocatedPesewas: plan.value.allocated.toJsonInteger(),
-      unallocatedPesewas: plan.value.unallocated.toJsonInteger(),
-      customerId: request.customerId,
-      orderDocumentId: request.orderDocumentId,
-      register: request.register,
-      allocations: request.allocations.map((a) => ({ billingDocumentId: a.billingDocumentId, amountPesewas: json(a.amountPesewas) })),
-      receivedAt: request.receivedAt.toISOString(),
-      provider: null,
-      heldAsUnmatched: false,
-    };
-    await this.events.publish(tx, { type: PAYMENT_CLEARED, subjectType: 'Payment', subjectId: id, branchId: request.branchId, payload, occurredAt: request.receivedAt });
     const [view] = await this.viewsIn(tx, [id]);
     await this.audit.record(tx, { module: 'pay', action: 'RECORD', entityType: 'Payment', entityId: id, branchId: request.branchId, before: null, after: { ...view! } });
     return view!;
+  }
+
+  /**
+   * Writes a payment received and its allocations in the caller's serializable transaction (the sale's tender, or a
+   * receipt recorded by hand): its document, its row, each allocation with BIL's settlement moved through
+   * `Billing.settleIn`, and, when it posts at receipt, ◆ `pay.PaymentCleared` (a cheque into 1130, marked as awaiting
+   * clearance). The allocations must already be judged; the database still holds both sides' caps.
+   */
+  async writeIn(tx: Transaction, actorId: string, p: NewPayment & { readonly allocations: readonly { readonly billingDocumentId: string; readonly amountPesewas: bigint }[]; readonly postsAtReceipt: boolean }): Promise<void> {
+    if (tx.isolation !== 'serializable') throw new IsolationLevelError(tx.isolation);
+    await this.documents.register(tx, { id: p.id, docType: 'PAYMENT', ownerModule: 'pay', branchId: p.branchId, actorId });
+    await this.store.insert(tx, p);
+    let allocated = 0n;
+    for (const [i, allocation] of p.allocations.entries()) {
+      await this.capped(`/allocations/${i}/amountPesewas`, () => this.store.allocate(tx, { id: this.nextId(), paymentId: p.id, billingDocumentId: allocation.billingDocumentId, amountPesewas: allocation.amountPesewas, direction: 'APPLY', actorId }));
+      await this.billing.settleIn(tx, allocation.billingDocumentId, allocation.amountPesewas, 'APPLY');
+      allocated += allocation.amountPesewas;
+    }
+    if (!p.postsAtReceipt) return;
+    const payload: PaymentCleared = {
+      paymentId: p.id,
+      branchId: p.branchId,
+      methodKind: p.methodKind,
+      amountPesewas: json(p.amountPesewas),
+      allocatedPesewas: json(allocated),
+      unallocatedPesewas: json(p.amountPesewas - allocated),
+      customerId: p.customerId,
+      orderDocumentId: p.orderDocumentId,
+      register: p.register,
+      allocations: p.allocations.map((a) => ({ billingDocumentId: a.billingDocumentId, amountPesewas: json(a.amountPesewas) })),
+      receivedAt: p.receivedAt.toISOString(),
+      provider: null,
+      heldAsUnmatched: false,
+      ...(p.methodKind === 'CHEQUE' ? { awaitingClearance: true } : {}),
+    };
+    await this.events.publish(tx, { type: PAYMENT_CLEARED, subjectType: 'Payment', subjectId: p.id, branchId: p.branchId, payload, occurredAt: p.receivedAt });
+  }
+
+  /**
+   * What allocating a payment of a customer at a branch to these documents breaks (FR-PAY-009): each an issued invoice,
+   * receipt or debit note of the same branch and customer, named once, for an amount above zero.
+   */
+  async allocationRulesIn(tx: Transaction, at: { readonly branchId: string; readonly customerId: string | null }, allocations: readonly { readonly billingDocumentId: string; readonly amountPesewas: bigint }[]): Promise<PaymentRule[]> {
+    const broken: PaymentRule[] = [];
+    const documents = await this.billing.settleableIn(tx, allocations.map((a) => a.billingDocumentId));
+    const seen = new Set<string>();
+    allocations.forEach((a, i) => {
+      const doc = documents.get(a.billingDocumentId);
+      const field = `/allocations/${i}`;
+      if (a.amountPesewas <= 0n) broken.push({ field: `${field}/amountPesewas`, rule: 'ALLOCATION_NOT_POSITIVE' });
+      if (seen.has(a.billingDocumentId)) broken.push({ field: `${field}/billingDocumentId`, rule: 'DUPLICATE_DOCUMENT' });
+      seen.add(a.billingDocumentId);
+      if (doc === undefined) broken.push({ field: `${field}/billingDocumentId`, rule: 'DOCUMENT_UNKNOWN' });
+      else {
+        if (!SETTLEABLE_KINDS.has(doc.kind) || doc.status !== 'ISSUED') broken.push({ field: `${field}/billingDocumentId`, rule: 'DOCUMENT_NOT_PAYABLE' });
+        if (doc.branchId !== at.branchId) broken.push({ field: `${field}/billingDocumentId`, rule: 'BRANCH_DIFFERS' });
+        if (doc.customerId !== at.customerId) broken.push({ field: `${field}/billingDocumentId`, rule: 'CUSTOMER_DIFFERS' });
+      }
+    });
+    return broken;
+  }
+
+  /** The branch of the first billing document named, if any is known. */
+  async branchOfDocumentsIn(tx: Transaction, ids: readonly string[]): Promise<string | null> {
+    if (ids.length === 0) return null;
+    return (await this.billing.settleableIn(tx, [ids[0]!])).get(ids[0]!)?.branchId ?? null;
   }
 
   /**
@@ -219,21 +273,7 @@ export class Payments {
       const broken: PaymentRule[] = [];
       if (payment.status !== 'CLEARED') broken.push({ field: '', rule: 'PAYMENT_NOT_CLEARED' });
       if (body.allocations.length === 0) broken.push({ field: '/allocations', rule: 'NO_ALLOCATIONS' });
-      const documents = await this.billing.settleableIn(tx, body.allocations.map((a) => a.billingDocumentId));
-      const seen = new Set<string>();
-      body.allocations.forEach((a, i) => {
-        const doc = documents.get(a.billingDocumentId);
-        const at = `/allocations/${i}`;
-        if (a.amountPesewas <= 0n) broken.push({ field: `${at}/amountPesewas`, rule: 'ALLOCATION_NOT_POSITIVE' });
-        if (seen.has(a.billingDocumentId)) broken.push({ field: `${at}/billingDocumentId`, rule: 'DUPLICATE_DOCUMENT' });
-        seen.add(a.billingDocumentId);
-        if (doc === undefined) broken.push({ field: `${at}/billingDocumentId`, rule: 'DOCUMENT_UNKNOWN' });
-        else {
-          if (!SETTLEABLE_KINDS.has(doc.kind) || doc.status !== 'ISSUED') broken.push({ field: `${at}/billingDocumentId`, rule: 'DOCUMENT_NOT_PAYABLE' });
-          if (doc.branchId !== payment.branchId) broken.push({ field: `${at}/billingDocumentId`, rule: 'BRANCH_DIFFERS' });
-          if (doc.customerId !== payment.customerId) broken.push({ field: `${at}/billingDocumentId`, rule: 'CUSTOMER_DIFFERS' });
-        }
-      });
+      broken.push(...(await this.allocationRulesIn(tx, payment, body.allocations)));
       if (broken.length > 0) throw new PaymentInvalidError(broken);
       for (const [i, a] of body.allocations.entries()) {
         const allocationId = this.nextId();
@@ -355,7 +395,7 @@ export class Payments {
     });
   }
 
-  private async publishAllocation(
+  async publishAllocation(
     tx: Transaction,
     payment: PaymentRecord,
     a: { readonly allocationId: string; readonly billingDocumentId: string; readonly applied: bigint; readonly unapplied: bigint; readonly reverses: string | null },
@@ -374,7 +414,7 @@ export class Payments {
   }
 
   /** PAY's allocation cap (`ck_payment_allocation_cap`) as the contract's refusal. */
-  private async capped(field: string, write: () => Promise<void>): Promise<void> {
+  async capped(field: string, write: () => Promise<void>): Promise<void> {
     try {
       await write();
     } catch (error) {
@@ -395,7 +435,7 @@ export class Payments {
       verification: r.verification,
       amountPesewas: json(r.amountPesewas),
       allocatedPesewas: json(r.allocatedPesewas),
-      unallocatedPesewas: json(r.amountPesewas - r.allocatedPesewas - r.refundedPesewas),
+      unallocatedPesewas: json(unallocatedOf(r)),
       refundedPesewas: json(r.refundedPesewas),
       currency: 'GHS' as const,
       customerId: r.customerId,
@@ -414,7 +454,9 @@ export class Payments {
     const customers = await this.refs.customersIn(tx, records.flatMap((r) => (r.customerId === null ? [] : [r.customerId])));
     const billed = await this.billing.settleableIn(tx, [...new Set([...allocations.values()].flat().map((a) => a.billingDocumentId))]);
     const orders = await this.documents.numberedRefs(tx, records.flatMap((r) => (r.orderDocumentId === null ? [] : [r.orderDocumentId])));
+    const banks = await this.bankAccounts.payoutAccountsIn(tx, records.flatMap((r) => (r.bankAccountId === null ? [] : [r.bankAccountId])));
     return records.map((r) => {
+      const bank = r.bankAccountId === null ? undefined : banks.get(r.bankAccountId);
       const method = methods.get(r.paymentMethodId)!;
       const customer = r.customerId === null ? undefined : customers.get(r.customerId);
       return {
@@ -428,15 +470,15 @@ export class Payments {
         order: r.orderDocumentId === null ? null : (orders.get(r.orderDocumentId) ?? null),
         shiftId: r.shiftDocumentId,
         driver: null,
-        bankAccount: null,
+        bankAccount: bank === undefined ? null : { id: bank.id, name: bank.name, kind: bank.kind, last4: bank.last4 },
         provider: r.provider,
         providerReference: r.providerReference,
         externalReference: r.externalReference,
         payerPhoneMasked: r.payerPhoneMasked,
         verification: r.verification,
-        chequeDueOn: null,
+        chequeDueOn: r.chequeDueOn,
         allocatedPesewas: json(r.allocatedPesewas),
-        unallocatedPesewas: json(r.amountPesewas - r.allocatedPesewas - r.refundedPesewas),
+        unallocatedPesewas: json(unallocatedOf(r)),
         refundedPesewas: json(r.refundedPesewas),
         receivedAt: r.receivedAt.toISOString(),
         clearedAt: r.clearedAt?.toISOString() ?? null,

@@ -243,7 +243,13 @@ export function paymentClearedAmounts(payload: PaymentClearedFields, customer: S
     throw new Error(`pay.PaymentCleared: allocated ${allocated.pesewas} and unallocated ${unallocated.pesewas} do not sum to the tender ${tender.pesewas}`);
   }
   return [
-    { key: 'tender', amount: tender, determinants: { PAYMENT_METHOD_KIND: payload.methodKind }, subledgers: tenderParties(payload.register, payload.provider) },
+    {
+      key: 'tender',
+      amount: tender,
+      determinants: { PAYMENT_METHOD_KIND: payload.methodKind },
+      // Store credit redeemed comes off the customer's own credit (2210); every other tender is held against its till or provider.
+      subledgers: payload.methodKind === 'STORE_CREDIT' ? [customer] : tenderParties(payload.register, payload.provider),
+    },
     { key: 'allocated', amount: allocated, subledgers: [customer] },
     { key: 'unallocated', amount: unallocated, subledgers: [customer] },
   ];
@@ -267,8 +273,17 @@ export function depositAllocatedAmounts(payload: { readonly appliedPesewas: numb
 }
 
 /**
+ * `pay.ChequeCleared` (ADR-0003, ADR-0064): a cheque awaiting clearance (1130) cleared into the bank account it was
+ * paid into (1100, against that account's own party).
+ */
+export function chequeClearedAmounts(payload: { readonly amountPesewas: number }, bankAccount: SubledgerRef): PostingAmount[] {
+  return [{ key: 'cheque', amount: Money.fromJsonInteger(payload.amountPesewas), subledgers: [bankAccount] }];
+}
+
+/**
  * `pay.RefundPaid` (ADR-0003, A-210): the refund paid out of the customer's deposit (Dr 2200 against the customer) to
- * the original payment's tender account by its method's kind (against its till or its provider).
+ * the original payment's tender account by its method's kind (against its till or its provider). A refund to store credit
+ * names the tender `STORE_CREDIT` (2210, against the customer, ADR-0064).
  */
 export function refundPaidAmounts(
   payload: { readonly amountPesewas: number; readonly methodKind: string; readonly register: { readonly id: string; readonly code: string } | null; readonly provider: string | null },

@@ -34,6 +34,58 @@ export interface PaymentCleared {
    * deposit with a reconciliation break, and the order must not confirm on it (A-210).
    */
   readonly heldAsUnmatched?: boolean;
+  /**
+   * True for a cheque: it is received into 1130 Cheques awaiting clearance and stays PENDING until `pay.ChequeCleared`;
+   * an order must not treat it as cleared money (ADR-0064).
+   */
+  readonly awaitingClearance?: boolean;
+}
+
+/** ◆ `pay.ChequeCleared` v1: a cheque awaiting clearance cleared at the bank, into the bank account it was paid into. */
+export interface ChequeCleared {
+  readonly paymentId: string;
+  /** The subject of the clearing entry, so a later reversal mirrors it. */
+  readonly clearanceRef: string;
+  readonly branchId: string;
+  readonly bankAccountId: string;
+  readonly customerId: string | null;
+  readonly amountPesewas: number;
+  /** The business date the bank confirmed, the entry's posting date. */
+  readonly clearedOn: string;
+}
+
+/** `pay.PaymentReversalRequested` v1: a reversal waits for a different person's approval (the daily report's `PAYMENT_REVERSAL`). */
+export interface PaymentReversalRequested {
+  readonly reversalId: string;
+  readonly paymentId: string;
+  readonly branchId: string;
+  readonly amountPesewas: number;
+  readonly methodKind: string;
+  readonly reasonCode: string;
+  readonly approvalRequestId: string;
+  readonly requestedBy: string;
+  readonly abuseCases: readonly number[];
+}
+
+/**
+ * ◆ `pay.PaymentReversed` v1: the mirror of one entry of a reversed payment (ADR-0003 "Reverse of the original",
+ * ADR-0064). `part` names which: `RECEIPT` mirrors its `pay.PaymentCleared` entry (subject the payment), `CLEARING` a
+ * cleared cheque's `pay.ChequeCleared` entry (subject its clearance). `bounced` is a cheque the bank returned unpaid
+ * (the original is FAILED); otherwise the original is REVERSED. Its allocations are reopened in the same transaction.
+ */
+export interface PaymentReversed {
+  readonly reversingPaymentId: string;
+  readonly paymentId: string;
+  readonly reversesSubjectId: string;
+  readonly part: 'RECEIPT' | 'CLEARING';
+  readonly branchId: string;
+  readonly customerId: string | null;
+  readonly orderDocumentId: string | null;
+  readonly methodKind: string;
+  readonly amountPesewas: number;
+  readonly reasonCode: string;
+  readonly bounced: boolean;
+  readonly approvalRequestId: string;
 }
 
 /** `pay.PaymentInitiated` v1: a provider charge was created PENDING and sent, or is about to be. */
@@ -80,7 +132,10 @@ export interface RefundRequested {
   readonly abuseCases: readonly number[];
 }
 
-/** ◆ `pay.RefundPaid` v1: a refund paid out of the customer's deposit to the original payment's method. */
+/**
+ * ◆ `pay.RefundPaid` v1: a refund paid out of the customer's deposit to the original payment's method, or to the
+ * customer's store credit. `methodKind` is the tender it is paid to: the original's, or `STORE_CREDIT` (2210).
+ */
 export interface RefundPaid {
   readonly refundId: string;
   readonly paymentId: string;
@@ -88,9 +143,10 @@ export interface RefundPaid {
   readonly customerId: string | null;
   readonly amountPesewas: number;
   readonly methodKind: string;
+  readonly destination?: 'ORIGINAL_METHOD' | 'STORE_CREDIT' | 'CASH';
   readonly register: RegisterRefPayload | null;
   readonly provider: string | null;
-  readonly paidBy: 'PROVIDER' | 'MANUAL';
+  readonly paidBy: 'PROVIDER' | 'MANUAL' | 'STORE_CREDIT';
 }
 
 /** `pay.RefundFailed` v1: a provider refund attempt failed; `exhausted` when it now waits for a person. */

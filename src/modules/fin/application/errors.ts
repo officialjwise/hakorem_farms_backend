@@ -165,7 +165,8 @@ export type LedgerRefusal =
   | PostingRefusal
   | { readonly rule: 'PERIOD_NOT_OPEN'; readonly date: string }
   | { readonly rule: 'NOT_CATALOGUED'; readonly eventCode: string }
-  | { readonly rule: 'ORIGINAL_NOT_POSTED'; readonly subjectId: string };
+  | { readonly rule: 'ORIGINAL_NOT_POSTED'; readonly subjectId: string }
+  | { readonly rule: 'MIRROR_WITHOUT_ORIGINAL'; readonly eventCode: string };
 
 function describe(refusal: LedgerRefusal): string {
   return Object.entries(refusal)

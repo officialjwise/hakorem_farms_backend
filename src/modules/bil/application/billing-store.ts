@@ -107,6 +107,8 @@ export interface BillingStore {
   /** What issued credit notes already took off each original line, in the original's anchor terms (net or gross). */
   creditedAnchors(tx: Transaction, originalLineIds: readonly string[], taxInclusive: boolean): Promise<ReadonlyMap<string, bigint>>;
   settlements(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, SettlementRecord>>;
+  /** Issued invoices, receipts and debit notes with something outstanding, newest first below `beforeId`, and their total. */
+  openItems(tx: Transaction, filter: OpenItemFilter, beforeId: string | null, limit: number): Promise<{ readonly rows: OpenItemRecord[]; readonly totalOutstandingPesewas: bigint }>;
   /** Ids of matching documents, newest first, after the given id. */
   list(tx: Transaction, filter: DocumentFilter, afterId: string | null, limit: number): Promise<string[]>;
   /** Sets the archived rendering and its content hash once, after DOC has archived it (B08 continued 2b). */
@@ -124,4 +126,25 @@ export interface ReprintRecord {
   readonly channel: 'THERMAL' | 'PDF' | 'SMS' | 'WHATSAPP' | 'EMAIL';
   readonly actorId: string;
   readonly recordedAt: Date;
+}
+
+export interface OpenItemFilter {
+  readonly branchIds: readonly string[];
+  readonly customerId: string | null;
+  /** Only documents due before this business date. */
+  readonly overdueBefore: string | null;
+}
+
+export interface OpenItemRecord {
+  readonly id: string;
+  readonly kind: string;
+  readonly documentNo: string | null;
+  readonly customerId: string | null;
+  readonly customerName: string | null;
+  readonly issueDate: string;
+  readonly dueDate: string | null;
+  readonly grossPesewas: bigint;
+  readonly creditedPesewas: bigint;
+  readonly allocatedPesewas: bigint;
+  readonly outstandingPesewas: bigint;
 }

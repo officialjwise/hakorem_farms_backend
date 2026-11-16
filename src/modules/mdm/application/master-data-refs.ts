@@ -118,6 +118,7 @@ export interface MasterDataRefsStore {
   branches(tx: Transaction, ids: readonly string[]): Promise<BranchFacts[]>;
   taxCategories(tx: Transaction, ids: readonly string[]): Promise<TaxCategoryFacts[]>;
   customers(tx: Transaction, ids: readonly string[]): Promise<CustomerFacts[]>;
+  customerOfPrincipal(tx: Transaction, principalId: string): Promise<CustomerFacts | null>;
   reasonCodes(tx: Transaction, codes: readonly string[]): Promise<ReasonCodeFacts[]>;
   paymentMethodsByCode(tx: Transaction, codes: readonly string[]): Promise<PaymentMethodFacts[]>;
   paymentMethods(tx: Transaction, ids: readonly string[]): Promise<PaymentMethodFacts[]>;
@@ -190,6 +191,11 @@ export class MasterDataRefs {
   async customersIn(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, CustomerFacts>> {
     if (ids.length === 0) return new Map();
     return byId(await this.store.customers(tx, unique(ids)));
+  }
+
+  /** The customer a customer-realm sign-in belongs to (`mdm.customer.principal_id`), or null if none is linked. */
+  async customerOfPrincipalIn(tx: Transaction, principalId: string): Promise<CustomerFacts | null> {
+    return this.store.customerOfPrincipal(tx, principalId);
   }
 
   async branchesIn(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, BranchFacts>> {

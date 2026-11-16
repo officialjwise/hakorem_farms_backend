@@ -59,7 +59,8 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B08 continued 2c | `B08c2c-statements-remittance.md` | `b08c2c-statements-remittance` | B4 to B12 | A supplier remittance advice is rendered from the data fixed with `pur.SupplierRemittanceReady` and archived once, linked from the payment; a template preview renders without archiving or numbering anything; every preview and archive read refuses the wrong role (built; the session split before statements, A-206; sends moved to B11, ADR-0062) |
 | B9a | `B09a-order-core-payments.md` | `b09a-order-core-payments` | B4 to B12 | Every payment edge case in the brief passes; an order on any channel posts stock, document, payment and ledger in one transaction (sale posting built and proved; the session split, A-209) |
 | B09a continued | `B09a2-payments-provider.md` | `b09a2-payments-provider` | B4 to B12 | Every payment edge case in the brief passes; a webhook is accepted only signed, in its window, unseen and with its amount re-verified; every PAY write refuses the wrong role (built; the session split, A-211) |
-| B09a continued 1b | `B09a2b-payments-reconciliation.md` | `b09a2b-payments-reconciliation` | B4 to B12 | A cheque clears 1130 to 1100 or bounces and reopens its item; a reversal posts the mirror of its journal with a different approver; store credit is never redeemed beyond its balance; a settlement of three payments with a fee posts 1100, 6910 and 1120 exactly and an extra line raises a break; a break resolves only through an approved posting; every remaining PAY write refuses the wrong role |
+| B09a continued 1b | `B09a2b-payments-reconciliation.md` | `b09a2b-payments-reconciliation` | B4 to B12 | A cheque clears 1130 to 1100 or bounces and reopens its item; a reversal posts the mirror of its journal with a different approver; store credit is never redeemed beyond its balance; the trial balance still sums to zero; every PAY write built refuses the wrong role (built; the session split before settlement and bank reconciliation, A-213) |
+| B09a continued 1c | `B09a2c-payments-settlement.md` | `b09a2c-payments-settlement` | B4 to B12 | A settlement of three payments with a fee posts 1100, 6910 and 1120 exactly and an extra line raises a break; a bank transfer clears only from its matched statement line; a break resolves only through an approved posting; a refund against a credit note posts Dr 1200; the trial balance still sums to zero; every remaining PAY write refuses the wrong role |
 | B09a continued 2 | `B09a3-orders-online.md` | `b09a3-orders-online` | B4 to B12 | The order endpoints and online placement post through SalePosting in one transaction; a void needs a supervisor who is not the cashier; a return never exceeds what was sold; the dashboard's sales figures answer exactly; every ORD write refuses the wrong role |
 | B09x | `B09x-contract-requests.md` | `b09x-contract-requests` | B4 to B12 | Every list operation has a named empty example (CR-005) and the seeded role matrix is published in the contract, generated from the IAM seed and checked in CI so it cannot drift (CR-023); no existing shape changes |
 | B9b | `B09b-pos-shifts-offline.md` | `b09b-pos-shifts-offline` | B4 to B12 | Shift close reconciles; 500 queued offline transactions sync exactly once |
@@ -1504,7 +1505,7 @@ request is green.
 
 ## B09a continued 1b — Manual receipts, cheques, store credit, reversals and reconciliation
 
-Branch `b09a2b-payments-reconciliation`, from `main`. Report `docs/sessions/B09a2b-payments-reconciliation.md`. Inserted by B09a continued's split (A-211, ADR-0026 Amendments). Gate: a cheque of 100,000 is recorded PENDING debiting 1130 only and clears 1130 to 1100, or bounces and reopens the 100,000 item; reversing a 50,000 payment posts the mirror image of its journal on a different person's approval and reopens its allocations; store credit of 6,000 is never redeemed for 6,001 and redeeming 6,000 debits 2210; a settlement of three payments totalling 150,000 with a 1,500 fee posts Dr 1100 148,500, Dr 6910 1,500, Cr 1120 150,000 and an extra 2,000 line raises a break; a break resolves only through an approved posting (2290 for an unidentified receipt); the trial balance still sums to zero; every remaining PAY write refuses the wrong role.
+Branch `b09a2b-payments-reconciliation`, from `main`. Report `docs/sessions/B09a2b-payments-reconciliation.md`. Inserted by B09a continued's split (A-211, ADR-0026 Amendments). **Built; split before settlement and bank reconciliation (A-213):** recordPayment, clearCheque, reversePayment, store credit and listOpenItems are built; the settlement, bank statement and break operations, the refund against a credit note, 1100 for a bank transfer, 2290 and 6910 are B09a continued 1c's. Gate as planned: a cheque of 100,000 is recorded PENDING debiting 1130 only and clears 1130 to 1100, or bounces and reopens the 100,000 item; reversing a 50,000 payment posts the mirror image of its journal on a different person's approval and reopens its allocations; store credit of 6,000 is never redeemed for 6,001 and redeeming 6,000 debits 2210; a settlement of three payments totalling 150,000 with a 1,500 fee posts Dr 1100 148,500, Dr 6910 1,500, Cr 1120 150,000 and an extra 2,000 line raises a break; a break resolves only through an approved posting (2290 for an unidentified receipt); the trial balance still sums to zero; every remaining PAY write refuses the wrong role.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9a row).
@@ -1535,6 +1536,43 @@ Stop at the gate, write docs/sessions/B09a2b-payments-reconciliation.md, and mer
 request is green.
 ```
 
+## B09a continued 1c — Settlement reports, bank statements, the break queue and the refund against a credit note
+
+Branch `b09a2c-payments-settlement`, from `main`. Report `docs/sessions/B09a2c-payments-settlement.md`. Inserted by B09a continued 1b's split (A-213, ADR-0026 Amendments). Gate: a settlement of three payments totalling 150,000 with a 1,500 fee matches all three and posts Dr 1100 148,500, Dr 6910 1,500, Cr 1120 150,000, and an extra 2,000 line not in the system raises a break; a bank transfer recorded PENDING clears (Dr 1100) only from its matched statement line, and an unmatched line raises `BANK_LINE_UNMATCHED`; a break resolves only through an approved posting (2290 for an unidentified receipt), never by hand; a refund against a credit note on a paid document posts Dr 1200; the trial balance still sums to zero; every remaining PAY write refuses the wrong role.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9a row).
+List docs/sessions/ and read only the most recent report (docs/sessions/B09a2b-payments-reconciliation.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the PAY requirement block of docs/SRS.md (nothing else from the SRS), docs/data-model/pay.md,
+the PAY, BIL and FIN cards in docs/MODULE_BOUNDARIES.md, DOMAIN_MODEL section 5.9, ADR-0003, ADR-0014, ADR-0017,
+ADR-0056, ADR-0063 and ADR-0064, the abuse cases 4, 12 and 32 in docs/security/THREAT_MODEL.md,
+docs/runbooks/reconciliation-break.md, and A-200, A-208, A-210, A-212 and A-213 in docs/ASSUMPTIONS.md. Load
+hakorem-money, hakorem-ledger, hakorem-security-review, hakorem-endpoint, hakorem-migration, hakorem-runbook and
+hakorem-tests. Use docs/prompts/module-build-prompt.md as the recipe. Do not read any other document unless this phase
+needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B09a continued 1c only, on branch b09a2c-payments-settlement, branched from main: the remaining PAY
+permissions and grants; importSettlementReport and matchSettlementReport (◆ pay.ProviderSettled: Dr 1100 net against
+the bank account, Dr 6910 the fee, Cr 1120 against the provider; SETTLEMENT_AMOUNT_DIFFERS and SETTLEMENT_NOT_FOUND
+breaks; nothing corrected automatically); importBankStatement, matchBankStatement and matchBankStatementLine (a bank
+transfer recorded PENDING by recordPayment clears from its matched line with pay.PaymentCleared Dr 1100 against the
+bank account, its tender determination seeded; an unmatched line raises BANK_LINE_UNMATCHED; a receipt from an
+unknown payer is held in 2290); listReconciliationBreaks, getReconciliationBreak and resolveReconciliationBreak with
+its posting through approval by a different person (2290 for an unidentified receipt, the deposit or refund paths),
+every break kind on the published view pay.pub_reconciliation_break (B09a continued 1b) that the daily exception
+report reads; a credit note on a paid document and the refund against it (Dr 1200, the refund drawing on the credit
+note's uncredited amount, held by the database); a cheque refunded to its original method through a bank payout.
+PAY's remaining ◆ events in fin.posting_event_type with their determinations (1100 for a bank transfer, 2290, 6910),
+each with an exact-amount matrix test (ADR-0056). Write every money rule test-first. Keep the A-208 receipt-link
+test green.
+If it does not fit, split at a sub-domain boundary after a proven, merged gate.
+Stop at the gate, write docs/sessions/B09a2c-payments-settlement.md, and merge into main when every run on the pull
+request is green.
+```
+
 ## B09a continued 2 — The order endpoints, returns and voids, online placement and the dashboard's sales figures
 
 Branch `b09a3-orders-online`, from `main`. Report `docs/sessions/B09a3-orders-online.md`. Inserted by B9a's split (A-209, ADR-0026 Amendments). Gate: an order on any channel built so far posts stock, document, payment and ledger in one transaction through `SalePosting.postIn` (B9a's proof stands), now reached through the order endpoints and online placement; a void is approved by a supervisor who is not the cashier and leaves a credit note and reversing entries; a return never exceeds what was sold; the owner dashboard's B9a figures answer exactly from completed orders; every ORD write refuses the wrong role.
@@ -1551,14 +1589,14 @@ cannot reach this machine; say so, and check the signature scheme against a capt
 be obtained. Report every place where Paystack's real behaviour differs from its documentation or from the fake,
 and fix the fake (and the adapter, test-first) to match the real behaviour.
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9a row).
-List docs/sessions/ and read only the most recent report (docs/sessions/B09a2b-payments-reconciliation.md, or the
+List docs/sessions/ and read only the most recent report (docs/sessions/B09a2c-payments-settlement.md, or the
 last report of its own splits).
 Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
 reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the ORD (core) requirement block of docs/SRS.md and FR-RPT-001 (nothing else from the SRS),
 docs/data-model/ord.md, the ORD, PAY, BIL and RPT cards in docs/MODULE_BOUNDARIES.md, DOMAIN_MODEL section 7,
 ADR-0010, ADR-0021 and ADR-0026, the abuse cases 1, 3 and 12 in docs/security/THREAT_MODEL.md, and A-149, A-200,
-A-201, A-208, A-209, A-210 and A-211 in docs/ASSUMPTIONS.md, and ADR-0063. Load hakorem-pricing, hakorem-money, hakorem-stock, hakorem-ledger,
+A-201, A-208, A-209, A-210, A-211, A-212 and A-213 in docs/ASSUMPTIONS.md, ADR-0063 and ADR-0064 (a void's refund is a reversal or a refund to store credit; returns use the refund against a credit note). Load hakorem-pricing, hakorem-money, hakorem-stock, hakorem-ledger,
 hakorem-documents, hakorem-security-review, hakorem-endpoint, hakorem-migration and hakorem-tests. Use
 docs/prompts/module-build-prompt.md as the recipe.
 Do not read any other document unless this phase needs it.
@@ -1605,7 +1643,9 @@ Confirm in three lines: the phase, its scope, and its gate.
 Then execute B09x only, on branch b09x-contract-requests, branched from main: a named empty example (`empty`) on
 every list operation, generated by one scripted pass over the fragments and the planned file and kept by a contract
 test; the seeded role matrix published in the contract from the IAM seed, generated and checked in CI; CR-023's
-confirmation of the Farm hand's grants answered from the seed in the report.
+confirmation of the Farm hand's grants answered from the seed in the report. The published matrix must show the
+credit-note grants as the owner set them on 2026-11-16 (migration 0174): `bil.credit_note.create` for the Owner, the
+Accountant and the Manager, never the Cashier, and `bil.credit_note.approve` for the Owner and the Manager.
 Also (A-205): allocate `pur.supplier_payment.payment_no` from its `SPY` series through `platform.allocate_number` in the
 transaction that marks the payment paid, test-first with a concurrent gap-free test, and print it on the remittance
 advice in place of the payment id (load hakorem-documents and hakorem-migration). Examples and an extension only: a
@@ -1790,6 +1830,11 @@ pur.SupplierPayoutChanged, with SA-17's payment within 24 hours after a change.
 It must include case 28 (B07 continued 1b, A-172): each invoice paid on an approved variance
 (pur.SupplierInvoiceMatched or ExpenseInvoiceApproved with varianceApprovalRequestId) and each approved supplier
 credit note (pur.SupplierCreditNoteApproved with its returned movements), with maker, approver and amount.
+It must include PAY's breaks and reversals (the owner, 2026-11-16, B09a continued 1b): every reconciliation break of
+every kind (from the provider sweep, from webhooks, from settlement and bank statement matching, and REFUND_FAILED)
+read through the published view pay.pub_reconciliation_break, each with its kind, payment or reference, amount, age
+and state; every payment mismatch found against Paystack among them; and each pay.PaymentReversalRequested (abuse
+case 32) with its maker, amount and reason, beside pay.RefundRequested (case 12) and pay.WebhookRejected (case 5).
 It must include case 2's reused death photographs (B06r, A-175): each liv.MortalityPhotoReused with the record,
 the reporter and the earlier records whose photograph had the same bytes; and case 29 (A-176): every processing
 reversal from prc.ProcessingOrderReversed with its value, the threshold copied onto it, the maker, the approver

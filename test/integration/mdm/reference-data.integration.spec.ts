@@ -128,8 +128,9 @@ describe('reason codes are a fixed list (FR-MDM-011)', () => {
       seen.push(...codes(page.body));
       cursor = page.body.page.nextCursor;
     } while (cursor !== null);
-    // 48 from B4 continued (d) 3, and B08 continued 2's two BILLING_ADJUSTMENT reasons for debit notes.
-    expect(seen).toHaveLength(50);
+    // 48 from B4 continued (d) 3, B08 continued 2's two BILLING_ADJUSTMENT reasons for debit notes, and B09a continued 1b's
+    // two PAYMENT_REVERSAL reasons.
+    expect(seen).toHaveLength(52);
     expect([...seen].sort()).toEqual(seen);
     const mortality = await get(cashier, '/reason-codes?domain=MORTALITY');
     expect(mortality.body.data).toContainEqual({ code: 'DISEASE_SUSPECTED', domain: 'MORTALITY', description: 'Died, disease suspected', requiresNote: true, lossAccountGroup: 'MORTALITY' });

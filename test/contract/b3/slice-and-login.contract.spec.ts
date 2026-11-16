@@ -134,7 +134,7 @@ import {
 import { SettingUpdate as AudSettingUpdate } from '../../../src/modules/aud/interface/schemas';
 import { SlotGenerate, SlotUpdate } from '../../../src/modules/del/interface/schemas';
 import { CreditNoteCreate, DebitNoteCreate, ReprintRequest } from '../../../src/modules/bil/interface/schemas';
-import { AllocationBody, MobileMoneyChargeBody, ProviderWebhookBody, RefundBody, RefundMarkPaidBody, UnallocateBody } from '../../../src/modules/pay/interface/schemas';
+import { AllocationBody, ChequeClearanceBody, MobileMoneyChargeBody, ProviderWebhookBody, RecordPaymentBody, RefundBody, RefundMarkPaidBody, ReversalBody, UnallocateBody } from '../../../src/modules/pay/interface/schemas';
 import { DocumentDownloadRequest, TemplatePreviewRequest, TemplateVersionCreate } from '../../../src/modules/doc/interface/schemas';
 import {
   AccountCreate,
@@ -424,6 +424,9 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     unallocatePayment: UnallocateBody,
     requestRefund: RefundBody,
     markRefundPaid: RefundMarkPaidBody,
+    recordPayment: RecordPaymentBody,
+    reversePayment: ReversalBody,
+    clearCheque: ChequeClearanceBody,
     receivePaymentWebhook: ProviderWebhookBody,
     issueDebitNote: DebitNoteCreate,
     reprintBillingDocument: ReprintRequest,

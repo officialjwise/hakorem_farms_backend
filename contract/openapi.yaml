@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.42.0"
+  version: "1.43.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -16240,6 +16240,7 @@ paths:
               - CASH_MOVEMENT
               - HOLD_RELEASE
               - BILLING_ADJUSTMENT
+              - PAYMENT_REVERSAL
         - name: cursor
           in: query
           required: false
@@ -16265,31 +16266,21 @@ paths:
                 $ref: "#/components/schemas/ReasonCodePage"
               example:
                 data:
-                  - code: DISEASE_SUSPECTED
-                    domain: MORTALITY
-                    description: "Died, disease suspected"
+                  - code: CHARGE_OMITTED
+                    domain: BILLING_ADJUSTMENT
+                    description: "A charge was left off the invoice"
                     requiresNote: true
-                    lossAccountGroup: MORTALITY
-                  - code: PREDATOR
-                    domain: MORTALITY
-                    description: "Killed by a predator"
+                    lossAccountGroup: null
+                  - code: CHEQUE_DISHONOURED
+                    domain: PAYMENT_REVERSAL
+                    description: "Cheque returned unpaid by the bank"
                     requiresNote: true
-                    lossAccountGroup: MORTALITY
-                  - code: EXPIRED
-                    domain: WASTAGE
-                    description: "Past expiry date"
-                    requiresNote: false
-                    lossAccountGroup: WASTAGE
+                    lossAccountGroup: null
                   - code: COUNT_ERROR
                     domain: STOCK_ADJUSTMENT
                     description: "Earlier count was wrong"
                     requiresNote: true
                     lossAccountGroup: SHRINKAGE
-                  - code: REGULAR_CUSTOMER
-                    domain: PRICE_OVERRIDE
-                    description: "Regular customer, agreed price"
-                    requiresNote: false
-                    lossAccountGroup: null
                   - code: CUSTOMER_CHANGED_MIND
                     domain: VOID
                     description: "Customer changed mind before leaving"
@@ -16300,10 +16291,50 @@ paths:
                     description: "Damaged in delivery"
                     requiresNote: true
                     lossAccountGroup: null
-                  - code: CUSTOMER_NOT_AVAILABLE
-                    domain: DELIVERY_FAILURE
-                    description: "Customer not available"
+                  - code: DISEASE_SUSPECTED
+                    domain: MORTALITY
+                    description: "Died, disease suspected"
+                    requiresNote: true
+                    lossAccountGroup: MORTALITY
+                  - code: OVERCHARGED
+                    domain: REFUND
+                    description: "Customer was overcharged"
+                    requiresNote: true
+                    lossAccountGroup: null
+                  - code: QUALITY_COMPLAINT
+                    domain: REFUND
+                    description: "Quality complaint upheld"
+                    requiresNote: true
+                    lossAccountGroup: null
+                  - code: RECORDED_IN_ERROR
+                    domain: PAYMENT_REVERSAL
+                    description: "Payment recorded in error"
+                    requiresNote: true
+                    lossAccountGroup: null
+                  - code: RETURN_QUALITY
+                    domain: RETURN
+                    description: "Returned for quality"
+                    requiresNote: true
+                    lossAccountGroup: null
+                  - code: RETURN_UNWANTED
+                    domain: RETURN
+                    description: "Returned unused, not wanted"
                     requiresNote: false
+                    lossAccountGroup: null
+                  - code: RETURN_WRONG_ITEM
+                    domain: RETURN
+                    description: "Returned, wrong item"
+                    requiresNote: true
+                    lossAccountGroup: null
+                  - code: UNDERCHARGED
+                    domain: BILLING_ADJUSTMENT
+                    description: "Customer was undercharged"
+                    requiresNote: true
+                    lossAccountGroup: null
+                  - code: WRONG_ITEM
+                    domain: REFUND
+                    description: "Wrong item supplied"
+                    requiresNote: true
                     lossAccountGroup: null
                 page:
                   nextCursor: null
@@ -42588,16 +42619,16 @@ paths:
               schema:
                 $ref: "#/components/schemas/ArchivedDocument"
               example:
-                id: "019a7adf-5d44-72d8-8811-36605a39af3e"
+                id: "019a7ae3-97f1-7cf2-b22a-d7f5fd6c50d3"
                 businessDocument:
-                  id: "019a7adf-7c33-7cbc-91f4-d497d3ea4d75"
+                  id: "019a7ae2-fd46-7b80-a0b9-c0e09cf739be"
                   docType: RECEIPT
                   number: RCP-2026-DDW-T1-018834
                 docType: RECEIPT
                 documentNo: RCP-2026-DDW-T1-018834
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                 templateVersionId: "019a7adf-9b22-769f-abd8-72cf4d9bebad"
-                sha256: "4f2ae8c1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8"
+                sha256: "4f2ac1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7"
                 revision: 1
                 file:
                   id: "019a7adf-ba11-7083-b5bb-1106c74c89e4"
@@ -44424,7 +44455,7 @@ paths:
                 contentHash: "4f2ac1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7"
                 issuedAt: "2026-11-13T09:12:00Z"
                 occurredAt: "2026-11-13T09:12:00Z"
-                reprintCount: 1
+                reprintCount: 5
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
         "400":
           $ref: "#/components/responses/BadRequest"
@@ -44624,7 +44655,7 @@ paths:
       tags:
         - bil
       summary: "Issue a credit note against an issued invoice or receipt"
-      description: "Raises a credit note against an issued invoice or receipt (FR-BIL-007). Each line names a line of the original once, with a `quantity` (credited at the line's price less the same share of its discount) or an `amountPesewas` (in the original's terms: net if it was tax-exclusive, gross if inclusive); the levies are recomputed by the original's tax scheme version. A credit never exceeds what a line, or the original, has left uncredited (422 `CREDIT_NOTE_EXCEEDS_ORIGINAL`, also held by the database). The reason is a `REFUND` or `RETURN` code. A credit note raised on its own needs approval of kind `CREDIT_NOTE`, whatever its amount: the response is `202` with an `ApprovalPending` body, nothing is numbered or posted, and a holder of `bil.credit_note.approve` other than its maker approves it with step-up; the approval numbers it (`CRN-<YEAR>-<BRANCH>-<SEQUENCE>`), issues it and posts `bil.CreditNoteIssued` (Dr 4200 net, Dr 2100 each levy, Cr 1200 gross). Credit notes raised by a return are issued by the return (B9a). Other refusals are 422 `BILLING_DOCUMENT_INVALID` (`ORIGINAL_NOT_CORRECTABLE`, `REASON_NOT_ALLOWED`, `NOTE_REQUIRED`, `NO_LINES`, `LINE_NOT_ON_ORIGINAL`, `LINE_REPEATED`, `QUANTITY_OR_AMOUNT`, `QUANTITY_EXCEEDS_LINE`, `AMOUNT_EXCEEDS_LINE`, `LINE_ALREADY_CREDITED`).\n\nPermission: `bil.credit_note.create` at the original's branch.\n\nMay require approval of kind `CREDIT_NOTE`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+      description: "Raises a credit note against an issued invoice or receipt (FR-BIL-007). Each line names a line of the original once, with a `quantity` (credited at the line's price less the same share of its discount) or an `amountPesewas` (in the original's terms: net if it was tax-exclusive, gross if inclusive); the levies are recomputed by the original's tax scheme version. A credit never exceeds what a line, or the original, has left uncredited (422 `CREDIT_NOTE_EXCEEDS_ORIGINAL`, also held by the database). The reason is a `REFUND` or `RETURN` code. A credit note raised on its own needs approval of kind `CREDIT_NOTE`, whatever its amount: the response is `202` with an `ApprovalPending` body, nothing is numbered or posted, and a holder of `bil.credit_note.approve` other than its maker approves it with step-up; the approval numbers it (`CRN-<YEAR>-<BRANCH>-<SEQUENCE>`), issues it and posts `bil.CreditNoteIssued` (Dr 4200 net, Dr 2100 each levy, Cr 1200 gross). Credit notes raised by a return are issued by the return (B9a). Other refusals are 422 `BILLING_DOCUMENT_INVALID` (`ORIGINAL_NOT_CORRECTABLE`, `REASON_NOT_ALLOWED`, `NOTE_REQUIRED`, `NO_LINES`, `LINE_NOT_ON_ORIGINAL`, `LINE_REPEATED`, `QUANTITY_OR_AMOUNT`, `QUANTITY_EXCEEDS_LINE`, `AMOUNT_EXCEEDS_LINE`, `LINE_ALREADY_CREDITED`). Raised by the Owner, the Accountant and the Manager (the owner, 2026-11-16; 1.43.0); a Cashier may not (counter refunds are till returns, B9b). Approved by the Owner or a Manager, never the person who raised it (422 `MAKER_CANNOT_CHECK`), so a Manager's own credit note is approved by another Manager or the Owner.\n\nPermission: `bil.credit_note.create` at the original's branch.\n\nMay require approval of kind `CREDIT_NOTE`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
       x-permission: bil.credit_note.create
       x-error-codes:
         - VALIDATION_FAILED
@@ -44783,9 +44814,9 @@ paths:
                 kind: CREDIT_NOTE
                 subject:
                   id: "019a7ae6-407b-767e-9bb6-70ba72a2e998"
-                  docType: STOCK_ADJUSTMENT
+                  docType: CREDIT_NOTE
                   number: null
-                summary: "Awaiting approval by a different user with the approving permission"
+                summary: "Credit note of GHS 300.00 against INV-2026-DDW-001198 (QUALITY_COMPLAINT), awaiting a different approver"
                 requestedAt: "2026-11-13T10:12:00Z"
         "400":
           $ref: "#/components/responses/BadRequest"
@@ -44861,185 +44892,94 @@ paths:
               schema:
                 $ref: "#/components/schemas/BillingDocument"
               example:
-                id: "019a7ae2-fd46-7b80-a0b9-c0e09cf739be"
-                kind: RECEIPT
+                id: "019a7ae8-0b51-7d3e-9c4a-6f2e1d8a3b70"
+                kind: DEBIT_NOTE
                 status: ISSUED
-                documentNo: RCP-2026-DDW-T1-018834
+                documentNo: DBN-2026-DDW-000014
                 provisionalRef: null
-                customer: null
-                customerName: null
-                customerTin: null
-                billingAddress: null
-                order:
-                  id: "019a7aac-216c-721a-8753-2a7ecd11a35c"
-                  docType: SALES_ORDER
-                  number: SO-2026-DDW-004211
-                originalDocument: null
+                customer:
+                  id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+                  customerNo: C-00042
+                  name: "Royal Palm Hotel Ltd"
+                customerName: "Royal Palm Hotel Ltd"
+                customerTin: C0004321987
+                billingAddress: "Plot 12, Spintex Road, Accra"
+                order: null
+                originalDocument:
+                  id: "019a7adf-f7ef-744a-9982-4d75baaec653"
+                  docType: INVOICE
+                  number: INV-2026-DDW-001198
                 issueDate: "2026-11-13"
-                dueDate: null
-                taxInclusive: true
+                dueDate: "2026-12-12"
+                taxInclusive: false
                 taxSchemeVersionId: "019a7aa9-78e2-788e-adc6-91ba57db0a98"
-                netPesewas: 130250
-                taxPesewas: 7650
-                grossPesewas: 137900
+                netPesewas: 3000
+                taxPesewas: 600
+                grossPesewas: 3600
                 currency: GHS
                 levyTotals:
                   - levyCode: VAT
                     levyName: "Value Added Tax"
-                    amountPesewas: 5738
+                    amountPesewas: 450
                   - levyCode: NHIL
                     levyName: "National Health Insurance Levy"
-                    amountPesewas: 956
+                    amountPesewas: 75
                   - levyCode: GETFUND
                     levyName: "GETFund Levy"
-                    amountPesewas: 956
+                    amountPesewas: 75
                 lines:
-                  - id: "019a7ae3-1c35-7564-ba9c-5f1816a8d7f5"
+                  - id: "019a7ae8-2a40-7f1c-8b39-5e1d0c7f2a61"
                     lineNo: 1
-                    lineKind: PRODUCT
-                    product:
-                      id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                      sku: LIV-GOAT
-                      name: Goat
-                    description: Goat
-                    stockUnit:
-                      id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
-                      identifier: G-0142
-                      tracking: SERIAL
+                    lineKind: ADJUSTMENT
+                    product: null
+                    description: "Second delivery attempt"
+                    stockUnit: null
                     quantity: "1.000"
-                    uom: HEAD
-                    weightKg: "26.400"
-                    unitPricePesewas: 80000
-                    resolvedUnitPricePesewas: 85000
-                    discountPesewas: 0
-                    taxCategory:
-                      id: "019a7a8a-6af3-7b33-906b-bc092d2a34e7"
-                      code: LIVE_ANIMALS
-                      name: "Live Animals"
-                    lineNetPesewas: 80000
-                    lineTaxPesewas: 0
-                    lineGrossPesewas: 80000
-                    levies:
-                      - levyCode: VAT
-                        levyName: "Value Added Tax"
-                        treatment: ZERO_RATED
-                        ratePercent: "0.00"
-                        basePesewas: 80000
-                        amountPesewas: 0
-                      - levyCode: NHIL
-                        levyName: "National Health Insurance Levy"
-                        treatment: ZERO_RATED
-                        ratePercent: "0.00"
-                        basePesewas: 80000
-                        amountPesewas: 0
-                      - levyCode: GETFUND
-                        levyName: "GETFund Levy"
-                        treatment: ZERO_RATED
-                        ratePercent: "0.00"
-                        basePesewas: 80000
-                        amountPesewas: 0
-                  - id: "019a7ae3-3b24-7f47-8480-fd4f9059762d"
-                    lineNo: 2
-                    lineKind: PRODUCT
-                    product:
-                      id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                      sku: EGG-BIG
-                      name: "Eggs, big, crate of 30"
-                    description: "Eggs, big, crate of 30"
-                    stockUnit:
-                      id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
-                      identifier: EGG-261112-L1
-                      tracking: LOT
-                    quantity: "2.000"
-                    uom: CRATE
+                    uom: UNIT
                     weightKg: null
-                    unitPricePesewas: 6000
-                    resolvedUnitPricePesewas: 6000
-                    discountPesewas: 0
-                    taxCategory:
-                      id: "019a7a8a-a8d1-7efa-b432-f878208c7156"
-                      code: EGGS
-                      name: Eggs
-                    lineNetPesewas: 12000
-                    lineTaxPesewas: 0
-                    lineGrossPesewas: 12000
-                    levies:
-                      - levyCode: VAT
-                        levyName: "Value Added Tax"
-                        treatment: ZERO_RATED
-                        ratePercent: "0.00"
-                        basePesewas: 12000
-                        amountPesewas: 0
-                      - levyCode: NHIL
-                        levyName: "National Health Insurance Levy"
-                        treatment: ZERO_RATED
-                        ratePercent: "0.00"
-                        basePesewas: 12000
-                        amountPesewas: 0
-                      - levyCode: GETFUND
-                        levyName: "GETFund Levy"
-                        treatment: ZERO_RATED
-                        ratePercent: "0.00"
-                        basePesewas: 12000
-                        amountPesewas: 0
-                  - id: "019a7ae3-5a13-792b-9e63-9b870a0a1464"
-                    lineNo: 3
-                    lineKind: PRODUCT
-                    product:
-                      id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                      sku: MEAT-BEEF
-                      name: "Beef, 15 kg pack"
-                    description: "Beef, 15 kg pack"
-                    stockUnit:
-                      id: "019a7a91-2f3b-74f5-9a2d-582bcbe2d109"
-                      identifier: MEAT-BEEF-261104-01
-                      tracking: LOT
-                    quantity: "15.300"
-                    uom: KG
-                    weightKg: "15.300"
                     unitPricePesewas: 3000
                     resolvedUnitPricePesewas: 3000
                     discountPesewas: 0
                     taxCategory:
-                      id: "019a7a8a-c7c0-78dd-8e16-96af9a3d0f8d"
-                      code: PROCESSED_MEAT
-                      name: "Processed Meat"
-                    lineNetPesewas: 38250
-                    lineTaxPesewas: 7650
-                    lineGrossPesewas: 45900
+                      id: "019a7a8b-059e-7ca4-a1dd-d31e8d9f4bfc"
+                      code: OTHER_GOODS
+                      name: "Other Goods"
+                    lineNetPesewas: 3000
+                    lineTaxPesewas: 600
+                    lineGrossPesewas: 3600
                     levies:
                       - levyCode: VAT
                         levyName: "Value Added Tax"
                         treatment: STANDARD
                         ratePercent: "15.00"
-                        basePesewas: 38250
-                        amountPesewas: 5738
+                        basePesewas: 3000
+                        amountPesewas: 450
                       - levyCode: NHIL
                         levyName: "National Health Insurance Levy"
                         treatment: STANDARD
                         ratePercent: "2.50"
-                        basePesewas: 38250
-                        amountPesewas: 956
+                        basePesewas: 3000
+                        amountPesewas: 75
                       - levyCode: GETFUND
                         levyName: "GETFund Levy"
                         treatment: STANDARD
                         ratePercent: "2.50"
-                        basePesewas: 38250
-                        amountPesewas: 956
+                        basePesewas: 3000
+                        amountPesewas: 75
                 settlement:
-                  allocatedPesewas: 137900
+                  allocatedPesewas: 0
                   creditedPesewas: 0
-                  outstandingPesewas: 0
-                  paymentStatus: PAID
-                  settledAt: "2026-11-13T09:12:00Z"
-                  asOf: "2026-11-13T09:30:00Z"
+                  outstandingPesewas: 3600
+                  paymentStatus: UNPAID
+                  settledAt: null
+                  asOf: "2026-11-13T10:20:00Z"
                 certification: null
-                reasonCode: null
-                archivedDocumentId: "019a7ae3-97f1-7cf2-b22a-d7f5fd6c50d3"
-                contentHash: "4f2ac1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7"
-                issuedAt: "2026-11-13T09:12:00Z"
-                occurredAt: "2026-11-13T09:12:00Z"
-                reprintCount: 1
+                reasonCode: UNDERCHARGED
+                archivedDocumentId: null
+                contentHash: null
+                issuedAt: "2026-11-13T10:20:00Z"
+                occurredAt: "2026-11-13T10:20:00Z"
+                reprintCount: 0
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
         "400":
           $ref: "#/components/responses/BadRequest"
@@ -45096,8 +45036,15 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/ReprintRequest"
-            example:
-              channel: THERMAL
+            examples:
+              thermal:
+                summary: "A copy of receipt RCP-2026-DDW-T1-018834 for the till's thermal printer"
+                value:
+                  channel: THERMAL
+              pdf:
+                summary: "The same receipt as an A4 PDF, for the customer's email"
+                value:
+                  channel: PDF
       responses:
         "200":
           description: OK
@@ -45108,13 +45055,25 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReprintResult"
-              example:
-                copyNo: 2
-                channel: THERMAL
-                url: null
-                escPosBase64: "G0AbYQEbRQEqKiogUkVQUklOVCAyICoqKgobRQAbYQAKG0A="
-                pdfBase64: null
-                expiresAt: null
+              examples:
+                thermal:
+                  summary: "Copy 6 for the thermal printer: ESC/POS bytes with the reprint marker, no PDF"
+                  value:
+                    copyNo: 6
+                    channel: THERMAL
+                    url: null
+                    escPosBase64: "G0AbYQEbRQEqKiogUkVQUklOVCA2ICoqKgobRQAbYQAKG0A="
+                    pdfBase64: null
+                    expiresAt: null
+                pdf:
+                  summary: "Copy 6 as a PDF: the archived bytes with the reprint marker, no ESC/POS"
+                  value:
+                    copyNo: 6
+                    channel: PDF
+                    url: null
+                    escPosBase64: null
+                    pdfBase64: "JVBERi0xLjcKJcOkw7zDtsOfCjEgMCBvYmoKPDwvVHlwZS9DYXRhbG9nL1BhZ2VzIDIgMCBSPj4KZW5kb2JqCiUlRU9GCg=="
+                    expiresAt: null
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -45244,7 +45203,7 @@ paths:
                       displayName: "Adwoa Darko"
                     recordedAt: "2026-11-13T09:12:00Z"
                   - copyNo: 2
-                    channel: WHATSAPP
+                    channel: PDF
                     actor:
                       id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
                       displayName: "Adwoa Darko"
@@ -45262,7 +45221,7 @@ paths:
                       displayName: "Nana Yeboah"
                     recordedAt: "2026-11-13T09:39:00Z"
                   - copyNo: 5
-                    channel: EMAIL
+                    channel: PDF
                     actor:
                       id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
                       displayName: "Kojo Antwi"
@@ -45284,6 +45243,107 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
   "/payments":
+    post:
+      operationId: recordPayment
+      tags:
+        - pay
+      summary: "Record a cheque, bank transfer or store credit payment"
+      description: "A payment received by hand (FR-PAY-001, B09a continued 1b, 1.43.0). A **cheque** is recorded `PENDING` in cheques awaiting clearance: it posts Dr 1130 at once (`pay.PaymentCleared`, marked `awaitingClearance`), its allocations apply at once, and it needs `bankAccountId` (the bank account it is paid into) and `externalReference` (the cheque number); `clearCheque` clears it and `reversePayment` bounces it. A **bank transfer** is recorded `PENDING` with nothing posted and nothing allocated until a bank statement line matches it (B09a continued 1c); it needs `bankAccountId`. **Store credit** clears at once off the customer's balance (Dr 2210), never beyond it (422 `STORE_CREDIT_INSUFFICIENT`, held by the database), and needs `customerId`. Mobile money and card are refused with 422 `PAYMENT_METHOD_REQUIRES_VERIFICATION`: only a verified provider callback or lookup clears them (abuse case 4). Cash is refused (`TENDER_NOT_AVAILABLE`): a sale takes it into the till of an open shift (B9b), a driver on delivery (B11). An amount not allocated is held as the customer's deposit (2200). Other refusals are 422 `PAYMENT_INVALID` (`METHOD_UNKNOWN`, `METHOD_DISABLED`, `AMOUNT_NOT_POSITIVE`, `ALLOCATION_NOT_POSITIVE`, `ALLOCATIONS_EXCEED_AMOUNT`, `ALLOCATION_WHILE_PENDING`, `CUSTOMER_UNKNOWN`, `CUSTOMER_REQUIRED`, `SHIFT_NOT_AVAILABLE`, `RECEIVED_IN_FUTURE`, `BANK_ACCOUNT_REQUIRED`, `BANK_ACCOUNT_NOT_USABLE`, `BANK_ACCOUNT_NOT_FOR_METHOD`, `CHEQUE_NUMBER_REQUIRED`, `ORDER_UNKNOWN`, `ID_IN_USE`, `BRANCH_REQUIRED`, and the allocation rules of `allocatePayment`). The payment belongs to the branch of the documents it settles, or to the caller's one branch.\n\nPermission: `pay.payment.create`.\n\nThe client supplies the record id (UUIDv7). A resubmission with the same `Idempotency-Key` and body returns the first result; the same id under another key is refused (`ID_IN_USE`)."
+      x-permission: pay.payment.create
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CsrfToken"
+      security:
+        - staffSession: []
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentRecord"
+            example:
+              id: "019a7ae7-94c0-7344-887c-3d1cad3db5fa"
+              paymentMethodId: "019a7a92-ff3c-7949-8e81-9d6bed411649"
+              amountPesewas: 300000
+              customerId: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+              bankAccountId: "019a7a92-6491-77d8-bd10-86568cccff34"
+              externalReference: "004512"
+              chequeDueOn: "2026-11-12"
+              receivedAt: "2026-11-12T09:07:00Z"
+              allocations:
+                - billingDocumentId: "019a7adf-f7ef-744a-9982-4d75baaec653"
+                  amountPesewas: 300000
+      responses:
+        "201":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payment"
+              example:
+                id: "019a7ae7-94c0-7344-887c-3d1cad3db5fa"
+                paymentNo: null
+                status: PENDING
+                method:
+                  id: "019a7a92-ff3c-7949-8e81-9d6bed411649"
+                  code: CHEQUE
+                  name: Cheque
+                  kind: CHEQUE
+                amountPesewas: 300000
+                currency: GHS
+                customer:
+                  id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+                  customerNo: C-00042
+                  name: "Royal Palm Hotel Ltd"
+                order: null
+                shiftId: null
+                driver: null
+                bankAccount:
+                  id: "019a7a92-6491-77d8-bd10-86568cccff34"
+                  name: "GCB current account"
+                  kind: BANK
+                  last4: "4821"
+                provider: null
+                providerReference: null
+                externalReference: "004512"
+                payerPhoneMasked: null
+                verification: NOT_REQUIRED
+                chequeDueOn: "2026-11-12"
+                allocatedPesewas: 300000
+                unallocatedPesewas: 0
+                refundedPesewas: 0
+                receivedAt: "2026-11-12T09:07:00Z"
+                clearedAt: null
+                reversesPaymentId: null
+                failureReason: null
+                allocations:
+                  - id: "019a7ae6-fa15-71d3-b70b-26074cc89ee5"
+                    billingDocument:
+                      id: "019a7adf-f7ef-744a-9982-4d75baaec653"
+                      docType: INVOICE
+                      number: INV-2026-DDW-001198
+                    amountPesewas: 300000
+                    direction: APPLY
+                    recordedAt: "2026-11-12T09:07:00Z"
+                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/BusinessRuleViolation"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
     get:
       operationId: listPayments
       tags:
@@ -45606,106 +45666,6 @@ paths:
           $ref: "#/components/responses/Unauthenticated"
         "403":
           $ref: "#/components/responses/Forbidden"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-    post:
-      operationId: recordPayment
-      tags:
-        - pay
-      summary: "Record a cash, bank transfer, cheque or store credit payment"
-      description: "Refused with 422 PAYMENT_METHOD_REQUIRES_VERIFICATION for mobile money or card, which only a verified provider callback or lookup can clear. This is the control for abuse case 4. An amount not allocated is held as a customer deposit, or in suspense if the payer is unknown.\n\nPermission: `pay.payment.create`.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result."
-      x-permission: pay.payment.create
-      parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/PaymentRecord"
-            example:
-              id: "019a7ae7-94c0-7344-887c-3d1cad3db5fa"
-              paymentMethodId: "019a7a92-ff3c-7949-8e81-9d6bed411649"
-              amountPesewas: 300000
-              customerId: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-              bankAccountId: "019a7a92-6491-77d8-bd10-86568cccff34"
-              externalReference: GCB-TRF-20261112-0119
-              receivedAt: "2026-11-12T15:00:00Z"
-              allocations:
-                - billingDocumentId: "019a7adf-f7ef-744a-9982-4d75baaec653"
-                  amountPesewas: 300000
-      responses:
-        "201":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Payment"
-              example:
-                id: "019a7ae6-db26-77ef-ad28-87cfd31700ad"
-                paymentNo: PAY-2026-DDW-021802
-                status: CLEARED
-                method:
-                  id: "019a7a92-ff3c-7949-8e81-9d6bed411649"
-                  code: BANK_TRANSFER
-                  name: "Bank transfer"
-                  kind: BANK_TRANSFER
-                amountPesewas: 300000
-                currency: GHS
-                customer:
-                  id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
-                  name: "Royal Palm Hotel Ltd"
-                order: null
-                shiftId: null
-                driver: null
-                bankAccount:
-                  id: "019a7a92-6491-77d8-bd10-86568cccff34"
-                  name: "GCB current account"
-                  kind: BANK
-                  last4: "4821"
-                provider: null
-                providerReference: null
-                externalReference: GCB-TRF-20261112-0119
-                payerPhoneMasked: null
-                verification: NOT_REQUIRED
-                chequeDueOn: null
-                allocatedPesewas: 300000
-                unallocatedPesewas: 0
-                refundedPesewas: 0
-                receivedAt: "2026-11-12T09:07:00Z"
-                clearedAt: "2026-11-12T09:08:00Z"
-                reversesPaymentId: null
-                failureReason: null
-                allocations:
-                  - id: "019a7ae6-fa15-71d3-b70b-26074cc89ee5"
-                    billingDocument:
-                      id: "019a7adf-f7ef-744a-9982-4d75baaec653"
-                      docType: INVOICE
-                      number: INV-2026-DDW-001198
-                    amountPesewas: 300000
-                    direction: APPLY
-                    recordedAt: "2026-11-12T09:12:00Z"
-                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
         "429":
           $ref: "#/components/responses/RateLimited"
         "500":
@@ -46166,8 +46126,8 @@ paths:
       operationId: reversePayment
       tags:
         - pay
-      summary: "Reverse a cleared payment"
-      description: "For a bounced cheque or a payment recorded in error. Writes a reversing payment linked to the original.\n\nPermission: `pay.payment.reverse`.\n\nMay require approval of kind `PAYMENT_REVERSAL`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+      summary: "Reverse a payment, or bounce a cheque"
+      description: "For a cheque the bank returned unpaid (reason `CHEQUE_DISHONOURED`, cheques only) or a payment recorded in error (`RECORDED_IN_ERROR`); both need a `note` (FR-PAY-011, FR-PAY-014, B09a continued 1b, 1.43.0). Always 202: nothing changes until a different person holding `pay.reversal.approve` approves with a fresh step-up (`PAYMENT_REVERSAL`, threshold 0, so a single Owner cannot reverse alone). Approved, every allocation of the payment is reopened, the original becomes `REVERSED` (a bounced cheque still awaiting clearance `FAILED`), a reversing payment is written `REVERSED` with `reversesPaymentId` naming the original, and the exact mirror of each entry the payment posted is posted (`pay.PaymentReversed`: its receipt, and a cleared cheque's clearing); store credit redeemed is given back. Refused with 422 `PAYMENT_REVERSAL_INVALID` (`NOT_REVERSIBLE` for a payment that posted nothing, is already reversed or is a reversing payment; `PAYMENT_HAS_REFUNDS`; `REASON_UNKNOWN`; `REASON_NOT_FOR_METHOD`; `NOTE_REQUIRED`; `REVERSAL_PENDING`). Every request is published as `pay.PaymentReversalRequested` carrying abuse case 32 for the daily exception report.\n\nPermission: `pay.payment.reverse`.\n\nRequires approval of kind `PAYMENT_REVERSAL`: the response is `202` with an `ApprovalPending` body whose subject is the payment, and nothing takes effect until a different user approves."
       x-permission: pay.payment.reverse
       parameters:
         - name: id
@@ -46253,10 +46213,10 @@ paths:
                 approvalRequestId: "019a7ae7-b3af-7d28-9260-db5426ee5432"
                 kind: PAYMENT_REVERSAL
                 subject:
-                  id: "019a7ae7-d29e-770b-ac43-798ba09ff269"
-                  docType: STOCK_ADJUSTMENT
+                  id: "019a7ae6-5f6a-7062-a59a-0ef1ec5387cf"
+                  docType: PAYMENT
                   number: null
-                summary: "Awaiting approval by a different user with the approving permission"
+                summary: "Reverse GHS 1,000.00 cheque payment (CHEQUE_DISHONOURED)"
                 requestedAt: "2026-11-13T10:12:00Z"
         "400":
           $ref: "#/components/responses/BadRequest"
@@ -46280,7 +46240,7 @@ paths:
       tags:
         - pay
       summary: "Record that a cheque has cleared"
-      description: "Permission: `pay.payment.clear_cheque`."
+      description: "A cheque awaiting clearance cleared on the bank's confirmation (FR-PAY-011, B09a continued 1b, 1.43.0): it becomes `CLEARED` and posts Dr 1100 against the bank account it was paid into, Cr 1130 (`pay.ChequeCleared`), dated `clearedOn`, a business date from the day it was received to today. Refused with 422 `PAYMENT_REVERSAL_INVALID` (`NOT_A_CHEQUE`, `CHEQUE_NOT_PENDING`, `CLEARED_ON_OUT_OF_RANGE`, `REVERSAL_PENDING`), and `PERIOD_NOT_OPEN` when `clearedOn` is in a period that is not open. A bounced cheque is reversed with `reversePayment`.\n\nPermission: `pay.payment.clear_cheque`."
       x-permission: pay.payment.clear_cheque
       parameters:
         - name: id
@@ -46866,7 +46826,7 @@ paths:
       tags:
         - pay
       summary: "Request a refund against an original payment"
-      description: "Draws only on the payment's unallocated, unrefunded money (422 `REFUND_EXCEEDS_PAYMENT`; the database holds it too): money settling a document is first taken off with `unallocatePayment`. Every refund a person asks for waits for a different user holding `pay.refund.approve`, with a fresh step-up (`REFUND`, threshold 0, the owner's rule of 2026-11-16), so today the answer is always `202`. Approved, a mobile money or card refund goes back through the provider; any other waits for `markRefundPaid`. `STORE_CREDIT` and `creditNoteId` are refused (`REFUND_INVALID`, `DESTINATION_NOT_AVAILABLE`, `CREDIT_NOTE_NOT_AVAILABLE`) until B09a continued 1b builds them (A-211); a reason that requires a note needs `note` (B09a continued, 1.42.0).\n\nPermission: `pay.refund.create` at the payment's branch.\n\nMay require approval of kind `REFUND`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+      description: "Draws only on the payment's unallocated, unrefunded money (422 `REFUND_EXCEEDS_PAYMENT`; the database holds it too): money settling a document is first taken off with `unallocatePayment`. Every refund a person asks for waits for a different user holding `pay.refund.approve`, with a fresh step-up (`REFUND`, threshold 0, the owner's rule of 2026-11-16), so today the answer is always `202`. Approved, a mobile money or card refund goes back through the provider; a refund to `STORE_CREDIT` (or of a store credit tender to its original method) is paid at once by the approver into the customer's store credit (Dr 2200, Cr 2210; 1.43.0), refused for a payment with no customer; any other waits for `markRefundPaid`. A cheque is not refunded to its original method, and `creditNoteId` is refused (`REFUND_INVALID`, `DESTINATION_NOT_AVAILABLE`, `CREDIT_NOTE_NOT_AVAILABLE`), until B09a continued 1c builds the bank payout and the refund against a credit note (A-213); a reason that requires a note needs `note` (B09a continued, 1.42.0).\n\nPermission: `pay.refund.create` at the payment's branch.\n\nMay require approval of kind `REFUND`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
       x-permission: pay.refund.create
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -47187,7 +47147,7 @@ paths:
       tags:
         - pay
       summary: "Get a customer's store credit balance and history"
-      description: "Permission: `pay.store_credit.read`."
+      description: "The balance in 2210 and the latest 100 entries, newest first (FR-PAY-015, B09a continued 1b, 1.43.0): `ISSUE` from a refund to store credit or from the reversal of a redemption (its source the refund or the reversing payment), `REDEEM` from a store credit tender (its source the payment). The balance never goes below zero, held by the database.\n\nPermission: `pay.store_credit.read`."
       x-permission: pay.store_credit.read
       parameters:
         - name: id
@@ -47275,7 +47235,7 @@ paths:
       tags:
         - pay
       summary: "List unpaid and part-paid invoices"
-      description: "Permission: `pay.receivable.read`."
+      description: "Issued invoices, receipts and debit notes with something outstanding at the branches the reader holds the permission for, newest first (FR-PAY-009, B09a continued 1b, 1.43.0). The amounts are what is outstanding now, from the billing document's settlement; `asOf` (a business date, default today in Africa/Accra) sets the day `daysOverdue` and `overdueOnly` count from. `totalOutstandingPesewas` covers everything the filter matches, not only the page.\n\nPermission: `pay.receivable.read`."
       x-permission: pay.receivable.read
       parameters:
         - name: customerId
@@ -57865,6 +57825,7 @@ paths:
       tags:
         - shp
       summary: "Get my store credit"
+      description: "The signed-in customer's own store credit balance and latest 100 entries (FR-PAY-015, B09a continued 1b, 1.43.0); a staff, investor or unlinked sign-in is refused. No permission code: the customer is the owner."
       x-owner-module: pay
       security:
         - customerSession: []

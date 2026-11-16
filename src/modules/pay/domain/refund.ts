@@ -12,6 +12,8 @@ export interface RefundablePayment {
   readonly amount: Money;
   readonly allocated: Money;
   readonly refunded: Money;
+  /** Store credit is held against a customer: a walk-in payment has none to credit. */
+  readonly hasCustomer: boolean;
 }
 
 export type RefundDestination = 'ORIGINAL_METHOD' | 'STORE_CREDIT' | 'CASH';
@@ -19,7 +21,7 @@ export type RefundRefusal = 'AMOUNT_NOT_POSITIVE' | 'PAYMENT_NOT_CLEARED' | 'REF
 
 /** How the money goes back: through the provider, or paid by hand and recorded with its reference (`markRefundPaid`). */
 export interface RefundRoute {
-  readonly route: 'PROVIDER' | 'MANUAL';
+  readonly route: 'PROVIDER' | 'MANUAL' | 'STORE_CREDIT';
 }
 
 const PROVIDER_KINDS: ReadonlySet<MethodKind> = new Set(['MOBILE_MONEY', 'CARD']);
@@ -32,16 +34,21 @@ export function refundableOf(payment: RefundablePayment): Money {
 /**
  * A refund request (FR-PAY-012, abuse case 12): only a cleared payment, never more than its unallocated, unrefunded
  * money (money settling a document is credited by a credit note first), to the original method (through the provider
- * for mobile money and card, by hand otherwise), or in cash only for a cash original. Store credit is refused until it
- * is built (A-211). Every refusal is named at once.
+ * for mobile money and card, by hand otherwise), in cash only for a cash original, or to the customer's store credit
+ * (paid at once on approval, FR-PAY-015); a store credit tender goes back to store credit. A cheque is not paid back to
+ * its original method until the bank payout is built with reconciliation (A-213). Every refusal is named at once.
  */
 export function judgeRefund(payment: RefundablePayment, amount: Money, destination: RefundDestination): Result<RefundRoute, RefundRefusal[]> {
   const refusals: RefundRefusal[] = [];
   if (amount.isZero()) refusals.push('AMOUNT_NOT_POSITIVE');
   if (payment.status !== 'CLEARED') refusals.push('PAYMENT_NOT_CLEARED');
   if (amount.compareTo(refundableOf(payment)) > 0) refusals.push('REFUND_EXCEEDS_PAYMENT');
-  if (destination === 'STORE_CREDIT' || (destination === 'CASH' && payment.methodKind !== 'CASH')) refusals.push('DESTINATION_NOT_AVAILABLE');
+  const toCredit = destination === 'STORE_CREDIT' || (destination === 'ORIGINAL_METHOD' && payment.methodKind === 'STORE_CREDIT');
+  if ((toCredit && !payment.hasCustomer) || (destination === 'CASH' && payment.methodKind !== 'CASH') || (destination === 'ORIGINAL_METHOD' && payment.methodKind === 'CHEQUE')) {
+    refusals.push('DESTINATION_NOT_AVAILABLE');
+  }
   if (refusals.length > 0) return err(refusals);
+  if (toCredit) return ok({ route: 'STORE_CREDIT' });
   return ok({ route: destination === 'ORIGINAL_METHOD' && PROVIDER_KINDS.has(payment.methodKind) ? 'PROVIDER' : 'MANUAL' });
 }
 
@@ -58,10 +65,18 @@ export interface StoredPaymentAmounts {
   readonly amountPesewas: bigint;
   readonly allocatedPesewas: bigint;
   readonly refundedPesewas: bigint;
+  readonly customerId?: string | null;
 }
 
 function refundableFromStore(p: StoredPaymentAmounts): RefundablePayment {
-  return { status: p.status, methodKind: p.methodKind, amount: Money.ofPesewas(p.amountPesewas), allocated: Money.ofPesewas(p.allocatedPesewas), refunded: Money.ofPesewas(p.refundedPesewas) };
+  return {
+    status: p.status,
+    methodKind: p.methodKind,
+    amount: Money.ofPesewas(p.amountPesewas),
+    allocated: Money.ofPesewas(p.allocatedPesewas),
+    refunded: Money.ofPesewas(p.refundedPesewas),
+    hasCustomer: p.customerId !== null && p.customerId !== undefined,
+  };
 }
 
 /** `judgeRefund` over a stored payment, in integer pesewas. */

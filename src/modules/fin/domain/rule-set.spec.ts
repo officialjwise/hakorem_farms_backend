@@ -53,4 +53,12 @@ describe('the boot assertion: every posting event has a handler and a complete r
       'inv.GoodsReceived: a rule names amount "gross", which the event does not carry',
     ]);
   });
+
+  it('asks no rules of an event that carries no amounts: it posts only as the mirror of an earlier entry (ADR-0064)', () => {
+    const mirror: CatalogueFacts = { ...complete, declared: [...complete.declared, 'pay.PaymentReversed'], handled: [...complete.handled, 'pay.PaymentReversed'], eventTypes: [...complete.eventTypes, { code: 'pay.PaymentReversed', amountKeys: [] }] };
+    expect(postingCatalogueGaps(mirror)).toEqual([]);
+    expect(postingCatalogueGaps({ ...mirror, rules: [...complete.rules, { eventCode: 'pay.PaymentReversed', amountKey: 'tender', side: 'D' }] })).toEqual([
+      'pay.PaymentReversed: a rule names amount "tender", which the event does not carry',
+    ]);
+  });
 });

@@ -1,5 +1,5 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
-import type { BillingStore, DocumentFilter, DocumentRecord, DraftHeader, LevyRecord, LineRecord, ReprintRecord, SettlementRecord } from '../application/billing-store';
+import type { BillingStore, DocumentFilter, DocumentRecord, DraftHeader, LevyRecord, LineRecord, OpenItemFilter, OpenItemRecord, ReprintRecord, SettlementRecord } from '../application/billing-store';
 
 interface HeaderRow {
   id: string;
@@ -238,6 +238,38 @@ export class PgBillingStore implements BillingStore {
       [originalLineIds, taxInclusive],
     );
     return new Map(rows.map((r) => [r.credits_line_id, BigInt(r.anchor)] as const));
+  }
+
+  async openItems(tx: Transaction, f: OpenItemFilter, beforeId: string | null, limit: number): Promise<{ readonly rows: OpenItemRecord[]; readonly totalOutstandingPesewas: bigint }> {
+    const where = `d.status = 'ISSUED' AND d.kind IN ('INVOICE', 'RECEIPT', 'DEBIT_NOTE') AND s.outstanding_pesewas > 0 AND d.branch_id = ANY($1::uuid[])
+          AND ($2::uuid IS NULL OR d.customer_id = $2) AND ($3::date IS NULL OR d.due_date < $3)`;
+    const { rows } = await tx.query<{ id: string; kind: string; document_no: string | null; customer_id: string | null; customer_name: string | null; issue_date: string; due_date: string | null; gross: string; credited: string; allocated: string; outstanding: string }>(
+      `SELECT d.id, d.kind, d.document_no, d.customer_id, d.customer_name, d.issue_date::text, d.due_date::text, d.gross_pesewas::text AS gross,
+              s.credited_pesewas::text AS credited, s.allocated_pesewas::text AS allocated, s.outstanding_pesewas::text AS outstanding
+         FROM bil.billing_document d JOIN bil.document_settlement s ON s.billing_document_id = d.id
+        WHERE ${where} AND ($4::uuid IS NULL OR d.id < $4) ORDER BY d.id DESC LIMIT $5`,
+      [f.branchIds, f.customerId, f.overdueBefore, beforeId, limit],
+    );
+    const total = await tx.query<{ total: string }>(
+      `SELECT COALESCE(sum(s.outstanding_pesewas), 0)::text AS total FROM bil.billing_document d JOIN bil.document_settlement s ON s.billing_document_id = d.id WHERE ${where}`,
+      [f.branchIds, f.customerId, f.overdueBefore],
+    );
+    return {
+      rows: rows.map((r) => ({
+        id: r.id,
+        kind: r.kind,
+        documentNo: r.document_no,
+        customerId: r.customer_id,
+        customerName: r.customer_name,
+        issueDate: r.issue_date,
+        dueDate: r.due_date,
+        grossPesewas: BigInt(r.gross),
+        creditedPesewas: BigInt(r.credited),
+        allocatedPesewas: BigInt(r.allocated),
+        outstandingPesewas: BigInt(r.outstanding),
+      })),
+      totalOutstandingPesewas: BigInt(total.rows[0]!.total),
+    };
   }
 
   async settlements(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, SettlementRecord>> {

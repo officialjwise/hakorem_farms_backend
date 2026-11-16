@@ -19,6 +19,7 @@ import { jsonPesewas as json } from '../domain/tender';
 import { addMs, pageProbe } from '../domain/time';
 import type { RefundFailed, RefundPaid, RefundRequested } from '../events';
 import type { Breaks } from './breaks';
+import type { StoreCredit } from './store-credit';
 import { RefundExceedsPaymentError, RefundInvalidError, RefundMakerCannotPayError, type PaymentRule } from './errors';
 import type { PaymentRecord, PaymentStore, RefundRecord, RefundStatus } from './payment-store';
 import { REFUND_PAID, type Page, type Payments } from './payments';
@@ -113,6 +114,7 @@ export class Refunds {
     private readonly provider: ResilientPaymentProvider,
     private readonly clock: Clock,
     private readonly logger: Logger,
+    private readonly storeCredit: StoreCredit,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -185,8 +187,12 @@ export class Refunds {
       const [refund] = await this.store.refunds(tx, [request.subjectDocumentId], true);
       const [payment] = await this.store.payments(tx, [refund!.originalPaymentId]);
       const viaProvider = refund!.destination === 'ORIGINAL_METHOD' && PROVIDER_KINDS.has(payment!.methodKind);
-      await this.store.updateRefund(tx, refund!.id, { status: 'APPROVED', nextAttemptAt: viaProvider ? this.clock.now() : null }, request.decidedBy ?? SYSTEM_ACTOR_ID);
-      await this.audit.record(tx, { module: 'pay', action: 'APPROVE', entityType: 'Refund', entityId: refund!.id, branchId: refund!.branchId, before: { status: refund!.status }, after: { status: 'APPROVED', approvalRequestId: request.id, route: viaProvider ? 'PROVIDER' : 'MANUAL' } });
+      const toCredit = toStoreCredit(refund!, payment!);
+      const decider = request.decidedBy ?? SYSTEM_ACTOR_ID;
+      await this.store.updateRefund(tx, refund!.id, { status: 'APPROVED', nextAttemptAt: viaProvider ? this.clock.now() : null }, decider);
+      await this.audit.record(tx, { module: 'pay', action: 'APPROVE', entityType: 'Refund', entityId: refund!.id, branchId: refund!.branchId, before: { status: refund!.status }, after: { status: 'APPROVED', approvalRequestId: request.id, route: toCredit ? 'STORE_CREDIT' : viaProvider ? 'PROVIDER' : 'MANUAL' } });
+      // A refund to store credit is paid at once, by its approver (never its maker), into the customer's credit (FR-PAY-015).
+      if (toCredit) await this.payIn(tx, (await this.store.refunds(tx, [refund!.id], true))[0]!, payment!, 'STORE_CREDIT', this.clock.now(), decider, 'Paid to store credit');
     },
     onRejected: async (tx: Transaction, request: ApprovalRecord) => {
       const [refund] = await this.store.refunds(tx, [request.subjectDocumentId], true);
@@ -333,19 +339,22 @@ export class Refunds {
   }
 
   /** A refund paid: PAID once, its break closed, and ◆ `pay.RefundPaid` posts it off the customer's deposit to the original tender. */
-  private async payIn(tx: Transaction, refund: RefundRecord, payment: PaymentRecord, paidBy: 'PROVIDER' | 'MANUAL', at: Date, actorId: string, note = 'Paid by the provider'): Promise<void> {
+  private async payIn(tx: Transaction, refund: RefundRecord, payment: PaymentRecord, paidBy: 'PROVIDER' | 'MANUAL' | 'STORE_CREDIT', at: Date, actorId: string, note = 'Paid by the provider'): Promise<void> {
     await this.store.updateRefund(tx, refund.id, { status: 'PAID', paid: { at, by: actorId }, nextAttemptAt: null }, actorId);
     // A refund that waited for a person after failing is closed on the break queue once it is paid, by either path.
     await this.store.resolveRefundBreaks(tx, refund.id, note, this.clock.now(), actorId);
+    const toCredit = toStoreCredit(refund, payment);
+    if (toCredit) await this.storeCredit.issueIn(tx, actorId, { customerId: payment.customerId!, amountPesewas: refund.amountPesewas, sourceDocumentId: refund.id, branchId: refund.branchId });
     const payload: RefundPaid = {
       refundId: refund.id,
       paymentId: payment.id,
       branchId: refund.branchId,
       customerId: payment.customerId,
       amountPesewas: json(refund.amountPesewas),
-      methodKind: payment.methodKind,
-      register: payment.registerRef === null || payment.registerCode === null ? null : { id: payment.registerRef, code: payment.registerCode },
-      provider: payment.provider,
+      methodKind: toCredit ? 'STORE_CREDIT' : payment.methodKind,
+      destination: refund.destination,
+      register: toCredit || payment.registerRef === null || payment.registerCode === null ? null : { id: payment.registerRef, code: payment.registerCode },
+      provider: toCredit ? null : payment.provider,
       paidBy,
     };
     await this.events.publish(tx, { type: REFUND_PAID, subjectType: 'Refund', subjectId: refund.id, branchId: refund.branchId, payload, occurredAt: at });
@@ -405,6 +414,11 @@ export class Refunds {
       };
     });
   }
+}
+
+/** A refund paid into the customer's store credit: asked for so, or of a store credit tender back to its method. */
+function toStoreCredit(refund: RefundRecord, payment: PaymentRecord): boolean {
+  return refund.destination === 'STORE_CREDIT' || (refund.destination === 'ORIGINAL_METHOD' && payment.methodKind === 'STORE_CREDIT');
 }
 
 /** What a refund's approval binds to: the payment, the amount, where it goes and why. */
