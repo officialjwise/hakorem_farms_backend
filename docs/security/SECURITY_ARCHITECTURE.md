@@ -221,7 +221,7 @@ The full table, with a handling rule per category, is `docs/security/DATA_CLASSI
 | Secret | Held in | Rotation |
 | --- | --- | --- |
 | Key-encryption key | Secrets file on the server; a sealed offline copy held by the owner | Yearly, and on staff departure; re-wraps data keys without touching rows |
-| Data-encryption keys, per-subject keys | Database, wrapped by the key-encryption key | On re-encryption jobs |
+| Data-encryption keys, per-subject keys | Database, wrapped by the key-encryption key: `platform.subject_key` for data subjects, and a key per value beside it for a Restricted value of no data subject (`fin.bank_account.account_no_data_key`, ADR-0057) | On re-encryption jobs; a key-encryption key rotation re-wraps both (BL-066) |
 | Lookup hashing key (HMAC) | Secrets file | Only with a re-hash job |
 | Token signing key | Secrets file | Quarterly, with key ids overlapping |
 | Audit anchor signing key | Secrets file of the worker only; public key published in `docs/` | Yearly |
