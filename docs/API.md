@@ -172,6 +172,8 @@ List operations use cursor pagination. Request `limit` (1 to 100, default 25) an
 
 Pass `page.nextCursor` as `cursor` to get the next page; it is `null` on the last page. A cursor is opaque, is valid for 24 hours, and is bound to the same filters and the same caller. Changing a filter means starting again without a cursor. Results are stable for a given cursor even while rows are added (the order is by a fixed key, newest first unless the operation says otherwise, and ties are broken by id). There is no offset and no total count in the page object; where a screen needs a total, the operation returns it as a named field (section 4). There is no `sort` parameter in version 1: each list has its documented order.
 
+**Sorted lists (CR-019, ADR-0054, 1.32.0).** A list that offers a sort names its allowed fields in its operation; the server applies the sort before paging and breaks ties by the row id in the same direction, with nulls last in both directions, so following `nextCursor` never skips or repeats a row, whatever ties or rows arrive between pages. Any other field or direction is 400 `VALIDATION_FAILED` with detail code `SORT_NOT_ALLOWED`; the sort is part of the cursor's binding, so a cursor from another sort is 400 `INVALID_CURSOR`. B07 continued 2 sorts `listCatalogue` (`RELEVANCE`, `PRICE_ASC`, `PRICE_DESC`, `NAME`) and orders the delivery slot lists by start; B07 continued 3 adds `sort` and `direction` to `listProducts`, `listStockOnHand`, `listStockUnits` and `listStockMovements`.
+
 ## 6. Filtering
 
 Filters are query parameters named for the field, and they combine with AND. The most common:
@@ -503,7 +505,7 @@ Counted per address, per account and per API key in Redis. Over the limit: 429 `
 | --- | --- | --- | --- |
 | Login, TOTP, password reset, phone verification | Address and account | 5 attempts per account per 15 minutes with exponential backoff; 20 per address per 15 minutes | Closed |
 | Public quote request form | Address and phone number | 3 per phone number per hour; 10 per address per hour | Closed |
-| Checkout and payment initiation | Address, cart and customer | 10 per customer per 10 minutes; 30 per address per 10 minutes | Closed |
+| Checkout and payment initiation | Address, cart and customer | 10 per customer per 10 minutes; 30 per address per 10 minutes (`rate_limit.checkout.per_address_10m`, the `checkout` group, built in B07 continued 2 for `startCheckout` and `updateCheckout`) | Closed |
 | Payment and messaging webhooks | Provider address range and volume | 600 per minute per provider | Open (signature still required) |
 | Authenticated console | Account | 600 per minute | Open |
 | Public catalogue reads | Address | 300 per minute | Open |
@@ -851,6 +853,8 @@ Registers and devices (`enrolDevice`, `revokeDevice`), shifts (`openShift`, `clo
 
 Public catalogue (`listCatalogue`, `getCatalogueProduct`, categories), carts (a guest cart is identified by the `__Host-hk_guest` cookie), delivery quotes and slots, **checkout**: `startCheckout` re-resolves every price and reserves every line (all or none) for 15 minutes, and returns the estimated total, the maximum total and the final-charge rule for catch-weight items, which the screen must show. `placeOrder` creates the order and starts payment; the order is confirmed only by the verified provider callback (cash on delivery confirms at once). `trackOrder` uses a signed token in the URL. The customer account area (`/me/...`): profile, addresses, orders (`CustomerOrder` carries no cost, floor, ceiling or variance), consent to a substitution or a higher total, reorder, documents, store credit. A product in `REQUEST_TO_BUY` mode is refused by `addCartLine` with `REQUEST_TO_BUY_ONLY`: open a quote request. Cart, checkout and quote requests are rate-limited.
 
+**As built in B07 continued 2 (1.32.0; A-177, A-178, ADR-0054, ADR-0055).** The catalogue (`listCatalogue`, `getCatalogueProduct`, `listShopCategories`) reads `shp.product_listing`, rebuilt every minute from MDM's online products, the engine's ONLINE prices (a banded animal by its band list prices) and INV's promisable stock as a level; no cost, floor, ceiling or quantity is ever in it. Carts are guest carts: `createCart` sets the host-only `__Host-hk_guest` cookie whose token proves the cart (another cart, or none, is 404); writes need an allowed `Origin` and an Idempotency-Key; prices re-resolve on every read; quantities are whole sale units; a `REQUEST_TO_BUY` product is 422 `REQUEST_TO_BUY_ONLY`; one coupon, judged by the engine. `startCheckout` re-prices, prices the zone fee (waived only above the zone's threshold), stores a chosen slot of the address's zone, and reserves every line through INV at serializable isolation or none (`STOCK_UNAVAILABLE`); a catch-weight line reserves packs times the nominal pack weight. The checkout shows the estimate, the maximum (each catch-weight line's estimate plus its tolerance), the tax in it and the final-charge rule, and holds its stock 15 minutes (`shp.checkout_reservation_minutes`); the expiry job's release ends it `EXPIRED` and the cart is active again. Customer sessions, saved addresses, order placement and payment are B09a's.
+
 ### Quotations (`quo`, 21)
 
 Public `submitQuoteRequest` (rate-limited by address and phone), `viewQuoteByLink`, `acceptQuoteByLink` and `declineQuoteByLink` (single use; an expired or superseded version cannot be accepted), staff RFQs, versioned quotes (`reviseQuote`, `issueQuoteVersion` may return 202 for a quote below the margin floor), `recordQuoteAcceptance` (phone or WhatsApp), `convertQuote` into an order, the pipeline. A price that does not resolve is a quote required, not an error.
@@ -862,6 +866,8 @@ Business accounts with credit limits and holds (`updateBusinessAccount` may retu
 ### Delivery (`del`, 25)
 
 Slots and capacity (not below the number booked), deliveries, assignment, routes, the **driver view** (`getMyRoute`, `getMyDelivery`, `markOnTheWay`, `recordProofOfDelivery`, `recordFailedDelivery`, `syncDriverEvents`, `getMyCashSummary`) and driver cash reconciliation (the person receiving the cash cannot be the driver). Proof needs a signature or a photograph, uploaded first through `POST /files`. Cash on delivery is recorded against the driver, and a difference goes on the driver variance report. A driver sees only deliveries assigned to them. The driver endpoints are offline-capable: see `OFFLINE_SYNC.md`, section 12.
+
+**As built in B07 continued 2 (1.32.0, SA-13).** `del.delivery_slot` with `generateDeliverySlots` (weekdays and time windows over at most 92 days from today; a repeated start is skipped and counted), `listDeliverySlots` (in start order) and `updateDeliverySlot` (never below what is booked, in the handler and the database), Owner and Manager only, at the zone's branch; the public `listDeliverySlotOptions` lists a zone's slots that have not started. Bookings stay 0 until B11 books deliveries.
 
 ### Billing (`bil`, 8)
 

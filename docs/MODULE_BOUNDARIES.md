@@ -167,6 +167,7 @@ Each card gives: what the module owns, its public interface (the services export
 
 - **Owns:** schema `del`. Delivery slots, deliveries, attempts, proof of delivery, routes, driver cash reconciliations.
 - **Public interface:** `Slots`, `Deliveries` (schedule from a snapshot the caller supplies, assign, dispatch, complete, fail), `DriverCash`.
+- **As built (B07 continued 2, SA-13):** `Slots` only (generate, list, change capacity, `listOptions` for the shop, `slotIn` for a checkout); it imports IAM and MDM (`Storefront` for zones). The rest is B11's.
 - **Imports:** platform, IAM, MDM, PAY.
 - **Subscribes:** nothing. It does not know orders; the caller passes the address, contents summary and amount due.
 
@@ -191,6 +192,7 @@ Each card gives: what the module owns, its public interface (the services export
 - **Public interface:** none used by other modules.
 - **Imports:** platform, IAM, MDM, INV, PAY, DEL (slots), ORD.
 - **Subscribes (A):** `mdm.ProductChanged`, `mdm.PriceListVersionActivated`, `inv.StockMovementPosted` (listing read model); `inv.ReservationExpired` (expire a checkout).
+- **As built (B07 continued 2, A-178):** the listing is rebuilt every minute by the `catalogue-refresh` job instead of by subscription (INV publishes no movement event, and a price list in force changes with time); `inv.ReservationExpired` and `inv.ReservationReleased` are subscribed **in the transaction** that ends the reservation (T), so a checkout never outlives its stock (ADR-0010: a module keeping its own aggregate consistent with a lower module's fact). SHP reads MDM's `Storefront`, `PricingService`, `TaxService` and `MasterDataRefs`, INV's `StockQueries.promisableIn` and `Reservations`, and DEL's `Slots`.
 
 ### QUO: quotations and requests for quote (layer 10)
 

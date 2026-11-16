@@ -404,6 +404,9 @@ One worker instance runs the scheduler (`SCHEDULER_ENABLED=true`); jobs are Bull
 | Continuous | `outbox-dispatch` | Delivers outbox messages to asynchronous subscribers, ordered per subject, with backoff, then `DEAD` | ADR-0010 |
 | Continuous | `audit-seal` | Seals audit events into the chain | ADR-0006 |
 | Every minute | `reservation-expiry` | Expires reservations past `expires_at` (up to 500 a run) and publishes `inv.ReservationExpired`; contributed by INV through `ScheduledJob` in `src/worker-app.ts` (B05 continued 3b) | ADR-0019, ADR-0049 |
+| Every minute | `catalogue-refresh` | Rebuilds the storefront's listing (`shp.product_listing`) from MDM's online products, the engine's ONLINE prices and INV's promisable stock, so the shop is at most a minute behind; carts and checkouts price live. In the expiry run's transaction SHP also ends the checkouts whose reservations expired (B07 continued 2, A-178) | ADR-0054, A-178 |
+
+B07 continued 2 settings (defaults in code, each a `platform.setting` row the owner may add): `shp.low_stock_units` (5, SA-19), `shp.checkout_reservation_minutes` (15, A-045), `rate_limit.checkout.per_address_10m` (30, fails closed).
 | Every minute | `mortality-evidence-returns` | Returns each death or cull waiting for approval whose photograph the malware scan rejected (INFECTED or FAILED) to its maker as `RETURNED`, withdraws its approval request and publishes `liv.MortalityReturned` (up to 200 a run); contributed by LIV through `ScheduledJob` in `src/worker-app.ts` (B06r) | ADR-0049, ADR-0053 |
 | Every 5 minutes | `payment-status-poll` | Looks up `PENDING` payments older than 2 minutes at the provider | Architecture 7.2 |
 | Every 15 minutes | `refund-retry` | Retries `FAILED` refunds under their policy | Architecture 7.2 |
