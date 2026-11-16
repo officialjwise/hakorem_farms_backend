@@ -12,6 +12,8 @@ Owner: PAY module. Payments, allocations, online provider transactions and webho
 
 **As built in B09a continued 1d (migration 0183, A-216, ADR-0066):** `pay.refund` adds `approved_by` (who moved it to APPROVED, set by `trg_refund_guard` and never changed; never its maker, `ck_refund_approved_by`) and `ix_refund_credit_note`. A refund naming `credit_note_id` draws on the credit note, not on its payment's `refunded_pesewas`: `trg_refund_cap` (now SECURITY DEFINER) holds its amount through BIL's published `bil.credit_note_refund` under the credit note's row lock (`ck_credit_note_refund_cap`: never beyond the credit note's gross less what is held against it, nor beyond what its original owes back) and requires a CLEARED payment of the credit note's customer and branch whose net allocation to the credited document covers the credit note refunds it carries (`ck_refund_credit_note_payment`); a rejection releases it. Against a credit note, the approver is never the credit note's maker (`ck_refund_credit_note_checker`, through `bil.credit_note_facts`). A cheque refunded to its original method is a bank payout recorded by hand.
 
+**Since B09t and B09t2 (ADR-0067, A-217, A-221):** `pay.provider_transaction.created_at` of a charge and `pay.refund.created_at` are written by the application from its clock, because a rule reads each as business time (the missing-charge grace period; a payout recorded by hand is never dated before its refund). Both columns keep `DEFAULT now()` for any other writer.
+
 ---
 
 ### `pay.payment` · DOCUMENT
