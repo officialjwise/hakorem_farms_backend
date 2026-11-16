@@ -1831,6 +1831,14 @@ from each product's price list, SyncResultItem.grossPesewas (null when nothing w
 pack's CASH_MOVEMENT reason codes; decide CR-032 point 2, the offline PIN verifier (an operation that sets a till
 PIN and the salted verifier the device stores, or a statement in OFFLINE_SYNC.md that the device derives it from the
 PIN typed at an online sign-in), record it as an ADR and answer it in the report.
+CR-033 points 1 and 2 (owner's rule, 2026-11-16: every sale produces a digital receipt, by SMS or a link, and a printer
+is optional): a public receipt read with no session, by an unguessable token, answering the official number, the sale
+reference, the lines, the tenders, the change and the business's details, and "being recorded" until the sale has
+synced; the till can make the link offline so it shows as a QR code at the counter. Choose the token with
+hakorem-security-review: the frontend suggests the sale's client id (a UUIDv7, whose leading bits are a timestamp);
+prefer a value the device derives from its enrolled credential if the client id proves too guessable, and record the
+choice as an ADR. Rate-limit the read, expose no other customer's data, and test that a guessed or another sale's token
+answers 404. The SMS on sync (point 3) is B11's.
 Stop at the gate and write docs/sessions/B09b-pos-shifts-offline.md.
 ```
 
@@ -1927,6 +1935,9 @@ a test that a send reaches only the document's own customer or supplier and that
 a second archive row.
 The owner, 2026-11-16 (A-212 (a)): a driver's delivery cash is handed in at a till shift and counted at that shift's close,
 never typed in outside one.
+CR-033 point 3: the receipt SMS is sent once, through the outbox and NTF, when a counter sale that carried customerPhone
+syncs, with the receipt link B9b built, the official number and the sale reference; the sync result or the order says
+whether it was sent, and a replayed sync never sends it twice.
 Stop at the gate and write docs/sessions/B11-fulfilment-delivery.md.
 ```
 
