@@ -51,7 +51,7 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B8 | `B08-ledger-billing.md` | `b08-ledger-billing` | B4 to B12 | Trial balance sums to zero on a seeded day; an unbalanced journal is rejected by the database; numbering is gap-free under concurrent load (built and passed; the session split after its gate, A-187) |
 | B08 continued | `B08c-ledger-interface.md` | `b08c-ledger-interface` | B4 to B12 | An entry written inside a savepoint keeps its lines; every chart and period operation refuses the wrong role and the Owner approving their own reopen; a period locks, closes and refuses postings through the API (built; the session split, A-189) |
 | B08 continued 1b | `B08c1b-journals-rules-banks.md` | `b08c1b-journals-rules-banks` | B4 to B12 | Every journal, manual journal, rule and determination operation refuses the wrong role and a maker approving their own manual journal or rule change; a manual journal posts nothing until a different person approves it, then exactly one balanced entry as entered; `fin.ManualJournalApproved` has its matrix row (built; the session split before its bank accounts, A-192) |
-| B08 continued 1b2 | `B08c1b2-bank-accounts.md` | `b08c1b2-bank-accounts` | B4 to B12 | Every bank account operation refuses the wrong role; a bank account's number is stored encrypted and shown only as its last four digits; a supplier payment naming a bank account posts to that account's own subledger party |
+| B08 continued 1b2 | `B08c1b2-bank-accounts.md` | `b08c1b2-bank-accounts` | B4 to B12 | Every bank account operation refuses the wrong role; a bank account's number is stored encrypted and shown only as its last four digits; a supplier payment naming a bank account posts to that account's own subledger party (built; ADR-0057, A-193, A-194) |
 | B08 continued 1c | `B08c1c-statements-assets.md` | `b08c1c-statements-assets` | B4 to B12 | The four statements tie to the trial balance on the seeded day; year close leaves 3200 at zero; depreciation spreads exactly and posts once per period; the cash figure answers from the ledger |
 | B08 continued 2 | `B08c2-billing-documents.md` | `b08c2-billing-documents` | B4 to B12 | A billing document posts exact levy lines and a fourth levy needs data only; numbering stays gap-free under concurrent issue; a reprint is identical with its marker; the trial balance still sums to zero on the seeded day |
 | B9a | `B09a-order-core-payments.md` | `b09a-order-core-payments` | B4 to B12 | Every payment edge case in the brief passes; an order on any channel posts stock, document, payment and ledger in one transaction |
@@ -1233,7 +1233,7 @@ Stop at the gate and write docs/sessions/B08c1b-journals-rules-banks.md.
 
 ## B08 continued 1b2 — Bank accounts and the supplier payment's bank account
 
-Branch `b08c1b2-bank-accounts`. Report `docs/sessions/B08c1b2-bank-accounts.md`. Gate: every bank account operation (listBankAccounts, createBankAccount, updateBankAccount) refuses the wrong role; a bank account's number is stored encrypted and shown only as its last four digits, and adding one needs step-up; a supplier payment naming a bank account posts to that account's own subledger party, and one naming none still posts as A-185 says.
+Branch `b08c1b2-bank-accounts`. Report `docs/sessions/B08c1b2-bank-accounts.md`. **Built (ADR-0057, A-193, A-194): the number is sealed with a data key of its own; both writes need step-up.** Gate: every bank account operation (listBankAccounts, createBankAccount, updateBankAccount) refuses the wrong role; a bank account's number is stored encrypted and shown only as its last four digits, and adding one needs step-up; a supplier payment naming a bank account posts to that account's own subledger party, and one naming none still posts as A-185 says.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
@@ -1271,7 +1271,7 @@ Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (
 reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the FIN requirement block of docs/SRS.md (nothing else from the SRS), docs/data-model/fin.md,
 the FIN card in docs/MODULE_BOUNDARIES.md, ADR-0001, ADR-0003, ADR-0005 and ADR-0056, and the accountant's answers on
-A-024 to A-029 and A-182 to A-192 in docs/ASSUMPTIONS.md (if still open, proceed on them).
+A-024 to A-029 and A-182 to A-194 in docs/ASSUMPTIONS.md (if still open, proceed on them).
 Use docs/prompts/module-build-prompt.md as the recipe.
 Do not read any other document unless this phase needs it.
 
