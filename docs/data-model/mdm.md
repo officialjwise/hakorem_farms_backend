@@ -591,7 +591,7 @@ The fixed list of reasons. Changed only by migration, as the threat model requir
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `code` | `text` | PK | |
-| `domain` | `text` | NOT NULL, CHECK in (`STOCK_ADJUSTMENT`, `MORTALITY`, `CULL`, `WASTAGE`, `PRICE_OVERRIDE`, `VOID`, `REFUND`, `RETURN`, `CANCELLATION`, `DELIVERY_FAILURE`, `CASH_MOVEMENT`, `HOLD_RELEASE`) | Where it may be used |
+| `domain` | `text` | NOT NULL, CHECK in (`STOCK_ADJUSTMENT`, `MORTALITY`, `CULL`, `WASTAGE`, `PRICE_OVERRIDE`, `VOID`, `REFUND`, `RETURN`, `CANCELLATION`, `DELIVERY_FAILURE`, `CASH_MOVEMENT`, `HOLD_RELEASE`, `BILLING_ADJUSTMENT`) | Where it may be used; `BILLING_ADJUSTMENT` (B08 continued 2, migration 0146) holds the debit note reasons |
 | `description` | `text` | NOT NULL | |
 | `requires_note` | `boolean` | NOT NULL DEFAULT `false` | Free-text explanation mandatory |
 | `loss_account_group` | `text` | NULL, CHECK in (`MORTALITY`, `SHRINKAGE`, `WASTAGE`) | Ledger determinant for write-offs |
