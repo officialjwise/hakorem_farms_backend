@@ -44,5 +44,5 @@
   "universalKeys": ["iam.principal", "mdm.branch", "mdm.location"],
   "platformSharedObjects": ["pesewas", "qty", "kg", "percent", "reject_change", "touch_version", "freeze_posted", "allocate_number", "number_allocated", "require_clean_file"],
   "publishedViewReaders": ["cst", "rpt"],
-  "publishedFunctions": { "mdm": ["location_stock_facts", "product_tracking", "customer_has_phone"], "doc": ["archived_rendering"] }
+  "publishedFunctions": { "mdm": ["location_stock_facts", "product_tracking", "customer_has_phone"], "doc": ["archived_rendering"], "bil": ["credit_note_refund", "credit_note_facts"] }
 }

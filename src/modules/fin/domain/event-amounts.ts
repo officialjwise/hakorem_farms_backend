@@ -325,18 +325,28 @@ export function unidentifiedReceiptAmounts(payload: { readonly amountPesewas: nu
 /**
  * `pay.RefundPaid` (ADR-0003, A-210): the refund paid out of the customer's deposit (Dr 2200 against the customer) to
  * the original payment's tender account by its method's kind (against its till or its provider). A refund to store credit
- * names the tender `STORE_CREDIT` (2210, against the customer, ADR-0064).
+ * names the tender `STORE_CREDIT` (2210, against the customer, ADR-0064). A refund against a credit note is paid out of
+ * receivables instead (`creditRefund`: Dr 1200 against the customer, the money the credit note left owed to them,
+ * ADR-0003's "1200 or 2200"). A cheque goes back through a bank payout: the tender `BANK_TRANSFER` (1100) against the
+ * bank account the cheque was paid into (ADR-0066).
  */
 export function refundPaidAmounts(
-  payload: { readonly amountPesewas: number; readonly methodKind: string; readonly register: { readonly id: string; readonly code: string } | null; readonly provider: string | null },
+  payload: {
+    readonly amountPesewas: number;
+    readonly methodKind: string;
+    readonly register: { readonly id: string; readonly code: string } | null;
+    readonly provider: string | null;
+    readonly creditNoteId?: string | null;
+  },
   customer: SubledgerRef,
+  bankAccount: SubledgerRef | null = null,
 ): PostingAmount[] {
   return [
     {
-      key: 'refund',
+      key: payload.creditNoteId === undefined || payload.creditNoteId === null ? 'refund' : 'creditRefund',
       amount: Money.fromJsonInteger(payload.amountPesewas),
       determinants: { PAYMENT_METHOD_KIND: payload.methodKind },
-      subledgers: [customer, ...tenderParties(payload.register, payload.provider)],
+      subledgers: [customer, ...(bankAccount === null ? tenderParties(payload.register, payload.provider) : [bankAccount])],
     },
   ];
 }

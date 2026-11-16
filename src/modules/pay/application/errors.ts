@@ -38,8 +38,10 @@ registerMessages({
   'pay.provider_unavailable': 'Mobile money cannot be taken right now. Cash still works; try mobile money again shortly.',
   'pay.allocation_exceeds_available': 'This allocation is more than the payment has left, or more than the document has outstanding.',
   'pay.refund_exceeds_payment': 'This refund is more than is left to refund on the payment.',
+  'pay.refund_exceeds_credit_note': 'This refund is more than is left to refund on the credit note.',
   'pay.refund_invalid': 'This refund cannot be made like this.',
   'pay.refund_maker': 'The person who asked for a refund cannot record it as paid.',
+  'pay.refund_credit_note_maker': 'The person who raised the credit note cannot approve a refund against it.',
 });
 
 /** 503 PAYMENT_PROVIDER_UNAVAILABLE (FR-PAY-003): the provider cannot take a charge now; cash still works. */
@@ -68,8 +70,29 @@ export class RefundExceedsPaymentError extends BusinessRuleError {
 }
 
 /**
+ * 422 REFUND_EXCEEDS_CREDIT_NOTE (FR-PAY-012, ADR-0066): more than the credit note's amount less what is already held
+ * against it, or than its document owes back; the database holds it too under the credit note's lock.
+ */
+export class RefundExceedsCreditNoteError extends BusinessRuleError {
+  readonly code = 'REFUND_EXCEEDS_CREDIT_NOTE';
+  readonly messageKey = 'pay.refund_exceeds_credit_note';
+  constructor(leftPesewas: bigint) {
+    super(`the refund exceeds the ${leftPesewas} pesewas left to refund on the credit note`, [
+      { field: '/amountPesewas', code: 'REFUND_EXCEEDS_CREDIT_NOTE', message: translate('pay.refund_exceeds_credit_note') },
+    ]);
+  }
+}
+
+/** 422 MAKER_CANNOT_CHECK (ADR-0066), as IAM answers a maker approving: the maker of the credit note a refund draws on approving that refund. */
+export class CreditNoteMakerCannotApproveError extends BusinessRuleError {
+  readonly code = 'MAKER_CANNOT_CHECK';
+  readonly messageKey = 'pay.refund_credit_note_maker';
+}
+
+/**
  * 422 REFUND_INVALID: every rule a refund breaks, in `details[].code`: `AMOUNT_NOT_POSITIVE`, `PAYMENT_NOT_CLEARED`,
- * `DESTINATION_NOT_AVAILABLE`, `REASON_UNKNOWN`, `NOTE_REQUIRED`, `CREDIT_NOTE_NOT_AVAILABLE` (A-211), `NOT_RETRYABLE`,
+ * `DESTINATION_NOT_AVAILABLE`, `REASON_UNKNOWN`, `NOTE_REQUIRED`, `CREDIT_NOTE_NOT_AVAILABLE` (not an issued credit note of
+ * the payment's customer and branch, ADR-0066), `NOT_RETRYABLE`,
  * `NOT_PAYABLE`, `PAID_BEFORE_APPROVAL`.
  */
 export class RefundInvalidError extends BusinessRuleError {

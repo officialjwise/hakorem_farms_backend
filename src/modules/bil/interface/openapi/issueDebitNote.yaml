@@ -132,6 +132,8 @@ responses:
             allocatedPesewas: 0
             creditedPesewas: 0
             outstandingPesewas: 3600
+            refundedPesewas: 0
+            refundablePesewas: 0
             paymentStatus: UNPAID
             settledAt: null
             asOf: "2026-11-13T10:20:00Z"

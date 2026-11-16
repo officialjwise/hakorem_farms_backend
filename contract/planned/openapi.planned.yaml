@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.44.0"
+  version: "1.45.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -2661,6 +2661,8 @@ paths:
                   allocatedPesewas: 0
                   creditedPesewas: 0
                   outstandingPesewas: 0
+                  refundedPesewas: 0
+                  refundablePesewas: 0
                   paymentStatus: NOT_APPLICABLE
                   settledAt: null
                   asOf: "2026-11-13T09:30:00Z"
@@ -9058,6 +9060,8 @@ paths:
                     allocatedPesewas: 137900
                     creditedPesewas: 0
                     outstandingPesewas: 0
+                    refundedPesewas: 0
+                    refundablePesewas: 0
                     paymentStatus: PAID
                     settledAt: "2026-11-13T09:12:00Z"
                     asOf: "2026-11-13T09:30:00Z"
@@ -39823,6 +39827,12 @@ components:
           $ref: "#/components/schemas/Pesewas"
         outstandingPesewas:
           $ref: "#/components/schemas/Pesewas"
+        refundedPesewas:
+          $ref: "#/components/schemas/Pesewas"
+          description: "Refunds asked for against this document's credit notes (on a credit note, against it) and not rejected; held while they wait for approval (1.45.0)."
+        refundablePesewas:
+          $ref: "#/components/schemas/Pesewas"
+          description: "What a refund may still draw on (1.45.0). On an invoice or receipt, what it owes back to the customer once credited beyond what it had outstanding. On an issued credit note, its amount less `refundedPesewas`, never more than its original owes back. 0 otherwise."
         paymentStatus:
           type: string
           enum:
@@ -39843,6 +39853,8 @@ components:
         - allocatedPesewas
         - creditedPesewas
         - outstandingPesewas
+        - refundedPesewas
+        - refundablePesewas
         - paymentStatus
         - settledAt
         - asOf

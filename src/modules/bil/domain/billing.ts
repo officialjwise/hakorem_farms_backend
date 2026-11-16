@@ -199,3 +199,18 @@ export function noteReasonRule(kind: 'CREDIT_NOTE' | 'DEBIT_NOTE', reason: { rea
 export function correctable(original: { readonly kind: BillingKind; readonly status: 'DRAFT' | 'ISSUED' }): boolean {
   return original.status === 'ISSUED' && (original.kind === 'INVOICE' || original.kind === 'RECEIPT');
 }
+
+/**
+ * What a refund may still draw on (ADR-0066). On an invoice or receipt, what it owes back to the customer once credited
+ * beyond what it had outstanding. On an issued credit note, its amount less the refunds held against it, never more than
+ * its original owes back (null: the original is unknown, so nothing). Nothing on any other document.
+ */
+export function creditRefundableOf(
+  document: { readonly kind: string; readonly issued: boolean; readonly grossPesewas: bigint; readonly refundedPesewas: bigint; readonly refundablePesewas: bigint },
+  originalOwesBackPesewas: bigint | null,
+): bigint {
+  if (document.kind !== 'CREDIT_NOTE') return document.refundablePesewas;
+  if (!document.issued || originalOwesBackPesewas === null) return 0n;
+  const left = document.grossPesewas - document.refundedPesewas;
+  return left < originalOwesBackPesewas ? left : originalOwesBackPesewas;
+}

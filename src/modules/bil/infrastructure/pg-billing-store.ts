@@ -279,11 +279,14 @@ export class PgBillingStore implements BillingStore {
       allocated_pesewas: string;
       credited_pesewas: string;
       outstanding_pesewas: string;
+      refunded_pesewas: string;
+      refundable_pesewas: string;
       payment_status: SettlementRecord['paymentStatus'];
       settled_at: Date | null;
       as_of: Date;
     }>(
-      `SELECT billing_document_id, allocated_pesewas::text, credited_pesewas::text, outstanding_pesewas::text, payment_status, settled_at, as_of
+      `SELECT billing_document_id, allocated_pesewas::text, credited_pesewas::text, outstanding_pesewas::text, refunded_pesewas::text, refundable_pesewas::text,
+              payment_status, settled_at, as_of
          FROM bil.document_settlement WHERE billing_document_id = ANY($1::uuid[])`,
       [ids],
     );
@@ -294,6 +297,8 @@ export class PgBillingStore implements BillingStore {
           allocatedPesewas: BigInt(r.allocated_pesewas),
           creditedPesewas: BigInt(r.credited_pesewas),
           outstandingPesewas: BigInt(r.outstanding_pesewas),
+          refundedPesewas: BigInt(r.refunded_pesewas),
+          refundablePesewas: BigInt(r.refundable_pesewas),
           paymentStatus: r.payment_status,
           settledAt: r.settled_at,
           asOf: r.as_of,

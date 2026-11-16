@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.44.0"
+  version: "1.45.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -43539,6 +43539,8 @@ paths:
                       allocatedPesewas: 137900
                       creditedPesewas: 0
                       outstandingPesewas: 0
+                      refundedPesewas: 0
+                      refundablePesewas: 0
                       paymentStatus: PAID
                       settledAt: "2026-11-13T09:12:00Z"
                       asOf: "2026-11-13T09:30:00Z"
@@ -43719,6 +43721,8 @@ paths:
                       allocatedPesewas: 0
                       creditedPesewas: 0
                       outstandingPesewas: 282694
+                      refundedPesewas: 0
+                      refundablePesewas: 0
                       paymentStatus: UNPAID
                       settledAt: null
                       asOf: "2026-11-13T09:30:00Z"
@@ -43814,6 +43818,8 @@ paths:
                       allocatedPesewas: 0
                       creditedPesewas: 0
                       outstandingPesewas: 0
+                      refundedPesewas: 0
+                      refundablePesewas: 0
                       paymentStatus: NOT_APPLICABLE
                       settledAt: null
                       asOf: "2026-11-13T09:30:00Z"
@@ -43950,6 +43956,8 @@ paths:
                       allocatedPesewas: 0
                       creditedPesewas: 0
                       outstandingPesewas: 32300
+                      refundedPesewas: 0
+                      refundablePesewas: 0
                       paymentStatus: UNPAID
                       settledAt: null
                       asOf: "2026-11-13T09:30:00Z"
@@ -44083,6 +44091,8 @@ paths:
                       allocatedPesewas: 0
                       creditedPesewas: 0
                       outstandingPesewas: 0
+                      refundedPesewas: 0
+                      refundablePesewas: 0
                       paymentStatus: NOT_APPLICABLE
                       settledAt: null
                       asOf: "2026-11-13T09:30:00Z"
@@ -44216,6 +44226,8 @@ paths:
                       allocatedPesewas: 80000
                       creditedPesewas: 0
                       outstandingPesewas: 0
+                      refundedPesewas: 0
+                      refundablePesewas: 0
                       paymentStatus: PAID
                       settledAt: "2026-11-08T09:12:00Z"
                       asOf: "2026-11-13T09:30:00Z"
@@ -44446,6 +44458,8 @@ paths:
                   allocatedPesewas: 137900
                   creditedPesewas: 0
                   outstandingPesewas: 0
+                  refundedPesewas: 0
+                  refundablePesewas: 0
                   paymentStatus: PAID
                   settledAt: "2026-11-13T09:12:00Z"
                   asOf: "2026-11-13T09:30:00Z"
@@ -44622,6 +44636,8 @@ paths:
                   allocatedPesewas: 0
                   creditedPesewas: 0
                   outstandingPesewas: 0
+                  refundedPesewas: 0
+                  refundablePesewas: 0
                   paymentStatus: NOT_APPLICABLE
                   settledAt: null
                   asOf: "2026-11-13T09:30:00Z"
@@ -44655,7 +44671,7 @@ paths:
       tags:
         - bil
       summary: "Issue a credit note against an issued invoice or receipt"
-      description: "Raises a credit note against an issued invoice or receipt (FR-BIL-007). Each line names a line of the original once, with a `quantity` (credited at the line's price less the same share of its discount) or an `amountPesewas` (in the original's terms: net if it was tax-exclusive, gross if inclusive); the levies are recomputed by the original's tax scheme version. A credit never exceeds what a line, or the original, has left uncredited (422 `CREDIT_NOTE_EXCEEDS_ORIGINAL`, also held by the database). The reason is a `REFUND` or `RETURN` code. A credit note raised on its own needs approval of kind `CREDIT_NOTE`, whatever its amount: the response is `202` with an `ApprovalPending` body, nothing is numbered or posted, and a holder of `bil.credit_note.approve` other than its maker approves it with step-up; the approval numbers it (`CRN-<YEAR>-<BRANCH>-<SEQUENCE>`), issues it and posts `bil.CreditNoteIssued` (Dr 4200 net, Dr 2100 each levy, Cr 1200 gross). Credit notes raised by a return are issued by the return (B9a). Other refusals are 422 `BILLING_DOCUMENT_INVALID` (`ORIGINAL_NOT_CORRECTABLE`, `REASON_NOT_ALLOWED`, `NOTE_REQUIRED`, `NO_LINES`, `LINE_NOT_ON_ORIGINAL`, `LINE_REPEATED`, `QUANTITY_OR_AMOUNT`, `QUANTITY_EXCEEDS_LINE`, `AMOUNT_EXCEEDS_LINE`, `LINE_ALREADY_CREDITED`). Raised by the Owner, the Accountant and the Manager (the owner, 2026-11-16; 1.43.0); a Cashier may not (counter refunds are till returns, B9b). Approved by the Owner or a Manager, never the person who raised it (422 `MAKER_CANNOT_CHECK`), so a Manager's own credit note is approved by another Manager or the Owner.\n\nPermission: `bil.credit_note.create` at the original's branch.\n\nMay require approval of kind `CREDIT_NOTE`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+      description: "Raises a credit note against an issued invoice or receipt (FR-BIL-007). Each line names a line of the original once, with a `quantity` (credited at the line's price less the same share of its discount) or an `amountPesewas` (in the original's terms: net if it was tax-exclusive, gross if inclusive); the levies are recomputed by the original's tax scheme version. A credit never exceeds what a line, or the original, has left uncredited (422 `CREDIT_NOTE_EXCEEDS_ORIGINAL`, also held by the database). The reason is a `REFUND` or `RETURN` code. A credit note raised on its own needs approval of kind `CREDIT_NOTE`, whatever its amount: the response is `202` with an `ApprovalPending` body, nothing is numbered or posted, and a holder of `bil.credit_note.approve` other than its maker approves it with step-up; the approval numbers it (`CRN-<YEAR>-<BRANCH>-<SEQUENCE>`), issues it and posts `bil.CreditNoteIssued` (Dr 4200 net, Dr 2100 each levy, Cr 1200 gross). A credit beyond what the original has outstanding, on a paid invoice or receipt, is issued too: the original's `settlement.refundablePesewas` shows what it then owes back to the customer, and `requestRefund` with `creditNoteId` pays it back (1.45.0, ADR-0066). Credit notes raised by a return are issued by the return (B9a). Other refusals are 422 `BILLING_DOCUMENT_INVALID` (`ORIGINAL_NOT_CORRECTABLE`, `REASON_NOT_ALLOWED`, `NOTE_REQUIRED`, `NO_LINES`, `LINE_NOT_ON_ORIGINAL`, `LINE_REPEATED`, `QUANTITY_OR_AMOUNT`, `QUANTITY_EXCEEDS_LINE`, `AMOUNT_EXCEEDS_LINE`, `LINE_ALREADY_CREDITED`). Raised by the Owner, the Accountant and the Manager (the owner, 2026-11-16; 1.43.0); a Cashier may not (counter refunds are till returns, B9b). Approved by the Owner or a Manager, never the person who raised it (422 `MAKER_CANNOT_CHECK`), so a Manager's own credit note is approved by another Manager or the Owner.\n\nPermission: `bil.credit_note.create` at the original's branch.\n\nMay require approval of kind `CREDIT_NOTE`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
       x-permission: bil.credit_note.create
       x-error-codes:
         - VALIDATION_FAILED
@@ -44791,6 +44807,8 @@ paths:
                   allocatedPesewas: 0
                   creditedPesewas: 0
                   outstandingPesewas: 0
+                  refundedPesewas: 0
+                  refundablePesewas: 0
                   paymentStatus: NOT_APPLICABLE
                   settledAt: null
                   asOf: "2026-11-13T09:30:00Z"
@@ -44970,6 +44988,8 @@ paths:
                   allocatedPesewas: 0
                   creditedPesewas: 0
                   outstandingPesewas: 3600
+                  refundedPesewas: 0
+                  refundablePesewas: 0
                   paymentStatus: UNPAID
                   settledAt: null
                   asOf: "2026-11-13T10:20:00Z"
@@ -46826,7 +46846,7 @@ paths:
       tags:
         - pay
       summary: "Request a refund against an original payment"
-      description: "Draws only on the payment's unallocated, unrefunded money (422 `REFUND_EXCEEDS_PAYMENT`; the database holds it too): money settling a document is first taken off with `unallocatePayment`. Every refund a person asks for waits for a different user holding `pay.refund.approve`, with a fresh step-up (`REFUND`, threshold 0, the owner's rule of 2026-11-16), so today the answer is always `202`. Approved, a mobile money or card refund goes back through the provider; a refund to `STORE_CREDIT` (or of a store credit tender to its original method) is paid at once by the approver into the customer's store credit (Dr 2200, Cr 2210; 1.43.0), refused for a payment with no customer; any other waits for `markRefundPaid`. A cheque is not refunded to its original method, and `creditNoteId` is refused (`REFUND_INVALID`, `DESTINATION_NOT_AVAILABLE`, `CREDIT_NOTE_NOT_AVAILABLE`), until B09a continued 1c builds the bank payout and the refund against a credit note (A-213); a reason that requires a note needs `note` (B09a continued, 1.42.0).\n\nPermission: `pay.refund.create` at the payment's branch.\n\nMay require approval of kind `REFUND`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+      description: "Without `creditNoteId`, draws only on the payment's unallocated, unrefunded money (422 `REFUND_EXCEEDS_PAYMENT`; the database holds it too): money settling a document is first taken off with `unallocatePayment`. With `creditNoteId` (1.45.0, ADR-0066), draws on an issued credit note of the payment's customer and branch instead: never more than the credit note's amount less the refunds already asked for against it and not rejected, nor more than its document owes back (422 `REFUND_EXCEEDS_CREDIT_NOTE`; the database holds it under the credit note's lock, so two refunds of the last amount at once leave exactly one), and never more than this payment paid on the credited document (422 `REFUND_EXCEEDS_PAYMENT`); a credit note that is not issued, or is another customer's or branch's, is `REFUND_INVALID` (`CREDIT_NOTE_NOT_AVAILABLE`). Every refund a person asks for waits for a different user holding `pay.refund.approve`, with a fresh step-up (`REFUND`, threshold 0, the owner's rule of 2026-11-16), so today the answer is always `202`; a refund against a credit note is never approved by the credit note's maker either (403 `MAKER_CANNOT_CHECK`; the database refuses it too). Approved, a mobile money or card refund goes back through the provider; a refund to `STORE_CREDIT` (or of a store credit tender to its original method) is paid at once by the approver into the customer's store credit (Cr 2210; 1.43.0), refused for a payment with no customer or a customer with no phone; a cheque to its original method is a bank payout from the bank account it was paid into (1.45.0), and it and any other wait for `markRefundPaid`. Paid, a refund posts Dr 2200 (out of deposit), or Dr 1200 against the customer when it draws on a credit note, and Cr the tender. A reason that requires a note needs `note` (B09a continued, 1.42.0).\n\nPermission: `pay.refund.create` at the payment's branch.\n\nMay require approval of kind `REFUND`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
       x-permission: pay.refund.create
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -46898,7 +46918,7 @@ paths:
                 kind: REFUND
                 subject:
                   id: "019a7ae9-ff6c-790a-8e42-99722f111250"
-                  docType: STOCK_ADJUSTMENT
+                  docType: REFUND
                   number: null
                 summary: "Awaiting approval by a different user with the approving permission"
                 requestedAt: "2026-11-13T10:12:00Z"
@@ -47062,7 +47082,7 @@ paths:
       tags:
         - pay
       summary: "Record a cash refund handed over"
-      description: "An approved refund paid by hand (a cash or bank transfer original, or a provider refund that failed three times), recorded with the payout's `externalReference`, which is required (422 `REFUND_INVALID`, `REFERENCE_REQUIRED`), and a `paidAt` no later than now. Never by the refund's maker (403 `MAKER_CANNOT_CHECK`; the database refuses it too). Posts the refund once and closes its `REFUND_FAILED` break (B09a continued, 1.42.0).\n\nPermission: `pay.refund.pay`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      description: "An approved refund paid by hand (a cash or bank transfer original, a cheque paid back through a bank payout from the bank account it was paid into (1.45.0), or a provider refund that failed three times), recorded with the payout's `externalReference`, which is required (422 `REFUND_INVALID`, `REFERENCE_REQUIRED`), and a `paidAt` no later than now. Never by the refund's maker (403 `MAKER_CANNOT_CHECK`; the database refuses it too). Posts the refund once (Cr the original's tender; Cr 1100 against the cheque's bank account for a bank payout; Dr 2200 out of deposit, or Dr 1200 for a refund against a credit note) and closes its `REFUND_FAILED` break (B09a continued, 1.42.0).\n\nPermission: `pay.refund.pay`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: pay.refund.pay
       x-requires-step-up: true
       parameters:
@@ -54837,6 +54857,8 @@ paths:
                     allocatedPesewas: 137900
                     creditedPesewas: 0
                     outstandingPesewas: 0
+                    refundedPesewas: 0
+                    refundablePesewas: 0
                     paymentStatus: PAID
                     settledAt: "2026-11-13T09:12:00Z"
                     asOf: "2026-11-13T09:30:00Z"
@@ -89219,6 +89241,12 @@ components:
           $ref: "#/components/schemas/Pesewas"
         outstandingPesewas:
           $ref: "#/components/schemas/Pesewas"
+        refundedPesewas:
+          $ref: "#/components/schemas/Pesewas"
+          description: "Refunds asked for against this document's credit notes (on a credit note, against it) and not rejected; held while they wait for approval (1.45.0)."
+        refundablePesewas:
+          $ref: "#/components/schemas/Pesewas"
+          description: "What a refund may still draw on (1.45.0). On an invoice or receipt, what it owes back to the customer once credited beyond what it had outstanding. On an issued credit note, its amount less `refundedPesewas`, never more than its original owes back. 0 otherwise."
         paymentStatus:
           type: string
           enum:
@@ -89239,6 +89267,8 @@ components:
         - allocatedPesewas
         - creditedPesewas
         - outstandingPesewas
+        - refundedPesewas
+        - refundablePesewas
         - paymentStatus
         - settledAt
         - asOf

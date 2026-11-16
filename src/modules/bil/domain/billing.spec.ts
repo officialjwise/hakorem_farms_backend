@@ -1,6 +1,6 @@
 import { Money, Quantity } from '@hakorem/kernel';
 import { describe, expect, it } from 'vitest';
-import { checkIssue, correctable, documentTotals, fiscalYearOf, levyTotals, lineAnchor, noteReasonRule, planCreditLines, priceVariance, seriesLockKey, type CreditableLine, type LinePricing } from './billing';
+import { checkIssue, creditRefundableOf, correctable, documentTotals, fiscalYearOf, levyTotals, lineAnchor, noteReasonRule, planCreditLines, priceVariance, seriesLockKey, type CreditableLine, type LinePricing } from './billing';
 
 const p = (n: number | bigint) => Money.ofPesewas(BigInt(n));
 const q = (text: string) => Quantity.parse(text);
@@ -185,5 +185,27 @@ describe('the reasons and originals a note may take (FR-BIL-007, FR-MDM-011)', (
     expect(correctable({ kind: 'PROFORMA', status: 'ISSUED' })).toBe(false);
     expect(correctable({ kind: 'CREDIT_NOTE', status: 'ISSUED' })).toBe(false);
     expect(correctable({ kind: 'INVOICE', status: 'DRAFT' })).toBe(false);
+  });
+});
+
+describe('what a refund against a credit note may still draw on (FR-BIL-007, ADR-0066)', () => {
+  const note = (grossPesewas: bigint, refundedPesewas: bigint, issued = true) => ({ kind: 'CREDIT_NOTE', issued, grossPesewas, refundedPesewas, refundablePesewas: 0n });
+
+  it('is the credit note\'s 30,000 less the 10,000 already held against it, while its invoice owes back 30,000', () => {
+    expect(creditRefundableOf(note(30_000n, 10_000n), 30_000n)).toBe(20_000n);
+  });
+
+  it('is never more than the invoice owes back: a 30,000 credit on an invoice that had 12,000 outstanding leaves 18,000', () => {
+    expect(creditRefundableOf(note(30_000n, 0n), 18_000n)).toBe(18_000n);
+    expect(creditRefundableOf(note(30_000n, 30_000n), 0n)).toBe(0n);
+  });
+
+  it('is nothing on a credit note not yet issued or whose original is unknown', () => {
+    expect(creditRefundableOf(note(30_000n, 0n, false), 30_000n)).toBe(0n);
+    expect(creditRefundableOf(note(30_000n, 0n), null)).toBe(0n);
+  });
+
+  it('is what an invoice or receipt owes back to the customer', () => {
+    expect(creditRefundableOf({ kind: 'INVOICE', issued: true, grossPesewas: 86_240n, refundedPesewas: 0n, refundablePesewas: 30_000n }, null)).toBe(30_000n);
   });
 });
