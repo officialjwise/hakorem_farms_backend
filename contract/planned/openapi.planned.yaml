@@ -253,10 +253,20 @@ paths:
                   - id: "019a7a9a-2051-70b6-b5ee-1434f90c8d12"
                     kind: PURCHASE_ORDER
                     branch: null
-                    thresholdPesewas: 500000
+                    thresholdPesewas: 200001
                     approverPermission: pur.purchase_order.approve
                     requiresEvidence: false
-                    requiresStepUp: false
+                    requiresStepUp: true
+                    currency: GHS
+                    version: 1
+                    updatedAt: "2026-11-02T08:00:00Z"
+                  - id: "019a7a9a-3f40-7c1a-9d5e-5b2f8a7c6d10"
+                    kind: SUPPLIER_PAYMENT
+                    branch: null
+                    thresholdPesewas: null
+                    approverPermission: pur.supplier_payment.approve
+                    requiresEvidence: false
+                    requiresStepUp: true
                     currency: GHS
                     version: 1
                     updatedAt: "2026-11-02T08:00:00Z"

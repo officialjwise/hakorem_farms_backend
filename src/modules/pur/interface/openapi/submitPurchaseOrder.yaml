@@ -99,7 +99,7 @@ responses:
           kind: PURCHASE_ORDER
           subject:
             id: "019a7acb-ab17-7703-9c3c-790dde86f1eb"
-            docType: STOCK_ADJUSTMENT
+            docType: PURCHASE_ORDER
             number: null
           summary: "Awaiting approval by a different user with the approving permission"
           requestedAt: "2026-11-13T10:12:00Z"

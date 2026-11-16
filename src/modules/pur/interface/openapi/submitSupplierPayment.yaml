@@ -83,7 +83,7 @@ responses:
           kind: SUPPLIER_PAYMENT
           subject:
             id: "019a7acf-e5c4-711d-8655-1aa381b99381"
-            docType: STOCK_ADJUSTMENT
+            docType: SUPPLIER_PAYMENT
             number: null
           summary: "Awaiting approval by a different user with the approving permission"
           requestedAt: "2026-11-13T10:12:00Z"
