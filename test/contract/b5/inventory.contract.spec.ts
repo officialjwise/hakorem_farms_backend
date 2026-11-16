@@ -83,6 +83,15 @@ describe('inventory operations answer in the contract shapes', () => {
     expect(onHand.status).toBe(200);
     expectShape('StockOnHandPage', onHand.body);
     expectShape('StockOnHandPage', (await get('/stock/on-hand?includeZero=true&limit=2')).body);
+    // Sorted on the server (CR-019, B07 continued 3): the same shapes, and a refused sort in the error envelope.
+    const byQty = await get('/stock/on-hand?sort=onHandQty&direction=desc&limit=2');
+    expectShape('StockOnHandPage', byQty.body);
+    expectShape('StockOnHandPage', (await get(`/stock/on-hand?sort=onHandQty&direction=desc&limit=2&cursor=${encodeURIComponent(byQty.body.page.nextCursor as string)}`)).body);
+    expectShape('StockUnitPage', (await get('/stock-units?sort=expiresOn&direction=desc&limit=3')).body);
+    expectShape('StockUnitPage', (await get('/stock-units?sort=identifier&limit=3')).body);
+    const unsortable = await get('/stock/on-hand?sort=valueAtCostPesewas');
+    expect(unsortable.status).toBe(400);
+    expectShape('Error', unsortable.body);
     const unit = await get(`/stock-units/${id('unit:LOT-BEEF-2026-1110')}`);
     expect(unit.status).toBe(200);
     expectShape('StockUnit', unit.body);
@@ -99,6 +108,8 @@ describe('inventory operations answer in the contract shapes', () => {
     expectShape('MovementTypePage', (await get('/stock/movement-types?limit=5')).body);
     const movements = await get('/stock/movements?limit=3');
     expectShape('StockMovementPage', movements.body);
+    expectShape('StockMovementPage', (await get('/stock/movements?sort=valuePesewas&direction=desc&limit=3')).body);
+    expectShape('StockMovementPage', (await get('/stock/movements?sort=occurredAt&limit=3')).body);
     expectShape('StockMovementPage', (await get(`/stock-units/${id('unit:G-0142')}/movements`)).body);
     expectShape('StockMovement', (await get(`/stock/movements/${movements.body.data[0].id as string}`)).body);
 

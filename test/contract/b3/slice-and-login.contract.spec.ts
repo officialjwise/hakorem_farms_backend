@@ -208,6 +208,11 @@ describe('the implemented operations answer in the shapes of contract/openapi.ya
     expectShape('Product', created.body);
     expectShape('Product', (await consoleGet(api.server, cashier, `/v1/products/${created.body.id}`)).body);
     expectShape('ProductPage', (await consoleGet(api.server, cashier, '/v1/products')).body);
+    // Sorted on the server (CR-019, B07 continued 3): the same shape, and a refused sort in the error envelope.
+    expectShape('ProductPage', (await consoleGet(api.server, cashier, '/v1/products?sort=category&direction=desc&limit=1')).body);
+    const unsortable = await consoleGet(api.server, cashier, '/v1/products?sort=description');
+    expect(unsortable.status).toBe(400);
+    expectShape('Error', unsortable.body);
   });
 
   it('every refusal on these operations uses the Error envelope', async () => {

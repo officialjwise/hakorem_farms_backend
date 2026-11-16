@@ -2,7 +2,7 @@ operationId: listStockMovements
 tags:
   - inv
 summary: "Search the stock movement ledger"
-description: "The append-only movement ledger, newest first, narrowed to the branches and locations the reader's grants reach (a movement is shown when its branch and either of its locations is reached). `reversedByMovementId` names the movement that reversed one. There is no operation that edits or deletes a movement.\n\nPermission: `inv.movement.read`."
+description: "The append-only movement ledger, newest first, narrowed to the branches and locations the reader's grants reach (a movement is shown when its branch and either of its locations is reached). `reversedByMovementId` names the movement that reversed one. There is no operation that edits or deletes a movement. `sort` names one field of this list (`occurredAt`, `valuePesewas`) and `direction` is `asc` (the default with a field) or `desc`; the server applies it before paging, through the shared sort (CR-019, ADR-0054), breaking ties by the movement id in the same direction, so following `nextCursor` never skips or repeats a row. Any other field, any other direction, or a `direction` without `sort` is 400 `VALIDATION_FAILED` with detail `SORT_NOT_ALLOWED`; a cursor from another sort is 400 `INVALID_CURSOR`. Without `sort` the order is newest first (by id, descending), as the example shows. A product's name (master data's) is not sortable. `valuePesewas` is a cost: only a reader of movements, who sees it on every row, may sort by it.\n\nPermission: `inv.movement.read`."
 x-permission: inv.movement.read
 x-error-codes:
   - VALIDATION_FAILED
@@ -52,6 +52,22 @@ parameters:
     schema:
       type: string
       format: date-time
+  - name: sort
+    in: query
+    required: false
+    schema:
+      type: string
+      enum:
+        - occurredAt
+        - valuePesewas
+  - name: direction
+    in: query
+    required: false
+    schema:
+      type: string
+      enum:
+        - asc
+        - desc
   - name: cursor
     in: query
     required: false
@@ -77,246 +93,6 @@ responses:
           $ref: "#/components/schemas/StockMovementPage"
         example:
           data:
-            - id: "019a7aac-db06-7d6f-a2a7-dfcba73758a9"
-              movementType: SALE_ISSUE
-              product:
-                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                sku: LIV-GOAT
-                name: Goat
-              stockUnit:
-                id: "019a7a8f-bc07-7e4c-9384-ed921796666f"
-                identifier: G-0171
-                tracking: SERIAL
-              from:
-                id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
-                code: PEN-G2
-                name: "Goat pen 2"
-                kind: PEN
-              to:
-                id: "019a7a85-57bd-7be1-b11a-c6ef36203fcd"
-                code: V-CUSTOMER
-                name: Customers
-                kind: CUSTOMER
-              qty: "1.000"
-              uom: HEAD
-              weightKg: "24.900"
-              weightSource: SCALE
-              packCount: null
-              valuePesewas: 58900
-              currency: GHS
-              costElement: null
-              reasonCode: null
-              sourceDocument:
-                id: "019a7aac-216c-721a-8753-2a7ecd11a35c"
-                docType: SALES_ORDER
-                number: SO-2026-DDW-004211
-              reservationId: null
-              reversesMovementId: null
-              reversedByMovementId: null
-              actor:
-                id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
-                displayName: "Adwoa Darko"
-              occurredAt: "2026-11-13T07:00:00Z"
-              recordedAt: "2026-11-13T07:00:00Z"
-            - id: "019a7aac-f9f5-7753-bc8b-7e0320e8f6e1"
-              movementType: RECEIPT_PURCHASE
-              product:
-                id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
-                sku: FD-BRL-FIN
-                name: "Broiler finisher feed, 50 kg bag"
-              stockUnit: null
-              from:
-                id: "019a7a85-38ce-71fe-a736-28b7bc6fa195"
-                code: V-SUPPLIER
-                name: Suppliers
-                kind: SUPPLIER
-              to:
-                id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
-                code: STORE-1
-                name: "Feed and produce store"
-                kind: STORE
-              qty: "20.000"
-              uom: BAG
-              weightKg: null
-              weightSource: null
-              packCount: null
-              valuePesewas: 1040000
-              currency: GHS
-              costElement: PURCHASE
-              reasonCode: null
-              sourceDocument:
-                id: "019a7aac-405b-7bfe-9136-c8b646c24194"
-                docType: GOODS_RECEIPT
-                number: GRN-2026-DDW-000077
-              reservationId: null
-              reversesMovementId: null
-              reversedByMovementId: null
-              actor:
-                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                displayName: "Yaw Boateng"
-              occurredAt: "2026-11-13T07:06:00Z"
-              recordedAt: "2026-11-13T07:06:00Z"
-            - id: "019a7aad-18e4-7136-866e-1c3a9a999518"
-              movementType: FEED_ISSUE
-              product:
-                id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
-                sku: FD-BRL-FIN
-                name: "Broiler finisher feed, 50 kg bag"
-              stockUnit: null
-              from:
-                id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
-                code: STORE-1
-                name: "Feed and produce store"
-                kind: STORE
-              to:
-                id: "019a7a85-d379-736f-b8a8-3fcd1ce4b8ab"
-                code: V-CONSUMPTION
-                name: Consumption
-                kind: CONSUMPTION
-              qty: "4.000"
-              uom: BAG
-              weightKg: null
-              weightSource: null
-              packCount: null
-              valuePesewas: 208000
-              currency: GHS
-              costElement: FEED
-              reasonCode: null
-              sourceDocument:
-                id: "019a7aac-5f4a-75e1-ab1a-66edc073dfcb"
-                docType: FEED_CONSUMPTION
-                number: null
-              reservationId: null
-              reversesMovementId: null
-              reversedByMovementId: null
-              actor:
-                id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
-                displayName: "Abena Quaye"
-              occurredAt: "2026-11-13T07:12:00Z"
-              recordedAt: "2026-11-13T07:12:00Z"
-            - id: "019a7aad-37d3-7b1a-9052-ba72144a334f"
-              movementType: COST_CAPITALISE
-              product:
-                id: "019a7a8d-704a-726a-a7a2-2f740f73a851"
-                sku: LIV-BROILER
-                name: "Broiler chicken"
-              stockUnit:
-                id: "019a7a91-4e2a-7ed9-a411-f66345936f41"
-                identifier: BRL-2610-01
-                tracking: LOT
-              from:
-                id: "019a7a85-d379-736f-b8a8-3fcd1ce4b8ab"
-                code: V-CONSUMPTION
-                name: Consumption
-                kind: CONSUMPTION
-              to:
-                id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
-                code: HSE-B1
-                name: "Broiler house 1"
-                kind: PEN
-              qty: "0.000"
-              uom: HEAD
-              weightKg: null
-              weightSource: null
-              packCount: null
-              valuePesewas: 208000
-              currency: GHS
-              costElement: FEED
-              reasonCode: null
-              sourceDocument:
-                id: "019a7aac-5f4a-75e1-ab1a-66edc073dfcb"
-                docType: FEED_CONSUMPTION
-                number: null
-              reservationId: null
-              reversesMovementId: null
-              reversedByMovementId: null
-              actor:
-                id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
-                displayName: "Abena Quaye"
-              occurredAt: "2026-11-13T07:18:00Z"
-              recordedAt: "2026-11-13T07:18:00Z"
-            - id: "019a7aad-56c2-74fd-aa35-58a98dfbd187"
-              movementType: PROCESS_CONSUME
-              product:
-                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                sku: LIV-GOAT
-                name: Goat
-              stockUnit:
-                id: "019a7a90-37c3-75d9-9b12-666ffe5adf4d"
-                identifier: G-0098
-                tracking: SERIAL
-              from:
-                id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
-                code: PEN-G1
-                name: "Goat pen 1"
-                kind: PEN
-              to:
-                id: "019a7a85-b48a-798c-aec4-a195a3331a73"
-                code: V-PROCESSING
-                name: Processing
-                kind: PROCESSING
-              qty: "1.000"
-              uom: HEAD
-              weightKg: "29.600"
-              weightSource: SCALE
-              packCount: null
-              valuePesewas: 66100
-              currency: GHS
-              costElement: null
-              reasonCode: null
-              sourceDocument:
-                id: "019a7aac-7e39-7fc5-b4fd-05253a247e03"
-                docType: PROCESSING_ORDER
-                number: PRC-2026-DDW-000012
-              reservationId: null
-              reversesMovementId: null
-              reversedByMovementId: null
-              actor:
-                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                displayName: "Yaw Boateng"
-              occurredAt: "2026-11-13T07:24:00Z"
-              recordedAt: "2026-11-13T07:24:00Z"
-            - id: "019a7aad-75b1-7ee0-b419-f6e107ac6fbe"
-              movementType: MORTALITY
-              product:
-                id: "019a7a8d-704a-726a-a7a2-2f740f73a851"
-                sku: LIV-BROILER
-                name: "Broiler chicken"
-              stockUnit:
-                id: "019a7a91-4e2a-7ed9-a411-f66345936f41"
-                identifier: BRL-2610-01
-                tracking: LOT
-              from:
-                id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
-                code: HSE-B1
-                name: "Broiler house 1"
-                kind: PEN
-              to:
-                id: "019a7a85-76ac-75c5-8afd-6526afd1de04"
-                code: V-LOSS
-                name: Loss
-                kind: LOSS
-              qty: "3.000"
-              uom: HEAD
-              weightKg: null
-              weightSource: null
-              packCount: null
-              valuePesewas: 40500
-              currency: GHS
-              costElement: null
-              reasonCode: DISEASE_SUSPECTED
-              sourceDocument:
-                id: "019a7aac-9d28-79a8-8ee0-a35cb3d51c3a"
-                docType: MORTALITY_RECORD
-                number: null
-              reservationId: null
-              reversesMovementId: null
-              reversedByMovementId: null
-              actor:
-                id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
-                displayName: "Abena Quaye"
-              occurredAt: "2026-11-13T07:30:00Z"
-              recordedAt: "2026-11-13T07:30:00Z"
             - id: "019a7aad-94a0-78c4-8dfc-9518815d0df6"
               movementType: TRANSFER_INTERNAL
               product:
@@ -358,6 +134,246 @@ responses:
                 displayName: "Yaw Boateng"
               occurredAt: "2026-11-13T07:36:00Z"
               recordedAt: "2026-11-13T07:36:00Z"
+            - id: "019a7aad-75b1-7ee0-b419-f6e107ac6fbe"
+              movementType: MORTALITY
+              product:
+                id: "019a7a8d-704a-726a-a7a2-2f740f73a851"
+                sku: LIV-BROILER
+                name: "Broiler chicken"
+              stockUnit:
+                id: "019a7a91-4e2a-7ed9-a411-f66345936f41"
+                identifier: BRL-2610-01
+                tracking: LOT
+              from:
+                id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+                code: HSE-B1
+                name: "Broiler house 1"
+                kind: PEN
+              to:
+                id: "019a7a85-76ac-75c5-8afd-6526afd1de04"
+                code: V-LOSS
+                name: Loss
+                kind: LOSS
+              qty: "3.000"
+              uom: HEAD
+              weightKg: null
+              weightSource: null
+              packCount: null
+              valuePesewas: 40500
+              currency: GHS
+              costElement: null
+              reasonCode: DISEASE_SUSPECTED
+              sourceDocument:
+                id: "019a7aac-9d28-79a8-8ee0-a35cb3d51c3a"
+                docType: MORTALITY_RECORD
+                number: null
+              reservationId: null
+              reversesMovementId: null
+              reversedByMovementId: null
+              actor:
+                id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                displayName: "Abena Quaye"
+              occurredAt: "2026-11-13T07:30:00Z"
+              recordedAt: "2026-11-13T07:30:00Z"
+            - id: "019a7aad-56c2-74fd-aa35-58a98dfbd187"
+              movementType: PROCESS_CONSUME
+              product:
+                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                sku: LIV-GOAT
+                name: Goat
+              stockUnit:
+                id: "019a7a90-37c3-75d9-9b12-666ffe5adf4d"
+                identifier: G-0098
+                tracking: SERIAL
+              from:
+                id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+                code: PEN-G1
+                name: "Goat pen 1"
+                kind: PEN
+              to:
+                id: "019a7a85-b48a-798c-aec4-a195a3331a73"
+                code: V-PROCESSING
+                name: Processing
+                kind: PROCESSING
+              qty: "1.000"
+              uom: HEAD
+              weightKg: "29.600"
+              weightSource: SCALE
+              packCount: null
+              valuePesewas: 66100
+              currency: GHS
+              costElement: null
+              reasonCode: null
+              sourceDocument:
+                id: "019a7aac-7e39-7fc5-b4fd-05253a247e03"
+                docType: PROCESSING_ORDER
+                number: PRC-2026-DDW-000012
+              reservationId: null
+              reversesMovementId: null
+              reversedByMovementId: null
+              actor:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              occurredAt: "2026-11-13T07:24:00Z"
+              recordedAt: "2026-11-13T07:24:00Z"
+            - id: "019a7aad-37d3-7b1a-9052-ba72144a334f"
+              movementType: COST_CAPITALISE
+              product:
+                id: "019a7a8d-704a-726a-a7a2-2f740f73a851"
+                sku: LIV-BROILER
+                name: "Broiler chicken"
+              stockUnit:
+                id: "019a7a91-4e2a-7ed9-a411-f66345936f41"
+                identifier: BRL-2610-01
+                tracking: LOT
+              from:
+                id: "019a7a85-d379-736f-b8a8-3fcd1ce4b8ab"
+                code: V-CONSUMPTION
+                name: Consumption
+                kind: CONSUMPTION
+              to:
+                id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+                code: HSE-B1
+                name: "Broiler house 1"
+                kind: PEN
+              qty: "0.000"
+              uom: HEAD
+              weightKg: null
+              weightSource: null
+              packCount: null
+              valuePesewas: 208000
+              currency: GHS
+              costElement: FEED
+              reasonCode: null
+              sourceDocument:
+                id: "019a7aac-5f4a-75e1-ab1a-66edc073dfcb"
+                docType: FEED_CONSUMPTION
+                number: null
+              reservationId: null
+              reversesMovementId: null
+              reversedByMovementId: null
+              actor:
+                id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                displayName: "Abena Quaye"
+              occurredAt: "2026-11-13T07:18:00Z"
+              recordedAt: "2026-11-13T07:18:00Z"
+            - id: "019a7aad-18e4-7136-866e-1c3a9a999518"
+              movementType: FEED_ISSUE
+              product:
+                id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                sku: FD-BRL-FIN
+                name: "Broiler finisher feed, 50 kg bag"
+              stockUnit: null
+              from:
+                id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
+                code: STORE-1
+                name: "Feed and produce store"
+                kind: STORE
+              to:
+                id: "019a7a85-d379-736f-b8a8-3fcd1ce4b8ab"
+                code: V-CONSUMPTION
+                name: Consumption
+                kind: CONSUMPTION
+              qty: "4.000"
+              uom: BAG
+              weightKg: null
+              weightSource: null
+              packCount: null
+              valuePesewas: 208000
+              currency: GHS
+              costElement: FEED
+              reasonCode: null
+              sourceDocument:
+                id: "019a7aac-5f4a-75e1-ab1a-66edc073dfcb"
+                docType: FEED_CONSUMPTION
+                number: null
+              reservationId: null
+              reversesMovementId: null
+              reversedByMovementId: null
+              actor:
+                id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                displayName: "Abena Quaye"
+              occurredAt: "2026-11-13T07:12:00Z"
+              recordedAt: "2026-11-13T07:12:00Z"
+            - id: "019a7aac-f9f5-7753-bc8b-7e0320e8f6e1"
+              movementType: RECEIPT_PURCHASE
+              product:
+                id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
+                sku: FD-BRL-FIN
+                name: "Broiler finisher feed, 50 kg bag"
+              stockUnit: null
+              from:
+                id: "019a7a85-38ce-71fe-a736-28b7bc6fa195"
+                code: V-SUPPLIER
+                name: Suppliers
+                kind: SUPPLIER
+              to:
+                id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
+                code: STORE-1
+                name: "Feed and produce store"
+                kind: STORE
+              qty: "20.000"
+              uom: BAG
+              weightKg: null
+              weightSource: null
+              packCount: null
+              valuePesewas: 1040000
+              currency: GHS
+              costElement: PURCHASE
+              reasonCode: null
+              sourceDocument:
+                id: "019a7aac-405b-7bfe-9136-c8b646c24194"
+                docType: GOODS_RECEIPT
+                number: GRN-2026-DDW-000077
+              reservationId: null
+              reversesMovementId: null
+              reversedByMovementId: null
+              actor:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              occurredAt: "2026-11-13T07:06:00Z"
+              recordedAt: "2026-11-13T07:06:00Z"
+            - id: "019a7aac-db06-7d6f-a2a7-dfcba73758a9"
+              movementType: SALE_ISSUE
+              product:
+                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                sku: LIV-GOAT
+                name: Goat
+              stockUnit:
+                id: "019a7a8f-bc07-7e4c-9384-ed921796666f"
+                identifier: G-0171
+                tracking: SERIAL
+              from:
+                id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                code: PEN-G2
+                name: "Goat pen 2"
+                kind: PEN
+              to:
+                id: "019a7a85-57bd-7be1-b11a-c6ef36203fcd"
+                code: V-CUSTOMER
+                name: Customers
+                kind: CUSTOMER
+              qty: "1.000"
+              uom: HEAD
+              weightKg: "24.900"
+              weightSource: SCALE
+              packCount: null
+              valuePesewas: 58900
+              currency: GHS
+              costElement: null
+              reasonCode: null
+              sourceDocument:
+                id: "019a7aac-216c-721a-8753-2a7ecd11a35c"
+                docType: SALES_ORDER
+                number: SO-2026-DDW-004211
+              reservationId: null
+              reversesMovementId: null
+              reversedByMovementId: null
+              actor:
+                id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                displayName: "Adwoa Darko"
+              occurredAt: "2026-11-13T07:00:00Z"
+              recordedAt: "2026-11-13T07:00:00Z"
           page:
             nextCursor: eyJpZCI6IjAxOWE3YyJ9
             limit: 25
