@@ -22,7 +22,7 @@ export function slugify(name: string): string {
 export function assignSlugs(products: readonly { readonly id: string; readonly sku: string; readonly name: string; readonly seoSlug: string | null }[]): Map<string, string> {
   const taken = new Set(products.flatMap((p) => (p.seoSlug === null ? [] : [p.seoSlug])));
   const result = new Map<string, string>();
-  for (const product of [...products].sort((a, b) => (a.id < b.id ? -1 : 1))) {
+  for (const product of [...products].sort((a, b) => a.id.localeCompare(b.id, 'en'))) {
     if (product.seoSlug !== null) {
       result.set(product.id, product.seoSlug);
       continue;

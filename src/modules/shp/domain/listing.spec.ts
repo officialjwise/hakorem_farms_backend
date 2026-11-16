@@ -11,12 +11,13 @@ describe('catalogue slugs (FR-SHP-002)', () => {
   });
 
   it('keeps the product SEO slug, and tells two products with the same name apart by their SKU', () => {
+    // Given out of id order: the earlier id keeps the plain slug, whatever order the products arrive in.
     const slugs = assignSlugs([
-      { id: 'a', sku: 'EGG-CRATE-BIG', name: 'Eggs', seoSlug: null },
-      { id: 'b', sku: 'EGG-CRATE-SMALL', name: 'Eggs', seoSlug: null },
       { id: 'c', sku: 'MEAT-GOAT-15KG', name: 'Goat meat', seoSlug: 'goat-meat-15-kg-pack' },
+      { id: 'b', sku: 'EGG-CRATE-SMALL', name: 'Eggs', seoSlug: null },
+      { id: 'a', sku: 'EGG-CRATE-BIG', name: 'Eggs', seoSlug: null },
     ]);
-    expect([...slugs.entries()]).toEqual([
+    expect([...slugs.entries()].sort()).toEqual([
       ['a', 'eggs'],
       ['b', 'eggs-egg-crate-small'],
       ['c', 'goat-meat-15-kg-pack'],
@@ -50,6 +51,7 @@ describe('a listed price range (FR-SHP-001)', () => {
     expect(priceRange([25_000n, 65_000n, 120_000n, 170_000n])).toEqual({ from: 25_000n, to: 170_000n });
     expect(priceRange([4_500n])).toEqual({ from: 4_500n, to: null });
     expect(priceRange([4_500n, 4_500n])).toEqual({ from: 4_500n, to: null });
+    expect(priceRange([170_000n, 25_000n, 65_000n])).toEqual({ from: 25_000n, to: 170_000n });
     expect(priceRange([])).toEqual({ from: null, to: null });
   });
 });

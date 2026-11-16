@@ -52,6 +52,10 @@ describe('the shared sort (CR-019)', () => {
     expect(clause.values).toEqual(['goat', '019a7a8d-137d-74bf-b9f8-54cda260cdab']);
   });
 
+  it('pages ascending with greater-than on every key', () => {
+    expect(keysetClause(resolveSort(spec, 'name', 'asc'), ['goat', 'x'], 1).after).toBe('((lower(p.name) > $1::text) OR (lower(p.name) = $1::text AND p.id > $2::uuid))');
+  });
+
   it('refuses a cursor position that does not name every key', () => {
     expect(() => keysetClause(resolveSort(spec, 'name', 'asc'), ['goat'], 1)).toThrow('names every sort key');
   });
