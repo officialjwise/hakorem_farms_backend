@@ -1,0 +1,92 @@
+operationId: createPostingRule
+tags:
+  - fin
+summary: "Change how an event posts, from a date"
+description: "FR-FIN-005. Asks to replace the rule in force for one event, amount and side from `validFrom` (today or later), with exactly one of `accountId` or `determinantType` with `determinantRole`. Always answers 202 of kind `POSTING_RULE_CHANGE`: nothing changes until a different holder of `fin.posting_rule.approve` approves it with step-up; the maker approving their own is 422 `MAKER_CANNOT_CHECK`. On approval the old rule ends and the new one starts on the later of `validFrom` and the approval day; nothing posted is changed or re-posted (A-191). A change replaces a rule and never adds one, keeps the subledger kinds the rule posts to, and must change something: refusals are 422 `POSTING_RULE_INVALID` with `details[].code` (`UNKNOWN_EVENT`, `UNKNOWN_AMOUNT`, `POSTS_AS_ENTERED`, `TARGET_INVALID`, `VALID_FROM_PAST`, `LATER_RULE_EXISTS`, `NOTHING_TO_REPLACE`, `UNKNOWN_ACCOUNT`, `ACCOUNT_NOT_POSTABLE`, `NO_DETERMINATION`, `SUBLEDGER_DIFFERS`, `UNCHANGED`, `CHANGE_PENDING`), checked again at approval.\n\nPermission: `fin.posting_rule.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session.\n\nMay require approval of kind `POSTING_RULE_CHANGE`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+x-permission: fin.posting_rule.manage
+x-requires-step-up: true
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - STEP_UP_REQUIRED
+  - TOTP_ENROLMENT_REQUIRED
+  - POSTING_RULE_INVALID
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/PostingRuleCreate"
+      example:
+        eventCode: bil.InvoiceIssued
+        amountKey: deliveryFee
+        side: C
+        accountId: "019a7ada-0c30-7fc0-84f8-04d76fcd7db5"
+        validFrom: "2026-12-01"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/PostingRule"
+        example:
+          id: "019a7ad8-98fc-7916-8e4f-9a3dbb81131b"
+          eventCode: bil.InvoiceIssued
+          amountKey: receivable
+          side: D
+          account:
+            id: "019a7a95-0d1b-7164-969c-1f1b020297f8"
+            code: "1200"
+            name: "Trade receivables"
+          determinantType: null
+          determinantRole: null
+          subledgerFrom: customerId
+          validFrom: "2026-11-01"
+          validTo: null
+          approvalRequestId: "019a7ad8-b7eb-72fa-9832-38753532b153"
+  "202":
+    description: "Accepted for approval. Nothing has taken effect yet."
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ApprovalPending"
+        example:
+          status: PENDING_APPROVAL
+          approvalRequestId: "019a7ada-2b1f-79a3-9edc-a30ee97e1bec"
+          kind: POSTING_RULE_CHANGE
+          subject:
+            id: "019a7ada-4a0e-7387-a8bf-4146632fba24"
+            docType: STOCK_ADJUSTMENT
+            number: null
+          summary: "Awaiting approval by a different user with the approving permission"
+          requestedAt: "2026-11-13T10:12:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

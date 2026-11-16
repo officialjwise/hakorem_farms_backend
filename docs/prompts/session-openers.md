@@ -50,7 +50,8 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B07 continued 3 | `B07c3-console-sort.md` | `b07c3-console-sort` | B4 to B12 | The four console lists sort through the shared keyset by CR-019's fields, each indexed, any other 400, and page without skipping or repeating; every read refuses the wrong role (built; six fields declined, A-181) |
 | B8 | `B08-ledger-billing.md` | `b08-ledger-billing` | B4 to B12 | Trial balance sums to zero on a seeded day; an unbalanced journal is rejected by the database; numbering is gap-free under concurrent load (built and passed; the session split after its gate, A-187) |
 | B08 continued | `B08c-ledger-interface.md` | `b08c-ledger-interface` | B4 to B12 | An entry written inside a savepoint keeps its lines; every chart and period operation refuses the wrong role and the Owner approving their own reopen; a period locks, closes and refuses postings through the API (built; the session split, A-189) |
-| B08 continued 1b | `B08c1b-journals-rules-banks.md` | `b08c1b-journals-rules-banks` | B4 to B12 | Every journal, manual journal, rule, determination and bank account operation refuses the wrong role and a maker approving their own manual journal or rule change; a manual journal posts only after a different approver; a supplier payment posts to its bank account's own party |
+| B08 continued 1b | `B08c1b-journals-rules-banks.md` | `b08c1b-journals-rules-banks` | B4 to B12 | Every journal, manual journal, rule and determination operation refuses the wrong role and a maker approving their own manual journal or rule change; a manual journal posts nothing until a different person approves it, then exactly one balanced entry as entered; `fin.ManualJournalApproved` has its matrix row (built; the session split before its bank accounts, A-192) |
+| B08 continued 1b2 | `B08c1b2-bank-accounts.md` | `b08c1b2-bank-accounts` | B4 to B12 | Every bank account operation refuses the wrong role; a bank account's number is stored encrypted and shown only as its last four digits; a supplier payment naming a bank account posts to that account's own subledger party |
 | B08 continued 1c | `B08c1c-statements-assets.md` | `b08c1c-statements-assets` | B4 to B12 | The four statements tie to the trial balance on the seeded day; year close leaves 3200 at zero; depreciation spreads exactly and posts once per period; the cash figure answers from the ledger |
 | B08 continued 2 | `B08c2-billing-documents.md` | `b08c2-billing-documents` | B4 to B12 | A billing document posts exact levy lines and a fourth levy needs data only; numbering stays gap-free under concurrent issue; a reprint is identical with its marker; the trial balance still sums to zero on the seeded day |
 | B9a | `B09a-order-core-payments.md` | `b09a-order-core-payments` | B4 to B12 | Every payment edge case in the brief passes; an order on any channel posts stock, document, payment and ledger in one transaction |
@@ -1200,7 +1201,7 @@ Stop at the gate and write docs/sessions/B08c-ledger-interface.md.
 
 ## B08 continued 1b — Journals, manual journals, posting rule changes and bank accounts
 
-Branch `b08c1b-journals-rules-banks`. Report `docs/sessions/B08c1b-journals-rules-banks.md`. Gate: every journal, manual journal, posting rule, determination and bank account operation refuses the wrong role, and a maker approving their own manual journal or posting rule change is refused; a manual journal posts nothing until a different person approves it with step-up, then exactly one balanced entry with its exact amounts, and `fin.ManualJournalApproved` has its matrix row and exact-amount test; a bank account's number is stored encrypted and shown only as its last four digits; a supplier payment naming a bank account posts to that account's own subledger party.
+Branch `b08c1b-journals-rules-banks`. Report `docs/sessions/B08c1b-journals-rules-banks.md`. **Built; the session split before its bank accounts (A-192): the remainder is B08 continued 1b2 below.** Gate as built: every journal, manual journal, posting rule and determination operation refuses the wrong role, and a maker approving their own manual journal or posting rule change is refused; a manual journal posts nothing until a different person approves it with step-up, then exactly one balanced entry with its exact amounts, and `fin.ManualJournalApproved` has its matrix row and exact-amount test. (Planned gate: every journal, manual journal, posting rule, determination and bank account operation refuses the wrong role, and a maker approving their own manual journal or posting rule change is refused; a manual journal posts nothing until a different person approves it with step-up, then exactly one balanced entry with its exact amounts, and `fin.ManualJournalApproved` has its matrix row and exact-amount test; a bank account's number is stored encrypted and shown only as its last four digits; a supplier payment naming a bank account posts to that account's own subledger party.)
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
@@ -1230,9 +1231,9 @@ If the phase does not fit, split at a sub-domain boundary (for example bank acco
 Stop at the gate and write docs/sessions/B08c1b-journals-rules-banks.md.
 ```
 
-## B08 continued 1c — The statements, period balances, year close, fixed assets and depreciation
+## B08 continued 1b2 — Bank accounts and the supplier payment's bank account
 
-Branch `b08c1c-statements-assets`. Report `docs/sessions/B08c1c-statements-assets.md`. Gate: the trial balance, profit and loss, balance sheet and cash flow tie to each other on the seeded trading day to the pesewa, each read refusing the wrong role; year close leaves 3200 at zero and 3100 increased by the year's profit, with `fin.YearClosed`'s exact-amount test; a depreciation run spreads the depreciable amount exactly and posts once per period, with `fin.DepreciationRun`'s exact-amount test; every fixed asset write refuses the wrong role; the owner dashboard's cash figure answers from the ledger.
+Branch `b08c1b2-bank-accounts`. Report `docs/sessions/B08c1b2-bank-accounts.md`. Gate: every bank account operation (listBankAccounts, createBankAccount, updateBankAccount) refuses the wrong role; a bank account's number is stored encrypted and shown only as its last four digits, and adding one needs step-up; a supplier payment naming a bank account posts to that account's own subledger party, and one naming none still posts as A-185 says.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
@@ -1240,8 +1241,37 @@ List docs/sessions/ and read only the most recent report (docs/sessions/B08c1b-j
 Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
 reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the FIN requirement block of docs/SRS.md (nothing else from the SRS), docs/data-model/fin.md,
+docs/data-model/pur.md (supplier_payment), the FIN and PUR cards in docs/MODULE_BOUNDARIES.md, ADR-0003, ADR-0017,
+ADR-0022 and ADR-0056, and the accountant's answers on A-182 to A-192 in docs/ASSUMPTIONS.md (if still open, proceed on
+them). Use docs/prompts/module-build-prompt.md as the recipe.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B08 continued 1b2 only, on branch b08c1b2-bank-accounts from main, building on what is merged (do not
+rewrite it): FIN's bank account operations in contract/openapi.yaml (listBankAccounts, createBankAccount with step-up,
+updateBankAccount), each test-first with its wrong-role refusal, on `fin.bank_account` with the number encrypted
+(ADR-0022: decide first, by ADR or assumption, which key seals a number that belongs to no data subject) and shown only
+as its last four digits; the account's GL account (1100 for a bank, 1110 for a wallet) and its own BANK_ACCOUNT subledger
+party. Add, by an expand migration, pur.supplier_payment.bank_account_id with its foreign key (docs/DATA_MODEL.md,
+Migrations; remittance_document_id waits for doc.archived_document in B08 continued 2, A-192), lift PUR's
+BANK_ACCOUNT_NOT_AVAILABLE (a bank account of the payment's method, active; optional, so no client breaks) and carry the
+bank account on pur.SupplierPaymentMade so FIN posts it to its own subledger party (A-185), with its exact-amount test.
+If the phase does not fit, follow "If a session cannot finish".
+Stop at the gate and write docs/sessions/B08c1b2-bank-accounts.md.
+```
+
+## B08 continued 1c — The statements, period balances, year close, fixed assets and depreciation
+
+Branch `b08c1c-statements-assets`. Report `docs/sessions/B08c1c-statements-assets.md`. Gate: the trial balance, profit and loss, balance sheet and cash flow tie to each other on the seeded trading day to the pesewa, each read refusing the wrong role; year close leaves 3200 at zero and 3100 increased by the year's profit, with `fin.YearClosed`'s exact-amount test; a depreciation run spreads the depreciable amount exactly and posts once per period, with `fin.DepreciationRun`'s exact-amount test; every fixed asset write refuses the wrong role; the owner dashboard's cash figure answers from the ledger.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B08c1b2-bank-accounts.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the FIN requirement block of docs/SRS.md (nothing else from the SRS), docs/data-model/fin.md,
 the FIN card in docs/MODULE_BOUNDARIES.md, ADR-0001, ADR-0003, ADR-0005 and ADR-0056, and the accountant's answers on
-A-024 to A-029 and A-182 to A-189 in docs/ASSUMPTIONS.md (if still open, proceed on them).
+A-024 to A-029 and A-182 to A-192 in docs/ASSUMPTIONS.md (if still open, proceed on them).
 Use docs/prompts/module-build-prompt.md as the recipe.
 Do not read any other document unless this phase needs it.
 

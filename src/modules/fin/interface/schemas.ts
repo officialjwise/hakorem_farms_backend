@@ -40,3 +40,70 @@ export const ReasonRequest = z.strictObject({
     .max(500)
     .refine((reason) => reason.trim().length > 0, { message: 'a reason is required' }),
 });
+
+const CalendarDate = z.iso.date();
+const Side = z.enum(['D', 'C']);
+const Uuid = z.uuid();
+const Pesewas = z.number().int().min(1).max(Number.MAX_SAFE_INTEGER);
+const Text300 = z
+  .string()
+  .max(300)
+  .refine((text) => text.trim().length > 0, { message: 'a description is required' });
+const DeterminantType = z.enum(['GL_GROUP', 'PAYMENT_METHOD_KIND', 'TAX_LEVY', 'LOSS_GROUP', 'EXPENSE_CATEGORY', 'ASSET_CATEGORY']);
+const Role = z.enum(['INVENTORY', 'SALES', 'COST_OF_SALES', 'TENDER', 'PAYOUT', 'OUTPUT', 'INPUT', 'LOSS', 'EXPENSE']);
+const EventCode = z.string().regex(/^[a-z]{3}\.[A-Z][A-Za-z]+$/);
+
+export const EntryPageQuery = z.object({
+  from: CalendarDate.optional(),
+  to: CalendarDate.optional(),
+  accountId: Uuid.optional(),
+  sourceDocumentId: Uuid.optional(),
+  postingGroupId: Uuid.optional(),
+  eventCode: EventCode.optional(),
+  kind: z.enum(['AUTO', 'MANUAL', 'OPENING', 'CLOSING', 'REVERSAL']).optional(),
+  cursor: Cursor,
+  limit: Limit,
+});
+
+export const ActivityQuery = z
+  .object({ from: CalendarDate, to: CalendarDate, subledgerPartyId: Uuid.optional(), branchId: Uuid.optional(), cursor: Cursor, limit: Limit })
+  .refine((q) => q.from <= q.to, { message: 'from must not be after to', path: ['to'] });
+
+export const ManualJournalPageQuery = z.object({
+  status: z.enum(['DRAFT', 'PENDING_APPROVAL', 'POSTED', 'REJECTED']).optional(),
+  kind: z.enum(['MANUAL', 'OPENING']).optional(),
+  cursor: Cursor,
+  limit: Limit,
+});
+
+const ManualJournalLineInput = z.strictObject({ accountId: Uuid, side: Side, amountPesewas: Pesewas, subledgerPartyId: Uuid.optional(), memo: z.string().max(300).optional() });
+const ManualLines = z.array(ManualJournalLineInput).min(2).max(200);
+
+export const ManualJournalCreate = z.strictObject({ kind: z.enum(['MANUAL', 'OPENING']), postingDate: CalendarDate, description: Text300, lines: ManualLines });
+
+export const ManualJournalUpdate = z.strictObject({ version: z.number().int().min(1), postingDate: CalendarDate.optional(), description: Text300.optional(), lines: ManualLines.optional() });
+
+export const RulePageQuery = z.object({ eventCode: EventCode.optional(), at: CalendarDate.optional(), cursor: Cursor, limit: Limit });
+
+export const DeterminationPageQuery = z.object({ determinantType: DeterminantType.optional(), cursor: Cursor, limit: Limit });
+
+export const EventTypePageQuery = z.object({ cursor: Cursor, limit: Limit });
+
+export const PostingRuleCreate = z.strictObject({
+  eventCode: EventCode,
+  amountKey: z.string().regex(/^[a-z][A-Za-z]{0,39}$/),
+  side: Side,
+  accountId: Uuid.optional(),
+  determinantType: DeterminantType.optional(),
+  determinantRole: Role.optional(),
+  subledgerFrom: z.string().min(1).max(60).optional(),
+  validFrom: CalendarDate,
+});
+
+export const AccountDeterminationCreate = z.strictObject({
+  determinantType: DeterminantType,
+  determinantKey: z.string().regex(/^(\*|[A-Z][A-Z0-9_]{0,59})$/),
+  role: Role,
+  accountId: Uuid,
+  validFrom: CalendarDate,
+});

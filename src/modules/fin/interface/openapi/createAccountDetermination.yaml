@@ -1,0 +1,88 @@
+operationId: createAccountDetermination
+tags:
+  - fin
+summary: "Map a product group, method or levy to an account"
+description: "For example, to post one levy to its own account the accountant adds a TAX_LEVY row. No billing or ledger code changes (ADR-0020). Asks to map one key of a determinant and role to an account from `validFrom` (today or later): a key with no row of its own gets one, a key with a row in force has it replaced. The account must be postable and of the subledger kind of the rows of that determinant and role in force. Always answers 202 of kind `POSTING_RULE_CHANGE`, applied as `createPostingRule` describes (A-191); refusals are 422 `POSTING_RULE_INVALID`.\n\nPermission: `fin.posting_rule.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session.\n\nMay require approval of kind `POSTING_RULE_CHANGE`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+x-permission: fin.posting_rule.manage
+x-requires-step-up: true
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - STEP_UP_REQUIRED
+  - TOTP_ENROLMENT_REQUIRED
+  - POSTING_RULE_INVALID
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/AccountDeterminationCreate"
+      example:
+        determinantType: TAX_LEVY
+        determinantKey: NHIL
+        role: OUTPUT
+        accountId: "019a7adb-6075-7c86-b1be-d139aa684a17"
+        validFrom: "2027-01-01"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/AccountDetermination"
+        example:
+          id: "019a7ada-68fd-7d6a-b2a3-df7ddce0585b"
+          determinantType: GL_GROUP
+          determinantKey: MEAT
+          role: SALES
+          account:
+            id: "019a7ad0-9f5e-7c71-a1aa-cff05bdf48ce"
+            code: "4010"
+            name: "Sales, meat"
+          validFrom: "2026-11-01"
+          validTo: null
+  "202":
+    description: "Accepted for approval. Nothing has taken effect yet."
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ApprovalPending"
+        example:
+          status: PENDING_APPROVAL
+          approvalRequestId: "019a7ada-2b1f-79a3-9edc-a30ee97e1bec"
+          kind: POSTING_RULE_CHANGE
+          subject:
+            id: "019a7ada-4a0e-7387-a8bf-4146632fba24"
+            docType: STOCK_ADJUSTMENT
+            number: null
+          summary: "Awaiting approval by a different user with the approving permission"
+          requestedAt: "2026-11-13T10:12:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -20,10 +20,18 @@ import { PERIOD_REOPEN, Periods } from './application/periods';
 import { LedgerPostings } from './application/postings';
 import { LedgerReconciliation, SubledgerSources } from './application/reconciliation';
 import { FinancialStatements } from './application/statements';
+import { JOURNAL_STORE, type JournalStore } from './application/journal-store';
+import { Journals } from './application/journals';
+import { MANUAL_JOURNAL, MANUAL_JOURNAL_APPROVED, ManualJournals } from './application/manual-journals';
+import { POSTING_RULE_CHANGE, PostingRules } from './application/posting-rules';
 import { PgChartStore } from './infrastructure/pg-chart-store';
+import { PgJournalStore } from './infrastructure/pg-journal-store';
 import { PgLedgerStore } from './infrastructure/pg-ledger-store';
 import { AccountsController } from './interface/accounts.controller';
+import { JournalsController } from './interface/journals.controller';
+import { ManualJournalsController } from './interface/manual-journals.controller';
 import { PeriodsController } from './interface/periods.controller';
+import { PostingRulesController } from './interface/posting-rules.controller';
 
 /**
  * FIN (layer 4): the general ledger. B8 builds its core: the chart of accounts, posting rules and account determination
@@ -31,14 +39,59 @@ import { PeriodsController } from './interface/periods.controller';
  * posting handler for every event in `fin.posting_event_type` with the boot assertion (ADR-0003), the nightly
  * reconciliation against the subledgers higher modules register, and the trial balance. No module calls FIN to post.
  * B08 continued adds its interface, first the chart of accounts and the accounting periods with lock, close and the
- * reopen under approval (PERIOD_REOPEN).
+ * reopen under approval (PERIOD_REOPEN); B08 continued 1b journals read only, manual journals (MANUAL_JOURNAL, posted
+ * from FIN's own ◆ event `fin.ManualJournalApproved`) and posting rule and determination changes (POSTING_RULE_CHANGE).
  */
 @Module({
   imports: [IamModule, MdmModule],
-  controllers: [AccountsController, PeriodsController],
+  controllers: [AccountsController, PeriodsController, JournalsController, ManualJournalsController, PostingRulesController],
   providers: [
     { provide: LEDGER_STORE, useClass: PgLedgerStore },
     { provide: CHART_STORE, useClass: PgChartStore },
+    { provide: JOURNAL_STORE, useClass: PgJournalStore },
+    {
+      provide: Journals,
+      useFactory: (uow: UnitOfWork, store: JournalStore, authoriser: Authoriser, documents: DocumentRegistry, names: PrincipalNames, cursors: Cursors) =>
+        new Journals(uow, store, authoriser, documents, names, cursors),
+      inject: [UnitOfWork, JOURNAL_STORE, Authoriser, DocumentRegistry, PRINCIPAL_NAMES, Cursors],
+    },
+    {
+      provide: ManualJournals,
+      useFactory: (
+        uow: UnitOfWork,
+        store: JournalStore,
+        ledgerStore: LedgerStore,
+        authoriser: Authoriser,
+        approvals: Approvals,
+        idempotency: Idempotency,
+        audit: AuditTrail,
+        documents: DocumentRegistry,
+        events: DomainEvents,
+        refs: MasterDataRefs,
+        names: PrincipalNames,
+        cursors: Cursors,
+        clock: Clock,
+      ) => new ManualJournals(uow, store, ledgerStore, authoriser, approvals, idempotency, audit, documents, events, refs, names, cursors, clock),
+      inject: [UnitOfWork, JOURNAL_STORE, LEDGER_STORE, Authoriser, Approvals, Idempotency, AuditTrail, DocumentRegistry, DomainEvents, MasterDataRefs, PRINCIPAL_NAMES, Cursors, CLOCK],
+    },
+    {
+      provide: PostingRules,
+      useFactory: (
+        uow: UnitOfWork,
+        store: JournalStore,
+        ledgerStore: LedgerStore,
+        authoriser: Authoriser,
+        approvals: Approvals,
+        idempotency: Idempotency,
+        audit: AuditTrail,
+        documents: DocumentRegistry,
+        refs: MasterDataRefs,
+        cursors: Cursors,
+        clock: Clock,
+        postings: LedgerPostings,
+      ) => new PostingRules(uow, store, ledgerStore, authoriser, approvals, idempotency, audit, documents, refs, cursors, clock, () => postings.handledTypes()),
+      inject: [UnitOfWork, JOURNAL_STORE, LEDGER_STORE, Authoriser, Approvals, Idempotency, AuditTrail, DocumentRegistry, MasterDataRefs, Cursors, CLOCK, LedgerPostings],
+    },
     {
       provide: ChartOfAccounts,
       useFactory: (uow: UnitOfWork, store: ChartStore, authoriser: Authoriser, idempotency: Idempotency, audit: AuditTrail, cursors: Cursors, clock: Clock) =>
@@ -91,12 +144,17 @@ export class FinModule implements OnModuleInit, OnApplicationBootstrap {
     @Inject(LOGGER) private readonly logger: Logger,
     @Inject(Approvals) private readonly approvals: Approvals,
     @Inject(Periods) private readonly periods: Periods,
+    @Inject(ManualJournals) private readonly manualJournals: ManualJournals,
+    @Inject(PostingRules) private readonly postingRules: PostingRules,
   ) {}
 
   /** Subscribes the posting handlers inside every publisher's transaction (ADR-0003), and FIN's approval kinds. */
   onModuleInit(): void {
+    this.events.declareLedgerEvents([MANUAL_JOURNAL_APPROVED]);
     this.postings.registerIn(this.events);
     this.approvals.registerHandler(PERIOD_REOPEN, this.periods);
+    this.approvals.registerHandler(MANUAL_JOURNAL, this.manualJournals);
+    this.approvals.registerHandler(POSTING_RULE_CHANGE, this.postingRules);
   }
 
   /**

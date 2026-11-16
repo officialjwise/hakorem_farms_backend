@@ -1,6 +1,8 @@
-import { BusinessRuleError } from '../../../platform/errors/api-error';
+import { ApiError, BusinessRuleError } from '../../../platform/errors/api-error';
 import { registerMessages, translate } from '../../../platform/i18n/messages';
 import type { AccountRule } from '../domain/accounts';
+import type { ManualJournalRule } from '../domain/manual-journal';
+import type { ChangeRule } from '../domain/rule-change';
 import type { PostingRefusal } from '../domain/posting';
 
 /** FIN's user-facing messages (docs/API.md section 10). Registered when the module loads. */
@@ -12,7 +14,65 @@ registerMessages({
   'fin.duplicate_value': 'Another account already uses this code.',
   'fin.reference_not_found': 'Something this request refers to does not exist.',
   'fin.period_state': 'The accounting period is not in a state that allows this.',
+  'fin.manual_journal_invalid': 'This manual journal cannot be recorded like this.',
+  'fin.manual_journal_state': 'The manual journal is not in a state that allows this.',
+  'fin.journal_unbalanced': 'The debits of this journal do not equal its credits.',
+  'fin.opening_already_posted': 'The opening balance journal has already been entered.',
+  'fin.posting_rule_invalid': 'This posting rule or account mapping cannot be changed like this.',
+  'fin.not_maker': 'Only the person who drafted this journal can change or submit it.',
 });
+
+/** 422 MANUAL_JOURNAL_INVALID: a manual journal breaks a rule; `details[].code` names each (FR-FIN-004, FR-FIN-008, A-190). */
+export class ManualJournalInvalidError extends BusinessRuleError {
+  readonly code = 'MANUAL_JOURNAL_INVALID';
+  readonly messageKey = 'fin.manual_journal_invalid';
+  constructor(rules: readonly ManualJournalRule[]) {
+    super(`manual journal breaks ${rules.map((r) => r.rule).join(', ')}`, rules.map((r) => ({ field: r.field, code: r.rule, message: translate('fin.manual_journal_invalid') })));
+  }
+}
+
+/** 422 INVALID_STATE_TRANSITION: a manual journal or a rule change is no longer in the state the action needs. */
+export class FinStateError extends BusinessRuleError {
+  readonly code = 'INVALID_STATE_TRANSITION';
+  readonly messageKey = 'error.invalid_state_transition';
+  constructor(what: string, status: string) {
+    super(`${what} is ${status}`, [{ field: null, code: status, message: translate('fin.manual_journal_state') }]);
+  }
+}
+
+/** 422 JOURNAL_UNBALANCED: a manual journal's debits differ from its credits, so it is not submitted (FR-FIN-003). */
+export class JournalUnbalancedError extends BusinessRuleError {
+  readonly code = 'JOURNAL_UNBALANCED';
+  readonly messageKey = 'fin.journal_unbalanced';
+  constructor(debit: bigint, credit: bigint) {
+    super(`debits ${debit} differ from credits ${credit}`, [{ field: '/lines', code: 'UNBALANCED', message: translate('fin.journal_unbalanced') }]);
+  }
+}
+
+/** 422 OPENING_ALREADY_POSTED: one opening balance journal only, pending or posted (A-005, A-190). */
+export class OpeningAlreadyPostedError extends BusinessRuleError {
+  readonly code = 'OPENING_ALREADY_POSTED';
+  readonly messageKey = 'fin.opening_already_posted';
+  constructor() {
+    super('an opening balance journal is already pending or posted', [{ field: '/kind', code: 'OPENING_ALREADY_POSTED', message: translate('fin.opening_already_posted') }]);
+  }
+}
+
+/** 422 POSTING_RULE_INVALID: a posting rule or determination change breaks a rule; `details[].code` names it (A-191). */
+export class PostingRuleInvalidError extends BusinessRuleError {
+  readonly code = 'POSTING_RULE_INVALID';
+  readonly messageKey = 'fin.posting_rule_invalid';
+  constructor(rules: readonly (ChangeRule | { readonly field: string; readonly rule: 'CHANGE_PENDING' })[]) {
+    super(`posting rule change breaks ${rules.map((r) => r.rule).join(', ')}`, rules.map((r) => ({ field: r.field, code: r.rule, message: translate('fin.posting_rule_invalid') })));
+  }
+}
+
+/** 403 FORBIDDEN: only the person who drafted a manual journal changes or submits it, so the maker is one person (ADR-0017). */
+export class NotMakerError extends ApiError {
+  readonly status = 403;
+  readonly code = 'FORBIDDEN';
+  readonly messageKey = 'fin.not_maker';
+}
 
 /** 422 ACCOUNT_INVALID: an account breaks a chart rule; `details[].code` names each (FR-FIN-002). */
 export class AccountInvalidError extends BusinessRuleError {

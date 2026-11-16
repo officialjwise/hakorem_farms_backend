@@ -61,8 +61,8 @@ async function postRaw(debitCode: string, creditCode: string, amount: number): P
     await client.query("INSERT INTO platform.business_document (id, doc_type, owner_module, branch_id, actor_id) VALUES ($1, 'JOURNAL', 'fin', $2, $3)", [id, branchId, SYSTEM_PRINCIPAL]);
     const { rows } = await client.query<{ id: string; day: string }>("SELECT id, (now() AT TIME ZONE 'Africa/Accra')::date::text AS day FROM fin.accounting_period WHERE (now() AT TIME ZONE 'Africa/Accra')::date BETWEEN start_date AND end_date");
     await client.query(
-      `INSERT INTO fin.journal_entry (id, entry_no, posting_date, period_id, branch_id, kind, source_document_id, posting_group_id, description, occurred_at, actor_id)
-       VALUES ($1, $2, $3, $4, $5, 'MANUAL', $1, $6, 'Test balance', now(), $7)`,
+      `INSERT INTO fin.journal_entry (id, entry_no, posting_date, period_id, branch_id, kind, event_code, event_id, source_document_id, posting_group_id, description, occurred_at, actor_id)
+       VALUES ($1, $2, $3, $4, $5, 'MANUAL', 'fin.ManualJournalApproved', gen_random_uuid(), $1, $6, 'Test balance', now(), $7)`,
       [id, `RAW-${id.slice(0, 8)}`, rows[0]!.day, rows[0]!.id, branchId, randomUUID(), SYSTEM_PRINCIPAL],
     );
     for (const [lineNo, code, side] of [

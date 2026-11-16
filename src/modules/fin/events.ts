@@ -14,3 +14,24 @@ export interface TrialBalanceDriftDetected {
   readonly unmapped: readonly { readonly source: string; readonly key: string; readonly pesewas: number }[];
   readonly seriesGaps: readonly { readonly seriesId: string; readonly docType: string; readonly fiscalYear: number; readonly issued: number; readonly allocations: number; readonly maxValue: number }[];
 }
+
+/**
+ * `fin.ManualJournalApproved` v1 ◆ (FR-FIN-008, ADR-0003 "As entered", A-190): a different person approved a manual
+ * journal. The ledger posts it in the approval's transaction, each line to the account entered for it, on its own date.
+ */
+export interface ManualJournalApproved {
+  readonly manualJournalId: string;
+  readonly kind: 'MANUAL' | 'OPENING';
+  readonly postingDate: string;
+  readonly description: string;
+  readonly approvalRequestId: string;
+  readonly requestedBy: string;
+  readonly lines: readonly {
+    readonly lineNo: number;
+    readonly accountId: string;
+    readonly side: 'D' | 'C';
+    readonly amountPesewas: number;
+    readonly subledgerPartyId: string | null;
+    readonly memo: string | null;
+  }[];
+}

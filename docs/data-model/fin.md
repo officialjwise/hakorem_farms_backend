@@ -2,7 +2,7 @@
 
 Owner: FIN module. Chart of accounts, journal, posting rules, periods, fixed assets (ADR-0003). Conventions are in `docs/DATA_MODEL.md`.
 
-Built in B8 (migration 0123, ADR-0056): `account`, `subledger_party`, `accounting_period`, `posting_event_type`, `posting_rule`, `account_determination`, `journal_entry`, `journal_line`. A trigger refusal is SQLSTATE HK012 with the rule as its constraint name (`ck_journal_lines`, `ck_journal_balanced`, `ck_journal_period`, `ck_journal_period_open`, `ck_journal_line_entry`, `ck_journal_line_account`, `ck_journal_line_subledger`, `ck_account_change`, `ck_period_change`). B08 continued (A-188, A-189) adds `written_xact_id` on `journal_entry` (migration 0124: an entry written inside a savepoint keeps its own lines), the period lifecycle and close order on `accounting_period` and the table `period_reopen` (0126). `bank_account`, `manual_journal` and `manual_journal_line` follow in B08 continued 1b; `period_balance`, `fixed_asset`, `depreciation_run` and `depreciation_line` in B08 continued 1c.
+Built in B8 (migration 0123, ADR-0056): `account`, `subledger_party`, `accounting_period`, `posting_event_type`, `posting_rule`, `account_determination`, `journal_entry`, `journal_line`. A trigger refusal is SQLSTATE HK012 with the rule as its constraint name (`ck_journal_lines`, `ck_journal_balanced`, `ck_journal_period`, `ck_journal_period_open`, `ck_journal_line_entry`, `ck_journal_line_account`, `ck_journal_line_subledger`, `ck_account_change`, `ck_period_change`). B08 continued (A-188, A-189) adds `written_xact_id` on `journal_entry` (migration 0124: an entry written inside a savepoint keeps its own lines), the period lifecycle and close order on `accounting_period` and the table `period_reopen` (0126). B08 continued 1b (migration 0130, A-190, A-191) adds `manual_journal`, `manual_journal_line` and `posting_rule_change`, the `ENTERED` determinant on `posting_rule`, `approval_request_id` on `account_determination` and `ck_journal_entry_manual` on `journal_entry`. `bank_account` follows in B08 continued 1b2 (A-192); `period_balance`, `fixed_asset`, `depreciation_run` and `depreciation_line` in B08 continued 1c.
 
 ## Triggers
 
@@ -13,6 +13,8 @@ Built in B8 (migration 0123, ADR-0056): `account`, `subledger_party`, `accountin
 | `fin.record_written_xact()` on insert of `fin.journal_entry` | Sets `written_xact_id` to the top-level transaction (`pg_current_xact_id()`), whatever the writer supplies (migration 0124) |
 | `fin.assert_line_valid()` on insert of `fin.journal_line` | The account is postable; `subledger_party_id` is present exactly when the account has a `subledger_kind`, and the party is of that kind; the line is written in the top-level transaction that wrote its entry (compared on `written_xact_id`, so an entry written inside a savepoint keeps its own lines; migration 0124) and carries the entry's posting date |
 | `fin.account_guard()` on update of `fin.account` | An account with lines keeps its code, type, normal side and subledger kind and is never archived |
+| `fin.manual_journal_line_guard()` on insert of `fin.manual_journal_line` | A line is written only while its journal is a `DRAFT`, under the journal's current `revision` (`ck_manual_journal_line_draft`, 0130) |
+| `fin.manual_journal_posted_guard()` on update of `fin.manual_journal` | A journal becomes `POSTED` only with the entry posted for it: its own source document, its kind and posting date, and the lines of its current revision exactly, in order, by account, side, amount and party (`ck_manual_journal_entry`, 0130) |
 | `fin.accounting_period_guard()` on update of `fin.accounting_period` | A `CLOSED` period never changes; no period changes its dates (`ck_period_change`). From 0126: a status moves only `FUTURE` to `OPEN`, `OPEN` to `LOCKED`, `LOCKED` to `OPEN` or `CLOSED`, a locked or closed period names who locked it and an open one nobody (`ck_period_transition`), and a period becomes `CLOSED` only once every earlier period is (`ck_period_close_order`) |
 
 ---
@@ -127,11 +129,11 @@ How one named amount of one event becomes a journal line. Effective-dated; a cha
 | `amount_key` | `text` | NOT NULL | Which amount of the event |
 | `side` | `char(1)` | NOT NULL, CHECK in (`D`, `C`) | |
 | `account_id` | `uuid` | NULL, FK `fin.account` | A fixed account |
-| `determinant_type` | `text` | NULL | Or: look the account up in `fin.account_determination` by this determinant |
+| `determinant_type` | `text` | NULL, CHECK in the determination types or `ENTERED` | Or: look the account up in `fin.account_determination` by this determinant; `ENTERED` takes the account each amount names, and only `fin.ManualJournalApproved` posts so (`ck_posting_rule_entered`, 0130, A-190) |
 | `determinant_role` | `text` | NULL | Which role of the determinant, for example `INVENTORY`, `SALES`, `COST_OF_SALES` |
 | `subledger_from` | `text` | NULL | Which field of the event names the subledger party |
 | `valid_from` | `date` | NOT NULL | |
-| `valid_to` | `date` | NULL | |
+| `valid_to` | `date` | NULL | Exclusive: the rule is in force on `[valid_from, valid_to)`. A change end-dates the rule it replaces (A-191) |
 | `approval_request_id` | `uuid` | NULL, FK `iam.approval_request` | Maker-checker. NULL only for a rule seeded by migration, created by the System principal (`ck_posting_rule_approved`, A-182) |
 
 Standard columns: `MASTER`.
@@ -152,6 +154,7 @@ Maps a determinant value to an account.
 | `account_id` | `uuid` | NOT NULL, FK `fin.account` | |
 | `valid_from` | `date` | NOT NULL | |
 | `valid_to` | `date` | NULL | |
+| `approval_request_id` | `uuid` | NULL, FK `iam.approval_request` | Maker-checker. NULL only for a row seeded by the System principal (`ck_account_determination_approved`, 0130, A-191) |
 
 Standard columns: `MASTER`.
 
@@ -183,7 +186,8 @@ Header of a posted journal. Insert-only.
 
 Standard columns: `LEDGER`.
 
-- Indexes: (`period_id`, `posting_date`); (`source_document_id`); (`posting_group_id`).
+- Indexes: (`period_id`, `posting_date`); (`source_document_id`); (`posting_group_id`); (`posting_date`, `id`) for the journal search (0130).
+- CHECK `ck_journal_entry_manual` (0130): a `MANUAL` or `OPENING` entry has `event_code` `fin.ManualJournalApproved` and an `event_id`, so it is only ever posted from an approved manual journal (A-190).
 
 ### `fin.journal_line` · LEDGER
 
@@ -210,35 +214,64 @@ A debit or credit line of a journal. Insert-only.
 
 ### `fin.manual_journal` · DOCUMENT
 
-A journal entered by a person. Posted statuses: `POSTED`, `REJECTED`.
+A journal entered by a person (FR-FIN-008, A-190), held at the head office branch. It posts nothing until a different person approves its `MANUAL_JOURNAL` request; the approval publishes `fin.ManualJournalApproved` and the ledger posts it as one entry of its kind. Posted statuses: `POSTED`, `REJECTED`. Built in B08 continued 1b (0130).
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
-| `id` | `uuid` | PK, FK `platform.business_document` | |
-| `posting_date` | `date` | NOT NULL | |
-| `description` | `text` | NOT NULL | |
-| `kind` | `text` | NOT NULL, CHECK in (`MANUAL`, `OPENING`) | The opening balance journal is entered this way |
-| `approval_request_id` | `uuid` | NULL, FK `iam.approval_request`; required to post | Maker-checker |
-| `journal_entry_id` | `uuid` | NULL, FK `fin.journal_entry` | Set when posted |
+| `id` | `uuid` | PK, FK `platform.business_document` (doc type `MANUAL_JOURNAL`) | The approval's subject and the entry's source document |
+| `kind` | `text` | NOT NULL, CHECK in (`MANUAL`, `OPENING`) | The opening balance journal is entered this way (A-005) |
+| `posting_date` | `date` | NOT NULL | Posted on this date or not at all |
+| `description` | `text` | NOT NULL, 1 to 300 characters | Becomes the entry's description |
+| `branch_id` | `uuid` | NOT NULL, FK `mdm.branch` | The head office, where the approval policy is read |
+| `status` | `text` | NOT NULL, CHECK in (`DRAFT`, `PENDING_APPROVAL`, `POSTED`, `REJECTED`) | |
+| `revision` | `integer` | NOT NULL DEFAULT 1, CHECK `> 0` | The set of lines in force; a change to the lines writes the next revision |
+| `approval_request_id` | `uuid` | NULL, FK `iam.approval_request`; set exactly when no longer a draft | Maker-checker |
+| `journal_entry_id` | `uuid` | NULL, UNIQUE, FK `fin.journal_entry`; set exactly when posted | The entry posted for it |
+| `decided_at`, `decided_by` | `timestamptz`, `uuid` | NULL; set exactly when posted or rejected | |
 
-Standard columns: `DOCUMENT` (`status` in `DRAFT`, `PENDING_APPROVAL`, `POSTED`, `REJECTED`).
+Standard columns: `DOCUMENT` (`version`, `created_*`, `updated_*`). `ck_manual_journal_posted` ties the status to the approval, the entry and the decision. A pending journal changes only in its decision (`platform.freeze_posted('PENDING_APPROVAL', ...)`); a decided one never. UNIQUE (`kind`) WHERE `kind = 'OPENING'` and pending or posted (`uq_manual_journal_opening`): one opening balance journal ever. Index (`status`, `id`).
 
 ### `fin.manual_journal_line` · DOCUMENT
 
-Lines of a manual journal while it is drafted and approved.
+The lines of one revision of a manual journal. Insert only: a line is never updated or deleted (`platform.reject_change()`), and is written only while its journal is a draft, under its current revision (`ck_manual_journal_line_draft`).
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `id` | `uuid` | PK | |
 | `manual_journal_id` | `uuid` | NOT NULL, FK `fin.manual_journal` | |
-| `line_no` | `integer` | NOT NULL | |
+| `revision` | `integer` | NOT NULL, CHECK `> 0` | |
+| `line_no` | `integer` | NOT NULL, CHECK `> 0` | Becomes the journal line's number |
 | `account_id` | `uuid` | NOT NULL, FK `fin.account` | |
 | `side` | `char(1)` | NOT NULL, CHECK in (`D`, `C`) | |
 | `amount_pesewas` | `pesewas` | NOT NULL, CHECK `> 0` | |
-| `subledger_party_id` | `uuid` | NULL, FK `fin.subledger_party` | |
-| `memo` | `text` | NULL | |
+| `subledger_party_id` | `uuid` | NULL, FK `fin.subledger_party` | Exactly when the account has a subledger (checked by the application, and by the journal line trigger when posted) |
+| `memo` | `text` | NULL, at most 300 characters | |
+| `created_at`, `created_by` | `timestamptz`, `uuid` | NOT NULL | |
 
-- UNIQUE (`manual_journal_id`, `line_no`). Frozen with its header.
+- UNIQUE (`manual_journal_id`, `revision`, `line_no`).
+
+### `fin.posting_rule_change` · DOCUMENT
+
+A change to one posting rule or one account determination, the subject of its `POSTING_RULE_CHANGE` approval (FR-FIN-005, A-191). Built in B08 continued 1b (0130). Posted statuses: `POSTED` (applied), `REJECTED`.
+
+| Column | Type | Constraints | Why |
+| --- | --- | --- | --- |
+| `id` | `uuid` | PK, FK `platform.business_document` (doc type `POSTING_RULE_CHANGE`) | |
+| `branch_id` | `uuid` | NOT NULL, FK `mdm.branch` | The head office |
+| `target` | `text` | NOT NULL, CHECK in (`RULE`, `DETERMINATION`) | |
+| `event_code`, `amount_key`, `side` | `text`, `text`, `char(1)` | Set exactly for a rule | The rule replaced |
+| `account_id` | `uuid` | NULL, FK `fin.account` | A rule's fixed account, or the account a determination maps to |
+| `determinant_type`, `determinant_role` | `text` | NULL, CHECK in the lists | A rule's determinant, or a determination's type and role |
+| `determinant_key` | `text` | Set exactly for a determination | |
+| `subledger_from` | `text` | NULL | A rule's note of which field names the party |
+| `valid_from` | `date` | NOT NULL | Asked for |
+| `status` | `text` | NOT NULL, CHECK in (`PENDING_APPROVAL`, `POSTED`, `REJECTED`) | |
+| `approval_request_id` | `uuid` | NOT NULL, FK `iam.approval_request` | |
+| `effective_from` | `date` | Set exactly when posted, not before `valid_from` | The later of `valid_from` and the approval day |
+| `posting_rule_id`, `account_determination_id` | `uuid` | FK; the one of its target set exactly when posted | What it created |
+| `decided_at`, `decided_by` | `timestamptz`, `uuid` | Set exactly when decided | |
+
+Standard columns: `DOCUMENT`, frozen once decided. `ck_posting_rule_change_shape` and `ck_posting_rule_change_decided` hold the shape. One pending change per rule (`uq_posting_rule_change_rule_pending`) and per determination key and role (`uq_posting_rule_change_determination_pending`).
 
 ### `fin.period_balance` · PROJECTION
 

@@ -1,0 +1,103 @@
+operationId: createManualJournal
+tags:
+  - fin
+summary: "Draft a manual journal"
+description: "FR-FIN-008. Drafts a journal at the head office: nothing posts. Kind MANUAL, or OPENING for the opening balance journal on day one (A-005), which must have a line on 3900 opening balance equity; only one opening balance journal is ever pending or posted (422 `OPENING_ALREADY_POSTED`). Every line names a postable, active account and a positive amount, and a `subledgerPartyId` exactly when the account is a control account, of its kind (FR-FIN-004). The date is today or earlier. Refusals are 422 `MANUAL_JOURNAL_INVALID` with `details[].code` (`TOO_FEW_LINES`, `TOO_MANY_LINES`, `FUTURE_DATE`, `UNKNOWN_ACCOUNT`, `ACCOUNT_NOT_POSTABLE`, `SUBLEDGER_REQUIRED`, `SUBLEDGER_NOT_ALLOWED`, `SUBLEDGER_KIND_DIFFERS`, `UNKNOWN_SUBLEDGER`, `AMOUNT_NOT_POSITIVE`, `OPENING_WITHOUT_3900`). A draft may be unbalanced; `balanced` says so (A-190).\n\nPermission: `fin.journal.create`."
+x-permission: fin.journal.create
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - MANUAL_JOURNAL_INVALID
+  - OPENING_ALREADY_POSTED
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ManualJournalCreate"
+      example:
+        kind: MANUAL
+        postingDate: "2026-11-13"
+        description: "Accrue electricity for the cold room"
+        lines:
+          - accountId: "019a7ad8-1d40-7188-86c1-215fd4bd9a3d"
+            side: D
+            amountPesewas: 65000
+          - accountId: "019a7ad8-3c2f-7b6c-90a4-bf974e6e3875"
+            side: C
+            amountPesewas: 65000
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ManualJournal"
+        example:
+          id: "019a7ad6-aa0c-7adf-8017-b6c620712fa4"
+          status: DRAFT
+          kind: MANUAL
+          postingDate: "2026-11-13"
+          description: "Accrue electricity for the cold room"
+          debitTotalPesewas: 65000
+          creditTotalPesewas: 65000
+          balanced: true
+          currency: GHS
+          approvalRequestId: null
+          journalEntryId: null
+          lines:
+            - id: "019a7ad6-c8fb-74c2-99fb-54fd9a22cddb"
+              lineNo: 1
+              account:
+                id: "019a7ad4-f8fa-706e-a5a7-0fbd78c3889b"
+                code: "6000"
+                name: Wages
+              side: D
+              amountPesewas: 65000
+              subledger: null
+              memo: null
+            - id: "019a7ad6-e7ea-7ea6-a3de-f33513d36c12"
+              lineNo: 2
+              account:
+                id: "019a7ad5-36d8-7435-896d-4c2c6c25c50a"
+                code: "1010"
+                name: "Cash, safe"
+              side: C
+              amountPesewas: 65000
+              subledger: null
+              memo: null
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 2
+          createdAt: "2026-11-10T09:03:00Z"
+          createdBy:
+            id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+            displayName: "Efua Asante"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

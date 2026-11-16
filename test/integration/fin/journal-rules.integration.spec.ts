@@ -71,8 +71,8 @@ async function postRaw(lines: readonly RawLine[], options: RawOptions = {}): Pro
     await client.query("INSERT INTO platform.business_document (id, doc_type, owner_module, branch_id, actor_id) VALUES ($1, 'JOURNAL', 'fin', $2, $3)", [id, branchId, SYSTEM_PRINCIPAL]);
     if (options.savepoint === 'entry-and-lines' || options.savepoint === 'entry') await client.query('SAVEPOINT around_entry');
     await client.query(
-      `INSERT INTO fin.journal_entry (id, entry_no, posting_date, period_id, branch_id, kind, source_document_id, posting_group_id, description, occurred_at, actor_id)
-       VALUES ($1, $2, $3, $4, $5, 'MANUAL', $1, $6, 'Raw SQL test entry', now(), $7)`,
+      `INSERT INTO fin.journal_entry (id, entry_no, posting_date, period_id, branch_id, kind, event_code, event_id, source_document_id, posting_group_id, description, occurred_at, actor_id)
+       VALUES ($1, $2, $3, $4, $5, 'MANUAL', 'fin.ManualJournalApproved', gen_random_uuid(), $1, $6, 'Raw SQL test entry', now(), $7)`,
       [id, `RAW-${entryCounter}-${id.slice(0, 8)}`, date, options.periodId ?? period(year, month), branchId, randomUUID(), SYSTEM_PRINCIPAL],
     );
     if (options.savepoint === 'entry') await client.query('RELEASE SAVEPOINT around_entry');
@@ -280,8 +280,8 @@ describe('an entry written inside a savepoint keeps its own lines (migration 012
       await client.query('BEGIN');
       await client.query("INSERT INTO platform.business_document (id, doc_type, owner_module, branch_id, actor_id) VALUES ($1, 'JOURNAL', 'fin', $2, $3)", [forged, branchId, SYSTEM_PRINCIPAL]);
       await client.query(
-        `INSERT INTO fin.journal_entry (id, entry_no, posting_date, period_id, branch_id, kind, source_document_id, posting_group_id, description, occurred_at, actor_id, written_xact_id)
-         VALUES ($1, $2, '2026-11-16', $3, $4, 'MANUAL', $1, $5, 'Forged transaction id', now(), $6, '1'::xid8)`,
+        `INSERT INTO fin.journal_entry (id, entry_no, posting_date, period_id, branch_id, kind, event_code, event_id, source_document_id, posting_group_id, description, occurred_at, actor_id, written_xact_id)
+         VALUES ($1, $2, '2026-11-16', $3, $4, 'MANUAL', 'fin.ManualJournalApproved', gen_random_uuid(), $1, $5, 'Forged transaction id', now(), $6, '1'::xid8)`,
         [forged, `RAW-FORGED-${forged.slice(0, 8)}`, period(2026, 11), branchId, randomUUID(), SYSTEM_PRINCIPAL],
       );
       const { rows: own } = await client.query<{ same: boolean }>('SELECT written_xact_id = pg_current_xact_id() AS same FROM fin.journal_entry WHERE id = $1', [forged]);
@@ -337,8 +337,8 @@ describe('SET CONSTRAINTS ALL IMMEDIATE only makes the balance check earlier (FR
       await client.query('BEGIN');
       await client.query("INSERT INTO platform.business_document (id, doc_type, owner_module, branch_id, actor_id) VALUES ($1, 'JOURNAL', 'fin', $2, $3)", [id, branchId, SYSTEM_PRINCIPAL]);
       await client.query(
-        `INSERT INTO fin.journal_entry (id, entry_no, posting_date, period_id, branch_id, kind, source_document_id, posting_group_id, description, occurred_at, actor_id)
-         VALUES ($1, $2, '2026-11-16', $3, $4, 'MANUAL', $1, $5, 'Checked early, then extended', now(), $6)`,
+        `INSERT INTO fin.journal_entry (id, entry_no, posting_date, period_id, branch_id, kind, event_code, event_id, source_document_id, posting_group_id, description, occurred_at, actor_id)
+         VALUES ($1, $2, '2026-11-16', $3, $4, 'MANUAL', 'fin.ManualJournalApproved', gen_random_uuid(), $1, $5, 'Checked early, then extended', now(), $6)`,
         [id, `RAW-IMMEDIATE-${id.slice(0, 8)}`, period(2026, 11), branchId, randomUUID(), SYSTEM_PRINCIPAL],
       );
       for (const [lineNo, code, side] of [

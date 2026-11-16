@@ -6,6 +6,17 @@ export type Side = 'D' | 'C';
 
 export type DeterminantType = 'GL_GROUP' | 'PAYMENT_METHOD_KIND' | 'TAX_LEVY' | 'LOSS_GROUP' | 'EXPENSE_CATEGORY' | 'ASSET_CATEGORY';
 
+/**
+ * A rule's determinant: one of `fin.account_determination`'s types, or `ENTERED`, the account the amount itself names.
+ * Only `fin.ManualJournalApproved` posts as entered (ADR-0003's "As entered", A-190): a person chose each account, and
+ * the approval checked it; every other event's accounts come from the rules and determinations.
+ */
+export type RuleDeterminant = DeterminantType | 'ENTERED';
+
+/** The determinant and role of a rule that posts each amount to the account entered for it. */
+export const ENTERED_DETERMINANT = 'ENTERED';
+export const ENTERED_ROLE = 'AS_ENTERED';
+
 export type SubledgerKind = 'CUSTOMER' | 'SUPPLIER' | 'INVESTOR' | 'TAX_LEVY' | 'REGISTER' | 'DRIVER' | 'BANK_ACCOUNT' | 'PROVIDER';
 
 /** The party a control account line is held against: its kind, its id in the owning module, and a name for statements. */
@@ -26,6 +37,8 @@ export interface PostingAmount {
   readonly subledgers?: readonly SubledgerRef[];
   readonly memo?: string | null;
   readonly costObjectId?: string | null;
+  /** The account a person entered for this amount; read only by a rule whose determinant is `ENTERED`. */
+  readonly enteredAccountId?: string;
 }
 
 /** `fin.posting_rule`: one named amount, one side, to a fixed account or to the account a determinant maps to. */
@@ -33,7 +46,7 @@ export interface PostingRule {
   readonly amountKey: string;
   readonly side: Side;
   readonly accountId: string | null;
-  readonly determinantType: DeterminantType | null;
+  readonly determinantType: RuleDeterminant | null;
   readonly determinantRole: string | null;
 }
 
@@ -74,7 +87,7 @@ export interface JournalLineDraft {
 export type PostingRefusal =
   | { readonly rule: 'UNKNOWN_AMOUNT'; readonly amountKey: string }
   | { readonly rule: 'NO_RULE'; readonly amountKey: string }
-  | { readonly rule: 'NO_ACCOUNT'; readonly amountKey: string; readonly determinantType: DeterminantType; readonly key: string; readonly role: string }
+  | { readonly rule: 'NO_ACCOUNT'; readonly amountKey: string; readonly determinantType: RuleDeterminant; readonly key: string; readonly role: string }
   | { readonly rule: 'ACCOUNT_NOT_POSTABLE'; readonly accountCode: string }
   | { readonly rule: 'SUBLEDGER_MISSING'; readonly accountCode: string; readonly kind: SubledgerKind }
   | { readonly rule: 'UNBALANCED'; readonly debits: bigint; readonly credits: bigint };
@@ -88,6 +101,9 @@ function accountOf(rule: PostingRule, amount: PostingAmount, set: RuleSet): Resu
   }
   const type = rule.determinantType!;
   const role = rule.determinantRole!;
+  if (type === ENTERED_DETERMINANT) {
+    return amount.enteredAccountId === undefined ? err({ rule: 'NO_ACCOUNT', amountKey: amount.key, determinantType: type, key: DEFAULT_DETERMINANT_KEY, role }) : ok(amount.enteredAccountId);
+  }
   const key = amount.determinants?.[type] ?? DEFAULT_DETERMINANT_KEY;
   const candidates = set.determinations.filter((d) => d.type === type && d.role === role);
   const found = candidates.find((d) => d.key === key) ?? candidates.find((d) => d.key === DEFAULT_DETERMINANT_KEY);

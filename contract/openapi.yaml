@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.34.0"
+  version: "1.35.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -38850,8 +38850,14 @@ paths:
       tags:
         - fin
       summary: "Search posted journals"
-      description: "Permission: `fin.journal.read`."
+      description: "Posted journal entries, newest first (posting date, then entry), each with its lines (FR-FIN-004). Journals are never edited: a correction is a REVERSAL entry. `accountId` keeps entries with a line on that account; `kind` is AUTO, MANUAL, OPENING, CLOSING or REVERSAL. A line's `subledger.id` is the party's ledger id, the one a manual journal line names as `subledgerPartyId`.\n\nPermission: `fin.journal.read`."
       x-permission: fin.journal.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - INVALID_CURSOR
+        - RATE_LIMITED
       parameters:
         - name: from
           in: query
@@ -39254,8 +39260,14 @@ paths:
       tags:
         - fin
       summary: "Get a journal entry"
-      description: "Permission: `fin.journal.read`."
+      description: "One posted journal entry with its lines; `totalPesewas` is the sum of its debits, which equals its credits (FR-FIN-003).\n\nPermission: `fin.journal.read`."
       x-permission: fin.journal.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -39342,8 +39354,14 @@ paths:
       tags:
         - fin
       summary: "List manual journals"
-      description: "Permission: `fin.journal.read`."
+      description: "Manual journals, newest first, with their current lines and totals.\n\nPermission: `fin.journal.read`."
       x-permission: fin.journal.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - INVALID_CURSOR
+        - RATE_LIMITED
       parameters:
         - name: status
           in: query
@@ -39627,8 +39645,19 @@ paths:
       tags:
         - fin
       summary: "Draft a manual journal"
-      description: "The opening balance journal on day one is entered here with kind OPENING.\n\nPermission: `fin.journal.create`."
+      description: "FR-FIN-008. Drafts a journal at the head office: nothing posts. Kind MANUAL, or OPENING for the opening balance journal on day one (A-005), which must have a line on 3900 opening balance equity; only one opening balance journal is ever pending or posted (422 `OPENING_ALREADY_POSTED`). Every line names a postable, active account and a positive amount, and a `subledgerPartyId` exactly when the account is a control account, of its kind (FR-FIN-004). The date is today or earlier. Refusals are 422 `MANUAL_JOURNAL_INVALID` with `details[].code` (`TOO_FEW_LINES`, `TOO_MANY_LINES`, `FUTURE_DATE`, `UNKNOWN_ACCOUNT`, `ACCOUNT_NOT_POSTABLE`, `SUBLEDGER_REQUIRED`, `SUBLEDGER_NOT_ALLOWED`, `SUBLEDGER_KIND_DIFFERS`, `UNKNOWN_SUBLEDGER`, `AMOUNT_NOT_POSITIVE`, `OPENING_WITHOUT_3900`). A draft may be unbalanced; `balanced` says so (A-190).\n\nPermission: `fin.journal.create`."
       x-permission: fin.journal.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - MANUAL_JOURNAL_INVALID
+        - OPENING_ALREADY_POSTED
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -39721,8 +39750,14 @@ paths:
       tags:
         - fin
       summary: "Get a manual journal"
-      description: "Permission: `fin.journal.read`."
+      description: "A manual journal with its current lines, totals and, once posted, its journal entry.\n\nPermission: `fin.journal.read`."
       x-permission: fin.journal.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -39799,8 +39834,21 @@ paths:
       tags:
         - fin
       summary: "Change a draft manual journal"
-      description: "Permission: `fin.journal.create`."
+      description: "Changes a DRAFT at the `version` read (409 `VERSION_CONFLICT` otherwise); `lines`, when sent, replace them all. Only the person who drafted it may change it (403), and any other status is 422 `INVALID_STATE_TRANSITION`. The same checks as `createManualJournal` apply (A-190).\n\nPermission: `fin.journal.create`."
       x-permission: fin.journal.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - INVALID_STATE_TRANSITION
+        - MANUAL_JOURNAL_INVALID
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -39893,8 +39941,23 @@ paths:
       tags:
         - fin
       summary: "Submit a manual journal for approval"
-      description: "Refused with 422 JOURNAL_UNBALANCED unless debits equal credits; the database refuses an unbalanced journal in any case. Always needs a different approver with step-up.\n\nPermission: `fin.journal.create`.\n\nMay require approval of kind `MANUAL_JOURNAL`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+      description: "FR-FIN-008. Only the person who drafted it submits it (403 otherwise), and only a balanced DRAFT (422 `JOURNAL_UNBALANCED`; the database refuses an unbalanced journal in any case). Always answers 202 of kind `MANUAL_JOURNAL`: nothing posts until a different holder of `fin.journal.approve` approves it with step-up; the maker approving their own is 422 `MAKER_CANNOT_CHECK`. On approval the ledger posts exactly one balanced entry of kind MANUAL or OPENING, line for line as entered, on the journal's own date: a date whose period is not open is 422 `PERIOD_NOT_OPEN`, here or at approval, and is never moved to another day (A-190). A rejected journal is final.\n\nPermission: `fin.journal.create`.\n\nMay require approval of kind `MANUAL_JOURNAL`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
       x-permission: fin.journal.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - JOURNAL_UNBALANCED
+        - MANUAL_JOURNAL_INVALID
+        - OPENING_ALREADY_POSTED
+        - PERIOD_NOT_OPEN
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -39994,8 +40057,14 @@ paths:
       tags:
         - fin
       summary: "List the events the ledger posts from"
-      description: "Permission: `fin.posting_rule.read`."
+      description: "The events the ledger posts from, in code order, with the named amounts each carries; `hasCompleteRules` says whether every amount has a rule in force today on both sides and a handler (FR-FIN-005, the boot assertion).\n\nPermission: `fin.posting_rule.read`."
       x-permission: fin.posting_rule.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - INVALID_CURSOR
+        - RATE_LIMITED
       parameters:
         - name: cursor
           in: query
@@ -40087,8 +40156,14 @@ paths:
       tags:
         - fin
       summary: "List posting rules"
-      description: "Permission: `fin.posting_rule.read`."
+      description: "Posting rules, with their validity `[validFrom, validTo)`; `at` keeps the rules in force on that date. `approvalRequestId` is null only for a rule seeded by migration (A-182). A rule whose `determinantType` is `ENTERED` posts each amount to the account a person entered (a manual journal, A-190).\n\nPermission: `fin.posting_rule.read`."
       x-permission: fin.posting_rule.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - INVALID_CURSOR
+        - RATE_LIMITED
       parameters:
         - name: eventCode
           in: query
@@ -40217,9 +40292,21 @@ paths:
       tags:
         - fin
       summary: "Change how an event posts, from a date"
-      description: "Permission: `fin.posting_rule.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session.\n\nMay require approval of kind `POSTING_RULE_CHANGE`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+      description: "FR-FIN-005. Asks to replace the rule in force for one event, amount and side from `validFrom` (today or later), with exactly one of `accountId` or `determinantType` with `determinantRole`. Always answers 202 of kind `POSTING_RULE_CHANGE`: nothing changes until a different holder of `fin.posting_rule.approve` approves it with step-up; the maker approving their own is 422 `MAKER_CANNOT_CHECK`. On approval the old rule ends and the new one starts on the later of `validFrom` and the approval day; nothing posted is changed or re-posted (A-191). A change replaces a rule and never adds one, keeps the subledger kinds the rule posts to, and must change something: refusals are 422 `POSTING_RULE_INVALID` with `details[].code` (`UNKNOWN_EVENT`, `UNKNOWN_AMOUNT`, `POSTS_AS_ENTERED`, `TARGET_INVALID`, `VALID_FROM_PAST`, `LATER_RULE_EXISTS`, `NOTHING_TO_REPLACE`, `UNKNOWN_ACCOUNT`, `ACCOUNT_NOT_POSTABLE`, `NO_DETERMINATION`, `SUBLEDGER_DIFFERS`, `UNCHANGED`, `CHANGE_PENDING`), checked again at approval.\n\nPermission: `fin.posting_rule.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session.\n\nMay require approval of kind `POSTING_RULE_CHANGE`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
       x-permission: fin.posting_rule.manage
       x-requires-step-up: true
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - STEP_UP_REQUIRED
+        - TOTP_ENROLMENT_REQUIRED
+        - POSTING_RULE_INVALID
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -40299,8 +40386,14 @@ paths:
       tags:
         - fin
       summary: "List account determinations"
-      description: "Permission: `fin.posting_rule.read`."
+      description: "Account determinations, with their validity: which account a product group, payment method, levy, loss group, expense category or asset category posts to, per role; `*` is the default key.\n\nPermission: `fin.posting_rule.read`."
       x-permission: fin.posting_rule.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - INVALID_CURSOR
+        - RATE_LIMITED
       parameters:
         - name: determinantType
           in: query
@@ -40411,9 +40504,21 @@ paths:
       tags:
         - fin
       summary: "Map a product group, method or levy to an account"
-      description: "For example, to post one levy to its own account the accountant adds a TAX_LEVY row. No billing or ledger code changes.\n\nPermission: `fin.posting_rule.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session.\n\nMay require approval of kind `POSTING_RULE_CHANGE`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+      description: "For example, to post one levy to its own account the accountant adds a TAX_LEVY row. No billing or ledger code changes (ADR-0020). Asks to map one key of a determinant and role to an account from `validFrom` (today or later): a key with no row of its own gets one, a key with a row in force has it replaced. The account must be postable and of the subledger kind of the rows of that determinant and role in force. Always answers 202 of kind `POSTING_RULE_CHANGE`, applied as `createPostingRule` describes (A-191); refusals are 422 `POSTING_RULE_INVALID`.\n\nPermission: `fin.posting_rule.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session.\n\nMay require approval of kind `POSTING_RULE_CHANGE`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
       x-permission: fin.posting_rule.manage
       x-requires-step-up: true
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - STEP_UP_REQUIRED
+        - TOTP_ENROLMENT_REQUIRED
+        - POSTING_RULE_INVALID
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -40994,8 +41099,15 @@ paths:
       tags:
         - fin
       summary: "Account activity with running balance"
-      description: "Permission: `fin.journal.read`."
+      description: "The account's lines from `from` to `to` inclusive, oldest first, each with the running balance; `openingBalancePesewas` is the balance before `from` and `closingBalancePesewas` the balance at `to`, both over the whole filter (never sum the page). A balance is never negative: its side says debit or credit, and a nil balance takes the account's normal side. `subledgerPartyId` and `branchId` narrow every figure. `from` after `to` is 400.\n\nPermission: `fin.journal.read`."
       x-permission: fin.journal.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - NOT_FOUND
+        - INVALID_CURSOR
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -87846,8 +87958,11 @@ components:
             - "null"
           format: date
         approvalRequestId:
-          type: string
+          type:
+            - string
+            - "null"
           format: uuid
+          description: "Null only for a rule seeded by migration (A-182); every later rule names its POSTING_RULE_CHANGE approval."
       required:
         - id
         - eventCode
