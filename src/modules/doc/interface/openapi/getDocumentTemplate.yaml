@@ -1,0 +1,56 @@
+operationId: getDocumentTemplate
+tags:
+  - doc
+summary: "Get a document template"
+description: "One document template with its active version.\n\nPermission: `doc.template.read`."
+x-permission: doc.template.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+  - NOT_FOUND
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/DocumentTemplate"
+        example:
+          id: "019a7ae2-43ac-702c-8564-0b93c2d18471"
+          docType: RECEIPT
+          output: THERMAL_80MM
+          name: "Counter receipt"
+          activeVersion:
+            id: "019a7adf-9b22-769f-abd8-72cf4d9bebad"
+            versionNo: 3
+            activatedAt: "2026-11-01T08:00:00Z"
+          versionCount: 3
+          version: 2
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.39.0"
+  version: "1.40.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -3710,10 +3710,20 @@ paths:
                   - id: "019a7a9a-2051-70b6-b5ee-1434f90c8d12"
                     kind: PURCHASE_ORDER
                     branch: null
-                    thresholdPesewas: 500000
+                    thresholdPesewas: 200001
                     approverPermission: pur.purchase_order.approve
                     requiresEvidence: false
-                    requiresStepUp: false
+                    requiresStepUp: true
+                    currency: GHS
+                    version: 1
+                    updatedAt: "2026-11-02T08:00:00Z"
+                  - id: "019a7a9a-3f40-7c1a-9d5e-5b2f8a7c6d10"
+                    kind: SUPPLIER_PAYMENT
+                    branch: null
+                    thresholdPesewas: null
+                    approverPermission: pur.supplier_payment.approve
+                    requiresEvidence: false
+                    requiresStepUp: true
                     currency: GHS
                     version: 1
                     updatedAt: "2026-11-02T08:00:00Z"
@@ -20125,7 +20135,7 @@ paths:
       tags:
         - inv
       summary: "Mark a stock exception resolved"
-      description: "Resolves an open exception once, with a `resolutionKind` and a note, audited. A transfer shortfall held in transit (a `TRANSFER_VARIANCE` with no `movementId`, ADR-0048) takes `WRITE_OFF` or `FOUND` and no `resolutionDocumentId`: `WRITE_OFF` drafts and submits a stock adjustment in transit with the variance's reason, valued from the cost pool, so at or above the `STOCK_WRITE_OFF` threshold (seed 50,000 pesewas, copied onto the adjustment) it answers 202 `ApprovalPending` and the exception stays open until a different person holding `inv.adjustment.approve` approves with step-up; below it the loss posts at once. `FOUND` names `foundLocationId`, a stock location of either branch of the transfer, and returns the held quantity there as a `TRANSFER_RECEIPT` against the transfer, with no expense; the resolution document is the transfer. While a write-off waits for approval nothing else is decided (`WRITE_OFF_PENDING`); a rejected write-off leaves the variance held. Any other exception takes `ADJUSTED` with the posted adjustment that names it, or `NO_CORRECTION`; with no `resolutionKind`, a `resolutionDocumentId` means `ADJUSTED` and none means `NO_CORRECTION`. A resolved exception is refused (`INVALID_STATE_TRANSITION`).\n\nPermission: `inv.exception.resolve`, scoped to the exception's branch and location, and to the found location."
+      description: "Resolves an open exception once, with a `resolutionKind` and a note, audited. A transfer shortfall held in transit (a `TRANSFER_VARIANCE` with no `movementId`, ADR-0048) takes `WRITE_OFF` or `FOUND` and no `resolutionDocumentId`: `WRITE_OFF` drafts and submits a stock adjustment in transit with the variance's reason, valued from the cost pool, so at or above the `STOCK_WRITE_OFF` threshold (seed 50,000 pesewas, copied onto the adjustment) it answers 202 `ApprovalPending` and the exception stays open until a different person holding `inv.adjustment.approve` approves with step-up; below it the loss posts at once. `FOUND` names `foundLocationId`, a stock location of either branch of the transfer, and returns the held quantity there as a `TRANSFER_RECEIPT` against the transfer, with no expense; the resolution document is the transfer. While a write-off waits for approval nothing else is decided (`WRITE_OFF_PENDING`); a rejected write-off leaves the variance held. Any other exception takes `ADJUSTED` with the posted adjustment that names it, or `NO_CORRECTION`; with no `resolutionKind`, a `resolutionDocumentId` means `ADJUSTED` and none means `NO_CORRECTION`. A resolved exception is refused (`INVALID_STATE_TRANSITION`). A 202 names as its subject the stock adjustment the write-off posts (`docType` `STOCK_ADJUSTMENT`), which the approval issues (CR-026).\n\nPermission: `inv.exception.resolve`, scoped to the exception's branch and location, and to the found location."
       x-permission: inv.exception.resolve
       x-error-codes:
         - VALIDATION_FAILED
@@ -27841,7 +27851,7 @@ paths:
       tags:
         - liv
       summary: "Report a death or cull"
-      description: "Permission: `liv.mortality.report`.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result. The answer carries the value written off, so the caller also needs `liv.mortality.read` at the same scope (`x-answer-permission`, ADR-0052); the Farm hand, who holds the write but not the read, uses `reportCareMortality`\n\n**Death photographs (1.31.0, B06r):** the photograph is an `EVIDENCE` file and may still be `PENDING` its malware scan when the record is reported and submitted, so nobody waits at the pen; a file the scanner has already rejected is refused (`PHOTO_NOT_USABLE`). The record is approved only once the photograph is `CLEAN` (422 `EVIDENCE_NOT_SCANNED` until then); if the scan rejects it, the waiting record goes back to its maker as `RETURNED` with its `returnedReason`, and its approval request is withdrawn. The client should open the camera directly for death evidence, never the gallery (the owner's rule, 2026-11-15): a deterrent only, since the server cannot tell a camera photograph from a gallery one. A photograph whose exact bytes (SHA-256) are already on another death or cull record is published for the daily exception report (`liv.MortalityPhotoReused`, abuse case 2); a re-saved, resized or cropped copy has other bytes and is not matched.."
+      description: "Permission: `liv.mortality.report`.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result. The answer carries the value written off, so the caller also needs `liv.mortality.read` at the same scope (`x-answer-permission`, ADR-0052); the Farm hand, who holds the write but not the read, uses `reportCareMortality`\n\n**Death photographs (1.31.0, B06r):** the photograph is an `EVIDENCE` file and may still be `PENDING` its malware scan when the record is reported and submitted, so nobody waits at the pen; a file the scanner has already rejected is refused (`PHOTO_NOT_USABLE`). The record is approved only once the photograph is `CLEAN` (422 `EVIDENCE_NOT_SCANNED` until then); if the scan rejects it, the waiting record goes back to its maker as `RETURNED` with its `returnedReason`, and its approval request is withdrawn. The client should open the camera directly for death evidence, never the gallery (the owner's rule, 2026-11-15): a deterrent only, since the server cannot tell a camera photograph from a gallery one. A photograph whose exact bytes (SHA-256) are already on another death or cull record is published for the daily exception report (`liv.MortalityPhotoReused`, abuse case 2); a re-saved, resized or cropped copy has other bytes and is not matched..\n\n**Who takes and opens the photograph (CR-022, 1.40.0):** the Farm hand holds `platform.file.upload.evidence`, which uploads an `EVIDENCE` file and nothing else; the Owner and the Manager hold `platform.file.upload`. The Owner and the Manager, who hold `liv.mortality.approve` and so decide `MORTALITY_WRITE_OFF`, also hold `platform.file.read.any`: they open the reporter's photograph through `getFile` and, once it is `CLEAN`, `createFileSignedUrl`."
       x-permission: liv.mortality.report
       x-answer-permission: liv.mortality.read
       x-error-codes:
@@ -29937,7 +29947,7 @@ paths:
       tags:
         - liv
       summary: "Report a death or cull, answered without cost"
-      description: "The Farm hand's cost-free door to `reportMortality` (ADR-0052): the same rules, checks and effects, answered in a shape that carries no cost and no price. Unlike `reportMortality` it needs no read permission, because its answer shows nothing the write's own permission does not.\n\n**Death photographs (1.31.0, B06r):** the photograph is an `EVIDENCE` file and may still be `PENDING` its malware scan when the record is reported and submitted, so nobody waits at the pen; a file the scanner has already rejected is refused (`PHOTO_NOT_USABLE`). The record is approved only once the photograph is `CLEAN` (422 `EVIDENCE_NOT_SCANNED` until then); if the scan rejects it, the waiting record goes back to its maker as `RETURNED` with its `returnedReason`, and its approval request is withdrawn. The client should open the camera directly for death evidence, never the gallery (the owner's rule, 2026-11-15): a deterrent only, since the server cannot tell a camera photograph from a gallery one. A photograph whose exact bytes (SHA-256) are already on another death or cull record is published for the daily exception report (`liv.MortalityPhotoReused`, abuse case 2); a re-saved, resized or cropped copy has other bytes and is not matched.\n\nPermission: `liv.mortality.report`.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result.\n\nPermission: `liv.mortality.report`, scoped as `reportMortality` is."
+      description: "The Farm hand's cost-free door to `reportMortality` (ADR-0052): the same rules, checks and effects, answered in a shape that carries no cost and no price. Unlike `reportMortality` it needs no read permission, because its answer shows nothing the write's own permission does not.\n\n**Death photographs (1.31.0, B06r):** the photograph is an `EVIDENCE` file and may still be `PENDING` its malware scan when the record is reported and submitted, so nobody waits at the pen; a file the scanner has already rejected is refused (`PHOTO_NOT_USABLE`). The record is approved only once the photograph is `CLEAN` (422 `EVIDENCE_NOT_SCANNED` until then); if the scan rejects it, the waiting record goes back to its maker as `RETURNED` with its `returnedReason`, and its approval request is withdrawn. The client should open the camera directly for death evidence, never the gallery (the owner's rule, 2026-11-15): a deterrent only, since the server cannot tell a camera photograph from a gallery one. A photograph whose exact bytes (SHA-256) are already on another death or cull record is published for the daily exception report (`liv.MortalityPhotoReused`, abuse case 2); a re-saved, resized or cropped copy has other bytes and is not matched.\n\nPermission: `liv.mortality.report`.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result.\n\nPermission: `liv.mortality.report`, scoped as `reportMortality` is.\n\n**Who takes and opens the photograph (CR-022, 1.40.0):** the Farm hand holds `platform.file.upload.evidence`, which uploads an `EVIDENCE` file and nothing else; the Owner and the Manager hold `platform.file.upload`. The Owner and the Manager, who hold `liv.mortality.approve` and so decide `MORTALITY_WRITE_OFF`, also hold `platform.file.read.any`: they open the reporter's photograph through `getFile` and, once it is `CLEAN`, `createFileSignedUrl`."
       x-permission: liv.mortality.report
       x-error-codes:
         - VALIDATION_FAILED
@@ -35222,7 +35232,7 @@ paths:
                 kind: PURCHASE_ORDER
                 subject:
                   id: "019a7acb-ab17-7703-9c3c-790dde86f1eb"
-                  docType: STOCK_ADJUSTMENT
+                  docType: PURCHASE_ORDER
                   number: null
                 summary: "Awaiting approval by a different user with the approving permission"
                 requestedAt: "2026-11-13T10:12:00Z"
@@ -37691,7 +37701,7 @@ paths:
                 kind: SUPPLIER_PAYMENT
                 subject:
                   id: "019a7acf-e5c4-711d-8655-1aa381b99381"
-                  docType: STOCK_ADJUSTMENT
+                  docType: SUPPLIER_PAYMENT
                   number: null
                 summary: "Awaiting approval by a different user with the approving permission"
                 requestedAt: "2026-11-13T10:12:00Z"
@@ -42370,8 +42380,14 @@ paths:
       tags:
         - doc
       summary: "List archived documents"
-      description: "Permission: `doc.document.read`."
+      description: "Archived renderings of issued documents at every branch where the caller holds `doc.document.read` for the whole branch, newest first (FR-DOC-001, FR-DOC-002, B08 continued 2b). A document is rendered after the transaction that issued it commits, through the outbox (FR-DOC-003), and archived once with the SHA-256 of its stored bytes; the archive refuses change by trigger. Filter by `businessDocumentId`, `docType`, `documentNo` and `from`/`to` on when it was archived.\n\nPermission: `doc.document.read`."
       x-permission: doc.document.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: businessDocumentId
           in: query
@@ -42542,8 +42558,15 @@ paths:
       tags:
         - doc
       summary: "Get an archived document"
-      description: "Permission: `doc.document.read`."
+      description: "One archived rendering: its template version, its revision (an invoice has exactly one) and `sha256`, the hex SHA-256 of the stored PDF, which equals the billing document's `contentHash`. The bytes are fetched with `downloadArchivedDocument`.\n\nPermission: `doc.document.read` at the document's branch."
       x-permission: doc.document.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
+        - NOT_FOUND
       parameters:
         - name: id
           in: path
@@ -42599,8 +42622,18 @@ paths:
       tags:
         - doc
       summary: "Get a signed download link for an archived document"
-      description: "Permission: `doc.document.read`."
+      description: "A signed link to the archived PDF that expires after five minutes (FR-DOC-007); each issue is recorded in the file access log with the user, the file and the time. The archived file is served only once the worker's malware scan has passed it: until then 422 `FILE_NOT_CLEAN`. A reprint is never made here: `reprint: true` is 400 `VALIDATION_FAILED` (`REPRINT_THROUGH_BILLING`); a reprint is `reprintBillingDocument`, which numbers and logs the copy (A-202).\n\nPermission: `doc.document.read` at the document's branch."
       x-permission: doc.document.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - FILE_NOT_CLEAN
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -42655,8 +42688,14 @@ paths:
       tags:
         - doc
       summary: "List document templates"
-      description: "Permission: `doc.template.read`."
+      description: "Every document template, one per document type and output (`PDF_A4`, `THERMAL_80MM`, `THERMAL_58MM`), with its active version (FR-DOC-004). The built-in version 1 of each billing document's template is seeded active.\n\nPermission: `doc.template.read`."
       x-permission: doc.template.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: cursor
           in: query
@@ -42763,8 +42802,15 @@ paths:
       tags:
         - doc
       summary: "Get a document template"
-      description: "Permission: `doc.template.read`."
+      description: "One document template with its active version.\n\nPermission: `doc.template.read`."
       x-permission: doc.template.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
+        - NOT_FOUND
       parameters:
         - name: id
           in: path
@@ -42814,8 +42860,15 @@ paths:
       tags:
         - doc
       summary: "List the versions of a template"
-      description: "Permission: `doc.template.read`."
+      description: "A template's versions, newest first. `body` is null here; read one version for its source.\n\nPermission: `doc.template.read`."
       x-permission: doc.template.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
+        - NOT_FOUND
       parameters:
         - name: id
           in: path
@@ -42932,8 +42985,20 @@ paths:
       tags:
         - doc
       summary: "Draft a new template version"
-      description: "Templates render in a sandbox with no scripts and no remote includes. Issued documents keep the version they used.\n\nPermission: `doc.template.manage`."
+      description: "Drafts the template's next version (FR-DOC-004). A template is logic-less: `{{path}}` inserts a value (escaped), `{{#each path}}...{{/each}}` repeats over a list, `{{#if path}}...{{/if}}` shows a part when the value is present; nothing else. Layout tags take no attributes: containers `header`, `footer`, `section`, `levies`; lines `h1`, `h2`, `p`, `small` and `row` with its `cell` columns; the rule `<hr/>`. A body that uses a script, any other tag, an attribute, a URL, a protocol-relative link, a CSS import or `url()`, or a data URI, or that leaves a tag or block open, is refused at save with 422 `TEMPLATE_BODY_INVALID`, every broken rule in `details[].code` (`SCRIPT_NOT_ALLOWED`, `REMOTE_INCLUDE_NOT_ALLOWED`, `TAG_NOT_ALLOWED`, `ATTRIBUTE_NOT_ALLOWED`, `TAG_NOT_CLOSED`, `TAG_NOT_OPENED`, `EXPRESSION_NOT_ALLOWED`, `BLOCK_NOT_CLOSED`, `BLOCK_NOT_OPENED`, `TEMPLATE_TOO_LARGE`). A version's body never changes. Audited.\n\nPermission: `doc.template.manage`."
       x-permission: doc.template.manage
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - TEMPLATE_BODY_INVALID
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -42998,8 +43063,15 @@ paths:
       tags:
         - doc
       summary: "Get a template version with its source"
-      description: "Permission: `doc.template.read`."
+      description: "One template version with its source.\n\nPermission: `doc.template.read`."
       x-permission: doc.template.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
+        - NOT_FOUND
       parameters:
         - name: id
           in: path
@@ -43052,8 +43124,21 @@ paths:
       tags:
         - doc
       summary: "Make a template version the active one"
-      description: "Permission: `doc.template.manage`."
+      description: "Makes a `DRAFT` version the template's one `ACTIVE` version and retires the one before it, audited with both (FR-DOC-004). The next document issued renders with it; every document already issued keeps its archived bytes and the version it was rendered with (FR-BIL-010). Activating a version that is not a draft is 422 `INVALID_STATE_TRANSITION`.\n\nPermission: `doc.template.manage`."
       x-permission: doc.template.manage
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - TEMPLATE_BODY_INVALID
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -43415,7 +43500,7 @@ paths:
                     certification: null
                     reasonCode: null
                     archivedDocumentId: "019a7ae3-97f1-7cf2-b22a-d7f5fd6c50d3"
-                    contentHash: "sha256:4f2ac1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7f0"
+                    contentHash: "4f2ac1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7"
                     issuedAt: "2026-11-13T09:12:00Z"
                     occurredAt: "2026-11-13T09:12:00Z"
                     reprintCount: 1
@@ -43595,7 +43680,7 @@ paths:
                     certification: null
                     reasonCode: null
                     archivedDocumentId: "019a7ae4-329c-7e63-839b-ef0b5de167e9"
-                    contentHash: "sha256:9b11c1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7f0"
+                    contentHash: "9b11c1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7"
                     issuedAt: "2026-11-12T09:12:00Z"
                     occurredAt: "2026-11-12T09:12:00Z"
                     reprintCount: 0
@@ -43690,7 +43775,7 @@ paths:
                     certification: null
                     reasonCode: DAMAGED_IN_DELIVERY
                     archivedDocumentId: "019a7ae4-8f69-7c0e-b146-c9b1caf4428f"
-                    contentHash: "sha256:c03ec1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7f0"
+                    contentHash: c03ec1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7
                     issuedAt: "2026-11-11T09:12:00Z"
                     occurredAt: "2026-11-11T09:12:00Z"
                     reprintCount: 0
@@ -43826,7 +43911,7 @@ paths:
                     certification: null
                     reasonCode: null
                     archivedDocumentId: "019a7ae5-0b25-739b-b8d4-428fb1b8bb6d"
-                    contentHash: "sha256:71ddc1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7f0"
+                    contentHash: "71ddc1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7"
                     issuedAt: "2026-11-10T09:12:00Z"
                     occurredAt: "2026-11-10T09:12:00Z"
                     reprintCount: 0
@@ -43959,7 +44044,7 @@ paths:
                     certification: null
                     reasonCode: null
                     archivedDocumentId: "019a7ae5-86e1-7b29-b062-bb6d987c344b"
-                    contentHash: "sha256:aa90c1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7f0"
+                    contentHash: aa90c1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7
                     issuedAt: "2026-11-09T09:12:00Z"
                     occurredAt: "2026-11-09T09:12:00Z"
                     reprintCount: 0
@@ -44092,7 +44177,7 @@ paths:
                     certification: null
                     reasonCode: null
                     archivedDocumentId: "019a7ae6-029d-72b7-b7ef-344b7f40ad29"
-                    contentHash: "sha256:5e6cc1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7f0"
+                    contentHash: "5e6cc1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7"
                     issuedAt: "2026-11-08T09:12:00Z"
                     occurredAt: "2026-11-08T09:12:00Z"
                     reprintCount: 0
@@ -44117,7 +44202,7 @@ paths:
       tags:
         - bil
       summary: "Get a billing document with its levy breakdown"
-      description: "One billing document with every line's levy rows as issued, including levies at zero, and the document's totals, which are the sums of its lines (FR-BIL-004, ADR-0020). An issued document never changes; it is corrected by a credit or debit note naming it as `originalDocument`. `archivedDocumentId` and `contentHash` stay null until rendering and the archive are built (B08 continued 2b); `reprintCount` is 0 until then.\n\nPermission: `bil.document.read` at the document's branch."
+      description: "One billing document with every line's levy rows as issued, including levies at zero, and the document's totals, which are the sums of its lines (FR-BIL-004, ADR-0020). An issued document never changes; it is corrected by a credit or debit note naming it as `originalDocument`. Once issued, a document is rendered by the worker after its transaction commits and archived once (FR-BIL-008, FR-DOC-003): until then `archivedDocumentId` and `contentHash` are null (the screen shows it as rendering), then they name the archived rendering and the hex SHA-256 of its stored PDF, set once. `reprintCount` counts its reprints (B08 continued 2b).\n\nPermission: `bil.document.read` at the document's branch."
       x-permission: bil.document.read
       x-error-codes:
         - VALIDATION_FAILED
@@ -44322,7 +44407,7 @@ paths:
                 certification: null
                 reasonCode: null
                 archivedDocumentId: "019a7ae3-97f1-7cf2-b22a-d7f5fd6c50d3"
-                contentHash: "sha256:4f2ac1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7f0"
+                contentHash: "4f2ac1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7"
                 issuedAt: "2026-11-13T09:12:00Z"
                 occurredAt: "2026-11-13T09:12:00Z"
                 reprintCount: 1
@@ -44667,7 +44752,7 @@ paths:
                 certification: null
                 reasonCode: DAMAGED_IN_DELIVERY
                 archivedDocumentId: "019a7ae4-8f69-7c0e-b146-c9b1caf4428f"
-                contentHash: "sha256:c03ec1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7f0"
+                contentHash: c03ec1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7
                 issuedAt: "2026-11-11T09:12:00Z"
                 occurredAt: "2026-11-11T09:12:00Z"
                 reprintCount: 0
@@ -44937,7 +45022,7 @@ paths:
                 certification: null
                 reasonCode: null
                 archivedDocumentId: "019a7ae3-97f1-7cf2-b22a-d7f5fd6c50d3"
-                contentHash: "sha256:4f2ac1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7f0"
+                contentHash: "4f2ac1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7"
                 issuedAt: "2026-11-13T09:12:00Z"
                 occurredAt: "2026-11-13T09:12:00Z"
                 reprintCount: 1
@@ -44964,8 +45049,21 @@ paths:
       tags:
         - bil
       summary: "Reprint a document with a reprint marker"
-      description: "Returns the archived bytes with a marker. Never a new document, never a new number.\n\nPermission: `bil.document.reprint`."
+      description: "Reprints an issued billing document from its archive (FR-BIL-009): the archived bytes, checked against their SHA-256, with a reprint marker carrying the copy number, which runs 1, 2, 3 per document and is logged with who and when. Never a new document and never a new number. `PDF`: `pdfBase64` is the archived PDF with the marker overlaid on its first page as an appended update, so the archived bytes are an unchanged prefix. `THERMAL`: `escPosBase64` is the marker followed by the archived ESC/POS bytes, for a document with a thermal rendering (a receipt). `url` and `expiresAt` are null. Refusals: 422 `DOCUMENT_NOT_ARCHIVED` while the document is still rendering or its file awaits the malware scan (`RENDERING`, `NOT_SCANNED`), or has no thermal rendering (`NO_THERMAL_RENDITION`); 422 `ARCHIVE_HASH_MISMATCH` if the stored bytes no longer hash to the archived SHA-256, which is never served and is logged as an error.\n\nPermission: `bil.document.reprint` at the document's branch."
       x-permission: bil.document.reprint
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - DOCUMENT_NOT_ARCHIVED
+        - ARCHIVE_HASH_MISMATCH
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -45000,7 +45098,8 @@ paths:
                 copyNo: 2
                 channel: THERMAL
                 url: null
-                escPosBase64: "G0AbYQEdIREISGFLb3JlbSBGYXJtcwo="
+                escPosBase64: "G0AbYQEbRQEqKiogUkVQUklOVCAyICoqKgobRQAbYQAKG0A="
+                pdfBase64: null
                 expiresAt: null
         "400":
           $ref: "#/components/responses/BadRequest"
@@ -45083,8 +45182,15 @@ paths:
       tags:
         - bil
       summary: "List reprints and sends of a document"
-      description: "Permission: `bil.document.read`."
+      description: "Every reprint of a document, by copy number, with who made it and when (FR-BIL-009).\n\nPermission: `bil.document.read` at the document's branch."
       x-permission: bil.document.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
+        - NOT_FOUND
       parameters:
         - name: id
           in: path
@@ -89399,7 +89505,12 @@ components:
           type:
             - string
             - "null"
-          description: "ESC/POS bytes for an 80 mm thermal printer, base64."
+          description: "ESC/POS bytes for an 80 mm thermal printer, base64: the marker, then the archived bytes unchanged."
+        pdfBase64:
+          type:
+            - string
+            - "null"
+          description: "The archived PDF with the reprint marker appended as an update to its first page, base64 (B08 continued 2b, A-202)."
         expiresAt:
           type:
             - string
@@ -89410,6 +89521,7 @@ components:
         - channel
         - url
         - escPosBase64
+        - pdfBase64
         - expiresAt
     DocumentSendRequest:
       type: object

@@ -1,0 +1,59 @@
+operationId: getTemplateVersion
+tags:
+  - doc
+summary: "Get a template version with its source"
+description: "One template version with its source.\n\nPermission: `doc.template.read`."
+x-permission: doc.template.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+  - NOT_FOUND
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/TemplateVersion"
+        example:
+          id: "019a7ae0-16de-7e2d-a366-ebad345f648b"
+          templateId: "019a7ae2-43ac-702c-8564-0b93c2d18471"
+          versionNo: 2
+          status: ACTIVE
+          body: "<header>{{business.tradingName}}</header>…"
+          activatedAt: "2026-11-01T08:00:00Z"
+          activatedBy:
+            id: "019a7a86-3046-711a-a652-1a7389f79351"
+            displayName: "Akua Mensah"
+          createdAt: "2026-11-12T15:00:00Z"
+          createdBy:
+            id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+            displayName: "Kwabena Owusu"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

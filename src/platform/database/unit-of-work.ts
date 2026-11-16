@@ -145,6 +145,16 @@ export class UnitOfWork {
     return tx;
   }
 
+  /**
+   * A transaction of its own on another connection, even inside a unit of work: for a worker's record of its own
+   * failure (a WORK row such as a render job's attempt), which must survive the rollback of the work that failed. It
+   * must never touch a row the enclosing transaction has written or locked, or the two wait on each other. Never for
+   * business data: one business operation is still one transaction.
+   */
+  runApart<T>(options: UnitOfWorkOptions, work: (tx: Transaction) => Promise<T>): Promise<T> {
+    return this.ambient.exit(() => this.run(options, work));
+  }
+
   async run<T>(options: UnitOfWorkOptions, work: (tx: Transaction) => Promise<T>): Promise<T> {
     if (this.ambient.getStore() !== undefined) {
       throw new NestedTransactionError();

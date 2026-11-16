@@ -6,8 +6,8 @@ import { CurrentActor } from '../../../platform/http/actor-param';
 import { IdempotencyKeyHeader, Operation } from '../../../platform/http/operation';
 import { zodPipe } from '../../../platform/http/validation';
 import type { StoredResponse } from '../../../platform/idempotency/idempotency';
-import { Billing, type ApprovalPendingView, type BillingDocumentView, type Page } from '../application/billing';
-import { BillingDocumentPageQuery, CreditNoteCreate, DebitNoteCreate, IdParam } from './schemas';
+import { Billing, type ApprovalPendingView, type BillingDocumentView, type Page, type ReprintLogView, type ReprintView } from '../application/billing';
+import { BillingDocumentPageQuery, CreditNoteCreate, DebitNoteCreate, IdParam, ReprintPageQuery, ReprintRequest } from './schemas';
 
 const READ = { access: 'SESSION', realms: ['STAFF'], idempotent: false, csrf: false, rateLimit: 'console' } as const;
 const WRITE = { access: 'SESSION', realms: ['STAFF'], idempotent: true, csrf: true, rateLimit: 'console' } as const;
@@ -71,5 +71,23 @@ export class BillingController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<BillingDocumentView> {
     return reply(res, this.billing.issueDebitNote(actor, id, body, key));
+  }
+
+  @Post(':id/reprint')
+  @Operation({ operationId: 'reprintBillingDocument', ...WRITE, permission: 'bil.document.reprint' })
+  reprintBillingDocument(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(ReprintRequest)) body: z.infer<typeof ReprintRequest>,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<ReprintView> {
+    return reply(res, this.billing.reprint(actor, id, body, key));
+  }
+
+  @Get(':id/reprints')
+  @Operation({ operationId: 'listBillingDocumentReprints', ...READ, permission: 'bil.document.read' })
+  listBillingDocumentReprints(@CurrentActor() actor: Actor | undefined, @Param('id', zodPipe(IdParam)) id: string, @Query(zodPipe(ReprintPageQuery)) query: z.infer<typeof ReprintPageQuery>): Promise<Page<ReprintLogView>> {
+    return this.billing.listReprints(actor, id, query.cursor, query.limit);
   }
 }

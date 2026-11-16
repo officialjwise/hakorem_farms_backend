@@ -71,6 +71,7 @@ export interface DocumentRecord extends Omit<DraftHeader, 'actorId'> {
   readonly certification: { readonly taxPesewas: bigint; readonly grossPesewas: bigint; readonly reference: string } | null;
   readonly approvalRequestId: string | null;
   readonly contentHash: Buffer | null;
+  readonly archivedDocumentId: string | null;
   readonly issuedAt: Date | null;
   readonly createdBy: string;
   readonly version: number;
@@ -108,4 +109,19 @@ export interface BillingStore {
   settlements(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, SettlementRecord>>;
   /** Ids of matching documents, newest first, after the given id. */
   list(tx: Transaction, filter: DocumentFilter, afterId: string | null, limit: number): Promise<string[]>;
+  /** Sets the archived rendering and its content hash once, after DOC has archived it (B08 continued 2b). */
+  linkArchive(tx: Transaction, id: string, archivedDocumentId: string, contentHash: Buffer): Promise<boolean>;
+  reprintCounts(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, number>>;
+  /** Writes the next copy number of a document's reprint log and returns it (`ck_reprint_log_copy_no`). */
+  appendReprint(tx: Transaction, reprint: { readonly id: string; readonly billingDocumentId: string; readonly channel: ReprintRecord['channel']; readonly actorId: string; readonly at: Date }): Promise<number>;
+  reprints(tx: Transaction, billingDocumentId: string, afterCopyNo: number | null, limit: number): Promise<ReprintRecord[]>;
+  /** Every issued document's number, hash and archive, for the nightly numbering audit (FR-BIL-003). */
+  issuedForAudit(tx: Transaction): Promise<{ readonly id: string; readonly documentNo: string; readonly contentHash: Buffer | null; readonly archivedDocumentId: string | null; readonly issuedAt: Date }[]>;
+}
+
+export interface ReprintRecord {
+  readonly copyNo: number;
+  readonly channel: 'THERMAL' | 'PDF' | 'SMS' | 'WHATSAPP' | 'EMAIL';
+  readonly actorId: string;
+  readonly recordedAt: Date;
 }

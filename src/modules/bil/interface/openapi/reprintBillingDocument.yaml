@@ -1,0 +1,72 @@
+operationId: reprintBillingDocument
+tags:
+  - bil
+summary: "Reprint a document with a reprint marker"
+description: "Reprints an issued billing document from its archive (FR-BIL-009): the archived bytes, checked against their SHA-256, with a reprint marker carrying the copy number, which runs 1, 2, 3 per document and is logged with who and when. Never a new document and never a new number. `PDF`: `pdfBase64` is the archived PDF with the marker overlaid on its first page as an appended update, so the archived bytes are an unchanged prefix. `THERMAL`: `escPosBase64` is the marker followed by the archived ESC/POS bytes, for a document with a thermal rendering (a receipt). `url` and `expiresAt` are null. Refusals: 422 `DOCUMENT_NOT_ARCHIVED` while the document is still rendering or its file awaits the malware scan (`RENDERING`, `NOT_SCANNED`), or has no thermal rendering (`NO_THERMAL_RENDITION`); 422 `ARCHIVE_HASH_MISMATCH` if the stored bytes no longer hash to the archived SHA-256, which is never served and is logged as an error.\n\nPermission: `bil.document.reprint` at the document's branch."
+x-permission: bil.document.reprint
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - DOCUMENT_NOT_ARCHIVED
+  - ARCHIVE_HASH_MISMATCH
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ReprintRequest"
+      example:
+        channel: THERMAL
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ReprintResult"
+        example:
+          copyNo: 2
+          channel: THERMAL
+          url: null
+          escPosBase64: "G0AbYQEbRQEqKiogUkVQUklOVCAyICoqKgobRQAbYQAKG0A="
+          pdfBase64: null
+          expiresAt: null
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

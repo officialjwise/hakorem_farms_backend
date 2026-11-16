@@ -55,7 +55,8 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B08 continued 1c | `B08c1c-statements-assets.md` | `b08c1c-statements-assets` | B4 to B12 | The four statements tie to the trial balance on the seeded day, each read refusing the wrong role; year close leaves 3200 at zero and 3100 increased by the year's profit; the cash figure answers from the ledger (built; the session split before fixed assets, A-198) |
 | B08 continued 1c2 | `B08c1c2-fixed-assets.md` | `b08c1c2-fixed-assets` | B4 to B12 | Depreciation spreads exactly and posts once per period under concurrent runs; every fixed asset write refuses the wrong role; disposal posts its exact gain or loss; the statements still tie on the seeded day (built; ADR-0059, A-199) |
 | B08 continued 2 | `B08c2-billing-documents.md` | `b08c2-billing-documents` | B4 to B12 | A billing document posts exact levy lines and a fourth levy needs data only; numbering stays gap-free under concurrent issue; the trial balance still sums to zero on the seeded day (built; the session split before rendering and the archive, A-201) |
-| B08 continued 2b | `B08c2b-documents-archive.md` | `b08c2b-documents-archive` | B4 to B12 | A reprint is byte-identical apart from its reprint marker and the archive's hash holds; every issued document of the seeded day is archived once; a template version keeps issued documents unchanged; every write refuses the wrong role |
+| B08 continued 2b | `B08c2b-documents-archive.md` | `b08c2b-documents-archive` | B4 to B12 | A reprint is byte-identical apart from its reprint marker and the archive's hash holds; every issued document of the seeded day is archived once; a template version keeps issued documents unchanged; every write refuses the wrong role (built; the session split before statements, A-203) |
+| B08 continued 2c | `B08c2c-statements-remittance.md` | `b08c2c-statements-remittance` | B4 to B12 | A statement ties to the customer's documents and the ledger's 1200 for its period; a remittance advice is archived once from `pur.SupplierRemittanceReady`; a preview renders without archiving anything; every statement and send write refuses the wrong role |
 | B9a | `B09a-order-core-payments.md` | `b09a-order-core-payments` | B4 to B12 | Every payment edge case in the brief passes; an order on any channel posts stock, document, payment and ledger in one transaction |
 | B9b | `B09b-pos-shifts-offline.md` | `b09b-pos-shifts-offline` | B4 to B12 | Shift close reconciles; 500 queued offline transactions sync exactly once |
 | B10 | `B10-quotations-wholesale.md` | `b10-quotations-wholesale` | B4 to B12 | Quote revisions are versioned; conversion to invoice preserves every link; a credit limit blocks with an audited override |
@@ -1366,7 +1367,7 @@ Stop at the gate and write docs/sessions/B08c2-billing-documents.md. End the rep
 
 ## B08 continued 2b — Document rendering, the archive, reprints and statements
 
-Branch `b08c2b-documents-archive`. Report `docs/sessions/B08c2b-documents-archive.md`. Gate: every issued document of the seeded trading day is rendered after commit and archived exactly once with the SHA-256 of its stored bytes, the archive refusing change by trigger; a reprint returns the archived bytes with its reprint marker, byte-identical apart from the marker, with copy numbers 1 and 2 and no new number; a template version keeps issued documents unchanged and a template with a script or remote include is refused at save; every DOC and reprint write refuses the wrong role.
+Branch `b08c2b-documents-archive`. Report `docs/sessions/B08c2b-documents-archive.md`. **Built; the session split before statements (A-203): the remainder is B08 continued 2c below.** Gate: every issued document of the seeded trading day is rendered after commit and archived exactly once with the SHA-256 of its stored bytes, the archive refusing change by trigger; a reprint returns the archived bytes with its reprint marker, byte-identical apart from the marker, with copy numbers 1 and 2 and no new number; a template version keeps issued documents unchanged and a template with a script or remote include is refused at save; every DOC and reprint write refuses the wrong role.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
@@ -1395,13 +1396,39 @@ Stop at the gate and write docs/sessions/B08c2b-documents-archive.md. End the re
 (ADR-0026 verification).
 ```
 
+## B08 continued 2c — Customer statements, the remittance advice, the template preview and sends
+
+Branch `b08c2c-statements-remittance`. Report `docs/sessions/B08c2c-statements-remittance.md`. Gate: a customer statement for a period lists the customer's issued documents and their settlement, ties to the ledger's 1200 for that customer and period, and is rendered after commit and archived once; a supplier remittance advice is rendered from `pur.SupplierRemittanceReady` and archived once, linked from the payment; a template preview renders without archiving or numbering anything; every statement and send write refuses the wrong role.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B08c2b-documents-archive.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the BIL and DOC requirement blocks of docs/SRS.md and FR-PUR-013 (nothing else from the SRS),
+docs/data-model/bil.md and doc.md, the BIL, DOC and PUR cards in docs/MODULE_BOUNDARIES.md, and ADR-0010, ADR-0044,
+ADR-0060 and ADR-0061. Read A-174, A-202 and A-203 in docs/ASSUMPTIONS.md. Use docs/prompts/module-build-prompt.md
+as the recipe. Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B08 continued 2c only, on branch b08c2c-statements-remittance: customer statements (listStatements,
+createStatement, getStatement, sendStatement) rendered and archived through Documents.requestRenderIn as built in
+2b; DOC's rendering of the supplier remittance advice from pur.SupplierRemittanceReady (FR-PUR-013) with PUR's
+remittance_document_id; previewTemplateVersion (decide, with an ADR if it changes the planned shape, how a preview
+reaches the administrator without serving an unscanned file, A-203); and sendBillingDocument through the outbox
+(decide whether a queued send is honest before NTF exists in B11, or leave it to B11 with the reason).
+If the phase does not fit, split at a sub-domain boundary and follow "If a session cannot finish".
+Stop at the gate and write docs/sessions/B08c2c-statements-remittance.md. End the report with B09a's opening message
+(ADR-0026 verification).
+```
+
 ## B9a — Order core and payments, and online order placement
 
 Branch `b09a-order-core-payments`. Report `docs/sessions/B09a-order-core-payments.md`. Gate: every payment edge case in the shared brief passes, and an order on any channel posts stock, document, payment and ledger in one transaction.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9a row).
-List docs/sessions/ and read only the most recent report (docs/sessions/B08c2b-documents-archive.md).
+List docs/sessions/ and read only the most recent report (docs/sessions/B08c2c-statements-remittance.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
 report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the ORD (core) and PAY requirement blocks of docs/SRS.md (nothing else from the SRS),

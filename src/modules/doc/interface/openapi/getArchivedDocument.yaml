@@ -1,0 +1,62 @@
+operationId: getArchivedDocument
+tags:
+  - doc
+summary: "Get an archived document"
+description: "One archived rendering: its template version, its revision (an invoice has exactly one) and `sha256`, the hex SHA-256 of the stored PDF, which equals the billing document's `contentHash`. The bytes are fetched with `downloadArchivedDocument`.\n\nPermission: `doc.document.read` at the document's branch."
+x-permission: doc.document.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+  - NOT_FOUND
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ArchivedDocument"
+        example:
+          id: "019a7adf-5d44-72d8-8811-36605a39af3e"
+          businessDocument:
+            id: "019a7adf-7c33-7cbc-91f4-d497d3ea4d75"
+            docType: RECEIPT
+            number: RCP-2026-DDW-T1-018834
+          docType: RECEIPT
+          documentNo: RCP-2026-DDW-T1-018834
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          templateVersionId: "019a7adf-9b22-769f-abd8-72cf4d9bebad"
+          sha256: "4f2ae8c1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8"
+          revision: 1
+          file:
+            id: "019a7adf-ba11-7083-b5bb-1106c74c89e4"
+            originalName: RCP-2026-DDW-T1-018834.pdf
+            contentType: application/pdf
+          createdAt: "2026-11-13T09:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

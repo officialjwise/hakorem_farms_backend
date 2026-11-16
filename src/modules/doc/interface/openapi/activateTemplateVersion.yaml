@@ -1,0 +1,71 @@
+operationId: activateTemplateVersion
+tags:
+  - doc
+summary: "Make a template version the active one"
+description: "Makes a `DRAFT` version the template's one `ACTIVE` version and retires the one before it, audited with both (FR-DOC-004). The next document issued renders with it; every document already issued keeps its archived bytes and the version it was rendered with (FR-BIL-010). Activating a version that is not a draft is 422 `INVALID_STATE_TRANSITION`.\n\nPermission: `doc.template.manage`."
+x-permission: doc.template.manage
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - INVALID_STATE_TRANSITION
+  - TEMPLATE_BODY_INVALID
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/TemplateVersion"
+        example:
+          id: "019a7ae0-16de-7e2d-a366-ebad345f648b"
+          templateId: "019a7ae2-43ac-702c-8564-0b93c2d18471"
+          versionNo: 2
+          status: ACTIVE
+          body: null
+          activatedAt: "2026-11-01T08:00:00Z"
+          activatedBy:
+            id: "019a7a86-3046-711a-a652-1a7389f79351"
+            displayName: "Akua Mensah"
+          createdAt: "2026-11-12T15:00:00Z"
+          createdBy:
+            id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+            displayName: "Kwabena Owusu"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

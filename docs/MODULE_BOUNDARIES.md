@@ -110,8 +110,9 @@ Each card gives: what the module owns, its public interface (the services export
 
 - **Owns:** schema `doc`. Document templates and versions, the immutable archive of rendered documents, render jobs.
 - **Public interface:** `Documents` (render, archive, fetch, reprint), `Templates`.
+- **Built in B08 continued 2b (ADR-0061, A-202):** `Documents.requestRenderIn` (in the issuing transaction: the render job with the template versions active then, and `doc.RenderRequested` to the outbox), the worker consumer `doc.render` (renders through the platform's PDF and ESC/POS writers, stores `ARCHIVE` files through `FileStore`, archives once, publishes `doc.DocumentArchived`), `archivedIn`, `content` (the archived bytes, hash-checked, once scanned) and the archive reads; `Templates` (versions sandboxed at save, activation audited).
 - **Imports:** platform, IAM.
-- **Subscribes:** nothing. From B04e continued 2 DOC also serves the file store's operations (`uploadFile`, `getFile`, `createFileSignedUrl`) over the platform `FileStore`, holding the uses, their allow-lists and caps and the authorisation (ADR-0044). A module that references a file (product photographs, supplier and investor files, import files) reads it through the platform `FileStore` directly, not through DOC.
+- **Subscribes (A):** `doc.RenderRequested`, its own (B08 continued 2b). From B04e continued 2 DOC also serves the file store's operations (`uploadFile`, `getFile`, `createFileSignedUrl`) over the platform `FileStore`, holding the uses, their allow-lists and caps and the authorisation (ADR-0044). A module that references a file (product photographs, supplier and investor files, import files) reads it through the platform `FileStore` directly, not through DOC.
 
 ### FIN: general ledger and accounting (layer 4)
 
@@ -152,9 +153,9 @@ Each card gives: what the module owns, its public interface (the services export
 
 - **Owns:** schema `bil`. Billing documents, lines, levy rows, reprint log, and a read-only settlement summary per document.
 - **Public interface:** `Billing` (issue, credit, debit, fetch, reprint). Published view: `bil.pub_document`.
-- **Built in B08 continued 2 (ADR-0060, A-200):** `Billing.issueIn` (an invoice, receipt or proforma in the caller's serializable transaction, numbered there through `platform.allocate_number`, its levy rows from MDM's `TaxService.calculateIn`; it authorises nothing) with `seriesLocksFor`, the reads, and the credit and debit notes; IAM's approval handler for `CREDIT_NOTE`. BIL publishes and declares its ◆ events (`DomainEvents.declareLedgerEvents`) and FIN posts them; BIL reads customers, products, tax categories and reasons through MDM's `MasterDataRefs` (B08 continued 2 adds `customersIn`) and stores the stock unit's identifier as the seller names it, so it never reads INV. `bil.document_settlement` is kept by BIL's trigger until PAY's subscribers write allocations (B9a). Rendering, the archive and reprints follow in B08 continued 2b.
+- **Built in B08 continued 2 (ADR-0060, A-200):** `Billing.issueIn` (an invoice, receipt or proforma in the caller's serializable transaction, numbered there through `platform.allocate_number`, its levy rows from MDM's `TaxService.calculateIn`; it authorises nothing) with `seriesLocksFor`, the reads, and the credit and debit notes; IAM's approval handler for `CREDIT_NOTE`. BIL publishes and declares its ◆ events (`DomainEvents.declareLedgerEvents`) and FIN posts them; BIL reads customers, products, tax categories and reasons through MDM's `MasterDataRefs` (B08 continued 2 adds `customersIn`) and stores the stock unit's identifier as the seller names it, so it never reads INV. `bil.document_settlement` is kept by BIL's trigger until PAY's subscribers write allocations (B9a). B08 continued 2b: every issued document asks DOC to render it (`Documents.requestRenderIn`) in its issuing transaction; `bil.archive-link` subscribes to `doc.DocumentArchived` and sets `archived_document_id` and `content_hash` once; `Billing.reprint` serves the archived bytes through `Documents.content` with a marker and `bil.reprint_log`; `BillingNumberingAudit` is the nightly `billing-numbering-audit` job.
 - **Imports:** platform, IAM, MDM, DOC.
-- **Subscribes (A):** `pay.PaymentCleared`, `pay.DepositAllocated`, `pay.PaymentReversed`, `pay.RefundPaid`, to keep the settlement summary on its documents (`bil.document_settlement`). The figure of record stays in PAY.
+- **Subscribes (A):** `doc.DocumentArchived` (B08 continued 2b), to link each issued document to its archive and hash; `pay.PaymentCleared`, `pay.DepositAllocated`, `pay.PaymentReversed`, `pay.RefundPaid`, to keep the settlement summary on its documents (`bil.document_settlement`). The figure of record stays in PAY.
 
 ### PAY: payments and reconciliation (layer 7)
 
@@ -357,7 +358,7 @@ The rule runs in `pnpm lint`. CI runs `pnpm lint` on every pull request and a fa
 ### Data: two CI checks
 
 1. **Foreign keys.** A query over `pg_constraint` and `pg_namespace` lists every foreign key whose referencing and referenced tables are in different schemas. Each must match the allow-list in section 5 and point from a higher layer to a lower one. Anything else fails the build.
-2. **Schema names in code.** A scan of each module's `infrastructure/` folder and migrations fails if it names a schema other than its own, the published `pub_` views it is allowed to read (CST and RPT only), a published key in a foreign key clause, or a read-only function a lower layer publishes for it (`publishedFunctions` in `tooling/architecture.json`, ADR-0047: MDM's `location_stock_facts` and `product_tracking`, called by INV's stock triggers).
+2. **Schema names in code.** A scan of each module's `infrastructure/` folder and migrations fails if it names a schema other than its own, the published `pub_` views it is allowed to read (CST and RPT only), a published key in a foreign key clause, or a read-only function a lower layer publishes for it (`publishedFunctions` in `tooling/architecture.json`, ADR-0047: MDM's `location_stock_facts` and `product_tracking`, called by INV's stock triggers; DOC's `archived_rendering`, called by BIL's migration 0155).
 
 ### Review
 

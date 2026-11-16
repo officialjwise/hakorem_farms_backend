@@ -1,0 +1,176 @@
+operationId: listArchivedDocuments
+tags:
+  - doc
+summary: "List archived documents"
+description: "Archived renderings of issued documents at every branch where the caller holds `doc.document.read` for the whole branch, newest first (FR-DOC-001, FR-DOC-002, B08 continued 2b). A document is rendered after the transaction that issued it commits, through the outbox (FR-DOC-003), and archived once with the SHA-256 of its stored bytes; the archive refuses change by trigger. Filter by `businessDocumentId`, `docType`, `documentNo` and `from`/`to` on when it was archived.\n\nPermission: `doc.document.read`."
+x-permission: doc.document.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: businessDocumentId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: docType
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: documentNo
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: from
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date-time
+  - name: to
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date-time
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ArchivedDocumentPage"
+        example:
+          data:
+            - id: "019a7adf-5d44-72d8-8811-36605a39af3e"
+              businessDocument:
+                id: "019a7adf-7c33-7cbc-91f4-d497d3ea4d75"
+                docType: RECEIPT
+                number: RCP-2026-DDW-T1-018834
+              docType: RECEIPT
+              documentNo: RCP-2026-DDW-T1-018834
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              templateVersionId: "019a7adf-9b22-769f-abd8-72cf4d9bebad"
+              sha256: "4f2ae8c1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8"
+              revision: 1
+              file:
+                id: "019a7adf-ba11-7083-b5bb-1106c74c89e4"
+                originalName: RCP-2026-DDW-T1-018834.pdf
+                contentType: application/pdf
+              createdAt: "2026-11-13T09:00:00Z"
+            - id: "019a7adf-d900-7a66-8f9f-af3e40fd281c"
+              businessDocument:
+                id: "019a7adf-f7ef-744a-9982-4d75baaec653"
+                docType: INVOICE
+                number: INV-2026-DDW-001198
+              docType: INVOICE
+              documentNo: INV-2026-DDW-001198
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              templateVersionId: "019a7ae0-16de-7e2d-a366-ebad345f648b"
+              sha256: "9b11e8c1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8"
+              revision: 1
+              file:
+                id: "019a7ae0-35cd-7811-bd49-89e4ae1002c2"
+                originalName: INV-2026-DDW-001198.pdf
+                contentType: application/pdf
+              createdAt: "2026-11-13T09:01:00Z"
+            - id: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
+              businessDocument:
+                id: "019a7ae0-73ab-7bd8-9110-c653a1723f31"
+                docType: QUOTE
+                number: QUO-2026-DDW-000088
+              docType: QUOTE
+              documentNo: QUO-2026-DDW-000088
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              templateVersionId: "019a7ae0-929a-75bb-aaf3-648b1b23dd69"
+              sha256: c03ee8c1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8
+              revision: 2
+              file:
+                id: "019a7ae0-b189-7f9f-b4d7-02c294d47ba0"
+                originalName: QUO-2026-DDW-000088.pdf
+                contentType: application/pdf
+              createdAt: "2026-11-13T09:02:00Z"
+            - id: "019a7ae0-d078-7982-8eba-a0fa0e8519d7"
+              businessDocument:
+                id: "019a7ae0-ef67-7366-989e-3f318836b80f"
+                docType: DELIVERY_NOTE
+                number: DLN-2026-DDW-000193
+              docType: DELIVERY_NOTE
+              documentNo: DLN-2026-DDW-000193
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              templateVersionId: "019a7ae1-0e56-7d49-a281-dd6901e75646"
+              sha256: "71dde8c1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8"
+              revision: 1
+              file:
+                id: "019a7ae1-2d45-772c-bc65-7ba07b98f47e"
+                originalName: DLN-2026-DDW-000193.pdf
+                contentType: application/pdf
+              createdAt: "2026-11-13T09:03:00Z"
+            - id: "019a7ae1-4c34-7110-8648-19d7f54992b5"
+              businessDocument:
+                id: "019a7ae1-6b23-7af3-902c-b80f6efa30ed"
+                docType: CUSTOMER_STATEMENT
+                number: STM-2026-DDW-000031
+              docType: CUSTOMER_STATEMENT
+              documentNo: STM-2026-DDW-000031
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              templateVersionId: "019a7ae1-8a12-74d7-aa0f-5646e8abcf24"
+              sha256: aa90e8c1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8
+              revision: 1
+              file:
+                id: "019a7ae1-a901-7eba-b3f3-f47e625c6d5c"
+                originalName: STM-2026-DDW-000031.pdf
+                contentType: application/pdf
+              createdAt: "2026-11-13T09:04:00Z"
+            - id: "019a7ae1-c7f0-789e-8dd6-92b5dc0d0b93"
+              businessDocument:
+                id: "019a7ae1-e6df-7281-97ba-30ed55bea9cb"
+                docType: DISTRIBUTION_SCHEDULE
+                number: DST-2026-DDW-000003
+              docType: DISTRIBUTION_SCHEDULE
+              documentNo: DST-2026-DDW-000003
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              templateVersionId: "019a7ae2-05ce-7c65-a19d-cf24cf6f4802"
+              sha256: "5e6ce8c1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8"
+              revision: 1
+              file:
+                id: "019a7ae2-24bd-7648-bb80-6d5c4920e63a"
+                originalName: DST-2026-DDW-000003.pdf
+                contentType: application/pdf
+              createdAt: "2026-11-13T09:05:00Z"
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

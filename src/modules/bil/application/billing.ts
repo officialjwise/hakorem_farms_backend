@@ -1,4 +1,6 @@
 import { createHash } from 'node:crypto';
+import { escPosWithReprintMarker } from '../../../platform/documents/escpos-writer';
+import { withReprintMarker } from '../../../platform/documents/pdf-writer';
 import { createUuidV7Generator, Money, Quantity, toBusinessDate, type Clock } from '@hakorem/kernel';
 import type { AuditTrail } from '../../../platform/audit/audit-trail';
 import type { Actor } from '../../../platform/context/request-context';
@@ -6,10 +8,11 @@ import { databaseErrorOf, IsolationLevelError, type Transaction, type UnitOfWork
 import type { DocumentRegistry } from '../../../platform/documents/document-registry';
 import type { NumberSeries } from '../../../platform/documents/number-series';
 import { NotFoundError, UnauthenticatedError } from '../../../platform/errors/api-error';
-import type { DomainEvents } from '../../../platform/events/domain-events';
+import type { AsyncConsumer, DomainEvents } from '../../../platform/events/domain-events';
 import type { Cursors } from '../../../platform/http/cursor';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
-import type { ApprovalHandler, ApprovalRecord, Approvals, Authoriser } from '../../iam';
+import { DocumentNotArchivedError, DOCUMENT_ARCHIVED, type DocumentArchived, type Documents } from '../../doc';
+import type { ApprovalHandler, ApprovalRecord, Approvals, Authoriser, PrincipalNames, PrincipalRef } from '../../iam';
 import type { MasterDataRefs, TaxService } from '../../mdm';
 import {
   checkIssue,
@@ -28,8 +31,9 @@ import {
   type LinePricing,
 } from '../domain/billing';
 import { lineNumber, pageProbe } from '../domain/line-numbers';
+import { renderDataOf } from '../domain/render-data';
 import type { BillingDocumentPayload, CreditNoteIssued, DebitNoteIssued } from '../events';
-import type { BillingStore, DocumentFilter, DocumentRecord, DraftHeader, LevyRecord, LineRecord, SettlementRecord } from './billing-store';
+import type { BillingStore, DocumentFilter, DocumentRecord, DraftHeader, LevyRecord, LineRecord, ReprintRecord, SettlementRecord } from './billing-store';
 import { BilReferenceNotFoundError, BillingDocumentInvalidError, CreditNoteExceedsOriginalError } from './errors';
 
 export const CREDIT_NOTE_KIND = 'CREDIT_NOTE';
@@ -44,6 +48,8 @@ export const BIL_LEDGER_EVENTS = [INVOICE_ISSUED, CREDIT_NOTE_ISSUED, DEBIT_NOTE
 const READ = 'bil.document.read';
 const CREDIT = 'bil.credit_note.create';
 const DEBIT = 'bil.debit_note.create';
+const REPRINT = 'bil.document.reprint';
+const BILLING_KINDS: readonly string[] = ['PROFORMA', 'INVOICE', 'RECEIPT', 'CREDIT_NOTE', 'DEBIT_NOTE'];
 /** The determination group of a charge with no product: by-products and other goods (4030, A-200). */
 const OTHER_GROUP = 'OTHER';
 const DELIVERY_GROUP = 'SERVICE';
@@ -179,6 +185,24 @@ export interface ApprovalPendingView {
   readonly requestedAt: string;
 }
 
+/** The contract's `ReprintResult`: the archived bytes with the marker, inline (A-202). */
+export interface ReprintView {
+  readonly copyNo: number;
+  readonly channel: 'THERMAL' | 'PDF';
+  readonly url: null;
+  readonly escPosBase64: string | null;
+  readonly pdfBase64: string | null;
+  readonly expiresAt: null;
+}
+
+/** The contract's `ReprintLog`. */
+export interface ReprintLogView {
+  readonly copyNo: number;
+  readonly channel: ReprintRecord['channel'];
+  readonly actor: PrincipalRef;
+  readonly recordedAt: string;
+}
+
 export interface Page<T> {
   readonly data: readonly T[];
   readonly page: { readonly nextCursor: string | null; readonly limit: number; readonly hasMore: boolean };
@@ -221,6 +245,8 @@ export class Billing {
     private readonly audit: AuditTrail,
     private readonly cursors: Cursors,
     private readonly clock: Clock,
+    private readonly archive: Documents,
+    private readonly principals: PrincipalNames,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -491,6 +517,107 @@ export class Billing {
     });
   }
 
+  /**
+   * BIL's consumer of `doc.DocumentArchived` (ADR-0061): an issued billing document learns its archived rendering and
+   * keeps the SHA-256 of its bytes as its content hash, both once (`ck_billing_document_frozen`).
+   */
+  readonly archiveLinks: AsyncConsumer = {
+    name: 'bil.archive-link',
+    eventTypes: [DOCUMENT_ARCHIVED],
+    isolation: 'read committed',
+    handle: async (tx, event) => {
+      const archived = event.payload as unknown as DocumentArchived;
+      if (!BILLING_KINDS.includes(archived.docType)) return;
+      await this.store.linkArchive(tx, archived.businessDocumentId, archived.archivedDocumentId, Buffer.from(archived.sha256, 'hex'));
+    },
+  };
+
+  /**
+   * `reprintBillingDocument` (FR-BIL-009): the archived bytes, checked against their SHA-256, with a marker naming the
+   * next copy number, logged in `bil.reprint_log`. Never a new document and never a new number; nothing is rendered
+   * again, so the figures, the party and the template are the ones issued.
+   */
+  async reprint(actor: Actor | undefined, id: string, body: { readonly channel: 'THERMAL' | 'PDF' }, idempotencyKey: string): Promise<StoredResponse<ReprintView>> {
+    const archived = await this.uow.run({ isolation: 'read committed' }, async (tx) => {
+      await this.authoriser.authorise(tx, actor, REPRINT);
+      const record = await this.documentOf(tx, id, false);
+      await this.authoriser.authorise(tx, actor, REPRINT, { branchId: record.branchId });
+      if (record.status !== 'ISSUED') throw new NotFoundError(`billing document ${id} is not issued`);
+      if (record.archivedDocumentId === null) throw new DocumentNotArchivedError('RENDERING');
+      return (await this.archive.archivedIn(tx, [record.archivedDocumentId]))[0]!;
+    });
+    // Read and hash-checked outside any transaction; served only if the bytes are the ones archived.
+    const original = await this.archive.content(archived, body.channel);
+    return this.uow.run({ isolation: 'serializable', seriesLocks: [`REPRINT:${id}`] }, async (tx) => {
+      await this.authoriser.authorise(tx, actor, REPRINT, { branchId: archived.branchId });
+      const claim = await this.idempotency.claim(tx, { operationId: 'reprintBillingDocument', principalId: actor!.principalId, key: idempotencyKey, request: { id, ...body } });
+      if (claim.kind === 'REPLAY') return claim.response as StoredResponse<ReprintView>;
+      const copyNo = await this.store.appendReprint(tx, { id: this.nextId(), billingDocumentId: id, channel: body.channel, actorId: actor!.principalId, at: this.clock.now() });
+      const marker = `REPRINT ${copyNo}`;
+      const bytes = body.channel === 'PDF' ? withReprintMarker(original, marker) : escPosWithReprintMarker(original, marker);
+      await this.audit.record(tx, { module: 'bil', action: 'REPRINT', entityType: 'BillingDocument', entityId: id, branchId: archived.branchId, before: null, after: { copyNo, channel: body.channel, archivedDocumentId: archived.id } });
+      const response = {
+        status: 200,
+        body: { copyNo, channel: body.channel, url: null, escPosBase64: body.channel === 'THERMAL' ? bytes.toString('base64') : null, pdfBase64: body.channel === 'PDF' ? bytes.toString('base64') : null, expiresAt: null },
+      };
+      await this.idempotency.complete(tx, claim.id, response);
+      return response;
+    });
+  }
+
+  /** `listBillingDocumentReprints`: every copy by number, who made it and when. */
+  listReprints(actor: Actor | undefined, id: string, cursor: string | undefined, limit: number): Promise<Page<ReprintLogView>> {
+    return this.uow.run({ isolation: 'read committed' }, async (tx) => {
+      await this.authoriser.authorise(tx, actor, READ);
+      const record = await this.documentOf(tx, id, false);
+      await this.authoriser.authorise(tx, actor, READ, { branchId: record.branchId });
+      const binding = { operationId: 'listBillingDocumentReprints', principalId: actor!.principalId, filters: { id } };
+      const after = cursor === undefined ? undefined : this.cursors.decode(cursor, binding)['copyNo'];
+      const rows = await this.store.reprints(tx, id, after === undefined ? null : Number(after), pageProbe(limit));
+      const page = rows.slice(0, limit);
+      const names = await this.principals.refs(tx, [...new Set(page.map((r) => r.actorId))]);
+      const data = page.map((r) => ({ copyNo: r.copyNo, channel: r.channel, actor: names.get(r.actorId) ?? { id: r.actorId, displayName: 'Unknown' }, recordedAt: r.recordedAt.toISOString() }));
+      const hasMore = rows.length > limit;
+      const last = data.at(-1);
+      return { data, page: { nextCursor: hasMore && last !== undefined ? this.cursors.encode(binding, { copyNo: String(last.copyNo) }) : null, limit, hasMore } };
+    });
+  }
+
+  /** What the document's template renders: the issued document as printed (FR-BIL-004). */
+  private async renderData(tx: Transaction, record: DocumentRecord, view: BillingDocumentView): Promise<Record<string, unknown>> {
+    const branch = (await this.refs.branchesIn(tx, [record.branchId])).get(record.branchId)!;
+    return renderDataOf({
+      kind: record.kind,
+      documentNo: record.documentNo!,
+      provisionalRef: record.provisionalRef,
+      issueDate: record.issueDate,
+      dueDate: record.dueDate,
+      branch: { code: branch.code, name: branch.name },
+      customer: record.customerName === null ? null : { name: record.customerName, tin: record.customerTin, address: record.billingAddress },
+      original: view.originalDocument?.number === undefined || view.originalDocument.number === null ? null : { documentNo: view.originalDocument.number },
+      reasonCode: record.reasonCode,
+      taxInclusive: record.taxInclusive,
+      netPesewas: record.netPesewas,
+      taxPesewas: record.taxPesewas,
+      grossPesewas: record.grossPesewas,
+      levyTotals: view.levyTotals.map((t) => ({ levyCode: t.levyCode, levyName: t.levyName, amountPesewas: BigInt(t.amountPesewas) })),
+      lines: record.lines.map((l) => ({
+        lineNo: l.lineNo,
+        description: l.description,
+        identifier: l.stockUnit?.identifier ?? null,
+        quantity: l.qty,
+        uom: l.uom,
+        weightKg: l.weightKg,
+        unitPricePesewas: l.unitPricePesewas,
+        discountPesewas: l.discountPesewas,
+        netPesewas: l.lineNetPesewas,
+        taxPesewas: l.lineTaxPesewas,
+        grossPesewas: l.lineGrossPesewas,
+        levies: l.levies.map((v) => ({ levyCode: v.levyCode, levyName: v.levyName, treatment: v.treatment, ratePercent: v.ratePercent, basePesewas: v.basePesewas, amountPesewas: v.amountPesewas })),
+      })),
+    });
+  }
+
   /** A credit or debit note's header: the original's branch, customer and printed party, never edited since. */
   private noteHeader(original: DocumentRecord, kind: 'CREDIT_NOTE' | 'DEBIT_NOTE', versionId: string, reasonCode: string, note: string | undefined, actorId: string, dueDate: string | null): DraftHeader {
     return {
@@ -626,7 +753,10 @@ export class Billing {
           ? ({ reasonCode: draft.reasonCode! } satisfies Pick<DebitNoteIssued, 'reasonCode'>)
           : {};
     await this.events.publish(tx, { type, subjectType: 'BillingDocument', subjectId: id, branchId: draft.branchId, payload: { ...payload, ...extra } });
-    const [view] = await this.views(tx, await this.store.documents(tx, [id]));
+    const [issued] = await this.store.documents(tx, [id]);
+    const [view] = await this.views(tx, [issued!]);
+    // Rendered and archived by DOC's worker after this transaction commits (FR-DOC-003): never inside it.
+    await this.archive.requestRenderIn(tx, { businessDocumentId: id, docType: draft.kind, documentNo, branchId: draft.branchId, renderData: await this.renderData(tx, issued!, view!) });
     await this.audit.record(tx, { module: 'bil', action: 'ISSUE', entityType: 'BillingDocument', entityId: id, branchId: draft.branchId, before: null, after: { ...view!, approvalRequestId } });
     return view!;
   }
@@ -639,6 +769,7 @@ export class Billing {
     const orders = await this.documents.refs(tx, records.flatMap((r) => (r.orderDocumentId === null ? [] : [r.orderDocumentId])));
     const originals = new Map((await this.store.documents(tx, records.flatMap((r) => (r.originalDocumentId === null ? [] : [r.originalDocumentId])))).map((o) => [o.id, o] as const));
     const settlements = await this.store.settlements(tx, records.map((r) => r.id));
+    const reprints = await this.store.reprintCounts(tx, records.map((r) => r.id));
     return records.map((r) => {
       const customer = r.customerId === null ? undefined : customers.get(r.customerId);
       const settlement = settlements.get(r.id);
@@ -712,11 +843,11 @@ export class Billing {
               },
         certification: r.certification === null ? null : { certifiedTaxPesewas: json(r.certification.taxPesewas), certifiedGrossPesewas: json(r.certification.grossPesewas), reference: r.certification.reference },
         reasonCode: r.reasonCode,
-        archivedDocumentId: null,
+        archivedDocumentId: r.archivedDocumentId,
         contentHash: r.contentHash === null ? null : r.contentHash.toString('hex'),
         issuedAt: r.issuedAt?.toISOString() ?? null,
         occurredAt: r.occurredAt?.toISOString() ?? null,
-        reprintCount: 0,
+        reprintCount: reprints.get(r.id) ?? 0,
         branchId: r.branchId,
       };
     });
