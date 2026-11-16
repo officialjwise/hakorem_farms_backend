@@ -38,18 +38,6 @@ export const PENDING_FIGURES: readonly PendingFigure[] = [
   { figure: 'salesMonthToDatePesewas', source: 'ord', reason: SALES, phase: 'B9a' },
   { figure: 'salesByChannel', source: 'ord', reason: SALES, phase: 'B9a' },
   { figure: 'salesSeries', source: 'ord', reason: SALES, phase: 'B9a' },
-  {
-    figure: 'receivablesOutstandingPesewas',
-    source: 'fin',
-    reason: 'Receivables are the balance of ledger account 1200 from issued invoices; the ledger and billing are built in B8.',
-    phase: 'B8',
-  },
-  {
-    figure: 'receivablesOverduePesewas',
-    source: 'bil',
-    reason: 'Overdue receivables are invoices past their due date; billing is built in B8.',
-    phase: 'B8',
-  },
   { figure: 'topMovers', source: 'ord', reason: 'Top movers rank the products sold today by revenue, from completed orders built in B9a.', phase: 'B9a' },
   {
     figure: 'alerts',
@@ -59,6 +47,16 @@ export const PENDING_FIGURES: readonly PendingFigure[] = [
   },
   { figure: 'exceptionsToday', source: 'rpt', reason: 'The count of exception items comes from the daily exception report, built in B12.', phase: 'B12' },
 ];
+
+/**
+ * The receivables figures (FR-RPT-001, A-149, A-200): outstanding is the balance of trade receivables (1200, debits
+ * less credits) and overdue the outstanding amount of issued documents past their due date, never more than what is
+ * outstanding. A credit balance (customers owed money) is outstanding 0, never a negative figure.
+ */
+export function receivablesFigures(balance: bigint, overdueDocuments: bigint): { readonly outstanding: bigint; readonly overdue: bigint } {
+  const outstanding = balance > 0n ? balance : 0n;
+  return { outstanding, overdue: overdueDocuments < outstanding ? overdueDocuments : outstanding };
+}
 
 /** Whether a figure has a source yet. */
 export function isPending(figure: string): boolean {

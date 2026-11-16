@@ -48,8 +48,6 @@ const PENDING = [
   'salesMonthToDatePesewas',
   'salesByChannel',
   'salesSeries',
-  'receivablesOutstandingPesewas',
-  'receivablesOverduePesewas',
   'topMovers',
   'alerts',
   'exceptionsToday',
@@ -93,12 +91,16 @@ describe('B05x gate: getOwnerDashboard answers in one request', () => {
       branchIds: [id('branch:DDW')],
       stockValueAtCostPesewas: SEED_HAND_COUNT.totalValueAtCostPesewas,
       lowStockCount: 1,
+      // The seeded billing documents on 1200 (B08 continued 2): the invoice 124,489 and the walk-in receipt 18,500,
+      // less the credit note 36,000, plus the debit note 2,400; nothing is due before today.
+      receivablesOutstandingPesewas: 109_389,
+      receivablesOverduePesewas: 0,
       currency: 'GHS',
       animalsOnHand: { total: 6, bySpecies: [{ species: { code: 'GOAT', name: expect.any(String) }, count: 4 }, { species: { code: 'SHEEP' }, count: 2 }] },
     });
     expect(body.asOf).toBe(clock.now().toISOString());
     expect(body.pendingFigures.map((f) => f.figure)).toEqual(PENDING);
-    expect(Object.fromEntries(body.pendingFigures.map((f) => [f.figure, f.phase]))).toMatchObject({ salesTodayPesewas: 'B9a', receivablesOutstandingPesewas: 'B8', exceptionsToday: 'B12' });
+    expect(Object.fromEntries(body.pendingFigures.map((f) => [f.figure, f.phase]))).toMatchObject({ salesTodayPesewas: 'B9a', topMovers: 'B9a', exceptionsToday: 'B12' });
     // The seeded trading day moves no cash: every cash account is at nil, from the ledger (B08 continued 1c).
     expect(body.cash).toEqual(NO_CASH);
     expect(body.pendingFigures.every((f) => f.reason.length > 20 && /^[a-z]{3}$/.test(f.source))).toBe(true);
@@ -206,8 +208,13 @@ describe('B05x gate: each tile answers alone, with the dashboard value and the m
     expect((await get(owner, `/dashboard/tiles/purchases?from=${dashboard.purchases.from}&to=${dashboard.purchases.to}`)).body.purchases).toEqual(dashboard.purchases);
   });
 
-  it('serves no tile for a figure without a source: today, receivables and the sales series are the mock\'s alone', async () => {
-    for (const path of ['/dashboard/tiles/sales-today', '/dashboard/tiles/receivables', '/dashboard/tiles/sales']) {
+  it('answers the receivables tile with the dashboard\'s figures (B08 continued 2)', async () => {
+    const dashboard = (await get(owner, `/dashboard/owner?date=${SEED_DAY}`)).body;
+    expect((await get(owner, '/dashboard/tiles/receivables')).body).toMatchObject({ outstandingPesewas: dashboard.receivablesOutstandingPesewas, overduePesewas: dashboard.receivablesOverduePesewas });
+  });
+
+  it('serves no tile for a figure without a source: today and the sales series are the mock\'s alone', async () => {
+    for (const path of ['/dashboard/tiles/sales-today', '/dashboard/tiles/sales']) {
       expect((await get(owner, path)).status, path).toBe(404);
     }
   });

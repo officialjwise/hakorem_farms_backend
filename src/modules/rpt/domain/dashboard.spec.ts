@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, animalsBySpecies, dashboardBranches, dashboardDate, daysBetween, isPending, PENDING_FIGURES, seriesPeriod } from './dashboard';
+import { addDays, animalsBySpecies, dashboardBranches, dashboardDate, daysBetween, isPending, PENDING_FIGURES, receivablesFigures, seriesPeriod } from './dashboard';
 import { fillSeries } from './series';
 
 const TODAY = '2026-11-15';
@@ -108,15 +108,27 @@ describe('the figures without a source yet', () => {
       ['salesMonthToDatePesewas', 'B9a'],
       ['salesByChannel', 'B9a'],
       ['salesSeries', 'B9a'],
-      ['receivablesOutstandingPesewas', 'B8'],
-      ['receivablesOverduePesewas', 'B8'],
       ['topMovers', 'B9a'],
       ['alerts', 'B12'],
       ['exceptionsToday', 'B12'],
     ]);
     expect(PENDING_FIGURES.every((f) => f.reason.length > 0 && f.source.length === 3)).toBe(true);
     expect(isPending('cash')).toBe(false);
-    expect(isPending('receivablesOutstandingPesewas')).toBe(true);
+    expect(isPending('receivablesOutstandingPesewas')).toBe(false);
+    expect(isPending('receivablesOverduePesewas')).toBe(false);
     expect(isPending('stockValueAtCostPesewas')).toBe(false);
+  });
+});
+
+describe('the receivables figures (FR-RPT-001, A-200)', () => {
+  it('answers the balance of 1200 as outstanding and the documents past due as overdue', () => {
+    expect(receivablesFigures(2_063_400n, 545_900n)).toEqual({ outstanding: 2_063_400n, overdue: 545_900n });
+  });
+  it('never answers overdue above outstanding', () => {
+    expect(receivablesFigures(100_000n, 150_000n)).toEqual({ outstanding: 100_000n, overdue: 100_000n });
+  });
+  it('answers a credit balance as nothing outstanding and nothing overdue', () => {
+    expect(receivablesFigures(-5_000n, 0n)).toEqual({ outstanding: 0n, overdue: 0n });
+    expect(receivablesFigures(0n, 0n)).toEqual({ outstanding: 0n, overdue: 0n });
   });
 });
