@@ -406,15 +406,19 @@ describe('rations (FR-LIV-014)', () => {
 });
 
 describe('mortality waits for a photograph and a different approver at or above 50,000 (FR-LIV-012, abuse case 2)', () => {
-  it('writes off a kid with accumulated cost 12,000 on submit, and the register shows it DEAD', async () => {
+  it('writes off a kid with accumulated cost 12,000 once a supervisor confirms the Farm hand\'s report, and the register shows it DEAD', async () => {
     const reported = await post(farmHand, '/care/mortality-records', { kind: 'DEATH', stockUnitId: id('unit:K-0301'), reasonCode: 'UNKNOWN_CAUSE', foundAt: hoursAgo(1), disposalNote: 'Buried behind the pens' });
     expect(reported.status, JSON.stringify(reported.body)).toBe(201);
     expect(reported.body).toMatchObject({ status: 'REPORTED', animal: { tagNo: 'K-0301' }, location: { code: 'PENS' }, reportedBy: { displayName: 'Abena Quaye' } });
     expect(reported.body).not.toHaveProperty('valuePesewas');
     expect((await get(manager, `/mortality-records/${reported.body.id as string}`)).body).toMatchObject({ status: 'REPORTED', valuePesewas: 12_000 });
+    // The Farm hand never writes stock off alone (owner, 2026-11-15; B06r): a supervisor confirms it below the threshold.
     const submitted = await post(farmHand, `/care/mortality-records/${reported.body.id as string}/submit`);
-    expect(submitted.status).toBe(200);
-    expect(submitted.body).toMatchObject({ status: 'POSTED', approvalRequestId: null });
+    expect(submitted.status).toBe(202);
+    expect(submitted.body).toMatchObject({ status: 'PENDING_APPROVAL', kind: 'MORTALITY_CONFIRMATION' });
+    expect(await statusOf('K-0301')).toBe('ALIVE');
+    const confirmed = await post(manager, `/iam/approvals/${submitted.body.approvalRequestId as string}/approve`, { reason: 'Saw the kid at the pens' });
+    expect(confirmed.status, JSON.stringify(confirmed.body)).toBe(200);
     expect((await get(manager, `/mortality-records/${reported.body.id as string}`)).body).toMatchObject({ status: 'POSTED', valuePesewas: 12_000 });
     expect(await statusOf('K-0301')).toBe('DEAD');
     expect(await poolOf('K-0301')).toBe('0');

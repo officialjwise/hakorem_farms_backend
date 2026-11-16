@@ -56,6 +56,7 @@ responses:
           valuePesewas: 58900
           currency: GHS
           status: PENDING_APPROVAL
+          returnedReason: null
           approvalRequestId: "019a7ac0-4f55-757d-bab6-60af2f88d98d"
           movementId: null
           disposalNote: null

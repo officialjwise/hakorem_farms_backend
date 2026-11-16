@@ -97,6 +97,7 @@ responses:
               valuePesewas: 58900
               currency: GHS
               status: PENDING_APPROVAL
+              returnedReason: null
               approvalRequestId: "019a7ac0-4f55-757d-bab6-60af2f88d98d"
               movementId: null
               disposalNote: null
@@ -123,6 +124,7 @@ responses:
               valuePesewas: 40500
               currency: GHS
               status: POSTED
+              returnedReason: null
               approvalRequestId: null
               movementId: "019a7ac0-8d33-7944-9e7d-9d1e22ea15fc"
               disposalNote: "Buried behind the broiler house, lime applied"
@@ -149,6 +151,7 @@ responses:
               valuePesewas: 27000
               currency: GHS
               status: POSTED
+              returnedReason: null
               approvalRequestId: null
               movementId: "019a7ac0-cb11-7d0b-b244-d98d164c526a"
               disposalNote: "Buried behind the broiler house, lime applied"
@@ -177,6 +180,7 @@ responses:
               valuePesewas: 38700
               currency: GHS
               status: REPORTED
+              returnedReason: null
               approvalRequestId: null
               movementId: null
               disposalNote: null
@@ -203,6 +207,7 @@ responses:
               valuePesewas: 13500
               currency: GHS
               status: POSTED
+              returnedReason: null
               approvalRequestId: null
               movementId: "019a7ac1-27de-7ab6-afee-b433835f2d11"
               disposalNote: "Buried behind the broiler house, lime applied"
@@ -231,6 +236,7 @@ responses:
               valuePesewas: 61250
               currency: GHS
               status: REJECTED
+              returnedReason: null
               approvalRequestId: "019a7ac1-65bc-7e7d-83b5-f0a276c16980"
               movementId: null
               disposalNote: null

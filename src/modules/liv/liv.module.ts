@@ -20,7 +20,7 @@ import { HERD_STORE, type HerdStore } from './application/herd-store';
 import { Feeding } from './application/feeding';
 import { HealthRecords } from './application/health';
 import { LIVESTOCK_STORE, type LivestockStore } from './application/livestock-store';
-import { MORTALITY_WRITE_OFF, MortalityRecords } from './application/mortality';
+import { MORTALITY_CONFIRMATION, MORTALITY_WRITE_OFF, MortalityEvidenceReturns, MortalityRecords } from './application/mortality';
 import { CostSpreader } from './application/spread';
 import { Weighing } from './application/weights';
 import { PgHerdStore } from './infrastructure/pg-herd-store';
@@ -166,6 +166,11 @@ import { CareController } from './interface/care.controller';
       inject: [UnitOfWork, LIVESTOCK_STORE, MasterDataRefs, StockUnits, Stock, Approvals, FileStore, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, PRINCIPAL_NAMES, Cursors, CLOCK],
     },
     {
+      provide: MortalityEvidenceReturns,
+      useFactory: (uow: UnitOfWork, store: LivestockStore, records: MortalityRecords) => new MortalityEvidenceReturns(uow, store, records),
+      inject: [UnitOfWork, LIVESTOCK_STORE, MortalityRecords],
+    },
+    {
       provide: Feeding,
       useFactory: (
         uow: UnitOfWork,
@@ -186,7 +191,7 @@ import { CareController } from './interface/care.controller';
       inject: [UnitOfWork, LIVESTOCK_STORE, MasterDataRefs, StockUnits, Stock, CostSpreader, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, PRINCIPAL_NAMES, Cursors, CLOCK],
     },
   ],
-  exports: [Animals, Weighing, HealthRecords, MortalityRecords, Feeding, AnimalCare, Batches, Breeding, Growth],
+  exports: [Animals, Weighing, HealthRecords, MortalityRecords, MortalityEvidenceReturns, Feeding, AnimalCare, Batches, Breeding, Growth],
 })
 export class LivModule implements OnModuleInit {
   constructor(
@@ -199,11 +204,12 @@ export class LivModule implements OnModuleInit {
   /**
    * Keeps the register in step with inventory (ADR-0010: a module keeping its own aggregate consistent with a lower
    * module's fact subscribes in the publisher's transaction), and registers the mortality write-off's approval handler
-   * (ADR-0017).
+   * for both its kinds (ADR-0017): the write-off at or above the threshold and the confirmation below it (B06r).
    */
   onModuleInit(): void {
     this.events.subscribeInTransaction('inv.StockUnitRegistered', this.animals.register);
     for (const type of FOLLOWED_EVENTS) this.events.subscribeInTransaction(type, this.animals.follow);
     this.approvals.registerHandler(MORTALITY_WRITE_OFF, this.mortality);
+    this.approvals.registerHandler(MORTALITY_CONFIRMATION, this.mortality);
   }
 }

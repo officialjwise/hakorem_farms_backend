@@ -8,18 +8,24 @@ import { InvalidStateTransitionError, NotFoundError } from '../../../platform/er
 import type { DomainEvents } from '../../../platform/events/domain-events';
 import type { Cursors } from '../../../platform/http/cursor';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
-import type { FileStore } from '../../../platform/storage/file-store';
+import type { FileStore, StoredFileRecord } from '../../../platform/storage/file-store';
 import type { ApprovalHandler, ApprovalRecord, Approvals, AuthoriseScope, Authoriser, PrincipalNames } from '../../iam';
 import { issue, type Stock, type StockUnitFacts, type StockUnits } from '../../inv';
 import type { MasterDataRefs } from '../../mdm';
 import { headOf } from '../domain/cost-spread';
-import { checkMortalityReport, judgeWriteOff, type MortalityKind } from '../domain/mortality';
-import type { MortalityApproved, MortalityReported } from '../events';
-import { LivestockRecordInvalidError, LivReferenceNotFoundError, MortalityPhotoRequiredError } from './errors';
-import type { LivestockStore, MortalityFilters, MortalityRecord, MortalityStatus } from './livestock-store';
+import { checkMortalityReport, evidenceVerdict, judgeSubmission, type MortalityKind } from '../domain/mortality';
+import type { MortalityApproved, MortalityPhotoReused, MortalityReported, MortalityReturned } from '../events';
+import { EvidenceNotScannedError, LivestockRecordInvalidError, LivReferenceNotFoundError, MortalityPhotoRequiredError } from './errors';
+import type { LivestockStore, MortalityFilters, MortalityRecord, MortalityReturnReason, MortalityStatus } from './livestock-store';
 import { afterOf, pageOf, pageProbe, placesOf, readScopeOf, runWrite, writePermissions, type Page, type WriteDoor } from './support';
 
 export const MORTALITY_WRITE_OFF = 'MORTALITY_WRITE_OFF';
+/** A write-off below the threshold reported by someone who may not post one (the Farm hand), confirmed by a holder of `liv.mortality.confirm` (B06r). */
+export const MORTALITY_CONFIRMATION = 'MORTALITY_CONFIRMATION';
+/** Who may post a write-off below the threshold without a second person. */
+const POST_PERMISSION = 'liv.mortality.post';
+/** Waiting records the evidence returns job looks at in one run; the next run, a minute later, takes the rest. */
+const RETURNS_BATCH = 200;
 /** Threat model abuse case 2: a healthy animal recorded as dead and sold privately. */
 const ABUSE_CASE_HEALTHY_RECORDED_DEAD = 2;
 const EVIDENCE = 'EVIDENCE';
@@ -58,6 +64,8 @@ export interface MortalityRecordView {
   readonly valuePesewas: number;
   readonly currency: 'GHS';
   readonly status: MortalityStatus;
+  /** Why the record went back to its maker (status RETURNED): the scanner rejected its photograph. */
+  readonly returnedReason: MortalityReturnReason | null;
   readonly approvalRequestId: string | null;
   readonly movementId: string | null;
   readonly disposalNote: string | null;
@@ -76,13 +84,18 @@ export interface ApprovalPendingView {
 
 /**
  * Deaths and culls (FR-LIV-012, FR-LIV-013; threat model abuse case 2). A record is REPORTED with the animal or the
- * birds lost from a flock, a reason from the fixed list, where and when it was found and, at will, a photograph; its
- * value is what the write-off would carry out of the cost pool now. Submitting values it again and asks IAM's
- * `Approvals.judgeIn` for the MORTALITY_WRITE_OFF threshold: below it, the MORTALITY or CULL movement posts at once;
- * at or above it, a photograph is required before anything else, and the record waits as PENDING_APPROVAL, with the
- * stock still on hand, until a different person holding `liv.mortality.approve` approves it, which posts the movement
- * in the approval's transaction. Only the reporter submits, so the maker IAM keeps from checking is the reporter. The
- * database refuses a posted record at or above its threshold without a photograph and an approval.
+ * birds lost from a flock, a reason from the fixed list, where and when it was found and, at will, a photograph (an
+ * EVIDENCE file, which may still be PENDING its scan); its value is what the write-off would carry out of the cost pool
+ * now. Submitting values it again and asks IAM's `Approvals.judgeIn` for the MORTALITY_WRITE_OFF threshold: at or above
+ * it, a photograph is required before anything else, and the record waits as PENDING_APPROVAL, with the stock still on
+ * hand, until a different person holding `liv.mortality.approve` approves it; below it, a reporter holding
+ * `liv.mortality.post` posts the MORTALITY or CULL movement at once, and one who does not (the Farm hand, owner
+ * 2026-11-15) waits for a MORTALITY_CONFIRMATION by a different holder of `liv.mortality.confirm` (the Owner, the Manager). Either approval posts
+ * the movement in its own transaction, and only once the photograph is CLEAN; a photograph the scanner rejects sends
+ * the waiting record back to its maker (RETURNED, `MortalityEvidenceReturns`). Only the reporter submits, so the maker
+ * IAM keeps from checking is the reporter. A photograph whose exact bytes were already attached to another record is
+ * published for the exception report. The database refuses a posted record at or above its threshold without a
+ * photograph and an approval, one that needed a confirmation without one, and a photograph that is not CLEAN.
  */
 export class MortalityRecords implements ApprovalHandler {
   private readonly nextId: () => string;
@@ -158,7 +171,7 @@ export class MortalityRecords implements ApprovalHandler {
     });
     if (unit!.tracking === 'SERIAL' && (await this.store.openMortalityOf(tx, unit!.id, null)) !== null) broken.push({ field: '/stockUnitId', rule: 'ALREADY_AWAITING_APPROVAL' });
     if (broken.length > 0) throw new LivestockRecordInvalidError(broken);
-    if (body.photoFileId !== undefined) await this.checkPhoto(tx, body.photoFileId);
+    const photo = body.photoFileId === undefined ? null : await this.usablePhoto(tx, body.photoFileId);
     const id = body.id ?? this.nextId();
     await this.documents.register(tx, { id, docType: 'MORTALITY_RECORD', ownerModule: 'liv', branchId: unit!.branchId, actorId: actor.principalId });
     await this.store.insertMortality(
@@ -173,14 +186,17 @@ export class MortalityRecords implements ApprovalHandler {
         foundAt: body.foundAt,
         reportedBy: actor.principalId,
         photoFileId: body.photoFileId ?? null,
+        photoSha256: photo?.sha256 ?? null,
         valuePesewas: this.valueOf(unit!, head).pesewas,
         disposalNote: body.disposalNote ?? null,
         branchId: unit!.branchId,
       },
       actor.principalId,
     );
-    const view = await this.view(tx, (await this.store.mortality(tx, id))!);
+    const record = (await this.store.mortality(tx, id))!;
+    const view = await this.view(tx, record);
     await this.audit.record(tx, { module: 'liv', action: 'CREATE', entityType: 'MortalityRecord', entityId: id, branchId: unit!.branchId, before: null, after: { ...view } });
+    if (photo !== null) await this.flagReusedPhoto(tx, record, photo);
     return view;
   }
 
@@ -208,21 +224,25 @@ export class MortalityRecords implements ApprovalHandler {
   async submitIn(tx: Transaction, actor: Actor, id: string): Promise<StoredResponse<MortalityRecordView | ApprovalPendingView>> {
     const before = await this.locked(tx, id, 'REPORTED');
     if (before.reportedBy !== actor.principalId) throw new LivestockRecordInvalidError([{ field: '/id', rule: 'SUBMITTER_NOT_REPORTER' }]);
+    const photo = before.photoFileId === null ? null : await this.usablePhoto(tx, before.photoFileId);
     const unit = await this.liveUnit(tx, before);
     const value = this.valueOf(unit, before.head);
     const judgement = await this.approvals.judgeIn(tx, MORTALITY_WRITE_OFF, before.branchId, value.pesewas);
     const threshold = Money.ofPesewas(judgement.thresholdPesewas);
-    const verdict = judgeWriteOff(value, threshold, before.photoFileId !== null);
+    const reporterMayPost = await this.mayPost(tx, actor, before);
+    const verdict = judgeSubmission(value, threshold, { hasPhoto: photo !== null, reporterMayPost });
     if (!verdict.ok) throw new MortalityPhotoRequiredError(value.pesewas, threshold.pesewas);
     if (verdict.value === 'POST') {
+      if (photo !== null && !evidenceVerdict(photo.scanStatus).post) throw new EvidenceNotScannedError(photo.id);
       const movementId = await this.postIn(tx, actor.principalId, before);
       await this.store.updateMortality(tx, id, { status: 'POSTED', value_pesewas: value.pesewas.toString(), threshold_pesewas: threshold.pesewas.toString(), movement_id: movementId, posted_at: this.clock.now(), posted_by: actor.principalId }, actor.principalId);
-      await this.reported(tx, before, value, threshold, null);
+      await this.reported(tx, before, value, threshold, null, null);
       return { status: 200, body: await this.audited(tx, 'POST', before) };
     }
-    const summary = `${before.kind === 'CULL' ? 'Cull' : 'Death'} of ${unit.identifier}${before.head > 1 ? ` (${before.head} head)` : ''} (${before.reasonCode}), valued ${value.pesewas} pesewas`;
+    const kind = verdict.value === 'APPROVAL' ? MORTALITY_WRITE_OFF : MORTALITY_CONFIRMATION;
+    const summary = `${before.kind === 'CULL' ? 'Cull' : 'Death'} of ${unit.identifier}${before.head > 1 ? ` (${before.head} head)` : ''} (${before.reasonCode}), valued ${value.pesewas} pesewas${kind === MORTALITY_CONFIRMATION ? ', reported by someone who may not write off alone' : ''}`;
     const request = await this.approvals.request(tx, actor, {
-      kind: MORTALITY_WRITE_OFF,
+      kind,
       branchId: before.branchId,
       subjectDocumentId: id,
       payloadHash: mortalityHash(before, value),
@@ -230,12 +250,17 @@ export class MortalityRecords implements ApprovalHandler {
       summary,
       evidenceFileId: before.photoFileId,
     });
-    await this.store.updateMortality(tx, id, { status: 'PENDING_APPROVAL', value_pesewas: value.pesewas.toString(), threshold_pesewas: threshold.pesewas.toString(), approval_request_id: request.id }, actor.principalId);
-    await this.reported(tx, before, value, threshold, request.id);
-    await this.audited(tx, 'SUBMIT', before, { approvalRequestId: request.id });
+    await this.store.updateMortality(
+      tx,
+      id,
+      { status: 'PENDING_APPROVAL', value_pesewas: value.pesewas.toString(), threshold_pesewas: threshold.pesewas.toString(), confirmation_required: !reporterMayPost, approval_request_id: request.id },
+      actor.principalId,
+    );
+    await this.reported(tx, before, value, threshold, request.id, kind);
+    await this.audited(tx, 'SUBMIT', before, { approvalRequestId: request.id, approvalKind: kind });
     return {
       status: 202,
-      body: { status: 'PENDING_APPROVAL', approvalRequestId: request.id, kind: MORTALITY_WRITE_OFF, subject: { id, docType: 'MORTALITY_RECORD', number: null }, summary, requestedAt: request.requestedAt.toISOString() },
+      body: { status: 'PENDING_APPROVAL', approvalRequestId: request.id, kind, subject: { id, docType: 'MORTALITY_RECORD', number: null }, summary, requestedAt: request.requestedAt.toISOString() },
     };
   }
 
@@ -250,6 +275,10 @@ export class MortalityRecords implements ApprovalHandler {
   /** ApprovalHandler: posts the write-off in the approval's transaction, as the checker who let it happen. */
   async onApproved(tx: Transaction, request: ApprovalRecord): Promise<void> {
     const before = await this.locked(tx, request.subjectDocumentId, 'PENDING_APPROVAL');
+    if (before.photoFileId !== null) {
+      const photo = await this.usablePhoto(tx, before.photoFileId);
+      if (!evidenceVerdict(photo.scanStatus).post) throw new EvidenceNotScannedError(photo.id);
+    }
     await this.liveUnit(tx, before);
     const approver = request.decidedBy!;
     const movementId = await this.postIn(tx, approver, before);
@@ -261,7 +290,7 @@ export class MortalityRecords implements ApprovalHandler {
       branchId: before.branchId,
       payload: { mortalityRecordId: before.id, branchId: before.branchId, reportedBy: before.reportedBy, approvedBy: approver, valuePesewas: Money.ofPesewas(before.valuePesewas).toJsonInteger(), movementId },
     });
-    await this.audited(tx, 'POST', before, { approvalRequestId: request.id, approvedBy: approver });
+    await this.audited(tx, 'POST', before, { approvalRequestId: request.id, approvalKind: request.kind, approvedBy: approver });
   }
 
   /** ApprovalHandler: a rejected or withdrawn record is final; the animal stays on hand. */
@@ -328,13 +357,78 @@ export class MortalityRecords implements ApprovalHandler {
     return unit;
   }
 
-  private async checkPhoto(tx: Transaction, fileId: string): Promise<void> {
+  /** The photograph as the file store has it: an EVIDENCE file still PENDING its scan or CLEAN; one the scanner rejected is refused. */
+  private async usablePhoto(tx: Transaction, fileId: string): Promise<StoredFileRecord> {
     const file = await this.files.find(tx, fileId);
     if (file === null) throw new LivReferenceNotFoundError(['/photoFileId']);
-    if (file.purpose !== EVIDENCE || file.scanStatus !== 'CLEAN') throw new LivestockRecordInvalidError([{ field: '/photoFileId', rule: 'PHOTO_NOT_USABLE' }]);
+    if (file.purpose !== EVIDENCE || !evidenceVerdict(file.scanStatus).submit) throw new LivestockRecordInvalidError([{ field: '/photoFileId', rule: 'PHOTO_NOT_USABLE' }]);
+    return file;
   }
 
-  private async reported(tx: Transaction, record: MortalityRecord, value: Money, threshold: Money, approvalRequestId: string | null): Promise<void> {
+  /** Whether the reporter may post a write-off below the threshold without a second person, where the record stands. */
+  private async mayPost(tx: Transaction, actor: Actor, record: MortalityRecord): Promise<boolean> {
+    const scopes = await this.authoriser.scopes(tx, actor, POST_PERMISSION);
+    return scopes.some((s) => s.branchId === record.branchId && (s.locationId === null || s.locationId === record.locationId));
+  }
+
+  /**
+   * A photograph whose exact bytes are already on another death or cull record goes to the exception report (abuse
+   * case 2). Matched by SHA-256 only: a re-saved, resized or cropped copy has other bytes and is not found (BL-061).
+   */
+  private async flagReusedPhoto(tx: Transaction, record: MortalityRecord, photo: StoredFileRecord): Promise<void> {
+    const earlier = await this.store.mortalityWithPhotoHash(tx, photo.sha256, record.id);
+    if (earlier.length === 0) return;
+    await this.events.publish<MortalityPhotoReused>(tx, {
+      type: 'liv.MortalityPhotoReused',
+      subjectType: 'MortalityRecord',
+      subjectId: record.id,
+      branchId: record.branchId,
+      payload: {
+        mortalityRecordId: record.id,
+        branchId: record.branchId,
+        stockUnitId: record.stockUnitId,
+        reportedBy: record.reportedBy,
+        photoFileId: photo.id,
+        photoSha256: photo.sha256.toString('hex'),
+        earlierMortalityRecordIds: earlier,
+        matchedBy: 'SHA256',
+        abuseCases: [ABUSE_CASE_HEALTHY_RECORDED_DEAD],
+      },
+    });
+  }
+
+  /**
+   * Sends a waiting record back to its maker because the scanner rejected its photograph (B06r): its approval request
+   * is withdrawn with the reason, the record becomes RETURNED, nothing is written off, and `liv.MortalityReturned`
+   * tells the maker (B11). The job's step, in its transaction; a record whose photograph is still PENDING or CLEAN
+   * is left waiting.
+   */
+  async returnIfEvidenceRejectedIn(tx: Transaction, system: Pick<Actor, 'principalId'>, record: MortalityRecord): Promise<boolean> {
+    const file = await this.files.find(tx, record.photoFileId!);
+    const reason = file === null ? null : evidenceVerdict(file.scanStatus).returnReason;
+    if (reason === null) return false;
+    await this.approvals.withdrawIn(tx, record.approvalRequestId!, `The photograph was refused by the malware scan (${reason})`);
+    await this.store.updateMortality(tx, record.id, { status: 'RETURNED', returned_reason: reason }, system.principalId);
+    await this.events.publish<MortalityReturned>(tx, {
+      type: 'liv.MortalityReturned',
+      subjectType: 'MortalityRecord',
+      subjectId: record.id,
+      branchId: record.branchId,
+      payload: {
+        mortalityRecordId: record.id,
+        branchId: record.branchId,
+        stockUnitId: record.stockUnitId,
+        reportedBy: record.reportedBy,
+        photoFileId: record.photoFileId!,
+        reason,
+        approvalRequestId: record.approvalRequestId!,
+      },
+    });
+    await this.audited(tx, 'RETURN', record, { returnedReason: reason });
+    return true;
+  }
+
+  private async reported(tx: Transaction, record: MortalityRecord, value: Money, threshold: Money, approvalRequestId: string | null, approvalKind: MortalityReported['approvalKind']): Promise<void> {
     await this.events.publish<MortalityReported>(tx, {
       type: 'liv.MortalityReported',
       subjectType: 'MortalityRecord',
@@ -353,6 +447,7 @@ export class MortalityRecords implements ApprovalHandler {
         valuePesewas: value.toJsonInteger(),
         thresholdPesewas: threshold.toJsonInteger(),
         needsApproval: approvalRequestId !== null,
+        approvalKind,
         approvalRequestId,
         abuseCases: [ABUSE_CASE_HEALTHY_RECORDED_DEAD],
       },
@@ -397,6 +492,7 @@ export class MortalityRecords implements ApprovalHandler {
       valuePesewas: Money.ofPesewas(r.valuePesewas).toJsonInteger(),
       currency: 'GHS',
       status: r.status,
+      returnedReason: r.returnedReason,
       approvalRequestId: r.approvalRequestId,
       movementId: r.movementId,
       disposalNote: r.disposalNote,
@@ -409,4 +505,28 @@ export class MortalityRecords implements ApprovalHandler {
 function mortalityHash(record: Pick<MortalityRecord, 'kind' | 'stockUnitId' | 'head' | 'reasonCode' | 'photoFileId' | 'foundAt'>, value: Money): string {
   const payload = [record.kind, record.stockUnitId, record.head, record.reasonCode, record.photoFileId, record.foundAt.toISOString(), value.pesewas.toString()];
   return createHash('sha256').update(JSON.stringify(payload)).digest('hex');
+}
+
+/**
+ * The scheduled evidence returns (B06r; docs/OPERATIONS.md "mortality-evidence-returns", every minute): every death or
+ * cull waiting for approval whose photograph the scanner has since rejected goes back to its maker. Rows a concurrent
+ * run holds are skipped, so each record is returned once. Runs as a SYSTEM principal only.
+ */
+export class MortalityEvidenceReturns {
+  constructor(
+    private readonly uow: UnitOfWork,
+    private readonly store: LivestockStore,
+    private readonly records: MortalityRecords,
+  ) {}
+
+  run(system: Pick<Actor, 'kind' | 'principalId'>): Promise<{ readonly returned: number }> {
+    if (system.kind !== 'SYSTEM') throw new Error('the mortality evidence returns run as a SYSTEM principal only');
+    return this.uow.run({ isolation: 'serializable' }, async (tx) => {
+      const returned: string[] = [];
+      for (const record of await this.store.lockWaitingWithPhoto(tx, RETURNS_BATCH)) {
+        if (await this.records.returnIfEvidenceRejectedIn(tx, system, record)) returned.push(record.id);
+      }
+      return { returned: returned.length };
+    });
+  }
 }
