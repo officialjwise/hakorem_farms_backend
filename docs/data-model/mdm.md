@@ -113,6 +113,7 @@ The catalogue. One abstraction for all three stock archetypes.
 Standard columns: `MASTER`.
 
 - CHECK: `SERIALISED` implies `tracking = 'SERIAL'`; `CATCH_WEIGHT` implies `tracking = 'LOT'` and `base_uom = 'KG'`; `NON_STOCK` implies `tracking = 'NONE'`.
+- Sort indexes (migration 0120, CR-019, ADR-0054), over live rows, each ending in `id`, the tie-breaker: `ix_product_sort_name` (`lower(name)`), `ix_product_sort_sku`, `ix_product_sort_category` (`category_id`, for the sort by the category's name with `ix_category_sort_name` on `mdm.category (lower(name), id)`), `ix_product_sort_status`, `ix_product_sort_updated`.
 
 ### `mdm.product_uom_conversion` · MASTER
 

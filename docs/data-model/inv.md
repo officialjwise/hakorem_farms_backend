@@ -61,6 +61,7 @@ Standard columns: `MASTER`. Never soft-deleted once it has a movement.
 
 - Partial UNIQUE (`product_id`, `identifier`) where status is `ACTIVE`.
 - The application role may update only `grade_id`, `last_weight_kg`, `last_weighed_at`, `expires_on`.
+- Sort indexes (migration 0121, CR-019, ADR-0054), over live rows: `ix_stock_unit_sort_identifier` (`branch_id`, `lower(identifier)`, `id`); `ix_stock_unit_sort_expiry` and `ix_stock_unit_sort_expiry_desc` (`branch_id`, `expires_on IS NULL`, `COALESCE(expires_on, 'epoch')` and `id` ascending, and descending), so a unit with no expiry comes last both ways.
 
 ### `inv.stock_unit_lineage` · LEDGER
 
@@ -107,6 +108,7 @@ Standard columns: `LEDGER` (`recorded_at`, `actor_id`).
 - CHECK: `qty_base > 0 OR value_pesewas > 0` (a movement moves something).
 - Trigger checks against `movement_type`: value-only implies `qty_base = 0`; `requires_reason`; `requires_stock_unit`.
 - Indexes: (`product_id`, `occurred_at`); (`stock_unit_id`, `occurred_at`); (`source_document_id`); (`to_location_id`, `product_id`); (`from_location_id`, `product_id`).
+- Sort indexes (migration 0121, CR-019, ADR-0054): `ix_stock_movement_sort_occurred` (`branch_id`, `occurred_at`, `id`), `ix_stock_movement_sort_value` (`branch_id`, `value_pesewas`, `id`).
 - Not partitioned in version one; about two million rows in year one.
 
 ### `inv.stock_balance` · PROJECTION
@@ -127,6 +129,7 @@ On-hand per product, stock unit and location. Written only by triggers.
 
 - UNIQUE NULLS NOT DISTINCT (`product_id`, `stock_unit_id`, `location_id`). This is the primary identity of the row.
 - The non-negative and reserved rules are enforced in the trigger, because they depend on the location and movement type.
+- Sort index (migration 0121, CR-019, ADR-0054): `ix_stock_balance_sort_on_hand` (`branch_id`, `on_hand_qty`, the line's key `location_id|product_id|stock_unit_id` as text `COLLATE "C"`). The key is the tie-breaker, and the order `listStockOnHand` answers in without a sort.
 
 ### `inv.cost_pool` · PROJECTION
 

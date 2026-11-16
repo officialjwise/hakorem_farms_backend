@@ -170,9 +170,20 @@ List operations use cursor pagination. Request `limit` (1 to 100, default 25) an
 }
 ```
 
-Pass `page.nextCursor` as `cursor` to get the next page; it is `null` on the last page. A cursor is opaque, is valid for 24 hours, and is bound to the same filters and the same caller. Changing a filter means starting again without a cursor. Results are stable for a given cursor even while rows are added (the order is by a fixed key, newest first unless the operation says otherwise, and ties are broken by id). There is no offset and no total count in the page object; where a screen needs a total, the operation returns it as a named field (section 4). There is no `sort` parameter in version 1: each list has its documented order.
+Pass `page.nextCursor` as `cursor` to get the next page; it is `null` on the last page. A cursor is opaque, is valid for 24 hours, and is bound to the same filters and the same caller. Changing a filter means starting again without a cursor. Results are stable for a given cursor even while rows are added (the order is by a fixed key, newest first unless the operation says otherwise, and ties are broken by id). There is no offset and no total count in the page object; where a screen needs a total, the operation returns it as a named field (section 4). Each list has its documented order; only the lists named below take a `sort` parameter.
 
-**Sorted lists (CR-019, ADR-0054, 1.32.0).** A list that offers a sort names its allowed fields in its operation; the server applies the sort before paging and breaks ties by the row id in the same direction, with nulls last in both directions, so following `nextCursor` never skips or repeats a row, whatever ties or rows arrive between pages. Any other field or direction is 400 `VALIDATION_FAILED` with detail code `SORT_NOT_ALLOWED`; the sort is part of the cursor's binding, so a cursor from another sort is 400 `INVALID_CURSOR`. B07 continued 2 sorts `listCatalogue` (`RELEVANCE`, `PRICE_ASC`, `PRICE_DESC`, `NAME`) and orders the delivery slot lists by start; B07 continued 3 adds `sort` and `direction` to `listProducts`, `listStockOnHand`, `listStockUnits` and `listStockMovements`.
+**Sorted lists (CR-019, ADR-0054, 1.32.0).** A list that offers a sort names its allowed fields in its operation; the server applies the sort before paging and breaks ties by the row id in the same direction, with nulls last in both directions, so following `nextCursor` never skips or repeats a row, whatever ties or rows arrive between pages. Any other field or direction is 400 `VALIDATION_FAILED` with detail code `SORT_NOT_ALLOWED`; the sort is part of the cursor's binding, so a cursor from another sort is 400 `INVALID_CURSOR`. B07 continued 2 sorts `listCatalogue` (`RELEVANCE`, `PRICE_ASC`, `PRICE_DESC`, `NAME`) and orders the delivery slot lists by start.
+
+**The console lists (B07 continued 3, 1.33.0, A-180, A-181).** Four lists take `sort` (a field from the table) and `direction` (`asc`, the default once a field is named, or `desc`). Without `sort` each answers in its documented default order, as it always has, and its example shows that order; a `direction` without `sort` is refused. Each field is backed by an index in the owning module's migration (0120 for MDM, 0121 for INV).
+
+| Operation | `sort` fields | Tie-breaker | Default order (no `sort`) |
+| --- | --- | --- | --- |
+| `listProducts` | `name`, `sku`, `category` (the category's name), `status`, `updatedAt` | product id | Newest first (id descending) |
+| `listStockOnHand` | `onHandQty` | location, product and unit ids | Location id, product id, unit id |
+| `listStockUnits` | `identifier`, `expiresOn` (no expiry last) | stock unit id | Id ascending |
+| `listStockMovements` | `occurredAt`, `valuePesewas` | movement id | Newest first (id descending) |
+
+`name`, `category` and `identifier` ignore case. Not sortable, and 400 `SORT_NOT_ALLOWED` like any other field: a product's or location's name on the stock lists (master data's columns, which inventory cannot index or join) and `valueAtCostPesewas` (computed from the cost pools when read). Sorting by a cost (`valuePesewas`) needs only the list's own read permission, which already shows the cost on every row; a role without it is refused with 403 before the sort is read (ADR-0052).
 
 ## 6. Filtering
 
