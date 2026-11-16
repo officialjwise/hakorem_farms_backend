@@ -1,0 +1,59 @@
+operationId: getReconciliationBreak
+tags:
+  - pay
+summary: "Get a reconciliation break"
+description: "One break with the records on each side in `details` (FR-PAY-017, 1.44.0).\n\nPermission: `pay.reconciliation.read`."
+x-permission: pay.reconciliation.read
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ReconciliationBreak"
+        example:
+          id: "019a7aee-77f7-76ea-9c22-7776c5a6f054"
+          kind: SETTLEMENT_NOT_FOUND
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          payment:
+            id: "019a7aee-96e6-70cd-a606-15ae3f578e8c"
+            paymentNo: null
+          sourceDocument:
+            id: "019a7aec-0d4b-7125-965d-1b2143d293ff"
+            docType: SETTLEMENT_REPORT
+            number: null
+          amountPesewas: 18000
+          currency: GHS
+          summary: "Settled by Paystack as T7730994017 but no payment in our records"
+          details:
+            provider: PAYSTACK
+          raisedAt: "2026-11-13T02:00:00Z"
+          status: OPEN
+          resolvedBy: null
+          resolvedAt: null
+          resolutionNote: null
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

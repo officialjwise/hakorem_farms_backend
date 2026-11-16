@@ -34,6 +34,9 @@ export class Breaks {
         refundId: b.refundId,
         reference: b.reference,
         amountPesewas: b.amountPesewas === null ? null : Money.ofPesewas(b.amountPesewas).toJsonInteger(),
+        sourceDocumentId: b.sourceDocumentId ?? null,
+        settlementLineId: b.settlementLineId ?? null,
+        bankStatementLineId: b.bankStatementLineId ?? null,
       };
       await this.events.publish(tx, { type: BREAK_RAISED, subjectType: 'ReconciliationBreak', subjectId: id, branchId: b.branchId, payload });
     }

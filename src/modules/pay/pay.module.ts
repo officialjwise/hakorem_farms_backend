@@ -25,6 +25,12 @@ import { Receivables } from './application/receivables';
 import { StoreCredit } from './application/store-credit';
 import { REFUND_KIND, Refunds } from './application/refunds';
 import { PaymentWebhooks } from './application/webhooks';
+import { BreakQueue, RECONCILIATION_BREAK_KIND } from './application/break-queue';
+import { Reconciliation } from './application/reconciliation';
+import { RECONCILIATION_STORE, type ReconciliationStore } from './application/reconciliation-store';
+import { PgReconciliationStore } from './infrastructure/pg-reconciliation-store';
+import { BankStatementLinesController, ReconciliationController } from './interface/reconciliation.controller';
+import { FileStore } from '../../platform/storage/file-store';
 import { PgPaymentStore } from './infrastructure/pg-payment-store';
 import { MyStoreCreditController, PaymentsController, ReceivablesController, RefundsController, StoreCreditController, WebhooksController } from './interface/payments.controller';
 
@@ -33,14 +39,52 @@ import { MyStoreCreditController, PaymentsController, ReceivablesController, Ref
  * (B9a, B09a continued). A selling module records a tender through `Payments.recordIn` in its own serializable
  * transaction; a provider payment clears only through `ProviderPayments.settleIn` on the provider's own answer; the
  * ledger posts PAY's ◆ events in the same transaction. B09a continued 1b adds receipts recorded by hand (cheques, bank
- * transfers, store credit), cheque clearing, reversals under approval, store credit and open items (ADR-0064); settlement
- * and bank reconciliation and the break endpoints follow in B09a continued 1c (A-213).
+ * transfers, store credit), cheque clearing, reversals under approval, store credit and open items (ADR-0064); B09a
+ * continued 1c settlement reports, bank statements and the break queue, each break resolved through approval (ADR-0065).
  */
 @Module({
   imports: [IamModule, MdmModule, FinModule, BilModule],
-  controllers: [PaymentsController, RefundsController, WebhooksController, StoreCreditController, MyStoreCreditController, ReceivablesController],
+  controllers: [PaymentsController, RefundsController, WebhooksController, StoreCreditController, MyStoreCreditController, ReceivablesController, ReconciliationController, BankStatementLinesController],
   providers: [
     { provide: PAYMENT_STORE, useClass: PgPaymentStore },
+    { provide: RECONCILIATION_STORE, useClass: PgReconciliationStore },
+    {
+      provide: Reconciliation,
+      useFactory: (
+        store: ReconciliationStore,
+        breaks: Breaks,
+        bankAccounts: BankAccounts,
+        refs: MasterDataRefs,
+        files: FileStore,
+        documents: DocumentRegistry,
+        events: DomainEvents,
+        audit: AuditTrail,
+        uow: UnitOfWork,
+        authoriser: Authoriser,
+        idempotency: Idempotency,
+        cursors: Cursors,
+        clock: Clock,
+      ) => new Reconciliation(store, breaks, bankAccounts, refs, files, documents, events, audit, uow, authoriser, idempotency, cursors, clock),
+      inject: [RECONCILIATION_STORE, Breaks, BankAccounts, MasterDataRefs, FileStore, DocumentRegistry, DomainEvents, AuditTrail, UnitOfWork, Authoriser, Idempotency, Cursors, CLOCK],
+    },
+    {
+      provide: BreakQueue,
+      useFactory: (
+        store: ReconciliationStore,
+        refs: MasterDataRefs,
+        documents: DocumentRegistry,
+        events: DomainEvents,
+        audit: AuditTrail,
+        uow: UnitOfWork,
+        authoriser: Authoriser,
+        idempotency: Idempotency,
+        approvals: Approvals,
+        principals: PrincipalNames,
+        cursors: Cursors,
+        clock: Clock,
+      ) => new BreakQueue(store, refs, documents, events, audit, uow, authoriser, idempotency, approvals, principals, cursors, clock),
+      inject: [RECONCILIATION_STORE, MasterDataRefs, DocumentRegistry, DomainEvents, AuditTrail, UnitOfWork, Authoriser, Idempotency, Approvals, PRINCIPAL_NAMES, Cursors, CLOCK],
+    },
     {
       provide: Breaks,
       useFactory: (store: PaymentStore, events: DomainEvents, clock: Clock) => new Breaks(store, events, clock),
@@ -152,12 +196,14 @@ export class PayModule implements OnModuleInit {
     @Inject(Approvals) private readonly approvals: Approvals,
     @Inject(Refunds) private readonly refunds: Refunds,
     @Inject(Receipts) private readonly receipts: Receipts,
+    @Inject(BreakQueue) private readonly breakQueue: BreakQueue,
   ) {}
 
-  /** Declares PAY's ◆ events for the ledger's boot assertion (ADR-0056) and registers the `REFUND` and `PAYMENT_REVERSAL` approval handlers. */
+  /** Declares PAY's ◆ events for the ledger's boot assertion (ADR-0056) and registers the `REFUND`, `PAYMENT_REVERSAL` and `RECONCILIATION_BREAK` approval handlers. */
   onModuleInit(): void {
     this.events.declareLedgerEvents(PAY_LEDGER_EVENTS);
     this.approvals.registerHandler(REFUND_KIND, this.refunds.approvalHandler);
     this.approvals.registerHandler(PAYMENT_REVERSAL_KIND, this.receipts.approvalHandler);
+    this.approvals.registerHandler(RECONCILIATION_BREAK_KIND, this.breakQueue.approvalHandler);
   }
 }

@@ -1,0 +1,163 @@
+operationId: listBankStatements
+tags:
+  - pay
+summary: "List imported bank and wallet statements"
+description: "Imported bank statements, the latest period first (FR-PAY-016, 1.44.0), at the branches the reader holds `pay.reconciliation.read` for.\n\nPermission: `pay.reconciliation.read`."
+x-permission: pay.reconciliation.read
+parameters:
+  - name: bankAccountId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: status
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/BankStatementPage"
+        example:
+          data:
+            - id: "019a7aed-23b2-7a24-af5c-ab148b0b23f2"
+              bankAccount:
+                id: "019a7a92-6491-77d8-bd10-86568cccff34"
+                name: "GCB current account"
+                kind: BANK
+                last4: "4821"
+              periodStart: "2026-11-01"
+              periodEnd: "2026-11-12"
+              openingPesewas: 4120400
+              closingPesewas: 6250300
+              status: HAS_BREAKS
+              lineCount: 38
+              unmatchedCount: 2
+              currency: GHS
+              lines:
+                - id: "019a7aed-42a1-7407-b93f-494c04bcc229"
+                  valueDate: "2026-11-12"
+                  direction: IN
+                  amountPesewas: 300000
+                  narration: "ROYAL PALM HOTEL LTD INV1198"
+                  bankReference: GCB-TRF-20261112-0119
+                  matchedJournalEntryId: "019a7aed-6190-7deb-8323-e7837e6d6061"
+                  matchStatus: MATCHED
+                - id: "019a7aed-807f-77ce-9d06-85baf81efe98"
+                  valueDate: "2026-11-12"
+                  direction: OUT
+                  amountPesewas: 2500
+                  narration: "SMS ALERT CHARGES"
+                  bankReference: null
+                  matchedJournalEntryId: null
+                  matchStatus: UNMATCHED
+            - id: "019a7aed-9f6e-71b2-a6ea-23f271cf9cd0"
+              bankAccount:
+                id: "019a7a92-8380-71bb-86f4-248e067d9d6b"
+                name: "MTN MoMo merchant wallet"
+                kind: MOBILE_MONEY
+                last4: "7310"
+              periodStart: "2026-11-01"
+              periodEnd: "2026-11-12"
+              openingPesewas: 822100
+              closingPesewas: 1394400
+              status: RECONCILED
+              lineCount: 112
+              unmatchedCount: 0
+              currency: GHS
+              lines: []
+            - id: "019a7aed-be5d-7b95-b0cd-c229eb803b07"
+              bankAccount:
+                id: "019a7a92-6491-77d8-bd10-86568cccff34"
+                name: "GCB current account"
+                kind: BANK
+                last4: "4821"
+              periodStart: "2026-10-01"
+              periodEnd: "2026-10-31"
+              openingPesewas: 3305000
+              closingPesewas: 4120400
+              status: RECONCILED
+              lineCount: 71
+              unmatchedCount: 0
+              currency: GHS
+              lines: []
+            - id: "019a7aed-dd4c-7579-8ab1-60616531d93f"
+              bankAccount:
+                id: "019a7a92-8380-71bb-86f4-248e067d9d6b"
+                name: "MTN MoMo merchant wallet"
+                kind: MOBILE_MONEY
+                last4: "7310"
+              periodStart: "2026-10-01"
+              periodEnd: "2026-10-31"
+              openingPesewas: 640200
+              closingPesewas: 822100
+              status: RECONCILED
+              lineCount: 204
+              unmatchedCount: 0
+              currency: GHS
+              lines: []
+            - id: "019a7aed-fc3b-7f5c-9494-fe98dee27776"
+              bankAccount:
+                id: "019a7a92-6491-77d8-bd10-86568cccff34"
+                name: "GCB current account"
+                kind: BANK
+                last4: "4821"
+              periodStart: "2026-09-01"
+              periodEnd: "2026-09-30"
+              openingPesewas: 2988000
+              closingPesewas: 3305000
+              status: RECONCILED
+              lineCount: 66
+              unmatchedCount: 0
+              currency: GHS
+              lines: []
+            - id: "019a7aee-1b2a-793f-ae78-9cd0589315ae"
+              bankAccount:
+                id: "019a7a92-8380-71bb-86f4-248e067d9d6b"
+                name: "MTN MoMo merchant wallet"
+                kind: MOBILE_MONEY
+                last4: "7310"
+              periodStart: "2026-09-01"
+              periodEnd: "2026-09-30"
+              openingPesewas: 512800
+              closingPesewas: 640200
+              status: RECONCILED
+              lineCount: 188
+              unmatchedCount: 0
+              currency: GHS
+              lines: []
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

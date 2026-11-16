@@ -191,7 +191,7 @@ export interface RefundChange {
   readonly failureReason?: string;
 }
 
-export type BreakKind = 'UNMATCHED_PAYMENT' | 'PROVIDER_AMOUNT_DIFFERS' | 'PROVIDER_REFERENCE_UNKNOWN' | 'PROVIDER_PAYMENT_MISSING' | 'REFUND_FAILED';
+export type BreakKind = 'UNMATCHED_PAYMENT' | 'PROVIDER_AMOUNT_DIFFERS' | 'PROVIDER_REFERENCE_UNKNOWN' | 'PROVIDER_PAYMENT_MISSING' | 'REFUND_FAILED' | 'SETTLEMENT_AMOUNT_DIFFERS' | 'SETTLEMENT_NOT_FOUND' | 'BANK_LINE_UNMATCHED';
 
 export interface NewBreak {
   readonly id: string;
@@ -205,6 +205,10 @@ export interface NewBreak {
   readonly details: Readonly<Record<string, unknown>>;
   readonly raisedAt: Date;
   readonly actorId: string;
+  /** The settlement report or bank statement a reconciliation line belongs to (B09a continued 1c). */
+  readonly sourceDocumentId?: string | null;
+  readonly settlementLineId?: string | null;
+  readonly bankStatementLineId?: string | null;
 }
 
 export interface PaymentFilter {

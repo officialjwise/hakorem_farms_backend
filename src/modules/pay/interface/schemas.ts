@@ -92,3 +92,50 @@ export const RefundMarkPaidBody = z.strictObject({ paidAt: z.iso.datetime(), ext
  * request is logged whatever it holds; the adapter reads its fields only after the signature is checked.
  */
 export const ProviderWebhookBody = z.unknown();
+
+const BusinessDate = z.iso.date();
+
+export const SettlementPageQuery = z.object({
+  status: z.enum(['IMPORTED', 'MATCHED', 'POSTED', 'HAS_BREAKS']).optional(),
+  from: BusinessDate.optional(),
+  to: BusinessDate.optional(),
+  cursor: Cursor,
+  limit: Limit,
+});
+
+export const SettlementImportBody = z.strictObject({
+  provider: z.enum(['PAYSTACK']),
+  fileId: z.uuid(),
+  bankAccountId: z.uuid().optional(),
+});
+
+export const StatementPageQuery = z.object({
+  bankAccountId: z.uuid().optional(),
+  status: z.enum(['IMPORTED', 'RECONCILED', 'HAS_BREAKS']).optional(),
+  cursor: Cursor,
+  limit: Limit,
+});
+
+export const StatementImportBody = z.strictObject({
+  bankAccountId: z.uuid(),
+  fileId: z.uuid(),
+  periodStart: BusinessDate,
+  periodEnd: BusinessDate,
+});
+
+export const BankLineMatchBody = z.strictObject({
+  journalEntryId: z.uuid().optional(),
+  paymentId: z.uuid().optional(),
+});
+
+export const BreakPageQuery = z.object({
+  status: z.enum(['OPEN', 'RESOLVED']).optional(),
+  kind: z.string().regex(/^[A-Z][A-Z_]{1,39}$/).optional(),
+  cursor: Cursor,
+  limit: Limit,
+});
+
+export const BreakResolveBody = z.strictObject({
+  note: Text(500),
+  posting: z.enum(['NONE', 'UNIDENTIFIED_RECEIPT']).optional(),
+});

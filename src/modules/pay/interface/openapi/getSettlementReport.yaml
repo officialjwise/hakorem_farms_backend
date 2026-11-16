@@ -1,0 +1,70 @@
+operationId: getSettlementReport
+tags:
+  - pay
+summary: "Get a settlement report and its lines"
+description: "A settlement report and every line with what it matched (FR-PAY-016, 1.44.0).\n\nPermission: `pay.reconciliation.read`."
+x-permission: pay.reconciliation.read
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/SettlementReport"
+        example:
+          id: "019a7aec-0d4b-7125-965d-1b2143d293ff"
+          provider: PAYSTACK
+          settlementRef: STL-40881
+          settledOn: "2026-11-13"
+          bankAccount:
+            id: "019a7a92-6491-77d8-bd10-86568cccff34"
+            name: "GCB current account"
+            kind: BANK
+            last4: "4821"
+          grossPesewas: 1842500
+          feePesewas: 35927
+          netPesewas: 1806573
+          status: HAS_BREAKS
+          matchedCount: 41
+          breakCount: 1
+          currency: GHS
+          lines:
+            - id: "019a7aec-2c3a-7b08-a040-b958bd833236"
+              providerReference: T7731049912
+              amountPesewas: 50000
+              feePesewas: 975
+              matchedPayment:
+                id: "019a7ae6-5f6a-7062-a59a-0ef1ec5387cf"
+                paymentNo: PAY-2026-DDW-021800
+              matchStatus: MATCHED
+            - id: "019a7aec-4b29-74eb-ba24-57903734d06e"
+              providerReference: T7730994017
+              amountPesewas: 18000
+              feePesewas: 351
+              matchedPayment: null
+              matchStatus: NOT_FOUND
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -1,0 +1,59 @@
+operationId: resolveReconciliationBreak
+tags:
+  - pay
+summary: "Mark a break resolved"
+description: "Asks for a break to be resolved (FR-PAY-017, B09a continued 1c, 1.44.0). Always 202: nothing changes until a different holder of `pay.reconciliation.approve` (Owner, Manager) approves with a fresh step-up (`RECONCILIATION_BREAK`, threshold 0, subject the `BREAK_RESOLUTION`). Approved, the break is `RESOLVED` with the note, `resolvedBy` its approver; with `posting: UNIDENTIFIED_RECEIPT` the line's money is held in suspense (`pay.UnidentifiedReceiptHeld`: Dr 1100 what reached the bank, Dr 6910 any provider fee, Cr 2290 the whole), once per line. The break never resolves itself, and the database refuses a break resolved without an approved resolution. Refused with 422 `RECONCILIATION_INVALID` (`BREAK_NOT_OPEN`, `NOTE_REQUIRED`, `POSTING_NOT_FOR_BREAK`, `LINE_ALREADY_MATCHED`, `RESOLUTION_PENDING`).\n\nPermission: `pay.reconciliation.manage`.\n\nRequires approval of kind `RECONCILIATION_BREAK`: the response is `202` with an `ApprovalPending` body whose subject is the break resolution, and nothing takes effect until a different user approves."
+x-permission: pay.reconciliation.manage
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/BreakResolve"
+      example:
+        note: "Customer identified from the provider dashboard; payment recorded against SO-2026-DDW-004207"
+responses:
+  "202":
+    description: "Accepted for approval. Nothing has taken effect yet."
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ApprovalPending"
+        example:
+          status: PENDING_APPROVAL
+          approvalRequestId: "019a7aef-1c55-7d0a-8f3e-4b2d7c9e6a10"
+          kind: RECONCILIATION_BREAK
+          subject:
+            id: "019a7aef-0b21-7c4e-9a1d-2f6e8b3c5d77"
+            docType: BREAK_RESOLUTION
+            number: null
+          summary: "Resolve settlement not found of GHS 180.00, held in suspense"
+          requestedAt: "2026-11-14T09:30:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

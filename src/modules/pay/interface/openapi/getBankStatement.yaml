@@ -1,0 +1,70 @@
+operationId: getBankStatement
+tags:
+  - pay
+summary: "Get a bank statement and its lines"
+description: "A bank statement and every line with what it matched (1.44.0). `matchedJournalEntryId` names the entry a line matched: a settlement's payout, an entry matched by hand, or the clearing of the bank transfer it cleared.\n\nPermission: `pay.reconciliation.read`."
+x-permission: pay.reconciliation.read
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/BankStatement"
+        example:
+          id: "019a7aed-23b2-7a24-af5c-ab148b0b23f2"
+          bankAccount:
+            id: "019a7a92-6491-77d8-bd10-86568cccff34"
+            name: "GCB current account"
+            kind: BANK
+            last4: "4821"
+          periodStart: "2026-11-01"
+          periodEnd: "2026-11-12"
+          openingPesewas: 4120400
+          closingPesewas: 6250300
+          status: HAS_BREAKS
+          lineCount: 38
+          unmatchedCount: 2
+          currency: GHS
+          lines:
+            - id: "019a7aed-42a1-7407-b93f-494c04bcc229"
+              valueDate: "2026-11-12"
+              direction: IN
+              amountPesewas: 300000
+              narration: "ROYAL PALM HOTEL LTD INV1198"
+              bankReference: GCB-TRF-20261112-0119
+              matchedJournalEntryId: "019a7aed-6190-7deb-8323-e7837e6d6061"
+              matchStatus: MATCHED
+            - id: "019a7aed-807f-77ce-9d06-85baf81efe98"
+              valueDate: "2026-11-12"
+              direction: OUT
+              amountPesewas: 2500
+              narration: "SMS ALERT CHARGES"
+              bankReference: null
+              matchedJournalEntryId: null
+              matchStatus: UNMATCHED
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

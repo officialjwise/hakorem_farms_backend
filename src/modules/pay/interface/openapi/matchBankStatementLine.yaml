@@ -1,0 +1,84 @@
+operationId: matchBankStatementLine
+tags:
+  - pay
+summary: "Match one statement line to a journal entry by hand"
+description: "Matches one line by hand (B09a continued 1c, 1.44.0): to a bank transfer still `PENDING` into the same account for exactly the line's amount, which clears from it (`paymentId`), or to a journal entry whose leg on this bank account is on the line's side for exactly its amount (`journalEntryId`). Each line and each target is matched once. Refused with 422 `RECONCILIATION_INVALID` (`PAYMENT_OR_JOURNAL_ENTRY`, `PAYMENT_UNKNOWN`, `LINE_ALREADY_MATCHED`, `NOT_A_PENDING_TRANSFER`, `OTHER_BANK_ACCOUNT`, `DIRECTION_DIFFERS`, `AMOUNT_DIFFERS`, `ENTRY_HAS_NO_BANK_LEG`, `TARGET_ALREADY_MATCHED`). A break the line raised stays open until its resolution is approved.\n\nPermission: `pay.reconciliation.manage`."
+x-permission: pay.reconciliation.manage
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/BankLineMatch"
+      example:
+        journalEntryId: "019a7aee-5908-7d06-823f-d93f4bf5521d"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/BankStatement"
+        example:
+          id: "019a7aed-23b2-7a24-af5c-ab148b0b23f2"
+          bankAccount:
+            id: "019a7a92-6491-77d8-bd10-86568cccff34"
+            name: "GCB current account"
+            kind: BANK
+            last4: "4821"
+          periodStart: "2026-11-01"
+          periodEnd: "2026-11-12"
+          openingPesewas: 4120400
+          closingPesewas: 6250300
+          status: HAS_BREAKS
+          lineCount: 38
+          unmatchedCount: 2
+          currency: GHS
+          lines:
+            - id: "019a7aed-42a1-7407-b93f-494c04bcc229"
+              valueDate: "2026-11-12"
+              direction: IN
+              amountPesewas: 300000
+              narration: "ROYAL PALM HOTEL LTD INV1198"
+              bankReference: GCB-TRF-20261112-0119
+              matchedJournalEntryId: "019a7aed-6190-7deb-8323-e7837e6d6061"
+              matchStatus: MATCHED
+            - id: "019a7aed-807f-77ce-9d06-85baf81efe98"
+              valueDate: "2026-11-12"
+              direction: OUT
+              amountPesewas: 2500
+              narration: "SMS ALERT CHARGES"
+              bankReference: null
+              matchedJournalEntryId: null
+              matchStatus: UNMATCHED
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

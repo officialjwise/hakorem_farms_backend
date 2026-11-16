@@ -113,3 +113,27 @@ export class PaymentReversalInvalidError extends BusinessRuleError {
     super(`reversal breaks ${rules.map((r) => r.rule).join(', ')}`, rules.map((r) => ({ field: r.field, code: r.rule, message: translate('pay.reversal_invalid') })));
   }
 }
+
+registerMessages({
+  'pay.reconciliation_invalid': 'This reconciliation step cannot be taken like this.',
+});
+
+/**
+ * 422 RECONCILIATION_INVALID (FR-PAY-016, FR-PAY-017): every rule an import, a match or a break's resolution breaks, in
+ * `details[].code`: a file's rows at `/file/rows/<n>` (`HEADER_MISMATCH`, `NO_LINES`, `COLUMNS_MISSING`,
+ * `AMOUNT_INVALID`, `AMOUNT_NOT_POSITIVE`, `FEE_INVALID`, `FEE_EXCEEDS_AMOUNT`, `REFERENCE_INVALID`,
+ * `REFERENCE_REPEATED`, `SETTLEMENT_REF_INVALID`, `SETTLEMENT_REF_MIXED`, `SETTLED_ON_INVALID`, `SETTLED_ON_MIXED`,
+ * `SETTLED_ON_IN_FUTURE`, `VALUE_DATE_OUT_OF_PERIOD`, `DIRECTION_INVALID`, `BALANCE_INVALID`, `BALANCE_BROKEN`,
+ * `OPENING_NEGATIVE`, `TEXT_TOO_LONG`), and `PERIOD_INVALID`, `FILE_UNKNOWN`, `FILE_NOT_CLEAN`, `FILE_UNREADABLE`,
+ * `ALREADY_IMPORTED`, `REFERENCE_ALREADY_SETTLED`, `ALREADY_MATCHED`, `BANK_ACCOUNT_REQUIRED`, `BANK_ACCOUNT_NOT_USABLE`, `PAYMENT_OR_JOURNAL_ENTRY`,
+ * `PAYMENT_UNKNOWN`, `LINE_ALREADY_MATCHED`, `NOT_A_PENDING_TRANSFER`, `OTHER_BANK_ACCOUNT`, `DIRECTION_DIFFERS`,
+ * `AMOUNT_DIFFERS`, `ENTRY_HAS_NO_BANK_LEG`, `TARGET_ALREADY_MATCHED`, `BREAK_NOT_OPEN`, `NOTE_REQUIRED`,
+ * `POSTING_NOT_FOR_BREAK`, `RESOLUTION_PENDING`.
+ */
+export class ReconciliationInvalidError extends BusinessRuleError {
+  readonly code = 'RECONCILIATION_INVALID';
+  readonly messageKey = 'pay.reconciliation_invalid';
+  constructor(rules: readonly PaymentRule[]) {
+    super(`reconciliation breaks ${rules.map((r) => r.rule).join(', ')}`, rules.map((r) => ({ field: r.field, code: r.rule, message: translate('pay.reconciliation_invalid') })));
+  }
+}

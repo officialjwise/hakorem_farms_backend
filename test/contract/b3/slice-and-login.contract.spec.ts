@@ -134,7 +134,21 @@ import {
 import { SettingUpdate as AudSettingUpdate } from '../../../src/modules/aud/interface/schemas';
 import { SlotGenerate, SlotUpdate } from '../../../src/modules/del/interface/schemas';
 import { CreditNoteCreate, DebitNoteCreate, ReprintRequest } from '../../../src/modules/bil/interface/schemas';
-import { AllocationBody, ChequeClearanceBody, MobileMoneyChargeBody, ProviderWebhookBody, RecordPaymentBody, RefundBody, RefundMarkPaidBody, ReversalBody, UnallocateBody } from '../../../src/modules/pay/interface/schemas';
+import {
+  AllocationBody,
+  BankLineMatchBody,
+  BreakResolveBody,
+  ChequeClearanceBody,
+  MobileMoneyChargeBody,
+  ProviderWebhookBody,
+  RecordPaymentBody,
+  RefundBody,
+  RefundMarkPaidBody,
+  ReversalBody,
+  SettlementImportBody,
+  StatementImportBody,
+  UnallocateBody,
+} from '../../../src/modules/pay/interface/schemas';
 import { DocumentDownloadRequest, TemplatePreviewRequest, TemplateVersionCreate } from '../../../src/modules/doc/interface/schemas';
 import {
   AccountCreate,
@@ -427,6 +441,10 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     recordPayment: RecordPaymentBody,
     reversePayment: ReversalBody,
     clearCheque: ChequeClearanceBody,
+    importSettlementReport: SettlementImportBody,
+    importBankStatement: StatementImportBody,
+    matchBankStatementLine: BankLineMatchBody,
+    resolveReconciliationBreak: BreakResolveBody,
     receivePaymentWebhook: ProviderWebhookBody,
     issueDebitNote: DebitNoteCreate,
     reprintBillingDocument: ReprintRequest,

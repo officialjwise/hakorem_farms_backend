@@ -23,7 +23,9 @@ export const REFUND_PAID = 'pay.RefundPaid';
 export const CHEQUE_CLEARED = 'pay.ChequeCleared';
 export const PAYMENT_REVERSED = 'pay.PaymentReversed';
 /** PAY's ◆ events (ADR-0056), declared for the ledger's boot assertion. */
-export const PAY_LEDGER_EVENTS = [PAYMENT_CLEARED, DEPOSIT_ALLOCATED, REFUND_PAID, CHEQUE_CLEARED, PAYMENT_REVERSED] as const;
+export const PROVIDER_SETTLED = 'pay.ProviderSettled';
+export const UNIDENTIFIED_RECEIPT_HELD = 'pay.UnidentifiedReceiptHeld';
+export const PAY_LEDGER_EVENTS = [PAYMENT_CLEARED, DEPOSIT_ALLOCATED, REFUND_PAID, CHEQUE_CLEARED, PAYMENT_REVERSED, PROVIDER_SETTLED, UNIDENTIFIED_RECEIPT_HELD] as const;
 
 const READ = 'pay.payment.read';
 const ALLOCATE = 'pay.payment.allocate';
