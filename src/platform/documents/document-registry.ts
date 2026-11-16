@@ -40,6 +40,17 @@ export class DocumentRegistry {
     return new Map(rows.map((row) => [row.id, { id: row.id, docType: row.doc_type, number: null }] as const));
   }
 
+  /** As `refs`, with each document's allocated number from its series where it has one (a sales order, a receipt). */
+  async numberedRefs(tx: Transaction, ids: readonly string[]): Promise<Map<string, DocumentRefRecord>> {
+    if (ids.length === 0) return new Map();
+    const { rows } = await tx.query<{ id: string; doc_type: string; formatted: string | null }>(
+      `SELECT d.id, d.doc_type, (SELECT a.formatted FROM platform.number_allocation a WHERE a.document_id = d.id LIMIT 1) AS formatted
+         FROM platform.business_document d WHERE d.id = ANY($1::uuid[])`,
+      [ids],
+    );
+    return new Map(rows.map((row) => [row.id, { id: row.id, docType: row.doc_type, number: row.formatted }] as const));
+  }
+
   /** The branch a registered document belongs to, or null if no document has the id. */
   async branchOf(tx: Transaction, id: string): Promise<string | null> {
     const { rows } = await tx.query<{ branch_id: string }>('SELECT branch_id FROM platform.business_document WHERE id = $1', [id]);

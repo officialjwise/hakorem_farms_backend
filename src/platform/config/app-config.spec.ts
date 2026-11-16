@@ -114,6 +114,15 @@ describe('typed configuration', () => {
     expect(loadConfig(VALID, '0.1.0').MESSAGING_MODE).toBe('capture');
   });
 
+  it('needs Paystack’s address and the farm’s payer mailbox with its key, and refuses a live key outside production (A-210)', () => {
+    const key = `sk_test_${'a'.repeat(24)}`;
+    expect(problemsFor({ ...VALID, PAYSTACK_SECRET_KEY: key })).toEqual(['PAYSTACK_BASE_URL is required with PAYSTACK_SECRET_KEY', 'PAYSTACK_PAYER_EMAIL is required with PAYSTACK_SECRET_KEY']);
+    const configured = { ...VALID, PAYSTACK_BASE_URL: 'http://127.0.0.1:4010', PAYSTACK_PAYER_EMAIL: 'payments@farm.example' };
+    expect(problemsFor({ ...configured, PAYSTACK_SECRET_KEY: key })).toEqual([]);
+    expect(problemsFor({ ...configured, PAYSTACK_SECRET_KEY: `sk_live_${'a'.repeat(24)}` })).toEqual(['PAYSTACK_SECRET_KEY a live key is refused outside production']);
+    expect(problemsFor({ ...configured, PAYSTACK_SECRET_KEY: 'not-a-key' })).toEqual(['PAYSTACK_SECRET_KEY must be a Paystack secret key']);
+  });
+
   it('needs the malware scanner for a deployed worker, so no upload waits for a scan that never comes', () => {
     const worker = {
       ...VALID,
