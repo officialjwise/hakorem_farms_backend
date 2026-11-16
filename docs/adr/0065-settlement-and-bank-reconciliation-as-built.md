@@ -1,6 +1,6 @@
 # ADR-0065: Settlement reports, bank statements and the break queue as built
 
-- **Status:** Proposed
+- **Status:** Proposed. **Not to be accepted from documentation (owner, 2026-11-16):** the file formats and matching rules are rewritten against one real Paystack settlement and one real statement export from the farm's bank, each rule citing the file it came from (phase B09r).
 - **Date:** 2026-11-16
 - **Session:** B09a continued 1c
 - **Deciders:** backend track; the accountant reviews the posting rows and the file formats (A-214); the owner's rules of 2026-11-16 (a matched line posts exactly once, held by the database; never auto-match on amount alone when two candidates tie; an import is idempotent by file hash and line; a break resolves only through an approved posting)
@@ -37,3 +37,13 @@ Option 3.
 
 - `test/integration/pay/settlement-reconciliation.integration.spec.ts`: three payments of 150,000 with a 1,500 fee matched, Dr 1100 148,500 GCB, Dr 6910 1,500, Cr 1120 150,000 Paystack, once; the extra 2,000 line a break on the published view; a replayed or repeated import posting nothing; a difference of one pesewa and an unconfirmed payment raised, nothing posted; a transfer of 75,000 cleared only from its line (Dr 1100, Cr 2200); a tie raised and matched by hand; the 2,000 held in 2290 on a different person's step-up approval; the database's rules by direct SQL; every write refusing the wrong role; the trial balance at zero and 2290 at the suspense held.
 - `src/modules/pay/domain/reconciliation.spec.ts` (100 percent gate) and `src/modules/fin/domain/event-amounts.spec.ts`: the files, the matching, the resolution rules and the exact amounts of each new row.
+
+## Evidence required before acceptance (owner, 2026-11-16)
+
+The formats and matching rules above were written from documentation and from a file layout this repository invented (`value_date,direction,amount,balance,reference,narration`; `settlement_ref,settled_on,reference,amount,fee`). No real file has been read. The owner's rule: a format that looks settled in a provider's documentation turns out different in the file (a carrier's API stub this month gave six fictional answers and every test passed against them), so this ADR is accepted only once:
+
+1. **Paystack:** the settlement is read from Paystack's Settlements API (the settlements and the transactions inside each one, as structured data), not parsed from a dashboard export. A CSV export is a rendering of that data and is not built on. B09a continued 2's sandbox run reports what the API returns and whether it covers what the matching needs. One real settlement covering real payments is then read before the rules are final.
+2. **The bank:** one real statement export from the bank the farm uses, in the format its internet banking offers. The parser and the matching rules are written against it.
+3. **Provenance:** each format and matching rule names the file it came from (the Paystack API response, or the bank export and its date), in this ADR and in the test that holds it.
+4. **No production data in the repository:** the real files are read, never committed. Fixtures replicate their layout, encoding, dates, separators and quirks with invented values (hakorem-seed).
+
