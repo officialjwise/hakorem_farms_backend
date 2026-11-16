@@ -13,14 +13,15 @@ import type { Idempotency, StoredResponse } from '../../../platform/idempotency/
 import { PaymentProviderError } from '../../../platform/payments/payment-provider';
 import type { ResilientPaymentProvider } from '../../../platform/payments/resilient-provider';
 import type { ApprovalHandler, ApprovalRecord, Approvals, Authoriser, PrincipalNames } from '../../iam';
+import type { Billing } from '../../bil';
 import type { MasterDataRefs } from '../../mdm';
-import { judgeStoredRefund, nextRefundAttempt, refundLeftOf, type RefundDestination } from '../domain/refund';
+import { judgeStoredRefund, nextRefundAttempt, refundLeftOf, type RefundDestination, type StoredCreditNoteFacts } from '../domain/refund';
 import { jsonPesewas as json } from '../domain/tender';
 import { addMs, pageProbe } from '../domain/time';
 import type { RefundFailed, RefundPaid, RefundRequested } from '../events';
 import type { Breaks } from './breaks';
 import type { StoreCredit } from './store-credit';
-import { RefundExceedsPaymentError, RefundInvalidError, RefundMakerCannotPayError, type PaymentRule } from './errors';
+import { CreditNoteMakerCannotApproveError, RefundExceedsCreditNoteError, RefundExceedsPaymentError, RefundInvalidError, RefundMakerCannotPayError, type PaymentRule } from './errors';
 import type { PaymentRecord, PaymentStore, RefundRecord, RefundStatus } from './payment-store';
 import { REFUND_PAID, type Page, type Payments } from './payments';
 
@@ -58,7 +59,7 @@ export interface RefundView {
   readonly currency: 'GHS';
   readonly destination: RefundDestination;
   readonly reasonCode: string;
-  readonly creditNote: null;
+  readonly creditNote: { readonly id: string; readonly docType: 'CREDIT_NOTE'; readonly number: string | null } | null;
   readonly isAutomatic: boolean;
   readonly approvalRequestId: string | null;
   readonly providerReference: string | null;
@@ -115,6 +116,7 @@ export class Refunds {
     private readonly clock: Clock,
     private readonly logger: Logger,
     private readonly storeCredit: StoreCredit,
+    private readonly billing: Billing,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -132,11 +134,13 @@ export class Refunds {
       const reason = (await this.refs.reasonCodesIn(tx, [body.reasonCode])).get(body.reasonCode);
       if (reason === undefined || reason.domain !== 'REFUND') broken.push({ field: '/reasonCode', rule: 'REASON_UNKNOWN' });
       else if (reason.requiresNote && body.note === null) broken.push({ field: '/note', rule: 'NOTE_REQUIRED' });
-      if (body.creditNoteId !== null) broken.push({ field: '/creditNoteId', rule: 'CREDIT_NOTE_NOT_AVAILABLE' });
       const customer = payment.customerId === null ? undefined : (await this.refs.customersIn(tx, [payment.customerId])).get(payment.customerId);
-      const judged = judgeStoredRefund({ ...payment, customerHasPhone: customer?.hasPhone === true }, body.amountPesewas, body.destination);
-      if (!judged.ok && judged.error.includes('REFUND_EXCEEDS_PAYMENT') && broken.length === 0 && judged.error.length === 1) throw new RefundExceedsPaymentError(refundLeftOf(payment));
-      if (!judged.ok) broken.push(...judged.error.map((rule) => ({ field: rule === 'DESTINATION_NOT_AVAILABLE' || rule === 'STORE_CREDIT_NEEDS_PHONE' ? '/destination' : rule === 'PAYMENT_NOT_CLEARED' ? '/originalPaymentId' : '/amountPesewas', rule })));
+      const creditNote = body.creditNoteId === null ? null : await this.creditNoteFactsIn(tx, body.creditNoteId, payment);
+      const judged = judgeStoredRefund({ ...payment, customerHasPhone: customer?.hasPhone === true }, body.amountPesewas, body.destination, creditNote);
+      const only = (rule: string) => !judged.ok && broken.length === 0 && judged.error.length === 1 && judged.error[0] === rule;
+      if (only('REFUND_EXCEEDS_PAYMENT')) throw new RefundExceedsPaymentError(creditNote === null ? refundLeftOf(payment) : creditNote.paidByPaymentPesewas);
+      if (only('REFUND_EXCEEDS_CREDIT_NOTE')) throw new RefundExceedsCreditNoteError(creditNote!.leftPesewas);
+      if (!judged.ok) broken.push(...judged.error.map((rule) => ({ field: refusalField(rule), rule })));
       if (broken.length > 0) throw new RefundInvalidError(broken);
 
       const id = this.nextId();
@@ -149,7 +153,7 @@ export class Refunds {
           destination: body.destination,
           reasonCode: body.reasonCode,
           note: body.note,
-          creditNoteId: null,
+          creditNoteId: body.creditNoteId,
           isAutomatic: false,
           status: 'PENDING_APPROVAL',
           branchId: payment.branchId,
@@ -158,13 +162,26 @@ export class Refunds {
       } catch (error) {
         const failure = databaseErrorOf(error);
         if (failure?.code === 'HK010' && failure.constraint === 'ck_refund_cap') throw new RefundExceedsPaymentError(refundLeftOf(payment));
+        if (failure?.code === 'HK010' && failure.constraint === 'ck_credit_note_refund_cap') throw new RefundExceedsCreditNoteError(0n);
+        if (failure?.code === 'HK010' && failure.constraint === 'ck_refund_credit_note_payment') throw new RefundExceedsPaymentError(0n);
         throw error;
       }
       const [record] = await this.store.refunds(tx, [id]);
-      const summary = `Refund ${formatCedis(body.amountPesewas)} of payment ${payment.providerReference ?? payment.id} (${body.reasonCode})`;
+      const against = body.creditNoteId === null ? '' : ` against credit note ${creditNote!.documentNo ?? body.creditNoteId}`;
+      const summary = `Refund ${formatCedis(body.amountPesewas)} of payment ${payment.providerReference ?? payment.id}${against} (${body.reasonCode})`;
       const approval = await this.approvals.request(tx, actor, { kind: REFUND_KIND, branchId: payment.branchId, subjectDocumentId: id, payloadHash: refundHash(record!), amountPesewas: body.amountPesewas, summary });
       await this.store.updateRefund(tx, id, { approvalRequestId: approval.id }, actor!.principalId);
-      const requested: RefundRequested = { refundId: id, paymentId: payment.id, branchId: payment.branchId, amountPesewas: json(body.amountPesewas), approvalRequestId: approval.id, requestedBy: actor!.principalId, abuseCases: [REFUND_ABUSE_CASE] };
+      const requested: RefundRequested = {
+        refundId: id,
+        paymentId: payment.id,
+        branchId: payment.branchId,
+        amountPesewas: json(body.amountPesewas),
+        approvalRequestId: approval.id,
+        requestedBy: actor!.principalId,
+        creditNoteId: body.creditNoteId,
+        creditNoteMakerId: creditNote?.makerId ?? null,
+        abuseCases: [REFUND_ABUSE_CASE],
+      };
       await this.events.publish(tx, { type: REFUND_REQUESTED, subjectType: 'Refund', subjectId: id, branchId: payment.branchId, payload: requested });
       const [view] = await this.views(tx, await this.store.refunds(tx, [id]));
       await this.audit.record(tx, { module: 'pay', action: 'SUBMIT', entityType: 'Refund', entityId: id, branchId: payment.branchId, before: null, after: { ...view! } });
@@ -187,6 +204,12 @@ export class Refunds {
     onApproved: async (tx: Transaction, request: ApprovalRecord) => {
       const [refund] = await this.store.refunds(tx, [request.subjectDocumentId], true);
       const [payment] = await this.store.payments(tx, [refund!.originalPaymentId]);
+      // Against a credit note, a second person who also did not raise the credit note (the owner, 2026-11-16; the
+      // database refuses it too, `ck_refund_credit_note_checker`).
+      if (refund!.creditNoteId !== null) {
+        const note = (await this.billing.settleableIn(tx, [refund!.creditNoteId])).get(refund!.creditNoteId);
+        if (note === undefined || note.createdBy === request.decidedBy) throw new CreditNoteMakerCannotApproveError('the maker of a credit note cannot approve a refund against it');
+      }
       const viaProvider = refund!.destination === 'ORIGINAL_METHOD' && PROVIDER_KINDS.has(payment!.methodKind);
       const toCredit = toStoreCredit(refund!, payment!);
       const decider = request.decidedBy ?? SYSTEM_ACTOR_ID;
@@ -345,6 +368,7 @@ export class Refunds {
     // A refund that waited for a person after failing is closed on the break queue once it is paid, by either path.
     await this.store.resolveRefundBreaks(tx, refund.id, note, this.clock.now(), actorId);
     const toCredit = toStoreCredit(refund, payment);
+    const bankPayout = !toCredit && refund.destination === 'ORIGINAL_METHOD' && payment.methodKind === 'CHEQUE';
     if (toCredit) await this.storeCredit.issueIn(tx, actorId, { customerId: payment.customerId!, amountPesewas: refund.amountPesewas, sourceDocumentId: refund.id, branchId: refund.branchId });
     const payload: RefundPaid = {
       refundId: refund.id,
@@ -352,14 +376,44 @@ export class Refunds {
       branchId: refund.branchId,
       customerId: payment.customerId,
       amountPesewas: json(refund.amountPesewas),
-      methodKind: toCredit ? 'STORE_CREDIT' : payment.methodKind,
+      methodKind: toCredit ? 'STORE_CREDIT' : bankPayout ? 'BANK_TRANSFER' : payment.methodKind,
       destination: refund.destination,
       register: toCredit || payment.registerRef === null || payment.registerCode === null ? null : { id: payment.registerRef, code: payment.registerCode },
       provider: toCredit ? null : payment.provider,
       paidBy,
+      creditNoteId: refund.creditNoteId,
+      bankAccountId: bankPayout ? payment.bankAccountId : null,
     };
     await this.events.publish(tx, { type: REFUND_PAID, subjectType: 'Refund', subjectId: refund.id, branchId: refund.branchId, payload, occurredAt: at });
     await this.audit.record(tx, { module: 'pay', action: 'PAY', entityType: 'Refund', entityId: refund.id, branchId: refund.branchId, before: { status: refund.status }, after: { status: 'PAID', paidAt: at.toISOString(), paidBy } });
+  }
+
+  /**
+   * What a refund against a credit note may draw on (ADR-0066), read through BIL's port: an issued credit note of the
+   * payment's customer and branch, what it has left to refund, and what the payment paid on the document it credits
+   * less the credit note refunds the payment already carries. The database holds the same under the credit note's lock.
+   */
+  private async creditNoteFactsIn(tx: Transaction, creditNoteId: string, payment: PaymentRecord): Promise<StoredCreditNoteFacts & { readonly documentNo: string | null; readonly makerId: string | null }> {
+    const note = (await this.billing.settleableIn(tx, [creditNoteId])).get(creditNoteId);
+    const issued = note !== undefined && note.kind === 'CREDIT_NOTE' && note.status === 'ISSUED' && note.originalDocumentId !== null;
+    const matchesPayment = issued && note.customerId === payment.customerId && note.branchId === payment.branchId;
+    let paidByPayment = 0n;
+    if (issued) {
+      for (const a of await this.store.allocationsOf(tx, [payment.id])) {
+        if (a.billingDocumentId === note.originalDocumentId) paidByPayment += a.direction === 'APPLY' ? a.amountPesewas : -a.amountPesewas;
+      }
+      for (const r of await this.store.refundsOfPayment(tx, payment.id)) {
+        if (r.creditNoteId !== null && r.status !== 'REJECTED') paidByPayment -= r.amountPesewas;
+      }
+    }
+    return {
+      issued,
+      matchesPayment,
+      leftPesewas: issued ? note.refundablePesewas : 0n,
+      paidByPaymentPesewas: paidByPayment > 0n ? paidByPayment : 0n,
+      documentNo: note?.documentNo ?? null,
+      makerId: note?.createdBy ?? null,
+    };
   }
 
   private async command(
@@ -392,8 +446,10 @@ export class Refunds {
   private async views(tx: Transaction, refunds: readonly RefundRecord[]): Promise<RefundView[]> {
     const payments = new Map((await this.payments.documentViewsIn(tx, [...new Set(refunds.map((r) => r.originalPaymentId))])).map((p) => [p.id, p] as const));
     const names = await this.principals.refs(tx, [...new Set(refunds.map((r) => r.createdBy))]);
+    const notes = await this.billing.settleableIn(tx, [...new Set(refunds.flatMap((r) => (r.creditNoteId === null ? [] : [r.creditNoteId])))]);
     return refunds.map((r) => {
       const payment = payments.get(r.originalPaymentId)!;
+      const note = r.creditNoteId === null ? undefined : notes.get(r.creditNoteId);
       return {
         id: r.id,
         refundNo: null,
@@ -403,7 +459,7 @@ export class Refunds {
         currency: 'GHS' as const,
         destination: r.destination,
         reasonCode: r.reasonCode,
-        creditNote: null,
+        creditNote: r.creditNoteId === null ? null : { id: r.creditNoteId, docType: 'CREDIT_NOTE' as const, number: note?.documentNo ?? null },
         isAutomatic: r.isAutomatic,
         approvalRequestId: r.approvalRequestId,
         providerReference: r.providerReference,
@@ -417,6 +473,14 @@ export class Refunds {
   }
 }
 
+/** Where a refusal of `judgeRefund` points in the request. */
+function refusalField(rule: string): string {
+  if (rule === 'DESTINATION_NOT_AVAILABLE' || rule === 'STORE_CREDIT_NEEDS_PHONE') return '/destination';
+  if (rule === 'PAYMENT_NOT_CLEARED') return '/originalPaymentId';
+  if (rule === 'CREDIT_NOTE_NOT_AVAILABLE') return '/creditNoteId';
+  return '/amountPesewas';
+}
+
 /** A refund paid into the customer's store credit: asked for so, or of a store credit tender back to its method. */
 function toStoreCredit(refund: RefundRecord, payment: PaymentRecord): boolean {
   return refund.destination === 'STORE_CREDIT' || (refund.destination === 'ORIGINAL_METHOD' && payment.methodKind === 'STORE_CREDIT');
@@ -425,7 +489,7 @@ function toStoreCredit(refund: RefundRecord, payment: PaymentRecord): boolean {
 /** What a refund's approval binds to: the payment, the amount, where it goes and why. */
 function refundHash(r: RefundRecord): string {
   return createHash('sha256')
-    .update(canonicalJson({ originalPaymentId: r.originalPaymentId, amountPesewas: r.amountPesewas.toString(), destination: r.destination, reasonCode: r.reasonCode, note: r.note }), 'utf8')
+    .update(canonicalJson({ originalPaymentId: r.originalPaymentId, amountPesewas: r.amountPesewas.toString(), destination: r.destination, reasonCode: r.reasonCode, note: r.note, ...(r.creditNoteId === null ? {} : { creditNoteId: r.creditNoteId }) }), 'utf8')
     .digest('hex');
 }
 

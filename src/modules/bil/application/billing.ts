@@ -29,6 +29,7 @@ import {
   type BrokenRule,
   type LineKind,
   type LinePricing,
+  creditRefundableOf,
 } from '../domain/billing';
 import { lineNumber, pageProbe } from '../domain/line-numbers';
 import { renderDataOf } from '../domain/render-data';
@@ -135,6 +136,8 @@ export interface BillingDocumentView {
     readonly allocatedPesewas: number;
     readonly creditedPesewas: number;
     readonly outstandingPesewas: number;
+    readonly refundedPesewas: number;
+    readonly refundablePesewas: number;
     readonly paymentStatus: SettlementRecord['paymentStatus'];
     readonly settledAt: string | null;
     readonly asOf: string;
@@ -396,20 +399,27 @@ export class Billing {
   async settleableIn(tx: Transaction, ids: readonly string[]): Promise<Map<string, SettleableDocument>> {
     if (ids.length === 0) return new Map();
     const records = await this.store.documents(tx, ids);
-    const settlements = await this.store.settlements(tx, records.map((r) => r.id));
+    const settlements = await this.store.settlements(tx, [...new Set(records.flatMap((r) => (r.originalDocumentId === null ? [r.id] : [r.id, r.originalDocumentId])))]);
     return new Map(
-      records.map((r) => [
-        r.id,
-        {
-          id: r.id,
-          kind: r.kind,
-          status: r.status,
-          branchId: r.branchId,
-          customerId: r.customerId,
-          documentNo: r.documentNo,
-          outstandingPesewas: settlements.get(r.id)?.outstandingPesewas ?? 0n,
-        },
-      ] as const),
+      records.map((r) => {
+        const settlement = settlements.get(r.id);
+        const refundable = settlement === undefined ? 0n : refundableOf(r, settlement, r.originalDocumentId === null ? undefined : settlements.get(r.originalDocumentId));
+        return [
+          r.id,
+          {
+            id: r.id,
+            kind: r.kind,
+            status: r.status,
+            branchId: r.branchId,
+            customerId: r.customerId,
+            documentNo: r.documentNo,
+            outstandingPesewas: settlement?.outstandingPesewas ?? 0n,
+            originalDocumentId: r.originalDocumentId,
+            createdBy: r.createdBy,
+            refundablePesewas: refundable,
+          },
+        ] as const;
+      }),
     );
   }
 
@@ -820,7 +830,7 @@ export class Billing {
     const categories = await this.refs.taxCategoriesIn(tx, [...new Set(lines.map((l) => l.taxCategoryId))]);
     const orders = await this.documents.refs(tx, records.flatMap((r) => (r.orderDocumentId === null ? [] : [r.orderDocumentId])));
     const originals = new Map((await this.store.documents(tx, records.flatMap((r) => (r.originalDocumentId === null ? [] : [r.originalDocumentId])))).map((o) => [o.id, o] as const));
-    const settlements = await this.store.settlements(tx, records.map((r) => r.id));
+    const settlements = await this.store.settlements(tx, [...new Set([...records.map((r) => r.id), ...originals.keys()])]);
     const reprints = await this.store.reprintCounts(tx, records.map((r) => r.id));
     return records.map((r) => {
       const customer = r.customerId === null ? undefined : customers.get(r.customerId);
@@ -884,11 +894,13 @@ export class Billing {
         }),
         settlement:
           settlement === undefined
-            ? { allocatedPesewas: 0, creditedPesewas: 0, outstandingPesewas: 0, paymentStatus: 'NOT_APPLICABLE', settledAt: null, asOf: (r.issuedAt ?? this.clock.now()).toISOString() }
+            ? { allocatedPesewas: 0, creditedPesewas: 0, outstandingPesewas: 0, refundedPesewas: 0, refundablePesewas: 0, paymentStatus: 'NOT_APPLICABLE', settledAt: null, asOf: (r.issuedAt ?? this.clock.now()).toISOString() }
             : {
                 allocatedPesewas: json(settlement.allocatedPesewas),
                 creditedPesewas: json(settlement.creditedPesewas),
                 outstandingPesewas: json(settlement.outstandingPesewas),
+                refundedPesewas: json(settlement.refundedPesewas),
+                refundablePesewas: json(refundableOf(r, settlement, r.originalDocumentId === null ? undefined : settlements.get(r.originalDocumentId))),
                 paymentStatus: settlement.paymentStatus,
                 settledAt: settlement.settledAt?.toISOString() ?? null,
                 asOf: settlement.asOf.toISOString(),
@@ -919,6 +931,17 @@ export interface SettleableDocument {
   readonly customerId: string | null;
   readonly documentNo: string | null;
   readonly outstandingPesewas: bigint;
+  /** The document a credit or debit note corrects. */
+  readonly originalDocumentId: string | null;
+  /** Who raised it: a credit note's maker never approves a refund against it (ADR-0066). */
+  readonly createdBy: string;
+  /** What a refund may still draw on (ADR-0066): see `refundableOf`. */
+  readonly refundablePesewas: bigint;
+}
+
+/** `creditRefundableOf` over a stored document and its settlement rows. */
+function refundableOf(record: Pick<DocumentRecord, 'kind' | 'status' | 'grossPesewas'>, settlement: SettlementRecord, original: SettlementRecord | undefined): bigint {
+  return creditRefundableOf({ kind: record.kind, issued: record.status === 'ISSUED', grossPesewas: record.grossPesewas, refundedPesewas: settlement.refundedPesewas, refundablePesewas: settlement.refundablePesewas }, original?.refundablePesewas ?? null);
 }
 
 /** What a credit note's approval binds to: the draft as priced, line by line and levy by levy. */

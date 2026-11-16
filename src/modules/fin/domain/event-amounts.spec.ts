@@ -380,6 +380,24 @@ describe('the amounts of a cheque, store credit and a cheque’s clearing (ADR-0
     ]);
   });
 
+  it('pays a refund against a credit note out of receivables (Dr 1200 against the customer) to the original tender', () => {
+    expect(flat(refundPaidAmounts({ amountPesewas: 30_000, methodKind: 'MOBILE_MONEY', register: null, provider: 'PAYSTACK', creditNoteId: 'crn-1' }, tema))).toEqual([
+      ['creditRefund', 30_000n, { PAYMENT_METHOD_KIND: 'MOBILE_MONEY' }, ['cus-1', providerParty('PAYSTACK').refId]],
+    ]);
+    expect(flat(refundPaidAmounts({ amountPesewas: 1, methodKind: 'STORE_CREDIT', register: null, provider: null, creditNoteId: 'crn-1' }, tema))).toEqual([
+      ['creditRefund', 1n, { PAYMENT_METHOD_KIND: 'STORE_CREDIT' }, ['cus-1']],
+    ]);
+  });
+
+  it('pays a cheque back through a bank payout out of the bank account the cheque was paid into', () => {
+    expect(flat(refundPaidAmounts({ amountPesewas: 30_000, methodKind: 'BANK_TRANSFER', register: null, provider: null, creditNoteId: 'crn-1' }, tema, gcb))).toEqual([
+      ['creditRefund', 30_000n, { PAYMENT_METHOD_KIND: 'BANK_TRANSFER' }, ['cus-1', 'bank-1']],
+    ]);
+    expect(flat(refundPaidAmounts({ amountPesewas: 12_500, methodKind: 'BANK_TRANSFER', register: null, provider: null, creditNoteId: null }, tema, gcb))).toEqual([
+      ['refund', 12_500n, { PAYMENT_METHOD_KIND: 'BANK_TRANSFER' }, ['cus-1', 'bank-1']],
+    ]);
+  });
+
   it('clears a cheque of 100,000 into the bank account it was paid into', () => {
     expect(flat(chequeClearedAmounts({ amountPesewas: 100_000 }, gcb))).toEqual([['cheque', 100_000n, null, ['bank-1']]]);
     expect(flat(chequeClearedAmounts({ amountPesewas: 1 }, gcb))).toEqual([['cheque', 1n, null, ['bank-1']]]);

@@ -4,6 +4,15 @@ Every change to `contract/openapi.yaml`, newest first. A breaking change needs a
 
 Version numbers follow semantic versioning: a major bump breaks an existing client, a minor bump adds operations or optional fields, a patch fixes descriptions or examples.
 
+## 1.45.0 (2026-11-16, B09a continued 1d)
+
+Minor. No operation moves into code; behaviour, two response fields, one error code and planned POS fields are added. No field removed, renamed or retyped, and nothing a client sends made required. 402 operations from code, 233 planned.
+
+- **The refund against a credit note (FR-PAY-012, ADR-0066, A-216):** `requestRefund` accepts `creditNoteId` (it was refused with `CREDIT_NOTE_NOT_AVAILABLE`): the refund draws on the credit note, never beyond its amount less the refunds asked for against it, nor beyond what its document owes back (422 `REFUND_EXCEEDS_CREDIT_NOTE`, new), and only through a payment that paid the credited document; it is approved, with step-up, by someone other than its maker and other than the credit note's maker (422 `MAKER_CANNOT_CHECK`). `Refund.creditNote` is now filled (`DocumentRef`, `docType: CREDIT_NOTE`). The 202 example's subject is a `REFUND`.
+- **A credit note on a paid document (FR-BIL-007):** `issueCreditNote` no longer fails when the credit exceeds what is outstanding. `Settlement` (on `BillingDocument`) gains `refundedPesewas` and `refundablePesewas`, both always sent.
+- **A cheque's bank payout:** `requestRefund` to `ORIGINAL_METHOD` for a cheque is accepted (it was `DESTINATION_NOT_AVAILABLE`) and waits for `markRefundPaid`, which posts Cr 1100 against the cheque's bank account. Descriptions only.
+- **CR-031 and CR-032 (planned POS shapes, B9b builds them):** `OfflineProduct.taxInclusive`; `SyncResultItem.grossPesewas` (nullable) and `currency`; the `getOfflinePack` example's `reasonCodes` include the `CASH_MOVEMENT` domain.
+
 ## 1.44.0 (2026-11-16, B09a continued 1c)
 
 Minor, with one LOUD change to a planned operation. Twelve planned PAY operations move into code with their descriptions made exact; one error code, one approval kind and several enumeration values are added; three optional fields are added to request schemas. No field removed, renamed or retyped, and nothing a client sends made required in a schema. 402 operations from code, 233 planned. The versioning check against `main` passes.
