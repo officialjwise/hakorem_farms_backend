@@ -12,7 +12,7 @@ import { seedUnits } from '../../../src/seed/seed-units';
 import { createUser, relaxRateLimits, SYSTEM_PRINCIPAL, testStartTime } from '../../support/iam';
 import { startTestApp, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
-import { openTestShift } from '../../support/till';
+import { openTestShift, tillOf } from '../../support/till';
 
 /**
  * The B9a gate's second half (FR-ORD-006, FR-ORD-007, FR-PAY-001, FR-PAY-009, ADR-0010, the owner's B9a note): a sale
@@ -51,7 +51,7 @@ function post(request: SaleRequest, options: { locks?: boolean; onAttempt?: (tx:
   return asCashier(() =>
     uow.run({ isolation: 'serializable', seriesLocks: options.locks === false ? [] : sales.locksFor(request.branchId) }, async (tx) => {
       await options.onAttempt?.(tx);
-      return sales.postIn(tx, cashier, { shiftDocumentId: await openTestShift(tx, cashier.principalId, request.branchId), ...request });
+      return sales.postIn(tx, cashier, { shiftDocumentId: await openTestShift(tx, cashier.principalId, request.branchId, tillOf(request)), ...request });
     }),
   );
 }

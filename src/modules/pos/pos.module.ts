@@ -11,9 +11,10 @@ import { CLOCK } from '../../platform/platform.module';
 import { Authoriser, IamModule, PRINCIPAL_NAMES, type PrincipalNames } from '../iam';
 import { MasterDataRefs, MdmModule } from '../mdm';
 import { OrdModule, Orders } from '../ord';
-import { PayModule, Payments } from '../pay';
+import { PayModule, Payments, TillShiftRegistry } from '../pay';
 import { Registers } from './application/registers';
 import { POS_LEDGER_EVENTS, Shifts } from './application/shifts';
+import { TillCash } from './application/till-cash';
 import { TILL_STORE, type TillStore } from './application/till-store';
 import { PgTillStore } from './infrastructure/pg-till-store';
 import { PosController } from './interface/pos.controller';
@@ -22,7 +23,8 @@ import { PosController } from './interface/pos.controller';
  * POS (layer 10): the till. B9b builds registers and shifts: the opening float, cash drops, pay-outs and pay-ins, the
  * X and Z reports, and the blind close signed off by a supervisor, which posts the over or short. A sale on the till
  * posts through ORD's one sale path; its cash is PAY's payment against the shift. Device enrolment, the counter sale's
- * endpoint and the offline sync follow (A-273 (a)).
+ * endpoint and the offline sync follow (A-273 (a)). B09b continued registers `TillCash`, POS's answer to PAY's
+ * `TillShiftCheck` port, so no PAY path takes or pays out a till's cash outside its open shift (ADR-0077).
  */
 @Module({
   imports: [IamModule, MdmModule, PayModule, OrdModule],
@@ -59,9 +61,16 @@ import { PosController } from './interface/pos.controller';
   exports: [Registers, Shifts],
 })
 export class PosModule implements OnModuleInit {
-  constructor(@Inject(DomainEvents) private readonly events: DomainEvents) {}
+  constructor(
+    @Inject(DomainEvents) private readonly events: DomainEvents,
+    @Inject(TillShiftRegistry) private readonly tills: TillShiftRegistry,
+    @Inject(TILL_STORE) private readonly store: TillStore,
+    @Inject(Authoriser) private readonly authoriser: Authoriser,
+  ) {}
 
   onModuleInit(): void {
     this.events.declareLedgerEvents(POS_LEDGER_EVENTS);
+    // PAY asks POS before any cash moves into or out of a till (ADR-0077).
+    this.tills.register(new TillCash(this.store, this.authoriser));
   }
 }

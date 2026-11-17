@@ -60,7 +60,7 @@ describe('B09a continued 2d return operations answer in the contract shapes', ()
       api.app.get(UnitOfWork).run({ isolation: 'serializable', seriesLocks: sales.locksFor(branchId) }, async (tx) =>
         sales.postIn(tx, actor, {
           orderId: createUuidV7Generator(clock)(),
-          shiftDocumentId: await openTestShift(tx, cashierId, branchId),
+          shiftDocumentId: await openTestShift(tx, cashierId, branchId, { id: '019a8000-0000-7000-8000-0000000e0001', code: 'K1' }),
           channel: 'WHOLESALE',
           branchId,
           fulfilmentMode: 'COUNTER',

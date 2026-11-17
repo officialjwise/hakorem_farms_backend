@@ -12,7 +12,7 @@ import { consoleGet, consolePost, createBranch, createUser, enrolAndLogin, login
 import { journalOf, trialBalanceSum } from '../../support/pay';
 import { startTestApp, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
-import { openTestShift } from '../../support/till';
+import { openTestShift, tillOf } from '../../support/till';
 
 /**
  * Returns against the original sale (FR-ORD-015, FR-PAY-012, ADR-0066, abuse case 12, A-228). A return never takes back
@@ -35,11 +35,8 @@ const post = (who: string, path: string, body: object = {}, key: string = random
 const get = (who: string, path: string) => consoleGet(api.server, as(who), `/v1${path}`);
 const step = (who: string) => stepUp(api.server, as(who) as TotpSession, clock);
 const decide = (who: string, approvalId: string, verb: 'approve' | 'reject') => post(who, `/iam/approvals/${approvalId}/${verb}`, { reason: 'Seen the goods come back' });
-let till = 0;
-const nextTill = () => {
-  till += 1;
-  return { id: `019a8000-0000-7000-8000-0000000d${String(till).padStart(4, '0')}`, code: `R${till}` };
-};
+/** One till for the spec's cash: cash goes into a till only through its cashier's one open shift (ADR-0077). */
+const nextTill = () => ({ id: '019a8000-0000-7000-8000-0000000d0001', code: 'R1' });
 
 type Disposition = 'RESTOCK' | 'RETURNS_HOLD' | 'WRITE_OFF';
 interface Sale {
@@ -67,7 +64,7 @@ async function sell(who: string, items: Readonly<Record<string, number>>): Promi
     tenders: [{ methodCode: 'CASH', amountPesewas: BigInt(gross), register: nextTill() }],
   };
   const sold = await runWithRequestContext({ correlationId: randomUUID(), ip: null, userAgent: 'returns test', actor }, () =>
-    uow.run({ isolation: 'serializable', seriesLocks: sales.locksFor(branchId) }, async (tx) => sales.postIn(tx, actor, { shiftDocumentId: await openTestShift(tx, actor.principalId, request.branchId), ...request })),
+    uow.run({ isolation: 'serializable', seriesLocks: sales.locksFor(branchId) }, async (tx) => sales.postIn(tx, actor, { shiftDocumentId: await openTestShift(tx, actor.principalId, request.branchId, tillOf(request)), ...request })),
   );
   const order = await admin().query<{ billing_document_id: string }>('SELECT billing_document_id FROM ord.sales_order WHERE id = $1', [sold.id]);
   const lines = await admin().query<{ id: string; product_id: string; stock_movement_id: string }>('SELECT id, product_id, stock_movement_id FROM ord.sales_order_line WHERE sales_order_id = $1', [sold.id]);
@@ -353,7 +350,7 @@ describe('a crate sold by the crate comes back as the eggs it is (B09e)', () => 
       tenders: [{ methodCode: 'CASH', amountPesewas: 12_000n, register: nextTill() }],
     };
     const sold = await runWithRequestContext({ correlationId: randomUUID(), ip: null, userAgent: 'returns test', actor }, () =>
-      uow.run({ isolation: 'serializable', seriesLocks: sales.locksFor(branchId) }, async (tx) => sales.postIn(tx, actor, { shiftDocumentId: await openTestShift(tx, actor.principalId, request.branchId), ...request })),
+      uow.run({ isolation: 'serializable', seriesLocks: sales.locksFor(branchId) }, async (tx) => sales.postIn(tx, actor, { shiftDocumentId: await openTestShift(tx, actor.principalId, request.branchId, tillOf(request)), ...request })),
     );
     const line = sold.lines[0]!;
     const receiptId = (await admin().query<{ billing_document_id: string }>('SELECT billing_document_id FROM ord.sales_order WHERE id = $1', [sold.id])).rows[0]!.billing_document_id;

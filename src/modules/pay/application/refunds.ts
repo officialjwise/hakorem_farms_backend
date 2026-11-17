@@ -252,16 +252,25 @@ export class Refunds {
   }
 
   /** `markRefundPaid` (FR-PAY-013): an approved refund paid by hand, recorded with its reference by someone other than its maker. */
-  markPaid(actor: Actor | undefined, id: string, body: { readonly paidAt: Date; readonly externalReference: string | null }, key: string): Promise<StoredResponse<RefundView>> {
-    return this.command(actor, PAY, 'markRefundPaid', id, { paidAt: body.paidAt.toISOString(), externalReference: body.externalReference }, key, async (tx, refund, payment) => {
+  markPaid(actor: Actor | undefined, id: string, body: { readonly paidAt: Date; readonly externalReference: string | null; readonly shiftId?: string | null }, key: string): Promise<StoredResponse<RefundView>> {
+    const shiftId = body.shiftId ?? null;
+    return this.command(actor, PAY, 'markRefundPaid', id, { paidAt: body.paidAt.toISOString(), externalReference: body.externalReference, ...(shiftId === null ? {} : { shiftId }) }, key, async (tx, refund, payment) => {
       if (refund.createdBy === actor!.principalId) throw new RefundMakerCannotPayError('the maker of a refund cannot record its payout');
       const broken: PaymentRule[] = [];
       if (refund.status !== 'APPROVED' && refund.status !== 'FAILED') broken.push({ field: '', rule: 'NOT_PAYABLE' });
       if (body.externalReference === null) broken.push({ field: '/externalReference', rule: 'REFERENCE_REQUIRED' });
       if (body.paidAt.getTime() > this.clock.now().getTime() || body.paidAt.getTime() < refund.createdAt.getTime()) broken.push({ field: '/paidAt', rule: 'PAID_AT_OUT_OF_RANGE' });
+      // Cash given back from a till leaves it only out of an open shift of the till that took it (A-273 (i), ADR-0077).
+      const tillCash = payment.methodKind === 'CASH' && payment.registerRef !== null && !toStoreCredit(refund, payment);
+      if (tillCash && shiftId === null) broken.push({ field: '/shiftId', rule: 'SHIFT_REQUIRED' });
+      if (!tillCash && shiftId !== null) broken.push({ field: '/shiftId', rule: 'SHIFT_NOT_FOR_PAYOUT' });
+      if (broken.length === 0 && tillCash) {
+        const answer = await this.payments.tillCashAnswerIn(tx, { shiftDocumentId: shiftId!, registerId: payment.registerRef, branchId: refund.branchId, actorId: actor!.principalId, direction: 'OUT' });
+        if (!answer.ok) broken.push({ field: '/shiftId', rule: answer.refusal });
+      }
       if (broken.length > 0) throw new RefundInvalidError(broken);
       await this.store.updateRefund(tx, id, { externalReference: body.externalReference!, nextAttemptAt: null }, actor!.principalId);
-      await this.payIn(tx, refund, payment, 'MANUAL', body.paidAt, actor!.principalId, `Paid by hand, reference ${body.externalReference!}`);
+      await this.payIn(tx, refund, payment, 'MANUAL', body.paidAt, actor!.principalId, `Paid by hand, reference ${body.externalReference!}`, tillCash ? shiftId : null);
       return 'PAY';
     });
   }
@@ -379,8 +388,8 @@ export class Refunds {
   }
 
   /** A refund paid: PAID once, its break closed, and ◆ `pay.RefundPaid` posts it off the customer's deposit to the original tender. */
-  private async payIn(tx: Transaction, refund: RefundRecord, payment: PaymentRecord, paidBy: 'PROVIDER' | 'MANUAL' | 'STORE_CREDIT', at: Date, actorId: string, note = 'Paid by the provider'): Promise<void> {
-    await this.store.updateRefund(tx, refund.id, { status: 'PAID', paid: { at, by: actorId }, nextAttemptAt: null }, actorId);
+  private async payIn(tx: Transaction, refund: RefundRecord, payment: PaymentRecord, paidBy: 'PROVIDER' | 'MANUAL' | 'STORE_CREDIT', at: Date, actorId: string, note = 'Paid by the provider', fromShiftId: string | null = null): Promise<void> {
+    await this.store.updateRefund(tx, refund.id, { status: 'PAID', paid: { at, by: actorId, fromShiftId }, nextAttemptAt: null }, actorId);
     // A refund that waited for a person after failing is closed on the break queue once it is paid, by either path.
     await this.store.resolveRefundBreaks(tx, refund.id, note, this.clock.now(), actorId);
     const toCredit = toStoreCredit(refund, payment);
@@ -399,6 +408,7 @@ export class Refunds {
       paidBy,
       creditNoteId: refund.creditNoteId,
       bankAccountId: bankPayout ? payment.bankAccountId : null,
+      shiftId: fromShiftId,
     };
     await this.events.publish(tx, { type: REFUND_PAID, subjectType: 'Refund', subjectId: refund.id, branchId: refund.branchId, payload, occurredAt: at });
     await this.audit.record(tx, { module: 'pay', action: 'PAY', entityType: 'Refund', entityId: refund.id, branchId: refund.branchId, before: { status: refund.status }, after: { status: 'PAID', paidAt: at.toISOString(), paidBy } });

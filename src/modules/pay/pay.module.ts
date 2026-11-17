@@ -20,6 +20,7 @@ import { Breaks } from './application/breaks';
 import { PAYMENT_STORE, type PaymentStore } from './application/payment-store';
 import { PAY_LEDGER_EVENTS, Payments } from './application/payments';
 import { ProviderPayments } from './application/provider-payments';
+import { TillShiftRegistry } from './application/till-shifts';
 import { PAYMENT_REVERSAL_KIND, Receipts } from './application/receipts';
 import { Receivables } from './application/receivables';
 import { StoreCredit } from './application/store-credit';
@@ -105,9 +106,11 @@ import { MyStoreCreditController, PaymentsController, ReceivablesController, Ref
         idempotency: Idempotency,
         cursors: Cursors,
         bankAccounts: BankAccounts,
-      ) => new Payments(store, refs, billing, documents, events, audit, clock, uow, authoriser, idempotency, cursors, bankAccounts),
-      inject: [PAYMENT_STORE, MasterDataRefs, Billing, DocumentRegistry, DomainEvents, AuditTrail, CLOCK, UnitOfWork, Authoriser, Idempotency, Cursors, BankAccounts],
+        tills: TillShiftRegistry,
+      ) => new Payments(store, refs, billing, documents, events, audit, clock, uow, authoriser, idempotency, cursors, bankAccounts, tills),
+      inject: [PAYMENT_STORE, MasterDataRefs, Billing, DocumentRegistry, DomainEvents, AuditTrail, CLOCK, UnitOfWork, Authoriser, Idempotency, Cursors, BankAccounts, TillShiftRegistry],
     },
+    { provide: TillShiftRegistry, useFactory: () => new TillShiftRegistry() },
     {
       provide: StoreCredit,
       useFactory: (store: PaymentStore, refs: MasterDataRefs, documents: DocumentRegistry, uow: UnitOfWork, authoriser: Authoriser, clock: Clock) => new StoreCredit(store, refs, documents, uow, authoriser, clock),
@@ -189,7 +192,7 @@ import { MyStoreCreditController, PaymentsController, ReceivablesController, Ref
       inject: [PAYMENT_STORE, Payments, MasterDataRefs, DocumentRegistry, DomainEvents, AuditTrail, Breaks, UnitOfWork, Authoriser, Idempotency, Approvals, PRINCIPAL_NAMES, Cursors, PAYMENT_PROVIDER, CLOCK, LOGGER, StoreCredit, Billing],
     },
   ],
-  exports: [Payments, ProviderPayments, Refunds, Receipts, StoreCredit],
+  exports: [Payments, ProviderPayments, Refunds, Receipts, StoreCredit, TillShiftRegistry],
 })
 export class PayModule implements OnModuleInit {
   constructor(

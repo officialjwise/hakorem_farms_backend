@@ -47037,7 +47037,7 @@ paths:
       tags:
         - pay
       summary: "Ask a customer to approve a mobile money payment on their phone"
-      description: "Creates a PENDING payment with our reference first, then sends the charge through the provider port outside any transaction, with a timeout, a bounded retry with jitter and a circuit breaker: a retry reuses the reference, so the customer is never charged twice, and the same key answers the same payment without a second charge. It clears only on the provider's own answer (the signed webhook's lookup, `checkPaymentStatus` or the provider sweep), as a customer deposit (2200) to be allocated to the order's document. With the provider down the answer is 503 `PAYMENT_PROVIDER_UNAVAILABLE` and cash still works. Without `orderId`, the payment is taken at the caller's one branch; `shiftId` is refused until point of sale (B9b, `SHIFT_NOT_AVAILABLE`). The phone is used for the charge request only and stored masked (B09a continued, 1.42.0).\n\nPermission: `pay.payment.initiate`."
+      description: "Creates a PENDING payment with our reference first, then sends the charge through the provider port outside any transaction, with a timeout, a bounded retry with jitter and a circuit breaker: a retry reuses the reference, so the customer is never charged twice, and the same key answers the same payment without a second charge. It clears only on the provider's own answer (the signed webhook's lookup, `checkPaymentStatus` or the provider sweep), as a customer deposit (2200) to be allocated to the order's document. With the provider down the answer is 503 `PAYMENT_PROVIDER_UNAVAILABLE` and cash still works. Without `orderId`, the payment is taken at the caller's one branch, or at the till's branch when `shiftId` names one. A charge taken at a till names the caller's own open shift (2.6.0, ADR-0077), is counted in that shift's tenders and is authorised at the till's location: 422 `PAYMENT_INVALID` on `/shiftId` with `SHIFT_NOT_OPEN` (closing, closed or force-closed), `SHIFT_NOT_OWN`, `SHIFT_OTHER_BRANCH` or `SHIFT_UNKNOWN`. The phone is used for the charge request only and stored masked (B09a continued, 1.42.0).\n\nPermission: `pay.payment.initiate`."
       x-permission: pay.payment.initiate
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -48361,7 +48361,7 @@ paths:
       tags:
         - pay
       summary: "Record a cash refund handed over"
-      description: "An approved refund paid by hand (a cash or bank transfer original, a cheque paid back through a bank payout from the bank account it was paid into (1.45.0), or a provider refund that failed three times), recorded with the payout's `externalReference`, which is required (422 `REFUND_INVALID`, `REFERENCE_REQUIRED`), and a `paidAt` no later than now. Never by the refund's maker (403 `MAKER_CANNOT_CHECK`; the database refuses it too). Posts the refund once (Cr the original's tender; Cr 1100 against the cheque's bank account for a bank payout; Dr 2200 out of deposit, or Dr 1200 for a refund against a credit note) and closes its `REFUND_FAILED` break (B09a continued, 1.42.0).\n\nPermission: `pay.refund.pay`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      description: "An approved refund paid by hand (a cash or bank transfer original, a cheque paid back through a bank payout from the bank account it was paid into (1.45.0), or a provider refund that failed three times), recorded with the payout's `externalReference`, which is required (422 `REFUND_INVALID`, `REFERENCE_REQUIRED`), and a `paidAt` no later than now. Never by the refund's maker (403 `MAKER_CANNOT_CHECK`; the database refuses it too). Posts the refund once (Cr the original's tender; Cr 1100 against the cheque's bank account for a bank payout; Dr 2200 out of deposit, or Dr 1200 for a refund against a credit note) and closes its `REFUND_FAILED` break (B09a continued, 1.42.0). A refund of cash taken at a till is paid only out of an open shift of that till (`shiftId`, 2.6.0, A-273 (i), ADR-0077): 422 `REFUND_INVALID` with `SHIFT_REQUIRED`, `SHIFT_NOT_FOR_PAYOUT`, `SHIFT_NOT_OPEN` (a closing, closed or force-closed shift), `SHIFT_OTHER_REGISTER`, `SHIFT_OTHER_BRANCH`, `SHIFT_NOT_OWN` (the caller neither runs the shift nor holds `pos.shift.force_close`) or `SHIFT_UNKNOWN`; it counts against that shift's expected cash.\n\nPermission: `pay.refund.pay`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: pay.refund.pay
       x-requires-step-up: true
       parameters:
@@ -54193,8 +54193,9 @@ paths:
       tags:
         - pos
       summary: "Enrol a device to run a register, including offline"
-      description: "Permission: `pos.device.enrol`."
+      description: "Permission: `pos.device.enrol`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: pos.device.enrol
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -54259,8 +54260,9 @@ paths:
       tags:
         - pos
       summary: "Revoke a lost or retired device"
-      description: "Permission: `pos.device.enrol`."
+      description: "Permission: `pos.device.enrol`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: pos.device.enrol
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -55292,8 +55294,9 @@ paths:
       tags:
         - pos
       summary: "Force-close a shift whose device is offline"
-      description: "Sales still queued on the device sync later and post on the next open date, flagged.\n\nPermission: `pos.shift.force_close`."
+      description: "Sales still queued on the device sync later and post on the next open date, flagged.\n\nPermission: `pos.shift.force_close`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: pos.shift.force_close
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -93627,6 +93630,10 @@ components:
           format: date-time
         externalReference:
           type: string
+        shiftId:
+          type: string
+          format: uuid
+          description: "Required for a refund of a cash payment taken at a till, unless it goes to store credit, and refused on any other (2.6.0, A-273 (i), ADR-0077): the open shift of the till that took the payment it is paid out of, run by the caller or recoverable by them (`pos.shift.force_close`). It is counted against that shift's expected cash."
       required:
         - paidAt
       additionalProperties: false
@@ -103214,11 +103221,14 @@ components:
         - platform.file.upload
         - platform.file.upload.evidence
         - pos.cash.move
+        - pos.device.enrol
+        - pos.device.read
         - pos.register.manage
         - pos.register.read
         - pos.sale.create
         - pos.shift.close
         - pos.shift.close.approve
+        - pos.shift.force_close
         - pos.shift.open
         - pos.shift.read
         - pos.shift.report
@@ -103423,11 +103433,14 @@ components:
         - platform.file.upload
         - platform.file.upload.evidence
         - pos.cash.move
+        - pos.device.enrol
+        - pos.device.read
         - pos.register.manage
         - pos.register.read
         - pos.sale.create
         - pos.shift.close
         - pos.shift.close.approve
+        - pos.shift.force_close
         - pos.shift.open
         - pos.shift.read
         - pos.shift.report

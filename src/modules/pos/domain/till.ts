@@ -135,3 +135,22 @@ export function isUnwitnessedDrop(m: Pick<CashMovementFacts, 'kind' | 'witnessId
 export function judgeCountSignOff(cashierId: string, approverId: string): Result<string, 'CLOSE_APPROVER_IS_CASHIER'> {
   return approverId === cashierId ? err('CLOSE_APPROVER_IS_CASHIER') : ok(approverId);
 }
+
+/** Why cash may not move through a till shift (ADR-0077). */
+export type TillCashRefusal = 'SHIFT_NOT_OPEN' | 'SHIFT_OTHER_BRANCH' | 'SHIFT_OTHER_REGISTER' | 'SHIFT_NOT_OWN';
+
+/**
+ * Whether cash may go into or come out of a till through this shift (the owner on A-212 (a), A-273 (i) and (k)): only
+ * while the shift is OPEN (never CLOSING, CLOSED or force-closed), of the branch and till named, and recorded by the
+ * shift's own cashier or by someone who may recover any shift of the branch.
+ */
+export function judgeTillCash(
+  shift: { readonly status: 'OPEN' | 'CLOSING' | 'CLOSED'; readonly registerId: string; readonly branchId: string; readonly cashierId: string },
+  cash: { readonly registerId: string | null; readonly branchId: string; readonly actorId: string; readonly actorRecoversAnyShift: boolean },
+): Result<null, TillCashRefusal> {
+  if (shift.status !== 'OPEN') return err('SHIFT_NOT_OPEN');
+  if (cash.branchId !== shift.branchId) return err('SHIFT_OTHER_BRANCH');
+  if (cash.registerId !== null && cash.registerId !== shift.registerId) return err('SHIFT_OTHER_REGISTER');
+  if (cash.actorId !== shift.cashierId && !cash.actorRecoversAnyShift) return err('SHIFT_NOT_OWN');
+  return ok(null);
+}

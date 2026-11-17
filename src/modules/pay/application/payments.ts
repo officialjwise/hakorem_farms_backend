@@ -16,6 +16,7 @@ import { pageProbe } from '../domain/time';
 import type { DepositAllocated, PaymentCleared } from '../events';
 import { AllocationExceedsAvailableError, PaymentInvalidError, PaymentRequiresVerificationError, type PaymentRule } from './errors';
 import type { AllocationRecord, NewPayment, PaymentFilter, PaymentRecord, PaymentStatus, PaymentStore } from './payment-store';
+import type { TillCashAnswer, TillCashRequest, TillShiftRegistry } from './till-shifts';
 
 export const PAYMENT_CLEARED = 'pay.PaymentCleared';
 export const DEPOSIT_ALLOCATED = 'pay.DepositAllocated';
@@ -164,8 +165,26 @@ export class Payments {
     private readonly idempotency: Idempotency,
     private readonly cursors: Cursors,
     private readonly bankAccounts: BankAccounts,
+    private readonly tills: TillShiftRegistry,
   ) {
     this.nextId = createUuidV7Generator(clock);
+  }
+
+  /**
+   * Refuses cash moving into or out of a till unless POS's `TillShiftCheck` answers for the shift, under its lock: a till
+   * shift, OPEN (never CLOSING, CLOSED or force-closed), of the till named, and the actor's own or recoverable by them
+   * (ADR-0077, the owner on A-212 (a)). Every PAY path that takes or pays out a till's cash calls it, so a direct PAY
+   * call cannot go round the shift. Answers the shift's till.
+   */
+  async tillCashIn(tx: Transaction, request: TillCashRequest, field: string): Promise<{ readonly id: string; readonly code: string; readonly locationId: string }> {
+    const answer = await this.tillCashAnswerIn(tx, request);
+    if (!answer.ok) throw new PaymentInvalidError([{ field, rule: answer.refusal }]);
+    return answer.register;
+  }
+
+  /** POS's answer for cash through a shift, for a PAY command that words its own refusal (ADR-0077). */
+  tillCashAnswerIn(tx: Transaction, request: TillCashRequest): Promise<TillCashAnswer> {
+    return this.tills.cashAtIn(tx, request);
   }
 
   async recordIn(tx: Transaction, actor: Actor | undefined, request: TenderRequest, field = ''): Promise<PaymentView> {
@@ -206,7 +225,7 @@ export class Payments {
       actorId: actor.principalId,
       allocations: request.allocations,
       postsAtReceipt: true,
-    });
+    }, `${field}/register`);
     const [view] = await this.viewsIn(tx, [id]);
     await this.audit.record(tx, { module: 'pay', action: 'RECORD', entityType: 'Payment', entityId: id, branchId: request.branchId, before: null, after: { ...view! } });
     return view!;
@@ -232,8 +251,13 @@ export class Payments {
    * `Billing.settleIn`, and, when it posts at receipt, ◆ `pay.PaymentCleared` (a cheque into 1130, marked as awaiting
    * clearance). The allocations must already be judged; the database still holds both sides' caps.
    */
-  async writeIn(tx: Transaction, actorId: string, p: NewPayment & { readonly allocations: readonly { readonly billingDocumentId: string; readonly amountPesewas: bigint }[]; readonly postsAtReceipt: boolean }): Promise<void> {
+  async writeIn(tx: Transaction, actorId: string, p: NewPayment & { readonly allocations: readonly { readonly billingDocumentId: string; readonly amountPesewas: bigint }[]; readonly postsAtReceipt: boolean }, field = '/register'): Promise<void> {
     if (tx.isolation !== 'serializable') throw new IsolationLevelError(tx.isolation);
+    // Cash into a till only through its open shift, whoever calls (ADR-0077); the database holds that it names one.
+    if (p.methodKind === 'CASH' && p.register !== null) {
+      if (p.shiftDocumentId === null) throw new PaymentInvalidError([{ field, rule: 'SHIFT_REQUIRED' }]);
+      await this.tillCashIn(tx, { shiftDocumentId: p.shiftDocumentId, registerId: p.register.id, branchId: p.branchId, actorId, direction: 'IN' }, field);
+    }
     await this.documents.register(tx, { id: p.id, docType: 'PAYMENT', ownerModule: 'pay', branchId: p.branchId, actorId });
     await this.store.insert(tx, p);
     let allocated = 0n;

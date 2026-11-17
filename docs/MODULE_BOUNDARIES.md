@@ -353,6 +353,7 @@ Any other reference upward, from a lower layer to a document in a higher one, us
 | `ScheduledJob` | platform | Any module, wired in `src/worker-app.ts` | The worker runs a module's scheduled job as the Scheduler and records the run (ADR-0049, proposed); first INV's `reservation-expiry`, then its `stock-balance-recompute` and `stock-alerts` |
 | `LocationUsageCheck` (`LocationUsageRegistry.register`) | MDM | INV (later PUR, ORD, DEL) | MDM asks whether stock stands at a branch or location, or open documents name it, before closing the branch or archiving the location (ADR-0051, proposed) |
 | `EntitySheet` (`MdmImports.registerSheet`) | MDM | INV | MDM's imports run the dry run and the all-or-none apply of a sheet whose rows a higher module owns (ADR-0050, proposed); first INV's `OPENING_STOCK` |
+| `TillShiftCheck` (`TillShiftRegistry.register`) | PAY | POS | PAY asks, in the caller's transaction and under the shift's lock, whether cash may move into or out of a till through a shift: OPEN, of that till and branch, and the actor's own or recoverable by them; deny by default (ADR-0077, proposed) |
 
 Adding a port needs an ADR. Ports are the exception, not a way round the layer rule.
 

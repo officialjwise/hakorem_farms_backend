@@ -1,6 +1,6 @@
 import { Money } from '@hakorem/kernel';
 import { describe, expect, it } from 'vitest';
-import { changeDue, closeAmounts, expectedCash, judgeCashMovement, isUnwitnessedDrop, judgeCountSignOff, overShort, type CashMovementFacts } from './till';
+import { changeDue, closeAmounts, expectedCash, judgeCashMovement, isUnwitnessedDrop, judgeCountSignOff, judgeTillCash, overShort, type CashMovementFacts } from './till';
 
 const p = (n: bigint) => Money.ofPesewas(n);
 const MAX = 9_007_199_254_740_991n;
@@ -170,5 +170,34 @@ describe('the sign-off of a count (FR-POS-018): never the cashier', () => {
 
   it('accepts a different supervisor', () => {
     expect(judgeCountSignOff('cashier', 'supervisor')).toEqual({ ok: true, value: 'supervisor' });
+  });
+});
+
+describe('cash through a till shift (ADR-0077, A-212 (a), A-273 (i) and (k))', () => {
+  const shift = { status: 'OPEN' as const, registerId: 'T1', branchId: 'DDW', cashierId: 'adwoa' };
+  const cash = { registerId: 'T1', branchId: 'DDW', actorId: 'adwoa', actorRecoversAnyShift: false };
+
+  it('takes cash into or out of the cashier own open shift on its till', () => {
+    expect(judgeTillCash(shift, cash)).toEqual({ ok: true, value: null });
+    expect(judgeTillCash(shift, { ...cash, registerId: null })).toEqual({ ok: true, value: null });
+  });
+
+  it('refuses a shift that is closing, closed or force-closed', () => {
+    expect(judgeTillCash({ ...shift, status: 'CLOSING' }, cash)).toEqual({ ok: false, error: 'SHIFT_NOT_OPEN' });
+    expect(judgeTillCash({ ...shift, status: 'CLOSED' }, cash)).toEqual({ ok: false, error: 'SHIFT_NOT_OPEN' });
+  });
+
+  it('refuses another cashier, unless they may recover any shift of the branch', () => {
+    expect(judgeTillCash(shift, { ...cash, actorId: 'nana' })).toEqual({ ok: false, error: 'SHIFT_NOT_OWN' });
+    expect(judgeTillCash(shift, { ...cash, actorId: 'kwabena', actorRecoversAnyShift: true })).toEqual({ ok: true, value: null });
+  });
+
+  it('refuses another till or another branch than the shift is on', () => {
+    expect(judgeTillCash(shift, { ...cash, registerId: 'T2' })).toEqual({ ok: false, error: 'SHIFT_OTHER_REGISTER' });
+    expect(judgeTillCash(shift, { ...cash, branchId: 'KMS' })).toEqual({ ok: false, error: 'SHIFT_OTHER_BRANCH' });
+  });
+
+  it('refuses a closed shift before anything else, even to the shift own cashier on its own till', () => {
+    expect(judgeTillCash({ ...shift, status: 'CLOSED' }, { ...cash, actorId: 'nana', registerId: 'T2' })).toEqual({ ok: false, error: 'SHIFT_NOT_OPEN' });
   });
 });

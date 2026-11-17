@@ -4507,8 +4507,9 @@ paths:
       tags:
         - pos
       summary: "Enrol a device to run a register, including offline"
-      description: "Permission: `pos.device.enrol`."
+      description: "Permission: `pos.device.enrol`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: pos.device.enrol
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -4573,8 +4574,9 @@ paths:
       tags:
         - pos
       summary: "Revoke a lost or retired device"
-      description: "Permission: `pos.device.enrol`."
+      description: "Permission: `pos.device.enrol`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: pos.device.enrol
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -4644,8 +4646,9 @@ paths:
       tags:
         - pos
       summary: "Force-close a shift whose device is offline"
-      description: "Sales still queued on the device sync later and post on the next open date, flagged.\n\nPermission: `pos.shift.force_close`."
+      description: "Sales still queued on the device sync later and post on the next open date, flagged.\n\nPermission: `pos.shift.force_close`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: pos.shift.force_close
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -37678,6 +37681,10 @@ components:
           format: date-time
         externalReference:
           type: string
+        shiftId:
+          type: string
+          format: uuid
+          description: "Required for a refund of a cash payment taken at a till, unless it goes to store credit, and refused on any other (2.6.0, A-273 (i), ADR-0077): the open shift of the till that took the payment it is paid out of, run by the caller or recoverable by them (`pos.shift.force_close`). It is counted against that shift's expected cash."
       required:
         - paidAt
       additionalProperties: false
