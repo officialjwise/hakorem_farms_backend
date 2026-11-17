@@ -175,6 +175,7 @@ Typed settings, feature flags, the business profile and thresholds, editable wit
 Standard columns: `MASTER`.
 
 - UNIQUE NULLS NOT DISTINCT (`key`, `branch_id`, `valid_from`) among live rows. Secrets are never stored here.
+- **The business profile (B09x continued, FR-AUD-008, A-244):** key `aud.business_profile`, `value_type` `JSON`, farm-wide (`branch_id` null). Each change is a new row from that instant whose `version` is the previous row's plus one; `value` holds `legalName`, `tradingName`, `tin`, `vatNumber`, `address`, `phone`, `whatsapp`, `email`, `logoFileId`, `directions` and `openingHours`. Written only by AUD's `BusinessProfiles`, never by `updateSetting`. The farm's own tax numbers are printed on its documents and are not secrets; no bank detail is held here (FIN's bank accounts are sealed, ADR-0057).
 
 ### `platform.stored_file` · MASTER
 

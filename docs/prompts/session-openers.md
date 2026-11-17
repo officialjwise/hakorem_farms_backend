@@ -2104,7 +2104,7 @@ PIN and the salted verifier the device stores, or a statement in OFFLINE_SYNC.md
 PIN typed at an online sign-in), record it as an ADR and answer it in the report.
 CR-033 points 1 and 2 (owner's rule, 2026-11-16: every sale produces a digital receipt, by SMS or a link, and a printer
 is optional): a public receipt read with no session, by an unguessable token, answering the official number, the sale
-reference, the lines, the tenders, the change and the business's details, and "being recorded" until the sale has
+reference, the lines, the tenders, the change and the business's details (read through AUD's `BusinessProfiles`, B09x continued), and "being recorded" until the sale has
 synced; the till can make the link offline so it shows as a QR code at the counter. Choose the token with
 hakorem-security-review: the frontend suggests the sale's client id (a UUIDv7, whose leading bits are a timestamp);
 prefer a value the device derives from its enrolled credential if the client id proves too guessable, and record the
