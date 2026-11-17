@@ -182,13 +182,13 @@ describe('the owner dashboard answers its sales figures exactly from completed o
       { channel: 'QUOTE', amountPesewas: 0, count: 0 },
     ]);
     expect(body.topMovers.map((m: { product: { sku: string }; qty: string; uom: string; revenuePesewas: number }) => [m.product.sku, m.qty, m.uom, m.revenuePesewas])).toEqual([
-      ['LIV-GOAT', '1.000', 'HEAD', 58_500],
-      ['EGG-CRATE-BIG', '3.000', 'CRATE', 18_000],
-      ['PRD-YAM-TUBER', '4.000', 'TUBER', YAMS],
-      ['MEAT-GOAT-15KG', '3.500', 'KG', 6_930],
-      ['PRD-CABBAGE-HEAD', '3.000', 'UNIT', 3_000],
+      ['LIV-0004', '1.000', 'HEAD', 58_500],
+      ['EGG-0003', '3.000', 'CRATE', 18_000],
+      ['PRD-0005', '4.000', 'TUBER', YAMS],
+      ['MEAT-0007', '3.500', 'KG', 6_930],
+      ['PRD-0002', '3.000', 'UNIT', 3_000],
     ]);
-    expect(body.topMovers[0].product).toEqual({ id: id('product:LIV-GOAT'), sku: 'LIV-GOAT', name: expect.any(String) });
+    expect(body.topMovers[0].product).toEqual({ id: id('product:LIV-0004'), sku: 'LIV-0004', name: expect.any(String) });
     expect(body.salesSeries).toMatchObject({ from: addDays(TODAY, -6), to: TODAY, totalPesewas: DAY_TOTAL, orderCount: 3 });
     expect(body.salesSeries.points).toHaveLength(7);
     expect(body.salesSeries.points.at(-1)).toEqual(SERIES_OF_TODAY(DAY_TOTAL, 3));
@@ -250,7 +250,7 @@ describe('the dashboard and the sales tiles refuse the wrong role (ADR-0035)', (
 
 describe('a VOIDED order is not a sale, and a completed return leaves the figures as they were (A-234)', () => {
   it('takes the voided yam sale out of every figure once the Owner approves the void', async () => {
-    const yams = await saleWith('PRD-YAM-TUBER');
+    const yams = await saleWith('PRD-0005');
     const asked = await post('CASHIER', `/orders/${yams.id}/void`, { reasonCode: 'CUSTOMER_CHANGED_MIND', note: 'Took the yams back before leaving' });
     expect(asked.status, JSON.stringify(asked.body)).toBe(202);
     // Still a sale while the void waits.
@@ -261,12 +261,12 @@ describe('a VOIDED order is not a sale, and a completed return leaves the figure
     const body = (await get('owner', '/dashboard/owner')).body;
     expect([body.salesTodayPesewas, body.salesMonthToDatePesewas, body.salesSeries.totalPesewas, body.salesSeries.orderCount]).toEqual([DAY_TOTAL - YAMS, DAY_TOTAL - YAMS, DAY_TOTAL - YAMS, 2]);
     expect(body.salesByChannel.find((c: { channel: string }) => c.channel === 'WHOLESALE')).toEqual({ channel: 'WHOLESALE', amountPesewas: WHOLESALE_ONE, count: 1 });
-    expect(body.topMovers.map((m: { product: { sku: string } }) => m.product.sku)).toEqual(['LIV-GOAT', 'EGG-CRATE-BIG', 'MEAT-GOAT-15KG', 'PRD-CABBAGE-HEAD']);
+    expect(body.topMovers.map((m: { product: { sku: string } }) => m.product.sku)).toEqual(['LIV-0004', 'EGG-0003', 'MEAT-0007', 'PRD-0002']);
     expect((await get('manager', '/dashboard/tiles/sales-today')).body).toMatchObject({ salesPesewas: DAY_TOTAL - YAMS, orderCount: 2 });
   });
 
   it('keeps a sale at its gross when one of its cabbages comes back on a completed return', async () => {
-    const sale = await saleWith('PRD-CABBAGE-HEAD');
+    const sale = await saleWith('PRD-0002');
     const created = await post('CASHIER', '/returns', {
       orderId: sale.id,
       kind: 'RETURN',
@@ -283,7 +283,7 @@ describe('a VOIDED order is not a sale, and a completed return leaves the figure
     expect((await admin().query<{ status: string }>('SELECT status FROM ord.order_return WHERE id = $1', [created.body.id])).rows[0]!.status).toBe('COMPLETED');
     const body = (await get('owner', '/dashboard/owner')).body;
     expect([body.salesTodayPesewas, body.salesSeries.orderCount]).toEqual([DAY_TOTAL - YAMS, 2]);
-    expect(body.topMovers.find((m: { product: { sku: string } }) => m.product.sku === 'PRD-CABBAGE-HEAD')).toMatchObject({ qty: '3.000', revenuePesewas: 3_000 });
+    expect(body.topMovers.find((m: { product: { sku: string } }) => m.product.sku === 'PRD-0002')).toMatchObject({ qty: '3.000', revenuePesewas: 3_000 });
   });
 
   it('moves the day to yesterday when the clock passes midnight in Accra, the series and the month to date following', async () => {
@@ -316,7 +316,7 @@ describe('the sales figures are read through ORD\'s published views only (ADR-00
         { channel: 'ONLINE', grossPesewas: 6_000n, count: 1 },
         { channel: 'WHOLESALE', grossPesewas: 80_430n, count: 1 },
       ]);
-      expect((await store.productSales(tx, branchIds, TODAY)).map((r) => r.sku).sort()).toEqual(['EGG-CRATE-BIG', 'LIV-GOAT', 'MEAT-GOAT-15KG', 'PRD-CABBAGE-HEAD']);
+      expect((await store.productSales(tx, branchIds, TODAY)).map((r) => r.sku).sort()).toEqual(['EGG-0003', 'LIV-0004', 'MEAT-0007', 'PRD-0002']);
       await expect(client.query('SELECT 1 FROM ord.sales_order LIMIT 1')).rejects.toMatchObject({ code: '42501' });
       await expect(client.query('SELECT 1 FROM ord.sales_order_line LIMIT 1')).rejects.toMatchObject({ code: '42501' });
     } finally {

@@ -133,7 +133,7 @@ describe('B5 gate: on hand derived from movements matches a hand count of the se
     }
     expect([unit('S-0031').valueAtCostPesewas, unit('S-0032').valueAtCostPesewas]).toEqual([75_001, 75_000]);
     expect(unit('LOT-BEEF-2026-1110')).toMatchObject({ onHandQty: '45.000', valueAtCostPesewas: 540_000, unitCostPesewas: 12_000, uom: 'KG', uomDisplayDecimals: 3 });
-    const yam = lines.find((l) => l.product.sku === 'PRD-YAM-TUBER')!;
+    const yam = lines.find((l) => l.product.sku === 'PRD-0005')!;
     expect(yam).toMatchObject({ stockUnit: null, valuationMethod: 'WEIGHTED_AVERAGE', valueAtCostPesewas: 48_000, unitCostPesewas: 1_200 });
   });
 
@@ -152,17 +152,17 @@ describe('B5 gate: on hand derived from movements matches a hand count of the se
     expect((await get(coldStorekeeper, `/stock/on-hand?branchId=${id('branch:DDW')}&locationId=${id('location:PENS')}`)).status).toBe(403);
     expect((await get(cashier, '/stock/on-hand')).status).toBe(403);
     expect((await get(cashier, `/stock-units/${id('unit:G-0142')}`)).status).toBe(403);
-    expect((await get(accountant, `/stock/on-hand?productId=${id('product:EGG-CRATE-BIG')}`)).body.totalValueAtCostPesewas).toBe(105_000);
+    expect((await get(accountant, `/stock/on-hand?productId=${id('product:EGG-0003')}`)).body.totalValueAtCostPesewas).toBe(105_000);
   });
 
   it('filters by category and by days to expiry', async () => {
-    const eggs = await allLines(manager, `expiringWithinDays=3650&productId=${id('product:EGG-CRATE-BIG')}`);
+    const eggs = await allLines(manager, `expiringWithinDays=3650&productId=${id('product:EGG-0003')}`);
     expect(eggs.lines.map((l) => l.stockUnit?.identifier)).toEqual(['EGG-BIG-2026-1110']);
     const untracked = await allLines(manager, 'expiringWithinDays=3650');
     expect(untracked.lines.every((l) => l.stockUnit !== null)).toBe(true);
-    const category = (await admin().query<{ category_id: string }>("SELECT category_id FROM mdm.product WHERE sku = 'MEAT-BEEF-15KG'")).rows[0]!.category_id;
+    const category = (await admin().query<{ category_id: string }>("SELECT category_id FROM mdm.product WHERE sku = 'MEAT-0005'")).rows[0]!.category_id;
     const meat = await allLines(manager, `categoryId=${category}`);
-    expect(new Set(meat.lines.map((l) => l.product.sku))).toEqual(new Set(['MEAT-BEEF-15KG', 'MEAT-GOAT-15KG']));
+    expect(new Set(meat.lines.map((l) => l.product.sku))).toEqual(new Set(['MEAT-0005', 'MEAT-0007']));
   });
 });
 
@@ -198,20 +198,20 @@ describe('B5 gate: a lot traces in both directions over the API (FR-INV-006)', (
     const customer = await virtual('CUSTOMER');
     const feedDoc = await document();
     await postAll([
-      { movementType: 'COST_CAPITALISE', productId: id('product:LIV-GOAT'), stockUnitId: goat(), fromLocationId: consumption, toLocationId: id('location:PENS'), qty: Quantity.zero(), value: Money.ofPesewas(8_400n), costElement: 'FEED', sourceDocumentId: feedDoc },
-      { movementType: 'COST_CAPITALISE', productId: id('product:LIV-GOAT'), stockUnitId: goat(), fromLocationId: consumption, toLocationId: id('location:PENS'), qty: Quantity.zero(), value: Money.ofPesewas(3_000n), costElement: 'VETERINARY', sourceDocumentId: feedDoc },
+      { movementType: 'COST_CAPITALISE', productId: id('product:LIV-0004'), stockUnitId: goat(), fromLocationId: consumption, toLocationId: id('location:PENS'), qty: Quantity.zero(), value: Money.ofPesewas(8_400n), costElement: 'FEED', sourceDocumentId: feedDoc },
+      { movementType: 'COST_CAPITALISE', productId: id('product:LIV-0004'), stockUnitId: goat(), fromLocationId: consumption, toLocationId: id('location:PENS'), qty: Quantity.zero(), value: Money.ofPesewas(3_000n), costElement: 'VETERINARY', sourceDocumentId: feedDoc },
     ]);
     const processingOrder = await document();
     lot = randomUUID();
     await admin().query(
       `INSERT INTO inv.stock_unit (id, product_id, tracking, branch_id, identifier, status, produced_on, expires_on, source_document_id, created_by, updated_by)
        VALUES ($1, $2, 'LOT', $3, 'LOT-GOAT-0002', 'ACTIVE', $6::date, $7::date, $4, $5, $5)`,
-      [lot, id('product:MEAT-GOAT-15KG'), id('branch:DDW'), processingOrder, SYSTEM_PRINCIPAL, addDays(toBusinessDate(clock.now()), -2), addDays(toBusinessDate(clock.now()), 88)],
+      [lot, id('product:MEAT-0007'), id('branch:DDW'), processingOrder, SYSTEM_PRINCIPAL, addDays(toBusinessDate(clock.now()), -2), addDays(toBusinessDate(clock.now()), 88)],
     );
     await postAll(
       [
-        { movementType: 'PROCESS_CONSUME', productId: id('product:LIV-GOAT'), stockUnitId: goat(), fromLocationId: id('location:PENS'), toLocationId: processing, qty: Quantity.ofUnits(1n), sourceDocumentId: processingOrder },
-        { movementType: 'PROCESS_OUTPUT', productId: id('product:MEAT-GOAT-15KG'), stockUnitId: lot, fromLocationId: processing, toLocationId: id('location:COLD'), qty: Quantity.parse('12.000'), value: Money.ofPesewas(71_400n), costElement: 'PROCESSING', sourceDocumentId: processingOrder },
+        { movementType: 'PROCESS_CONSUME', productId: id('product:LIV-0004'), stockUnitId: goat(), fromLocationId: id('location:PENS'), toLocationId: processing, qty: Quantity.ofUnits(1n), sourceDocumentId: processingOrder },
+        { movementType: 'PROCESS_OUTPUT', productId: id('product:MEAT-0007'), stockUnitId: lot, fromLocationId: processing, toLocationId: id('location:COLD'), qty: Quantity.parse('12.000'), value: Money.ofPesewas(71_400n), costElement: 'PROCESSING', sourceDocumentId: processingOrder },
       ],
       async () => api.app.get(Lineage).linkIn(api.app.get(UnitOfWork).current(), SYSTEM_PRINCIPAL, lot, [goat()], 'PROCESSING', processingOrder),
     );
@@ -219,7 +219,7 @@ describe('B5 gate: a lot traces in both directions over the API (FR-INV-006)', (
     await postAll([
       {
         movementType: 'SALE_ISSUE',
-        productId: id('product:MEAT-GOAT-15KG'),
+        productId: id('product:MEAT-0007'),
         stockUnitId: lot,
         fromLocationId: id('location:COLD'),
         toLocationId: customer,
@@ -235,8 +235,8 @@ describe('B5 gate: a lot traces in both directions over the API (FR-INV-006)', (
     expect(response.status).toBe(200);
     expect(response.body).toMatchObject({
       unit: { id: lot, identifier: 'LOT-GOAT-0002', tracking: 'LOT' },
-      product: { sku: 'MEAT-GOAT-15KG' },
-      ancestors: [{ unit: { identifier: 'G-0143', tracking: 'SERIAL' }, product: { sku: 'LIV-GOAT' }, linkType: 'PROCESSING', depth: 1 }],
+      product: { sku: 'MEAT-0007' },
+      ancestors: [{ unit: { identifier: 'G-0143', tracking: 'SERIAL' }, product: { sku: 'LIV-0004' }, linkType: 'PROCESSING', depth: 1 }],
       descendants: [],
       supplier: { name: 'Kpone Livestock Traders (SEED)' },
       costByElement: [
@@ -268,7 +268,7 @@ describe('B5 gate: a lot traces in both directions over the API (FR-INV-006)', (
 });
 
 describe('B5 gate: stock cannot go negative outside the allowed movement types (FR-INV-019)', () => {
-  const yam = () => ({ productId: id('product:PRD-YAM-TUBER'), branchId: id('branch:DDW'), toLocationId: id('virtual:CUSTOMER') });
+  const yam = () => ({ productId: id('product:PRD-0005'), branchId: id('branch:DDW'), toLocationId: id('virtual:CUSTOMER') });
   /** A sale through Stock.postIn; answers the movement id or the error code. */
   const sell = (movementType: string, from: string, qty: string) =>
     runAsSystem({ principalId: SYSTEM_PRINCIPAL, displayName: 'B5 gate' }, randomUUID(), () =>
@@ -279,7 +279,7 @@ describe('B5 gate: stock cannot go negative outside the allowed movement types (
       }),
     ).catch((error: unknown) => (error as { code?: string }).code ?? String(error));
   const shopYam = async () =>
-    (await admin().query<{ q: string }>('SELECT on_hand_qty::text AS q FROM inv.stock_balance WHERE product_id = $1 AND location_id = $2 AND stock_unit_id IS NULL', [id('product:PRD-YAM-TUBER'), id('location:SHOP')])).rows[0]!.q;
+    (await admin().query<{ q: string }>('SELECT on_hand_qty::text AS q FROM inv.stock_balance WHERE product_id = $1 AND location_id = $2 AND stock_unit_id IS NULL', [id('product:PRD-0005'), id('location:SHOP')])).rows[0]!.q;
 
   it('refuses a counter sale of 41 yams from the 40 on the shop floor, and an offline sale out of a location that does not allow it', async () => {
     expect(await sell('SALE_ISSUE', 'location:SHOP', '41.000')).toBe('INSUFFICIENT_STOCK');
@@ -292,7 +292,7 @@ describe('B5 gate: stock cannot go negative outside the allowed movement types (
     // (stock-invariants.integration.spec.ts, FR-INV-019's acceptance on a branch whose counter allows it).
     expect(await sell('SALE_ISSUE_OFFLINE', 'location:SHOP', '41.000')).toBe('INSUFFICIENT_STOCK');
     expect(await shopYam()).toBe('40.000');
-    const raised = await admin().query("SELECT 1 FROM inv.stock_exception WHERE kind = 'NEGATIVE_STOCK' AND product_id = $1", [id('product:PRD-YAM-TUBER')]);
+    const raised = await admin().query("SELECT 1 FROM inv.stock_exception WHERE kind = 'NEGATIVE_STOCK' AND product_id = $1", [id('product:PRD-0005')]);
     expect(raised.rowCount).toBe(0);
     // The ledger and its projection still agree everywhere: the nightly recompute finds no drift.
     expect(await api.app.get(BalanceReconciliation).run(SYSTEM)).toEqual([]);

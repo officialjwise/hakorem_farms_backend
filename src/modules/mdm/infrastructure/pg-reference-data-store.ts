@@ -16,7 +16,7 @@ const PAYMENT_METHOD_UPDATABLE: ReadonlySet<string> = new Set(['is_enabled', 'al
 const ZONE_UPDATABLE: ReadonlySet<string> = new Set(['name', 'areas', 'fee_pesewas', 'free_over_pesewas', 'cutoff_time', 'is_active']);
 
 const SUPPLIER_SELECT = `
-  SELECT s.id, s.supplier_no, s.name, s.contact_name, s.phone_e164, s.email, s.address, s.tin_enc, s.status, s.version, s.created_at, s.updated_at,
+  SELECT s.id, s.public_id, s.name, s.contact_name, s.phone_e164, s.email, s.address, s.tin_enc, s.status, s.version, s.created_at, s.updated_at,
          coalesce((SELECT json_agg(json_build_object('id', c.id, 'code', c.code, 'name', c.name) ORDER BY c.code)
                      FROM mdm.supplier_category sc JOIN mdm.category c ON c.id = sc.category_id
                     WHERE sc.supplier_id = s.id AND sc.deleted_at IS NULL), '[]'::json) AS categories
@@ -36,7 +36,7 @@ export const ZONE_SELECT = `
 
 interface SupplierRow {
   id: string;
-  supplier_no: string;
+  public_id: string;
   name: string;
   contact_name: string | null;
   phone_e164: string | null;
@@ -68,7 +68,7 @@ export interface ZoneRow {
 function toSupplier(row: SupplierRow): SupplierRecord {
   return {
     id: row.id,
-    supplierNo: row.supplier_no,
+    publicId: row.public_id,
     name: row.name,
     contactName: row.contact_name,
     phone: row.phone_e164,
@@ -144,9 +144,9 @@ export class PgReferenceDataStore implements ReferenceDataStore {
         WHERE s.deleted_at IS NULL
           AND ($1::text IS NULL OR s.name ILIKE '%' || $1 || '%') AND ($2::bytea IS NULL OR s.phone_hash = $2)
           AND ($3::uuid IS NULL OR EXISTS (SELECT 1 FROM mdm.supplier_category sc WHERE sc.supplier_id = s.id AND sc.category_id = $3 AND sc.deleted_at IS NULL))
-          AND ($4::text IS NULL OR s.status = $4) AND ($5::uuid IS NULL OR s.id > $5)
+          AND ($4::text IS NULL OR s.status = $4) AND ($5::uuid IS NULL OR s.id > $5) AND ($7::text IS NULL OR s.public_id = $7)
         ORDER BY s.id LIMIT $6`,
-      [f.name === undefined ? null : escapeLike(f.name), f.phoneHash ?? null, f.categoryId ?? null, f.status ?? null, afterId, limit],
+      [f.name === undefined ? null : escapeLike(f.name), f.phoneHash ?? null, f.categoryId ?? null, f.status ?? null, afterId, limit, f.publicId ?? null],
     );
     return rows.map(toSupplier);
   }
@@ -165,9 +165,9 @@ export class PgReferenceDataStore implements ReferenceDataStore {
 
   async insertSupplier(tx: Transaction, id: string, w: SupplierWrite, actorId: string): Promise<void> {
     await tx.query(
-      `INSERT INTO mdm.supplier (id, supplier_no, name, contact_name, phone_e164, phone_hash, email, address, tin_enc, status, created_by, updated_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'ACTIVE', $10, $10)`,
-      [id, w.supplierNo, w.name, w.contactName, w.phone, w.phoneHash, w.email, w.address, w.tinEnc, actorId],
+      `INSERT INTO mdm.supplier (id, supplier_no, public_id, name, contact_name, phone_e164, phone_hash, email, address, tin_enc, status, created_by, updated_by)
+       VALUES ($1, $2, $11, $3, $4, $5, $6, $7, $8, $9, 'ACTIVE', $10, $10)`,
+      [id, w.supplierNo, w.name, w.contactName, w.phone, w.phoneHash, w.email, w.address, w.tinEnc, actorId, w.publicId],
     );
   }
 

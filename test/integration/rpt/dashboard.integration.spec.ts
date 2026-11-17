@@ -163,7 +163,7 @@ describe('B05x gate: each tile answers alone, with the dashboard value and the m
     const tile = await get(accountant, '/dashboard/tiles/low-stock');
     expect(tile.status).toBe(200);
     const atPoint = SEED_REORDER_RULES.filter((rule) => SEED_HAND_COUNT.lines.some((l) => l.sku === rule.sku && Quantity.parse(l.onHand).thousandths <= Quantity.parse(rule.reorderPointQty).thousandths));
-    expect(atPoint.map((r) => r.sku)).toEqual(['EGG-CRATE-BIG']);
+    expect(atPoint.map((r) => r.sku)).toEqual(['EGG-0003']);
     expect(tile.body).toMatchObject({ branchIds: [id('branch:DDW')], lowStockCount: atPoint.length });
   });
 

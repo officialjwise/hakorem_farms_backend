@@ -9,11 +9,17 @@ const OnlineMode = z.enum(['HIDDEN', 'LISTED', 'REQUEST_TO_BUY']);
 const ProductStatus = z.enum(['DRAFT', 'ACTIVE', 'DISCONTINUED']);
 
 /**
+ * A field the server assigns (B09q, ADR-0072): let through the boundary only so the handler can refuse it with 422
+ * FIELD_SERVER_ASSIGNED rather than a generic unknown-field 400; the contract does not list it.
+ */
+const ServerAssigned = z.unknown().optional();
+
+/**
  * The contract's `ProductCreate` (createProduct), strict. Length and pattern limits are the ones migration 0009
- * enforces, so a value the database would refuse is a 400 with the field named, not a 500.
+ * enforces, so a value the database would refuse is a 400 with the field named, not a 500. The SKU is the server's.
  */
 export const ProductCreate = z.strictObject({
-  sku: z.string().regex(/^[A-Z0-9][A-Z0-9-]{1,39}$/),
+  sku: ServerAssigned,
   name: z.string().trim().min(1).max(120),
   categoryId: z.uuid(),
   stockPolicy: StockPolicy,
@@ -26,7 +32,6 @@ export const ProductCreate = z.strictObject({
   shelfLifeDays: z.number().int().min(1).max(3_650).optional(),
   storageTempClass: z.enum(['AMBIENT', 'CHILLED', 'FROZEN']).optional(),
   withdrawalDays: z.number().int().min(0).max(365).optional(),
-  barcode: z.string().regex(/^[0-9A-Za-z-]{4,40}$/).optional(),
   description: z.string().max(2_000).optional(),
   onlineMode: OnlineMode,
   seo: z
@@ -40,14 +45,17 @@ export const ProductCreate = z.strictObject({
   isSellable: z.boolean().optional(),
 });
 
-/** listProducts query. Unknown parameters are ignored (docs/API.md section 6). */
+/**
+ * listProducts query. Unknown parameters are ignored (docs/API.md section 6), except `barcode`: the barcode lookup
+ * went with contract 2.0.0 (ADR-0072), and ignoring it would answer a scanner with the whole catalogue, so it is 400.
+ */
 export const ListProductsQuery = z.object({
   q: z.string().trim().min(1).max(80).optional(),
   categoryId: z.uuid().optional(),
   stockPolicy: StockPolicy.optional(),
   onlineMode: OnlineMode.optional(),
   status: ProductStatus.optional(),
-  barcode: z.string().min(1).max(40).optional(),
+  barcode: z.never({ error: 'The barcode lookup was removed in contract 2.0.0' }).optional(),
   // Any text up to 40: a field or direction outside the list's own is refused by the shared sort (400 SORT_NOT_ALLOWED).
   sort: z.string().min(1).max(40).optional(),
   direction: z.string().min(1).max(40).optional(),
@@ -285,6 +293,9 @@ const Version = z.number().int().min(1);
 const SortOrder = z.number().int().min(0).max(10_000);
 const RecordName = z.string().trim().min(1).max(120);
 
+/** The contract's `SkuPrefix`: two to five capital letters (migration 0210). */
+const SkuPrefix = z.string().regex(/^[A-Z]{2,5}$/);
+
 /** The contract's `CategoryCreate`, strict. Patterns are migration 0009's. */
 export const CategoryCreate = z.strictObject({
   parentId: z.uuid().optional(),
@@ -295,6 +306,7 @@ export const CategoryCreate = z.strictObject({
   taxCategoryId: z.uuid(),
   sortOrder: SortOrder.optional(),
   isOnlineVisible: z.boolean().optional(),
+  skuPrefix: SkuPrefix.optional(),
 });
 
 /** The contract's `CategoryUpdate`, strict. */
@@ -304,6 +316,7 @@ export const CategoryUpdate = z.strictObject({
   taxCategoryId: z.uuid().optional(),
   sortOrder: SortOrder.optional(),
   isOnlineVisible: z.boolean().optional(),
+  skuPrefix: SkuPrefix.optional(),
 });
 
 /** The contract's `ArchiveRequest`, strict. */
@@ -347,13 +360,13 @@ export const WeightBandUpdate = z.strictObject({ version: Version, minKg: Kilogr
 /** The contract's `ProductUpdate`, strict: the same limits as `ProductCreate`. */
 export const ProductUpdate = z.strictObject({
   version: Version,
+  sku: ServerAssigned,
   name: ProductCreate.shape.name.optional(),
   categoryId: z.uuid().optional(),
   nominalPackKg: Kilograms.optional(),
   weightTolerancePercent: Percent.optional(),
   taxCategoryId: z.uuid().optional(),
   shelfLifeDays: ProductCreate.shape.shelfLifeDays,
-  barcode: ProductCreate.shape.barcode,
   description: ProductCreate.shape.description,
   onlineMode: OnlineMode.optional(),
   seo: ProductCreate.shape.seo,

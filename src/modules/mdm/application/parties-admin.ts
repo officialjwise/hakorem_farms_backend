@@ -9,16 +9,19 @@ import type { Cursors } from '../../../platform/http/cursor';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
 import type { Authoriser } from '../../iam';
 import { normaliseGhanaPhone, planAddress, planPriceListAssignment } from '../domain/parties';
+import { readPublicId } from '../domain/public-id';
 import { matchDeliveryZone } from '../domain/reference-data';
 import { AdminKit, requireLiveVersion, sentColumns } from './admin-kit';
 import { DuplicateRecordError, invalidFormat, PriceListAssignmentInvalidError, referencesNotFound } from './errors';
 import type { AddressView, CustomerFilters, CustomerKind, CustomerRecord, CustomerStatus, PartiesStore, TierView } from './parties-store';
 import type { Page } from './product-catalogue';
+import type { PublicIds } from './public-ids';
 
 /** The contract's `Customer`. `hasBusinessAccount` is answered by wholesale once it exists (B10); until then false. */
 export interface CustomerView {
   readonly id: string;
-  readonly customerNo: string;
+  /** The customer's public ID (B09q, ADR-0073), in place of the sequential number from contract 2.0.0. */
+  readonly publicId: string;
   readonly kind: CustomerKind;
   readonly name: string;
   readonly phone: string | null;
@@ -134,6 +137,7 @@ export class PartiesAdmin {
     cursors: Cursors,
     private readonly clock: Clock,
     lookupKey: Buffer,
+    private readonly publicIds: PublicIds,
   ) {
     this.nextId = createUuidV7Generator(clock);
     this.kit = new AdminKit(uow, authoriser, idempotency, cursors, translateConstraint);
@@ -165,9 +169,11 @@ export class PartiesAdmin {
     cursor: string | undefined,
     limit: number,
   ): Promise<Page<CustomerView>> {
-    const phone = query.q === undefined ? null : normaliseGhanaPhone(query.q);
+    // `q` finds a customer by public ID (typed any way, ADR-0073), by phone (typed any way) or by part of the name.
+    const publicId = query.q === undefined ? null : readPublicId('CUSTOMER', query.q);
+    const phone = query.q === undefined || publicId !== null ? null : normaliseGhanaPhone(query.q);
     const filters: CustomerFilters = {
-      ...(query.q === undefined ? {} : phone !== null && phone.ok ? { phoneHash: this.phoneHash(phone.value) } : { name: query.q }),
+      ...(query.q === undefined ? {} : publicId !== null ? { publicId } : phone !== null && phone.ok ? { phoneHash: this.phoneHash(phone.value) } : { name: query.q }),
       kind: query.kind,
       tierId: query.tierId,
       status: query.status,
@@ -216,11 +222,14 @@ export class PartiesAdmin {
     if (phoneHash !== null && (await this.store.phoneTaken(tx, phoneHash, null))) throw new DuplicateRecordError(['/phone']);
     const id = this.nextId();
     const tinEnc = body.tin === undefined ? null : await this.sealTin(tx, id, body.tin, actor);
-    await this.store.insertCustomer(
+    const customerNo = await this.store.nextCustomerNo(tx);
+    // A fresh public ID, tried again on the one-in-2^80 collision with another customer's (ADR-0073).
+    await this.publicIds.insertWithFresh(tx, 'CUSTOMER', (publicId) => this.store.insertCustomer(
       tx,
       id,
       {
-        customerNo: await this.store.nextCustomerNo(tx),
+        customerNo,
+        publicId,
         kind: body.kind,
         name: body.name,
         phone,
@@ -231,7 +240,7 @@ export class PartiesAdmin {
         marketingConsentAt: body.marketingConsent === true ? this.clock.now() : null,
       },
       actor.principalId,
-    );
+    ));
     const view = await this.viewOf(tx, id, actor);
     await this.auditCustomer(tx, 'CREATE', id, null, view);
     return view;
@@ -274,7 +283,7 @@ export class PartiesAdmin {
    * What an import row needs to know about a phone number (FR-MDM-019): the number of the live customer who holds
    * it, or null. The number is matched by its keyed hash, never by the number itself.
    */
-  phoneHolder(tx: Transaction, phoneE164: string): Promise<{ readonly id: string; readonly customerNo: string } | null> {
+  phoneHolder(tx: Transaction, phoneE164: string): Promise<{ readonly id: string; readonly publicId: string } | null> {
     return this.store.customerByPhoneHash(tx, this.phoneHash(phoneE164));
   }
 
@@ -467,7 +476,7 @@ export class PartiesAdmin {
     }
     return {
       id: record.id,
-      customerNo: record.customerNo,
+      publicId: record.publicId,
       kind: record.kind,
       name: record.name,
       phone: record.phone,

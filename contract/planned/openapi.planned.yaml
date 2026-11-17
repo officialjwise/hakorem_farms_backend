@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.54.0"
+  version: "2.0.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -2658,7 +2658,7 @@ paths:
                     lineNo: 1
                     product:
                       id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                      sku: LIV-GOAT
+                      sku: LIV-0004
                       name: Goat
                     stockUnit:
                       id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
@@ -2693,7 +2693,7 @@ paths:
                     lineNo: 2
                     product:
                       id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                      sku: EGG-BIG
+                      sku: EGG-0003
                       name: "Eggs, big, crate of 30"
                     stockUnit:
                       id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
@@ -2728,7 +2728,7 @@ paths:
                     lineNo: 3
                     product:
                       id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                      sku: MEAT-BEEF
+                      sku: MEAT-0005
                       name: "Beef, 15 kg pack"
                     stockUnit:
                       id: "019a7a91-2f3b-74f5-9a2d-582bcbe2d109"
@@ -2862,7 +2862,7 @@ paths:
                     lineNo: 1
                     product:
                       id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                      sku: LIV-GOAT
+                      sku: LIV-0004
                       name: Goat
                     stockUnit:
                       id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
@@ -2897,7 +2897,7 @@ paths:
                     lineNo: 2
                     product:
                       id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                      sku: EGG-BIG
+                      sku: EGG-0003
                       name: "Eggs, big, crate of 30"
                     stockUnit:
                       id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
@@ -2932,7 +2932,7 @@ paths:
                     lineNo: 3
                     product:
                       id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                      sku: MEAT-BEEF
+                      sku: MEAT-0005
                       name: "Beef, 15 kg pack"
                     stockUnit:
                       id: "019a7a91-2f3b-74f5-9a2d-582bcbe2d109"
@@ -3051,7 +3051,7 @@ paths:
                           - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                             product:
                               id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                              sku: MEAT-CHK-FULL
+                              sku: MEAT-0001
                               name: "Full chicken, 15 kg pack"
                             qtyToPick: "1.000"
                             uom: PACK
@@ -3065,7 +3065,7 @@ paths:
                             orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                             product:
                               id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                              sku: MEAT-CHK-FULL
+                              sku: MEAT-0001
                               name: "Full chicken, 15 kg pack"
                             stockUnit:
                               id: "019a7a91-104c-7b12-804a-b9f4523132d2"
@@ -3104,7 +3104,7 @@ paths:
                           - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                             product:
                               id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                              sku: MEAT-CHK-FULL
+                              sku: MEAT-0001
                               name: "Full chicken, 15 kg pack"
                             qtyToPick: "1.000"
                             uom: PACK
@@ -3118,7 +3118,7 @@ paths:
                             orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                             product:
                               id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                              sku: MEAT-CHK-FULL
+                              sku: MEAT-0001
                               name: "Full chicken, 15 kg pack"
                             stockUnit:
                               id: "019a7a91-104c-7b12-804a-b9f4523132d2"
@@ -3157,7 +3157,7 @@ paths:
                           - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                             product:
                               id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                              sku: MEAT-CHK-FULL
+                              sku: MEAT-0001
                               name: "Full chicken, 15 kg pack"
                             qtyToPick: "1.000"
                             uom: PACK
@@ -3195,7 +3195,7 @@ paths:
                           - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                             product:
                               id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                              sku: MEAT-CHK-FULL
+                              sku: MEAT-0001
                               name: "Full chicken, 15 kg pack"
                             qtyToPick: "1.000"
                             uom: PACK
@@ -3209,7 +3209,7 @@ paths:
                             orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                             product:
                               id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                              sku: MEAT-CHK-FULL
+                              sku: MEAT-0001
                               name: "Full chicken, 15 kg pack"
                             stockUnit:
                               id: "019a7a91-104c-7b12-804a-b9f4523132d2"
@@ -3248,7 +3248,7 @@ paths:
                           - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                             product:
                               id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                              sku: MEAT-CHK-FULL
+                              sku: MEAT-0001
                               name: "Full chicken, 15 kg pack"
                             qtyToPick: "1.000"
                             uom: PACK
@@ -3262,7 +3262,7 @@ paths:
                             orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                             product:
                               id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                              sku: MEAT-CHK-FULL
+                              sku: MEAT-0001
                               name: "Full chicken, 15 kg pack"
                             stockUnit:
                               id: "019a7a91-104c-7b12-804a-b9f4523132d2"
@@ -3301,7 +3301,7 @@ paths:
                           - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                             product:
                               id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                              sku: MEAT-CHK-FULL
+                              sku: MEAT-0001
                               name: "Full chicken, 15 kg pack"
                             qtyToPick: "1.000"
                             uom: PACK
@@ -3315,7 +3315,7 @@ paths:
                             orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                             product:
                               id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                              sku: MEAT-CHK-FULL
+                              sku: MEAT-0001
                               name: "Full chicken, 15 kg pack"
                             stockUnit:
                               id: "019a7a91-104c-7b12-804a-b9f4523132d2"
@@ -3415,7 +3415,7 @@ paths:
                   - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     qtyToPick: "1.000"
                     uom: PACK
@@ -3498,7 +3498,7 @@ paths:
                   - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     qtyToPick: "1.000"
                     uom: PACK
@@ -3512,7 +3512,7 @@ paths:
                     orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     stockUnit:
                       id: "019a7a91-104c-7b12-804a-b9f4523132d2"
@@ -3609,7 +3609,7 @@ paths:
                   - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     qtyToPick: "1.000"
                     uom: PACK
@@ -3623,7 +3623,7 @@ paths:
                     orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     stockUnit:
                       id: "019a7a91-104c-7b12-804a-b9f4523132d2"
@@ -3717,7 +3717,7 @@ paths:
                   - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     qtyToPick: "1.000"
                     uom: PACK
@@ -3731,7 +3731,7 @@ paths:
                     orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     stockUnit:
                       id: "019a7a91-104c-7b12-804a-b9f4523132d2"
@@ -3826,7 +3826,7 @@ paths:
                   - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     qtyToPick: "1.000"
                     uom: PACK
@@ -3840,7 +3840,7 @@ paths:
                     orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     stockUnit:
                       id: "019a7a91-104c-7b12-804a-b9f4523132d2"
@@ -3926,7 +3926,7 @@ paths:
                   - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     qtyToPick: "1.000"
                     uom: PACK
@@ -3940,7 +3940,7 @@ paths:
                     orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     stockUnit:
                       id: "019a7a91-104c-7b12-804a-b9f4523132d2"
@@ -4034,7 +4034,7 @@ paths:
                   - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     qtyToPick: "1.000"
                     uom: PACK
@@ -4048,7 +4048,7 @@ paths:
                     orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     stockUnit:
                       id: "019a7a91-104c-7b12-804a-b9f4523132d2"
@@ -4155,7 +4155,7 @@ paths:
                             orderLineId: "019a7af4-df72-7302-a83a-38f2f74bb1d0"
                             product:
                               id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                              sku: EGG-BIG
+                              sku: EGG-0003
                               name: "Eggs, big, crate of 30"
                             qty: "2.000"
                             weightKg: null
@@ -4197,7 +4197,7 @@ paths:
                             orderLineId: "019a7af5-990c-7e56-838f-ee3fd171671d"
                             product:
                               id: "019a7a8e-0af5-73db-b913-46896fe8bf67"
-                              sku: MEAT-CHK-WING
+                              sku: MEAT-0002
                               name: "Chicken wings, 15 kg pack"
                             qty: "13.900"
                             weightKg: "13.900"
@@ -4233,7 +4233,7 @@ paths:
                             orderLineId: "019a7af6-33b7-7fc8-9500-055531e67e33"
                             product:
                               id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
-                              sku: MEAT-GOAT
+                              sku: MEAT-0007
                               name: "Goat meat, 15 kg pack"
                             qty: "14.850"
                             weightKg: "14.850"
@@ -4275,7 +4275,7 @@ paths:
                             orderLineId: "019a7af7-0c40-7500-8a38-58d985bdd1b7"
                             product:
                               id: "019a7a8e-c48f-7f30-9468-fbd64a0e74b4"
-                              sku: PRD-CABBAGE
+                              sku: PRD-0002
                               name: "Cabbage, head"
                             qty: "3.000"
                             weightKg: null
@@ -4311,7 +4311,7 @@ paths:
                             orderLineId: "019a7af7-a6eb-7671-9baa-6feee632e8cc"
                             product:
                               id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                              sku: MEAT-CHK-FULL
+                              sku: MEAT-0001
                               name: "Full chicken, 15 kg pack"
                             qty: "1.000"
                             weightKg: "14.700"
@@ -4347,7 +4347,7 @@ paths:
                             orderLineId: "019a7af8-4196-77e3-ad1b-870446a7ffe2"
                             product:
                               id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                              sku: MEAT-BEEF
+                              sku: MEAT-0005
                               name: "Beef, 15 kg pack"
                             qty: "15.200"
                             weightKg: "15.200"
@@ -6354,10 +6354,9 @@ paths:
                 products:
                   - product:
                       id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                      sku: LIV-GOAT
+                      sku: LIV-0004
                       name: Goat
                     saleUom: HEAD
-                    barcode: null
                     taxCategoryId: "019a7a8a-6af3-7b33-906b-bc092d2a34e7"
                     priceBasis: PER_HEAD
                     priceBand:
@@ -6371,10 +6370,9 @@ paths:
                     tileCategory: "Live animals"
                   - product:
                       id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                      sku: EGG-BIG
+                      sku: EGG-0003
                       name: "Eggs, big, crate of 30"
                     saleUom: CRATE
-                    barcode: "603470011"
                     taxCategoryId: "019a7a8a-a8d1-7efa-b432-f878208c7156"
                     priceBasis: PER_UNIT
                     priceBand:
@@ -6388,10 +6386,9 @@ paths:
                     tileCategory: Eggs
                   - product:
                       id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                      sku: MEAT-BEEF
+                      sku: MEAT-0005
                       name: "Beef, 15 kg pack"
                     saleUom: PACK
-                    barcode: "603490011"
                     taxCategoryId: "019a7a8a-c7c0-78dd-8e16-96af9a3d0f8d"
                     priceBasis: PER_KG
                     priceBand:
@@ -6405,10 +6402,9 @@ paths:
                     tileCategory: Meat
                   - product:
                       id: "019a7a8e-86b1-7b69-b0a1-bf6756ac3845"
-                      sku: PRD-TOMATO
+                      sku: PRD-0001
                       name: "Tomatoes, crate"
                     saleUom: CRATE
-                    barcode: "6034100011"
                     taxCategoryId: "019a7a8a-89e2-7516-aa4f-5a40a6dbd31e"
                     priceBasis: PER_UNIT
                     priceBand:
@@ -6422,10 +6418,9 @@ paths:
                     tileCategory: "Fresh produce"
                   - product:
                       id: "019a7a8e-a5a0-754c-8a85-5d9ed05dd67c"
-                      sku: PRD-YAM
+                      sku: PRD-0005
                       name: "Yam, tuber"
                     saleUom: TUBER
-                    barcode: "603470011"
                     taxCategoryId: "019a7a8a-89e2-7516-aa4f-5a40a6dbd31e"
                     priceBasis: PER_UNIT
                     priceBand:
@@ -6622,7 +6617,7 @@ paths:
                       lineNo: 1
                       product:
                         id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                        sku: LIV-GOAT
+                        sku: LIV-0004
                         name: Goat
                       stockUnit:
                         id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
@@ -6657,7 +6652,7 @@ paths:
                       lineNo: 2
                       product:
                         id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                        sku: EGG-BIG
+                        sku: EGG-0003
                         name: "Eggs, big, crate of 30"
                       stockUnit:
                         id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
@@ -6692,7 +6687,7 @@ paths:
                       lineNo: 3
                       product:
                         id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                        sku: MEAT-BEEF
+                        sku: MEAT-0005
                         name: "Beef, 15 kg pack"
                       stockUnit:
                         id: "019a7a91-2f3b-74f5-9a2d-582bcbe2d109"
@@ -6762,7 +6757,7 @@ paths:
                       lineKind: PRODUCT
                       product:
                         id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                        sku: LIV-GOAT
+                        sku: LIV-0004
                         name: Goat
                       description: Goat
                       stockUnit:
@@ -6806,7 +6801,7 @@ paths:
                       lineKind: PRODUCT
                       product:
                         id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                        sku: EGG-BIG
+                        sku: EGG-0003
                         name: "Eggs, big, crate of 30"
                       description: "Eggs, big, crate of 30"
                       stockUnit:
@@ -6850,7 +6845,7 @@ paths:
                       lineKind: PRODUCT
                       product:
                         id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                        sku: MEAT-BEEF
+                        sku: MEAT-0005
                         name: "Beef, 15 kg pack"
                       description: "Beef, 15 kg pack"
                       stockUnit:
@@ -7056,7 +7051,7 @@ paths:
                 $ref: "#/components/schemas/CustomerProfile"
               example:
                 id: "019a7a87-659c-73fc-8935-489e4ae1c17c"
-                customerNo: C-00118
+                publicId: cus_2NWSQJT4E1ZWRRC1
                 name: "Ama Serwaa Ofori"
                 phone: "+233244512876"
                 email: "ama.ofori@example.com"
@@ -7102,7 +7097,7 @@ paths:
                 $ref: "#/components/schemas/CustomerProfile"
               example:
                 id: "019a7a87-659c-73fc-8935-489e4ae1c17c"
-                customerNo: C-00118
+                publicId: cus_2NWSQJT4E1ZWRRC1
                 name: "Ama Serwaa Ofori"
                 phone: "+233244512876"
                 email: "ama.ofori@example.com"
@@ -8086,7 +8081,7 @@ paths:
                         status: QUOTED
                         customer:
                           id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                          customerNo: C-00241
+                          publicId: cus_GY1HV6CSTTCCM2Y2
                           name: "Emmanuel Tetteh"
                         contactName: "Emmanuel Tetteh"
                         contactPhone: "+233268114590"
@@ -8114,7 +8109,7 @@ paths:
                         requirements: "Interested in goat G-0157 on the website, can I see it?"
                         product:
                           id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                          sku: LIV-GOAT
+                          sku: LIV-0004
                           name: Goat
                         stockUnit:
                           id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
@@ -8153,7 +8148,7 @@ paths:
                         status: QUOTED
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         contactName: "Royal Palm Hotel, head chef"
                         contactPhone: "+233302765410"
@@ -8333,7 +8328,7 @@ paths:
                 status: QUOTED
                 customer:
                   id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                  customerNo: C-00241
+                  publicId: cus_GY1HV6CSTTCCM2Y2
                   name: "Emmanuel Tetteh"
                 contactName: "Emmanuel Tetteh"
                 contactPhone: "+233268114590"
@@ -8406,7 +8401,7 @@ paths:
                 status: QUOTED
                 customer:
                   id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                  customerNo: C-00241
+                  publicId: cus_GY1HV6CSTTCCM2Y2
                   name: "Emmanuel Tetteh"
                 contactName: "Emmanuel Tetteh"
                 contactPhone: "+233268114590"
@@ -8510,7 +8505,7 @@ paths:
                         rfqId: "019a7aff-24cd-7b88-b0c1-c15e5f103a3c"
                         customer:
                           id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                          customerNo: C-00241
+                          publicId: cus_GY1HV6CSTTCCM2Y2
                           name: "Emmanuel Tetteh"
                         contactName: "Emmanuel Tetteh"
                         contactPhone: "+233268114590"
@@ -8544,7 +8539,7 @@ paths:
                               lineNo: 1
                               product:
                                 id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                                sku: LIV-GOAT
+                                sku: LIV-0004
                                 name: Goat
                               description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
                               grade: null
@@ -8578,7 +8573,7 @@ paths:
                         rfqId: null
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         contactName: "Royal Palm Hotel, head chef"
                         contactPhone: "+233302765410"
@@ -8627,7 +8622,7 @@ paths:
                         rfqId: null
                         customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          customerNo: C-00056
+                          publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
                         contactName: "Asantewaa Chop Bar"
                         contactPhone: "+233557018924"
@@ -8673,7 +8668,7 @@ paths:
                         rfqId: null
                         customer:
                           id: "019a7a87-a37a-77c3-acfc-850d3e43fdeb"
-                          customerNo: C-00207
+                          publicId: cus_3QC5Q34ZGBQK2SC8
                           name: "Kofi Agyeman"
                         contactName: "Kofi Agyeman"
                         contactPhone: "+233201447302"
@@ -8719,7 +8714,7 @@ paths:
                         rfqId: null
                         customer:
                           id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
-                          customerNo: C-00061
+                          publicId: cus_3Q4VCE9ZY779GAT6
                           name: "Osu Fresh Mart"
                         contactName: "Osu Fresh Mart"
                         contactPhone: "+233302228813"
@@ -8765,7 +8760,7 @@ paths:
                         rfqId: null
                         customer:
                           id: "019a7a88-3e25-7935-be6d-9c229eb81500"
-                          customerNo: C-00252
+                          publicId: cus_R66TY3MQB6K08YV5
                           name: "Salomey Adjei"
                         contactName: "Salomey Adjei"
                         contactPhone: "+233540672231"
@@ -8880,7 +8875,7 @@ paths:
                 rfqId: null
                 customer:
                   id: "019a7a88-3e25-7935-be6d-9c229eb81500"
-                  customerNo: C-00252
+                  publicId: cus_R66TY3MQB6K08YV5
                   name: "Salomey Adjei"
                 contactName: "Salomey Adjei"
                 contactPhone: "+233540672231"
@@ -8969,7 +8964,7 @@ paths:
                 rfqId: "019a7aff-24cd-7b88-b0c1-c15e5f103a3c"
                 customer:
                   id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                  customerNo: C-00241
+                  publicId: cus_GY1HV6CSTTCCM2Y2
                   name: "Emmanuel Tetteh"
                 contactName: "Emmanuel Tetteh"
                 contactPhone: "+233268114590"
@@ -9003,7 +8998,7 @@ paths:
                       lineNo: 1
                       product:
                         id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                        sku: LIV-GOAT
+                        sku: LIV-0004
                         name: Goat
                       description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
                       grade: null
@@ -9110,7 +9105,7 @@ paths:
                             lineNo: 1
                             product:
                               id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                              sku: LIV-GOAT
+                              sku: LIV-0004
                               name: Goat
                             description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
                             grade: null
@@ -9156,7 +9151,7 @@ paths:
                             lineNo: 1
                             product:
                               id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                              sku: LIV-GOAT
+                              sku: LIV-0004
                               name: Goat
                             description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
                             grade: null
@@ -9202,7 +9197,7 @@ paths:
                             lineNo: 1
                             product:
                               id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                              sku: LIV-GOAT
+                              sku: LIV-0004
                               name: Goat
                             description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
                             grade: null
@@ -9248,7 +9243,7 @@ paths:
                             lineNo: 1
                             product:
                               id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                              sku: LIV-GOAT
+                              sku: LIV-0004
                               name: Goat
                             description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
                             grade: null
@@ -9294,7 +9289,7 @@ paths:
                             lineNo: 1
                             product:
                               id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                              sku: LIV-GOAT
+                              sku: LIV-0004
                               name: Goat
                             description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
                             grade: null
@@ -9401,7 +9396,7 @@ paths:
                     lineNo: 1
                     product:
                       id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                      sku: LIV-GOAT
+                      sku: LIV-0004
                       name: Goat
                     description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
                     grade: null
@@ -9509,7 +9504,7 @@ paths:
                     lineNo: 1
                     product:
                       id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                      sku: LIV-GOAT
+                      sku: LIV-0004
                       name: Goat
                     description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
                     grade: null
@@ -9612,7 +9607,7 @@ paths:
                     lineNo: 1
                     product:
                       id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                      sku: LIV-GOAT
+                      sku: LIV-0004
                       name: Goat
                     description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
                     grade: null
@@ -9711,7 +9706,7 @@ paths:
                 rfqId: null
                 customer:
                   id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                  customerNo: C-00056
+                  publicId: cus_TS4VEDD3ZZNAAQGD
                   name: "Asantewaa Chop Bar"
                 contactName: "Asantewaa Chop Bar"
                 contactPhone: "+233557018924"
@@ -9812,7 +9807,7 @@ paths:
                 rfqId: null
                 customer:
                   id: "019a7a87-a37a-77c3-acfc-850d3e43fdeb"
-                  customerNo: C-00207
+                  publicId: cus_3QC5Q34ZGBQK2SC8
                   name: "Kofi Agyeman"
                 contactName: "Kofi Agyeman"
                 contactPhone: "+233201447302"
@@ -9913,7 +9908,7 @@ paths:
                 rfqId: "019a7aff-24cd-7b88-b0c1-c15e5f103a3c"
                 customer:
                   id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                  customerNo: C-00241
+                  publicId: cus_GY1HV6CSTTCCM2Y2
                   name: "Emmanuel Tetteh"
                 contactName: "Emmanuel Tetteh"
                 contactPhone: "+233268114590"
@@ -9947,7 +9942,7 @@ paths:
                       lineNo: 1
                       product:
                         id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                        sku: LIV-GOAT
+                        sku: LIV-0004
                         name: Goat
                       description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
                       grade: null
@@ -10039,7 +10034,7 @@ paths:
                 id: "019a7af1-3f70-7a5a-8f92-ae72b48d2750"
                 customer:
                   id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                  customerNo: C-00241
+                  publicId: cus_GY1HV6CSTTCCM2Y2
                   name: "Emmanuel Tetteh"
                 contactName: "Emmanuel Tetteh"
                 contactPhone: "+233268114590"
@@ -10095,7 +10090,7 @@ paths:
                     lineNo: 1
                     product:
                       id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                      sku: LIV-GOAT
+                      sku: LIV-0004
                       name: Goat
                     stockUnit:
                       id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
@@ -10130,7 +10125,7 @@ paths:
                     lineNo: 2
                     product:
                       id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                      sku: LIV-GOAT
+                      sku: LIV-0004
                       name: Goat
                     stockUnit:
                       id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
@@ -10521,7 +10516,7 @@ paths:
                     data:
                       - customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         creditLimitPesewas: 2000000
                         paymentTermsDays: 30
@@ -10543,7 +10538,7 @@ paths:
                         version: 5
                       - customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          customerNo: C-00056
+                          publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
                         creditLimitPesewas: 600000
                         paymentTermsDays: 14
@@ -10562,7 +10557,7 @@ paths:
                         version: 5
                       - customer:
                           id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
-                          customerNo: C-00061
+                          publicId: cus_3Q4VCE9ZY779GAT6
                           name: "Osu Fresh Mart"
                         creditLimitPesewas: 800000
                         paymentTermsDays: 30
@@ -10584,7 +10579,7 @@ paths:
                         version: 5
                       - customer:
                           id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                          customerNo: C-00241
+                          publicId: cus_GY1HV6CSTTCCM2Y2
                           name: "Emmanuel Tetteh"
                         creditLimitPesewas: 900000
                         paymentTermsDays: 30
@@ -10603,7 +10598,7 @@ paths:
                         version: 5
                       - customer:
                           id: "019a7b02-2a24-72bf-87f7-34c94159ada7"
-                          customerNo: C-00077
+                          publicId: cus_6GMQA1AJS48Z778Z
                           name: "Christ Apostolic Church, Adenta"
                         creditLimitPesewas: 300000
                         paymentTermsDays: 7
@@ -10680,7 +10675,7 @@ paths:
               example:
                 customer:
                   id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
-                  customerNo: C-00061
+                  publicId: cus_3Q4VCE9ZY779GAT6
                   name: "Osu Fresh Mart"
                 creditLimitPesewas: 800000
                 paymentTermsDays: 30
@@ -10745,7 +10740,7 @@ paths:
               example:
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 creditLimitPesewas: 2000000
                 paymentTermsDays: 30
@@ -10818,7 +10813,7 @@ paths:
               example:
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 creditLimitPesewas: 2000000
                 paymentTermsDays: 30
@@ -10911,7 +10906,7 @@ paths:
               example:
                 customer:
                   id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                  customerNo: C-00056
+                  publicId: cus_TS4VEDD3ZZNAAQGD
                   name: "Asantewaa Chop Bar"
                 creditLimitPesewas: 600000
                 paymentTermsDays: 14
@@ -10985,7 +10980,7 @@ paths:
               example:
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 creditLimitPesewas: 2000000
                 paymentTermsDays: 30
@@ -11078,7 +11073,7 @@ paths:
                       - id: "019a7b02-4913-7ca2-91db-d300bb0a4bde"
                         customer:
                           id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                          customerNo: C-00241
+                          publicId: cus_GY1HV6CSTTCCM2Y2
                           name: "Emmanuel Tetteh"
                         order:
                           id: "019a7b02-6802-7686-abbe-713834bbea16"
@@ -11095,7 +11090,7 @@ paths:
                       - id: "019a7b02-a5e0-7a4d-8f85-ada7281d2685"
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         order:
                           id: "019a7b02-c4cf-7430-9969-4bdea1cec4bc"
@@ -11112,7 +11107,7 @@ paths:
                       - id: "019a7b03-02ad-77f7-bd30-884d9530012b"
                         customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          customerNo: C-00056
+                          publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
                         order:
                           id: "019a7b03-219c-71db-8713-26850ee19f62"
@@ -11129,7 +11124,7 @@ paths:
                       - id: "019a7b03-5f7a-75a2-aada-62f40243dbd1"
                         customer:
                           id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
-                          customerNo: C-00061
+                          publicId: cus_3Q4VCE9ZY779GAT6
                           name: "Osu Fresh Mart"
                         order:
                           id: "019a7b03-7e69-7f85-b4bd-012b7bf47a09"
@@ -11146,7 +11141,7 @@ paths:
                       - id: "019a7b03-bc47-734c-9884-3d9a6f56b678"
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         order:
                           id: "019a7b03-db36-7d30-a268-dbd1e90754af"
@@ -11232,7 +11227,7 @@ paths:
                       - id: "019a7b04-1914-70f6-862f-1840dc69911e"
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         status: ACTIVE
                         frequency: WEEKLY
@@ -11255,7 +11250,7 @@ paths:
                             lineNo: 1
                             product:
                               id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                              sku: MEAT-CHK-FULL
+                              sku: MEAT-0001
                               name: "Full chicken, 15 kg pack"
                             quantity: "2.000"
                             uom: PACK
@@ -11264,7 +11259,7 @@ paths:
                       - id: "019a7b04-56f2-74bd-a9f6-54afcfcbcd8d"
                         customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          customerNo: C-00056
+                          publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
                         status: ACTIVE
                         frequency: WEEKLY
@@ -11287,7 +11282,7 @@ paths:
                             lineNo: 1
                             product:
                               id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
-                              sku: MEAT-GOAT
+                              sku: MEAT-0007
                               name: "Goat meat, 15 kg pack"
                             quantity: "1.000"
                             uom: PACK
@@ -11296,7 +11291,7 @@ paths:
                       - id: "019a7b04-94d0-7884-8dbd-911ec32d09fc"
                         customer:
                           id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
-                          customerNo: C-00061
+                          publicId: cus_3Q4VCE9ZY779GAT6
                           name: "Osu Fresh Mart"
                         status: PAUSED
                         frequency: FORTNIGHTLY
@@ -11311,7 +11306,7 @@ paths:
                             lineNo: 1
                             product:
                               id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                              sku: EGG-BIG
+                              sku: EGG-0003
                               name: "Eggs, big, crate of 30"
                             quantity: "20.000"
                             uom: CRATE
@@ -11320,7 +11315,7 @@ paths:
                       - id: "019a7b04-d2ae-7c4b-a184-cd8db68f466b"
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         status: ACTIVE
                         frequency: MONTHLY
@@ -11343,7 +11338,7 @@ paths:
                             lineNo: 1
                             product:
                               id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                              sku: MEAT-BEEF
+                              sku: MEAT-0005
                               name: "Beef, 15 kg pack"
                             quantity: "4.000"
                             uom: PACK
@@ -11352,7 +11347,7 @@ paths:
                       - id: "019a7b05-108c-7012-854a-09fca9f182da"
                         customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          customerNo: C-00056
+                          publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
                         status: ENDED
                         frequency: WEEKLY
@@ -11375,7 +11370,7 @@ paths:
                             lineNo: 1
                             product:
                               id: "019a7a8e-a5a0-754c-8a85-5d9ed05dd67c"
-                              sku: PRD-YAM
+                              sku: PRD-0005
                               name: "Yam, tuber"
                             quantity: "30.000"
                             uom: TUBER
@@ -11445,7 +11440,7 @@ paths:
                 id: "019a7b04-1914-70f6-862f-1840dc69911e"
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 status: ACTIVE
                 frequency: WEEKLY
@@ -11468,7 +11463,7 @@ paths:
                     lineNo: 1
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     quantity: "2.000"
                     uom: PACK
@@ -11520,7 +11515,7 @@ paths:
                 id: "019a7b04-1914-70f6-862f-1840dc69911e"
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 status: ACTIVE
                 frequency: WEEKLY
@@ -11543,7 +11538,7 @@ paths:
                     lineNo: 1
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     quantity: "2.000"
                     uom: PACK
@@ -11605,7 +11600,7 @@ paths:
                 id: "019a7b04-1914-70f6-862f-1840dc69911e"
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 status: ACTIVE
                 frequency: WEEKLY
@@ -11628,7 +11623,7 @@ paths:
                     lineNo: 1
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     quantity: "2.000"
                     uom: PACK
@@ -11692,7 +11687,7 @@ paths:
                 id: "019a7b04-1914-70f6-862f-1840dc69911e"
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 status: ACTIVE
                 frequency: WEEKLY
@@ -11715,7 +11710,7 @@ paths:
                     lineNo: 1
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     quantity: "2.000"
                     uom: PACK
@@ -11779,7 +11774,7 @@ paths:
                 id: "019a7b04-1914-70f6-862f-1840dc69911e"
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 status: ACTIVE
                 frequency: WEEKLY
@@ -11802,7 +11797,7 @@ paths:
                     lineNo: 1
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     quantity: "2.000"
                     uom: PACK
@@ -11866,7 +11861,7 @@ paths:
                 id: "019a7b04-1914-70f6-862f-1840dc69911e"
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 status: ACTIVE
                 frequency: WEEKLY
@@ -11889,7 +11884,7 @@ paths:
                     lineNo: 1
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     quantity: "2.000"
                     uom: PACK
@@ -12062,7 +12057,7 @@ paths:
                         status: ISSUED
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         periodStart: "2026-10-01"
                         periodEnd: "2026-10-31"
@@ -12097,7 +12092,7 @@ paths:
                         status: ISSUED
                         customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          customerNo: C-00056
+                          publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
                         periodStart: "2026-10-01"
                         periodEnd: "2026-10-31"
@@ -12114,7 +12109,7 @@ paths:
                         status: ISSUED
                         customer:
                           id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
-                          customerNo: C-00061
+                          publicId: cus_3Q4VCE9ZY779GAT6
                           name: "Osu Fresh Mart"
                         periodStart: "2026-10-01"
                         periodEnd: "2026-10-31"
@@ -12131,7 +12126,7 @@ paths:
                         status: ISSUED
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         periodStart: "2026-09-01"
                         periodEnd: "2026-09-30"
@@ -12148,7 +12143,7 @@ paths:
                         status: ISSUED
                         customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          customerNo: C-00056
+                          publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
                         periodStart: "2026-09-01"
                         periodEnd: "2026-09-30"
@@ -12222,7 +12217,7 @@ paths:
                 status: ISSUED
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 periodStart: "2026-10-01"
                 periodEnd: "2026-10-31"
@@ -12300,7 +12295,7 @@ paths:
                 status: ISSUED
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 periodStart: "2026-10-01"
                 periodEnd: "2026-10-31"
@@ -12456,7 +12451,7 @@ paths:
                     data:
                       - customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         currentPesewas: 300400
                         days1To30Pesewas: 222500
@@ -12468,7 +12463,7 @@ paths:
                         onHold: false
                       - customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          customerNo: C-00056
+                          publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
                         currentPesewas: 211800
                         days1To30Pesewas: 0
@@ -12480,7 +12475,7 @@ paths:
                         onHold: true
                       - customer:
                           id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
-                          customerNo: C-00061
+                          publicId: cus_3Q4VCE9ZY779GAT6
                           name: "Osu Fresh Mart"
                         currentPesewas: 147300
                         days1To30Pesewas: 96400
@@ -12492,7 +12487,7 @@ paths:
                         onHold: false
                       - customer:
                           id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                          customerNo: C-00241
+                          publicId: cus_GY1HV6CSTTCCM2Y2
                           name: "Emmanuel Tetteh"
                         currentPesewas: 858000
                         days1To30Pesewas: 0
@@ -12504,7 +12499,7 @@ paths:
                         onHold: false
                       - customer:
                           id: "019a7b02-2a24-72bf-87f7-34c94159ada7"
-                          customerNo: C-00077
+                          publicId: cus_6GMQA1AJS48Z778Z
                           name: "Christ Apostolic Church, Adenta"
                         currentPesewas: 0
                         days1To30Pesewas: 0
@@ -12774,7 +12769,7 @@ paths:
                       - id: "019a7b06-ff7c-7e4a-8382-ed7445016652"
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         billingDocument:
                           id: "019a7aeb-53b1-75d0-bb08-65d469acdeb2"
@@ -12790,7 +12785,7 @@ paths:
                       - id: "019a7b07-1e6b-782d-9d65-8babbeb20489"
                         customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          customerNo: C-00056
+                          publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
                         billingDocument:
                           id: "019a7aeb-72a0-7fb3-84eb-040be35d7ce9"
@@ -12805,7 +12800,7 @@ paths:
                       - id: "019a7b07-3d5a-7211-a749-29e33863a2c1"
                         customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          customerNo: C-00056
+                          publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
                         billingDocument:
                           id: "019a7aeb-918f-7997-9ecf-a2435d0e1b21"
@@ -12821,7 +12816,7 @@ paths:
                       - id: "019a7b07-5c49-7bf4-b12c-c81ab21440f8"
                         customer:
                           id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
-                          customerNo: C-00061
+                          publicId: cus_3Q4VCE9ZY779GAT6
                           name: "Osu Fresh Mart"
                         billingDocument:
                           id: "019a7aeb-53b1-75d0-bb08-65d469acdeb2"
@@ -12836,7 +12831,7 @@ paths:
                       - id: "019a7b07-7b38-75d8-8b10-66522bc5df30"
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         billingDocument:
                           id: "019a7aeb-72a0-7fb3-84eb-040be35d7ce9"
@@ -21089,7 +21084,7 @@ paths:
                     rowCount: 3
                     result:
                       columns:
-                        - key: customerNo
+                        - key: publicId
                           label: Customer
                           type: TEXT
                         - key: name
@@ -21102,15 +21097,15 @@ paths:
                           label: Tier
                           type: TEXT
                       rows:
-                        - customerNo: C-000101
+                        - publicId: cus_PFDR51RGKJ158X61
                           name: "Abena Owusu (SEED)"
                           phone: "+233200000301"
                           tier: RETAIL
-                        - customerNo: C-000102
+                        - publicId: cus_W2D8RWPG46BYZ7TR
                           name: "Dodowa Chop Bar (SEED)"
                           phone: "+233200000302"
                           tier: WHOLESALE
-                        - customerNo: C-000103
+                        - publicId: cus_99HTFCV49X9JGV88
                           name: "Nana Agyei (SEED)"
                           phone: "+233200000303"
                           tier: RETAIL
@@ -24678,19 +24673,29 @@ components:
         - id
         - code
         - name
+    CustomerPublicId:
+      type: string
+      pattern: "^cus_[0-9A-HJKMNP-TV-Z]{16}$"
+      description: "A customer's public ID (2.0.0, ADR-0073): `cus_` and sixteen characters of Crockford base32 (no I, L, O or U) drawn by the server from a cryptographically secure source, 80 bits, so it cannot be guessed or counted through. What people see and type for a customer in place of the sequential number (`C-00001`), which is no longer shown; unique, never reused, never changed, never sent by a client. Ids (UUIDs) stay in paths and are never shown to people. Knowing one reads nothing without authorisation."
+      example: cus_8F3K2M9Q7X4T1V6B
+    SupplierPublicId:
+      type: string
+      pattern: "^sup_[0-9A-HJKMNP-TV-Z]{16}$"
+      description: "A supplier's public ID (2.0.0, ADR-0073): `sup_` and sixteen characters of Crockford base32, as `CustomerPublicId`. In place of the sequential supplier number (`S-0001`), which is no longer shown."
+      example: sup_4N7Q1X9K3M6T2V8B
     CustomerRef:
       type: object
       properties:
         id:
           type: string
           format: uuid
-        customerNo:
-          type: string
+        publicId:
+          $ref: "#/components/schemas/CustomerPublicId"
         name:
           type: string
       required:
         - id
-        - customerNo
+        - publicId
         - name
     SupplierRef:
       type: object
@@ -24698,13 +24703,13 @@ components:
         id:
           type: string
           format: uuid
-        supplierNo:
-          type: string
+        publicId:
+          $ref: "#/components/schemas/SupplierPublicId"
         name:
           type: string
       required:
         - id
-        - supplierNo
+        - publicId
         - name
     StockUnitRef:
       type: object
@@ -26890,6 +26895,10 @@ components:
           type: integer
         isOnlineVisible:
           type: boolean
+        skuPrefix:
+          type: string
+          pattern: "^[A-Z]{2,5}$"
+          description: "The prefix of the SKUs the server gives the category's products (`EGG` gives `EGG-0001`, ADR-0072). Without one at creation, the first three letters of the code."
         productCount:
           type: integer
         version:
@@ -26910,6 +26919,7 @@ components:
         - taxCategory
         - sortOrder
         - isOnlineVisible
+        - skuPrefix
         - productCount
         - version
         - createdAt
@@ -26935,6 +26945,10 @@ components:
           type: integer
         isOnlineVisible:
           type: boolean
+        skuPrefix:
+          type: string
+          pattern: "^[A-Z]{2,5}$"
+          description: "Two to five capital letters. Optional: without one the server takes the first three letters of `code` (CAT when it has fewer than two)."
       required:
         - code
         - name
@@ -26956,6 +26970,10 @@ components:
           type: integer
         isOnlineVisible:
           type: boolean
+        skuPrefix:
+          type: string
+          pattern: "^[A-Z]{2,5}$"
+          description: "A new prefix applies to products created after the change; no product's SKU ever changes."
       required:
         - version
       additionalProperties: false
@@ -27439,6 +27457,7 @@ components:
           format: uuid
         sku:
           type: string
+          description: "Generated by the server when the product is created: the category's `skuPrefix` and the next number of that prefix, zero-padded to four digits (`EGG-0001`). Unique over every product ever made, never reused and never changed, even when the product moves to another category (ADR-0072)."
         name:
           type: string
         category:
@@ -27490,10 +27509,6 @@ components:
             - integer
             - "null"
           description: "For veterinary products: days a treated animal may not be sold or slaughtered."
-        barcode:
-          type:
-            - string
-            - "null"
         description:
           type:
             - string
@@ -27541,7 +27556,6 @@ components:
         - shelfLifeDays
         - storageTempClass
         - withdrawalDays
-        - barcode
         - description
         - onlineMode
         - seo
@@ -27554,9 +27568,8 @@ components:
         - updatedAt
     ProductCreate:
       type: object
+      description: "The SKU is not sent: the server generates it from the category's prefix (ADR-0072). A request that carries `sku`, whatever its value, is refused with 422 `FIELD_SERVER_ASSIGNED` (`/sku`), never silently ignored. There is no product barcode from 2.0.0."
       properties:
-        sku:
-          type: string
         name:
           type: string
         categoryId:
@@ -27589,8 +27602,6 @@ components:
             - FROZEN
         withdrawalDays:
           type: integer
-        barcode:
-          type: string
         description:
           type: string
         onlineMode:
@@ -27602,7 +27613,6 @@ components:
         isSellable:
           type: boolean
       required:
-        - sku
         - name
         - categoryId
         - stockPolicy
@@ -27622,7 +27632,7 @@ components:
       additionalProperties: false
     ProductUpdate:
       type: object
-      description: "The stock-keeping policy cannot change once the product has stock history."
+      description: "The stock-keeping policy cannot change once the product has stock history. The SKU never changes: a request that carries `sku` is refused with 422 `FIELD_SERVER_ASSIGNED` (ADR-0072). There is no product barcode from 2.0.0."
       properties:
         version:
           type: integer
@@ -27640,8 +27650,6 @@ components:
           format: uuid
         shelfLifeDays:
           type: integer
-        barcode:
-          type: string
         description:
           type: string
         onlineMode:
@@ -27745,8 +27753,8 @@ components:
         id:
           type: string
           format: uuid
-        customerNo:
-          type: string
+        publicId:
+          $ref: "#/components/schemas/CustomerPublicId"
         kind:
           type: string
           enum:
@@ -27802,7 +27810,7 @@ components:
           format: date-time
       required:
         - id
-        - customerNo
+        - publicId
         - kind
         - name
         - phone
@@ -28071,8 +28079,8 @@ components:
         id:
           type: string
           format: uuid
-        supplierNo:
-          type: string
+        publicId:
+          $ref: "#/components/schemas/SupplierPublicId"
         name:
           type: string
         contactName:
@@ -28117,7 +28125,7 @@ components:
           format: date-time
       required:
         - id
-        - supplierNo
+        - publicId
         - name
         - contactName
         - phone
@@ -40610,10 +40618,6 @@ components:
           $ref: "#/components/schemas/ProductRef"
         saleUom:
           type: string
-        barcode:
-          type:
-            - string
-            - "null"
         taxCategoryId:
           type: string
           format: uuid
@@ -40640,7 +40644,6 @@ components:
       required:
         - product
         - saleUom
-        - barcode
         - taxCategoryId
         - priceBasis
         - priceBand
@@ -41934,8 +41937,8 @@ components:
         id:
           type: string
           format: uuid
-        customerNo:
-          type: string
+        publicId:
+          $ref: "#/components/schemas/CustomerPublicId"
         name:
           type: string
         phone:
@@ -41954,7 +41957,7 @@ components:
           format: uuid
       required:
         - id
-        - customerNo
+        - publicId
         - name
         - phone
         - email
@@ -45891,6 +45894,7 @@ components:
         - text
     ProductLabel:
       type: object
+      description: "What a shelf or counter label prints, as text: the SKU, name, sale unit, nominal pack weight, shelf life and storage class. No barcode from 2.0.0 (owner 2026-11-17, ADR-0072)."
       properties:
         product:
           $ref: "#/components/schemas/ProductRef"
@@ -45913,17 +45917,15 @@ components:
             - CHILLED
             - FROZEN
             - null
-        barcode:
-          $ref: "#/components/schemas/LabelBarcode"
       required:
         - product
         - saleUom
         - nominalPackKg
         - shelfLifeDays
         - storageTempClass
-        - barcode
     StockUnitLabel:
       type: object
+      description: "What a lot or animal label prints, as text: the product and its SKU, the batch or tag, the weight, the quantity on hand, the dates and the storage class. No barcode from 2.0.0 (owner 2026-11-17, ADR-0072); the meat pack labels of `printPackLabels` keep theirs."
       properties:
         stockUnit:
           $ref: "#/components/schemas/StockUnitRef"
@@ -45983,8 +45985,6 @@ components:
             - CHILLED
             - FROZEN
             - null
-        barcode:
-          $ref: "#/components/schemas/LabelBarcode"
       required:
         - stockUnit
         - product
@@ -46000,7 +46000,6 @@ components:
         - producedOn
         - expiresOn
         - storageTempClass
-        - barcode
     OwnerDashboard:
       type: object
       description: "Every figure of the owner's first screen in one response (NFR-023). A figure whose source module is not built yet is null and named in `pendingFigures` with why and the phase that makes it live; a figure is null exactly while it is listed there, and a listed figure is never answered with a zero. Stock figures are as of `asOf`, whatever `date` asks for."

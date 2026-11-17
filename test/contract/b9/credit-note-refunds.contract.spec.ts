@@ -39,7 +39,7 @@ beforeAll(async () => {
   const admin = database.pool('admin');
   branchId = (await admin.query<{ id: string }>("SELECT id FROM mdm.branch WHERE code = 'DDW'")).rows[0]!.id;
   tema = (await admin.query<{ id: string }>('SELECT id FROM mdm.customer WHERE name = $1', ['Tema Cold Store Ltd (SEED)'])).rows[0]!.id;
-  goat = (await admin.query<{ id: string }>("SELECT id FROM mdm.product WHERE sku = 'LIV-GOAT'")).rows[0]!.id;
+  goat = (await admin.query<{ id: string }>("SELECT id FROM mdm.product WHERE sku = 'LIV-0004'")).rows[0]!.id;
   gcb = (await admin.query<{ id: string }>("SELECT id FROM fin.bank_account WHERE name = 'GCB current account (SEED)'")).rows[0]!.id;
   for (const row of (await admin.query<{ code: string; id: string }>('SELECT code, id FROM mdm.payment_method')).rows) methods.set(row.code, row.id);
   owner = await enrolAndLogin(api.server, await createUser(database, { name: 'Kwabena Owusu', grants: [{ role: 'OWNER', branchId }] }), () => clock.now());

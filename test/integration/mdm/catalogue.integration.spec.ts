@@ -139,8 +139,8 @@ describe('categories (FR-MDM-002)', () => {
   });
 
   it('refuses to archive Meat while Beef has three live products, and Beef while it holds them', async () => {
-    for (const sku of ['MEAT-BEEF-1KG', 'MEAT-BEEF-STEW', 'MEAT-BEEF-MINCE']) {
-      const created = await post(manager, '/products', { sku, name: sku, categoryId: beefId, stockPolicy: 'CATCH_WEIGHT', baseUom: 'KG', saleUom: 'KG', onlineMode: 'LISTED' });
+    for (const name of ['Beef, 1 kg', 'Beef, stew', 'Beef, mince']) {
+      const created = await post(manager, '/products', { name, categoryId: beefId, stockPolicy: 'CATCH_WEIGHT', baseUom: 'KG', saleUom: 'KG', onlineMode: 'LISTED' });
       expect(created.status).toBe(201);
       products.push(created.body.id);
     }
@@ -263,7 +263,7 @@ describe('species, grades and weight bands (FR-MDM-005)', () => {
   });
 
   it('keeps a band and a grade that an active price prices with: no archive, no range move; a free band moves', async () => {
-    const goat = await post(manager, '/products', { sku: 'LIV-GOAT', name: 'Goat', categoryId: (await get(manager, '/categories')).body.data[0].id, stockPolicy: 'SERIALISED', speciesId: goatId, baseUom: 'HEAD', saleUom: 'HEAD', onlineMode: 'REQUEST_TO_BUY' });
+    const goat = await post(manager, '/products', { name: 'Goat', categoryId: (await get(manager, '/categories')).body.data[0].id, stockPolicy: 'SERIALISED', speciesId: goatId, baseUom: 'HEAD', saleUom: 'HEAD', onlineMode: 'REQUEST_TO_BUY' });
     expect(goat.status).toBe(201);
     const list = await post(manager, '/price-lists', { code: 'BASE', name: 'Base prices', kind: 'BASE', taxInclusive: true });
     const version = await post(manager, `/price-lists/${list.body.id}/versions`, { validFrom: clock.now().toISOString() });
@@ -307,7 +307,7 @@ describe('updateProduct (FR-MDM-001, FR-MDM-004)', () => {
 
   it('changes the name and online mode, publishes mdm.ProductChanged naming the fields, and audits before and after', async () => {
     eggsCategory = (await post(manager, '/categories', { code: 'EGGS', name: 'Eggs', productLine: 'PRODUCE', glGroup: 'PRODUCE_EGGS', taxCategoryId: TAX_CATEGORY.EGGS })).body.id;
-    const created = await post(manager, '/products', { sku: 'EGG-CRATE-BIG', name: 'Eggs, big', categoryId: eggsCategory, stockPolicy: 'COUNTABLE', baseUom: 'CRATE', saleUom: 'CRATE', shelfLifeDays: 21, onlineMode: 'HIDDEN' });
+    const created = await post(manager, '/products', { name: 'Eggs, big', categoryId: eggsCategory, stockPolicy: 'COUNTABLE', baseUom: 'CRATE', saleUom: 'CRATE', shelfLifeDays: 21, onlineMode: 'HIDDEN' });
     productId = created.body.id;
     const changed = await patch(manager, `/products/${productId}`, { version: 1, name: 'Eggs, big, crate of 30', onlineMode: 'LISTED' });
     expect(changed.status).toBe(200);
@@ -338,10 +338,10 @@ describe('updateProduct (FR-MDM-001, FR-MDM-004)', () => {
     expect((await get(manager, `/products/${productId}`)).body).toMatchObject({ version: 4, stockPolicy: 'COUNTABLE', nominalPackKg: null });
   });
 
-  it('refuses a barcode another product uses', async () => {
-    const other = await post(manager, '/products', { sku: 'EGG-CRATE-SMALL', name: 'Eggs, small', categoryId: eggsCategory, stockPolicy: 'COUNTABLE', baseUom: 'CRATE', saleUom: 'CRATE', shelfLifeDays: 21, onlineMode: 'LISTED', barcode: '6034000123456' });
-    expect(other.status).toBe(201);
-    const taken = await patch(manager, `/products/${productId}`, { version: 4, barcode: '6034000123456' });
-    expect(taken.body.error).toMatchObject({ code: 'DUPLICATE_VALUE', details: [{ field: '/barcode' }] });
+  it('takes no barcode from 2.0.0 (B09q, ADR-0072): a change that sends one is 400, an unknown field', async () => {
+    const refused = await patch(manager, `/products/${productId}`, { version: 4, barcode: '6034000123456' });
+    expect(refused.status).toBe(400);
+    expect(refused.body.error.details).toEqual([expect.objectContaining({ field: '/barcode', code: 'UNKNOWN_FIELD' })]);
+    expect((await get(manager, `/products/${productId}`)).body).toMatchObject({ version: 4 });
   });
 });

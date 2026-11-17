@@ -42,7 +42,7 @@ function broilers(qty = '20.000', valuePesewas = 110_000, batchNo = `BR-${random
     locationId: id('location:PENS'),
     deliveryNoteRef: `APF-${randomUUID().slice(0, 6)}`,
     receivedAt: receivedAt(),
-    lines: [{ productId: id('product:LIV-BROILER'), qtyReceived: qty, valuePesewas, batchNo }],
+    lines: [{ productId: id('product:LIV-0001'), qtyReceived: qty, valuePesewas, batchNo }],
   };
 }
 
@@ -165,7 +165,7 @@ describe('posting a goods receipt (FR-INV-009)', () => {
       supplierId: id('supplier:Kpone Livestock Traders (SEED)'),
       locationId: id('location:PENS'),
       receivedAt: receivedAt(),
-      lines: [{ productId: id('product:LIV-GOAT'), qtyReceived: '4.000', valuePesewas: 100_001, animals: tags.map((tagNo) => ({ tagNo, sex: 'FEMALE', weightKg: '24.350', weightSource: 'SCALE' })) }],
+      lines: [{ productId: id('product:LIV-0004'), qtyReceived: '4.000', valuePesewas: 100_001, animals: tags.map((tagNo) => ({ tagNo, sex: 'FEMALE', weightKg: '24.350', weightSource: 'SCALE' })) }],
     });
     expect(created.status).toBe(201);
     const posted = await post(manager, `/goods-receipts/${created.body.id}/post`);
@@ -198,7 +198,7 @@ describe('posting a goods receipt (FR-INV-009)', () => {
       supplierId: id('supplier:Kpone Livestock Traders (SEED)'),
       locationId: id('location:PENS'),
       receivedAt: receivedAt(),
-      lines: [{ productId: id('product:LIV-GOAT'), qtyReceived: '1.000', valuePesewas: 60_000, animals: [{ tagNo: 'G-0902', sex: 'MALE' }] }],
+      lines: [{ productId: id('product:LIV-0004'), qtyReceived: '1.000', valuePesewas: 60_000, animals: [{ tagNo: 'G-0902', sex: 'MALE' }] }],
     });
     const refused = await post(manager, `/goods-receipts/${second.body.id}/post`);
     expect(refused.status).toBe(422);
@@ -233,7 +233,7 @@ describe('posting a goods receipt (FR-INV-009)', () => {
     const changed = await patch(pensStorekeeper, `/goods-receipts/${created.body.id}`, {
       version: 1,
       notes: 'Two birds died on the road',
-      lines: [{ productId: id('product:LIV-BROILER'), qtyReceived: '18.000', qtyRejected: '2.000', valuePesewas: 99_000, batchNo: 'BR-TEST-0018' }],
+      lines: [{ productId: id('product:LIV-0001'), qtyReceived: '18.000', qtyRejected: '2.000', valuePesewas: 99_000, batchNo: 'BR-TEST-0018' }],
     });
     expect(changed.status).toBe(200);
     expect(changed.body).toMatchObject({ version: 2, notes: 'Two birds died on the road', totalValuePesewas: 99_000 });
@@ -248,7 +248,7 @@ describe('receipt rules (FR-INV-005, FR-INV-009)', () => {
     supplierId: id('supplier:Ashaiman Cold Store Ltd (SEED)'),
     locationId: id('location:COLD'),
     receivedAt: new Date('2026-11-13T08:00:00Z').toISOString(),
-    lines: [{ productId: id('product:MEAT-BEEF-15KG'), qtyReceived: '15.000', weightKg: '15.000', weightSource: 'SCALE', valuePesewas: 180_000, batchNo, expiresOn }],
+    lines: [{ productId: id('product:MEAT-0005'), qtyReceived: '15.000', weightKg: '15.000', weightSource: 'SCALE', valuePesewas: 180_000, batchNo, expiresOn }],
   });
 
   it('accepts beef lot LOT-BEEF-2026-1113 expiring 20 November, and refuses one expiring 12 November or none', async () => {
@@ -289,14 +289,14 @@ describe('receipt rules (FR-INV-005, FR-INV-009)', () => {
       supplierId: id('supplier:Kpone Livestock Traders (SEED)'),
       locationId: id('location:PENS'),
       receivedAt: receivedAt(),
-      lines: [{ productId: id('product:LIV-GOAT'), qtyReceived: '2.000', valuePesewas: 120_000, animals: [{ tagNo: 'G-0999', sex: 'MALE' }] }],
+      lines: [{ productId: id('product:LIV-0004'), qtyReceived: '2.000', valuePesewas: 120_000, animals: [{ tagNo: 'G-0999', sex: 'MALE' }] }],
     });
     expect(goats.body.error.details).toEqual([expect.objectContaining({ field: '/lines/0/animals', code: 'ONE_ANIMAL_PER_HEAD' })]);
     const yam = await post(manager, '/goods-receipts', {
       kind: 'HARVEST',
       locationId: id('location:SHOP'),
       receivedAt: receivedAt(),
-      lines: [{ productId: id('product:PRD-YAM-TUBER'), qtyReceived: '10.000', valuePesewas: 12_000, batchNo: 'YAM-1' }],
+      lines: [{ productId: id('product:PRD-0005'), qtyReceived: '10.000', valuePesewas: 12_000, batchNo: 'YAM-1' }],
     });
     expect(yam.body.error.details).toEqual([expect.objectContaining({ field: '/lines/0/batchNo', code: 'PRODUCT_NOT_TRACKED' })]);
     const unknownProduct = await post(manager, '/goods-receipts', { ...broilers(), lines: [{ productId: randomUUID(), qtyReceived: '1.000', valuePesewas: 1 }] });

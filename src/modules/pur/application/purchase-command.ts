@@ -21,7 +21,7 @@ export interface Page<T> {
   readonly page: { readonly nextCursor: string | null; readonly limit: number; readonly hasMore: boolean };
 }
 
-export const supplierRef = (s: SupplierFacts) => ({ id: s.id, supplierNo: s.supplierNo, name: s.name });
+export const supplierRef = (s: SupplierFacts) => ({ id: s.id, publicId: s.publicId, name: s.name });
 export const productRef = (p: ProductFacts) => ({ id: p.id, sku: p.sku, name: p.name });
 export const locationRef = (l: LocationFacts) => ({ id: l.id, code: l.code, name: l.name, kind: l.kind });
 

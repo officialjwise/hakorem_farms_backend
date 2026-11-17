@@ -55,8 +55,8 @@ describe('the storefront in the contract (FR-SHP-001 to FR-SHP-008)', () => {
     conforms('Cart', created.body);
     const cookie = (created.headers['set-cookie'] as unknown as string[])[0]!.split(';')[0]!;
     const send = (method: 'post' | 'put', path: string, body: object) => request(api.server)[method](`/v1${path}`).set('Origin', TEST_ORIGIN).set('Idempotency-Key', randomUUID()).set('Cookie', cookie).send(body);
-    await send('post', `/shop/carts/${created.body.id}/lines`, { productId: ids.get('product:EGG-CRATE-BIG'), quantity: '2.000' });
-    const withBeef = await send('post', `/shop/carts/${created.body.id}/lines`, { productId: ids.get('product:MEAT-BEEF-15KG'), quantity: '1.000' });
+    await send('post', `/shop/carts/${created.body.id}/lines`, { productId: ids.get('product:EGG-0003'), quantity: '2.000' });
+    const withBeef = await send('post', `/shop/carts/${created.body.id}/lines`, { productId: ids.get('product:MEAT-0005'), quantity: '1.000' });
     conforms('Cart', withBeef.body);
     conforms('Cart', (await send('put', `/shop/carts/${created.body.id}/coupon`, { code: 'WELCOME10' })).body);
     const options = await request(api.server).get(`/v1/shop/delivery/slots?zoneId=${ids.get('zone:DODOWA')}`);

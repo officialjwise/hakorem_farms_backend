@@ -58,7 +58,7 @@ responses:
                 - id: "019a7ab0-99f7-7ffb-9533-088363a68161"
                   product:
                     id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                    sku: LIV-GOAT
+                    sku: LIV-0004
                     name: Goat
                   stockUnit:
                     id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
@@ -81,7 +81,7 @@ responses:
                 - id: "019a7aae-105c-7052-858a-0df6682186d4"
                   product:
                     id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                    sku: MEAT-CHK-FULL
+                    sku: MEAT-0001
                     name: "Full chicken, 15 kg pack"
                   stockUnit:
                     id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
@@ -104,7 +104,7 @@ responses:
                 - id: "019a7ab0-f6c4-7da5-82dd-e329d0b95c07"
                   product:
                     id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                    sku: EGG-BIG
+                    sku: EGG-0003
                     name: "Eggs, big, crate of 30"
                   stockUnit:
                     id: "019a7a91-2f3b-74f5-9a2d-582bcbe2d109"
@@ -127,7 +127,7 @@ responses:
                 - id: "019a7ab1-15b3-7789-9cc1-81614a6afa3f"
                   product:
                     id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                    sku: LIV-GOAT
+                    sku: LIV-0004
                     name: Goat
                   stockUnit:
                     id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
@@ -150,7 +150,7 @@ responses:
                 - id: "019a7ab1-34a2-716c-a6a4-1f98c41b9876"
                   product:
                     id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                    sku: MEAT-BEEF
+                    sku: MEAT-0005
                     name: "Beef, 15 kg pack"
                   stockUnit:
                     id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
@@ -173,7 +173,7 @@ responses:
                 - id: "019a7ab1-5391-7b4f-b088-bdd03dcc36ae"
                   product:
                     id: "019a7a8d-326c-7ea3-83db-f3051c116be3"
-                    sku: LIV-SHEEP
+                    sku: LIV-0005
                     name: Sheep
                   stockUnit:
                     id: "019a7a8f-daf6-782f-ad67-8bc9914704a7"

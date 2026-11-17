@@ -33,7 +33,7 @@ responses:
           $ref: "#/components/schemas/Product"
         example:
           id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-          sku: LIV-GOAT
+          sku: LIV-0004
           name: Goat
           category:
             id: "019a7a89-737b-7c17-9150-ca4d5fa2432b"
@@ -57,7 +57,6 @@ responses:
           shelfLifeDays: null
           storageTempClass: null
           withdrawalDays: null
-          barcode: null
           description: "Individually tagged and weighed. Priced by size and weight."
           onlineMode: REQUEST_TO_BUY
           seo:

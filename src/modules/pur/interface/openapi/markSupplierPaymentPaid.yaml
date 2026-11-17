@@ -58,7 +58,7 @@ responses:
           status: PAID
           supplier:
             id: "019a7a89-16ae-7e6d-a3a5-efa6f28f6884"
-            supplierNo: S-0019
+            publicId: sup_TGKEXYTAZ99G0NNC
             name: "Awutu Poultry Farm"
           method: BANK
           payeeDetailsMasked: "Ecobank Ghana, Ashanti Feeds Ltd, ****3381"

@@ -44,6 +44,7 @@ import { LocationsAdmin } from './application/locations-admin';
 import { LocationUsageRegistry } from './application/location-usage';
 import { LOCATIONS_STORE, type LocationsStore } from './application/locations-store';
 import { PartiesAdmin } from './application/parties-admin';
+import { PublicIds } from './application/public-ids';
 import { PARTIES_STORE, type PartiesStore } from './application/parties-store';
 import { PgLocationsStore } from './infrastructure/pg-locations-store';
 import { PgPartiesStore } from './infrastructure/pg-parties-store';
@@ -81,6 +82,8 @@ import { ImportsController } from './interface/imports.controller';
   imports: [IamModule],
   controllers: [ProductsController, CatalogueController, LocationsController, PartiesController, ReferenceDataController, PricingController, PriceListsController, PromotionsController, TaxController, ImportsController, UomConversionsController],
   providers: [
+    // The source of customers' and suppliers' public IDs (ADR-0073): a provider of its own, so a test can make it collide.
+    PublicIds,
     { provide: PRODUCT_STORE, useFactory: (files: FileStore) => new DrizzleProductStore(files), inject: [FileStore] },
     { provide: PRICING_STORE, useClass: PgPricingStore },
     { provide: PRICE_LIST_STORE, useClass: PgPriceListStore },
@@ -142,8 +145,9 @@ import { ImportsController } from './interface/imports.controller';
         clock: Clock,
         settings: Settings,
         config: AppConfig,
-      ) => new ReferenceDataAdmin(uow, store, authoriser, idempotency, audit, events, keys, cursors, clock, settings, Buffer.from(config.LOOKUP_HMAC_KEY, 'base64')),
-      inject: [UnitOfWork, REFERENCE_DATA_STORE, Authoriser, Idempotency, AuditTrail, DomainEvents, SubjectKeys, Cursors, CLOCK, Settings, APP_CONFIG],
+        publicIds: PublicIds,
+      ) => new ReferenceDataAdmin(uow, store, authoriser, idempotency, audit, events, keys, cursors, clock, settings, Buffer.from(config.LOOKUP_HMAC_KEY, 'base64'), publicIds),
+      inject: [UnitOfWork, REFERENCE_DATA_STORE, Authoriser, Idempotency, AuditTrail, DomainEvents, SubjectKeys, Cursors, CLOCK, Settings, APP_CONFIG, PublicIds],
     },
     {
       provide: LocationsAdmin,
@@ -162,9 +166,9 @@ import { ImportsController } from './interface/imports.controller';
     { provide: LocationUsageRegistry, useFactory: () => new LocationUsageRegistry() },
     {
       provide: PartiesAdmin,
-      useFactory: (uow: UnitOfWork, store: PartiesStore, authoriser: Authoriser, idempotency: Idempotency, audit: AuditTrail, keys: SubjectKeys, cursors: Cursors, clock: Clock, config: AppConfig) =>
-        new PartiesAdmin(uow, store, authoriser, idempotency, audit, keys, cursors, clock, Buffer.from(config.LOOKUP_HMAC_KEY, 'base64')),
-      inject: [UnitOfWork, PARTIES_STORE, Authoriser, Idempotency, AuditTrail, SubjectKeys, Cursors, CLOCK, APP_CONFIG],
+      useFactory: (uow: UnitOfWork, store: PartiesStore, authoriser: Authoriser, idempotency: Idempotency, audit: AuditTrail, keys: SubjectKeys, cursors: Cursors, clock: Clock, config: AppConfig, publicIds: PublicIds) =>
+        new PartiesAdmin(uow, store, authoriser, idempotency, audit, keys, cursors, clock, Buffer.from(config.LOOKUP_HMAC_KEY, 'base64'), publicIds),
+      inject: [UnitOfWork, PARTIES_STORE, Authoriser, Idempotency, AuditTrail, SubjectKeys, Cursors, CLOCK, APP_CONFIG, PublicIds],
     },
     {
       provide: CatalogueAdmin,

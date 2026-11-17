@@ -172,7 +172,7 @@ describe('wrong roles are refused on every supplier register and requisition wri
   });
 
   it('refuses requisition writes to the Accountant, Cashier, Sales, Driver and Investor, and rejection or conversion to the Storekeeper and Farm hand', async () => {
-    const body = { lines: [{ productId: id('product:LIV-BROILER'), qty: '20.000' }] };
+    const body = { lines: [{ productId: id('product:LIV-0001'), qty: '20.000' }] };
     for (const session of [accountant, cashier, sales, driver, investor]) {
       expect((await post(session, '/purchase-requisitions', body)).status).toBe(403);
       expect((await post(session, `/purchase-requisitions/${randomUUID()}/submit`)).status).toBe(403);
@@ -383,14 +383,14 @@ describe('supplier documents (FR-PUR-003)', () => {
 
 describe('purchase requisitions (FR-PUR-004)', () => {
   async function submitted(session: TestSession, qty = '20.000') {
-    const raised = await post(session, '/purchase-requisitions', { neededBy: today(), justification: 'Brooder pen 2 is empty', lines: [{ productId: id('product:LIV-BROILER'), qty }] });
+    const raised = await post(session, '/purchase-requisitions', { neededBy: today(), justification: 'Brooder pen 2 is empty', lines: [{ productId: id('product:LIV-0001'), qty }] });
     expect(raised.status).toBe(201);
     expect((await post(session, `/purchase-requisitions/${raised.body.id}/submit`)).status).toBe(200);
     return raised.body as { id: string; lines: { id: string }[] };
   }
 
   it('raises 20 broilers at the farm hand\'s pen, converts it into a draft order linked to it, and orders 20 at 5,500 (110,000)', async () => {
-    const raised = await post(farmHand, '/purchase-requisitions', { neededBy: today(), lines: [{ productId: id('product:LIV-BROILER'), qty: '20.000', note: 'Day-old chicks are not wanted' }] });
+    const raised = await post(farmHand, '/purchase-requisitions', { neededBy: today(), lines: [{ productId: id('product:LIV-0001'), qty: '20.000', note: 'Day-old chicks are not wanted' }] });
     expect(raised.status).toBe(201);
     expect(raised.body).toMatchObject({ status: 'DRAFT', location: { code: 'PENS' }, lines: [{ lineNo: 1, qty: '20.000', uom: 'HEAD' }], purchaseOrder: null, rejectReason: null });
     const changed = await patch(farmHand, `/purchase-requisitions/${raised.body.id}`, { version: raised.body.version, justification: 'Brooder pen 2 is empty' });
@@ -433,7 +433,7 @@ describe('purchase requisitions (FR-PUR-004)', () => {
     const listed = await get(farmHand, '/purchase-requisitions');
     expect(listed.status).toBe(200);
     expect(listed.body.data.every((r: { location: { code: string } | null }) => r.location?.code === 'PENS')).toBe(true);
-    const shop = await post(manager, '/purchase-requisitions', { locationId: id('location:SHOP'), lines: [{ productId: id('product:LIV-BROILER'), qty: '5.000' }] });
+    const shop = await post(manager, '/purchase-requisitions', { locationId: id('location:SHOP'), lines: [{ productId: id('product:LIV-0001'), qty: '5.000' }] });
     expect(shop.status).toBe(201);
     expect((await get(farmHand, `/purchase-requisitions/${shop.body.id}`)).status).toBe(403);
   });
@@ -615,7 +615,7 @@ describe('the purchase order approval limit is a setting, and order splitting is
   });
 
   async function submittedOrder(supplierName: string, qty: string, unitPricePesewas: number) {
-    const created = await post(storekeeper, '/purchase-orders', { supplierId: supplier(supplierName), deliverToLocationId: id('location:PENS'), orderDate: today(), lines: [{ productId: id('product:LIV-BROILER'), qtyOrdered: qty, unitPricePesewas }] });
+    const created = await post(storekeeper, '/purchase-orders', { supplierId: supplier(supplierName), deliverToLocationId: id('location:PENS'), orderDate: today(), lines: [{ productId: id('product:LIV-0001'), qtyOrdered: qty, unitPricePesewas }] });
     expect(created.status).toBe(201);
     return { id: created.body.id as string, submitted: await post(storekeeper, `/purchase-orders/${created.body.id}/submit`) };
   }

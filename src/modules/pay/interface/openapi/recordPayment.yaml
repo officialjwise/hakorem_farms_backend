@@ -51,7 +51,7 @@ responses:
           currency: GHS
           customer:
             id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-            customerNo: C-00042
+            publicId: cus_TWMB751S2DFXTAM8
             name: "Royal Palm Hotel Ltd"
           order: null
           shiftId: null

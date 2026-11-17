@@ -48,22 +48,22 @@ afterAll(async () => {
 
 describe('mdm.product stock archetypes in the database (shared brief, domain model section 1)', () => {
   it('accepts a serialised animal with a species, a catch-weight lot in kilograms, and a plain countable', async () => {
-    await insertProduct({ sku: 'LIV-GOAT', stock_policy: 'SERIALISED', tracking: 'SERIAL', species_id: goatSpeciesId, base_uom: 'HEAD' });
+    await insertProduct({ sku: 'LIV-0004', stock_policy: 'SERIALISED', tracking: 'SERIAL', species_id: goatSpeciesId, base_uom: 'HEAD' });
     await insertProduct({ sku: 'MEAT-GOAT-5KG', stock_policy: 'CATCH_WEIGHT', tracking: 'LOT', species_id: null, base_uom: 'KG' });
     await insertProduct({ sku: 'PRD-EGGS-BIG', stock_policy: 'COUNTABLE', tracking: 'LOT', species_id: null, base_uom: 'CRATE' });
   });
 
   it('refuses a serialised product without a species, or tracked by lot', async () => {
-    expect(await sqlStateOf(insertProduct({ sku: 'LIV-SHEEP', stock_policy: 'SERIALISED', tracking: 'SERIAL', species_id: null, base_uom: 'HEAD' }))).toBe(
+    expect(await sqlStateOf(insertProduct({ sku: 'LIV-0005', stock_policy: 'SERIALISED', tracking: 'SERIAL', species_id: null, base_uom: 'HEAD' }))).toBe(
       SQLSTATE.checkViolation,
     );
-    expect(await sqlStateOf(insertProduct({ sku: 'LIV-PIG', stock_policy: 'SERIALISED', tracking: 'LOT', species_id: goatSpeciesId, base_uom: 'HEAD' }))).toBe(
+    expect(await sqlStateOf(insertProduct({ sku: 'LIV-0003', stock_policy: 'SERIALISED', tracking: 'LOT', species_id: goatSpeciesId, base_uom: 'HEAD' }))).toBe(
       SQLSTATE.checkViolation,
     );
   });
 
   it('refuses a catch-weight product held in anything but kilograms, and a non-stock product with tracking', async () => {
-    expect(await sqlStateOf(insertProduct({ sku: 'MEAT-BEEF-15KG', stock_policy: 'CATCH_WEIGHT', tracking: 'LOT', species_id: null, base_uom: 'PACK' }))).toBe(
+    expect(await sqlStateOf(insertProduct({ sku: 'MEAT-0005', stock_policy: 'CATCH_WEIGHT', tracking: 'LOT', species_id: null, base_uom: 'PACK' }))).toBe(
       SQLSTATE.checkViolation,
     );
     expect(await sqlStateOf(insertProduct({ sku: 'SVC-DELIVERY', stock_policy: 'NON_STOCK', tracking: 'LOT', species_id: null, base_uom: 'UNIT' }))).toBe(

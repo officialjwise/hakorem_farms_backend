@@ -25,7 +25,7 @@ All paths in the contract are relative to the base URL, including `/v1`. There i
 
 **Rules a client must follow so that minor changes never break it:** ignore response fields it does not know; treat every response enum as open (an unknown value is displayed as unknown, never a crash); treat an unknown error `code` by its HTTP status; never depend on key order; never depend on the number of items in a page.
 
-A breaking change is announced at least one full release before it ships: the old behaviour stays and the new behaviour is published alongside. The backend never breaks the contract silently: a pull request that changes `contract/openapi.yaml` incompatibly fails CI (`pnpm contract:generate` produces the file from code and CI fails on any difference with the committed one).
+A breaking change is announced at least one full release before it ships: the old behaviour stays and the new behaviour is published alongside. **Contract 2.0.0** (B09q, 2026-11-17) was approved by the owner before anything was deployed, with no running client to keep the old behaviour for, so it keeps the `/v1` URL and shipped without a release of notice (A-255); from the first deployment on, a major version takes the next `/vN` with the old one alongside. The backend never breaks the contract silently: a pull request that changes `contract/openapi.yaml` incompatibly fails CI (`pnpm contract:generate` produces the file from code and CI fails on any difference with the committed one).
 
 ## 2. Headers at a glance
 
@@ -154,7 +154,7 @@ These rules are fixed by ADR-0029 and apply to every operation.
 - **Enumerations are upper snake case** in requests and responses (`WEIGHTED_AVERAGE`, `PENDING_APPROVAL`). Treat response enums as open (section 1).
 - **Times** are UTC in RFC 3339 (`2026-11-13T09:30:00Z`). **Business dates** (a posting date, a delivery date, a value date) are calendar dates `YYYY-MM-DD` in Africa/Accra, which is UTC+0 all year. Show times in Africa/Accra; send times in UTC. Times of day for slots are `HH:MM` in Africa/Accra.
 - **Phone numbers** are E.164: Ghanaian numbers are `+233` followed by nine digits.
-- **Identifiers** are UUIDv7 strings. Ids are never shown to people as references: documents show their number, animals their tag. Ids are time-ordered but not secret and not business time.
+- **Identifiers** are UUIDv7 strings. Ids are never shown to people as references: documents show their number, animals their tag, products their SKU, and customers and suppliers their **public ID** (2.0.0, ADR-0073): `cus_` or `sup_` and sixteen Crockford base32 characters (`cus_8F3K2M9Q7X4T1V6B`), drawn by the server from a secure source, unique, never reused, never changed and never sent by a client. Ids are time-ordered but not secret and not business time; knowing an id, a public ID or a SKU reads nothing without authorisation.
 - **Currency.** `GHS`.
 - **Nulls.** A field the server may not have is present and `null`, not omitted. A client omits optional request fields it does not set.
 - **Unknown request fields are rejected** (400 `VALIDATION_FAILED`, `additionalProperties: false`).
@@ -365,7 +365,8 @@ The "Source" column says where the code comes from. **Contract** means the code 
 
 | Code | HTTP | Meaning |
 | --- | --- | --- |
-| `DUPLICATE_VALUE` | 422 | A unique value (SKU, barcode, storefront slug) is already used by another live record. `details` names each field |
+| `DUPLICATE_VALUE` | 422 | A unique value (a storefront slug, a phone, a code) is already used by another live record. `details` names each field. A SKU is never typed, so never duplicated (2.0.0) |
+| `FIELD_SERVER_ASSIGNED` | 422 | The request carries a field the server assigns and never takes as input: a product's `sku` on create, update or in an import (2.0.0, ADR-0072). Refused, never ignored; `details[].field` names it, `details[].code` is `SERVER_ASSIGNED` |
 | `REFERENCE_NOT_FOUND` | 422 | An id in the request names no record (an unknown category, species, tax category or unit). `details` names each field |
 | `STOCK_POLICY_CONFLICT` | 422 | The product's fields contradict its stock-keeping policy, for example a serialised animal without a species or listed for the cart, or catch-weight stock not held in kilograms. `details` names each field and rule |
 | `RECORD_IN_USE` | 422 | The record is still in use: a category with live products or live children, or a grade or weight band a pending or active price list version prices with, cannot be archived, and such a band keeps its range. `details[].code` says why (`HAS_LIVE_PRODUCTS`, `HAS_LIVE_CHILDREN`, `USED_BY_LIVE_PRICES`) (1.7.0) |
@@ -716,7 +717,7 @@ Categories, units of measure, species, grades, weight bands, products (with imag
 - **A TIN** is stored encrypted; responses show `tinMasked`, the last four characters.
 - **Locations:** a branch comes with eight virtual locations (supplier, customer, production, processing, consumption, loss, adjustment, opening), listed only with `includeVirtual=true` and never changed (422 `LOCATION_INVALID`, `VIRTUAL_LOCATION_FIXED`). A parent is a live physical location of the same branch (`PARENT_IN_OTHER_BRANCH`, `PARENT_IS_VIRTUAL`, `PARENT_IS_SELF_OR_BELOW`); the database refuses another branch too. A cold room needs `CHILLED` or `FROZEN` and a rising range (`COLD_ROOM_NEEDS_TEMPERATURE`, `NOT_ABOVE_MIN`). A location with live locations below it is 422 `RECORD_IN_USE` (`HAS_LIVE_CHILDREN`) on archive, and so is one holding stock (`HOLDS_STOCK`) or named by an open stock document (`OPEN_DOCUMENTS`), asked of inventory through the location usage port (B05x, ADR-0051).
 - **Closing a branch** (B05x, A-150): `updateBranch` with `status: CLOSED`, refused with 422 `BRANCH_INVALID` for the farm's own branch (`FARM_BRANCH`), the last open trading branch (`LAST_ACTIVE_BRANCH`), one holding stock (`HOLDS_STOCK`) and one an open document names (`OPEN_DOCUMENTS`); `ACTIVE` reopens it. **Reads within the grants:** `listBranches` lists the branches where the reader holds a grant (at the branch or one of its locations); `listLocations` the locations a grant reaches; `getBranch` and `getLocation` are 403 outside them.
-- **Product label data** (B05x, A-151): `getProductLabel` returns what a shelf label prints and a `CODE_128` barcode of the product's barcode or SKU.
+- **Product label data** (B05x, A-151): `getProductLabel` returns what a shelf label prints, as text: SKU, name, sale unit, nominal pack weight, shelf life, storage class. No barcode from 2.0.0 (B09q, ADR-0072).
 - **`assignCustomerPriceList`** takes a live `CUSTOMER` list (else 422 `PRICE_LIST_ASSIGNMENT_INVALID`, `NOT_A_CUSTOMER_LIST`) for `[validFrom, validTo)`. The engine uses it first. The new window replaces what it meets: an earlier assignment ends at `validFrom`, one inside it is archived. To return a customer to the tier, assign with a `validTo`. `Customer.priceList` is the assignment in force now.
 - **`hasBusinessAccount`** is false until wholesale accounts exist (B10).
 - **Not yet:** product images, imports and exports (B04e continued 3, on the file store built in B04e continued 2).
@@ -732,6 +733,14 @@ Categories, units of measure, species, grades, weight bands, products (with imag
 - **Price lists:** `listPriceLists` (filter `kind`, `channel`), `listPriceListVersions` (newest first) and `listPriceListEntries` (filter `productId`, money as integer pesewas). `updatePriceList` renames; `taxInclusive` is fixed once a version has gone for approval (`RECORD_IN_USE`, `PRICED_WITH_THIS_FLAG`). `archivePriceList` is refused while a version is pending or in force now or later (`HAS_LIVE_VERSION`) or a customer is assigned the list (`ASSIGNED_TO_CUSTOMERS`).
 - **`archiveProduct`** is refused while a pending or active price list version prices the product (`RECORD_IN_USE`, `USED_BY_LIVE_PRICES`); the stock check arrives in B5. It publishes `mdm.ProductArchived`; the product's history stays readable.
 
+
+**Changed in B09q** (contract 2.0.0, ADR-0072, A-248 to A-252). What a screen needs to know:
+
+- **The SKU is the server's.** `createProduct` answers the SKU it generated: the category's `skuPrefix` and the next number of that prefix, at least four digits (`EGG-0001`), from a counter that is never reset. A SKU is unique over every product ever made, live or archived, is never given twice and never changes, even when the product moves to another category. Do not send `sku` on `createProduct` or `updateProduct`: any value is 422 `FIELD_SERVER_ASSIGNED` (`/sku`), never ignored. Search finds a product by the start of its SKU (`q=egg-00`).
+- **Categories** answer `skuPrefix` (two to five capital letters) and take it, optionally, on `createCategory` and `updateCategory`; without one it is the first three letters of the code. A changed prefix applies to products created afterwards.
+- **No product barcode.** `barcode` is gone from `Product`, `ProductCreate`, `ProductUpdate`, `ProductLabel` and the planned `OfflineProduct`; sending it in a body is 400 (`UNKNOWN_FIELD`), and `listProducts?barcode=` is 400 rather than the whole catalogue. Labels print text. The meat pack labels keep their barcode.
+- **Imports:** the product sheet's `sku` column names a product to change; leave it blank to create one. A SKU the catalogue does not hold is a row error; a sheet with a `barcode` column fails as having an unknown column.
+- **Public IDs** (ADR-0073, A-253): `Customer`, `CustomerRef`, `CustomerProfile`, `Supplier` and `SupplierRef` answer `publicId` where they answered `customerNo` and `supplierNo`, which are gone from every answer. Show the public ID wherever a customer or a supplier is named to a person; never show the UUID. `listCustomers?q=` and `listSuppliers?q=` find one by its public ID typed any way (case, spaces and hyphens do not matter, O reads as 0, I and L as 1); a sequential number finds nothing. A create or update that sends `publicId` is 400. The customer and supplier sheets name the record to change by `publicId` (blank creates one) and export it.
 
 ### Pricing (`pricing`, 23)
 
@@ -768,6 +777,8 @@ Named levies (VAT, NHIL, GETFund, others), tax categories, scheme versions with 
 ### Stock (`inv`, 50)
 
 **Added in B05x** (1.21.0, A-151): `getStockUnitLabel` returns what a lot or animal label prints (batch or tag, weight, dates, storage class) and a `CODE_128` barcode of `<SKU>/<batch or tag>`, scoped as `getStockUnit`; no image is rendered. INV answers MDM's location usage port (ADR-0051) and publishes `inv.pub_goods_receipt` for the purchases tile.
+
+**Changed in B09q** (2.0.0, ADR-0072, A-251): `getStockUnitLabel` answers its text only (product and SKU, batch or tag, weight, quantity, dates, storage class), with no `barcode`. The meat pack labels below keep theirs.
 
 `listStockOnHand` (valued at cost; returns `totalValueAtCostPesewas`, `valuationMethod` and `asOf`), `listStockAvailability` (on hand less reserved less held), the **append-only movement ledger** (`listStockMovements`, `reverseStockMovement`: a reversal is a new movement, once only, and may need approval), stock units (animals and lots, with `traceStockUnit` for lineage), holds (`createStockHold` only for `QUARANTINE` and `INVESTIGATION`; a withdrawal hold arises only from recording a treatment, and `releaseStockHold` on it is refused with `WITHDRAWAL_CANNOT_BE_RELEASED`), reservations, **stock exceptions** (`listStockExceptions`, `resolveStockException`), goods receipts, transfers with an in-transit stage, adjustments (maker-checker above the threshold), stock takes (counted blind: counters do not see the expected quantity), reorder rules and alerts, and temperature readings (a reading outside the range quarantines the lots in that location). Corrections are never edits. Offline-capable: `recordTemperatureReading`.
 

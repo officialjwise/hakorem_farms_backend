@@ -8,9 +8,19 @@ export type ProductStatus = 'DRAFT' | 'ACTIVE' | 'DISCONTINUED';
 export type GlGroup = 'LIVE_ANIMALS' | 'MEAT' | 'OFFAL' | 'PRODUCE_EGGS' | 'FEED_MEDICATION' | 'SUPPLIES' | 'SERVICE';
 export type UomKind = 'COUNT' | 'WEIGHT' | 'VOLUME';
 
-/** What a user asks for (the contract's `ProductCreate`, already parsed at the boundary). */
+/**
+ * Fields the server assigns and never takes as input (B09q, ADR-0072): a product's SKU is generated at creation from
+ * its category's prefix and never edited. A request that carries one is refused, never silently ignored.
+ */
+export const SERVER_ASSIGNED_PRODUCT_FIELDS = ['sku'] as const;
+
+/** The JSON pointers of the server-assigned fields an input carries (any value, even null or empty), in order. */
+export function serverAssignedFieldsIn(input: object): string[] {
+  return SERVER_ASSIGNED_PRODUCT_FIELDS.filter((field) => Object.prototype.hasOwnProperty.call(input, field)).map((field) => `/${field}`);
+}
+
+/** What a user asks for (the contract's `ProductCreate`, already parsed at the boundary). The SKU is the server's. */
 export interface ProductDraft {
-  readonly sku: string;
   readonly name: string;
   readonly categoryId: string;
   readonly stockPolicy: StockPolicy;
@@ -25,7 +35,6 @@ export interface ProductDraft {
   readonly shelfLifeDays?: number | undefined;
   readonly storageTempClass?: TempClass | undefined;
   readonly withdrawalDays?: number | undefined;
-  readonly barcode?: string | undefined;
   readonly description?: string | undefined;
   readonly onlineMode: OnlineMode;
   readonly seo?: { readonly slug?: string | undefined; readonly title?: string | undefined; readonly description?: string | undefined } | undefined;
@@ -44,9 +53,8 @@ export interface ProductReferences {
   readonly units: ReadonlyMap<string, UomKind>;
 }
 
-/** A product ready to store: every derived field filled in, decimals normalised. */
+/** A product ready to store: every derived field filled in, decimals normalised. Its SKU is allocated on insert. */
 export interface ProductDefinition {
-  readonly sku: string;
   readonly name: string;
   readonly categoryId: string;
   readonly stockPolicy: StockPolicy;
@@ -62,7 +70,6 @@ export interface ProductDefinition {
   readonly shelfLifeDays: number | null;
   readonly storageTempClass: TempClass | null;
   readonly withdrawalDays: number | null;
-  readonly barcode: string | null;
   readonly description: string | null;
   readonly onlineMode: OnlineMode;
   readonly seoSlug: string | null;
@@ -171,7 +178,6 @@ export function defineProduct(draft: ProductDraft, references: ProductReferences
   }
 
   return ok({
-    sku: draft.sku,
     name: draft.name,
     categoryId: draft.categoryId,
     stockPolicy: policy,
@@ -186,7 +192,6 @@ export function defineProduct(draft: ProductDraft, references: ProductReferences
     shelfLifeDays: draft.shelfLifeDays ?? null,
     storageTempClass: draft.storageTempClass ?? null,
     withdrawalDays: draft.withdrawalDays ?? null,
-    barcode: draft.barcode ?? null,
     description: draft.description ?? null,
     onlineMode: draft.onlineMode,
     seoSlug: draft.seo?.slug ?? null,

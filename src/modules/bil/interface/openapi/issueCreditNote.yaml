@@ -61,7 +61,7 @@ responses:
           provisionalRef: null
           customer:
             id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-            customerNo: C-00042
+            publicId: cus_TWMB751S2DFXTAM8
             name: "Royal Palm Hotel Ltd"
           customerName: "Royal Palm Hotel Ltd"
           customerTin: C0034412290
@@ -98,7 +98,7 @@ responses:
               lineKind: PRODUCT
               product:
                 id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                sku: EGG-BIG
+                sku: EGG-0003
                 name: "Eggs, big, crate of 30"
               description: "Eggs, big, crate of 30: broken in delivery"
               stockUnit: null

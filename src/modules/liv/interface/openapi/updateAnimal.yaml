@@ -59,7 +59,7 @@ responses:
             name: Goat
           product:
             id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-            sku: LIV-GOAT
+            sku: LIV-0004
             name: Goat
           breed: "West African Dwarf"
           sex: MALE
@@ -68,7 +68,7 @@ responses:
           source: PURCHASE
           supplier:
             id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-            supplierNo: S-0012
+            publicId: sup_VX48894JEAGQEB4Y
             name: "Kpone Livestock Traders"
           dam: null
           sire: null

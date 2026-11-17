@@ -28,11 +28,11 @@ export const SEED_TRADING_DAY = {
   online: { contactName: 'Efua Asante (SEED)', contactPhone: '+233200000301' },
   /** What the day takes off the farm's hand count, by location and SKU. */
   sold: [
-    { location: 'PENS', sku: 'LIV-GOAT', qty: '1.000' },
-    { location: 'SHOP', sku: 'EGG-CRATE-BIG', qty: '3.000' },
-    { location: 'SHOP', sku: 'PRD-CABBAGE-HEAD', qty: '3.000' },
-    { location: 'COLD', sku: 'MEAT-GOAT-15KG', qty: '3.500' },
-    { location: 'SHOP', sku: 'PRD-YAM-TUBER', qty: '4.000' },
+    { location: 'PENS', sku: 'LIV-0004', qty: '1.000' },
+    { location: 'SHOP', sku: 'EGG-0003', qty: '3.000' },
+    { location: 'SHOP', sku: 'PRD-0002', qty: '3.000' },
+    { location: 'COLD', sku: 'MEAT-0007', qty: '3.500' },
+    { location: 'SHOP', sku: 'PRD-0005', qty: '4.000' },
   ],
 } as const;
 
@@ -57,7 +57,7 @@ export function farmSeedOrd(calendar: (app: INestApplicationContext) => SeedCale
       const product = (sku: string) => one('SELECT id FROM mdm.product WHERE sku = $1', sku);
       const unit = (identifier: string) => one('SELECT id FROM inv.stock_unit WHERE identifier = $1', identifier);
       const [pens, shop, cold] = [await location('PENS'), await location('SHOP'), await location('COLD')];
-      const [goat, eggs, cabbage, meat, yam] = [await product('LIV-GOAT'), await product('EGG-CRATE-BIG'), await product('PRD-CABBAGE-HEAD'), await product('MEAT-GOAT-15KG'), await product('PRD-YAM-TUBER')];
+      const [goat, eggs, cabbage, meat, yam] = [await product('LIV-0004'), await product('EGG-0003'), await product('PRD-0002'), await product('MEAT-0007'), await product('PRD-0005')];
       const [g0142, eggLot, meatLot] = [await unit('G-0142'), await unit('EGG-BIG-2026-1110'), await unit('LOT-GOAT-0001')];
       const till = SEED_TRADING_DAY.till;
       const nextId = createUuidV7Generator(clock);

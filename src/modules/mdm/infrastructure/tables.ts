@@ -85,7 +85,6 @@ export const product = mdm.table('product', {
   shelfLifeDays: integer('shelf_life_days'),
   storageTempClass: text('storage_temp_class'),
   withdrawalDays: integer('withdrawal_days'),
-  barcode: text('barcode'),
   description: text('description'),
   onlineMode: text('online_mode').notNull(),
   seoSlug: text('seo_slug'),

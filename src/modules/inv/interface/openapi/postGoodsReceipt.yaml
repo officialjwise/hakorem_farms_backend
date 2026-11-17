@@ -52,7 +52,7 @@ responses:
           status: POSTED
           supplier:
             id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-            supplierNo: S-0012
+            publicId: sup_VX48894JEAGQEB4Y
             name: "Kpone Livestock Traders"
           location:
             id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
@@ -71,7 +71,7 @@ responses:
               lineNo: 1
               product:
                 id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                sku: LIV-GOAT
+                sku: LIV-0004
                 name: Goat
               purchaseOrderLineId: "019a7ab3-fc1b-74dc-9a14-5694b302cf72"
               qtyReceived: "4.000"

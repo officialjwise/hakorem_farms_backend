@@ -22,3 +22,14 @@ export interface ServiceSeedUnit {
   readonly name: string;
   run(app: INestApplicationContext): Promise<{ readonly records: number }>;
 }
+
+/**
+ * The seed names each product by the SKU the server gives it in seed order (B09q, ADR-0072), since a SKU is never
+ * sent. A product that came back with another one means the catalogue held products of that prefix before the seed
+ * ran, and every later seed unit would find the wrong product: stop with what to do instead.
+ */
+export function expectSeededSku(given: string, expected: string): void {
+  if (given !== expected) {
+    throw new Error(`the seed expected the server to give SKU ${expected} and it gave ${given}: seed a fresh database, whose SKU counters start at 1`);
+  }
+}

@@ -62,7 +62,7 @@ responses:
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                   product:
                     id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                    sku: LIV-GOAT
+                    sku: LIV-0004
                     name: Goat
                   stockUnit:
                     id: "019a7a8f-bc07-7e4c-9384-ed921796666f"
@@ -95,7 +95,7 @@ responses:
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                   product:
                     id: "019a7a8e-a5a0-754c-8a85-5d9ed05dd67c"
-                    sku: PRD-YAM
+                    sku: PRD-0005
                     name: "Yam, tuber"
                   stockUnit: null
                   location:
@@ -125,7 +125,7 @@ responses:
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                   product:
                     id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                    sku: LIV-GOAT
+                    sku: LIV-0004
                     name: Goat
                   stockUnit:
                     id: "019a7a8f-9d18-7468-89a0-4f5a9de5c838"
@@ -158,7 +158,7 @@ responses:
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                   product:
                     id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                    sku: MEAT-BEEF
+                    sku: MEAT-0005
                     name: "Beef, 15 kg pack"
                   stockUnit:
                     id: "019a7a91-2f3b-74f5-9a2d-582bcbe2d109"
@@ -191,7 +191,7 @@ responses:
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                   product:
                     id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
-                    sku: MEAT-GOAT
+                    sku: MEAT-0007
                     name: "Goat meat, 15 kg pack"
                   stockUnit:
                     id: "019a7a90-f15d-712e-b666-1bbcd880949a"
@@ -229,7 +229,7 @@ responses:
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                   product:
                     id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                    sku: EGG-BIG
+                    sku: EGG-0003
                     name: "Eggs, big, crate of 30"
                   stockUnit:
                     id: "019a7a91-6d19-78bc-bdf4-949abf440d78"

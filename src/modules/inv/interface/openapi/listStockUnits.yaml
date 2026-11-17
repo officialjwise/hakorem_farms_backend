@@ -103,7 +103,7 @@ responses:
                 - id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
                   product:
                     id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                    sku: LIV-GOAT
+                    sku: LIV-0004
                     name: Goat
                   tracking: SERIAL
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
@@ -119,7 +119,7 @@ responses:
                   storageTempClass: null
                   supplier:
                     id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                    supplierNo: S-0012
+                    publicId: sup_VX48894JEAGQEB4Y
                     name: "Kpone Livestock Traders"
                   grade:
                     id: "019a7a8c-d59f-70f8-9631-185eaefe913c"
@@ -142,7 +142,7 @@ responses:
                 - id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
                   product:
                     id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                    sku: LIV-GOAT
+                    sku: LIV-0004
                     name: Goat
                   tracking: SERIAL
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
@@ -181,7 +181,7 @@ responses:
                 - id: "019a7a8f-9d18-7468-89a0-4f5a9de5c838"
                   product:
                     id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                    sku: LIV-GOAT
+                    sku: LIV-0004
                     name: Goat
                   tracking: SERIAL
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
@@ -218,7 +218,7 @@ responses:
                 - id: "019a7a90-f15d-712e-b666-1bbcd880949a"
                   product:
                     id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
-                    sku: MEAT-GOAT
+                    sku: MEAT-0007
                     name: "Goat meat, 15 kg pack"
                   tracking: LOT
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
@@ -251,7 +251,7 @@ responses:
                 - id: "019a7a91-104c-7b12-804a-b9f4523132d2"
                   product:
                     id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                    sku: MEAT-CHK-FULL
+                    sku: MEAT-0001
                     name: "Full chicken, 15 kg pack"
                   tracking: LOT
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
@@ -267,7 +267,7 @@ responses:
                   storageTempClass: FROZEN
                   supplier:
                     id: "019a7a89-16ae-7e6d-a3a5-efa6f28f6884"
-                    supplierNo: S-0019
+                    publicId: sup_TGKEXYTAZ99G0NNC
                     name: "Awutu Poultry Farm"
                   grade: null
                   lastWeightKg: "142.800"
@@ -287,7 +287,7 @@ responses:
                 - id: "019a7a91-2f3b-74f5-9a2d-582bcbe2d109"
                   product:
                     id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                    sku: MEAT-BEEF
+                    sku: MEAT-0005
                     name: "Beef, 15 kg pack"
                   tracking: LOT
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
@@ -303,7 +303,7 @@ responses:
                   storageTempClass: FROZEN
                   supplier:
                     id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                    supplierNo: S-0012
+                    publicId: sup_VX48894JEAGQEB4Y
                     name: "Kpone Livestock Traders"
                   grade: null
                   lastWeightKg: "88.200"
@@ -323,7 +323,7 @@ responses:
                 - id: "019a7a91-4e2a-7ed9-a411-f66345936f41"
                   product:
                     id: "019a7a8d-704a-726a-a7a2-2f740f73a851"
-                    sku: LIV-BROILER
+                    sku: LIV-0001
                     name: "Broiler chicken"
                   tracking: LOT
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"

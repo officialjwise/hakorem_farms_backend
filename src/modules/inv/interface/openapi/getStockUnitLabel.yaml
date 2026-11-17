@@ -2,7 +2,7 @@ operationId: getStockUnitLabel
 tags:
   - inv
 summary: "What a lot or animal label prints"
-description: "The data a lot or animal label prints, for the client to draw and print (no image is rendered here): the product, the batch (`lotNo`) or tag (`tagNo`), the weight (a lot's weight on hand, summed over where it stands; an animal's last recorded weight, with when), the quantity on hand, production and expiry dates, storage class, and the barcode: `CODE_128` of the SKU and the batch or tag joined by `/` (a SKU never holds a `/`). Scoped as `getStockUnit` is. Pack labels made by a processing order are `printPackLabels` (B6).\n\nPermission: `inv.stock.read`."
+description: "The data a lot or animal label prints, for the client to draw and print (no image is rendered here): the product, the batch (`lotNo`) or tag (`tagNo`), the weight (a lot's weight on hand, summed over where it stands; an animal's last recorded weight, with when), the quantity on hand, production and expiry dates and storage class, as text. **No barcode from 2.0.0** (owner 2026-11-17, ADR-0072). Scoped as `getStockUnit` is. Pack labels made by a processing order are `printPackLabels` (B6).\n\nPermission: `inv.stock.read`."
 x-permission: inv.stock.read
 x-error-codes:
   - VALIDATION_FAILED
@@ -38,7 +38,7 @@ responses:
             tracking: LOT
           product:
             id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-            sku: MEAT-BEEF-15KG
+            sku: MEAT-0005
             name: "Beef, 15 kg pack"
           branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
           kind: LOT
@@ -52,10 +52,6 @@ responses:
           producedOn: "2026-11-09"
           expiresOn: "2027-02-08"
           storageTempClass: FROZEN
-          barcode:
-            symbology: CODE_128
-            payload: MEAT-BEEF-15KG/LOT-BEEF-2026-1110
-            text: MEAT-BEEF-15KG/LOT-BEEF-2026-1110
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

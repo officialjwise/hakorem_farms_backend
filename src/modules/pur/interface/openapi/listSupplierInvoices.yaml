@@ -79,7 +79,7 @@ responses:
                   status: APPROVED
                   supplier:
                     id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
-                    supplierNo: S-0007
+                    publicId: sup_ZYRYFMWJT8SJ9ZYY
                     name: "Ashanti Feeds Ltd"
                   supplierInvoiceNo: "88120"
                   invoiceDate: "2026-11-11"
@@ -109,7 +109,7 @@ responses:
                       lineNo: 1
                       product:
                         id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
-                        sku: FD-BRL-FIN
+                        sku: FEED-0004
                         name: "Broiler finisher feed, 50 kg bag"
                       description: "Broiler finisher feed, 50 kg bag"
                       purchaseOrderLineId: "019a7ab3-fc1b-74dc-9a14-5694b302cf72"
@@ -141,7 +141,7 @@ responses:
                   status: PAID
                   supplier:
                     id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                    supplierNo: S-0012
+                    publicId: sup_VX48894JEAGQEB4Y
                     name: "Kpone Livestock Traders"
                   supplierInvoiceNo: KLT-1193
                   invoiceDate: "2026-11-10"
@@ -171,7 +171,7 @@ responses:
                       lineNo: 1
                       product:
                         id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                        sku: LIV-GOAT
+                        sku: LIV-0004
                         name: Goat
                       description: Goat
                       purchaseOrderLineId: "019a7ab4-d4a4-7a14-8f4c-aa1906d922f6"
@@ -203,7 +203,7 @@ responses:
                   status: MISMATCH
                   supplier:
                     id: "019a7a89-16ae-7e6d-a3a5-efa6f28f6884"
-                    supplierNo: S-0019
+                    publicId: sup_TGKEXYTAZ99G0NNC
                     name: "Awutu Poultry Farm"
                   supplierInvoiceNo: AWT-0457
                   invoiceDate: "2026-11-09"
@@ -233,7 +233,7 @@ responses:
                       lineNo: 1
                       product:
                         id: "019a7a8d-704a-726a-a7a2-2f740f73a851"
-                        sku: LIV-BROILER
+                        sku: LIV-0001
                         name: "Broiler chicken"
                       description: "Broiler chicken"
                       purchaseOrderLineId: "019a7ab5-5060-71a2-86da-22f6ed9d9bd4"
@@ -266,7 +266,7 @@ responses:
                   status: PAID
                   supplier:
                     id: "019a7a89-359d-7850-bd89-8dde6c4006bc"
-                    supplierNo: S-0021
+                    publicId: sup_WA2VZH2KWSQ9T65K
                     name: "Dodowa Vegetable Growers Cooperative"
                   supplierInvoiceNo: DVG-221
                   invoiceDate: "2026-11-08"
@@ -296,7 +296,7 @@ responses:
                       lineNo: 1
                       product:
                         id: "019a7a8e-86b1-7b69-b0a1-bf6756ac3845"
-                        sku: PRD-TOMATO
+                        sku: PRD-0001
                         name: "Tomatoes, crate"
                       description: "Tomatoes, crate"
                       purchaseOrderLineId: "019a7acb-2f5b-7f75-94ae-002ff7c2790d"
@@ -328,7 +328,7 @@ responses:
                   status: DRAFT
                   supplier:
                     id: "019a7a88-f7bf-7489-99c2-516f78deca4d"
-                    supplierNo: S-0003
+                    publicId: sup_1PPM6BKHGYQVKH7C
                     name: "Agrivet Ghana Ltd"
                   supplierInvoiceNo: AGV-55012
                   invoiceDate: "2026-11-07"
@@ -358,7 +358,7 @@ responses:
                       lineNo: 1
                       product:
                         id: "019a7a8f-026d-72f7-b82f-38453d70b123"
-                        sku: VET-OXYTET
+                        sku: FEED-0005
                         name: "Oxytetracycline 20% injection, 100 ml"
                       description: "Oxytetracycline 20% injection, 100 ml"
                       purchaseOrderLineId: "019a7ab5-eb0b-7313-984b-3a0c4e12b2ea"
@@ -390,7 +390,7 @@ responses:
                   status: APPROVED
                   supplier:
                     id: "019a7a89-548c-7234-876c-2c15e5f1a4f3"
-                    supplierNo: S-0025
+                    publicId: sup_EGGMDK5A8FPXWHQG
                     name: "Tema Packaging Supplies"
                   supplierInvoiceNo: TPS-3310
                   invoiceDate: "2026-11-06"

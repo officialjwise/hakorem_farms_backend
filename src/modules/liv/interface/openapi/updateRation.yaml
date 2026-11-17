@@ -57,7 +57,7 @@ responses:
             name: "Broiler chicken"
           feedProduct:
             id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
-            sku: FD-BRL-FIN
+            sku: FEED-0004
             name: "Broiler finisher feed, 50 kg bag"
           qtyPerHeadPerDay: "0.001"
           uom: BAG

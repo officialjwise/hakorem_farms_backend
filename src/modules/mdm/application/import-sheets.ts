@@ -88,15 +88,15 @@ export class CustomerSheet implements EntitySheet<readonly CustomerPlanRow[]> {
       errors.push(...result.errors);
       return result.row;
     });
-    errors.push(...duplicateErrors(read, 'phone', (row) => row.phone), ...duplicateErrors(read, 'customerNo', (row) => row.customerNo));
+    errors.push(...duplicateErrors(read, 'phone', (row) => row.phone), ...duplicateErrors(read, 'publicId', (row) => row.publicId));
     const tiers = new Map<string, string | null>();
     const plan: CustomerPlanRow[] = [];
     for (const row of read) {
       let target: CustomerPlanRow['target'] = null;
-      if (row.customerNo !== null) {
-        const existing = await this.store.customerByNo(tx, row.customerNo);
-        if (existing === null) errors.push({ rowNo: row.rowNo, column: 'customerNo', message: `No customer ${row.customerNo}` });
-        else if (existing.status === 'ANONYMISED') errors.push({ rowNo: row.rowNo, column: 'customerNo', message: `Customer ${row.customerNo} is anonymised and cannot change` });
+      if (row.publicId !== null) {
+        const existing = await this.store.customerByPublicId(tx, row.publicId);
+        if (existing === null) errors.push({ rowNo: row.rowNo, column: 'publicId', message: `No customer ${row.publicId}` });
+        else if (existing.status === 'ANONYMISED') errors.push({ rowNo: row.rowNo, column: 'publicId', message: `Customer ${row.publicId} is anonymised and cannot change` });
         else {
           target = { id: existing.id, version: existing.version };
           if (row.kind !== null && row.kind !== existing.kind) errors.push({ rowNo: row.rowNo, column: 'kind', message: "A customer's kind cannot change by import" });
@@ -104,7 +104,7 @@ export class CustomerSheet implements EntitySheet<readonly CustomerPlanRow[]> {
       }
       if (row.phone !== null) {
         const holder = await this.parties.phoneHolder(tx, row.phone);
-        if (holder !== null && holder.id !== target?.id) errors.push({ rowNo: row.rowNo, column: 'phone', message: `Phone number already belongs to customer ${holder.customerNo}` });
+        if (holder !== null && holder.id !== target?.id) errors.push({ rowNo: row.rowNo, column: 'phone', message: `Phone number already belongs to customer ${holder.publicId}` });
       }
       let tierId: string | undefined;
       if (row.tierCode !== null) {
@@ -115,7 +115,7 @@ export class CustomerSheet implements EntitySheet<readonly CustomerPlanRow[]> {
       }
       plan.push({ row, target, tierId });
     }
-    const toUpdate = plan.filter((entry) => entry.row.customerNo !== null).length;
+    const toUpdate = plan.filter((entry) => entry.row.publicId !== null).length;
     return { errors, toCreate: plan.length - toUpdate, toUpdate, plan };
   }
 
@@ -136,7 +136,7 @@ export class CustomerSheet implements EntitySheet<readonly CustomerPlanRow[]> {
       const page = await this.store.customers(tx, {}, now, after, EXPORT_PAGE);
       for (const customer of page) {
         if (customer.status === 'ANONYMISED') continue;
-        rows.push([customer.customerNo, customer.kind, customer.name, customer.phone ?? '', customer.email ?? '', customer.tier.code]);
+        rows.push([customer.publicId, customer.kind, customer.name, customer.phone ?? '', customer.email ?? '', customer.tier.code]);
       }
       if (page.length < EXPORT_PAGE) return rows;
       after = page.at(-1)!.id;

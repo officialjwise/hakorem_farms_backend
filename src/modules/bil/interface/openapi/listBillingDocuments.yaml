@@ -115,7 +115,7 @@ responses:
                       lineKind: PRODUCT
                       product:
                         id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                        sku: LIV-GOAT
+                        sku: LIV-0004
                         name: Goat
                       description: Goat
                       stockUnit:
@@ -159,7 +159,7 @@ responses:
                       lineKind: PRODUCT
                       product:
                         id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                        sku: EGG-BIG
+                        sku: EGG-0003
                         name: "Eggs, big, crate of 30"
                       description: "Eggs, big, crate of 30"
                       stockUnit:
@@ -203,7 +203,7 @@ responses:
                       lineKind: PRODUCT
                       product:
                         id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                        sku: MEAT-BEEF
+                        sku: MEAT-0005
                         name: "Beef, 15 kg pack"
                       description: "Beef, 15 kg pack"
                       stockUnit:
@@ -266,7 +266,7 @@ responses:
                   provisionalRef: null
                   customer:
                     id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                    customerNo: C-00042
+                    publicId: cus_TWMB751S2DFXTAM8
                     name: "Royal Palm Hotel Ltd"
                   customerName: "Royal Palm Hotel Ltd"
                   customerTin: C0034412290
@@ -300,7 +300,7 @@ responses:
                       lineKind: PRODUCT
                       product:
                         id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                        sku: MEAT-CHK-FULL
+                        sku: MEAT-0001
                         name: "Full chicken, 15 kg pack"
                       description: "Full chicken, 15 kg pack"
                       stockUnit:
@@ -344,7 +344,7 @@ responses:
                       lineKind: PRODUCT
                       product:
                         id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                        sku: MEAT-BEEF
+                        sku: MEAT-0005
                         name: "Beef, 15 kg pack"
                       description: "Beef, 15 kg pack"
                       stockUnit:
@@ -388,7 +388,7 @@ responses:
                       lineKind: PRODUCT
                       product:
                         id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                        sku: EGG-BIG
+                        sku: EGG-0003
                         name: "Eggs, big, crate of 30"
                       description: "Eggs, big, crate of 30"
                       stockUnit: null
@@ -448,7 +448,7 @@ responses:
                   provisionalRef: null
                   customer:
                     id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                    customerNo: C-00042
+                    publicId: cus_TWMB751S2DFXTAM8
                     name: "Royal Palm Hotel Ltd"
                   customerName: "Royal Palm Hotel Ltd"
                   customerTin: C0034412290
@@ -485,7 +485,7 @@ responses:
                       lineKind: PRODUCT
                       product:
                         id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                        sku: EGG-BIG
+                        sku: EGG-0003
                         name: "Eggs, big, crate of 30"
                       description: "Eggs, big, crate of 30: broken in delivery"
                       stockUnit: null
@@ -545,7 +545,7 @@ responses:
                   provisionalRef: null
                   customer:
                     id: "019a7a87-659c-73fc-8935-489e4ae1c17c"
-                    customerNo: C-00118
+                    publicId: cus_2NWSQJT4E1ZWRRC1
                     name: "Ama Serwaa Ofori"
                   customerName: "Ama Serwaa Ofori"
                   customerTin: null
@@ -579,7 +579,7 @@ responses:
                       lineKind: PRODUCT
                       product:
                         id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                        sku: MEAT-CHK-FULL
+                        sku: MEAT-0001
                         name: "Full chicken, 15 kg pack"
                       description: "Full chicken, 15 kg pack: weighed 14.650 kg"
                       stockUnit:
@@ -623,7 +623,7 @@ responses:
                       lineKind: DELIVERY_FEE
                       product:
                         id: "019a7a8f-404b-76be-9bf6-74b430d2ed92"
-                        sku: SVC-DELIVERY
+                        sku: SVC-0001
                         name: Delivery
                       description: "Delivery, Accra East"
                       stockUnit: null
@@ -683,7 +683,7 @@ responses:
                   provisionalRef: null
                   customer:
                     id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                    customerNo: C-00241
+                    publicId: cus_GY1HV6CSTTCCM2Y2
                     name: "Emmanuel Tetteh"
                   customerName: "Emmanuel Tetteh"
                   customerTin: null
@@ -717,7 +717,7 @@ responses:
                       lineKind: PRODUCT
                       product:
                         id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                        sku: LIV-GOAT
+                        sku: LIV-0004
                         name: Goat
                       description: "Goats, 22 to 28 kg, for funeral, delivered to Kasoa"
                       stockUnit: null
@@ -758,7 +758,7 @@ responses:
                       lineKind: DELIVERY_FEE
                       product:
                         id: "019a7a8f-404b-76be-9bf6-74b430d2ed92"
-                        sku: SVC-DELIVERY
+                        sku: SVC-0001
                         name: Delivery
                       description: "Delivery, Kasoa"
                       stockUnit: null
@@ -818,7 +818,7 @@ responses:
                   provisionalRef: P-T2-311-0042
                   customer:
                     id: "019a7a87-a37a-77c3-acfc-850d3e43fdeb"
-                    customerNo: C-00207
+                    publicId: cus_3QC5Q34ZGBQK2SC8
                     name: "Kofi Agyeman"
                   customerName: "Kofi Agyeman"
                   customerTin: null
@@ -852,7 +852,7 @@ responses:
                       lineKind: PRODUCT
                       product:
                         id: "019a7a8e-86b1-7b69-b0a1-bf6756ac3845"
-                        sku: PRD-TOMATO
+                        sku: PRD-0001
                         name: "Tomatoes, crate"
                       description: "Tomatoes, crate"
                       stockUnit: null
@@ -893,7 +893,7 @@ responses:
                       lineKind: PRODUCT
                       product:
                         id: "019a7a8e-a5a0-754c-8a85-5d9ed05dd67c"
-                        sku: PRD-YAM
+                        sku: PRD-0005
                         name: "Yam, tuber"
                       description: "Yam, tuber"
                       stockUnit: null

@@ -32,7 +32,7 @@ beforeAll(async () => {
   await runSeedUnits(database.pool('app'), api.app, seedUnits({ SEED_STAFF_PASSWORD: `Seed-${randomUUID()}` }));
   const admin = database.pool('admin');
   const branchId = (await admin.query<{ id: string }>("SELECT id FROM mdm.branch WHERE code = 'DDW'")).rows[0]!.id;
-  cabbage = (await admin.query<{ id: string }>("SELECT id FROM mdm.product WHERE sku = 'PRD-CABBAGE-HEAD'")).rows[0]!.id;
+  cabbage = (await admin.query<{ id: string }>("SELECT id FROM mdm.product WHERE sku = 'PRD-0002'")).rows[0]!.id;
   tema = (await admin.query<{ id: string }>("SELECT id FROM mdm.customer WHERE name = 'Tema Cold Store Ltd (SEED)'")).rows[0]!.id;
   sales = await login(api.server, await createUser(database, { name: 'Kojo Antwi', grants: [{ role: 'SALES', branchId }] }));
   cashier = await login(api.server, await createUser(database, { name: 'Adwoa Darko', grants: [{ role: 'CASHIER', branchId }] }));

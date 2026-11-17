@@ -124,7 +124,7 @@ export interface SalesOrderView {
   readonly channel: OrderHeaderRecord['channel'];
   readonly status: OrderStatus;
   readonly paymentStatus: PaymentStatus;
-  readonly customer: { readonly id: string; readonly customerNo: string; readonly name: string } | null;
+  readonly customer: { readonly id: string; readonly publicId: string; readonly name: string } | null;
   readonly contactName: string | null;
   readonly contactPhone: string | null;
   readonly paymentTerms: OrderHeaderRecord['paymentTerms'];
@@ -730,7 +730,7 @@ export class Orders {
         channel: o.channel,
         status: o.status,
         paymentStatus: money.paymentStatus,
-        customer: customer === undefined ? null : { id: customer.id, customerNo: customer.customerNo, name: customer.name },
+        customer: customer === undefined ? null : { id: customer.id, publicId: customer.publicId, name: customer.name },
         contactName: o.contactName,
         contactPhone: o.contactPhone,
         paymentTerms: o.paymentTerms,

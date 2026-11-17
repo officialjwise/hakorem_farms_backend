@@ -75,7 +75,7 @@ responses:
               lineNo: 1
               product:
                 id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
-                sku: MEAT-GOAT
+                sku: MEAT-0007
                 name: "Goat meat, 15 kg pack"
               stockUnit:
                 id: "019a7a90-f15d-712e-b666-1bbcd880949a"

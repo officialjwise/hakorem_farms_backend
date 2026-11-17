@@ -24,7 +24,7 @@ const ADDRESS_UPDATABLE: ReadonlySet<string> = new Set([
 
 /** `$1` is the instant the assigned list is read at. */
 const CUSTOMER_SELECT = `
-  SELECT c.id, c.customer_no, c.kind, c.name, c.phone_e164, c.email, c.principal_id IS NOT NULL AS has_login, c.tin_enc,
+  SELECT c.id, c.public_id, c.kind, c.name, c.phone_e164, c.email, c.principal_id IS NOT NULL AS has_login, c.tin_enc,
          c.marketing_consent_at, c.status, c.deleted_at IS NOT NULL AS archived, c.version, c.created_at, c.updated_at,
          t.id AS tier_id, t.code AS tier_code, t.name AS tier_name,
          l.id AS list_id, l.code AS list_code, l.name AS list_name,
@@ -42,7 +42,7 @@ const ADDRESS_SELECT = `
 
 interface CustomerRow {
   id: string;
-  customer_no: string;
+  public_id: string;
   kind: CustomerRecord['kind'];
   name: string;
   phone_e164: string | null;
@@ -67,7 +67,7 @@ interface CustomerRow {
 function toCustomer(row: CustomerRow): CustomerRecord {
   return {
     id: row.id,
-    customerNo: row.customer_no,
+    publicId: row.public_id,
     kind: row.kind,
     name: row.name,
     phone: row.phone_e164,
@@ -198,9 +198,9 @@ export class PgPartiesStore implements PartiesStore {
         WHERE c.deleted_at IS NULL
           AND ($2::text IS NULL OR c.name ILIKE '%' || $2 || '%') AND ($3::bytea IS NULL OR c.phone_hash = $3)
           AND ($4::text IS NULL OR c.kind = $4) AND ($5::uuid IS NULL OR c.tier_id = $5) AND ($6::text IS NULL OR c.status = $6)
-          AND ($7::uuid IS NULL OR c.id > $7)
+          AND ($7::uuid IS NULL OR c.id > $7) AND ($9::text IS NULL OR c.public_id = $9)
         ORDER BY c.id LIMIT $8`,
-      [at, f.name === undefined ? null : escapeLike(f.name), f.phoneHash ?? null, f.kind ?? null, f.tierId ?? null, f.status ?? null, afterId, limit],
+      [at, f.name === undefined ? null : escapeLike(f.name), f.phoneHash ?? null, f.kind ?? null, f.tierId ?? null, f.status ?? null, afterId, limit, f.publicId ?? null],
     );
     return rows.map(toCustomer);
   }
@@ -210,24 +210,24 @@ export class PgPartiesStore implements PartiesStore {
     return rows.length > 0;
   }
 
-  async customerByPhoneHash(tx: Transaction, phoneHash: Buffer): Promise<{ id: string; customerNo: string } | null> {
-    const { rows } = await tx.query<{ id: string; customer_no: string }>('SELECT id, customer_no FROM mdm.customer WHERE phone_hash = $1 AND deleted_at IS NULL', [phoneHash]);
-    return rows.length === 0 ? null : { id: rows[0]!.id, customerNo: rows[0]!.customer_no };
+  async customerByPhoneHash(tx: Transaction, phoneHash: Buffer): Promise<{ id: string; publicId: string } | null> {
+    const { rows } = await tx.query<{ id: string; public_id: string }>('SELECT id, public_id FROM mdm.customer WHERE phone_hash = $1 AND deleted_at IS NULL', [phoneHash]);
+    return rows.length === 0 ? null : { id: rows[0]!.id, publicId: rows[0]!.public_id };
   }
 
-  async customerByNo(tx: Transaction, customerNo: string): Promise<{ id: string; kind: CustomerKind; status: CustomerStatus; version: number } | null> {
+  async customerByPublicId(tx: Transaction, publicId: string): Promise<{ id: string; kind: CustomerKind; status: CustomerStatus; version: number } | null> {
     const { rows } = await tx.query<{ id: string; kind: CustomerKind; status: CustomerStatus; version: number }>(
-      'SELECT id, kind, status, version FROM mdm.customer WHERE customer_no = $1 AND deleted_at IS NULL',
-      [customerNo],
+      'SELECT id, kind, status, version FROM mdm.customer WHERE public_id = $1 AND deleted_at IS NULL',
+      [publicId],
     );
     return rows[0] ?? null;
   }
 
   async insertCustomer(tx: Transaction, id: string, w: CustomerWrite, actorId: string): Promise<void> {
     await tx.query(
-      `INSERT INTO mdm.customer (id, customer_no, kind, name, phone_e164, phone_hash, email, tier_id, tin_enc, marketing_consent_at, status, created_by, updated_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'ACTIVE', $11, $11)`,
-      [id, w.customerNo, w.kind, w.name, w.phone, w.phoneHash, w.email, w.tierId, w.tinEnc, w.marketingConsentAt, actorId],
+      `INSERT INTO mdm.customer (id, customer_no, public_id, kind, name, phone_e164, phone_hash, email, tier_id, tin_enc, marketing_consent_at, status, created_by, updated_by)
+       VALUES ($1, $2, $12, $3, $4, $5, $6, $7, $8, $9, $10, 'ACTIVE', $11, $11)`,
+      [id, w.customerNo, w.kind, w.name, w.phone, w.phoneHash, w.email, w.tierId, w.tinEnc, w.marketingConsentAt, actorId, w.publicId],
     );
   }
 

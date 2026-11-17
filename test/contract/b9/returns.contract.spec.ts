@@ -37,7 +37,7 @@ beforeAll(async () => {
   await runSeedUnits(database.pool('app'), api.app, seedUnits({ SEED_STAFF_PASSWORD: `Seed-${randomUUID()}` }));
   const admin = database.pool('admin');
   branchId = (await admin.query<{ id: string }>("SELECT id FROM mdm.branch WHERE code = 'DDW'")).rows[0]!.id;
-  yam = (await admin.query<{ id: string }>("SELECT id FROM mdm.product WHERE sku = 'PRD-YAM-TUBER'")).rows[0]!.id;
+  yam = (await admin.query<{ id: string }>("SELECT id FROM mdm.product WHERE sku = 'PRD-0005'")).rows[0]!.id;
   shop = (await admin.query<{ id: string }>("SELECT id FROM mdm.location WHERE branch_id = $1 AND code = 'SHOP'", [branchId])).rows[0]!.id;
   const cashierUser = await createUser(database, { name: 'Adwoa Darko', grants: [{ role: 'CASHIER', branchId }] });
   cashierId = cashierUser.principalId;

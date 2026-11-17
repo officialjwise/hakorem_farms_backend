@@ -10,6 +10,8 @@ registerMessages({
   'mdm.stock_policy_rule': 'This value does not fit the stock-keeping policy.',
   'mdm.duplicate_value': 'Another product already uses this value.',
   'mdm.duplicate_field': 'Already in use.',
+  'mdm.field_server_assigned': 'This value is given by the system and cannot be sent.',
+  'mdm.field_server_assigned_field': 'Given by the system: leave it out.',
 });
 
 function details(fields: readonly FieldRule[], messageKey: string): ErrorDetail[] {
@@ -36,7 +38,20 @@ export class StockPolicyConflictError extends BusinessRuleError {
   }
 }
 
-/** 422: a unique value (SKU, barcode, storefront slug) is already used by another live product. */
+/**
+ * 422: the request carries a field the server assigns and never takes as input (B09q, ADR-0072): a product's SKU,
+ * a customer's or supplier's public ID. Refused rather than ignored, so a client that still sends one learns of it.
+ */
+export class FieldServerAssignedError extends BusinessRuleError {
+  readonly code = 'FIELD_SERVER_ASSIGNED';
+  readonly messageKey = 'mdm.field_server_assigned';
+
+  constructor(fields: readonly string[]) {
+    super(`the server assigns ${fields.join(', ')}`, details(fields.map((field) => ({ field, rule: 'SERVER_ASSIGNED' })), 'mdm.field_server_assigned_field'));
+  }
+}
+
+/** 422: a unique value (a storefront slug) is already used by another live product. */
 export class DuplicateValueError extends BusinessRuleError {
   readonly code = 'DUPLICATE_VALUE';
   readonly messageKey = 'mdm.duplicate_value';

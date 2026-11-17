@@ -45,7 +45,7 @@ responses:
           paymentStatus: UNPAID
           customer:
             id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-            customerNo: C-00042
+            publicId: cus_TWMB751S2DFXTAM8
             name: "Royal Palm Hotel Ltd"
           contactName: null
           contactPhone: null
@@ -79,7 +79,7 @@ responses:
               lineNo: 1
               product:
                 id: "019a7a8e-6b1f-7a02-9c41-2f6d8e1b5a30"
-                sku: EGG-CRATE-BIG
+                sku: EGG-0003
                 name: "Eggs, big, crate of 30"
               stockUnit: null
               qtyOrdered: "4.000"
@@ -111,7 +111,7 @@ responses:
               lineNo: 2
               product:
                 id: "019a7a8e-8c27-7b3d-a1e5-4d9f0c2a6b71"
-                sku: PRD-CABBAGE-HEAD
+                sku: PRD-0002
                 name: "Cabbage, per head"
               stockUnit: null
               qtyOrdered: "10.000"

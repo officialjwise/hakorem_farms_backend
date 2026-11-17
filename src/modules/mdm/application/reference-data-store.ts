@@ -14,7 +14,8 @@ interface Ref {
 /** A supplier row as stored; the application turns it into the contract's `Supplier`. */
 export interface SupplierRecord {
   readonly id: string;
-  readonly supplierNo: string;
+  /** What people see and type for the supplier (B09q, ADR-0073); the sequential `supplier_no` stays internal. */
+  readonly publicId: string;
   readonly name: string;
   readonly contactName: string | null;
   readonly phone: string | null;
@@ -29,7 +30,9 @@ export interface SupplierRecord {
 }
 
 export interface SupplierWrite {
+  /** The internal sequential number (`S-0001`), never shown from contract 2.0.0. */
   readonly supplierNo: string;
+  readonly publicId: string;
   readonly name: string;
   readonly contactName: string | null;
   readonly phone: string | null;
@@ -42,6 +45,8 @@ export interface SupplierWrite {
 export interface SupplierFilters {
   readonly name?: string | undefined;
   readonly phoneHash?: Buffer | undefined;
+  /** A public ID, in its one written form (`readPublicId`). */
+  readonly publicId?: string | undefined;
   readonly categoryId?: string | undefined;
   readonly status?: SupplierStatus | undefined;
 }

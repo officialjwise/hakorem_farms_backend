@@ -87,7 +87,7 @@ responses:
                 tracking: SERIAL
               product:
                 id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                sku: LIV-GOAT
+                sku: LIV-0004
                 name: Goat
               qty: "1.000"
               uom: HEAD
@@ -99,7 +99,7 @@ responses:
               lineNo: 1
               product:
                 id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
-                sku: MEAT-GOAT-15KG
+                sku: MEAT-0007
                 name: "Goat meat, 15 kg pack"
               outputKind: MEAT
               stockUnit: null
@@ -114,7 +114,7 @@ responses:
               lineNo: 2
               product:
                 id: "019a7a8f-215c-7cda-8212-d67cb7214f5a"
-                sku: BYP-GOAT-OFFAL
+                sku: MEAT-0008
                 name: "Goat offal, kg"
               outputKind: OFFAL
               stockUnit: null
@@ -129,7 +129,7 @@ responses:
               lineNo: 3
               product:
                 id: "019a7a8f-215c-7cda-8212-d67cb7214f5a"
-                sku: BYP-GOAT-OFFAL
+                sku: MEAT-0008
                 name: "Goat offal, kg"
               outputKind: WASTE
               stockUnit: null

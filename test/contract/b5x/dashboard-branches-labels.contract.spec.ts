@@ -62,7 +62,7 @@ describe('B05x operations answer in the contract shapes', () => {
   it('lot, animal and product labels', async () => {
     expectShape('StockUnitLabel', (await get(`/stock-units/${id('unit:LOT-BEEF-2026-1110')}/label`)).body);
     expectShape('StockUnitLabel', (await get(`/stock-units/${id('unit:G-0143')}/label`)).body);
-    expectShape('ProductLabel', (await get(`/products/${id('product:EGG-CRATE-BIG')}/label`)).body);
+    expectShape('ProductLabel', (await get(`/products/${id('product:EGG-0003')}/label`)).body);
   });
 
   it('the scoped branch and location lists, and a refused closing', async () => {

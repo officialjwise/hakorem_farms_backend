@@ -22,15 +22,21 @@ describe('product rows (FR-MDM-001, FR-MDM-019)', () => {
   });
 
   it('names the column of every malformed cell', () => {
-    const { errors } = readProductRow(7, cells({ sku: 'no spaces', stockPolicy: 'LOOSE', nominalPackKg: '1.2345', shelfLifeDays: '0', barcode: '12', onlineMode: 'SOMETIMES', category: 'bad code!' }));
-    expect(errors.map((error) => error.column)).toEqual(['sku', 'nominalPackKg', 'barcode', 'category', 'stockPolicy', 'shelfLifeDays', 'onlineMode']);
+    const { errors } = readProductRow(7, cells({ sku: 'no spaces', stockPolicy: 'LOOSE', nominalPackKg: '1.2345', shelfLifeDays: '0', onlineMode: 'SOMETIMES', category: 'bad code!' }));
+    expect(errors.map((error) => error.column)).toEqual(['sku', 'nominalPackKg', 'category', 'stockPolicy', 'shelfLifeDays', 'onlineMode']);
     expect(errors.every((error) => error.rowNo === 7)).toBe(true);
-    expect(readProductRow(3, cells({ sku: '' })).errors).toEqual([{ rowNo: 3, column: 'sku', message: 'SKU is empty' }]);
     expect(readProductRow(3, cells({ sku: 'A1', name: 'x'.repeat(121) })).errors[0]!.column).toBe('name');
   });
 
+  it('reads a blank SKU as a row that creates a product, whose SKU the server gives (B09q, ADR-0072)', () => {
+    const { row, errors } = readProductRow(3, cells({ sku: '', name: 'Eggs, big, crate of 30' }));
+    expect(errors).toEqual([]);
+    expect(row.sku).toBeNull();
+    expect(readProductRow(3, cells({ name: 'Eggs' })).row.sku).toBeNull();
+  });
+
   it('asks a row that creates a product for its name, category, policy and units', () => {
-    const { row } = readProductRow(4, cells({ sku: 'EGGS-30' }));
+    const { row } = readProductRow(4, cells({}));
     expect(productCreateErrors(row).map((error) => error.column)).toEqual(['name', 'category', 'stockPolicy', 'baseUom', 'saleUom']);
   });
 });
@@ -39,16 +45,17 @@ describe('supplier rows (FR-MDM-007, FR-MDM-019)', () => {
   it('normalises a Ghanaian phone, lower-cases the email and reads the categories as distinct codes', () => {
     const { row, errors } = readSupplierRow(2, cells({ name: 'Dodowa Feeds', phone: '0244123456', email: 'Sales@Example.com', categories: 'feed; supplies;FEED' }));
     expect(errors).toEqual([]);
-    expect(row).toMatchObject({ supplierNo: null, phone: '+233244123456', email: 'sales@example.com', categoryCodes: ['FEED', 'SUPPLIES'] });
+    expect(row).toMatchObject({ publicId: null, phone: '+233244123456', email: 'sales@example.com', categoryCodes: ['FEED', 'SUPPLIES'] });
     expect(readSupplierRow(2, cells({ name: 'A' })).row.categoryCodes).toBeNull();
   });
 
-  it('refuses a bad number, phone, email or category without echoing the value', () => {
-    const { errors } = readSupplierRow(5, cells({ supplierNo: 'S-1', name: 'B', phone: '12345', email: 'no-at-sign', categories: 'MEAT;bad code' }));
-    expect(errors.map((error) => error.column)).toEqual(['supplierNo', 'phone', 'email', 'categories']);
+  it('refuses a bad public ID, phone, email or category without echoing the value', () => {
+    const { errors } = readSupplierRow(5, cells({ publicId: 'S-0042', name: 'B', phone: '12345', email: 'no-at-sign', categories: 'MEAT;bad code' }));
+    expect(errors.map((error) => error.column)).toEqual(['publicId', 'phone', 'email', 'categories']);
     expect(errors.some((error) => error.message.includes('12345') || error.message.includes('no-at-sign'))).toBe(false);
     expect(readSupplierRow(3, cells({ name: '' })).errors).toEqual([{ rowNo: 3, column: 'name', message: 'Name is empty' }]);
-    expect(readSupplierRow(3, cells({ supplierNo: 'S-0042', name: '' })).errors).toEqual([]);
+    expect(readSupplierRow(3, cells({ publicId: 'sup_8F3K2M9Q7X4T1V6B', name: '' })).errors).toEqual([]);
+    expect(readSupplierRow(3, cells({ publicId: 'sup_8f3k2m9q7x4t1v6b' })).row.publicId).toBe('sup_8F3K2M9Q7X4T1V6B');
     expect(readSupplierRow(3, cells({ name: 'C', categories: Array.from({ length: 51 }, (_, i) => `C${i}`).join(';') })).errors[0]!.column).toBe('categories');
   });
 });

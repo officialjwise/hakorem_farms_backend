@@ -67,7 +67,7 @@ async function sentOrder(supplierId: string, qty: string, unitPricePesewas: numb
     deliverToLocationId: id('location:PENS'),
     orderDate: today(),
     expectedOn: today(),
-    lines: [{ productId: id('product:LIV-BROILER'), qtyOrdered: qty, unitPricePesewas }],
+    lines: [{ productId: id('product:LIV-0001'), qtyOrdered: qty, unitPricePesewas }],
   });
   expect(created.status).toBe(201);
   expect((await post('storekeeper', `/purchase-orders/${created.body.id}/submit`)).status).toBe(200);
@@ -85,7 +85,7 @@ async function receive(supplierId: string, order: { id: string; lineId: string }
     receivedAt: new Date(clock.now().getTime() - 60_000).toISOString(),
     lines: [
       {
-        productId: id('product:LIV-BROILER'),
+        productId: id('product:LIV-0001'),
         purchaseOrderLineId: order.lineId,
         qtyReceived: qty,
         ...(qtyRejected === undefined ? {} : { qtyRejected }),

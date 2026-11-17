@@ -47,9 +47,9 @@ export const SEED_RECEIPTS: readonly SeedReceipt[] = [
     supplier: 'Kpone Livestock Traders (SEED)',
     location: 'PENS',
     lines: [
-      { sku: 'LIV-GOAT', qty: '4.000', valuePesewas: 240_000n, tags: ['G-0142', 'G-0143', 'G-0144', 'G-0145'] },
+      { sku: 'LIV-0004', qty: '4.000', valuePesewas: 240_000n, tags: ['G-0142', 'G-0143', 'G-0144', 'G-0145'] },
       // GHS 1,500.01 for two sheep: largest remainder gives the first 75,001 and the second 75,000.
-      { sku: 'LIV-SHEEP', qty: '2.000', valuePesewas: 150_001n, tags: ['S-0031', 'S-0032'] },
+      { sku: 'LIV-0005', qty: '2.000', valuePesewas: 150_001n, tags: ['S-0031', 'S-0032'] },
     ],
   },
   {
@@ -57,7 +57,7 @@ export const SEED_RECEIPTS: readonly SeedReceipt[] = [
     kind: 'PURCHASE',
     supplier: 'Awutu Poultry Farm (SEED)',
     location: 'PENS',
-    lines: [{ sku: 'LIV-BROILER', qty: '20.000', valuePesewas: 110_000n, batchNo: 'BR-2026-1110' }],
+    lines: [{ sku: 'LIV-0001', qty: '20.000', valuePesewas: 110_000n, batchNo: 'BR-2026-1110' }],
   },
   {
     deliveryNoteRef: 'SEED-ACS-0093',
@@ -65,8 +65,8 @@ export const SEED_RECEIPTS: readonly SeedReceipt[] = [
     supplier: 'Ashaiman Cold Store Ltd (SEED)',
     location: 'COLD',
     lines: [
-      { sku: 'MEAT-BEEF-15KG', qty: '45.000', valuePesewas: 540_000n, weightKg: '45.000', batchNo: 'LOT-BEEF-2026-1110', expires: 'meatExpiresOn' },
-      { sku: 'MEAT-GOAT-15KG', qty: '30.000', valuePesewas: 390_000n, weightKg: '30.000', batchNo: 'LOT-GOAT-0001', expires: 'meatExpiresOn' },
+      { sku: 'MEAT-0005', qty: '45.000', valuePesewas: 540_000n, weightKg: '45.000', batchNo: 'LOT-BEEF-2026-1110', expires: 'meatExpiresOn' },
+      { sku: 'MEAT-0007', qty: '30.000', valuePesewas: 390_000n, weightKg: '30.000', batchNo: 'LOT-GOAT-0001', expires: 'meatExpiresOn' },
     ],
   },
   {
@@ -74,7 +74,7 @@ export const SEED_RECEIPTS: readonly SeedReceipt[] = [
     kind: 'PURCHASE',
     supplier: 'Awutu Poultry Farm (SEED)',
     location: 'SHOP',
-    lines: [{ sku: 'EGG-CRATE-BIG', qty: '30.000', valuePesewas: 105_000n, batchNo: 'EGG-BIG-2026-1110', expires: 'eggsExpireOn' }],
+    lines: [{ sku: 'EGG-0003', qty: '30.000', valuePesewas: 105_000n, batchNo: 'EGG-BIG-2026-1110', expires: 'eggsExpireOn' }],
   },
   {
     deliveryNoteRef: 'SEED-HARVEST-1110',
@@ -82,8 +82,8 @@ export const SEED_RECEIPTS: readonly SeedReceipt[] = [
     supplier: null,
     location: 'SHOP',
     lines: [
-      { sku: 'PRD-YAM-TUBER', qty: '40.000', valuePesewas: 48_000n },
-      { sku: 'PRD-CABBAGE-HEAD', qty: '25.000', valuePesewas: 12_500n },
+      { sku: 'PRD-0005', qty: '40.000', valuePesewas: 48_000n },
+      { sku: 'PRD-0002', qty: '25.000', valuePesewas: 12_500n },
     ],
   },
 ];
@@ -96,17 +96,17 @@ export const SEED_RECEIPTS: readonly SeedReceipt[] = [
  */
 export const SEED_HAND_COUNT = {
   lines: [
-    { location: 'PENS', sku: 'LIV-GOAT', onHand: '4.000' },
-    { location: 'PENS', sku: 'LIV-SHEEP', onHand: '2.000' },
-    { location: 'PENS', sku: 'LIV-BROILER', onHand: '20.000' },
-    { location: 'COLD', sku: 'MEAT-BEEF-15KG', onHand: '45.000' },
-    { location: 'COLD', sku: 'MEAT-GOAT-15KG', onHand: '30.000' },
-    { location: 'SHOP', sku: 'EGG-CRATE-BIG', onHand: '30.000' },
-    { location: 'SHOP', sku: 'PRD-YAM-TUBER', onHand: '40.000' },
-    { location: 'SHOP', sku: 'PRD-CABBAGE-HEAD', onHand: '25.000' },
-    { location: 'STORE', sku: 'FEED-BRL-GROWER', onHand: '200.000' },
-    { location: 'STORE', sku: 'FEED-GOAT-CONC', onHand: '150.000' },
-    { location: 'STORE', sku: 'MED-ALBENDAZOLE', onHand: '2.000' },
+    { location: 'PENS', sku: 'LIV-0004', onHand: '4.000' },
+    { location: 'PENS', sku: 'LIV-0005', onHand: '2.000' },
+    { location: 'PENS', sku: 'LIV-0001', onHand: '20.000' },
+    { location: 'COLD', sku: 'MEAT-0005', onHand: '45.000' },
+    { location: 'COLD', sku: 'MEAT-0007', onHand: '30.000' },
+    { location: 'SHOP', sku: 'EGG-0003', onHand: '30.000' },
+    { location: 'SHOP', sku: 'PRD-0005', onHand: '40.000' },
+    { location: 'SHOP', sku: 'PRD-0002', onHand: '25.000' },
+    { location: 'STORE', sku: 'FEED-0001', onHand: '200.000' },
+    { location: 'STORE', sku: 'FEED-0002', onHand: '150.000' },
+    { location: 'STORE', sku: 'FEED-0003', onHand: '2.000' },
   ],
   totalValueAtCostPesewas: 1_789_501,
 } as const;
@@ -116,9 +116,9 @@ export const SEED_HAND_COUNT = {
  * the seeded farm opens with one low-stock alert, suggesting 50 crates to reach the maximum; yam and beef are above.
  */
 export const SEED_REORDER_RULES = [
-  { sku: 'EGG-CRATE-BIG', minQty: '20.000', reorderPointQty: '30.000', maxQty: '80.000', expiryAlertDays: 5 },
-  { sku: 'PRD-YAM-TUBER', minQty: '15.000', reorderPointQty: '25.000', maxQty: '80.000' },
-  { sku: 'MEAT-BEEF-15KG', minQty: '10.000', reorderPointQty: '20.000', maxQty: '90.000', expiryAlertDays: 5 },
+  { sku: 'EGG-0003', minQty: '20.000', reorderPointQty: '30.000', maxQty: '80.000', expiryAlertDays: 5 },
+  { sku: 'PRD-0005', minQty: '15.000', reorderPointQty: '25.000', maxQty: '80.000' },
+  { sku: 'MEAT-0005', minQty: '10.000', reorderPointQty: '20.000', maxQty: '90.000', expiryAlertDays: 5 },
 ] as const;
 
 /**
@@ -188,7 +188,7 @@ export function farmSeedInv(calendarOf: (app: INestApplicationContext) => SeedCa
             weightSource: line.weightKg === undefined ? undefined : 'SCALE',
             batchNo: line.batchNo,
             expiresOn: line.expires === undefined ? undefined : calendar[line.expires],
-            animals: line.tags?.map((tagNo) => ({ tagNo, sex: 'MALE' as const, breed: line.sku === 'LIV-SHEEP' ? 'Djallonke' : 'West African Dwarf', purpose: 'GROWING' as const })),
+            animals: line.tags?.map((tagNo) => ({ tagNo, sex: 'MALE' as const, breed: line.sku === 'LIV-0005' ? 'Djallonke' : 'West African Dwarf', purpose: 'GROWING' as const })),
           }));
           const draft = await receipts.create(
             manager,

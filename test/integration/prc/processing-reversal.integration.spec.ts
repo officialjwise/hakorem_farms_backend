@@ -64,9 +64,9 @@ async function process(tag: string): Promise<{ orderId: string; lots: string[]; 
   const recorded = await put(manager, `/processing-orders/${orderId}/outputs`, {
     version,
     outputs: [
-      { productId: id('product:MEAT-GOAT-15KG'), outputKind: 'MEAT', weightKg: '14.200', weightSource: 'SCALE' },
-      { productId: id('product:BYP-GOAT-OFFAL'), outputKind: 'OFFAL', weightKg: '3.300', weightSource: 'SCALE' },
-      { productId: id('product:BYP-GOAT-OFFAL'), outputKind: 'WASTE', weightKg: '8.000', weightSource: 'MANUAL' },
+      { productId: id('product:MEAT-0007'), outputKind: 'MEAT', weightKg: '14.200', weightSource: 'SCALE' },
+      { productId: id('product:MEAT-0008'), outputKind: 'OFFAL', weightKg: '3.300', weightSource: 'SCALE' },
+      { productId: id('product:MEAT-0008'), outputKind: 'WASTE', weightKg: '8.000', weightSource: 'MANUAL' },
     ],
   });
   expect(recorded.status, JSON.stringify(recorded.body)).toBe(200);
@@ -85,7 +85,7 @@ async function buyGoat(tag: string, valuePesewas: number): Promise<void> {
     locationId: id('location:PENS'),
     deliveryNoteRef: `RV-${randomUUID().slice(0, 8)}`,
     receivedAt: new Date(clock.now().getTime() - 86_400_000).toISOString(),
-    lines: [{ productId: id('product:LIV-GOAT'), qtyReceived: '1.000', valuePesewas, animals: [{ tagNo: tag, sex: 'MALE', breed: 'West African Dwarf', purpose: 'GROWING' }] }],
+    lines: [{ productId: id('product:LIV-0004'), qtyReceived: '1.000', valuePesewas, animals: [{ tagNo: tag, sex: 'MALE', breed: 'West African Dwarf', purpose: 'GROWING' }] }],
   });
   expect(created.status, JSON.stringify(created.body)).toBe(201);
   expect((await post(manager, `/goods-receipts/${created.body.id as string}/post`)).status).toBe(200);
@@ -99,7 +99,7 @@ async function sellFromLot(lotId: string, kg: string): Promise<void> {
       await api.app.get(DocumentRegistry).register(tx, { id: documentId, docType: 'STOCK_ADJUSTMENT', ownerModule: 'inv', branchId: id('branch:DDW'), actorId: SYSTEM_PRINCIPAL });
       await api.app.get(Stock).postIn(tx, SYSTEM_PRINCIPAL, {
         movementType: 'SALE_ISSUE',
-        productId: id('product:MEAT-GOAT-15KG'),
+        productId: id('product:MEAT-0007'),
         stockUnitId: lotId,
         branchId: id('branch:DDW'),
         fromLocationId: id('location:COLD'),

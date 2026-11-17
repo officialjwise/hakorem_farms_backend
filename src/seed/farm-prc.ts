@@ -11,8 +11,8 @@ import type { ServiceSeedUnit } from './seed-unit';
  * investigation. Configured data the owner replaces.
  */
 export const SEED_YIELD_STANDARDS = [
-  { input: 'LIV-GOAT', output: 'MEAT-GOAT-15KG', expectedPercent: '48', tolerancePercent: '5' },
-  { input: 'LIV-GOAT', output: 'BYP-GOAT-OFFAL', expectedPercent: '11', tolerancePercent: '5' },
+  { input: 'LIV-0004', output: 'MEAT-0007', expectedPercent: '48', tolerancePercent: '5' },
+  { input: 'LIV-0004', output: 'MEAT-0008', expectedPercent: '11', tolerancePercent: '5' },
 ] as const;
 
 const key = (...parts: string[]): string => `seed:prc:${parts.join(':')}`;

@@ -31,8 +31,8 @@ beforeAll(async () => {
   const admin = database.pool('admin');
   const branchId = (await admin.query<{ id: string }>("SELECT id FROM mdm.branch WHERE code = 'DDW'")).rows[0]!.id;
   tema = (await admin.query<{ id: string }>('SELECT id FROM mdm.customer WHERE name = $1', ['Tema Cold Store Ltd (SEED)'])).rows[0]!.id;
-  eggs = (await admin.query<{ id: string }>("SELECT id FROM mdm.product WHERE sku = 'EGG-CRATE-BIG'")).rows[0]!.id;
-  cabbage = (await admin.query<{ id: string }>("SELECT id FROM mdm.product WHERE sku = 'PRD-CABBAGE-HEAD'")).rows[0]!.id;
+  eggs = (await admin.query<{ id: string }>("SELECT id FROM mdm.product WHERE sku = 'EGG-0003'")).rows[0]!.id;
+  cabbage = (await admin.query<{ id: string }>("SELECT id FROM mdm.product WHERE sku = 'PRD-0002'")).rows[0]!.id;
   sales = await login(api.server, await createUser(database, { name: 'Kojo Antwi', grants: [{ role: 'SALES', branchId }] }));
   storekeeper = await login(api.server, await createUser(database, { name: 'Yaw Asante', grants: [{ role: 'STOREKEEPER', branchId }] }));
 });

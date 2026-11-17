@@ -54,7 +54,7 @@ responses:
           status: SENT
           supplier:
             id: "019a7a88-f7bf-7489-99c2-516f78deca4d"
-            supplierNo: S-0003
+            publicId: sup_1PPM6BKHGYQVKH7C
             name: "Agrivet Ghana Ltd"
           deliverToLocation:
             id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
@@ -75,7 +75,7 @@ responses:
               lineNo: 1
               product:
                 id: "019a7a8f-026d-72f7-b82f-38453d70b123"
-                sku: VET-OXYTET
+                sku: FEED-0005
                 name: "Oxytetracycline 20% injection, 100 ml"
               description: null
               qtyOrdered: "10.000"

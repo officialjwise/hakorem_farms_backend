@@ -34,7 +34,7 @@ responses:
           provisionalRef: null
           customer:
             id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-            customerNo: C-00241
+            publicId: cus_GY1HV6CSTTCCM2Y2
             name: "Emmanuel Tetteh"
           customerName: "Emmanuel Tetteh"
           customerTin: null
@@ -68,7 +68,7 @@ responses:
               lineKind: PRODUCT
               product:
                 id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                sku: LIV-GOAT
+                sku: LIV-0004
                 name: Goat
               description: "Goats, 22 to 28 kg, for funeral, delivered to Kasoa"
               stockUnit: null
@@ -109,7 +109,7 @@ responses:
               lineKind: DELIVERY_FEE
               product:
                 id: "019a7a8f-404b-76be-9bf6-74b430d2ed92"
-                sku: SVC-DELIVERY
+                sku: SVC-0001
                 name: Delivery
               description: "Delivery, Kasoa"
               stockUnit: null

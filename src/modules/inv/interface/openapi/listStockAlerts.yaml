@@ -57,7 +57,7 @@ responses:
                 - kind: LOW_STOCK
                   product:
                     id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
-                    sku: FD-BRL-FIN
+                    sku: FEED-0004
                     name: "Broiler finisher feed, 50 kg bag"
                   location: null
                   stockUnit: null
@@ -71,7 +71,7 @@ responses:
                 - kind: EXPIRING
                   product:
                     id: "019a7a8e-86b1-7b69-b0a1-bf6756ac3845"
-                    sku: PRD-TOMATO
+                    sku: PRD-0001
                     name: "Tomatoes, crate"
                   location:
                     id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
@@ -92,7 +92,7 @@ responses:
                 - kind: BELOW_MINIMUM
                   product:
                     id: "019a7a8f-026d-72f7-b82f-38453d70b123"
-                    sku: VET-OXYTET
+                    sku: FEED-0005
                     name: "Oxytetracycline 20% injection, 100 ml"
                   location: null
                   stockUnit: null
@@ -106,7 +106,7 @@ responses:
                 - kind: EXPIRING
                   product:
                     id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                    sku: EGG-BIG
+                    sku: EGG-0003
                     name: "Eggs, big, crate of 30"
                   location:
                     id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
@@ -127,7 +127,7 @@ responses:
                 - kind: LOW_STOCK
                   product:
                     id: "019a7a8e-a5a0-754c-8a85-5d9ed05dd67c"
-                    sku: PRD-YAM
+                    sku: PRD-0005
                     name: "Yam, tuber"
                   location:
                     id: "019a7a84-7f34-76a9-8be1-736ae249ec48"
@@ -145,7 +145,7 @@ responses:
                 - kind: EXPIRED
                   product:
                     id: "019a7a8e-0af5-73db-b913-46896fe8bf67"
-                    sku: MEAT-CHK-WING
+                    sku: MEAT-0002
                     name: "Chicken wings, 15 kg pack"
                   location:
                     id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"

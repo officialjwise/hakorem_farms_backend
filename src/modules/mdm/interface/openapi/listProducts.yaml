@@ -2,7 +2,7 @@ operationId: listProducts
 tags:
   - mdm
 summary: "List products"
-description: "Products, newest first. `sort` names one field of this list (`name`, `sku`, `category`, `status`, `updatedAt`) and `direction` is `asc` (the default with a field) or `desc`; the server applies it before paging, through the shared sort (CR-019, ADR-0054), breaking ties by the product id in the same direction, so following `nextCursor` never skips or repeats a row. Any other field, any other direction, or a `direction` without `sort` is 400 `VALIDATION_FAILED` with detail `SORT_NOT_ALLOWED`; a cursor from another sort is 400 `INVALID_CURSOR`. Without `sort` the order is newest first (by id, descending), as the example shows. `name` and `category` (the category's name) sort without regard to case.\n\nPermission: `mdm.product.read`."
+description: "Products, newest first. `sort` names one field of this list (`name`, `sku`, `category`, `status`, `updatedAt`) and `direction` is `asc` (the default with a field) or `desc`; the server applies it before paging, through the shared sort (CR-019, ADR-0054), breaking ties by the product id in the same direction, so following `nextCursor` never skips or repeats a row. Any other field, any other direction, or a `direction` without `sort` is 400 `VALIDATION_FAILED` with detail `SORT_NOT_ALLOWED`; a cursor from another sort is 400 `INVALID_CURSOR`. Without `sort` the order is newest first (by id, descending), as the example shows. `name` and `category` (the category's name) sort without regard to case. `q` matches the start of a word of the name, or the start of the SKU. **The `barcode` filter was removed in 2.0.0** (ADR-0072): a request that still sends it is 400 `VALIDATION_FAILED` (`/barcode`) rather than answered with the unfiltered catalogue.\n\nPermission: `mdm.product.read`."
 x-permission: mdm.product.read
 x-error-codes:
   - VALIDATION_FAILED
@@ -41,11 +41,6 @@ parameters:
         - DRAFT
         - ACTIVE
         - DISCONTINUED
-  - name: barcode
-    in: query
-    required: false
-    schema:
-      type: string
   - name: sort
     in: query
     required: false
@@ -93,7 +88,7 @@ responses:
             value:
               data:
                 - id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                  sku: EGG-BIG
+                  sku: EGG-0003
                   name: "Eggs, big, crate of 30"
                   category:
                     id: "019a7a89-d048-79c2-8efa-a4f3ccb51dd1"
@@ -114,7 +109,6 @@ responses:
                   shelfLifeDays: 21
                   storageTempClass: AMBIENT
                   withdrawalDays: null
-                  barcode: "6034139595"
                   description: null
                   onlineMode: LISTED
                   seo:
@@ -155,7 +149,7 @@ responses:
                   createdAt: "2026-11-02T08:05:00Z"
                   updatedAt: "2026-11-12T14:05:00Z"
                 - id: "019a7a8d-8f39-7c4d-b185-cdab89244689"
-                  sku: LIV-LOCALCHK
+                  sku: LIV-0002
                   name: "Local chicken"
                   category:
                     id: "019a7a89-926a-75fb-ab33-6884d953e162"
@@ -179,7 +173,6 @@ responses:
                   shelfLifeDays: null
                   storageTempClass: null
                   withdrawalDays: null
-                  barcode: "6034131676"
                   description: null
                   onlineMode: LISTED
                   seo:
@@ -220,7 +213,7 @@ responses:
                   createdAt: "2026-11-02T08:04:00Z"
                   updatedAt: "2026-11-11T14:04:00Z"
                 - id: "019a7a8d-704a-726a-a7a2-2f740f73a851"
-                  sku: LIV-BROILER
+                  sku: LIV-0001
                   name: "Broiler chicken"
                   category:
                     id: "019a7a89-926a-75fb-ab33-6884d953e162"
@@ -244,7 +237,6 @@ responses:
                   shelfLifeDays: null
                   storageTempClass: null
                   withdrawalDays: null
-                  barcode: "6034123757"
                   description: null
                   onlineMode: LISTED
                   seo:
@@ -285,7 +277,7 @@ responses:
                   createdAt: "2026-11-02T08:03:00Z"
                   updatedAt: "2026-11-10T14:03:00Z"
                 - id: "019a7a8d-515b-7886-9dbe-913c95c20a1a"
-                  sku: LIV-PIGLET
+                  sku: LIV-0003
                   name: "Baby pig"
                   category:
                     id: "019a7a89-737b-7c17-9150-ca4d5fa2432b"
@@ -309,7 +301,6 @@ responses:
                   shelfLifeDays: null
                   storageTempClass: null
                   withdrawalDays: null
-                  barcode: null
                   description: "Individually tagged and weighed. Priced by size and weight."
                   onlineMode: REQUEST_TO_BUY
                   seo:
@@ -350,7 +341,7 @@ responses:
                   createdAt: "2026-11-02T08:02:00Z"
                   updatedAt: "2026-11-12T14:02:00Z"
                 - id: "019a7a8d-326c-7ea3-83db-f3051c116be3"
-                  sku: LIV-SHEEP
+                  sku: LIV-0005
                   name: Sheep
                   category:
                     id: "019a7a89-737b-7c17-9150-ca4d5fa2432b"
@@ -374,7 +365,6 @@ responses:
                   shelfLifeDays: null
                   storageTempClass: null
                   withdrawalDays: null
-                  barcode: null
                   description: "Individually tagged and weighed. Priced by size and weight."
                   onlineMode: REQUEST_TO_BUY
                   seo:
@@ -415,7 +405,7 @@ responses:
                   createdAt: "2026-11-02T08:01:00Z"
                   updatedAt: "2026-11-11T14:01:00Z"
                 - id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                  sku: LIV-GOAT
+                  sku: LIV-0004
                   name: Goat
                   category:
                     id: "019a7a89-737b-7c17-9150-ca4d5fa2432b"
@@ -439,7 +429,6 @@ responses:
                   shelfLifeDays: null
                   storageTempClass: null
                   withdrawalDays: null
-                  barcode: null
                   description: "Individually tagged and weighed. Priced by size and weight."
                   onlineMode: REQUEST_TO_BUY
                   seo:

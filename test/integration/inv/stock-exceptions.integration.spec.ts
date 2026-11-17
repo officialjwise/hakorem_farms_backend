@@ -38,7 +38,7 @@ const id = (code: string) => ids.get(code)!;
 const post = (session: TestSession, path: string, body: object = {}, key: string = randomUUID()) => consolePost(api.server, session, `/v1${path}`, key).send(body);
 const get = (session: TestSession, path: string) => consoleGet(api.server, session, `/v1${path}`);
 const admin = () => database.pool('admin');
-const BEEF = 'MEAT-BEEF-15KG';
+const BEEF = 'MEAT-0005';
 const LOT = 'LOT-BEEF-2026-1110';
 
 async function stepUp(session: TestSession & { readonly secret: Buffer }): Promise<void> {
@@ -349,7 +349,7 @@ describe('any other exception is resolved once with a kind and a note (FR-INV-02
     const { rows } = await admin().query<{ id: string }>(
       `INSERT INTO inv.stock_exception (kind, branch_id, product_id, location_id, qty, details)
        VALUES ('NEGATIVE_STOCK', $1, $2, $3, 2, '{"movementType":"SALE_ISSUE_OFFLINE","onHandAfter":"-2.000"}') RETURNING id`,
-      [id('branch:DDW'), id('product:EGG-CRATE-BIG'), id('location:SHOP')],
+      [id('branch:DDW'), id('product:EGG-0003'), id('location:SHOP')],
     );
     return rows[0]!.id;
   }
@@ -365,7 +365,7 @@ describe('any other exception is resolved once with a kind and a note (FR-INV-02
       locationId: id('location:SHOP'),
       reasonCode: 'DAMAGED',
       note: 'Unrelated',
-      lines: [{ productId: id('product:EGG-CRATE-BIG'), stockUnitId: id('unit:EGG-BIG-2026-1110'), direction: 'LOSS', qty: '1.000' }],
+      lines: [{ productId: id('product:EGG-0003'), stockUnitId: id('unit:EGG-BIG-2026-1110'), direction: 'LOSS', qty: '1.000' }],
     });
     await post(shopStorekeeper, `/stock-adjustments/${unrelated.body.id as string}/submit`);
     const refused = await post(manager, `/stock/exceptions/${second}/resolve`, { resolutionKind: 'ADJUSTED', resolutionDocumentId: unrelated.body.id, note: 'Settled' });
@@ -375,7 +375,7 @@ describe('any other exception is resolved once with a kind and a note (FR-INV-02
       reasonCode: 'COUNT_ERROR',
       note: 'Recount after the offline sync',
       exceptionId: second,
-      lines: [{ productId: id('product:EGG-CRATE-BIG'), stockUnitId: id('unit:EGG-BIG-2026-1110'), direction: 'GAIN', qty: '2.000' }],
+      lines: [{ productId: id('product:EGG-0003'), stockUnitId: id('unit:EGG-BIG-2026-1110'), direction: 'GAIN', qty: '2.000' }],
     });
     expect(settling.status, JSON.stringify(settling.body)).toBe(201);
     await post(shopStorekeeper, `/stock-adjustments/${settling.body.id as string}/submit`);

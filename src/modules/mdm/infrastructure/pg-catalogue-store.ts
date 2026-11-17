@@ -25,14 +25,14 @@ const TABLE: Readonly<Record<CatalogueRecord | 'tax_category', string>> = {
 
 /** The columns `update` may set, per record: what the contract's update schemas can change. */
 const UPDATABLE: Readonly<Record<CatalogueRecord, ReadonlySet<string>>> = {
-  category: new Set(['name', 'tax_category_id', 'sort_order', 'is_online_visible']),
+  category: new Set(['name', 'tax_category_id', 'sort_order', 'is_online_visible', 'sku_prefix']),
   species: new Set(['name']),
   grade: new Set(['name', 'description', 'sort_order']),
   weight_band: new Set(['min_kg', 'max_kg']),
 };
 
 const CATEGORY_SELECT = `
-  SELECT c.id, c.parent_id, c.code, c.name, c.product_line, c.gl_group, c.sort_order, c.is_online_visible, c.version, c.created_at, c.updated_at,
+  SELECT c.id, c.parent_id, c.code, c.name, c.product_line, c.gl_group, c.sort_order, c.is_online_visible, c.sku_prefix, c.version, c.created_at, c.updated_at,
          t.id AS tax_id, t.code AS tax_code, t.name AS tax_name,
          (SELECT count(*)::int FROM mdm.product p WHERE p.category_id = c.id AND p.deleted_at IS NULL) AS product_count
     FROM mdm.category c JOIN mdm.tax_category t ON t.id = c.tax_category_id`;
@@ -63,6 +63,7 @@ type CategoryRow = Stamped & {
   gl_group: CategoryView['glGroup'];
   sort_order: number;
   is_online_visible: boolean;
+  sku_prefix: string;
   tax_id: string;
   tax_code: string;
   tax_name: string;
@@ -80,6 +81,7 @@ function toCategory(row: CategoryRow): CategoryView {
     taxCategory: { id: row.tax_id, code: row.tax_code, name: row.tax_name },
     sortOrder: row.sort_order,
     isOnlineVisible: row.is_online_visible,
+    skuPrefix: row.sku_prefix,
     productCount: row.product_count,
     ...stamps(row),
   };
@@ -169,9 +171,9 @@ export class PgCatalogueStore implements CatalogueStore {
 
   async insertCategory(tx: Transaction, id: string, w: CategoryWrite, actorId: string): Promise<void> {
     await tx.query(
-      `INSERT INTO mdm.category (id, parent_id, code, name, product_line, gl_group, tax_category_id, sort_order, is_online_visible, created_by, updated_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10)`,
-      [id, w.parentId, w.code, w.name, w.productLine, w.glGroup, w.taxCategoryId, w.sortOrder, w.isOnlineVisible, actorId],
+      `INSERT INTO mdm.category (id, parent_id, code, name, product_line, gl_group, tax_category_id, sort_order, is_online_visible, sku_prefix, created_by, updated_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11)`,
+      [id, w.parentId, w.code, w.name, w.productLine, w.glGroup, w.taxCategoryId, w.sortOrder, w.isOnlineVisible, w.skuPrefix, actorId],
     );
   }
 

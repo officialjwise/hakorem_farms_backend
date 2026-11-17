@@ -102,13 +102,13 @@ describe('wrong roles are refused on every stock take write (ADR-0035)', () => {
   let takeId: string;
   let lineId: string;
   beforeAll(async () => {
-    const take = await started(shopStorekeeper, cycle('SHOP', 'PRD-CABBAGE-HEAD'));
+    const take = await started(shopStorekeeper, cycle('SHOP', 'PRD-0002'));
     takeId = take.takeId;
     lineId = take.lines[0]!['id'] as string;
   });
 
   const writes = (): ReadonlyArray<readonly [string, 'post' | 'put', string, object]> => [
-    ['createStockTake', 'post', '/stock-takes', cycle('SHOP', 'PRD-CABBAGE-HEAD')],
+    ['createStockTake', 'post', '/stock-takes', cycle('SHOP', 'PRD-0002')],
     ['startStockTake', 'post', `/stock-takes/${takeId}/start`, {}],
     ['recordStockTakeCounts', 'put', `/stock-takes/${takeId}/counts`, { counts: [{ lineId, countedQty: '25.000' }] }],
     ['closeStockTakeCounting', 'post', `/stock-takes/${takeId}/review`, {}],
@@ -134,7 +134,7 @@ describe('wrong roles are refused on every stock take write (ADR-0035)', () => {
 
   it('a storekeeper counts but never posts variances; a storekeeper at the cold room cannot plan, count or cancel at the shop', async () => {
     expect((await post(shopStorekeeper, `/stock-takes/${takeId}/submit`)).status).toBe(403);
-    expect((await post(coldStorekeeper, '/stock-takes', cycle('SHOP', 'PRD-YAM-TUBER'))).status).toBe(403);
+    expect((await post(coldStorekeeper, '/stock-takes', cycle('SHOP', 'PRD-0005'))).status).toBe(403);
     expect((await put(coldStorekeeper, `/stock-takes/${takeId}/counts`, { counts: [{ lineId, countedQty: '25.000' }] })).status).toBe(403);
     expect((await post(coldStorekeeper, `/stock-takes/${takeId}/cancel`, { reason: 'Not mine' })).status).toBe(403);
     expect((await get(coldStorekeeper, `/stock-takes/${takeId}`)).status).toBe(403);
@@ -155,7 +155,7 @@ describe('a blind count posts its variances (FR-INV-013)', () => {
   let lineId: string;
 
   it('freezes 30 crates of eggs as expected at start, and nobody reads it, nor any variance, while counting', async () => {
-    const take = await started(shopStorekeeper, cycle('SHOP', 'EGG-CRATE-BIG'));
+    const take = await started(shopStorekeeper, cycle('SHOP', 'EGG-0003'));
     takeId = take.takeId;
     expect(take.lines).toHaveLength(1);
     lineId = take.lines[0]!['id'] as string;
@@ -203,18 +203,18 @@ describe('a blind count posts its variances (FR-INV-013)', () => {
       [takeId],
     );
     expect(rows).toEqual([{ movement_type: 'STOCKTAKE_LOSS', qty_base: '1.000', value_pesewas: '3500', reason_code: 'COUNT_ERROR' }]);
-    expect(await onHand('SHOP', 'EGG-BIG-2026-1110', 'EGG-CRATE-BIG')).toBe('29.000');
+    expect(await onHand('SHOP', 'EGG-BIG-2026-1110', 'EGG-0003')).toBe('29.000');
     expect((await post(manager, `/stock-takes/${takeId}/cancel`, { reason: 'Too late' })).body.error.code).toBe('INVALID_STATE_TRANSITION');
     expect(await sqlStateOf(admin().query('UPDATE inv.stock_take_line SET counted_qty = 30 WHERE id = $1', [lineId]))).toBe(SQLSTATE.documentFrozen);
   });
 
   it('a movement during counting does not change the frozen figure: 2 yams lost meanwhile and 38 counted is a variance of -2 against 40', async () => {
-    const take = await started(shopStorekeeper, cycle('SHOP', 'PRD-YAM-TUBER'));
+    const take = await started(shopStorekeeper, cycle('SHOP', 'PRD-0005'));
     const adjusted = await post(shopStorekeeper, '/stock-adjustments', {
       locationId: id('location:SHOP'),
       reasonCode: 'DAMAGED',
       note: 'Two tubers rotted',
-      lines: [{ productId: id('product:PRD-YAM-TUBER'), direction: 'LOSS', qty: '2.000' }],
+      lines: [{ productId: id('product:PRD-0005'), direction: 'LOSS', qty: '2.000' }],
     });
     expect((await post(shopStorekeeper, `/stock-adjustments/${adjusted.body.id as string}/submit`)).status).toBe(200);
     const yamLine = take.lines[0]!['id'] as string;
@@ -231,7 +231,7 @@ describe('a blind count posts its variances (FR-INV-013)', () => {
 describe('a large variance waits for a different person (FR-INV-013, ADR-0017)', () => {
   let takeId: string;
   it('beef counted 40.000 kg of 45.000: a loss of 5 kg valued 60,000 answers 202 and stock is unchanged', async () => {
-    const take = await started(coldStorekeeper, cycle('COLD', 'MEAT-BEEF-15KG'));
+    const take = await started(coldStorekeeper, cycle('COLD', 'MEAT-0005'));
     takeId = take.takeId;
     const lineId = take.lines[0]!['id'] as string;
     await put(coldStorekeeper, `/stock-takes/${takeId}/counts`, { counts: [{ lineId, countedQty: '40.000', countedWeightKg: '40.000' }] });
@@ -240,7 +240,7 @@ describe('a large variance waits for a different person (FR-INV-013, ADR-0017)',
     const submitted = await post(manager, `/stock-takes/${takeId}/submit`);
     expect(submitted.status, JSON.stringify(submitted.body)).toBe(202);
     expect(submitted.body).toMatchObject({ status: 'PENDING_APPROVAL', kind: 'STOCK_WRITE_OFF', subject: { id: takeId, docType: 'STOCK_TAKE' } });
-    expect(await onHand('COLD', 'LOT-BEEF-2026-1110', 'MEAT-BEEF-15KG')).toBe('45.000');
+    expect(await onHand('COLD', 'LOT-BEEF-2026-1110', 'MEAT-0005')).toBe('45.000');
     expect((await get(manager, `/stock-takes/${takeId}`)).body).toMatchObject({ status: 'PENDING_APPROVAL', lossValuePesewas: 60_000, approvalRequestId: submitted.body.approvalRequestId });
     expect((await post(manager, `/stock-takes/${takeId}/cancel`, { reason: 'Withdraw' })).body.error.code).toBe('INVALID_STATE_TRANSITION');
 
@@ -251,13 +251,13 @@ describe('a large variance waits for a different person (FR-INV-013, ADR-0017)',
     const approved = await post(owner, `/iam/approvals/${submitted.body.approvalRequestId as string}/approve`, { reason: 'Saw the trimmed carcass' });
     expect(approved.status, JSON.stringify(approved.body)).toBe(200);
     expect((await get(manager, `/stock-takes/${takeId}`)).body).toMatchObject({ status: 'POSTED', postedBy: { displayName: 'Nana Ama Korsah' } });
-    expect(await onHand('COLD', 'LOT-BEEF-2026-1110', 'MEAT-BEEF-15KG')).toBe('40.000');
+    expect(await onHand('COLD', 'LOT-BEEF-2026-1110', 'MEAT-0005')).toBe('40.000');
     const { rows } = await admin().query<{ movement_type: string; value_pesewas: string }>('SELECT movement_type, value_pesewas FROM inv.stock_movement WHERE source_document_id = $1', [takeId]);
     expect(rows).toEqual([{ movement_type: 'STOCKTAKE_LOSS', value_pesewas: '60000' }]);
   });
 
   it('the database refuses a take posted at or above its threshold without an approval; a rejected take closes with nothing moved', async () => {
-    const take = await started(coldStorekeeper, cycle('COLD', 'MEAT-GOAT-15KG'));
+    const take = await started(coldStorekeeper, cycle('COLD', 'MEAT-0007'));
     const lineId = take.lines[0]!['id'] as string;
     await put(coldStorekeeper, `/stock-takes/${take.takeId}/counts`, { counts: [{ lineId, countedQty: '25.000' }] });
     await post(coldStorekeeper, `/stock-takes/${take.takeId}/review`);
@@ -273,28 +273,28 @@ describe('a large variance waits for a different person (FR-INV-013, ADR-0017)',
     await stepUp(owner);
     expect((await post(owner, `/iam/approvals/${submitted.body.approvalRequestId as string}/reject`, { reason: 'Count the lot again' })).status).toBe(200);
     expect((await get(manager, `/stock-takes/${take.takeId}`)).body.status).toBe('CANCELLED');
-    expect(await onHand('COLD', 'LOT-GOAT-0001', 'MEAT-GOAT-15KG')).toBe('30.000');
+    expect(await onHand('COLD', 'LOT-GOAT-0001', 'MEAT-0007')).toBe('30.000');
     expect((await admin().query('SELECT count(*)::int AS n FROM inv.stock_movement WHERE source_document_id = $1', [take.takeId])).rows[0]!.n).toBe(0);
   });
 });
 
 describe('cycle counts never overlap (FR-INV-014)', () => {
   it('"Cold room, beef" runs while "Pens, broilers" runs; a second cold room count including beef, and a full one, are refused', async () => {
-    const coldBeef = await started(coldStorekeeper, cycle('COLD', 'MEAT-BEEF-15KG'));
-    const pens = await started(penStorekeeper, cycle('PENS', 'LIV-BROILER'));
+    const coldBeef = await started(coldStorekeeper, cycle('COLD', 'MEAT-0005'));
+    const pens = await started(penStorekeeper, cycle('PENS', 'LIV-0001'));
     expect(pens.lines).toHaveLength(1);
-    const overlapping = await post(coldStorekeeper, '/stock-takes', cycle('COLD', 'MEAT-GOAT-15KG', 'MEAT-BEEF-15KG'));
+    const overlapping = await post(coldStorekeeper, '/stock-takes', cycle('COLD', 'MEAT-0007', 'MEAT-0005'));
     expect(overlapping.status).toBe(422);
     expect(overlapping.body.error).toMatchObject({ code: 'STOCK_TAKE_INVALID', details: [{ code: 'SCOPE_OVERLAP' }] });
     expect((await post(coldStorekeeper, '/stock-takes', { locationId: id('location:COLD'), scope: 'FULL' })).body.error.details[0].code).toBe('SCOPE_OVERLAP');
-    expect((await post(coldStorekeeper, '/stock-takes', cycle('COLD', 'MEAT-GOAT-15KG'))).status).toBe(201);
+    expect((await post(coldStorekeeper, '/stock-takes', cycle('COLD', 'MEAT-0007'))).status).toBe(201);
     for (const take of [coldBeef, pens]) await post(manager, `/stock-takes/${take.takeId}/cancel`, { reason: 'Test over' });
   });
 
   it('the database refuses to start a take whose scope overlaps one counting, whoever writes (ck_stock_take_overlap)', async () => {
-    const first = await started(coldStorekeeper, cycle('COLD', 'MEAT-BEEF-15KG'));
+    const first = await started(coldStorekeeper, cycle('COLD', 'MEAT-0005'));
     const second = (await admin().query<{ id: string }>("SELECT id FROM inv.stock_take WHERE status = 'DRAFT' AND location_id = $1", [id('location:COLD')])).rows[0]!.id;
-    await admin().query('INSERT INTO inv.stock_take_product (stock_take_id, product_id) VALUES ($1, $2)', [second, id('product:MEAT-BEEF-15KG')]);
+    await admin().query('INSERT INTO inv.stock_take_product (stock_take_id, product_id) VALUES ($1, $2)', [second, id('product:MEAT-0005')]);
     const forced = await admin().query("UPDATE inv.stock_take SET status = 'COUNTING', snapshot_at = now(), version = version + 1 WHERE id = $1", [second]).catch((e: unknown) => e);
     expect((forced as { code?: string; constraint?: string }).code).toBe('HK010');
     expect((forced as { constraint?: string }).constraint).toBe('ck_stock_take_overlap');
@@ -305,10 +305,10 @@ describe('cycle counts never overlap (FR-INV-014)', () => {
   });
 
   it('animals are not counted here; a full count of the pens leaves them out and counts the broiler lot', async () => {
-    const goats = await post(penStorekeeper, '/stock-takes', cycle('PENS', 'LIV-GOAT'));
+    const goats = await post(penStorekeeper, '/stock-takes', cycle('PENS', 'LIV-0004'));
     expect(goats.body.error.details[0].code).toBe('ANIMAL_NOT_COUNTED');
     const full = await started(penStorekeeper, { locationId: id('location:PENS'), scope: 'FULL' });
-    expect(full.lines.map((l) => (l['product'] as { sku: string }).sku)).toEqual(['LIV-BROILER']);
+    expect(full.lines.map((l) => (l['product'] as { sku: string }).sku)).toEqual(['LIV-0001']);
     expect((await post(penStorekeeper, '/stock-takes', { locationId: id('location:TRANSIT'), scope: 'FULL' })).status).toBe(403);
     expect((await post(manager, '/stock-takes', { locationId: id('location:TRANSIT'), scope: 'FULL' })).body.error.details[0].code).toBe('NOT_A_STOCK_LOCATION');
     const listed = await get(manager, `/stock-takes?status=COUNTING&locationId=${id('location:PENS')}`);

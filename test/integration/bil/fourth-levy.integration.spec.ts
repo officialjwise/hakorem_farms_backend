@@ -52,7 +52,7 @@ describe('a fourth levy is data only (ADR-0020, FR-BIL-004)', () => {
     const tax = api.app.get(TaxAdmin);
     const branchId = (await admin().query<{ id: string }>("SELECT id FROM mdm.branch WHERE code = 'DDW'")).rows[0]!.id;
     const tema = (await admin().query<{ id: string }>("SELECT id FROM mdm.customer WHERE name = 'Tema Cold Store Ltd (SEED)'")).rows[0]!.id;
-    const meat = (await admin().query<{ id: string }>("SELECT id FROM mdm.product WHERE sku = 'MEAT-GOAT-15KG'")).rows[0]!.id;
+    const meat = (await admin().query<{ id: string }>("SELECT id FROM mdm.product WHERE sku = 'MEAT-0007'")).rows[0]!.id;
     const invoice = () =>
       staff.as('accountant', (accountant) =>
         uow.run({ isolation: 'serializable', seriesLocks: billing.seriesLocksFor('INVOICE', branchId) }, (tx) =>

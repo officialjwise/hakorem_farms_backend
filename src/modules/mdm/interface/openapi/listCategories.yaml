@@ -50,6 +50,7 @@ responses:
                     name: "Live Animals"
                   sortOrder: 0
                   isOnlineVisible: true
+                  skuPrefix: LIV
                   productCount: 3
                   version: 2
                   createdAt: "2026-11-02T08:00:00Z"
@@ -66,6 +67,7 @@ responses:
                     name: "Live Animals"
                   sortOrder: 10
                   isOnlineVisible: true
+                  skuPrefix: PLT
                   productCount: 2
                   version: 3
                   createdAt: "2026-11-02T08:01:00Z"
@@ -82,6 +84,7 @@ responses:
                     name: "Processed Meat"
                   sortOrder: 20
                   isOnlineVisible: true
+                  skuPrefix: MEAT
                   productCount: 5
                   version: 4
                   createdAt: "2026-11-02T08:02:00Z"
@@ -98,6 +101,7 @@ responses:
                     name: Eggs
                   sortOrder: 30
                   isOnlineVisible: true
+                  skuPrefix: EGG
                   productCount: 2
                   version: 2
                   createdAt: "2026-11-02T08:03:00Z"
@@ -114,6 +118,7 @@ responses:
                     name: "Raw Produce"
                   sortOrder: 40
                   isOnlineVisible: true
+                  skuPrefix: PRD
                   productCount: 3
                   version: 3
                   createdAt: "2026-11-02T08:04:00Z"
@@ -130,6 +135,7 @@ responses:
                     name: "Farm Inputs"
                   sortOrder: 50
                   isOnlineVisible: false
+                  skuPrefix: FEED
                   productCount: 2
                   version: 4
                   createdAt: "2026-11-02T08:05:00Z"

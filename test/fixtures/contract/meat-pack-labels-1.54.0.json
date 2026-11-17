@@ -1,0 +1,1171 @@
+{
+  "operations": {
+    "listPacks": {
+      "operationId": "listPacks",
+      "tags": [
+        "prc"
+      ],
+      "summary": "List the packs made from a processing order",
+      "description": "A completed order's packs, in output line and pack order, with each pack's lot, weight and weight source, barcode, status and first print time (FR-PRC-009).\n\nPermission: `prc.order.read`, scoped to the order's branch and processing location.",
+      "x-permission": "prc.order.read",
+      "x-error-codes": [
+        "VALIDATION_FAILED",
+        "UNAUTHENTICATED",
+        "FORBIDDEN",
+        "PASSWORD_CHANGE_REQUIRED",
+        "NOT_FOUND",
+        "RATE_LIMITED"
+      ],
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "name": "cursor",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "$ref": "#/components/schemas/PageLimit"
+          }
+        }
+      ],
+      "security": [
+        {
+          "staffSession": []
+        },
+        {
+          "apiKey": []
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "OK",
+          "headers": {
+            "X-Correlation-Id": {
+              "$ref": "#/components/headers/CorrelationId"
+            }
+          },
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PackPage"
+              },
+              "examples": {
+                "default": {
+                  "value": {
+                    "data": [
+                      {
+                        "id": "019a8a10-1c4e-7a21-9b3e-4d2f6a8c0e11",
+                        "stockUnit": {
+                          "id": "019a8a0f-7b2d-7c40-8e15-3a9d4f6b2c70",
+                          "identifier": "PRC-261114-3f2a91c4-01",
+                          "tracking": "LOT"
+                        },
+                        "outputLineNo": 1,
+                        "packNo": 1,
+                        "weightKg": "15.000",
+                        "weightSource": "SCALE",
+                        "barcode": "PRC-261114-3f2a91c4-01/015000",
+                        "status": "SOLD",
+                        "labelPrintedAt": "2026-11-14T13:05:00Z"
+                      },
+                      {
+                        "id": "019a8a10-1c4e-7a21-9b3e-4d2f6a8c0e12",
+                        "stockUnit": {
+                          "id": "019a8a0f-7b2d-7c40-8e15-3a9d4f6b2c70",
+                          "identifier": "PRC-261114-3f2a91c4-01",
+                          "tracking": "LOT"
+                        },
+                        "outputLineNo": 1,
+                        "packNo": 2,
+                        "weightKg": "15.000",
+                        "weightSource": "SCALE",
+                        "barcode": "PRC-261114-3f2a91c4-01/015000",
+                        "status": "IN_STOCK",
+                        "labelPrintedAt": "2026-11-14T13:05:00Z"
+                      },
+                      {
+                        "id": "019a8a10-1c4e-7a21-9b3e-4d2f6a8c0e13",
+                        "stockUnit": {
+                          "id": "019a8a0f-7b2d-7c40-8e15-3a9d4f6b2c70",
+                          "identifier": "PRC-261114-3f2a91c4-01",
+                          "tracking": "LOT"
+                        },
+                        "outputLineNo": 1,
+                        "packNo": 3,
+                        "weightKg": "14.600",
+                        "weightSource": "SCALE",
+                        "barcode": "PRC-261114-3f2a91c4-01/014600",
+                        "status": "IN_STOCK",
+                        "labelPrintedAt": null
+                      }
+                    ],
+                    "page": {
+                      "nextCursor": null,
+                      "limit": 25,
+                      "hasMore": false
+                    }
+                  }
+                },
+                "empty": {
+                  "summary": "Nothing matches: no rows and no next page",
+                  "value": {
+                    "data": [],
+                    "page": {
+                      "nextCursor": null,
+                      "limit": 25,
+                      "hasMore": false
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "400": {
+          "$ref": "#/components/responses/BadRequest"
+        },
+        "401": {
+          "$ref": "#/components/responses/Unauthenticated"
+        },
+        "403": {
+          "$ref": "#/components/responses/Forbidden"
+        },
+        "404": {
+          "$ref": "#/components/responses/NotFound"
+        },
+        "429": {
+          "$ref": "#/components/responses/RateLimited"
+        },
+        "500": {
+          "$ref": "#/components/responses/InternalError"
+        }
+      }
+    },
+    "createPacks": {
+      "operationId": "createPacks",
+      "tags": [
+        "prc"
+      ],
+      "summary": "Pack an output into weighed packs",
+      "description": "Packs a saleable output of a COMPLETED order, once, while its lot is whole and where the order put it. The pack weights must sum exactly to the output's weight (a tolerance of 0.000 kg; the last pack is the remainder), and their number must equal the output's `packCount` when it recorded one. Each pack's barcode payload is the lot and its weight in grams, six digits; a pack weighs less than 1,000 kg. Packing moves no stock and no cost.\n\nRefusals (422 PROCESSING_ORDER_INVALID, `details[].code`): ORDER_NOT_COMPLETED, ORDER_REVERSED, OUTPUT_NOT_FOUND, OUTPUT_IS_WASTE, ALREADY_PACKED, LOT_NOT_WHOLE, NO_PACKS, PACK_WEIGHT_NOT_POSITIVE, PACK_TOO_HEAVY_FOR_LABEL, PACK_COUNT_NOT_OUTPUT_COUNT, PACK_WEIGHTS_NOT_LOT_WEIGHT.\n\nPermission: `prc.order.process`, scoped to the order's branch and processing location.",
+      "x-permission": "prc.order.process",
+      "x-error-codes": [
+        "VALIDATION_FAILED",
+        "UNAUTHENTICATED",
+        "FORBIDDEN",
+        "PASSWORD_CHANGE_REQUIRED",
+        "CSRF_TOKEN_INVALID",
+        "ORIGIN_NOT_ALLOWED",
+        "IDEMPOTENCY_KEY_REQUIRED",
+        "IDEMPOTENCY_KEY_REUSED",
+        "NOT_FOUND",
+        "PROCESSING_ORDER_INVALID",
+        "RATE_LIMITED"
+      ],
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "$ref": "#/components/parameters/IdempotencyKey"
+        },
+        {
+          "$ref": "#/components/parameters/CsrfToken"
+        }
+      ],
+      "security": [
+        {
+          "staffSession": []
+        },
+        {
+          "apiKey": []
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/PacksCreate"
+            },
+            "example": {
+              "outputLineNo": 1,
+              "packs": [
+                {
+                  "weightKg": "15.000",
+                  "weightSource": "SCALE"
+                },
+                {
+                  "weightKg": "15.000",
+                  "weightSource": "SCALE"
+                },
+                {
+                  "weightKg": "14.600",
+                  "weightSource": "SCALE"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "description": "Created",
+          "headers": {
+            "X-Correlation-Id": {
+              "$ref": "#/components/headers/CorrelationId"
+            }
+          },
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PackList"
+              },
+              "example": {
+                "packs": [
+                  {
+                    "id": "019a8a10-1c4e-7a21-9b3e-4d2f6a8c0e11",
+                    "stockUnit": {
+                      "id": "019a8a0f-7b2d-7c40-8e15-3a9d4f6b2c70",
+                      "identifier": "PRC-261114-3f2a91c4-01",
+                      "tracking": "LOT"
+                    },
+                    "outputLineNo": 1,
+                    "packNo": 1,
+                    "weightKg": "15.000",
+                    "weightSource": "SCALE",
+                    "barcode": "PRC-261114-3f2a91c4-01/015000",
+                    "status": "IN_STOCK",
+                    "labelPrintedAt": null
+                  },
+                  {
+                    "id": "019a8a10-1c4e-7a21-9b3e-4d2f6a8c0e12",
+                    "stockUnit": {
+                      "id": "019a8a0f-7b2d-7c40-8e15-3a9d4f6b2c70",
+                      "identifier": "PRC-261114-3f2a91c4-01",
+                      "tracking": "LOT"
+                    },
+                    "outputLineNo": 1,
+                    "packNo": 2,
+                    "weightKg": "15.000",
+                    "weightSource": "SCALE",
+                    "barcode": "PRC-261114-3f2a91c4-01/015000",
+                    "status": "IN_STOCK",
+                    "labelPrintedAt": null
+                  },
+                  {
+                    "id": "019a8a10-1c4e-7a21-9b3e-4d2f6a8c0e13",
+                    "stockUnit": {
+                      "id": "019a8a0f-7b2d-7c40-8e15-3a9d4f6b2c70",
+                      "identifier": "PRC-261114-3f2a91c4-01",
+                      "tracking": "LOT"
+                    },
+                    "outputLineNo": 1,
+                    "packNo": 3,
+                    "weightKg": "14.600",
+                    "weightSource": "SCALE",
+                    "barcode": "PRC-261114-3f2a91c4-01/014600",
+                    "status": "IN_STOCK",
+                    "labelPrintedAt": null
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "400": {
+          "$ref": "#/components/responses/BadRequest"
+        },
+        "401": {
+          "$ref": "#/components/responses/Unauthenticated"
+        },
+        "403": {
+          "$ref": "#/components/responses/Forbidden"
+        },
+        "404": {
+          "$ref": "#/components/responses/NotFound"
+        },
+        "409": {
+          "$ref": "#/components/responses/Conflict"
+        },
+        "422": {
+          "$ref": "#/components/responses/BusinessRuleViolation"
+        },
+        "429": {
+          "$ref": "#/components/responses/RateLimited"
+        },
+        "500": {
+          "$ref": "#/components/responses/InternalError"
+        }
+      }
+    },
+    "printPackLabels": {
+      "operationId": "printPackLabels",
+      "tags": [
+        "prc"
+      ],
+      "summary": "Print pack labels: the data each label carries, with its lot and weight barcode",
+      "description": "Answers what each label prints, for the client to draw (A-151): product, batch, production and expiry dates, storage class, the weight in kilograms and a CODE_128 barcode whose payload is the lot and the weight in grams (`PRC-261114-3f2a91c4-01/015000`). The first print time is recorded once; a reprint gives the same payload and is marked `reprint`. Only packs IN_STOCK or PICKED print.\n\nRefusals (422 PROCESSING_ORDER_INVALID): ORDER_NOT_COMPLETED, NO_PACKS, TOO_MANY_PACKS, PACK_NOT_IN_ORDER, PACK_NOT_IN_STOCK.\n\nPermission: `prc.order.process`, scoped to the order's branch and processing location.",
+      "x-permission": "prc.order.process",
+      "x-error-codes": [
+        "VALIDATION_FAILED",
+        "UNAUTHENTICATED",
+        "FORBIDDEN",
+        "PASSWORD_CHANGE_REQUIRED",
+        "CSRF_TOKEN_INVALID",
+        "ORIGIN_NOT_ALLOWED",
+        "IDEMPOTENCY_KEY_REQUIRED",
+        "IDEMPOTENCY_KEY_REUSED",
+        "NOT_FOUND",
+        "PROCESSING_ORDER_INVALID",
+        "RATE_LIMITED"
+      ],
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "$ref": "#/components/parameters/IdempotencyKey"
+        },
+        {
+          "$ref": "#/components/parameters/CsrfToken"
+        }
+      ],
+      "security": [
+        {
+          "staffSession": []
+        },
+        {
+          "apiKey": []
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/LabelPrintRequest"
+            },
+            "example": {
+              "packIds": [
+                "019a8a10-1c4e-7a21-9b3e-4d2f6a8c0e12",
+                "019a8a10-1c4e-7a21-9b3e-4d2f6a8c0e13"
+              ],
+              "format": "PDF_LABEL_50x30"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "OK",
+          "headers": {
+            "X-Correlation-Id": {
+              "$ref": "#/components/headers/CorrelationId"
+            }
+          },
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PackLabelSheet"
+              },
+              "example": {
+                "format": "PDF_LABEL_50x30",
+                "labels": [
+                  {
+                    "pack": {
+                      "id": "019a8a10-1c4e-7a21-9b3e-4d2f6a8c0e12",
+                      "packNo": 2
+                    },
+                    "stockUnit": {
+                      "id": "019a8a0f-7b2d-7c40-8e15-3a9d4f6b2c70",
+                      "identifier": "PRC-261114-3f2a91c4-01",
+                      "tracking": "LOT"
+                    },
+                    "product": {
+                      "id": "019a7a8d-2f61-7b0e-9c4d-6e1a3b5c7d90",
+                      "sku": "MEAT-GOAT-15KG",
+                      "name": "Goat meat, 15 kg pack"
+                    },
+                    "lotNo": "PRC-261114-3f2a91c4-01",
+                    "weightKg": "15.000",
+                    "weightSource": "SCALE",
+                    "producedOn": "2026-11-14",
+                    "expiresOn": "2026-11-21",
+                    "storageTempClass": "CHILLED",
+                    "line": "PRC-261114-3f2a91c4-01 · 15.000 kg",
+                    "barcode": {
+                      "symbology": "CODE_128",
+                      "payload": "PRC-261114-3f2a91c4-01/015000",
+                      "text": "PRC-261114-3f2a91c4-01/015000"
+                    },
+                    "labelPrintedAt": "2026-11-14T13:05:00Z",
+                    "reprint": true
+                  },
+                  {
+                    "pack": {
+                      "id": "019a8a10-1c4e-7a21-9b3e-4d2f6a8c0e13",
+                      "packNo": 3
+                    },
+                    "stockUnit": {
+                      "id": "019a8a0f-7b2d-7c40-8e15-3a9d4f6b2c70",
+                      "identifier": "PRC-261114-3f2a91c4-01",
+                      "tracking": "LOT"
+                    },
+                    "product": {
+                      "id": "019a7a8d-2f61-7b0e-9c4d-6e1a3b5c7d90",
+                      "sku": "MEAT-GOAT-15KG",
+                      "name": "Goat meat, 15 kg pack"
+                    },
+                    "lotNo": "PRC-261114-3f2a91c4-01",
+                    "weightKg": "14.600",
+                    "weightSource": "SCALE",
+                    "producedOn": "2026-11-14",
+                    "expiresOn": "2026-11-21",
+                    "storageTempClass": "CHILLED",
+                    "line": "PRC-261114-3f2a91c4-01 · 14.600 kg",
+                    "barcode": {
+                      "symbology": "CODE_128",
+                      "payload": "PRC-261114-3f2a91c4-01/014600",
+                      "text": "PRC-261114-3f2a91c4-01/014600"
+                    },
+                    "labelPrintedAt": "2026-11-14T13:20:00Z",
+                    "reprint": false
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "400": {
+          "$ref": "#/components/responses/BadRequest"
+        },
+        "401": {
+          "$ref": "#/components/responses/Unauthenticated"
+        },
+        "403": {
+          "$ref": "#/components/responses/Forbidden"
+        },
+        "404": {
+          "$ref": "#/components/responses/NotFound"
+        },
+        "409": {
+          "$ref": "#/components/responses/Conflict"
+        },
+        "422": {
+          "$ref": "#/components/responses/BusinessRuleViolation"
+        },
+        "429": {
+          "$ref": "#/components/responses/RateLimited"
+        },
+        "500": {
+          "$ref": "#/components/responses/InternalError"
+        }
+      }
+    }
+  },
+  "components": {
+    "#/components/schemas/PageLimit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100,
+      "default": 25,
+      "description": "Maximum number of results in a page."
+    },
+    "#/components/headers/CorrelationId": {
+      "description": "The correlation id of the request. The same value appears in logs, traces and any error body.",
+      "schema": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "example": "019a7b1d-3b44-79c8-8f00-a553bc391e31"
+    },
+    "#/components/schemas/PackPage": {
+      "type": "object",
+      "description": "A page of `Pack` results.",
+      "properties": {
+        "data": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/Pack"
+          }
+        },
+        "page": {
+          "$ref": "#/components/schemas/PageInfo"
+        }
+      },
+      "required": [
+        "data",
+        "page"
+      ]
+    },
+    "#/components/responses/BadRequest": {
+      "description": "The request is malformed or fails validation.",
+      "headers": {
+        "X-Correlation-Id": {
+          "$ref": "#/components/headers/CorrelationId"
+        }
+      },
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "#/components/schemas/Error"
+          },
+          "example": {
+            "error": {
+              "code": "VALIDATION_FAILED",
+              "message": "Some fields are not valid.",
+              "correlationId": "019a7b1d-5a33-73ab-98e3-438b35eabc69",
+              "details": [
+                {
+                  "field": "/lines/0/weightKg",
+                  "code": "PATTERN",
+                  "message": "Weight must have exactly three decimal places, for example 24.350."
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "#/components/responses/Unauthenticated": {
+      "description": "No valid session or key.",
+      "headers": {
+        "X-Correlation-Id": {
+          "$ref": "#/components/headers/CorrelationId"
+        }
+      },
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "#/components/schemas/Error"
+          },
+          "example": {
+            "error": {
+              "code": "UNAUTHENTICATED",
+              "message": "Please log in again.",
+              "correlationId": "019a7b1d-7922-7d8f-a2c7-e1c2af9b5aa0",
+              "details": []
+            }
+          }
+        }
+      }
+    },
+    "#/components/responses/Forbidden": {
+      "description": "Authenticated, but not permitted. Also returned when the record exists but belongs to someone else.",
+      "headers": {
+        "X-Correlation-Id": {
+          "$ref": "#/components/headers/CorrelationId"
+        }
+      },
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "#/components/schemas/Error"
+          },
+          "example": {
+            "error": {
+              "code": "FORBIDDEN",
+              "message": "You do not have permission to do this here.",
+              "correlationId": "019a7b1d-9811-7772-bcaa-7ffa294cf8d8",
+              "details": []
+            }
+          }
+        }
+      }
+    },
+    "#/components/responses/NotFound": {
+      "description": "No such record, or not visible to the caller.",
+      "headers": {
+        "X-Correlation-Id": {
+          "$ref": "#/components/headers/CorrelationId"
+        }
+      },
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "#/components/schemas/Error"
+          },
+          "example": {
+            "error": {
+              "code": "NOT_FOUND",
+              "message": "We could not find that record.",
+              "correlationId": "019a7b1d-b700-7156-868e-1e31a2fd970f",
+              "details": []
+            }
+          }
+        }
+      }
+    },
+    "#/components/responses/RateLimited": {
+      "description": "Too many requests. Retry after the number of seconds in `Retry-After`.",
+      "headers": {
+        "X-Correlation-Id": {
+          "$ref": "#/components/headers/CorrelationId"
+        },
+        "Retry-After": {
+          "description": "Seconds to wait.",
+          "schema": {
+            "type": "integer"
+          },
+          "example": 60
+        }
+      },
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "#/components/schemas/Error"
+          },
+          "example": {
+            "error": {
+              "code": "RATE_LIMITED",
+              "message": "Too many attempts. Please wait a minute and try again.",
+              "correlationId": "019a7b1e-13cd-7f00-b438-f8d8101071b5",
+              "details": []
+            }
+          }
+        }
+      }
+    },
+    "#/components/responses/InternalError": {
+      "description": "Unexpected failure. Nothing was committed. Quote the correlation id.",
+      "headers": {
+        "X-Correlation-Id": {
+          "$ref": "#/components/headers/CorrelationId"
+        }
+      },
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "#/components/schemas/Error"
+          },
+          "example": {
+            "error": {
+              "code": "INTERNAL",
+              "message": "Something went wrong on our side. Please quote the reference if you call us.",
+              "correlationId": "019a7b1e-32bc-78e3-8e1c-970f89c10fed",
+              "details": []
+            }
+          }
+        }
+      }
+    },
+    "#/components/parameters/IdempotencyKey": {
+      "name": "Idempotency-Key",
+      "in": "header",
+      "required": true,
+      "description": "A UUID generated by the client for this user action and reused on every retry. The same key with a different body is refused with 409.",
+      "schema": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "example": "019a7b1d-1c55-7fe4-b51c-071c42887ffa"
+    },
+    "#/components/parameters/CsrfToken": {
+      "name": "X-CSRF-Token",
+      "in": "header",
+      "required": true,
+      "description": "The `csrfToken` from GET /auth/session.",
+      "schema": {
+        "type": "string"
+      },
+      "example": "c3f1a0b2e5d94c7f8a61b0e2d4c9f7a3"
+    },
+    "#/components/schemas/PacksCreate": {
+      "type": "object",
+      "properties": {
+        "outputLineNo": {
+          "type": "integer"
+        },
+        "packs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/PackInput"
+          }
+        }
+      },
+      "required": [
+        "outputLineNo",
+        "packs"
+      ],
+      "additionalProperties": false
+    },
+    "#/components/schemas/PackList": {
+      "type": "object",
+      "properties": {
+        "packs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/Pack"
+          }
+        }
+      },
+      "required": [
+        "packs"
+      ]
+    },
+    "#/components/responses/Conflict": {
+      "description": "The record changed since it was read (version mismatch), or the idempotency key was reused with a different body.",
+      "headers": {
+        "X-Correlation-Id": {
+          "$ref": "#/components/headers/CorrelationId"
+        }
+      },
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "#/components/schemas/Error"
+          },
+          "example": {
+            "error": {
+              "code": "VERSION_CONFLICT",
+              "message": "Someone else changed this record. Reload and try again.",
+              "correlationId": "019a7b1d-d5ef-7b39-9071-bc691cae3547",
+              "details": []
+            }
+          }
+        }
+      }
+    },
+    "#/components/responses/BusinessRuleViolation": {
+      "description": "The request is valid but a business rule refuses it. `code` says which; see docs/API.md.",
+      "headers": {
+        "X-Correlation-Id": {
+          "$ref": "#/components/headers/CorrelationId"
+        }
+      },
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "#/components/schemas/Error"
+          },
+          "example": {
+            "error": {
+              "code": "STOCK_UNIT_ON_HOLD",
+              "message": "Goat G-0163 is under a veterinary withdrawal period until 28 November and cannot be sold.",
+              "correlationId": "019a7b1d-f4de-751c-aa55-5aa0965fd37e",
+              "details": []
+            }
+          }
+        }
+      }
+    },
+    "#/components/schemas/LabelPrintRequest": {
+      "type": "object",
+      "properties": {
+        "packIds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 200,
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "PDF_LABEL_50x30",
+            "ZPL"
+          ],
+          "description": "The label the client draws the data on; the answer is the same data either way. Defaults to `PDF_LABEL_50x30`."
+        }
+      },
+      "required": [
+        "packIds"
+      ],
+      "additionalProperties": false
+    },
+    "#/components/schemas/PackLabelSheet": {
+      "type": "object",
+      "description": "The labels of `printPackLabels`, in output line and pack order.",
+      "properties": {
+        "format": {
+          "type": "string",
+          "enum": [
+            "PDF_LABEL_50x30",
+            "ZPL"
+          ]
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/PackLabel"
+          }
+        }
+      },
+      "required": [
+        "format",
+        "labels"
+      ]
+    },
+    "#/components/schemas/Pack": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "stockUnit": {
+          "$ref": "#/components/schemas/StockUnitRef"
+        },
+        "outputLineNo": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "The processing output the pack was cut from."
+        },
+        "packNo": {
+          "type": "integer"
+        },
+        "weightKg": {
+          "$ref": "#/components/schemas/Kilograms"
+        },
+        "weightSource": {
+          "$ref": "#/components/schemas/WeightSource"
+        },
+        "barcode": {
+          "type": "string",
+          "description": "The barcode payload: the lot and the weight in grams, six digits (`PRC-261114-3f2a91c4-01/015200` for 15.200 kg). Two packs of one lot that weigh the same carry the same payload and are interchangeable (A-161)."
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "IN_STOCK",
+            "PICKED",
+            "SOLD",
+            "WRITTEN_OFF",
+            "REVERSED"
+          ],
+          "description": "`REVERSED` when the order that made it was reversed (FR-PRC-011)."
+        },
+        "labelPrintedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "stockUnit",
+        "outputLineNo",
+        "packNo",
+        "weightKg",
+        "weightSource",
+        "barcode",
+        "status",
+        "labelPrintedAt"
+      ],
+      "description": "A weighed, labelled piece of a meat lot (FR-PRC-009)."
+    },
+    "#/components/schemas/PageInfo": {
+      "type": "object",
+      "description": "Cursor pagination. Pass `nextCursor` as `cursor` to get the next page.",
+      "properties": {
+        "nextCursor": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Opaque cursor for the next page. Null on the last page."
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "hasMore": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "nextCursor",
+        "limit",
+        "hasMore"
+      ]
+    },
+    "#/components/schemas/Error": {
+      "type": "object",
+      "description": "The single error envelope. Every non-2xx response uses it.",
+      "properties": {
+        "error": {
+          "$ref": "#/components/schemas/ErrorBody"
+        }
+      },
+      "required": [
+        "error"
+      ]
+    },
+    "#/components/schemas/PackInput": {
+      "type": "object",
+      "properties": {
+        "weightKg": {
+          "$ref": "#/components/schemas/Kilograms"
+        },
+        "weightSource": {
+          "$ref": "#/components/schemas/WeightSource"
+        }
+      },
+      "required": [
+        "weightKg",
+        "weightSource"
+      ],
+      "additionalProperties": false
+    },
+    "#/components/schemas/PackLabel": {
+      "type": "object",
+      "description": "What one pack label prints, for the client to draw (FR-PRC-010, A-151): product, batch, production and expiry dates, storage class, weight and a barcode carrying the lot and the weight in grams.",
+      "properties": {
+        "pack": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "packNo": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "id",
+            "packNo"
+          ]
+        },
+        "stockUnit": {
+          "$ref": "#/components/schemas/StockUnitRef"
+        },
+        "product": {
+          "$ref": "#/components/schemas/ProductRef"
+        },
+        "lotNo": {
+          "type": "string"
+        },
+        "weightKg": {
+          "$ref": "#/components/schemas/Kilograms"
+        },
+        "weightSource": {
+          "$ref": "#/components/schemas/WeightSource"
+        },
+        "producedOn": {
+          "type": "string",
+          "format": "date"
+        },
+        "expiresOn": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "storageTempClass": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "AMBIENT",
+            "CHILLED",
+            "FROZEN",
+            null
+          ]
+        },
+        "line": {
+          "type": "string",
+          "description": "The lot and the weight in kilograms, printed beside the barcode."
+        },
+        "barcode": {
+          "$ref": "#/components/schemas/LabelBarcode"
+        },
+        "labelPrintedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the label was first printed; a reprint keeps it."
+        },
+        "reprint": {
+          "type": "boolean",
+          "description": "True when the label had been printed before: the label shows a reprint mark."
+        }
+      },
+      "required": [
+        "pack",
+        "stockUnit",
+        "product",
+        "lotNo",
+        "weightKg",
+        "weightSource",
+        "producedOn",
+        "expiresOn",
+        "storageTempClass",
+        "line",
+        "barcode",
+        "labelPrintedAt",
+        "reprint"
+      ]
+    },
+    "#/components/schemas/StockUnitRef": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "identifier": {
+          "type": "string",
+          "description": "Tag number of an animal or batch number of a lot."
+        },
+        "tracking": {
+          "type": "string",
+          "enum": [
+            "SERIAL",
+            "LOT"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "identifier",
+        "tracking"
+      ]
+    },
+    "#/components/schemas/Kilograms": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]{0,6})\\.[0-9]{3}$",
+      "description": "A weight in kilograms as a decimal string with exactly three decimal places. A string, never a JSON number, so it is never rounded by a float.",
+      "examples": [
+        "24.350"
+      ]
+    },
+    "#/components/schemas/WeightSource": {
+      "type": "string",
+      "enum": [
+        "SCALE",
+        "MANUAL",
+        "ESTIMATE"
+      ],
+      "description": "How a weight was captured: read from a scale, typed in, or estimated."
+    },
+    "#/components/schemas/ErrorBody": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "Stable machine code. See docs/API.md for the catalogue. Each implemented operation lists the codes it can raise in `x-error-codes`; INTERNAL can come from any operation."
+        },
+        "message": {
+          "type": "string",
+          "description": "A sentence safe to show to a user. Never contains internal detail."
+        },
+        "correlationId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Quote this to support. It appears in every log line and trace of the request."
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/ErrorDetail"
+          }
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "correlationId",
+        "details"
+      ]
+    },
+    "#/components/schemas/ProductRef": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "sku": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "sku",
+        "name"
+      ]
+    },
+    "#/components/schemas/LabelBarcode": {
+      "type": "object",
+      "description": "A barcode for the client to draw: what the bars encode and in which symbology, and the text printed under them.",
+      "properties": {
+        "symbology": {
+          "type": "string",
+          "enum": [
+            "CODE_128"
+          ]
+        },
+        "payload": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "symbology",
+        "payload",
+        "text"
+      ]
+    },
+    "#/components/schemas/ErrorDetail": {
+      "type": "object",
+      "properties": {
+        "field": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "JSON pointer to the offending input, when the error is about one field."
+        },
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "field",
+        "code",
+        "message"
+      ]
+    }
+  }
+}

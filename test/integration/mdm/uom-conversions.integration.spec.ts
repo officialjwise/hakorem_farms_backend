@@ -66,11 +66,11 @@ beforeAll(async () => {
     const user = await createUser(database, { name, grants: [{ role, branchId }] });
     refusedRoles.set(role, role === 'ACCOUNTANT' ? await enrolAndLogin(api.server, user, () => clock.now()) : await login(api.server, user));
   }
-  feedId = await product({ sku: 'FEED-BRL-GROWER', name: 'Broiler grower pellets, per kg', categoryId: catalogue.eggsCategoryId, stockPolicy: 'COUNTABLE', baseUom: 'KG', saleUom: 'KG' });
-  eggsId = await product({ sku: 'EGG-LOCAL-UNIT', name: 'Eggs, local, each', categoryId: catalogue.eggsCategoryId, stockPolicy: 'COUNTABLE', baseUom: 'UNIT', saleUom: 'CRATE' });
-  goatMeatId = await product({ sku: 'MEAT-GOAT-15KG', name: 'Goat meat, 15 kg pack', categoryId: catalogue.meatCategoryId, stockPolicy: 'CATCH_WEIGHT', baseUom: 'KG', saleUom: 'PACK', nominalPackKg: '15.000' });
-  goatId = await product({ sku: 'LIV-GOAT', name: 'Goat', categoryId: catalogue.liveCategoryId, stockPolicy: 'SERIALISED', speciesId: catalogue.goatSpeciesId, baseUom: 'HEAD', saleUom: 'HEAD' });
-  yamId = await product({ sku: 'PRD-YAM-TUBER', name: 'Yam, per tuber', categoryId: catalogue.eggsCategoryId, stockPolicy: 'COUNTABLE', baseUom: 'TUBER', saleUom: 'TUBER' });
+  feedId = await product({ name: 'Broiler grower pellets, per kg', categoryId: catalogue.eggsCategoryId, stockPolicy: 'COUNTABLE', baseUom: 'KG', saleUom: 'KG' });
+  eggsId = await product({ name: 'Eggs, local, each', categoryId: catalogue.eggsCategoryId, stockPolicy: 'COUNTABLE', baseUom: 'UNIT', saleUom: 'CRATE' });
+  goatMeatId = await product({ name: 'Goat meat, 15 kg pack', categoryId: catalogue.meatCategoryId, stockPolicy: 'CATCH_WEIGHT', baseUom: 'KG', saleUom: 'PACK', nominalPackKg: '15.000' });
+  goatId = await product({ name: 'Goat', categoryId: catalogue.liveCategoryId, stockPolicy: 'SERIALISED', speciesId: catalogue.goatSpeciesId, baseUom: 'HEAD', saleUom: 'HEAD' });
+  yamId = await product({ name: 'Yam, per tuber', categoryId: catalogue.eggsCategoryId, stockPolicy: 'COUNTABLE', baseUom: 'TUBER', saleUom: 'TUBER' });
 });
 
 afterAll(async () => {
@@ -105,7 +105,7 @@ describe('making a conversion (FR-MDM-003)', () => {
     expect(made.status).toBe(201);
     expect(made.body).toEqual({
       id: expect.any(String),
-      product: { id: feedId, sku: 'FEED-BRL-GROWER', name: 'Broiler grower pellets, per kg' },
+      product: { id: feedId, sku: 'EGG-0001', name: 'Broiler grower pellets, per kg' },
       fromUom: 'BAG',
       toUom: 'KG',
       numerator: 50,
@@ -199,9 +199,9 @@ describe('making a conversion (FR-MDM-003)', () => {
     expect(next.body.page.hasMore).toBe(false);
     const all = await get(manager, '/uom-conversions');
     expect(all.body.data.map((row: { product: { sku: string }; fromUom: string }) => `${row.product.sku}:${row.fromUom}`)).toEqual([
-      'FEED-BRL-GROWER:BAG',
-      'EGG-LOCAL-UNIT:CRATE',
-      'FEED-BRL-GROWER:PACK',
+      'EGG-0001:BAG',
+      'EGG-0002:CRATE',
+      'EGG-0001:PACK',
     ]);
   });
 

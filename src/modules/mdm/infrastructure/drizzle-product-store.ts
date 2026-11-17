@@ -57,7 +57,6 @@ function toView(row: ViewRow, images: readonly ProductImageView[]): ProductView 
     shelfLifeDays: p.shelfLifeDays,
     storageTempClass: p.storageTempClass as ProductView['storageTempClass'],
     withdrawalDays: p.withdrawalDays,
-    barcode: p.barcode,
     description: p.description,
     onlineMode: p.onlineMode as ProductView['onlineMode'],
     seo: { slug: p.seoSlug, title: p.seoTitle, description: p.seoDescription },
@@ -155,26 +154,23 @@ export class DrizzleProductStore implements ProductStore {
   }
 
   async takenValues(tx: Transaction, definition: ProductDefinition, exceptId?: string): Promise<UniqueProductField[]> {
-    const clauses: SQL[] = [eq(product.sku, definition.sku)];
-    if (definition.barcode !== null) clauses.push(eq(product.barcode, definition.barcode));
-    if (definition.seoSlug !== null) clauses.push(eq(product.seoSlug, definition.seoSlug));
+    if (definition.seoSlug === null) return [];
     const rows = await tx.db
-      .select({ sku: product.sku, barcode: product.barcode, seoSlug: product.seoSlug })
+      .select({ id: product.id })
       .from(product)
-      .where(and(isNull(product.deletedAt), or(...clauses), exceptId === undefined ? undefined : ne(product.id, exceptId)));
-    const taken = new Set<UniqueProductField>();
-    for (const row of rows) {
-      if (row.sku === definition.sku) taken.add('sku');
-      if (definition.barcode !== null && row.barcode === definition.barcode) taken.add('barcode');
-      if (definition.seoSlug !== null && row.seoSlug === definition.seoSlug) taken.add('seoSlug');
-    }
-    return (['sku', 'barcode', 'seoSlug'] as const).filter((field) => taken.has(field));
+      .where(and(isNull(product.deletedAt), eq(product.seoSlug, definition.seoSlug), exceptId === undefined ? undefined : ne(product.id, exceptId)));
+    return rows.length > 0 ? ['seoSlug'] : [];
   }
 
-  async insert(tx: Transaction, id: string, d: ProductDefinition, actorId: string, now: Date): Promise<void> {
+  async allocateSku(tx: Transaction, categoryId: string): Promise<string> {
+    const { rows } = await tx.query<{ sku: string }>('SELECT mdm.allocate_sku(c.sku_prefix) AS sku FROM mdm.category c WHERE c.id = $1', [categoryId]);
+    return rows[0]!.sku;
+  }
+
+  async insert(tx: Transaction, id: string, sku: string, d: ProductDefinition, actorId: string, now: Date): Promise<void> {
     await tx.db.insert(product).values({
       id,
-      sku: d.sku,
+      sku,
       name: d.name,
       categoryId: d.categoryId,
       stockPolicy: d.stockPolicy,
@@ -189,7 +185,6 @@ export class DrizzleProductStore implements ProductStore {
       shelfLifeDays: d.shelfLifeDays,
       storageTempClass: d.storageTempClass,
       withdrawalDays: d.withdrawalDays,
-      barcode: d.barcode,
       description: d.description,
       onlineMode: d.onlineMode,
       seoSlug: d.seoSlug,
@@ -222,7 +217,6 @@ export class DrizzleProductStore implements ProductStore {
         taxCategoryId: d.taxCategoryId,
         glGroup: d.glGroup,
         shelfLifeDays: d.shelfLifeDays,
-        barcode: d.barcode,
         description: d.description,
         onlineMode: d.onlineMode,
         seoSlug: d.seoSlug,
@@ -318,7 +312,6 @@ function filterClauses(filter: ProductListFilter): SQL[] {
   if (filter.stockPolicy !== undefined) clauses.push(eq(product.stockPolicy, filter.stockPolicy));
   if (filter.onlineMode !== undefined) clauses.push(eq(product.onlineMode, filter.onlineMode));
   if (filter.status !== undefined) clauses.push(eq(product.status, filter.status));
-  if (filter.barcode !== undefined) clauses.push(eq(product.barcode, filter.barcode));
   if (filter.q !== undefined) {
     // "Matches the start of words, case-insensitive" (docs/API.md section 6), on name and SKU.
     const prefix = likePrefix(filter.q);

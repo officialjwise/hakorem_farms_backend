@@ -73,7 +73,7 @@ responses:
           targets:
             - product:
                 id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                sku: MEAT-CHK-FULL
+                sku: MEAT-0001
                 name: "Full chicken, 15 kg pack"
               category: null
               bundleQty: null

@@ -10,7 +10,7 @@ import { SEED_CATEGORIES, SEED_SPECIES_LIST } from './reference-catalogue';
 import { SEED_CUSTOMERS, SEED_PRICE_LISTS, SEED_PRODUCTS, SEED_PROMOTIONS, SEED_SPECIES, SEED_TAX_SCHEME } from './reference-pricing';
 import type { SeedCalendar } from './seed-calendar';
 import { SEED_USER_AGENT, SeedStaff } from './seed-staff';
-import type { ServiceSeedUnit } from './seed-unit';
+import { expectSeededSku, type ServiceSeedUnit } from './seed-unit';
 
 const TIER: Readonly<Record<string, string>> = {
   RETAIL: '01900000-0000-7000-8000-000000000301',
@@ -227,7 +227,7 @@ export function farmSeedMdm(calendarOf: (app: INestApplicationContext) => SeedCa
           if (categories.has(category.code)) continue;
           const created = await catalogue.createCategory(
             manager,
-            { code: category.code, name: category.name, productLine: category.productLine, glGroup: category.glGroup, taxCategoryId: TAX_CATEGORY[category.taxCategory]!, sortOrder: category.sortOrder },
+            { code: category.code, name: category.name, productLine: category.productLine, glGroup: category.glGroup, taxCategoryId: TAX_CATEGORY[category.taxCategory]!, sortOrder: category.sortOrder, skuPrefix: category.skuPrefix },
             key('category', category.code),
           );
           categories.set(category.code, created.body.id);
@@ -259,7 +259,6 @@ export function farmSeedMdm(calendarOf: (app: INestApplicationContext) => SeedCa
           const created = await productCatalogue.create(
             manager,
             {
-              sku: product.sku,
               name: product.name,
               categoryId: required(categories, product.category, 'category'),
               stockPolicy: product.policy,
@@ -274,6 +273,7 @@ export function farmSeedMdm(calendarOf: (app: INestApplicationContext) => SeedCa
             },
             key('product', product.sku),
           );
+          expectSeededSku(created.body.sku, product.sku);
           products.set(product.sku, created.body.id);
           written += 1;
         }

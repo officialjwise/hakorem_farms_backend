@@ -53,7 +53,7 @@ responses:
                 - id: "019a7abb-98ec-73d6-890e-463ba591bf19"
                   product:
                     id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
-                    sku: FD-BRL-FIN
+                    sku: FEED-0004
                     name: "Broiler finisher feed, 50 kg bag"
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                   location: null
@@ -66,7 +66,7 @@ responses:
                 - id: "019a7abb-b7db-7dba-92f2-e4731f425d51"
                   product:
                     id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                    sku: EGG-BIG
+                    sku: EGG-0003
                     name: "Eggs, big, crate of 30"
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                   location: null
@@ -79,7 +79,7 @@ responses:
                 - id: "019a7abb-d6ca-779d-acd5-82aa98f3fb88"
                   product:
                     id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                    sku: MEAT-CHK-FULL
+                    sku: MEAT-0001
                     name: "Full chicken, 15 kg pack"
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                   location: null
@@ -92,7 +92,7 @@ responses:
                 - id: "019a7abb-f5b9-7181-b6b9-20e212a499bf"
                   product:
                     id: "019a7a8e-a5a0-754c-8a85-5d9ed05dd67c"
-                    sku: PRD-YAM
+                    sku: PRD-0005
                     name: "Yam, tuber"
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                   location:
@@ -109,7 +109,7 @@ responses:
                 - id: "019a7abc-14a8-7b64-809c-bf198c5537f7"
                   product:
                     id: "019a7a8f-026d-72f7-b82f-38453d70b123"
-                    sku: VET-OXYTET
+                    sku: FEED-0005
                     name: "Oxytetracycline 20% injection, 100 ml"
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                   location: null
@@ -122,7 +122,7 @@ responses:
                 - id: "019a7abc-3397-7547-9a80-5d510606d62e"
                   product:
                     id: "019a7a8e-86b1-7b69-b0a1-bf6756ac3845"
-                    sku: PRD-TOMATO
+                    sku: PRD-0001
                     name: "Tomatoes, crate"
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                   location: null

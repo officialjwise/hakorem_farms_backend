@@ -2,7 +2,7 @@ operationId: updateProduct
 tags:
   - mdm
 summary: "Update a product"
-description: "Send the `version` you read; a stale version is refused with 409. The stock-keeping policy, units and species never change here. A status never returns to `DRAFT` (422 `INVALID_STATE_TRANSITION`), and a change that would move a countable product between held in lots and not (a shelf life added or removed) is refused with 422 `STOCK_POLICY_CONFLICT` (`TRACKING_FIXED`). Publishes `mdm.ProductChanged`.\n\nPermission: `mdm.product.update`."
+description: "Send the `version` you read; a stale version is refused with 409. The stock-keeping policy, units and species never change here. A status never returns to `DRAFT` (422 `INVALID_STATE_TRANSITION`), and a change that would move a countable product between held in lots and not (a shelf life added or removed) is refused with 422 `STOCK_POLICY_CONFLICT` (`TRACKING_FIXED`). The SKU never changes, even when the product moves to another category: a request that carries `sku`, even the product's own, is 422 `FIELD_SERVER_ASSIGNED` (ADR-0072); there is no product barcode from 2.0.0. Publishes `mdm.ProductChanged`.\n\nPermission: `mdm.product.update`."
 x-permission: mdm.product.update
 x-error-codes:
   - VALIDATION_FAILED
@@ -19,6 +19,7 @@ x-error-codes:
   - REFERENCE_NOT_FOUND
   - STOCK_POLICY_CONFLICT
   - DUPLICATE_VALUE
+  - FIELD_SERVER_ASSIGNED
   - RATE_LIMITED
 parameters:
   - name: id
@@ -53,7 +54,7 @@ responses:
           $ref: "#/components/schemas/Product"
         example:
           id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-          sku: LIV-GOAT
+          sku: LIV-0004
           name: Goat
           category:
             id: "019a7a89-737b-7c17-9150-ca4d5fa2432b"
@@ -77,7 +78,6 @@ responses:
           shelfLifeDays: null
           storageTempClass: null
           withdrawalDays: null
-          barcode: null
           description: "Individually tagged and weighed. Priced by size and weight."
           onlineMode: REQUEST_TO_BUY
           seo:

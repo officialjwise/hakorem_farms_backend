@@ -59,7 +59,7 @@ describe('inventory operations answer in the contract shapes', () => {
       locationId: id('location:PENS'),
       deliveryNoteRef: 'KLT-0458',
       receivedAt: new Date(Date.now() - 3_600_000).toISOString(),
-      lines: [{ productId: id('product:LIV-GOAT'), qtyReceived: '2.000', valuePesewas: 120_000, animals: [{ tagNo: 'G-0150', sex: 'MALE', breed: 'West African Dwarf' }, { tagNo: 'G-0151', sex: 'FEMALE', weightKg: '21.400', weightSource: 'SCALE', dateOfBirth: '2025-12-01' }] }],
+      lines: [{ productId: id('product:LIV-0004'), qtyReceived: '2.000', valuePesewas: 120_000, animals: [{ tagNo: 'G-0150', sex: 'MALE', breed: 'West African Dwarf' }, { tagNo: 'G-0151', sex: 'FEMALE', weightKg: '21.400', weightSource: 'SCALE', dateOfBirth: '2025-12-01' }] }],
     });
     expect(created.status).toBe(201);
     expectShape('GoodsReceipt', created.body);
@@ -68,7 +68,7 @@ describe('inventory operations answer in the contract shapes', () => {
     expectShape('GoodsReceipt', (await post(`/goods-receipts/${created.body.id}/post`)).body);
     expectShape('GoodsReceiptPage', (await get('/goods-receipts')).body);
     expectShape('GoodsReceiptPage', (await get('/goods-receipts?status=POSTED&from=2026-01-01&to=2030-12-31')).body);
-    const draft = await post('/goods-receipts', { kind: 'HARVEST', locationId: id('location:SHOP'), receivedAt: new Date(Date.now() - 3_600_000).toISOString(), lines: [{ productId: id('product:PRD-YAM-TUBER'), qtyReceived: '10.000', valuePesewas: 12_000 }] });
+    const draft = await post('/goods-receipts', { kind: 'HARVEST', locationId: id('location:SHOP'), receivedAt: new Date(Date.now() - 3_600_000).toISOString(), lines: [{ productId: id('product:PRD-0005'), qtyReceived: '10.000', valuePesewas: 12_000 }] });
     expectShape('GoodsReceipt', (await post(`/goods-receipts/${draft.body.id}/cancel`, { reason: 'Counted twice' })).body);
     const refused = await post(`/goods-receipts/${draft.body.id}/post`);
     expect(refused.status).toBe(422);
@@ -116,7 +116,7 @@ describe('inventory operations answer in the contract shapes', () => {
     const transfer = await post('/stock-transfers', {
       fromLocationId: id('location:COLD'),
       toLocationId: id('location:SHOP'),
-      lines: [{ productId: id('product:MEAT-GOAT-15KG'), stockUnitId: id('unit:LOT-GOAT-0001'), qty: '5.000' }],
+      lines: [{ productId: id('product:MEAT-0007'), stockUnitId: id('unit:LOT-GOAT-0001'), qty: '5.000' }],
     });
     expect(transfer.status).toBe(201);
     expectShape('StockTransfer', transfer.body);
@@ -129,14 +129,14 @@ describe('inventory operations answer in the contract shapes', () => {
     const unbalanced = await post(`/stock-transfers/${transfer.body.id as string}/receive`, { lines: [] });
     expect(unbalanced.status).toBe(422);
     expectShape('Error', unbalanced.body);
-    const draft = await post('/stock-transfers', { fromLocationId: id('location:COLD'), toLocationId: id('location:SHOP'), lines: [{ productId: id('product:MEAT-GOAT-15KG'), stockUnitId: id('unit:LOT-GOAT-0001'), qty: '1.000' }] });
+    const draft = await post('/stock-transfers', { fromLocationId: id('location:COLD'), toLocationId: id('location:SHOP'), lines: [{ productId: id('product:MEAT-0007'), stockUnitId: id('unit:LOT-GOAT-0001'), qty: '1.000' }] });
     expectShape('StockTransfer', (await post(`/stock-transfers/${draft.body.id as string}/cancel`, { reason: 'Van not available' })).body);
 
     const small = await post('/stock-adjustments', {
       locationId: id('location:SHOP'),
       reasonCode: 'DAMAGED',
       note: 'Two tubers crushed',
-      lines: [{ productId: id('product:PRD-YAM-TUBER'), direction: 'LOSS', qty: '2.000' }],
+      lines: [{ productId: id('product:PRD-0005'), direction: 'LOSS', qty: '2.000' }],
     });
     expect(small.status).toBe(201);
     expectShape('StockAdjustment', small.body);
@@ -147,7 +147,7 @@ describe('inventory operations answer in the contract shapes', () => {
       locationId: id('location:COLD'),
       reasonCode: 'COLD_CHAIN_FAILURE',
       note: 'Freezer failed overnight',
-      lines: [{ productId: id('product:MEAT-BEEF-15KG'), stockUnitId: id('unit:LOT-BEEF-2026-1110'), direction: 'LOSS', qty: '10.000', weightKg: '10.000' }],
+      lines: [{ productId: id('product:MEAT-0005'), stockUnitId: id('unit:LOT-BEEF-2026-1110'), direction: 'LOSS', qty: '10.000', weightKg: '10.000' }],
     });
     const pending = await post(`/stock-adjustments/${large.body.id as string}/submit`);
     expect(pending.status).toBe(202);
@@ -167,7 +167,7 @@ describe('inventory operations answer in the contract shapes', () => {
   });
 
   it('a stock take through its life, its variance report and its refusals', async () => {
-    const created = await post('/stock-takes', { locationId: id('location:SHOP'), scope: 'CYCLE', productIds: [id('product:PRD-CABBAGE-HEAD')] });
+    const created = await post('/stock-takes', { locationId: id('location:SHOP'), scope: 'CYCLE', productIds: [id('product:PRD-0002')] });
     expect(created.status).toBe(201);
     expectShape('StockTake', created.body);
     const takeId = created.body.id as string;
@@ -213,7 +213,7 @@ describe('inventory operations answer in the contract shapes', () => {
     const transfer = await post('/stock-transfers', {
       fromLocationId: id('location:COLD'),
       toLocationId: id('location:SHOP'),
-      lines: [{ productId: id('product:MEAT-BEEF-15KG'), stockUnitId: id('unit:LOT-BEEF-2026-1110'), qty: '1.000' }],
+      lines: [{ productId: id('product:MEAT-0005'), stockUnitId: id('unit:LOT-BEEF-2026-1110'), qty: '1.000' }],
     });
     await post(`/stock-transfers/${transfer.body.id as string}/dispatch`);
     await post(`/stock-transfers/${transfer.body.id as string}/receive`, { lines: [{ lineId: transfer.body.lines[0].id, qtyReceived: '0.900', varianceReasonCode: 'DAMAGED' }] });
@@ -237,7 +237,7 @@ describe('inventory operations answer in the contract shapes', () => {
     const missing = await post(`/stock/reservations/${randomUUID()}/release`, { reason: 'Quote withdrawn' });
     expect(missing.status).toBe(404);
     expectShape('Error', missing.body);
-    const availability = await get(`/stock/availability?branchId=${id('branch:DDW')}&productId=${id('product:LIV-GOAT')}&productId=${id('product:PRD-YAM-TUBER')}`);
+    const availability = await get(`/stock/availability?branchId=${id('branch:DDW')}&productId=${id('product:LIV-0004')}&productId=${id('product:PRD-0005')}`);
     expect(availability.status).toBe(200);
     expectShape('AvailabilityLinePage', availability.body);
     const units = await get('/stock-units?tracking=SERIAL&limit=2');
@@ -249,7 +249,7 @@ describe('inventory operations answer in the contract shapes', () => {
   });
 
   it('reorder rules, stock alerts and temperature readings, and their refusals', async () => {
-    const rule = await post('/reorder-rules', { productId: id('product:PRD-CABBAGE-HEAD'), branchId: id('branch:DDW'), minQty: '30.000', reorderPointQty: '40.000', maxQty: '80.000' });
+    const rule = await post('/reorder-rules', { productId: id('product:PRD-0002'), branchId: id('branch:DDW'), minQty: '30.000', reorderPointQty: '40.000', maxQty: '80.000' });
     expect(rule.status).toBe(201);
     expectShape('ReorderRule', rule.body);
     expectShape('ReorderRulePage', (await get('/reorder-rules')).body);
@@ -259,7 +259,7 @@ describe('inventory operations answer in the contract shapes', () => {
     const stale = await patch(`/reorder-rules/${rule.body.id as string}`, { version: 1, maxQty: '95.000' });
     expect(stale.status).toBe(409);
     expectShape('Error', stale.body);
-    const bad = await post('/reorder-rules', { productId: id('product:PRD-YAM-TUBER'), branchId: id('branch:DDW'), minQty: '9.000', reorderPointQty: '8.000', maxQty: '20.000' });
+    const bad = await post('/reorder-rules', { productId: id('product:PRD-0005'), branchId: id('branch:DDW'), minQty: '9.000', reorderPointQty: '8.000', maxQty: '20.000' });
     expect(bad.status).toBe(422);
     expectShape('Error', bad.body);
     const alerts = await get('/stock/alerts');

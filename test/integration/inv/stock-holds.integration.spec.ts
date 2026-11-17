@@ -43,7 +43,7 @@ const inContext = <T>(fn: () => Promise<T>): Promise<T> => runAsSystem({ princip
 const beefTransfer = () => ({
   fromLocationId: id('location:COLD'),
   toLocationId: id('location:SHOP'),
-  lines: [{ productId: id('product:MEAT-BEEF-15KG'), stockUnitId: id('unit:LOT-BEEF-2026-1110'), qty: '1.000' }],
+  lines: [{ productId: id('product:MEAT-0005'), stockUnitId: id('unit:LOT-BEEF-2026-1110'), qty: '1.000' }],
 });
 
 /** A sale of one unit through `Stock.postIn`, as point of sale will post it, at `occurredAt`. */
@@ -140,7 +140,7 @@ describe('an investigation hold blocks a sale until a different person releases 
     const dispatched = await post(coldStorekeeper, `/stock-transfers/${transfer.body.id as string}/dispatch`);
     expect(dispatched.status).toBe(422);
     expect(dispatched.body.error.code).toBe('STOCK_UNIT_ON_HOLD');
-    expect(await sell('MEAT-BEEF-15KG', 'LOT-BEEF-2026-1110', 'COLD', '1.000', clock.now())).toBe('STOCK_UNIT_ON_HOLD');
+    expect(await sell('MEAT-0005', 'LOT-BEEF-2026-1110', 'COLD', '1.000', clock.now())).toBe('STOCK_UNIT_ON_HOLD');
   });
 
   it('lists the hold where the lot is, and not where it is not', async () => {
@@ -167,7 +167,7 @@ describe('an investigation hold blocks a sale until a different person releases 
   });
 
   it('once released, the lot is sold and dispatched again', async () => {
-    expect(await sell('MEAT-BEEF-15KG', 'LOT-BEEF-2026-1110', 'COLD', '1.000', clock.now())).toMatch(/^[0-9a-f-]{36}$/);
+    expect(await sell('MEAT-0005', 'LOT-BEEF-2026-1110', 'COLD', '1.000', clock.now())).toMatch(/^[0-9a-f-]{36}$/);
     const transfer = await post(coldStorekeeper, '/stock-transfers', beefTransfer());
     expect((await post(coldStorekeeper, `/stock-transfers/${transfer.body.id as string}/dispatch`)).status).toBe(200);
   });
@@ -185,7 +185,7 @@ describe('a withdrawal hold is never released early (FR-INV-022, ADR-0019)', () 
         return api.app.get(StockHolds).placeIn(tx, SYSTEM_PRINCIPAL, { stockUnitId: id('unit:G-0142'), kind: 'WITHDRAWAL', startsAt: clock.now(), endsAt: ends(), sourceDocumentId: treatment, note: 'Oxytetracycline, 14 days' });
       }),
     );
-    expect(await sell('LIV-GOAT', 'G-0142', 'PENS', '1.000', clock.now())).toBe('STOCK_UNIT_ON_HOLD');
+    expect(await sell('LIV-0004', 'G-0142', 'PENS', '1.000', clock.now())).toBe('STOCK_UNIT_ON_HOLD');
   });
 
   it('nobody releases it: the owner is refused with WITHDRAWAL_CANNOT_BE_RELEASED, and the database refuses a direct release', async () => {
@@ -202,7 +202,7 @@ describe('a withdrawal hold is never released early (FR-INV-022, ADR-0019)', () 
   });
 
   it('it ends by time: a sale dated after its end posts', async () => {
-    expect(await sell('LIV-GOAT', 'G-0142', 'PENS', '1.000', new Date(ends().getTime() + 60_000))).toMatch(/^[0-9a-f-]{36}$/);
+    expect(await sell('LIV-0004', 'G-0142', 'PENS', '1.000', new Date(ends().getTime() + 60_000))).toMatch(/^[0-9a-f-]{36}$/);
   });
 
   it('the database refuses a release by the person who placed a hold (ck_stock_hold_releaser) and one without its note', async () => {
@@ -235,7 +235,7 @@ describe("a hold's window is read on the application's clock, not the database's
     const onHand = await get(manager, `/stock/on-hand?stockUnitId=${goat()}`);
     expect(onHand.status, JSON.stringify(onHand.body)).toBe(200);
     const unit = await get(manager, `/stock-units/${goat()}`);
-    const held = await get(manager, `/stock-units?onHold=true&productId=${id('product:LIV-GOAT')}`);
+    const held = await get(manager, `/stock-units?onHold=true&productId=${id('product:LIV-0004')}`);
     return {
       ...views,
       listed: onHand.body.data.map((r: { availableQty: string; holds: string[] }) => ({ availableQty: r.availableQty, holds: r.holds })),
@@ -254,7 +254,7 @@ describe("a hold's window is read on the application's clock, not the database's
         await tx.query(
           `INSERT INTO inv.stock_reservation (id, product_id, stock_unit_id, location_id, qty, is_exclusive, holder_document_id, status, branch_id, created_by, updated_by)
            VALUES ($1, $2, $3, $4, 1, true, $5, 'ACTIVE', $6, $7, $7)`,
-          [randomUUID(), id('product:LIV-GOAT'), goat(), id('location:PENS'), holder, id('branch:DDW'), SYSTEM_PRINCIPAL],
+          [randomUUID(), id('product:LIV-0004'), goat(), id('location:PENS'), holder, id('branch:DDW'), SYSTEM_PRINCIPAL],
         );
         throw rolledBack;
       }),
@@ -266,7 +266,7 @@ describe("a hold's window is read on the application's clock, not the database's
     await admin().query(
       `INSERT INTO inv.reorder_rule (id, product_id, branch_id, location_id, min_qty, reorder_point_qty, max_qty, created_by, updated_by)
        VALUES ($1, $2, $3, $4, 0, 0, 10, $5, $5)`,
-      [reorderRuleId, id('product:LIV-GOAT'), id('branch:DDW'), id('location:PENS'), SYSTEM_PRINCIPAL],
+      [reorderRuleId, id('product:LIV-0004'), id('branch:DDW'), id('location:PENS'), SYSTEM_PRINCIPAL],
     );
     endsAt = new Date(clock.now().getTime() + 2 * 60_000);
     const placed = await post(manager, '/stock/holds', { stockUnitId: goat(), kind: 'QUARANTINE', endsAt: endsAt.toISOString(), note: 'Coughing; kept apart for observation' });

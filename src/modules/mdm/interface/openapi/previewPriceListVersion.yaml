@@ -62,7 +62,7 @@ responses:
                     id: "019a7aa5-f7cf-79ca-9f02-a5718ece1e4f"
                     product:
                       id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                      sku: LIV-GOAT
+                      sku: LIV-0004
                       name: Goat
                     grade: null
                     weightBand:
@@ -81,7 +81,7 @@ responses:
                     id: "019a7ab0-1a01-7c3e-9d11-4b2f6e8a1001"
                     product:
                       id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                      sku: LIV-GOAT
+                      sku: LIV-0004
                       name: Goat
                     grade: null
                     weightBand:
@@ -101,7 +101,7 @@ responses:
                     id: "019a7aa6-35ad-7d90-b2c9-e1e082305abe"
                     product:
                       id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                      sku: LIV-GOAT
+                      sku: LIV-0004
                       name: Goat
                     grade: null
                     weightBand:
@@ -120,7 +120,7 @@ responses:
                     id: "019a7ab0-1a03-7c3e-9d11-4b2f6e8a1003"
                     product:
                       id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                      sku: LIV-GOAT
+                      sku: LIV-0004
                       name: Goat
                     grade: null
                     weightBand:
@@ -140,7 +140,7 @@ responses:
                     id: "019a7aa6-16be-73ad-a8e5-43a9087fbc86"
                     product:
                       id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                      sku: LIV-GOAT
+                      sku: LIV-0004
                       name: Goat
                     grade:
                       id: "019a7a8c-d59f-70f8-9631-185eaefe913c"
@@ -162,7 +162,7 @@ responses:
                     id: "019a7ab0-1a02-7c3e-9d11-4b2f6e8a1002"
                     product:
                       id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                      sku: LIV-GOAT
+                      sku: LIV-0004
                       name: Goat
                     grade:
                       id: "019a7a8c-d59f-70f8-9631-185eaefe913c"
@@ -186,7 +186,7 @@ responses:
                     id: "019a7ab0-1a04-7c3e-9d11-4b2f6e8a1004"
                     product:
                       id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                      sku: LIV-GOAT
+                      sku: LIV-0004
                       name: Goat
                     grade:
                       id: "019a7a8c-d59f-70f8-9631-185eaefe913c"
@@ -209,7 +209,7 @@ responses:
                     id: "019a7aa6-549c-7774-8cac-8017fbe1f8f5"
                     product:
                       id: "019a7a8d-326c-7ea3-83db-f3051c116be3"
-                      sku: LIV-SHEEP
+                      sku: LIV-0005
                       name: Sheep
                     grade: null
                     weightBand:
@@ -228,7 +228,7 @@ responses:
                     id: "019a7ab0-1a05-7c3e-9d11-4b2f6e8a1005"
                     product:
                       id: "019a7a8d-326c-7ea3-83db-f3051c116be3"
-                      sku: LIV-SHEEP
+                      sku: LIV-0005
                       name: Sheep
                     grade: null
                     weightBand:
@@ -248,7 +248,7 @@ responses:
                     id: "019a7aa6-d058-7f02-843a-f8f5e2a571d3"
                     product:
                       id: "019a7a8d-515b-7886-9dbe-913c95c20a1a"
-                      sku: LIV-PIGLET
+                      sku: LIV-0003
                       name: "Baby pig"
                     grade: null
                     weightBand: null

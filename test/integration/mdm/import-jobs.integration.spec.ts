@@ -152,24 +152,24 @@ describe('FR-MDM-019: writes nothing in a dry run and applies all or none', () =
     expect(response.body.error.code).toBe('IMPORT_NOT_VALIDATED');
     expect(await customers()).toBe(before);
     const errors = await get(world, world.manager, `/imports/${job.id}/errors`);
-    expect(errors.body.data).toEqual([{ rowNo: 6, column: 'phone', message: `Phone number already belongs to customer ${created.body.customerNo as string}` }]);
+    expect(errors.body.data).toEqual([{ rowNo: 6, column: 'phone', message: `Phone number already belongs to customer ${created.body.publicId as string}` }]);
     expect((await get(world, world.manager, `/imports/${job.id}`)).body).toMatchObject({ status: 'VALIDATED', rowsValid: 4 });
   });
 
-  it('changes an existing customer named by its number and refuses a duplicate in the file, an unknown number and a change of kind', async () => {
+  it('changes an existing customer named by its public ID and refuses a duplicate in the file, an unknown public ID and a change of kind', async () => {
     const start = block(3);
     const created = await post(world, world.manager, '/customers', { kind: 'INDIVIDUAL', name: 'Abena Ofori', phone: `020${String(start).padStart(7, '0')}` });
-    const no = created.body.customerNo as string;
+    const no = created.body.publicId as string;
     const phone = `024${String(start + 1).padStart(7, '0')}`;
-    const content = Buffer.from(`customerNo,kind,name,phone,email,tier\r\n${no},BUSINESS,,,,\r\n,INDIVIDUAL,Kofi Asare,${phone},,\r\n,INDIVIDUAL,Kofi Asare Jr,${phone},,\r\nC-99999,,Nobody,,,\r\n`);
+    const content = Buffer.from(`publicId,kind,name,phone,email,tier\r\n${no},BUSINESS,,,,\r\n,INDIVIDUAL,Kofi Asare,${phone},,\r\n,INDIVIDUAL,Kofi Asare Jr,${phone},,\r\ncus_zzzzzzzzzzzzzzzz,,Nobody,,,\r\n`);
     const job = await dryRun(content);
     expect(job).toMatchObject({ rowsTotal: 4, rowsValid: 1, rowsToCreate: 2, rowsToUpdate: 2 });
     expect((await get(world, world.manager, `/imports/${job.id}/errors`)).body.data).toEqual([
       { rowNo: 2, column: 'kind', message: "A customer's kind cannot change by import" },
       { rowNo: 4, column: 'phone', message: 'Duplicate of row 3' },
-      { rowNo: 5, column: 'customerNo', message: 'No customer C-99999' },
+      { rowNo: 5, column: 'publicId', message: 'No customer cus_ZZZZZZZZZZZZZZZZ' },
     ]);
-    const change = await dryRun(Buffer.from(`customerNo,name,tier\r\n${no},Abena Ofori-Atta,WHOLESALE\r\n`));
+    const change = await dryRun(Buffer.from(`publicId,name,tier\r\n${no},Abena Ofori-Atta,WHOLESALE\r\n`));
     expect(change).toMatchObject({ rowsTotal: 1, rowsValid: 1, rowsToCreate: 0, rowsToUpdate: 1 });
     expect((await post(world, world.manager, `/imports/${change.id}/apply`)).status).toBe(202);
     const after = await get(world, world.manager, `/customers/${created.body.id as string}`);

@@ -67,7 +67,7 @@ responses:
                   status: RECEIVED
                   supplier:
                     id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                    supplierNo: S-0012
+                    publicId: sup_VX48894JEAGQEB4Y
                     name: "Kpone Livestock Traders"
                   deliverToLocation:
                     id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
@@ -88,7 +88,7 @@ responses:
                       lineNo: 1
                       product:
                         id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                        sku: LIV-GOAT
+                        sku: LIV-0004
                         name: Goat
                       description: null
                       qtyOrdered: "4.000"
@@ -113,7 +113,7 @@ responses:
                   status: RECEIVED
                   supplier:
                     id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
-                    supplierNo: S-0007
+                    publicId: sup_ZYRYFMWJT8SJ9ZYY
                     name: "Ashanti Feeds Ltd"
                   deliverToLocation:
                     id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
@@ -134,7 +134,7 @@ responses:
                       lineNo: 1
                       product:
                         id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
-                        sku: FD-BRL-FIN
+                        sku: FEED-0004
                         name: "Broiler finisher feed, 50 kg bag"
                       description: null
                       qtyOrdered: "20.000"
@@ -159,7 +159,7 @@ responses:
                   status: RECEIVED
                   supplier:
                     id: "019a7a89-16ae-7e6d-a3a5-efa6f28f6884"
-                    supplierNo: S-0019
+                    publicId: sup_TGKEXYTAZ99G0NNC
                     name: "Awutu Poultry Farm"
                   deliverToLocation:
                     id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
@@ -180,7 +180,7 @@ responses:
                       lineNo: 1
                       product:
                         id: "019a7a8d-704a-726a-a7a2-2f740f73a851"
-                        sku: LIV-BROILER
+                        sku: LIV-0001
                         name: "Broiler chicken"
                       description: null
                       qtyOrdered: "500.000"
@@ -205,7 +205,7 @@ responses:
                   status: SENT
                   supplier:
                     id: "019a7a88-f7bf-7489-99c2-516f78deca4d"
-                    supplierNo: S-0003
+                    publicId: sup_1PPM6BKHGYQVKH7C
                     name: "Agrivet Ghana Ltd"
                   deliverToLocation:
                     id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
@@ -226,7 +226,7 @@ responses:
                       lineNo: 1
                       product:
                         id: "019a7a8f-026d-72f7-b82f-38453d70b123"
-                        sku: VET-OXYTET
+                        sku: FEED-0005
                         name: "Oxytetracycline 20% injection, 100 ml"
                       description: null
                       qtyOrdered: "10.000"
@@ -251,7 +251,7 @@ responses:
                   status: CLOSED
                   supplier:
                     id: "019a7a89-359d-7850-bd89-8dde6c4006bc"
-                    supplierNo: S-0021
+                    publicId: sup_WA2VZH2KWSQ9T65K
                     name: "Dodowa Vegetable Growers Cooperative"
                   deliverToLocation:
                     id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
@@ -272,7 +272,7 @@ responses:
                       lineNo: 1
                       product:
                         id: "019a7a8e-86b1-7b69-b0a1-bf6756ac3845"
-                        sku: PRD-TOMATO
+                        sku: PRD-0001
                         name: "Tomatoes, crate"
                       description: null
                       qtyOrdered: "12.000"
@@ -297,7 +297,7 @@ responses:
                   status: PENDING_APPROVAL
                   supplier:
                     id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
-                    supplierNo: S-0007
+                    publicId: sup_ZYRYFMWJT8SJ9ZYY
                     name: "Ashanti Feeds Ltd"
                   deliverToLocation:
                     id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
@@ -318,7 +318,7 @@ responses:
                       lineNo: 1
                       product:
                         id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
-                        sku: FD-BRL-FIN
+                        sku: FEED-0004
                         name: "Broiler finisher feed, 50 kg bag"
                       description: null
                       qtyOrdered: "40.000"

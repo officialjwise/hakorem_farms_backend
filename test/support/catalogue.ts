@@ -18,7 +18,7 @@ export interface TestCatalogue {
   readonly goatSpeciesId: string;
 }
 
-/** Categories and a species, as the seeded farm has them, for tests that create products. */
+/** Categories and a species, as the seeded farm has them (with the seed's SKU prefixes), for tests that create products. */
 export async function createCatalogue(database: TestDatabase): Promise<TestCatalogue> {
   const app = database.pool('app');
   const liveCategoryId = randomUUID();
@@ -26,10 +26,10 @@ export async function createCatalogue(database: TestDatabase): Promise<TestCatal
   const eggsCategoryId = randomUUID();
   const goatSpeciesId = randomUUID();
   await app.query(
-    `INSERT INTO mdm.category (id, code, name, product_line, gl_group, tax_category_id, created_by, updated_by) VALUES
-       ($1, 'LIVE', 'Live animals', 'LIVE', 'LIVE_ANIMALS', $4, $7, $7),
-       ($2, 'MEAT', 'Meat', 'MEAT', 'MEAT', $5, $7, $7),
-       ($3, 'EGGS', 'Eggs', 'PRODUCE', 'PRODUCE_EGGS', $6, $7, $7)`,
+    `INSERT INTO mdm.category (id, code, name, product_line, gl_group, tax_category_id, sku_prefix, created_by, updated_by) VALUES
+       ($1, 'LIVE', 'Live animals', 'LIVE', 'LIVE_ANIMALS', $4, 'LIV', $7, $7),
+       ($2, 'MEAT', 'Meat', 'MEAT', 'MEAT', $5, 'MEAT', $7, $7),
+       ($3, 'EGGS', 'Eggs', 'PRODUCE', 'PRODUCE_EGGS', $6, 'EGG', $7, $7)`,
     [liveCategoryId, meatCategoryId, eggsCategoryId, TAX_CATEGORY.LIVE_ANIMALS, TAX_CATEGORY.PROCESSED_MEAT, TAX_CATEGORY.EGGS, SYSTEM_PRINCIPAL],
   );
   await app.query("INSERT INTO mdm.species (id, code, name, tracking_default, created_by, updated_by) VALUES ($1, 'GOAT', 'Goat', 'SERIAL', $2, $2)", [

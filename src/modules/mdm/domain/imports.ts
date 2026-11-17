@@ -1,4 +1,5 @@
 import { normaliseGhanaPhone } from './parties';
+import { readPublicId } from './public-id';
 
 /**
  * Master data imports and exports as rules (FR-MDM-019, FR-MDM-020, SEC-009, A-128). Pure: no I/O, no framework.
@@ -93,19 +94,18 @@ export function canCancel(job: { readonly direction: ImportDirection; readonly s
 
 // Customers (FR-MDM-008 rules, applied to a sheet).
 
-export const CUSTOMER_COLUMNS: SheetColumns = { all: ['customerNo', 'kind', 'name', 'phone', 'email', 'tier'], required: ['name'] };
-
-const CUSTOMER_NO = /^C-[0-9]{5,}$/;
+/** `publicId` names the customer to change (B09q, ADR-0073); the sequential number is not a column from contract 2.0.0. */
+export const CUSTOMER_COLUMNS: SheetColumns = { all: ['publicId', 'kind', 'name', 'phone', 'email', 'tier'], required: ['name'] };
 const KINDS = ['INDIVIDUAL', 'BUSINESS'] as const;
 const MAX_NAME = 160;
 const MAX_EMAIL = 254;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const TIER_CODE = /^[A-Z][A-Z_]{1,39}$/;
 
-/** A customer row as the sheet states it, every value checked for form; `customerNo` names the customer to change. */
+/** A customer row as the sheet states it, every value checked for form; `publicId` names the customer to change. */
 export interface CustomerRow {
   readonly rowNo: number;
-  readonly customerNo: string | null;
+  readonly publicId: string | null;
   readonly kind: (typeof KINDS)[number] | null;
   readonly name: string | null;
   readonly phone: string | null;
@@ -115,18 +115,20 @@ export interface CustomerRow {
 
 const blank = (value: string | undefined): string | null => (value === undefined || value === '' ? null : value);
 
-/** Reads one customer record: a row with no customer number creates a customer, one with a number changes it. */
+/** Reads one customer record: a row with no public ID creates a customer, one with a public ID changes it. */
 export function readCustomerRow(rowNo: number, cells: ReadonlyMap<string, string>): { readonly row: CustomerRow; readonly errors: readonly RowError[] } {
   const errors: RowError[] = [];
   const fail = (column: string, message: string) => errors.push({ rowNo, column, message });
-  const customerNo = blank(cells.get('customerNo'))?.toUpperCase() ?? null;
-  if (customerNo !== null && !CUSTOMER_NO.test(customerNo)) fail('customerNo', 'Customer number must look like C-00118');
+  const publicIdText = blank(cells.get('publicId'));
+  const publicId = publicIdText === null ? null : readPublicId('CUSTOMER', publicIdText);
+  if (publicIdText !== null && publicId === null) fail('publicId', 'Public ID must look like cus_8F3K2M9Q7X4T1V6B');
+  const named = publicIdText !== null;
   const kindText = blank(cells.get('kind'))?.toUpperCase() ?? null;
   const kind = KINDS.find((candidate) => candidate === kindText) ?? null;
   if (kindText !== null && kind === null) fail('kind', 'Kind must be INDIVIDUAL or BUSINESS');
-  else if (kind === null && customerNo === null) fail('kind', 'Kind is empty');
+  else if (kind === null && !named) fail('kind', 'Kind is empty');
   const name = blank(cells.get('name'));
-  if (name === null && customerNo === null) fail('name', 'Name is empty');
+  if (name === null && !named) fail('name', 'Name is empty');
   else if (name !== null && name.length > MAX_NAME) fail('name', `Name is longer than ${MAX_NAME} characters`);
   let phone: string | null = null;
   const phoneText = blank(cells.get('phone'));
@@ -139,7 +141,7 @@ export function readCustomerRow(rowNo: number, cells: ReadonlyMap<string, string
   if (email !== null && (email.length > MAX_EMAIL || !EMAIL.test(email))) fail('email', 'Email address is not valid');
   const tierCode = blank(cells.get('tier'))?.toUpperCase() ?? null;
   if (tierCode !== null && !TIER_CODE.test(tierCode)) fail('tier', 'Tier must be a tier code such as RETAIL');
-  return { row: { rowNo, customerNo, kind, name, phone, email, tierCode }, errors };
+  return { row: { rowNo, publicId, kind, name, phone, email, tierCode }, errors };
 }
 
 /** Rows repeating a key an earlier row has: "Duplicate of row N", against the first row that used it. */

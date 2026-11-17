@@ -89,6 +89,12 @@ Each item says why it is parked and what would bring it back.
 | BL-073 | Order promotions and coupons on an order (`ord.sales_order_adjustment`) | The owner, 2026-11-17: after launch | After launch, by the owner's decision | A-232, FR-MDM-018 |
 | BL-074 | Returnable egg trays and crates owed to or by the supplier (a packaging item, a container balance per supplier, deposits, return movements) | The owner, 2026-11-17: not scheduled until the owner confirms whether the supplier takes trays and crates back | The owner confirms the supplier takes them back | The egg coverage check of 2026-11-17 |
 
+## Parked in B09q
+
+| ID | Item | Why it is not in version one yet | What would bring it back | Related |
+| --- | --- | --- | --- | --- |
+| BL-075 | Dropping the unused column `mdm.product.barcode` (the contract step of its removal) | Contract 2.0.0 neither reads nor writes it and migration 0211 dropped its unique index (the expand step), but the previous API version still selects it, so the column may only go once 2.0.0 is the version running everywhere (docs/DATA_MODEL.md, Migrations: expand then contract) | The first migration after 2.0.0 is deployed: `ALTER TABLE mdm.product DROP COLUMN barcode`, the Drizzle table already free of it | ADR-0072, A-249 |
+
 ## Explicitly outside the brief
 
 These are not mentioned in the shared brief, or are mentioned only conditionally. They are listed so that nobody builds them by accident.

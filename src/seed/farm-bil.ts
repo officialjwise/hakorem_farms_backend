@@ -53,9 +53,9 @@ export function farmSeedBil(): ServiceSeedUnit {
       const product = (sku: string) => one('SELECT id FROM mdm.product WHERE sku = $1', sku);
       const category = (code: string) => one('SELECT id FROM mdm.tax_category WHERE code = $1', code);
       const [meat, eggs, cabbage, delivery, otherGoods] = [
-        await product('MEAT-GOAT-15KG'),
-        await product('EGG-CRATE-BIG'),
-        await product('PRD-CABBAGE-HEAD'),
+        await product('MEAT-0007'),
+        await product('EGG-0003'),
+        await product('PRD-0002'),
         await category('DELIVERY_SERVICE'),
         await category('OTHER_GOODS'),
       ];

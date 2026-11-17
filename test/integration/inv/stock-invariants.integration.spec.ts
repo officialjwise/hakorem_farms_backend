@@ -227,7 +227,7 @@ describe('valuation in the database (FR-INV-017, FR-INV-018, FR-INV-010)', () =>
   it('issues a pool of 3 crates valued 100,001 as 33,334, 33,334 and 33,333', async () => {
     const crates = await fx.app.query<{ id: string }>(
       `INSERT INTO mdm.product (id, sku, name, category_id, stock_policy, tracking, base_uom, sale_uom, tax_category_id, gl_group, online_mode, status, created_by, updated_by)
-       SELECT $1, 'EGG-CRATE-SMALL', 'Small eggs', category_id, stock_policy, tracking, base_uom, sale_uom, tax_category_id, gl_group, online_mode, status, created_by, updated_by
+       SELECT $1, 'EGG-0002', 'Small eggs', category_id, stock_policy, tracking, base_uom, sale_uom, tax_category_id, gl_group, online_mode, status, created_by, updated_by
          FROM mdm.product WHERE id = $2 RETURNING id`,
       [randomUUID(), fx.eggs],
     );

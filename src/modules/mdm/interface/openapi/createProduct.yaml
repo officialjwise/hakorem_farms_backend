@@ -2,7 +2,7 @@ operationId: createProduct
 tags:
   - mdm
 summary: "Create a product"
-description: "Permission: `mdm.product.create`."
+description: "The server generates the SKU (ADR-0072, contract 2.0.0): the category's `skuPrefix` and the next number of that prefix, zero-padded to four digits (`EGG-0001`), from a counter of its own that is never reset, so a SKU is unique over every product ever made and never given twice. A request that carries `sku`, whatever its value, is refused with 422 `FIELD_SERVER_ASSIGNED` (`/sku`), never silently ignored; `barcode` is no longer a field (400 `VALIDATION_FAILED`, `UNKNOWN_FIELD`). A storefront slug another live product uses is 422 `DUPLICATE_VALUE` (`/seo/slug`).\n\nPermission: `mdm.product.create`."
 x-permission: mdm.product.create
 x-error-codes:
   - VALIDATION_FAILED
@@ -14,6 +14,7 @@ x-error-codes:
   - ORIGIN_NOT_ALLOWED
   - PASSWORD_CHANGE_REQUIRED
   - DUPLICATE_VALUE
+  - FIELD_SERVER_ASSIGNED
   - REFERENCE_NOT_FOUND
   - STOCK_POLICY_CONFLICT
   - RATE_LIMITED
@@ -30,7 +31,6 @@ requestBody:
       schema:
         $ref: "#/components/schemas/ProductCreate"
       example:
-        sku: MEAT-GOAT-5KG
         name: "Goat meat, 5 kg pack"
         categoryId: "019a7a89-b159-7fde-b516-06bc53047f9a"
         stockPolicy: CATCH_WEIGHT
@@ -55,7 +55,7 @@ responses:
           $ref: "#/components/schemas/Product"
         example:
           id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-          sku: LIV-GOAT
+          sku: LIV-0004
           name: Goat
           category:
             id: "019a7a89-737b-7c17-9150-ca4d5fa2432b"
@@ -79,7 +79,6 @@ responses:
           shelfLifeDays: null
           storageTempClass: null
           withdrawalDays: null
-          barcode: null
           description: "Individually tagged and weighed. Priced by size and weight."
           onlineMode: REQUEST_TO_BUY
           seo:

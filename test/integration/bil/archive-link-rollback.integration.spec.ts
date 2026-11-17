@@ -48,6 +48,9 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0212_mdm_party_public_ids',
+      '0211_mdm_product_barcode_unused',
+      '0210_mdm_server_generated_skus',
       '0209_iam_grant_aud_business_profile_permission',
       '0208_iam_seed_aud_business_profile_permission',
       '0207_pur_number_supplier_payment',

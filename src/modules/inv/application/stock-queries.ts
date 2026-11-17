@@ -130,7 +130,7 @@ export interface StockUnitView {
   readonly producedOn: string | null;
   readonly expiresOn: string | null;
   readonly storageTempClass: string | null;
-  readonly supplier: { readonly id: string; readonly supplierNo: string; readonly name: string } | null;
+  readonly supplier: { readonly id: string; readonly publicId: string; readonly name: string } | null;
   readonly grade: { readonly id: string; readonly code: string; readonly name: string } | null;
   readonly lastWeightKg: string | null;
   readonly lastWeighedAt: string | null;
@@ -158,7 +158,7 @@ export interface StockTraceView {
   readonly product: ProductRefView;
   readonly ancestors: readonly TraceNodeView[];
   readonly descendants: readonly TraceNodeView[];
-  readonly supplier: { readonly id: string; readonly supplierNo: string; readonly name: string } | null;
+  readonly supplier: { readonly id: string; readonly publicId: string; readonly name: string } | null;
   readonly sales: ReadonlyArray<{
     readonly order: DocumentRefRecord;
     readonly billingDocument: null;
@@ -386,8 +386,8 @@ export class StockQueries {
 
   /**
    * What a label prints for a lot or an animal (B05x, A-151): the product, the batch or tag, the weight (a lot's on
-   * hand, an animal's last recorded), its dates and storage class, and the barcode's payload and symbology. No image is
-   * rendered; `printPackLabels` (B6) renders packs. Authorised as `getStockUnit` is, at the unit's branch and location.
+   * hand, an animal's last recorded), its dates and storage class. No image is rendered and, from contract 2.0.0, no
+   * barcode (ADR-0072); `printPackLabels` (B6) gives the meat packs theirs. Authorised as `getStockUnit` is, at the unit's branch and location.
    */
   getStockUnitLabel(actor: Actor | undefined, id: string): Promise<StockUnitLabelView> {
     return this.uow.run({ isolation: 'read committed' }, async (tx) => {
@@ -398,7 +398,6 @@ export class StockQueries {
       const balances = await this.store.onHand(tx, { stockUnitId: id }, [{ branchId: unit.branchId, locationId: null }], false, this.clock.now());
       const print = stockUnitLabel({
         tracking: view.tracking,
-        sku: view.product.sku,
         identifier: view.identifier,
         onHandWeightsKg: balances.map((b) => b.onHandWeightKg),
         lastWeightKg: view.lastWeightKg,
@@ -529,7 +528,7 @@ export class StockQueries {
         producedOn: unit.producedOn,
         expiresOn: unit.expiresOn,
         storageTempClass: unit.storageTempClass,
-        supplier: supplier === null ? null : { id: supplier.id, supplierNo: supplier.supplierNo, name: supplier.name },
+        supplier: supplier === null ? null : { id: supplier.id, publicId: supplier.publicId, name: supplier.name },
         grade: grade === null ? null : { id: grade.id, code: grade.code, name: grade.name },
         lastWeightKg: unit.lastWeightKg,
         lastWeighedAt: unit.lastWeighedAt?.toISOString() ?? null,
@@ -583,7 +582,7 @@ export class StockQueries {
         product: productRef(products.get(trace.unit.productId)!),
         ancestors: trace.backward.map(node),
         descendants: trace.forward.map(node),
-        supplier: supplier === null ? null : { id: supplier.id, supplierNo: supplier.supplierNo, name: supplier.name },
+        supplier: supplier === null ? null : { id: supplier.id, publicId: supplier.publicId, name: supplier.name },
         sales: trace.sales.map((s) => ({
           order: docs.get(s.sourceDocumentId)!,
           billingDocument: null,

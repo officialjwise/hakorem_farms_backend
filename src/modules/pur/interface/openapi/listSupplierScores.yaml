@@ -54,7 +54,7 @@ responses:
               data:
                 - supplier:
                     id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                    supplierNo: S-0012
+                    publicId: sup_VX48894JEAGQEB4Y
                     name: "Kpone Livestock Traders"
                   periodStart: "2026-10-01"
                   periodEnd: "2026-10-31"
@@ -76,7 +76,7 @@ responses:
                   score: "91.00"
                 - supplier:
                     id: "019a7a89-16ae-7e6d-a3a5-efa6f28f6884"
-                    supplierNo: S-0019
+                    publicId: sup_TGKEXYTAZ99G0NNC
                     name: "Awutu Poultry Farm"
                   periodStart: "2026-10-01"
                   periodEnd: "2026-10-31"

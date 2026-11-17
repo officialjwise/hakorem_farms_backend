@@ -136,9 +136,9 @@ beforeAll(async () => {
   for (const code of ['SHOP', 'RETURNS']) ids.set(code, (await admin().query<{ id: string }>('SELECT id FROM mdm.location WHERE branch_id = $1 AND code = $2', [branchId, code])).rows[0]!.id);
   ids.set('SUPPLIER', (await admin().query<{ id: string }>("SELECT id FROM mdm.location WHERE branch_id = $1 AND kind = 'SUPPLIER'", [branchId])).rows[0]!.id);
   for (const [name, sku] of [
-    ['yam', 'PRD-YAM-TUBER'],
-    ['carrot', 'PRD-CARROT-CRATE'],
-    ['cabbage', 'PRD-CABBAGE-HEAD'],
+    ['yam', 'PRD-0005'],
+    ['carrot', 'PRD-0004'],
+    ['cabbage', 'PRD-0002'],
   ] as const) {
     ids.set(name, (await admin().query<{ id: string }>('SELECT id FROM mdm.product WHERE sku = $1', [sku])).rows[0]!.id);
   }
@@ -206,7 +206,7 @@ describe('a return never exceeds what was sold less what was returned (FR-ORD-01
       originalBillingDocument: { id: sale.receiptId, docType: 'RECEIPT' },
       kind: 'RETURN',
       reasonCode: 'RETURN_UNWANTED',
-      lines: [{ orderLineId: sale.lines.get('yam')!.id, product: { id: id('yam'), sku: 'PRD-YAM-TUBER' }, qty: '1.000', weightKg: null, disposition: 'RESTOCK', refundPesewas: 2_000 }],
+      lines: [{ orderLineId: sale.lines.get('yam')!.id, product: { id: id('yam'), sku: 'PRD-0005' }, qty: '1.000', weightKg: null, disposition: 'RESTOCK', refundPesewas: 2_000 }],
       creditNote: null,
       refund: null,
       exchangeOrderId: null,

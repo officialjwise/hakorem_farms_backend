@@ -162,7 +162,7 @@ beforeAll(async () => {
   broilerId = randomUUID();
   await app.query(
     `INSERT INTO mdm.product (id, sku, name, category_id, stock_policy, tracking, base_uom, sale_uom, tax_category_id, gl_group, online_mode, status, created_by, updated_by)
-     VALUES ($1, 'LIV-BROILER', 'Broiler chicken', $2, 'COUNTABLE', 'NONE', 'HEAD', 'HEAD', $3, 'LIVE_ANIMALS', 'LISTED', 'ACTIVE', $4, $4)`,
+     VALUES ($1, 'LIV-0001', 'Broiler chicken', $2, 'COUNTABLE', 'NONE', 'HEAD', 'HEAD', $3, 'LIVE_ANIMALS', 'LISTED', 'ACTIVE', $4, $4)`,
     [broilerId, poultryId, TAX_CATEGORY.LIVE_ANIMALS, SYSTEM_PRINCIPAL],
   );
   catererId = randomUUID();
@@ -219,7 +219,7 @@ describe('the promotion lifecycle', () => {
       redemptions: 0,
       currency: 'GHS',
       version: 1,
-      targets: [{ product: { id: broilerId, sku: 'LIV-BROILER', name: 'Broiler chicken' }, category: null, bundleQty: null }],
+      targets: [{ product: { id: broilerId, sku: 'LIV-0001', name: 'Broiler chicken' }, category: null, bundleQty: null }],
     });
     const changed = await patch(manager, `/promotions/${created.body.id}`, { version: 1, percentOff: '7.5', targets: [{ categoryId: poultryId }] });
     expect(changed.status).toBe(200);

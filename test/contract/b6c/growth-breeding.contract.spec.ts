@@ -91,7 +91,7 @@ describe('B06 continued 2 operations answer in the contract shapes', () => {
       supplierId: (await database.pool('admin').query<{ id: string }>("SELECT id FROM mdm.supplier WHERE name = 'Kpone Livestock Traders (SEED)'")).rows[0]!.id,
       locationId: id('location:PENS'),
       receivedAt: new Date(clock.now().getTime() - 3_600_000).toISOString(),
-      lines: [{ productId: (await database.pool('admin').query<{ id: string }>("SELECT id FROM mdm.product WHERE sku = 'LIV-GOAT'")).rows[0]!.id, qtyReceived: '2.000', valuePesewas: 80_000, animals: [{ tagNo: 'D-0501', sex: 'FEMALE', purpose: 'BREEDING' }, { tagNo: 'D-0502', sex: 'FEMALE', purpose: 'BREEDING' }] }],
+      lines: [{ productId: (await database.pool('admin').query<{ id: string }>("SELECT id FROM mdm.product WHERE sku = 'LIV-0004'")).rows[0]!.id, qtyReceived: '2.000', valuePesewas: 80_000, animals: [{ tagNo: 'D-0501', sex: 'FEMALE', purpose: 'BREEDING' }, { tagNo: 'D-0502', sex: 'FEMALE', purpose: 'BREEDING' }] }],
     });
     expect(doe.status, JSON.stringify(doe.body)).toBe(201);
     expect((await post(`/goods-receipts/${doe.body.id as string}/post`)).status).toBe(200);

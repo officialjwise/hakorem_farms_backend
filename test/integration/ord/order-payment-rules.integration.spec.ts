@@ -68,7 +68,7 @@ beforeAll(async () => {
   uow = api.app.get(UnitOfWork);
   branchId = (await admin().query<{ id: string }>("SELECT id FROM mdm.branch WHERE code = 'DDW'")).rows[0]!.id;
   for (const code of ['PENS', 'SHOP', 'COLD']) ids.set(code, (await admin().query<{ id: string }>('SELECT id FROM mdm.location WHERE branch_id = $1 AND code = $2', [branchId, code])).rows[0]!.id);
-  for (const [name, sku] of [['goat', 'LIV-GOAT'], ['eggs', 'EGG-CRATE-BIG'], ['sheep', 'LIV-SHEEP'], ['cabbage', 'PRD-CABBAGE-HEAD']] as const) {
+  for (const [name, sku] of [['goat', 'LIV-0004'], ['eggs', 'EGG-0003'], ['sheep', 'LIV-0005'], ['cabbage', 'PRD-0002']] as const) {
     ids.set(name, (await admin().query<{ id: string }>('SELECT id FROM mdm.product WHERE sku = $1', [sku])).rows[0]!.id);
   }
   for (const [name, identifier] of [['G-0142', 'G-0142'], ['eggLot', 'EGG-BIG-2026-1110'], ['S-0031', 'S-0031']] as const) {

@@ -4,13 +4,37 @@ Every change to `contract/openapi.yaml`, newest first. A breaking change needs a
 
 Version numbers follow semantic versioning: a major bump breaks an existing client, a minor bump adds operations or optional fields, a patch fixes descriptions or examples.
 
-**Read first (cold-read summary):** changes that alter an answer a client already handles from an implemented operation.
+**Read first (cold-read summary), rewritten for 2.0.0:** changes that alter an answer or a request a client already handles.
+- **2.0.0, BREAKING, approved by the owner (2026-11-17).** Read the 2.0.0 entry below before anything else. In short: (1) **no product barcode**: `barcode` is gone from `Product`, `ProductCreate`, `ProductUpdate`, `ProductLabel`, `StockUnitLabel` and `OfflineProduct`, `listProducts` has no `barcode` filter (sending one is 400), and the labels print text; (2) **the SKU is the server's**: `ProductCreate` has no `sku`, and sending `sku` to `createProduct` or `updateProduct` is 422 `FIELD_SERVER_ASSIGNED`; (3) **public IDs**: `customerNo` and `supplierNo` are gone from every answer (`Customer`, `CustomerRef`, `CustomerProfile`, `Supplier`, `SupplierRef`, in 98 operations), replaced by `publicId` (`cus_…`, `sup_…`); (4) the customer, supplier and product import sheets change their naming column. The meat pack labels (`createPacks`, `listPacks`, `printPackLabels`) are byte for byte as in 1.54.0, barcode included. The only QR code is TOTP enrolment's.
 - **1.54.0:** no answer of an implemented operation changed. `getShopProfile` is new, and `getBusinessProfile` and `updateBusinessProfile` move into code; `BusinessProfile` gains `whatsapp`, `directions` and `openingHours`.
-- **1.53.0, LOUD for the Farm hand:** `reportCareMortality` and `submitCareMortalityRecord` refuse a report without its `EVIDENCE` photograph from a reporter who cannot see its value (the Farm hand), whatever the value, with 422 `MORTALITY_PHOTO_REQUIRED` (the frontend already requires the photograph). `markSupplierPaymentPaid` and the payment reads answer `paymentNo` (`SPY-…`) where it was null, and the remittance advice prints it. Every list's single `example` is now an `examples` map (`default` and `empty`): a tool that read `example` reads `examples.default.value`.
-- **1.52.0:** `getOwnerDashboard`'s six sales figures answer numbers where they were null, and `pendingFigures` lists only `alerts` and `exceptionsToday`: the change the schema and CR-013 planned (a figure is null exactly while it is listed). No field's type changed.
-- **1.51.0:** no answer of an implemented operation changed. `placeOrder` and the customer's order reads are new from code; `placeOrder` takes a guest checkout only.
-- **1.50.0, LOUD:** `createOrder` answers **202 `ApprovalPending`** (kind `PRICE_OVERRIDE`, subject the order) where it answered 422 `PRICE_OVERRIDE_NEEDS_APPROVAL` for a price outside the band or below list beyond the seller's limit. The order is entered `PLACED` and waits; it cannot be confirmed or given a proforma until a different user approves.
+- **1.53.0, LOUD for the Farm hand:** `reportCareMortality` and `submitCareMortalityRecord` refuse a report without its `EVIDENCE` photograph from a reporter who cannot see its value (the Farm hand), whatever the value, with 422 `MORTALITY_PHOTO_REQUIRED`. `markSupplierPaymentPaid` and the payment reads answer `paymentNo` (`SPY-…`) where it was null. Every list's single `example` is now an `examples` map (`default` and `empty`).
+- **1.50.0, LOUD:** `createOrder` answers **202 `ApprovalPending`** (kind `PRICE_OVERRIDE`) where it answered 422 `PRICE_OVERRIDE_NEEDS_APPROVAL` for a price outside the band or below list beyond the seller's limit.
 - Earlier LOUD changes, each on an operation that was still planned when it changed, are in their entries below and in "Reading 1.5.0 to 1.37.0 cold".
+
+## 2.0.0 (2026-11-17, B09q)
+
+**MAJOR. BREAKING. Approved by the owner on 2026-11-17** for exactly the removals and changes below (ADR-0072, ADR-0073); no other existing shape changed. The URL stays `/v1` (A-255: nothing is deployed, and the frontend builds against the mock); every example is updated, so the mock already answers 2.0.0.
+
+**Removed**
+- `barcode` from `Product` (and so from every product answer: `listProducts`, `createProduct`, `getProduct`, `updateProduct`, `archiveProduct`, `addProductImage`), from `ProductCreate` and `ProductUpdate` (sending it is 400 `VALIDATION_FAILED`, `UNKNOWN_FIELD`), from `ProductLabel` (`getProductLabel`), from `StockUnitLabel` (`getStockUnitLabel`) and from the planned `OfflineProduct` (`getOfflinePack`: no till scanning).
+- The `barcode` query parameter of `listProducts`. A request that still sends it is **400** (`/barcode`), not ignored like other unknown parameters, so a scanner never receives the whole catalogue.
+- `sku` from `ProductCreate` (it was required). Sending `sku` to `createProduct` or `updateProduct`, whatever its value, is **422 `FIELD_SERVER_ASSIGNED`** (`/sku`, `SERVER_ASSIGNED`), never ignored.
+- `customerNo` from `Customer`, `CustomerRef` and `CustomerProfile`, and `supplierNo` from `Supplier` and `SupplierRef`: every operation that names a customer or a supplier (customers, suppliers, goods receipts, stock units and their trace, animals and care animals, purchase orders, supplier invoices, payments and scores, orders, billing documents, payments, statements, standing orders, the customer's profile).
+- The import sheets' columns `customerNo` (CUSTOMER), `supplierNo` (SUPPLIER) and `barcode` (PRODUCT): a file that still has one fails as having an unknown column. The exports no longer write them.
+
+**Added**
+- `publicId` (required) on `Customer`, `CustomerRef`, `CustomerProfile`, `Supplier` and `SupplierRef`, with the new schemas `CustomerPublicId` (`^cus_[0-9A-HJKMNP-TV-Z]{16}$`) and `SupplierPublicId` (`^sup_…`): sixteen Crockford base32 characters from a secure source, unique, never reused or changed, never sent by a client. `listCustomers` and `listSuppliers` find one by it in `q`, typed any way; the CUSTOMER and SUPPLIER sheets name the record to change by `publicId`.
+- `skuPrefix` (required) on `Category`, optional on `CategoryCreate` and `CategoryUpdate` (two to five capital letters; without one, the first three letters of the code).
+- The error code `FIELD_SERVER_ASSIGNED` (422) on `createProduct` and `updateProduct`.
+
+**Changed, same shape**
+- `Product.sku` is generated by the server: the category's `skuPrefix` and the next number of that prefix, four digits at least (`EGG-0001`); unique over every product ever made, never reused, never changed (a category move keeps it). `listProducts?q=` matches the start of the SKU as before. The PRODUCT sheet's `sku` names a product the catalogue holds; a blank `sku` creates a product with a generated SKU; an unknown SKU is a row error.
+- Examples: every product SKU is in the generated form (`LIV-0004`, `MEAT-0001`, `EGG-0003`), except in the meat pack operations, which are unchanged; every customer and supplier shows one deterministic public ID across all examples.
+- Descriptions of `createProduct`, `updateProduct`, `listProducts`, `getProductLabel`, `getStockUnitLabel`, `createImportJob`, `listCustomers`, `listSuppliers`, `createCategory` and `updateCategory`.
+
+**Unchanged on purpose:** `createPacks`, `listPacks`, `printPackLabels`, `Pack`, `PackLabel`, `PackLabelSheet`, `LabelBarcode` and every component they reach (a contract test compares them with 1.54.0), and the planned picking of a pack by its barcode (`PickInput.packBarcode`, `FulfilmentLine.packBarcode`). The only QR code is `TotpEnrolment.qrCodeDataUri`.
+
+**What a client does:** stop sending `sku` and `barcode`; read `publicId` wherever it read `customerNo` or `supplierNo`, show it to people and let them search by it; print labels from their text; rename the import sheets' first column. 422 operations from code, 214 planned (636). The versioning check against `main` passes under the major version; Redocly is clean with no warnings.
 
 ## 1.54.0 (2026-11-17, B09x continued)
 

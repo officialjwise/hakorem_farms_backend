@@ -92,7 +92,7 @@ export const count = async (world: ImportWorld, sql: string, values: unknown[] =
 
 /** `n` customer rows as a CSV, each with its own Ghanaian mobile number; `bad` maps a row index to cells to replace. */
 export function customerCsv(n: number, start: number, bad: Readonly<Record<number, Partial<Record<'kind' | 'name' | 'phone' | 'email' | 'tier', string>>>> = {}): Buffer {
-  const lines = ['customerNo,kind,name,phone,email,tier'];
+  const lines = ['publicId,kind,name,phone,email,tier'];
   for (let i = 0; i < n; i += 1) {
     const number = start + i;
     const row = { kind: i % 5 === 0 ? 'BUSINESS' : 'INDIVIDUAL', name: `Customer ${number} Mensah`, phone: `024${String(number).padStart(7, '0')}`, email: `customer${number}@example.com`, tier: i % 5 === 0 ? 'WHOLESALE' : 'RETAIL', ...bad[i] };

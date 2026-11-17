@@ -70,11 +70,11 @@ beforeAll(async () => {
   for (const code of ['SHOP', 'PENS']) ids.set(code, (await admin().query<{ id: string }>('SELECT id FROM mdm.location WHERE branch_id = $1 AND code = $2', [branchId, code])).rows[0]!.id);
   ids.set('SUPPLIER', (await admin().query<{ id: string }>("SELECT id FROM mdm.location WHERE branch_id = $1 AND kind = 'SUPPLIER'", [branchId])).rows[0]!.id);
   for (const [name, sku] of [
-    ['goat', 'LIV-GOAT'],
-    ['eggs', 'EGG-CRATE-BIG'],
-    ['cabbage', 'PRD-CABBAGE-HEAD'],
-    ['beef', 'MEAT-BEEF-15KG'],
-    ['yam', 'PRD-YAM-TUBER'],
+    ['goat', 'LIV-0004'],
+    ['eggs', 'EGG-0003'],
+    ['cabbage', 'PRD-0002'],
+    ['beef', 'MEAT-0005'],
+    ['yam', 'PRD-0005'],
   ] as const) {
     ids.set(name, (await admin().query<{ id: string }>('SELECT id FROM mdm.product WHERE sku = $1', [sku])).rows[0]!.id);
   }
@@ -161,7 +161,7 @@ describe('createOrder (FR-ORD-001, FR-ORD-003, FR-ORD-004)', () => {
       channel: 'WHOLESALE',
       status: 'PLACED',
       paymentStatus: 'UNPAID',
-      customer: { id: id('tema'), customerNo: 'C-00002', name: 'Tema Cold Store Ltd (SEED)' },
+      customer: { id: id('tema'), publicId: expect.stringMatching(/^cus_[0-9A-HJKMNP-TV-Z]{16}$/), name: 'Tema Cold Store Ltd (SEED)' },
       paymentTerms: 'COD',
       fulfilmentMode: 'COLLECTION',
       salesperson: { id: id('user:sales'), displayName: 'Kojo Antwi' },
@@ -291,7 +291,7 @@ describe('confirmOrder (FR-ORD-005)', () => {
     const confirmed = await confirm(as('manager'), placed.id, key);
     expect(confirmed.status).toBe(200);
     expect(confirmed.body).toMatchObject({ id: placed.id, status: 'CONFIRMED', creditCheck: 'NOT_REQUIRED', estimatedTotalPesewas: 24_000, outstandingPesewas: 24_000, version: placed.version + 1 });
-    expect(await reservations(placed.id)).toEqual([{ product: 'EGG-CRATE-BIG', qty: '4.000', status: 'ACTIVE' }]);
+    expect(await reservations(placed.id)).toEqual([{ product: 'EGG-0003', qty: '4.000', status: 'ACTIVE' }]);
     const held = await admin().query<{ reservation_id: string; unit: string }>(
       'SELECT l.reservation_id, r.stock_unit_id AS unit FROM ord.sales_order_line l JOIN inv.stock_reservation r ON r.id = l.reservation_id WHERE l.sales_order_id = $1',
       [placed.id],
@@ -336,7 +336,7 @@ describe('confirmOrder (FR-ORD-005)', () => {
     const confirmed = await confirm(as('sales'), placed.id);
     expect(confirmed.status).toBe(200);
     expect(confirmed.body.status).toBe('CONFIRMED');
-    expect(await reservations(placed.id)).toEqual([{ product: 'PRD-CABBAGE-HEAD', qty: '26.000', status: 'ACTIVE' }]);
+    expect(await reservations(placed.id)).toEqual([{ product: 'PRD-0002', qty: '26.000', status: 'ACTIVE' }]);
   });
 
   it('confirms the last 26 crates once when two people confirm two orders for them at the same moment', async () => {
@@ -352,7 +352,7 @@ describe('confirmOrder (FR-ORD-005)', () => {
     const refused = answers.find((a) => a.status === 422)!;
     expect(refused.body.error.details).toEqual([expect.objectContaining({ code: 'NOT_ENOUGH_STOCK', message: 'Not enough stock for this line: 26.000 short of 26.000.' })]);
     const held = [...(await reservations(first.id)), ...(await reservations(second.id))];
-    expect(held).toEqual([{ product: 'EGG-CRATE-BIG', qty: '26.000', status: 'ACTIVE' }]);
+    expect(held).toEqual([{ product: 'EGG-0003', qty: '26.000', status: 'ACTIVE' }]);
   });
 
   it('confirms a prepaid order only once its estimate is received in a cleared payment', async () => {

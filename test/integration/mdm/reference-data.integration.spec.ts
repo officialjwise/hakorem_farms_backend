@@ -325,7 +325,8 @@ describe('suppliers (FR-MDM-007)', () => {
       hasProfile: false,
       categories: [{ id: ids.get('category:LIVE')!, code: 'LIVE', name: 'Live animals' }],
     });
-    expect(created.body.supplierNo).toMatch(/^S-\d{4}$/);
+    expect(created.body.publicId).toMatch(/^sup_[0-9A-HJKMNP-TV-Z]{16}$/);
+    expect(created.body).not.toHaveProperty('supplierNo');
     for (const typed of ['+233244661290', '024 466 1290']) {
       const duplicate = await post(storekeeper, '/suppliers', { name: 'Someone else', phone: typed });
       expect(duplicate.status).toBe(422);
@@ -408,11 +409,10 @@ describe('price list listings and updates (FR-MDM-015)', () => {
 
 describe('archiveProduct (FR-MDM-001)', () => {
   it('refuses a product an active price list prices, and archives an unpriced one with an audit event and mdm.ProductArchived', async () => {
-    const goat = (await get(manager, `/products/${ids.get('product:LIV-GOAT')!}`)).body;
+    const goat = (await get(manager, `/products/${ids.get('product:LIV-0004')!}`)).body;
     const refused = await post(manager, `/products/${goat.id}/archive`, { version: goat.version, reason: 'Refused' });
     expect(refused.body.error).toMatchObject({ code: 'RECORD_IN_USE', details: [{ code: 'USED_BY_LIVE_PRICES' }] });
     const created = await post(manager, '/products', {
-      sku: 'PRD-PLANTAIN-BUNCH',
       name: 'Plantain, bunch',
       categoryId: ids.get('category:PRODUCE')!,
       stockPolicy: 'COUNTABLE',

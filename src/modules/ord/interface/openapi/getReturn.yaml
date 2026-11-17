@@ -43,7 +43,7 @@ responses:
               orderLineId: "019a7af4-df72-7302-a83a-38f2f74bb1d0"
               product:
                 id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                sku: EGG-BIG
+                sku: EGG-0003
                 name: "Eggs, big, crate of 30"
               qty: "2.000"
               weightKg: null

@@ -2,7 +2,7 @@ operationId: listSuppliers
 tags:
   - mdm
 summary: "List suppliers"
-description: "Live suppliers in creation order. `q` finds a supplier by phone, typed any way a customer's phone may be, or by part of its name. `hasProfile` is false until procurement holds the supplier's commercial terms (B7).\n\nPermission: `mdm.supplier.read`."
+description: "Live suppliers in creation order. `q` finds a supplier by its public ID (`sup_…`, typed any way, 2.0.0, ADR-0073), by phone, typed any way a customer's phone may be, or by part of its name. `hasProfile` is false until procurement holds the supplier's commercial terms (B7).\n\nPermission: `mdm.supplier.read`."
 x-error-codes:
   - VALIDATION_FAILED
   - UNAUTHENTICATED
@@ -58,7 +58,7 @@ responses:
             value:
               data:
                 - id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
-                  supplierNo: S-0007
+                  publicId: sup_ZYRYFMWJT8SJ9ZYY
                   name: "Ashanti Feeds Ltd"
                   contactName: "Samuel Ofosu"
                   phone: "+233322031447"
@@ -75,7 +75,7 @@ responses:
                   createdAt: "2026-11-02T08:00:00Z"
                   updatedAt: "2026-11-10T14:00:00Z"
                 - id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                  supplierNo: S-0012
+                  publicId: sup_VX48894JEAGQEB4Y
                   name: "Kpone Livestock Traders"
                   contactName: "Alhaji Ibrahim Mahama"
                   phone: "+233244870031"
@@ -92,7 +92,7 @@ responses:
                   createdAt: "2026-11-02T08:01:00Z"
                   updatedAt: "2026-11-11T14:01:00Z"
                 - id: "019a7a88-f7bf-7489-99c2-516f78deca4d"
-                  supplierNo: S-0003
+                  publicId: sup_1PPM6BKHGYQVKH7C
                   name: "Agrivet Ghana Ltd"
                   contactName: "Patience Kumi"
                   phone: "+233302551928"
@@ -109,7 +109,7 @@ responses:
                   createdAt: "2026-11-02T08:02:00Z"
                   updatedAt: "2026-11-12T14:02:00Z"
                 - id: "019a7a89-16ae-7e6d-a3a5-efa6f28f6884"
-                  supplierNo: S-0019
+                  publicId: sup_TGKEXYTAZ99G0NNC
                   name: "Awutu Poultry Farm"
                   contactName: "Daniel Quansah"
                   phone: "+233209914472"
@@ -126,7 +126,7 @@ responses:
                   createdAt: "2026-11-02T08:03:00Z"
                   updatedAt: "2026-11-10T14:03:00Z"
                 - id: "019a7a89-359d-7850-bd89-8dde6c4006bc"
-                  supplierNo: S-0021
+                  publicId: sup_WA2VZH2KWSQ9T65K
                   name: "Dodowa Vegetable Growers Cooperative"
                   contactName: "Mercy Lartey"
                   phone: "+233551204887"
@@ -143,7 +143,7 @@ responses:
                   createdAt: "2026-11-02T08:04:00Z"
                   updatedAt: "2026-11-11T14:04:00Z"
                 - id: "019a7a89-548c-7234-876c-2c15e5f1a4f3"
-                  supplierNo: S-0025
+                  publicId: sup_EGGMDK5A8FPXWHQG
                   name: "Tema Packaging Supplies"
                   contactName: "Joseph Nartey"
                   phone: "+233303208119"

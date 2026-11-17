@@ -72,7 +72,7 @@ describe('B7 operations answer in the contract shapes', () => {
       supplierId: ids.get('supplier:Awutu Poultry Farm (SEED)'),
       deliverToLocationId: ids.get('location:PENS'),
       orderDate: today,
-      lines: [{ productId: ids.get('product:LIV-BROILER'), qtyOrdered: '50.000', unitPricePesewas: 5_000 }],
+      lines: [{ productId: ids.get('product:LIV-0001'), qtyOrdered: '50.000', unitPricePesewas: 5_000 }],
     });
     expect(order.status).toBe(201);
     expectShape('PurchaseOrder', order.body);
@@ -117,7 +117,7 @@ describe('B7 operations answer in the contract shapes', () => {
       supplierInvoiceNo: 'APF-9001',
       invoiceDate: toBusinessDate(clock.now()),
       branchId: ids.get('branch:DDW'),
-      lines: [{ productId: ids.get('product:LIV-BROILER'), description: 'Broilers with no order', qty: '5.000', unitPricePesewas: 5_500, taxCategoryId: ids.get('tax:LIVE_ANIMALS') }],
+      lines: [{ productId: ids.get('product:LIV-0001'), description: 'Broilers with no order', qty: '5.000', unitPricePesewas: 5_500, taxCategoryId: ids.get('tax:LIVE_ANIMALS') }],
     });
     await post(accountant, `/supplier-invoices/${invoice.body.id}/match`);
     const refused = await post(accountant, `/supplier-invoices/${invoice.body.id}/approve`);

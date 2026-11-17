@@ -227,7 +227,6 @@ describe('the implemented operations answer in the shapes of contract/openapi.ya
 
   it('createProduct, getProduct and listProducts return Product and ProductPage', async () => {
     const created = await consolePost(api.server, manager, '/v1/products').send({
-      sku: 'MEAT-BEEF-15KG',
       name: 'Beef, 15 kg pack',
       categoryId: catalogue.meatCategoryId,
       stockPolicy: 'CATCH_WEIGHT',
@@ -252,7 +251,7 @@ describe('the implemented operations answer in the shapes of contract/openapi.ya
     const responses = [
       await request(api.server).post('/v1/auth/staff/login').send({ identifier: 'nobody@hakoremfarms.test', password: 'x' }),
       await request(api.server).get('/v1/products'),
-      await consolePost(api.server, cashier, '/v1/products').send({ sku: 'X' }),
+      await consolePost(api.server, cashier, '/v1/products').send({ barcode: 'X' }),
       await consolePost(api.server, cashier, `/v1/iam/sessions/${randomUUID()}/revoke`).send({ reason: 'x' }),
       await consoleGet(api.server, cashier, `/v1/products/${randomUUID()}`),
     ];
@@ -482,8 +481,8 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
   });
 
   it('refuses in code a request the contract refuses: an unknown field', () => {
-    expect(ProductCreate.safeParse({ ...{ sku: 'LIV-GOAT', name: 'Goat', categoryId: randomUUID(), stockPolicy: 'SERIALISED', baseUom: 'HEAD', saleUom: 'HEAD', onlineMode: 'HIDDEN' }, price: 1 }).success).toBe(false);
+    expect(ProductCreate.safeParse({ ...{ name: 'Goat', categoryId: randomUUID(), stockPolicy: 'SERIALISED', baseUom: 'HEAD', saleUom: 'HEAD', onlineMode: 'HIDDEN' }, price: 1 }).success).toBe(false);
     const validate = contractSchema('ProductCreate');
-    expect(validate({ sku: 'LIV-GOAT', name: 'Goat', categoryId: randomUUID(), stockPolicy: 'SERIALISED', baseUom: 'HEAD', saleUom: 'HEAD', onlineMode: 'HIDDEN', price: 1 })).toBe(false);
+    expect(validate({ name: 'Goat', categoryId: randomUUID(), stockPolicy: 'SERIALISED', baseUom: 'HEAD', saleUom: 'HEAD', onlineMode: 'HIDDEN', price: 1 })).toBe(false);
   });
 });

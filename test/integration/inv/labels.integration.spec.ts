@@ -9,8 +9,9 @@ import { startTestApp, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
 
 /**
- * Label data for lot, animal and product barcodes (B05x, A-151): what a label prints, from the real API on the seeded
- * farm, for the client to draw; no image is rendered. Each read refuses the wrong role and, for a stock unit, the
+ * Label data for lots, animals and products (B05x, A-151): what a label prints, from the real API on the seeded farm,
+ * for the client to draw; no image is rendered. From contract 2.0.0 (B09q, ADR-0072) neither label carries a barcode:
+ * they print their text only, the SKU, the batch or tag, the dates and the weight. Each read refuses the wrong role and, for a stock unit, the
  * wrong location.
  */
 let database: TestDatabase;
@@ -59,12 +60,12 @@ afterAll(async () => {
 });
 
 describe('B05x gate: lot and animal label data answers from the real API', () => {
-  it('prints the beef lot with its batch, its 45.000 kg on hand, its expiry and a Code 128 of SKU and batch', async () => {
+  it('prints the beef lot with its batch, its 45.000 kg on hand and its expiry, and no barcode', async () => {
     const response = await get(manager, `/stock-units/${id('unit:LOT-BEEF-2026-1110')}/label`);
     expect(response.status).toBe(200);
     expect(response.body).toMatchObject({
       stockUnit: { id: id('unit:LOT-BEEF-2026-1110'), identifier: 'LOT-BEEF-2026-1110', tracking: 'LOT' },
-      product: { sku: 'MEAT-BEEF-15KG' },
+      product: { sku: 'MEAT-0005' },
       branchId: id('branch:DDW'),
       kind: 'LOT',
       lotNo: 'LOT-BEEF-2026-1110',
@@ -75,14 +76,17 @@ describe('B05x gate: lot and animal label data answers from the real API', () =>
       uom: 'KG',
       uomDisplayDecimals: 3,
       expiresOn: seeded.meatExpiresOn,
-      barcode: { symbology: 'CODE_128', payload: 'MEAT-BEEF-15KG/LOT-BEEF-2026-1110', text: 'MEAT-BEEF-15KG/LOT-BEEF-2026-1110' },
     });
+    expect(Object.keys(response.body).sort()).toEqual(
+      ['branchId', 'expiresOn', 'kind', 'lotNo', 'onHandQty', 'producedOn', 'product', 'stockUnit', 'storageTempClass', 'tagNo', 'uom', 'uomDisplayDecimals', 'weighedAt', 'weightKg'],
+    );
   });
 
   it('prints a goat by its tag, with no weight before it is weighed, and a lot of egg crates with no weight', async () => {
     const goat = await get(manager, `/stock-units/${id('unit:G-0143')}/label`);
     expect(goat.status).toBe(200);
-    expect(goat.body).toMatchObject({ kind: 'ANIMAL', lotNo: null, tagNo: 'G-0143', onHandQty: '1.000', uom: 'HEAD', barcode: { payload: 'LIV-GOAT/G-0143' } });
+    expect(goat.body).toMatchObject({ kind: 'ANIMAL', lotNo: null, tagNo: 'G-0143', onHandQty: '1.000', uom: 'HEAD', });
+    expect(goat.body).not.toHaveProperty('barcode');
     const weight = await database.pool('admin').query<{ kg: string | null }>('SELECT last_weight_kg::text AS kg FROM inv.stock_unit WHERE id = $1', [id('unit:G-0143')]);
     expect(goat.body.weightKg).toBe(weight.rows[0]!.kg);
     const eggs = await get(manager, `/stock-units/${id('unit:EGG-BIG-2026-1110')}/label`);
@@ -101,25 +105,24 @@ describe('B05x gate: lot and animal label data answers from the real API', () =>
 });
 
 describe('B05x gate: product label data answers from the real API', () => {
-  it("encodes the product's own barcode, or its SKU when it has none, with what the shelf label prints", async () => {
-    const products = await database.pool('admin').query<{ sku: string; barcode: string | null; sale_uom: string; shelf_life_days: number | null }>(
-      "SELECT sku, barcode, sale_uom, shelf_life_days FROM mdm.product WHERE sku IN ('EGG-CRATE-BIG', 'PRD-YAM-TUBER', 'MEAT-BEEF-15KG')",
+  it('prints what the shelf label prints, the SKU among it, and no barcode', async () => {
+    const products = await database.pool('admin').query<{ sku: string; sale_uom: string; shelf_life_days: number | null }>(
+      "SELECT sku, sale_uom, shelf_life_days FROM mdm.product WHERE sku IN ('EGG-0003', 'PRD-0005', 'MEAT-0005')",
     );
     for (const product of products.rows) {
       const response = await get(cashier, `/products/${id(`product:${product.sku}`)}/label`);
       expect(response.status, product.sku).toBe(200);
-      const payload = product.barcode ?? product.sku;
       expect(response.body).toMatchObject({
         product: { id: id(`product:${product.sku}`), sku: product.sku },
         saleUom: product.sale_uom,
         shelfLifeDays: product.shelf_life_days,
-        barcode: { symbology: 'CODE_128', payload, text: payload },
       });
+      expect(Object.keys(response.body).sort()).toEqual(['nominalPackKg', 'product', 'saleUom', 'shelfLifeDays', 'storageTempClass']);
     }
   });
 
   it('refuses a product label to a role that does not read the catalogue, and answers 404 for an unknown product', async () => {
-    const refused = await get(investor, `/products/${id('product:LIV-GOAT')}/label`);
+    const refused = await get(investor, `/products/${id('product:LIV-0004')}/label`);
     expect(refused.status).toBe(403);
     expect(refused.body.error.code).toBe('FORBIDDEN');
     expect((await get(manager, `/products/${randomUUID()}/label`)).status).toBe(404);
