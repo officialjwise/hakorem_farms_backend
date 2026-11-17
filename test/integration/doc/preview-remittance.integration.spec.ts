@@ -225,14 +225,19 @@ describe('a supplier remittance advice is rendered from the remittance data and 
     const pdf = await storedBytes(archived!.fileId);
     expect(sha256(pdf)).toBe(archived!.sha256.toString('hex'));
     const text = pdf.toString('latin1');
-    // Supplier payments carry no number yet (A-205): the advice quotes the payment's id.
-    expect(paid.body.paymentNo).toBeNull();
-    expect(text).toContain(paymentId);
+    // The payment is numbered from its SPY series when it is marked paid (A-205), and the advice prints that number in
+    // place of the payment's id.
+    const year = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Accra', year: 'numeric' }).format(clock.now());
+    expect(paid.body.paymentNo).toMatch(new RegExp(`^SPY-${year}-DDW-\\d{6}$`));
+    const { rows: allocated } = await admin().query('SELECT a.formatted, s.doc_type FROM platform.number_allocation a JOIN platform.number_series s ON s.id = a.series_id WHERE a.document_id = $1', [paymentId]);
+    expect(allocated).toEqual([{ formatted: paid.body.paymentNo, doc_type: 'SUPPLIER_PAYMENT' }]);
+    expect(text).toContain(paid.body.paymentNo);
+    expect(text).not.toContain(paymentId);
     expect(text).toContain('KLT-T-0457');
     expect(OWED).toBe(13_500);
     expect(text).toContain('Total paid GHS 135.00');
     expect(text).not.toContain('SPECIMEN');
-    expect(archived!.renderData).toMatchObject({ paymentNo: paymentId, amount: 'GHS 135.00', method: 'CASH', payee: null, externalReference: 'CASH-VOUCHER-0091' });
+    expect(archived!.renderData).toMatchObject({ paymentNo: paid.body.paymentNo, amount: 'GHS 135.00', method: 'CASH', payee: null, externalReference: 'CASH-VOUCHER-0091' });
     expect(archived!.renderData['lines']).toEqual([{ supplierInvoiceNo: 'KLT-T-0457', invoiceDate: expect.any(String), gross: 'GHS 150.00', credited: 'GHS 15.00', amount: 'GHS 135.00', outstandingAfter: 'GHS 0.00' }]);
 
     const payment = await get('accountant', `/supplier-payments/${paymentId}`);

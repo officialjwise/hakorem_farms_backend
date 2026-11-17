@@ -866,7 +866,7 @@ Supplier profiles and payout details (`updateSupplierProfile` returns 202 for a 
 - **Scores:** `listSupplierScores?periodStart=YYYY-MM-01` answers each supplier with facts that month, newest supplier first, with `components` (price, lead time, quality, rejection), the `weights` in force and the `score`, all strings with two places. Show the components beside the score; a null means no facts for that part, and the score is then null too. The weights are settings the Owner changes with `updateSetting`.
 
 
-**As built in B08 continued 2c (1.41.0, ADR-0062, A-204, A-205).** Marking a payment paid also asks DOC, in the same transaction, to render the remittance advice; the worker archives it once and `remittanceDocumentId` on the payment and on its remittance names the archived PDF seconds later (null until then, including in `markSupplierPaymentPaid`'s own answer). Payments carry no number yet (`paymentNo` null), so the advice quotes the payment's id. Sending the advice to the supplier is B11's.
+**As built in B08 continued 2c (1.41.0, ADR-0062, A-204, A-205).** Marking a payment paid also asks DOC, in the same transaction, to render the remittance advice; the worker archives it once and `remittanceDocumentId` on the payment and on its remittance names the archived PDF seconds later (null until then, including in `markSupplierPaymentPaid`'s own answer). **B09x (1.53.0, A-205):** a payment is numbered from its `SPY` series when it is marked paid (`paymentNo`, through `platform.allocate_number` in the same transaction, gap-free, held by `ck_supplier_payment_number`), and the advice prints that number in place of the payment's id. Sending the advice to the supplier is B11's.
 
 ### Finance (`fin`, 36)
 

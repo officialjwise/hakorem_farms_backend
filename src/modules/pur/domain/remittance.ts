@@ -48,7 +48,7 @@ export function remittanceLines(paymentPesewas: bigint, allocations: readonly Re
 /** What the advice prints: the stored remittance, the payment's number and the names as they stand when it is paid. */
 export interface PrintableRemittance {
   readonly supplierPaymentId: string;
-  /** Null while supplier payments are not numbered (A-205): the advice then quotes the payment's id. */
+  /** The payment's SPY number (A-205, B09x); null only on a payment marked paid before 0207, whose advice quotes its id. */
   readonly paymentNo: string | null;
   readonly paidAt: Date;
   readonly method: 'BANK' | 'MOBILE_MONEY' | 'CASH' | 'CHEQUE';

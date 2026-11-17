@@ -330,7 +330,7 @@ export interface PurchasingStore {
   listPayments(tx: Transaction, filter: PaymentFilter, branches: readonly string[], beforeId: string | null, limit: number): Promise<PaymentRecord[]>;
   markPaymentPending(tx: Transaction, id: string, approvalRequestId: string, actorId: string): Promise<void>;
   markPaymentDecided(tx: Transaction, id: string, status: 'APPROVED' | 'REJECTED' | 'CANCELLED', reason: string | null, actorId: string): Promise<void>;
-  markPaymentPaid(tx: Transaction, id: string, paidAt: Date, externalReference: string, at: Date, actorId: string): Promise<void>;
+  markPaymentPaid(tx: Transaction, id: string, paymentNo: string, paidAt: Date, externalReference: string, at: Date, actorId: string): Promise<void>;
 
   // Remittance advice data (FR-PUR-013).
   insertRemittance(tx: Transaction, record: Omit<RemittanceRecord, 'recordedAt'>, actorId: string): Promise<void>;

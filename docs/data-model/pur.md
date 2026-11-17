@@ -223,7 +223,7 @@ An outgoing payment to a supplier. Posted statuses: `PAID`, `REJECTED`, `CANCELL
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `id` | `uuid` | PK, FK `platform.business_document` | |
-| `payment_no` | `text` | NULL, UNIQUE | Remittance advice number |
+| `payment_no` | `text` | NULL, UNIQUE | Remittance advice number, `SPY-<year>-<branch>-<sequence>`: allocated from the SUPPLIER_PAYMENT series by `platform.allocate_number` in the transaction that marks the payment PAID; `ck_supplier_payment_number` (0207, HK010) refuses PAID without the number allocated to it and a number on a payment not PAID (A-205, B09x) |
 | `supplier_id` | `uuid` | NOT NULL, FK `mdm.supplier` | |
 | `method` | `text` | NOT NULL, CHECK in (`BANK`, `MOBILE_MONEY`, `CASH`, `CHEQUE`) | |
 | `bank_account_id` | `uuid` | NULL, FK `fin.bank_account`; NULL for `CASH` (`ck_supplier_payment_bank_account`); never changes once written (HK004) | Where the money leaves from. Optional for the other methods (A-185, A-194): an active account of the method's kind, checked by PUR through FIN's `BankAccounts`; a payment naming none posts to "Bank account not yet named" |
