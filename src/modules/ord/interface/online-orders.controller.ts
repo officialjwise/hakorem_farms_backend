@@ -26,7 +26,7 @@ export class MyOrdersController {
   }
 }
 
-/** An order's progress by its signed tracking link (FR-SHP-009): no session; the token is the only key. */
+/** An order's progress by its tracking link (FR-SHP-009, ADR-0074): no session; the link's own random token is the only key. */
 @Controller('shop/orders/track')
 export class OrderTrackingController {
   constructor(@Inject(OnlineOrders) private readonly online: OnlineOrders) {}

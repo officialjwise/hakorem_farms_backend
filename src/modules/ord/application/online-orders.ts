@@ -144,7 +144,7 @@ const json = (pesewas: bigint) => Money.ofPesewas(pesewas).toJsonInteger();
  *   money that is its own (`paymentConfirms`), in the clearing's transaction.
  * - The order stops waiting, cancelled as `PAYMENT_NOT_RECEIVED`, when its checkout's hold ends first (expired or
  *   released) or its charge fails; its pending charge is released, so money paid later is held unmatched (A-210).
- * - `track`, `mine`, `mineOne`: the signed tracking link's read, and a signed-in customer's own orders only.
+ * - `track`, `mine`, `mineOne`: the tracking link's read by its own random token (ADR-0074), and a signed-in customer's own orders only.
  */
 export class OnlineOrders {
   private readonly nextId: () => string;
@@ -165,10 +165,9 @@ export class OnlineOrders {
     private readonly audit: AuditTrail,
     private readonly cursors: Cursors,
     private readonly clock: Clock,
-    lookupKey: Buffer,
   ) {
     this.nextId = createUuidV7Generator(clock);
-    this.tokens = new TrackingTokens(lookupKey);
+    this.tokens = new TrackingTokens(store, clock);
   }
 
   /** The series lock a placement at a branch takes before BEGIN (A-186). */
@@ -280,7 +279,15 @@ export class OnlineOrders {
     };
     await this.events.publish(tx, { type: ORDER_PLACED, subjectType: 'SalesOrder', subjectId: orderId, branchId: p.branchId, payload: placed, occurredAt: at });
     await this.audit.record(tx, { module: 'ord', action: 'CREATE', entityType: 'SalesOrder', entityId: orderId, branchId: p.branchId, before: null, after: { ...(await this.orders.viewOf(tx, orderId)) } });
-    return { orderId, orderNo, trackingToken: this.tokens.sign(orderId) };
+    return { orderId, orderNo, trackingToken: await this.tokens.issueIn(tx, orderId, actorId) };
+  }
+
+  /**
+   * A fresh tracking token for an online order already placed, for the replay of its placement: the stored answer
+   * keeps no token (only its hash is ever stored), so the replay gets a link of its own and the first stays valid.
+   */
+  reissueTrackingIn(tx: Transaction, orderId: string, actorId: string): Promise<string> {
+    return this.tokens.issueIn(tx, orderId, actorId);
   }
 
   /**
@@ -346,10 +353,10 @@ export class OnlineOrders {
     await this.reversals.stopWaitingIn(tx, header, 'HOLD_ENDED', event.actorId);
   }
 
-  /** trackOrder: whoever holds the signed link; anything else is "no such order". */
+  /** trackOrder: whoever holds a live link's token; anything else is "no such order". */
   track(token: string): Promise<OrderTrackingView> {
     return this.uow.run({ isolation: 'read committed' }, async (tx) => {
-      const id = this.tokens.orderOf(token);
+      const id = await this.tokens.orderOfIn(tx, token);
       const [order] = id === null ? [] : await this.store.orders(tx, [id]);
       if (order === undefined || order.orderNo === null) throw new NotFoundError('no such order');
       const view = await this.orders.viewOf(tx, order.id);

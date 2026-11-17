@@ -29,6 +29,7 @@ import { DepreciationRunExistsError, DepreciationRunInvalidError, FinReferenceNo
 import type { DepreciationLineRow, DepreciationRunRow, FixedAssetRow, FixedAssetStore } from './fixed-asset-store';
 import type { Page } from './periods';
 
+import { readableBranches } from './read-scope';
 import { pageProbe } from './page-probe';
 
 export const DEPRECIATION_RUN = 'fin.DepreciationRun';
@@ -144,7 +145,7 @@ export class FixedAssets {
       const binding = { operationId: 'listFixedAssets', principalId: actor!.principalId, filters };
       const position = cursor === undefined ? null : this.cursors.decode(cursor, binding);
       const after = position === null ? null : { assetNo: position['assetNo'] ?? '', id: position['id'] ?? '' };
-      const found = await this.store.assets(tx, filters, after, pageProbe(limit));
+      const found = await this.store.assets(tx, filters, after, pageProbe(limit), await readableBranches(this.authoriser, tx, actor!, READ));
       const data = await this.views(tx, found.slice(0, limit));
       const hasMore = found.length > limit;
       const last = data.at(-1);
@@ -155,7 +156,9 @@ export class FixedAssets {
   get(actor: Actor | undefined, id: string): Promise<FixedAssetView> {
     return this.uow.run({ isolation: 'read committed' }, async (tx) => {
       await this.authoriser.authorise(tx, actor, READ);
-      return (await this.views(tx, [await this.assetOf(tx, id, false)]))[0]!;
+      const asset = await this.assetOf(tx, id, false);
+      await this.authoriser.authorise(tx, actor, READ, { branchId: asset.branchId });
+      return (await this.views(tx, [asset]))[0]!;
     });
   }
 
@@ -302,7 +305,7 @@ export class FixedAssets {
       await this.authoriser.authorise(tx, actor, READ);
       const binding = { operationId: 'listDepreciationRuns', principalId: actor!.principalId, filters: {} };
       const before = cursor === undefined ? null : (this.cursors.decode(cursor, binding)['id'] ?? null);
-      const found = await this.store.runs(tx, before, pageProbe(limit));
+      const found = await this.store.runs(tx, before, pageProbe(limit), await readableBranches(this.authoriser, tx, actor!, READ));
       const rows = found.slice(0, limit);
       const hasMore = found.length > limit;
       return { data: await this.runViews(tx, rows), page: { nextCursor: hasMore ? this.cursors.encode(binding, { id: rows.at(-1)!.id }) : null, limit, hasMore } };
@@ -312,7 +315,9 @@ export class FixedAssets {
   getRun(actor: Actor | undefined, id: string): Promise<DepreciationRunView> {
     return this.uow.run({ isolation: 'read committed' }, async (tx) => {
       await this.authoriser.authorise(tx, actor, READ);
-      return (await this.runViews(tx, [await this.runOf(tx, id, false)]))[0]!;
+      const run = await this.runOf(tx, id, false);
+      await this.authoriser.authorise(tx, actor, READ, { branchId: run.branchId });
+      return (await this.runViews(tx, [run]))[0]!;
     });
   }
 

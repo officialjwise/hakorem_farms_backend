@@ -1,5 +1,5 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
-import type { NewOrder, NewOrderLine, OrderFilter, OrderHeaderRecord, OrderLineRecord, OrderRecord, OrderStore, OrderVoidRecord, StatusChangeRecord } from '../application/order-store';
+import type { NewOrder, NewOrderLine, OrderFilter, OrderHeaderRecord, OrderLineRecord, OrderRecord, OrderStore, OrderVoidRecord, StatusChangeRecord, TrackingTokenRecord } from '../application/order-store';
 
 const big = (value: string | null): bigint | null => (value === null ? null : BigInt(value));
 
@@ -84,6 +84,22 @@ export class PgOrderStore implements OrderStore {
         ],
       );
     }
+  }
+
+  async insertTrackingToken(tx: Transaction, t: TrackingTokenRecord): Promise<void> {
+    await tx.query('INSERT INTO ord.order_tracking_token (id, sales_order_id, token_hash, recorded_at, expires_at, actor_id) VALUES ($1, $2, $3, $4, $5, $6)', [
+      t.id,
+      t.salesOrderId,
+      t.tokenHash,
+      t.recordedAt,
+      t.expiresAt,
+      t.actorId,
+    ]);
+  }
+
+  async trackingToken(tx: Transaction, tokenHash: Buffer, at: Date): Promise<{ readonly salesOrderId: string; readonly tokenHash: Buffer } | null> {
+    const { rows } = await tx.query<{ sales_order_id: string; token_hash: Buffer }>('SELECT sales_order_id, token_hash FROM ord.order_tracking_token WHERE token_hash = $1 AND expires_at > $2', [tokenHash, at]);
+    return rows[0] === undefined ? null : { salesOrderId: rows[0].sales_order_id, tokenHash: rows[0].token_hash };
   }
 
   async recordStatus(tx: Transaction, orderId: string, c: Omit<StatusChangeRecord, 'recordedAt'>): Promise<void> {

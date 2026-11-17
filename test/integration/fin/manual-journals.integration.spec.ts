@@ -395,3 +395,29 @@ describe('every journal and manual journal operation refuses the wrong role (ADR
     });
   }
 });
+
+describe('a branch’s journals are read only by holders at that branch (ADR-0017 rule 2, decision 5 of 2026-11-17)', () => {
+  it('refuses the Accountant of another branch the entry and the manual journal by their ids, and lists neither to them', async () => {
+    // Fresh sessions for the maker and the approver: the clock has moved on through this file.
+    sessions.set('owner', await enrolAndLogin(api.server, await createUser(database, { name: 'Kofi Ampofo', grants: [{ role: 'OWNER', branchId }] }), () => clock.now()));
+    sessions.set('accountant', await enrolAndLogin(api.server, await createUser(database, { name: 'Esi Nyarko', grants: [{ role: 'ACCOUNTANT', branchId }] }), () => clock.now()));
+    const { id, approvalRequestId } = await submitted('accountant');
+    await stepUp('owner');
+    expect((await post('owner', `/iam/approvals/${approvalRequestId}/approve`, { reason: 'Checked against the wage sheet' })).status).toBe(200);
+    const [entry] = await entriesOf(id);
+    expect(entry).toBeDefined();
+    const elsewhere = (await createBranch(database, 'KMS')).branchId;
+    sessions.set('accountantElsewhere', await enrolAndLogin(api.server, await createUser(database, { name: 'Abena Sarpong', grants: [{ role: 'ACCOUNTANT', branchId: elsewhere }] }), () => clock.now()));
+    for (const [path, mine] of [[`/finance/journal-entries/${entry!.id}`, 200], [`/finance/manual-journals/${id}`, 200]] as const) {
+      expect((await get('accountant', path)).status, path).toBe(mine);
+      const theirs = await get('accountantElsewhere', path);
+      expect([theirs.status, theirs.body.error?.code], path).toEqual([403, 'FORBIDDEN']);
+      expect(JSON.stringify(theirs.body).includes(entry!.entry_no), path).toBe(false);
+    }
+    for (const list of ['/finance/journal-entries', '/finance/manual-journals']) {
+      expect(((await get('accountant', list)).body.data as unknown[]).length, list).toBeGreaterThan(0);
+      const theirs = await get('accountantElsewhere', list);
+      expect([theirs.status, theirs.body.data], list).toEqual([200, []]);
+    }
+  });
+});

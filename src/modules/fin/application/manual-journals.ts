@@ -19,6 +19,7 @@ import { FinStateError, JournalUnbalancedError, LedgerPostingRefusedError, Manua
 import type { AccountRefRow, JournalStore, ManualJournalRow, ManualLineRow } from './journal-store';
 import { subledgerView, type SubledgerView } from './journals';
 import type { LedgerStore } from './ledger-store';
+import { readableBranches } from './read-scope';
 import type { Page } from './periods';
 
 export const MANUAL_JOURNAL = 'MANUAL_JOURNAL' as const;
@@ -129,7 +130,7 @@ export class ManualJournals implements ApprovalHandler {
       const filters = { status: query.status ?? null, kind: query.kind ?? null };
       const binding = { operationId: 'listManualJournals', principalId: actor!.principalId, filters };
       const before = cursor === undefined ? null : (this.cursors.decode(cursor, binding)['id'] ?? null);
-      const found = await this.store.manualJournals(tx, filters, before, limit + 1);
+      const found = await this.store.manualJournals(tx, filters, before, limit + 1, await readableBranches(this.authoriser, tx, actor!, READ));
       const rows = found.slice(0, limit);
       const hasMore = found.length > limit;
       return { data: await this.views(tx, rows), page: { nextCursor: hasMore ? this.cursors.encode(binding, { id: rows.at(-1)!.id }) : null, limit, hasMore } };
@@ -139,7 +140,9 @@ export class ManualJournals implements ApprovalHandler {
   get(actor: Actor | undefined, id: string): Promise<ManualJournalView> {
     return this.uow.run({ isolation: 'read committed' }, async (tx) => {
       await this.authoriser.authorise(tx, actor, READ);
-      return (await this.views(tx, [await this.journalOf(tx, id, false)]))[0]!;
+      const journal = await this.journalOf(tx, id, false);
+      await this.authoriser.authorise(tx, actor, READ, { branchId: journal.branchId });
+      return (await this.views(tx, [journal]))[0]!;
     });
   }
 

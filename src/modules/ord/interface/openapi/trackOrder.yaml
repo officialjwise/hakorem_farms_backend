@@ -1,11 +1,13 @@
 operationId: trackOrder
 tags:
   - shp
-summary: "Track an order by its signed tracking link"
+summary: "Track an order by its tracking link"
+description: "No session: the link's token is the only key (owner's decision 5, 2026-11-17; ADR-0074). The token is made when the order is placed, `trk_` and 43 base64url characters carrying 256 random bits; it is never the order id nor derived from it, is stored only as its hash, and reads its order for thirty days from when it was made. Anything else (a guessed, altered, expired or another order's token, the order id, or the signed form of 1.51.0 to 2.0.0) answers 404 NOT_FOUND, saying nothing about whether an order exists. The answer carries no name, phone or address."
 parameters:
   - name: token
     in: path
     required: true
+    description: "The tracking link's token, as `placeOrder` answered it."
     schema:
       type: string
 security: []

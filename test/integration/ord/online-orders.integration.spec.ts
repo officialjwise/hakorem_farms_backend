@@ -1,9 +1,10 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { ManualClock } from '@hakorem/kernel';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ReservationExpiry } from '../../../src/modules/inv';
 import { runAsSystem } from '../../../src/platform/context/request-context';
+import { issueLinkToken } from '../../../src/platform/crypto/link-tokens';
 import { runSeedUnits } from '../../../src/seed/run-seed';
 import { seedUnits } from '../../../src/seed/seed-units';
 import { PAYSTACK_MTN_TEST_PHONE, paystackEnvironment, startFakePaystack, type FakePaystack } from '../../support/fake-paystack';
@@ -176,10 +177,10 @@ describe('placeOrder: a guest places the checkout and the charge is sent (FR-SHP
     placed = await place(guest, checkoutId, momo, key);
   });
 
-  it('answers 201 with the order, a signed tracking token and the pending charge; the checkout awaits payment', () => {
+  it('answers 201 with the order, a random tracking token and the pending charge; the checkout awaits payment', () => {
     expect(placed.status, JSON.stringify(placed.body)).toBe(201);
     expect(placed.body.orderNo).toMatch(/^SO-\d{4}-DDW-\d{6}$/);
-    expect(placed.body.trackingToken).toMatch(/^trk_[A-Za-z0-9_-]{40,}$/);
+    expect(placed.body.trackingToken).toMatch(/^trk_[A-Za-z0-9_-]{43}$/);
     expect(placed.body.trackingToken).not.toContain(placed.body.orderId);
     expect(placed.body.payment).toMatchObject({ status: 'PENDING', redirectUrl: null });
     expect(placed.body.payment.instructions).toContain('GHS 120.00');
@@ -462,23 +463,128 @@ describe('the database holds one online order per checkout, and a checkout await
   });
 });
 
-describe('trackOrder: the signed link, read by anyone holding it', () => {
-  it('shows the order’s progress without the customer’s details, and refuses a tampered token or the order id', async () => {
-    const { guest, checkoutId } = await atCheckout([['EGG-0003', '1']]);
-    const placed = await place(guest, checkoutId);
-    const token = placed.body.trackingToken as string;
-    const tracked = await read(`/shop/orders/track/${token}`);
+describe('trackOrder: the link carries its own random token, stored only as its hash (ADR-0074, decision 5)', () => {
+  const tokenRows = async (orderId: string) =>
+    (await admin().query<{ token_hash: Buffer; recorded_at: Date; expires_at: Date }>('SELECT token_hash, recorded_at, expires_at FROM ord.order_tracking_token WHERE sales_order_id = $1 ORDER BY recorded_at, id', [orderId])).rows;
+  const sha256 = (text: string) => createHash('sha256').update(text, 'utf8').digest();
+  /** The token text written anywhere in the database's own tables, as text: idempotency answers, audit, outbox, orders. */
+  async function writtenAnywhere(token: string): Promise<string[]> {
+    const { rows } = await admin().query<{ place: string }>(
+      `SELECT 'platform.idempotency_key' AS place FROM platform.idempotency_key WHERE response_body::text LIKE '%' || $1 || '%'
+       UNION ALL SELECT 'platform.audit_event' FROM platform.audit_event WHERE (coalesce(before::text, '') || coalesce(after::text, '') || coalesce(metadata::text, '')) LIKE '%' || $1 || '%'
+       UNION ALL SELECT 'platform.outbox_message' FROM platform.outbox_message WHERE payload::text LIKE '%' || $1 || '%'
+       UNION ALL SELECT 'ord.sales_order' FROM ord.sales_order WHERE row_to_json(sales_order)::text LIKE '%' || $1 || '%'`,
+      [token.slice(4)],
+    );
+    return rows.map((r) => r.place);
+  }
+  let first: { orderId: string; orderNo: string; token: string };
+  let second: { orderId: string; orderNo: string; token: string };
+  let guest: Guest;
+  let checkoutId: string;
+  let key: string;
+
+  beforeAll(async () => {
+    ({ guest, checkoutId } = await atCheckout([['EGG-0003', '1']]));
+    key = randomUUID();
+    const a = await place(guest, checkoutId, momo, key);
+    const other = await atCheckout([['EGG-0003', '1']]);
+    const b = await place(other.guest, other.checkoutId);
+    expect([a.status, b.status]).toEqual([201, 201]);
+    first = { orderId: a.body.orderId, orderNo: a.body.orderNo, token: a.body.trackingToken };
+    second = { orderId: b.body.orderId, orderNo: b.body.orderNo, token: b.body.trackingToken };
+  });
+
+  it('shows the order’s progress without the customer’s details', async () => {
+    const tracked = await read(`/shop/orders/track/${first.token}`);
     expect(tracked.status).toBe(200);
-    expect(tracked.body).toMatchObject({ orderNo: placed.body.orderNo, status: 'PLACED', fulfilmentMode: 'COLLECTION', delivery: null, estimatedTotalPesewas: 6_000, finalTotalPesewas: null, paidPesewas: 0, currency: 'GHS' });
+    expect(tracked.body).toMatchObject({ orderNo: first.orderNo, status: 'PLACED', fulfilmentMode: 'COLLECTION', delivery: null, estimatedTotalPesewas: 6_000, finalTotalPesewas: null, paidPesewas: 0, currency: 'GHS' });
     expect(tracked.body.lines).toEqual([{ name: expect.any(String), quantity: '1.000', uom: expect.any(String), weightKg: null }]);
     expect(tracked.body.steps[0]).toMatchObject({ status: 'PLACED', done: true });
     expect(tracked.body.steps.slice(1).every((s: { done: boolean }) => !s.done)).toBe(true);
     const keys = [...keysOf(tracked.body)].map((k) => k.toLowerCase());
     expect(keys.filter((k) => /phone|contact|address|cost|floor|ceiling|variance|customer/.test(k))).toEqual([]);
-    const tampered = `${token.slice(0, -2)}${token.endsWith('AA') ? 'BB' : 'AA'}`;
-    expect((await read(`/shop/orders/track/${tampered}`)).status).toBe(404);
-    expect((await read(`/shop/orders/track/${placed.body.orderId as string}`)).status).toBe(404);
-    expect((await read('/shop/orders/track/trk_')).status).toBe(404);
+  });
+
+  it('stores only the token’s hash, with its expiry thirty days on, and the token nowhere else', async () => {
+    const rows = await tokenRows(first.orderId);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.token_hash.equals(sha256(first.token))).toBe(true);
+    expect(rows[0]!.expires_at.getTime() - rows[0]!.recorded_at.getTime()).toBe(30 * 86_400_000);
+    expect(await writtenAnywhere(first.token)).toEqual([]);
+  });
+
+  it('is never derived from the order id: neither the id’s bytes nor the old HMAC form are in it, and two orders share nothing', () => {
+    const idBytes = Buffer.from(first.orderId.replaceAll('-', ''), 'hex');
+    const body = Buffer.from(first.token.slice(4), 'base64url');
+    expect(body.length).toBe(32);
+    expect(body.includes(idBytes)).toBe(false);
+    expect(first.token).not.toContain(idBytes.toString('base64url').slice(0, 21));
+    expect(first.token).not.toBe(second.token);
+  });
+
+  it('reads each order by its own token only: another order’s, a guessed, an altered, an old signed or an id reads nothing', async () => {
+    expect((await read(`/shop/orders/track/${second.token}`)).body.orderNo).toBe(second.orderNo);
+    const refused = [
+      issueLinkToken('trk_').token, // a guess of the right form
+      `trk_${first.token.slice(4, 14)}${first.token[14] === 'A' ? 'B' : 'A'}${first.token.slice(15)}`, // one character altered
+      `${first.token.slice(0, -1)}${first.token.endsWith('A') ? 'Q' : 'A'}`, // the last character altered
+      `trk_${Buffer.concat([Buffer.from(first.orderId.replaceAll('-', ''), 'hex'), Buffer.alloc(16)]).toString('base64url')}`, // the old id-and-MAC form
+      first.orderId,
+      `trk_${first.orderId}`,
+      'trk_',
+      first.token.slice(4),
+    ];
+    for (const token of refused) {
+      const answer = await read(`/shop/orders/track/${encodeURIComponent(token)}`);
+      expect([answer.status, answer.body.error?.code], token).toEqual([404, 'NOT_FOUND']);
+      expect(Object.keys(answer.body)).toEqual(['error']);
+      expect(JSON.stringify(answer.body)).not.toContain(first.orderNo);
+    }
+  });
+
+  it('answers a replay of the placement with a fresh token of its own, and the first keeps working', async () => {
+    const again = await place(guest, checkoutId, momo, key);
+    expect([again.status, again.body.orderId]).toEqual([201, first.orderId]);
+    expect(again.body.trackingToken).toMatch(/^trk_[A-Za-z0-9_-]{43}$/);
+    expect(again.body.trackingToken).not.toBe(first.token);
+    for (const token of [first.token, again.body.trackingToken as string]) expect((await read(`/shop/orders/track/${token}`)).body.orderNo).toBe(first.orderNo);
+    expect((await tokenRows(first.orderId)).map((r) => r.token_hash.toString('hex')).sort()).toEqual([sha256(first.token), sha256(again.body.trackingToken as string)].map((h) => h.toString('hex')).sort());
+    expect(await writtenAnywhere(again.body.trackingToken as string)).toEqual([]);
+  });
+
+  it('reads nothing once the link has expired, thirty days after it was made', async () => {
+    const [row] = await tokenRows(second.orderId);
+    const now = clock.now();
+    try {
+      clock.set(new Date(row!.expires_at.getTime() - 1));
+      expect((await read(`/shop/orders/track/${second.token}`)).status).toBe(200);
+      clock.set(row!.expires_at);
+      expect((await read(`/shop/orders/track/${second.token}`)).status).toBe(404);
+    } finally {
+      clock.set(now);
+    }
+  });
+
+  it('holds the rules in the database: a hash of 32 bytes, one row per token, an online order only, at most thirty days, never changed', async () => {
+    const app = database.pool('app');
+    const [row] = await admin().query<{ id: string }>('SELECT id FROM ord.order_tracking_token WHERE sales_order_id = $1', [second.orderId]).then((r) => r.rows);
+    const insert = (orderId: string, hash: Buffer, days: number) =>
+      app.query(
+        `INSERT INTO ord.order_tracking_token (id, sales_order_id, token_hash, recorded_at, expires_at, actor_id) VALUES ($1, $2, $3, $4::timestamptz, $4::timestamptz + make_interval(days => $5::int), $6)`,
+        [randomUUID(), orderId, hash, clock.now(), days, SYSTEM_PRINCIPAL],
+      );
+    expect(await sqlStateOf(insert(second.orderId, Buffer.alloc(16), 30))).toBe(SQLSTATE.checkViolation);
+    expect(await sqlStateOf(insert(second.orderId, sha256(second.token), 30))).toBe(SQLSTATE.uniqueViolation);
+    expect(await sqlStateOf(insert(second.orderId, sha256(randomUUID()), 31))).toBe(SQLSTATE.checkViolation);
+    expect(await sqlStateOf(insert(second.orderId, sha256(randomUUID()), 0))).toBe(SQLSTATE.checkViolation);
+    const counter = await consolePost(api.server, as('sales'), '/v1/orders').send({ channel: 'WHOLESALE', customerId: id('tema'), fulfilmentMode: 'COLLECTION', paymentTerms: 'COD', lines: [{ productId: id('EGG-0003'), quantity: '1.000' }] });
+    expect(counter.status, JSON.stringify(counter.body)).toBe(201);
+    expect(await sqlStateOf(insert(counter.body.id as string, sha256(randomUUID()), 30))).toBe(SQLSTATE.checkViolation);
+    for (const [role, refusal] of [['app', SQLSTATE.insufficientPrivilege], ['admin', SQLSTATE.ledgerImmutable]] as const) {
+      expect(await sqlStateOf(database.pool(role).query("UPDATE ord.order_tracking_token SET expires_at = expires_at - interval '1 day' WHERE id = $1", [row!.id])), role).toBe(refusal);
+      expect(await sqlStateOf(database.pool(role).query('DELETE FROM ord.order_tracking_token WHERE id = $1', [row!.id])), role).toBe(refusal);
+    }
   });
 });
 

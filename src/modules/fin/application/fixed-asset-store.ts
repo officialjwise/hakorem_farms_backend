@@ -67,7 +67,8 @@ export interface DepreciationLineRow {
 
 /** FIN's fixed asset register and depreciation runs (`fin.fixed_asset`, `fin.depreciation_run`, `fin.depreciation_line`). */
 export interface FixedAssetStore {
-  assets(tx: Transaction, filters: { readonly category: AssetCategory | null; readonly status: AssetStatus | null }, after: { readonly assetNo: string; readonly id: string } | null, limit: number): Promise<FixedAssetRow[]>;
+  /** Assets at the given branches only (the reader's, ADR-0017). */
+  assets(tx: Transaction, filters: { readonly category: AssetCategory | null; readonly status: AssetStatus | null }, after: { readonly assetNo: string; readonly id: string } | null, limit: number, branchIds: readonly string[]): Promise<FixedAssetRow[]>;
   asset(tx: Transaction, id: string, forUpdate: boolean): Promise<FixedAssetRow | null>;
   /** Every asset not disposed of that was acquired on or before the day, in asset number order: what a run considers. */
   assetsInServiceOn(tx: Transaction, day: string): Promise<FixedAssetRow[]>;
@@ -76,7 +77,8 @@ export interface FixedAssetStore {
   disposeAsset(tx: Transaction, id: string, disposal: DisposalRecord, actorId: string): Promise<void>;
   /** Whether a draft run of a period still open carries the asset: its depreciation may not change under it. */
   onPendingRun(tx: Transaction, assetId: string): Promise<boolean>;
-  runs(tx: Transaction, beforeId: string | null, limit: number): Promise<DepreciationRunRow[]>;
+  /** Runs at the given branches only (the reader's, ADR-0017). */
+  runs(tx: Transaction, beforeId: string | null, limit: number, branchIds: readonly string[]): Promise<DepreciationRunRow[]>;
   run(tx: Transaction, id: string, forUpdate: boolean): Promise<DepreciationRunRow | null>;
   runOfPeriod(tx: Transaction, periodId: string): Promise<DepreciationRunRow | null>;
   insertRun(tx: Transaction, row: { readonly id: string; readonly periodId: string; readonly branchId: string; readonly totalPesewas: bigint }, actorId: string): Promise<void>;

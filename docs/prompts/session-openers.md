@@ -73,7 +73,7 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B09x | `B09x-contract-requests.md` | `b09x-contract-requests` | B4 to B12 | Every list operation has a named empty example (CR-005) and the seeded role matrix is published in the contract, generated from the IAM seed and checked in CI so it cannot drift (CR-023); no existing shape changes (built; the session split before CR-028, A-241) |
 | B09x continued | `B09x2-shop-profile.md` | `b09x2-shop-profile` | B4 to B12 | The business profile is stored and changed only through AUD's audited, step-up write; getShopProfile answers anonymously and cacheably with the contact fields only, its keys listed exactly by a test; the seed uses invented, clearly fictional numbers; every write refuses the wrong role |
 | B09q | `B09q-ids-barcodes.md` | `b09q-ids-barcodes` | B4 to B12 | TOTP the only QR; no product barcode, lookup or label barcode while meat pack labels stay as built; server-generated SKUs; unguessable customer and supplier public IDs; no identifier reads anything without authorisation; contract 2.0.0 with every example updated |
-| B09q continued | `B09q2-no-id-is-a-key.md` | `b09q2-no-id-is-a-key` | B4 to B12 | Knowing a public ID, a SKU or a UUID reads nothing without authorisation, per operation that takes one, as an anonymous caller and as another customer; every link sent to a customer carries its own long random token |
+| B09q continued | `B09q2-no-id-is-a-key.md` | `b09q2-no-id-is-a-key` | B4 to B12 | Knowing a public ID, a SKU or a UUID reads nothing without authorisation, per operation that takes one, as an anonymous caller and as another customer; every link sent to a customer carries its own long random token (built) |
 | B09e | `B09e-eggs.md` | `b09e-eggs` | B4 to B12 | Crate and single prices on the price list; delivery cost spread exactly (a GHS 47.50 crate posts 4,750); lines in crates or eggs; received date and oldest-first; cracked-on-arrival reasons and a claim that drafts the credit note; breaks and reorder points in the selling unit; last price paid on a PO line |
 | B9b | `B09b-pos-shifts-offline.md` | `b09b-pos-shifts-offline` | B4 to B12 | Shift close reconciles; 500 queued offline transactions sync exactly once |
 | B09c | `B09c-card-payment.md` | `b09c-card-payment` | B4 to B12 | Card payment online through the provider port with every payment edge case, no card details on our servers, and the card cases run against the real sandbox |
@@ -2194,7 +2194,7 @@ Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (
 reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the POS requirement block of docs/SRS.md (nothing else from the SRS),
 docs/data-model/pos.md, the POS card in docs/MODULE_BOUNDARIES.md, docs/OFFLINE_SYNC.md, and
-ADR-0015, ADR-0027 and the abuse cases 4, 10, 11 and 17 in docs/security/THREAT_MODEL.md.
+ADR-0015, ADR-0027, ADR-0074 (the receipt link's token) and the abuse cases 4, 10, 11 and 17 in docs/security/THREAT_MODEL.md.
 Read the hakorem-offline skill. Use docs/prompts/module-build-prompt.md as the recipe.
 Do not read any other document unless this phase needs it.
 
@@ -2335,8 +2335,9 @@ Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reaso
 report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the ORD (fulfilment), DEL and NTF requirement blocks of docs/SRS.md (nothing else
 from the SRS), docs/data-model/ord.md, del.md and ntf.md, the ORD, DEL and NTF cards in
-docs/MODULE_BOUNDARIES.md, and ADR-0010, ADR-0021, ADR-0026 (the abandoned-cart assignment)
-and the abuse case 6 in docs/security/THREAT_MODEL.md. Use docs/prompts/module-build-prompt.md as the recipe.
+docs/MODULE_BOUNDARIES.md, and ADR-0010, ADR-0021, ADR-0026 (the abandoned-cart assignment), ADR-0074 (a link
+sent by message gets its own token from the sending worker, never one stored in the outbox) and the abuse case 6 in
+docs/security/THREAT_MODEL.md. Use docs/prompts/module-build-prompt.md as the recipe.
 Do not read any other document unless this phase needs it.
 
 Confirm in three lines: the phase, its scope, and its gate.
