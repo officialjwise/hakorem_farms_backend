@@ -625,6 +625,7 @@ export class GoodsReceipts {
         sourceDocumentId: receipt.id,
         lastWeightKg: weightKg,
         lastWeighedAt: weightKg === null ? null : receipt.receivedAt,
+        receivedAt: receipt.receivedAt,
       },
       actor.principalId,
     );

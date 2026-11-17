@@ -48,6 +48,7 @@ responses:
           status: ACTIVE
           producedOn: null
           expiresOn: null
+          receivedAt: "2026-11-03T11:00:00Z"
           storageTempClass: null
           supplier:
             id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"

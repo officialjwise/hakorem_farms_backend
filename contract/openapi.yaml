@@ -18850,6 +18850,7 @@ paths:
                         status: ACTIVE
                         producedOn: null
                         expiresOn: null
+                        receivedAt: "2026-11-03T11:00:00Z"
                         storageTempClass: null
                         supplier:
                           id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
@@ -18889,6 +18890,7 @@ paths:
                         status: ACTIVE
                         producedOn: null
                         expiresOn: null
+                        receivedAt: "2026-11-03T11:00:00Z"
                         storageTempClass: null
                         supplier: null
                         grade: null
@@ -18928,6 +18930,7 @@ paths:
                         status: ACTIVE
                         producedOn: null
                         expiresOn: null
+                        receivedAt: "2026-11-03T11:00:00Z"
                         storageTempClass: null
                         supplier: null
                         grade: null
@@ -18965,6 +18968,7 @@ paths:
                         status: ACTIVE
                         producedOn: "2026-11-09"
                         expiresOn: "2026-12-09"
+                        receivedAt: null
                         storageTempClass: FROZEN
                         supplier: null
                         grade: null
@@ -18998,6 +19002,7 @@ paths:
                         status: ACTIVE
                         producedOn: "2026-11-06"
                         expiresOn: "2026-12-06"
+                        receivedAt: "2026-11-06T16:00:00Z"
                         storageTempClass: FROZEN
                         supplier:
                           id: "019a7a89-16ae-7e6d-a3a5-efa6f28f6884"
@@ -19034,6 +19039,7 @@ paths:
                         status: ACTIVE
                         producedOn: "2026-11-04"
                         expiresOn: "2026-12-04"
+                        receivedAt: "2026-11-04T16:00:00Z"
                         storageTempClass: FROZEN
                         supplier:
                           id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
@@ -19070,6 +19076,7 @@ paths:
                         status: ACTIVE
                         producedOn: "2026-10-02"
                         expiresOn: null
+                        receivedAt: "2026-11-02T16:00:00Z"
                         storageTempClass: null
                         supplier: null
                         grade: null
@@ -19161,6 +19168,7 @@ paths:
                 status: ACTIVE
                 producedOn: null
                 expiresOn: null
+                receivedAt: "2026-11-03T11:00:00Z"
                 storageTempClass: null
                 supplier:
                   id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
@@ -84189,6 +84197,12 @@ components:
             - string
             - "null"
           format: date
+        receivedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: "When the unit's delivery arrived: its goods receipt's `receivedAt`, kept on the unit (B09e continued). Stock is picked oldest first, by `expiresOn` and then by this. Null for a unit no goods receipt brought in (a processing output, an animal born on the farm)."
         storageTempClass:
           type:
             - string
@@ -84251,6 +84265,7 @@ components:
         - status
         - producedOn
         - expiresOn
+        - receivedAt
         - storageTempClass
         - supplier
         - grade

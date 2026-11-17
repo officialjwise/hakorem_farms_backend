@@ -9,7 +9,7 @@ import type { DomainEvents } from '../../../platform/events/domain-events';
 import { IdempotencyKeyReusedError, type Idempotency } from '../../../platform/idempotency/idempotency';
 import type { Billing, BillingDocumentView } from '../../bil';
 import type { ApprovalListing } from '../../iam';
-import type { Reservations, Stock, StockUnits } from '../../inv';
+import type { Reservations, Stock, StockQueries, StockUnits } from '../../inv';
 import { extendPrice, type MasterDataRefs, type PriceBasis, type PricingService, type ProductFacts } from '../../mdm';
 import type { Payments, PaymentView } from '../../pay';
 import { lineNumber } from '../domain/line-numbers';
@@ -182,6 +182,7 @@ export class SalePosting {
     private readonly audit: AuditTrail,
     private readonly clock: Clock,
     private readonly overrides: PriceOverrides,
+    private readonly queries: StockQueries,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -439,7 +440,7 @@ export class SalePosting {
     const products = await this.refs.productsIn(tx, request.lines.map((l) => l.productId));
     const locations = await this.refs.locationsIn(tx, request.lines.map((l) => l.fromLocationId));
     const unitIds = request.lines.flatMap((l) => (l.stockUnitId === undefined || l.stockUnitId === null ? [] : [l.stockUnitId]));
-    const units = await this.units.factsIn(tx, unitIds, at);
+    const units = new Map(await this.units.factsIn(tx, unitIds, at));
     const reasons = await this.refs.reasonCodesIn(tx, request.lines.flatMap((l) => (l.varianceReasonCode === undefined || l.varianceReasonCode === null ? [] : [l.varianceReasonCode])));
     const broken: SaleRule[] = [];
     const checked: {
@@ -461,13 +462,8 @@ export class SalePosting {
       }
       if (product.stockPolicy === 'NON_STOCK') broken.push({ field: field(i, 'productId'), rule: 'PRODUCT_NOT_STOCKED' });
       const location = locations.get(line.fromLocationId);
-      if (location === undefined || location.branchId !== request.branchId || location.isVirtual || !location.isLive) {
-        broken.push({ field: field(i, 'fromLocationId'), rule: 'LOCATION_NOT_IN_BRANCH' });
-      }
-      const unitId = line.stockUnitId ?? null;
-      const unit = unitId === null ? undefined : units.get(unitId);
-      if (product.tracking !== 'NONE' && unitId === null) broken.push({ field: field(i, 'stockUnitId'), rule: 'STOCK_UNIT_REQUIRED' });
-      if (unitId !== null && (unit === undefined || unit.productId !== product.id)) broken.push({ field: field(i, 'stockUnitId'), rule: 'STOCK_UNIT_OTHER_PRODUCT' });
+      const inBranch = location !== undefined && location.branchId === request.branchId && !location.isVirtual && location.isLive;
+      if (!inBranch) broken.push({ field: field(i, 'fromLocationId'), rule: 'LOCATION_NOT_IN_BRANCH' });
       const quantity = Quantity.parse(line.quantity);
       const uom = line.uom ?? product.baseUom;
       const converted = uom === product.baseUom ? { ok: true as const, value: quantity } : await this.refs.toBaseIn(tx, product.id, uom, quantity);
@@ -475,6 +471,20 @@ export class SalePosting {
         broken.push({ field: field(i, 'uom'), rule: converted.error === 'INEXACT_QUANTITY' ? 'INEXACT_QUANTITY' : 'NO_CONVERSION' });
         continue;
       }
+      let unitId = line.stockUnitId ?? null;
+      const reserved = line.reservationId !== undefined && line.reservationId !== null;
+      if (unitId === null && product.tracking === 'LOT' && !reserved && inBranch) {
+        // A sale that names no lot takes the oldest lot at the location that covers the line, by expiry and then by
+        // received date (B09e continued, the owner's decision 4). One line is one lot: none covering it is refused.
+        const picked = (await this.queries.lotsAtIn(tx, request.branchId, product.id, line.fromLocationId)).find((l) => l.availableQty.compareTo(converted.value) >= 0);
+        if (picked !== undefined && picked.stockUnitId !== null) {
+          unitId = picked.stockUnitId;
+          for (const [pickedId, facts] of await this.units.factsIn(tx, [unitId], at)) units.set(pickedId, facts);
+        }
+      }
+      const unit = unitId === null ? undefined : units.get(unitId);
+      if (product.tracking !== 'NONE' && unitId === null) broken.push({ field: field(i, 'stockUnitId'), rule: 'STOCK_UNIT_REQUIRED' });
+      if (unitId !== null && (unit === undefined || unit.productId !== product.id)) broken.push({ field: field(i, 'stockUnitId'), rule: 'STOCK_UNIT_OTHER_PRODUCT' });
       if (product.tracking === 'SERIAL' && !converted.value.equals(Quantity.ofUnits(1n))) broken.push({ field: field(i, 'quantity'), rule: 'ONE_ANIMAL_PER_LINE' });
       const hasWeight = line.weightKg !== undefined && line.weightKg !== null;
       if (hasWeight && (line.weightSource === undefined || line.weightSource === null)) broken.push({ field: field(i, 'weightSource'), rule: 'WEIGHT_SOURCE_REQUIRED' });

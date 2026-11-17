@@ -30547,6 +30547,12 @@ components:
             - string
             - "null"
           format: date
+        receivedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: "When the unit's delivery arrived: its goods receipt's `receivedAt`, kept on the unit (B09e continued). Stock is picked oldest first, by `expiresOn` and then by this. Null for a unit no goods receipt brought in (a processing output, an animal born on the farm)."
         storageTempClass:
           type:
             - string
@@ -30609,6 +30615,7 @@ components:
         - status
         - producedOn
         - expiresOn
+        - receivedAt
         - storageTempClass
         - supplier
         - grade

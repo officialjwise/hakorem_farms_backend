@@ -120,13 +120,36 @@ export async function stockDocument(fx: StockFixture, type = 'STOCK_ADJUSTMENT',
 /** A stock unit: an animal by its tag, or a lot by its batch number. */
 export async function stockUnit(
   fx: StockFixture,
-  fields: { productId: string; tracking: 'SERIAL' | 'LOT'; identifier: string; branchId?: string; producedOn?: string | null; expiresOn?: string | null; supplierId?: string | null },
+  fields: {
+    productId: string;
+    tracking: 'SERIAL' | 'LOT';
+    identifier: string;
+    branchId?: string;
+    producedOn?: string | null;
+    expiresOn?: string | null;
+    supplierId?: string | null;
+    /** When its delivery arrived (B09e continued): now unless named, as its goods receipt would set it; null for none. */
+    receivedAt?: Date | null;
+  },
 ): Promise<string> {
   const id = randomUUID();
   await fx.app.query(
-    `INSERT INTO inv.stock_unit (id, product_id, tracking, branch_id, identifier, status, produced_on, expires_on, supplier_id, source_document_id, created_by, updated_by)
-     VALUES ($1, $2, $3, $4, $5, 'ACTIVE', $6, $7, $8, $9, $10, $10)`,
-    [id, fields.productId, fields.tracking, fields.branchId ?? fx.branchId, fields.identifier, fields.producedOn ?? null, fields.expiresOn ?? null, fields.supplierId ?? null, await stockDocument(fx, 'GOODS_RECEIPT'), fx.actor],
+    `INSERT INTO inv.stock_unit (id, product_id, tracking, branch_id, identifier, status, produced_on, expires_on, supplier_id, source_document_id, received_at,
+                                 created_by, updated_by)
+     VALUES ($1, $2, $3, $4, $5, 'ACTIVE', $6, $7, $8, $9, $10, $11, $11)`,
+    [
+      id,
+      fields.productId,
+      fields.tracking,
+      fields.branchId ?? fx.branchId,
+      fields.identifier,
+      fields.producedOn ?? null,
+      fields.expiresOn ?? null,
+      fields.supplierId ?? null,
+      await stockDocument(fx, 'GOODS_RECEIPT'),
+      fields.receivedAt === undefined ? new Date(Date.now()) : fields.receivedAt,
+      fx.actor,
+    ],
   );
   return id;
 }

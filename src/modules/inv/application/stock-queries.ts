@@ -9,6 +9,7 @@ import { decodePosition, encodePosition, requestedSort, type SortFields, type So
 import type { Authoriser } from '../../iam';
 import type { MasterDataRefs, ProductFacts } from '../../mdm';
 import { availabilityOf, type Availability } from '../domain/availability';
+import { oldestFirst } from '../domain/oldest-first';
 import { unitCost, valueLines } from '../domain/valuation/pool-lines';
 import { addDays, daysBetween, pageProbe } from './counting';
 import type { ReadScope } from './goods-receipt-store';
@@ -129,6 +130,8 @@ export interface StockUnitView {
   readonly status: string;
   readonly producedOn: string | null;
   readonly expiresOn: string | null;
+  /** When the unit's delivery arrived (B09e continued); null for a unit no goods receipt brought in. */
+  readonly receivedAt: string | null;
   readonly storageTempClass: string | null;
   readonly supplier: { readonly id: string; readonly publicId: string; readonly name: string } | null;
   readonly grade: { readonly id: string; readonly code: string; readonly name: string } | null;
@@ -226,6 +229,8 @@ export interface PromisableStock {
   /** On hand less reserved, above zero. */
   readonly availableQty: Quantity;
   readonly expiresOn: string | null;
+  /** When the lot's delivery arrived, the second key of oldest first (B09e continued). */
+  readonly receivedAt: Date | null;
 }
 
 export class StockQueries {
@@ -243,9 +248,10 @@ export class StockQueries {
   /**
    * The balances of these products at a branch that a remote buyer may be promised (FR-SHP-002, FR-SHP-005, A-178),
    * in the caller's transaction: physical, live locations other than in transit, a site, a returns hold or a van; no
-   * unit under a hold in force, and no lot past its expiry date; on hand less reserved above zero. First to expire
-   * first, then by unit and location, so a checkout reserves the oldest stock. Whether a reservation is still possible
-   * when it is made is the database's (`ck_stock_reservation`).
+   * unit under a hold in force, and no lot past its expiry date; on hand less reserved above zero. Oldest first: first
+   * to expire first, then first received (B09e continued, `oldestFirst`), then by unit and location, so an order's
+   * confirmation and a checkout reserve the oldest stock. Whether a reservation is still possible when it is made is
+   * the database's (`ck_stock_reservation`).
    */
   async promisableIn(tx: Transaction, branchId: string, productIds: readonly string[]): Promise<PromisableStock[]> {
     const wanted = [...new Set(productIds)];
@@ -260,14 +266,38 @@ export class StockQueries {
         if (r.holds.length > 0 || (r.unit?.expiresOn !== null && r.unit?.expiresOn !== undefined && r.unit.expiresOn < today)) return false;
         return Quantity.parse(r.availableQty).compareTo(Quantity.zero()) > 0;
       })
-      .map((r) => ({ productId: r.productId, stockUnitId: r.stockUnitId, locationId: r.locationId, availableQty: Quantity.parse(r.availableQty), expiresOn: r.unit?.expiresOn ?? null }))
-      .sort((a, b) => {
-        if (a.expiresOn !== b.expiresOn) return a.expiresOn === null ? 1 : b.expiresOn === null ? -1 : a.expiresOn < b.expiresOn ? -1 : 1;
-        const unitA = a.stockUnitId ?? '';
-        const unitB = b.stockUnitId ?? '';
-        if (unitA !== unitB) return unitA < unitB ? -1 : 1;
-        return a.locationId < b.locationId ? -1 : a.locationId > b.locationId ? 1 : 0;
-      });
+      .map((r) => ({
+        productId: r.productId,
+        stockUnitId: r.stockUnitId,
+        locationId: r.locationId,
+        availableQty: Quantity.parse(r.availableQty),
+        expiresOn: r.unit?.expiresOn ?? null,
+        receivedAt: r.unit?.receivedAt ?? null,
+      }))
+      .sort(oldestFirst);
+  }
+
+  /**
+   * The lots of a product standing at one location that a sale naming no lot may take, in the caller's transaction,
+   * oldest first (B09e continued, the owner's decision 4): live lots with on hand less reserved above zero, none under a
+   * hold in force or past its expiry date, by expiry, then received date (`oldestFirst`). The seller names the location,
+   * so this answers for any physical location of the branch, not only those promised online. It authorises nothing.
+   */
+  async lotsAtIn(tx: Transaction, branchId: string, productId: string, locationId: string): Promise<PromisableStock[]> {
+    const rows = await this.store.onHand(tx, { branchId, productId, locationId }, [{ branchId, locationId: null }], false, this.clock.now());
+    const today = toBusinessDate(this.clock.now());
+    return rows
+      .filter((r) => r.unit !== null && r.unit.tracking === 'LOT' && r.holds.length === 0 && (r.unit.expiresOn === null || r.unit.expiresOn >= today))
+      .filter((r) => Quantity.parse(r.availableQty).compareTo(Quantity.zero()) > 0)
+      .map((r) => ({
+        productId: r.productId,
+        stockUnitId: r.stockUnitId,
+        locationId: r.locationId,
+        availableQty: Quantity.parse(r.availableQty),
+        expiresOn: r.unit!.expiresOn,
+        receivedAt: r.unit!.receivedAt,
+      }))
+      .sort(oldestFirst);
   }
 
   /**
@@ -527,6 +557,7 @@ export class StockQueries {
         status: unit.status,
         producedOn: unit.producedOn,
         expiresOn: unit.expiresOn,
+        receivedAt: unit.receivedAt?.toISOString() ?? null,
         storageTempClass: unit.storageTempClass,
         supplier: supplier === null ? null : { id: supplier.id, publicId: supplier.publicId, name: supplier.name },
         grade: grade === null ? null : { id: grade.id, code: grade.code, name: grade.name },

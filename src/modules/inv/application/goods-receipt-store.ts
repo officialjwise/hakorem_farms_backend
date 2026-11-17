@@ -79,6 +79,11 @@ export interface NewStockUnit {
   readonly sourceDocumentId: string;
   readonly lastWeightKg: string | null;
   readonly lastWeighedAt: Date | null;
+  /**
+   * The goods receipt's received_at, kept on the unit: what oldest first orders by after expiry (B09e continued); null
+   * for a unit no receipt brings in (a processing output, an animal born on the farm).
+   */
+  readonly receivedAt: Date | null;
 }
 
 export interface ReceiptFilters {

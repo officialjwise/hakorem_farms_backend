@@ -23,6 +23,8 @@ export interface OnHandRow {
     readonly branchId: string;
     readonly producedOn: string | null;
     readonly expiresOn: string | null;
+    /** When its delivery arrived (B09e continued); null for a unit no goods receipt brought in. */
+    readonly receivedAt: Date | null;
   } | null;
   /** Kinds of the holds that cover the unit now. */
   readonly holds: readonly HoldKind[];
@@ -53,6 +55,7 @@ export interface StockUnitRow {
   readonly status: 'ACTIVE' | 'SOLD' | 'CONSUMED' | 'WRITTEN_OFF' | 'DEPLETED';
   readonly producedOn: string | null;
   readonly expiresOn: string | null;
+  readonly receivedAt: Date | null;
   readonly storageTempClass: 'AMBIENT' | 'CHILLED' | 'FROZEN' | null;
   readonly supplierId: string | null;
   readonly gradeId: string | null;

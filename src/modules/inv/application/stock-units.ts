@@ -72,6 +72,8 @@ export class StockUnits {
         sourceDocumentId: lot.sourceDocumentId,
         lastWeightKg: lot.weightKg,
         lastWeighedAt: lot.weighedAt,
+        // A lot made by a higher module's document (a processing output) is not received from a delivery.
+        receivedAt: null,
       },
       actorId,
     );
@@ -100,6 +102,7 @@ export class StockUnits {
         sourceDocumentId: unit.sourceDocumentId,
         lastWeightKg: unit.weightKg,
         lastWeighedAt: unit.weighedAt,
+        receivedAt: null,
       },
       actorId,
     );
