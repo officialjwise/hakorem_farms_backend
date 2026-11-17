@@ -1,0 +1,15 @@
+{
+  "$comment": "Dependency audit waivers (SECURE_CODING_STANDARDS, Pipeline; SEC-034). Each is dated, names the finding, the reason, the owner and an expiry, and is approved by the reviewer. scripts/check/audit-waivers.ts enforces them in CI: a waiver covers one advisory, in one package, only along the listed paths, until it expires; an expired waiver or one that matches nothing fails the build.",
+  "waivers": [
+    {
+      "advisory": "GHSA-fc5q-39xc-vjpf",
+      "package": "picomatch",
+      "reason": "Regular-expression denial of service through repeated extglobs; every version up to 4.0.7 (the latest) is affected and no patched release exists. It reaches the repository only through lint tooling that matches the repository's own file patterns, never untrusted input, and never ships: no production dependency depends on it (pnpm audit --prod is clean). Replacing the module-boundary lint plugin would remove the boundary rule CI blocks on.",
+      "owner": "Owner",
+      "approvedBy": "Owner",
+      "approvedOn": "2026-11-17",
+      "expires": "2026-12-17",
+      "allowedPaths": [".>eslint-plugin-boundaries>", ".>eslint-import-resolver-typescript>"]
+    }
+  ]
+}
