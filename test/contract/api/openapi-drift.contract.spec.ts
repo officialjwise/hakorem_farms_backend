@@ -6,8 +6,10 @@ import { describe, expect, it } from 'vitest';
 import { buildContract, ContractMergeError, operationsOf } from '../../../scripts/contract/build-contract';
 import { documentModule, OperationFragmentError } from '../../../scripts/contract/code-document';
 import { generateContractText, PLANNED_PATH, PUBLISHED_PATH, readYaml } from '../../../scripts/contract/generate';
+import { readSeededRoles } from '../../../scripts/contract/seeded-roles';
 import { emitYaml } from '../../../scripts/contract/yaml-emitter';
 import { Operation } from '../../../src/platform/http/operation';
+import { createTestDatabase } from '../../support/test-database';
 
 const PUBLIC = { access: 'PUBLIC', realms: [], permission: null, idempotent: false, csrf: false, rateLimit: 'public' } as const;
 
@@ -58,8 +60,11 @@ const listProbeSlots = {
 describe('the contract is generated from code (FR-API-002, ADR-0030, ADR-0031)', () => {
   it('fails when the generated contract differs from the committed one', async () => {
     const committed = readFileSync(PUBLISHED_PATH, 'utf8');
-    // The committed file is exactly what the code and the planned contract produce today.
-    const { text } = await generateContractText();
+    // The committed file is exactly what the code, the planned contract and the migrated seed produce today. The
+    // run's migrated database stands in for the throwaway one `pnpm contract:generate` starts (CR-023).
+    const database = await createTestDatabase();
+    const roles = await readSeededRoles((sql) => database.pool('admin').query(sql)).finally(() => database.drop());
+    const { text } = await generateContractText(roles);
     expect(text === committed).toBe(true);
 
     // An operation added in code without regenerating makes the generated file differ, which fails CI.
