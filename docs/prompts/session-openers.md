@@ -2354,6 +2354,13 @@ token's 32 bytes meet it), base64url, made by the till offline and sent with the
 its hash, unique, valid for 12 months, and revocable. The public receipt read takes the token and nothing else. Test
 that a sale UUID, a document number or a SKU opens no receipt, and that a token reused for a second sale is refused at
 sync (the second sale is still recorded; only its link is refused, and the refusal reaches the exception source).
+A reused token (owner, 2026-11-17): a 128-bit token cannot repeat by chance, so every reuse goes to the exception
+report's source as a possible till fault or tampering, naming the device, the shift, the cashier and both sales,
+whatever the reason; and the second sale is marked as needing a fresh server-made link, which B11's receipt SMS sends
+(ADR-0074: a link sent by message gets its own token from the worker, never stored in clear). Test that the reuse
+reaches the exception source exactly once per refused sale, and that a replayed sync adds no second entry. If the
+sale carried no customer phone, say how the customer still gets a working receipt, the most conservative choice
+recorded as an assumption.
 Stop at the gate and write docs/sessions/B09b-pos-shifts-offline.md.
 ```
 
@@ -2475,7 +2482,9 @@ The owner, 2026-11-16 (A-212 (a)): a driver's delivery cash is handed in at a ti
 never typed in outside one.
 CR-033 point 3: the receipt SMS is sent once, through the outbox and NTF, when a counter sale that carried customerPhone
 syncs, with the receipt link B9b built, the official number and the sale reference; the sync result or the order says
-whether it was sent, and a replayed sync never sends it twice.
+whether it was sent, and a replayed sync never sends it twice. A sale whose till token was refused as reused (B9b,
+owner 2026-11-17) gets its SMS with a fresh server-made token, issued by the worker just before the provider call
+(ADR-0074), so the customer still gets a working receipt; test that the refused till token still opens nothing.
 The launch path for online orders (owner, 2026-11-17): guest checkout with a phone number and an SMS tracking link. Send
 the tracking link by SMS through the outbox and NTF when a guest order is placed, carrying its own long random token
 (B09q: no ID is ever a key), and test that a guessed token or the order's id answers 404.
