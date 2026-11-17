@@ -297,5 +297,6 @@ Ask in the pull request, not in private: a question that needed answering once w
 | Containers are killed or very slow | Docker's memory limit is below 6 GB. Raise it in Docker Desktop settings |
 | `pnpm lint` fails with a boundary message | Read the card for the importing module in `docs/MODULE_BOUNDARIES.md`. The fix is almost never to change the rule |
 | Redocly reports an error | You edited the contract. The contract is owned by the backend and must lint clean; revert or fix it, and do not hand-edit it after B2: regenerate it with `pnpm contract:generate` |
+| `pnpm contract:generate` fails to start a container | It applies the migrations to a throwaway PostgreSQL 17 to publish the seeded role matrix (ADR-0071), so Docker must be running, as for the tests and `pnpm dev` |
 | A test needs a database and the run is fast and green | It is using a mock. That is not allowed. Use the Testcontainers fixture |
 | Not sure whether a thing is in scope | It is probably in `docs/BACKLOG.md`, or it belongs there |

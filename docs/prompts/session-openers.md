@@ -70,7 +70,8 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B09a continued 2e | `B09a3e-orders-online.md` | `b09a3e-orders-online` | B4 to B12 | Built and split (A-230, A-231): a price outside the band or below list beyond the seller's limit is approved by a different user, on createOrder and on the sale posting alike, held by the database; the proforma is issued once and posts nothing; every new write refuses the wrong role |
 | B09a continued 2f | `B09a3f-orders-online.md` | `b09a3f-orders-online` | B4 to B12 | Built and split (A-232, A-233): an online order is placed from a checkout and confirmed in the clearing's transaction only by its own money, the checkout's hold handed to it whole; it is cancelled when the hold ends first or the charge fails; the customer reads only their own orders; every ORD write refuses the wrong role |
 | B09a continued 2g | `B09a3g-dashboard-seed.md` | `b09a3g-dashboard-seed` | B4 to B12 | The dashboard's six B9a figures and two tiles answer exactly from completed orders through a published view, every wrong role refused; the seeded trading day posts through SalePosting and keeps the B5 hand count and the trial balance (built) |
-| B09x | `B09x-contract-requests.md` | `b09x-contract-requests` | B4 to B12 | Every list operation has a named empty example (CR-005) and the seeded role matrix is published in the contract, generated from the IAM seed and checked in CI so it cannot drift (CR-023); no existing shape changes |
+| B09x | `B09x-contract-requests.md` | `b09x-contract-requests` | B4 to B12 | Every list operation has a named empty example (CR-005) and the seeded role matrix is published in the contract, generated from the IAM seed and checked in CI so it cannot drift (CR-023); no existing shape changes (built; the session split before CR-028, A-241) |
+| B09x continued | `B09x2-shop-profile.md` | `b09x2-shop-profile` | B4 to B12 | The business profile is stored and changed only through AUD's audited, step-up write; getShopProfile answers anonymously and cacheably with the contact fields only, its keys listed exactly by a test; the seed uses invented, clearly fictional numbers; every write refuses the wrong role |
 | B9b | `B09b-pos-shifts-offline.md` | `b09b-pos-shifts-offline` | B4 to B12 | Shift close reconciles; 500 queued offline transactions sync exactly once |
 | B08 continued 2d | `B08c2d-customer-statements.md` | `b08c2d-customer-statements` | B4 to B12 | A customer statement for a period ties to the customer's documents and the ledger's 1200 for that customer and period, opening plus movements equal to closing to the pesewa, and is rendered after commit and archived once; every statement write refuses the wrong role |
 | B10 | `B10-quotations-wholesale.md` | `b10-quotations-wholesale` | B4 to B12 | Quote revisions are versioned; conversion to invoice preserves every link; a credit limit blocks with an audited override |
@@ -2025,13 +2026,46 @@ Stop at the gate, write docs/sessions/B09x-contract-requests.md, and merge into 
 request is green.
 ```
 
+## B09x continued — The shop's contact details on the business profile (CR-028)
+
+Branch `b09x2-shop-profile`, from `main`. Report `docs/sessions/B09x2-shop-profile.md`. Inserted by B09x on 2026-11-17 (ADR-0026 Amendments, A-241): B09x built CR-005, CR-023, A-205, the Farm hand's photograph and CR-027, and split before CR-028, because nothing stores the business profile yet (FR-AUD-008). Gate: the business profile is stored in `platform.setting` as the data model says, and written only through AUD's audited administration (permission `aud.setting.manage`, step-up, the value before and after in the audit event); `getShopProfile` (GET /shop/profile) answers anonymously and cacheably with the trading name, a phone and a WhatsApp number in E.164, the farm's address and directions, and opening hours, and nothing else from the profile (no TIN, VAT number, bank, email or staff detail), proved by a test that lists the response's keys exactly; it answers 404 while no profile is set, never an invented one; the seed writes the profile through AUD's service as the seeded Owner, with invented, clearly fictional numbers from the seed's own block; every write refuses the wrong role.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B09x-contract-requests.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md), in particular CR-028:
+implement it, answer every other request in the report, never edit that file and never open frontend source.
+For this phase, read FR-AUD-008 and FR-SHP-001 in docs/SRS.md (nothing else from the SRS), docs/data-model/platform.md
+(`platform.setting`), docs/data-model/aud.md, the AUD and SHP cards in docs/MODULE_BOUNDARIES.md, and grep
+contract/openapi.yaml for getBusinessProfile, updateBusinessProfile and BusinessProfile. Load hakorem-endpoint,
+hakorem-seed, hakorem-tests and hakorem-security-review.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B09x continued only, on branch b09x2-shop-profile, branched from main:
+(1) The business profile (FR-AUD-008), stored in platform.setting as the data model says, read and written only through
+AUD: the fields of the planned BusinessProfile, plus a WhatsApp number, directions and opening hours, each phone in
+E.164; written by an audited AUD service (aud.setting.manage, step-up, before and after in the audit event), with
+updateBusinessProfile and getBusinessProfile moved into code if they fit, each test-first with its wrong-role refusal.
+(2) CR-028: getShopProfile (GET /shop/profile, tag shp), anonymous and cacheable (Cache-Control, the public catalogue
+rate limit): the trading name, a phone and a WhatsApp number in E.164, the farm's address and directions, and opening
+hours, read through AUD's published interface; it exposes nothing else from the profile (no TIN, VAT number, bank,
+email or staff detail), proved by a test that lists the response's keys exactly; 404 while no profile is set.
+(3) The seed writes the profile through AUD's service as the seeded Owner, with invented, clearly fictional numbers
+from the seed's own +2332000001.. block (hakorem-seed), and a second run changes nothing.
+Additive only: a contract minor version, a changelog entry, and the cold-read summary updated. No new now() in business
+SQL and no fixed calendar dates in the seed or tests (ADR-0067, A-220).
+Stop at the gate, write docs/sessions/B09x2-shop-profile.md, and merge into main when every run on the pull request
+is green.
+```
+
 ## B9b — Point of sale, shifts and offline sync
 
 Branch `b09b-pos-shifts-offline`. Report `docs/sessions/B09b-pos-shifts-offline.md`. Gate: shift close reconciles, and 500 queued offline transactions sync exactly once.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9b row).
-List docs/sessions/ and read only the most recent report (docs/sessions/B09x-contract-requests.md).
+List docs/sessions/ and read only the most recent report (docs/sessions/B09x2-shop-profile.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
 reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the POS requirement block of docs/SRS.md (nothing else from the SRS),
