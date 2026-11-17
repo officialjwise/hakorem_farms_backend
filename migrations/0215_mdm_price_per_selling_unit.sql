@@ -14,19 +14,24 @@
 --                           is written (HK010 ck_price_list_entry_uom_conversion)
 -- Additions to docs/data-model/mdm.md: `uom`, `min_qty_uom`.
 -- Data category: INTERNAL (prices).
--- Rollback: tested (`pnpm db:rollback`), safe before the first entry in another unit; afterwards forward fix only
--- (dropping the unit would leave two entries matching one request).
+-- Rollback: tested (`pnpm db:rollback`), and it keeps the data: it removes only the unit guard, and leaves the two
+-- columns, their check and the match key with the unit in it, which the release before reads and writes unchanged (every
+-- entry it writes is in the base unit, `uom` null). Dropping the columns would make a crate's entry and a single egg's
+-- collide, or delete a price an order line refers to, so the columns go only by a later forward fix. Applying 0215
+-- again is safe: each step is written to run over what a rollback left.
 
 -- migrate:up
 ALTER TABLE mdm.price_list_entry
-  ADD COLUMN uom text NULL CONSTRAINT fk_price_list_entry_uom REFERENCES mdm.uom (code) ON DELETE RESTRICT,
-  ADD COLUMN min_qty_uom platform.qty NULL,
+  ADD COLUMN IF NOT EXISTS uom text NULL CONSTRAINT fk_price_list_entry_uom REFERENCES mdm.uom (code) ON DELETE RESTRICT,
+  ADD COLUMN IF NOT EXISTS min_qty_uom platform.qty NULL;
+ALTER TABLE mdm.price_list_entry DROP CONSTRAINT IF EXISTS ck_price_list_entry_uom;
+ALTER TABLE mdm.price_list_entry
   ADD CONSTRAINT ck_price_list_entry_uom CHECK ((uom IS NULL) = (min_qty_uom IS NULL) AND (uom IS NULL OR basis <> 'PER_KG'));
 
-DROP INDEX mdm.uq_price_list_entry_match;
+DROP INDEX IF EXISTS mdm.uq_price_list_entry_match;
 CREATE UNIQUE INDEX uq_price_list_entry_match ON mdm.price_list_entry (version_id, product_id, grade_id, weight_band_id, uom, min_qty) NULLS NOT DISTINCT;
 
-CREATE FUNCTION mdm.price_list_entry_uom_guard() RETURNS trigger
+CREATE OR REPLACE FUNCTION mdm.price_list_entry_uom_guard() RETURNS trigger
   LANGUAGE plpgsql
   SET search_path = pg_catalog
 AS $$
@@ -42,12 +47,10 @@ BEGIN
 END
 $$;
 REVOKE ALL ON FUNCTION mdm.price_list_entry_uom_guard() FROM PUBLIC;
+DROP TRIGGER IF EXISTS trg_price_list_entry_uom_guard ON mdm.price_list_entry;
 CREATE TRIGGER trg_price_list_entry_uom_guard BEFORE INSERT OR UPDATE OF uom, product_id ON mdm.price_list_entry
   FOR EACH ROW EXECUTE FUNCTION mdm.price_list_entry_uom_guard();
 
 -- migrate:down
 DROP TRIGGER trg_price_list_entry_uom_guard ON mdm.price_list_entry;
 DROP FUNCTION mdm.price_list_entry_uom_guard();
-DROP INDEX mdm.uq_price_list_entry_match;
-CREATE UNIQUE INDEX uq_price_list_entry_match ON mdm.price_list_entry (version_id, product_id, grade_id, weight_band_id, min_qty) NULLS NOT DISTINCT;
-ALTER TABLE mdm.price_list_entry DROP CONSTRAINT ck_price_list_entry_uom, DROP COLUMN min_qty_uom, DROP COLUMN uom;
