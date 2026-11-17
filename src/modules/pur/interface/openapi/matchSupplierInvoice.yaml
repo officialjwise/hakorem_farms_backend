@@ -67,6 +67,7 @@ responses:
           approvalRequestId: null
           varianceReason: null
           returnReasonCode: null
+          supplierClaimId: null
           file:
             id: "019a7acc-a28f-761f-9b57-6ac9ac0ee3a7"
             originalName: invoice-AWT-0457.pdf
@@ -98,6 +99,7 @@ responses:
                 - PRICE_OUTSIDE_TOLERANCE
               returnFromLocationId: null
               returnStockUnitId: null
+              supplierClaimLineId: null
           branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
           version: 2
           createdAt: "2026-11-10T09:02:00Z"

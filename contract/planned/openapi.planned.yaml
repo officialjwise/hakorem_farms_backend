@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.3.0"
+  version: "2.4.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -236,7 +236,7 @@ paths:
                         kind: SALE_VOID
                         branch: null
                         thresholdPesewas: null
-                        approverPermission: ord.order.void.approve
+                        approverPermission: ord.void.approve
                         requiresEvidence: false
                         requiresStepUp: false
                         currency: GHS
@@ -35546,6 +35546,223 @@ components:
         - amountPesewas
         - calculatedAmountPesewas
         - isReclaimable
+    SupplierClaimLine:
+      type: object
+      description: "One rejected goods receipt line on a claim (ADR-0076, 2.4.0). The quantities are in the product's base unit, as the receipt stored them; the values are the delivery at the order line's price, rounded half-up once, split exactly with `allocate` so `acceptedValuePesewas + claimedValuePesewas = lineValuePesewas`. Nothing here is keyed by hand."
+      properties:
+        id:
+          type: string
+          format: uuid
+        lineNo:
+          type: integer
+        goodsReceiptLineId:
+          type: string
+          format: uuid
+        purchaseOrderLineId:
+          type: string
+          format: uuid
+        product:
+          $ref: "#/components/schemas/ProductRef"
+        rejectionReasonCode:
+          type: string
+          description: "The receipt line's `GOODS_RECEIPT_REJECTION` reason (A-269)."
+        baseUom:
+          type: string
+        qtyDeliveredBase:
+          $ref: "#/components/schemas/Quantity"
+        qtyAcceptedBase:
+          $ref: "#/components/schemas/Quantity"
+        qtyRejectedBase:
+          $ref: "#/components/schemas/Quantity"
+        orderUom:
+          type: string
+          description: "The unit the order line was bought in, which `orderUnitPricePesewas` is per."
+        orderUnitPricePesewas:
+          $ref: "#/components/schemas/Pesewas"
+        lineValuePesewas:
+          $ref: "#/components/schemas/Pesewas"
+        acceptedValuePesewas:
+          $ref: "#/components/schemas/Pesewas"
+        claimedValuePesewas:
+          $ref: "#/components/schemas/Pesewas"
+      required:
+        - id
+        - lineNo
+        - goodsReceiptLineId
+        - purchaseOrderLineId
+        - product
+        - rejectionReasonCode
+        - baseUom
+        - qtyDeliveredBase
+        - qtyAcceptedBase
+        - qtyRejectedBase
+        - orderUom
+        - orderUnitPricePesewas
+        - lineValuePesewas
+        - acceptedValuePesewas
+        - claimedValuePesewas
+    SupplierClaim:
+      type: object
+      description: "A claim raised from a posted purchase receipt's rejected lines (CR-036, ADR-0076, 2.4.0). It moves no stock and posts nothing, and stays `OPEN` on the supplier's account until it is settled once: by the approved invoice that left the rejected goods out (`settleSupplierClaim`), or by the credit note drafted from it (`draftSupplierClaimCreditNote`) once that is approved."
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - OPEN
+            - SETTLED
+        supplier:
+          $ref: "#/components/schemas/SupplierRef"
+        purchaseOrder:
+          $ref: "#/components/schemas/DocumentRef"
+        goodsReceipt:
+          $ref: "#/components/schemas/DocumentRef"
+        receivedBy:
+          $ref: "#/components/schemas/PrincipalRef"
+        note:
+          type:
+            - string
+            - "null"
+        claimedPesewas:
+          $ref: "#/components/schemas/Pesewas"
+        currency:
+          $ref: "#/components/schemas/Currency"
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/SupplierClaimLine"
+        creditNote:
+          description: "The credit note drafted from the claim and not cancelled, waiting or approved; null if none."
+          anyOf:
+            - type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                supplierInvoiceNo:
+                  type: string
+                status:
+                  type: string
+              required:
+                - id
+                - supplierInvoiceNo
+                - status
+            - type: "null"
+        settlement:
+          type:
+            - string
+            - "null"
+          enum:
+            - INVOICE
+            - CREDIT_NOTE
+            - null
+        settledBy:
+          description: "The invoice or credit note that settled the claim; null while it is open."
+          anyOf:
+            - type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                kind:
+                  type: string
+                  enum:
+                    - INVOICE
+                    - CREDIT_NOTE
+                supplierInvoiceNo:
+                  type: string
+              required:
+                - id
+                - kind
+                - supplierInvoiceNo
+            - type: "null"
+        settledAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        branchId:
+          type: string
+          format: uuid
+        version:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        createdBy:
+          $ref: "#/components/schemas/PrincipalRef"
+      required:
+        - id
+        - status
+        - supplier
+        - purchaseOrder
+        - goodsReceipt
+        - receivedBy
+        - note
+        - claimedPesewas
+        - currency
+        - lines
+        - creditNote
+        - settlement
+        - settledBy
+        - settledAt
+        - branchId
+        - version
+        - createdAt
+        - createdBy
+    SupplierClaimPage:
+      type: object
+      description: "A page of `SupplierClaim` results."
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/SupplierClaim"
+        page:
+          $ref: "#/components/schemas/PageInfo"
+      required:
+        - data
+        - page
+    SupplierClaimRaise:
+      type: object
+      additionalProperties: false
+      description: "No amount and no quantity: the claim is the receipt's rejected lines at the order price. A body naming any other field is refused."
+      properties:
+        note:
+          type: string
+          minLength: 1
+          maxLength: 500
+    SupplierClaimCreditNoteDraft:
+      type: object
+      additionalProperties: false
+      description: "The supplier's credit note for the claim: the approved invoice it reduces, the supplier's own number and its date. Its lines and amounts are the claim's, never keyed."
+      properties:
+        originalInvoiceId:
+          type: string
+          format: uuid
+        supplierInvoiceNo:
+          type: string
+          minLength: 1
+          maxLength: 60
+        invoiceDate:
+          type: string
+          format: date
+      required:
+        - originalInvoiceId
+        - supplierInvoiceNo
+        - invoiceDate
+    SupplierClaimSettle:
+      type: object
+      additionalProperties: false
+      properties:
+        supplierInvoiceId:
+          type: string
+          format: uuid
+          description: "The approved invoice of the claim's order that left the rejected goods out."
+      required:
+        - supplierInvoiceId
     SupplierInvoiceLine:
       type: object
       properties:
@@ -35627,6 +35844,12 @@ components:
             - "null"
           format: uuid
           description: "On a credit note only: the lot or animal sent back, for a tracked product (1.30.0)."
+        supplierClaimLineId:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: "On a credit note drafted from a claim only: the claim line it credits. Its quantity is the rejected base quantity, its net the claim line's claimed value, and its unit price 0, since that value is a share of the delivery, not a quantity times a price (ADR-0076, 2.4.0). Null otherwise."
       required:
         - id
         - lineNo
@@ -35647,6 +35870,7 @@ components:
         - matchReasons
         - returnFromLocationId
         - returnStockUnitId
+        - supplierClaimLineId
     SupplierInvoice:
       type: object
       properties:
@@ -35727,6 +35951,12 @@ components:
             - string
             - "null"
           description: "A credit note's reason for goods sent back (a `RETURN` reason code such as `RETURN_QUALITY`); null otherwise (1.30.0)."
+        supplierClaimId:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: "A credit note drafted from a goods receipt's claim (`draftSupplierClaimCreditNote`); null otherwise (ADR-0076, 2.4.0)."
         file:
           anyOf:
             - $ref: "#/components/schemas/StoredFileRef"
@@ -35766,6 +35996,7 @@ components:
         - approvalRequestId
         - varianceReason
         - returnReasonCode
+        - supplierClaimId
         - file
         - lines
         - branchId
