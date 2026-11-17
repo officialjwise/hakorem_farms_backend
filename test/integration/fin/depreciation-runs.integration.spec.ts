@@ -6,7 +6,7 @@ import { LedgerReconciliation } from '../../../src/modules/fin';
 import { runSeedUnits } from '../../../src/seed/run-seed';
 import { seedUnits } from '../../../src/seed/seed-units';
 import { ledgerIds, postManualJournal, stepUp, type TotpSession } from '../../support/fin';
-import { SYSTEM_PRINCIPAL, consoleGet, consolePost, createUser, enrolAndLogin, relaxRateLimits, testStartTime, type TestSession } from '../../support/iam';
+import { SYSTEM_PRINCIPAL, consoleGet, consolePost, createBranch, createUser, enrolAndLogin, relaxRateLimits, testStartTime, type TestSession } from '../../support/iam';
 import { startTestApp, TEST_ORIGIN, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
 
@@ -102,6 +102,19 @@ describe('a run is calculated once per period, and the database holds it (FR-FIN
     expect((await admin().query('SELECT 1 FROM fin.depreciation_run WHERE period_id = $1', [period])).rows).toHaveLength(1);
     const again = await post(accountant, '/finance/depreciation-runs', { periodId: period });
     expect([again.status, again.body.error.code]).toEqual([422, 'DEPRECIATION_RUN_EXISTS']);
+  });
+
+  it('refuses the run and its assets to the Accountant of another branch, by id and in the lists (ADR-0017 rule 2)', async () => {
+    const elsewhere = await enrolAndLogin(api.server, await createUser(database, { name: 'Abena Sarpong', grants: [{ role: 'ACCOUNTANT', branchId: (await createBranch(database, 'KMS')).branchId }] }), () => clock.now());
+    const assetId = [...assets.values()][0]!;
+    for (const path of [`/finance/depreciation-runs/${june}`, `/finance/fixed-assets/${assetId}`]) {
+      expect((await get(accountant, path)).status, path).toBe(200);
+      expect([(await get(elsewhere, path)).status, (await get(elsewhere, path)).body.error?.code], path).toEqual([403, 'FORBIDDEN']);
+    }
+    for (const list of ['/finance/depreciation-runs', '/finance/fixed-assets']) {
+      expect(((await get(accountant, list)).body.data as unknown[]).length, list).toBeGreaterThan(0);
+      expect((await get(elsewhere, list)).body.data, list).toEqual([]);
+    }
   });
 
   it('spreads each asset exactly: 333,334 for the first of three months, and the seeded cold room four months of 111,112 caught up', async () => {

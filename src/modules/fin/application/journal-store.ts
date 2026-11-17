@@ -170,7 +170,8 @@ export interface RuleChangeRow {
 
 /** FIN's journals, manual journals and rule changes in PostgreSQL. The triggers of 0123 and 0130 decide too. */
 export interface JournalStore {
-  entries(tx: Transaction, filters: EntryFilters, before: EntryPosition | null, limit: number): Promise<EntryHeader[]>;
+  /** Entries at the given branches only (the reader's, ADR-0017). */
+  entries(tx: Transaction, filters: EntryFilters, before: EntryPosition | null, limit: number, branchIds: readonly string[]): Promise<EntryHeader[]>;
   entry(tx: Transaction, id: string): Promise<EntryHeader | null>;
   /** The entry an event about this subject posted (a manual journal's), or null. */
   entryOfSubject(tx: Transaction, subjectId: string): Promise<string | null>;
@@ -185,7 +186,8 @@ export interface JournalStore {
   accountByCode(tx: Transaction, code: string): Promise<AccountFactsRow | null>;
   parties(tx: Transaction, ids: readonly string[]): Promise<Map<string, PartyRow>>;
 
-  manualJournals(tx: Transaction, filters: { readonly status: string | null; readonly kind: string | null }, beforeId: string | null, limit: number): Promise<ManualJournalRow[]>;
+  /** Manual journals at the given branches only (the reader's, ADR-0017). */
+  manualJournals(tx: Transaction, filters: { readonly status: string | null; readonly kind: string | null }, beforeId: string | null, limit: number, branchIds: readonly string[]): Promise<ManualJournalRow[]>;
   manualJournal(tx: Transaction, id: string, forUpdate: boolean): Promise<ManualJournalRow | null>;
   /** The lines of each journal's current revision, in line order. */
   manualLines(tx: Transaction, journals: readonly Pick<ManualJournalRow, 'id' | 'revision'>[]): Promise<Map<string, ManualLineRow[]>>;

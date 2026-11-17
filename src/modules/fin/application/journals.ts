@@ -9,6 +9,7 @@ import type { Side } from '../domain/posting';
 import { JOURNAL_DOCUMENT_TYPE } from './ledger';
 import type { AccountRefRow, ActivityFilters, ActivityPosition, EntryFilters, EntryHeader, EntryLine, JournalStore, PartyRow } from './journal-store';
 import type { Page } from './periods';
+import { readableBranches } from './read-scope';
 
 const READ = 'fin.journal.read';
 
@@ -127,7 +128,7 @@ export class Journals {
       const binding = { operationId: 'listJournalEntries', principalId: actor!.principalId, filters };
       const position = cursor === undefined ? null : this.cursors.decode(cursor, binding);
       const before = position === null ? null : { postingDate: position['postingDate']!, id: position['id']! };
-      const found = await this.store.entries(tx, filters, before, limit + 1);
+      const found = await this.store.entries(tx, filters, before, limit + 1, await readableBranches(this.authoriser, tx, actor!, READ));
       const rows = found.slice(0, limit);
       const hasMore = found.length > limit;
       const last = rows.at(-1);
@@ -143,6 +144,7 @@ export class Journals {
       await this.authoriser.authorise(tx, actor, READ);
       const entry = await this.store.entry(tx, id);
       if (entry === null) throw new NotFoundError(`no journal entry ${id}`);
+      await this.authoriser.authorise(tx, actor, READ, { branchId: entry.branchId });
       return (await this.views(tx, [entry]))[0]!;
     });
   }

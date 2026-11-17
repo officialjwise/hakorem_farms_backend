@@ -44,16 +44,16 @@ function activityWhere(first: number): string {
 
 /** FIN's journal reads and its manual journal and rule change writes (migrations 0123, 0130). */
 export class PgJournalStore implements JournalStore {
-  async entries(tx: Transaction, filters: EntryFilters, before: EntryPosition | null, limit: number): Promise<EntryHeader[]> {
+  async entries(tx: Transaction, filters: EntryFilters, before: EntryPosition | null, limit: number, branchIds: readonly string[]): Promise<EntryHeader[]> {
     const { rows } = await tx.query<Raw<EntryHeader, 'totalPesewas'>>(
       `SELECT ${ENTRY_COLUMNS} FROM fin.journal_entry e JOIN fin.accounting_period p ON p.id = e.period_id
         WHERE ($1::date IS NULL OR e.posting_date >= $1::date) AND ($2::date IS NULL OR e.posting_date <= $2::date)
           AND ($3::uuid IS NULL OR EXISTS (SELECT 1 FROM fin.journal_line l WHERE l.journal_entry_id = e.id AND l.account_id = $3))
           AND ($4::uuid IS NULL OR e.source_document_id = $4) AND ($5::uuid IS NULL OR e.posting_group_id = $5)
           AND ($6::text IS NULL OR e.event_code = $6) AND ($7::text IS NULL OR e.kind = $7)
-          AND ($8::date IS NULL OR (e.posting_date, e.id) < ($8::date, $9::uuid))
+          AND ($8::date IS NULL OR (e.posting_date, e.id) < ($8::date, $9::uuid)) AND e.branch_id = ANY($11::uuid[])
         ORDER BY e.posting_date DESC, e.id DESC LIMIT $10`,
-      [filters.from, filters.to, filters.accountId, filters.sourceDocumentId, filters.postingGroupId, filters.eventCode, filters.kind, before?.postingDate ?? null, before?.id ?? null, limit],
+      [filters.from, filters.to, filters.accountId, filters.sourceDocumentId, filters.postingGroupId, filters.eventCode, filters.kind, before?.postingDate ?? null, before?.id ?? null, limit, branchIds],
     );
     return rows.map((r) => ({ ...r, totalPesewas: BigInt(r.totalPesewas) }));
   }
@@ -160,12 +160,12 @@ export class PgJournalStore implements JournalStore {
     return new Map(rows.map((r) => [r.id, r]));
   }
 
-  async manualJournals(tx: Transaction, filters: { readonly status: string | null; readonly kind: string | null }, beforeId: string | null, limit: number): Promise<ManualJournalRow[]> {
+  async manualJournals(tx: Transaction, filters: { readonly status: string | null; readonly kind: string | null }, beforeId: string | null, limit: number, branchIds: readonly string[]): Promise<ManualJournalRow[]> {
     const { rows } = await tx.query<ManualJournalRow>(
       `SELECT ${MANUAL_COLUMNS} FROM fin.manual_journal
-        WHERE ($1::text IS NULL OR status = $1) AND ($2::text IS NULL OR kind = $2) AND ($3::uuid IS NULL OR id < $3)
+        WHERE ($1::text IS NULL OR status = $1) AND ($2::text IS NULL OR kind = $2) AND ($3::uuid IS NULL OR id < $3) AND branch_id = ANY($5::uuid[])
         ORDER BY id DESC LIMIT $4`,
-      [filters.status, filters.kind, beforeId, limit],
+      [filters.status, filters.kind, beforeId, limit, branchIds],
     );
     return rows;
   }

@@ -17,13 +17,13 @@ const run = (r: RawRun): DepreciationRunRow => ({ ...r, totalPesewas: BigInt(r.t
 
 /** FIN's register and runs. Every write names its actor; the version moves by one (platform.touch_version). */
 export class PgFixedAssetStore implements FixedAssetStore {
-  async assets(tx: Transaction, filters: { readonly category: AssetCategory | null; readonly status: AssetStatus | null }, after: { readonly assetNo: string; readonly id: string } | null, limit: number): Promise<FixedAssetRow[]> {
+  async assets(tx: Transaction, filters: { readonly category: AssetCategory | null; readonly status: AssetStatus | null }, after: { readonly assetNo: string; readonly id: string } | null, limit: number, branchIds: readonly string[]): Promise<FixedAssetRow[]> {
     const { rows } = await tx.query<RawAsset>(
       `SELECT ${ASSET_COLUMNS} FROM fin.fixed_asset a
         WHERE ($1::text IS NULL OR a.category = $1) AND ($2::text IS NULL OR a.status = $2)
-          AND ($3::text IS NULL OR (a.asset_no, a.id) > ($3, $4::uuid))
+          AND ($3::text IS NULL OR (a.asset_no, a.id) > ($3, $4::uuid)) AND a.branch_id = ANY($6::uuid[])
         ORDER BY a.asset_no, a.id LIMIT $5`,
-      [filters.category, filters.status, after?.assetNo ?? null, after?.id ?? null, limit],
+      [filters.category, filters.status, after?.assetNo ?? null, after?.id ?? null, limit, branchIds],
     );
     return rows.map(asset);
   }
@@ -74,11 +74,11 @@ export class PgFixedAssetStore implements FixedAssetStore {
     return rows.length > 0;
   }
 
-  async runs(tx: Transaction, beforeId: string | null, limit: number): Promise<DepreciationRunRow[]> {
+  async runs(tx: Transaction, beforeId: string | null, limit: number, branchIds: readonly string[]): Promise<DepreciationRunRow[]> {
     const { rows } = await tx.query<RawRun>(
       `SELECT ${RUN_COLUMNS} FROM fin.depreciation_run r JOIN fin.accounting_period p ON p.id = r.period_id
-        WHERE ($1::uuid IS NULL OR r.id < $1) ORDER BY r.id DESC LIMIT $2`,
-      [beforeId, limit],
+        WHERE ($1::uuid IS NULL OR r.id < $1) AND r.branch_id = ANY($3::uuid[]) ORDER BY r.id DESC LIMIT $2`,
+      [beforeId, limit, branchIds],
     );
     return rows.map(run);
   }
