@@ -12,6 +12,7 @@ import { Authoriser, IamModule, PRINCIPAL_NAMES, type PrincipalNames } from '../
 import { MasterDataRefs, MdmModule } from '../mdm';
 import { OrdModule, Orders } from '../ord';
 import { PayModule, Payments, TillShiftRegistry } from '../pay';
+import { Devices } from './application/devices';
 import { Registers } from './application/registers';
 import { POS_LEDGER_EVENTS, Shifts } from './application/shifts';
 import { TillCash } from './application/till-cash';
@@ -38,6 +39,12 @@ import { PosController } from './interface/pos.controller';
       inject: [UnitOfWork, TILL_STORE, MasterDataRefs, Authoriser, Idempotency, AuditTrail, PRINCIPAL_NAMES, Cursors, CLOCK],
     },
     {
+      provide: Devices,
+      useFactory: (uow: UnitOfWork, store: TillStore, authoriser: Authoriser, idempotency: Idempotency, audit: AuditTrail, principals: PrincipalNames, cursors: Cursors, clock: Clock) =>
+        new Devices(uow, store, authoriser, idempotency, audit, principals, cursors, clock, createUuidV7Generator(clock)),
+      inject: [UnitOfWork, TILL_STORE, Authoriser, Idempotency, AuditTrail, PRINCIPAL_NAMES, Cursors, CLOCK],
+    },
+    {
       provide: Shifts,
       useFactory: (
         uow: UnitOfWork,
@@ -58,7 +65,7 @@ import { PosController } from './interface/pos.controller';
       inject: [UnitOfWork, TILL_STORE, MasterDataRefs, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, NumberSeries, PRINCIPAL_NAMES, Cursors, Payments, Orders, CLOCK],
     },
   ],
-  exports: [Registers, Shifts],
+  exports: [Registers, Shifts, Devices],
 })
 export class PosModule implements OnModuleInit {
   constructor(

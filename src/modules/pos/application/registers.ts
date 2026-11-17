@@ -24,7 +24,7 @@ export interface RegisterView {
   readonly name: string;
   readonly status: 'ACTIVE' | 'RETIRED';
   readonly openShift: { readonly id: string; readonly cashier: PrincipalRef; readonly openedAt: string } | null;
-  /** Devices enrolled on the till: none until device enrolment is built (A-273 (a)). */
+  /** Devices enrolled on the till and not revoked (B09b continued). */
   readonly deviceCount: number;
   readonly version: number;
 }
@@ -134,6 +134,7 @@ export class Registers {
     const locations = await this.refs.locationsIn(tx, [...new Set(registers.map((r) => r.locationId))]);
     const open = await this.store.unclosedShifts(tx, registers.map((r) => r.id));
     const names = await this.principals.refs(tx, [...open.values()].map((s) => s.cashierId));
+    const devices = await this.store.liveDeviceCounts(tx, registers.map((r) => r.id));
     return registers.map((r) => {
       const branch = branches.get(r.branchId)!;
       const location = locations.get(r.locationId)!;
@@ -146,7 +147,7 @@ export class Registers {
         name: r.name,
         status: r.status,
         openShift: shift === undefined ? null : { id: shift.id, cashier: names.get(shift.cashierId) ?? { id: shift.cashierId, displayName: 'Unknown' }, openedAt: shift.openedAt.toISOString() },
-        deviceCount: 0,
+        deviceCount: devices.get(r.id) ?? 0,
         version: r.version,
       };
     });

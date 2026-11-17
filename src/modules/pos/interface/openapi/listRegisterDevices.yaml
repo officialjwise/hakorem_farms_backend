@@ -1,0 +1,109 @@
+operationId: listRegisterDevices
+tags:
+  - pos
+summary: "List devices enrolled on a register"
+description: "Every device enrolled on the till, revoked ones included, newest first (2.6.0, B09b continued). The credential and its hash are never shown. `Register.deviceCount` counts the ones not revoked.\n\nPermission: `pos.device.read`."
+x-permission: pos.device.read
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/DeviceEnrolmentPage"
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7af9-1a1f-7d1b-9253-da889a7e5366"
+                  registerId: "019a7a94-15a3-7248-9781-2d5f347aa63d"
+                  deviceLabel: "Samsung Tab A7 Lite, till 1"
+                  enrolledBy:
+                    id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                    displayName: "Kwabena Owusu"
+                  enrolledAt: "2026-11-02T09:00:00Z"
+                  lastSyncAt: "2026-11-13T09:10:00Z"
+                  revokedAt: null
+                - id: "019a7af9-390e-76fe-ac37-78c0142ff19d"
+                  registerId: "019a7af8-9e63-758d-9ac5-61aab3bada88"
+                  deviceLabel: "Lenovo M8, till 2"
+                  enrolledBy:
+                    id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                    displayName: "Kwabena Owusu"
+                  enrolledAt: "2026-11-03T09:00:00Z"
+                  lastSyncAt: "2026-11-13T09:09:00Z"
+                  revokedAt: null
+                - id: "019a7af9-57fd-70e2-b61a-16f78de08fd5"
+                  registerId: "019a7af8-dc41-7954-be8c-9e19a71c16f7"
+                  deviceLabel: "Tecno phone, yard"
+                  enrolledBy:
+                    id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                    displayName: "Kwabena Owusu"
+                  enrolledAt: "2026-11-04T09:00:00Z"
+                  lastSyncAt: "2026-11-13T09:08:00Z"
+                  revokedAt: null
+                - id: "019a7af9-76ec-7ac5-8ffe-b52f07912e0c"
+                  registerId: "019a7af8-fb30-7337-8870-3c5120cdb52f"
+                  deviceLabel: "Itel tablet, market"
+                  enrolledBy:
+                    id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                    displayName: "Kwabena Owusu"
+                  enrolledAt: "2026-11-05T09:00:00Z"
+                  lastSyncAt: "2026-11-13T09:07:00Z"
+                  revokedAt: null
+                - id: "019a7af9-95db-74a9-99e1-53668142cc44"
+                  registerId: "019a7a94-15a3-7248-9781-2d5f347aa63d"
+                  deviceLabel: "Old till 1 tablet"
+                  enrolledBy:
+                    id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                    displayName: "Kwabena Owusu"
+                  enrolledAt: "2026-11-06T09:00:00Z"
+                  lastSyncAt: "2026-11-12T15:00:00Z"
+                  revokedAt: "2026-11-12T16:00:00Z"
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -141,6 +141,8 @@ export const VALID_BODY: Readonly<Record<string, object>> = {
   recordCashMovement: { id: '019a7aa1-0000-7000-8000-000000000001', kind: 'CASH_DROP', amountPesewas: 30_000, reasonCode: 'SAFE_DROP', witnessId: randomUUID(), occurredAt: '2026-11-13T12:00:00Z' },
   closeShift: { declared: [{ paymentMethodId: randomUUID(), declaredPesewas: 63_500 }] },
   approveShiftClose: { reason: 'Counted with the cashier' },
+  enrolDevice: { deviceLabel: 'Shop till tablet' },
+  revokeDevice: { reason: 'Tablet stolen from the stall' },
   draftSupplierClaimCreditNote: { originalInvoiceId: randomUUID(), supplierInvoiceNo: 'APF-CN-0701', invoiceDate: '2026-11-17' },
   settleSupplierClaim: { supplierInvoiceId: randomUUID() },
   createSupplierPayment: { supplierId: randomUUID(), method: 'MOBILE_MONEY', allocations: [{ supplierInvoiceId: randomUUID(), amountPesewas: 110000 }] },

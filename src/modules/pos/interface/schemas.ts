@@ -44,3 +44,5 @@ export const ShiftClose = z.strictObject({
 });
 
 export const ReasonBody = z.strictObject({ reason: Text(500) });
+
+export const DeviceEnrolmentCreate = z.strictObject({ deviceLabel: Text(80) });

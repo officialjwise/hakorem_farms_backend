@@ -97,3 +97,30 @@ describe('B9b till operations answer in the contract shapes', () => {
     expectShape('ShiftReport', (await get(manager, `/shifts/${shiftId}/z-report`)).body);
   });
 });
+
+describe('B09b continued device operations answer in the contract shapes', () => {
+  it('a device enrolled, listed and revoked, and the refusals', async () => {
+    const till = await post(manager, '/registers', { branchId: id('branch:DDW'), locationId: id('location:SHOP'), code: 'D1', name: 'Device till' });
+    expect(till.status).toBe(201);
+    clock.advanceBy(30_000);
+    expect((await post(manager, '/auth/step-up', { code: totpAt(manager.secret, Math.floor(clock.now().getTime() / 1000)) })).status).toBe(200);
+    const key = randomUUID();
+    const enrolled = await post(manager, `/registers/${till.body.id as string}/devices`, { deviceLabel: 'Itel tablet, market' }, key);
+    expect(enrolled.status).toBe(201);
+    expectShape('DeviceEnrolled', enrolled.body);
+    const replay = await post(manager, `/registers/${till.body.id as string}/devices`, { deviceLabel: 'Itel tablet, market' }, key);
+    expect(replay.status).toBe(409);
+    expectShape('Error', replay.body);
+    expectShape('DeviceEnrolmentPage', (await get(manager, `/registers/${till.body.id as string}/devices`)).body);
+    expectShape('Register', (await get(manager, `/registers?branchId=${id('branch:DDW')}`)).body.data[0]);
+    const revoked = await post(manager, `/devices/${enrolled.body.device.id as string}/revoke`, { reason: 'Screen broken' });
+    expect(revoked.status).toBe(200);
+    expectShape('DeviceEnrolment', revoked.body);
+    const again = await post(manager, `/devices/${enrolled.body.device.id as string}/revoke`, { reason: 'Screen broken' });
+    expect(again.status).toBe(422);
+    expectShape('Error', again.body);
+    const refused = await post(cashier, `/registers/${till.body.id as string}/devices`, { deviceLabel: 'Mine' });
+    expect(refused.status).toBe(403);
+    expectShape('Error', refused.body);
+  });
+});

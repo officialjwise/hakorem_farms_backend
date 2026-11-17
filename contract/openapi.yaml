@@ -53935,7 +53935,7 @@ paths:
       tags:
         - pos
       summary: "Create a register"
-      description: "A till selling from a live, physical location of its branch (422 `REGISTER_INVALID` with `LOCATION_NOT_IN_BRANCH` or `LOCATION_NOT_SELLABLE`), with a code of one to four capitals or digits unique among the branch's tills (`REGISTER_CODE_TAKEN`). `deviceCount` is 0 until device enrolment is built (B09b continued).\n\nPermission: `pos.register.manage`."
+      description: "A till selling from a live, physical location of its branch (422 `REGISTER_INVALID` with `LOCATION_NOT_IN_BRANCH` or `LOCATION_NOT_SELLABLE`), with a code of one to four capitals or digits unique among the branch's tills (`REGISTER_CODE_TAKEN`). `deviceCount` counts the till's devices not revoked (2.6.0); a new till has none.\n\nPermission: `pos.register.manage`."
       x-permission: pos.register.manage
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -53984,7 +53984,7 @@ paths:
                     id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
                     displayName: "Adwoa Darko"
                   openedAt: "2026-11-13T06:55:00Z"
-                deviceCount: 1
+                deviceCount: 0
                 version: 2
         "400":
           $ref: "#/components/responses/BadRequest"
@@ -54083,7 +54083,7 @@ paths:
       tags:
         - pos
       summary: "List devices enrolled on a register"
-      description: "Permission: `pos.device.read`."
+      description: "Every device enrolled on the till, revoked ones included, newest first (2.6.0, B09b continued). The credential and its hash are never shown. `Register.deviceCount` counts the ones not revoked.\n\nPermission: `pos.device.read`."
       x-permission: pos.device.read
       parameters:
         - name: id
@@ -54162,8 +54162,8 @@ paths:
                           id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
                           displayName: "Kwabena Owusu"
                         enrolledAt: "2026-11-06T09:00:00Z"
-                        lastSyncAt: "2026-11-13T09:06:00Z"
-                        revokedAt: "2026-11-05T16:00:00Z"
+                        lastSyncAt: "2026-11-12T15:00:00Z"
+                        revokedAt: "2026-11-12T16:00:00Z"
                     page:
                       nextCursor: null
                       limit: 25
@@ -54193,7 +54193,7 @@ paths:
       tags:
         - pos
       summary: "Enrol a device to run a register, including offline"
-      description: "Permission: `pos.device.enrol`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      description: "A manager enrols a device on an active till (2.6.0, B09b continued, ADR-0016, A-274). The answer carries `deviceCredential` (`hkdev_<till code>.` and 256 random bits, base64url) this once: the server keeps only its SHA-256 hash, so a replay of the same key cannot show it again and answers 409 `DEVICE_CREDENTIAL_SHOWN_ONCE` (revoke the device and enrol it again). The device sends it as `X-Device-Credential` beside the cashier's staff session. Refusals: 422 `DEVICE_INVALID` with `REGISTER_RETIRED`; 404 for a till the caller cannot see. Audited without the credential.\n\nPermission: `pos.device.enrol`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: pos.device.enrol
       x-requires-step-up: true
       parameters:
@@ -54235,7 +54235,7 @@ paths:
                     id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
                     displayName: "Kwabena Owusu"
                   enrolledAt: "2026-11-02T09:00:00Z"
-                  lastSyncAt: "2026-11-13T09:10:00Z"
+                  lastSyncAt: null
                   revokedAt: null
                 deviceCredential: hkdev_T1.EXAMPLE-NOT-A-REAL-CREDENTIAL
         "400":
@@ -54260,7 +54260,7 @@ paths:
       tags:
         - pos
       summary: "Revoke a lost or retired device"
-      description: "Permission: `pos.device.enrol`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      description: "A lost, stolen or retired device stops at once, with a reason (2.6.0, B09b continued): from then on a counter sale or a sync naming it is refused 403 `DEVICE_REVOKED`. A revoked device never comes back: if it is found it is enrolled again as a new device. Refusals: 422 `DEVICE_INVALID` with `DEVICE_ALREADY_REVOKED`. Audited with the reason.\n\nPermission: `pos.device.enrol`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: pos.device.enrol
       x-requires-step-up: true
       parameters:
@@ -54302,7 +54302,7 @@ paths:
                   displayName: "Kwabena Owusu"
                 enrolledAt: "2026-11-02T09:00:00Z"
                 lastSyncAt: "2026-11-13T09:10:00Z"
-                revokedAt: null
+                revokedAt: "2026-11-13T16:20:00Z"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":

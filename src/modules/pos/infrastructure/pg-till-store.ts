@@ -1,5 +1,5 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
-import type { CashMovementRecord, NewShift, RegisterRecord, ShiftFilter, ShiftRecord, TenderCountRecord, TillStore } from '../application/till-store';
+import type { CashMovementRecord, DeviceRecord, NewShift, RegisterRecord, ShiftFilter, ShiftRecord, TenderCountRecord, TillStore } from '../application/till-store';
 import type { CashMovementKind, OverShortDirection } from '../domain/till';
 
 interface RegisterRow {
@@ -48,6 +48,36 @@ interface MovementRow {
   actor_id: string;
 }
 
+interface DeviceRow {
+  id: string;
+  register_id: string;
+  device_label: string;
+  enrolled_by: string;
+  enrolled_at: Date;
+  last_sync_at: Date | null;
+  revoked_at: Date | null;
+  revoked_by: string | null;
+  revoke_reason: string | null;
+  branch_id: string;
+  version: number;
+}
+
+function device(r: DeviceRow): DeviceRecord {
+  return {
+    id: r.id,
+    registerId: r.register_id,
+    deviceLabel: r.device_label,
+    enrolledBy: r.enrolled_by,
+    enrolledAt: r.enrolled_at,
+    lastSyncAt: r.last_sync_at,
+    revokedAt: r.revoked_at,
+    revokedBy: r.revoked_by,
+    revokeReason: r.revoke_reason,
+    branchId: r.branch_id,
+    version: r.version,
+  };
+}
+
 interface CountRow {
   shift_id: string;
   payment_method_id: string;
@@ -62,6 +92,7 @@ const SHIFT_COLUMNS = `id, shift_no, register_id, cashier_id, shift_seq, opened_
   expected_cash_pesewas::text, over_short_pesewas::text, over_short_direction, close_approved_by, closed_at, last_device_counter, force_closed, status,
   branch_id, version`;
 const MOVEMENT_COLUMNS = 'id, shift_id, kind, amount_pesewas::text, reason_code, note, witness_id, unwitnessed, occurred_at, recorded_at, actor_id';
+const DEVICE_COLUMNS = 'id, register_id, device_label, enrolled_by, enrolled_at, last_sync_at, revoked_at, revoked_by, revoke_reason, branch_id, version';
 const COUNT_COLUMNS = 'shift_id, payment_method_id, declared_pesewas::text, expected_pesewas::text, variance_pesewas::text, variance_direction';
 
 const big = (value: string | null): bigint | null => (value === null ? null : BigInt(value));
@@ -292,5 +323,50 @@ export class PgTillStore implements TillStore {
   async zReport(tx: Transaction, shiftId: string): Promise<{ readonly totals: Record<string, unknown>; readonly recordedAt: Date } | null> {
     const { rows } = await tx.query<{ totals: Record<string, unknown>; recorded_at: Date }>("SELECT totals, recorded_at FROM pos.shift_report WHERE shift_id = $1 AND kind = 'Z'", [shiftId]);
     return rows[0] === undefined ? null : { totals: rows[0].totals, recordedAt: rows[0].recorded_at };
+  }
+
+  async insertDevice(tx: Transaction, d: { readonly id: string; readonly registerId: string; readonly deviceLabel: string; readonly credentialHash: Buffer; readonly branchId: string }, actorId: string, at: Date): Promise<void> {
+    await tx.query(
+      `INSERT INTO pos.device_enrolment (id, register_id, device_label, credential_hash, enrolled_by, enrolled_at, branch_id, created_at, created_by, updated_at, updated_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $6, $5, $6, $5)`,
+      [d.id, d.registerId, d.deviceLabel, d.credentialHash, actorId, at, d.branchId],
+    );
+  }
+
+  async devices(tx: Transaction, ids: readonly string[]): Promise<DeviceRecord[]> {
+    if (ids.length === 0) return [];
+    const { rows } = await tx.query<DeviceRow>(`SELECT ${DEVICE_COLUMNS} FROM pos.device_enrolment WHERE id = ANY($1::uuid[]) AND deleted_at IS NULL`, [ids]);
+    return rows.map(device);
+  }
+
+  async lockDevice(tx: Transaction, id: string): Promise<DeviceRecord | null> {
+    const { rows } = await tx.query<DeviceRow>(`SELECT ${DEVICE_COLUMNS} FROM pos.device_enrolment WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`, [id]);
+    return rows[0] === undefined ? null : device(rows[0]);
+  }
+
+  async deviceByCredential(tx: Transaction, credentialHash: Buffer): Promise<DeviceRecord | null> {
+    const { rows } = await tx.query<DeviceRow>(`SELECT ${DEVICE_COLUMNS} FROM pos.device_enrolment WHERE credential_hash = $1 AND deleted_at IS NULL`, [credentialHash]);
+    return rows[0] === undefined ? null : device(rows[0]);
+  }
+
+  async devicesOfRegister(tx: Transaction, registerId: string, beforeId: string | null, limit: number): Promise<DeviceRecord[]> {
+    const { rows } = await tx.query<DeviceRow>(
+      `SELECT ${DEVICE_COLUMNS} FROM pos.device_enrolment WHERE register_id = $1 AND deleted_at IS NULL AND ($2::uuid IS NULL OR id < $2) ORDER BY id DESC LIMIT $3`,
+      [registerId, beforeId, limit],
+    );
+    return rows.map(device);
+  }
+
+  async revokeDevice(tx: Transaction, id: string, reason: string, actorId: string, at: Date): Promise<void> {
+    await tx.query('UPDATE pos.device_enrolment SET version = version + 1, revoked_at = $2, revoked_by = $3, revoke_reason = $4, updated_at = $2, updated_by = $3 WHERE id = $1', [id, at, actorId, reason]);
+  }
+
+  async liveDeviceCounts(tx: Transaction, registerIds: readonly string[]): Promise<ReadonlyMap<string, number>> {
+    if (registerIds.length === 0) return new Map();
+    const { rows } = await tx.query<{ register_id: string; n: number }>(
+      'SELECT register_id, count(*)::int AS n FROM pos.device_enrolment WHERE register_id = ANY($1::uuid[]) AND revoked_at IS NULL AND deleted_at IS NULL GROUP BY register_id',
+      [registerIds],
+    );
+    return new Map(rows.map((r) => [r.register_id, r.n]));
   }
 }
