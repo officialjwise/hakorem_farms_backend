@@ -4,15 +4,16 @@ Date: 2026-11-16 · Branch `b09t2-dates-from-clock`, from `main` (`3fcede5`) · 
 
 Run as a fresh agent inside the 2026-11-15 overnight session: the parent session cannot issue /clear or /compact, so each phase starts in a new context that reads only this handoff from disk.
 
-## Assumptions made this session (in `docs/ASSUMPTIONS.md`, dated 2026-11-16)
+## Assumptions made this session (in `docs/ASSUMPTIONS.md`, dated 2026-11-16 and, for A-223, 2026-11-17)
 
 | ID | What | Who confirms |
 | --- | --- | --- |
 | A-220 | **The seeded farm's dates come from the seed's clock.** `src/seed/seed-calendar.ts` builds every seeded date from the business day the seed's clock reads, once per seed run. Prices, tax, the caterer's list and the promotions take effect 15 days before, at 06:00. The stock arrives 6 days before, at 07:00, and is weighed and logged in the cold room that day. The eggs last 21 days and the meat 90. WELCOME10 runs 135 days and XMAS-MEAT-5 51 days. A run on 2026-11-16 seeds exactly the earlier fixed dates, so no amount moves. Lot numbers that contain a date are names, so they are kept. The fixed assets' 2026 acquisition dates are past history that no rule reads against today, so they are kept too. | Owner |
 | A-221 | **A refund's `created_at` is the application's instant.** `markRefundPaid` refuses a payout dated before its refund, so `Refunds.request` writes `created_at` from its clock, as a charge's already was (the exception A-217 names). | Owner |
 | A-222 | **A test's dates are built from its clock, or the test pins its clock.** `fin/year-close` closes the year 2026, so it pins its `ManualClock` to 2026-11-16T10:00Z and passes it to the application and the seed. Two kinds of fixed date stay: request bodies that a role refusal never reads, and schema tests that assert a rule between two explicit dates. Neither outcome depends on today. | Owner |
+| A-223 | **A billing document is never due before it is issued.** A credit note took its original's due date. Against an overdue invoice, or drafted on the due day and approved after midnight, it broke `ck_billing_document_due` and the API answered 500. Now a credit note is drafted due on the later of the original's due date and today, as a debit note already was. A draft issued after its due day is due on its issue day. No amount, status or posting changes. | Accountant |
 
-Still open, proceeded on as stated: A-033, A-034, A-062, A-182 to A-207, A-209, A-211, A-213, A-214, A-216 to A-222.
+Still open, proceeded on as stated: A-033, A-034, A-062, A-182 to A-207, A-209, A-211, A-213, A-214, A-216 to A-223.
 
 Phase, scope and gate, as confirmed at the start:
 1. **Phase:** B09t2 (`b09t2-dates-from-clock`, from `main` at `3fcede5`), inserted by the parent session and urgent before 2026-12-01.
@@ -43,6 +44,7 @@ Method: the scratch tool from B09t, never committed. A setup file starts each te
 | Contract at 2026-12-31 / 2027-03-01 | 2 failed / 17 files failed (the seed) | 0 / 1 (`credit-scores`, fixed in the same commit) | **95 passed / 95 passed** |
 | Unit at both instants | 1,398 passed | | **1,402 passed** both |
 | Integration at B09t's moments: 2026-11-17T23:55Z (Accra midnight), 2026-11-30T23:55Z (month end) | | | **1 failed (`file-store`)** at each |
+| **Final code (`d3be290`)**, integration at 2026-12-31T10:00Z, 2027-03-01T10:00Z, 2026-11-17T23:58Z and 23:59Z | | | **1 failed (`file-store`)**, 1,371 passed, at each |
 
 **What the sweep found, beyond the opener's list:**
 - **XMAS-MEAT-5 ended on 2027-01-06**, fixed in the seed. The promotion service refuses to submit a promotion whose window has passed, so from 2027-01-07 every suite that loads the seeded farm would fail in its setup. That is 53 integration files and 17 contract files.
@@ -54,6 +56,19 @@ Method: the scratch tool from B09t, never committed. A setup file starts each te
 - **`fin/year-close` moved its clock to fixed instants** (2026-12-28, 2027-01-05). After those dates the move goes backwards, and the seeded day falls outside 2026.
 
 **Still failing, with the reason: `doc/file-store` › *refuses a link with one extra character in its signature, and one used five minutes and a second after it was signed*.** It fails under every forced instant. The cause is the MinIO container, which checks a presigned URL's expiry against its own real clock. The forced test process signs the link "in the future", so the container still accepts it five minutes and a second later. This is a container artifact, not a defect. In production, the API and the object store read the same real time. On the real clock the test passes (it ran in the coverage run below). Forcing the process's clock cannot fix it; only the container's own clock could.
+
+## The red runs, and the midnight sweep they led to
+
+- **CI on `43d6827` was red**: run **43983232614 (push)** and run **43983241401 (pull_request)**. The commit held only the report. The runs crossed Accra midnight (23:58 to 00:01 UTC on 2026-11-17).
+  - `fin/accounting-periods` › *reopens a locked period…* failed on both runs. Its harvest was received an hour before the clock, so just after midnight it posted on yesterday.
+  - `fin/posting-rules` › *changes how a harvest posts from today…* failed on the push run. Its harvest was received a minute before the clock, so it posted under yesterday's rule (5210 for 4020).
+  - Nothing was re-run. Both tests were then made to fail on purpose: the clock was forced to start at 2026-11-17T23:56Z, with a forward jump to 90 s before midnight or to 00:01. The red diffs matched CI's exactly.
+  - The fix keeps each receipt time on or after today's midnight. The same forced run is green (`4fe8b53`, runs 43984782533 push and 43984789668 pull_request, both success).
+- **The sweep was then run at 23:58 and 23:59 Accra.** At 23:58 it found three more files that cross midnight:
+  - **`bil/billing-documents`** (four tests) hit a **product defect**, which A-223 fixes. A credit note drafted on its invoice's due day and approved after midnight answered 500 on `ck_billing_document_due`. A credit note against any overdue invoice did the same. Two new tests failed on the constraint first, then passed.
+  - **`fin/financial-statements`** › *the SRS's cash flow*: opening cash read 400,000 for 100,000, because the days were taken again after the step-ups.
+  - **`pur/supplier-credit-variance`** › *pays the 99,000 left…*: the remittance's invoice date was compared with "today".
+  - Each was fixed and proved green by running the three files forced to 23:56, 23:57 and 23:58. The final sweeps are below.
 
 ## Test first, as it honestly happened
 
@@ -84,8 +99,8 @@ I fetched the frontend's `main` at `382a820`, the same commit B09a continued 2 r
 | Layer | Result |
 | --- | --- |
 | Unit | **1,402 passed** (new: 4 in `src/seed/seed-calendar.spec.ts`) |
-| Integration | **1,370 passed** (new: 1 in `pay/refunds`) |
-| Coverage, merged (`pnpm test:coverage`) | **2,772 passed**, 223 files, exit 0 (the run before the container restart was lost and re-run). Statements 93.56 percent, branches 83.34 percent (gate 80). Every 100 percent gate held. `doc/file-store` passes on the real clock |
+| Integration | **1,372 passed** (new: 1 in `pay/refunds`, 2 in `bil/billing-documents`) |
+| Coverage, merged (`pnpm test:coverage`) | **2,772 passed** on `2786186` (before the midnight fixes), 223 files, exit 0. The run before the container restart was lost and re-run. CI's coverage job is green on the final head (below). Statements 93.56 percent, branches 83.34 percent (gate 80). Every 100 percent gate held. `doc/file-store` passes on the real clock |
 | Contract | **95 passed**, 36 files. `contract:generate` has nothing to regenerate (no interface changed) |
 | Lint, typecheck | Clean. Locally, eslint was run with `.claude/**` ignored; the test placement check found all 267 specs in place |
 | End to end | CI only |
@@ -106,6 +121,9 @@ I fetched the frontend's `main` at `382a820`, the same commit B09a continued 2 r
 ## CI
 
 - **`c9660bb`** (every code and docs commit, before this report; pull request #73 was opened on it): run **43982084401 (push)**, completed, success; run **43982131333 (pull_request**, which also compares the contract with `main`), completed, success.
+- **`43d6827`** (this report's first version): run **43983232614 (push)**, failure, and run **43983241401 (pull_request)**, failure. Both crossed midnight; see "The red runs" above. Nothing was re-run.
+- **`4fe8b53`** (the midnight fix for the two harvests): run **43984782533 (push)**, success; run **43984789668 (pull_request)**, success.
+- **`d3be290`** (the BIL fix and the other two tests): run **43988870306 (push)**, success; run **43988876339 (pull_request)**, success. That includes the coverage gate.
 - A commit cannot name its own runs, so the push and pull_request runs on the final head (this report's commit) are named in the session's closing message. The pull request is merged with a merge commit only once every run on its head is green. No run on this branch was red, and nothing was re-run.
 
 ## Next session
