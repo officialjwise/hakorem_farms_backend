@@ -1,0 +1,265 @@
+operationId: listShifts
+tags:
+  - pos
+summary: "List shifts"
+description: "Permission: `pos.shift.read`. Ownership: a cashier sees only their own shifts."
+x-permission: pos.shift.read
+parameters:
+  - name: registerId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: cashierId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: status
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: from
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date-time
+  - name: to
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date-time
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ShiftPage"
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7a93-f6b4-7865-8d9d-8f27bac90805"
+                  shiftNo: SHF-2026-DDW-000312
+                  status: OPEN
+                  register:
+                    id: "019a7a94-15a3-7248-9781-2d5f347aa63d"
+                    code: T1
+                    name: "Shop till 1"
+                  cashier:
+                    id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                    displayName: "Adwoa Darko"
+                  shiftSeq: 312
+                  openedAt: "2026-11-13T06:55:00Z"
+                  openingFloatPesewas: 20000
+                  closedAt: null
+                  declaredCashPesewas: null
+                  expectedCashPesewas: null
+                  overShortPesewas: null
+                  overShortDirection: null
+                  closeApprovedBy: null
+                  forceClosed: false
+                  lastDeviceCounter: 0
+                  salesCount: 17
+                  tenders: []
+                  currency: GHS
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 4
+                - id: "019a7af1-da1b-7bcb-9103-c58815023e65"
+                  shiftNo: SHF-2026-DDW-000311
+                  status: OPEN
+                  register:
+                    id: "019a7af8-9e63-758d-9ac5-61aab3bada88"
+                    code: T2
+                    name: "Shop till 2"
+                  cashier:
+                    id: "019a7a86-caf1-728b-b7c3-3188ea6caa66"
+                    displayName: "Nana Yeboah"
+                  shiftSeq: 311
+                  openedAt: "2026-11-13T06:55:00Z"
+                  openingFloatPesewas: 20000
+                  closedAt: null
+                  declaredCashPesewas: null
+                  expectedCashPesewas: null
+                  overShortPesewas: null
+                  overShortDirection: null
+                  closeApprovedBy: null
+                  forceClosed: false
+                  lastDeviceCounter: 42
+                  salesCount: 9
+                  tenders: []
+                  currency: GHS
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 4
+                - id: "019a7af9-b4ca-7e8c-a3c5-f19dfaf36a7b"
+                  shiftNo: SHF-2026-DDW-000310
+                  status: CLOSED
+                  register:
+                    id: "019a7a94-15a3-7248-9781-2d5f347aa63d"
+                    code: T1
+                    name: "Shop till 1"
+                  cashier:
+                    id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                    displayName: "Adwoa Darko"
+                  shiftSeq: 310
+                  openedAt: "2026-11-12T06:55:00Z"
+                  openingFloatPesewas: 20000
+                  closedAt: "2026-11-12T19:05:00Z"
+                  declaredCashPesewas: 1451000
+                  expectedCashPesewas: 1451000
+                  overShortPesewas: 0
+                  overShortDirection: EXACT
+                  closeApprovedBy:
+                    id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                    displayName: "Kwabena Owusu"
+                  forceClosed: false
+                  lastDeviceCounter: 0
+                  salesCount: 61
+                  tenders: []
+                  currency: GHS
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 4
+                - id: "019a7af9-d3b9-7870-bda8-8fd574a408b3"
+                  shiftNo: SHF-2026-DDW-000309
+                  status: CLOSED
+                  register:
+                    id: "019a7af8-9e63-758d-9ac5-61aab3bada88"
+                    code: T2
+                    name: "Shop till 2"
+                  cashier:
+                    id: "019a7a86-caf1-728b-b7c3-3188ea6caa66"
+                    displayName: "Nana Yeboah"
+                  shiftSeq: 309
+                  openedAt: "2026-11-12T06:55:00Z"
+                  openingFloatPesewas: 20000
+                  closedAt: "2026-11-12T19:05:00Z"
+                  declaredCashPesewas: 822500
+                  expectedCashPesewas: 834500
+                  overShortPesewas: 12000
+                  overShortDirection: SHORT
+                  closeApprovedBy:
+                    id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                    displayName: "Kwabena Owusu"
+                  forceClosed: false
+                  lastDeviceCounter: 0
+                  salesCount: 38
+                  tenders:
+                    - paymentMethod:
+                        id: "019a7a92-a26f-7b9f-90d7-c2c5802e3ba3"
+                        code: CASH
+                        name: Cash
+                        kind: CASH
+                      declaredPesewas: 822500
+                      expectedPesewas: 834500
+                      variancePesewas: 12000
+                      varianceDirection: SHORT
+                    - paymentMethod:
+                        id: "019a7a92-c15e-7582-aabb-60fcf9dfd9da"
+                        code: MOMO
+                        name: "Mobile money"
+                        kind: MOBILE_MONEY
+                      declaredPesewas: 412000
+                      expectedPesewas: 412000
+                      variancePesewas: 0
+                      varianceDirection: EXACT
+                  currency: GHS
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 4
+                - id: "019a7af9-f2a8-7253-878c-2e0cee55a6ea"
+                  shiftNo: SHF-2026-DDW-000308
+                  status: CLOSED
+                  register:
+                    id: "019a7af8-dc41-7954-be8c-9e19a71c16f7"
+                    code: YARD
+                    name: "Livestock yard till"
+                  cashier:
+                    id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                    displayName: "Kojo Antwi"
+                  shiftSeq: 308
+                  openedAt: "2026-11-11T06:55:00Z"
+                  openingFloatPesewas: 20000
+                  closedAt: "2026-11-11T19:05:00Z"
+                  declaredCashPesewas: 2188000
+                  expectedCashPesewas: 2188000
+                  overShortPesewas: 0
+                  overShortDirection: EXACT
+                  closeApprovedBy:
+                    id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                    displayName: "Kwabena Owusu"
+                  forceClosed: false
+                  lastDeviceCounter: 0
+                  salesCount: 12
+                  tenders: []
+                  currency: GHS
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 4
+                - id: "019a7afa-1197-7c37-916f-cc4468064522"
+                  shiftNo: SHF-2026-DDW-000307
+                  status: CLOSING
+                  register:
+                    id: "019a7a94-15a3-7248-9781-2d5f347aa63d"
+                    code: T1
+                    name: "Shop till 1"
+                  cashier:
+                    id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                    displayName: "Adwoa Darko"
+                  shiftSeq: 307
+                  openedAt: "2026-11-11T06:55:00Z"
+                  openingFloatPesewas: 20000
+                  closedAt: null
+                  declaredCashPesewas: 1104300
+                  expectedCashPesewas: null
+                  overShortPesewas: null
+                  overShortDirection: null
+                  closeApprovedBy: null
+                  forceClosed: false
+                  lastDeviceCounter: 0
+                  salesCount: 44
+                  tenders: []
+                  currency: GHS
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 4
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

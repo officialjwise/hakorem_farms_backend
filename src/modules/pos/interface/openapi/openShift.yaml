@@ -1,0 +1,74 @@
+operationId: openShift
+tags:
+  - pos
+summary: "Open a shift with an opening float"
+description: "Opens a shift on an ACTIVE register for the signed-in cashier, with the opening float moved from the safe to the till (◆ `pos.ShiftOpened`: Dr 1000 against the register, Cr 1010; nothing posts for a float of 0). One shift that is not CLOSED per register and per cashier, enforced by the database: 422 `SHIFT_ALREADY_OPEN` with `REGISTER_HAS_OPEN_SHIFT` or `CASHIER_HAS_OPEN_SHIFT`. The id is the client's UUIDv7 and the `Idempotency-Key` carries the same value; a resubmission returns the first result. The shift is numbered `SHF-<year>-<branch>-<n>` and takes the register's next `shiftSeq`. Refusals: 422 `SHIFT_INVALID` with `ID_NOT_UUID_V7`, `REGISTER_RETIRED` or `OPENED_AT_OUT_OF_WINDOW`: in 2.5.0 a shift is opened online, so `openedAt` must be within 300 seconds of the server's clock, and `opened_at` is the server's time (ADR-0067); a shift opened offline arrives through the offline queue from B09b continued 2.\n\nPermission: `pos.shift.open`, at the register's branch and location."
+x-permission: pos.shift.open
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+    deviceCredential: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ShiftOpen"
+      example:
+        id: "019a7a93-f6b4-7865-8d9d-8f27bac90805"
+        registerId: "019a7a94-15a3-7248-9781-2d5f347aa63d"
+        openingFloatPesewas: 20000
+        openedAt: "2026-11-13T06:55:00Z"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Shift"
+        example:
+          id: "019a7a93-f6b4-7865-8d9d-8f27bac90805"
+          shiftNo: SHF-2026-DDW-000312
+          status: OPEN
+          register:
+            id: "019a7a94-15a3-7248-9781-2d5f347aa63d"
+            code: T1
+            name: "Shop till 1"
+          cashier:
+            id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+            displayName: "Adwoa Darko"
+          shiftSeq: 312
+          openedAt: "2026-11-13T06:55:00Z"
+          openingFloatPesewas: 20000
+          closedAt: null
+          declaredCashPesewas: null
+          expectedCashPesewas: null
+          overShortPesewas: null
+          overShortDirection: null
+          closeApprovedBy: null
+          forceClosed: false
+          lastDeviceCounter: 0
+          salesCount: 17
+          tenders: []
+          currency: GHS
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 4
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

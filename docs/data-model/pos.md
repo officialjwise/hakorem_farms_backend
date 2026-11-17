@@ -2,6 +2,14 @@
 
 Owner: POS module. Registers, device enrolment, shifts, cash movements, held sales and the offline sync log. A counter sale itself is an `ord.sales_order` on channel `POS` (ADR-0026, ADR-0027). Conventions are in `docs/DATA_MODEL.md`.
 
+**Built in B9b (migration 0226, A-273):** `pos.register`, `pos.shift`, `pos.cash_movement`, `pos.shift_tender_count` and `pos.shift_report`, as below, with these differences from the plan:
+- **`pos.register`** carries the MASTER standard columns; `uq_register_code` is (`branch_id`, `code`) among live registers.
+- **`pos.shift`:** `shift_no` is NOT NULL (allocated at open, `SHF-<year>-<branch>-<n>`); `declared_at` is added; `expected_cash_pesewas` is stored only at the sign-off (a CLOSING shift's expected figure is computed when read); `currency`, the DOCUMENT standard columns and `posted_at`/`posted_by` (set at the sign-off). Checks: `ck_shift_steps` (OPEN, CLOSING and CLOSED each with exactly their fields), `ck_shift_over_short` (over or short is exactly `abs(declared - expected)` with its direction), `ck_shift_close_checker`, `ck_shift_posted`. `pos.shift_guard` (HK004, HK010): opens OPEN, never force-closed, with counter 0; the opening facts never change; the declared count never changes; OPEN to CLOSING to CLOSED only. Frozen once CLOSED (`platform.freeze_posted`).
+- **`pos.cash_movement`:** `recorded_at` and `actor_id` (LEDGER); `reason_code` is required for every kind but `FLOAT_IN` (`ck_cash_movement_reason`); a witness exactly on a drop and never its recorder (`ck_cash_movement_witness`); one `FLOAT_IN` per shift (`uq_cash_movement_float`); `pos.cash_movement_guard` (HK010) refuses a movement on a shift that is not OPEN and a drop witnessed by the shift's cashier.
+- **`pos.shift_tender_count`:** `created_at`/`created_by`; `ck_shift_tender_count_variance` as for the shift; `pos.shift_tender_count_guard` (HK004, HK010): inserted blind while the shift is CLOSING, its expected figure set once at the sign-off, the declared figure never changed.
+- **`pos.shift_report`:** `recorded_at` and `actor_id`; only the Z report is stored (an X report is a reading, A-273 (j)).
+- **Not yet built:** `pos.device_enrolment` (B09b continued), `pos.held_sale` (B09b continued), `pos.sale_sync` (B09b continued 2).
+
 ---
 
 ### `pos.register` · MASTER

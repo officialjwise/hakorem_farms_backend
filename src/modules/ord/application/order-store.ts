@@ -140,7 +140,19 @@ export interface TrackingTokenRecord {
   readonly actorId: string;
 }
 
+/** What a till shift sold (FR-POS-017): completed sales, voids and price given away below list, in pesewas. */
+export interface ShiftSalesSummary {
+  readonly salesCount: number;
+  readonly grossSalesPesewas: bigint;
+  readonly voidsCount: number;
+  readonly voidsPesewas: bigint;
+  readonly overridesCount: number;
+  readonly overridesPesewas: bigint;
+}
+
 export interface OrderStore {
+  /** The summary of the sales a till shift took. */
+  shiftSales(tx: Transaction, shiftDocumentId: string): Promise<ShiftSalesSummary>;
   insertOrder(tx: Transaction, order: NewOrder): Promise<void>;
   insertTrackingToken(tx: Transaction, token: TrackingTokenRecord): Promise<void>;
   /** The token stored under this hash that has not expired at `at`, by the unique hash (a point read). */

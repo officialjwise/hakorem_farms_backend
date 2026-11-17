@@ -35,7 +35,7 @@ import { OrderInvalidError, OrderStockShortError, PriceOverrideNeedsApprovalErro
 import type { OrderConfirmationPolicy } from './order-confirmation-policy';
 import type { ApprovalPendingView } from './order-reversals';
 import type { FlaggedLine, PriceOverrides } from './price-overrides';
-import type { NewOrderLine, OrderHeaderRecord, OrderLineRecord, OrderRecord, OrderStore } from './order-store';
+import type { NewOrderLine, OrderHeaderRecord, OrderLineRecord, OrderRecord, OrderStore, ShiftSalesSummary } from './order-store';
 
 const READ = 'ord.order.read';
 const CREATE = 'ord.order.create';
@@ -691,6 +691,11 @@ export class Orders {
     }
     if (broken.length > 0) throw new OrderInvalidError(broken);
     return { lines, flagged };
+  }
+
+  /** What a till shift sold, voided and gave away below list (FR-POS-017), for POS's X and Z reports. Read-only. */
+  async shiftSalesIn(tx: Transaction, shiftDocumentId: string): Promise<ShiftSalesSummary> {
+    return this.store.shiftSales(tx, shiftDocumentId);
   }
 
   /** The order as the contract reads it, in the caller's transaction (ORD's own reversals answer with it). */

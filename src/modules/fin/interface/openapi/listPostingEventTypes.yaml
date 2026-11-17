@@ -80,6 +80,7 @@ responses:
                   ownerModule: pos
                   description: "Shift closed with over or short"
                   amountKeys:
+                    - expected
                     - returnedToSafe
                     - over
                     - short

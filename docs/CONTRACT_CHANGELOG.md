@@ -5,6 +5,7 @@ Every change to `contract/openapi.yaml`, newest first. A breaking change needs a
 Version numbers follow semantic versioning: a major bump breaks an existing client, a minor bump adds operations or optional fields, a patch fixes descriptions or examples.
 
 **Read first (cold-read summary), rewritten for 2.0.0:** changes that alter an answer or a request a client already handles.
+- **2.5.0:** additive. No existing field, parameter or status of an implemented operation changed. Twelve planned till operations move into code with the shapes 1.0.0 planned (registers, shifts, cash movements, the X and Z reports, the blind close and its sign-off). Behaviour a client of the planned shapes should read: a cash movement needs a reason for every kind, a drop's witness is a supervisor, and an online shift's `openedAt` and a movement's `occurredAt` are within 300 seconds of the server's clock.
 - **2.4.0:** additive. No existing field, parameter or status changed. Six new operations raise, list, read and settle a claim from a goods receipt's rejected lines; `SupplierInvoice.supplierClaimId` and `SupplierInvoiceLine.supplierClaimLineId` are new, null for every invoice and credit note entered by hand. **Behaviour:** an invoice line may now carry, beyond what was received, exactly the rejected quantity of the order line's open claims and still match (ADR-0076). The role examples name `ord.void.approve` (CR-037). See its entry.
 - **2.3.0:** additive. No existing field, parameter or status changed. A goods receipt line takes and answers `rejectionReasonCode` and `rejectionNote`; a rejected quantity without a reason is now refused (a client that rejected nothing is unaffected). `listReasonCodes` has the domain `GOODS_RECEIPT_REJECTION` and the adjustment reasons `BREAKAGE` and `RODENT_DAMAGE`. A purchase order line may leave out `unitPricePesewas` and takes the last price paid. See its entry.
 - **2.2.0:** additive. No existing field, parameter or status changed for a line, rule or unit in the base unit. Goods receipt lines, transfer lines and reorder rules may name the unit they are entered in (`uom`) and answer their base quantities beside it; stock units answer `receivedAt`; stock alerts answer `inRuleUnit`. A sale that names no lot of a lot-tracked product now takes the oldest lot that covers it instead of being refused. See its entry.
@@ -15,6 +16,22 @@ Version numbers follow semantic versioning: a major bump breaks an existing clie
 - **1.53.0, LOUD for the Farm hand:** `reportCareMortality` and `submitCareMortalityRecord` refuse a report without its `EVIDENCE` photograph from a reporter who cannot see its value (the Farm hand), whatever the value, with 422 `MORTALITY_PHOTO_REQUIRED`. `markSupplierPaymentPaid` and the payment reads answer `paymentNo` (`SPY-…`) where it was null. Every list's single `example` is now an `examples` map (`default` and `empty`).
 - **1.50.0, LOUD:** `createOrder` answers **202 `ApprovalPending`** (kind `PRICE_OVERRIDE`) where it answered 422 `PRICE_OVERRIDE_NEEDS_APPROVAL` for a price outside the band or below list beyond the seller's limit.
 - Earlier LOUD changes, each on an operation that was still planned when it changed, are in their entries below and in "Reading 1.5.0 to 1.37.0 cold".
+
+## 2.5.0 (2026-11-17, B9b)
+
+Minor, additive: planned operations move into code with their planned shapes, new error codes, and descriptions as built. FR-POS-015 to FR-POS-019, the owner's decision on A-212 (a), A-273.
+
+- **Into code, shapes unchanged:** `listRegisters`, `createRegister`, `updateRegister` (`/registers`, `/registers/{id}`); `listShifts`, `openShift`, `getShift` (`/shifts`, `/shifts/{id}`); `listShiftCashMovements`, `recordCashMovement` (`/shifts/{id}/cash-movements`); `getShiftXReport`, `getShiftZReport`; `closeShift`, `approveShiftClose`.
+- **Still planned:** `listRegisterDevices`, `enrolDevice`, `revokeDevice`, `forceCloseShift`, `listHeldSales`, `holdSale`, `recallHeldSale`, `getOfflinePack`, `completeCounterSale` and `syncOfflineSales` (B09b continued and later parts, A-273 (a)).
+- **Behaviour as built, recorded loudly for the till screens:**
+  - `recordCashMovement`: `reasonCode` is required for every kind (`CashMovementCreate.reasonCode`'s description says which reasons fit which kind); a `CASH_DROP` needs a `witnessId` who holds `pos.shift.close.approve` at the branch and is neither the cashier nor the caller; a `PAY_IN` is float from the safe (`FLOAT_TOP_UP`); nothing is taken out beyond what the till should hold.
+  - `openShift` and `recordCashMovement`: `openedAt` and `occurredAt` must be within 300 seconds of the server's clock, which records the time (ADR-0067). The offline queue's own times arrive with `syncOfflineSales` (B09b continued 2).
+  - `getShift` and `listShifts`: expected cash and over or short are null until the count is declared, for every reader; a cashier reaches only their own shifts.
+  - `approveShiftClose` asks for a fresh step-up (`pos.shift.close.approve`).
+  - `Register.deviceCount` is 0 until device enrolment is built.
+- **New error codes:** `REGISTER_INVALID`, `SHIFT_INVALID`, `CASH_MOVEMENT_INVALID` (422, each with its details), beside the catalogue's `SHIFT_NOT_OPEN`, `SHIFT_ALREADY_OPEN` (details `REGISTER_HAS_OPEN_SHIFT`, `CASHIER_HAS_OPEN_SHIFT`) and `SHIFT_CLOSE_SAME_PERSON`. `PAYMENT_INVALID` and `SALE_INVALID` gain the detail `SHIFT_REQUIRED` (a cash tender into a till with no shift; a POS sale with no shift), which no implemented operation can reach today.
+- **Examples:** `listPostingEventTypes` names `pos.ShiftClosed`'s four amounts (`expected`, `returnedToSafe`, `over`, `short`).
+- **Checks:** `contract:generate --check` is up to date (440 operations from code, 202 planned). Redocly is clean. `scripts/contract/versioning.ts` against `main`: ok.
 
 ## 2.4.0 (2026-11-17, B09e continued 3)
 

@@ -27,8 +27,8 @@ export const POST_SALE_OPERATION = 'ord.postSale';
 const SALE_MOVEMENT = 'SALE_ISSUE';
 const UNIQUE_VIOLATION = '23505';
 
-/** Channels whose sale B9a posts; POS needs its shift (B9b), QUOTE its accepted quote lines (B10). */
-const POSTABLE_CHANNELS: ReadonlySet<string> = new Set(['ONLINE', 'WHOLESALE']);
+/** Channels whose sale is posted here; POS with the till shift it was sold in (B9b), QUOTE waits for its accepted quote lines (B10). */
+const POSTABLE_CHANNELS: ReadonlySet<string> = new Set(['POS', 'ONLINE', 'WHOLESALE']);
 /** Fulfilled at the sale; delivery is B11's dispatch. */
 const POSTABLE_FULFILMENT: ReadonlySet<string> = new Set(['COUNTER', 'COLLECTION']);
 
@@ -73,6 +73,11 @@ export interface SaleRequest {
   readonly taxInclusive: boolean;
   /** When the sale happened; now when left out. */
   readonly occurredAt?: Date | null;
+  /**
+   * The till shift the sale was taken in (B9b): required on channel POS, and for any cash tender into a till (A-212 (a)).
+   * The selling module that names it has checked, under the shift's lock, that it is open and the seller's own.
+   */
+  readonly shiftDocumentId?: string | null;
   readonly notes?: string | null;
   readonly lines: readonly SaleLineRequest[];
   readonly tenders: readonly SaleTenderRequest[];
@@ -308,7 +313,7 @@ export class SalePosting {
       paymentTerms: 'IMMEDIATE',
       fulfilmentMode: request.fulfilmentMode,
       sourceDocumentId: request.sourceDocumentId ?? null,
-      shiftDocumentId: null,
+      shiftDocumentId: request.shiftDocumentId ?? null,
       salespersonId: actor.principalId,
       taxInclusive: request.taxInclusive,
       deliveryFeePesewas: 0n,
@@ -342,6 +347,7 @@ export class SalePosting {
             amountPesewas: tender.amountPesewas,
             customerId,
             orderDocumentId: request.orderId,
+            shiftDocumentId: request.shiftDocumentId ?? null,
             register: tender.register,
             receivedAt: occurredAt,
             allocations: applied === 0n ? [] : [{ billingDocumentId: document.id, amountPesewas: applied }],
@@ -380,6 +386,7 @@ export class SalePosting {
     const customerId = request.customerId ?? null;
     const broken: SaleRule[] = [];
     if (!POSTABLE_CHANNELS.has(request.channel)) broken.push({ field: '/channel', rule: 'CHANNEL_NOT_AVAILABLE' });
+    if (request.channel === 'POS' && (request.shiftDocumentId ?? null) === null) broken.push({ field: '/shiftId', rule: 'SHIFT_REQUIRED' });
     if (!POSTABLE_FULFILMENT.has(request.fulfilmentMode)) broken.push({ field: '/fulfilmentMode', rule: 'FULFILMENT_NOT_AVAILABLE' });
     if (request.lines.length === 0) broken.push({ field: '/lines', rule: 'NO_LINES' });
     if (request.tenders.length === 0) broken.push({ field: '/tenders', rule: 'NO_TENDERS' });

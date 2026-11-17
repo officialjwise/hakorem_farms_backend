@@ -90,6 +90,13 @@ describe('staff login (ADR-0016, docs/API.md section 3.1)', () => {
       'pay.refund.create',
       'pay.refund.read',
       'pay.store_credit.read',
+      'pos.cash.move',
+      'pos.register.read',
+      'pos.sale.create',
+      'pos.shift.close',
+      'pos.shift.open',
+      'pos.shift.read',
+      'pos.shift.report',
     ]);
     expect(Date.parse(session.accessExpiresAt) - clock.now().getTime()).toBeLessThanOrEqual(600_000);
     expect(session.mustChangePassword).toBe(false);

@@ -1,0 +1,65 @@
+operationId: getShift
+tags:
+  - pos
+summary: "Get a shift"
+description: "Permission: `pos.shift.read`. Ownership: a cashier sees only their own shifts; a holder of `pos.shift.close.approve` sees every shift at their branches. Expected cash and over or short are null for everyone until the count is declared; while CLOSING they are the records' figures now, and once CLOSED the frozen ones."
+x-permission: pos.shift.read
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Shift"
+        example:
+          id: "019a7a93-f6b4-7865-8d9d-8f27bac90805"
+          shiftNo: SHF-2026-DDW-000312
+          status: OPEN
+          register:
+            id: "019a7a94-15a3-7248-9781-2d5f347aa63d"
+            code: T1
+            name: "Shop till 1"
+          cashier:
+            id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+            displayName: "Adwoa Darko"
+          shiftSeq: 312
+          openedAt: "2026-11-13T06:55:00Z"
+          openingFloatPesewas: 20000
+          closedAt: null
+          declaredCashPesewas: null
+          expectedCashPesewas: null
+          overShortPesewas: null
+          overShortDirection: null
+          closeApprovedBy: null
+          forceClosed: false
+          lastDeviceCounter: 0
+          salesCount: 17
+          tenders: []
+          currency: GHS
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 4
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

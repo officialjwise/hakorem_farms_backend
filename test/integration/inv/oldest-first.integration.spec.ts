@@ -12,6 +12,7 @@ import { consoleGet, consolePost, createUser, enrolAndLogin, login, relaxRateLim
 import { sqlStateOf } from '../../support/sql-state';
 import { startTestApp, TEST_ORIGIN, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
+import { openTestShift } from '../../support/till';
 
 /**
  * Oldest first (B09e continued, the owner's decision 4 of 2026-11-17): every bought lot has a received date, its goods
@@ -84,7 +85,7 @@ function sellWithNoLot(quantity: string, uom: string, cashPesewas: bigint): Prom
     tenders: [{ methodCode: 'CASH', amountPesewas: cashPesewas, register: till }],
   };
   return runWithRequestContext({ correlationId: randomUUID(), ip: null, userAgent: 'oldest first test', actor: cashierActor }, () =>
-    api.app.get(UnitOfWork).run({ isolation: 'serializable', seriesLocks: api.app.get(SalePosting).locksFor(id('branch:DDW')) }, (tx) => api.app.get(SalePosting).postIn(tx, cashierActor, request)),
+    api.app.get(UnitOfWork).run({ isolation: 'serializable', seriesLocks: api.app.get(SalePosting).locksFor(id('branch:DDW')) }, async (tx) => api.app.get(SalePosting).postIn(tx, cashierActor, { shiftDocumentId: await openTestShift(tx, cashierActor.principalId, request.branchId), ...request })),
   );
 }
 

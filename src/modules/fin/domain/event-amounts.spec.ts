@@ -16,6 +16,7 @@ import {
   type BillingLevy,
   type BillingLine,
   stockMovementAmounts,
+  tillAmounts,
   supplierCreditNoteAmounts,
   supplierInvoiceAmounts,
   supplierPaymentAmounts,
@@ -455,5 +456,35 @@ describe('the amounts of a provider settlement, a bank transfer cleared by its l
 
   it('refuses an unidentified receipt whose fee is more than its amount', () => {
     expect(() => unidentifiedReceiptAmounts({ amountPesewas: 100, feePesewas: 101 }, gcb)).toThrow(/fee/);
+  });
+});
+
+describe('the till\'s events (B9b, FR-POS-015, FR-POS-016, FR-POS-019)', () => {
+  const t1 = { id: '019a8000-0000-7000-8000-00000000a7a1', code: 'T1' };
+  const till = { kind: 'REGISTER', refId: t1.id, displayName: 'T1' };
+
+  it('holds the float, a drop and a pay-in against the till that took them', () => {
+    const shown = (amounts: ReturnType<typeof tillAmounts>) => amounts.map((a) => ({ ...a, amount: a.amount.pesewas }));
+    expect(shown(tillAmounts({ register: t1, amountsPesewas: { float: 50_000 }, reasonCode: null }))).toEqual([{ key: 'float', amount: 50_000n, subledgers: [till] }]);
+    expect(shown(tillAmounts({ register: t1, amountsPesewas: { drop: 30_000 }, reasonCode: 'SAFE_DROP' }))).toEqual([{ key: 'drop', amount: 30_000n, subledgers: [till] }]);
+  });
+
+  it('names a pay-out\'s expense by its reason, against the till', () => {
+    expect(tillAmounts({ register: t1, amountsPesewas: { payOut: 1_250 }, reasonCode: 'FUEL_PAYOUT' }).map((a) => ({ ...a, amount: a.amount.pesewas }))).toEqual([
+      { key: 'payOut', amount: 1_250n, subledgers: [till], determinants: { EXPENSE_CATEGORY: 'FUEL_PAYOUT' } },
+    ]);
+  });
+
+  it('closes a short till as 64,000 expected, 63,500 to the safe and 500 short, balanced', () => {
+    const amounts = tillAmounts({ register: t1, amountsPesewas: { expected: 64_000, returnedToSafe: 63_500, short: 500, over: 0 }, reasonCode: null });
+    expect(amounts.map((a) => [a.key, a.amount.pesewas])).toEqual([['expected', 64_000n], ['returnedToSafe', 63_500n], ['short', 500n], ['over', 0n]]);
+  });
+
+  it('refuses a close that leaves one of its four amounts out', () => {
+    expect(() => tillAmounts({ register: t1, amountsPesewas: { expected: 64_000, returnedToSafe: 63_500, short: 500 }, reasonCode: null })).toThrow(/names expected, returnedToSafe, short and over/);
+  });
+
+  it('refuses a close whose parts do not balance by one pesewa', () => {
+    expect(() => tillAmounts({ register: t1, amountsPesewas: { expected: 64_000, returnedToSafe: 63_500, short: 499, over: 0 }, reasonCode: null })).toThrow(/balance/);
   });
 });

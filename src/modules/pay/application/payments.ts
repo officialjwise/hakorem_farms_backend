@@ -52,6 +52,17 @@ export interface TenderRequest {
   readonly allocations: readonly { readonly billingDocumentId: string; readonly amountPesewas: bigint }[];
 }
 
+/** What one payment method took in a till shift. */
+export interface ShiftTenderTotal {
+  readonly paymentMethodId: string;
+  readonly methodCode: string;
+  readonly methodName: string;
+  readonly methodKind: MethodKind;
+  readonly count: number;
+  readonly amountPesewas: bigint;
+  readonly refundedPesewas: bigint;
+}
+
 /** A payment as a selling module reads it back in its own transaction (B9a). */
 export interface PaymentView {
   readonly id: string;
@@ -168,6 +179,8 @@ export class Payments {
     if (!method.channels.includes(request.channel)) broken.push({ field: `${field}/methodCode`, rule: 'METHOD_NOT_FOR_CHANNEL' });
     if (clearingOf(method.kind) !== 'AT_ONCE' || !RECORDABLE_AT_ONCE.has(method.kind)) broken.push({ field: `${field}/methodCode`, rule: 'TENDER_NOT_AVAILABLE' });
     if (method.kind === 'CASH' && request.register === null) broken.push({ field: `${field}/register`, rule: 'REGISTER_REQUIRED' });
+    // Cash enters a till only inside a till shift (the owner on A-212 (a)); POS checks the shift is open under its lock.
+    if (method.kind === 'CASH' && request.register !== null && (request.shiftDocumentId ?? null) === null) broken.push({ field: `${field}/register`, rule: 'SHIFT_REQUIRED' });
     const plan = planTender(
       Money.ofPesewas(request.amountPesewas),
       request.allocations.map((a) => Money.ofPesewas(a.amountPesewas)),
@@ -197,6 +210,20 @@ export class Payments {
     const [view] = await this.viewsIn(tx, [id]);
     await this.audit.record(tx, { module: 'pay', action: 'RECORD', entityType: 'Payment', entityId: id, branchId: request.branchId, before: null, after: { ...view! } });
     return view!;
+  }
+
+  /**
+   * What a till shift took, by payment method (FR-POS-017, FR-POS-019): the payments naming the shift that stand
+   * (cleared and not reversed), their count and amount, and what was refunded of them. Read-only, for POS's reports
+   * and its close; it authorises nothing.
+   */
+  async shiftTotalsIn(tx: Transaction, shiftDocumentId: string): Promise<ShiftTenderTotal[]> {
+    const rows = await this.store.shiftTotals(tx, shiftDocumentId);
+    const methods = await this.refs.paymentMethodsIn(tx, rows.map((r) => r.paymentMethodId));
+    return rows.map((r) => {
+      const method = methods.get(r.paymentMethodId);
+      return { ...r, methodCode: method?.code ?? r.methodKind, methodName: method?.name ?? r.methodKind };
+    });
   }
 
   /**

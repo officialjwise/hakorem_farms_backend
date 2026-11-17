@@ -130,9 +130,10 @@ describe('reason codes are a fixed list (FR-MDM-011)', () => {
     } while (cursor !== null);
     // 48 from B4 continued (d) 3, B08 continued 2's two BILLING_ADJUSTMENT reasons for debit notes, and B09a continued 1b's
     // two PAYMENT_REVERSAL reasons, and B09a continued 2c's ORDER_CANCELLED (REFUND) and SALE_VOIDED (PAYMENT_REVERSAL);
-    // B09e continued 2's six GOODS_RECEIPT_REJECTION reasons and the STOCK_ADJUSTMENT BREAKAGE and RODENT_DAMAGE (0220).
-    expect(seen).toHaveLength(63);
-    expect(seen).toEqual(expect.arrayContaining(['ORDER_CANCELLED', 'SALE_VOIDED', 'ORDER_RETURNED', 'CRACKED', 'WRONG_ITEM_DELIVERED', 'BREAKAGE']));
+    // B09e continued 2's six GOODS_RECEIPT_REJECTION reasons and the STOCK_ADJUSTMENT BREAKAGE and RODENT_DAMAGE (0220);
+    // B9b's CASH_MOVEMENT SAFE_DROP for a drop to the safe (0225).
+    expect(seen).toHaveLength(64);
+    expect(seen).toEqual(expect.arrayContaining(['ORDER_CANCELLED', 'SALE_VOIDED', 'ORDER_RETURNED', 'CRACKED', 'WRONG_ITEM_DELIVERED', 'BREAKAGE', 'SAFE_DROP']));
     expect([...seen].sort()).toEqual(seen);
     const mortality = await get(cashier, '/reason-codes?domain=MORTALITY');
     expect(mortality.body.data).toContainEqual({ code: 'DISEASE_SUSPECTED', domain: 'MORTALITY', description: 'Died, disease suspected', requiresNote: true, lossAccountGroup: 'MORTALITY' });

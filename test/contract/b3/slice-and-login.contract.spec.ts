@@ -134,6 +134,14 @@ import {
   SupplierPaymentMarkPaid,
   SupplierProfileUpdate,
 } from '../../../src/modules/pur/interface/schemas';
+import {
+  CashMovementCreate as PosCashMovementCreate,
+  ReasonBody as PosReasonBody,
+  RegisterCreate as PosRegisterCreate,
+  RegisterUpdate as PosRegisterUpdate,
+  ShiftClose as PosShiftClose,
+  ShiftOpen as PosShiftOpen,
+} from '../../../src/modules/pos/interface/schemas';
 import { BusinessProfileUpdate as AudBusinessProfileUpdate, SettingUpdate as AudSettingUpdate } from '../../../src/modules/aud/interface/schemas';
 import { SlotGenerate, SlotUpdate } from '../../../src/modules/del/interface/schemas';
 import { CreditNoteCreate, DebitNoteCreate, ReprintRequest } from '../../../src/modules/bil/interface/schemas';
@@ -422,6 +430,12 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     raiseSupplierClaim: SupplierClaimRaise,
     draftSupplierClaimCreditNote: SupplierClaimCreditNoteDraft,
     settleSupplierClaim: SupplierClaimSettle,
+    createRegister: PosRegisterCreate,
+    updateRegister: PosRegisterUpdate,
+    openShift: PosShiftOpen,
+    recordCashMovement: PosCashMovementCreate,
+    closeShift: PosShiftClose,
+    approveShiftClose: PosReasonBody,
     updateSetting: AudSettingUpdate,
     updateBusinessProfile: AudBusinessProfileUpdate,
     generateDeliverySlots: SlotGenerate,

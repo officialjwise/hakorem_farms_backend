@@ -1,0 +1,76 @@
+operationId: getShiftZReport
+tags:
+  - pos
+summary: "Get the Z report of a closed shift"
+description: "The report stored when the shift's count was signed off, frozen. 404 until then.\n\nPermission: `pos.shift.report`. Ownership: a cashier reads only their own shifts."
+x-permission: pos.shift.report
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ShiftReport"
+        example:
+          kind: Z
+          shift:
+            id: "019a7a93-f6b4-7865-8d9d-8f27bac90805"
+            code: SHF-2026-DDW-000312
+            name: "Shop till 1, Adwoa Darko"
+          generatedAt: "2026-11-13T12:30:00Z"
+          salesCount: 17
+          grossSalesPesewas: 1284300
+          voidsCount: 0
+          voidsPesewas: 0
+          overridesCount: 2
+          overridesPesewas: 8000
+          refundsPesewas: 0
+          byMethod:
+            - paymentMethod:
+                id: "019a7a92-a26f-7b9f-90d7-c2c5802e3ba3"
+                code: CASH
+                name: Cash
+                kind: CASH
+              count: 11
+              amountPesewas: 742300
+            - paymentMethod:
+                id: "019a7a92-c15e-7582-aabb-60fcf9dfd9da"
+                code: MOMO
+                name: "Mobile money"
+                kind: MOBILE_MONEY
+              count: 6
+              amountPesewas: 542000
+          cashMovements:
+            - kind: FLOAT_IN
+              amountPesewas: 20000
+            - kind: CASH_DROP
+              amountPesewas: 500000
+            - kind: PAY_OUT
+              amountPesewas: 4500
+          currency: GHS
+          documentId: "019a7afa-ea20-716f-86a7-1fc8bbdd98a6"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

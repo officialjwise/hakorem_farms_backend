@@ -11,6 +11,7 @@ import { consoleGet, consolePost, createBranch, createUser, enrolAndLogin, login
 import { approveAndDeliver, initiateCharge, referenceFor, trialBalanceSum } from '../../support/pay';
 import { startTestApp, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
+import { openTestShift } from '../../support/till';
 
 /**
  * The order record's endpoints (FR-ORD-001, FR-ORD-002, FR-ORD-003, FR-ORD-004, FR-ORD-005, FR-ORD-016, ADR-0035, A-224):
@@ -415,7 +416,7 @@ describe('listOrders and getOrder across channels (FR-ORD-001, FR-ORD-016)', () 
       tenders: [{ methodCode: 'CASH', amountPesewas: 4_000n, register: { id: '019a8000-0000-7000-8000-00000000a7a2', code: 'T2' } }],
     };
     const sold = await runWithRequestContext({ correlationId: randomUUID(), ip: null, userAgent: 'orders test', actor }, () =>
-      uow.run({ isolation: 'serializable', seriesLocks: sales.locksFor(branchId) }, (tx) => sales.postIn(tx, actor, request)),
+      uow.run({ isolation: 'serializable', seriesLocks: sales.locksFor(branchId) }, async (tx) => sales.postIn(tx, actor, { shiftDocumentId: await openTestShift(tx, actor.principalId, request.branchId), ...request })),
     );
     saleId = sold.id;
   });

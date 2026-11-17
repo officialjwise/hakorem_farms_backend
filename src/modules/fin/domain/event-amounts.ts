@@ -412,3 +412,38 @@ export function debitNoteIssuedAmounts(
     ...billingLevies(payload.levies),
   ];
 }
+
+/** The fields of POS's till events FIN reads (`pos.ShiftOpened`, `pos.CashDropped`, `pos.CashPaidIn`, `pos.CashPaidOut`, `pos.ShiftClosed`). */
+export interface TillPostingFields {
+  readonly register: { readonly id: string; readonly code: string };
+  /** Each named amount of the event, in pesewas: `float`, `drop`, `payIn`, `payOut`, or the close's four. */
+  readonly amountsPesewas: Readonly<Record<string, number>>;
+  /** A pay-out's reason, which names its expense category; null for every other movement. */
+  readonly reasonCode: string | null;
+}
+
+const CLOSE_KEYS = ['expected', 'returnedToSafe', 'short', 'over'] as const;
+
+/**
+ * POS's ◆ till events (ADR-0003, FR-POS-015 to FR-POS-019): each amount against the till that holds the cash (1000's
+ * REGISTER party); a pay-out names its expense by its reason. A close is balanced by construction (returned plus short
+ * is expected plus over) or refused before anything posts.
+ */
+export function tillAmounts(payload: TillPostingFields): PostingAmount[] {
+  const till: SubledgerRef = { kind: 'REGISTER', refId: payload.register.id, displayName: payload.register.code };
+  const keys = Object.keys(payload.amountsPesewas);
+  if (keys.includes('expected')) {
+    if (CLOSE_KEYS.some((k) => payload.amountsPesewas[k] === undefined)) throw new Error('pos.ShiftClosed: a close names expected, returnedToSafe, short and over');
+    const [expected, returned, short, over] = CLOSE_KEYS.map((k) => Money.fromJsonInteger(payload.amountsPesewas[k]!));
+    if (!returned!.plus(short!).equals(expected!.plus(over!))) {
+      throw new Error(`pos.ShiftClosed: returned ${returned!.pesewas} and short ${short!.pesewas} do not balance expected ${expected!.pesewas} and over ${over!.pesewas}`);
+    }
+    return CLOSE_KEYS.map((key) => ({ key, amount: Money.fromJsonInteger(payload.amountsPesewas[key]!), subledgers: [till] }));
+  }
+  return keys.map((key) => ({
+    key,
+    amount: Money.fromJsonInteger(payload.amountsPesewas[key]!),
+    subledgers: [till],
+    ...(key === 'payOut' ? { determinants: { EXPENSE_CATEGORY: expenseCategoryKey(payload.reasonCode) } } : {}),
+  }));
+}

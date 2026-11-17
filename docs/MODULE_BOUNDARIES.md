@@ -234,6 +234,7 @@ Each card gives: what the module owns, its public interface (the services export
 - **Public interface:** none used by other modules. HTTP and sync endpoints only.
 - **Imports:** platform, IAM, MDM, INV (availability), PAY, ORD.
 - **Subscribes (T):** `pay.PaymentCleared`, to add a tender to the shift's expected totals.
+- **Built in B9b (A-273):** `Registers` and `Shifts` (HTTP only): registers, shifts with the float, cash drops, pay-outs and pay-ins, the X and Z reports, and the blind close signed off by a supervisor. The shift's expected figures are read when needed rather than kept by a subscription: PAY's new read-only `Payments.shiftTotalsIn` (a shift's cleared payments by method, and what was refunded of them) and ORD's new read-only `Orders.shiftSalesIn` (its completed sales, voids and price given below list). Publishes the ◆ events `pos.ShiftOpened`, `pos.CashDropped`, `pos.CashPaidIn`, `pos.CashPaidOut` and `pos.ShiftClosed` (FIN posts them, migration 0228). No module imports POS; `index.ts` exports `Registers` and `Shifts` for the seed. ORD's `SalePosting` takes the sale's `shiftDocumentId` (channel POS needs one), and PAY refuses cash into a till with no shift (A-212 (a)).
 
 ### SHP: online store (layer 10)
 

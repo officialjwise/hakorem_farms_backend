@@ -10,6 +10,7 @@ import { consoleGet, consolePost, createUser, enrolAndLogin, login, relaxRateLim
 import { SQLSTATE, sqlStateOf } from '../../support/sql-state';
 import { startTestApp, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
+import { openTestShift } from '../../support/till';
 
 /**
  * Lines in crates (B09e continued, the owner's decision 3 of 2026-11-17): a goods receipt line and a stock transfer line
@@ -97,7 +98,7 @@ function sellCrateOf(lot: string): Promise<SaleView> {
     tenders: [{ methodCode: 'CASH', amountPesewas: 6_000n, register: till }],
   };
   return runWithRequestContext({ correlationId: randomUUID(), ip: null, userAgent: 'crates test', actor: cashierActor }, () =>
-    uow.run({ isolation: 'serializable', seriesLocks: sales.locksFor(id('branch:DDW')) }, (tx) => sales.postIn(tx, cashierActor, request)),
+    uow.run({ isolation: 'serializable', seriesLocks: sales.locksFor(id('branch:DDW')) }, async (tx) => sales.postIn(tx, cashierActor, { shiftDocumentId: await openTestShift(tx, cashierActor.principalId, request.branchId), ...request })),
   );
 }
 
