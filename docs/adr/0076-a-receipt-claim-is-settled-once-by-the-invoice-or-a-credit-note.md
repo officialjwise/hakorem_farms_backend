@@ -1,6 +1,6 @@
 # ADR-0076: A receipt's claim is settled once, by the invoice that left the rejected goods out or by a credit note against the invoice that charged them
 
-- **Status:** Proposed (B09e continued 3, 2026-11-17; the most conservative workable answer to A-271, built and waiting for the owner). It changes the three-way match (FR-PUR-009) for one new case and nothing else; no posting rule, account or FIN code changes, and every journal the ledger posted before posts the same.
+- **Status:** Accepted (owner, 2026-11-17), on the condition that its tests prove the supplier's balance to the pesewa whether the invoice charged only the accepted goods or all of them. Both cases are tested in `test/integration/pur/receipt-claims.integration.spec.ts`: an invoice charging everything, at 4,751 with 7 of 30 eggs rejected (owed 3,642) and with one of three crates rejected (owed 9,502), and an invoice charging only the two good crates (owed 9,502); each leaves 2010 and 5140 at zero. Proposed in B09e continued 3 as the most conservative workable answer to A-271. It changes the three-way match (FR-PUR-009) for one new case and nothing else; no posting rule, account or FIN code changes, and every journal the ledger posted before posts the same.
 - **Date:** 2026-11-17
 - **Session:** B09e continued 3
 - **Deciders:** backend track; the owner to accept
