@@ -1,0 +1,98 @@
+operationId: getSupplierClaim
+tags:
+  - pur
+summary: "Get a supplier claim"
+description: "A claim with its lines, its receipt and order, the credit note drafted from it and what settled it (2.4.0).\n\nPermission: `pur.supplier_invoice.read`."
+x-permission: pur.supplier_invoice.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: "OK"
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/SupplierClaim"
+        example:
+          id: "019a7ae1-0002-7c00-8a00-0000000c1002"
+          status: "OPEN"
+          supplier:
+            id: "01900000-0000-7000-8300-000000000101"
+            publicId: "sup_7KQ2M9XW4HD3RTNB"
+            name: "Awutu Poultry Farm"
+          purchaseOrder:
+            id: "019a7ad5-0002-7a00-8b00-00000000f002"
+            docType: "PURCHASE_ORDER"
+            number: "PO-2026-DDW-000233"
+          goodsReceipt:
+            id: "019a7ad9-0002-7b00-8c00-00000000e002"
+            docType: "GOODS_RECEIPT"
+            number: "GRN-2026-DDW-000421"
+          receivedBy:
+            id: "019a7ac0-1111-7000-8000-00000000a001"
+            displayName: "Kofi Mensah"
+          note: null
+          claimedPesewas: 4751
+          currency: "GHS"
+          lines:
+            - id: "019a7ae1-0002-7c00-8a00-0000000d1002"
+              lineNo: 1
+              goodsReceiptLineId: "019a7ad9-0002-7b00-8c00-00000001e002"
+              purchaseOrderLineId: "019a7ad5-0002-7a00-8b00-00000001f002"
+              product:
+                id: "01900000-0000-7000-8200-000000000403"
+                sku: "EGG-0003"
+                name: "Eggs, big, crate of 30"
+              rejectionReasonCode: "BROKEN"
+              baseUom: "UNIT"
+              qtyDeliveredBase: "90.000"
+              qtyAcceptedBase: "60.000"
+              qtyRejectedBase: "30.000"
+              orderUom: "CRATE"
+              orderUnitPricePesewas: 4751
+              lineValuePesewas: 14253
+              acceptedValuePesewas: 9502
+              claimedValuePesewas: 4751
+          creditNote:
+            id: "019a7ae4-0002-7d00-8e00-00000000c702"
+            supplierInvoiceNo: "APF-CN-0703"
+            status: "DRAFT"
+          settlement: null
+          settledBy: null
+          settledAt: null
+          branchId: "01900000-0000-7000-8100-000000000001"
+          version: 1
+          createdAt: "2026-11-17T09:20:00Z"
+          createdBy:
+            id: "019a7ac0-1111-7000-8000-00000000a002"
+            displayName: "Yaw Agyeman"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

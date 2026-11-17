@@ -8,6 +8,7 @@ const order = (over: Partial<NonNullable<InvoiceLineFacts['order']>> = {}): NonN
   unitPrice: Money.ofPesewas(5_500n),
   qtyReceived: Quantity.parse('20.000'),
   qtyInvoicedElsewhere: Quantity.zero(),
+  qtyClaimed: Quantity.zero(),
   ...over,
 });
 const line = (over: Partial<InvoiceLineFacts> = {}): InvoiceLineFacts => ({
@@ -104,5 +105,23 @@ describe('the invoice match status (FR-PUR-009)', () => {
 
   it('refuses an invoice with no lines', () => {
     expect(() => matchInvoice([])).toThrow('an invoice has at least one line');
+  });
+});
+
+describe('the match allows exactly the open claims of an order line (ADR-0076)', () => {
+  it('matches 30 eggs invoiced against 23 received while a claim for the 7 rejected is open, and reports the variance against what was received', () => {
+    const facts = line({ qtyBase: Quantity.parse('30.000'), order: order({ qtyReceived: Quantity.parse('23.000'), qtyClaimed: Quantity.parse('7.000') }) });
+    expect(matchLine(facts)).toMatchObject({ status: 'MATCHED', reasons: [], qtyVariance: Quantity.parse('7.000') });
+  });
+
+  it('refuses one egg more than received plus claimed, and the claimed eggs once another invoice holds them', () => {
+    const over = line({ qtyBase: Quantity.parse('30.001'), order: order({ qtyReceived: Quantity.parse('23.000'), qtyClaimed: Quantity.parse('7.000') }) });
+    expect(matchLine(over).reasons).toEqual(['QTY_EXCEEDS_RECEIVED']);
+    const again = line({ qtyBase: Quantity.parse('7.000'), order: order({ qtyReceived: Quantity.parse('23.000'), qtyClaimed: Quantity.parse('7.000'), qtyInvoicedElsewhere: Quantity.parse('30.000') }) });
+    expect(matchLine(again).reasons).toEqual(['QTY_EXCEEDS_RECEIVED']);
+  });
+
+  it('matches as before without a claim', () => {
+    expect(matchLine(line({ qtyBase: Quantity.parse('20.001') })).reasons).toEqual(['QTY_EXCEEDS_RECEIVED']);
   });
 });

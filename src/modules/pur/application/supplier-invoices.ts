@@ -15,6 +15,7 @@ import type { MasterDataRefs, ProductFacts, TaxService } from '../../mdm';
 import { invoicePayable, judgeCreditNote, judgeCreditTarget } from '../domain/credit-note';
 import { orderLineNet } from '../domain/purchasing';
 import { judgeVarianceApprover, judgeVarianceLines } from '../domain/variance';
+import { claimedPart, judgeClaimCredit, judgeClaimCreditApprover, receivedPartValue } from '../domain/claim';
 import { matchInvoice, matchLine, type MatchReason, type MatchStatus } from '../domain/three-way-match';
 import { dueDateFrom } from '../domain/terms';
 import type { SupplierCreditNoteApproved, SupplierInvoiceApproved, SupplierInvoiceMismatched } from '../events';
@@ -24,6 +25,7 @@ import {
   DuplicateSupplierInvoiceError,
   InvoiceMakerCannotApproveError,
   PurReferenceNotFoundError,
+  SupplierClaimInvalidError,
   SupplierInvoiceInvalidError,
   ThreeWayMatchFailedError,
   translatePurRefusal,
@@ -33,6 +35,7 @@ import {
 } from './errors';
 import { lineNumber, pesewas, principalRef, productRef, readPage, runPurchaseCommand, supplierRef, wholeBranches, type ApprovalPendingView, type Page } from './purchase-command';
 import type { SupplierRegisterStore } from './supplier-register-store';
+import type { ClaimRecord, SupplierClaimStore } from './supplier-claim-store';
 import type { InvoiceFilter, InvoiceHeader, InvoiceLineRecord, InvoiceMatchStatus, InvoiceRecord, InvoiceStatus, LineMatchRecord, OrderRecord, PurchasingStore } from './purchasing-store';
 
 const DOC_TYPE = 'SUPPLIER_INVOICE';
@@ -122,6 +125,8 @@ export interface SupplierInvoiceLineView {
   readonly matchReasons: readonly MatchReason[];
   readonly returnFromLocationId: string | null;
   readonly returnStockUnitId: string | null;
+  /** A claim credit note's line: the claim line it credits, whose claimed value is its net (ADR-0076); else null. */
+  readonly supplierClaimLineId: string | null;
 }
 
 /** The contract's `SupplierInvoice`. */
@@ -146,6 +151,8 @@ export interface SupplierInvoiceView {
   readonly approvalRequestId: string | null;
   readonly varianceReason: string | null;
   readonly returnReasonCode: string | null;
+  /** A credit note drafted from a receipt's claim (ADR-0076); else null. */
+  readonly supplierClaimId: string | null;
   readonly file: { readonly id: string; readonly originalName: string; readonly contentType: string } | null;
   readonly lines: readonly SupplierInvoiceLineView[];
   readonly branchId: string;
@@ -216,6 +223,7 @@ export class SupplierInvoices {
     private readonly principals: PrincipalNames,
     readonly cursors: Cursors,
     private readonly clock: Clock,
+    private readonly claims: SupplierClaimStore,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -296,6 +304,8 @@ export class SupplierInvoices {
       const before = await this.locked(tx, id, CHANGEABLE, body.version);
       const credit = before.kind === 'CREDIT_NOTE';
       if (credit && before.status !== 'DRAFT') throw wrongStatus(`credit note ${id}`, before.status);
+      // A credit note drafted from a claim is the claim's, never keyed: cancel it and draft it again instead (ADR-0076).
+      if (before.supplierClaimId !== null) throw new SupplierInvoiceInvalidError([{ field: '/supplierClaimId', rule: 'CLAIM_CREDIT_NOTE_FIXED' }]);
       if (!credit) refuseCreditFields(body);
       const order = before.purchaseOrderId === null ? null : await this.store.order(tx, before.purchaseOrderId);
       const fields = {
@@ -446,7 +456,14 @@ export class SupplierInvoices {
     onApproved: async (tx, request) => {
       const before = await this.locked(tx, request.subjectDocumentId, new Set(['DRAFT']), null, request.id);
       const approver = request.decidedBy!;
-      const judged = judgeVarianceApprover({ invoiceMakerId: before.createdBy, requesterId: request.requestedBy, approverId: approver });
+      const claim = before.supplierClaimId === null ? null : await this.claims.lockClaim(tx, before.supplierClaimId);
+      const judged = judgeClaimCreditApprover({
+        creditMakerId: before.createdBy,
+        requesterId: request.requestedBy,
+        claimMakerId: claim?.createdBy ?? null,
+        receiverId: claim?.receivedBy ?? null,
+        approverId: approver,
+      });
       if (!judged.ok) throw new InvoiceMakerCannotApproveError();
       const original = (await this.store.lockInvoice(tx, before.originalInvoiceId!))!;
       const originalBefore = (await this.views(tx, [original]))[0]!;
@@ -454,6 +471,7 @@ export class SupplierInvoices {
       const returns = await this.sendBack(tx, approver, before, now);
       await this.store.markCreditApproved(tx, before.id, now, approver);
       await this.audited(tx, 'APPROVE', before, { approvalRequestId: request.id, returns: returns.map((r) => r.movementId) });
+      if (claim !== null) await this.settleClaimIn(tx, claim, 'CREDIT_NOTE', before.id, approver, now);
       const originalAfter = await this.view(tx, original.id);
       await this.audit.record(tx, { module: 'pur', action: 'CREDIT', entityType: 'SupplierInvoice', entityId: original.id, branchId: original.branchId, before: { ...originalBefore }, after: { ...originalAfter }, metadata: { creditNoteId: before.id } });
       await this.events.publish<SupplierCreditNoteApproved>(tx, {
@@ -640,6 +658,7 @@ export class SupplierInvoices {
       approvalRequestId: r.approvalRequestId,
       varianceReason: r.varianceReason,
       returnReasonCode: r.returnReasonCode,
+      supplierClaimId: r.supplierClaimId,
       file: r.fileId === null ? null : files.get(r.fileId)!,
       lines: r.lines.map((l) => ({
         id: l.id,
@@ -670,12 +689,144 @@ export class SupplierInvoices {
         matchReasons: l.matchReasons,
         returnFromLocationId: l.returnLocationId,
         returnStockUnitId: l.returnStockUnitId,
+        supplierClaimLineId: l.supplierClaimLineId ?? null,
       })),
       branchId: r.branchId,
       version: r.version,
       createdAt: r.createdAt.toISOString(),
       createdBy: principalRef(names, r.createdBy),
     }));
+  }
+
+  /**
+   * A DRAFT credit note drafted from an open claim against the approved invoice that charged its goods (ADR-0076), in
+   * the caller's transaction: one line per claim line, in the product's base unit, at the claim line's rejected
+   * quantity and claimed value, never keyed; levies from MDM's calculator. Refused when the invoice is not one a credit
+   * may reduce, does not carry every order line the claim names, or the supplier did not invoice the claimed goods
+   * beyond what was received and what other claims credit (`CLAIM_NOT_INVOICED`): the same eggs are never credited twice.
+   * It is submitted and approved as every credit note is.
+   */
+  async draftClaimCreditIn(
+    tx: Transaction,
+    actor: Actor,
+    claim: ClaimRecord,
+    body: { readonly originalInvoiceId: string; readonly supplierInvoiceNo: string; readonly invoiceDate: string },
+  ): Promise<SupplierInvoiceView> {
+    const original = await this.store.lockInvoice(tx, body.originalInvoiceId);
+    if (original === null) throw new PurReferenceNotFoundError(['/originalInvoiceId']);
+    const target = judgeCreditTarget(original, { supplierId: claim.supplierId, purchaseOrderId: claim.purchaseOrderId, branchId: claim.branchId });
+    if (!target.ok) throw new SupplierClaimInvalidError([{ field: '/originalInvoiceId', rule: target.error }]);
+    const orderLineIds = [...new Set(claim.lines.map((l) => l.purchaseOrderLineId))];
+    const invoicedHere = new Set(original.lines.flatMap((l) => (l.purchaseOrderLineId === null ? [] : [l.purchaseOrderLineId])));
+    const orderLines = new Map((await this.store.lockOrderLines(tx, orderLineIds)).map((l) => [l.id, l] as const));
+    const invoiced = await this.store.invoicedQty(tx, orderLineIds, null);
+    const credited = await this.claims.creditedQty(tx, orderLineIds, claim.id);
+    for (const orderLineId of orderLineIds) {
+      const claimQty = Quantity.sum(claim.lines.filter((l) => l.purchaseOrderLineId === orderLineId).map((l) => Quantity.parse(l.qtyRejectedBase)));
+      const judged = judgeClaimCredit({
+        received: Quantity.parse(orderLines.get(orderLineId)!.qtyReceived),
+        invoiced: Quantity.parse(invoiced.get(orderLineId) ?? '0.000'),
+        creditedByOtherClaims: Quantity.parse(credited.get(orderLineId) ?? '0.000'),
+        claimQty,
+      });
+      if (!invoicedHere.has(orderLineId) || !judged.ok) throw new SupplierClaimInvalidError([{ field: '/originalInvoiceId', rule: 'CLAIM_NOT_INVOICED' }]);
+    }
+    const products = await this.refs.productsIn(tx, claim.lines.map((l) => l.productId));
+    const drafts: Omit<InvoiceLineRecord, 'levies'>[] = claim.lines.map((l, i) => {
+      const product = products.get(l.productId)!;
+      return {
+        id: this.nextId(),
+        lineNo: lineNumber(i),
+        productId: l.productId,
+        description: `${product.name}: rejected at the door, ${l.rejectionReasonCode}`.slice(0, 200),
+        purchaseOrderLineId: l.purchaseOrderLineId,
+        goodsReceiptLineId: l.goodsReceiptLineId,
+        uom: product.baseUom,
+        qty: l.qtyRejectedBase,
+        qtyBase: l.qtyRejectedBase,
+        unitPricePesewas: 0n,
+        lineNetPesewas: l.claimedValuePesewas,
+        taxCategoryId: orderLines.get(l.purchaseOrderLineId)!.taxCategoryId,
+        expenseCategory: null,
+        qtyVariance: null,
+        priceVariancePesewas: null,
+        priceVarianceDirection: null,
+        matchStatus: 'UNMATCHED',
+        matchReasons: [],
+        returnLocationId: null,
+        returnStockUnitId: null,
+        supplierClaimLineId: l.id,
+      };
+    });
+    const taxed = await this.tax.calculateIn(tx, {
+      taxInclusive: false,
+      taxDate: body.invoiceDate,
+      lines: drafts.map((l) => ({ lineRef: l.id, taxCategoryId: l.taxCategoryId, amountPesewas: l.lineNetPesewas })),
+    });
+    const calculated = new Map(taxed.lines.map((l) => [l.lineRef, l] as const));
+    const lines: InvoiceLineRecord[] = drafts.map((draft) => ({
+      ...draft,
+      levies: calculated.get(draft.id)!.levies.map((levy) => ({
+        levyId: levy.levyId,
+        levyCode: levy.levyCode,
+        levyName: levy.levyName,
+        treatment: levy.treatment,
+        ratePercent: levy.rate.toPercentString(),
+        basePesewas: levy.base.pesewas,
+        amountPesewas: levy.amount.pesewas,
+        calculatedAmountPesewas: levy.amount.pesewas,
+        isReclaimable: levy.isReclaimable,
+        calcOrder: levy.calcOrder,
+      })),
+    }));
+    const net = lines.reduce((sum, l) => sum + l.lineNetPesewas, 0n);
+    const tax = lines.reduce((sum, l) => sum + l.levies.reduce((t, levy) => t + levy.amountPesewas, 0n), 0n);
+    await this.judgeHeadroom(tx, original, net + tax, 0n);
+    const supplierInvoiceNo = body.supplierInvoiceNo.trim();
+    if (await this.store.supplierInvoiceNoTaken(tx, claim.supplierId, supplierInvoiceNo, null)) throw new DuplicateSupplierInvoiceError();
+    const id = this.nextId();
+    await this.documents.register(tx, { id, docType: DOC_TYPE, ownerModule: 'pur', branchId: original.branchId, actorId: actor.principalId });
+    await this.store.insertInvoice(
+      tx,
+      id,
+      {
+        supplierInvoiceNo,
+        invoiceDate: body.invoiceDate,
+        dueDate: body.invoiceDate,
+        fileId: null,
+        taxSchemeVersionId: taxed.versionId,
+        netPesewas: net,
+        taxPesewas: tax,
+        grossPesewas: net + tax,
+        statedGrossPesewas: null,
+        returnReasonCode: null,
+        kind: 'CREDIT_NOTE',
+        supplierId: original.supplierId,
+        purchaseOrderId: original.purchaseOrderId,
+        originalInvoiceId: original.id,
+        branchId: original.branchId,
+        supplierClaimId: claim.id,
+      },
+      lines,
+      actor.principalId,
+    );
+    const view = await this.view(tx, id);
+    await this.audit.record(tx, { module: 'pur', action: 'CREATE', entityType: 'SupplierInvoice', entityId: id, branchId: original.branchId, before: null, after: { ...view }, metadata: { supplierClaimId: claim.id } });
+    return view;
+  }
+
+  /** A claim settled, once, by the invoice that left its goods out or its approved credit note (ADR-0076), audited. */
+  async settleClaimIn(tx: Transaction, claim: ClaimRecord, settlement: 'INVOICE' | 'CREDIT_NOTE', invoiceId: string, actorId: string, at: Date): Promise<void> {
+    await this.claims.settle(tx, claim.id, settlement, invoiceId, actorId, at);
+    await this.audit.record(tx, {
+      module: 'pur',
+      action: 'SETTLE',
+      entityType: 'SupplierClaim',
+      entityId: claim.id,
+      branchId: claim.branchId,
+      before: { status: claim.status, settlement: claim.settlement, settledByInvoiceId: claim.settledByInvoiceId },
+      after: { status: 'SETTLED', settlement, settledByInvoiceId: invoiceId },
+    });
   }
 
   // Shared steps.
@@ -865,6 +1016,7 @@ export class SupplierInvoices {
     const orderLineIds = [...new Set(invoice.lines.flatMap((l) => (l.purchaseOrderLineId === null ? [] : [l.purchaseOrderLineId])))];
     const orderLines = new Map((await this.store.lockOrderLines(tx, orderLineIds)).map((l) => [l.id, l] as const));
     const elsewhere = await this.store.invoicedQty(tx, orderLineIds, invoice.id);
+    const claimed = await this.claims.claimedQty(tx, orderLineIds);
     // Lines of this invoice on one order line count against each other too, in line order.
     const heldHere = new Map<string, Quantity>();
     return invoice.lines.map((line) => {
@@ -878,7 +1030,13 @@ export class SupplierInvoices {
         order:
           orderLine === undefined
             ? null
-            : { productId: orderLine.productId, unitPrice: Money.ofPesewas(orderLine.unitPricePesewas), qtyReceived: Quantity.parse(orderLine.qtyReceived), qtyInvoicedElsewhere: already },
+            : {
+                productId: orderLine.productId,
+                unitPrice: Money.ofPesewas(orderLine.unitPricePesewas),
+                qtyReceived: Quantity.parse(orderLine.qtyReceived),
+                qtyInvoicedElsewhere: already,
+                qtyClaimed: Quantity.parse(claimed.get(orderLine.id) ?? '0.000'),
+              },
       });
       if (orderLine !== undefined && line.qtyBase !== null) heldHere.set(orderLine.id, (heldHere.get(orderLine.id) ?? Quantity.zero()).plus(Quantity.parse(line.qtyBase)));
       return {
@@ -915,6 +1073,14 @@ export class SupplierInvoices {
   /** Each line at its order price, for 2010 and 5140, and each levy row with its reclaimable flag (FR-PUR-015). */
   private async postingParts(tx: Transaction, invoice: InvoiceRecord): Promise<Pick<SupplierInvoiceApproved, 'lines' | 'levies'>> {
     const orderLines = new Map((await this.store.lockOrderLines(tx, invoice.lines.flatMap((l) => (l.purchaseOrderLineId === null ? [] : [l.purchaseOrderLineId])))).map((l) => [l.id, l] as const));
+    // An invoice line carrying a claimed quantity beyond what was received clears 2010 for the received part only: the
+    // claimed part never entered stock (ADR-0076). Every other line is valued as before.
+    const variances = invoice.kind === 'INVOICE' ? new Map((await this.matched(tx, invoice)).map((r) => [r.lineId, r.qtyVariance] as const)) : new Map<string, string | null>();
+    const orderValue = (l: InvoiceLineRecord, price: Money): Money => {
+      const variance = variances.get(l.id) ?? null;
+      const claimedQty = l.qtyBase === null ? Quantity.zero() : claimedPart(variance === null ? null : Quantity.parse(variance), Quantity.parse(l.qtyBase));
+      return claimedQty.isZero() ? orderLineNet(price, Quantity.parse(l.qty)) : receivedPartValue(price, Quantity.parse(l.qty), Quantity.parse(l.qtyBase!), claimedQty);
+    };
     return {
       lines: invoice.lines.map((l) => {
         const orderLine = l.purchaseOrderLineId === null ? undefined : orderLines.get(l.purchaseOrderLineId);
@@ -925,7 +1091,7 @@ export class SupplierInvoices {
           expenseCategory: l.expenseCategory,
           taxCategoryId: l.taxCategoryId,
           netPesewas: pesewas(l.lineNetPesewas),
-          orderValuePesewas: orderLine === undefined ? null : pesewas(orderLineNet(Money.ofPesewas(orderLine.unitPricePesewas), Quantity.parse(l.qty)).pesewas),
+          orderValuePesewas: orderLine === undefined ? null : pesewas(orderValue(l, Money.ofPesewas(orderLine.unitPricePesewas)).pesewas),
         };
       }),
       levies: invoice.lines.flatMap((l) => l.levies.map((levy) => ({ lineNo: l.lineNo, levyId: levy.levyId, levyCode: levy.levyCode, amountPesewas: pesewas(levy.amountPesewas), isReclaimable: levy.isReclaimable }))),

@@ -95,6 +95,12 @@ Each item says why it is parked and what would bring it back.
 | --- | --- | --- | --- | --- |
 | BL-075 | Dropping the unused column `mdm.product.barcode` (the contract step of its removal) | Contract 2.0.0 neither reads nor writes it and migration 0211 dropped its unique index (the expand step), but the previous API version still selects it, so the column may only go once 2.0.0 is the version running everywhere (docs/DATA_MODEL.md, Migrations: expand then contract) | The first migration after 2.0.0 is deployed: `ALTER TABLE mdm.product DROP COLUMN barcode`, the Drizzle table already free of it | ADR-0072, A-249 |
 
+## Parked in B09e continued 3
+
+| ID | Item | Why it is not in version one yet | What would bring it back | Related |
+| --- | --- | --- | --- | --- |
+| BL-076 | A receipt claim settled by a replacement delivery named on the claim, written off with approval, or cancelled as raised in error | The owner's decision 5 settles a claim by the supplier's credit note or by the invoice that left the rejected goods out (ADR-0076); a replacement delivery is already covered by its receipt raising the received quantity, after which the invoice that charged the whole delivery settles the claim | The owner asks for a write-off of an unrecoverable claim, or a claim raised in error is found open | ADR-0076, CR-036 point 3, A-272 |
+
 ## Explicitly outside the brief
 
 These are not mentioned in the shared brief, or are mentioned only conditionally. They are listed so that nobody builds them by accident.

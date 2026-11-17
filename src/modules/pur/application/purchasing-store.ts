@@ -94,6 +94,8 @@ export interface InvoiceLineRecord {
   /** On a credit note, where goods sent back to the supplier leave from, and the lot or animal (FR-PUR-011). */
   readonly returnLocationId: string | null;
   readonly returnStockUnitId: string | null;
+  /** On a credit note drafted from a receipt's claim, the claim line it credits (ADR-0076); its net is that line's claim. */
+  readonly supplierClaimLineId?: string | null;
   readonly levies: readonly LevyRecord[];
 }
 
@@ -130,6 +132,8 @@ export interface InvoiceRecord extends InvoiceHeader {
   /** A credit note's approval, or an invoice's variance approval, waiting or decided (A-172). */
   readonly approvalRequestId: string | null;
   readonly varianceReason: string | null;
+  /** A credit note drafted from a receipt's claim (ADR-0076); null otherwise. */
+  readonly supplierClaimId: string | null;
   readonly postedBy: string | null;
   readonly branchId: string;
   readonly version: number;
@@ -264,6 +268,8 @@ export interface PurchasingStore {
   listOrders(tx: Transaction, filter: OrderFilter, scopes: readonly ReadScope[], beforeId: string | null, limit: number): Promise<OrderRecord[]>;
   /** The order lines by id, each with its order's id, locked for a receipt. */
   lockOrderLines(tx: Transaction, ids: readonly string[]): Promise<(OrderLineRecord & { readonly purchaseOrderId: string })[]>;
+  /** The same lines without a lock, for a read. */
+  orderLinesIn(tx: Transaction, ids: readonly string[]): Promise<(OrderLineRecord & { readonly purchaseOrderId: string })[]>;
   setReceived(tx: Transaction, lineId: string, qtyReceived: string): Promise<void>;
   markOrderJudged(
     tx: Transaction,
@@ -289,6 +295,7 @@ export interface PurchasingStore {
       readonly purchaseOrderId: string | null;
       readonly originalInvoiceId: string | null;
       readonly branchId: string;
+      readonly supplierClaimId?: string | null;
     },
     lines: readonly InvoiceLineRecord[],
     actorId: string,

@@ -1,0 +1,131 @@
+operationId: draftSupplierClaimCreditNote
+tags:
+  - pur
+summary: "Draft the credit note for a claim"
+description: "The supplier's credit note for an OPEN claim, as a DRAFT against the APPROVED invoice of the claim's order that charged the rejected goods (ADR-0076, 2.4.0). One line per claim line, in the product's base unit: the rejected quantity, the claimed value as its net (unit price 0) and the levies MDM's calculator gives; nothing is keyed. The claim must have no other credit note that is not cancelled. Refused with 422 `SUPPLIER_CLAIM_INVALID`: `CLAIM_NOT_INVOICED` when the invoice names no line of an order line the claim names, or the live invoices hold no more of it than was received and other claims credit (the supplier left the rejected goods out: settle the claim by that invoice instead, so the same goods are never credited twice); `CREDIT_NOTE_EXISTS`; or the credit target's refusal (`ORIGINAL_NOT_APPROVED`, `ORIGINAL_SETTLED`, `ORDER_DIFFERS`, `BRANCH_DIFFERS`, `ORIGINAL_NOT_AN_INVOICE`, `ORIGINAL_OF_ANOTHER_SUPPLIER`). 422 `CREDIT_NOTE_EXCEEDS_INVOICE` when the invoice has less left; 409 `DUPLICATE_SUPPLIER_INVOICE` for a number already entered. Nothing is credited or posted until the credit note is submitted (`submitSupplierCreditNote`) and approved; its approver may be neither its maker, its submitter, the claim's maker nor whoever posted the receipt (`INVOICE_MAKER_CANNOT_APPROVE`). Its approval settles the claim. A claim's credit note cannot be changed (`updateSupplierInvoice` answers `CLAIM_CREDIT_NOTE_FIXED`): cancel it and draft it again.\n\nPermission: `pur.supplier_invoice.create`."
+x-permission: pur.supplier_invoice.create
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - INVALID_STATE_TRANSITION
+  - SUPPLIER_CLAIM_INVALID
+  - CREDIT_NOTE_EXCEEDS_INVOICE
+  - DUPLICATE_SUPPLIER_INVOICE
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/SupplierClaimCreditNoteDraft"
+      example:
+        originalInvoiceId: "019a7ae4-0002-7d00-8e00-00000000a702"
+        supplierInvoiceNo: "APF-CN-0703"
+        invoiceDate: "2026-11-17"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "201":
+    description: "Created"
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/SupplierInvoice"
+        example:
+          id: "019a7ae4-0002-7d00-8e00-00000000c702"
+          kind: "CREDIT_NOTE"
+          status: "DRAFT"
+          supplier:
+            id: "01900000-0000-7000-8300-000000000101"
+            publicId: "sup_7KQ2M9XW4HD3RTNB"
+            name: "Awutu Poultry Farm"
+          supplierInvoiceNo: "APF-CN-0703"
+          invoiceDate: "2026-11-17"
+          dueDate: "2026-11-17"
+          purchaseOrder:
+            id: "019a7ad5-0002-7a00-8b00-00000000f002"
+            docType: "PURCHASE_ORDER"
+            number: null
+          originalInvoiceId: "019a7ae4-0002-7d00-8e00-00000000a702"
+          netPesewas: 4751
+          taxPesewas: 0
+          grossPesewas: 4751
+          paidPesewas: 0
+          creditedPesewas: 0
+          outstandingPesewas: 0
+          currency: "GHS"
+          matchStatus: "UNMATCHED"
+          approvalRequestId: null
+          varianceReason: null
+          returnReasonCode: null
+          supplierClaimId: "019a7ae1-0002-7c00-8a00-0000000c1002"
+          file: null
+          lines:
+            - id: "019a7ae4-0002-7d00-8e00-00000001c702"
+              lineNo: 1
+              product:
+                id: "01900000-0000-7000-8200-000000000403"
+                sku: "EGG-0003"
+                name: "Eggs, big, crate of 30"
+              description: "Eggs, big, crate of 30: rejected at the door, BROKEN"
+              purchaseOrderLineId: "019a7ad5-0002-7a00-8b00-00000001f002"
+              goodsReceiptLineId: "019a7ad9-0002-7b00-8c00-00000001e002"
+              qty: "30.000"
+              uom: "UNIT"
+              unitPricePesewas: 0
+              lineNetPesewas: 4751
+              taxCategory:
+                id: "01900000-0000-7000-8400-000000000003"
+                code: "EXEMPT_FOOD"
+                name: "Exempt unprocessed food"
+              levies: []
+              qtyVariance: null
+              priceVariancePesewas: null
+              priceVarianceDirection: null
+              matchStatus: "UNMATCHED"
+              matchReasons: []
+              returnFromLocationId: null
+              returnStockUnitId: null
+              supplierClaimLineId: "019a7ae1-0002-7c00-8a00-0000000d1002"
+          branchId: "01900000-0000-7000-8100-000000000001"
+          version: 1
+          createdAt: "2026-11-17T11:05:00Z"
+          createdBy:
+            id: "019a7ac0-1111-7000-8000-00000000a002"
+            displayName: "Yaw Agyeman"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

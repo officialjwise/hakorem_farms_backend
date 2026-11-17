@@ -1,0 +1,118 @@
+operationId: settleSupplierClaim
+tags:
+  - pur
+summary: "Settle a claim by the invoice that left the rejected goods out"
+description: "An OPEN claim with no credit note drafted is settled by an APPROVED or PAID invoice of its order that names every order line the claim names, when no live invoice holds more of any of them than was received and what other claims' credit notes cover: the supplier did not charge the rejected goods (ADR-0076, 2.4.0). Refused with 422 `SUPPLIER_CLAIM_INVALID`: `CLAIM_INVOICED` (the supplier charged them: draft the claim's credit note instead), `INVOICE_NOT_APPROVED`, `ORDER_DIFFERS`, `ORDER_LINE_NOT_INVOICED` or `CREDIT_NOTE_EXISTS`; a settled claim is 422 `INVALID_STATE_TRANSITION`. Once settled by an invoice, the claim no longer lets an invoice carry the rejected quantity in the three-way match.\n\nPermission: `pur.supplier_invoice.match`."
+x-permission: pur.supplier_invoice.match
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - INVALID_STATE_TRANSITION
+  - SUPPLIER_CLAIM_INVALID
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/SupplierClaimSettle"
+      example:
+        supplierInvoiceId: "019a7ae4-0003-7d00-8e00-00000000a703"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: "OK"
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/SupplierClaim"
+        example:
+          id: "019a7ae1-0003-7c00-8a00-0000000c1003"
+          status: "SETTLED"
+          supplier:
+            id: "01900000-0000-7000-8300-000000000101"
+            publicId: "sup_7KQ2M9XW4HD3RTNB"
+            name: "Awutu Poultry Farm"
+          purchaseOrder:
+            id: "019a7ad5-0003-7a00-8b00-00000000f003"
+            docType: "PURCHASE_ORDER"
+            number: "PO-2026-DDW-000236"
+          goodsReceipt:
+            id: "019a7ad9-0003-7b00-8c00-00000000e003"
+            docType: "GOODS_RECEIPT"
+            number: "GRN-2026-DDW-000424"
+          receivedBy:
+            id: "019a7ac0-1111-7000-8000-00000000a001"
+            displayName: "Kofi Mensah"
+          note: null
+          claimedPesewas: 4751
+          currency: "GHS"
+          lines:
+            - id: "019a7ae1-0003-7c00-8a00-0000000d1003"
+              lineNo: 1
+              goodsReceiptLineId: "019a7ad9-0003-7b00-8c00-00000001e003"
+              purchaseOrderLineId: "019a7ad5-0003-7a00-8b00-00000001f003"
+              product:
+                id: "01900000-0000-7000-8200-000000000403"
+                sku: "EGG-0003"
+                name: "Eggs, big, crate of 30"
+              rejectionReasonCode: "BROKEN"
+              baseUom: "UNIT"
+              qtyDeliveredBase: "90.000"
+              qtyAcceptedBase: "60.000"
+              qtyRejectedBase: "30.000"
+              orderUom: "CRATE"
+              orderUnitPricePesewas: 4751
+              lineValuePesewas: 14253
+              acceptedValuePesewas: 9502
+              claimedValuePesewas: 4751
+          creditNote: null
+          settlement: "INVOICE"
+          settledBy:
+            id: "019a7ae4-0003-7d00-8e00-00000000a703"
+            kind: "INVOICE"
+            supplierInvoiceNo: "APF-INV-2291"
+          settledAt: "2026-11-17T15:40:00Z"
+          branchId: "01900000-0000-7000-8100-000000000001"
+          version: 2
+          createdAt: "2026-11-17T09:20:00Z"
+          createdBy:
+            id: "019a7ac0-1111-7000-8000-00000000a002"
+            displayName: "Yaw Agyeman"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

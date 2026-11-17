@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.3.0"
+  version: "2.4.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -651,7 +651,7 @@ paths:
                       locationCode: null
                   permissions:
                     - inv.adjustment.approve
-                    - ord.order.void.approve
+                    - ord.void.approve
                     - mdm.price_list.approve
         "400":
           $ref: "#/components/responses/BadRequest"
@@ -2320,7 +2320,7 @@ paths:
                         isSystem: true
                         requiresTotp: true
                         permissions:
-                          - ord.order.void.approve
+                          - ord.void.approve
                           - inv.adjustment.approve
                           - liv.mortality.approve
                           - mdm.price_list.approve
@@ -2444,7 +2444,7 @@ paths:
               name: "Shop supervisor"
               requiresTotp: false
               permissions:
-                - ord.order.void.approve
+                - ord.void.approve
                 - pos.shift.close.approve
               limits:
                 - limitKind: PRICE_OVERRIDE_PER_LINE
@@ -2707,10 +2707,10 @@ paths:
                         module: pos
                         description: "Make a counter sale"
                         requiresStepUp: false
-                      - code: ord.order.void.approve
+                      - code: ord.void.approve
                         module: ord
-                        description: "Approve a void of a completed sale"
-                        requiresStepUp: false
+                        description: "Approve the void of a sale someone else made and someone else asked to void"
+                        requiresStepUp: true
                       - code: cap.distribution.approve
                         module: cap
                         description: "Approve an investor distribution run"
@@ -3753,7 +3753,7 @@ paths:
                         kind: SALE_VOID
                         branch: null
                         thresholdPesewas: null
-                        approverPermission: ord.order.void.approve
+                        approverPermission: ord.void.approve
                         requiresEvidence: false
                         requiresStepUp: false
                         currency: GHS
@@ -36870,6 +36870,7 @@ paths:
                         approvalRequestId: null
                         varianceReason: null
                         returnReasonCode: null
+                        supplierClaimId: null
                         file:
                           id: "019a7acb-e8f5-7aca-b002-b57cd1e82e5a"
                           originalName: invoice-88120.pdf
@@ -36900,6 +36901,7 @@ paths:
                             matchReasons: []
                             returnFromLocationId: null
                             returnStockUnitId: null
+                            supplierClaimLineId: null
                         branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                         version: 2
                         createdAt: "2026-11-10T09:00:00Z"
@@ -36932,6 +36934,7 @@ paths:
                         approvalRequestId: null
                         varianceReason: null
                         returnReasonCode: null
+                        supplierClaimId: null
                         file:
                           id: "019a7acc-45c2-7875-adad-90233efb0901"
                           originalName: invoice-KLT-1193.pdf
@@ -36962,6 +36965,7 @@ paths:
                             matchReasons: []
                             returnFromLocationId: null
                             returnStockUnitId: null
+                            supplierClaimLineId: null
                         branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                         version: 2
                         createdAt: "2026-11-10T09:01:00Z"
@@ -36994,6 +36998,7 @@ paths:
                         approvalRequestId: null
                         varianceReason: null
                         returnReasonCode: null
+                        supplierClaimId: null
                         file:
                           id: "019a7acc-a28f-761f-9b57-6ac9ac0ee3a7"
                           originalName: invoice-AWT-0457.pdf
@@ -37025,6 +37030,7 @@ paths:
                               - PRICE_OUTSIDE_TOLERANCE
                             returnFromLocationId: null
                             returnStockUnitId: null
+                            supplierClaimLineId: null
                         branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                         version: 2
                         createdAt: "2026-11-10T09:02:00Z"
@@ -37057,6 +37063,7 @@ paths:
                         approvalRequestId: null
                         varianceReason: null
                         returnReasonCode: null
+                        supplierClaimId: null
                         file:
                           id: "019a7acc-ff5c-73c9-8902-45701921be4d"
                           originalName: invoice-DVG-221.pdf
@@ -37087,6 +37094,7 @@ paths:
                             matchReasons: []
                             returnFromLocationId: null
                             returnStockUnitId: null
+                            supplierClaimLineId: null
                         branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                         version: 2
                         createdAt: "2026-11-10T09:03:00Z"
@@ -37119,6 +37127,7 @@ paths:
                         approvalRequestId: null
                         varianceReason: null
                         returnReasonCode: null
+                        supplierClaimId: null
                         file:
                           id: "019a7acd-5c29-7174-b6ac-2016863498f4"
                           originalName: invoice-AGV-55012.pdf
@@ -37149,6 +37158,7 @@ paths:
                             matchReasons: []
                             returnFromLocationId: null
                             returnStockUnitId: null
+                            supplierClaimLineId: null
                         branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                         version: 2
                         createdAt: "2026-11-10T09:04:00Z"
@@ -37178,6 +37188,7 @@ paths:
                         approvalRequestId: null
                         varianceReason: null
                         returnReasonCode: null
+                        supplierClaimId: null
                         file:
                           id: "019a7acd-b8f6-7f1e-a457-fabcf347739a"
                           originalName: invoice-TPS-3310.pdf
@@ -37229,6 +37240,7 @@ paths:
                             matchReasons: []
                             returnFromLocationId: null
                             returnStockUnitId: null
+                            supplierClaimLineId: null
                         branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                         version: 2
                         createdAt: "2026-11-10T09:05:00Z"
@@ -37342,6 +37354,7 @@ paths:
                 approvalRequestId: null
                 varianceReason: null
                 returnReasonCode: null
+                supplierClaimId: null
                 file:
                   id: "019a7acd-5c29-7174-b6ac-2016863498f4"
                   originalName: invoice-AGV-55012.pdf
@@ -37372,6 +37385,7 @@ paths:
                     matchReasons: []
                     returnFromLocationId: null
                     returnStockUnitId: null
+                    supplierClaimLineId: null
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                 version: 2
                 createdAt: "2026-11-10T09:04:00Z"
@@ -37454,6 +37468,7 @@ paths:
                 approvalRequestId: null
                 varianceReason: null
                 returnReasonCode: null
+                supplierClaimId: null
                 file:
                   id: "019a7acb-e8f5-7aca-b002-b57cd1e82e5a"
                   originalName: invoice-88120.pdf
@@ -37484,6 +37499,7 @@ paths:
                     matchReasons: []
                     returnFromLocationId: null
                     returnStockUnitId: null
+                    supplierClaimLineId: null
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                 version: 2
                 createdAt: "2026-11-10T09:00:00Z"
@@ -37586,6 +37602,7 @@ paths:
                 approvalRequestId: null
                 varianceReason: null
                 returnReasonCode: null
+                supplierClaimId: null
                 file:
                   id: "019a7acb-e8f5-7aca-b002-b57cd1e82e5a"
                   originalName: invoice-88120.pdf
@@ -37616,6 +37633,7 @@ paths:
                     matchReasons: []
                     returnFromLocationId: null
                     returnStockUnitId: null
+                    supplierClaimLineId: null
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                 version: 2
                 createdAt: "2026-11-10T09:00:00Z"
@@ -37709,6 +37727,7 @@ paths:
                 approvalRequestId: null
                 varianceReason: null
                 returnReasonCode: null
+                supplierClaimId: null
                 file:
                   id: "019a7acc-a28f-761f-9b57-6ac9ac0ee3a7"
                   originalName: invoice-AWT-0457.pdf
@@ -37740,6 +37759,7 @@ paths:
                       - PRICE_OUTSIDE_TOLERANCE
                     returnFromLocationId: null
                     returnStockUnitId: null
+                    supplierClaimLineId: null
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                 version: 2
                 createdAt: "2026-11-10T09:02:00Z"
@@ -37838,6 +37858,7 @@ paths:
                 approvalRequestId: null
                 varianceReason: null
                 returnReasonCode: null
+                supplierClaimId: null
                 file:
                   id: "019a7acb-e8f5-7aca-b002-b57cd1e82e5a"
                   originalName: invoice-88120.pdf
@@ -37868,6 +37889,7 @@ paths:
                     matchReasons: []
                     returnFromLocationId: null
                     returnStockUnitId: null
+                    supplierClaimLineId: null
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                 version: 2
                 createdAt: "2026-11-10T09:00:00Z"
@@ -38114,6 +38136,7 @@ paths:
                 approvalRequestId: null
                 varianceReason: null
                 returnReasonCode: null
+                supplierClaimId: null
                 file:
                   id: "019a7acb-e8f5-7aca-b002-b57cd1e82e5a"
                   originalName: invoice-88120.pdf
@@ -38144,6 +38167,7 @@ paths:
                     matchReasons: []
                     returnFromLocationId: null
                     returnStockUnitId: null
+                    supplierClaimLineId: null
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                 version: 2
                 createdAt: "2026-11-10T09:00:00Z"
@@ -77956,6 +77980,942 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
+  "/goods-receipts/{id}/claims":
+    post:
+      operationId: raiseSupplierClaim
+      tags:
+        - pur
+      summary: "Raise a claim from a goods receipt's rejected lines"
+      description: "From a POSTED purchase receipt against an order with rejected lines, a claim against its supplier in one step (CR-036, ADR-0076, 2.4.0): one line per rejected line, each with the line's `GOODS_RECEIPT_REJECTION` reason and its base quantities as the receipt stored them. The value is the server's, never the client's: the delivered quantity at the order line's price, rounded half-up once, split with the kernel's `allocate` between accepted and rejected (a crate at 4,751 with 7 of 30 eggs rejected claims 1,109, and 3,642 is accepted). The body takes an optional `note` and nothing else; an amount sent is refused (400 `VALIDATION_FAILED`). One claim per receipt. Raising a claim moves no stock and posts nothing; `pur.SupplierClaimRaised` is published for the daily exception report. Refusals: 422 `SUPPLIER_CLAIM_INVALID` with `RECEIPT_NOT_POSTED`, `NOT_A_PURCHASE`, `NO_ORDER`, `NOTHING_REJECTED`, `NO_ORDER_LINE`, `NOTHING_TO_CLAIM` or `CLAIM_EXISTS`.\n\nPermission: `pur.supplier_invoice.create`."
+      x-permission: pur.supplier_invoice.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - SUPPLIER_CLAIM_INVALID
+        - RATE_LIMITED
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CsrfToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupplierClaimRaise"
+            example:
+              note: "Seven cracked in the top tray"
+      security:
+        - staffSession: []
+        - apiKey: []
+      responses:
+        "201":
+          description: Created
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupplierClaim"
+              example:
+                id: "019a7ae1-0001-7c00-8a00-0000000c1001"
+                status: OPEN
+                supplier:
+                  id: "01900000-0000-7000-8300-000000000101"
+                  publicId: sup_7KQ2M9XW4HD3RTNB
+                  name: "Awutu Poultry Farm"
+                purchaseOrder:
+                  id: "019a7ad5-0001-7a00-8b00-00000000f001"
+                  docType: PURCHASE_ORDER
+                  number: PO-2026-DDW-000231
+                goodsReceipt:
+                  id: "019a7ad9-0001-7b00-8c00-00000000e001"
+                  docType: GOODS_RECEIPT
+                  number: GRN-2026-DDW-000418
+                receivedBy:
+                  id: "019a7ac0-1111-7000-8000-00000000a001"
+                  displayName: "Kofi Mensah"
+                note: "Seven cracked in the top tray"
+                claimedPesewas: 1109
+                currency: GHS
+                lines:
+                  - id: "019a7ae1-0001-7c00-8a00-0000000d1001"
+                    lineNo: 1
+                    goodsReceiptLineId: "019a7ad9-0001-7b00-8c00-00000001e001"
+                    purchaseOrderLineId: "019a7ad5-0001-7a00-8b00-00000001f001"
+                    product:
+                      id: "01900000-0000-7000-8200-000000000403"
+                      sku: EGG-0003
+                      name: "Eggs, big, crate of 30"
+                    rejectionReasonCode: CRACKED
+                    baseUom: UNIT
+                    qtyDeliveredBase: "30.000"
+                    qtyAcceptedBase: "23.000"
+                    qtyRejectedBase: "7.000"
+                    orderUom: CRATE
+                    orderUnitPricePesewas: 4751
+                    lineValuePesewas: 4751
+                    acceptedValuePesewas: 3642
+                    claimedValuePesewas: 1109
+                creditNote: null
+                settlement: null
+                settledBy: null
+                settledAt: null
+                branchId: "01900000-0000-7000-8100-000000000001"
+                version: 1
+                createdAt: "2026-11-17T09:20:00Z"
+                createdBy:
+                  id: "019a7ac0-1111-7000-8000-00000000a002"
+                  displayName: "Yaw Agyeman"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/BusinessRuleViolation"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    get:
+      operationId: listGoodsReceiptClaims
+      tags:
+        - pur
+      summary: "List the claims raised from a goods receipt"
+      description: "The receipt answers its claims (CR-036 point 2, 2.4.0): at most one, raised by `raiseSupplierClaim`, open or settled. A receipt the caller cannot read, or none, answers an empty page.\n\nPermission: `pur.supplier_invoice.read`."
+      x-permission: pur.supplier_invoice.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - INVALID_CURSOR
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/PageLimit"
+      security:
+        - staffSession: []
+        - apiKey: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupplierClaimPage"
+              examples:
+                default:
+                  value:
+                    data:
+                      - id: "019a7ae1-0001-7c00-8a00-0000000c1001"
+                        status: OPEN
+                        supplier:
+                          id: "01900000-0000-7000-8300-000000000101"
+                          publicId: sup_7KQ2M9XW4HD3RTNB
+                          name: "Awutu Poultry Farm"
+                        purchaseOrder:
+                          id: "019a7ad5-0001-7a00-8b00-00000000f001"
+                          docType: PURCHASE_ORDER
+                          number: PO-2026-DDW-000231
+                        goodsReceipt:
+                          id: "019a7ad9-0001-7b00-8c00-00000000e001"
+                          docType: GOODS_RECEIPT
+                          number: GRN-2026-DDW-000418
+                        receivedBy:
+                          id: "019a7ac0-1111-7000-8000-00000000a001"
+                          displayName: "Kofi Mensah"
+                        note: "Seven cracked in the top tray"
+                        claimedPesewas: 1109
+                        currency: GHS
+                        lines:
+                          - id: "019a7ae1-0001-7c00-8a00-0000000d1001"
+                            lineNo: 1
+                            goodsReceiptLineId: "019a7ad9-0001-7b00-8c00-00000001e001"
+                            purchaseOrderLineId: "019a7ad5-0001-7a00-8b00-00000001f001"
+                            product:
+                              id: "01900000-0000-7000-8200-000000000403"
+                              sku: EGG-0003
+                              name: "Eggs, big, crate of 30"
+                            rejectionReasonCode: CRACKED
+                            baseUom: UNIT
+                            qtyDeliveredBase: "30.000"
+                            qtyAcceptedBase: "23.000"
+                            qtyRejectedBase: "7.000"
+                            orderUom: CRATE
+                            orderUnitPricePesewas: 4751
+                            lineValuePesewas: 4751
+                            acceptedValuePesewas: 3642
+                            claimedValuePesewas: 1109
+                        creditNote: null
+                        settlement: null
+                        settledBy: null
+                        settledAt: null
+                        branchId: "01900000-0000-7000-8100-000000000001"
+                        version: 1
+                        createdAt: "2026-11-17T09:20:00Z"
+                        createdBy:
+                          id: "019a7ac0-1111-7000-8000-00000000a002"
+                          displayName: "Yaw Agyeman"
+                    page:
+                      nextCursor: null
+                      limit: 25
+                      hasMore: false
+                empty:
+                  summary: "Nothing matches: no rows and no next page"
+                  value:
+                    data: []
+                    page:
+                      nextCursor: null
+                      limit: 25
+                      hasMore: false
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/supplier-claims":
+    get:
+      operationId: listSupplierClaims
+      tags:
+        - pur
+      summary: "List supplier claims"
+      description: "Claims newest first, within the branches the caller holds the permission at as a whole (2.4.0). Filters: `status` (`OPEN` is what the supplier still owes the farm a credit or an invoice for), `supplierId`, `purchaseOrderId` and `goodsReceiptId`.\n\nPermission: `pur.supplier_invoice.read`."
+      x-permission: pur.supplier_invoice.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - INVALID_CURSOR
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - OPEN
+              - SETTLED
+        - name: supplierId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: purchaseOrderId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: goodsReceiptId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/PageLimit"
+      security:
+        - staffSession: []
+        - apiKey: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupplierClaimPage"
+              examples:
+                default:
+                  value:
+                    data:
+                      - id: "019a7ae1-0005-7c00-8a00-0000000c1005"
+                        status: OPEN
+                        supplier:
+                          id: "01900000-0000-7000-8300-000000000101"
+                          publicId: sup_7KQ2M9XW4HD3RTNB
+                          name: "Awutu Poultry Farm"
+                        purchaseOrder:
+                          id: "019a7ad5-0005-7a00-8b00-00000000f005"
+                          docType: PURCHASE_ORDER
+                          number: PO-2026-DDW-000240
+                        goodsReceipt:
+                          id: "019a7ad9-0005-7b00-8c00-00000000e005"
+                          docType: GOODS_RECEIPT
+                          number: GRN-2026-DDW-000430
+                        receivedBy:
+                          id: "019a7ac0-1111-7000-8000-00000000a001"
+                          displayName: "Kofi Mensah"
+                        note: null
+                        claimedPesewas: 633
+                        currency: GHS
+                        lines:
+                          - id: "019a7ae1-0005-7c00-8a00-0000000d1005"
+                            lineNo: 1
+                            goodsReceiptLineId: "019a7ad9-0005-7b00-8c00-00000001e005"
+                            purchaseOrderLineId: "019a7ad5-0005-7a00-8b00-00000001f005"
+                            product:
+                              id: "01900000-0000-7000-8200-000000000403"
+                              sku: EGG-0003
+                              name: "Eggs, big, crate of 30"
+                            rejectionReasonCode: SHORT
+                            baseUom: UNIT
+                            qtyDeliveredBase: "30.000"
+                            qtyAcceptedBase: "26.000"
+                            qtyRejectedBase: "4.000"
+                            orderUom: CRATE
+                            orderUnitPricePesewas: 4751
+                            lineValuePesewas: 4751
+                            acceptedValuePesewas: 4118
+                            claimedValuePesewas: 633
+                        creditNote: null
+                        settlement: null
+                        settledBy: null
+                        settledAt: null
+                        branchId: "01900000-0000-7000-8100-000000000001"
+                        version: 1
+                        createdAt: "2026-11-17T09:20:00Z"
+                        createdBy:
+                          id: "019a7ac0-1111-7000-8000-00000000a002"
+                          displayName: "Yaw Agyeman"
+                      - id: "019a7ae1-0004-7c00-8a00-0000000c1004"
+                        status: SETTLED
+                        supplier:
+                          id: "01900000-0000-7000-8300-000000000101"
+                          publicId: sup_7KQ2M9XW4HD3RTNB
+                          name: "Awutu Poultry Farm"
+                        purchaseOrder:
+                          id: "019a7ad5-0004-7a00-8b00-00000000f004"
+                          docType: PURCHASE_ORDER
+                          number: PO-2026-DDW-000238
+                        goodsReceipt:
+                          id: "019a7ad9-0004-7b00-8c00-00000000e004"
+                          docType: GOODS_RECEIPT
+                          number: GRN-2026-DDW-000427
+                        receivedBy:
+                          id: "019a7ac0-1111-7000-8000-00000000a001"
+                          displayName: "Kofi Mensah"
+                        note: null
+                        claimedPesewas: 1920
+                        currency: GHS
+                        lines:
+                          - id: "019a7ae1-0004-7c00-8a00-0000000d1004"
+                            lineNo: 1
+                            goodsReceiptLineId: "019a7ad9-0004-7b00-8c00-00000001e004"
+                            purchaseOrderLineId: "019a7ad5-0004-7a00-8b00-00000001f004"
+                            product:
+                              id: "01900000-0000-7000-8200-000000000403"
+                              sku: EGG-0003
+                              name: "Eggs, big, crate of 30"
+                            rejectionReasonCode: DIRTY
+                            baseUom: UNIT
+                            qtyDeliveredBase: "60.000"
+                            qtyAcceptedBase: "48.000"
+                            qtyRejectedBase: "12.000"
+                            orderUom: CRATE
+                            orderUnitPricePesewas: 4800
+                            lineValuePesewas: 9600
+                            acceptedValuePesewas: 7680
+                            claimedValuePesewas: 1920
+                        creditNote:
+                          id: "019a7ae4-0004-7d00-8e00-00000000c704"
+                          supplierInvoiceNo: APF-CN-0706
+                          status: APPROVED
+                        settlement: CREDIT_NOTE
+                        settledBy:
+                          id: "019a7ae4-0004-7d00-8e00-00000000c704"
+                          kind: CREDIT_NOTE
+                          supplierInvoiceNo: APF-CN-0706
+                        settledAt: "2026-11-17T15:40:00Z"
+                        branchId: "01900000-0000-7000-8100-000000000001"
+                        version: 2
+                        createdAt: "2026-11-17T09:20:00Z"
+                        createdBy:
+                          id: "019a7ac0-1111-7000-8000-00000000a002"
+                          displayName: "Yaw Agyeman"
+                      - id: "019a7ae1-0003-7c00-8a00-0000000c1003"
+                        status: SETTLED
+                        supplier:
+                          id: "01900000-0000-7000-8300-000000000101"
+                          publicId: sup_7KQ2M9XW4HD3RTNB
+                          name: "Awutu Poultry Farm"
+                        purchaseOrder:
+                          id: "019a7ad5-0003-7a00-8b00-00000000f003"
+                          docType: PURCHASE_ORDER
+                          number: PO-2026-DDW-000236
+                        goodsReceipt:
+                          id: "019a7ad9-0003-7b00-8c00-00000000e003"
+                          docType: GOODS_RECEIPT
+                          number: GRN-2026-DDW-000424
+                        receivedBy:
+                          id: "019a7ac0-1111-7000-8000-00000000a001"
+                          displayName: "Kofi Mensah"
+                        note: null
+                        claimedPesewas: 4751
+                        currency: GHS
+                        lines:
+                          - id: "019a7ae1-0003-7c00-8a00-0000000d1003"
+                            lineNo: 1
+                            goodsReceiptLineId: "019a7ad9-0003-7b00-8c00-00000001e003"
+                            purchaseOrderLineId: "019a7ad5-0003-7a00-8b00-00000001f003"
+                            product:
+                              id: "01900000-0000-7000-8200-000000000403"
+                              sku: EGG-0003
+                              name: "Eggs, big, crate of 30"
+                            rejectionReasonCode: BROKEN
+                            baseUom: UNIT
+                            qtyDeliveredBase: "90.000"
+                            qtyAcceptedBase: "60.000"
+                            qtyRejectedBase: "30.000"
+                            orderUom: CRATE
+                            orderUnitPricePesewas: 4751
+                            lineValuePesewas: 14253
+                            acceptedValuePesewas: 9502
+                            claimedValuePesewas: 4751
+                        creditNote: null
+                        settlement: INVOICE
+                        settledBy:
+                          id: "019a7ae4-0003-7d00-8e00-00000000a703"
+                          kind: INVOICE
+                          supplierInvoiceNo: APF-INV-2291
+                        settledAt: "2026-11-17T15:40:00Z"
+                        branchId: "01900000-0000-7000-8100-000000000001"
+                        version: 2
+                        createdAt: "2026-11-17T09:20:00Z"
+                        createdBy:
+                          id: "019a7ac0-1111-7000-8000-00000000a002"
+                          displayName: "Yaw Agyeman"
+                      - id: "019a7ae1-0002-7c00-8a00-0000000c1002"
+                        status: OPEN
+                        supplier:
+                          id: "01900000-0000-7000-8300-000000000101"
+                          publicId: sup_7KQ2M9XW4HD3RTNB
+                          name: "Awutu Poultry Farm"
+                        purchaseOrder:
+                          id: "019a7ad5-0002-7a00-8b00-00000000f002"
+                          docType: PURCHASE_ORDER
+                          number: PO-2026-DDW-000233
+                        goodsReceipt:
+                          id: "019a7ad9-0002-7b00-8c00-00000000e002"
+                          docType: GOODS_RECEIPT
+                          number: GRN-2026-DDW-000421
+                        receivedBy:
+                          id: "019a7ac0-1111-7000-8000-00000000a001"
+                          displayName: "Kofi Mensah"
+                        note: null
+                        claimedPesewas: 4751
+                        currency: GHS
+                        lines:
+                          - id: "019a7ae1-0002-7c00-8a00-0000000d1002"
+                            lineNo: 1
+                            goodsReceiptLineId: "019a7ad9-0002-7b00-8c00-00000001e002"
+                            purchaseOrderLineId: "019a7ad5-0002-7a00-8b00-00000001f002"
+                            product:
+                              id: "01900000-0000-7000-8200-000000000403"
+                              sku: EGG-0003
+                              name: "Eggs, big, crate of 30"
+                            rejectionReasonCode: BROKEN
+                            baseUom: UNIT
+                            qtyDeliveredBase: "90.000"
+                            qtyAcceptedBase: "60.000"
+                            qtyRejectedBase: "30.000"
+                            orderUom: CRATE
+                            orderUnitPricePesewas: 4751
+                            lineValuePesewas: 14253
+                            acceptedValuePesewas: 9502
+                            claimedValuePesewas: 4751
+                        creditNote:
+                          id: "019a7ae4-0002-7d00-8e00-00000000c702"
+                          supplierInvoiceNo: APF-CN-0703
+                          status: DRAFT
+                        settlement: null
+                        settledBy: null
+                        settledAt: null
+                        branchId: "01900000-0000-7000-8100-000000000001"
+                        version: 1
+                        createdAt: "2026-11-17T09:20:00Z"
+                        createdBy:
+                          id: "019a7ac0-1111-7000-8000-00000000a002"
+                          displayName: "Yaw Agyeman"
+                      - id: "019a7ae1-0001-7c00-8a00-0000000c1001"
+                        status: OPEN
+                        supplier:
+                          id: "01900000-0000-7000-8300-000000000101"
+                          publicId: sup_7KQ2M9XW4HD3RTNB
+                          name: "Awutu Poultry Farm"
+                        purchaseOrder:
+                          id: "019a7ad5-0001-7a00-8b00-00000000f001"
+                          docType: PURCHASE_ORDER
+                          number: PO-2026-DDW-000231
+                        goodsReceipt:
+                          id: "019a7ad9-0001-7b00-8c00-00000000e001"
+                          docType: GOODS_RECEIPT
+                          number: GRN-2026-DDW-000418
+                        receivedBy:
+                          id: "019a7ac0-1111-7000-8000-00000000a001"
+                          displayName: "Kofi Mensah"
+                        note: "Seven cracked in the top tray"
+                        claimedPesewas: 1109
+                        currency: GHS
+                        lines:
+                          - id: "019a7ae1-0001-7c00-8a00-0000000d1001"
+                            lineNo: 1
+                            goodsReceiptLineId: "019a7ad9-0001-7b00-8c00-00000001e001"
+                            purchaseOrderLineId: "019a7ad5-0001-7a00-8b00-00000001f001"
+                            product:
+                              id: "01900000-0000-7000-8200-000000000403"
+                              sku: EGG-0003
+                              name: "Eggs, big, crate of 30"
+                            rejectionReasonCode: CRACKED
+                            baseUom: UNIT
+                            qtyDeliveredBase: "30.000"
+                            qtyAcceptedBase: "23.000"
+                            qtyRejectedBase: "7.000"
+                            orderUom: CRATE
+                            orderUnitPricePesewas: 4751
+                            lineValuePesewas: 4751
+                            acceptedValuePesewas: 3642
+                            claimedValuePesewas: 1109
+                        creditNote: null
+                        settlement: null
+                        settledBy: null
+                        settledAt: null
+                        branchId: "01900000-0000-7000-8100-000000000001"
+                        version: 1
+                        createdAt: "2026-11-17T09:20:00Z"
+                        createdBy:
+                          id: "019a7ac0-1111-7000-8000-00000000a002"
+                          displayName: "Yaw Agyeman"
+                    page:
+                      nextCursor: null
+                      limit: 25
+                      hasMore: false
+                empty:
+                  summary: "Nothing matches: no rows and no next page"
+                  value:
+                    data: []
+                    page:
+                      nextCursor: null
+                      limit: 25
+                      hasMore: false
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/supplier-claims/{id}":
+    get:
+      operationId: getSupplierClaim
+      tags:
+        - pur
+      summary: "Get a supplier claim"
+      description: "A claim with its lines, its receipt and order, the credit note drafted from it and what settled it (2.4.0).\n\nPermission: `pur.supplier_invoice.read`."
+      x-permission: pur.supplier_invoice.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - staffSession: []
+        - apiKey: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupplierClaim"
+              example:
+                id: "019a7ae1-0002-7c00-8a00-0000000c1002"
+                status: OPEN
+                supplier:
+                  id: "01900000-0000-7000-8300-000000000101"
+                  publicId: sup_7KQ2M9XW4HD3RTNB
+                  name: "Awutu Poultry Farm"
+                purchaseOrder:
+                  id: "019a7ad5-0002-7a00-8b00-00000000f002"
+                  docType: PURCHASE_ORDER
+                  number: PO-2026-DDW-000233
+                goodsReceipt:
+                  id: "019a7ad9-0002-7b00-8c00-00000000e002"
+                  docType: GOODS_RECEIPT
+                  number: GRN-2026-DDW-000421
+                receivedBy:
+                  id: "019a7ac0-1111-7000-8000-00000000a001"
+                  displayName: "Kofi Mensah"
+                note: null
+                claimedPesewas: 4751
+                currency: GHS
+                lines:
+                  - id: "019a7ae1-0002-7c00-8a00-0000000d1002"
+                    lineNo: 1
+                    goodsReceiptLineId: "019a7ad9-0002-7b00-8c00-00000001e002"
+                    purchaseOrderLineId: "019a7ad5-0002-7a00-8b00-00000001f002"
+                    product:
+                      id: "01900000-0000-7000-8200-000000000403"
+                      sku: EGG-0003
+                      name: "Eggs, big, crate of 30"
+                    rejectionReasonCode: BROKEN
+                    baseUom: UNIT
+                    qtyDeliveredBase: "90.000"
+                    qtyAcceptedBase: "60.000"
+                    qtyRejectedBase: "30.000"
+                    orderUom: CRATE
+                    orderUnitPricePesewas: 4751
+                    lineValuePesewas: 14253
+                    acceptedValuePesewas: 9502
+                    claimedValuePesewas: 4751
+                creditNote:
+                  id: "019a7ae4-0002-7d00-8e00-00000000c702"
+                  supplierInvoiceNo: APF-CN-0703
+                  status: DRAFT
+                settlement: null
+                settledBy: null
+                settledAt: null
+                branchId: "01900000-0000-7000-8100-000000000001"
+                version: 1
+                createdAt: "2026-11-17T09:20:00Z"
+                createdBy:
+                  id: "019a7ac0-1111-7000-8000-00000000a002"
+                  displayName: "Yaw Agyeman"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/supplier-claims/{id}/credit-note":
+    post:
+      operationId: draftSupplierClaimCreditNote
+      tags:
+        - pur
+      summary: "Draft the credit note for a claim"
+      description: "The supplier's credit note for an OPEN claim, as a DRAFT against the APPROVED invoice of the claim's order that charged the rejected goods (ADR-0076, 2.4.0). One line per claim line, in the product's base unit: the rejected quantity, the claimed value as its net (unit price 0) and the levies MDM's calculator gives; nothing is keyed. The claim must have no other credit note that is not cancelled. Refused with 422 `SUPPLIER_CLAIM_INVALID`: `CLAIM_NOT_INVOICED` when the invoice names no line of an order line the claim names, or the live invoices hold no more of it than was received and other claims credit (the supplier left the rejected goods out: settle the claim by that invoice instead, so the same goods are never credited twice); `CREDIT_NOTE_EXISTS`; or the credit target's refusal (`ORIGINAL_NOT_APPROVED`, `ORIGINAL_SETTLED`, `ORDER_DIFFERS`, `BRANCH_DIFFERS`, `ORIGINAL_NOT_AN_INVOICE`, `ORIGINAL_OF_ANOTHER_SUPPLIER`). 422 `CREDIT_NOTE_EXCEEDS_INVOICE` when the invoice has less left; 409 `DUPLICATE_SUPPLIER_INVOICE` for a number already entered. Nothing is credited or posted until the credit note is submitted (`submitSupplierCreditNote`) and approved; its approver may be neither its maker, its submitter, the claim's maker nor whoever posted the receipt (`INVOICE_MAKER_CANNOT_APPROVE`). Its approval settles the claim. A claim's credit note cannot be changed (`updateSupplierInvoice` answers `CLAIM_CREDIT_NOTE_FIXED`): cancel it and draft it again.\n\nPermission: `pur.supplier_invoice.create`."
+      x-permission: pur.supplier_invoice.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - SUPPLIER_CLAIM_INVALID
+        - CREDIT_NOTE_EXCEEDS_INVOICE
+        - DUPLICATE_SUPPLIER_INVOICE
+        - RATE_LIMITED
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CsrfToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupplierClaimCreditNoteDraft"
+            example:
+              originalInvoiceId: "019a7ae4-0002-7d00-8e00-00000000a702"
+              supplierInvoiceNo: APF-CN-0703
+              invoiceDate: "2026-11-17"
+      security:
+        - staffSession: []
+        - apiKey: []
+      responses:
+        "201":
+          description: Created
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupplierInvoice"
+              example:
+                id: "019a7ae4-0002-7d00-8e00-00000000c702"
+                kind: CREDIT_NOTE
+                status: DRAFT
+                supplier:
+                  id: "01900000-0000-7000-8300-000000000101"
+                  publicId: sup_7KQ2M9XW4HD3RTNB
+                  name: "Awutu Poultry Farm"
+                supplierInvoiceNo: APF-CN-0703
+                invoiceDate: "2026-11-17"
+                dueDate: "2026-11-17"
+                purchaseOrder:
+                  id: "019a7ad5-0002-7a00-8b00-00000000f002"
+                  docType: PURCHASE_ORDER
+                  number: null
+                originalInvoiceId: "019a7ae4-0002-7d00-8e00-00000000a702"
+                netPesewas: 4751
+                taxPesewas: 0
+                grossPesewas: 4751
+                paidPesewas: 0
+                creditedPesewas: 0
+                outstandingPesewas: 0
+                currency: GHS
+                matchStatus: UNMATCHED
+                approvalRequestId: null
+                varianceReason: null
+                returnReasonCode: null
+                supplierClaimId: "019a7ae1-0002-7c00-8a00-0000000c1002"
+                file: null
+                lines:
+                  - id: "019a7ae4-0002-7d00-8e00-00000001c702"
+                    lineNo: 1
+                    product:
+                      id: "01900000-0000-7000-8200-000000000403"
+                      sku: EGG-0003
+                      name: "Eggs, big, crate of 30"
+                    description: "Eggs, big, crate of 30: rejected at the door, BROKEN"
+                    purchaseOrderLineId: "019a7ad5-0002-7a00-8b00-00000001f002"
+                    goodsReceiptLineId: "019a7ad9-0002-7b00-8c00-00000001e002"
+                    qty: "30.000"
+                    uom: UNIT
+                    unitPricePesewas: 0
+                    lineNetPesewas: 4751
+                    taxCategory:
+                      id: "01900000-0000-7000-8400-000000000003"
+                      code: EXEMPT_FOOD
+                      name: "Exempt unprocessed food"
+                    levies: []
+                    qtyVariance: null
+                    priceVariancePesewas: null
+                    priceVarianceDirection: null
+                    matchStatus: UNMATCHED
+                    matchReasons: []
+                    returnFromLocationId: null
+                    returnStockUnitId: null
+                    supplierClaimLineId: "019a7ae1-0002-7c00-8a00-0000000d1002"
+                branchId: "01900000-0000-7000-8100-000000000001"
+                version: 1
+                createdAt: "2026-11-17T11:05:00Z"
+                createdBy:
+                  id: "019a7ac0-1111-7000-8000-00000000a002"
+                  displayName: "Yaw Agyeman"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/BusinessRuleViolation"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/supplier-claims/{id}/settle":
+    post:
+      operationId: settleSupplierClaim
+      tags:
+        - pur
+      summary: "Settle a claim by the invoice that left the rejected goods out"
+      description: "An OPEN claim with no credit note drafted is settled by an APPROVED or PAID invoice of its order that names every order line the claim names, when no live invoice holds more of any of them than was received and what other claims' credit notes cover: the supplier did not charge the rejected goods (ADR-0076, 2.4.0). Refused with 422 `SUPPLIER_CLAIM_INVALID`: `CLAIM_INVOICED` (the supplier charged them: draft the claim's credit note instead), `INVOICE_NOT_APPROVED`, `ORDER_DIFFERS`, `ORDER_LINE_NOT_INVOICED` or `CREDIT_NOTE_EXISTS`; a settled claim is 422 `INVALID_STATE_TRANSITION`. Once settled by an invoice, the claim no longer lets an invoice carry the rejected quantity in the three-way match.\n\nPermission: `pur.supplier_invoice.match`."
+      x-permission: pur.supplier_invoice.match
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - SUPPLIER_CLAIM_INVALID
+        - RATE_LIMITED
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CsrfToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupplierClaimSettle"
+            example:
+              supplierInvoiceId: "019a7ae4-0003-7d00-8e00-00000000a703"
+      security:
+        - staffSession: []
+        - apiKey: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupplierClaim"
+              example:
+                id: "019a7ae1-0003-7c00-8a00-0000000c1003"
+                status: SETTLED
+                supplier:
+                  id: "01900000-0000-7000-8300-000000000101"
+                  publicId: sup_7KQ2M9XW4HD3RTNB
+                  name: "Awutu Poultry Farm"
+                purchaseOrder:
+                  id: "019a7ad5-0003-7a00-8b00-00000000f003"
+                  docType: PURCHASE_ORDER
+                  number: PO-2026-DDW-000236
+                goodsReceipt:
+                  id: "019a7ad9-0003-7b00-8c00-00000000e003"
+                  docType: GOODS_RECEIPT
+                  number: GRN-2026-DDW-000424
+                receivedBy:
+                  id: "019a7ac0-1111-7000-8000-00000000a001"
+                  displayName: "Kofi Mensah"
+                note: null
+                claimedPesewas: 4751
+                currency: GHS
+                lines:
+                  - id: "019a7ae1-0003-7c00-8a00-0000000d1003"
+                    lineNo: 1
+                    goodsReceiptLineId: "019a7ad9-0003-7b00-8c00-00000001e003"
+                    purchaseOrderLineId: "019a7ad5-0003-7a00-8b00-00000001f003"
+                    product:
+                      id: "01900000-0000-7000-8200-000000000403"
+                      sku: EGG-0003
+                      name: "Eggs, big, crate of 30"
+                    rejectionReasonCode: BROKEN
+                    baseUom: UNIT
+                    qtyDeliveredBase: "90.000"
+                    qtyAcceptedBase: "60.000"
+                    qtyRejectedBase: "30.000"
+                    orderUom: CRATE
+                    orderUnitPricePesewas: 4751
+                    lineValuePesewas: 14253
+                    acceptedValuePesewas: 9502
+                    claimedValuePesewas: 4751
+                creditNote: null
+                settlement: INVOICE
+                settledBy:
+                  id: "019a7ae4-0003-7d00-8e00-00000000a703"
+                  kind: INVOICE
+                  supplierInvoiceNo: APF-INV-2291
+                settledAt: "2026-11-17T15:40:00Z"
+                branchId: "01900000-0000-7000-8100-000000000001"
+                version: 2
+                createdAt: "2026-11-17T09:20:00Z"
+                createdBy:
+                  id: "019a7ac0-1111-7000-8000-00000000a002"
+                  displayName: "Yaw Agyeman"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/BusinessRuleViolation"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     staffSession:
@@ -89273,6 +90233,223 @@ components:
         - amountPesewas
         - calculatedAmountPesewas
         - isReclaimable
+    SupplierClaimLine:
+      type: object
+      description: "One rejected goods receipt line on a claim (ADR-0076, 2.4.0). The quantities are in the product's base unit, as the receipt stored them; the values are the delivery at the order line's price, rounded half-up once, split exactly with `allocate` so `acceptedValuePesewas + claimedValuePesewas = lineValuePesewas`. Nothing here is keyed by hand."
+      properties:
+        id:
+          type: string
+          format: uuid
+        lineNo:
+          type: integer
+        goodsReceiptLineId:
+          type: string
+          format: uuid
+        purchaseOrderLineId:
+          type: string
+          format: uuid
+        product:
+          $ref: "#/components/schemas/ProductRef"
+        rejectionReasonCode:
+          type: string
+          description: "The receipt line's `GOODS_RECEIPT_REJECTION` reason (A-269)."
+        baseUom:
+          type: string
+        qtyDeliveredBase:
+          $ref: "#/components/schemas/Quantity"
+        qtyAcceptedBase:
+          $ref: "#/components/schemas/Quantity"
+        qtyRejectedBase:
+          $ref: "#/components/schemas/Quantity"
+        orderUom:
+          type: string
+          description: "The unit the order line was bought in, which `orderUnitPricePesewas` is per."
+        orderUnitPricePesewas:
+          $ref: "#/components/schemas/Pesewas"
+        lineValuePesewas:
+          $ref: "#/components/schemas/Pesewas"
+        acceptedValuePesewas:
+          $ref: "#/components/schemas/Pesewas"
+        claimedValuePesewas:
+          $ref: "#/components/schemas/Pesewas"
+      required:
+        - id
+        - lineNo
+        - goodsReceiptLineId
+        - purchaseOrderLineId
+        - product
+        - rejectionReasonCode
+        - baseUom
+        - qtyDeliveredBase
+        - qtyAcceptedBase
+        - qtyRejectedBase
+        - orderUom
+        - orderUnitPricePesewas
+        - lineValuePesewas
+        - acceptedValuePesewas
+        - claimedValuePesewas
+    SupplierClaim:
+      type: object
+      description: "A claim raised from a posted purchase receipt's rejected lines (CR-036, ADR-0076, 2.4.0). It moves no stock and posts nothing, and stays `OPEN` on the supplier's account until it is settled once: by the approved invoice that left the rejected goods out (`settleSupplierClaim`), or by the credit note drafted from it (`draftSupplierClaimCreditNote`) once that is approved."
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - OPEN
+            - SETTLED
+        supplier:
+          $ref: "#/components/schemas/SupplierRef"
+        purchaseOrder:
+          $ref: "#/components/schemas/DocumentRef"
+        goodsReceipt:
+          $ref: "#/components/schemas/DocumentRef"
+        receivedBy:
+          $ref: "#/components/schemas/PrincipalRef"
+        note:
+          type:
+            - string
+            - "null"
+        claimedPesewas:
+          $ref: "#/components/schemas/Pesewas"
+        currency:
+          $ref: "#/components/schemas/Currency"
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/SupplierClaimLine"
+        creditNote:
+          description: "The credit note drafted from the claim and not cancelled, waiting or approved; null if none."
+          anyOf:
+            - type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                supplierInvoiceNo:
+                  type: string
+                status:
+                  type: string
+              required:
+                - id
+                - supplierInvoiceNo
+                - status
+            - type: "null"
+        settlement:
+          type:
+            - string
+            - "null"
+          enum:
+            - INVOICE
+            - CREDIT_NOTE
+            - null
+        settledBy:
+          description: "The invoice or credit note that settled the claim; null while it is open."
+          anyOf:
+            - type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                kind:
+                  type: string
+                  enum:
+                    - INVOICE
+                    - CREDIT_NOTE
+                supplierInvoiceNo:
+                  type: string
+              required:
+                - id
+                - kind
+                - supplierInvoiceNo
+            - type: "null"
+        settledAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        branchId:
+          type: string
+          format: uuid
+        version:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        createdBy:
+          $ref: "#/components/schemas/PrincipalRef"
+      required:
+        - id
+        - status
+        - supplier
+        - purchaseOrder
+        - goodsReceipt
+        - receivedBy
+        - note
+        - claimedPesewas
+        - currency
+        - lines
+        - creditNote
+        - settlement
+        - settledBy
+        - settledAt
+        - branchId
+        - version
+        - createdAt
+        - createdBy
+    SupplierClaimPage:
+      type: object
+      description: "A page of `SupplierClaim` results."
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/SupplierClaim"
+        page:
+          $ref: "#/components/schemas/PageInfo"
+      required:
+        - data
+        - page
+    SupplierClaimRaise:
+      type: object
+      additionalProperties: false
+      description: "No amount and no quantity: the claim is the receipt's rejected lines at the order price. A body naming any other field is refused."
+      properties:
+        note:
+          type: string
+          minLength: 1
+          maxLength: 500
+    SupplierClaimCreditNoteDraft:
+      type: object
+      additionalProperties: false
+      description: "The supplier's credit note for the claim: the approved invoice it reduces, the supplier's own number and its date. Its lines and amounts are the claim's, never keyed."
+      properties:
+        originalInvoiceId:
+          type: string
+          format: uuid
+        supplierInvoiceNo:
+          type: string
+          minLength: 1
+          maxLength: 60
+        invoiceDate:
+          type: string
+          format: date
+      required:
+        - originalInvoiceId
+        - supplierInvoiceNo
+        - invoiceDate
+    SupplierClaimSettle:
+      type: object
+      additionalProperties: false
+      properties:
+        supplierInvoiceId:
+          type: string
+          format: uuid
+          description: "The approved invoice of the claim's order that left the rejected goods out."
+      required:
+        - supplierInvoiceId
     SupplierInvoiceLine:
       type: object
       properties:
@@ -89354,6 +90531,12 @@ components:
             - "null"
           format: uuid
           description: "On a credit note only: the lot or animal sent back, for a tracked product (1.30.0)."
+        supplierClaimLineId:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: "On a credit note drafted from a claim only: the claim line it credits. Its quantity is the rejected base quantity, its net the claim line's claimed value, and its unit price 0, since that value is a share of the delivery, not a quantity times a price (ADR-0076, 2.4.0). Null otherwise."
       required:
         - id
         - lineNo
@@ -89374,6 +90557,7 @@ components:
         - matchReasons
         - returnFromLocationId
         - returnStockUnitId
+        - supplierClaimLineId
     SupplierInvoice:
       type: object
       properties:
@@ -89454,6 +90638,12 @@ components:
             - string
             - "null"
           description: "A credit note's reason for goods sent back (a `RETURN` reason code such as `RETURN_QUALITY`); null otherwise (1.30.0)."
+        supplierClaimId:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: "A credit note drafted from a goods receipt's claim (`draftSupplierClaimCreditNote`); null otherwise (ADR-0076, 2.4.0)."
         file:
           anyOf:
             - $ref: "#/components/schemas/StoredFileRef"
@@ -89493,6 +90683,7 @@ components:
         - approvalRequestId
         - varianceReason
         - returnReasonCode
+        - supplierClaimId
         - file
         - lines
         - branchId

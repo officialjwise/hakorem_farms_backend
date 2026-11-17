@@ -206,3 +206,15 @@ export const PurchaseRequisitionPageQuery = PageQuery.extend({
   status: z.enum(['DRAFT', 'SUBMITTED', 'CONVERTED', 'REJECTED', 'CANCELLED']).optional(),
   requestedBy: z.uuid().optional(),
 });
+
+// Claims from a goods receipt's rejected lines (ADR-0076, CR-036). No request carries an amount: the claim's value is
+// the order price split by the receipt's quantities, so a body naming one is refused as an unknown field.
+export const SupplierClaimRaise = z.strictObject({ note: Text(500).optional() });
+export const SupplierClaimCreditNoteDraft = z.strictObject({ originalInvoiceId: z.uuid(), supplierInvoiceNo: InvoiceNo, invoiceDate: CalendarDate });
+export const SupplierClaimSettle = z.strictObject({ supplierInvoiceId: z.uuid() });
+export const SupplierClaimPageQuery = PageQuery.extend({
+  status: z.enum(['OPEN', 'SETTLED']).optional(),
+  supplierId: z.uuid().optional(),
+  purchaseOrderId: z.uuid().optional(),
+  goodsReceiptId: z.uuid().optional(),
+});

@@ -1,0 +1,118 @@
+operationId: listGoodsReceiptClaims
+tags:
+  - pur
+summary: "List the claims raised from a goods receipt"
+description: "The receipt answers its claims (CR-036 point 2, 2.4.0): at most one, raised by `raiseSupplierClaim`, open or settled. A receipt the caller cannot read, or none, answers an empty page.\n\nPermission: `pur.supplier_invoice.read`."
+x-permission: pur.supplier_invoice.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - INVALID_CURSOR
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/SupplierClaimPage"
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7ae1-0001-7c00-8a00-0000000c1001"
+                  status: "OPEN"
+                  supplier:
+                    id: "01900000-0000-7000-8300-000000000101"
+                    publicId: "sup_7KQ2M9XW4HD3RTNB"
+                    name: "Awutu Poultry Farm"
+                  purchaseOrder:
+                    id: "019a7ad5-0001-7a00-8b00-00000000f001"
+                    docType: "PURCHASE_ORDER"
+                    number: "PO-2026-DDW-000231"
+                  goodsReceipt:
+                    id: "019a7ad9-0001-7b00-8c00-00000000e001"
+                    docType: "GOODS_RECEIPT"
+                    number: "GRN-2026-DDW-000418"
+                  receivedBy:
+                    id: "019a7ac0-1111-7000-8000-00000000a001"
+                    displayName: "Kofi Mensah"
+                  note: "Seven cracked in the top tray"
+                  claimedPesewas: 1109
+                  currency: "GHS"
+                  lines:
+                    - id: "019a7ae1-0001-7c00-8a00-0000000d1001"
+                      lineNo: 1
+                      goodsReceiptLineId: "019a7ad9-0001-7b00-8c00-00000001e001"
+                      purchaseOrderLineId: "019a7ad5-0001-7a00-8b00-00000001f001"
+                      product:
+                        id: "01900000-0000-7000-8200-000000000403"
+                        sku: "EGG-0003"
+                        name: "Eggs, big, crate of 30"
+                      rejectionReasonCode: "CRACKED"
+                      baseUom: "UNIT"
+                      qtyDeliveredBase: "30.000"
+                      qtyAcceptedBase: "23.000"
+                      qtyRejectedBase: "7.000"
+                      orderUom: "CRATE"
+                      orderUnitPricePesewas: 4751
+                      lineValuePesewas: 4751
+                      acceptedValuePesewas: 3642
+                      claimedValuePesewas: 1109
+                  creditNote: null
+                  settlement: null
+                  settledBy: null
+                  settledAt: null
+                  branchId: "01900000-0000-7000-8100-000000000001"
+                  version: 1
+                  createdAt: "2026-11-17T09:20:00Z"
+                  createdBy:
+                    id: "019a7ac0-1111-7000-8000-00000000a002"
+                    displayName: "Yaw Agyeman"
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

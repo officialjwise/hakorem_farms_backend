@@ -100,6 +100,7 @@ responses:
                   approvalRequestId: null
                   varianceReason: null
                   returnReasonCode: null
+                  supplierClaimId: null
                   file:
                     id: "019a7acb-e8f5-7aca-b002-b57cd1e82e5a"
                     originalName: invoice-88120.pdf
@@ -130,6 +131,7 @@ responses:
                       matchReasons: []
                       returnFromLocationId: null
                       returnStockUnitId: null
+                      supplierClaimLineId: null
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                   version: 2
                   createdAt: "2026-11-10T09:00:00Z"
@@ -162,6 +164,7 @@ responses:
                   approvalRequestId: null
                   varianceReason: null
                   returnReasonCode: null
+                  supplierClaimId: null
                   file:
                     id: "019a7acc-45c2-7875-adad-90233efb0901"
                     originalName: invoice-KLT-1193.pdf
@@ -192,6 +195,7 @@ responses:
                       matchReasons: []
                       returnFromLocationId: null
                       returnStockUnitId: null
+                      supplierClaimLineId: null
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                   version: 2
                   createdAt: "2026-11-10T09:01:00Z"
@@ -224,6 +228,7 @@ responses:
                   approvalRequestId: null
                   varianceReason: null
                   returnReasonCode: null
+                  supplierClaimId: null
                   file:
                     id: "019a7acc-a28f-761f-9b57-6ac9ac0ee3a7"
                     originalName: invoice-AWT-0457.pdf
@@ -255,6 +260,7 @@ responses:
                         - PRICE_OUTSIDE_TOLERANCE
                       returnFromLocationId: null
                       returnStockUnitId: null
+                      supplierClaimLineId: null
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                   version: 2
                   createdAt: "2026-11-10T09:02:00Z"
@@ -287,6 +293,7 @@ responses:
                   approvalRequestId: null
                   varianceReason: null
                   returnReasonCode: null
+                  supplierClaimId: null
                   file:
                     id: "019a7acc-ff5c-73c9-8902-45701921be4d"
                     originalName: invoice-DVG-221.pdf
@@ -317,6 +324,7 @@ responses:
                       matchReasons: []
                       returnFromLocationId: null
                       returnStockUnitId: null
+                      supplierClaimLineId: null
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                   version: 2
                   createdAt: "2026-11-10T09:03:00Z"
@@ -349,6 +357,7 @@ responses:
                   approvalRequestId: null
                   varianceReason: null
                   returnReasonCode: null
+                  supplierClaimId: null
                   file:
                     id: "019a7acd-5c29-7174-b6ac-2016863498f4"
                     originalName: invoice-AGV-55012.pdf
@@ -379,6 +388,7 @@ responses:
                       matchReasons: []
                       returnFromLocationId: null
                       returnStockUnitId: null
+                      supplierClaimLineId: null
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                   version: 2
                   createdAt: "2026-11-10T09:04:00Z"
@@ -408,6 +418,7 @@ responses:
                   approvalRequestId: null
                   varianceReason: null
                   returnReasonCode: null
+                  supplierClaimId: null
                   file:
                     id: "019a7acd-b8f6-7f1e-a457-fabcf347739a"
                     originalName: invoice-TPS-3310.pdf
@@ -459,6 +470,7 @@ responses:
                       matchReasons: []
                       returnFromLocationId: null
                       returnStockUnitId: null
+                      supplierClaimLineId: null
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                   version: 2
                   createdAt: "2026-11-10T09:05:00Z"

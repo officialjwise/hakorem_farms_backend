@@ -25,6 +25,8 @@ registerMessages({
   'pur.variance_not_allowed': 'An approved variance covers a price or levy difference only; receive the goods or correct the invoice instead.',
   'pur.invoice_maker_cannot_approve': 'You entered this invoice, so someone else must approve its variance.',
   'pur.approval_pending': 'This document is waiting for approval and cannot change until it is decided or withdrawn.',
+  'pur.supplier_claim_invalid': 'This claim cannot be raised or settled like this.',
+  'pur.supplier_claim_rule': 'This breaks a rule of the claim.',
 });
 
 export interface BrokenRule {
@@ -85,6 +87,22 @@ export class ReceiptOrderMismatchError extends BusinessRuleError {
  * `CREDIT_EMPTY`, `NOT_A_CREDIT_NOTE` and `CREDIT_NOTE_NEEDS_APPROVAL`; for a variance (FR-PUR-010) `NO_MISMATCH`;
  * `CREDIT_NOTE_ENTERED` on cancelling an invoice a live credit note reduces.
  */
+/**
+ * 422 SUPPLIER_CLAIM_INVALID (ADR-0076, CR-036): `RECEIPT_NOT_POSTED`, `NOT_A_PURCHASE`, `NO_ORDER`, `NOTHING_REJECTED`,
+ * `NO_ORDER_LINE`, `NOTHING_TO_CLAIM` and `CLAIM_EXISTS` on raising; `CREDIT_NOTE_EXISTS` on settling either way;
+ * a credit note target's refusal (`ORIGINAL_NOT_APPROVED`, `ORIGINAL_SETTLED`, `ORDER_DIFFERS` and the rest of
+ * `judgeCreditTarget`) and `CLAIM_NOT_INVOICED` on drafting its credit note; `INVOICE_NOT_APPROVED`, `ORDER_DIFFERS`,
+ * `ORDER_LINE_NOT_INVOICED` and `CLAIM_INVOICED` on settling by an invoice.
+ */
+export class SupplierClaimInvalidError extends BusinessRuleError {
+  readonly code = 'SUPPLIER_CLAIM_INVALID';
+  readonly messageKey = 'pur.supplier_claim_invalid';
+
+  constructor(rules: readonly BrokenRule[]) {
+    super('the claim breaks a rule', details(rules, 'pur.supplier_claim_rule'));
+  }
+}
+
 export class SupplierInvoiceInvalidError extends BusinessRuleError {
   readonly code = 'SUPPLIER_INVOICE_INVALID';
   readonly messageKey = 'pur.supplier_invoice_invalid';
@@ -284,5 +302,7 @@ export function translatePurRefusal(error: unknown): never {
   if (failure?.code === 'HK004' && failure.constraint === 'ck_supplier_invoice_cancel_credited') throw new SupplierInvoiceInvalidError([{ field: '/status', rule: 'CREDIT_NOTE_ENTERED' }]);
   if (failure?.code === 'HK010' && failure.constraint === 'ck_supplier_invoice_variance_cover') throw new VarianceNotAllowedError([{ field: '/lines', rule: 'VARIANCE_NOT_ALLOWED' }]);
   if (failure?.code === '23514' && failure.constraint === 'ck_supplier_invoice_variance') throw new InvoiceMakerCannotApproveError();
+  if (failure?.code === '23505' && failure.constraint === 'uq_supplier_claim_receipt') throw new SupplierClaimInvalidError([{ field: '/goodsReceiptId', rule: 'CLAIM_EXISTS' }]);
+  if (failure?.code === '23505' && failure.constraint === 'uq_supplier_invoice_claim') throw new SupplierClaimInvalidError([{ field: '/status', rule: 'CREDIT_NOTE_EXISTS' }]);
   throw error;
 }

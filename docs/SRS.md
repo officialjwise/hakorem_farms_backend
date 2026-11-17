@@ -1010,6 +1010,7 @@ Default session: B7, split (A-165): B7 built 005 to 010 and 012; B07 continued b
 - Actor: System
 - Trigger: `matchSupplierInvoice`
 - Rule: Each invoice line is compared with the order line and the receipt. It matches when quantity does not exceed the quantity received and the unit price is within 1 percent of the order price (SA-08). The result is per line with the reason.
+- As built in B09e continued 3 (ADR-0076, proposed): the quantity received is widened by exactly the rejected quantity of the order line's claims not settled by an invoice, so a supplier who invoices the whole delivery is matched and credited by the claim's credit note.
 - Outcome: The invoice is `MATCHED` only if every payable line matches.
 - Acceptance: Order 20 at 5,500, received 20, invoice 20 at 5,550 (0.91 percent) matches; invoice 20 at 5,600 (1.82 percent) mismatches on price; invoice 22 mismatches on quantity.
 - Test: `test/unit/pur/three-way-match.unit.spec.ts › applies the price and quantity tolerances`
@@ -1026,6 +1027,7 @@ Default session: B7, split (A-165): B7 built 005 to 010 and 012; B07 continued b
 - Actor: Accountant
 - Trigger: `createSupplierInvoice` with kind credit note
 - Rule: A credit note references the invoice it reduces and cannot exceed its uncredited amount. Credits reduce the payable and, where goods are returned, issue a supplier-return movement.
+- As built in B09e continued 3 (ADR-0076, proposed): a credit note may be drafted from a goods receipt's claim (`draftSupplierClaimCreditNote`), its lines the claim's rejected quantities and values, never keyed, only against an approved invoice that charged the rejected goods; its approver is neither its maker, the claim's maker nor the receiver.
 - Outcome: The credit is allocated to the invoice's outstanding amount.
 - Acceptance: A credit of 11,000 against a 110,000 invoice leaves 99,000 payable; a second credit of 100,000 is refused.
 - Test: `test/int/pur/supplier-credit-note.int.spec.ts › cannot exceed the invoice`

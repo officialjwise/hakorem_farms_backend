@@ -82,6 +82,7 @@ responses:
           approvalRequestId: null
           varianceReason: null
           returnReasonCode: null
+          supplierClaimId: null
           file:
             id: "019a7acd-5c29-7174-b6ac-2016863498f4"
             originalName: invoice-AGV-55012.pdf
@@ -112,6 +113,7 @@ responses:
               matchReasons: []
               returnFromLocationId: null
               returnStockUnitId: null
+              supplierClaimLineId: null
           branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
           version: 2
           createdAt: "2026-11-10T09:04:00Z"

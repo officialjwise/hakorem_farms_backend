@@ -1,0 +1,346 @@
+operationId: listSupplierClaims
+tags:
+  - pur
+summary: "List supplier claims"
+description: "Claims newest first, within the branches the caller holds the permission at as a whole (2.4.0). Filters: `status` (`OPEN` is what the supplier still owes the farm a credit or an invoice for), `supplierId`, `purchaseOrderId` and `goodsReceiptId`.\n\nPermission: `pur.supplier_invoice.read`."
+x-permission: pur.supplier_invoice.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - INVALID_CURSOR
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: status
+    in: query
+    required: false
+    schema:
+      type: string
+      enum:
+        - OPEN
+        - SETTLED
+  - name: supplierId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: purchaseOrderId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: goodsReceiptId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/SupplierClaimPage"
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7ae1-0005-7c00-8a00-0000000c1005"
+                  status: "OPEN"
+                  supplier:
+                    id: "01900000-0000-7000-8300-000000000101"
+                    publicId: "sup_7KQ2M9XW4HD3RTNB"
+                    name: "Awutu Poultry Farm"
+                  purchaseOrder:
+                    id: "019a7ad5-0005-7a00-8b00-00000000f005"
+                    docType: "PURCHASE_ORDER"
+                    number: "PO-2026-DDW-000240"
+                  goodsReceipt:
+                    id: "019a7ad9-0005-7b00-8c00-00000000e005"
+                    docType: "GOODS_RECEIPT"
+                    number: "GRN-2026-DDW-000430"
+                  receivedBy:
+                    id: "019a7ac0-1111-7000-8000-00000000a001"
+                    displayName: "Kofi Mensah"
+                  note: null
+                  claimedPesewas: 633
+                  currency: "GHS"
+                  lines:
+                    - id: "019a7ae1-0005-7c00-8a00-0000000d1005"
+                      lineNo: 1
+                      goodsReceiptLineId: "019a7ad9-0005-7b00-8c00-00000001e005"
+                      purchaseOrderLineId: "019a7ad5-0005-7a00-8b00-00000001f005"
+                      product:
+                        id: "01900000-0000-7000-8200-000000000403"
+                        sku: "EGG-0003"
+                        name: "Eggs, big, crate of 30"
+                      rejectionReasonCode: "SHORT"
+                      baseUom: "UNIT"
+                      qtyDeliveredBase: "30.000"
+                      qtyAcceptedBase: "26.000"
+                      qtyRejectedBase: "4.000"
+                      orderUom: "CRATE"
+                      orderUnitPricePesewas: 4751
+                      lineValuePesewas: 4751
+                      acceptedValuePesewas: 4118
+                      claimedValuePesewas: 633
+                  creditNote: null
+                  settlement: null
+                  settledBy: null
+                  settledAt: null
+                  branchId: "01900000-0000-7000-8100-000000000001"
+                  version: 1
+                  createdAt: "2026-11-17T09:20:00Z"
+                  createdBy:
+                    id: "019a7ac0-1111-7000-8000-00000000a002"
+                    displayName: "Yaw Agyeman"
+                - id: "019a7ae1-0004-7c00-8a00-0000000c1004"
+                  status: "SETTLED"
+                  supplier:
+                    id: "01900000-0000-7000-8300-000000000101"
+                    publicId: "sup_7KQ2M9XW4HD3RTNB"
+                    name: "Awutu Poultry Farm"
+                  purchaseOrder:
+                    id: "019a7ad5-0004-7a00-8b00-00000000f004"
+                    docType: "PURCHASE_ORDER"
+                    number: "PO-2026-DDW-000238"
+                  goodsReceipt:
+                    id: "019a7ad9-0004-7b00-8c00-00000000e004"
+                    docType: "GOODS_RECEIPT"
+                    number: "GRN-2026-DDW-000427"
+                  receivedBy:
+                    id: "019a7ac0-1111-7000-8000-00000000a001"
+                    displayName: "Kofi Mensah"
+                  note: null
+                  claimedPesewas: 1920
+                  currency: "GHS"
+                  lines:
+                    - id: "019a7ae1-0004-7c00-8a00-0000000d1004"
+                      lineNo: 1
+                      goodsReceiptLineId: "019a7ad9-0004-7b00-8c00-00000001e004"
+                      purchaseOrderLineId: "019a7ad5-0004-7a00-8b00-00000001f004"
+                      product:
+                        id: "01900000-0000-7000-8200-000000000403"
+                        sku: "EGG-0003"
+                        name: "Eggs, big, crate of 30"
+                      rejectionReasonCode: "DIRTY"
+                      baseUom: "UNIT"
+                      qtyDeliveredBase: "60.000"
+                      qtyAcceptedBase: "48.000"
+                      qtyRejectedBase: "12.000"
+                      orderUom: "CRATE"
+                      orderUnitPricePesewas: 4800
+                      lineValuePesewas: 9600
+                      acceptedValuePesewas: 7680
+                      claimedValuePesewas: 1920
+                  creditNote:
+                    id: "019a7ae4-0004-7d00-8e00-00000000c704"
+                    supplierInvoiceNo: "APF-CN-0706"
+                    status: "APPROVED"
+                  settlement: "CREDIT_NOTE"
+                  settledBy:
+                    id: "019a7ae4-0004-7d00-8e00-00000000c704"
+                    kind: "CREDIT_NOTE"
+                    supplierInvoiceNo: "APF-CN-0706"
+                  settledAt: "2026-11-17T15:40:00Z"
+                  branchId: "01900000-0000-7000-8100-000000000001"
+                  version: 2
+                  createdAt: "2026-11-17T09:20:00Z"
+                  createdBy:
+                    id: "019a7ac0-1111-7000-8000-00000000a002"
+                    displayName: "Yaw Agyeman"
+                - id: "019a7ae1-0003-7c00-8a00-0000000c1003"
+                  status: "SETTLED"
+                  supplier:
+                    id: "01900000-0000-7000-8300-000000000101"
+                    publicId: "sup_7KQ2M9XW4HD3RTNB"
+                    name: "Awutu Poultry Farm"
+                  purchaseOrder:
+                    id: "019a7ad5-0003-7a00-8b00-00000000f003"
+                    docType: "PURCHASE_ORDER"
+                    number: "PO-2026-DDW-000236"
+                  goodsReceipt:
+                    id: "019a7ad9-0003-7b00-8c00-00000000e003"
+                    docType: "GOODS_RECEIPT"
+                    number: "GRN-2026-DDW-000424"
+                  receivedBy:
+                    id: "019a7ac0-1111-7000-8000-00000000a001"
+                    displayName: "Kofi Mensah"
+                  note: null
+                  claimedPesewas: 4751
+                  currency: "GHS"
+                  lines:
+                    - id: "019a7ae1-0003-7c00-8a00-0000000d1003"
+                      lineNo: 1
+                      goodsReceiptLineId: "019a7ad9-0003-7b00-8c00-00000001e003"
+                      purchaseOrderLineId: "019a7ad5-0003-7a00-8b00-00000001f003"
+                      product:
+                        id: "01900000-0000-7000-8200-000000000403"
+                        sku: "EGG-0003"
+                        name: "Eggs, big, crate of 30"
+                      rejectionReasonCode: "BROKEN"
+                      baseUom: "UNIT"
+                      qtyDeliveredBase: "90.000"
+                      qtyAcceptedBase: "60.000"
+                      qtyRejectedBase: "30.000"
+                      orderUom: "CRATE"
+                      orderUnitPricePesewas: 4751
+                      lineValuePesewas: 14253
+                      acceptedValuePesewas: 9502
+                      claimedValuePesewas: 4751
+                  creditNote: null
+                  settlement: "INVOICE"
+                  settledBy:
+                    id: "019a7ae4-0003-7d00-8e00-00000000a703"
+                    kind: "INVOICE"
+                    supplierInvoiceNo: "APF-INV-2291"
+                  settledAt: "2026-11-17T15:40:00Z"
+                  branchId: "01900000-0000-7000-8100-000000000001"
+                  version: 2
+                  createdAt: "2026-11-17T09:20:00Z"
+                  createdBy:
+                    id: "019a7ac0-1111-7000-8000-00000000a002"
+                    displayName: "Yaw Agyeman"
+                - id: "019a7ae1-0002-7c00-8a00-0000000c1002"
+                  status: "OPEN"
+                  supplier:
+                    id: "01900000-0000-7000-8300-000000000101"
+                    publicId: "sup_7KQ2M9XW4HD3RTNB"
+                    name: "Awutu Poultry Farm"
+                  purchaseOrder:
+                    id: "019a7ad5-0002-7a00-8b00-00000000f002"
+                    docType: "PURCHASE_ORDER"
+                    number: "PO-2026-DDW-000233"
+                  goodsReceipt:
+                    id: "019a7ad9-0002-7b00-8c00-00000000e002"
+                    docType: "GOODS_RECEIPT"
+                    number: "GRN-2026-DDW-000421"
+                  receivedBy:
+                    id: "019a7ac0-1111-7000-8000-00000000a001"
+                    displayName: "Kofi Mensah"
+                  note: null
+                  claimedPesewas: 4751
+                  currency: "GHS"
+                  lines:
+                    - id: "019a7ae1-0002-7c00-8a00-0000000d1002"
+                      lineNo: 1
+                      goodsReceiptLineId: "019a7ad9-0002-7b00-8c00-00000001e002"
+                      purchaseOrderLineId: "019a7ad5-0002-7a00-8b00-00000001f002"
+                      product:
+                        id: "01900000-0000-7000-8200-000000000403"
+                        sku: "EGG-0003"
+                        name: "Eggs, big, crate of 30"
+                      rejectionReasonCode: "BROKEN"
+                      baseUom: "UNIT"
+                      qtyDeliveredBase: "90.000"
+                      qtyAcceptedBase: "60.000"
+                      qtyRejectedBase: "30.000"
+                      orderUom: "CRATE"
+                      orderUnitPricePesewas: 4751
+                      lineValuePesewas: 14253
+                      acceptedValuePesewas: 9502
+                      claimedValuePesewas: 4751
+                  creditNote:
+                    id: "019a7ae4-0002-7d00-8e00-00000000c702"
+                    supplierInvoiceNo: "APF-CN-0703"
+                    status: "DRAFT"
+                  settlement: null
+                  settledBy: null
+                  settledAt: null
+                  branchId: "01900000-0000-7000-8100-000000000001"
+                  version: 1
+                  createdAt: "2026-11-17T09:20:00Z"
+                  createdBy:
+                    id: "019a7ac0-1111-7000-8000-00000000a002"
+                    displayName: "Yaw Agyeman"
+                - id: "019a7ae1-0001-7c00-8a00-0000000c1001"
+                  status: "OPEN"
+                  supplier:
+                    id: "01900000-0000-7000-8300-000000000101"
+                    publicId: "sup_7KQ2M9XW4HD3RTNB"
+                    name: "Awutu Poultry Farm"
+                  purchaseOrder:
+                    id: "019a7ad5-0001-7a00-8b00-00000000f001"
+                    docType: "PURCHASE_ORDER"
+                    number: "PO-2026-DDW-000231"
+                  goodsReceipt:
+                    id: "019a7ad9-0001-7b00-8c00-00000000e001"
+                    docType: "GOODS_RECEIPT"
+                    number: "GRN-2026-DDW-000418"
+                  receivedBy:
+                    id: "019a7ac0-1111-7000-8000-00000000a001"
+                    displayName: "Kofi Mensah"
+                  note: "Seven cracked in the top tray"
+                  claimedPesewas: 1109
+                  currency: "GHS"
+                  lines:
+                    - id: "019a7ae1-0001-7c00-8a00-0000000d1001"
+                      lineNo: 1
+                      goodsReceiptLineId: "019a7ad9-0001-7b00-8c00-00000001e001"
+                      purchaseOrderLineId: "019a7ad5-0001-7a00-8b00-00000001f001"
+                      product:
+                        id: "01900000-0000-7000-8200-000000000403"
+                        sku: "EGG-0003"
+                        name: "Eggs, big, crate of 30"
+                      rejectionReasonCode: "CRACKED"
+                      baseUom: "UNIT"
+                      qtyDeliveredBase: "30.000"
+                      qtyAcceptedBase: "23.000"
+                      qtyRejectedBase: "7.000"
+                      orderUom: "CRATE"
+                      orderUnitPricePesewas: 4751
+                      lineValuePesewas: 4751
+                      acceptedValuePesewas: 3642
+                      claimedValuePesewas: 1109
+                  creditNote: null
+                  settlement: null
+                  settledBy: null
+                  settledAt: null
+                  branchId: "01900000-0000-7000-8100-000000000001"
+                  version: 1
+                  createdAt: "2026-11-17T09:20:00Z"
+                  createdBy:
+                    id: "019a7ac0-1111-7000-8000-00000000a002"
+                    displayName: "Yaw Agyeman"
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
