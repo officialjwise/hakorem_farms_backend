@@ -455,6 +455,9 @@ The "Source" column says where the code comes from. **Contract** means the code 
 | `SHIFT_NOT_OPEN` | 422 | The shift is closed or closing; sales and cash movements need an open shift |
 | `SHIFT_ALREADY_OPEN` | 422 | The register or the cashier already has an open shift |
 | `SHIFT_CLOSE_SAME_PERSON` | 422 | The supervisor signing off a close cannot be the cashier |
+| `SHIFT_INVALID` | 422 | A shift cannot be opened or closed like this, every one in `details[].code`: `ID_NOT_UUID_V7`, `REGISTER_RETIRED`, `OPENED_AT_OUT_OF_WINDOW`, `CASH_NOT_DECLARED`, `METHOD_DECLARED_TWICE`, `METHOD_UNKNOWN`, `DEVICE_SALES_NOT_SYNCED`, `SHIFT_NOT_CLOSING` (2.5.0) |
+| `CASH_MOVEMENT_INVALID` | 422 | A cash movement breaks a till rule, every one in `details[].code`: `AMOUNT_NOT_POSITIVE`, `REASON_REQUIRED`, `REASON_NOT_FOR_KIND`, `NOTE_REQUIRED`, `WITNESS_REQUIRED`, `WITNESS_IS_MAKER`, `WITNESS_NOT_SUPERVISOR`, `WITNESS_ONLY_ON_DROP`, `TILL_OVERDRAWN`, `ID_NOT_UUID_V7`, `OCCURRED_AT_OUT_OF_WINDOW` (2.5.0) |
+| `REGISTER_INVALID` | 422 | A till cannot be set up or changed like this: `LOCATION_NOT_IN_BRANCH`, `LOCATION_NOT_SELLABLE`, `REGISTER_CODE_TAKEN`, `SHIFT_OPEN` (2.5.0) |
 
 #### Payments, billing and purchasing (Added)
 
@@ -954,6 +957,13 @@ The single order record for every channel. `createOrder` (422 `QUOTE_REQUIRED`),
 
 Registers and devices (`enrolDevice`, `revokeDevice`), shifts (`openShift`, `closeShift` blind, `approveShiftClose` by a different person, `forceCloseShift`), cash movements, X and Z reports, held sales, **`getOfflinePack`**, **`completeCounterSale`** (one serializable transaction: stock, receipt with its gap-free number, tenders and ledger; prices are re-resolved on the server; 422 `PRICE_OVERRIDE_NEEDS_APPROVAL`) and **`syncOfflineSales`** (up to 500 sales per batch; per-sale outcomes `APPLIED`, `APPLIED_WITH_EXCEPTION`, `DUPLICATE`, `REJECTED_INTEGRITY`; `counterGaps`). The close is blind: the cashier declares the count before expected figures are shown. A client must read `docs/OFFLINE_SYNC.md` before building any of these screens. These endpoints take the device credential.
 
+
+**As built in B9b (2.5.0; A-273, A-212 (a)).** Twelve operations are in code: `listRegisters`, `createRegister`, `updateRegister`, `listShifts`, `openShift`, `getShift`, `listShiftCashMovements`, `recordCashMovement`, `getShiftXReport`, `getShiftZReport`, `closeShift` and `approveShiftClose`.
+- **A shift** opens on an ACTIVE till for the signed-in cashier, one not CLOSED per till and per cashier (`SHIFT_ALREADY_OPEN`), with the float moved from the safe (◆ `pos.ShiftOpened`). Its time is the server's; the till's `openedAt` must be within 300 seconds of it.
+- **Cash moves** only on the cashier's own OPEN shift (`SHIFT_NOT_OPEN`), each kind with its reason from `CASH_MOVEMENT`; a drop has a supervisor as witness who is neither the cashier nor the recorder; nothing goes out beyond what the till should hold (`CASH_MOVEMENT_INVALID`).
+- **The close is blind:** expected cash and over or short are null for every reader until the cashier declares the count (`closeShift`, CLOSING); a supervisor who is not the cashier signs it off with a step-up (`approveShiftClose`, `SHIFT_CLOSE_SAME_PERSON`), which posts ◆ `pos.ShiftClosed` (Cr 1000 expected, Dr 1010 declared, 6900 the difference) and stores the Z report.
+- **Ownership:** a cashier reads and acts on their own shifts only; a holder of `pos.shift.close.approve` reads every shift at their branches.
+- **Cash into a till names its shift:** a sale's cash tender into a till with no shift is refused (`PAYMENT_INVALID` with `SHIFT_REQUIRED`), and a POS sale names its shift (`SALE_INVALID` with `SHIFT_REQUIRED`). The rest stays planned until B09b's continued parts.
 ### Online store (`shp`, 30)
 
 Public catalogue (`listCatalogue`, `getCatalogueProduct`, categories), carts (a guest cart is identified by the `__Host-hk_guest` cookie), delivery quotes and slots, **checkout**: `startCheckout` re-resolves every price and reserves every line (all or none) for 15 minutes, and returns the estimated total, the maximum total and the final-charge rule for catch-weight items, which the screen must show. `placeOrder` creates the order and starts payment; the order is confirmed only by the verified provider callback (cash on delivery confirms at once). `trackOrder` uses a signed token in the URL. The customer account area (`/me/...`): profile, addresses, orders (`CustomerOrder` carries no cost, floor, ceiling or variance), consent to a substitution or a higher total, reorder, documents, store credit. A product in `REQUEST_TO_BUY` mode is refused by `addCartLine` with `REQUEST_TO_BUY_ONLY`: open a quote request. Cart, checkout and quote requests are rate-limited.
