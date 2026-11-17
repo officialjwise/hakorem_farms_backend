@@ -78,7 +78,11 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B09e continued | `B09e2-eggs-lines-lots.md` | `b09e2-eggs-lines-lots` | B4 to B12 | Goods receipts and transfers take a line in crates or eggs, converted by the server through MasterDataRefs.toBaseIn; every bought lot has a received date and sells oldest first by expiry, then by received date, wherever the server picks a lot; reorder points counted in the selling unit and stored in eggs; every write refuses the wrong role |
 | B09e continued 2 | `B09e3-eggs-claims.md` | `b09e3-eggs-claims` | B4 to B12 | Built and split (A-269 to A-271): a rejected quantity carries its reason (CRACKED, BROKEN, DIRTY, SHORT, WRONG_ITEM_DELIVERED, QUALITY_REJECTED), refused without one and on nothing rejected (CR-035); breakage reasons for stock adjustments; a purchase order line defaults to the last price paid; every write refuses the wrong role |
 | B09e continued 3 | `B09e4-eggs-claim.md` | `b09e4-eggs-claim` | B4 to B12 | A claim raised from a posted receipt drafts the supplier credit note from the rejected lines and their cost, never keyed by hand, linked both ways, moving no stock, on the supplier's account until settled, maker and checker apart (CR-036); every write refuses the wrong role |
-| B9b | `B09b-pos-shifts-offline.md` | `b09b-pos-shifts-offline` | B4 to B12 | Shift close reconciles; 500 queued offline transactions sync exactly once |
+| B9b | `B09b-pos-shifts-offline.md` | `b09b-pos-shifts-offline` | B4 to B12 | Split (A-273 (a)): registers, shifts, cash movements, X and Z, blind close; a shift close reconciles to the pesewa |
+| B09b continued | `B09b2-pos-devices-counter.md` | `b09b2-pos-devices-counter` | B4 to B12 | A device enrolled and revoked; a counter sale on the cashier's own open shift with change from cash only; a force close; held sales re-priced on recall; a cash refund only out of an open shift |
+| B09b continued 2 | `B09b3-pos-offline-sync.md` | `b09b3-pos-offline-sync` | B4 to B12 | 500 queued offline transactions sync exactly once; ADR-0027's five conflict tests; a crate and a single egg sold at the till at their own prices (CR-038) |
+| B09b continued 3 | `B09b4-pos-till-pin.md` | `b09b4-pos-till-pin` | B4 to B12 | The till PIN's verifier, attempt limit and supervisor sign-out as the owner set them (CR-032) |
+| B09b continued 4 | `B09b5-pos-receipts.md` | `b09b5-pos-receipts` | B4 to B12 | The receipt link by its token alone (CR-033 points 1 and 2); the business buyer's TIN on the VAT invoice; an invoice paid at the till inside the shift |
 | B09c | `B09c-card-payment.md` | `b09c-card-payment` | B4 to B12 | Card payment online through the provider port with every payment edge case, no card details on our servers, and the card cases run against the real sandbox |
 | B08 continued 2d | `B08c2d-customer-statements.md` | `b08c2d-customer-statements` | B4 to B12 | A customer statement for a period ties to the customer's documents and the ledger's 1200 for that customer and period, opening plus movements equal to closing to the pesewa, and is rendered after commit and archived once; every statement write refuses the wrong role |
 | B10 | `B10-quotations-wholesale.md` | `b10-quotations-wholesale` | B4 to B12 | Quote revisions are versioned; conversion to invoice preserves every link; a credit limit blocks with an audited override |
@@ -2364,14 +2368,165 @@ recorded as an assumption.
 Stop at the gate and write docs/sessions/B09b-pos-shifts-offline.md.
 ```
 
+## B09b continued — Devices, the counter sale, the force close and held sales
+
+Branch `b09b2-pos-devices-counter`. Report `docs/sessions/B09b2-pos-devices-counter.md`. Gate: a device is enrolled and revoked; a counter sale is taken on the cashier's own open shift, change from cash only; a force close; held sales re-priced on recall; a cash refund only out of an open shift.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9b row).
+List docs/sessions/ and read only the most recent report (docs/sessions/B09b-pos-shifts-offline.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the POS requirement block of docs/SRS.md (nothing else from the SRS),
+docs/data-model/pos.md, the POS card in docs/MODULE_BOUNDARIES.md, docs/OFFLINE_SYNC.md, and
+ADR-0016 (the device credential), ADR-0027, A-273 in docs/ASSUMPTIONS.md, and the abuse cases 1, 3, 4 and 17 in docs/security/THREAT_MODEL.md.
+Read the hakorem-offline skill. Use docs/prompts/module-build-prompt.md as the recipe.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B09b continued only, on branch b09b2-pos-devices-counter, branched from main: device enrolment
+(enrolDevice, listRegisterDevices, revokeDevice: a credential shown once and stored hashed, revocable, Register.deviceCount
+true); completeCounterSale (POST /pos/sales, x-owner-module ord) through ORD's SalePosting.postIn on the seller's own
+OPEN shift locked for the sale, with the device credential the contract names, change from cash only (the domain's
+changeDue), the per-shift price override limit (FR-POS-004), a mobile money or card tender only as a payment already
+initiated and cleared by the provider (FR-POS-006), and the refusal of any cash outside an open shift, test-first;
+forceCloseShift (a manager, a reason, the shift closed at its expected cash, audited, seeding pos.shift.force_close,
+the variance posted when the drawer is counted later); held sales (holdSale, listHeldSales, recallHeldSale, re-priced on
+recall, lapsing at close); a cash refund paid only out of an open shift of the till that took the payment (A-273 (i));
+the audit chain anchored at each sign-off through the worker. Every write gets its wrong-role refusal test; every new
+read joins the identifier walk. Maker and checker never the same user, mutation-checked.
+Stop at the gate and write docs/sessions/B09b2-pos-devices-counter.md.
+```
+
+## B09b continued 2 — The offline pack and offline sync
+
+Branch `b09b3-pos-offline-sync`. Report `docs/sessions/B09b3-pos-offline-sync.md`. Gate: 500 queued offline transactions sync exactly once, and ADR-0027's five conflict tests pass.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9b row).
+List docs/sessions/ and read only the most recent report (docs/sessions/B09b2-pos-devices-counter.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the POS requirement block of docs/SRS.md (nothing else from the SRS),
+docs/data-model/pos.md, the POS card in docs/MODULE_BOUNDARIES.md, docs/OFFLINE_SYNC.md, and
+ADR-0013, ADR-0015, ADR-0027, A-273 in docs/ASSUMPTIONS.md, and the abuse cases 4, 10 and 11 in docs/security/THREAT_MODEL.md.
+Read the hakorem-offline skill. Use docs/prompts/module-build-prompt.md as the recipe.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B09b continued 2 only, on branch b09b3-pos-offline-sync, branched from main: the settings of
+OFFLINE_SYNC 5.2 seeded; the offline pack (getOfflinePack) with CR-031 (OfflineProduct.taxInclusive from each product's
+price list) and CR-032 point 6 (the pack's CASH_MOVEMENT reason codes); offline sync (syncOfflineSales): exactly-once by
+client UUIDv7, the gap-free device counter, provisional references, occurred-at and recorded-at, cash-only tenders
+offline, the stock exception instead of a refusal, price override bounds re-checked at sync, shift open and cash
+movements from the queue, SyncResultItem.grossPesewas (null when nothing was recorded) and its currency (CR-031). Write
+the five conflict tests ADR-0027 names (animal sold elsewhere, animal on hold, countable stock gone negative, sale in a
+locked period, missing device counter) and the 500-transaction test with the network disabled, each figure derived
+independently by SQL over the journal lines and stock movements. Run scenario 6 of docs/UAT.md as a dry run and record
+any difference.
+The owner's addition (1) to A-200 (2026-11-16), test-first: an offline sale synced later is issued at its occurred_at,
+the time it happened at the till, not the sync time. Extend Billing.issueIn additively to take that time for a synced
+sale only, mark the document as synced from offline (a field the receipt and the document read show), and bound how old
+an offline sale may be (a setting, conservative default, recorded in ASSUMPTIONS.md): a sale outside the bound is still
+recorded, never refused (a synced sale is always recorded), and reaches the exception report; a sale whose period has
+since locked posts on the first open date, flagged, keeping its occurred_at (ADR-0027 point 6).
+Nothing in sync refuses a sale: a stock conflict, an old sale, a locked period each records the sale and raises an
+exception. Test each.
+CR-038 (owner, 2026-11-17, placed here by the B9b split, A-273 (a)): the till sells a product in more than one unit, each
+at its own price, a crate or a single egg. `OfflineProduct.sellingUnits`: one entry per unit sold at the register,
+`saleUom` first, each priced by its own price list entry, never derived from another unit's price. `CounterSaleLine.uom`
+(on the counter sale B09b continued built and on the offline sale): absent means `saleUom`; convert to the base unit for
+stock through `MasterDataRefs.toBaseIn`, and re-price by that unit's entry at sync. A unit the product is not sold by is
+`VALIDATION_FAILED` on `/lines/{i}/uom`. A return refunds in the unit sold (say so in `createReturn`'s description).
+Test-first with exact pesewas, at a crate and a single egg of the seeded eggs, online and offline. Unit names and CR-040
+are B09c's.
+Stop at the gate and write docs/sessions/B09b3-pos-offline-sync.md.
+```
+
+## B09b continued 3 — The till PIN
+
+Branch `b09b4-pos-till-pin`. Report `docs/sessions/B09b4-pos-till-pin.md`. Gate: the till PIN's verifier, attempt limit and supervisor sign-out as the owner set them (CR-032), each test-first.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9b row).
+List docs/sessions/ and read only the most recent report (docs/sessions/B09b3-pos-offline-sync.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the POS requirement block of docs/SRS.md (nothing else from the SRS),
+docs/data-model/pos.md, the POS card in docs/MODULE_BOUNDARIES.md, docs/OFFLINE_SYNC.md, and
+ADR-0016, ADR-0027, and the abuse cases 4, 10 and 17 in docs/security/THREAT_MODEL.md.
+Read the hakorem-offline skill. Use docs/prompts/module-build-prompt.md as the recipe.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B09b continued 3 only, on branch b09b4-pos-till-pin, branched from main: decide CR-032 point 2, the
+offline PIN verifier (an operation that sets a till PIN and the salted verifier the device stores, or a statement in
+OFFLINE_SYNC.md that the device derives it from the PIN typed at an online sign-in), record it as an ADR and answer it in
+the report. The owner's rules for the till PIN (CR-032, 2026-11-17), which the frontend already enforces on the device
+and the server must match, each test-first: a PIN verifier is PBKDF2-SHA256 with at least 600,000 iterations and a
+random salt of at least 16 bytes per person, never weaker (refuse a weaker verifier, and test the parameters); at most
+five wrong tries, enforced on the server too (counted at sync for offline attempts and at any online check, then
+locked); signing out a locked cashier requires a supervisor's PIN, is audited, and reaches the daily exception report's
+source (B12). The PIN never authenticates to the server and is never the only control (CR-032 point 5). An approval made
+offline records which PIN approved it (CR-032 point 4) and is verified at sync. Load hakorem-security-review and write
+its finding into the pull request body.
+Stop at the gate and write docs/sessions/B09b4-pos-till-pin.md.
+```
+
+## B09b continued 4 — The receipt link, the business buyer's TIN and an invoice paid at the till
+
+Branch `b09b5-pos-receipts`. Report `docs/sessions/B09b5-pos-receipts.md`. Gate: the public receipt read by its token alone; a reused token recorded and refused once per sale; the buyer's TIN on the VAT invoice; an invoice paid at the till inside the shift.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9b row).
+List docs/sessions/ and read only the most recent report (docs/sessions/B09b4-pos-till-pin.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the POS requirement block of docs/SRS.md (nothing else from the SRS),
+docs/data-model/pos.md, the POS card in docs/MODULE_BOUNDARIES.md, docs/OFFLINE_SYNC.md, and
+ADR-0074 (the receipt link's token) and its Amendments, and the abuse cases 4, 10, 11 and 17 in docs/security/THREAT_MODEL.md.
+Read the hakorem-offline skill. Use docs/prompts/module-build-prompt.md as the recipe.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B09b continued 4 only, on branch b09b5-pos-receipts, branched from main.
+The owner's addition (2) to A-200 (2026-11-16), test-first: a business buyer at the counter may have their name and TIN
+printed on the VAT invoice without opening a customer account, so they can reclaim the input tax: optional buyer name
+and TIN on the counter sale and the billing document, validated in format, printed on the invoice, and never creating a
+customer; the walk-in party stays.
+The owner, 2026-11-16 (A-212 (a)): cash enters only through a till shift. Build a customer paying an invoice at the till
+inside the shift, counted at close, and refuse any cash payment outside an open shift, test-first.
+CR-033 points 1 and 2 (owner's rule, 2026-11-16: every sale produces a digital receipt, by SMS or a link, and a printer
+is optional): a public receipt read with no session, by an unguessable token, answering the official number, the sale
+reference, the lines, the tenders, the change and the business's details (read through AUD's `BusinessProfiles`, B09x continued), and "being recorded" until the sale has
+synced. No QR code (owner, 2026-11-17: the TOTP enrolment QR is the only QR in the system): the link reaches the
+customer by SMS. The token is its own long random value (owner, 2026-11-17: no ID is ever a key), generated by the till
+from a cryptographically secure source when the sale is made, so the link exists offline, and sent with the sale at
+sync; never the sale's client id. Record the choice as an ADR with hakorem-security-review. Rate-limit the read, expose
+no other customer's data, and test that a guessed token, another sale's token or the sale's own id answers 404. The SMS on sync (point 3) is B11's.
+The receipt token (owner, 2026-11-17, ADR-0074 Amendments): at least 128 random bits from a secure generator (the `rcp_`
+token's 32 bytes meet it), base64url, made by the till offline and sent with the sale at sync; the server stores only
+its hash, unique, valid for 12 months, and revocable. The public receipt read takes the token and nothing else. Test
+that a sale UUID, a document number or a SKU opens no receipt, and that a token reused for a second sale is refused at
+sync (the second sale is still recorded; only its link is refused, and the refusal reaches the exception source).
+A reused token (owner, 2026-11-17): a 128-bit token cannot repeat by chance, so every reuse goes to the exception
+report's source as a possible till fault or tampering, naming the device, the shift, the cashier and both sales,
+whatever the reason; and the second sale is marked as needing a fresh server-made link, which B11's receipt SMS sends
+(ADR-0074: a link sent by message gets its own token from the worker, never stored in clear). Test that the reuse
+reaches the exception source exactly once per refused sale, and that a replayed sync adds no second entry. If the
+sale carried no customer phone, say how the customer still gets a working receipt, the most conservative choice
+recorded as an assumption. The thermal receipt (FR-POS-021) is the counter sale's escPosBase64.
+Stop at the gate and write docs/sessions/B09b5-pos-receipts.md.
+```
+
 ## B09c — Card payment
 
 Branch `b09c-card-payment`, from `main`. Report `docs/sessions/B09c-card-payment.md`. Inserted by the owner on 2026-11-17 right after B9b and before B10 (ADR-0026 Amendments). Gate: an online order can be paid by card through the Paystack provider port with every edge case B09a continued proved for mobile money (timeout after charge, webhook before response, duplicate webhook, unknown reference, amount mismatch on re-verification, late webhook, refund, and the refund idempotency the sandbox exposed, A-218), a card payment's card details never touch our servers or logs, and the on-demand sandbox suite (`pnpm test:sandbox`) runs the card cases against the real Paystack sandbox with the owner's test key, reporting any difference from the documentation.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
-List docs/sessions/ and read only the most recent report (docs/sessions/B09b-pos-shifts-offline.md, or the last report
-of B9b's own splits).
+List docs/sessions/ and read only the most recent report (docs/sessions/B09b5-pos-receipts.md, the last of B9b's
+splits, A-273 (a)).
 Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md).
 For this phase, read the PAY requirement block of docs/SRS.md, docs/data-model/pay.md, ADR-0063, A-210 and A-218, and
 the reports of B09a continued and B09a continued 2 (the sandbox run). Load hakorem-money, hakorem-ledger,
