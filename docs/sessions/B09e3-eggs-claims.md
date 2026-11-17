@@ -1,6 +1,6 @@
 # B09e continued 2: reasons for goods rejected at the door, breakage in store, the last price paid
 
-Date: 2026-11-17 · Branch `b09e3-eggs-claims`, from `main` (`bf4e41d`) · Pull request #90 (**not merged**: the dependency audit turned red on an upstream advisory with no fix; see CI) · Status: **phase split** (A-271). The rejection reasons, the breakage reasons and the last price paid reached their part of the gate. The claim moves to **B09e continued 3**, which runs next.
+Date: 2026-11-17 · Branch `b09e3-eggs-claims`, from `main` (`bf4e41d`) · Pull request #90 (the dependency audit turned red on an upstream advisory with no fix; the owner approved a 30-day waiver, pull request #91, and the pull request merged once every run was green; see CI) · Status: **phase split** (A-271). The rejection reasons, the breakage reasons and the last price paid reached their part of the gate. The claim moves to **B09e continued 3**, which runs next.
 
 Run as a fresh agent inside the 2026-11-15 overnight session: the parent session cannot issue /clear or /compact, so each phase starts in a new context that reads only this handoff from disk.
 
@@ -204,6 +204,13 @@ I fetched the frontend's `main` at `5a44d38` at the start and again before writi
   - drop or replace the two eslint dependencies.
 
   Nothing was re-run, skipped or quarantined. The runs on this report's final commit are named in the session's closing message.
+
+- **The owner's decision, and what the parent session did (2026-11-17):**
+  - **The owner's decision:** a waiver for GHSA-fc5q-39xc-vjpf alone, on the two lint tools' paths only, approved 2026-11-17, expiring 2026-12-17 (`docs/security/dependency-waivers.json`).
+  - **Pull request #91:** CI's audit step now runs `scripts/check/audit-waivers.ts`, which blocks any high or critical advisory outside a live waiver, the same advisory reached by any other path, and an expired, malformed or unused waiver. CI's gate self-test proves an expired copy fails.
+  - **Merged into `main`** as `f37011a`, once runs 44146025711 (push) and 44146078217 (pull_request) on its head `e605e3c` succeeded. `main`'s run 44147238689 (push) on `f37011a` succeeded.
+- **`e25a1b9`** (the parent session merged `main` into this branch to clear a conflict in ADR-0026's Amendments with the receipt token rules, pull request #89): run **44138862069 (push)** and run **44138874031 (pull_request)** **failed**, in the same security job's audit step only. Every other job succeeded. No `pull_request` run existed for `118748d` or `51a1dd3`, because the pull request did not merge cleanly with `main` until `e25a1b9`.
+- **`6f33e77`** (`main` merged in again, bringing the waiver; the last commit with code): run **44147294565 (push)** and run **44147307805 (pull_request)** **succeeded**, every job. Nothing was re-run.
 
 ## Next session
 
