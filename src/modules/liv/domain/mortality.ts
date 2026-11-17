@@ -40,6 +40,15 @@ export function judgeWriteOff(value: Money, threshold: Money, hasPhoto: boolean)
 }
 
 /**
+ * A reporter who cannot see a record's value (the Farm hand, who holds `liv.mortality.report` but not
+ * `liv.mortality.read`) cannot know when the threshold applies, so their report always carries its photograph, whatever
+ * its value (owner, 2026-11-16). Every other reporter keeps the threshold rule of `judgeWriteOff`.
+ */
+export function photoRequiredAtReport(facts: { readonly hasPhoto: boolean; readonly reporterSeesValue: boolean }): boolean {
+  return !facts.reporterSeesValue && !facts.hasPhoto;
+}
+
+/**
  * Who must confirm a submission (owner, 2026-11-15; B06r, threat model abuse case 2). At or above the threshold the
  * mortality approver, with a photograph, whoever reports. Below it, a reporter who may post a write-off posts it; one
  * who may not (the Farm hand) never writes stock off alone: a supervisor who may post a write-off confirms it.
@@ -47,8 +56,9 @@ export function judgeWriteOff(value: Money, threshold: Money, hasPhoto: boolean)
 export function judgeSubmission(
   value: Money,
   threshold: Money,
-  facts: { readonly hasPhoto: boolean; readonly reporterMayPost: boolean },
+  facts: { readonly hasPhoto: boolean; readonly reporterMayPost: boolean; readonly reporterSeesValue: boolean },
 ): Result<'POST' | 'CONFIRMATION' | 'APPROVAL', 'PHOTO_REQUIRED'> {
+  if (photoRequiredAtReport(facts)) return err('PHOTO_REQUIRED');
   const verdict = judgeWriteOff(value, threshold, facts.hasPhoto);
   if (verdict.ok && verdict.value === 'POST' && !facts.reporterMayPost) return ok('CONFIRMATION');
   return verdict;

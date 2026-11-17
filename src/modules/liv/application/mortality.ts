@@ -13,7 +13,7 @@ import type { ApprovalHandler, ApprovalRecord, Approvals, AuthoriseScope, Author
 import { issue, type Stock, type StockUnitFacts, type StockUnits } from '../../inv';
 import type { MasterDataRefs } from '../../mdm';
 import { headOf } from '../domain/cost-spread';
-import { checkMortalityReport, evidenceVerdict, judgeSubmission, type MortalityKind } from '../domain/mortality';
+import { checkMortalityReport, evidenceVerdict, judgeSubmission, photoRequiredAtReport, type MortalityKind } from '../domain/mortality';
 import type { MortalityApproved, MortalityPhotoReused, MortalityReported, MortalityReturned } from '../events';
 import { EvidenceNotScannedError, LivestockRecordInvalidError, LivReferenceNotFoundError, MortalityPhotoRequiredError } from './errors';
 import type { LivestockStore, MortalityFilters, MortalityRecord, MortalityReturnReason, MortalityStatus } from './livestock-store';
@@ -24,6 +24,8 @@ export const MORTALITY_WRITE_OFF = 'MORTALITY_WRITE_OFF';
 export const MORTALITY_CONFIRMATION = 'MORTALITY_CONFIRMATION';
 /** Who may post a write-off below the threshold without a second person. */
 const POST_PERMISSION = 'liv.mortality.post';
+/** Who may read a record's value (ADR-0052); a reporter without it always attaches the photograph. */
+const READ_PERMISSION = 'liv.mortality.read';
 /** Waiting records the evidence returns job looks at in one run; the next run, a minute later, takes the rest. */
 const RETURNS_BATCH = 200;
 /** Threat model abuse case 2: a healthy animal recorded as dead and sold privately. */
@@ -171,6 +173,10 @@ export class MortalityRecords implements ApprovalHandler {
     });
     if (unit!.tracking === 'SERIAL' && (await this.store.openMortalityOf(tx, unit!.id, null)) !== null) broken.push({ field: '/stockUnitId', rule: 'ALREADY_AWAITING_APPROVAL' });
     if (broken.length > 0) throw new LivestockRecordInvalidError(broken);
+    // A reporter who cannot see the value (the Farm hand) always gives the photograph (owner, 2026-11-16).
+    if (photoRequiredAtReport({ hasPhoto: body.photoFileId !== undefined, reporterSeesValue: await this.seesValue(tx, actor, unit!.branchId, place) })) {
+      throw new MortalityPhotoRequiredError();
+    }
     const photo = body.photoFileId === undefined ? null : await this.usablePhoto(tx, body.photoFileId);
     const id = body.id ?? this.nextId();
     await this.documents.register(tx, { id, docType: 'MORTALITY_RECORD', ownerModule: 'liv', branchId: unit!.branchId, actorId: actor.principalId });
@@ -230,8 +236,9 @@ export class MortalityRecords implements ApprovalHandler {
     const judgement = await this.approvals.judgeIn(tx, MORTALITY_WRITE_OFF, before.branchId, value.pesewas);
     const threshold = Money.ofPesewas(judgement.thresholdPesewas);
     const reporterMayPost = await this.mayPost(tx, actor, before);
-    const verdict = judgeSubmission(value, threshold, { hasPhoto: photo !== null, reporterMayPost });
-    if (!verdict.ok) throw new MortalityPhotoRequiredError(value.pesewas, threshold.pesewas);
+    const reporterSeesValue = await this.seesValue(tx, actor, before.branchId, before.locationId);
+    const verdict = judgeSubmission(value, threshold, { hasPhoto: photo !== null, reporterMayPost, reporterSeesValue });
+    if (!verdict.ok) throw new MortalityPhotoRequiredError(reporterSeesValue ? { valuePesewas: value.pesewas, thresholdPesewas: threshold.pesewas } : undefined);
     if (verdict.value === 'POST') {
       if (photo !== null && !evidenceVerdict(photo.scanStatus).post) throw new EvidenceNotScannedError(photo.id);
       const movementId = await this.postIn(tx, actor.principalId, before);
@@ -366,6 +373,12 @@ export class MortalityRecords implements ApprovalHandler {
   }
 
   /** Whether the reporter may post a write-off below the threshold without a second person, where the record stands. */
+  /** Whether the reporter may read a record's value where it is (`liv.mortality.read`): the Farm hand may not. */
+  private async seesValue(tx: Transaction, actor: Actor, branchId: string, locationId: string | null): Promise<boolean> {
+    const scopes = await this.authoriser.scopes(tx, actor, READ_PERMISSION);
+    return scopes.some((s) => s.branchId === branchId && (s.locationId === null || s.locationId === locationId));
+  }
+
   private async mayPost(tx: Transaction, actor: Actor, record: MortalityRecord): Promise<boolean> {
     const scopes = await this.authoriser.scopes(tx, actor, POST_PERMISSION);
     return scopes.some((s) => s.branchId === record.branchId && (s.locationId === null || s.locationId === record.locationId));

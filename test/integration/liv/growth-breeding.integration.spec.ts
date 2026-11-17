@@ -10,6 +10,7 @@ import { runSeedUnits } from '../../../src/seed/run-seed';
 import { seedUnits } from '../../../src/seed/seed-units';
 import { consoleGet, consolePost, createUser, enrolAndLogin, login, relaxRateLimits, SYSTEM_PRINCIPAL, testStartTime, type RoleCode, type TestSession } from '../../support/iam';
 import { startTestApp, TEST_ORIGIN, type TestApp } from '../../support/test-app';
+import { cleanEvidence } from '../../support/evidence';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
 
 /**
@@ -345,7 +346,8 @@ describe('batches (FR-LIV-006)', () => {
     const batch = (await get(manager, `/batches/${id('batch:BRG-01')}`)).body;
     expect(batch).toMatchObject({ batchNo: 'BRG-01', species: { code: 'BROILER' }, stockUnit: { identifier: 'BRG-01', tracking: 'LOT' }, initialHead: 20, currentHead: 20, purpose: 'GROWING', status: 'ACTIVE', location: { code: 'PEN-BR' }, mortalityPercent: '0.00' });
     // Two birds die: 2 of 20 head at a pool of 95,000 writes off 9,500, below the threshold, so it posts on submit.
-    const reported = await post(farmHand, '/care/mortality-records', { kind: 'DEATH', stockUnitId: id('unit:BRG-01'), head: 2, reasonCode: 'UNKNOWN_CAUSE', foundAt: daysAgo(1).toISOString() });
+    const photoFileId = await cleanEvidence(api.server, farmHand, database, 301);
+    const reported = await post(farmHand, '/care/mortality-records', { kind: 'DEATH', stockUnitId: id('unit:BRG-01'), head: 2, reasonCode: 'UNKNOWN_CAUSE', foundAt: daysAgo(1).toISOString(), photoFileId });
     expect(reported.status, JSON.stringify(reported.body)).toBe(201);
     await submitAndConfirm(reported.body.id as string);
     const after = (await get(manager, `/batches/${id('batch:BRG-01')}`)).body;
@@ -508,7 +510,8 @@ describe('breeding and births (FR-LIV-010, FR-LIV-011)', () => {
     expect(failed.body.status).toBe('FAILED');
     const again = await post(farmHand, '/breeding-records', { damId: id('unit:GR-E'), sireId: id('unit:GR-S'), matedOn: dayOf(20) });
     expect(again.status).toBe(201);
-    const died = await post(farmHand, '/care/mortality-records', { kind: 'DEATH', stockUnitId: id('unit:GR-E'), reasonCode: 'UNKNOWN_CAUSE', foundAt: daysAgo(0.01).toISOString() });
+    const photoFileId = await cleanEvidence(api.server, farmHand, database, 302);
+    const died = await post(farmHand, '/care/mortality-records', { kind: 'DEATH', stockUnitId: id('unit:GR-E'), reasonCode: 'UNKNOWN_CAUSE', foundAt: daysAgo(0.01).toISOString(), photoFileId });
     await submitAndConfirm(died.body.id as string);
     clock.advanceBy(2 * DAY);
     // Two days on, the session has lapsed; the Farm hand signs in again.

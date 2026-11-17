@@ -1,6 +1,6 @@
 import { Money } from '@hakorem/kernel';
 import { describe, expect, it } from 'vitest';
-import { checkMortalityReport, evidenceVerdict, judgeSubmission, judgeWriteOff, statusAfterLoss } from './mortality';
+import { checkMortalityReport, evidenceVerdict, judgeSubmission, judgeWriteOff, photoRequiredAtReport, statusAfterLoss } from './mortality';
 
 const now = new Date('2026-11-10T10:00:00Z');
 const goat = { kind: 'DEATH' as const, reasonDomain: 'MORTALITY', tracking: 'SERIAL' as const, head: 1, headOnHand: 1n, alive: true, foundAt: new Date('2026-11-10T06:30:00Z'), now };
@@ -63,19 +63,19 @@ describe('who confirms a submission: the reporter alone, a supervisor, or the mo
   const threshold = Money.ofPesewas(50_000n);
 
   it('posts below the threshold when the reporter may post a write-off', () => {
-    expect(judgeSubmission(Money.ofPesewas(49_999n), threshold, { hasPhoto: false, reporterMayPost: true })).toEqual({ ok: true, value: 'POST' });
+    expect(judgeSubmission(Money.ofPesewas(49_999n), threshold, { hasPhoto: false, reporterMayPost: true, reporterSeesValue: true })).toEqual({ ok: true, value: 'POST' });
   });
 
   it('waits for a supervisor below the threshold when the reporter may not, with or without a photograph', () => {
-    expect(judgeSubmission(Money.ofPesewas(18_000n), threshold, { hasPhoto: false, reporterMayPost: false })).toEqual({ ok: true, value: 'CONFIRMATION' });
-    expect(judgeSubmission(Money.ofPesewas(49_999n), threshold, { hasPhoto: true, reporterMayPost: false })).toEqual({ ok: true, value: 'CONFIRMATION' });
-    expect(judgeSubmission(Money.zero(), threshold, { hasPhoto: false, reporterMayPost: false })).toEqual({ ok: true, value: 'CONFIRMATION' });
+    expect(judgeSubmission(Money.ofPesewas(18_000n), threshold, { hasPhoto: false, reporterMayPost: false, reporterSeesValue: true })).toEqual({ ok: true, value: 'CONFIRMATION' });
+    expect(judgeSubmission(Money.ofPesewas(49_999n), threshold, { hasPhoto: true, reporterMayPost: false, reporterSeesValue: true })).toEqual({ ok: true, value: 'CONFIRMATION' });
+    expect(judgeSubmission(Money.zero(), threshold, { hasPhoto: false, reporterMayPost: false, reporterSeesValue: true })).toEqual({ ok: true, value: 'CONFIRMATION' });
   });
 
   it('sends exactly the threshold and above to the approver, whoever reports, only with a photograph', () => {
     for (const reporterMayPost of [true, false]) {
-      expect(judgeSubmission(Money.ofPesewas(50_000n), threshold, { hasPhoto: true, reporterMayPost })).toEqual({ ok: true, value: 'APPROVAL' });
-      expect(judgeSubmission(Money.ofPesewas(50_000n), threshold, { hasPhoto: false, reporterMayPost })).toEqual({ ok: false, error: 'PHOTO_REQUIRED' });
+      expect(judgeSubmission(Money.ofPesewas(50_000n), threshold, { hasPhoto: true, reporterMayPost, reporterSeesValue: true })).toEqual({ ok: true, value: 'APPROVAL' });
+      expect(judgeSubmission(Money.ofPesewas(50_000n), threshold, { hasPhoto: false, reporterMayPost, reporterSeesValue: true })).toEqual({ ok: false, error: 'PHOTO_REQUIRED' });
     }
   });
 });
@@ -89,5 +89,28 @@ describe("what the photograph's scan allows (B06r)", () => {
   it('sends a report back to its maker when the scan finds the file infected or cannot read it', () => {
     expect(evidenceVerdict('INFECTED')).toEqual({ submit: false, post: false, returnReason: 'EVIDENCE_INFECTED' });
     expect(evidenceVerdict('FAILED')).toEqual({ submit: false, post: false, returnReason: 'EVIDENCE_UNSCANNABLE' });
+  });
+});
+
+describe('a reporter who cannot see the value always gives a photograph (owner, 2026-11-16: the Farm hand)', () => {
+  const threshold = Money.ofPesewas(50_000n);
+
+  it('refuses a submission without a photograph whatever the value, below the threshold and at nothing', () => {
+    for (const value of [0n, 18_000n, 49_999n, 50_000n, 62_500n]) {
+      expect(judgeSubmission(Money.ofPesewas(value), threshold, { hasPhoto: false, reporterMayPost: false, reporterSeesValue: false })).toEqual({ ok: false, error: 'PHOTO_REQUIRED' });
+    }
+  });
+
+  it('with its photograph waits for a supervisor below the threshold and for the approver at or above it', () => {
+    expect(judgeSubmission(Money.ofPesewas(18_000n), threshold, { hasPhoto: true, reporterMayPost: false, reporterSeesValue: false })).toEqual({ ok: true, value: 'CONFIRMATION' });
+    expect(judgeSubmission(Money.ofPesewas(49_999n), threshold, { hasPhoto: true, reporterMayPost: false, reporterSeesValue: false })).toEqual({ ok: true, value: 'CONFIRMATION' });
+    expect(judgeSubmission(Money.ofPesewas(50_000n), threshold, { hasPhoto: true, reporterMayPost: false, reporterSeesValue: false })).toEqual({ ok: true, value: 'APPROVAL' });
+  });
+
+  it('asks for the photograph at the report itself only from a reporter who cannot see the value', () => {
+    expect(photoRequiredAtReport({ hasPhoto: false, reporterSeesValue: false })).toBe(true);
+    expect(photoRequiredAtReport({ hasPhoto: true, reporterSeesValue: false })).toBe(false);
+    expect(photoRequiredAtReport({ hasPhoto: false, reporterSeesValue: true })).toBe(false);
+    expect(photoRequiredAtReport({ hasPhoto: true, reporterSeesValue: true })).toBe(false);
   });
 });
