@@ -22,6 +22,10 @@ regexes = [
   # contract examples: an API key labelled as fake, and an order tracking token
   '''hk_live_R8xT\.EXAMPLE-NOT-A-REAL-KEY''',
   '''trk_9Xq2LmA7cV4nR8sT''',
+  # contract 2.0.1's tracking token example, labelled as one, and the random value it replaced in commit aa44e72 on
+  # branch b09q2-no-id-is-a-key: drawn once for the example, never issued by any system, stored nowhere.
+  '''trk_EXAMPLE-tracking-link-not-a-real-token-0001''',
+  '''trk_xcTaj4hmDxpoqKMXOvBjOozoVQ_zXjZpudf7JuHnBj8''',
   # an earlier B1 version of the same two examples (commit 9e2c166), replaced later in B1. hk_live_ and whsec_ are
   # this platform's own key and webhook-secret formats; no running system has ever issued one.
   '''hk_live_R8xT\.9f8c2b7e41d6a3c05b9e7f1a2d4c6e8b''',

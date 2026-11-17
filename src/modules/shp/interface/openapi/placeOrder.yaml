@@ -36,7 +36,7 @@ responses:
         example:
           orderId: "019a7af0-2909-715a-b693-1e7f6d54975d"
           orderNo: SO-2026-DDW-004216
-          trackingToken: trk_xcTaj4hmDxpoqKMXOvBjOozoVQ_zXjZpudf7JuHnBj8
+          trackingToken: trk_EXAMPLE-tracking-link-not-a-real-token-0001
           payment:
             paymentId: "019a7afd-92aa-7afb-a034-b88d3113316b"
             status: PENDING
