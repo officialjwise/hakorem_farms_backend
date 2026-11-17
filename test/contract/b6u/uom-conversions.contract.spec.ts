@@ -38,11 +38,14 @@ afterAll(async () => {
 });
 
 describe('B06u operations answer in the contract shapes', () => {
-  it('lists the seeded farm conversions: two feed bags and a crate of cabbages, counted by hand', async () => {
+  it('lists the seeded farm conversions: three egg crates of 30 (A-261), two feed bags and a crate of cabbages, counted by hand', async () => {
     const listed = await consoleGet(api.server, manager, v1('/uom-conversions'));
     expect(listed.status).toBe(200);
     expectShape('UomConversionPage', listed.body);
     expect(listed.body.data.map((row: { product: { sku: string }; fromUom: string; toUom: string; factor: string }) => `${row.product.sku} ${row.fromUom}=${row.factor} ${row.toUom}`)).toEqual([
+      'EGG-0001 CRATE=30.000 UNIT',
+      'EGG-0002 CRATE=30.000 UNIT',
+      'EGG-0003 CRATE=30.000 UNIT',
       'FEED-0001 BAG=50.000 KG',
       'FEED-0002 BAG=25.000 KG',
       'PRD-0002 CRATE=24.000 UNIT',
