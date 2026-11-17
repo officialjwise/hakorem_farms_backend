@@ -45,7 +45,8 @@ async function harvest(): Promise<string> {
   const created = await post('manager', '/goods-receipts', {
     kind: 'HARVEST',
     locationId: id('location:SHOP'),
-    receivedAt: new Date(clock.now().getTime() - 60_000).toISOString(),
+    // A minute ago, but never before today's midnight (Accra is UTC): the rule in force is today's (B09t2).
+    receivedAt: new Date(Math.max(clock.now().getTime() - 60_000, Date.parse(`${today()}T00:00:00Z`))).toISOString(),
     lines: [{ productId: id('product:PRD-YAM-TUBER'), qtyReceived: '10.000', valuePesewas: 12_000 }],
   });
   expect(created.status, JSON.stringify(created.body)).toBe(201);
