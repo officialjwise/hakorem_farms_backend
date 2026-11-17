@@ -288,7 +288,8 @@ export interface SeedPromotion {
   /** The category its line discount targets (a category covers the ones below it, A-101). */
   readonly category: 'LIVE' | 'MEAT' | 'EGGS' | 'PRODUCE';
   readonly stackGroup: string;
-  readonly validTo: Date;
+  /** Which of the seed calendar's instants it ends at (B09t2: never a fixed date). */
+  readonly endsAt: 'welcomeOfferEnds' | 'christmasOfferEnds';
   readonly coupon: { readonly code: string; readonly maxUses: number; readonly perCustomerLimit: number } | null;
 }
 
@@ -304,7 +305,7 @@ export const SEED_PROMOTIONS: readonly SeedPromotion[] = [
     channel: 'ONLINE',
     category: 'EGGS',
     stackGroup: 'WELCOME',
-    validTo: new Date('2027-03-31T23:59:59Z'),
+    endsAt: 'welcomeOfferEnds',
     coupon: { code: 'WELCOME10', maxUses: 500, perCustomerLimit: 1 },
   },
   {
@@ -314,7 +315,7 @@ export const SEED_PROMOTIONS: readonly SeedPromotion[] = [
     channel: 'POS',
     category: 'MEAT',
     stackGroup: 'SEASONAL',
-    validTo: new Date('2027-01-06T23:59:59Z'),
+    endsAt: 'christmasOfferEnds',
     coupon: { code: 'XMAS2026', maxUses: 200, perCustomerLimit: 2 },
   },
 ];

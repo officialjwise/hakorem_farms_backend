@@ -7,6 +7,7 @@ import { runAsSystem } from '../../../src/platform/context/request-context';
 import { UnitOfWork } from '../../../src/platform/database/unit-of-work';
 import { DocumentRegistry } from '../../../src/platform/documents/document-registry';
 import { runSeedUnits } from '../../../src/seed/run-seed';
+import { addDays, seedCalendar, type SeedCalendar } from '../../../src/seed/seed-calendar';
 import { seedUnits } from '../../../src/seed/seed-units';
 import { consoleGet, consolePost, createUser, enrolAndLogin, login, relaxRateLimits, SYSTEM_PRINCIPAL, testStartTime, type TestSession } from '../../support/iam';
 import { TEST_ORIGIN, startTestApp, type TestApp } from '../../support/test-app';
@@ -23,6 +24,8 @@ import { createTestDatabase, type TestDatabase } from '../../support/test-databa
 let database: TestDatabase;
 let api: TestApp;
 let clock: ManualClock;
+/** The seeded farm's dates, from the clock the seed ran on (B09t2). */
+let seeded: SeedCalendar;
 let manager: TestSession & { readonly secret: Buffer };
 let owner: TestSession & { readonly secret: Buffer };
 let accountant: TestSession;
@@ -88,6 +91,7 @@ beforeAll(async () => {
   await relaxRateLimits(database);
   api = await startTestApp(database, { clock });
   await runSeedUnits(database.pool('app'), api.app, seedUnits({ SEED_STAFF_PASSWORD: `Seed-${randomUUID()}` }));
+  seeded = seedCalendar(clock.now());
   for (const row of (
     await admin().query<{ code: string; id: string }>(
       `SELECT 'branch:' || code AS code, id FROM mdm.branch
@@ -383,24 +387,26 @@ describe('one low-stock alert per crossing (FR-INV-015)', () => {
 
 describe('expiring and expired lots (FR-INV-016, A-134 (j))', () => {
   const EGGS = 'EGG-BIG-2026-1110';
+  /** An instant on the business day `days` after the eggs' expiry (Accra is UTC). */
+  const fromExpiry = (days: number, time: string) => new Date(`${addDays(seeded.eggsExpireOn, days)}T${time}Z`);
 
-  it('raises one EXPIRING alert five days (the eggs\' rule) before their 1 December expiry, by the daily job', async () => {
-    clock.set(new Date('2026-11-25T06:30:00Z'));
+  it('raises one EXPIRING alert five days (the eggs\' rule) before their expiry, by the daily job', async () => {
+    clock.set(fromExpiry(-6, '06:30:00'));
     expect((await sweep()).expiryRaised).toBe(0);
-    clock.set(new Date('2026-11-26T06:30:00Z'));
+    clock.set(fromExpiry(-5, '06:30:00'));
     expect((await sweep()).expiryRaised).toBe(1);
     expect((await sweep()).expiryRaised).toBe(0);
     const session = await login(api.server, await createUser(database, { name: 'Ama Owusu', grants: [{ role: 'STOREKEEPER', branchId: id('branch:DDW'), locationId: id('location:SHOP') }] }));
     const listed = await get(session, '/stock/alerts?kind=EXPIRING');
     expect(listed.body.data).toEqual([
-      expect.objectContaining({ kind: 'EXPIRING', stockUnit: expect.objectContaining({ identifier: EGGS }), location: expect.objectContaining({ code: 'SHOP' }), onHandQty: '30.000', expiresOn: '2026-12-01', daysToExpiry: 5, thresholdQty: null, suggestedQty: null }),
+      expect.objectContaining({ kind: 'EXPIRING', stockUnit: expect.objectContaining({ identifier: EGGS }), location: expect.objectContaining({ code: 'SHOP' }), onHandQty: '30.000', expiresOn: seeded.eggsExpireOn, daysToExpiry: 5, thresholdQty: null, suggestedQty: null }),
     ]);
   });
 
   it('sells the eggs on their expiry date, refuses a sale the day after with STOCK_UNIT_EXPIRED, and marks them expired', async () => {
-    clock.set(new Date('2026-12-01T18:00:00Z'));
+    clock.set(fromExpiry(0, '18:00:00'));
     expect(await move('SALE_ISSUE', 'EGG-CRATE-BIG', 'location:SHOP', 'virtual:CUSTOMER', '1.000', EGGS)).toMatch(/^[0-9a-f-]{36}$/);
-    clock.set(new Date('2026-12-02T06:30:00Z'));
+    clock.set(fromExpiry(1, '06:30:00'));
     expect(await move('SALE_ISSUE', 'EGG-CRATE-BIG', 'location:SHOP', 'virtual:CUSTOMER', '1.000', EGGS)).toBe('STOCK_UNIT_EXPIRED');
     expect(await move('SALE_ISSUE_OFFLINE', 'EGG-CRATE-BIG', 'location:SHOP', 'virtual:CUSTOMER', '1.000', EGGS)).toBe('STOCK_UNIT_EXPIRED');
     expect(await sweep()).toMatchObject({ expiryRaised: 1, expiryCleared: 1 });
@@ -427,19 +433,19 @@ describe('expiring and expired lots (FR-INV-016, A-134 (j))', () => {
     const error = await admin()
       .query(
         `INSERT INTO inv.stock_movement (id, movement_type, product_id, stock_unit_id, branch_id, from_location_id, to_location_id, qty_base, value_pesewas, source_document_id, occurred_at, actor_id)
-         VALUES ($1, 'SALE_ISSUE', $2, $3, $4, $5, $6, 1, 0, $7, '2026-12-02T10:00:00Z', $8)`,
-        [randomUUID(), id('product:MEAT-GOAT-15KG'), id('unit:LOT-GOAT-0001'), id('branch:DDW'), id('location:COLD'), id('virtual:CUSTOMER'), documentId, SYSTEM_PRINCIPAL],
+         VALUES ($1, 'SALE_ISSUE', $2, $3, $4, $5, $6, 1, 0, $7, $8, $9)`,
+        [randomUUID(), id('product:MEAT-GOAT-15KG'), id('unit:LOT-GOAT-0001'), id('branch:DDW'), id('location:COLD'), id('virtual:CUSTOMER'), documentId, fromExpiry(1, '10:00:00'), SYSTEM_PRINCIPAL],
       )
       .then(() => null)
       .catch((e: unknown) => e as { code: string; constraint: string });
-    // LOT-GOAT-0001 expires on 8 February 2027: this sale is allowed. One dated after it is not.
+    // LOT-GOAT-0001 expires 90 days after its delivery, long after the eggs: this sale is allowed. One dated after it is not.
     expect(error).toBeNull();
-    await admin().query("UPDATE inv.stock_unit SET expires_on = '2026-12-01', version = version + 1 WHERE id = $1", [id('unit:LOT-GOAT-0001')]);
+    await admin().query('UPDATE inv.stock_unit SET expires_on = $2::date, version = version + 1 WHERE id = $1', [id('unit:LOT-GOAT-0001'), seeded.eggsExpireOn]);
     const refused = await admin()
       .query(
         `INSERT INTO inv.stock_movement (id, movement_type, product_id, stock_unit_id, branch_id, from_location_id, to_location_id, qty_base, value_pesewas, source_document_id, occurred_at, actor_id)
-         VALUES ($1, 'SALE_ISSUE', $2, $3, $4, $5, $6, 1, 0, $7, '2026-12-02T00:30:00Z', $8)`,
-        [randomUUID(), id('product:MEAT-GOAT-15KG'), id('unit:LOT-GOAT-0001'), id('branch:DDW'), id('location:COLD'), id('virtual:CUSTOMER'), documentId, SYSTEM_PRINCIPAL],
+         VALUES ($1, 'SALE_ISSUE', $2, $3, $4, $5, $6, 1, 0, $7, $8, $9)`,
+        [randomUUID(), id('product:MEAT-GOAT-15KG'), id('unit:LOT-GOAT-0001'), id('branch:DDW'), id('location:COLD'), id('virtual:CUSTOMER'), documentId, fromExpiry(1, '00:30:00'), SYSTEM_PRINCIPAL],
       )
       .catch((e: unknown) => e as { code: string; constraint: string });
     expect(refused).toMatchObject({ code: 'HK010', constraint: 'ck_stock_expired' });

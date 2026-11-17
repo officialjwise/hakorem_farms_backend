@@ -193,7 +193,7 @@ describe('a period locks, closes and then refuses postings, through the API (FR-
     expect(notEnded.body.error).toMatchObject({ code: 'INVALID_STATE_TRANSITION', details: [{ code: 'PERIOD_NOT_ENDED' }] });
     const movements = async () => (await admin().query<{ n: number }>('SELECT count(*)::int AS n FROM inv.stock_movement')).rows[0]!.n;
     const before = await movements();
-    const refused = await harvest(new Date(clock.now().getTime() - 3_600_000));
+    const refused = await harvest(new Date(Math.max(clock.now().getTime() - 3_600_000, Date.parse(`${today()}T00:00:00Z`))));
     expect(refused.status).toBe(422);
     expect(refused.body.error!.code).toBe('PERIOD_NOT_OPEN');
     expect(await movements()).toBe(before);
@@ -228,7 +228,8 @@ describe('a period locks, closes and then refuses postings, through the API (FR-
     const audit = await admin().query<{ action: string; before: unknown; after: unknown }>("SELECT action, before, after FROM platform.audit_event WHERE module = 'fin' AND entity_id = $1 AND action = 'REOPEN'", [current.id]);
     expect(audit.rows).toHaveLength(1);
 
-    const posted = await harvest(new Date(clock.now().getTime() - 3_600_000));
+    // An hour ago, but never before today's midnight (Accra is UTC), so it posts today in the reopened period (B09t2).
+    const posted = await harvest(new Date(Math.max(clock.now().getTime() - 3_600_000, Date.parse(`${today()}T00:00:00Z`))));
     expect(posted.status).toBe(200);
     expect(await journalsFor(posted.body.id!)).toEqual([{ posting_date: today(), occurred_day: today() }]);
   });

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { ManualClock } from '@hakorem/kernel';
+import { ManualClock, toBusinessDate } from '@hakorem/kernel';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { totpAt } from '../../../src/modules/iam/domain/totp';
 import { AuditTrail } from '../../../src/platform/audit/audit-trail';
@@ -9,6 +9,7 @@ import { SharpImageRenderer } from '../../../src/platform/storage/image-renderer
 import { OBJECT_STORAGE, type ObjectStorage } from '../../../src/platform/storage/object-storage';
 import { readSheet } from '../../../src/platform/spreadsheet/spreadsheet';
 import { runSeedUnits } from '../../../src/seed/run-seed';
+import { addDays } from '../../../src/seed/seed-calendar';
 import { seedUnits } from '../../../src/seed/seed-units';
 import { consoleGet, consolePost, createUser, enrolAndLogin, login, relaxRateLimits, testStartTime, type TestSession } from '../../support/iam';
 import { CleanScanner } from '../../support/imports';
@@ -32,10 +33,13 @@ const admin = () => database.pool('admin');
 const post = (session: TestSession, path: string, body: object = {}, key: string = randomUUID()) => consolePost(api.server, session, `/v1${path}`, key).send(body);
 const get = (session: TestSession, path: string) => consoleGet(api.server, session, `/v1${path}`);
 const HEADER = 'branch,location,sku,qty,valuePesewas,batch,expiresOn,tag,sex,weightKg';
-const GOOD = [
+/** The pork lot's and the wings' expiry, 75 and 46 days after the suite's first day, never a fixed date (B09t2). */
+let porkExpiresOn: string;
+let wingsExpireOn: string;
+const good = () => [
   'DDW,PENS,LIV-PIG,1,150000,,,P-0001,FEMALE,12.500',
   'DDW,PENS,LIV-PIG,1.000,150001,,,P-0002,male,',
-  'DDW,COLD,MEAT-PORK-15KG,30.000,340000,PORK-2026-1101,2027-01-30,,,30.000',
+  `DDW,COLD,MEAT-PORK-15KG,30.000,340000,PORK-2026-1101,${porkExpiresOn},,,30.000`,
   'DDW,SHOP,PRD-CARROT-CRATE,6,120000,,,,,',
 ];
 
@@ -61,6 +65,8 @@ const openingCount = async () =>
 beforeAll(async () => {
   database = await createTestDatabase();
   clock = new ManualClock(testStartTime());
+  porkExpiresOn = addDays(toBusinessDate(clock.now()), 75);
+  wingsExpireOn = addDays(toBusinessDate(clock.now()), 46);
   await relaxRateLimits(database);
   api = await startTestApp(database, { clock });
   await runSeedUnits(database.pool('app'), api.app, seedUnits({ SEED_STAFF_PASSWORD: `Seed-${randomUUID()}` }));
@@ -85,7 +91,7 @@ afterAll(async () => {
 describe('the OPENING_STOCK dry run (A-128, A-147)', () => {
   it('checks a pig per row, a dated pork lot and untracked carrots, and writes nothing but the job', async () => {
     const before = await openingCount();
-    const job = await post(owner, '/imports', { entity: 'OPENING_STOCK', fileId: await upload(owner, GOOD) });
+    const job = await post(owner, '/imports', { entity: 'OPENING_STOCK', fileId: await upload(owner, good()) });
     expect(job.status, JSON.stringify(job.body)).toBe(202);
     expect(job.body).toMatchObject({ entity: 'OPENING_STOCK', status: 'VALIDATED', rowsTotal: 4, rowsValid: 4, rowsToCreate: 4, rowsToUpdate: 0 });
     expect(await openingCount()).toEqual(before);
@@ -99,7 +105,7 @@ describe('the OPENING_STOCK dry run (A-128, A-147)', () => {
         'KSA,SHOP,PRD-CARROT-CRATE,1,1000,,,,,',
         'DDW,TRANSIT,PRD-TOMATO-CRATE,1,1000,,,,,',
         'DDW,SHOP,PRD-LETTUCE-HEAD,1,0,,,,,',
-        'DDW,COLD,MEAT-CHICKEN-WINGS-15KG,15.000,90000,,2027-01-01,,,',
+        `DDW,COLD,MEAT-CHICKEN-WINGS-15KG,15.000,90000,,${wingsExpireOn},,,`,
         'DDW,PENS,LIV-RABBIT,2,4000,,,R-01,FEMALE,',
         'DDW,PENS,LIV-RABBIT,1,4000,,,R-02,MALE,',
         'DDW,PENS,LIV-RABBIT,1,4000,,,R-02,MALE,',
@@ -131,12 +137,12 @@ describe('applying opening stock (A-147, ADR-0050)', () => {
   let jobId: string;
 
   it('is refused to the manager, who may apply imports but not load opening stock, and writes nothing', async () => {
-    const job = await post(manager, '/imports', { entity: 'OPENING_STOCK', fileId: await upload(manager, GOOD) });
+    const job = await post(manager, '/imports', { entity: 'OPENING_STOCK', fileId: await upload(manager, good()) });
     expect(job.body.status).toBe('VALIDATED');
     const refused = await post(manager, `/imports/${job.body.id as string}/apply`);
     expect(refused.status).toBe(403);
     expect(await openingCount()).toEqual({ receipts: 0, movements: 0 });
-    const job2 = await post(owner, '/imports', { entity: 'OPENING_STOCK', fileId: await upload(owner, GOOD) });
+    const job2 = await post(owner, '/imports', { entity: 'OPENING_STOCK', fileId: await upload(owner, good()) });
     jobId = job2.body.id as string;
   });
 
@@ -165,11 +171,11 @@ describe('applying opening stock (A-147, ADR-0050)', () => {
     const pool = await admin().query<{ value: string }>("SELECT sum(c.value_pesewas)::text AS value FROM inv.cost_pool c JOIN mdm.product p ON p.id = c.product_id WHERE p.sku IN ('LIV-PIG', 'MEAT-PORK-15KG', 'PRD-CARROT-CRATE')");
     expect(pool.rows[0]!.value).toBe('760001');
     const pork = await admin().query<{ expires_on: string; status: string }>("SELECT to_char(expires_on, 'YYYY-MM-DD') AS expires_on, status FROM inv.stock_unit WHERE identifier = 'PORK-2026-1101'");
-    expect(pork.rows).toEqual([{ expires_on: '2027-01-30', status: 'ACTIVE' }]);
+    expect(pork.rows).toEqual([{ expires_on: porkExpiresOn, status: 'ACTIVE' }]);
   });
 
   it('refuses the same opening stock a second time: each product now has stock history at Dodowa', async () => {
-    const job = await post(owner, '/imports', { entity: 'OPENING_STOCK', fileId: await upload(owner, GOOD) });
+    const job = await post(owner, '/imports', { entity: 'OPENING_STOCK', fileId: await upload(owner, good()) });
     expect(job.body).toMatchObject({ status: 'VALIDATED', rowsValid: 0 });
   });
 

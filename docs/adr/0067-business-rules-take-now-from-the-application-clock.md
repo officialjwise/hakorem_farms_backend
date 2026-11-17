@@ -50,3 +50,8 @@ B09t, test first, each failing before the change:
 - `test/integration/iam/authorisation.integration.spec.ts`: a session is listed as active one second before its absolute end by the application's clock and not at it.
 - `test/integration/pay/payment-edge-cases.integration.spec.ts`: an allocation's settlement summary is settled and as of the application clock's instant; `test/integration/ord/order-payment-rules.integration.spec.ts`: the four-argument form holds the outstanding rule and refuses no instant.
 - The forced-clock sweep of B09t (the session report) runs the integration suite with every test file's clock forced to 23:55 Accra, a month end, a year end and a control; its failures before and after are in the report.
+
+B09t2 (2026-11-16), the two items B09t left:
+
+- **The refund's `created_at` is the application's instant.** A payout recorded by hand (`markRefundPaid`) is refused when dated before its refund, and the refund's `created_at` was the column default. `PgPaymentStore.insertRefund` now writes `Refunds.request`'s `clock.now()`, the exception this ADR names for a `created_at` a rule reads as business time. `test/integration/pay/refunds.integration.spec.ts` › *asks a refund at 23:58 Accra, records its payout after midnight* failed first (the payout dated a second before the refund was recorded as paid), then passed.
+- **The second rule, for the seed and the tests.** Every seeded expiry, best-before and valid-from or valid-to date is built from the seed's clock through `src/seed/seed-calendar.ts` (A-220), and the tests that print one take it from the same calendar. The forced-clock sweep at 2026-12-31T10:00Z and 2027-03-01T10:00Z is in `docs/sessions/B09t2-dates-from-clock.md`.

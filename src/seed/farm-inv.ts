@@ -4,10 +4,8 @@ import { ColdChain, GoodsReceipts, StockAlerts, type ReceiptLineInput } from '..
 import { ReferenceDataAdmin } from '../modules/mdm';
 import { PG_POOL } from '../platform/platform.module';
 import { SeedStaff } from './seed-staff';
+import type { SeedCalendar } from './seed-calendar';
 import type { ServiceSeedUnit } from './seed-unit';
-
-/** When the seeded stock arrived at Dodowa: a Tuesday morning delivery, before the shop opened. */
-export const SEED_STOCK_RECEIVED_AT = new Date('2026-11-10T07:00:00Z');
 
 /** The suppliers the seeded farm buys from (FR-MDM-007), written by the Manager. */
 export const SEED_SUPPLIERS = [
@@ -24,7 +22,8 @@ interface SeedLine {
   readonly valuePesewas: bigint;
   readonly weightKg?: string;
   readonly batchNo?: string;
-  readonly expiresOn?: string;
+  /** Which of the seed calendar's expiries the lot carries (B09t2: never a fixed date). */
+  readonly expires?: 'eggsExpireOn' | 'meatExpiresOn';
   readonly tags?: readonly string[];
 }
 
@@ -66,8 +65,8 @@ export const SEED_RECEIPTS: readonly SeedReceipt[] = [
     supplier: 'Ashaiman Cold Store Ltd (SEED)',
     location: 'COLD',
     lines: [
-      { sku: 'MEAT-BEEF-15KG', qty: '45.000', valuePesewas: 540_000n, weightKg: '45.000', batchNo: 'LOT-BEEF-2026-1110', expiresOn: '2027-02-08' },
-      { sku: 'MEAT-GOAT-15KG', qty: '30.000', valuePesewas: 390_000n, weightKg: '30.000', batchNo: 'LOT-GOAT-0001', expiresOn: '2027-02-08' },
+      { sku: 'MEAT-BEEF-15KG', qty: '45.000', valuePesewas: 540_000n, weightKg: '45.000', batchNo: 'LOT-BEEF-2026-1110', expires: 'meatExpiresOn' },
+      { sku: 'MEAT-GOAT-15KG', qty: '30.000', valuePesewas: 390_000n, weightKg: '30.000', batchNo: 'LOT-GOAT-0001', expires: 'meatExpiresOn' },
     ],
   },
   {
@@ -75,7 +74,7 @@ export const SEED_RECEIPTS: readonly SeedReceipt[] = [
     kind: 'PURCHASE',
     supplier: 'Awutu Poultry Farm (SEED)',
     location: 'SHOP',
-    lines: [{ sku: 'EGG-CRATE-BIG', qty: '30.000', valuePesewas: 105_000n, batchNo: 'EGG-BIG-2026-1110', expiresOn: '2026-12-01' }],
+    lines: [{ sku: 'EGG-CRATE-BIG', qty: '30.000', valuePesewas: 105_000n, batchNo: 'EGG-BIG-2026-1110', expires: 'eggsExpireOn' }],
   },
   {
     deliveryNoteRef: 'SEED-HARVEST-1110',
@@ -122,10 +121,13 @@ export const SEED_REORDER_RULES = [
   { sku: 'MEAT-BEEF-15KG', minQty: '10.000', reorderPointQty: '20.000', maxQty: '90.000', expiryAlertDays: 5 },
 ] as const;
 
-/** Two readings of the frozen cold room after the delivery, both in its -25.0 to -18.0 range, with fixed client ids. */
+/**
+ * Two readings of the frozen cold room after the delivery, both in its -25.0 to -18.0 range, with fixed client ids;
+ * measured at the seed calendar's `coldRoomReadings`, in this order.
+ */
 export const SEED_TEMPERATURE_READINGS = [
-  { id: '019a6c5a-6dc0-7000-8000-00000000c001', readingC: '-19.5', measuredAt: new Date('2026-11-10T08:00:00Z') },
-  { id: '019a6c5a-6dc0-7000-8000-00000000c002', readingC: '-18.5', measuredAt: new Date('2026-11-10T12:00:00Z') },
+  { id: '019a6c5a-6dc0-7000-8000-00000000c001', readingC: '-19.5' },
+  { id: '019a6c5a-6dc0-7000-8000-00000000c002', readingC: '-18.5' },
 ] as const;
 
 const key = (...parts: string[]): string => `seed:inv:${parts.join(':')}`;
@@ -149,13 +151,14 @@ function required(map: ReadonlyMap<string, string>, code: string, what: string):
  * every stock unit, movement, cost pool, audit event and outbox message is the one production writes. A receipt
  * already there (found by its delivery note) is left alone, and every call carries a fixed idempotency key.
  */
-export function farmSeedInv(): ServiceSeedUnit {
+export function farmSeedInv(calendarOf: (app: INestApplicationContext) => SeedCalendar): ServiceSeedUnit {
   return {
     kind: 'SERVICE',
     name: 'inv-services',
     async run(app: INestApplicationContext) {
       const staff = await SeedStaff.load(app);
       const pool = app.get<pg.Pool>(PG_POOL);
+      const calendar = calendarOf(app);
       let records = 0;
 
       const reference = app.get(ReferenceDataAdmin);
@@ -184,7 +187,7 @@ export function farmSeedInv(): ServiceSeedUnit {
             weightKg: line.weightKg,
             weightSource: line.weightKg === undefined ? undefined : 'SCALE',
             batchNo: line.batchNo,
-            expiresOn: line.expiresOn,
+            expiresOn: line.expires === undefined ? undefined : calendar[line.expires],
             animals: line.tags?.map((tagNo) => ({ tagNo, sex: 'MALE' as const, breed: line.sku === 'LIV-SHEEP' ? 'Djallonke' : 'West African Dwarf', purpose: 'GROWING' as const })),
           }));
           const draft = await receipts.create(
@@ -194,7 +197,7 @@ export function farmSeedInv(): ServiceSeedUnit {
               supplierId: receipt.supplier === null ? undefined : required(suppliers, receipt.supplier, 'supplier'),
               locationId: required(locations, receipt.location, 'location'),
               deliveryNoteRef: receipt.deliveryNoteRef,
-              receivedAt: SEED_STOCK_RECEIVED_AT,
+              receivedAt: calendar.stockReceivedAt,
               notes: 'SEED stock',
               lines,
             },
@@ -219,9 +222,9 @@ export function farmSeedInv(): ServiceSeedUnit {
           await alerts.createRule(manager, { ...rule, productId, branchId }, key('reorder-rule', rule.sku));
           written += 1;
         }
-        for (const reading of SEED_TEMPERATURE_READINGS) {
+        for (const [index, reading] of SEED_TEMPERATURE_READINGS.entries()) {
           if (logged.has(reading.id)) continue;
-          await coldChain.record(manager, { ...reading, locationId: required(locations, 'COLD', 'location'), source: 'MANUAL' }, key('temperature', reading.id));
+          await coldChain.record(manager, { ...reading, measuredAt: calendar.coldRoomReadings[index]!, locationId: required(locations, 'COLD', 'location'), source: 'MANUAL' }, key('temperature', reading.id));
           written += 1;
         }
         return written;

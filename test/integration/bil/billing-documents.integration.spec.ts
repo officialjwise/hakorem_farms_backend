@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { ManualClock, toBusinessDate } from '@hakorem/kernel';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Billing, type IssueRequest } from '../../../src/modules/bil';
+import { Approvals } from '../../../src/modules/iam';
 import { runWithRequestContext, type Actor } from '../../../src/platform/context/request-context';
 import { UnitOfWork } from '../../../src/platform/database/unit-of-work';
 import { NumberSeries } from '../../../src/platform/documents/number-series';
@@ -458,5 +459,47 @@ describe('every billing operation refuses the wrong role (ADR-0035)', () => {
     const invoice = await get('accountant', `/billing-documents/${id('invoice')}`);
     const found = await get('accountant', `/billing-documents?documentNo=${invoice.body.documentNo as string}`);
     expect(found.body.data.map((d: { id: string }) => d.id)).toEqual([id('invoice')]);
+  });
+});
+
+describe('a credit note never falls due before it is issued (FR-BIL-007, A-223)', () => {
+  // Last in the file: the clock moves past midnight, beyond every session's idle end, so these call the services as
+  // the console's handlers do, with the same actors and the approver's step-up.
+  const DAY = 86_400_000;
+  type Pending = { readonly approvalRequestId: string; readonly subject: { readonly id: string } };
+  const credit = (who: string, originalId: string, lineId: string) =>
+    asActor(who, () => billing.issueCreditNote(actorOf(who), originalId, { reasonCode: 'QUALITY_COMPLAINT', note: 'Crates cracked in the van', lines: [{ lineId, amountPesewas: 2_800 }] }, randomUUID()));
+  const approve = (who: string, requestId: string) =>
+    asActor(who, () => uow.run({ isolation: 'serializable' }, (tx) => api.app.get(Approvals).decide(tx, { ...actorOf(who), steppedUpAt: clock.now() }, requestId, 'APPROVED', 'Photographs checked')));
+  const datesOf = async (documentId: string) =>
+    (await admin().query<{ status: string; issue: string; due: string }>("SELECT status, to_char(issue_date, 'YYYY-MM-DD') AS issue, to_char(due_date, 'YYYY-MM-DD') AS due FROM bil.billing_document WHERE id = $1", [documentId])).rows[0];
+  const eggsDueToday = () =>
+    issue('accountant', {
+      kind: 'INVOICE',
+      branchId,
+      customerId: id('tema'),
+      dueDate: toBusinessDate(clock.now()),
+      taxInclusive: false,
+      lines: [{ lineKind: 'PRODUCT', productId: id('eggs'), description: 'Eggs, ten crates', quantity: '10.000', uom: 'CRATE', unitPricePesewas: 2_800n }],
+    });
+
+  it('drafted on the invoice’s due day and approved after midnight: issued, and due on its own issue day', async () => {
+    const original = await eggsDueToday();
+    const asked = await credit('accountant', original.id, original.lines[0]!.id);
+    expect(asked.status, JSON.stringify(asked.body)).toBe(202);
+    clock.set(new Date((Math.floor(clock.now().getTime() / DAY) + 1) * DAY + 60_000));
+    await approve('manager', (asked.body as Pending).approvalRequestId);
+    const today = toBusinessDate(clock.now());
+    expect(await datesOf((asked.body as Pending).subject.id)).toEqual({ status: 'ISSUED', issue: today, due: today });
+  });
+
+  it('raised against an invoice already overdue: drafted and issued due today, never on the invoice’s past due day', async () => {
+    const original = await eggsDueToday();
+    clock.advanceBy(DAY);
+    const asked = await credit('accountant', original.id, original.lines[0]!.id);
+    expect(asked.status, JSON.stringify(asked.body)).toBe(202);
+    await approve('manager', (asked.body as Pending).approvalRequestId);
+    const today = toBusinessDate(clock.now());
+    expect(await datesOf((asked.body as Pending).subject.id)).toEqual({ status: 'ISSUED', issue: today, due: today });
   });
 });

@@ -318,8 +318,10 @@ describe('a supplier credit note cannot exceed its invoice (FR-PUR-011: the gate
     const remittance = await get(manager, `/supplier-payments/${payment.id}/remittance`);
     expect(remittance.status).toBe(200);
     expect(remittance.body).toMatchObject({ supplierPaymentId: payment.id, method: 'CASH', amountPesewas: 99_000, currency: 'GHS', externalReference: reference, remittanceDocumentId: null });
+    // The invoice's own date, not today's: the payment may be made after a midnight the invoice was entered before (B09t2).
+    const invoiceDate = (await get(accountant, `/supplier-invoices/${invoice}`)).body.invoiceDate as string;
     expect(remittance.body.lines).toEqual([
-      { supplierInvoiceId: invoice, supplierInvoiceNo: expect.any(String), invoiceDate: today(), grossPesewas: 110_000, creditedPesewas: 11_000, amountPesewas: 99_000, outstandingAfterPesewas: 0 },
+      { supplierInvoiceId: invoice, supplierInvoiceNo: expect.any(String), invoiceDate, grossPesewas: 110_000, creditedPesewas: 11_000, amountPesewas: 99_000, outstandingAfterPesewas: 0 },
     ]);
     // A replay answers the same, a second marking is refused, and there is still one advice and one event.
     expect((await post(accountant, `/supplier-payments/${payment.id}/mark-paid`, { paidAt: clock.now().toISOString(), externalReference: reference }, payment.key)).status).toBe(200);

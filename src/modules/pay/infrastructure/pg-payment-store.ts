@@ -434,11 +434,11 @@ export class PgPaymentStore implements PaymentStore {
     );
   }
 
-  async insertRefund(tx: Transaction, r: Omit<RefundRecord, 'approvalRequestId' | 'providerReference' | 'externalReference' | 'attempts' | 'nextAttemptAt' | 'paidAt' | 'paidBy' | 'failureReason' | 'createdAt'>): Promise<void> {
+  async insertRefund(tx: Transaction, r: Omit<RefundRecord, 'approvalRequestId' | 'providerReference' | 'externalReference' | 'attempts' | 'nextAttemptAt' | 'paidAt' | 'paidBy' | 'failureReason'>): Promise<void> {
     await tx.query(
-      `INSERT INTO pay.refund (id, original_payment_id, amount_pesewas, destination, reason_code, note, credit_note_id, is_automatic, status, branch_id, created_by, updated_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11)`,
-      [r.id, r.originalPaymentId, r.amountPesewas.toString(), r.destination, r.reasonCode, r.note, r.creditNoteId, r.isAutomatic, r.status, r.branchId, r.createdBy],
+      `INSERT INTO pay.refund (id, original_payment_id, amount_pesewas, destination, reason_code, note, credit_note_id, is_automatic, status, branch_id, created_by, updated_by, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11, $12)`,
+      [r.id, r.originalPaymentId, r.amountPesewas.toString(), r.destination, r.reasonCode, r.note, r.creditNoteId, r.isAutomatic, r.status, r.branchId, r.createdBy, r.createdAt],
     );
   }
 

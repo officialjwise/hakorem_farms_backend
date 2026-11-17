@@ -6,6 +6,7 @@ import { totpAt } from '../../../src/modules/iam/domain/totp';
 import { PurchaseOrders } from '../../../src/modules/pur';
 import { UnitOfWork } from '../../../src/platform/database/unit-of-work';
 import { runSeedUnits } from '../../../src/seed/run-seed';
+import { addDays } from '../../../src/seed/seed-calendar';
 import { seedUnits } from '../../../src/seed/seed-units';
 import { consoleGet, consolePost, createUser, enrolAndLogin, login, relaxRateLimits, testStartTime, type TestSession } from '../../support/iam';
 import { SQLSTATE, sqlStateOf } from '../../support/sql-state';
@@ -358,9 +359,11 @@ describe('supplier documents (FR-PUR-003)', () => {
   it('files a scanned PDF privately, lists it, links it for 5 minutes, and refuses an unscanned file, another purpose and a second filing', async () => {
     const kpone = supplier('Kpone Livestock Traders');
     const fileId = await uploaded(manager, pdf(), 'vet-health-cert-kpone.pdf');
-    const filed = await post(manager, `/suppliers/${kpone}/documents`, { kind: 'HEALTH_CERTIFICATE', fileId, expiresOn: '2027-02-28' });
+    // A certificate good for a hundred days from today, whatever day the suite runs on (B09t2).
+    const expiresOn = addDays(toBusinessDate(clock.now()), 100);
+    const filed = await post(manager, `/suppliers/${kpone}/documents`, { kind: 'HEALTH_CERTIFICATE', fileId, expiresOn });
     expect(filed.status).toBe(201);
-    expect(filed.body).toMatchObject({ kind: 'HEALTH_CERTIFICATE', expiresOn: '2027-02-28', file: { id: fileId, originalName: 'vet-health-cert-kpone.pdf', contentType: 'application/pdf' } });
+    expect(filed.body).toMatchObject({ kind: 'HEALTH_CERTIFICATE', expiresOn, file: { id: fileId, originalName: 'vet-health-cert-kpone.pdf', contentType: 'application/pdf' } });
     const listed = await get(accountant, `/suppliers/${kpone}/documents`);
     expect(listed.body.data.map((d: { id: string }) => d.id)).toContain(filed.body.id);
     const link = await request(api.server).post(`/v1/files/${fileId}/signed-url`).set('Cookie', accountant.jar.header()).set('X-CSRF-Token', accountant.csrfToken).set('Origin', TEST_ORIGIN);

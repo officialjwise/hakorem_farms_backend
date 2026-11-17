@@ -1740,7 +1740,8 @@ is refused, and a refund's idempotency key is honoured only through the adapter'
 Two rules from B09t (ADR-0067): no new now() or current_date in business SQL (due dates, expiries, holds, business
 days and as-of times take the application clock, as a parameter or platform.app_now()); and no new fixed calendar
 date in the seed or a test (build dates from the seed's or the test's clock); B09t2 made the seed's dates relative
-to its clock, so the seeded trading day this phase adds follows the same rule.
+to its clock (src/seed/seed-calendar.ts, A-220, A-222), so the seeded trading day this phase adds takes its dates from
+the same seed calendar.
 If it does not fit, split at a sub-domain boundary after a proven, merged gate.
 Stop at the gate, write docs/sessions/B09a3b-orders-online.md, and merge into main when every run on the pull
 request is green.

@@ -21,7 +21,7 @@ Posted statuses: `ISSUED`. An issued document is immutable; it is corrected by a
 | `order_document_id` | `uuid` | NULL, FK `platform.business_document` | The order billed |
 | `original_document_id` | `uuid` | NULL, FK `bil.billing_document`; required for credit and debit notes | The document corrected |
 | `issue_date` | `date` | NULL | Tax date, Africa/Accra |
-| `due_date` | `date` | NULL | For credit sales |
+| `due_date` | `date` | NULL | For credit sales. Never before `issue_date` (`ck_billing_document_due`): a credit note is due on the later of its original's due date and its draft day, and a draft issued on a later day than its due date is due on its issue date (A-223) |
 | `currency` | `char(3)` | NOT NULL DEFAULT `'GHS'`, CHECK `= 'GHS'` | |
 | `tax_inclusive` | `boolean` | NOT NULL | How lines were priced |
 | `tax_scheme_version_id` | `uuid` | NOT NULL, FK `mdm.tax_scheme_version` | The matrix used |

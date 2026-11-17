@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { ManualClock, toBusinessDate } from '@hakorem/kernel';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { SEED_STOCK_RECEIVED_AT } from '../../../src/seed/farm-inv';
 import { runSeedUnits } from '../../../src/seed/run-seed';
+import { seedCalendar } from '../../../src/seed/seed-calendar';
 import { seedUnits } from '../../../src/seed/seed-units';
 import { ledgerIds, postManualJournal, type TotpSession } from '../../support/fin';
 import { LedgerReconciliation } from '../../../src/modules/fin';
@@ -27,7 +27,8 @@ const others = new Map<string, TestSession>();
 let branchId: string;
 let testBranchId: string;
 
-const SEED_FROM = toBusinessDate(SEED_STOCK_RECEIVED_AT);
+/** The seeded trading day's first date, from the clock the seed ran on (B09t2). */
+let SEED_FROM: string;
 let seedTo: string;
 const get = (session: TestSession, path: string) => consoleGet(api.server, session, `/v1${path}`);
 const post = (session: TestSession, path: string, body: object = {}) => consolePost(api.server, session, `/v1${path}`).send(body);
@@ -68,6 +69,7 @@ beforeAll(async () => {
   await relaxRateLimits(database);
   api = await startTestApp(database, { clock });
   await runSeedUnits(database.pool('app'), api.app, seedUnits({ SEED_STAFF_PASSWORD: `Seed-${randomUUID()}` }));
+  SEED_FROM = seedCalendar(clock.now()).stockReceivedOn;
   seedTo = toBusinessDate(clock.now());
   const branches = new Map((await admin().query<{ code: string; id: string }>('SELECT code, id FROM mdm.branch')).rows.map((r) => [r.code, r.id] as const));
   branchId = branches.get('DDW')!;
@@ -226,11 +228,14 @@ describe("the SRS's cash flow, and the statements after cash has moved (FR-FIN-0
   const day = () => toBusinessDate(new Date(clock.now().getTime() - 86_400_000));
 
   it('reconciles an opening 100,000, receipts 300,000 and payments 120,000 to a closing 280,000 equal to the cash accounts', async () => {
+    // Both days fixed once: each journal's step-ups move the clock, and a midnight between them would move the days (B09t2).
+    const openingDay = opening();
+    const tradingDay = day();
     const ledger = await ledgerIds(database);
     const people = { maker: accountant, checker: owner };
     await postManualJournal(api.server, clock, people, {
       kind: 'OPENING',
-      postingDate: opening(),
+      postingDate: openingDay,
       description: 'Opening cash in the safe',
       lines: [
         { accountId: ledger.account('1010'), side: 'D', amountPesewas: 100_000 },
@@ -238,7 +243,7 @@ describe("the SRS's cash flow, and the statements after cash has moved (FR-FIN-0
       ],
     });
     await postManualJournal(api.server, clock, people, {
-      postingDate: day(),
+      postingDate: tradingDay,
       description: 'Walk-in goat sales banked to the safe',
       lines: [
         { accountId: ledger.account('1010'), side: 'D', amountPesewas: 300_000 },
@@ -246,7 +251,7 @@ describe("the SRS's cash flow, and the statements after cash has moved (FR-FIN-0
       ],
     });
     await postManualJournal(api.server, clock, people, {
-      postingDate: day(),
+      postingDate: tradingDay,
       description: 'Cold room repair, 100,000, and a compressor, 20,000, paid from the safe',
       lines: [
         { accountId: ledger.account('6300'), side: 'D', amountPesewas: 100_000 },
@@ -254,7 +259,7 @@ describe("the SRS's cash flow, and the statements after cash has moved (FR-FIN-0
         { accountId: ledger.account('1010'), side: 'C', amountPesewas: 120_000 },
       ],
     });
-    const cf = await get(owner, `/finance/cash-flow?from=${day()}&to=${day()}`);
+    const cf = await get(owner, `/finance/cash-flow?from=${tradingDay}&to=${tradingDay}`);
     const sections = cf.body.sections as Section[];
     expect(total(sections, 'OPENING_CASH')).toBe(100_000n);
     expect(rowsOf(sections, 'OPERATING')).toEqual([
@@ -266,12 +271,12 @@ describe("the SRS's cash flow, and the statements after cash has moved (FR-FIN-0
     expect(total(sections, 'NET_CHANGE')).toBe(180_000n);
     expect(rowsOf(sections, 'CLOSING_CASH')).toEqual([['1010', 280_000n]]);
     expect(cf.body.checks[0].passed).toBe(true);
-    const balances = await sqlBalances('2000-01-01', day());
+    const balances = await sqlBalances('2000-01-01', tradingDay);
     expect(byClass(new Map([...balances].filter(([code]) => code >= '1000' && code <= '1130')), '1')).toBe(280_000n);
     // The opening journal is a financing inflow on its own day.
-    const first = await get(owner, `/finance/cash-flow?from=${opening()}&to=${opening()}`);
+    const first = await get(owner, `/finance/cash-flow?from=${openingDay}&to=${openingDay}`);
     expect(rowsOf(first.body.sections as Section[], 'FINANCING')).toEqual([['3900', 100_000n]]);
-    const pl = await get(owner, `/finance/profit-and-loss?from=${day()}&to=${day()}`);
+    const pl = await get(owner, `/finance/profit-and-loss?from=${tradingDay}&to=${tradingDay}`);
     expect(total(pl.body.sections as Section[], 'NET_PROFIT')).toBe(200_000n);
   });
 
@@ -316,22 +321,30 @@ describe('a locked period is read from its period balances, exactly as its lines
   });
 
   it('reads a locked period with lines from its balances: a tampered row changes the statement, and the nightly check reports it', async () => {
-    const november = (await admin().query<{ id: string }>("SELECT id FROM fin.accounting_period WHERE start_date = '2026-11-01'")).rows[0]!;
-    const range = `from=2026-11-01&to=2026-11-30`;
+    // The period that holds the seeded farm's 6800 posting (Kpone's transport, on the seeded day), whatever month the
+    // suite runs in (B09t2): that is the row tampered below.
+    const seededPeriod = (
+      await admin().query<{ id: string; start_date: string; end_date: string }>(
+        `SELECT p.id, p.start_date::text, p.end_date::text FROM fin.accounting_period p
+          WHERE p.start_date <= $1::date AND p.end_date >= $1::date`,
+        [(await admin().query<{ d: string }>("SELECT min(l.posting_date)::text AS d FROM fin.journal_line l JOIN fin.account a ON a.id = l.account_id WHERE a.code = '6800' AND l.branch_id = $1", [branchId])).rows[0]!.d],
+      )
+    ).rows[0]!;
+    const range = `from=${seededPeriod.start_date}&to=${seededPeriod.end_date}`;
     const before = await get(accountant, `/finance/trial-balance?${range}&limit=100`);
-    expect((await consolePostAs(accountant, `/finance/periods/${november.id}/lock`)).status).toBe(200);
+    expect((await consolePostAs(accountant, `/finance/periods/${seededPeriod.id}/lock`)).status).toBe(200);
     const { rows } = await admin().query<{ account_code: string; d: string; c: string }>(
       `SELECT a.code AS account_code, sum(b.debit_total_pesewas)::text AS d, sum(b.credit_total_pesewas)::text AS c
          FROM fin.period_balance b JOIN fin.account a ON a.id = b.account_id WHERE b.period_id = $1 GROUP BY a.code ORDER BY a.code`,
-      [november.id],
+      [seededPeriod.id],
     );
-    const lines = await sqlBalances('2026-11-01', '2026-11-30');
+    const lines = await sqlBalances(seededPeriod.start_date, seededPeriod.end_date);
     expect(new Map(rows.map((r) => [r.account_code, BigInt(r.d) - BigInt(r.c)]))).toEqual(lines);
     const locked = await get(accountant, `/finance/trial-balance?${range}&limit=100`);
     expect(locked.body.data).toEqual(before.body.data);
     expect(locked.body.totalDebitPesewas).toBe(before.body.totalDebitPesewas);
     // A superuser's edit of the projection shows the statement reads it, and is reported, never corrected.
-    await admin().query("UPDATE fin.period_balance SET debit_total_pesewas = debit_total_pesewas + 1 WHERE period_id = $1 AND account_id = (SELECT id FROM fin.account WHERE code = '6800')", [november.id]);
+    await admin().query("UPDATE fin.period_balance SET debit_total_pesewas = debit_total_pesewas + 1 WHERE period_id = $1 AND account_id = (SELECT id FROM fin.account WHERE code = '6800')", [seededPeriod.id]);
     const tampered = await get(accountant, `/finance/trial-balance?${range}&limit=100`);
     expect(tampered.body.totalDebitPesewas).toBe(before.body.totalDebitPesewas + 1);
     expect(tampered.body.balanced).toBe(false);
@@ -342,10 +355,10 @@ describe('a locked period is read from its period balances, exactly as its lines
     const account6800 = (await admin().query<{ id: string }>("SELECT id FROM fin.account WHERE code = '6800'")).rows[0]!.id;
     expect(report.periodBalanceDrift).toHaveLength(1);
     const drift = report.periodBalanceDrift[0]!;
-    expect([drift.periodId, drift.accountId, drift.branchId]).toEqual([november.id, account6800, branchId]);
+    expect([drift.periodId, drift.accountId, drift.branchId]).toEqual([seededPeriod.id, account6800, branchId]);
     expect(drift.projectedDebitPesewas - drift.lineDebitPesewas).toBe(1n);
     expect(drift.projectedCreditPesewas).toBe(drift.lineCreditPesewas);
-    await admin().query("UPDATE fin.period_balance SET debit_total_pesewas = debit_total_pesewas - 1 WHERE period_id = $1 AND account_id = (SELECT id FROM fin.account WHERE code = '6800')", [november.id]);
+    await admin().query("UPDATE fin.period_balance SET debit_total_pesewas = debit_total_pesewas - 1 WHERE period_id = $1 AND account_id = (SELECT id FROM fin.account WHERE code = '6800')", [seededPeriod.id]);
   });
 });
 

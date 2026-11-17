@@ -7,6 +7,7 @@ import { runAsSystem } from '../../../src/platform/context/request-context';
 import { UnitOfWork } from '../../../src/platform/database/unit-of-work';
 import { DocumentRegistry } from '../../../src/platform/documents/document-registry';
 import { runSeedUnits } from '../../../src/seed/run-seed';
+import { seedCalendar, type SeedCalendar } from '../../../src/seed/seed-calendar';
 import { seedUnits } from '../../../src/seed/seed-units';
 import { consoleGet, consolePost, createUser, enrolAndLogin, login, relaxRateLimits, SYSTEM_PRINCIPAL, testStartTime, type RoleCode, type TestSession } from '../../support/iam';
 import { startTestApp, TEST_ORIGIN, type TestApp } from '../../support/test-app';
@@ -22,6 +23,8 @@ import { createTestDatabase, type TestDatabase } from '../../support/test-databa
 let database: TestDatabase;
 let api: TestApp;
 let clock: ManualClock;
+/** The seeded farm's dates, from the clock the seed ran on (B09t2). */
+let seeded: SeedCalendar;
 let manager: TestSession;
 let secondManager: TestSession;
 let storekeeper: TestSession;
@@ -108,6 +111,7 @@ beforeAll(async () => {
   await relaxRateLimits(database);
   api = await startTestApp(database, { clock });
   await runSeedUnits(database.pool('app'), api.app, seedUnits({ SEED_STAFF_PASSWORD: `Seed-${randomUUID()}` }));
+  seeded = seedCalendar(clock.now());
   await refresh();
   for (const row of (await admin().query<{ kind: string; id: string }>("SELECT l.kind, l.id FROM mdm.location l JOIN mdm.branch b ON b.id = l.branch_id WHERE b.code = 'DDW' AND l.is_virtual")).rows) {
     ids.set(`virtual:${row.kind}`, row.id);
@@ -193,7 +197,7 @@ describe('the animal register (FR-LIV-001, FR-LIV-017)', () => {
       batch: null,
       // The seed weighed it at 24.350 kg; the counter's band for that weight prices it per head.
       lastWeightKg: '24.350',
-      lastWeighedAt: '2026-11-10T08:00:00.000Z',
+      lastWeighedAt: seeded.weighedAt.toISOString(),
       priceBand: expect.objectContaining({ basis: 'PER_HEAD' }),
       weightBand: expect.objectContaining({ code: expect.stringMatching(/^GOAT-/) }),
     });

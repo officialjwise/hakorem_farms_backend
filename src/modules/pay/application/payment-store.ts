@@ -273,7 +273,7 @@ export interface PaymentStore {
   webhookSeen(tx: Transaction, provider: string, eventId: string): Promise<boolean>;
   insertWebhook(tx: Transaction, row: WebhookRow): Promise<void>;
 
-  insertRefund(tx: Transaction, refund: Omit<RefundRecord, 'approvalRequestId' | 'providerReference' | 'externalReference' | 'attempts' | 'nextAttemptAt' | 'paidAt' | 'paidBy' | 'failureReason' | 'createdAt'>): Promise<void>;
+  insertRefund(tx: Transaction, refund: Omit<RefundRecord, 'approvalRequestId' | 'providerReference' | 'externalReference' | 'attempts' | 'nextAttemptAt' | 'paidAt' | 'paidBy' | 'failureReason'>): Promise<void>;
   refunds(tx: Transaction, ids: readonly string[], forUpdate?: boolean): Promise<RefundRecord[]>;
   refundsOfPayment(tx: Transaction, paymentId: string): Promise<RefundRecord[]>;
   listRefunds(tx: Transaction, filter: RefundFilter, beforeId: string | null, limit: number): Promise<string[]>;
