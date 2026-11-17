@@ -4,10 +4,12 @@ import type { z } from 'zod';
 import { IdempotencyKeyHeader, Operation } from '../../../platform/http/operation';
 import { zodPipe } from '../../../platform/http/validation';
 import type { StoredResponse } from '../../../platform/idempotency/idempotency';
+import type { ShopProfileValue } from '../../aud';
 import { Slots, type SlotOptionView } from '../../del';
 import { Catalogue, STOREFRONT_ACTOR, type CatalogueItemView, type Page, type ProductDetailView } from '../application/catalogue';
 import { Carts, type CartView, type GuestToken } from '../application/carts';
 import { Checkouts, type CheckoutView, type PlaceOrderView } from '../application/checkouts';
+import { ShopProfile } from '../application/shop-profile';
 import { CartLineAdd, CartLineUpdate, CatalogueQuery, CheckoutStart, CheckoutUpdate, CouponApply, IdParam, PageQuery, PlaceOrder, SlotOptionQuery, SlugParam } from './schemas';
 
 /** The host-only cookie that proves a guest cart is the caller's (A-177): never readable by script, never cross-site. */
@@ -18,6 +20,8 @@ const READ = { access: 'PUBLIC', realms: [], permission: null, idempotent: false
 /** A guest's write: an allowed Origin, an Idempotency-Key, and the Storefront principal as the actor of record. */
 const WRITE = { access: 'PUBLIC', realms: [], permission: null, idempotent: true, csrf: false, rateLimit: 'public', originRequired: true, publicActor: STOREFRONT_ACTOR } as const;
 const CHECKOUT = { ...WRITE, rateLimit: 'checkout' } as const;
+/** How long a browser or a cache in front may reuse the shop's contact details (docs/API.md section 2, A-243). */
+export const SHOP_PROFILE_CACHE_CONTROL = 'public, max-age=300';
 
 function guest(req: Request): GuestToken {
   for (const part of (req.header('Cookie') ?? '').split(';')) {
@@ -44,7 +48,16 @@ export class ShopController {
     @Inject(Carts) private readonly carts: Carts,
     @Inject(Checkouts) private readonly checkouts: Checkouts,
     @Inject(Slots) private readonly slots: Slots,
+    @Inject(ShopProfile) private readonly shopProfile: ShopProfile,
   ) {}
+
+  @Get('profile')
+  @Operation({ operationId: 'getShopProfile', ...READ })
+  async getShopProfile(@Res({ passthrough: true }) res: Response): Promise<ShopProfileValue> {
+    const profile = await this.shopProfile.get();
+    res.setHeader('Cache-Control', SHOP_PROFILE_CACHE_CONTROL);
+    return profile;
+  }
 
   @Get('catalogue')
   @Operation({ operationId: 'listCatalogue', ...READ })

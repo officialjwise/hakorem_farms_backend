@@ -1,0 +1,54 @@
+operationId: getShopProfile
+tags:
+  - shp
+summary: "Get the shop's contact details"
+description: "Anonymous (CR-028): the shop's contact details from the business profile, for the footer and every \"call us\" line: the trading name, a phone and a WhatsApp number in E.164 (`whatsapp` null when the farm has none), the farm's address and the directions to it, and the opening hours (Africa/Accra time, in week order; a day with no interval is closed). Nothing else from the profile is shown here: no legal name, tax identification or VAT number, email, logo or staff detail. Cacheable: answered with `Cache-Control: public, max-age=300`, so a change reaches the shop within five minutes. 404 while no business profile has been set: no number is invented in its place."
+x-error-codes:
+  - NOT_FOUND
+  - RATE_LIMITED
+security: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+      Cache-Control:
+        description: "`public, max-age=300`: a browser or a cache in front may reuse the answer for five minutes."
+        schema:
+          type: string
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ShopProfile"
+        example:
+          tradingName: "HaKorem Farms"
+          phone: "+233200000120"
+          whatsapp: "+233200000121"
+          address: "Off the Dodowa-Afienya road, Dodowa, GE-293-0471"
+          directions: "From Dodowa lorry station, take the Afienya road for two kilometres; the farm gate is on the left after the Presby church."
+          openingHours:
+            - day: MONDAY
+              opens: "07:00"
+              closes: "18:00"
+            - day: TUESDAY
+              opens: "07:00"
+              closes: "18:00"
+            - day: WEDNESDAY
+              opens: "07:00"
+              closes: "18:00"
+            - day: THURSDAY
+              opens: "07:00"
+              closes: "18:00"
+            - day: FRIDAY
+              opens: "07:00"
+              closes: "18:00"
+            - day: SATURDAY
+              opens: "07:00"
+              closes: "14:00"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
