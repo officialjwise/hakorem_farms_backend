@@ -155,6 +155,16 @@ export class Reservations {
     });
   }
 
+  /**
+   * Releases every active reservation a document holds in the caller's transaction (ORD's cancellation of an order,
+   * FR-ORD-014), each ended once as `releaseIn` ends it; answers the reservations released. It authorises nothing.
+   */
+  async releaseHeldByIn(tx: Transaction, actorId: string, holderDocumentId: string, reason: string): Promise<StockReservationRecord[]> {
+    const held = await this.store.activeOfHolder(tx, holderDocumentId);
+    for (const reservation of held) await this.endIn(tx, actorId, reservation.id, 'RELEASED', reason);
+    return held;
+  }
+
   /** Releases an active reservation in the caller's transaction (a checkout abandoned, a quote withdrawn). */
   async releaseIn(tx: Transaction, actorId: string, reservationId: string, reason: string): Promise<void> {
     await this.endIn(tx, actorId, reservationId, 'RELEASED', reason);

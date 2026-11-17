@@ -130,70 +130,78 @@ export class Refunds {
       const [payment] = await this.store.payments(tx, [body.originalPaymentId], true);
       if (payment === undefined) throw new NotFoundError('no such payment');
       await this.authoriser.authorise(tx, actor, CREATE, { branchId: payment.branchId });
-      const broken: PaymentRule[] = [];
-      const reason = (await this.refs.reasonCodesIn(tx, [body.reasonCode])).get(body.reasonCode);
-      if (reason === undefined || reason.domain !== 'REFUND') broken.push({ field: '/reasonCode', rule: 'REASON_UNKNOWN' });
-      else if (reason.requiresNote && body.note === null) broken.push({ field: '/note', rule: 'NOTE_REQUIRED' });
-      const customer = payment.customerId === null ? undefined : (await this.refs.customersIn(tx, [payment.customerId])).get(payment.customerId);
-      const creditNote = body.creditNoteId === null ? null : await this.creditNoteFactsIn(tx, body.creditNoteId, payment);
-      const judged = judgeStoredRefund({ ...payment, customerHasPhone: customer?.hasPhone === true }, body.amountPesewas, body.destination, creditNote);
-      const only = (rule: string) => !judged.ok && broken.length === 0 && judged.error.length === 1 && judged.error[0] === rule;
-      if (only('REFUND_EXCEEDS_PAYMENT')) throw new RefundExceedsPaymentError(creditNote === null ? refundLeftOf(payment) : creditNote.paidByPaymentPesewas);
-      if (only('REFUND_EXCEEDS_CREDIT_NOTE')) throw new RefundExceedsCreditNoteError(creditNote!.leftPesewas);
-      if (!judged.ok) broken.push(...judged.error.map((rule) => ({ field: refusalField(rule), rule })));
-      if (broken.length > 0) throw new RefundInvalidError(broken);
-
-      const id = this.nextId();
-      await this.documents.register(tx, { id, docType: 'REFUND', ownerModule: 'pay', branchId: payment.branchId, actorId: actor!.principalId });
-      try {
-        await this.store.insertRefund(tx, {
-          id,
-          originalPaymentId: payment.id,
-          amountPesewas: body.amountPesewas,
-          destination: body.destination,
-          reasonCode: body.reasonCode,
-          note: body.note,
-          creditNoteId: body.creditNoteId,
-          isAutomatic: false,
-          status: 'PENDING_APPROVAL',
-          branchId: payment.branchId,
-          createdBy: actor!.principalId,
-          // The application's instant, not the column default: a payout recorded by hand is checked against it (ADR-0067).
-          createdAt: this.clock.now(),
-        });
-      } catch (error) {
-        const failure = databaseErrorOf(error);
-        if (failure?.code === 'HK010' && failure.constraint === 'ck_refund_cap') throw new RefundExceedsPaymentError(refundLeftOf(payment));
-        if (failure?.code === 'HK010' && failure.constraint === 'ck_credit_note_refund_cap') throw new RefundExceedsCreditNoteError(0n);
-        if (failure?.code === 'HK010' && failure.constraint === 'ck_refund_credit_note_payment') throw new RefundExceedsPaymentError(0n);
-        throw error;
-      }
-      const [record] = await this.store.refunds(tx, [id]);
-      const against = body.creditNoteId === null ? '' : ` against credit note ${creditNote!.documentNo ?? body.creditNoteId}`;
-      const summary = `Refund ${formatCedis(body.amountPesewas)} of payment ${payment.providerReference ?? payment.id}${against} (${body.reasonCode})`;
-      const approval = await this.approvals.request(tx, actor, { kind: REFUND_KIND, branchId: payment.branchId, subjectDocumentId: id, payloadHash: refundHash(record!), amountPesewas: body.amountPesewas, summary });
-      await this.store.updateRefund(tx, id, { approvalRequestId: approval.id }, actor!.principalId);
-      const requested: RefundRequested = {
-        refundId: id,
-        paymentId: payment.id,
-        branchId: payment.branchId,
-        amountPesewas: json(body.amountPesewas),
-        approvalRequestId: approval.id,
-        requestedBy: actor!.principalId,
-        creditNoteId: body.creditNoteId,
-        creditNoteMakerId: creditNote?.makerId ?? null,
-        abuseCases: [REFUND_ABUSE_CASE],
-      };
-      await this.events.publish(tx, { type: REFUND_REQUESTED, subjectType: 'Refund', subjectId: id, branchId: payment.branchId, payload: requested });
-      const [view] = await this.views(tx, await this.store.refunds(tx, [id]));
-      await this.audit.record(tx, { module: 'pay', action: 'SUBMIT', entityType: 'Refund', entityId: id, branchId: payment.branchId, before: null, after: { ...view! } });
-      const response = {
-        status: 202,
-        body: { status: 'PENDING_APPROVAL' as const, approvalRequestId: approval.id, kind: REFUND_KIND, subject: { id, docType: 'REFUND', number: null }, summary, requestedAt: approval.requestedAt.toISOString() },
-      };
+      const response = { status: 202, body: await this.requestIn(tx, actor!, body) };
       await this.idempotency.complete(tx, claim.id, response);
       return response;
     });
+  }
+
+  /**
+   * A refund asked for in the caller's serializable transaction (ORD's cancellation asks for the refund of what an
+   * order was paid, FR-ORD-014; B09a continued 2c): the same rules, cap, approval and report as `requestRefund`, the
+   * caller's actor its maker. It authorises nothing: the caller's command has. Answers the pending approval.
+   */
+  async requestIn(tx: Transaction, actor: Actor, body: RefundRequest): Promise<ApprovalPendingView> {
+    const [payment] = await this.store.payments(tx, [body.originalPaymentId], true);
+    if (payment === undefined) throw new NotFoundError('no such payment');
+    const broken: PaymentRule[] = [];
+    const reason = (await this.refs.reasonCodesIn(tx, [body.reasonCode])).get(body.reasonCode);
+    if (reason === undefined || reason.domain !== 'REFUND') broken.push({ field: '/reasonCode', rule: 'REASON_UNKNOWN' });
+    else if (reason.requiresNote && body.note === null) broken.push({ field: '/note', rule: 'NOTE_REQUIRED' });
+    const customer = payment.customerId === null ? undefined : (await this.refs.customersIn(tx, [payment.customerId])).get(payment.customerId);
+    const creditNote = body.creditNoteId === null ? null : await this.creditNoteFactsIn(tx, body.creditNoteId, payment);
+    const judged = judgeStoredRefund({ ...payment, customerHasPhone: customer?.hasPhone === true }, body.amountPesewas, body.destination, creditNote);
+    const only = (rule: string) => !judged.ok && broken.length === 0 && judged.error.length === 1 && judged.error[0] === rule;
+    if (only('REFUND_EXCEEDS_PAYMENT')) throw new RefundExceedsPaymentError(creditNote === null ? refundLeftOf(payment) : creditNote.paidByPaymentPesewas);
+    if (only('REFUND_EXCEEDS_CREDIT_NOTE')) throw new RefundExceedsCreditNoteError(creditNote!.leftPesewas);
+    if (!judged.ok) broken.push(...judged.error.map((rule) => ({ field: refusalField(rule), rule })));
+    if (broken.length > 0) throw new RefundInvalidError(broken);
+
+    const id = this.nextId();
+    await this.documents.register(tx, { id, docType: 'REFUND', ownerModule: 'pay', branchId: payment.branchId, actorId: actor.principalId });
+    try {
+      await this.store.insertRefund(tx, {
+        id,
+        originalPaymentId: payment.id,
+        amountPesewas: body.amountPesewas,
+        destination: body.destination,
+        reasonCode: body.reasonCode,
+        note: body.note,
+        creditNoteId: body.creditNoteId,
+        isAutomatic: false,
+        status: 'PENDING_APPROVAL',
+        branchId: payment.branchId,
+        createdBy: actor.principalId,
+        // The application's instant, not the column default: a payout recorded by hand is checked against it (ADR-0067).
+        createdAt: this.clock.now(),
+      });
+    } catch (error) {
+      const failure = databaseErrorOf(error);
+      if (failure?.code === 'HK010' && failure.constraint === 'ck_refund_cap') throw new RefundExceedsPaymentError(refundLeftOf(payment));
+      if (failure?.code === 'HK010' && failure.constraint === 'ck_credit_note_refund_cap') throw new RefundExceedsCreditNoteError(0n);
+      if (failure?.code === 'HK010' && failure.constraint === 'ck_refund_credit_note_payment') throw new RefundExceedsPaymentError(0n);
+      throw error;
+    }
+    const [record] = await this.store.refunds(tx, [id]);
+    const against = body.creditNoteId === null ? '' : ` against credit note ${creditNote!.documentNo ?? body.creditNoteId}`;
+    const summary = `Refund ${formatCedis(body.amountPesewas)} of payment ${payment.providerReference ?? payment.id}${against} (${body.reasonCode})`;
+    const approval = await this.approvals.request(tx, actor, { kind: REFUND_KIND, branchId: payment.branchId, subjectDocumentId: id, payloadHash: refundHash(record!), amountPesewas: body.amountPesewas, summary });
+    await this.store.updateRefund(tx, id, { approvalRequestId: approval.id }, actor.principalId);
+    const requested: RefundRequested = {
+      refundId: id,
+      paymentId: payment.id,
+      branchId: payment.branchId,
+      amountPesewas: json(body.amountPesewas),
+      approvalRequestId: approval.id,
+      requestedBy: actor.principalId,
+      creditNoteId: body.creditNoteId,
+      creditNoteMakerId: creditNote?.makerId ?? null,
+      abuseCases: [REFUND_ABUSE_CASE],
+    };
+    await this.events.publish(tx, { type: REFUND_REQUESTED, subjectType: 'Refund', subjectId: id, branchId: payment.branchId, payload: requested });
+    const [view] = await this.views(tx, await this.store.refunds(tx, [id]));
+    await this.audit.record(tx, { module: 'pay', action: 'SUBMIT', entityType: 'Refund', entityId: id, branchId: payment.branchId, before: null, after: { ...view! } });
+    return { status: 'PENDING_APPROVAL' as const, approvalRequestId: approval.id, kind: REFUND_KIND, subject: { id, docType: 'REFUND', number: null }, summary, requestedAt: approval.requestedAt.toISOString() };
   }
 
   /** IAM's handler for `REFUND`: the approved refund goes to the provider's queue, or waits to be paid by hand. */

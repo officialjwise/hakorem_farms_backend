@@ -28,6 +28,8 @@ const REVERSAL_ABUSE_CASE = 32;
 const CREATE = 'pay.payment.create';
 const CLEAR_CHEQUE = 'pay.payment.clear_cheque';
 const REVERSE = 'pay.payment.reverse';
+/** The reversal reason of a payment whose sale was voided (migration 0192). */
+const SALE_VOIDED_REASON = 'SALE_VOIDED';
 /** The System principal, for the rows an approval writes when the decider is not named. */
 const SYSTEM_ACTOR_ID = '01900000-0000-7000-8000-000000000001';
 
@@ -241,6 +243,24 @@ export class Receipts {
       await this.audit.record(tx, { module: 'pay', action: 'REJECT', entityType: 'PaymentReversal', entityId: reversal.id, branchId: reversal.branchId, before: { status: reversal.status }, after: { status: 'REJECTED', approvalRequestId: request.id } });
     },
   };
+
+  /**
+   * A payment reversed in the caller's serializable transaction under the caller's own approval (ORD's void of a sale,
+   * approved by a supervisor who is not the cashier, B09a continued 2c): the same reversal as an approved
+   * `reversePayment` (its allocations reopened, a reversing payment, the mirror of each entry), recorded as a reversal
+   * that names the caller's approval and the reason `SALE_VOIDED`. The caller has authorised its command and decided,
+   * through a different person, that the money goes back; it authorises nothing. Refused as `reversePayment` would be.
+   * Answers the reversing payment's id.
+   */
+  async reverseApprovedIn(tx: Transaction, paymentId: string, request: { readonly note: string; readonly actorId: string; readonly approvalRequestId: string }): Promise<string> {
+    const [payment] = await this.store.payments(tx, [paymentId], true);
+    if (payment === undefined) throw new NotFoundError('no such payment');
+    const reversalId = this.nextId();
+    await this.store.insertReversal(tx, { id: reversalId, paymentId, reasonCode: SALE_VOIDED_REASON, note: request.note, branchId: payment.branchId, createdBy: request.actorId });
+    await this.store.updateReversal(tx, reversalId, { approvalRequestId: request.approvalRequestId }, request.actorId);
+    await this.reverseIn(tx, (await this.store.openReversalOf(tx, paymentId))!, request.actorId, request.approvalRequestId);
+    return (await this.store.openReversalOf(tx, paymentId))!.reversingPaymentId!;
+  }
 
   /**
    * The approved reversal: every allocation reopened (each applied from deposit taken off by ◆ `pay.DepositAllocated`,

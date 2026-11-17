@@ -1,5 +1,5 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
-import type { NewOrder, NewOrderLine, OrderFilter, OrderHeaderRecord, OrderLineRecord, OrderRecord, OrderStore, StatusChangeRecord } from '../application/order-store';
+import type { NewOrder, NewOrderLine, OrderFilter, OrderHeaderRecord, OrderLineRecord, OrderRecord, OrderStore, OrderVoidRecord, StatusChangeRecord } from '../application/order-store';
 
 const big = (value: string | null): bigint | null => (value === null ? null : BigInt(value));
 
@@ -193,6 +193,53 @@ export class PgOrderStore implements OrderStore {
     await tx.query('UPDATE ord.sales_order_line SET reservation_id = $2 WHERE id = $1', [lineId, reservationId]);
   }
 
+  async cancel(tx: Transaction, orderId: string, c: { readonly reasonCode: string; readonly at: Date; readonly actorId: string }): Promise<void> {
+    await tx.query("UPDATE ord.sales_order_line SET line_status = 'CANCELLED' WHERE sales_order_id = $1 AND line_status = 'OPEN'", [orderId]);
+    await tx.query(
+      `UPDATE ord.sales_order SET status = 'CANCELLED', cancel_reason_code = $2, posted_at = $3, posted_by = $4, updated_at = $3, updated_by = $4, version = version + 1
+        WHERE id = $1`,
+      [orderId, c.reasonCode, c.at, c.actorId],
+    );
+  }
+
+  async markVoided(tx: Transaction, orderId: string, v: { readonly approvalRequestId: string; readonly voidedBy: string; readonly at: Date }): Promise<void> {
+    await tx.query(
+      `UPDATE ord.sales_order SET status = 'VOIDED', void_approval_request_id = $2, voided_by = $3, voided_at = $4, updated_at = $4, updated_by = $3, version = version + 1
+        WHERE id = $1`,
+      [orderId, v.approvalRequestId, v.voidedBy, v.at],
+    );
+  }
+
+  async insertVoid(tx: Transaction, v: Omit<OrderVoidRecord, 'status' | 'creditNoteId' | 'decidedBy'>): Promise<void> {
+    await tx.query(
+      `INSERT INTO ord.order_void (id, sales_order_id, reason_code, note, status, approval_request_id, branch_id, created_by, updated_by)
+       VALUES ($1, $2, $3, $4, 'PENDING_APPROVAL', $5, $6, $7, $7)`,
+      [v.id, v.salesOrderId, v.reasonCode, v.note, v.approvalRequestId, v.branchId, v.createdBy],
+    );
+  }
+
+  async openVoidOf(tx: Transaction, orderId: string): Promise<OrderVoidRecord | null> {
+    return this.voidWhere(tx, "sales_order_id = $1 AND status <> 'REJECTED'", orderId);
+  }
+
+  async voidByApproval(tx: Transaction, approvalRequestId: string): Promise<OrderVoidRecord | null> {
+    return this.voidWhere(tx, 'approval_request_id = $1', approvalRequestId);
+  }
+
+  async decideVoid(tx: Transaction, id: string, d: { readonly status: 'APPROVED' | 'REJECTED'; readonly creditNoteId: string | null; readonly decidedBy: string; readonly at: Date }): Promise<void> {
+    await tx.query('UPDATE ord.order_void SET status = $2, credit_note_id = $3, decided_by = $4, decided_at = $5, updated_at = $5, updated_by = $4, version = version + 1 WHERE id = $1', [id, d.status, d.creditNoteId, d.decidedBy, d.at]);
+  }
+
+  private async voidWhere(tx: Transaction, where: string, value: string): Promise<OrderVoidRecord | null> {
+    const { rows } = await tx.query<OrderVoidRecord>(
+      `SELECT id, sales_order_id AS "salesOrderId", reason_code AS "reasonCode", note, status, approval_request_id AS "approvalRequestId", credit_note_id AS "creditNoteId",
+              decided_by AS "decidedBy", branch_id AS "branchId", created_by AS "createdBy"
+         FROM ord.order_void WHERE ${where} FOR UPDATE`,
+      [value],
+    );
+    return rows[0] ?? null;
+  }
+
   async list(tx: Transaction, f: OrderFilter, beforeId: string | null, limit: number): Promise<string[]> {
     const { rows } = await tx.query<{ id: string }>(
       `SELECT id FROM ord.sales_order
@@ -233,7 +280,7 @@ export class PgOrderStore implements OrderStore {
 const HEADER_COLUMNS = `id, order_no, channel, customer_id, contact_name, contact_phone_e164, status, payment_terms, fulfilment_mode, source_document_id, shift_document_id,
               salesperson_id, tax_inclusive, delivery_fee_pesewas::text, estimated_total_pesewas::text, maximum_total_pesewas::text, final_total_pesewas::text,
               billing_document_id, is_offline, placed_at, completed_at, recorded_at, notes, branch_id, version,
-              parent_order_id, credit_check, delivery_address_snapshot, delivery_zone_id`;
+              parent_order_id, credit_check, delivery_address_snapshot, delivery_zone_id, created_by`;
 
 function header(r: Record<string, unknown>): OrderHeaderRecord {
   return {
@@ -266,5 +313,6 @@ function header(r: Record<string, unknown>): OrderHeaderRecord {
     creditCheck: r['credit_check'] as OrderHeaderRecord['creditCheck'],
     deliveryAddressSnapshot: r['delivery_address_snapshot'] ?? null,
     deliveryZoneId: r['delivery_zone_id'] as string | null,
+    createdBy: r['created_by'] as string,
   };
 }

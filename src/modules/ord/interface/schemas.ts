@@ -68,3 +68,6 @@ export const OrderCreateBody = z.strictObject({
   couponCode: z.string().min(1).max(40).optional(),
   notes: Text(500).optional(),
 });
+
+/** The contract's `ReasonCodeRequest` (cancelOrder, voidOrder). */
+export const ReasonCodeBody = z.strictObject({ reasonCode: ReasonCode, note: Text(500).optional() });

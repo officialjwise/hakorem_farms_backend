@@ -68,8 +68,8 @@ beforeAll(async () => {
   const admin = database.pool('admin');
   await admin.query("INSERT INTO iam.permission (code, module, description) VALUES ('iam.probe.approve', 'iam', 'Approve a test probe request')");
   await admin.query("INSERT INTO iam.role_permission (role_id, permission_code, created_by) VALUES ($1, 'iam.probe.approve', $2)", [ROLE_IDS.MANAGER, SYSTEM_PRINCIPAL]);
-  await admin.query("INSERT INTO iam.approval_policy (id, kind, approver_permission, created_by, updated_by) VALUES ($1, 'SALE_VOID', 'iam.probe.approve', $2, $2)", [randomUUID(), SYSTEM_PRINCIPAL]);
-  api.app.get(Approvals).registerHandler('SALE_VOID', { currentPayloadHash: async () => hashOf('probe'), onApproved: async () => undefined });
+  await admin.query("INSERT INTO iam.approval_policy (id, kind, approver_permission, created_by, updated_by) VALUES ($1, 'QUOTE_BELOW_MARGIN', 'iam.probe.approve', $2, $2)", [randomUUID(), SYSTEM_PRINCIPAL]);
+  api.app.get(Approvals).registerHandler('QUOTE_BELOW_MARGIN', { currentPayloadHash: async () => hashOf('probe'), onApproved: async () => undefined });
 });
 
 afterAll(async () => {
@@ -85,7 +85,7 @@ async function pendingRequest(maker: Actor = makerActor): Promise<string> {
   const approvals = api.app.get(Approvals);
   const record = await runWithRequestContext({ correlationId: randomUUID(), ip: null, userAgent: 'contract', actor: maker }, () =>
     uow.run({ isolation: 'serializable' }, (tx) =>
-      approvals.request(tx, maker, { kind: 'SALE_VOID', branchId, subjectDocumentId: subjectId, payloadHash: hashOf('probe'), amountPesewas: 58_900n, summary: 'Mortality: goat G-0171' }),
+      approvals.request(tx, maker, { kind: 'QUOTE_BELOW_MARGIN', branchId, subjectDocumentId: subjectId, payloadHash: hashOf('probe'), amountPesewas: 58_900n, summary: 'Mortality: goat G-0171' }),
     ),
   );
   return record.id;

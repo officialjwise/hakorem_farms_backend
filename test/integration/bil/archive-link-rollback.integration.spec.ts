@@ -44,10 +44,15 @@ describe('0155 rolls back and applies again over archived documents', () => {
     const rolledBack: string[] = [];
     while (rolledBack.at(-1) !== '0155_bil_archive_and_reprints') {
       const step = await rollback(database.url('admin'), migrations);
-      if (step.kind !== 'ROLLED_BACK' || rolledBack.length >= 40) throw new Error(`rollback stopped before 0155: ${JSON.stringify(step)} after ${rolledBack.join(', ')}`);
+      if (step.kind !== 'ROLLED_BACK' || rolledBack.length >= 60) throw new Error(`rollback stopped before 0155: ${JSON.stringify(step)} after ${rolledBack.join(', ')}`);
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0194_ord_cancel_and_void',
+      '0193_pay_reversal_per_payment_approval',
+      '0192_mdm_order_reversal_reasons',
+      '0191_iam_grant_ord_reversal_permissions',
+      '0190_iam_seed_ord_reversal_permissions',
       '0189_iam_grant_ord_permissions',
       '0188_iam_seed_ord_permissions',
       '0187_bil_settlement_as_of',

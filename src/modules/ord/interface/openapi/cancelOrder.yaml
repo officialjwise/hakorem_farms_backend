@@ -1,0 +1,127 @@
+operationId: cancelOrder
+tags:
+  - ord
+summary: "Cancel an order before dispatch"
+description: "Runs at serializable isolation, as one transaction: every reservation the order holds is released, every pending provider charge is released (money that still arrives clears as an unmatched deposit with a break), and the refund of what each cleared payment still holds is asked for to its original method with the reason `ORDER_CANCELLED`, waiting for a different approver (kind `REFUND`). Only a `PLACED` or `CONFIRMED` order is cancelled; any other status, a dispatched order included, is 422 INVALID_STATE_TRANSITION (`details[].code` the status). The reason is a `CANCELLATION` reason (else 422 ORDER_INVALID `REASON_NOT_ALLOWED`; `NOTE_REQUIRED` when the reason asks for a note). Every open line becomes `CANCELLED`, and the history records the change with the reason.\n\nPermission: `ord.order.cancel`."
+x-permission: ord.order.cancel
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ReasonCodeRequest"
+      example:
+        reasonCode: CUSTOMER_CANCELLED
+        note: "Customer called to cancel"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/SalesOrder"
+        example:
+          id: "019a7af2-36e8-7975-8eae-a02e8215190c"
+          customer:
+            id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
+            customerNo: C-00056
+            name: "Asantewaa Chop Bar"
+          contactName: null
+          contactPhone: null
+          source: null
+          parentOrderId: null
+          shiftId: null
+          salesperson:
+            id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+            displayName: "Kojo Antwi"
+          deliveryAddress: null
+          deliveryZone: null
+          deliveryFeePesewas: 0
+          delivery: null
+          taxInclusive: false
+          finalTotalPesewas: null
+          billingDocument: null
+          creditCheck: PASSED
+          isOffline: false
+          completedAt: null
+          adjustments: []
+          notes: "Customer cancelled by phone"
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 3
+          orderNo: SO-2026-DDW-004198-1
+          channel: WHOLESALE
+          status: CANCELLED
+          paymentStatus: UNPAID
+          paymentTerms: CREDIT
+          fulfilmentMode: COLLECTION
+          estimatedTotalPesewas: 52000
+          maximumTotalPesewas: 52000
+          paidPesewas: 0
+          outstandingPesewas: 0
+          currency: GHS
+          placedAt: "2026-11-11T15:00:00Z"
+          recordedAt: "2026-11-11T15:00:00Z"
+          lines:
+            - id: "019a7af2-55d7-7359-9891-3e65fbc6b743"
+              lineNo: 1
+              product:
+                id: "019a7a8e-a5a0-754c-8a85-5d9ed05dd67c"
+                sku: PRD-YAM
+                name: "Yam, tuber"
+              stockUnit: null
+              qtyOrdered: "20.000"
+              uom: TUBER
+              estimatedWeightKg: null
+              tolerancePercent: null
+              qtyFulfilled: "0.000"
+              fulfilledWeightKg: null
+              weightSource: null
+              qtyBackordered: "0.000"
+              priceSource: ENGINE
+              priceBasis: PER_UNIT
+              priceListEntryId: "019a7aa5-f7cf-79ca-9f02-a5718ece1e4f"
+              quoteLineId: null
+              resolvedUnitPricePesewas: 2600
+              floorUnitPricePesewas: 2000
+              ceilingUnitPricePesewas: 3000
+              agreedUnitPricePesewas: 2600
+              variancePesewas: 0
+              varianceDirection: null
+              varianceReasonCode: null
+              varianceApprovalRequestId: null
+              discountPesewas: 0
+              estimatedLineTotalPesewas: 52000
+              finalLineTotalPesewas: null
+              lineStatus: CANCELLED
+              stockException: null
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

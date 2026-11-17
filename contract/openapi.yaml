@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.47.0"
+  version: "1.48.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -49883,7 +49883,7 @@ paths:
       tags:
         - ord
       summary: "Cancel an order before dispatch"
-      description: "Releases reservations, returns any picked stock, and requests a refund of anything paid, in one transaction.\n\nPermission: `ord.order.cancel`."
+      description: "Runs at serializable isolation, as one transaction: every reservation the order holds is released, every pending provider charge is released (money that still arrives clears as an unmatched deposit with a break), and the refund of what each cleared payment still holds is asked for to its original method with the reason `ORDER_CANCELLED`, waiting for a different approver (kind `REFUND`). Only a `PLACED` or `CONFIRMED` order is cancelled; any other status, a dispatched order included, is 422 INVALID_STATE_TRANSITION (`details[].code` the status). The reason is a `CANCELLATION` reason (else 422 ORDER_INVALID `REASON_NOT_ALLOWED`; `NOTE_REQUIRED` when the reason asks for a note). Every open line becomes `CANCELLED`, and the history records the change with the reason.\n\nPermission: `ord.order.cancel`."
       x-permission: ord.order.cancel
       parameters:
         - name: id
@@ -50012,7 +50012,7 @@ paths:
       tags:
         - ord
       summary: "Void a completed counter sale"
-      description: "Always needs approval by a supervisor who is not the cashier. On approval the stock, receipt and payments are reversed by new records; the original stays. Every void is on the daily exception report. This is the control for abuse case 1.\n\nPermission: `ord.order.void`.\n\nMay require approval of kind `SALE_VOID`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+      description: "Always 202 with an `ApprovalPending` body (kind `SALE_VOID`); nothing changes until a supervisor holding `ord.void.approve`, with a fresh step-up, approves who is neither the person asking (422 MAKER_CANNOT_CHECK) nor the cashier who made the sale (422 MAKER_CANNOT_CHECK, also refused by the database). Only a `COMPLETED` counter or collection sale is voided (else 422 INVALID_STATE_TRANSITION, or ORDER_INVALID `NOT_A_COUNTER_SALE`), on the business day it completed (`VOID_DAY_CLOSED`, judged again at approval), with no void already waiting (`VOID_PENDING`), and paid only in cash or store credit, cleared and never refunded (`TENDER_NOT_VOIDABLE`: money through the provider or a bank goes back through a return and a refund against its credit note). The reason is a `VOID` reason. On approval, in the approval's transaction, the stock, receipt and payments are reversed by new records: each payment reversed (the mirror of its journal), the receipt credited in full by a credit note, and each stock issue reversed; the order becomes `VOIDED` and the original stays. Every request and every void is on the daily exception report (`SALE_VOID`). This is the control for abuse case 1.\n\nPermission: `ord.order.void`.\n\nMay require approval of kind `SALE_VOID`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
       x-permission: ord.order.void
       parameters:
         - name: id

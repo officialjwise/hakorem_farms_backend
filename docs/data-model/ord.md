@@ -6,6 +6,8 @@ Owner: ORD module. The single order record for every channel, sale posting, fulf
 
 **B09a continued 2b (A-224):** no table changes. A staff order is written `PLACED` with `OPEN` lines and moves to `CONFIRMED` with `credit_check` set; its reservations are held by the order (`inv.stock_reservation.holder_document_id`, no expiry), and `reservation_id` names the reservation of a line held by exactly one. The permissions are migrations 0188 and 0189.
 
+**B09a continued 2c (A-226, migration 0194):** `ord.sales_order` adds `voided_by` and `voided_at` with `ck_sales_order_void_checker` (a VOIDED order names who voided it and when, never the one who posted it nor its salesperson), and the guard lets a COMPLETED order change only its status, `void_approval_request_id`, `voided_by` and `voided_at`. A cancellation writes `cancel_reason_code` and `posted_at`/`posted_by`, and turns every OPEN line CANCELLED. `ord.order_void` (below) holds each void asked for. The permissions are migrations 0190 and 0191.
+
 ---
 
 ### `ord.sales_order` · DOCUMENT
@@ -51,6 +53,23 @@ Posted statuses: `COMPLETED`, `CANCELLED`, `VOIDED`. The state machine is in `do
 Standard columns: `DOCUMENT`.
 
 - Indexes: (`customer_id`, `placed_at`); (`status`, `branch_id`); (`shift_document_id`).
+
+### `ord.order_void` · DOCUMENT
+
+One void asked for of a completed sale (B09a continued 2c, A-226). Written `PENDING_APPROVAL` with its `SALE_VOID` approval; then `APPROVED` with its credit note, or `REJECTED`; then frozen (`trg_order_void_guard`, `ck_order_void_transition`).
+
+| Column | Type | Constraints | Why |
+| --- | --- | --- | --- |
+| `id` | `uuid` | PK | |
+| `sales_order_id` | `uuid` | NOT NULL, FK `ord.sales_order`; one not REJECTED per order (`uq_order_void_open`) | The sale |
+| `reason_code` | `text` | NOT NULL, FK `mdm.reason_code` | A `VOID` reason |
+| `note` | `text` | NULL | |
+| `status` | `text` | NOT NULL, CHECK in (`PENDING_APPROVAL`, `APPROVED`, `REJECTED`) | |
+| `approval_request_id` | `uuid` | NOT NULL, UNIQUE, FK `iam.approval_request` | The supervisor's approval |
+| `credit_note_id` | `uuid` | NULL, UNIQUE, FK `bil.billing_document`; set exactly when APPROVED | The credit note crediting the receipt in full |
+| `decided_by`, `decided_at` | `uuid`, `timestamptz` | NULL until decided; `decided_by` never `created_by` (`ck_order_void_decided`) | |
+
+Standard columns: `DOCUMENT` (`branch_id`, `version`, `created_*`, `updated_*`).
 
 ### `ord.sales_order_line` · DOCUMENT
 
