@@ -64,7 +64,8 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B09a continued 1d | `B09a2d-payments-credit-refunds.md` | `b09a2d-payments-credit-refunds` | B4 to B12 | A refund against a credit note on a paid document posts Dr 1200, never beyond the credit note's amount less what was refunded, held by the database under concurrency, approved by someone other than both makers; a cheque is refunded through a bank payout; the trial balance still sums to zero (built, A-216, ADR-0066) |
 | B09a continued 2 | `B09a3-orders-online.md` | `b09a3-orders-online` | B4 to B12 | The real Paystack sandbox run: every edge case against Paystack's test mode, every difference reported and fixed in the fake and the adapter test-first; the Settlements API's answer recorded; CR-029 (`Cart.checkoutId`) built (built; the session split before the order endpoints, A-219) |
 | B09t2 | `B09t2-dates-from-clock.md` | `b09t2-dates-from-clock` | B4 to B12 | No seed row or test depends on a fixed calendar date real time will pass; the suite passes forced to 2026-12-31 and 2027-03-01 apart from named container-clock artifacts; the refund payout check uses an application-written instant; merged before 2026-12-01 |
-| B09a continued 2b | `B09a3b-orders-online.md` | `b09a3b-orders-online` | B4 to B12 | The order endpoints and online placement post through SalePosting in one transaction; a void needs a supervisor who is not the cashier; a return never exceeds what was sold; the dashboard's sales figures answer exactly; every ORD write refuses the wrong role |
+| B09a continued 2b | `B09a3b-orders-online.md` | `b09a3b-orders-online` | B4 to B12 | Built and split (A-224, A-225): every ORD read and write built refuses the wrong role and another branch; an order is entered PLACED priced by the engine to the pesewa; a confirmation reserves every line or keeps the order PLACED naming each shortfall, the last stock confirmed once under concurrency |
+| B09a continued 2c | `B09a3c-orders-reversals.md` | `b09a3c-orders-reversals` | B4 to B12 | The order endpoints and online placement post through SalePosting in one transaction; a void needs a supervisor who is not the cashier; a return never exceeds what was sold; the dashboard's sales figures answer exactly; every ORD write refuses the wrong role |
 | B09x | `B09x-contract-requests.md` | `b09x-contract-requests` | B4 to B12 | Every list operation has a named empty example (CR-005) and the seeded role matrix is published in the contract, generated from the IAM seed and checked in CI so it cannot drift (CR-023); no existing shape changes |
 | B9b | `B09b-pos-shifts-offline.md` | `b09b-pos-shifts-offline` | B4 to B12 | Shift close reconciles; 500 queued offline transactions sync exactly once |
 | B08 continued 2d | `B08c2d-customer-statements.md` | `b08c2d-customer-statements` | B4 to B12 | A customer statement for a period ties to the customer's documents and the ledger's 1200 for that customer and period, opening plus movements equal to closing to the pesewa, and is rendered after commit and archived once; every statement write refuses the wrong role |
@@ -1698,7 +1699,7 @@ request is green.
 
 ## B09a continued 2b — The order endpoints, returns and voids, online placement and the dashboard's sales figures
 
-Branch `b09a3b-orders-online`, from `main`. Report `docs/sessions/B09a3b-orders-online.md`. Inserted by B09a continued 2's split (A-219, ADR-0026 Amendments); runs after B09t2 and before B09x. Gate: an order on any channel built so far posts stock, document, payment and ledger in one transaction through `SalePosting.postIn` (B9a's proof stands), now reached through the order endpoints and online placement; a void is approved by a supervisor who is not the cashier and leaves a credit note and reversing entries; a return never exceeds what was sold; the owner dashboard's B9a figures answer exactly from completed orders; every ORD write refuses the wrong role.
+**Run on 2026-11-17 and split (A-224, A-225):** ORD's first permissions and grants, getOrder, listOrders, listOrderHistory, createOrder and confirmOrder with the `OrderConfirmationPolicy` port were built and proved (contract 1.47.0); everything else moved to B09a continued 2c below, which runs next, before B09x. Branch `b09a3b-orders-online`, from `main`. Report `docs/sessions/B09a3b-orders-online.md`. Inserted by B09a continued 2's split (A-219, ADR-0026 Amendments); runs after B09t2 and before B09x. Gate: an order on any channel built so far posts stock, document, payment and ledger in one transaction through `SalePosting.postIn` (B9a's proof stands), now reached through the order endpoints and online placement; a void is approved by a supervisor who is not the cashier and leaves a credit note and reversing entries; a return never exceeds what was sold; the owner dashboard's B9a figures answer exactly from completed orders; every ORD write refuses the wrong role.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9a row).
@@ -1747,13 +1748,66 @@ Stop at the gate, write docs/sessions/B09a3b-orders-online.md, and merge into ma
 request is green.
 ```
 
+## B09a continued 2c — Cancellations, voids and returns, price override approvals, the proforma, online placement and the dashboard's sales figures
+
+Branch `b09a3c-orders-reversals`, from `main`. Report `docs/sessions/B09a3c-orders-reversals.md`. Inserted by B09a continued 2b's split (A-225, ADR-0026 Amendments); runs after it and before B09x. Gate: an order on any channel built so far posts stock, document, payment and ledger in one transaction through `SalePosting.postIn` (B9a's proof stands), now reached through the order endpoints and online placement; a cancellation releases the order's reservations and pending charges and requests the refund in one transaction; a void is approved by a supervisor who is not the cashier and leaves a credit note and reversing entries; a return never exceeds what was sold less what was returned, held by a database trigger and proved under concurrency; a price below list is approved by a different user; the owner dashboard's B9a figures answer exactly from completed orders; every ORD write refuses the wrong role. If it does not fit, split again at a sub-domain boundary (reversals; pricing approvals and the proforma; online placement; the dashboard and the seed).
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9a row).
+List docs/sessions/ and read only the most recent report (docs/sessions/B09a3b-orders-online.md), and also
+docs/sessions/B09a3-orders-online.md, the handoff of the orders work this phase continues.
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the ORD (core) requirement block of docs/SRS.md and FR-RPT-001 (nothing else from the SRS),
+docs/data-model/ord.md, the ORD, PAY, BIL and RPT cards in docs/MODULE_BOUNDARIES.md, DOMAIN_MODEL section 7,
+ADR-0010, ADR-0021 and ADR-0026, the abuse cases 1, 3 and 12 in docs/security/THREAT_MODEL.md, and A-149, A-200,
+A-201, A-208, A-209, A-210, A-211, A-212, A-213, A-216, A-218, A-224 and A-225 in docs/ASSUMPTIONS.md, ADR-0063,
+ADR-0064 and ADR-0066 (a void's refund is a reversal or a refund to store credit; returns use the refund against a
+credit note, built in B09a continued 1d), and ADR-0067 with A-217 (a rule's "now" is the application clock's). Load
+hakorem-pricing, hakorem-money, hakorem-stock, hakorem-ledger, hakorem-documents, hakorem-security-review,
+hakorem-endpoint, hakorem-migration and hakorem-tests. Use docs/prompts/module-build-prompt.md as the recipe.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B09a continued 2c only, on branch b09a3c-orders-reversals, branched from main. B09a continued 2b built
+ORD's read, create and confirm permissions (0188, 0189) and getOrder, listOrders, listOrderHistory, createOrder and
+confirmOrder in `Orders` (src/modules/ord/application/orders.ts), with the `OrderConfirmationPolicy` port; build on
+them: the permissions and grants of what follows; cancelOrder (releasing the order's reservations, held by the order
+as `holder_document_id`, and requesting the refund of anything paid, in one transaction) and voidOrder (a supervisor
+who is not the cashier, a credit note and reversing entries, every void on the exception report), each test-first
+with its wrong-role refusal; returns against the original sale (createReturn, getReturn, submitReturn, never more
+than sold less returned, by database trigger, proved under concurrency); price variance and override limits per role
+with approval by a different user (PRICE_OVERRIDE_NEEDS_APPROVAL becomes an approval request, on createOrder and on
+the sale posting alike; the database already requires the approval once an order is past PLACED); issueProforma
+(POST /orders/{id}/proforma) on Billing.issueIn (A-201); online order placement and payment (placeOrder, trackOrder,
+listMyOrders, getMyOrder) on B09a continued's provider port (cancelOrder releases the order's pending charges through
+ProviderPayments.releaseChargeIn, an order confirms on pay.PaymentCleared only when it is not heldAsUnmatched, and
+the webhook for a cancelled order is proved again through cancelOrder, A-210); and the owner dashboard's B9a figures
+(A-149): remove `salesTodayPesewas`, `salesYesterdayPesewas`, `salesMonthToDatePesewas`, `salesByChannel`,
+`salesSeries` and `topMovers` from RPT's PENDING_FIGURES and answer them from completed orders through a published
+view, and build the planned tiles getSalesTodayTile and getSalesSeries, each test-first with its wrong-role refusal.
+Extend the seed with a trading day of sales posted through SalePosting, keeping the B5 hand count and the trial
+balance tests true. CR-029 was built in B09a continued 2 (`Cart.checkoutId`, contract 1.46.0): when placeOrder
+completes a checkout, prove through placeOrder itself that the cart's checkoutId is null again. The integration tests
+run against the local Paystack fake, which answers as Paystack's test mode did (A-218): its MTN test number pays at
+once, a payer email on `.example` is refused, and a refund's idempotency key is honoured only through the adapter's
+note lookup.
+Two rules from B09t (ADR-0067): no new now() or current_date in business SQL (due dates, expiries, holds, business
+days and as-of times take the application clock, as a parameter or platform.app_now()); and no new fixed calendar
+date in the seed or a test (build dates from the seed's or the test's clock); the seeded trading day this phase adds
+takes its dates from the seed calendar (src/seed/seed-calendar.ts, A-220, A-222).
+If it does not fit, split at a sub-domain boundary after a proven, merged gate.
+Stop at the gate, write docs/sessions/B09a3c-orders-reversals.md, and merge into main when every run on the pull
+request is green.
+```
+
 ## B09x — Contract requests: empty list examples, the seeded role matrix and the owner's catch-ups
 
 Branch `b09x-contract-requests`, from `main`. Report `docs/sessions/B09x-contract-requests.md`. Inserted by the owner on 2026-11-16 after B9a (ADR-0026 Amendments): CR-005 was declined only for its size, and CR-023 was named for scheduling by B08 continued 2b. Gate: every list operation in the contract, from code and planned, has a named empty example beside its populated one, checked by a contract test that fails when a list operation lacks it; the seeded role matrix (every seeded role with its full permissions) is published in the contract as an `x-seeded-roles` extension or a complete `listRoles` example, generated from the IAM seed by `pnpm contract:generate` and failing CI on drift; nothing removed, renamed or retyped; and a supplier payment is numbered from its `SPY` series when it is marked paid, gap-free, and its remittance advice prints that number (A-205); a Farm hand death report without its photograph is refused whatever its value while other makers keep the threshold; a processing reversal's approval links to its order (CR-027); getShopProfile answers anonymously with the contact fields only (CR-028).
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
-List docs/sessions/ and read only the most recent report (docs/sessions/B09a3b-orders-online.md, or the last
+List docs/sessions/ and read only the most recent report (docs/sessions/B09a3c-orders-reversals.md, or the last
 report of its own splits).
 Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md), in particular CR-005 and
 CR-023: implement them, answer every other request in the report, never edit that file and never open frontend source.
