@@ -233,7 +233,7 @@ describe('posting a goods receipt (FR-INV-009)', () => {
     const changed = await patch(pensStorekeeper, `/goods-receipts/${created.body.id}`, {
       version: 1,
       notes: 'Two birds died on the road',
-      lines: [{ productId: id('product:LIV-0001'), qtyReceived: '18.000', qtyRejected: '2.000', valuePesewas: 99_000, batchNo: 'BR-TEST-0018' }],
+      lines: [{ productId: id('product:LIV-0001'), qtyReceived: '18.000', qtyRejected: '2.000', rejectionReasonCode: 'QUALITY_REJECTED', rejectionNote: 'Two birds lame on arrival', valuePesewas: 99_000, batchNo: 'BR-TEST-0018' }],
     });
     expect(changed.status).toBe(200);
     expect(changed.body).toMatchObject({ version: 2, notes: 'Two birds died on the road', totalValuePesewas: 99_000 });

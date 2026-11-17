@@ -2,7 +2,7 @@ operationId: listReasonCodes
 tags:
   - mdm
 summary: "List reason codes"
-description: "A fixed list changed only by migration, as the threat model requires; the contract has no write operation for it. Ordered by code.\n\nPermission: `mdm.reason_code.read`."
+description: "A fixed list changed only by migration, as the threat model requires; the contract has no write operation for it. Ordered by code. The example shows a part of the list, not all of it. `GOODS_RECEIPT_REJECTION` (B09e continued 2, 2.3.0) holds the reasons for goods rejected at the door, which a goods receipt line names in `rejectionReasonCode`: `CRACKED`, `BROKEN`, `DIRTY`, `SHORT`, `WRONG_ITEM_DELIVERED` and `QUALITY_REJECTED`. `STOCK_ADJUSTMENT` holds `BREAKAGE` (broken or cracked in store, no note) and `RODENT_DAMAGE`, both written off to the `WASTAGE` loss group.\n\nPermission: `mdm.reason_code.read`."
 x-error-codes:
   - VALIDATION_FAILED
   - UNAUTHENTICATED
@@ -31,6 +31,7 @@ parameters:
         - HOLD_RELEASE
         - BILLING_ADJUSTMENT
         - PAYMENT_REVERSAL
+        - GOODS_RECEIPT_REJECTION
   - name: cursor
     in: query
     required: false
@@ -58,6 +59,11 @@ responses:
           default:
             value:
               data:
+                - code: BREAKAGE
+                  domain: STOCK_ADJUSTMENT
+                  description: "Broken or cracked in store"
+                  requiresNote: false
+                  lossAccountGroup: WASTAGE
                 - code: CHARGE_OMITTED
                   domain: BILLING_ADJUSTMENT
                   description: "A charge was left off the invoice"
@@ -73,6 +79,11 @@ responses:
                   description: "Earlier count was wrong"
                   requiresNote: true
                   lossAccountGroup: SHRINKAGE
+                - code: CRACKED
+                  domain: GOODS_RECEIPT_REJECTION
+                  description: "Cracked on arrival"
+                  requiresNote: false
+                  lossAccountGroup: null
                 - code: CUSTOMER_CHANGED_MIND
                   domain: VOID
                   description: "Customer changed mind before leaving"

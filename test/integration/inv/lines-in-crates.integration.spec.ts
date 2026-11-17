@@ -159,7 +159,7 @@ describe('a goods receipt line in crates (decision 3)', () => {
   });
 
   it('counts a rejected crate in crates and books it as 30 eggs rejected', async () => {
-    const receipt = await postedReceipt({ uom: 'CRATE', qtyReceived: '9.000', qtyRejected: '1.000', valuePesewas: 42_750 });
+    const receipt = await postedReceipt({ uom: 'CRATE', qtyReceived: '9.000', qtyRejected: '1.000', rejectionReasonCode: 'CRACKED', valuePesewas: 42_750 });
     expect(receipt.lines[0]).toMatchObject({ uom: 'CRATE', qtyReceived: '9.000', qtyRejected: '1.000', qtyReceivedBase: '270.000', qtyRejectedBase: '30.000' });
     const { rows } = await admin().query('SELECT qty_received::text, qty_rejected::text, uom, qty_received_uom::text, qty_rejected_uom::text FROM inv.goods_receipt_line WHERE goods_receipt_id = $1', [receipt.id]);
     expect(rows).toEqual([{ qty_received: '270.000', qty_rejected: '30.000', uom: 'CRATE', qty_received_uom: '9.000', qty_rejected_uom: '1.000' }]);

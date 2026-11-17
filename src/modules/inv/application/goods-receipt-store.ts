@@ -33,6 +33,9 @@ export interface ReceiptLineRecord {
   readonly uom: string | null;
   readonly qtyReceivedUom: string | null;
   readonly qtyRejectedUom: string | null;
+  /** The GOODS_RECEIPT_REJECTION reason of a rejected quantity and its note (migration 0221); null when nothing was rejected. */
+  readonly rejectionReasonCode: string | null;
+  readonly rejectionNote: string | null;
   readonly weightKg: string | null;
   readonly weightSource: WeightSource | null;
   readonly valuePesewas: bigint;

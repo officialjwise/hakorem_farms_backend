@@ -85,5 +85,7 @@ export interface GoodsReceiptPosted {
     readonly purchaseOrderLineId: string | null;
     readonly qtyReceived: string;
     readonly qtyRejected: string;
+    /** The GOODS_RECEIPT_REJECTION reason of `qtyRejected`; null when nothing was rejected (B09e continued 2, A-260). */
+    readonly rejectionReasonCode: string | null;
   }[];
 }

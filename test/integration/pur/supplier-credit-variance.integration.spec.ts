@@ -92,7 +92,7 @@ async function receive(supplierName: string, order: SentOrder, qty: string, qtyR
         productId: id('product:LIV-0001'),
         purchaseOrderLineId: order.lineId,
         qtyReceived: qty,
-        ...(qtyRejected === undefined ? {} : { qtyRejected }),
+        ...(qtyRejected === undefined ? {} : { qtyRejected, rejectionReasonCode: 'QUALITY_REJECTED', rejectionNote: 'Birds rejected at the door (test)' }),
         valuePesewas: 5_500 * Number.parseInt(qty, 10),
         batchNo: `BR-${randomUUID().slice(0, 8)}`,
       },
