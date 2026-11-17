@@ -85,6 +85,7 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B09b continued 4 | `B09b5-pos-receipts.md` | `b09b5-pos-receipts` | B4 to B12 | The receipt link by its token alone (CR-033 points 1 and 2); the business buyer's TIN on the VAT invoice; an invoice paid at the till inside the shift |
 | B09c | `B09c-card-payment.md` | `b09c-card-payment` | B4 to B12 | Card payment online through the provider port with every payment edge case, no card details on our servers, and the card cases run against the real sandbox |
 | B08 continued 2d | `B08c2d-customer-statements.md` | `b08c2d-customer-statements` | B4 to B12 | A customer statement for a period ties to the customer's documents and the ledger's 1200 for that customer and period, opening plus movements equal to closing to the pesewa, and is rendered after commit and archived once; every statement write refuses the wrong role |
+| B09u | `B09u-units-supplier-account.md` | `b09u-units-supplier-account` | B4 to B12 | Every unit has a singular and a plural name and the seeded eggs are counted in a unit named egg, figures unchanged; a receipt line against an order line is valued by the server unless typed (CR-040); a Manager approves a supplier credit note the Owner raised and the Accountant drafted; the supplier balance (CR-042); invoice approval refuses its maker (CR-043); CR-044's descriptions; every write refuses the wrong role |
 | B10 | `B10-quotations-wholesale.md` | `b10-quotations-wholesale` | B4 to B12 | Quote revisions are versioned; conversion to invoice preserves every link; a credit limit blocks with an audited override |
 | B11 | `B11-fulfilment-delivery.md` | `b11-fulfilment-delivery` | B4 to B12 | A catch-weight order re-prices at pick; cash on delivery lands against the driver; the outbox guarantees the customer notification |
 | B12 | `B12-capital-costing-reporting.md` | `b12-capital-costing-reporting` | B4 to B12 | A distribution matches a hand calculation on unit-days and ties exactly to the ledger |
@@ -2549,16 +2550,7 @@ Then execute B09c only, on branch b09c-card-payment, branched from main: card as
 existing provider port (Paystack's hosted or inline card flow, so no card number reaches the server), every edge case
 test-first against the fake, then the card cases in the sandbox suite (never in CI) with the key the proxy injects;
 fix the fake to match what the sandbox really returns. No secret in the repository.
-Also in this phase (owner, 2026-11-17, F10f), each test-first, additive contract changes only:
-1. Unit names. Every unit answers a singular and a plural name in the contract (for example "egg" and "eggs",
-   "crate" and "crates"), so screens can say "540 eggs" and "from 10 crates". The seeded eggs' base unit is named
-   "egg": the egg products are counted in an egg unit, not the generic unit, with every stored quantity and price
-   unchanged (900 eggs are still 900, a crate still 30 of them). Update the seed and every example, the mock's
-   included. If renaming the base unit would change a stored figure or an existing shape, stop and report.
-2. CR-040. A goods receipt line that names purchaseOrderLineId may leave out valuePesewas: the server values it from
-   the order line for the accepted quantity, rounded half-up once (ADR-0001, ADR-0075's arithmetic untouched), and the
-   receipt's answer shows it; a typed value always wins. A line with no order line still requires it. The contract
-   no longer both requires the field and says it defaults. Test at a price that does not divide evenly.
+Unit names and CR-040 moved to B09u, lane B (owner, 2026-11-17, F10g and F10h).
 Stop at the gate, write docs/sessions/B09c-card-payment.md, and merge into main when every run on the pull request is
 green.
 ```
@@ -2595,13 +2587,59 @@ Stop at the gate, write docs/sessions/B08c2d-customer-statements.md, and merge i
 request is green. End the report with B09a's opening message (ADR-0026 verification).
 ```
 
+## B09u — Unit names, the egg base unit and the supplier account
+
+Branch `b09u-units-supplier-account`, from `main`. Report `docs/sessions/B09u-units-supplier-account.md`. Lane B, after B08 continued 2d and before B10 (owner, 2026-11-17, F10g and F10h: the unit names and CR-040 move here from B09c, "the next phase of either lane"). Gate: every unit answers a singular and a plural name and the seeded eggs are counted in a unit named "egg" with every stored figure unchanged; a receipt line against an order line is valued by the server unless a value is typed; a supplier credit note raised by the Owner and drafted by the Accountant can be approved by a Manager, and never by either of them; a supplier's balance answers from the server; approving a supplier invoice refuses its maker; every write refuses the wrong role.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md, and "Two lanes" below.
+List docs/sessions/ and read only the most recent report of lane B (docs/sessions/B08c2d-customer-statements.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md), CR-040 and CR-042 to CR-044.
+For this phase, read docs/data-model/mdm.md (units and conversions), pur.md and inv.md, the MDM, PUR, INV and IAM
+cards in docs/MODULE_BOUNDARIES.md, ADR-0001, ADR-0035, ADR-0075 and ADR-0076, A-260 to A-272, and the role matrix.
+Load hakorem-money, hakorem-migration, hakorem-endpoint, hakorem-seed, hakorem-security-review and hakorem-tests.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B09u only, on branch b09u-units-supplier-account, branched from main. The owner's decisions
+(2026-11-17), each test-first, additive contract changes only unless one says otherwise:
+Also in this phase (owner, 2026-11-17, F10f), each test-first, additive contract changes only:
+1. Unit names. Every unit answers a singular and a plural name in the contract (for example "egg" and "eggs",
+   "crate" and "crates"), so screens can say "540 eggs" and "from 10 crates". The seeded eggs' base unit is named
+   "egg": the egg products are counted in an egg unit, not the generic unit, with every stored quantity and price
+   unchanged (900 eggs are still 900, a crate still 30 of them). Update the seed and every example, the mock's
+   included. If renaming the base unit would change a stored figure or an existing shape, stop and report.
+2. CR-040. A goods receipt line that names purchaseOrderLineId may leave out valuePesewas: the server values it from
+   the order line for the accepted quantity, rounded half-up once (ADR-0001, ADR-0075's arithmetic untouched), and the
+   receipt's answer shows it; a typed value always wins. A line with no order line still requires it. The contract
+   no longer both requires the field and says it defaults. Test at a price that does not divide evenly.
+3. Supplier credit notes (F10g): an Owner or a Manager approves a supplier credit note, as with customer credit
+   notes, never the person who raised the claim or drafted the credit note. Today the seeded roles leave nobody able
+   to approve one the Owner raised and the Accountant drafted: fix the role matrix (grant the Manager the approval,
+   one additive grant; IAM is lane A's module, and this grant is the parent session's leave) and test that exact case
+   (the Owner raises the claim, the Accountant drafts the credit note, a Manager approves it; the Owner and the
+   Accountant are each refused), mutation-checked.
+4. CR-042: getSupplierBalance (GET /suppliers/{id}/balance, pur.supplier_invoice.read) answering SupplierBalance as
+   the request names it: owed, awaiting approval, claimed, in payment and paid, integer pesewas, never negative,
+   within the branches the caller holds the permission at; each figure asserted against SQL sums taken straight from
+   PUR's tables, never from the function under test. The read is authorised and joins the identifier walk.
+5. CR-043: approveSupplierInvoice refuses the invoice's maker with 422 INVOICE_MAKER_CANNOT_APPROVE, in the domain and
+   the database, as a credit note's approval does; the code joins the operation's x-error-codes. A behaviour change:
+   mark it LOUD in docs/CONTRACT_CHANGELOG.md, and fix every seed and test that approves its own invoice.
+6. CR-044: descriptions only. Say which unit SupplierInvoiceLine.qtyVariance is in and its sign, and that
+   priceVariancePesewas is the line's whole difference from the order price, with priceVarianceDirection over or
+   under. Check the listSupplierInvoices example against the arithmetic.
+Stop at the gate, write docs/sessions/B09u-units-supplier-account.md, and merge into main through the merge slot when
+every run on the pull request is green. End the report with B10's opening message.
+```
+
 ## B10 — Quotations, wholesale and credit control
 
 Branch `b10-quotations-wholesale`. Report `docs/sessions/B10-quotations-wholesale.md`. Gate: quote revisions are versioned, conversion to invoice preserves every link, and a credit limit blocks with an audited override.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
-List docs/sessions/ and read only the most recent report (docs/sessions/B08c2d-customer-statements.md).
+List docs/sessions/ and read only the most recent report (docs/sessions/B09u-units-supplier-account.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
 report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the QUO and WHL requirement blocks of docs/SRS.md (nothing else from the SRS),
@@ -2812,7 +2850,7 @@ Stop at the gate and write docs/sessions/B13-hardening-deploy.md.
 From 2026-11-17 the remaining phases before B12 run in two lanes at once, each in its own worktree and branch.
 
 - **Lane A:** the rest of B9b (B09b continued to B09b continued 4, and any split of them), then B09c.
-- **Lane B:** B08 continued 2d, then B10, then B11 (and any split of them). B08 continued 2d moves into lane B because
+- **Lane B:** B08 continued 2d, then B09u, then B10, then B11 (and any split of them). B08 continued 2d moves into lane B because
   B10 reads its report and it needs only PAY's payments (B9a) and WHL, which lane B opens.
 - **B12, then B13, start only when both lanes have merged.** B09r still waits for the owner's real files.
 
