@@ -2311,6 +2311,11 @@ customer by SMS. The token is its own long random value (owner, 2026-11-17: no I
 from a cryptographically secure source when the sale is made, so the link exists offline, and sent with the sale at
 sync; never the sale's client id. Record the choice as an ADR with hakorem-security-review. Rate-limit the read, expose
 no other customer's data, and test that a guessed token, another sale's token or the sale's own id answers 404. The SMS on sync (point 3) is B11's.
+The receipt token (owner, 2026-11-17, ADR-0074 Amendments): at least 128 random bits from a secure generator (the `rcp_`
+token's 32 bytes meet it), base64url, made by the till offline and sent with the sale at sync; the server stores only
+its hash, unique, valid for 12 months, and revocable. The public receipt read takes the token and nothing else. Test
+that a sale UUID, a document number or a SKU opens no receipt, and that a token reused for a second sale is refused at
+sync (the second sale is still recorded; only its link is refused, and the refusal reaches the exception source).
 Stop at the gate and write docs/sessions/B09b-pos-shifts-offline.md.
 ```
 
