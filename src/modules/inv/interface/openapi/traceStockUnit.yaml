@@ -58,7 +58,7 @@ responses:
           descendants: []
           supplier:
             id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-            supplierNo: S-0012
+            publicId: sup_VX48894JEAGQEB4Y
             name: "Kpone Livestock Traders"
           sales:
             - order:
@@ -71,7 +71,7 @@ responses:
                 number: INV-2026-DDW-001190
               customer:
                 id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                customerNo: C-00042
+                publicId: cus_TWMB751S2DFXTAM8
                 name: "Royal Palm Hotel Ltd"
               soldAt: "2026-11-12T11:00:00Z"
               qty: "15.200"

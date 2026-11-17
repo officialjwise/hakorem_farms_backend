@@ -11,7 +11,7 @@ const READ = 'pay.receivable.read';
 
 export interface OpenItemView {
   readonly billingDocument: { readonly id: string; readonly docType: string; readonly number: string | null };
-  readonly customer: { readonly id: string; readonly customerNo: string; readonly name: string } | null;
+  readonly customer: { readonly id: string; readonly publicId: string; readonly name: string } | null;
   readonly issueDate: string;
   readonly dueDate: string | null;
   readonly grossPesewas: number;
@@ -60,7 +60,7 @@ export class Receivables {
         const customer = r.customerId === null ? undefined : customers.get(r.customerId);
         return {
           billingDocument: { id: r.id, docType: r.kind, number: r.documentNo },
-          customer: customer === undefined ? null : { id: customer.id, customerNo: customer.customerNo, name: customer.name },
+          customer: customer === undefined ? null : { id: customer.id, publicId: customer.publicId, name: customer.name },
           issueDate: r.issueDate,
           dueDate: r.dueDate,
           grossPesewas: Money.ofPesewas(r.grossPesewas).toJsonInteger(),

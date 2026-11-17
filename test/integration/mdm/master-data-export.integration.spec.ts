@@ -84,8 +84,8 @@ describe('FR-MDM-020: audits row counts and demands step-up above 100 rows', () 
     const content = Buffer.from(await (await fetch(linked.body.url as string)).arrayBuffer());
     const rows = readSheet(content, 'text/csv', 1_000);
     expect(rows).toHaveLength(151);
-    expect(rows[0]).toEqual(['customerNo', 'kind', 'name', 'phone', 'email', 'tier']);
-    expect(rows[1]).toEqual([expect.stringMatching(/^C-\d{5}$/), 'BUSINESS', 'Customer 5000 Mensah', '+233240005000', 'customer5000@example.com', 'WHOLESALE']);
+    expect(rows[0]).toEqual(['publicId', 'kind', 'name', 'phone', 'email', 'tier']);
+    expect(rows[1]).toEqual([expect.stringMatching(/^cus_[0-9A-HJKMNP-TV-Z]{16}$/), 'BUSINESS', 'Customer 5000 Mensah', '+233240005000', 'customer5000@example.com', 'WHOLESALE']);
     // The raw CSV neutralises the leading + so a spreadsheet program does not read the phone as a formula.
     expect(content.toString('utf8')).toContain(",'+233240005000,");
     // The export is the customers' own file: the cashier cannot read it.

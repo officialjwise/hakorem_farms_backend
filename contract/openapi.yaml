@@ -8636,7 +8636,7 @@ paths:
       tags:
         - mdm
       summary: "List customers"
-      description: "Live customers in creation order. `q` that reads as a phone number (`0244123456`, `+233244123456`) finds the customer with that number; any other `q` matches part of the name, ignoring case.\n\nPermission: `mdm.customer.read`."
+      description: "Live customers in creation order. `q` that reads as a customer's public ID (`cus_8F3K2M9Q7X4T1V6B`; any case, spaces or hyphens, O read as 0 and I or L as 1; 2.0.0, ADR-0073) finds that customer; the sequential customer number finds nothing from 2.0.0. `q` that reads as a phone number (`0244123456`, `+233244123456`) finds the customer with that number; any other `q` matches part of the name, ignoring case.\n\nPermission: `mdm.customer.read`."
       x-permission: mdm.customer.read
       x-error-codes:
         - VALIDATION_FAILED
@@ -8701,7 +8701,7 @@ paths:
                   value:
                     data:
                       - id: "019a7a87-659c-73fc-8935-489e4ae1c17c"
-                        customerNo: C-00118
+                        publicId: cus_2NWSQJT4E1ZWRRC1
                         kind: INDIVIDUAL
                         name: "Ama Serwaa Ofori"
                         phone: "+233244512876"
@@ -8721,7 +8721,7 @@ paths:
                         createdAt: "2026-11-02T08:00:00Z"
                         updatedAt: "2026-11-10T14:00:00Z"
                       - id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                        customerNo: C-00042
+                        publicId: cus_TWMB751S2DFXTAM8
                         kind: BUSINESS
                         name: "Royal Palm Hotel Ltd"
                         phone: "+233302765410"
@@ -8744,7 +8744,7 @@ paths:
                         createdAt: "2026-11-02T08:01:00Z"
                         updatedAt: "2026-11-11T14:01:00Z"
                       - id: "019a7a87-a37a-77c3-acfc-850d3e43fdeb"
-                        customerNo: C-00207
+                        publicId: cus_3QC5Q34ZGBQK2SC8
                         kind: INDIVIDUAL
                         name: "Kofi Agyeman"
                         phone: "+233201447302"
@@ -8764,7 +8764,7 @@ paths:
                         createdAt: "2026-11-02T08:02:00Z"
                         updatedAt: "2026-11-12T14:02:00Z"
                       - id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                        customerNo: C-00056
+                        publicId: cus_TS4VEDD3ZZNAAQGD
                         kind: BUSINESS
                         name: "Asantewaa Chop Bar"
                         phone: "+233557018924"
@@ -8784,7 +8784,7 @@ paths:
                         createdAt: "2026-11-02T08:03:00Z"
                         updatedAt: "2026-11-10T14:03:00Z"
                       - id: "019a7a87-e158-7b8a-80c2-c17c31a53a5a"
-                        customerNo: C-00233
+                        publicId: cus_9K9CHJQMEYHBTDFW
                         kind: INDIVIDUAL
                         name: "Grace Nyarko"
                         phone: "+233249903118"
@@ -8804,7 +8804,7 @@ paths:
                         createdAt: "2026-11-02T08:04:00Z"
                         updatedAt: "2026-11-11T14:04:00Z"
                       - id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                        customerNo: C-00241
+                        publicId: cus_GY1HV6CSTTCCM2Y2
                         kind: INDIVIDUAL
                         name: "Emmanuel Tetteh"
                         phone: "+233268114590"
@@ -8893,7 +8893,7 @@ paths:
                 $ref: "#/components/schemas/Customer"
               example:
                 id: "019a7a87-659c-73fc-8935-489e4ae1c17c"
-                customerNo: C-00118
+                publicId: cus_2NWSQJT4E1ZWRRC1
                 kind: INDIVIDUAL
                 name: "Ama Serwaa Ofori"
                 phone: "+233244512876"
@@ -8963,7 +8963,7 @@ paths:
                 $ref: "#/components/schemas/Customer"
               example:
                 id: "019a7a87-659c-73fc-8935-489e4ae1c17c"
-                customerNo: C-00118
+                publicId: cus_2NWSQJT4E1ZWRRC1
                 kind: INDIVIDUAL
                 name: "Ama Serwaa Ofori"
                 phone: "+233244512876"
@@ -9049,7 +9049,7 @@ paths:
                 $ref: "#/components/schemas/Customer"
               example:
                 id: "019a7a87-659c-73fc-8935-489e4ae1c17c"
-                customerNo: C-00118
+                publicId: cus_2NWSQJT4E1ZWRRC1
                 kind: INDIVIDUAL
                 name: "Ama Serwaa Ofori"
                 phone: "+233244512876"
@@ -9137,7 +9137,7 @@ paths:
                 $ref: "#/components/schemas/Customer"
               example:
                 id: "019a7a87-659c-73fc-8935-489e4ae1c17c"
-                customerNo: C-00118
+                publicId: cus_2NWSQJT4E1ZWRRC1
                 kind: INDIVIDUAL
                 name: "Ama Serwaa Ofori"
                 phone: "+233244512876"
@@ -9848,7 +9848,7 @@ paths:
       tags:
         - mdm
       summary: "List suppliers"
-      description: "Live suppliers in creation order. `q` finds a supplier by phone, typed any way a customer's phone may be, or by part of its name. `hasProfile` is false until procurement holds the supplier's commercial terms (B7).\n\nPermission: `mdm.supplier.read`."
+      description: "Live suppliers in creation order. `q` finds a supplier by its public ID (`sup_…`, typed any way, 2.0.0, ADR-0073), by phone, typed any way a customer's phone may be, or by part of its name. `hasProfile` is false until procurement holds the supplier's commercial terms (B7).\n\nPermission: `mdm.supplier.read`."
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHENTICATED
@@ -9904,7 +9904,7 @@ paths:
                   value:
                     data:
                       - id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
-                        supplierNo: S-0007
+                        publicId: sup_ZYRYFMWJT8SJ9ZYY
                         name: "Ashanti Feeds Ltd"
                         contactName: "Samuel Ofosu"
                         phone: "+233322031447"
@@ -9921,7 +9921,7 @@ paths:
                         createdAt: "2026-11-02T08:00:00Z"
                         updatedAt: "2026-11-10T14:00:00Z"
                       - id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                        supplierNo: S-0012
+                        publicId: sup_VX48894JEAGQEB4Y
                         name: "Kpone Livestock Traders"
                         contactName: "Alhaji Ibrahim Mahama"
                         phone: "+233244870031"
@@ -9938,7 +9938,7 @@ paths:
                         createdAt: "2026-11-02T08:01:00Z"
                         updatedAt: "2026-11-11T14:01:00Z"
                       - id: "019a7a88-f7bf-7489-99c2-516f78deca4d"
-                        supplierNo: S-0003
+                        publicId: sup_1PPM6BKHGYQVKH7C
                         name: "Agrivet Ghana Ltd"
                         contactName: "Patience Kumi"
                         phone: "+233302551928"
@@ -9955,7 +9955,7 @@ paths:
                         createdAt: "2026-11-02T08:02:00Z"
                         updatedAt: "2026-11-12T14:02:00Z"
                       - id: "019a7a89-16ae-7e6d-a3a5-efa6f28f6884"
-                        supplierNo: S-0019
+                        publicId: sup_TGKEXYTAZ99G0NNC
                         name: "Awutu Poultry Farm"
                         contactName: "Daniel Quansah"
                         phone: "+233209914472"
@@ -9972,7 +9972,7 @@ paths:
                         createdAt: "2026-11-02T08:03:00Z"
                         updatedAt: "2026-11-10T14:03:00Z"
                       - id: "019a7a89-359d-7850-bd89-8dde6c4006bc"
-                        supplierNo: S-0021
+                        publicId: sup_WA2VZH2KWSQ9T65K
                         name: "Dodowa Vegetable Growers Cooperative"
                         contactName: "Mercy Lartey"
                         phone: "+233551204887"
@@ -9989,7 +9989,7 @@ paths:
                         createdAt: "2026-11-02T08:04:00Z"
                         updatedAt: "2026-11-11T14:04:00Z"
                       - id: "019a7a89-548c-7234-876c-2c15e5f1a4f3"
-                        supplierNo: S-0025
+                        publicId: sup_EGGMDK5A8FPXWHQG
                         name: "Tema Packaging Supplies"
                         contactName: "Joseph Nartey"
                         phone: "+233303208119"
@@ -10077,7 +10077,7 @@ paths:
                 $ref: "#/components/schemas/Supplier"
               example:
                 id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
-                supplierNo: S-0007
+                publicId: sup_ZYRYFMWJT8SJ9ZYY
                 name: "Ashanti Feeds Ltd"
                 contactName: "Samuel Ofosu"
                 phone: "+233322031447"
@@ -10144,7 +10144,7 @@ paths:
                 $ref: "#/components/schemas/Supplier"
               example:
                 id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
-                supplierNo: S-0007
+                publicId: sup_ZYRYFMWJT8SJ9ZYY
                 name: "Ashanti Feeds Ltd"
                 contactName: "Samuel Ofosu"
                 phone: "+233322031447"
@@ -10225,7 +10225,7 @@ paths:
                 $ref: "#/components/schemas/Supplier"
               example:
                 id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
-                supplierNo: S-0007
+                publicId: sup_ZYRYFMWJT8SJ9ZYY
                 name: "Ashanti Feeds Ltd"
                 contactName: "Samuel Ofosu"
                 phone: "+233322031447"
@@ -10310,7 +10310,7 @@ paths:
                 $ref: "#/components/schemas/Supplier"
               example:
                 id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
-                supplierNo: S-0007
+                publicId: sup_ZYRYFMWJT8SJ9ZYY
                 name: "Ashanti Feeds Ltd"
                 contactName: "Samuel Ofosu"
                 phone: "+233322031447"
@@ -16972,7 +16972,7 @@ paths:
       tags:
         - mdm
       summary: "Upload a spreadsheet and validate it as a dry run"
-      description: "Upload the spreadsheet first with POST /files, purpose `IMPORT` (XLSX or CSV), and wait until `getFile` shows it `CLEAN`. The first sheet's first row names the columns; each further row is one record. This call runs the dry run and writes nothing but the job and its row errors: the job comes back `VALIDATED` with `rowsTotal`, `rowsValid`, `rowsToCreate` and `rowsToUpdate`, and each row error is listed by `listImportErrors`; a file that cannot be read as this entity's sheet (no header, an unknown or missing column, no rows, more than 5,000 rows) comes back `FAILED` with its errors on row 1. Columns are matched without regard to case; a blank cell on a row that changes a record changes nothing. `CUSTOMER`: `customerNo` (blank creates a customer, a number changes that customer), `kind`, `name`, `phone`, `email`, `tier`. `PRODUCT`: `sku` names a product the catalogue holds, and a blank `sku` creates one, ACTIVE and `HIDDEN` online unless `onlineMode` says otherwise, with the SKU the server generates (2.0.0, ADR-0072); a SKU the catalogue does not hold is a row error, since a SKU is never typed in. Then `name`, `category` (code), `stockPolicy`, `species` (code), `baseUom`, `saleUom`, `taxCategory` (code; blank takes the category's), `nominalPackKg`, `shelfLifeDays`, `description`, `onlineMode`; the policy, species and units of an existing product never change. There is no `barcode` column from 2.0.0: a sheet that has one fails as having an unknown column. `SUPPLIER`: `supplierNo` (blank registers a supplier), `name`, `contactName`, `phone`, `email`, `address`, `categories` (category codes separated by `;`, replacing the categories supplied); no tax number column. `LOCATION`: `branch` and `code` name the location (a new code creates one), `name`, `kind` (physical kinds only), `parent` (code of a live location of the branch, or of a row above), `isSellable`, `tempClass`, `tempMinC`, `tempMaxC`, `capacityHead`; kind and temperature class never change, and virtual locations are never imported. `PRICE_LIST_ENTRY`: `priceList` (code), `sku`, `grade`, `weightBand` (codes of the product's species), `minQty`, `basis`, `listPricePesewas`, `floorPricePesewas`, `ceilingPricePesewas` (integer pesewas: 85000 is GHS 850.00), `quoteOnly`; rows are written into the list's `DRAFT` version only (a row matching an entry on product, grade, band and minimum quantity replaces it, any other adds one, entries not named stay), a list with no draft or one waiting for approval is a row error, and the draft still needs maker-checker approval to go live. `OPENING_STOCK` (inventory's sheet): `branch` and `location` (codes of a physical stock location, not in transit or a site), `sku`, `qty`, `valuePesewas` (the line's cost, above zero), `batch` and `expiresOn` for a lot (the expiry when the product has a shelf life), `tag` and `sex` for an animal (one row per animal, `qty` 1), `weightKg` (recorded as `MANUAL`); a product that already has stock history at the branch, a batch or tag already in use, or a repeated row is a row error: opening stock is loaded once, before trading. A branch or location the importer cannot reach is refused when the import is applied. A file of another use, or none, is 422 `REFERENCE_NOT_FOUND`; one not `CLEAN` is 422 `FILE_NOT_CLEAN`; someone else's upload also needs `platform.file.read.any`.\n\nPermission: `mdm.import.create`."
+      description: "Upload the spreadsheet first with POST /files, purpose `IMPORT` (XLSX or CSV), and wait until `getFile` shows it `CLEAN`. The first sheet's first row names the columns; each further row is one record. This call runs the dry run and writes nothing but the job and its row errors: the job comes back `VALIDATED` with `rowsTotal`, `rowsValid`, `rowsToCreate` and `rowsToUpdate`, and each row error is listed by `listImportErrors`; a file that cannot be read as this entity's sheet (no header, an unknown or missing column, no rows, more than 5,000 rows) comes back `FAILED` with its errors on row 1. Columns are matched without regard to case; a blank cell on a row that changes a record changes nothing. `CUSTOMER`: `publicId` (blank creates a customer; a customer's public ID, typed any way, changes that customer; the sequential number is no longer a column from 2.0.0, ADR-0073), `kind`, `name`, `phone`, `email`, `tier`. `PRODUCT`: `sku` names a product the catalogue holds, and a blank `sku` creates one, ACTIVE and `HIDDEN` online unless `onlineMode` says otherwise, with the SKU the server generates (2.0.0, ADR-0072); a SKU the catalogue does not hold is a row error, since a SKU is never typed in. Then `name`, `category` (code), `stockPolicy`, `species` (code), `baseUom`, `saleUom`, `taxCategory` (code; blank takes the category's), `nominalPackKg`, `shelfLifeDays`, `description`, `onlineMode`; the policy, species and units of an existing product never change. There is no `barcode` column from 2.0.0: a sheet that has one fails as having an unknown column. `SUPPLIER`: `publicId` (blank registers a supplier; a supplier's public ID changes that supplier; no sequential number from 2.0.0), `name`, `contactName`, `phone`, `email`, `address`, `categories` (category codes separated by `;`, replacing the categories supplied); no tax number column. `LOCATION`: `branch` and `code` name the location (a new code creates one), `name`, `kind` (physical kinds only), `parent` (code of a live location of the branch, or of a row above), `isSellable`, `tempClass`, `tempMinC`, `tempMaxC`, `capacityHead`; kind and temperature class never change, and virtual locations are never imported. `PRICE_LIST_ENTRY`: `priceList` (code), `sku`, `grade`, `weightBand` (codes of the product's species), `minQty`, `basis`, `listPricePesewas`, `floorPricePesewas`, `ceilingPricePesewas` (integer pesewas: 85000 is GHS 850.00), `quoteOnly`; rows are written into the list's `DRAFT` version only (a row matching an entry on product, grade, band and minimum quantity replaces it, any other adds one, entries not named stay), a list with no draft or one waiting for approval is a row error, and the draft still needs maker-checker approval to go live. `OPENING_STOCK` (inventory's sheet): `branch` and `location` (codes of a physical stock location, not in transit or a site), `sku`, `qty`, `valuePesewas` (the line's cost, above zero), `batch` and `expiresOn` for a lot (the expiry when the product has a shelf life), `tag` and `sex` for an animal (one row per animal, `qty` 1), `weightKg` (recorded as `MANUAL`); a product that already has stock history at the branch, a batch or tag already in use, or a repeated row is a row error: opening stock is loaded once, before trading. A branch or location the importer cannot reach is refused when the import is applied. A file of another use, or none, is 422 `REFERENCE_NOT_FOUND`; one not `CLEAN` is 422 `FILE_NOT_CLEAN`; someone else's upload also needs `platform.file.read.any`.\n\nPermission: `mdm.import.create`."
       x-error-codes:
         - VALIDATION_FAILED
         - IDEMPOTENCY_KEY_REQUIRED
@@ -18819,7 +18819,7 @@ paths:
                         storageTempClass: null
                         supplier:
                           id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                          supplierNo: S-0012
+                          publicId: sup_VX48894JEAGQEB4Y
                           name: "Kpone Livestock Traders"
                         grade:
                           id: "019a7a8c-d59f-70f8-9631-185eaefe913c"
@@ -18967,7 +18967,7 @@ paths:
                         storageTempClass: FROZEN
                         supplier:
                           id: "019a7a89-16ae-7e6d-a3a5-efa6f28f6884"
-                          supplierNo: S-0019
+                          publicId: sup_TGKEXYTAZ99G0NNC
                           name: "Awutu Poultry Farm"
                         grade: null
                         lastWeightKg: "142.800"
@@ -19003,7 +19003,7 @@ paths:
                         storageTempClass: FROZEN
                         supplier:
                           id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                          supplierNo: S-0012
+                          publicId: sup_VX48894JEAGQEB4Y
                           name: "Kpone Livestock Traders"
                         grade: null
                         lastWeightKg: "88.200"
@@ -19130,7 +19130,7 @@ paths:
                 storageTempClass: null
                 supplier:
                   id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                  supplierNo: S-0012
+                  publicId: sup_VX48894JEAGQEB4Y
                   name: "Kpone Livestock Traders"
                 grade:
                   id: "019a7a8c-d59f-70f8-9631-185eaefe913c"
@@ -19605,7 +19605,7 @@ paths:
                 descendants: []
                 supplier:
                   id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                  supplierNo: S-0012
+                  publicId: sup_VX48894JEAGQEB4Y
                   name: "Kpone Livestock Traders"
                 sales:
                   - order:
@@ -19618,7 +19618,7 @@ paths:
                       number: INV-2026-DDW-001190
                     customer:
                       id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                      customerNo: C-00042
+                      publicId: cus_TWMB751S2DFXTAM8
                       name: "Royal Palm Hotel Ltd"
                     soldAt: "2026-11-12T11:00:00Z"
                     qty: "15.200"
@@ -20918,7 +20918,7 @@ paths:
                         status: POSTED
                         supplier:
                           id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                          supplierNo: S-0012
+                          publicId: sup_VX48894JEAGQEB4Y
                           name: "Kpone Livestock Traders"
                         location:
                           id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
@@ -21000,7 +21000,7 @@ paths:
                         status: POSTED
                         supplier:
                           id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
-                          supplierNo: S-0007
+                          publicId: sup_ZYRYFMWJT8SJ9ZYY
                           name: "Ashanti Feeds Ltd"
                         location:
                           id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
@@ -21050,7 +21050,7 @@ paths:
                         status: POSTED
                         supplier:
                           id: "019a7a89-16ae-7e6d-a3a5-efa6f28f6884"
-                          supplierNo: S-0019
+                          publicId: sup_TGKEXYTAZ99G0NNC
                           name: "Awutu Poultry Farm"
                         location:
                           id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
@@ -21150,7 +21150,7 @@ paths:
                         status: POSTED
                         supplier:
                           id: "019a7a89-359d-7850-bd89-8dde6c4006bc"
-                          supplierNo: S-0021
+                          publicId: sup_WA2VZH2KWSQ9T65K
                           name: "Dodowa Vegetable Growers Cooperative"
                         location:
                           id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
@@ -21200,7 +21200,7 @@ paths:
                         status: DRAFT
                         supplier:
                           id: "019a7a88-f7bf-7489-99c2-516f78deca4d"
-                          supplierNo: S-0003
+                          publicId: sup_1PPM6BKHGYQVKH7C
                           name: "Agrivet Ghana Ltd"
                         location:
                           id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
@@ -21337,7 +21337,7 @@ paths:
                 status: DRAFT
                 supplier:
                   id: "019a7a88-f7bf-7489-99c2-516f78deca4d"
-                  supplierNo: S-0003
+                  publicId: sup_1PPM6BKHGYQVKH7C
                   name: "Agrivet Ghana Ltd"
                 location:
                   id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
@@ -21435,7 +21435,7 @@ paths:
                 status: POSTED
                 supplier:
                   id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                  supplierNo: S-0012
+                  publicId: sup_VX48894JEAGQEB4Y
                   name: "Kpone Livestock Traders"
                 location:
                   id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
@@ -21583,7 +21583,7 @@ paths:
                 status: POSTED
                 supplier:
                   id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                  supplierNo: S-0012
+                  publicId: sup_VX48894JEAGQEB4Y
                   name: "Kpone Livestock Traders"
                 location:
                   id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
@@ -21731,7 +21731,7 @@ paths:
                 status: POSTED
                 supplier:
                   id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                  supplierNo: S-0012
+                  publicId: sup_VX48894JEAGQEB4Y
                   name: "Kpone Livestock Traders"
                 location:
                   id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
@@ -21880,7 +21880,7 @@ paths:
                 status: POSTED
                 supplier:
                   id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                  supplierNo: S-0012
+                  publicId: sup_VX48894JEAGQEB4Y
                   name: "Kpone Livestock Traders"
                 location:
                   id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
@@ -25524,7 +25524,7 @@ paths:
                         source: PURCHASE
                         supplier:
                           id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                          supplierNo: S-0012
+                          publicId: sup_VX48894JEAGQEB4Y
                           name: "Kpone Livestock Traders"
                         dam: null
                         sire: null
@@ -25575,7 +25575,7 @@ paths:
                         source: PURCHASE
                         supplier:
                           id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                          supplierNo: S-0012
+                          publicId: sup_VX48894JEAGQEB4Y
                           name: "Kpone Livestock Traders"
                         dam: null
                         sire: null
@@ -25626,7 +25626,7 @@ paths:
                         source: PURCHASE
                         supplier:
                           id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                          supplierNo: S-0012
+                          publicId: sup_VX48894JEAGQEB4Y
                           name: "Kpone Livestock Traders"
                         dam: null
                         sire: null
@@ -25674,7 +25674,7 @@ paths:
                         source: PURCHASE
                         supplier:
                           id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                          supplierNo: S-0012
+                          publicId: sup_VX48894JEAGQEB4Y
                           name: "Kpone Livestock Traders"
                         dam: null
                         sire: null
@@ -25722,7 +25722,7 @@ paths:
                         source: PURCHASE
                         supplier:
                           id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                          supplierNo: S-0012
+                          publicId: sup_VX48894JEAGQEB4Y
                           name: "Kpone Livestock Traders"
                         dam: null
                         sire: null
@@ -25770,7 +25770,7 @@ paths:
                         source: PURCHASE
                         supplier:
                           id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                          supplierNo: S-0012
+                          publicId: sup_VX48894JEAGQEB4Y
                           name: "Kpone Livestock Traders"
                         dam: null
                         sire: null
@@ -25818,7 +25818,7 @@ paths:
                         source: PURCHASE
                         supplier:
                           id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                          supplierNo: S-0012
+                          publicId: sup_VX48894JEAGQEB4Y
                           name: "Kpone Livestock Traders"
                         dam: null
                         sire: null
@@ -25916,7 +25916,7 @@ paths:
                 source: PURCHASE
                 supplier:
                   id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                  supplierNo: S-0012
+                  publicId: sup_VX48894JEAGQEB4Y
                   name: "Kpone Livestock Traders"
                 dam: null
                 sire: null
@@ -26033,7 +26033,7 @@ paths:
                 source: PURCHASE
                 supplier:
                   id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                  supplierNo: S-0012
+                  publicId: sup_VX48894JEAGQEB4Y
                   name: "Kpone Livestock Traders"
                 dam: null
                 sire: null
@@ -26285,7 +26285,7 @@ paths:
                 source: PURCHASE
                 supplier:
                   id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                  supplierNo: S-0012
+                  publicId: sup_VX48894JEAGQEB4Y
                   name: "Kpone Livestock Traders"
                 dam: null
                 sire: null
@@ -29717,7 +29717,7 @@ paths:
                         source: PURCHASE
                         supplier:
                           id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                          supplierNo: S-0012
+                          publicId: sup_VX48894JEAGQEB4Y
                           name: "Kpone Livestock Traders"
                         dam: null
                         sire: null
@@ -29761,7 +29761,7 @@ paths:
                         source: PURCHASE
                         supplier:
                           id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                          supplierNo: S-0012
+                          publicId: sup_VX48894JEAGQEB4Y
                           name: "Kpone Livestock Traders"
                         dam: null
                         sire: null
@@ -29805,7 +29805,7 @@ paths:
                         source: PURCHASE
                         supplier:
                           id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                          supplierNo: S-0012
+                          publicId: sup_VX48894JEAGQEB4Y
                           name: "Kpone Livestock Traders"
                         dam: null
                         sire: null
@@ -29846,7 +29846,7 @@ paths:
                         source: PURCHASE
                         supplier:
                           id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                          supplierNo: S-0012
+                          publicId: sup_VX48894JEAGQEB4Y
                           name: "Kpone Livestock Traders"
                         dam: null
                         sire: null
@@ -29887,7 +29887,7 @@ paths:
                         source: PURCHASE
                         supplier:
                           id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                          supplierNo: S-0012
+                          publicId: sup_VX48894JEAGQEB4Y
                           name: "Kpone Livestock Traders"
                         dam: null
                         sire: null
@@ -29928,7 +29928,7 @@ paths:
                         source: PURCHASE
                         supplier:
                           id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                          supplierNo: S-0012
+                          publicId: sup_VX48894JEAGQEB4Y
                           name: "Kpone Livestock Traders"
                         dam: null
                         sire: null
@@ -29969,7 +29969,7 @@ paths:
                         source: PURCHASE
                         supplier:
                           id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                          supplierNo: S-0012
+                          publicId: sup_VX48894JEAGQEB4Y
                           name: "Kpone Livestock Traders"
                         dam: null
                         sire: null
@@ -30064,7 +30064,7 @@ paths:
                 source: PURCHASE
                 supplier:
                   id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                  supplierNo: S-0012
+                  publicId: sup_VX48894JEAGQEB4Y
                   name: "Kpone Livestock Traders"
                 dam: null
                 sire: null
@@ -30173,7 +30173,7 @@ paths:
                 source: PURCHASE
                 supplier:
                   id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                  supplierNo: S-0012
+                  publicId: sup_VX48894JEAGQEB4Y
                   name: "Kpone Livestock Traders"
                 dam: null
                 sire: null
@@ -30286,7 +30286,7 @@ paths:
                 source: PURCHASE
                 supplier:
                   id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                  supplierNo: S-0012
+                  publicId: sup_VX48894JEAGQEB4Y
                   name: "Kpone Livestock Traders"
                 dam: null
                 sire: null
@@ -34522,7 +34522,7 @@ paths:
                     data:
                       - supplier:
                           id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                          supplierNo: S-0012
+                          publicId: sup_VX48894JEAGQEB4Y
                           name: "Kpone Livestock Traders"
                         periodStart: "2026-10-01"
                         periodEnd: "2026-10-31"
@@ -34544,7 +34544,7 @@ paths:
                         score: "91.00"
                       - supplier:
                           id: "019a7a89-16ae-7e6d-a3a5-efa6f28f6884"
-                          supplierNo: S-0019
+                          publicId: sup_TGKEXYTAZ99G0NNC
                           name: "Awutu Poultry Farm"
                         periodStart: "2026-10-01"
                         periodEnd: "2026-10-31"
@@ -35387,7 +35387,7 @@ paths:
                         status: RECEIVED
                         supplier:
                           id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                          supplierNo: S-0012
+                          publicId: sup_VX48894JEAGQEB4Y
                           name: "Kpone Livestock Traders"
                         deliverToLocation:
                           id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
@@ -35433,7 +35433,7 @@ paths:
                         status: RECEIVED
                         supplier:
                           id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
-                          supplierNo: S-0007
+                          publicId: sup_ZYRYFMWJT8SJ9ZYY
                           name: "Ashanti Feeds Ltd"
                         deliverToLocation:
                           id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
@@ -35479,7 +35479,7 @@ paths:
                         status: RECEIVED
                         supplier:
                           id: "019a7a89-16ae-7e6d-a3a5-efa6f28f6884"
-                          supplierNo: S-0019
+                          publicId: sup_TGKEXYTAZ99G0NNC
                           name: "Awutu Poultry Farm"
                         deliverToLocation:
                           id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
@@ -35525,7 +35525,7 @@ paths:
                         status: SENT
                         supplier:
                           id: "019a7a88-f7bf-7489-99c2-516f78deca4d"
-                          supplierNo: S-0003
+                          publicId: sup_1PPM6BKHGYQVKH7C
                           name: "Agrivet Ghana Ltd"
                         deliverToLocation:
                           id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
@@ -35571,7 +35571,7 @@ paths:
                         status: CLOSED
                         supplier:
                           id: "019a7a89-359d-7850-bd89-8dde6c4006bc"
-                          supplierNo: S-0021
+                          publicId: sup_WA2VZH2KWSQ9T65K
                           name: "Dodowa Vegetable Growers Cooperative"
                         deliverToLocation:
                           id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
@@ -35617,7 +35617,7 @@ paths:
                         status: PENDING_APPROVAL
                         supplier:
                           id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
-                          supplierNo: S-0007
+                          publicId: sup_ZYRYFMWJT8SJ9ZYY
                           name: "Ashanti Feeds Ltd"
                         deliverToLocation:
                           id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
@@ -35737,7 +35737,7 @@ paths:
                 status: DRAFT
                 supplier:
                   id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
-                  supplierNo: S-0007
+                  publicId: sup_ZYRYFMWJT8SJ9ZYY
                   name: "Ashanti Feeds Ltd"
                 deliverToLocation:
                   id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
@@ -35833,7 +35833,7 @@ paths:
                 status: RECEIVED
                 supplier:
                   id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                  supplierNo: S-0012
+                  publicId: sup_VX48894JEAGQEB4Y
                   name: "Kpone Livestock Traders"
                 deliverToLocation:
                   id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
@@ -35946,7 +35946,7 @@ paths:
                 status: RECEIVED
                 supplier:
                   id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                  supplierNo: S-0012
+                  publicId: sup_VX48894JEAGQEB4Y
                   name: "Kpone Livestock Traders"
                 deliverToLocation:
                   id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
@@ -36053,7 +36053,7 @@ paths:
                 status: SENT
                 supplier:
                   id: "019a7a88-f7bf-7489-99c2-516f78deca4d"
-                  supplierNo: S-0003
+                  publicId: sup_1PPM6BKHGYQVKH7C
                   name: "Agrivet Ghana Ltd"
                 deliverToLocation:
                   id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
@@ -36184,7 +36184,7 @@ paths:
                 status: SENT
                 supplier:
                   id: "019a7a88-f7bf-7489-99c2-516f78deca4d"
-                  supplierNo: S-0003
+                  publicId: sup_1PPM6BKHGYQVKH7C
                   name: "Agrivet Ghana Ltd"
                 deliverToLocation:
                   id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
@@ -36299,7 +36299,7 @@ paths:
                 status: CLOSED
                 supplier:
                   id: "019a7a89-359d-7850-bd89-8dde6c4006bc"
-                  supplierNo: S-0021
+                  publicId: sup_WA2VZH2KWSQ9T65K
                   name: "Dodowa Vegetable Growers Cooperative"
                 deliverToLocation:
                   id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
@@ -36414,7 +36414,7 @@ paths:
                 status: RECEIVED
                 supplier:
                   id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                  supplierNo: S-0012
+                  publicId: sup_VX48894JEAGQEB4Y
                   name: "Kpone Livestock Traders"
                 deliverToLocation:
                   id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
@@ -36535,7 +36535,7 @@ paths:
                 status: RECEIVED
                 supplier:
                   id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                  supplierNo: S-0012
+                  publicId: sup_VX48894JEAGQEB4Y
                   name: "Kpone Livestock Traders"
                 deliverToLocation:
                   id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
@@ -36675,7 +36675,7 @@ paths:
                         status: APPROVED
                         supplier:
                           id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
-                          supplierNo: S-0007
+                          publicId: sup_ZYRYFMWJT8SJ9ZYY
                           name: "Ashanti Feeds Ltd"
                         supplierInvoiceNo: "88120"
                         invoiceDate: "2026-11-11"
@@ -36737,7 +36737,7 @@ paths:
                         status: PAID
                         supplier:
                           id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                          supplierNo: S-0012
+                          publicId: sup_VX48894JEAGQEB4Y
                           name: "Kpone Livestock Traders"
                         supplierInvoiceNo: KLT-1193
                         invoiceDate: "2026-11-10"
@@ -36799,7 +36799,7 @@ paths:
                         status: MISMATCH
                         supplier:
                           id: "019a7a89-16ae-7e6d-a3a5-efa6f28f6884"
-                          supplierNo: S-0019
+                          publicId: sup_TGKEXYTAZ99G0NNC
                           name: "Awutu Poultry Farm"
                         supplierInvoiceNo: AWT-0457
                         invoiceDate: "2026-11-09"
@@ -36862,7 +36862,7 @@ paths:
                         status: PAID
                         supplier:
                           id: "019a7a89-359d-7850-bd89-8dde6c4006bc"
-                          supplierNo: S-0021
+                          publicId: sup_WA2VZH2KWSQ9T65K
                           name: "Dodowa Vegetable Growers Cooperative"
                         supplierInvoiceNo: DVG-221
                         invoiceDate: "2026-11-08"
@@ -36924,7 +36924,7 @@ paths:
                         status: DRAFT
                         supplier:
                           id: "019a7a88-f7bf-7489-99c2-516f78deca4d"
-                          supplierNo: S-0003
+                          publicId: sup_1PPM6BKHGYQVKH7C
                           name: "Agrivet Ghana Ltd"
                         supplierInvoiceNo: AGV-55012
                         invoiceDate: "2026-11-07"
@@ -36986,7 +36986,7 @@ paths:
                         status: APPROVED
                         supplier:
                           id: "019a7a89-548c-7234-876c-2c15e5f1a4f3"
-                          supplierNo: S-0025
+                          publicId: sup_EGGMDK5A8FPXWHQG
                           name: "Tema Packaging Supplies"
                         supplierInvoiceNo: TPS-3310
                         invoiceDate: "2026-11-06"
@@ -37147,7 +37147,7 @@ paths:
                 status: DRAFT
                 supplier:
                   id: "019a7a88-f7bf-7489-99c2-516f78deca4d"
-                  supplierNo: S-0003
+                  publicId: sup_1PPM6BKHGYQVKH7C
                   name: "Agrivet Ghana Ltd"
                 supplierInvoiceNo: AGV-55012
                 invoiceDate: "2026-11-07"
@@ -37259,7 +37259,7 @@ paths:
                 status: APPROVED
                 supplier:
                   id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
-                  supplierNo: S-0007
+                  publicId: sup_ZYRYFMWJT8SJ9ZYY
                   name: "Ashanti Feeds Ltd"
                 supplierInvoiceNo: "88120"
                 invoiceDate: "2026-11-11"
@@ -37391,7 +37391,7 @@ paths:
                 status: APPROVED
                 supplier:
                   id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
-                  supplierNo: S-0007
+                  publicId: sup_ZYRYFMWJT8SJ9ZYY
                   name: "Ashanti Feeds Ltd"
                 supplierInvoiceNo: "88120"
                 invoiceDate: "2026-11-11"
@@ -37514,7 +37514,7 @@ paths:
                 status: MISMATCH
                 supplier:
                   id: "019a7a89-16ae-7e6d-a3a5-efa6f28f6884"
-                  supplierNo: S-0019
+                  publicId: sup_TGKEXYTAZ99G0NNC
                   name: "Awutu Poultry Farm"
                 supplierInvoiceNo: AWT-0457
                 invoiceDate: "2026-11-09"
@@ -37643,7 +37643,7 @@ paths:
                 status: APPROVED
                 supplier:
                   id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
-                  supplierNo: S-0007
+                  publicId: sup_ZYRYFMWJT8SJ9ZYY
                   name: "Ashanti Feeds Ltd"
                 supplierInvoiceNo: "88120"
                 invoiceDate: "2026-11-11"
@@ -37919,7 +37919,7 @@ paths:
                 status: APPROVED
                 supplier:
                   id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
-                  supplierNo: S-0007
+                  publicId: sup_ZYRYFMWJT8SJ9ZYY
                   name: "Ashanti Feeds Ltd"
                 supplierInvoiceNo: "88120"
                 invoiceDate: "2026-11-11"
@@ -38057,7 +38057,7 @@ paths:
                         status: PENDING_APPROVAL
                         supplier:
                           id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
-                          supplierNo: S-0007
+                          publicId: sup_ZYRYFMWJT8SJ9ZYY
                           name: "Ashanti Feeds Ltd"
                         method: BANK
                         payeeDetailsMasked: "Ecobank Ghana, Ashanti Feeds Ltd, ****3381"
@@ -38088,7 +38088,7 @@ paths:
                         status: PAID
                         supplier:
                           id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                          supplierNo: S-0012
+                          publicId: sup_VX48894JEAGQEB4Y
                           name: "Kpone Livestock Traders"
                         method: MOBILE_MONEY
                         payeeDetailsMasked: "MTN MoMo, ****0014"
@@ -38119,7 +38119,7 @@ paths:
                         status: PAID
                         supplier:
                           id: "019a7a89-359d-7850-bd89-8dde6c4006bc"
-                          supplierNo: S-0021
+                          publicId: sup_WA2VZH2KWSQ9T65K
                           name: "Dodowa Vegetable Growers Cooperative"
                         method: MOBILE_MONEY
                         payeeDetailsMasked: "MTN MoMo, ****0014"
@@ -38150,7 +38150,7 @@ paths:
                         status: APPROVED
                         supplier:
                           id: "019a7a89-548c-7234-876c-2c15e5f1a4f3"
-                          supplierNo: S-0025
+                          publicId: sup_EGGMDK5A8FPXWHQG
                           name: "Tema Packaging Supplies"
                         method: BANK
                         payeeDetailsMasked: "Ecobank Ghana, Ashanti Feeds Ltd, ****3381"
@@ -38181,7 +38181,7 @@ paths:
                         status: PAID
                         supplier:
                           id: "019a7a89-16ae-7e6d-a3a5-efa6f28f6884"
-                          supplierNo: S-0019
+                          publicId: sup_TGKEXYTAZ99G0NNC
                           name: "Awutu Poultry Farm"
                         method: BANK
                         payeeDetailsMasked: "Ecobank Ghana, Ashanti Feeds Ltd, ****3381"
@@ -38212,7 +38212,7 @@ paths:
                         status: REJECTED
                         supplier:
                           id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
-                          supplierNo: S-0007
+                          publicId: sup_ZYRYFMWJT8SJ9ZYY
                           name: "Ashanti Feeds Ltd"
                         method: BANK
                         payeeDetailsMasked: "Ecobank Ghana, Ashanti Feeds Ltd, ****3381"
@@ -38317,7 +38317,7 @@ paths:
                 status: DRAFT
                 supplier:
                   id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
-                  supplierNo: S-0007
+                  publicId: sup_ZYRYFMWJT8SJ9ZYY
                   name: "Ashanti Feeds Ltd"
                 method: BANK
                 payeeDetailsMasked: "Ecobank Ghana, Ashanti Feeds Ltd, ****3381"
@@ -38398,7 +38398,7 @@ paths:
                 status: PENDING_APPROVAL
                 supplier:
                   id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
-                  supplierNo: S-0007
+                  publicId: sup_ZYRYFMWJT8SJ9ZYY
                   name: "Ashanti Feeds Ltd"
                 method: BANK
                 payeeDetailsMasked: "Ecobank Ghana, Ashanti Feeds Ltd, ****3381"
@@ -38477,7 +38477,7 @@ paths:
                 paymentNo: null
                 supplier:
                   id: "019a7a89-16ae-7e6d-a3a5-efa6f28f6884"
-                  supplierNo: S-0019
+                  publicId: sup_TGKEXYTAZ99G0NNC
                   name: "Awutu Poultry Farm"
                 method: MOBILE_MONEY
                 payeeDetailsMasked: "MTN Mobile Money, Awutu Poultry Farm, ****0014"
@@ -38557,7 +38557,7 @@ paths:
                 status: PENDING_APPROVAL
                 supplier:
                   id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
-                  supplierNo: S-0007
+                  publicId: sup_ZYRYFMWJT8SJ9ZYY
                   name: "Ashanti Feeds Ltd"
                 method: BANK
                 payeeDetailsMasked: "Ecobank Ghana, Ashanti Feeds Ltd, ****3381"
@@ -38677,7 +38677,7 @@ paths:
                 status: PAID
                 supplier:
                   id: "019a7a89-16ae-7e6d-a3a5-efa6f28f6884"
-                  supplierNo: S-0019
+                  publicId: sup_TGKEXYTAZ99G0NNC
                   name: "Awutu Poultry Farm"
                 method: BANK
                 payeeDetailsMasked: "Ecobank Ghana, Ashanti Feeds Ltd, ****3381"
@@ -38776,7 +38776,7 @@ paths:
                 status: PENDING_APPROVAL
                 supplier:
                   id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
-                  supplierNo: S-0007
+                  publicId: sup_ZYRYFMWJT8SJ9ZYY
                   name: "Ashanti Feeds Ltd"
                 method: BANK
                 payeeDetailsMasked: "Ecobank Ghana, Ashanti Feeds Ltd, ****3381"
@@ -44591,7 +44591,7 @@ paths:
                         provisionalRef: null
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         customerName: "Royal Palm Hotel Ltd"
                         customerTin: C0034412290
@@ -44773,7 +44773,7 @@ paths:
                         provisionalRef: null
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         customerName: "Royal Palm Hotel Ltd"
                         customerTin: C0034412290
@@ -44870,7 +44870,7 @@ paths:
                         provisionalRef: null
                         customer:
                           id: "019a7a87-659c-73fc-8935-489e4ae1c17c"
-                          customerNo: C-00118
+                          publicId: cus_2NWSQJT4E1ZWRRC1
                           name: "Ama Serwaa Ofori"
                         customerName: "Ama Serwaa Ofori"
                         customerTin: null
@@ -45008,7 +45008,7 @@ paths:
                         provisionalRef: null
                         customer:
                           id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                          customerNo: C-00241
+                          publicId: cus_GY1HV6CSTTCCM2Y2
                           name: "Emmanuel Tetteh"
                         customerName: "Emmanuel Tetteh"
                         customerTin: null
@@ -45143,7 +45143,7 @@ paths:
                         provisionalRef: P-T2-311-0042
                         customer:
                           id: "019a7a87-a37a-77c3-acfc-850d3e43fdeb"
-                          customerNo: C-00207
+                          publicId: cus_3QC5Q34ZGBQK2SC8
                           name: "Kofi Agyeman"
                         customerName: "Kofi Agyeman"
                         customerTin: null
@@ -45561,7 +45561,7 @@ paths:
                 provisionalRef: null
                 customer:
                   id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                  customerNo: C-00241
+                  publicId: cus_GY1HV6CSTTCCM2Y2
                   name: "Emmanuel Tetteh"
                 customerName: "Emmanuel Tetteh"
                 customerTin: null
@@ -45770,7 +45770,7 @@ paths:
                 provisionalRef: null
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 customerName: "Royal Palm Hotel Ltd"
                 customerTin: C0034412290
@@ -45957,7 +45957,7 @@ paths:
                 provisionalRef: null
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 customerName: "Royal Palm Hotel Ltd"
                 customerTin: C0004321987
@@ -46367,7 +46367,7 @@ paths:
                 currency: GHS
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 order: null
                 shiftId: null
@@ -46588,7 +46588,7 @@ paths:
                         currency: GHS
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         order: null
                         shiftId: null
@@ -46633,7 +46633,7 @@ paths:
                         currency: GHS
                         customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          customerNo: C-00056
+                          publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
                         order: null
                         shiftId: null
@@ -46666,7 +46666,7 @@ paths:
                         currency: GHS
                         customer:
                           id: "019a7a87-659c-73fc-8935-489e4ae1c17c"
-                          customerNo: C-00118
+                          publicId: cus_2NWSQJT4E1ZWRRC1
                           name: "Ama Serwaa Ofori"
                         order:
                           id: "019a7ae4-ec36-79b8-aef0-a45838071d36"
@@ -48272,7 +48272,7 @@ paths:
               example:
                 customer:
                   id: "019a7a87-659c-73fc-8935-489e4ae1c17c"
-                  customerNo: C-00118
+                  publicId: cus_2NWSQJT4E1ZWRRC1
                   name: "Ama Serwaa Ofori"
                 balancePesewas: 5900
                 currency: GHS
@@ -48388,7 +48388,7 @@ paths:
                           number: INV-2026-DDW-001150
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         issueDate: "2026-09-20"
                         dueDate: "2026-10-20"
@@ -48404,7 +48404,7 @@ paths:
                           number: INV-2026-DDW-001159
                         customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          customerNo: C-00056
+                          publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
                         issueDate: "2026-09-02"
                         dueDate: "2026-10-02"
@@ -48420,7 +48420,7 @@ paths:
                           number: INV-2026-DDW-001168
                         customer:
                           id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
-                          customerNo: C-00061
+                          publicId: cus_3Q4VCE9ZY779GAT6
                           name: "Osu Fresh Mart"
                         issueDate: "2026-09-28"
                         dueDate: "2026-10-28"
@@ -48436,7 +48436,7 @@ paths:
                           number: INV-2026-DDW-001177
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         issueDate: "2026-10-15"
                         dueDate: "2026-11-14"
@@ -48452,7 +48452,7 @@ paths:
                           number: INV-2026-DDW-001186
                         customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          customerNo: C-00056
+                          publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
                         issueDate: "2026-11-01"
                         dueDate: "2026-12-01"
@@ -48468,7 +48468,7 @@ paths:
                           number: INV-2026-DDW-001195
                         customer:
                           id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
-                          customerNo: C-00061
+                          publicId: cus_3Q4VCE9ZY779GAT6
                           name: "Osu Fresh Mart"
                         issueDate: "2026-11-11"
                         dueDate: "2026-12-11"
@@ -49929,7 +49929,7 @@ paths:
                       - id: "019a7af0-2909-715a-b693-1e7f6d54975d"
                         customer:
                           id: "019a7a87-659c-73fc-8935-489e4ae1c17c"
-                          customerNo: C-00118
+                          publicId: cus_2NWSQJT4E1ZWRRC1
                           name: "Ama Serwaa Ofori"
                         contactName: "Ama Serwaa Ofori"
                         contactPhone: "+233244512876"
@@ -50052,7 +50052,7 @@ paths:
                       - id: "019a7af0-a4c5-78e8-be21-975d5418103b"
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         contactName: null
                         contactPhone: null
@@ -50168,7 +50168,7 @@ paths:
                       - id: "019a7af1-3f70-7a5a-8f92-ae72b48d2750"
                         customer:
                           id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                          customerNo: C-00241
+                          publicId: cus_GY1HV6CSTTCCM2Y2
                           name: "Emmanuel Tetteh"
                         contactName: "Emmanuel Tetteh"
                         contactPhone: "+233268114590"
@@ -50403,7 +50403,7 @@ paths:
                       - id: "019a7af2-36e8-7975-8eae-a02e8215190c"
                         customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          customerNo: C-00056
+                          publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
                         contactName: null
                         contactPhone: null
@@ -50543,7 +50543,7 @@ paths:
                 paymentStatus: UNPAID
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 contactName: null
                 contactPhone: null
@@ -50899,7 +50899,7 @@ paths:
                 paymentStatus: UNPAID
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 contactName: null
                 contactPhone: null
@@ -51072,7 +51072,7 @@ paths:
                 id: "019a7af2-36e8-7975-8eae-a02e8215190c"
                 customer:
                   id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                  customerNo: C-00056
+                  publicId: cus_TS4VEDD3ZZNAAQGD
                   name: "Asantewaa Chop Bar"
                 contactName: null
                 contactPhone: null
@@ -58226,7 +58226,7 @@ paths:
                 $ref: "#/components/schemas/CustomerProfile"
               example:
                 id: "019a7a87-659c-73fc-8935-489e4ae1c17c"
-                customerNo: C-00118
+                publicId: cus_2NWSQJT4E1ZWRRC1
                 name: "Ama Serwaa Ofori"
                 phone: "+233244512876"
                 email: "ama.ofori@example.com"
@@ -58272,7 +58272,7 @@ paths:
                 $ref: "#/components/schemas/CustomerProfile"
               example:
                 id: "019a7a87-659c-73fc-8935-489e4ae1c17c"
-                customerNo: C-00118
+                publicId: cus_2NWSQJT4E1ZWRRC1
                 name: "Ama Serwaa Ofori"
                 phone: "+233244512876"
                 email: "ama.ofori@example.com"
@@ -59202,7 +59202,7 @@ paths:
               example:
                 customer:
                   id: "019a7a87-659c-73fc-8935-489e4ae1c17c"
-                  customerNo: C-00118
+                  publicId: cus_2NWSQJT4E1ZWRRC1
                   name: "Ama Serwaa Ofori"
                 balancePesewas: 5900
                 currency: GHS
@@ -59519,7 +59519,7 @@ paths:
                         status: QUOTED
                         customer:
                           id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                          customerNo: C-00241
+                          publicId: cus_GY1HV6CSTTCCM2Y2
                           name: "Emmanuel Tetteh"
                         contactName: "Emmanuel Tetteh"
                         contactPhone: "+233268114590"
@@ -59586,7 +59586,7 @@ paths:
                         status: QUOTED
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         contactName: "Royal Palm Hotel, head chef"
                         contactPhone: "+233302765410"
@@ -59766,7 +59766,7 @@ paths:
                 status: QUOTED
                 customer:
                   id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                  customerNo: C-00241
+                  publicId: cus_GY1HV6CSTTCCM2Y2
                   name: "Emmanuel Tetteh"
                 contactName: "Emmanuel Tetteh"
                 contactPhone: "+233268114590"
@@ -59839,7 +59839,7 @@ paths:
                 status: QUOTED
                 customer:
                   id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                  customerNo: C-00241
+                  publicId: cus_GY1HV6CSTTCCM2Y2
                   name: "Emmanuel Tetteh"
                 contactName: "Emmanuel Tetteh"
                 contactPhone: "+233268114590"
@@ -59943,7 +59943,7 @@ paths:
                         rfqId: "019a7aff-24cd-7b88-b0c1-c15e5f103a3c"
                         customer:
                           id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                          customerNo: C-00241
+                          publicId: cus_GY1HV6CSTTCCM2Y2
                           name: "Emmanuel Tetteh"
                         contactName: "Emmanuel Tetteh"
                         contactPhone: "+233268114590"
@@ -60011,7 +60011,7 @@ paths:
                         rfqId: null
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         contactName: "Royal Palm Hotel, head chef"
                         contactPhone: "+233302765410"
@@ -60060,7 +60060,7 @@ paths:
                         rfqId: null
                         customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          customerNo: C-00056
+                          publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
                         contactName: "Asantewaa Chop Bar"
                         contactPhone: "+233557018924"
@@ -60106,7 +60106,7 @@ paths:
                         rfqId: null
                         customer:
                           id: "019a7a87-a37a-77c3-acfc-850d3e43fdeb"
-                          customerNo: C-00207
+                          publicId: cus_3QC5Q34ZGBQK2SC8
                           name: "Kofi Agyeman"
                         contactName: "Kofi Agyeman"
                         contactPhone: "+233201447302"
@@ -60152,7 +60152,7 @@ paths:
                         rfqId: null
                         customer:
                           id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
-                          customerNo: C-00061
+                          publicId: cus_3Q4VCE9ZY779GAT6
                           name: "Osu Fresh Mart"
                         contactName: "Osu Fresh Mart"
                         contactPhone: "+233302228813"
@@ -60198,7 +60198,7 @@ paths:
                         rfqId: null
                         customer:
                           id: "019a7a88-3e25-7935-be6d-9c229eb81500"
-                          customerNo: C-00252
+                          publicId: cus_R66TY3MQB6K08YV5
                           name: "Salomey Adjei"
                         contactName: "Salomey Adjei"
                         contactPhone: "+233540672231"
@@ -60313,7 +60313,7 @@ paths:
                 rfqId: null
                 customer:
                   id: "019a7a88-3e25-7935-be6d-9c229eb81500"
-                  customerNo: C-00252
+                  publicId: cus_R66TY3MQB6K08YV5
                   name: "Salomey Adjei"
                 contactName: "Salomey Adjei"
                 contactPhone: "+233540672231"
@@ -60402,7 +60402,7 @@ paths:
                 rfqId: "019a7aff-24cd-7b88-b0c1-c15e5f103a3c"
                 customer:
                   id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                  customerNo: C-00241
+                  publicId: cus_GY1HV6CSTTCCM2Y2
                   name: "Emmanuel Tetteh"
                 contactName: "Emmanuel Tetteh"
                 contactPhone: "+233268114590"
@@ -61144,7 +61144,7 @@ paths:
                 rfqId: null
                 customer:
                   id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                  customerNo: C-00056
+                  publicId: cus_TS4VEDD3ZZNAAQGD
                   name: "Asantewaa Chop Bar"
                 contactName: "Asantewaa Chop Bar"
                 contactPhone: "+233557018924"
@@ -61245,7 +61245,7 @@ paths:
                 rfqId: null
                 customer:
                   id: "019a7a87-a37a-77c3-acfc-850d3e43fdeb"
-                  customerNo: C-00207
+                  publicId: cus_3QC5Q34ZGBQK2SC8
                   name: "Kofi Agyeman"
                 contactName: "Kofi Agyeman"
                 contactPhone: "+233201447302"
@@ -61346,7 +61346,7 @@ paths:
                 rfqId: "019a7aff-24cd-7b88-b0c1-c15e5f103a3c"
                 customer:
                   id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                  customerNo: C-00241
+                  publicId: cus_GY1HV6CSTTCCM2Y2
                   name: "Emmanuel Tetteh"
                 contactName: "Emmanuel Tetteh"
                 contactPhone: "+233268114590"
@@ -61472,7 +61472,7 @@ paths:
                 id: "019a7af1-3f70-7a5a-8f92-ae72b48d2750"
                 customer:
                   id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                  customerNo: C-00241
+                  publicId: cus_GY1HV6CSTTCCM2Y2
                   name: "Emmanuel Tetteh"
                 contactName: "Emmanuel Tetteh"
                 contactPhone: "+233268114590"
@@ -61954,7 +61954,7 @@ paths:
                     data:
                       - customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         creditLimitPesewas: 2000000
                         paymentTermsDays: 30
@@ -61976,7 +61976,7 @@ paths:
                         version: 5
                       - customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          customerNo: C-00056
+                          publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
                         creditLimitPesewas: 600000
                         paymentTermsDays: 14
@@ -61995,7 +61995,7 @@ paths:
                         version: 5
                       - customer:
                           id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
-                          customerNo: C-00061
+                          publicId: cus_3Q4VCE9ZY779GAT6
                           name: "Osu Fresh Mart"
                         creditLimitPesewas: 800000
                         paymentTermsDays: 30
@@ -62017,7 +62017,7 @@ paths:
                         version: 5
                       - customer:
                           id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                          customerNo: C-00241
+                          publicId: cus_GY1HV6CSTTCCM2Y2
                           name: "Emmanuel Tetteh"
                         creditLimitPesewas: 900000
                         paymentTermsDays: 30
@@ -62036,7 +62036,7 @@ paths:
                         version: 5
                       - customer:
                           id: "019a7b02-2a24-72bf-87f7-34c94159ada7"
-                          customerNo: C-00077
+                          publicId: cus_6GMQA1AJS48Z778Z
                           name: "Christ Apostolic Church, Adenta"
                         creditLimitPesewas: 300000
                         paymentTermsDays: 7
@@ -62113,7 +62113,7 @@ paths:
               example:
                 customer:
                   id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
-                  customerNo: C-00061
+                  publicId: cus_3Q4VCE9ZY779GAT6
                   name: "Osu Fresh Mart"
                 creditLimitPesewas: 800000
                 paymentTermsDays: 30
@@ -62178,7 +62178,7 @@ paths:
               example:
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 creditLimitPesewas: 2000000
                 paymentTermsDays: 30
@@ -62251,7 +62251,7 @@ paths:
               example:
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 creditLimitPesewas: 2000000
                 paymentTermsDays: 30
@@ -62344,7 +62344,7 @@ paths:
               example:
                 customer:
                   id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                  customerNo: C-00056
+                  publicId: cus_TS4VEDD3ZZNAAQGD
                   name: "Asantewaa Chop Bar"
                 creditLimitPesewas: 600000
                 paymentTermsDays: 14
@@ -62418,7 +62418,7 @@ paths:
               example:
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 creditLimitPesewas: 2000000
                 paymentTermsDays: 30
@@ -62511,7 +62511,7 @@ paths:
                       - id: "019a7b02-4913-7ca2-91db-d300bb0a4bde"
                         customer:
                           id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                          customerNo: C-00241
+                          publicId: cus_GY1HV6CSTTCCM2Y2
                           name: "Emmanuel Tetteh"
                         order:
                           id: "019a7b02-6802-7686-abbe-713834bbea16"
@@ -62528,7 +62528,7 @@ paths:
                       - id: "019a7b02-a5e0-7a4d-8f85-ada7281d2685"
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         order:
                           id: "019a7b02-c4cf-7430-9969-4bdea1cec4bc"
@@ -62545,7 +62545,7 @@ paths:
                       - id: "019a7b03-02ad-77f7-bd30-884d9530012b"
                         customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          customerNo: C-00056
+                          publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
                         order:
                           id: "019a7b03-219c-71db-8713-26850ee19f62"
@@ -62562,7 +62562,7 @@ paths:
                       - id: "019a7b03-5f7a-75a2-aada-62f40243dbd1"
                         customer:
                           id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
-                          customerNo: C-00061
+                          publicId: cus_3Q4VCE9ZY779GAT6
                           name: "Osu Fresh Mart"
                         order:
                           id: "019a7b03-7e69-7f85-b4bd-012b7bf47a09"
@@ -62579,7 +62579,7 @@ paths:
                       - id: "019a7b03-bc47-734c-9884-3d9a6f56b678"
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         order:
                           id: "019a7b03-db36-7d30-a268-dbd1e90754af"
@@ -62665,7 +62665,7 @@ paths:
                       - id: "019a7b04-1914-70f6-862f-1840dc69911e"
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         status: ACTIVE
                         frequency: WEEKLY
@@ -62697,7 +62697,7 @@ paths:
                       - id: "019a7b04-56f2-74bd-a9f6-54afcfcbcd8d"
                         customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          customerNo: C-00056
+                          publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
                         status: ACTIVE
                         frequency: WEEKLY
@@ -62729,7 +62729,7 @@ paths:
                       - id: "019a7b04-94d0-7884-8dbd-911ec32d09fc"
                         customer:
                           id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
-                          customerNo: C-00061
+                          publicId: cus_3Q4VCE9ZY779GAT6
                           name: "Osu Fresh Mart"
                         status: PAUSED
                         frequency: FORTNIGHTLY
@@ -62753,7 +62753,7 @@ paths:
                       - id: "019a7b04-d2ae-7c4b-a184-cd8db68f466b"
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         status: ACTIVE
                         frequency: MONTHLY
@@ -62785,7 +62785,7 @@ paths:
                       - id: "019a7b05-108c-7012-854a-09fca9f182da"
                         customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          customerNo: C-00056
+                          publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
                         status: ENDED
                         frequency: WEEKLY
@@ -62878,7 +62878,7 @@ paths:
                 id: "019a7b04-1914-70f6-862f-1840dc69911e"
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 status: ACTIVE
                 frequency: WEEKLY
@@ -62953,7 +62953,7 @@ paths:
                 id: "019a7b04-1914-70f6-862f-1840dc69911e"
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 status: ACTIVE
                 frequency: WEEKLY
@@ -63038,7 +63038,7 @@ paths:
                 id: "019a7b04-1914-70f6-862f-1840dc69911e"
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 status: ACTIVE
                 frequency: WEEKLY
@@ -63125,7 +63125,7 @@ paths:
                 id: "019a7b04-1914-70f6-862f-1840dc69911e"
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 status: ACTIVE
                 frequency: WEEKLY
@@ -63212,7 +63212,7 @@ paths:
                 id: "019a7b04-1914-70f6-862f-1840dc69911e"
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 status: ACTIVE
                 frequency: WEEKLY
@@ -63299,7 +63299,7 @@ paths:
                 id: "019a7b04-1914-70f6-862f-1840dc69911e"
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 status: ACTIVE
                 frequency: WEEKLY
@@ -63495,7 +63495,7 @@ paths:
                         status: ISSUED
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         periodStart: "2026-10-01"
                         periodEnd: "2026-10-31"
@@ -63530,7 +63530,7 @@ paths:
                         status: ISSUED
                         customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          customerNo: C-00056
+                          publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
                         periodStart: "2026-10-01"
                         periodEnd: "2026-10-31"
@@ -63547,7 +63547,7 @@ paths:
                         status: ISSUED
                         customer:
                           id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
-                          customerNo: C-00061
+                          publicId: cus_3Q4VCE9ZY779GAT6
                           name: "Osu Fresh Mart"
                         periodStart: "2026-10-01"
                         periodEnd: "2026-10-31"
@@ -63564,7 +63564,7 @@ paths:
                         status: ISSUED
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         periodStart: "2026-09-01"
                         periodEnd: "2026-09-30"
@@ -63581,7 +63581,7 @@ paths:
                         status: ISSUED
                         customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          customerNo: C-00056
+                          publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
                         periodStart: "2026-09-01"
                         periodEnd: "2026-09-30"
@@ -63655,7 +63655,7 @@ paths:
                 status: ISSUED
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 periodStart: "2026-10-01"
                 periodEnd: "2026-10-31"
@@ -63733,7 +63733,7 @@ paths:
                 status: ISSUED
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 periodStart: "2026-10-01"
                 periodEnd: "2026-10-31"
@@ -63889,7 +63889,7 @@ paths:
                     data:
                       - customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         currentPesewas: 300400
                         days1To30Pesewas: 222500
@@ -63901,7 +63901,7 @@ paths:
                         onHold: false
                       - customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          customerNo: C-00056
+                          publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
                         currentPesewas: 211800
                         days1To30Pesewas: 0
@@ -63913,7 +63913,7 @@ paths:
                         onHold: true
                       - customer:
                           id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
-                          customerNo: C-00061
+                          publicId: cus_3Q4VCE9ZY779GAT6
                           name: "Osu Fresh Mart"
                         currentPesewas: 147300
                         days1To30Pesewas: 96400
@@ -63925,7 +63925,7 @@ paths:
                         onHold: false
                       - customer:
                           id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                          customerNo: C-00241
+                          publicId: cus_GY1HV6CSTTCCM2Y2
                           name: "Emmanuel Tetteh"
                         currentPesewas: 858000
                         days1To30Pesewas: 0
@@ -63937,7 +63937,7 @@ paths:
                         onHold: false
                       - customer:
                           id: "019a7b02-2a24-72bf-87f7-34c94159ada7"
-                          customerNo: C-00077
+                          publicId: cus_6GMQA1AJS48Z778Z
                           name: "Christ Apostolic Church, Adenta"
                         currentPesewas: 0
                         days1To30Pesewas: 0
@@ -64207,7 +64207,7 @@ paths:
                       - id: "019a7b06-ff7c-7e4a-8382-ed7445016652"
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         billingDocument:
                           id: "019a7aeb-53b1-75d0-bb08-65d469acdeb2"
@@ -64223,7 +64223,7 @@ paths:
                       - id: "019a7b07-1e6b-782d-9d65-8babbeb20489"
                         customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          customerNo: C-00056
+                          publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
                         billingDocument:
                           id: "019a7aeb-72a0-7fb3-84eb-040be35d7ce9"
@@ -64238,7 +64238,7 @@ paths:
                       - id: "019a7b07-3d5a-7211-a749-29e33863a2c1"
                         customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          customerNo: C-00056
+                          publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
                         billingDocument:
                           id: "019a7aeb-918f-7997-9ecf-a2435d0e1b21"
@@ -64254,7 +64254,7 @@ paths:
                       - id: "019a7b07-5c49-7bf4-b12c-c81ab21440f8"
                         customer:
                           id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
-                          customerNo: C-00061
+                          publicId: cus_3Q4VCE9ZY779GAT6
                           name: "Osu Fresh Mart"
                         billingDocument:
                           id: "019a7aeb-53b1-75d0-bb08-65d469acdeb2"
@@ -64269,7 +64269,7 @@ paths:
                       - id: "019a7b07-7b38-75d8-8b10-66522bc5df30"
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         billingDocument:
                           id: "019a7aeb-72a0-7fb3-84eb-040be35d7ce9"
@@ -73722,7 +73722,7 @@ paths:
                     rowCount: 3
                     result:
                       columns:
-                        - key: customerNo
+                        - key: publicId
                           label: Customer
                           type: TEXT
                         - key: name
@@ -73735,15 +73735,15 @@ paths:
                           label: Tier
                           type: TEXT
                       rows:
-                        - customerNo: C-000101
+                        - publicId: cus_PFDR51RGKJ158X61
                           name: "Abena Owusu (SEED)"
                           phone: "+233200000301"
                           tier: RETAIL
-                        - customerNo: C-000102
+                        - publicId: cus_W2D8RWPG46BYZ7TR
                           name: "Dodowa Chop Bar (SEED)"
                           phone: "+233200000302"
                           tier: WHOLESALE
-                        - customerNo: C-000103
+                        - publicId: cus_99HTFCV49X9JGV88
                           name: "Nana Agyei (SEED)"
                           phone: "+233200000303"
                           tier: RETAIL
@@ -77721,7 +77721,7 @@ paths:
                 source: PURCHASE
                 supplier:
                   id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                  supplierNo: S-0012
+                  publicId: sup_VX48894JEAGQEB4Y
                   name: "Kpone Livestock Traders"
                 dam: null
                 sire: null
@@ -78204,19 +78204,29 @@ components:
         - id
         - code
         - name
+    CustomerPublicId:
+      type: string
+      pattern: "^cus_[0-9A-HJKMNP-TV-Z]{16}$"
+      description: "A customer's public ID (2.0.0, ADR-0073): `cus_` and sixteen characters of Crockford base32 (no I, L, O or U) drawn by the server from a cryptographically secure source, 80 bits, so it cannot be guessed or counted through. What people see and type for a customer in place of the sequential number (`C-00001`), which is no longer shown; unique, never reused, never changed, never sent by a client. Ids (UUIDs) stay in paths and are never shown to people. Knowing one reads nothing without authorisation."
+      example: cus_8F3K2M9Q7X4T1V6B
+    SupplierPublicId:
+      type: string
+      pattern: "^sup_[0-9A-HJKMNP-TV-Z]{16}$"
+      description: "A supplier's public ID (2.0.0, ADR-0073): `sup_` and sixteen characters of Crockford base32, as `CustomerPublicId`. In place of the sequential supplier number (`S-0001`), which is no longer shown."
+      example: sup_4N7Q1X9K3M6T2V8B
     CustomerRef:
       type: object
       properties:
         id:
           type: string
           format: uuid
-        customerNo:
-          type: string
+        publicId:
+          $ref: "#/components/schemas/CustomerPublicId"
         name:
           type: string
       required:
         - id
-        - customerNo
+        - publicId
         - name
     SupplierRef:
       type: object
@@ -78224,13 +78234,13 @@ components:
         id:
           type: string
           format: uuid
-        supplierNo:
-          type: string
+        publicId:
+          $ref: "#/components/schemas/SupplierPublicId"
         name:
           type: string
       required:
         - id
-        - supplierNo
+        - publicId
         - name
     StockUnitRef:
       type: object
@@ -81274,8 +81284,8 @@ components:
         id:
           type: string
           format: uuid
-        customerNo:
-          type: string
+        publicId:
+          $ref: "#/components/schemas/CustomerPublicId"
         kind:
           type: string
           enum:
@@ -81331,7 +81341,7 @@ components:
           format: date-time
       required:
         - id
-        - customerNo
+        - publicId
         - kind
         - name
         - phone
@@ -81600,8 +81610,8 @@ components:
         id:
           type: string
           format: uuid
-        supplierNo:
-          type: string
+        publicId:
+          $ref: "#/components/schemas/SupplierPublicId"
         name:
           type: string
         contactName:
@@ -81646,7 +81656,7 @@ components:
           format: date-time
       required:
         - id
-        - supplierNo
+        - publicId
         - name
         - contactName
         - phone
@@ -95458,8 +95468,8 @@ components:
         id:
           type: string
           format: uuid
-        customerNo:
-          type: string
+        publicId:
+          $ref: "#/components/schemas/CustomerPublicId"
         name:
           type: string
         phone:
@@ -95478,7 +95488,7 @@ components:
           format: uuid
       required:
         - id
-        - customerNo
+        - publicId
         - name
         - phone
         - email

@@ -19,12 +19,12 @@ describe('a bulk export (SEC-009)', () => {
 
 describe('the header row', () => {
   it('matches columns without regard to case or spaces, in any order, ignoring blank header cells', () => {
-    const reading = readHeader([' NAME ', '', 'Phone', 'customerno'], CUSTOMER_COLUMNS);
-    expect(reading.ok && [...reading.index]).toEqual([['name', 0], ['phone', 2], ['customerNo', 3]]);
+    const reading = readHeader([' NAME ', '', 'Phone', 'publicid'], CUSTOMER_COLUMNS);
+    expect(reading.ok && [...reading.index]).toEqual([['name', 0], ['phone', 2], ['publicId', 3]]);
   });
 
   it('refuses an empty header, an unknown column, a column twice and a missing required column, all on row 1', () => {
-    expect(readHeader(undefined, CUSTOMER_COLUMNS)).toEqual({ ok: false, errors: [{ rowNo: 1, column: null, message: 'The first row must name the columns: customerNo, kind, name, phone, email, tier' }] });
+    expect(readHeader(undefined, CUSTOMER_COLUMNS)).toEqual({ ok: false, errors: [{ rowNo: 1, column: null, message: 'The first row must name the columns: publicId, kind, name, phone, email, tier' }] });
     expect(readHeader(['', ' '], CUSTOMER_COLUMNS).ok).toBe(false);
     expect(readHeader(['name', 'Name', 'age'], CUSTOMER_COLUMNS)).toEqual({
       ok: false,
@@ -68,23 +68,23 @@ describe('applying and cancelling (FR-MDM-019)', () => {
 
 describe('a customer row (FR-MDM-008 through a sheet)', () => {
   it('reads a new customer, normalising the phone, the email, the kind and the tier', () => {
-    expect(readCustomerRow(2, cells({ kind: 'individual', name: 'Akosua Mensah', phone: '024 412 3456', email: 'Akosua@Example.com', tier: 'retail', customerNo: '' }))).toEqual({
-      row: { rowNo: 2, customerNo: null, kind: 'INDIVIDUAL', name: 'Akosua Mensah', phone: '+233244123456', email: 'akosua@example.com', tierCode: 'RETAIL' },
+    expect(readCustomerRow(2, cells({ kind: 'individual', name: 'Akosua Mensah', phone: '024 412 3456', email: 'Akosua@Example.com', tier: 'retail', publicId: '' }))).toEqual({
+      row: { rowNo: 2, publicId: null, kind: 'INDIVIDUAL', name: 'Akosua Mensah', phone: '+233244123456', email: 'akosua@example.com', tierCode: 'RETAIL' },
       errors: [],
     });
   });
 
-  it('reads a change to an existing customer, where every other cell may be blank', () => {
-    expect(readCustomerRow(3, cells({ customerNo: 'c-00118', name: '' }))).toEqual({
-      row: { rowNo: 3, customerNo: 'C-00118', kind: null, name: null, phone: null, email: null, tierCode: null },
+  it('reads a change to an existing customer named by its public ID typed any way, where every other cell may be blank (B09q)', () => {
+    expect(readCustomerRow(3, cells({ publicId: 'CUS_8f3k 2m9q-7x4t iv6b', name: '' }))).toEqual({
+      row: { rowNo: 3, publicId: 'cus_8F3K2M9Q7X4T1V6B', kind: null, name: null, phone: null, email: null, tierCode: null },
       errors: [],
     });
   });
 
   it('names the column and the rule of every bad cell, never its personal value', () => {
-    const { errors } = readCustomerRow(14, cells({ customerNo: '118', kind: 'VIP', name: 'x'.repeat(161), phone: '12345', email: 'kofi@', tier: 'gold-1' }));
+    const { errors } = readCustomerRow(14, cells({ publicId: 'C-00118', kind: 'VIP', name: 'x'.repeat(161), phone: '12345', email: 'kofi@', tier: 'gold-1' }));
     expect(errors).toEqual([
-      { rowNo: 14, column: 'customerNo', message: 'Customer number must look like C-00118' },
+      { rowNo: 14, column: 'publicId', message: 'Public ID must look like cus_8F3K2M9Q7X4T1V6B' },
       { rowNo: 14, column: 'kind', message: 'Kind must be INDIVIDUAL or BUSINESS' },
       { rowNo: 14, column: 'name', message: 'Name is longer than 160 characters' },
       { rowNo: 14, column: 'phone', message: 'Phone number must be a Ghanaian number such as 024 412 3456, or start with + and the country code' },

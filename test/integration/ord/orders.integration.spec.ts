@@ -161,7 +161,7 @@ describe('createOrder (FR-ORD-001, FR-ORD-003, FR-ORD-004)', () => {
       channel: 'WHOLESALE',
       status: 'PLACED',
       paymentStatus: 'UNPAID',
-      customer: { id: id('tema'), customerNo: 'C-00002', name: 'Tema Cold Store Ltd (SEED)' },
+      customer: { id: id('tema'), publicId: expect.stringMatching(/^cus_[0-9A-HJKMNP-TV-Z]{16}$/), name: 'Tema Cold Store Ltd (SEED)' },
       paymentTerms: 'COD',
       fulfilmentMode: 'COLLECTION',
       salesperson: { id: id('user:sales'), displayName: 'Kojo Antwi' },

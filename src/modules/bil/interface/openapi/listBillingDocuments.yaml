@@ -266,7 +266,7 @@ responses:
                   provisionalRef: null
                   customer:
                     id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                    customerNo: C-00042
+                    publicId: cus_TWMB751S2DFXTAM8
                     name: "Royal Palm Hotel Ltd"
                   customerName: "Royal Palm Hotel Ltd"
                   customerTin: C0034412290
@@ -448,7 +448,7 @@ responses:
                   provisionalRef: null
                   customer:
                     id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                    customerNo: C-00042
+                    publicId: cus_TWMB751S2DFXTAM8
                     name: "Royal Palm Hotel Ltd"
                   customerName: "Royal Palm Hotel Ltd"
                   customerTin: C0034412290
@@ -545,7 +545,7 @@ responses:
                   provisionalRef: null
                   customer:
                     id: "019a7a87-659c-73fc-8935-489e4ae1c17c"
-                    customerNo: C-00118
+                    publicId: cus_2NWSQJT4E1ZWRRC1
                     name: "Ama Serwaa Ofori"
                   customerName: "Ama Serwaa Ofori"
                   customerTin: null
@@ -683,7 +683,7 @@ responses:
                   provisionalRef: null
                   customer:
                     id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                    customerNo: C-00241
+                    publicId: cus_GY1HV6CSTTCCM2Y2
                     name: "Emmanuel Tetteh"
                   customerName: "Emmanuel Tetteh"
                   customerTin: null
@@ -818,7 +818,7 @@ responses:
                   provisionalRef: P-T2-311-0042
                   customer:
                     id: "019a7a87-a37a-77c3-acfc-850d3e43fdeb"
-                    customerNo: C-00207
+                    publicId: cus_3QC5Q34ZGBQK2SC8
                     name: "Kofi Agyeman"
                   customerName: "Kofi Agyeman"
                   customerTin: null

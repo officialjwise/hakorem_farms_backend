@@ -33,7 +33,7 @@ export interface AnimalView {
   readonly dateOfBirth: string | null;
   readonly acquiredOn: string;
   readonly source: AnimalRecord['source'];
-  readonly supplier: { readonly id: string; readonly supplierNo: string; readonly name: string } | null;
+  readonly supplier: { readonly id: string; readonly publicId: string; readonly name: string } | null;
   readonly dam: { readonly id: string; readonly tagNo: string } | null;
   readonly sire: { readonly id: string; readonly tagNo: string } | null;
   readonly batch: { readonly id: string; readonly batchNo: string } | null;
@@ -334,7 +334,7 @@ export class Animals {
         dateOfBirth: r.dateOfBirth,
         acquiredOn: r.acquiredOn,
         source: r.source,
-        supplier: supplier === null ? null : { id: supplier.id, supplierNo: supplier.supplierNo, name: supplier.name },
+        supplier: supplier === null ? null : { id: supplier.id, publicId: supplier.publicId, name: supplier.name },
         dam: parent(r.damId),
         sire: parent(r.sireId),
         batch: r.batchId === null ? null : { id: r.batchId, batchNo: batches.get(r.batchId)!.batchNo },

@@ -2,7 +2,7 @@ operationId: listCustomers
 tags:
   - mdm
 summary: "List customers"
-description: "Live customers in creation order. `q` that reads as a phone number (`0244123456`, `+233244123456`) finds the customer with that number; any other `q` matches part of the name, ignoring case.\n\nPermission: `mdm.customer.read`."
+description: "Live customers in creation order. `q` that reads as a customer's public ID (`cus_8F3K2M9Q7X4T1V6B`; any case, spaces or hyphens, O read as 0 and I or L as 1; 2.0.0, ADR-0073) finds that customer; the sequential customer number finds nothing from 2.0.0. `q` that reads as a phone number (`0244123456`, `+233244123456`) finds the customer with that number; any other `q` matches part of the name, ignoring case.\n\nPermission: `mdm.customer.read`."
 x-permission: mdm.customer.read
 x-error-codes:
   - VALIDATION_FAILED
@@ -67,7 +67,7 @@ responses:
             value:
               data:
                 - id: "019a7a87-659c-73fc-8935-489e4ae1c17c"
-                  customerNo: C-00118
+                  publicId: cus_2NWSQJT4E1ZWRRC1
                   kind: INDIVIDUAL
                   name: "Ama Serwaa Ofori"
                   phone: "+233244512876"
@@ -87,7 +87,7 @@ responses:
                   createdAt: "2026-11-02T08:00:00Z"
                   updatedAt: "2026-11-10T14:00:00Z"
                 - id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   kind: BUSINESS
                   name: "Royal Palm Hotel Ltd"
                   phone: "+233302765410"
@@ -110,7 +110,7 @@ responses:
                   createdAt: "2026-11-02T08:01:00Z"
                   updatedAt: "2026-11-11T14:01:00Z"
                 - id: "019a7a87-a37a-77c3-acfc-850d3e43fdeb"
-                  customerNo: C-00207
+                  publicId: cus_3QC5Q34ZGBQK2SC8
                   kind: INDIVIDUAL
                   name: "Kofi Agyeman"
                   phone: "+233201447302"
@@ -130,7 +130,7 @@ responses:
                   createdAt: "2026-11-02T08:02:00Z"
                   updatedAt: "2026-11-12T14:02:00Z"
                 - id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                  customerNo: C-00056
+                  publicId: cus_TS4VEDD3ZZNAAQGD
                   kind: BUSINESS
                   name: "Asantewaa Chop Bar"
                   phone: "+233557018924"
@@ -150,7 +150,7 @@ responses:
                   createdAt: "2026-11-02T08:03:00Z"
                   updatedAt: "2026-11-10T14:03:00Z"
                 - id: "019a7a87-e158-7b8a-80c2-c17c31a53a5a"
-                  customerNo: C-00233
+                  publicId: cus_9K9CHJQMEYHBTDFW
                   kind: INDIVIDUAL
                   name: "Grace Nyarko"
                   phone: "+233249903118"
@@ -170,7 +170,7 @@ responses:
                   createdAt: "2026-11-02T08:04:00Z"
                   updatedAt: "2026-11-11T14:04:00Z"
                 - id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                  customerNo: C-00241
+                  publicId: cus_GY1HV6CSTTCCM2Y2
                   kind: INDIVIDUAL
                   name: "Emmanuel Tetteh"
                   phone: "+233268114590"

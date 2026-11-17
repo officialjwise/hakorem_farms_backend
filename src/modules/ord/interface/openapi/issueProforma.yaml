@@ -34,7 +34,7 @@ responses:
           provisionalRef: null
           customer:
             id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-            customerNo: C-00241
+            publicId: cus_GY1HV6CSTTCCM2Y2
             name: "Emmanuel Tetteh"
           customerName: "Emmanuel Tetteh"
           customerTin: null

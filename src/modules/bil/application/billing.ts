@@ -120,7 +120,7 @@ export interface BillingDocumentView {
   readonly status: 'DRAFT' | 'ISSUED';
   readonly documentNo: string | null;
   readonly provisionalRef: string | null;
-  readonly customer: { readonly id: string; readonly customerNo: string; readonly name: string } | null;
+  readonly customer: { readonly id: string; readonly publicId: string; readonly name: string } | null;
   readonly customerName: string | null;
   readonly customerTin: string | null;
   readonly billingAddress: string | null;
@@ -997,7 +997,7 @@ export class Billing {
         status: r.status,
         documentNo: r.documentNo,
         provisionalRef: r.provisionalRef,
-        customer: customer === undefined ? null : { id: customer.id, customerNo: customer.customerNo, name: customer.name },
+        customer: customer === undefined ? null : { id: customer.id, publicId: customer.publicId, name: customer.name },
         customerName: r.customerName,
         customerTin: r.customerTin,
         billingAddress: r.billingAddress,

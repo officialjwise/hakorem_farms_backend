@@ -93,11 +93,11 @@ export class PgMasterDataRefsStore implements MasterDataRefsStore {
   }
 
   async suppliers(tx: Transaction, ids: readonly string[]): Promise<SupplierFacts[]> {
-    const { rows } = await tx.query<{ id: string; supplier_no: string; name: string; is_live: boolean }>(
-      "SELECT id, supplier_no, name, (status = 'ACTIVE' AND deleted_at IS NULL) AS is_live FROM mdm.supplier WHERE id = ANY($1::uuid[])",
+    const { rows } = await tx.query<{ id: string; public_id: string; name: string; is_live: boolean }>(
+      "SELECT id, public_id, name, (status = 'ACTIVE' AND deleted_at IS NULL) AS is_live FROM mdm.supplier WHERE id = ANY($1::uuid[])",
       [ids],
     );
-    return rows.map((r) => ({ id: r.id, supplierNo: r.supplier_no, name: r.name, isLive: r.is_live }));
+    return rows.map((r) => ({ id: r.id, publicId: r.public_id, name: r.name, isLive: r.is_live }));
   }
 
   async species(tx: Transaction, ids: readonly string[]): Promise<SpeciesFacts[]> {
@@ -122,7 +122,7 @@ export class PgMasterDataRefsStore implements MasterDataRefsStore {
 
   async customers(tx: Transaction, ids: readonly string[]): Promise<CustomerFacts[]> {
     const { rows } = await tx.query<CustomerFacts>(
-      'SELECT id, customer_no AS "customerNo", name, kind, (deleted_at IS NULL AND status = $2) AS "isLive", (phone_e164 IS NOT NULL) AS "hasPhone" FROM mdm.customer WHERE id = ANY($1::uuid[])',
+      'SELECT id, public_id AS "publicId", name, kind, (deleted_at IS NULL AND status = $2) AS "isLive", (phone_e164 IS NOT NULL) AS "hasPhone" FROM mdm.customer WHERE id = ANY($1::uuid[])',
       [ids, 'ACTIVE'],
     );
     return rows;
@@ -130,7 +130,7 @@ export class PgMasterDataRefsStore implements MasterDataRefsStore {
 
   async customerOfPrincipal(tx: Transaction, principalId: string): Promise<CustomerFacts | null> {
     const { rows } = await tx.query<CustomerFacts>(
-      'SELECT id, customer_no AS "customerNo", name, kind, (deleted_at IS NULL AND status = $2) AS "isLive", (phone_e164 IS NOT NULL) AS "hasPhone" FROM mdm.customer WHERE principal_id = $1',
+      'SELECT id, public_id AS "publicId", name, kind, (deleted_at IS NULL AND status = $2) AS "isLive", (phone_e164 IS NOT NULL) AS "hasPhone" FROM mdm.customer WHERE principal_id = $1',
       [principalId, 'ACTIVE'],
     );
     return rows[0] ?? null;

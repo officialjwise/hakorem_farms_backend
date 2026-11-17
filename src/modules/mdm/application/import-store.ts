@@ -74,7 +74,8 @@ export interface SheetLookups {
   categoryIdByCode(tx: Transaction, code: string): Promise<string | null>;
   speciesIdByCode(tx: Transaction, code: string): Promise<string | null>;
   taxCategoryIdByCode(tx: Transaction, code: string): Promise<string | null>;
-  supplierByNo(tx: Transaction, supplierNo: string): Promise<NamedRecord | null>;
+  /** The live supplier with this public ID (ADR-0073), if any. */
+  supplierByPublicId(tx: Transaction, publicId: string): Promise<NamedRecord | null>;
   branchIdByCode(tx: Transaction, code: string): Promise<string | null>;
   locationByCode(tx: Transaction, branchId: string, code: string): Promise<(NamedRecord & { readonly isVirtual: boolean }) | null>;
   priceListByCode(tx: Transaction, code: string): Promise<{ readonly id: string } | null>;

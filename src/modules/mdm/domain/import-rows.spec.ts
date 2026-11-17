@@ -45,16 +45,17 @@ describe('supplier rows (FR-MDM-007, FR-MDM-019)', () => {
   it('normalises a Ghanaian phone, lower-cases the email and reads the categories as distinct codes', () => {
     const { row, errors } = readSupplierRow(2, cells({ name: 'Dodowa Feeds', phone: '0244123456', email: 'Sales@Example.com', categories: 'feed; supplies;FEED' }));
     expect(errors).toEqual([]);
-    expect(row).toMatchObject({ supplierNo: null, phone: '+233244123456', email: 'sales@example.com', categoryCodes: ['FEED', 'SUPPLIES'] });
+    expect(row).toMatchObject({ publicId: null, phone: '+233244123456', email: 'sales@example.com', categoryCodes: ['FEED', 'SUPPLIES'] });
     expect(readSupplierRow(2, cells({ name: 'A' })).row.categoryCodes).toBeNull();
   });
 
-  it('refuses a bad number, phone, email or category without echoing the value', () => {
-    const { errors } = readSupplierRow(5, cells({ supplierNo: 'S-1', name: 'B', phone: '12345', email: 'no-at-sign', categories: 'MEAT;bad code' }));
-    expect(errors.map((error) => error.column)).toEqual(['supplierNo', 'phone', 'email', 'categories']);
+  it('refuses a bad public ID, phone, email or category without echoing the value', () => {
+    const { errors } = readSupplierRow(5, cells({ publicId: 'S-0042', name: 'B', phone: '12345', email: 'no-at-sign', categories: 'MEAT;bad code' }));
+    expect(errors.map((error) => error.column)).toEqual(['publicId', 'phone', 'email', 'categories']);
     expect(errors.some((error) => error.message.includes('12345') || error.message.includes('no-at-sign'))).toBe(false);
     expect(readSupplierRow(3, cells({ name: '' })).errors).toEqual([{ rowNo: 3, column: 'name', message: 'Name is empty' }]);
-    expect(readSupplierRow(3, cells({ supplierNo: 'S-0042', name: '' })).errors).toEqual([]);
+    expect(readSupplierRow(3, cells({ publicId: 'sup_8F3K2M9Q7X4T1V6B', name: '' })).errors).toEqual([]);
+    expect(readSupplierRow(3, cells({ publicId: 'sup_8f3k2m9q7x4t1v6b' })).row.publicId).toBe('sup_8F3K2M9Q7X4T1V6B');
     expect(readSupplierRow(3, cells({ name: 'C', categories: Array.from({ length: 51 }, (_, i) => `C${i}`).join(';') })).errors[0]!.column).toBe('categories');
   });
 });

@@ -115,7 +115,7 @@ export interface GoodsReceiptView {
   readonly receiptNo: string | null;
   readonly kind: ReceiptKind;
   readonly status: ReceiptStatus;
-  readonly supplier: { readonly id: string; readonly supplierNo: string; readonly name: string } | null;
+  readonly supplier: { readonly id: string; readonly publicId: string; readonly name: string } | null;
   readonly location: Ref3 & { readonly kind: string };
   readonly purchaseOrder: DocumentRefRecord | null;
   readonly deliveryNoteRef: string | null;
@@ -638,7 +638,7 @@ export class GoodsReceipts {
         receiptNo: r.receiptNo,
         kind: r.kind,
         status: r.status,
-        supplier: supplier === null ? null : { id: supplier.id, supplierNo: supplier.supplierNo, name: supplier.name },
+        supplier: supplier === null ? null : { id: supplier.id, publicId: supplier.publicId, name: supplier.name },
         location: { id: location.id, code: location.code, name: location.name, kind: location.kind },
         purchaseOrder: r.orderDocumentId === null ? null : (orders.get(r.orderDocumentId) ?? null),
         deliveryNoteRef: r.deliveryNoteRef,

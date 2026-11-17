@@ -57,7 +57,7 @@ export interface SupplierPaymentView {
   readonly id: string;
   readonly paymentNo: string | null;
   readonly status: PaymentStatus;
-  readonly supplier: { readonly id: string; readonly supplierNo: string; readonly name: string };
+  readonly supplier: { readonly id: string; readonly publicId: string; readonly name: string };
   readonly method: PaymentMethod;
   /** Who the payment pays: the approved payout details in force when it was prepared, masked; null for cash and cheques. */
   readonly payeeDetailsMasked: string | null;
@@ -82,7 +82,7 @@ export interface SupplierRemittanceView {
   readonly id: string;
   readonly supplierPaymentId: string;
   readonly paymentNo: string | null;
-  readonly supplier: { readonly id: string; readonly supplierNo: string; readonly name: string };
+  readonly supplier: { readonly id: string; readonly publicId: string; readonly name: string };
   readonly method: PaymentMethod;
   readonly payeeDetailsMasked: string | null;
   readonly amountPesewas: number;

@@ -111,7 +111,8 @@ describe('customers (FR-MDM-008)', () => {
     const created = await post(sales, '/customers', { kind: 'INDIVIDUAL', name: 'Kwame Asante (TEST)', phone: '0244123456', email: 'Kwame@Example.invalid' });
     expect(created.status).toBe(201);
     expect(created.body).toMatchObject({ phone: '+233244123456', email: 'kwame@example.invalid', tier: { code: 'RETAIL' }, status: 'ACTIVE', hasLogin: false, priceList: null, hasBusinessAccount: false });
-    expect(created.body.customerNo).toMatch(/^C-\d{5}$/);
+    expect(created.body.publicId).toMatch(/^cus_[0-9A-HJKMNP-TV-Z]{16}$/);
+    expect(created.body).not.toHaveProperty('customerNo');
     for (const typed of ['+233244123456', '233 24 412 3456', '024-412-3456']) {
       const duplicate = await post(sales, '/customers', { kind: 'INDIVIDUAL', name: 'Someone else', phone: typed });
       expect(duplicate.status).toBe(422);

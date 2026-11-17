@@ -171,7 +171,7 @@ responses:
                   currency: GHS
                   customer:
                     id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                    customerNo: C-00042
+                    publicId: cus_TWMB751S2DFXTAM8
                     name: "Royal Palm Hotel Ltd"
                   order: null
                   shiftId: null
@@ -216,7 +216,7 @@ responses:
                   currency: GHS
                   customer:
                     id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                    customerNo: C-00056
+                    publicId: cus_TS4VEDD3ZZNAAQGD
                     name: "Asantewaa Chop Bar"
                   order: null
                   shiftId: null
@@ -249,7 +249,7 @@ responses:
                   currency: GHS
                   customer:
                     id: "019a7a87-659c-73fc-8935-489e4ae1c17c"
-                    customerNo: C-00118
+                    publicId: cus_2NWSQJT4E1ZWRRC1
                     name: "Ama Serwaa Ofori"
                   order:
                     id: "019a7ae4-ec36-79b8-aef0-a45838071d36"

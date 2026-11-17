@@ -129,7 +129,7 @@ export interface SupplierInvoiceView {
   readonly id: string;
   readonly kind: 'INVOICE' | 'CREDIT_NOTE';
   readonly status: InvoiceStatus;
-  readonly supplier: { readonly id: string; readonly supplierNo: string; readonly name: string };
+  readonly supplier: { readonly id: string; readonly publicId: string; readonly name: string };
   readonly supplierInvoiceNo: string;
   readonly invoiceDate: string;
   readonly dueDate: string;

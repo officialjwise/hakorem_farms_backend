@@ -90,7 +90,7 @@ export interface PurchaseOrderView {
   readonly id: string;
   readonly orderNo: string | null;
   readonly status: OrderStatus;
-  readonly supplier: { readonly id: string; readonly supplierNo: string; readonly name: string };
+  readonly supplier: { readonly id: string; readonly publicId: string; readonly name: string };
   readonly deliverToLocation: { readonly id: string; readonly code: string; readonly name: string; readonly kind: string };
   readonly orderDate: string;
   readonly expectedOn: string | null;

@@ -110,3 +110,40 @@ describe('no product barcode, barcode lookup or till scanning (ADR-0072, contrac
     }
   });
 });
+
+describe('public IDs in place of the sequential customer and supplier numbers (ADR-0073, contract 2.0.0)', () => {
+  it('names no customerNo or supplierNo anywhere: no property, parameter, example or text', () => {
+    const numbers = /customerNo|supplierNo/;
+    const where = [
+      ...operations().flatMap(({ operationId, operation }) => mentions(operation, numbers, operationId, [])),
+      ...Object.entries(schemas).flatMap(([name, schema]) => mentions(schema, numbers, name, [])),
+    ];
+    expect(where).toEqual([]);
+  });
+
+  it('gives every customer and supplier shape a required publicId of its own pattern', () => {
+    for (const [name, kind] of [['Customer', 'Customer'], ['CustomerRef', 'Customer'], ['CustomerProfile', 'Customer'], ['Supplier', 'Supplier'], ['SupplierRef', 'Supplier']] as const) {
+      const schema = schemas[name] as JsonObject;
+      expect((schema['properties'] as JsonObject)['publicId'], name).toEqual({ $ref: `#/components/schemas/${kind}PublicId` });
+      expect(schema['required'] as string[], name).toContain('publicId');
+    }
+    expect((schemas['CustomerPublicId'] as JsonObject)['pattern']).toBe('^cus_[0-9A-HJKMNP-TV-Z]{16}$');
+    expect((schemas['SupplierPublicId'] as JsonObject)['pattern']).toBe('^sup_[0-9A-HJKMNP-TV-Z]{16}$');
+  });
+
+  it('shows one public ID per customer or supplier across every example, as the mock serves them', () => {
+    const byId = new Map<string, Set<string>>();
+    const walk = (node: Json): void => {
+      if (Array.isArray(node)) node.forEach(walk);
+      else if (node !== null && typeof node === 'object') {
+        if (typeof node['id'] === 'string' && typeof node['publicId'] === 'string') {
+          byId.set(node['id'], (byId.get(node['id']) ?? new Set()).add(node['publicId']));
+        }
+        Object.values(node).forEach(walk);
+      }
+    };
+    for (const { operation } of operations()) walk(operation['responses'] ?? null);
+    expect(byId.size).toBeGreaterThan(10);
+    expect([...byId].filter(([, ids]) => ids.size > 1).map(([id]) => id)).toEqual([]);
+  });
+});

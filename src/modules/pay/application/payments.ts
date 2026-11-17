@@ -87,7 +87,7 @@ export interface PaymentDocumentView {
   readonly method: { readonly id: string; readonly code: string; readonly name: string; readonly kind: MethodKind };
   readonly amountPesewas: number;
   readonly currency: 'GHS';
-  readonly customer: { readonly id: string; readonly customerNo: string; readonly name: string } | null;
+  readonly customer: { readonly id: string; readonly publicId: string; readonly name: string } | null;
   readonly order: DocumentRefView | null;
   readonly shiftId: string | null;
   readonly driver: null;
@@ -468,7 +468,7 @@ export class Payments {
         method: { id: method.id, code: method.code, name: method.name, kind: method.kind },
         amountPesewas: json(r.amountPesewas),
         currency: 'GHS' as const,
-        customer: customer === undefined ? null : { id: customer.id, customerNo: customer.customerNo, name: customer.name },
+        customer: customer === undefined ? null : { id: customer.id, publicId: customer.publicId, name: customer.name },
         order: r.orderDocumentId === null ? null : (orders.get(r.orderDocumentId) ?? null),
         shiftId: r.shiftDocumentId,
         driver: null,

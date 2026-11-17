@@ -67,7 +67,7 @@ responses:
                   status: RECEIVED
                   supplier:
                     id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                    supplierNo: S-0012
+                    publicId: sup_VX48894JEAGQEB4Y
                     name: "Kpone Livestock Traders"
                   deliverToLocation:
                     id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
@@ -113,7 +113,7 @@ responses:
                   status: RECEIVED
                   supplier:
                     id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
-                    supplierNo: S-0007
+                    publicId: sup_ZYRYFMWJT8SJ9ZYY
                     name: "Ashanti Feeds Ltd"
                   deliverToLocation:
                     id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
@@ -159,7 +159,7 @@ responses:
                   status: RECEIVED
                   supplier:
                     id: "019a7a89-16ae-7e6d-a3a5-efa6f28f6884"
-                    supplierNo: S-0019
+                    publicId: sup_TGKEXYTAZ99G0NNC
                     name: "Awutu Poultry Farm"
                   deliverToLocation:
                     id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
@@ -205,7 +205,7 @@ responses:
                   status: SENT
                   supplier:
                     id: "019a7a88-f7bf-7489-99c2-516f78deca4d"
-                    supplierNo: S-0003
+                    publicId: sup_1PPM6BKHGYQVKH7C
                     name: "Agrivet Ghana Ltd"
                   deliverToLocation:
                     id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
@@ -251,7 +251,7 @@ responses:
                   status: CLOSED
                   supplier:
                     id: "019a7a89-359d-7850-bd89-8dde6c4006bc"
-                    supplierNo: S-0021
+                    publicId: sup_WA2VZH2KWSQ9T65K
                     name: "Dodowa Vegetable Growers Cooperative"
                   deliverToLocation:
                     id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
@@ -297,7 +297,7 @@ responses:
                   status: PENDING_APPROVAL
                   supplier:
                     id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
-                    supplierNo: S-0007
+                    publicId: sup_ZYRYFMWJT8SJ9ZYY
                     name: "Ashanti Feeds Ltd"
                   deliverToLocation:
                     id: "019a7a84-6045-7cc6-b1fe-d53368984e11"

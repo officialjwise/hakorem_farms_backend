@@ -43,7 +43,8 @@ export interface LocationFacts {
 
 export interface SupplierFacts {
   readonly id: string;
-  readonly supplierNo: string;
+  /** The supplier's public ID (B09q, ADR-0073): what the contract's `SupplierRef` shows. */
+  readonly publicId: string;
   readonly name: string;
   /** ACTIVE, not archived and not blocked. */
   readonly isLive: boolean;
@@ -71,7 +72,8 @@ export interface TaxCategoryFacts {
 /** A customer as a selling or billing module names it (B08 continued 2): the contract's `CustomerRef`, and the kind. */
 export interface CustomerFacts {
   readonly id: string;
-  readonly customerNo: string;
+  /** The customer's public ID (B09q, ADR-0073): what the contract's `CustomerRef` shows. */
+  readonly publicId: string;
   readonly name: string;
   readonly kind: 'INDIVIDUAL' | 'BUSINESS';
   /** Live, not archived. */

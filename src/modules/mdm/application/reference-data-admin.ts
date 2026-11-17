@@ -19,11 +19,14 @@ import { AdminKit, requireLiveVersion, sentColumns } from './admin-kit';
 import { DeliveryZoneInvalidError, DuplicateRecordError, invalidFormat, PaymentMethodInvalidError, referencesNotFound } from './errors';
 import type { Page } from './product-catalogue';
 import type { PaymentMethodView, ReasonCodeView, ReferenceDataStore, SupplierRecord, SupplierStatus, ZoneRecord } from './reference-data-store';
+import { readPublicId } from '../domain/public-id';
+import type { PublicIds } from './public-ids';
 
 /** The contract's `Supplier`. `hasProfile` is answered by procurement once `pur.supplier_profile` exists (B7); until then false. */
 export interface SupplierView {
   readonly id: string;
-  readonly supplierNo: string;
+  /** The supplier's public ID (B09q, ADR-0073), in place of the sequential number from contract 2.0.0. */
+  readonly publicId: string;
   readonly name: string;
   readonly contactName: string | null;
   readonly phone: string | null;
@@ -162,6 +165,7 @@ export class ReferenceDataAdmin {
     private readonly clock: Clock,
     private readonly settings: Settings,
     lookupKey: Buffer,
+    private readonly publicIds: PublicIds,
   ) {
     this.nextId = createUuidV7Generator(clock);
     this.kit = new AdminKit(uow, authoriser, idempotency, cursors, translateConstraint);
@@ -176,9 +180,11 @@ export class ReferenceDataAdmin {
     cursor: string | undefined,
     limit: number,
   ): Promise<Page<SupplierView>> {
-    const phone = query.q === undefined ? null : normaliseGhanaPhone(query.q);
+    // `q` finds a supplier by public ID (typed any way, ADR-0073), by phone (typed any way) or by part of the name.
+    const publicId = query.q === undefined ? null : readPublicId('SUPPLIER', query.q);
+    const phone = query.q === undefined || publicId !== null ? null : normaliseGhanaPhone(query.q);
     const filters = {
-      ...(query.q === undefined ? {} : phone !== null && phone.ok ? { phoneHash: this.phoneHash(phone.value) } : { name: query.q }),
+      ...(query.q === undefined ? {} : publicId !== null ? { publicId } : phone !== null && phone.ok ? { phoneHash: this.phoneHash(phone.value) } : { name: query.q }),
       categoryId: query.categoryId,
       status: query.status,
     };
@@ -223,25 +229,29 @@ export class ReferenceDataAdmin {
     if (phoneHash !== null && (await this.store.supplierPhoneTaken(tx, phoneHash, null))) throw new DuplicateRecordError(['/phone']);
     const categoryIds = await this.liveCategories(tx, body.categoryIds ?? []);
     const id = this.nextId();
-    await this.store.insertSupplier(
+    const supplierNo = await this.store.nextSupplierNo(tx);
+    const tinEnc = body.tin === undefined ? null : await this.sealTin(tx, id, body.tin, actor);
+    // A fresh public ID, tried again on the one-in-2^80 collision with another supplier's (ADR-0073).
+    await this.publicIds.insertWithFresh(tx, 'SUPPLIER', (publicId) => this.store.insertSupplier(
       tx,
       id,
       {
-        supplierNo: await this.store.nextSupplierNo(tx),
+        supplierNo,
+        publicId,
         name: body.name,
         contactName: body.contactName ?? null,
         phone,
         phoneHash,
         email: body.email?.trim().toLowerCase() ?? null,
         address: body.address ?? null,
-        tinEnc: body.tin === undefined ? null : await this.sealTin(tx, id, body.tin, actor),
+        tinEnc,
       },
       actor.principalId,
-    );
+    ));
     await this.store.setSupplierCategories(tx, id, categoryIds, actor.principalId, this.clock.now(), this.nextId);
     const view = await this.supplierViewOf(tx, id, actor);
     await this.auditSupplier(tx, 'CREATE', id, null, view);
-    const payload: SupplierRegistered = { supplierId: id, supplierNo: view.supplierNo, name: view.name, categoryIds };
+    const payload: SupplierRegistered = { supplierId: id, supplierNo, name: view.name, categoryIds };
     await this.events.publish(tx, { type: 'mdm.SupplierRegistered', subjectType: 'Supplier', subjectId: id, payload });
     return view;
   }
@@ -475,7 +485,7 @@ export class ReferenceDataAdmin {
     }
     return {
       id: record.id,
-      supplierNo: record.supplierNo,
+      publicId: record.publicId,
       name: record.name,
       contactName: record.contactName,
       phone: record.phone,

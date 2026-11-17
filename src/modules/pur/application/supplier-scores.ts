@@ -33,7 +33,7 @@ export const SCORE_WEIGHT_SETTINGS = {
 
 /** The contract's `SupplierScore`, with the four components it is weighed from (1.30.0). */
 export interface SupplierScoreView {
-  readonly supplier: { readonly id: string; readonly supplierNo: string; readonly name: string };
+  readonly supplier: { readonly id: string; readonly publicId: string; readonly name: string };
   readonly periodStart: string;
   readonly periodEnd: string;
   readonly ordersCount: number;

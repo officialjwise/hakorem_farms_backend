@@ -223,22 +223,22 @@ describe('suppliers (FR-MDM-007, FR-MDM-019)', () => {
     const suppliers = await count(world, 'SELECT count(*)::int AS n FROM mdm.supplier');
     const job = await dryRun(
       'SUPPLIER',
-      csv('supplierNo,name,contactName,phone,email,address,categories', ',Dodowa Poultry,Kojo Mensah,0244550002,,,EGGS', ',Dodowa Poultry 2,,0244550002,,,', ',Tema Cattle,,0244550001,,,', ',Ho Produce,,,,,VEGETABLES', 'S-9999,Nobody,,,,,'),
+      csv('publicId,name,contactName,phone,email,address,categories', ',Dodowa Poultry,Kojo Mensah,0244550002,,,EGGS', ',Dodowa Poultry 2,,0244550002,,,', ',Tema Cattle,,0244550001,,,', ',Ho Produce,,,,,VEGETABLES', 'sup_ZZZZZZZZZZZZZZZZ,Nobody,,,,,'),
     );
     expect(job).toMatchObject({ rowsTotal: 5, rowsValid: 1, rowsToCreate: 4, rowsToUpdate: 1 });
     expect(await errorsOf(job)).toEqual([
       { rowNo: 3, column: 'phone', message: 'Duplicate of row 2' },
       { rowNo: 4, column: 'phone', message: 'Phone number already belongs to another supplier' },
       { rowNo: 5, column: 'categories', message: 'Unknown category "VEGETABLES"' },
-      { rowNo: 6, column: 'supplierNo', message: 'No supplier S-9999' },
+      { rowNo: 6, column: 'publicId', message: 'No supplier sup_ZZZZZZZZZZZZZZZZ' },
     ]);
     expect(await count(world, 'SELECT count(*)::int AS n FROM mdm.supplier')).toBe(suppliers);
   });
 
   it('registers and changes suppliers through the supplier service, all in one transaction', async () => {
-    const existing = (await get(world, world.manager, '/suppliers?limit=100')).body.data.find((supplier: { name: string }) => supplier.name === 'Ashaiman Feeds') as { id: string; supplierNo: string };
+    const existing = (await get(world, world.manager, '/suppliers?limit=100')).body.data.find((supplier: { name: string }) => supplier.name === 'Ashaiman Feeds') as { id: string; publicId: string };
     const registered = await audits('Supplier', 'CREATE');
-    const job = await dryRun('SUPPLIER', csv('supplierNo,name,phone,email,categories', ',Dodowa Poultry,0244550002,sales@example.com,EGGS;MEAT', `${existing.supplierNo},,,,LIVE`));
+    const job = await dryRun('SUPPLIER', csv('publicId,name,phone,email,categories', ',Dodowa Poultry,0244550002,sales@example.com,EGGS;MEAT', `${existing.publicId},,,,LIVE`));
     expect(job).toMatchObject({ rowsValid: 2, rowsToCreate: 1, rowsToUpdate: 1 });
     expect((await apply(job)).body).toMatchObject({ status: 'APPLIED', rowsApplied: 2 });
     expect(await audits('Supplier', 'CREATE')).toBe(registered + 1);
@@ -251,7 +251,7 @@ describe('suppliers (FR-MDM-007, FR-MDM-019)', () => {
 
   it('exports the suppliers with no tax number column, audited with the row count', async () => {
     const { audited, rows } = await exported('SUPPLIER');
-    expect(rows[0]).toEqual(['supplierNo', 'name', 'contactName', 'phone', 'email', 'address', 'categories']);
+    expect(rows[0]).toEqual(['publicId', 'name', 'contactName', 'phone', 'email', 'address', 'categories']);
     expect(audited).toMatchObject({ entity: 'SUPPLIER', rowCount: rows.length - 1, bulk: false });
     expect(rows.length - 1).toBe(await count(world, 'SELECT count(*)::int AS n FROM mdm.supplier WHERE deleted_at IS NULL'));
   });

@@ -4,6 +4,7 @@ import { normaliseGhanaPhone } from './parties';
 import type { OnlineMode, StockPolicy } from './product';
 import { PRICE_BASES, type PriceBasis } from './pricing/pricing-engine';
 import type { RowError, SheetColumns } from './imports';
+import { readPublicId } from './public-id';
 
 /**
  * How each remaining master data sheet reads one row (FR-MDM-019, A-130): the form of every cell, checked without
@@ -165,15 +166,15 @@ export function productCreateErrors(row: ProductRow): RowError[] {
 
 // Suppliers (FR-MDM-007).
 
-export const SUPPLIER_COLUMNS: SheetColumns = { all: ['supplierNo', 'name', 'contactName', 'phone', 'email', 'address', 'categories'], required: ['name'] };
+/** `publicId` names the supplier to change (B09q, ADR-0073); the sequential number is not a column from contract 2.0.0. */
+export const SUPPLIER_COLUMNS: SheetColumns = { all: ['publicId', 'name', 'contactName', 'phone', 'email', 'address', 'categories'], required: ['name'] };
 
-const SUPPLIER_NO = /^S-[0-9]{4,10}$/;
 const MAX_SUPPLIER_CATEGORIES = 50;
 
-/** A supplier row: a blank number registers a supplier, a number changes that supplier. */
+/** A supplier row: a blank public ID registers a supplier, a public ID changes that supplier. */
 export interface SupplierRow {
   readonly rowNo: number;
-  readonly supplierNo: string | null;
+  readonly publicId: string | null;
   readonly name: string | null;
   readonly contactName: string | null;
   readonly phone: string | null;
@@ -185,10 +186,11 @@ export interface SupplierRow {
 
 export function readSupplierRow(rowNo: number, cells: Cells): Reading<SupplierRow> {
   const { errors, fail } = collector(rowNo);
-  const supplierNo = blank(cells.get('supplierNo'))?.toUpperCase() ?? null;
-  if (supplierNo !== null && !SUPPLIER_NO.test(supplierNo)) fail('supplierNo', 'Supplier number must look like S-0042');
+  const publicIdText = blank(cells.get('publicId'));
+  const publicId = publicIdText === null ? null : readPublicId('SUPPLIER', publicIdText);
+  if (publicIdText !== null && publicId === null) fail('publicId', 'Public ID must look like sup_8F3K2M9Q7X4T1V6B');
   const name = text(cells, 'name', 160, fail);
-  if (name === null && supplierNo === null && blank(cells.get('name')) === null) fail('name', 'Name is empty');
+  if (name === null && publicIdText === null && blank(cells.get('name')) === null) fail('name', 'Name is empty');
   let phone: string | null = null;
   const phoneText = blank(cells.get('phone'));
   if (phoneText !== null) {
@@ -208,7 +210,7 @@ export function readSupplierRow(rowNo: number, cells: Cells): Reading<SupplierRo
   return {
     row: {
       rowNo,
-      supplierNo: supplierNo !== null && SUPPLIER_NO.test(supplierNo) ? supplierNo : null,
+      publicId,
       name,
       contactName: text(cells, 'contactName', 160, fail),
       phone,

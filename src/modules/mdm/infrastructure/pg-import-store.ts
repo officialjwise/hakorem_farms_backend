@@ -136,8 +136,8 @@ export class PgSheetLookups implements SheetLookups {
     return idOf(tx, 'SELECT id FROM mdm.tax_category WHERE code = $1 AND deleted_at IS NULL', [code]);
   }
 
-  async supplierByNo(tx: Transaction, supplierNo: string): Promise<NamedRecord | null> {
-    const { rows } = await tx.query<{ id: string; version: number }>('SELECT id, version FROM mdm.supplier WHERE supplier_no = $1 AND deleted_at IS NULL', [supplierNo]);
+  async supplierByPublicId(tx: Transaction, publicId: string): Promise<NamedRecord | null> {
+    const { rows } = await tx.query<{ id: string; version: number }>('SELECT id, version FROM mdm.supplier WHERE public_id = $1 AND deleted_at IS NULL', [publicId]);
     return rows[0] ?? null;
   }
 

@@ -139,7 +139,8 @@ export default defineConfig({
         ...fullCoverage('src/modules/inv/domain/opening-stock.ts'), // B05 continued 4: an opening stock row, read exactly
         ...fullCoverage('src/modules/inv/domain/label.ts'), // B05x: what a lot or animal label prints, its weight summed exactly
         ...fullCoverage('src/modules/ord/domain/confirmation.ts'), // B09a continued 2b: a confirmed line's reservation plan and the payment or credit check
-        ...fullCoverage('src/modules/mdm/domain/label.ts'), // B05x: what a product label encodes
+        ...fullCoverage('src/modules/mdm/domain/label.ts'), // B05x, B09q: what a product label prints
+        ...fullCoverage('src/modules/mdm/domain/public-id.ts'), // B09q: customers' and suppliers' public IDs (ADR-0073)
         ...fullCoverage('src/modules/pur/domain/**/*.ts'), // B7: the three-way match, receipt tolerance, order actions, payment allocations; B07 continued: payout details, requisitions, terms, order splitting
         ...fullCoverage('src/modules/aud/domain/**/*.ts'), // B07 continued: the setting catalogue (FR-AUD-007)
         ...fullCoverage('src/modules/rpt/domain/**/*.ts'), // B05x: dashboard periods, daily series in pesewas, pending figures

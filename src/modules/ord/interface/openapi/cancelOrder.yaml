@@ -39,7 +39,7 @@ responses:
           id: "019a7af2-36e8-7975-8eae-a02e8215190c"
           customer:
             id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-            customerNo: C-00056
+            publicId: cus_TS4VEDD3ZZNAAQGD
             name: "Asantewaa Chop Bar"
           contactName: null
           contactPhone: null

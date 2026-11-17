@@ -15,7 +15,8 @@ export interface TierView {
 /** A customer row as stored; the application turns it into the contract's `Customer`. */
 export interface CustomerRecord {
   readonly id: string;
-  readonly customerNo: string;
+  /** What people see and type for the customer (B09q, ADR-0073); the sequential `customer_no` stays internal. */
+  readonly publicId: string;
   readonly kind: CustomerKind;
   readonly name: string;
   readonly phone: string | null;
@@ -54,7 +55,9 @@ export interface AddressView {
 }
 
 export interface CustomerWrite {
+  /** The internal sequential number (`C-00001`), never shown from contract 2.0.0. */
   readonly customerNo: string;
+  readonly publicId: string;
   readonly kind: CustomerKind;
   readonly name: string;
   readonly phone: string | null;
@@ -85,6 +88,8 @@ export interface AddressWrite {
 export interface CustomerFilters {
   readonly name?: string | undefined;
   readonly phoneHash?: Buffer | undefined;
+  /** A public ID, in its one written form (`readPublicId`). */
+  readonly publicId?: string | undefined;
   readonly kind?: CustomerKind | undefined;
   readonly tierId?: string | undefined;
   readonly status?: CustomerStatus | undefined;
@@ -111,9 +116,9 @@ export interface PartiesStore {
   /** Whether a live customer other than `exceptId` has this phone hash. */
   phoneTaken(tx: Transaction, phoneHash: Buffer, exceptId: string | null): Promise<boolean>;
   /** The live customer with this phone hash, if any. */
-  customerByPhoneHash(tx: Transaction, phoneHash: Buffer): Promise<{ readonly id: string; readonly customerNo: string } | null>;
-  /** The live customer with this number, if any, with what an import needs to change it. */
-  customerByNo(tx: Transaction, customerNo: string): Promise<{ readonly id: string; readonly kind: CustomerKind; readonly status: CustomerStatus; readonly version: number } | null>;
+  customerByPhoneHash(tx: Transaction, phoneHash: Buffer): Promise<{ readonly id: string; readonly publicId: string } | null>;
+  /** The live customer with this public ID, if any, with what an import needs to change it. */
+  customerByPublicId(tx: Transaction, publicId: string): Promise<{ readonly id: string; readonly kind: CustomerKind; readonly status: CustomerStatus; readonly version: number } | null>;
   insertCustomer(tx: Transaction, id: string, write: CustomerWrite, actorId: string): Promise<void>;
   updateCustomer(tx: Transaction, id: string, expectedVersion: number, columns: Readonly<Record<string, unknown>>, actorId: string): Promise<boolean>;
   archiveCustomer(tx: Transaction, id: string, expectedVersion: number, reason: string, actorId: string, now: Date): Promise<boolean>;

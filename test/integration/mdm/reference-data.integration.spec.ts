@@ -325,7 +325,8 @@ describe('suppliers (FR-MDM-007)', () => {
       hasProfile: false,
       categories: [{ id: ids.get('category:LIVE')!, code: 'LIVE', name: 'Live animals' }],
     });
-    expect(created.body.supplierNo).toMatch(/^S-\d{4}$/);
+    expect(created.body.publicId).toMatch(/^sup_[0-9A-HJKMNP-TV-Z]{16}$/);
+    expect(created.body).not.toHaveProperty('supplierNo');
     for (const typed of ['+233244661290', '024 466 1290']) {
       const duplicate = await post(storekeeper, '/suppliers', { name: 'Someone else', phone: typed });
       expect(duplicate.status).toBe(422);

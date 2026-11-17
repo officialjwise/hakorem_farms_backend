@@ -37,7 +37,7 @@ responses:
           status: APPROVED
           supplier:
             id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
-            supplierNo: S-0007
+            publicId: sup_ZYRYFMWJT8SJ9ZYY
             name: "Ashanti Feeds Ltd"
           supplierInvoiceNo: "88120"
           invoiceDate: "2026-11-11"

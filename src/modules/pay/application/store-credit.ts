@@ -16,7 +16,7 @@ const ENTRIES_SHOWN = 100;
 
 /** The contract's `StoreCredit`. */
 export interface StoreCreditView {
-  readonly customer: { readonly id: string; readonly customerNo: string; readonly name: string };
+  readonly customer: { readonly id: string; readonly publicId: string; readonly name: string };
   readonly balancePesewas: number;
   readonly currency: 'GHS';
   readonly entries: readonly {
@@ -90,12 +90,12 @@ export class StoreCredit {
     });
   }
 
-  private async viewIn(tx: Transaction, customer: { readonly id: string; readonly customerNo: string; readonly name: string }): Promise<StoreCreditView> {
+  private async viewIn(tx: Transaction, customer: { readonly id: string; readonly publicId: string; readonly name: string }): Promise<StoreCreditView> {
     const balance = await this.store.storeCreditBalance(tx, customer.id);
     const entries = await this.store.storeCreditEntries(tx, customer.id, ENTRIES_SHOWN);
     const sources = await this.documents.numberedRefs(tx, entries.map((e) => e.sourceDocumentId));
     return {
-      customer: { id: customer.id, customerNo: customer.customerNo, name: customer.name },
+      customer: { id: customer.id, publicId: customer.publicId, name: customer.name },
       balancePesewas: json(balance),
       currency: 'GHS',
       entries: entries.map((e) => ({

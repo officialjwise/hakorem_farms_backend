@@ -149,7 +149,7 @@ describe('the Product slice on the running stack', () => {
   });
 
   it('reads an import only once it is clean, refuses the cashier the imports and exports, and lists the jobs (FR-MDM-019, FR-MDM-020)', async () => {
-    const sheet = Buffer.from('customerNo,kind,name,phone,email,tier\r\n,INDIVIDUAL,Esi Quartey,0244000777,,RETAIL\r\n');
+    const sheet = Buffer.from('publicId,kind,name,phone,email,tier\r\n,INDIVIDUAL,Esi Quartey,0244000777,,RETAIL\r\n');
     const stored = await manager.upload('IMPORT', sheet, 'customers.csv');
     expect(stored.status).toBe(201);
     // The stack runs no ClamAV, so the file stays PENDING and is never read.

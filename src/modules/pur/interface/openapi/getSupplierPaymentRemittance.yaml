@@ -37,7 +37,7 @@ responses:
           paymentNo: null
           supplier:
             id: "019a7a89-16ae-7e6d-a3a5-efa6f28f6884"
-            supplierNo: S-0019
+            publicId: sup_TGKEXYTAZ99G0NNC
             name: "Awutu Poultry Farm"
           method: MOBILE_MONEY
           payeeDetailsMasked: "MTN Mobile Money, Awutu Poultry Farm, ****0014"

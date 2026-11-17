@@ -54,7 +54,7 @@ responses:
           status: SENT
           supplier:
             id: "019a7a88-f7bf-7489-99c2-516f78deca4d"
-            supplierNo: S-0003
+            publicId: sup_1PPM6BKHGYQVKH7C
             name: "Agrivet Ghana Ltd"
           deliverToLocation:
             id: "019a7a84-6045-7cc6-b1fe-d53368984e11"

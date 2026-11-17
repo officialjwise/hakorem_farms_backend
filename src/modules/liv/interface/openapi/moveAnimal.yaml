@@ -67,7 +67,7 @@ responses:
           source: PURCHASE
           supplier:
             id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-            supplierNo: S-0012
+            publicId: sup_VX48894JEAGQEB4Y
             name: "Kpone Livestock Traders"
           dam: null
           sire: null

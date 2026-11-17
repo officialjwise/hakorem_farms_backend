@@ -57,7 +57,7 @@ describe('the seeded parties and locations (B04d continued 2 gate)', () => {
   it('finds Ama Serwaa by 020 000 0201 typed locally, stored as +233200000201, with her default address area', async () => {
     const found = await call('GET', '/v1/customers?q=0200000201');
     expect(found.status).toBe(200);
-    expect(found.body.data).toEqual([expect.objectContaining({ customerNo: 'C-00001', name: 'Ama Serwaa (SEED)', phone: '+233200000201', tier: expect.objectContaining({ code: 'RETAIL' }), defaultArea: 'Dodowa' })]);
+    expect(found.body.data).toEqual([expect.objectContaining({ publicId: expect.stringMatching(/^cus_[0-9A-HJKMNP-TV-Z]{16}$/), name: 'Ama Serwaa (SEED)', phone: '+233200000201', tier: expect.objectContaining({ code: 'RETAIL' }), defaultArea: 'Dodowa' })]);
   });
 
   it('shows the caterer on the CATERERS-2026 contract list', async () => {

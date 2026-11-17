@@ -7051,7 +7051,7 @@ paths:
                 $ref: "#/components/schemas/CustomerProfile"
               example:
                 id: "019a7a87-659c-73fc-8935-489e4ae1c17c"
-                customerNo: C-00118
+                publicId: cus_2NWSQJT4E1ZWRRC1
                 name: "Ama Serwaa Ofori"
                 phone: "+233244512876"
                 email: "ama.ofori@example.com"
@@ -7097,7 +7097,7 @@ paths:
                 $ref: "#/components/schemas/CustomerProfile"
               example:
                 id: "019a7a87-659c-73fc-8935-489e4ae1c17c"
-                customerNo: C-00118
+                publicId: cus_2NWSQJT4E1ZWRRC1
                 name: "Ama Serwaa Ofori"
                 phone: "+233244512876"
                 email: "ama.ofori@example.com"
@@ -8081,7 +8081,7 @@ paths:
                         status: QUOTED
                         customer:
                           id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                          customerNo: C-00241
+                          publicId: cus_GY1HV6CSTTCCM2Y2
                           name: "Emmanuel Tetteh"
                         contactName: "Emmanuel Tetteh"
                         contactPhone: "+233268114590"
@@ -8148,7 +8148,7 @@ paths:
                         status: QUOTED
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         contactName: "Royal Palm Hotel, head chef"
                         contactPhone: "+233302765410"
@@ -8328,7 +8328,7 @@ paths:
                 status: QUOTED
                 customer:
                   id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                  customerNo: C-00241
+                  publicId: cus_GY1HV6CSTTCCM2Y2
                   name: "Emmanuel Tetteh"
                 contactName: "Emmanuel Tetteh"
                 contactPhone: "+233268114590"
@@ -8401,7 +8401,7 @@ paths:
                 status: QUOTED
                 customer:
                   id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                  customerNo: C-00241
+                  publicId: cus_GY1HV6CSTTCCM2Y2
                   name: "Emmanuel Tetteh"
                 contactName: "Emmanuel Tetteh"
                 contactPhone: "+233268114590"
@@ -8505,7 +8505,7 @@ paths:
                         rfqId: "019a7aff-24cd-7b88-b0c1-c15e5f103a3c"
                         customer:
                           id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                          customerNo: C-00241
+                          publicId: cus_GY1HV6CSTTCCM2Y2
                           name: "Emmanuel Tetteh"
                         contactName: "Emmanuel Tetteh"
                         contactPhone: "+233268114590"
@@ -8573,7 +8573,7 @@ paths:
                         rfqId: null
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         contactName: "Royal Palm Hotel, head chef"
                         contactPhone: "+233302765410"
@@ -8622,7 +8622,7 @@ paths:
                         rfqId: null
                         customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          customerNo: C-00056
+                          publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
                         contactName: "Asantewaa Chop Bar"
                         contactPhone: "+233557018924"
@@ -8668,7 +8668,7 @@ paths:
                         rfqId: null
                         customer:
                           id: "019a7a87-a37a-77c3-acfc-850d3e43fdeb"
-                          customerNo: C-00207
+                          publicId: cus_3QC5Q34ZGBQK2SC8
                           name: "Kofi Agyeman"
                         contactName: "Kofi Agyeman"
                         contactPhone: "+233201447302"
@@ -8714,7 +8714,7 @@ paths:
                         rfqId: null
                         customer:
                           id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
-                          customerNo: C-00061
+                          publicId: cus_3Q4VCE9ZY779GAT6
                           name: "Osu Fresh Mart"
                         contactName: "Osu Fresh Mart"
                         contactPhone: "+233302228813"
@@ -8760,7 +8760,7 @@ paths:
                         rfqId: null
                         customer:
                           id: "019a7a88-3e25-7935-be6d-9c229eb81500"
-                          customerNo: C-00252
+                          publicId: cus_R66TY3MQB6K08YV5
                           name: "Salomey Adjei"
                         contactName: "Salomey Adjei"
                         contactPhone: "+233540672231"
@@ -8875,7 +8875,7 @@ paths:
                 rfqId: null
                 customer:
                   id: "019a7a88-3e25-7935-be6d-9c229eb81500"
-                  customerNo: C-00252
+                  publicId: cus_R66TY3MQB6K08YV5
                   name: "Salomey Adjei"
                 contactName: "Salomey Adjei"
                 contactPhone: "+233540672231"
@@ -8964,7 +8964,7 @@ paths:
                 rfqId: "019a7aff-24cd-7b88-b0c1-c15e5f103a3c"
                 customer:
                   id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                  customerNo: C-00241
+                  publicId: cus_GY1HV6CSTTCCM2Y2
                   name: "Emmanuel Tetteh"
                 contactName: "Emmanuel Tetteh"
                 contactPhone: "+233268114590"
@@ -9706,7 +9706,7 @@ paths:
                 rfqId: null
                 customer:
                   id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                  customerNo: C-00056
+                  publicId: cus_TS4VEDD3ZZNAAQGD
                   name: "Asantewaa Chop Bar"
                 contactName: "Asantewaa Chop Bar"
                 contactPhone: "+233557018924"
@@ -9807,7 +9807,7 @@ paths:
                 rfqId: null
                 customer:
                   id: "019a7a87-a37a-77c3-acfc-850d3e43fdeb"
-                  customerNo: C-00207
+                  publicId: cus_3QC5Q34ZGBQK2SC8
                   name: "Kofi Agyeman"
                 contactName: "Kofi Agyeman"
                 contactPhone: "+233201447302"
@@ -9908,7 +9908,7 @@ paths:
                 rfqId: "019a7aff-24cd-7b88-b0c1-c15e5f103a3c"
                 customer:
                   id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                  customerNo: C-00241
+                  publicId: cus_GY1HV6CSTTCCM2Y2
                   name: "Emmanuel Tetteh"
                 contactName: "Emmanuel Tetteh"
                 contactPhone: "+233268114590"
@@ -10034,7 +10034,7 @@ paths:
                 id: "019a7af1-3f70-7a5a-8f92-ae72b48d2750"
                 customer:
                   id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                  customerNo: C-00241
+                  publicId: cus_GY1HV6CSTTCCM2Y2
                   name: "Emmanuel Tetteh"
                 contactName: "Emmanuel Tetteh"
                 contactPhone: "+233268114590"
@@ -10516,7 +10516,7 @@ paths:
                     data:
                       - customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         creditLimitPesewas: 2000000
                         paymentTermsDays: 30
@@ -10538,7 +10538,7 @@ paths:
                         version: 5
                       - customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          customerNo: C-00056
+                          publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
                         creditLimitPesewas: 600000
                         paymentTermsDays: 14
@@ -10557,7 +10557,7 @@ paths:
                         version: 5
                       - customer:
                           id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
-                          customerNo: C-00061
+                          publicId: cus_3Q4VCE9ZY779GAT6
                           name: "Osu Fresh Mart"
                         creditLimitPesewas: 800000
                         paymentTermsDays: 30
@@ -10579,7 +10579,7 @@ paths:
                         version: 5
                       - customer:
                           id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                          customerNo: C-00241
+                          publicId: cus_GY1HV6CSTTCCM2Y2
                           name: "Emmanuel Tetteh"
                         creditLimitPesewas: 900000
                         paymentTermsDays: 30
@@ -10598,7 +10598,7 @@ paths:
                         version: 5
                       - customer:
                           id: "019a7b02-2a24-72bf-87f7-34c94159ada7"
-                          customerNo: C-00077
+                          publicId: cus_6GMQA1AJS48Z778Z
                           name: "Christ Apostolic Church, Adenta"
                         creditLimitPesewas: 300000
                         paymentTermsDays: 7
@@ -10675,7 +10675,7 @@ paths:
               example:
                 customer:
                   id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
-                  customerNo: C-00061
+                  publicId: cus_3Q4VCE9ZY779GAT6
                   name: "Osu Fresh Mart"
                 creditLimitPesewas: 800000
                 paymentTermsDays: 30
@@ -10740,7 +10740,7 @@ paths:
               example:
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 creditLimitPesewas: 2000000
                 paymentTermsDays: 30
@@ -10813,7 +10813,7 @@ paths:
               example:
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 creditLimitPesewas: 2000000
                 paymentTermsDays: 30
@@ -10906,7 +10906,7 @@ paths:
               example:
                 customer:
                   id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                  customerNo: C-00056
+                  publicId: cus_TS4VEDD3ZZNAAQGD
                   name: "Asantewaa Chop Bar"
                 creditLimitPesewas: 600000
                 paymentTermsDays: 14
@@ -10980,7 +10980,7 @@ paths:
               example:
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 creditLimitPesewas: 2000000
                 paymentTermsDays: 30
@@ -11073,7 +11073,7 @@ paths:
                       - id: "019a7b02-4913-7ca2-91db-d300bb0a4bde"
                         customer:
                           id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                          customerNo: C-00241
+                          publicId: cus_GY1HV6CSTTCCM2Y2
                           name: "Emmanuel Tetteh"
                         order:
                           id: "019a7b02-6802-7686-abbe-713834bbea16"
@@ -11090,7 +11090,7 @@ paths:
                       - id: "019a7b02-a5e0-7a4d-8f85-ada7281d2685"
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         order:
                           id: "019a7b02-c4cf-7430-9969-4bdea1cec4bc"
@@ -11107,7 +11107,7 @@ paths:
                       - id: "019a7b03-02ad-77f7-bd30-884d9530012b"
                         customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          customerNo: C-00056
+                          publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
                         order:
                           id: "019a7b03-219c-71db-8713-26850ee19f62"
@@ -11124,7 +11124,7 @@ paths:
                       - id: "019a7b03-5f7a-75a2-aada-62f40243dbd1"
                         customer:
                           id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
-                          customerNo: C-00061
+                          publicId: cus_3Q4VCE9ZY779GAT6
                           name: "Osu Fresh Mart"
                         order:
                           id: "019a7b03-7e69-7f85-b4bd-012b7bf47a09"
@@ -11141,7 +11141,7 @@ paths:
                       - id: "019a7b03-bc47-734c-9884-3d9a6f56b678"
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         order:
                           id: "019a7b03-db36-7d30-a268-dbd1e90754af"
@@ -11227,7 +11227,7 @@ paths:
                       - id: "019a7b04-1914-70f6-862f-1840dc69911e"
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         status: ACTIVE
                         frequency: WEEKLY
@@ -11259,7 +11259,7 @@ paths:
                       - id: "019a7b04-56f2-74bd-a9f6-54afcfcbcd8d"
                         customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          customerNo: C-00056
+                          publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
                         status: ACTIVE
                         frequency: WEEKLY
@@ -11291,7 +11291,7 @@ paths:
                       - id: "019a7b04-94d0-7884-8dbd-911ec32d09fc"
                         customer:
                           id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
-                          customerNo: C-00061
+                          publicId: cus_3Q4VCE9ZY779GAT6
                           name: "Osu Fresh Mart"
                         status: PAUSED
                         frequency: FORTNIGHTLY
@@ -11315,7 +11315,7 @@ paths:
                       - id: "019a7b04-d2ae-7c4b-a184-cd8db68f466b"
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         status: ACTIVE
                         frequency: MONTHLY
@@ -11347,7 +11347,7 @@ paths:
                       - id: "019a7b05-108c-7012-854a-09fca9f182da"
                         customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          customerNo: C-00056
+                          publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
                         status: ENDED
                         frequency: WEEKLY
@@ -11440,7 +11440,7 @@ paths:
                 id: "019a7b04-1914-70f6-862f-1840dc69911e"
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 status: ACTIVE
                 frequency: WEEKLY
@@ -11515,7 +11515,7 @@ paths:
                 id: "019a7b04-1914-70f6-862f-1840dc69911e"
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 status: ACTIVE
                 frequency: WEEKLY
@@ -11600,7 +11600,7 @@ paths:
                 id: "019a7b04-1914-70f6-862f-1840dc69911e"
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 status: ACTIVE
                 frequency: WEEKLY
@@ -11687,7 +11687,7 @@ paths:
                 id: "019a7b04-1914-70f6-862f-1840dc69911e"
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 status: ACTIVE
                 frequency: WEEKLY
@@ -11774,7 +11774,7 @@ paths:
                 id: "019a7b04-1914-70f6-862f-1840dc69911e"
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 status: ACTIVE
                 frequency: WEEKLY
@@ -11861,7 +11861,7 @@ paths:
                 id: "019a7b04-1914-70f6-862f-1840dc69911e"
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 status: ACTIVE
                 frequency: WEEKLY
@@ -12057,7 +12057,7 @@ paths:
                         status: ISSUED
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         periodStart: "2026-10-01"
                         periodEnd: "2026-10-31"
@@ -12092,7 +12092,7 @@ paths:
                         status: ISSUED
                         customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          customerNo: C-00056
+                          publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
                         periodStart: "2026-10-01"
                         periodEnd: "2026-10-31"
@@ -12109,7 +12109,7 @@ paths:
                         status: ISSUED
                         customer:
                           id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
-                          customerNo: C-00061
+                          publicId: cus_3Q4VCE9ZY779GAT6
                           name: "Osu Fresh Mart"
                         periodStart: "2026-10-01"
                         periodEnd: "2026-10-31"
@@ -12126,7 +12126,7 @@ paths:
                         status: ISSUED
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         periodStart: "2026-09-01"
                         periodEnd: "2026-09-30"
@@ -12143,7 +12143,7 @@ paths:
                         status: ISSUED
                         customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          customerNo: C-00056
+                          publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
                         periodStart: "2026-09-01"
                         periodEnd: "2026-09-30"
@@ -12217,7 +12217,7 @@ paths:
                 status: ISSUED
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 periodStart: "2026-10-01"
                 periodEnd: "2026-10-31"
@@ -12295,7 +12295,7 @@ paths:
                 status: ISSUED
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  customerNo: C-00042
+                  publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
                 periodStart: "2026-10-01"
                 periodEnd: "2026-10-31"
@@ -12451,7 +12451,7 @@ paths:
                     data:
                       - customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         currentPesewas: 300400
                         days1To30Pesewas: 222500
@@ -12463,7 +12463,7 @@ paths:
                         onHold: false
                       - customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          customerNo: C-00056
+                          publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
                         currentPesewas: 211800
                         days1To30Pesewas: 0
@@ -12475,7 +12475,7 @@ paths:
                         onHold: true
                       - customer:
                           id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
-                          customerNo: C-00061
+                          publicId: cus_3Q4VCE9ZY779GAT6
                           name: "Osu Fresh Mart"
                         currentPesewas: 147300
                         days1To30Pesewas: 96400
@@ -12487,7 +12487,7 @@ paths:
                         onHold: false
                       - customer:
                           id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                          customerNo: C-00241
+                          publicId: cus_GY1HV6CSTTCCM2Y2
                           name: "Emmanuel Tetteh"
                         currentPesewas: 858000
                         days1To30Pesewas: 0
@@ -12499,7 +12499,7 @@ paths:
                         onHold: false
                       - customer:
                           id: "019a7b02-2a24-72bf-87f7-34c94159ada7"
-                          customerNo: C-00077
+                          publicId: cus_6GMQA1AJS48Z778Z
                           name: "Christ Apostolic Church, Adenta"
                         currentPesewas: 0
                         days1To30Pesewas: 0
@@ -12769,7 +12769,7 @@ paths:
                       - id: "019a7b06-ff7c-7e4a-8382-ed7445016652"
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         billingDocument:
                           id: "019a7aeb-53b1-75d0-bb08-65d469acdeb2"
@@ -12785,7 +12785,7 @@ paths:
                       - id: "019a7b07-1e6b-782d-9d65-8babbeb20489"
                         customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          customerNo: C-00056
+                          publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
                         billingDocument:
                           id: "019a7aeb-72a0-7fb3-84eb-040be35d7ce9"
@@ -12800,7 +12800,7 @@ paths:
                       - id: "019a7b07-3d5a-7211-a749-29e33863a2c1"
                         customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          customerNo: C-00056
+                          publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
                         billingDocument:
                           id: "019a7aeb-918f-7997-9ecf-a2435d0e1b21"
@@ -12816,7 +12816,7 @@ paths:
                       - id: "019a7b07-5c49-7bf4-b12c-c81ab21440f8"
                         customer:
                           id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
-                          customerNo: C-00061
+                          publicId: cus_3Q4VCE9ZY779GAT6
                           name: "Osu Fresh Mart"
                         billingDocument:
                           id: "019a7aeb-53b1-75d0-bb08-65d469acdeb2"
@@ -12831,7 +12831,7 @@ paths:
                       - id: "019a7b07-7b38-75d8-8b10-66522bc5df30"
                         customer:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          customerNo: C-00042
+                          publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
                         billingDocument:
                           id: "019a7aeb-72a0-7fb3-84eb-040be35d7ce9"
@@ -21084,7 +21084,7 @@ paths:
                     rowCount: 3
                     result:
                       columns:
-                        - key: customerNo
+                        - key: publicId
                           label: Customer
                           type: TEXT
                         - key: name
@@ -21097,15 +21097,15 @@ paths:
                           label: Tier
                           type: TEXT
                       rows:
-                        - customerNo: C-000101
+                        - publicId: cus_PFDR51RGKJ158X61
                           name: "Abena Owusu (SEED)"
                           phone: "+233200000301"
                           tier: RETAIL
-                        - customerNo: C-000102
+                        - publicId: cus_W2D8RWPG46BYZ7TR
                           name: "Dodowa Chop Bar (SEED)"
                           phone: "+233200000302"
                           tier: WHOLESALE
-                        - customerNo: C-000103
+                        - publicId: cus_99HTFCV49X9JGV88
                           name: "Nana Agyei (SEED)"
                           phone: "+233200000303"
                           tier: RETAIL
@@ -24673,19 +24673,29 @@ components:
         - id
         - code
         - name
+    CustomerPublicId:
+      type: string
+      pattern: "^cus_[0-9A-HJKMNP-TV-Z]{16}$"
+      description: "A customer's public ID (2.0.0, ADR-0073): `cus_` and sixteen characters of Crockford base32 (no I, L, O or U) drawn by the server from a cryptographically secure source, 80 bits, so it cannot be guessed or counted through. What people see and type for a customer in place of the sequential number (`C-00001`), which is no longer shown; unique, never reused, never changed, never sent by a client. Ids (UUIDs) stay in paths and are never shown to people. Knowing one reads nothing without authorisation."
+      example: cus_8F3K2M9Q7X4T1V6B
+    SupplierPublicId:
+      type: string
+      pattern: "^sup_[0-9A-HJKMNP-TV-Z]{16}$"
+      description: "A supplier's public ID (2.0.0, ADR-0073): `sup_` and sixteen characters of Crockford base32, as `CustomerPublicId`. In place of the sequential supplier number (`S-0001`), which is no longer shown."
+      example: sup_4N7Q1X9K3M6T2V8B
     CustomerRef:
       type: object
       properties:
         id:
           type: string
           format: uuid
-        customerNo:
-          type: string
+        publicId:
+          $ref: "#/components/schemas/CustomerPublicId"
         name:
           type: string
       required:
         - id
-        - customerNo
+        - publicId
         - name
     SupplierRef:
       type: object
@@ -24693,13 +24703,13 @@ components:
         id:
           type: string
           format: uuid
-        supplierNo:
-          type: string
+        publicId:
+          $ref: "#/components/schemas/SupplierPublicId"
         name:
           type: string
       required:
         - id
-        - supplierNo
+        - publicId
         - name
     StockUnitRef:
       type: object
@@ -27743,8 +27753,8 @@ components:
         id:
           type: string
           format: uuid
-        customerNo:
-          type: string
+        publicId:
+          $ref: "#/components/schemas/CustomerPublicId"
         kind:
           type: string
           enum:
@@ -27800,7 +27810,7 @@ components:
           format: date-time
       required:
         - id
-        - customerNo
+        - publicId
         - kind
         - name
         - phone
@@ -28069,8 +28079,8 @@ components:
         id:
           type: string
           format: uuid
-        supplierNo:
-          type: string
+        publicId:
+          $ref: "#/components/schemas/SupplierPublicId"
         name:
           type: string
         contactName:
@@ -28115,7 +28125,7 @@ components:
           format: date-time
       required:
         - id
-        - supplierNo
+        - publicId
         - name
         - contactName
         - phone
@@ -41927,8 +41937,8 @@ components:
         id:
           type: string
           format: uuid
-        customerNo:
-          type: string
+        publicId:
+          $ref: "#/components/schemas/CustomerPublicId"
         name:
           type: string
         phone:
@@ -41947,7 +41957,7 @@ components:
           format: uuid
       required:
         - id
-        - customerNo
+        - publicId
         - name
         - phone
         - email

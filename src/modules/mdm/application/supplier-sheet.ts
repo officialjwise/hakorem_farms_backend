@@ -36,14 +36,14 @@ export class SupplierSheet implements EntitySheet<readonly SupplierPlanRow[]> {
   async check(tx: Transaction, records: SheetRecords): Promise<SheetCheck<readonly SupplierPlanRow[]>> {
     const errors: RowError[] = [];
     const rows = readRows(records, readSupplierRow, errors);
-    errors.push(...duplicateErrors(rows, 'phone', (row) => row.phone), ...duplicateErrors(rows, 'supplierNo', (row) => row.supplierNo));
+    errors.push(...duplicateErrors(rows, 'phone', (row) => row.phone), ...duplicateErrors(rows, 'publicId', (row) => row.publicId));
     const category = cached((code) => this.lookups.categoryIdByCode(tx, code));
     const plan: SupplierPlanRow[] = [];
     for (const row of rows) {
       let target: SupplierPlanRow['target'] = null;
-      if (row.supplierNo !== null) {
-        target = await this.lookups.supplierByNo(tx, row.supplierNo);
-        if (target === null) errors.push({ rowNo: row.rowNo, column: 'supplierNo', message: `No supplier ${row.supplierNo}` });
+      if (row.publicId !== null) {
+        target = await this.lookups.supplierByPublicId(tx, row.publicId);
+        if (target === null) errors.push({ rowNo: row.rowNo, column: 'publicId', message: `No supplier ${row.publicId}` });
       }
       if (row.phone !== null && (await this.admin.supplierPhoneTaken(tx, row.phone, target?.id ?? null))) {
         errors.push({ rowNo: row.rowNo, column: 'phone', message: 'Phone number already belongs to another supplier' });
@@ -59,7 +59,7 @@ export class SupplierSheet implements EntitySheet<readonly SupplierPlanRow[]> {
       }
       plan.push({ row, target, categoryIds });
     }
-    const toUpdate = rows.filter((row) => row.supplierNo !== null).length;
+    const toUpdate = rows.filter((row) => row.publicId !== null).length;
     return { errors, toCreate: rows.length - toUpdate, toUpdate, plan };
   }
 
@@ -85,7 +85,7 @@ export class SupplierSheet implements EntitySheet<readonly SupplierPlanRow[]> {
       const page = await this.store.suppliers(tx, {}, after, EXPORT_PAGE);
       for (const supplier of page) {
         rows.push([
-          supplier.supplierNo,
+          supplier.publicId,
           supplier.name,
           supplier.contactName ?? '',
           supplier.phone ?? '',

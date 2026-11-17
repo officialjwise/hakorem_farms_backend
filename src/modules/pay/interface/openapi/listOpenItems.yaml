@@ -55,7 +55,7 @@ responses:
                     number: INV-2026-DDW-001150
                   customer:
                     id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                    customerNo: C-00042
+                    publicId: cus_TWMB751S2DFXTAM8
                     name: "Royal Palm Hotel Ltd"
                   issueDate: "2026-09-20"
                   dueDate: "2026-10-20"
@@ -71,7 +71,7 @@ responses:
                     number: INV-2026-DDW-001159
                   customer:
                     id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                    customerNo: C-00056
+                    publicId: cus_TS4VEDD3ZZNAAQGD
                     name: "Asantewaa Chop Bar"
                   issueDate: "2026-09-02"
                   dueDate: "2026-10-02"
@@ -87,7 +87,7 @@ responses:
                     number: INV-2026-DDW-001168
                   customer:
                     id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
-                    customerNo: C-00061
+                    publicId: cus_3Q4VCE9ZY779GAT6
                     name: "Osu Fresh Mart"
                   issueDate: "2026-09-28"
                   dueDate: "2026-10-28"
@@ -103,7 +103,7 @@ responses:
                     number: INV-2026-DDW-001177
                   customer:
                     id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                    customerNo: C-00042
+                    publicId: cus_TWMB751S2DFXTAM8
                     name: "Royal Palm Hotel Ltd"
                   issueDate: "2026-10-15"
                   dueDate: "2026-11-14"
@@ -119,7 +119,7 @@ responses:
                     number: INV-2026-DDW-001186
                   customer:
                     id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                    customerNo: C-00056
+                    publicId: cus_TS4VEDD3ZZNAAQGD
                     name: "Asantewaa Chop Bar"
                   issueDate: "2026-11-01"
                   dueDate: "2026-12-01"
@@ -135,7 +135,7 @@ responses:
                     number: INV-2026-DDW-001195
                   customer:
                     id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
-                    customerNo: C-00061
+                    publicId: cus_3Q4VCE9ZY779GAT6
                     name: "Osu Fresh Mart"
                   issueDate: "2026-11-11"
                   dueDate: "2026-12-11"

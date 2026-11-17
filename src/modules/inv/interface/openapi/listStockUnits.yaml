@@ -119,7 +119,7 @@ responses:
                   storageTempClass: null
                   supplier:
                     id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                    supplierNo: S-0012
+                    publicId: sup_VX48894JEAGQEB4Y
                     name: "Kpone Livestock Traders"
                   grade:
                     id: "019a7a8c-d59f-70f8-9631-185eaefe913c"
@@ -267,7 +267,7 @@ responses:
                   storageTempClass: FROZEN
                   supplier:
                     id: "019a7a89-16ae-7e6d-a3a5-efa6f28f6884"
-                    supplierNo: S-0019
+                    publicId: sup_TGKEXYTAZ99G0NNC
                     name: "Awutu Poultry Farm"
                   grade: null
                   lastWeightKg: "142.800"
@@ -303,7 +303,7 @@ responses:
                   storageTempClass: FROZEN
                   supplier:
                     id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                    supplierNo: S-0012
+                    publicId: sup_VX48894JEAGQEB4Y
                     name: "Kpone Livestock Traders"
                   grade: null
                   lastWeightKg: "88.200"
