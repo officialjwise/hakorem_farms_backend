@@ -2534,6 +2534,11 @@ reversal from prc.ProcessingOrderReversed with its value, the threshold copied o
 when one was needed, and the reason. Residual risk R18 (B07 continued 2): count the storefront checkouts
 started and expired per address a day from shp.CheckoutStarted and shp.CheckoutExpired, as an item when one
 address holds stock repeatedly without placing an order.
+It must include case 34, inflated rejections at the door (B09e continued 3, A-272, ADR-0076): a RECEIPT_CLAIM item for
+each pur.SupplierClaimRaised, with the receipt, the receiver, the claim's maker, the supplier, the rejected quantity,
+its reason and its value. And every exception source B9b, B09c and B11 add (their reports name each one), at least
+each reused till receipt token (a possible till fault or tampering, owner 2026-11-17) and each supervisor's PIN
+sign-out of a locked cashier (CR-032).
 Write the five tests of ADR-0028 under the names the ADR gives them, and run scenario 4 of
 docs/UAT.md as a dry run: the net profit for July to September 2026 in the seed is GHS 41,666.70 and
 the hand calculation must match the run to the pesewa.
