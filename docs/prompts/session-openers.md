@@ -2624,8 +2624,8 @@ Also in this phase (owner, 2026-11-17, F10f), each test-first, additive contract
    within the branches the caller holds the permission at; each figure asserted against SQL sums taken straight from
    PUR's tables, never from the function under test. The read is authorised and joins the identifier walk.
 5. CR-043: approveSupplierInvoice refuses the invoice's maker with 422 INVOICE_MAKER_CANNOT_APPROVE, in the domain and
-   the database, as a credit note's approval does; the code joins the operation's x-error-codes. A behaviour change:
-   mark it LOUD in docs/CONTRACT_CHANGELOG.md, and fix every seed and test that approves its own invoice.
+   the database, as a credit note's approval does; the code joins the operation's x-error-codes. Approved by the owner
+   (2026-11-17) as a breaking-behaviour change: mark it LOUD in docs/CONTRACT_CHANGELOG.md, and fix every seed and test that approves its own invoice.
 6. CR-044: descriptions only. Say which unit SupplierInvoiceLine.qtyVariance is in and its sign, and that
    priceVariancePesewas is the line's whole difference from the order price, with priceVarianceDirection over or
    under. Check the listSupplierInvoices example against the arithmetic.
