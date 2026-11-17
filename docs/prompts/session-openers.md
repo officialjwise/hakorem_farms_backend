@@ -2243,6 +2243,9 @@ Then execute B09e continued 2 only, on branch b09e3-eggs-claims, branched from m
    names its receipt, purchase order and the credit note or invoice that settles it), moving no stock, on the
    supplier's account until settled; the credit note keeps its existing approval, maker and checker apart,
    mutation-checked with test data where the maker, the receiver and the approver are different people (CR-036).
+   Since B09e continued (A-263), a receipt line may be entered in crates: `qtyRejected` is counted in the line's `uom`
+   and stored in the base unit (`qty_rejected`, `qtyRejectedBase`), so the claim's quantities and cost come from the
+   base quantities, never from a factor of the claim's own.
 7. A purchase order line defaults to the last price paid to that supplier for that product; no full supplier price
    list yet.
 Answer CR-035 and CR-036 in the report. Every new read is authorised and joins the contract-generated identifier walk

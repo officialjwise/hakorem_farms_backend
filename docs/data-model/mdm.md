@@ -132,7 +132,7 @@ One counter per SKU prefix (B09q, ADR-0072, migration 0210), written only by `md
 
 ### `mdm.product_uom_conversion` · MASTER
 
-Exact conversion from a countable product's alternative unit to its base unit (FR-MDM-003, CR-011, A-157, A-163). Built in B06u (migration 0090): one `from_uom` is `numerator / denominator` of `to_uom`, two integers and no stored decimal factor (a 50 kg bag of feed is 50/1 `KG`; a crate of 24 cabbages is 24/1 `UNIT`). Read by other modules only through `MasterDataRefs.toBaseIn`.
+Exact conversion from a countable product's alternative unit to its base unit (FR-MDM-003, CR-011, A-157, A-163). Built in B06u (migration 0090): one `from_uom` is `numerator / denominator` of `to_uom`, two integers and no stored decimal factor (a 50 kg bag of feed is 50/1 `KG`; a crate of 24 cabbages is 24/1 `UNIT`). Read by other modules only through `MasterDataRefs.toBaseIn`. A higher module's database rule asks the published function `mdm.uom_to_base(product, uom, qty)` (migration 0216, B09e continued, ADR-0047): the quantity in the base unit, the base unit passing through, null for no live conversion or a result that would need a fourth decimal place; INV's receipt, transfer and reorder rule guards call it.
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
