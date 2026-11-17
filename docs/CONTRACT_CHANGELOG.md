@@ -14,9 +14,11 @@ Version numbers follow semantic versioning: a major bump breaks an existing clie
 
 ## 2.0.1 (2026-11-17, B09q continued)
 
-Patch. No field, parameter, schema or status added, removed, renamed or retyped; descriptions and one example only. The owner's decision 5 of 2026-11-17 (no identifier is ever a key; every customer link carries its own random token), ADR-0074.
+Patch. No field, parameter, schema or status added, removed, renamed or retyped; descriptions and one example only, and FIN's reads narrowed to the reader's branches. The owner's decision 5 of 2026-11-17 (no identifier is ever a key; every customer link carries its own random token), ADR-0074.
 
 - **`trackOrder`, `placeOrder`, `PlaceOrderResult.trackingToken`:** the tracking token is no longer the order id with an HMAC (ADR-0070's form, 1.51.0 to 2.0.0) but `trk_` and 43 base64url characters of 256 random bits, made when the order is placed, stored only as its hash and read for thirty days. The shape is the same string; a token of the old form, guessed, altered, expired or of another order answers 404 `NOT_FOUND`. A replay of `placeOrder` with the same `Idempotency-Key` answers the same order with a fresh `trackingToken`, and the first stays valid. The `placeOrder` example shows a token of the new length; `trackOrder` gains a description and its `token` parameter one.
+- **Behaviour, same shapes (A-258):** `getJournalEntry`, `getManualJournal`, `getFixedAsset` and `getDepreciationRun` answer 403 `FORBIDDEN` to a holder of the read permission whose grants do not cover the record's branch, and `listJournalEntries`, `listManualJournals`, `listFixedAssets` and `listDepreciationRuns` show only the branches the reader's whole-branch grants reach (ADR-0017 rule 2, which FIN's writes already held). The statements and an account's activity are unchanged.
+- **Every other operation that takes an identifier:** no shape or answer changes; the walk in `test/integration/iam/no-id-is-a-key.integration.spec.ts` proves each refuses an anonymous caller, another customer, a role without its permission and a staff member outside the record's branch (master data excepted, A-257), the same for a real and a made-up identifier.
 
 **What a client does:** nothing, if it already treats `trackingToken` as an opaque string and builds the link from the latest answer.
 

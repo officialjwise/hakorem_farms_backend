@@ -156,6 +156,21 @@ Every status change of an order.
 
 Standard columns: `LEDGER`.
 
+### `ord.order_tracking_token` · LEDGER
+
+**As built in B09q continued (migration 0213, ADR-0074, A-256).** One row per tracking link ever issued for an online order: at placement, and again for each replay of the placement. Only the token's hash is stored; the token itself is answered once and kept nowhere.
+
+| Column | Type | Constraints | Why |
+| --- | --- | --- | --- |
+| `id` | `uuid` | PK | |
+| `sales_order_id` | `uuid` | NOT NULL, FK `ord.sales_order`; an ONLINE order only (`ck_order_tracking_token_online`, trigger) | |
+| `token_hash` | `bytea` | NOT NULL, 32 bytes (`ck_order_tracking_token_hash`), UNIQUE (`uq_order_tracking_token_hash`) | SHA-256 of the token's text; `trackOrder` looks the order up by it |
+| `recorded_at` | `timestamptz` | NOT NULL | When the link was made, from the application's clock (ADR-0067) |
+| `expires_at` | `timestamptz` | NOT NULL; after `recorded_at` and at most thirty days after it (`ck_order_tracking_token_expiry`) | The link reads nothing from then on |
+| `actor_id` | `uuid` | NOT NULL, FK `iam.principal` | The storefront principal for a guest's placement |
+
+Standard columns: `LEDGER` (never updated, deleted or truncated: `platform.reject_change()`). Index `ix_order_tracking_token_order` on `sales_order_id`.
+
 ### `ord.fulfilment` · DOCUMENT
 
 A pick, pack and dispatch of all or part of an order. Built in B11. Posted statuses: `DISPATCHED`, `COLLECTED`, `CANCELLED`.

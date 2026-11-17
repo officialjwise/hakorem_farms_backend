@@ -1,6 +1,6 @@
 # ADR-0070: Online order placement as built
 
-- **Status:** Proposed
+- **Status:** Proposed; its tracking token (the "Tracking" rule) superseded by ADR-0074 (B09q continued, 2026-11-17)
 - **Date:** 2026-11-17
 - **Session:** B09a continued 2f
 - **Deciders:** backend track; the owner confirms the guest-only placement and the cancellation rule (A-232)
@@ -22,7 +22,7 @@ Option 2.
 - **Placement (`Checkouts.place`, SHP).** In one serializable transaction: the guest's open checkout is handed down to ORD's `OnlineOrders.placeIn`, which writes the order ONLINE and PLACED from the checkout (its source document; one per checkout, `uq_sales_order_online_source`), every line priced by MDM's engine now with the checkout's figures, else 422 `PRICE_CHANGED`. The checkout moves to `AWAITING_PAYMENT` naming its order (`fk_checkout_session_order`, `ck_checkout_session_awaiting`). Mobile money: PAY's `ProviderPayments.chargeIn` writes the charge PENDING for the estimate in the same transaction; `sendCharge` sends it after the commit. Cash on delivery: the order is confirmed at once.
 - **Confirmation (`OnlineOrders.confirmFromCheckoutIn`).** INV's new `Reservations.transferHeldByIn` ends each of the checkout's reservations RELEASED with `transferredToDocumentId` and reserves the same stock for the order with no expiry. SHP's existing in-transaction subscriber completes the checkout and converts the cart when the hand-over names its order. A prepaid order is confirmed in the clearing's transaction by ORD's transactional subscriber on `pay.PaymentCleared`, only when the money is the order's (`paymentConfirms`: not `heldAsUnmatched`) and covers the estimate.
 - **Stopping.** ORD subscribes in the transaction to `inv.ReservationExpired` and `inv.ReservationReleased` (not a hand-over) and to `pay.PaymentFailed`: a PLACED online order whose checkout's hold ended, or whose charge failed, is cancelled (`PAYMENT_NOT_RECEIVED`) through the cancellation's own path, which releases its pending charge, so money that still arrives is held unmatched with a break (A-210). A cancellation by staff or a failed charge also releases the checkout's stock, after the order is CANCELLED, so the cart comes back at once.
-- **Tracking.** The token is `trk_` and base64url of the order id's 16 bytes and a 128-bit HMAC-SHA256 under a key derived from the lookup key for this purpose; it is never stored and is checked in constant time.
+- **Tracking.** *(Superseded by ADR-0074: the token is now 256 random bits stored only as its hash.)* The token is `trk_` and base64url of the order id's 16 bytes and a 128-bit HMAC-SHA256 under a key derived from the lookup key for this purpose; it is never stored and is checked in constant time.
 - **Guest only.** Placement takes no customer session (the public route's actor is the Storefront principal); the contract's `customerSession` and optional CSRF header are removed from `placeOrder`. A signed-in customer's own orders are read through `listMyOrders` and `getMyOrder`.
 
 ## Consequences

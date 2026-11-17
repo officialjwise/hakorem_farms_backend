@@ -2191,7 +2191,7 @@ Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (
 reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the POS requirement block of docs/SRS.md (nothing else from the SRS),
 docs/data-model/pos.md, the POS card in docs/MODULE_BOUNDARIES.md, docs/OFFLINE_SYNC.md, and
-ADR-0015, ADR-0027 and the abuse cases 4, 10, 11 and 17 in docs/security/THREAT_MODEL.md.
+ADR-0015, ADR-0027, ADR-0074 (the receipt link's token) and the abuse cases 4, 10, 11 and 17 in docs/security/THREAT_MODEL.md.
 Read the hakorem-offline skill. Use docs/prompts/module-build-prompt.md as the recipe.
 Do not read any other document unless this phase needs it.
 
@@ -2326,8 +2326,9 @@ Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reaso
 report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the ORD (fulfilment), DEL and NTF requirement blocks of docs/SRS.md (nothing else
 from the SRS), docs/data-model/ord.md, del.md and ntf.md, the ORD, DEL and NTF cards in
-docs/MODULE_BOUNDARIES.md, and ADR-0010, ADR-0021, ADR-0026 (the abandoned-cart assignment)
-and the abuse case 6 in docs/security/THREAT_MODEL.md. Use docs/prompts/module-build-prompt.md as the recipe.
+docs/MODULE_BOUNDARIES.md, and ADR-0010, ADR-0021, ADR-0026 (the abandoned-cart assignment), ADR-0074 (a link
+sent by message gets its own token from the sending worker, never one stored in the outbox) and the abuse case 6 in
+docs/security/THREAT_MODEL.md. Use docs/prompts/module-build-prompt.md as the recipe.
 Do not read any other document unless this phase needs it.
 
 Confirm in three lines: the phase, its scope, and its gate.
