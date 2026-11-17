@@ -245,8 +245,8 @@ responses:
                     id: "019a7ab3-6170-736a-88a3-3f7f528db85d"
                     docType: SALES_ORDER
                     number: SO-2026-DDW-004185
-                  qty: "2.000"
-                  summary: "Nightly recompute: balance 48 crates, ledger 46 crates"
+                  qty: "60.000"
+                  summary: "Nightly recompute: balance 1,440 eggs, ledger 1,380 eggs"
                   details:
                     register: T2
                     shiftNo: SHF-2026-DDW-000311

@@ -115,7 +115,7 @@ responses:
                     code: STORE-1
                     name: "Feed and produce store"
                     kind: STORE
-                  qty: "2.000"
+                  qty: "60.000"
                   isExclusive: false
                   holderDocument:
                     id: "019a7ab0-d7d5-73c2-b8fa-44f25708bdd0"

@@ -20195,7 +20195,7 @@ paths:
                           code: STORE-1
                           name: "Feed and produce store"
                           kind: STORE
-                        qty: "2.000"
+                        qty: "60.000"
                         isExclusive: false
                         holderDocument:
                           id: "019a7ab0-d7d5-73c2-b8fa-44f25708bdd0"
@@ -20634,8 +20634,8 @@ paths:
                           id: "019a7ab3-6170-736a-88a3-3f7f528db85d"
                           docType: SALES_ORDER
                           number: SO-2026-DDW-004185
-                        qty: "2.000"
-                        summary: "Nightly recompute: balance 48 crates, ledger 46 crates"
+                        qty: "60.000"
+                        summary: "Nightly recompute: balance 1,440 eggs, ledger 1,380 eggs"
                         details:
                           register: T2
                           shiftNo: SHF-2026-DDW-000311
@@ -23105,8 +23105,8 @@ paths:
                               identifier: MEAT-BEEF-261104-01
                               tracking: LOT
                             direction: LOSS
-                            qty: "2.000"
-                            uom: CRATE
+                            qty: "60.000"
+                            uom: UNIT
                             weightKg: null
                             valuePesewas: 8000
                             movementId: "019a7ab8-d173-7066-959f-0f3fb6aa881d"
@@ -24175,9 +24175,9 @@ paths:
                           id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
                           identifier: EGG-261112-L1
                           tracking: LOT
-                        uom: CRATE
+                        uom: UNIT
                         expectedQty: null
-                        countedQty: "46.000"
+                        countedQty: "1380.000"
                         recountQty: null
                         countedWeightKg: null
                         varianceQty: null
@@ -24285,12 +24285,12 @@ paths:
                           id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
                           identifier: EGG-261112-L1
                           tracking: LOT
-                        uom: CRATE
-                        expectedQty: "45.000"
-                        countedQty: "46.000"
-                        recountQty: "46.000"
+                        uom: UNIT
+                        expectedQty: "1350.000"
+                        countedQty: "1380.000"
+                        recountQty: "1380.000"
                         countedWeightKg: null
-                        varianceQty: "1.000"
+                        varianceQty: "30.000"
                         varianceValuePesewas: 4000
                         varianceDirection: GAIN
                         needsRecount: false

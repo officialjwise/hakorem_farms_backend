@@ -85,9 +85,9 @@ responses:
                     id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
                     identifier: EGG-261112-L1
                     tracking: LOT
-                  uom: CRATE
+                  uom: UNIT
                   expectedQty: null
-                  countedQty: "46.000"
+                  countedQty: "1380.000"
                   recountQty: null
                   countedWeightKg: null
                   varianceQty: null
@@ -195,12 +195,12 @@ responses:
                     id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
                     identifier: EGG-261112-L1
                     tracking: LOT
-                  uom: CRATE
-                  expectedQty: "45.000"
-                  countedQty: "46.000"
-                  recountQty: "46.000"
+                  uom: UNIT
+                  expectedQty: "1350.000"
+                  countedQty: "1380.000"
+                  recountQty: "1380.000"
                   countedWeightKg: null
-                  varianceQty: "1.000"
+                  varianceQty: "30.000"
                   varianceValuePesewas: 4000
                   varianceDirection: GAIN
                   needsRecount: false
