@@ -1,6 +1,7 @@
 import { Inject, Module, type OnModuleInit } from '@nestjs/common';
 import type { Clock } from '@hakorem/kernel';
 import { AuditTrail } from '../../platform/audit/audit-trail';
+import { APP_CONFIG, type AppConfig } from '../../platform/config/app-config';
 import { UnitOfWork } from '../../platform/database/unit-of-work';
 import { DocumentRegistry } from '../../platform/documents/document-registry';
 import { NumberSeries } from '../../platform/documents/number-series';
@@ -13,6 +14,7 @@ import { Approvals, Authoriser, IamModule, PRINCIPAL_NAMES, type PrincipalNames 
 import { InvModule, Reservations, Stock, StockExceptions, StockMovements, StockQueries, StockUnits } from '../inv';
 import { MasterDataRefs, MdmModule, PricingService } from '../mdm';
 import { PayModule, Payments, ProviderPayments, Receipts, Refunds } from '../pay';
+import { OnlineOrders } from './application/online-orders';
 import { ORDER_CONFIRMATION_POLICIES, type OrderConfirmationPolicy } from './application/order-confirmation-policy';
 import { OrderReversals, SALE_VOID_KIND } from './application/order-reversals';
 import { ORDER_STORE, type OrderStore } from './application/order-store';
@@ -23,6 +25,7 @@ import { PRICE_OVERRIDE_KIND, PriceOverrides } from './application/price-overrid
 import { SalePosting } from './application/sale-posting';
 import { PgOrderStore } from './infrastructure/pg-order-store';
 import { PgReturnStore } from './infrastructure/pg-return-store';
+import { MyOrdersController, OrderTrackingController } from './interface/online-orders.controller';
 import { OrdersController } from './interface/orders.controller';
 import { ReturnsController } from './interface/returns.controller';
 
@@ -34,7 +37,7 @@ import { ReturnsController } from './interface/returns.controller';
  */
 @Module({
   imports: [IamModule, MdmModule, InvModule, BilModule, PayModule],
-  controllers: [OrdersController, ReturnsController],
+  controllers: [OrdersController, ReturnsController, MyOrdersController, OrderTrackingController],
   providers: [
     { provide: ORDER_STORE, useClass: PgOrderStore },
     { provide: RETURN_STORE, useClass: PgReturnStore },
@@ -160,6 +163,27 @@ import { ReturnsController } from './interface/returns.controller';
       ],
     },
     {
+      provide: OnlineOrders,
+      useFactory: (
+        uow: UnitOfWork,
+        store: OrderStore,
+        orders: Orders,
+        reversals: OrderReversals,
+        refs: MasterDataRefs,
+        pricing: PricingService,
+        reservations: Reservations,
+        payments: Payments,
+        numbers: NumberSeries,
+        documents: DocumentRegistry,
+        events: DomainEvents,
+        audit: AuditTrail,
+        cursors: Cursors,
+        clock: Clock,
+        config: AppConfig,
+      ) => new OnlineOrders(uow, store, orders, reversals, refs, pricing, reservations, payments, numbers, documents, events, audit, cursors, clock, Buffer.from(config.LOOKUP_HMAC_KEY, 'base64')),
+      inject: [UnitOfWork, ORDER_STORE, Orders, OrderReversals, MasterDataRefs, PricingService, Reservations, Payments, NumberSeries, DocumentRegistry, DomainEvents, AuditTrail, Cursors, CLOCK, APP_CONFIG],
+    },
+    {
       provide: Returns,
       useFactory: (
         uow: UnitOfWork,
@@ -222,7 +246,7 @@ import { ReturnsController } from './interface/returns.controller';
       inject: [ORDER_STORE, MasterDataRefs, PricingService, Stock, StockUnits, Reservations, Billing, Payments, NumberSeries, DocumentRegistry, DomainEvents, Idempotency, AuditTrail, CLOCK, PriceOverrides],
     },
   ],
-  exports: [SalePosting, Orders, OrderReversals, Returns],
+  exports: [SalePosting, Orders, OrderReversals, Returns, OnlineOrders],
 })
 export class OrdModule implements OnModuleInit {
   constructor(
@@ -230,10 +254,20 @@ export class OrdModule implements OnModuleInit {
     @Inject(OrderReversals) private readonly reversals: OrderReversals,
     @Inject(Returns) private readonly returns: Returns,
     @Inject(PriceOverrides) private readonly overrides: PriceOverrides,
+    @Inject(OnlineOrders) private readonly online: OnlineOrders,
+    @Inject(DomainEvents) private readonly events: DomainEvents,
   ) {}
 
-  /** Registers the `SALE_VOID`, `RETURN` and `PRICE_OVERRIDE` approval handlers. */
+  /**
+   * Registers the `SALE_VOID`, `RETURN` and `PRICE_OVERRIDE` approval handlers, and the online order's transactional
+   * subscribers (ADR-0010: a module keeping its own aggregate consistent with a lower module's fact, A-232): the
+   * order's own money confirms it, a failed charge or a checkout's hold that ends first cancels it.
+   */
   onModuleInit(): void {
+    this.events.subscribeInTransaction('pay.PaymentCleared', (tx, event) => this.online.paymentClearedIn(tx, event));
+    this.events.subscribeInTransaction('pay.PaymentFailed', (tx, event) => this.online.paymentFailedIn(tx, event));
+    this.events.subscribeInTransaction('inv.ReservationExpired', (tx, event) => this.online.holdEndedIn(tx, event));
+    this.events.subscribeInTransaction('inv.ReservationReleased', (tx, event) => this.online.holdEndedIn(tx, event));
     this.approvals.registerHandler(SALE_VOID_KIND, this.reversals.approvalHandler);
     this.approvals.registerHandler(RETURN_KIND, this.returns.approvalHandler);
     this.approvals.registerHandler(PRICE_OVERRIDE_KIND, this.overrides.approvalHandler);

@@ -9,8 +9,8 @@ export class PgOrderStore implements OrderStore {
     await tx.query(
       `INSERT INTO ord.sales_order (id, order_no, channel, customer_id, contact_name, contact_phone_e164, status, payment_terms, fulfilment_mode, source_document_id,
                                     shift_document_id, salesperson_id, tax_inclusive, delivery_fee_pesewas, estimated_total_pesewas, maximum_total_pesewas,
-                                    is_offline, placed_at, notes, branch_id, created_by, updated_by)
-       VALUES ($1, $2, $3, $4, $5, $6, 'PLACED', $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $20)`,
+                                    is_offline, placed_at, notes, branch_id, created_by, updated_by, delivery_address_snapshot, delivery_zone_id)
+       VALUES ($1, $2, $3, $4, $5, $6, 'PLACED', $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $20, $21::jsonb, $22)`,
       [
         o.id,
         o.orderNo,
@@ -32,6 +32,8 @@ export class PgOrderStore implements OrderStore {
         o.notes,
         o.branchId,
         o.actorId,
+        o.deliveryAddressSnapshot === undefined || o.deliveryAddressSnapshot === null ? null : JSON.stringify(o.deliveryAddressSnapshot),
+        o.deliveryZoneId ?? null,
       ],
     );
   }
@@ -44,8 +46,8 @@ export class PgOrderStore implements OrderStore {
                                            variance_pesewas, variance_direction, variance_reason_code, variance_requires_approval, discount_pesewas,
                                            estimated_line_total_pesewas, reservation_id, qty_fulfilled, fulfilled_weight_kg, weight_source,
                                            final_line_total_pesewas, stock_movement_id, line_status, variance_approval_request_id, variance_approved_by,
-                                           variance_approved_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30)`,
+                                           variance_approved_at, estimated_weight_kg, tolerance_percent)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32)`,
         [
           l.id,
           l.salesOrderId,
@@ -77,6 +79,8 @@ export class PgOrderStore implements OrderStore {
           l.varianceApprovalRequestId,
           l.varianceApprovedBy,
           l.varianceApprovedAt,
+          l.estimatedWeightKg ?? null,
+          l.tolerancePercent ?? null,
         ],
       );
     }
@@ -268,6 +272,19 @@ export class PgOrderStore implements OrderStore {
       [f.branchIds, f.channel, f.status, f.customerId, f.shiftId, f.salespersonId, f.from, f.to, f.q, beforeId, limit],
     );
     return rows.map((r) => r.id);
+  }
+
+  async ofCustomer(tx: Transaction, customerId: string, beforeId: string | null, limit: number): Promise<string[]> {
+    const { rows } = await tx.query<{ id: string }>(
+      'SELECT id FROM ord.sales_order WHERE customer_id = $1 AND ($2::uuid IS NULL OR id < $2) ORDER BY id DESC LIMIT $3',
+      [customerId, beforeId, limit],
+    );
+    return rows.map((r) => r.id);
+  }
+
+  async lockOnlineBySource(tx: Transaction, sourceDocumentId: string): Promise<OrderHeaderRecord | null> {
+    const { rows } = await tx.query<{ id: string }>("SELECT id FROM ord.sales_order WHERE source_document_id = $1 AND channel = 'ONLINE' ORDER BY id LIMIT 1", [sourceDocumentId]);
+    return rows[0] === undefined ? null : this.lock(tx, rows[0].id);
   }
 
   async history(tx: Transaction, orderId: string): Promise<StatusChangeRecord[]> {

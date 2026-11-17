@@ -42,9 +42,10 @@ Each row gives the threat, the control and how it is detected. S spoofing, T tam
 | | Threat | Control | Detection |
 | --- | --- | --- | --- |
 | S | Credential stuffing against customer accounts | Argon2id, lockout with backoff, rate limits per address and account, breached-password check | Failed-login rate alerts |
-| S | Guest places an order in someone else's name or phone number | Order confirmation and tracking links carry a signed token; phone verification before account features | Complaints matched to order audit trail |
+| S | Guest places an order in someone else's name or phone number | Order confirmation and tracking links carry a signed token (`trk_`, an HMAC-SHA256 over the order id, never stored, checked in constant time; the tracking view shows no name, phone or address, B09a continued 2f); phone verification before account features | Complaints matched to order audit trail |
 | T | Price, total or delivery fee altered in the request | The server re-resolves every price and recomputes every total; client-sent amounts are ignored | Validation failures logged with correlation id |
 | T | Coupon reuse beyond its limit by concurrent requests | Redemption counted under a row lock in the database | Redemption ledger against limits |
+| T | An online order confirmed by money that is not its own: paid after the order stopped waiting, or less than its estimate (B09a continued 2f, ADR-0070) | Confirmation only in the transaction that clears a payment naming the order, never for money held as unmatched, and only when cleared money covers the estimate; an order whose hold ended or whose charge failed is cancelled and its charge released | `UNMATCHED_PAYMENT` break on the late money (A-210); tests in `ord/online-orders` |
 | R | Customer denies placing an order or accepting a quote | Audit event with address and agent; quote acceptance by signed single-use link | The acceptance record |
 | I | Enumerating customers by login or reset responses | Identical response and timing for known and unknown accounts | None needed |
 | I | Stock levels or costs exposed through the catalogue | The listing read model holds availability bands only, never quantities or cost | Contract tests on public responses |

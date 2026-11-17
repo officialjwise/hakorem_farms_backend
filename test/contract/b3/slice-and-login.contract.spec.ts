@@ -166,7 +166,7 @@ import {
   PostingRuleCreate,
   ReasonRequest as FinReasonRequest,
 } from '../../../src/modules/fin/interface/schemas';
-import { CartLineAdd, CartLineUpdate, CheckoutStart, CheckoutUpdate, CouponApply } from '../../../src/modules/shp/interface/schemas';
+import { CartLineAdd, CartLineUpdate, CheckoutStart, CheckoutUpdate, CouponApply, PlaceOrder } from '../../../src/modules/shp/interface/schemas';
 import { createCatalogue, type TestCatalogue } from '../../support/catalogue';
 import { contractSchema } from '../../support/contract-schemas';
 import { consoleGet, consolePost, createBranch, createUser, enrolAndLogin, login, relaxRateLimits, testStartTime, type TestSession } from '../../support/iam';
@@ -460,6 +460,7 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     updateCartLine: CartLineUpdate,
     applyCartCoupon: CouponApply,
     startCheckout: CheckoutStart,
+    placeOrder: PlaceOrder,
     updateCheckout: CheckoutUpdate,
   };
 

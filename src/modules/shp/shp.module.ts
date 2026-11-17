@@ -13,6 +13,8 @@ import { DelModule, Slots } from '../del';
 import { IamModule } from '../iam';
 import { InvModule, Reservations, StockQueries } from '../inv';
 import { MasterDataRefs, MdmModule, PricingService, Storefront, TaxService } from '../mdm';
+import { OnlineOrders, OrdModule } from '../ord';
+import { PayModule, ProviderPayments } from '../pay';
 import { Carts } from './application/carts';
 import { Catalogue, CatalogueListing } from './application/catalogue';
 import { Checkouts } from './application/checkouts';
@@ -26,7 +28,7 @@ import { ShopController } from './interface/shop.controller';
  * until the reservation lifetime ends. Order placement and payment are B09a; abandoned-cart messages B11.
  */
 @Module({
-  imports: [IamModule, MdmModule, InvModule, DelModule],
+  imports: [IamModule, MdmModule, InvModule, DelModule, PayModule, OrdModule],
   controllers: [ShopController],
   providers: [
     { provide: SHP_STORE, useClass: PgShpStore },
@@ -77,8 +79,10 @@ import { ShopController } from './interface/shop.controller';
         documents: DocumentRegistry,
         settings: Settings,
         clock: Clock,
-      ) => new Checkouts(uow, store, carts, listing, storefront, pricing, tax, stock, reservations, slots, idempotency, audit, events, documents, settings, clock),
-      inject: [UnitOfWork, SHP_STORE, Carts, CatalogueListing, Storefront, PricingService, TaxService, StockQueries, Reservations, Slots, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, Settings, CLOCK],
+        online: OnlineOrders,
+        providerPayments: ProviderPayments,
+      ) => new Checkouts(uow, store, carts, listing, storefront, pricing, tax, stock, reservations, slots, idempotency, audit, events, documents, settings, clock, online, providerPayments),
+      inject: [UnitOfWork, SHP_STORE, Carts, CatalogueListing, Storefront, PricingService, TaxService, StockQueries, Reservations, Slots, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, Settings, CLOCK, OnlineOrders, ProviderPayments],
     },
   ],
   exports: [CatalogueListing, Carts, Checkouts],

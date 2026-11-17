@@ -392,7 +392,11 @@ export class PgShpStore implements ShpStore {
     );
   }
 
-  async endCheckout(tx: Transaction, id: string, status: 'EXPIRED' | 'CANCELLED', actorId: string): Promise<void> {
+  async awaitPayment(tx: Transaction, id: string, orderId: string, actorId: string): Promise<void> {
+    await tx.query("UPDATE shp.checkout_session SET status = 'AWAITING_PAYMENT', order_id = $2, updated_at = now(), updated_by = $3, version = version + 1 WHERE id = $1", [id, orderId, actorId]);
+  }
+
+  async endCheckout(tx: Transaction, id: string, status: 'EXPIRED' | 'CANCELLED' | 'COMPLETED', actorId: string): Promise<void> {
     await tx.query('UPDATE shp.checkout_session SET status = $2, posted_at = now(), posted_by = $3, updated_at = now(), updated_by = $3, version = version + 1 WHERE id = $1', [id, status, actorId]);
   }
 }

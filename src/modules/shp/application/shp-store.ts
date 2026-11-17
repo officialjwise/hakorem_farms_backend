@@ -146,7 +146,10 @@ export interface ShpStore {
   checkout(tx: Transaction, id: string, lock: boolean): Promise<CheckoutRecord | null>;
   checkoutLines(tx: Transaction, id: string): Promise<CheckoutLineRecord[]>;
   updateCheckout(tx: Transaction, id: string, change: CheckoutWrite, actorId: string): Promise<void>;
-  endCheckout(tx: Transaction, id: string, status: 'EXPIRED' | 'CANCELLED', actorId: string): Promise<void>;
+  /** STARTED to AWAITING_PAYMENT, naming the order placed from it (placeOrder, A-232). */
+  awaitPayment(tx: Transaction, id: string, orderId: string, actorId: string): Promise<void>;
+  /** The checkout ended: expired, cancelled, or completed once its order took over its hold. */
+  endCheckout(tx: Transaction, id: string, status: 'EXPIRED' | 'CANCELLED' | 'COMPLETED', actorId: string): Promise<void>;
 }
 
 export const SHP_STORE = Symbol('SHP_STORE');

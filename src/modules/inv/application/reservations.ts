@@ -165,6 +165,31 @@ export class Reservations {
     return held;
   }
 
+  /**
+   * Hands every active reservation one document holds to another, in the caller's serializable transaction (an online
+   * order taking over its checkout's hold once it is paid, A-232): each is ended RELEASED, published with
+   * `transferredToDocumentId`, and the same stock (product, unit, location, quantity) is promised again to the new
+   * holder with no expiry, so nothing is free in between. Answers the new reservations in the order of the old ones,
+   * each with the product it holds. It authorises nothing.
+   */
+  async transferHeldByIn(tx: Transaction, actorId: string, fromHolderId: string, toHolderId: string, reason: string): Promise<Array<{ readonly id: string; readonly productId: string; readonly qty: string }>> {
+    const held = await this.store.activeOfHolder(tx, fromHolderId);
+    const moved: Array<{ id: string; productId: string; qty: string }> = [];
+    for (const reservation of held) {
+      await this.endIn(tx, actorId, reservation.id, 'RELEASED', reason, toHolderId);
+      const id = await this.reserveIn(tx, actorId, {
+        productId: reservation.productId,
+        stockUnitId: reservation.stockUnitId,
+        locationId: reservation.locationId,
+        qty: Quantity.parse(reservation.qty),
+        holderDocumentId: toHolderId,
+        expiresAt: null,
+      });
+      moved.push({ id, productId: reservation.productId, qty: reservation.qty });
+    }
+    return moved;
+  }
+
   /** Releases an active reservation in the caller's transaction (a checkout abandoned, a quote withdrawn). */
   async releaseIn(tx: Transaction, actorId: string, reservationId: string, reason: string): Promise<void> {
     await this.endIn(tx, actorId, reservationId, 'RELEASED', reason);
@@ -174,7 +199,7 @@ export class Reservations {
    * Ends one active reservation, once: the trigger gives back exactly the quantity it promised, and the end is
    * audited and published as `inv.ReservationReleased` or `inv.ReservationExpired`.
    */
-  async endIn(tx: Transaction, actorId: string, reservationId: string, status: 'RELEASED' | 'EXPIRED', reason: string): Promise<StockReservationRecord> {
+  async endIn(tx: Transaction, actorId: string, reservationId: string, status: 'RELEASED' | 'EXPIRED', reason: string, transferredToDocumentId: string | null = null): Promise<StockReservationRecord> {
     const before = await this.store.lock(tx, reservationId);
     if (before === null) throw new NotFoundError(`no stock reservation ${reservationId}`);
     if (before.status !== 'ACTIVE') throw new InvalidStateTransitionError(`stock reservation ${reservationId} is ${before.status}`);
@@ -195,6 +220,7 @@ export class Reservations {
         qty: before.qty,
         expiresAt: before.expiresAt?.toISOString() ?? null,
         reason,
+        transferredToDocumentId,
       },
     });
     await this.stock.availabilityChangedIn(tx, actorId, [before.productId]);

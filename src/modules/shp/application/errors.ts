@@ -17,6 +17,7 @@ registerMessages({
   'shp.reference_not_found': 'Something this request refers to does not exist.',
   'shp.final_charge_rule': 'You pay GHS {estimate} for these items. Each pack is weighed before dispatch and you pay for the weighed amount, never more than GHS {maximum} in total without asking you first. If it weighs less we {difference}.',
   'shp.final_charge_rule_fixed': 'You pay GHS {estimate}. The price of every item is fixed.',
+  'shp.momo_instructions': 'Approve GHS {amount} to HaKorem Farms on your {network} phone when the prompt appears.',
   'shp.difference_refund': 'refund the difference',
   'shp.difference_store_credit': 'keep the difference as store credit for your next order',
   'shp.product_charge_rule': 'Priced at GHS {price} per kg. Each pack is weighed before dispatch and you pay for the weighed amount, at most {tolerance}% above the estimate. If it weighs less we refund the difference.',
