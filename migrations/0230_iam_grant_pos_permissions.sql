@@ -1,6 +1,6 @@
 -- 0230_iam_grant_pos_permissions
 -- Who runs a till (FR-POS-015 to FR-POS-019, A-273 (f)), each the most conservative reading: the Cashier, the Manager
--- and the Owner (who holds every permission of a role they grant, FR-IAM-004) open a shift, sell, move cash and declare
+-- and the Owner (who must hold every permission of a role they grant, FR-IAM-022) open a shift, sell, move cash and declare
 -- their own count; only the Owner and the Manager sign a count off, and never their own (ck_shift_close_checker); the
 -- Owner and the Manager set tills up. The Owner, the Manager, the Accountant
 -- and the Cashier read tills, shifts and their reports, a cashier only their own. The Storekeeper, Sales, the Farm
