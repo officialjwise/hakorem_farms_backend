@@ -19,6 +19,8 @@ import {
   providerSettledAmounts,
   unidentifiedReceiptAmounts,
   stockMovementAmounts,
+  tillAmounts,
+  type TillPostingFields,
   type BillingLevy,
   type BillingLine,
   supplierCreditNoteAmounts,
@@ -65,6 +67,16 @@ interface SupplierInvoicePosting {
   readonly grossPesewas: number;
   readonly lines: readonly PurchaseLine[];
   readonly levies: readonly PurchaseLevy[];
+}
+
+/** POS's till events (migration 0228): one translator for all, each amount against the till's register. */
+export const TILL_POSTING_EVENTS = ['pos.ShiftOpened', 'pos.CashDropped', 'pos.CashPaidIn', 'pos.CashPaidOut', 'pos.ShiftClosed'] as const;
+
+interface TillPosting extends TillPostingFields {
+  readonly shiftId: string;
+  /** The shift for an open or a close, the cash movement for the rest: what posts once. */
+  readonly subjectId: string;
+  readonly branchId: string;
 }
 
 /** INV's stock posting events (movement types with a posting event, migration 0044): one translator for all. */
@@ -122,6 +134,7 @@ export class LedgerPostings {
       ['pay.PaymentReversed', async (_tx, event) => this.paymentReversed(event.payload as unknown as PaymentReversedPosting)],
       ['pay.ProviderSettled', (tx, event) => this.providerSettled(tx, event.payload as unknown as ProviderSettledPosting)],
       ['pay.UnidentifiedReceiptHeld', (tx, event) => this.unidentifiedReceipt(tx, event.payload as unknown as UnidentifiedReceiptPosting)],
+      ...TILL_POSTING_EVENTS.map((code) => [code, async (_tx: Transaction, event: EventEnvelope) => this.till(event.payload as unknown as TillPosting)] as const),
       ['fin.ManualJournalApproved', (tx, event) => this.manualJournal(tx, event.payload as unknown as ManualJournalApproved)],
       ['fin.YearClosed', async (_tx, event) => this.yearClose(event.payload as unknown as YearClosed)],
       ['fin.DepreciationRun', async (_tx, event) => this.depreciationRun(event.payload as unknown as DepreciationRunPosted)],
@@ -190,6 +203,10 @@ export class LedgerPostings {
       eventSubjectId: payload.movementId,
       reversesSubjectId: payload.reversesMovementId,
     };
+  }
+
+  private till(payload: TillPosting): Translated {
+    return { amounts: tillAmounts(payload), sourceDocumentId: payload.shiftId, eventSubjectId: payload.subjectId, branchId: payload.branchId };
   }
 
   private upkeep(payload: UpkeepPosting): Translated {
