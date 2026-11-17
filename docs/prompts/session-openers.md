@@ -2569,7 +2569,8 @@ Branch `b08c2d-customer-statements`, from `main`. Report `docs/sessions/B08c2d-c
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
-List docs/sessions/ and read only the most recent report (docs/sessions/B09c-card-payment.md).
+List docs/sessions/ and read only the most recent report on main (lane B's first phase starts beside lane A, owner
+2026-11-17; see "Two lanes" below), and docs/sessions/B09b-pos-shifts-offline.md for the till's cash rules.
 Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
 reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
 For this phase, read FR-WHL-009 and the DOC requirement block of docs/SRS.md (nothing else from the SRS),
@@ -2683,7 +2684,9 @@ Branch `b12-capital-costing-reporting`. Report `docs/sessions/B12-capital-costin
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
-List docs/sessions/ and read only the most recent report (docs/sessions/B11-fulfilment-delivery.md).
+List docs/sessions/ and read the last report of each lane (docs/sessions/B11-fulfilment-delivery.md and
+docs/sessions/B09c-card-payment.md, or the last report of either lane's own splits); B12 opens only when both lanes
+have merged (owner, 2026-11-17).
 Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
 report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the CAP, CST, RPT and API requirement blocks of docs/SRS.md (nothing else from
@@ -2803,6 +2806,52 @@ Stop at the gate and write docs/sessions/B13-hardening-deploy.md.
 ```
 
 ---
+
+## Two lanes (owner, 2026-11-17)
+
+From 2026-11-17 the remaining phases before B12 run in two lanes at once, each in its own worktree and branch.
+
+- **Lane A:** the rest of B9b (B09b continued to B09b continued 4, and any split of them), then B09c.
+- **Lane B:** B08 continued 2d, then B10, then B11 (and any split of them). B08 continued 2d moves into lane B because
+  B10 reads its report and it needs only PAY's payments (B9a) and WHL, which lane B opens.
+- **B12, then B13, start only when both lanes have merged.** B09r still waits for the owner's real files.
+
+The rules, which add to everything else in this file and in CLAUDE.md (test first, stop conditions, merge on green,
+never re-run red without naming the cause):
+
+1. **Neither lane touches the other's modules.**
+   - Lane A owns POS, IAM and PAY's card provider.
+   - Lane B owns WHL, QUO, ORD, SHP, DEL, NTF and CST.
+   - Shared modules may be changed by either lane, additively only (a new function, column, operation, reason code or
+     seed row, never a changed one). They are MDM, INV, PUR, BIL, PAY (outside the card provider), FIN, DOC, AUD and
+     RPT, `src/platform`, the kernel, the seed, the contract, CLAUDE.md and the shared docs.
+   - A lane that needs to change the other lane's module, or an existing shape in a shared one, stops that piece and
+     asks the parent session. It never makes that change on its own.
+2. **Merges into main go one at a time, through the merge slot.**
+   - Take the slot with the parent session's lock (`merge-slot.sh acquire <lane>`; the brief names its path).
+   - Holding it:
+     1. Rebase the lane branch on the latest main.
+     2. Renumber the lane's migrations above main's highest if the other lane merged first.
+     3. Rebuild the contract (`pnpm contract:generate`) and bump its version on top of whatever main publishes, with
+        its changelog entry above main's.
+     4. Push, and wait for both CI runs (push and pull_request) on the head to go green.
+     5. Merge, and wait for main's push run.
+     6. Release the slot.
+   - Edits to the seed, CLAUDE.md and shared docs land the same way: only through the slot.
+3. **Ids never collide, because each lane draws from its own block.**
+
+   | Lane | Assumptions | ADRs | Backlog | Threat model abuse cases |
+   | --- | --- | --- | --- | --- |
+   | A | A-274 to A-299 | ADR-0077 to ADR-0084 | BL-077 to BL-089 | 35 to 39 |
+   | B | A-300 to A-329 | ADR-0085 to ADR-0092 | BL-090 to BL-099 | 40 to 44 |
+
+   A lane that runs out of its block asks the parent session for more. Migration numbers are renumbered at the
+   rebase (rule 2); contract versions are bumped at the rebase.
+4. **Docker is shared.** A local run that starts the compose stack (`pnpm run setup`, `pnpm dev`, `pnpm test:e2e`,
+   `pnpm test:smoke`) binds fixed host ports, so it runs under the compose lock (`flock` on the file the brief
+   names). Testcontainers runs need no lock.
+5. **Usage.** If the usage limit stops either lane, the parent session resumes one lane at a time until that lane
+   merges, rather than leave both stopped halfway.
 
 ## If a session cannot finish
 
