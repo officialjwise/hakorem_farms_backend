@@ -102,6 +102,9 @@ responses:
                       qtyReceived: "4.000"
                       qtyRejected: "0.000"
                       uom: HEAD
+                      baseUom: HEAD
+                      qtyReceivedBase: "4.000"
+                      qtyRejectedBase: "0.000"
                       weightKg: "98.600"
                       weightSource: SCALE
                       valuePesewas: 228000
@@ -184,6 +187,9 @@ responses:
                       qtyReceived: "20.000"
                       qtyRejected: "0.000"
                       uom: BAG
+                      baseUom: KG
+                      qtyReceivedBase: "1000.000"
+                      qtyRejectedBase: "0.000"
                       weightKg: null
                       weightSource: null
                       valuePesewas: 1040000
@@ -234,6 +240,9 @@ responses:
                       qtyReceived: "500.000"
                       qtyRejected: "6.000"
                       uom: HEAD
+                      baseUom: HEAD
+                      qtyReceivedBase: "500.000"
+                      qtyRejectedBase: "6.000"
                       weightKg: null
                       weightSource: null
                       valuePesewas: 6237000
@@ -281,6 +290,9 @@ responses:
                       qtyReceived: "48.000"
                       qtyRejected: "2.000"
                       uom: CRATE
+                      baseUom: UNIT
+                      qtyReceivedBase: "1440.000"
+                      qtyRejectedBase: "60.000"
                       weightKg: null
                       weightSource: null
                       valuePesewas: 0
@@ -334,6 +346,9 @@ responses:
                       qtyReceived: "12.000"
                       qtyRejected: "1.000"
                       uom: CRATE
+                      baseUom: CRATE
+                      qtyReceivedBase: "12.000"
+                      qtyRejectedBase: "1.000"
                       weightKg: null
                       weightSource: null
                       valuePesewas: 618000
@@ -384,6 +399,9 @@ responses:
                       qtyReceived: "10.000"
                       qtyRejected: "0.000"
                       uom: UNIT
+                      baseUom: UNIT
+                      qtyReceivedBase: "10.000"
+                      qtyRejectedBase: "0.000"
                       weightKg: null
                       weightSource: null
                       valuePesewas: 85000

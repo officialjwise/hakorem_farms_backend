@@ -8,6 +8,7 @@ import type { Cursors } from '../../../platform/http/cursor';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
 import type { Authoriser } from '../../iam';
 import type { MasterDataRefs } from '../../mdm';
+import { exactlyInRuleUnit, inRuleUnit, wholeUnitsToReach, type RuleScale } from '../domain/rule-unit';
 import {
   checkReorderLevels,
   daysToExpiry,
@@ -32,12 +33,15 @@ export interface ReorderRuleCreateRequest {
   readonly productId: string;
   readonly branchId: string;
   readonly locationId?: string | undefined;
+  /** The unit the three levels are counted in (a crate): the product's base unit when absent (B09e continued). */
+  readonly uom?: string | undefined;
   readonly minQty: string;
   readonly reorderPointQty: string;
   readonly maxQty: string;
   readonly expiryAlertDays?: number | undefined;
 }
 
+/** The levels are counted in the rule's own unit, the one it was created with. */
 export interface ReorderRuleUpdateRequest {
   readonly version: number;
   readonly minQty?: string | undefined;
@@ -52,12 +56,27 @@ export interface ReorderRuleView {
   readonly product: { readonly id: string; readonly sku: string; readonly name: string };
   readonly branchId: string;
   readonly location: LocationRefView | null;
+  /** The unit the levels were entered in; `minQty`, `reorderPointQty` and `maxQty` are in it. */
   readonly uom: string;
   readonly minQty: string;
   readonly reorderPointQty: string;
   readonly maxQty: string;
+  /** The product's base unit and the three levels in it, as stock is counted (B09e continued). */
+  readonly baseUom: string;
+  readonly minQtyBase: string;
+  readonly reorderPointQtyBase: string;
+  readonly maxQtyBase: string;
   readonly expiryAlertDays: number | null;
   readonly version: number;
+}
+
+/** A level alert of a rule counted in a selling unit, in that unit: whole units and the base units left over. */
+export interface RuleUnitQuantities {
+  readonly uom: string;
+  readonly onHandQty: string;
+  readonly onHandLooseQty: string;
+  readonly thresholdQty: string | null;
+  readonly suggestedQty: string | null;
 }
 
 /** The contract's `StockAlert`. */
@@ -72,6 +91,8 @@ export interface StockAlertView {
   readonly suggestedQty: string | null;
   readonly expiresOn: string | null;
   readonly daysToExpiry: number | null;
+  /** The same figures in the rule's selling unit (B09e continued); null for an expiry alert or a rule in the base unit. */
+  readonly inRuleUnit: RuleUnitQuantities | null;
   readonly raisedAt: string;
 }
 
@@ -241,8 +262,11 @@ export class StockAlerts {
           ...(body.locationId !== undefined && (location === undefined || !location.isLive) ? ['/locationId'] : []),
         ];
         if (missing.length > 0) throw new InvReferenceNotFoundError(missing);
+        const uom = body.uom === undefined || body.uom === product!.baseUom ? null : body.uom;
+        const levels = await this.baseLevelsIn(tx, product!.id, uom, { minQty: body.minQty, reorderPointQty: body.reorderPointQty, maxQty: body.maxQty });
+        if (!levels.ok) throw new ReorderRuleInvalidError(levels.broken);
         const broken = checkReorderLevels(
-          { minQty: Quantity.parse(body.minQty), reorderPointQty: Quantity.parse(body.reorderPointQty), maxQty: Quantity.parse(body.maxQty) },
+          { minQty: levels.base.minQty, reorderPointQty: levels.base.reorderPointQty, maxQty: levels.base.maxQty },
           body.expiryAlertDays ?? null,
         );
         if (product!.stockPolicy === 'NON_STOCK') broken.push({ field: '/productId', rule: 'NOT_A_STOCK_PRODUCT' });
@@ -260,9 +284,13 @@ export class StockAlerts {
             productId: body.productId,
             branchId: body.branchId,
             locationId: body.locationId ?? null,
-            minQty: Quantity.parse(body.minQty).toDecimalString(),
-            reorderPointQty: Quantity.parse(body.reorderPointQty).toDecimalString(),
-            maxQty: Quantity.parse(body.maxQty).toDecimalString(),
+            minQty: levels.base.minQty.toDecimalString(),
+            reorderPointQty: levels.base.reorderPointQty.toDecimalString(),
+            maxQty: levels.base.maxQty.toDecimalString(),
+            uom,
+            minQtyUom: uom === null ? null : Quantity.parse(body.minQty).toDecimalString(),
+            reorderPointQtyUom: uom === null ? null : Quantity.parse(body.reorderPointQty).toDecimalString(),
+            maxQtyUom: uom === null ? null : Quantity.parse(body.maxQty).toDecimalString(),
             expiryAlertDays: body.expiryAlertDays ?? null,
           },
           actor!.principalId,
@@ -294,14 +322,25 @@ export class StockAlerts {
         const before = await this.store.lockRule(tx, id);
         if (before === null) throw new NotFoundError(`no reorder rule ${id}`);
         if (before.version !== body.version) throw new VersionConflictError(`reorder rule ${id} is at version ${before.version}, not ${body.version}`);
+        // The levels are counted in the rule's own unit; all three are converted again, as entered, by the live factor.
+        const entered = {
+          minQty: Quantity.parse(body.minQty ?? before.minQtyUom ?? before.minQty).toDecimalString(),
+          reorderPointQty: Quantity.parse(body.reorderPointQty ?? before.reorderPointQtyUom ?? before.reorderPointQty).toDecimalString(),
+          maxQty: Quantity.parse(body.maxQty ?? before.maxQtyUom ?? before.maxQty).toDecimalString(),
+        };
+        const converted = await this.baseLevelsIn(tx, before.productId, before.uom, entered);
+        if (!converted.ok) throw new ReorderRuleInvalidError(converted.broken);
         const levels = {
-          minQty: Quantity.parse(body.minQty ?? before.minQty).toDecimalString(),
-          reorderPointQty: Quantity.parse(body.reorderPointQty ?? before.reorderPointQty).toDecimalString(),
-          maxQty: Quantity.parse(body.maxQty ?? before.maxQty).toDecimalString(),
+          minQty: converted.base.minQty.toDecimalString(),
+          reorderPointQty: converted.base.reorderPointQty.toDecimalString(),
+          maxQty: converted.base.maxQty.toDecimalString(),
+          minQtyUom: before.uom === null ? null : entered.minQty,
+          reorderPointQtyUom: before.uom === null ? null : entered.reorderPointQty,
+          maxQtyUom: before.uom === null ? null : entered.maxQty,
           expiryAlertDays: body.expiryAlertDays ?? before.expiryAlertDays,
         };
         const broken = checkReorderLevels(
-          { minQty: Quantity.parse(levels.minQty), reorderPointQty: Quantity.parse(levels.reorderPointQty), maxQty: Quantity.parse(levels.maxQty) },
+          { minQty: converted.base.minQty, reorderPointQty: converted.base.reorderPointQty, maxQty: converted.base.maxQty },
           levels.expiryAlertDays,
         );
         if (broken.length > 0) throw new ReorderRuleInvalidError(broken);
@@ -332,6 +371,31 @@ export class StockAlerts {
         page: { nextCursor: hasMore && last !== undefined ? this.cursors.encode(binding, { raisedAt: last.raisedAt.toISOString(), id: last.id }) : null, limit, hasMore },
       };
     });
+  }
+
+  /**
+   * A rule's three levels in the product's base unit: as entered when `uom` is null (the base unit), otherwise each
+   * converted through `MasterDataRefs.toBaseIn`, never by a factor of the rule's own (B09e continued). A unit the
+   * product does not convert from, or a level that would need a fourth decimal place, is refused.
+   */
+  private async baseLevelsIn(
+    tx: Transaction,
+    productId: string,
+    uom: string | null,
+    entered: { readonly minQty: string; readonly reorderPointQty: string; readonly maxQty: string },
+  ): Promise<{ readonly ok: true; readonly base: { readonly minQty: Quantity; readonly reorderPointQty: Quantity; readonly maxQty: Quantity } } | { readonly ok: false; readonly broken: Array<{ field: string; rule: string }> }> {
+    const fields = ['minQty', 'reorderPointQty', 'maxQty'] as const;
+    if (uom === null) return { ok: true, base: { minQty: Quantity.parse(entered.minQty), reorderPointQty: Quantity.parse(entered.reorderPointQty), maxQty: Quantity.parse(entered.maxQty) } };
+    const base: Partial<Record<(typeof fields)[number], Quantity>> = {};
+    const broken: Array<{ field: string; rule: string }> = [];
+    for (const field of fields) {
+      const converted = await this.refs.toBaseIn(tx, productId, uom, Quantity.parse(entered[field]));
+      if (converted.ok) base[field] = converted.value;
+      else if (converted.error === 'INEXACT_QUANTITY') broken.push({ field: `/${field}`, rule: 'INEXACT_QUANTITY' });
+      else return { ok: false, broken: [{ field: '/uom', rule: 'NO_CONVERSION' }] };
+    }
+    if (broken.length > 0) return { ok: false, broken };
+    return { ok: true, base: { minQty: base.minQty!, reorderPointQty: base.reorderPointQty!, maxQty: base.maxQty! } };
   }
 
   private async raise(tx: Transaction, actorId: string, at: Date, alert: Omit<StockAlertRecord, 'raisedAt'>): Promise<boolean> {
@@ -367,10 +431,14 @@ export class StockAlerts {
         product: productRef(product),
         branchId: r.branchId,
         location: r.locationId === null ? null : locationRef(locations.get(r.locationId)!),
-        uom: product.baseUom,
-        minQty: r.minQty,
-        reorderPointQty: r.reorderPointQty,
-        maxQty: r.maxQty,
+        uom: r.uom ?? product.baseUom,
+        minQty: r.minQtyUom ?? r.minQty,
+        reorderPointQty: r.reorderPointQtyUom ?? r.reorderPointQty,
+        maxQty: r.maxQtyUom ?? r.maxQty,
+        baseUom: product.baseUom,
+        minQtyBase: r.minQty,
+        reorderPointQtyBase: r.reorderPointQty,
+        maxQtyBase: r.maxQty,
         expiryAlertDays: r.expiryAlertDays,
         version: r.version,
       };
@@ -384,11 +452,18 @@ export class StockAlerts {
     const units = await this.documentsStore.units(tx, alerts.flatMap((a) => (a.stockUnitId === null ? [] : [a.stockUnitId])));
     const levels = new Map((await this.store.levels(tx, alerts.filter((a) => a.reorderRuleId !== null).map((a) => a.productId))).map((l) => [l.reorderRuleId, l] as const));
     const onHand = await this.store.unitOnHand(tx, alerts.flatMap((a) => (a.stockUnitId === null || a.locationId === null ? [] : [{ stockUnitId: a.stockUnitId, locationId: a.locationId }])));
+    const rules = new Map<string, ReorderRuleRecord>();
+    for (const ruleId of new Set(alerts.flatMap((a) => (a.reorderRuleId === null ? [] : [a.reorderRuleId])))) {
+      const rule = await this.store.rule(tx, ruleId);
+      if (rule !== null) rules.set(ruleId, rule);
+    }
     const today = toBusinessDate(this.clock.now());
     return alerts.map((a) => {
       const product = products.get(a.productId)!;
       const level = a.reorderRuleId === null ? undefined : levels.get(a.reorderRuleId);
       const current = level !== undefined ? level.availableQty : a.stockUnitId !== null ? (onHand.get(`${a.stockUnitId}:${a.locationId}`) ?? '0.000') : a.qty;
+      const suggested = level === undefined ? null : suggestedQty(Quantity.parse(level.availableQty), Quantity.parse(level.maxQty));
+      const rule = a.reorderRuleId === null ? undefined : rules.get(a.reorderRuleId);
       return {
         kind: a.kind,
         product: productRef(product),
@@ -397,13 +472,34 @@ export class StockAlerts {
         uom: product.baseUom,
         onHandQty: Quantity.parse(current).toDecimalString(),
         thresholdQty: a.thresholdQty,
-        suggestedQty: level === undefined ? null : suggestedQty(Quantity.parse(level.availableQty), Quantity.parse(level.maxQty)).toDecimalString(),
+        suggestedQty: suggested?.toDecimalString() ?? null,
         expiresOn: a.expiresOn,
         daysToExpiry: a.expiresOn === null ? null : daysToExpiry(a.expiresOn, today),
+        inRuleUnit: rule === undefined ? null : ruleUnitQuantities(rule, Quantity.parse(current), a.thresholdQty, suggested),
         raisedAt: a.raisedAt.toISOString(),
       };
     });
   }
+}
+
+/**
+ * A level alert's figures in its rule's selling unit (B09e continued, the owner's decision 6): on hand as whole units and
+ * what is left over in the base unit, the level crossed as the rule counts it, and the suggested reorder in whole units
+ * rounded up so the order reaches the maximum. The rule's own maximum, as entered and as stored, is the scale. Null for
+ * a rule in the base unit, which the base figures already answer.
+ */
+function ruleUnitQuantities(rule: ReorderRuleRecord, available: Quantity, thresholdBase: string | null, suggestedBase: Quantity | null): RuleUnitQuantities | null {
+  if (rule.uom === null || rule.maxQtyUom === null) return null;
+  const scale: RuleScale = { uomQty: Quantity.parse(rule.maxQtyUom), baseQty: Quantity.parse(rule.maxQty) };
+  const onHand = inRuleUnit(available, scale);
+  return {
+    uom: rule.uom,
+    onHandQty: onHand.whole.toDecimalString(),
+    onHandLooseQty: onHand.loose.toDecimalString(),
+    // The level was entered in the unit, so it converts back exactly; one that does not stays null, never rounded.
+    thresholdQty: thresholdBase === null ? null : (exactlyInRuleUnit(Quantity.parse(thresholdBase), scale)?.toDecimalString() ?? null),
+    suggestedQty: suggestedBase === null ? null : wholeUnitsToReach(suggestedBase, scale).toDecimalString(),
+  };
 }
 
 /**

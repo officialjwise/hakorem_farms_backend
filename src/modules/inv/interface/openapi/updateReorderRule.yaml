@@ -60,6 +60,10 @@ responses:
           minQty: "10.000"
           reorderPointQty: "15.000"
           maxQty: "60.000"
+          baseUom: KG
+          minQtyBase: "500.000"
+          reorderPointQtyBase: "750.000"
+          maxQtyBase: "3000.000"
           expiryAlertDays: null
           version: 1
   "400":

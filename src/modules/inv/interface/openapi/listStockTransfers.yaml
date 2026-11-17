@@ -85,6 +85,8 @@ responses:
                         tracking: LOT
                       uom: KG
                       qtyDispatched: "30.150"
+                      baseUom: KG
+                      qtyDispatchedBase: "30.150"
                       qtyReceived: "29.750"
                       varianceQty: "0.400"
                       varianceReasonCode: DRIP_LOSS
@@ -129,6 +131,8 @@ responses:
                         tracking: LOT
                       uom: CRATE
                       qtyDispatched: "10.000"
+                      baseUom: UNIT
+                      qtyDispatchedBase: "300.000"
                       qtyReceived: null
                       varianceQty: null
                       varianceReasonCode: null
@@ -171,6 +175,8 @@ responses:
                         tracking: LOT
                       uom: KG
                       qtyDispatched: "45.000"
+                      baseUom: KG
+                      qtyDispatchedBase: "45.000"
                       qtyReceived: "45.000"
                       varianceQty: "0.000"
                       varianceReasonCode: null
@@ -215,6 +221,8 @@ responses:
                         tracking: SERIAL
                       uom: HEAD
                       qtyDispatched: "1.000"
+                      baseUom: HEAD
+                      qtyDispatchedBase: "1.000"
                       qtyReceived: "1.000"
                       varianceQty: "0.000"
                       varianceReasonCode: null
@@ -259,6 +267,8 @@ responses:
                         tracking: LOT
                       uom: CRATE
                       qtyDispatched: "4.000"
+                      baseUom: CRATE
+                      qtyDispatchedBase: "4.000"
                       qtyReceived: null
                       varianceQty: null
                       varianceReasonCode: null
@@ -299,6 +309,8 @@ responses:
                         tracking: LOT
                       uom: KG
                       qtyDispatched: "30.000"
+                      baseUom: KG
+                      qtyDispatchedBase: "30.000"
                       qtyReceived: "30.000"
                       varianceQty: "0.000"
                       varianceReasonCode: null

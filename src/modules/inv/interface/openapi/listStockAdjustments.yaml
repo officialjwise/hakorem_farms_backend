@@ -163,8 +163,8 @@ responses:
                         identifier: MEAT-BEEF-261104-01
                         tracking: LOT
                       direction: LOSS
-                      qty: "2.000"
-                      uom: CRATE
+                      qty: "60.000"
+                      uom: UNIT
                       weightKg: null
                       valuePesewas: 8000
                       movementId: "019a7ab8-d173-7066-959f-0f3fb6aa881d"

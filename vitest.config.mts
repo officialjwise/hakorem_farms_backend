@@ -132,6 +132,8 @@ export default defineConfig({
         ...fullCoverage('src/modules/inv/domain/stock-take.ts'), // B05 continued 3: stock-take scopes, overlap, variances, recounts
         ...fullCoverage('src/modules/inv/domain/stock-hold.ts'), // B05 continued 3: hold windows, placement and early release
         ...fullCoverage('src/modules/inv/domain/stock-exception.ts'), // B05 continued 3b: exception resolution kinds and summaries (ADR-0048)
+        ...fullCoverage('src/modules/inv/domain/oldest-first.ts'), // B09e continued: oldest first, by expiry then received date
+        ...fullCoverage('src/modules/inv/domain/rule-unit.ts'), // B09e continued: reorder levels and alerts in the selling unit
         ...fullCoverage('src/modules/inv/domain/reservation.ts'), // B05 continued 3b: what may be promised, and what the expiry job ends
         ...fullCoverage('src/modules/inv/domain/availability.ts'), // B05 continued 3b: available to promise and its level
         ...fullCoverage('src/modules/inv/domain/stock-alert.ts'), // B05 continued 4: reorder levels, one alert per crossing, expiry

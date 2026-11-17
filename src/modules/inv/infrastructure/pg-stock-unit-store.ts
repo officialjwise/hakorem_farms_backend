@@ -68,10 +68,10 @@ export class PgStockUnitStore implements StockUnitStore {
   async insert(tx: Transaction, unit: NewStockUnit, actorId: string): Promise<void> {
     await tx.query(
       `INSERT INTO inv.stock_unit (id, product_id, tracking, branch_id, identifier, status, produced_on, expires_on, storage_temp_class, supplier_id,
-                                   source_document_id, last_weight_kg, last_weighed_at, created_by, updated_by)
-       VALUES ($1, $2, $3, $4, $5, 'ACTIVE', $6, $7, $8, $9, $10, $11, $12, $13, $13)`,
+                                   source_document_id, last_weight_kg, last_weighed_at, received_at, created_by, updated_by)
+       VALUES ($1, $2, $3, $4, $5, 'ACTIVE', $6, $7, $8, $9, $10, $11, $12, $13, $14, $14)`,
       [unit.id, unit.productId, unit.tracking, unit.branchId, unit.identifier, unit.producedOn, unit.expiresOn, unit.storageTempClass, unit.supplierId,
-        unit.sourceDocumentId, unit.lastWeightKg, unit.lastWeighedAt, actorId],
+        unit.sourceDocumentId, unit.lastWeightKg, unit.lastWeighedAt, unit.receivedAt, actorId],
     );
   }
 

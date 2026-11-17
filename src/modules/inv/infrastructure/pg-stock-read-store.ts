@@ -24,13 +24,14 @@ interface OnHandSqlRow {
   unit_branch_id: string | null;
   produced_on: string | null;
   expires_on: string | null;
+  received_at: Date | null;
   holds: HoldKind[] | null;
 }
 
 /** One balance at a physical location with its unit's dates and holds at `at`; `b` is its `inv.stock_balance` row. */
 const onHandSelect = (at: string) => `SELECT v.product_id, v.stock_unit_id, v.location_id, v.branch_id, v.on_hand_qty, v.on_hand_weight_kg, v.reserved_qty, v.available_qty,
               b.pack_count, u.identifier, u.tracking, u.branch_id AS unit_branch_id,
-              to_char(u.produced_on, 'YYYY-MM-DD') AS produced_on, to_char(u.expires_on, 'YYYY-MM-DD') AS expires_on,
+              to_char(u.produced_on, 'YYYY-MM-DD') AS produced_on, to_char(u.expires_on, 'YYYY-MM-DD') AS expires_on, u.received_at,
               (SELECT array_agg(DISTINCT h.kind ORDER BY h.kind) FROM inv.stock_hold h WHERE h.stock_unit_id = v.stock_unit_id AND ${activeHold(at)}) AS holds
          FROM inv.pub_stock_on_hand v
          JOIN inv.stock_balance b ON b.product_id = v.product_id AND b.location_id = v.location_id AND b.stock_unit_id IS NOT DISTINCT FROM v.stock_unit_id
@@ -71,7 +72,7 @@ function toOnHandRow(r: OnHandSqlRow): OnHandRow {
     unit:
       r.stock_unit_id === null
         ? null
-        : { identifier: r.identifier!, tracking: r.tracking!, branchId: r.unit_branch_id!, producedOn: r.produced_on, expiresOn: r.expires_on },
+        : { identifier: r.identifier!, tracking: r.tracking!, branchId: r.unit_branch_id!, producedOn: r.produced_on, expiresOn: r.expires_on, receivedAt: r.received_at },
     holds: r.holds ?? [],
   };
 }
@@ -204,6 +205,7 @@ export class PgStockReadStore implements StockReadStore {
       status: StockUnitRow['status'];
       produced_on: string | null;
       expires_on: string | null;
+      received_at: Date | null;
       storage_temp_class: StockUnitRow['storageTempClass'];
       supplier_id: string | null;
       grade_id: string | null;
@@ -215,7 +217,7 @@ export class PgStockReadStore implements StockReadStore {
       value_pesewas: string;
     }>(
       `SELECT u.id, u.product_id, u.tracking, u.branch_id, u.identifier, u.current_location_id, u.status,
-              to_char(u.produced_on, 'YYYY-MM-DD') AS produced_on, to_char(u.expires_on, 'YYYY-MM-DD') AS expires_on, u.storage_temp_class,
+              to_char(u.produced_on, 'YYYY-MM-DD') AS produced_on, to_char(u.expires_on, 'YYYY-MM-DD') AS expires_on, u.received_at, u.storage_temp_class,
               u.supplier_id, u.grade_id, u.last_weight_kg, u.last_weighed_at, u.source_document_id, u.created_at,
               (SELECT COALESCE(sum(v.on_hand_qty), 0)::numeric(14,3) FROM inv.pub_stock_on_hand v WHERE v.stock_unit_id = u.id) AS on_hand_qty,
               (SELECT COALESCE(sum(c.value_pesewas), 0) FROM inv.pub_stock_value c WHERE c.stock_unit_id = u.id) AS value_pesewas
@@ -243,6 +245,7 @@ export class PgStockReadStore implements StockReadStore {
       status: r.status,
       producedOn: r.produced_on,
       expiresOn: r.expires_on,
+      receivedAt: r.received_at,
       storageTempClass: r.storage_temp_class,
       supplierId: r.supplier_id,
       gradeId: r.grade_id,

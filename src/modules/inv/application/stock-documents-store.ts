@@ -78,7 +78,11 @@ export interface TransferLineRecord {
   readonly lineNo: number;
   readonly productId: string;
   readonly stockUnitId: string | null;
+  /** Dispatched, received and the variance are in the product's base unit: what the movements carry. */
   readonly qtyDispatched: string;
+  /** The unit the line was entered in when it is not the base unit (a crate), and the quantity as entered; else null. */
+  readonly uom: string | null;
+  readonly qtyDispatchedUom: string | null;
   readonly qtyReceived: string | null;
   readonly varianceQty: string | null;
   readonly varianceReasonCode: string | null;

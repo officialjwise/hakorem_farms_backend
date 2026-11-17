@@ -25,6 +25,7 @@ Option 3. The published functions are the database's equivalent of a module's `i
 | --- | --- | --- | --- |
 | `location_stock_facts(uuid)` | `mdm` | `branch_id`, `kind`, `code`, `is_virtual`, `allows_negative` | `inv` movement and reservation triggers, `inv.pub_stock_on_hand` |
 | `product_tracking(uuid)` | `mdm` | `SERIAL`, `LOT` or `NONE` | `inv` movement trigger and stock unit guard |
+| `uom_to_base(uuid, text, numeric)` | `mdm` | the quantity in the product's base unit by its live exact conversion, the base unit passing through; null for no conversion or an inexact result (what `MasterDataRefs.toBaseIn` answers) | `inv` guards of goods receipt lines, transfer lines and reorder rules (B09e continued, migrations 0216, 0217, 0219, A-264) |
 | `archived_rendering(uuid, bytea)` | `doc` | the archived rendering's id for a document and SHA-256, or null | `bil` migration 0155, relinking documents to their archive when applied again after a rollback (B08 continued 2b, ADR-0061) |
 
 `scripts/check/schema-names.ts` passes a call to a listed function from a schema in a higher layer, and fails any other name of a lower schema's object; its unit test proves both.

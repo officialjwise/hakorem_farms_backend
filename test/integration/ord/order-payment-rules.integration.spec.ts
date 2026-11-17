@@ -130,9 +130,11 @@ describe('a sale is refused, posting nothing, when it breaks a rule (FR-ORD-003,
     });
   });
 
-  it('refuses two goats on one line, and a lot product with no lot named', async () => {
+  it('refuses two goats on one line, and a lot product with no lot named that no single lot covers', async () => {
     await expect(post(eggs({ lines: [{ productId: id('goat'), stockUnitId: id('G-0142'), fromLocationId: id('PENS'), quantity: '2.000' }] }))).rejects.toMatchObject({ code: 'SALE_INVALID', details: [expect.objectContaining({ code: 'ONE_ANIMAL_PER_LINE' })] });
-    await expect(post(eggs({ lines: [{ productId: id('eggs'), fromLocationId: id('SHOP'), quantity: '1.000' }] }))).rejects.toMatchObject({ code: 'SALE_INVALID', details: [expect.objectContaining({ code: 'STOCK_UNIT_REQUIRED' })] });
+    // B09e continued (decision 4): a line naming no lot takes the oldest lot that covers it; 31 crates is more than the
+    // seeded lot's 30, so no lot is picked and the lot is required, as before.
+    await expect(post(eggs({ lines: [{ productId: id('eggs'), fromLocationId: id('SHOP'), quantity: '31.000', uom: 'CRATE' }] }))).rejects.toMatchObject({ code: 'SALE_INVALID', details: [expect.objectContaining({ code: 'STOCK_UNIT_REQUIRED' })] });
   });
 
   it('refuses a tender one pesewa short or over the receipt (TENDER_SHORT, TENDER_OVER)', async () => {

@@ -13,6 +13,9 @@ Owner: INV module. The stock movement ledger, tracked stock units, balances, val
 | `inv.pub_movement` (view) | Movements with type, product, locations, quantity, weight, value, document and time; no actor detail |
 | `inv.protect_expired()` on `BEFORE INSERT` of `inv.stock_movement` | A movement type `blocked_when_expired` (sale, offline sale) of a lot whose `expires_on` is before the movement's Africa/Accra date is refused (HK010 `ck_stock_expired`, migration 0064, A-134 (j)) |
 | `inv.pub_reorder_level` (view) | Each live reorder rule with on hand, reserved, held and available stock over the branch's physical stock locations (or the rule's one location; in transit and sites left out), and `at_or_below_reorder_point` and `below_minimum`; a hold is in force at `platform.app_now()` (0186, ADR-0067). Read by RPT's low stock tile (B05x, ADR-0011) and by `StockAlerts` |
+| `inv.line_uom_guard()` on `BEFORE INSERT OR UPDATE` of `inv.goods_receipt_line` and `inv.stock_transfer_line` | A line entered in another unit (a crate) carries base quantities that are exactly its entered quantities converted by the product's live conversion, asked of MDM's published `mdm.uom_to_base` (HK010 `ck_line_uom_conversion`, migration 0217, B09e continued) |
+| `inv.require_received_date()` on `BEFORE INSERT` of `inv.stock_movement` | A `RECEIPT_PURCHASE` of a stock unit, other than a reversal, needs the unit's `received_at` (HK010 `ck_stock_unit_received`, migration 0218) |
+| `inv.reorder_rule_uom_guard()` on `BEFORE INSERT OR UPDATE` of `inv.reorder_rule` | A rule counted in a selling unit stores levels that are exactly its entered levels converted by the live conversion, and its unit never changes (HK010 `ck_reorder_rule_uom_conversion`, migration 0219) |
 | `inv.pub_goods_receipt` (view) | Each goods receipt's kind, status, branch, location, supplier, `received_at`, `posted_at`, value at cost (the sum of its lines) and line count. Read by RPT's purchases tile (B05x, migration 0068) |
 
 ---
@@ -50,6 +53,7 @@ One individually tracked thing: an animal (`SERIAL`) or a lot (`LOT`). Published
 | `status` | `text` | NOT NULL, CHECK in (`ACTIVE`, `SOLD`, `CONSUMED`, `WRITTEN_OFF`, `DEPLETED`) | Written only by the movement trigger |
 | `produced_on` | `date` | NULL | Production, slaughter or lay date for a lot |
 | `expires_on` | `date` | NULL | Expiring-stock alerts; sale after this date is blocked |
+| `received_at` | `timestamptz` | NULL; set once by the goods receipt that registers the unit | When its delivery arrived: oldest first orders by expiry, then by this (B09e continued, migration 0218, A-265). Null for a processing output or an animal born on the farm |
 | `storage_temp_class` | `text` | NULL, CHECK in (`AMBIENT`, `CHILLED`, `FROZEN`) | Cold chain requirement |
 | `supplier_id` | `uuid` | NULL, FK `mdm.supplier` | Backward trace for purchased stock |
 | `source_document_id` | `uuid` | NOT NULL, FK `platform.business_document` | The receipt, birth record or processing order that created it |
@@ -61,6 +65,7 @@ Standard columns: `MASTER`. Never soft-deleted once it has a movement.
 
 - Partial UNIQUE (`product_id`, `identifier`) where status is `ACTIVE`.
 - The application role may update only `grade_id`, `last_weight_kg`, `last_weighed_at`, `expires_on`.
+- `ix_stock_unit_received` (`product_id`, `expires_on`, `received_at`, `id`) over live ACTIVE units: the order a pick reads (0218). A `RECEIPT_PURCHASE` of a unit with no `received_at` is refused (`ck_stock_unit_received`).
 - Sort indexes (migration 0121, CR-019, ADR-0054), over live rows: `ix_stock_unit_sort_identifier` (`branch_id`, `lower(identifier)`, `id`); `ix_stock_unit_sort_expiry` and `ix_stock_unit_sort_expiry_desc` (`branch_id`, `expires_on IS NULL`, `COALESCE(expires_on, 'epoch')` and `id` ascending, and descending), so a unit with no expiry comes last both ways.
 
 ### `inv.stock_unit_lineage` · LEDGER
@@ -254,8 +259,10 @@ Frozen with its header. Published key (three-way match).
 | `line_no` | `integer` | NOT NULL | |
 | `product_id` | `uuid` | NOT NULL, FK `mdm.product` | |
 | `order_line_ref` | `uuid` | NULL | The purchase order line |
-| `qty_received` | `qty` | NOT NULL, CHECK `> 0` | |
-| `qty_rejected` | `qty` | NOT NULL DEFAULT 0 | Supplier quality score |
+| `qty_received` | `qty` | NOT NULL, CHECK `> 0` | In the product's base unit: what the receipt movement brings in |
+| `qty_rejected` | `qty` | NOT NULL DEFAULT 0 | Supplier quality score; in the base unit |
+| `uom` | `text` | NULL, FK `mdm.uom` | The unit the line was entered in when it is not the base unit (a crate, B09e continued, migration 0217); null for the base unit |
+| `qty_received_uom`, `qty_rejected_uom` | `qty` | NULL; set exactly with `uom` (`ck_goods_receipt_line_uom`) | The quantities as entered, in `uom`; the base quantities are exactly these converted (`ck_line_uom_conversion`) |
 | `weight_kg` | `kg` | NULL | |
 | `weight_source` | `text` | NULL | |
 | `value_pesewas` | `pesewas` | NOT NULL | Cost of the accepted quantity |
@@ -316,7 +323,8 @@ What a transfer carries, dispatched and received.
 | `line_no` | `integer` | NOT NULL | |
 | `product_id` | `uuid` | NOT NULL, FK `mdm.product` | |
 | `stock_unit_id` | `uuid` | NULL, FK `inv.stock_unit` | |
-| `qty_dispatched` | `qty` | NOT NULL, CHECK `> 0` | |
+| `qty_dispatched` | `qty` | NOT NULL, CHECK `> 0` | In the product's base unit, as `qty_received` and `variance_qty` are |
+| `uom`, `qty_dispatched_uom` | `text`, `qty` | NULL, set together (`ck_stock_transfer_line_uom`); `uom` FK `mdm.uom` | The unit the line was entered in when it is not the base unit, and the quantity as entered (B09e continued, migration 0217, `ck_line_uom_conversion`) |
 | `qty_received` | `qty` | NULL | |
 | `variance_qty` | `qty` | NULL | Shortfall on receipt, with a reason; held in transit by its exception from migration 0060 (ADR-0048), posted as a loss before it |
 | `variance_reason_code` | `text` | NULL, FK `mdm.reason_code` | |
@@ -446,6 +454,8 @@ Minimum, reorder point and maximum levels, and expiry alert lead time (FR-INV-01
 | `min_qty` | `qty` | NOT NULL, CHECK `>= 0` | Minimum level: a `BELOW_MINIMUM` alert under it |
 | `reorder_point_qty` | `qty` | NOT NULL, CHECK `>= min_qty` | Low-stock alert fires at or below it |
 | `max_qty` | `qty` | NOT NULL, CHECK `>= reorder_point_qty` and `> 0` | Maximum level; the suggested reorder reaches it |
+| `uom` | `text` | NULL, FK `mdm.uom`; never changes | The unit the levels were entered in when it is not the base unit (a reorder point of 30 crates, B09e continued, migration 0219, A-267); the three levels above stay in the base unit |
+| `min_qty_uom`, `reorder_point_qty_uom`, `max_qty_uom` | `qty` | NULL; set exactly with `uom` (`ck_reorder_rule_uom`) | The levels as entered; the base levels are exactly these converted (`ck_reorder_rule_uom_conversion`) |
 | `expiry_alert_days` | `integer` | NULL, CHECK 1 to 365 | Days before expiry to alert; null takes the default of 3 |
 
 Standard columns: `MASTER`. UNIQUE NULLS NOT DISTINCT (`product_id`, `branch_id`, `location_id`) among live rows (`uq_reorder_rule`). Its product, branch and location never change (`inv.reorder_rule_guard`, HK010 `ck_reorder_rule_change`).

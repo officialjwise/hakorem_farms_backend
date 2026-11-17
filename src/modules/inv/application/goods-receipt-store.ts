@@ -26,8 +26,13 @@ export interface ReceiptLineRecord {
   readonly lineNo: number;
   readonly productId: string;
   readonly orderLineRef: string | null;
+  /** Both in the product's base unit: what stock, the cost pool and the purchase order's match read. */
   readonly qtyReceived: string;
   readonly qtyRejected: string;
+  /** The unit the line was entered in when it is not the base unit (a crate), with its quantities as entered; else null. */
+  readonly uom: string | null;
+  readonly qtyReceivedUom: string | null;
+  readonly qtyRejectedUom: string | null;
   readonly weightKg: string | null;
   readonly weightSource: WeightSource | null;
   readonly valuePesewas: bigint;
@@ -74,6 +79,11 @@ export interface NewStockUnit {
   readonly sourceDocumentId: string;
   readonly lastWeightKg: string | null;
   readonly lastWeighedAt: Date | null;
+  /**
+   * The goods receipt's received_at, kept on the unit: what oldest first orders by after expiry (B09e continued); null
+   * for a unit no receipt brings in (a processing output, an animal born on the farm).
+   */
+  readonly receivedAt: Date | null;
 }
 
 export interface ReceiptFilters {

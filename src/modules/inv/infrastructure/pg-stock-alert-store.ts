@@ -16,7 +16,8 @@ import type {
 import type { ReadScope } from '../application/stock-documents-store';
 
 const RULE = `SELECT r.id, r.product_id AS "productId", r.branch_id AS "branchId", r.location_id AS "locationId", r.min_qty::text AS "minQty",
-                     r.reorder_point_qty::text AS "reorderPointQty", r.max_qty::text AS "maxQty", r.expiry_alert_days AS "expiryAlertDays", r.version
+                     r.reorder_point_qty::text AS "reorderPointQty", r.max_qty::text AS "maxQty", r.uom, r.min_qty_uom::text AS "minQtyUom",
+                     r.reorder_point_qty_uom::text AS "reorderPointQtyUom", r.max_qty_uom::text AS "maxQtyUom", r.expiry_alert_days AS "expiryAlertDays", r.version
                 FROM inv.reorder_rule r`;
 
 const ALERT = `SELECT a.id, a.kind, a.branch_id AS "branchId", a.product_id AS "productId", a.location_id AS "locationId", a.stock_unit_id AS "stockUnitId",
@@ -66,17 +67,25 @@ export class PgStockAlertStore implements StockAlertStore {
 
   async insertRule(tx: Transaction, r: Omit<ReorderRuleRecord, 'version'>, actorId: string): Promise<void> {
     await tx.query(
-      `INSERT INTO inv.reorder_rule (id, product_id, branch_id, location_id, min_qty, reorder_point_qty, max_qty, expiry_alert_days, created_by, updated_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9)`,
-      [r.id, r.productId, r.branchId, r.locationId, r.minQty, r.reorderPointQty, r.maxQty, r.expiryAlertDays, actorId],
+      `INSERT INTO inv.reorder_rule (id, product_id, branch_id, location_id, min_qty, reorder_point_qty, max_qty, expiry_alert_days, uom, min_qty_uom,
+                                     reorder_point_qty_uom, max_qty_uom, created_by, updated_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $13)`,
+      [r.id, r.productId, r.branchId, r.locationId, r.minQty, r.reorderPointQty, r.maxQty, r.expiryAlertDays, r.uom, r.minQtyUom, r.reorderPointQtyUom, r.maxQtyUom, actorId],
     );
   }
 
-  async updateRule(tx: Transaction, id: string, version: number, l: Pick<ReorderRuleRecord, 'minQty' | 'reorderPointQty' | 'maxQty' | 'expiryAlertDays'>, actorId: string): Promise<boolean> {
+  async updateRule(
+    tx: Transaction,
+    id: string,
+    version: number,
+    l: Pick<ReorderRuleRecord, 'minQty' | 'reorderPointQty' | 'maxQty' | 'minQtyUom' | 'reorderPointQtyUom' | 'maxQtyUom' | 'expiryAlertDays'>,
+    actorId: string,
+  ): Promise<boolean> {
     const result = await tx.query(
-      `UPDATE inv.reorder_rule SET min_qty = $3, reorder_point_qty = $4, max_qty = $5, expiry_alert_days = $6, version = version + 1, updated_by = $7
+      `UPDATE inv.reorder_rule SET min_qty = $3, reorder_point_qty = $4, max_qty = $5, expiry_alert_days = $6, min_qty_uom = $8, reorder_point_qty_uom = $9,
+                                   max_qty_uom = $10, version = version + 1, updated_by = $7
         WHERE id = $1 AND version = $2 AND deleted_at IS NULL`,
-      [id, version, l.minQty, l.reorderPointQty, l.maxQty, l.expiryAlertDays, actorId],
+      [id, version, l.minQty, l.reorderPointQty, l.maxQty, l.expiryAlertDays, actorId, l.minQtyUom, l.reorderPointQtyUom, l.maxQtyUom],
     );
     return result.rowCount === 1;
   }

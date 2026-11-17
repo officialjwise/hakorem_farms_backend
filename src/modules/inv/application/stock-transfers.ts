@@ -24,6 +24,8 @@ const VARIANCE_REASON_DOMAINS: ReadonlySet<string> = new Set(['STOCK_ADJUSTMENT'
 export interface TransferLineInput {
   readonly productId: string;
   readonly stockUnitId?: string | undefined;
+  /** The unit `qty` is entered in (a crate): the product's base unit when absent (B09e continued). */
+  readonly uom?: string | undefined;
   readonly qty: string;
 }
 
@@ -34,7 +36,8 @@ export interface TransferCreateRequest {
 }
 
 export interface TransferReceiveRequest {
-  readonly lines: ReadonlyArray<{ readonly lineId: string; readonly qtyReceived: string; readonly varianceReasonCode?: string | undefined }>;
+  /** `qtyReceived` is counted in `uom` when it is named (crates or eggs), else in the product's base unit. */
+  readonly lines: ReadonlyArray<{ readonly lineId: string; readonly uom?: string | undefined; readonly qtyReceived: string; readonly varianceReasonCode?: string | undefined }>;
 }
 
 export interface StockTransferView {
@@ -49,8 +52,12 @@ export interface StockTransferView {
     readonly lineNo: number;
     readonly product: { readonly id: string; readonly sku: string; readonly name: string };
     readonly stockUnit: StockUnitRefView | null;
+    /** The unit the line was entered in; `qtyDispatched` is in it. */
     readonly uom: string;
     readonly qtyDispatched: string;
+    /** The product's base unit, which `qtyDispatchedBase`, `qtyReceived` and `varianceQty` are in (B09e continued). */
+    readonly baseUom: string;
+    readonly qtyDispatchedBase: string;
     readonly qtyReceived: string | null;
     readonly varianceQty: string | null;
     readonly varianceReasonCode: string | null;
@@ -155,7 +162,9 @@ export class StockTransfers {
     for (const [field, location] of [['/fromLocationId', from!], ['/toLocationId', to!]] as const) {
       if (location.isVirtual || NOT_A_TRANSFER_END.has(location.kind)) broken.push({ field, rule: 'NOT_A_STOCK_LOCATION' });
     }
-    broken.push(...(await this.lineRules(tx, body.lines)));
+    const converted = await this.inBaseUnit(tx, body.lines);
+    broken.push(...converted.broken);
+    broken.push(...(await this.lineRules(tx, converted.lines.map((c) => ({ productId: c.input.productId, stockUnitId: c.input.stockUnitId, qty: c.qty.toDecimalString() })))));
     const units = await this.store.units(tx, body.lines.flatMap((l) => (l.stockUnitId === undefined ? [] : [l.stockUnitId])));
     body.lines.forEach((l, index) => {
       const unit = l.stockUnitId === undefined ? undefined : units.get(l.stockUnitId);
@@ -165,13 +174,15 @@ export class StockTransfers {
     const id = this.nextId();
     await this.documents.register(tx, { id, docType: 'STOCK_TRANSFER', ownerModule: 'inv', branchId: from!.branchId, actorId: actor.principalId });
     await this.store.insertTransfer(tx, { id, fromLocationId: from!.id, toLocationId: to!.id, toBranchId: to!.branchId, branchId: from!.branchId }, actor.principalId);
-    for (const [index, line] of body.lines.entries()) {
+    for (const [index, line] of converted.lines.entries()) {
       await this.store.insertTransferLine(tx, id, {
         id: this.nextId(),
         lineNo: ordinal(index),
-        productId: line.productId,
-        stockUnitId: line.stockUnitId ?? null,
-        qtyDispatched: Quantity.parse(line.qty).toDecimalString(),
+        productId: line.input.productId,
+        stockUnitId: line.input.stockUnitId ?? null,
+        qtyDispatched: line.qty.toDecimalString(),
+        uom: line.uom,
+        qtyDispatchedUom: line.uom === null ? null : Quantity.parse(line.input.qty).toDecimalString(),
       });
     }
     const view = await this.view(tx, id);
@@ -229,9 +240,24 @@ export class StockTransfers {
       async (tx) => {
         const transfer = await this.locked(tx, id, 'DISPATCHED');
         const units = await this.store.units(tx, transfer.lines.flatMap((l) => (l.stockUnitId === null ? [] : [l.stockUnitId])));
+        // A count on arrival may be in crates or in eggs; it is converted to the base unit the dispatch moved.
+        const counted: Quantity[] = [];
+        const unconverted: StockRuleBroken[] = [];
+        for (const [index, l] of body.lines.entries()) {
+          const qty = Quantity.parse(l.qtyReceived);
+          const line = transfer.lines.find((t) => t.id === l.lineId);
+          if (l.uom === undefined || line === undefined) {
+            counted.push(qty);
+            continue;
+          }
+          const base = await this.refs.toBaseIn(tx, line.productId, l.uom, qty);
+          if (!base.ok) unconverted.push(base.error === 'INEXACT_QUANTITY' ? { field: `/lines/${index}/qtyReceived`, rule: 'INEXACT_QUANTITY' } : { field: `/lines/${index}/uom`, rule: 'NO_CONVERSION' });
+          counted.push(base.ok ? base.value : qty);
+        }
+        if (unconverted.length > 0) throw new StockTransferInvalidError(unconverted);
         const plan = planTransferReceipt(
           transfer.lines.map((l) => ({ lineId: l.id, qtyDispatched: Quantity.parse(l.qtyDispatched), serial: l.stockUnitId !== null && units.get(l.stockUnitId)?.tracking === 'SERIAL' })),
-          body.lines.map((l) => ({ lineId: l.lineId, qtyReceived: Quantity.parse(l.qtyReceived), varianceReasonCode: l.varianceReasonCode })),
+          body.lines.map((l, index) => ({ lineId: l.lineId, qtyReceived: counted[index]!, varianceReasonCode: l.varianceReasonCode })),
         );
         if (!plan.ok) throw new TransferVarianceError(plan.broken);
         const reasons = await this.refs.reasonCodesIn(tx, plan.lines.flatMap((l) => (l.reasonCode === null ? [] : [l.reasonCode])));
@@ -293,6 +319,32 @@ export class StockTransfers {
       await this.store.markTransferCancelled(tx, id, body.reason, actor!.principalId);
       return { status: 200, body: await this.audited(tx, 'CANCEL', transfer, body.reason) };
     });
+  }
+
+  /**
+   * The lines in the product's base unit: a line entered in another unit (a crate) is converted through
+   * `MasterDataRefs.toBaseIn`, never by a factor of its own; a unit the product is not moved by, or a quantity that
+   * would need a fourth decimal place, is refused. An unknown product is left to the line rules (404 on its field).
+   */
+  private async inBaseUnit(
+    tx: Transaction,
+    lines: readonly TransferLineInput[],
+  ): Promise<{ readonly broken: StockRuleBroken[]; readonly lines: ReadonlyArray<{ readonly input: TransferLineInput; readonly uom: string | null; readonly qty: Quantity }> }> {
+    const products = await this.refs.productsIn(tx, lines.map((l) => l.productId));
+    const broken: StockRuleBroken[] = [];
+    const converted: Array<{ input: TransferLineInput; uom: string | null; qty: Quantity }> = [];
+    for (const [index, line] of lines.entries()) {
+      const product = products.get(line.productId);
+      const qty = Quantity.parse(line.qty);
+      if (product === undefined || line.uom === undefined || line.uom === product.baseUom) {
+        converted.push({ input: line, uom: null, qty });
+        continue;
+      }
+      const base = await this.refs.toBaseIn(tx, product.id, line.uom, qty);
+      if (!base.ok) broken.push(base.error === 'INEXACT_QUANTITY' ? { field: `/lines/${index}/qty`, rule: 'INEXACT_QUANTITY' } : { field: `/lines/${index}/uom`, rule: 'NO_CONVERSION' });
+      converted.push({ input: line, uom: line.uom, qty: base.ok ? base.value : qty });
+    }
+    return { broken, lines: converted };
   }
 
   private async lineRules(tx: Transaction, lines: readonly TransferLineInput[]): Promise<StockRuleBroken[]> {
@@ -366,8 +418,10 @@ export class StockTransfers {
           lineNo: l.lineNo,
           product: productRef(product),
           stockUnit: l.stockUnitId === null ? null : unitRef(units.get(l.stockUnitId)),
-          uom: product.baseUom,
-          qtyDispatched: l.qtyDispatched,
+          uom: l.uom ?? product.baseUom,
+          qtyDispatched: l.qtyDispatchedUom ?? l.qtyDispatched,
+          baseUom: product.baseUom,
+          qtyDispatchedBase: l.qtyDispatched,
           qtyReceived: l.qtyReceived,
           varianceQty: l.varianceQty,
           varianceReasonCode: l.varianceReasonCode,
