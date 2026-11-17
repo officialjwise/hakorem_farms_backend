@@ -130,8 +130,21 @@ export interface OrderVoidRecord {
 }
 
 /** ORD's own tables (schema `ord`). The status history is inserted only. */
+/** One tracking link's token, as stored: its hash only (ADR-0074). */
+export interface TrackingTokenRecord {
+  readonly id: string;
+  readonly salesOrderId: string;
+  readonly tokenHash: Buffer;
+  readonly recordedAt: Date;
+  readonly expiresAt: Date;
+  readonly actorId: string;
+}
+
 export interface OrderStore {
   insertOrder(tx: Transaction, order: NewOrder): Promise<void>;
+  insertTrackingToken(tx: Transaction, token: TrackingTokenRecord): Promise<void>;
+  /** The token stored under this hash that has not expired at `at`, by the unique hash (a point read). */
+  trackingToken(tx: Transaction, tokenHash: Buffer, at: Date): Promise<{ readonly salesOrderId: string; readonly tokenHash: Buffer } | null>;
   insertLines(tx: Transaction, lines: readonly NewOrderLine[]): Promise<void>;
   recordStatus(tx: Transaction, orderId: string, change: Omit<StatusChangeRecord, 'recordedAt'>): Promise<void>;
   complete(

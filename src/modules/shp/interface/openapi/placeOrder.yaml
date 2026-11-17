@@ -2,7 +2,7 @@ operationId: placeOrder
 tags:
   - shp
 summary: "Place the order and start payment"
-description: "Creates the order (channel ONLINE, PLACED, from this checkout) and starts payment for the estimated total, in one transaction with the checkout moving to AWAITING_PAYMENT. Mobile money: a charge is written PENDING and sent to the provider after the transaction commits; the order is confirmed only when that payment clears for it through the provider's own answer (webhook lookup or sweep), and the checkout then completes and the cart converts. If the checkout's hold lapses first, or the charge fails, the order is cancelled (PAYMENT_NOT_RECEIVED) and money that still arrives is held unmatched for a person to refund. Cash on delivery: the order is confirmed at once. As built in 1.51.0 (A-232): a guest checkout only (the guest cookie proves the checkout; a customer session adds nothing yet), no card (422 CHECKOUT_INVALID CARD_NOT_AVAILABLE), no coupon or promotion (PROMOTION_NOT_AVAILABLE); the method must match the checkout's terms (PAYMENT_METHOD_MISMATCH); mobile money needs payerPhone and network (PAYER_PHONE_REQUIRED, INVALID_PHONE, NETWORK_REQUIRED); a price the engine no longer gives is 422 ORDER_INVALID PRICE_CHANGED; a checkout that is not open or whose hold lapsed is 409 CHECKOUT_NOT_OPEN; 503 while the provider cannot take a charge, with nothing placed. A replay with the same Idempotency-Key answers the same order and sends no second charge."
+description: "Creates the order (channel ONLINE, PLACED, from this checkout) and starts payment for the estimated total, in one transaction with the checkout moving to AWAITING_PAYMENT. Mobile money: a charge is written PENDING and sent to the provider after the transaction commits; the order is confirmed only when that payment clears for it through the provider's own answer (webhook lookup or sweep), and the checkout then completes and the cart converts. If the checkout's hold lapses first, or the charge fails, the order is cancelled (PAYMENT_NOT_RECEIVED) and money that still arrives is held unmatched for a person to refund. Cash on delivery: the order is confirmed at once. As built in 1.51.0 (A-232): a guest checkout only (the guest cookie proves the checkout; a customer session adds nothing yet), no card (422 CHECKOUT_INVALID CARD_NOT_AVAILABLE), no coupon or promotion (PROMOTION_NOT_AVAILABLE); the method must match the checkout's terms (PAYMENT_METHOD_MISMATCH); mobile money needs payerPhone and network (PAYER_PHONE_REQUIRED, INVALID_PHONE, NETWORK_REQUIRED); a price the engine no longer gives is 422 ORDER_INVALID PRICE_CHANGED; a checkout that is not open or whose hold lapsed is 409 CHECKOUT_NOT_OPEN; 503 while the provider cannot take a charge, with nothing placed. A replay with the same Idempotency-Key answers the same order and sends no second charge; its `trackingToken` is a fresh one (a token is stored only as its hash, never in the stored answer), and the first stays valid (ADR-0074)."
 x-owner-module: ord
 parameters:
   - name: id
@@ -36,7 +36,7 @@ responses:
         example:
           orderId: "019a7af0-2909-715a-b693-1e7f6d54975d"
           orderNo: SO-2026-DDW-004216
-          trackingToken: trk_9Xq2LmA7cV4nR8sT
+          trackingToken: trk_xcTaj4hmDxpoqKMXOvBjOozoVQ_zXjZpudf7JuHnBj8
           payment:
             paymentId: "019a7afd-92aa-7afb-a034-b88d3113316b"
             status: PENDING

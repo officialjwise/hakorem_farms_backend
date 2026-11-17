@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.0.0"
+  version: "2.0.1"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -58002,7 +58002,7 @@ paths:
       tags:
         - shp
       summary: "Place the order and start payment"
-      description: "Creates the order (channel ONLINE, PLACED, from this checkout) and starts payment for the estimated total, in one transaction with the checkout moving to AWAITING_PAYMENT. Mobile money: a charge is written PENDING and sent to the provider after the transaction commits; the order is confirmed only when that payment clears for it through the provider's own answer (webhook lookup or sweep), and the checkout then completes and the cart converts. If the checkout's hold lapses first, or the charge fails, the order is cancelled (PAYMENT_NOT_RECEIVED) and money that still arrives is held unmatched for a person to refund. Cash on delivery: the order is confirmed at once. As built in 1.51.0 (A-232): a guest checkout only (the guest cookie proves the checkout; a customer session adds nothing yet), no card (422 CHECKOUT_INVALID CARD_NOT_AVAILABLE), no coupon or promotion (PROMOTION_NOT_AVAILABLE); the method must match the checkout's terms (PAYMENT_METHOD_MISMATCH); mobile money needs payerPhone and network (PAYER_PHONE_REQUIRED, INVALID_PHONE, NETWORK_REQUIRED); a price the engine no longer gives is 422 ORDER_INVALID PRICE_CHANGED; a checkout that is not open or whose hold lapsed is 409 CHECKOUT_NOT_OPEN; 503 while the provider cannot take a charge, with nothing placed. A replay with the same Idempotency-Key answers the same order and sends no second charge."
+      description: "Creates the order (channel ONLINE, PLACED, from this checkout) and starts payment for the estimated total, in one transaction with the checkout moving to AWAITING_PAYMENT. Mobile money: a charge is written PENDING and sent to the provider after the transaction commits; the order is confirmed only when that payment clears for it through the provider's own answer (webhook lookup or sweep), and the checkout then completes and the cart converts. If the checkout's hold lapses first, or the charge fails, the order is cancelled (PAYMENT_NOT_RECEIVED) and money that still arrives is held unmatched for a person to refund. Cash on delivery: the order is confirmed at once. As built in 1.51.0 (A-232): a guest checkout only (the guest cookie proves the checkout; a customer session adds nothing yet), no card (422 CHECKOUT_INVALID CARD_NOT_AVAILABLE), no coupon or promotion (PROMOTION_NOT_AVAILABLE); the method must match the checkout's terms (PAYMENT_METHOD_MISMATCH); mobile money needs payerPhone and network (PAYER_PHONE_REQUIRED, INVALID_PHONE, NETWORK_REQUIRED); a price the engine no longer gives is 422 ORDER_INVALID PRICE_CHANGED; a checkout that is not open or whose hold lapsed is 409 CHECKOUT_NOT_OPEN; 503 while the provider cannot take a charge, with nothing placed. A replay with the same Idempotency-Key answers the same order and sends no second charge; its `trackingToken` is a fresh one (a token is stored only as its hash, never in the stored answer), and the first stays valid (ADR-0074)."
       x-owner-module: ord
       parameters:
         - name: id
@@ -58036,7 +58036,7 @@ paths:
               example:
                 orderId: "019a7af0-2909-715a-b693-1e7f6d54975d"
                 orderNo: SO-2026-DDW-004216
-                trackingToken: trk_9Xq2LmA7cV4nR8sT
+                trackingToken: trk_xcTaj4hmDxpoqKMXOvBjOozoVQ_zXjZpudf7JuHnBj8
                 payment:
                   paymentId: "019a7afd-92aa-7afb-a034-b88d3113316b"
                   status: PENDING
@@ -58134,11 +58134,13 @@ paths:
       operationId: trackOrder
       tags:
         - shp
-      summary: "Track an order by its signed tracking link"
+      summary: "Track an order by its tracking link"
+      description: "No session: the link's token is the only key (owner's decision 5, 2026-11-17; ADR-0074). The token is made when the order is placed, `trk_` and 43 base64url characters carrying 256 random bits; it is never the order id nor derived from it, is stored only as its hash, and reads its order for thirty days from when it was made. Anything else (a guessed, altered, expired or another order's token, the order id, or the signed form of 1.51.0 to 2.0.0) answers 404 NOT_FOUND, saying nothing about whether an order exists. The answer carries no name, phone or address."
       parameters:
         - name: token
           in: path
           required: true
+          description: "The tracking link's token, as `placeOrder` answered it."
           schema:
             type: string
       security: []
@@ -95339,7 +95341,7 @@ components:
           type: string
         trackingToken:
           type: string
-          description: "For the tracking link. Signed; not the order id."
+          description: "For the tracking link (`trackOrder`): `trk_` and 256 random bits made for this order, stored only as its hash, never the order id nor derived from it; it reads the order for thirty days. Shown once: a replay of the placement answers a fresh token, and both stay valid (ADR-0074)."
         payment:
           anyOf:
             - $ref: "#/components/schemas/PaymentInstruction"

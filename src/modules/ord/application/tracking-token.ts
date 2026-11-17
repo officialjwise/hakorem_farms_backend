@@ -1,39 +1,42 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createUuidV7Generator, type Clock } from '@hakorem/kernel';
+import { issueLinkToken, linkTokenHash, sameLinkTokenHash } from '../../../platform/crypto/link-tokens';
+import type { Transaction } from '../../../platform/database/unit-of-work';
+import type { OrderStore } from './order-store';
 
 const TOKEN_PREFIX = 'trk_';
-const TOKEN_MAC_BYTES = 16;
-const UUID_BYTES = 16;
+/** How long a tracking link reads its order, from when it was made (A-256); the database holds the same cap. */
+export const TRACKING_LINK_DAYS = 30;
+const MILLISECONDS_PER_DAY = 86_400_000;
 
 /**
- * The signed tracking link of an online order (trackOrder, A-232): `trk_` and base64url of the order id's 16 bytes and
- * a 128-bit HMAC-SHA256 over them, under a key derived from the lookup key for this purpose only. It is never stored,
- * cannot be guessed or altered, and is not the order id as the console shows it.
+ * The tracking link of an online order (trackOrder, ADR-0074, superseding ADR-0070's signed token): `trk_` and 256
+ * random bits from the secure source, made when the order is placed (and again for each replay of the placement, whose
+ * stored answer keeps no token), never derived from the order id. Only its SHA-256 is stored, in
+ * `ord.order_tracking_token`; a link is looked up by that hash and reads its order for thirty days.
  */
 export class TrackingTokens {
-  private readonly key: Buffer;
+  private readonly nextId: () => string;
 
-  constructor(lookupKey: Buffer) {
-    this.key = createHmac('sha256', lookupKey).update('hk-order-tracking-v1').digest();
+  constructor(
+    private readonly store: OrderStore,
+    private readonly clock: Clock,
+  ) {
+    this.nextId = createUuidV7Generator(clock);
   }
 
-  sign(orderId: string): string {
-    const id = Buffer.from(orderId.replaceAll('-', ''), 'hex');
-    return `${TOKEN_PREFIX}${Buffer.concat([id, this.mac(id)]).toString('base64url')}`;
+  /** A new token for the order, stored as its hash; the text is answered once and kept nowhere. */
+  async issueIn(tx: Transaction, orderId: string, actorId: string): Promise<string> {
+    const issued = issueLinkToken(TOKEN_PREFIX);
+    const at = this.clock.now();
+    await this.store.insertTrackingToken(tx, { id: this.nextId(), salesOrderId: orderId, tokenHash: issued.hash, recordedAt: at, expiresAt: new Date(at.getTime() + TRACKING_LINK_DAYS * MILLISECONDS_PER_DAY), actorId });
+    return issued.token;
   }
 
-  /** The order a token names, or null for anything that is not a token this key signed. */
-  orderOf(token: string): string | null {
-    if (!token.startsWith(TOKEN_PREFIX)) return null;
-    const body = token.slice(TOKEN_PREFIX.length);
-    const raw = Buffer.from(body, 'base64url');
-    if (raw.length !== UUID_BYTES + TOKEN_MAC_BYTES || raw.toString('base64url') !== body) return null;
-    const id = raw.subarray(0, UUID_BYTES);
-    if (!timingSafeEqual(raw.subarray(UUID_BYTES), this.mac(id))) return null;
-    const hex = id.toString('hex');
-    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-  }
-
-  private mac(id: Buffer): Buffer {
-    return createHmac('sha256', this.key).update(id).digest().subarray(0, TOKEN_MAC_BYTES);
+  /** The order a live token opens, or null for anything else: not of the form, unknown, or expired. */
+  async orderOfIn(tx: Transaction, token: string): Promise<string | null> {
+    const hash = linkTokenHash(TOKEN_PREFIX, token);
+    if (hash === null) return null;
+    const found = await this.store.trackingToken(tx, hash, this.clock.now());
+    return found !== null && sameLinkTokenHash(found.tokenHash, hash) ? found.salesOrderId : null;
   }
 }

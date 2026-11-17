@@ -5,11 +5,20 @@ Every change to `contract/openapi.yaml`, newest first. A breaking change needs a
 Version numbers follow semantic versioning: a major bump breaks an existing client, a minor bump adds operations or optional fields, a patch fixes descriptions or examples.
 
 **Read first (cold-read summary), rewritten for 2.0.0:** changes that alter an answer or a request a client already handles.
+- **2.0.1:** no shape changed. The tracking link's token is random and stored only as its hash (a replay of `placeOrder` answers a fresh one); staff lists and reads of a branch's ledger records show only the branches the reader's grants reach. See its entry.
 - **2.0.0, BREAKING, approved by the owner (2026-11-17).** Read the 2.0.0 entry below before anything else. In short: (1) **no product barcode**: `barcode` is gone from `Product`, `ProductCreate`, `ProductUpdate`, `ProductLabel`, `StockUnitLabel` and `OfflineProduct`, `listProducts` has no `barcode` filter (sending one is 400), and the labels print text; (2) **the SKU is the server's**: `ProductCreate` has no `sku`, and sending `sku` to `createProduct` or `updateProduct` is 422 `FIELD_SERVER_ASSIGNED`; (3) **public IDs**: `customerNo` and `supplierNo` are gone from every answer (`Customer`, `CustomerRef`, `CustomerProfile`, `Supplier`, `SupplierRef`, in 98 operations), replaced by `publicId` (`cus_…`, `sup_…`); (4) the customer, supplier and product import sheets change their naming column. The meat pack labels (`createPacks`, `listPacks`, `printPackLabels`) are byte for byte as in 1.54.0, barcode included. The only QR code is TOTP enrolment's.
 - **1.54.0:** no answer of an implemented operation changed. `getShopProfile` is new, and `getBusinessProfile` and `updateBusinessProfile` move into code; `BusinessProfile` gains `whatsapp`, `directions` and `openingHours`.
 - **1.53.0, LOUD for the Farm hand:** `reportCareMortality` and `submitCareMortalityRecord` refuse a report without its `EVIDENCE` photograph from a reporter who cannot see its value (the Farm hand), whatever the value, with 422 `MORTALITY_PHOTO_REQUIRED`. `markSupplierPaymentPaid` and the payment reads answer `paymentNo` (`SPY-…`) where it was null. Every list's single `example` is now an `examples` map (`default` and `empty`).
 - **1.50.0, LOUD:** `createOrder` answers **202 `ApprovalPending`** (kind `PRICE_OVERRIDE`) where it answered 422 `PRICE_OVERRIDE_NEEDS_APPROVAL` for a price outside the band or below list beyond the seller's limit.
 - Earlier LOUD changes, each on an operation that was still planned when it changed, are in their entries below and in "Reading 1.5.0 to 1.37.0 cold".
+
+## 2.0.1 (2026-11-17, B09q continued)
+
+Patch. No field, parameter, schema or status added, removed, renamed or retyped; descriptions and one example only. The owner's decision 5 of 2026-11-17 (no identifier is ever a key; every customer link carries its own random token), ADR-0074.
+
+- **`trackOrder`, `placeOrder`, `PlaceOrderResult.trackingToken`:** the tracking token is no longer the order id with an HMAC (ADR-0070's form, 1.51.0 to 2.0.0) but `trk_` and 43 base64url characters of 256 random bits, made when the order is placed, stored only as its hash and read for thirty days. The shape is the same string; a token of the old form, guessed, altered, expired or of another order answers 404 `NOT_FOUND`. A replay of `placeOrder` with the same `Idempotency-Key` answers the same order with a fresh `trackingToken`, and the first stays valid. The `placeOrder` example shows a token of the new length; `trackOrder` gains a description and its `token` parameter one.
+
+**What a client does:** nothing, if it already treats `trackingToken` as an opaque string and builds the link from the latest answer.
 
 ## 2.0.0 (2026-11-17, B09q)
 

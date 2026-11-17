@@ -1,7 +1,6 @@
 import { Inject, Module, type OnModuleInit } from '@nestjs/common';
 import type { Clock } from '@hakorem/kernel';
 import { AuditTrail } from '../../platform/audit/audit-trail';
-import { APP_CONFIG, type AppConfig } from '../../platform/config/app-config';
 import { UnitOfWork } from '../../platform/database/unit-of-work';
 import { DocumentRegistry } from '../../platform/documents/document-registry';
 import { NumberSeries } from '../../platform/documents/number-series';
@@ -179,9 +178,8 @@ import { ReturnsController } from './interface/returns.controller';
         audit: AuditTrail,
         cursors: Cursors,
         clock: Clock,
-        config: AppConfig,
-      ) => new OnlineOrders(uow, store, orders, reversals, refs, pricing, reservations, payments, numbers, documents, events, audit, cursors, clock, Buffer.from(config.LOOKUP_HMAC_KEY, 'base64')),
-      inject: [UnitOfWork, ORDER_STORE, Orders, OrderReversals, MasterDataRefs, PricingService, Reservations, Payments, NumberSeries, DocumentRegistry, DomainEvents, AuditTrail, Cursors, CLOCK, APP_CONFIG],
+      ) => new OnlineOrders(uow, store, orders, reversals, refs, pricing, reservations, payments, numbers, documents, events, audit, cursors, clock),
+      inject: [UnitOfWork, ORDER_STORE, Orders, OrderReversals, MasterDataRefs, PricingService, Reservations, Payments, NumberSeries, DocumentRegistry, DomainEvents, AuditTrail, Cursors, CLOCK],
     },
     {
       provide: Returns,

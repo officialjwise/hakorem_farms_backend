@@ -278,7 +278,11 @@ export class Checkouts {
       const checkout = await this.ownedIn(tx, token, id, true);
       const cart = (await this.store.cart(tx, checkout.cartId, false))!;
       const claim = await this.idempotency.claim(tx, { operationId: 'placeOrder', principalId: STOREFRONT_ACTOR.principalId, key, request: { id, token: cart.guestTokenHash!.toString('hex'), ...body } });
-      if (claim.kind === 'REPLAY') return claim.response as StoredResponse<PlaceOrderView>;
+      if (claim.kind === 'REPLAY') {
+        // The stored answer keeps no tracking token (only its hash is stored, in ORD): the replay gets one of its own.
+        const kept = claim.response as StoredResponse<Omit<PlaceOrderView, 'trackingToken'>>;
+        return { status: kept.status, body: { ...kept.body, trackingToken: await this.online.reissueTrackingIn(tx, kept.body.orderId, STOREFRONT_ACTOR.principalId) } };
+      }
       if (checkout.status !== 'STARTED' || checkout.reservedUntil.getTime() <= this.clock.now().getTime()) throw new CheckoutNotOpenError(`checkout ${id} is ${checkout.status}`);
       const lines = await this.store.checkoutLines(tx, id);
       const broken: { field: string | null; rule: string }[] = [];
@@ -337,9 +341,9 @@ export class Checkouts {
         payment = { paymentId: charged.id, status: 'PENDING', redirectUrl: null, instructions: fill('shp.momo_instructions', { amount: cedis(checkout.estimatedTotalPesewas), network: body.network! }) };
       }
       await this.audit.record(tx, { module: 'shp', action: 'PLACE', entityType: 'CheckoutSession', entityId: id, branchId: checkout.branchId, before: { status: checkout.status }, after: { status: cod ? 'COMPLETED' : 'AWAITING_PAYMENT', orderId: placed.orderId, paymentId: payment?.paymentId ?? null } });
-      const response = { status: 201, body: { ...placed, payment, checkout: await this.viewIn(tx, (await this.store.checkout(tx, id, false))!) } };
-      await this.idempotency.complete(tx, claim.id, response);
-      return response;
+      const { trackingToken, ...kept } = { ...placed, payment, checkout: await this.viewIn(tx, (await this.store.checkout(tx, id, false))!) };
+      await this.idempotency.complete(tx, claim.id, { status: 201, body: kept });
+      return { status: 201, body: { ...kept, trackingToken } };
     });
     // Outside any transaction: the charge is sent, or sent again on a replay after a timeout, with the same reference.
     if (stored.body.payment !== null && body.payerPhone !== undefined) await this.providerPayments.sendCharge(stored.body.payment.paymentId, this.storefront.normalisePhone(body.payerPhone)!);
