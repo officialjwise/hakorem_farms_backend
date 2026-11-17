@@ -136,8 +136,8 @@ jobs:
       - run: corepack enable pnpm
       - name: secret scan over the whole history
         run: docker run --rm -v "$PWD:/repo" "$GITLEAKS_IMAGE" git /repo --config /repo/.gitleaks.toml --redact --no-banner
-      - name: dependency audit, high and critical block
-        run: pnpm audit --audit-level high
+      - name: dependency audit, high and critical block outside a live waiver (docs/security/dependency-waivers.json)
+        run: node scripts/check/audit-waivers.ts
       - name: static analysis, errors block
         run: docker run --rm -v "$PWD:/src" "$SEMGREP_IMAGE" semgrep scan --config p/typescript --config p/nodejsscan --severity ERROR --error --metrics off --exclude tooling/lint-fixtures --exclude contract
       - name: the gates fire on a planted secret and a vulnerable dependency
@@ -157,4 +157,10 @@ jobs:
           if npm audit --audit-level=high >/dev/null; then
             echo 'the dependency audit did not fail on lodash 4.17.15'; exit 1
           fi
-          echo 'both gates fail as they should'
+          cd "$GITHUB_WORKSPACE"
+          expired="$RUNNER_TEMP/expired-waivers.json"
+          node -e 'const f=require("./docs/security/dependency-waivers.json");for(const w of f.waivers){w.approvedOn="2000-01-01";w.expires="2000-01-02"}require("fs").writeFileSync(process.argv[1],JSON.stringify(f))' "$expired"
+          if [ "$(node -p 'require("./docs/security/dependency-waivers.json").waivers.length')" -gt 0 ] && AUDIT_WAIVERS_FILE="$expired" node scripts/check/audit-waivers.ts >/dev/null 2>&1; then
+            echo 'the dependency audit did not fail once its waivers had expired'; exit 1
+          fi
+          echo 'both gates fail as they should, and an expired waiver fails the audit'
