@@ -612,12 +612,12 @@ The fixed list of reasons. Changed only by migration, as the threat model requir
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `code` | `text` | PK | |
-| `domain` | `text` | NOT NULL, CHECK in (`STOCK_ADJUSTMENT`, `MORTALITY`, `CULL`, `WASTAGE`, `PRICE_OVERRIDE`, `VOID`, `REFUND`, `RETURN`, `CANCELLATION`, `DELIVERY_FAILURE`, `CASH_MOVEMENT`, `HOLD_RELEASE`, `BILLING_ADJUSTMENT`) | Where it may be used; `BILLING_ADJUSTMENT` (B08 continued 2, migration 0146) holds the debit note reasons |
+| `domain` | `text` | NOT NULL, CHECK in (`STOCK_ADJUSTMENT`, `MORTALITY`, `CULL`, `WASTAGE`, `PRICE_OVERRIDE`, `VOID`, `REFUND`, `RETURN`, `CANCELLATION`, `DELIVERY_FAILURE`, `CASH_MOVEMENT`, `HOLD_RELEASE`, `BILLING_ADJUSTMENT`) | Where it may be used; `BILLING_ADJUSTMENT` (B08 continued 2, migration 0146) holds the debit note reasons; `PAYMENT_REVERSAL` (migration 0169); `GOODS_RECEIPT_REJECTION` (B09e continued 2, migration 0220, A-269) holds the reasons for goods rejected at the door: `CRACKED`, `BROKEN`, `DIRTY`, `SHORT` (no note), `WRONG_ITEM_DELIVERED`, `QUALITY_REJECTED` (a note) |
 | `description` | `text` | NOT NULL | |
 | `requires_note` | `boolean` | NOT NULL DEFAULT `false` | Free-text explanation mandatory |
 | `loss_account_group` | `text` | NULL, CHECK in (`MORTALITY`, `SHRINKAGE`, `WASTAGE`) | Ledger determinant for write-offs |
 
-Created in B04d continued 3 (migration 0024) with 48 codes across the twelve domains. `hk_app` holds `SELECT` only.
+Created in B04d continued 3 (migration 0024) with 48 codes across the twelve domains. `hk_app` holds `SELECT` only. B09e continued 2 (migration 0220) adds the `GOODS_RECEIPT_REJECTION` domain's six and the `STOCK_ADJUSTMENT` reasons `BREAKAGE` (no note) and `RODENT_DAMAGE` (a note), both in the `WASTAGE` loss group (CR-035, A-269).
 
 ### `mdm.import_job` · DOCUMENT
 

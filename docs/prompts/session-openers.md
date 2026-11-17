@@ -76,7 +76,8 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B09q continued | `B09q2-no-id-is-a-key.md` | `b09q2-no-id-is-a-key` | B4 to B12 | Knowing a public ID, a SKU or a UUID reads nothing without authorisation, per operation that takes one, as an anonymous caller and as another customer; every link sent to a customer carries its own long random token (built) |
 | B09e | `B09e-eggs.md` | `b09e-eggs` | B4 to B12 | Built and split (A-259 to A-262): a crate and a single egg each carry their own price on the price list while stock stays in eggs; a bought lot's cost is valued by its place in the delivery, so a crate bought at GHS 47.50 posts exactly 4,750 (ADR-0075); quantity breaks counted in the selling unit and stored in eggs; orders, the counter and online sale take a line in crates; the seeded eggs counted per egg |
 | B09e continued | `B09e2-eggs-lines-lots.md` | `b09e2-eggs-lines-lots` | B4 to B12 | Goods receipts and transfers take a line in crates or eggs, converted by the server through MasterDataRefs.toBaseIn; every bought lot has a received date and sells oldest first by expiry, then by received date, wherever the server picks a lot; reorder points counted in the selling unit and stored in eggs; every write refuses the wrong role |
-| B09e continued 2 | `B09e3-eggs-claims.md` | `b09e3-eggs-claims` | B4 to B12 | A rejected quantity carries its reason (CRACKED, BROKEN, DIRTY, SHORT, WRONG_ITEM, QUALITY_REJECTED) and a claim raised from the receipt drafts the supplier credit note from the rejected lines and their cost, maker and checker apart (CR-035, CR-036); breakage reasons for stock adjustments; a purchase order line defaults to the last price paid; every write refuses the wrong role |
+| B09e continued 2 | `B09e3-eggs-claims.md` | `b09e3-eggs-claims` | B4 to B12 | Built and split (A-269 to A-271): a rejected quantity carries its reason (CRACKED, BROKEN, DIRTY, SHORT, WRONG_ITEM_DELIVERED, QUALITY_REJECTED), refused without one and on nothing rejected (CR-035); breakage reasons for stock adjustments; a purchase order line defaults to the last price paid; every write refuses the wrong role |
+| B09e continued 3 | `B09e4-eggs-claim.md` | `b09e4-eggs-claim` | B4 to B12 | A claim raised from a posted receipt drafts the supplier credit note from the rejected lines and their cost, never keyed by hand, linked both ways, moving no stock, on the supplier's account until settled, maker and checker apart (CR-036); every write refuses the wrong role |
 | B9b | `B09b-pos-shifts-offline.md` | `b09b-pos-shifts-offline` | B4 to B12 | Shift close reconciles; 500 queued offline transactions sync exactly once |
 | B09c | `B09c-card-payment.md` | `b09c-card-payment` | B4 to B12 | Card payment online through the provider port with every payment edge case, no card details on our servers, and the card cases run against the real sandbox |
 | B08 continued 2d | `B08c2d-customer-statements.md` | `b08c2d-customer-statements` | B4 to B12 | A customer statement for a period ties to the customer's documents and the ledger's 1200 for that customer and period, opening plus movements equal to closing to the pesewa, and is rendered after commit and archived once; every statement write refuses the wrong role |
@@ -2254,13 +2255,50 @@ Stop at the gate, write docs/sessions/B09e3-eggs-claims.md, and merge into main 
 green.
 ```
 
+## B09e continued 3 — Eggs: the claim from a receipt's rejected lines
+
+Branch `b09e4-eggs-claim`, from `main`. Report `docs/sessions/B09e4-eggs-claim.md`. Inserted by B09e continued 2's split (A-271, ADR-0026 Amendments) after B09e continued 2 and before B9b: B09e continued 2 built the rejection reasons (a `GOODS_RECEIPT_REJECTION` reason on every rejected quantity, CR-035), the breakage adjustment reasons and the last price paid. Gate: a claim raised from a posted receipt with rejected lines drafts the supplier credit note from the rejected lines and their cost, the cost from the purchase order line's price split exactly with the kernel's allocate between accepted and rejected, never keyed by hand (a request that supplies an amount is refused); linked both ways (the receipt answers its claims; the claim names its receipt, purchase order and the credit note or invoice that settles it); moving no stock and posting nothing until the credit note is approved; on the supplier's account until settled; the credit note keeps its approval with maker and checker apart, mutation-checked; inflated rejections reach the exception report's source; every write refuses the wrong role and every new read is authorised and in the identifier walk.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B09e3-eggs-claims.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md).
+For this phase, read the owner's decision 5 below, CR-036 as committed on the frontend's main, ADR-0075, A-260,
+A-269 and A-271, docs/data-model/inv.md and pur.md (the credit notes, FR-PUR-011, and the three-way match), and the
+INV, PUR and FIN cards in docs/MODULE_BOUNDARIES.md. Load hakorem-money, hakorem-ledger, hakorem-migration,
+hakorem-endpoint, hakorem-security-review and hakorem-tests. Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B09e continued 3 only, on branch b09e4-eggs-claim, branched from main. The owner's decision
+(2026-11-17), test-first with exact pesewa assertions:
+5. (The claim.) A claim raised from the posted receipt drafts the supplier credit note from the rejected lines and
+   their cost (from the purchase order line's price, split exactly with the kernel's allocate between accepted and
+   rejected, so accepted plus rejected equals the line exactly: test it at a price that does not divide evenly, a
+   crate at 4,751 with 7 of 30 eggs rejected, and with a rejection entered in crates), never keyed by hand, linked both
+   ways (the receipt answers its claims; the claim names its receipt, purchase order and the credit note or invoice
+   that settles it), moving no stock, posting nothing until the credit note is approved, on the supplier's account
+   until settled; the credit note keeps its existing approval, maker and checker apart, mutation-checked with test
+   data where the maker, the receiver and the approver are three different people, plus the claim's maker refused
+   as approver (CR-036). The claim's quantities and cost come from the base quantities (`qty_rejected`,
+   `qtyRejectedBase`, A-263) and the line's `rejectionReasonCode` (A-269), never from a factor of the claim's own.
+   Decide first, and record as an ADR if it changes the three-way match or a posting (A-271): an invoice is matched
+   only up to the accepted quantity, and a credit note reduces an approved invoice, so say which invoice may carry the
+   rejected quantity, or how else the claim is settled, without crediting the same eggs twice. If the claim's cost
+   would need arithmetic other than ADR-0075's half-up or floor, stop and report. The trial balance still sums to 0
+   on the seeded day.
+Answer CR-036 in the report. Every new read is authorised and joins the contract-generated identifier walk
+(B09q continued). Additive contract changes only, unless one is unavoidable and recorded loudly.
+Stop at the gate, write docs/sessions/B09e4-eggs-claim.md, and merge into main when every run on the pull request is
+green.
+```
+
 ## B9b — Point of sale, shifts and offline sync
 
 Branch `b09b-pos-shifts-offline`. Report `docs/sessions/B09b-pos-shifts-offline.md`. Gate: shift close reconciles, and 500 queued offline transactions sync exactly once.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9b row).
-List docs/sessions/ and read only the most recent report (docs/sessions/B09e3-eggs-claims.md).
+List docs/sessions/ and read only the most recent report (docs/sessions/B09e4-eggs-claim.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
 reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the POS requirement block of docs/SRS.md (nothing else from the SRS),

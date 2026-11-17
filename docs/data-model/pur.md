@@ -146,6 +146,7 @@ Lines of a purchase order, with received and invoiced progress.
 | `expense_category` | `text` | NULL | For non-stock lines; ledger determinant |
 
 - UNIQUE (`purchase_order_id`, `line_no`). After approval only `qty_received` and `qty_invoiced` may change.
+- **The last price paid (B09e continued 2, A-270):** a line written with no unit price takes the unit price of the latest `supplier_invoice_line` of the order's supplier for the same product and `uom`, on an `INVOICE` that is `APPROVED` or `PAID` (by invoice date, then `posted_at`, then id). It is stored like any entered price; no column records that it was a default.
 
 ### `pur.supplier_invoice` · DOCUMENT
 

@@ -263,6 +263,8 @@ Frozen with its header. Published key (three-way match).
 | `qty_rejected` | `qty` | NOT NULL DEFAULT 0 | Supplier quality score; in the base unit |
 | `uom` | `text` | NULL, FK `mdm.uom` | The unit the line was entered in when it is not the base unit (a crate, B09e continued, migration 0217); null for the base unit |
 | `qty_received_uom`, `qty_rejected_uom` | `qty` | NULL; set exactly with `uom` (`ck_goods_receipt_line_uom`) | The quantities as entered, in `uom`; the base quantities are exactly these converted (`ck_line_uom_conversion`) |
+| `rejection_reason_code` | `text` | NULL, FK `mdm.reason_code`; set exactly when `qty_rejected > 0` (`ck_goods_receipt_line_rejection`) | Why the rejected quantity was turned away, a `GOODS_RECEIPT_REJECTION` reason (the domain is the handler's rule; B09e continued 2, migration 0221, A-269) |
+| `rejection_note` | `text` | NULL; 1 to 500 characters, only beside a reason (`ck_goods_receipt_line_rejection_note`) | Required by the handler when the reason has `requires_note` |
 | `weight_kg` | `kg` | NULL | |
 | `weight_source` | `text` | NULL | |
 | `value_pesewas` | `pesewas` | NOT NULL | Cost of the accepted quantity |
