@@ -41,42 +41,52 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/ReprintLogPage"
-        example:
-          data:
-            - copyNo: 1
-              channel: THERMAL
-              actor:
-                id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
-                displayName: "Adwoa Darko"
-              recordedAt: "2026-11-13T09:12:00Z"
-            - copyNo: 2
-              channel: PDF
-              actor:
-                id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
-                displayName: "Adwoa Darko"
-              recordedAt: "2026-11-13T09:21:00Z"
-            - copyNo: 3
-              channel: PDF
-              actor:
-                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
-                displayName: "Efua Asante"
-              recordedAt: "2026-11-13T09:30:00Z"
-            - copyNo: 4
-              channel: THERMAL
-              actor:
-                id: "019a7a86-caf1-728b-b7c3-3188ea6caa66"
-                displayName: "Nana Yeboah"
-              recordedAt: "2026-11-13T09:39:00Z"
-            - copyNo: 5
-              channel: PDF
-              actor:
-                id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
-                displayName: "Kojo Antwi"
-              recordedAt: "2026-11-13T09:48:00Z"
-          page:
-            nextCursor: null
-            limit: 25
-            hasMore: false
+        examples:
+          default:
+            value:
+              data:
+                - copyNo: 1
+                  channel: THERMAL
+                  actor:
+                    id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                    displayName: "Adwoa Darko"
+                  recordedAt: "2026-11-13T09:12:00Z"
+                - copyNo: 2
+                  channel: PDF
+                  actor:
+                    id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                    displayName: "Adwoa Darko"
+                  recordedAt: "2026-11-13T09:21:00Z"
+                - copyNo: 3
+                  channel: PDF
+                  actor:
+                    id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                    displayName: "Efua Asante"
+                  recordedAt: "2026-11-13T09:30:00Z"
+                - copyNo: 4
+                  channel: THERMAL
+                  actor:
+                    id: "019a7a86-caf1-728b-b7c3-3188ea6caa66"
+                    displayName: "Nana Yeboah"
+                  recordedAt: "2026-11-13T09:39:00Z"
+                - copyNo: 5
+                  channel: PDF
+                  actor:
+                    id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                    displayName: "Kojo Antwi"
+                  recordedAt: "2026-11-13T09:48:00Z"
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

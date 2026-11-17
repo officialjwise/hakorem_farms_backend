@@ -39,72 +39,82 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/AccountDeterminationPage"
-        example:
-          data:
-            - id: "019a7ada-68fd-7d6a-b2a3-df7ddce0585b"
-              determinantType: GL_GROUP
-              determinantKey: MEAT
-              role: SALES
-              account:
-                id: "019a7ad0-9f5e-7c71-a1aa-cff05bdf48ce"
-                code: "4010"
-                name: "Sales, meat"
-              validFrom: "2026-11-01"
-              validTo: null
-            - id: "019a7ada-87ec-774e-8c86-7db55691f693"
-              determinantType: GL_GROUP
-              determinantKey: MEAT
-              role: INVENTORY
-              account:
-                id: "019a7ada-a6db-7131-9669-1becd04294ca"
-                code: "1320"
-                name: "Inventory, meat"
-              validFrom: "2026-11-01"
-              validTo: null
-            - id: "019a7ada-c5ca-7b15-a04d-ba2449f33302"
-              determinantType: GL_GROUP
-              determinantKey: MEAT
-              role: COST_OF_SALES
-              account:
-                id: "019a7ada-e4b9-74f8-ba30-585bc3a4d139"
-                code: "5010"
-                name: "Cost of sales, meat"
-              validFrom: "2026-11-01"
-              validTo: null
-            - id: "019a7adb-03a8-7edc-8414-f6933d556f71"
-              determinantType: PAYMENT_METHOD_KIND
-              determinantKey: MOBILE_MONEY
-              role: TENDER
-              account:
-                id: "019a7ad3-28f9-7c1a-b153-ca7d5764435b"
-                code: "1120"
-                name: "Payment provider clearing"
-              validFrom: "2026-11-01"
-              validTo: null
-            - id: "019a7adb-2297-78bf-9df7-94cab7060da8"
-              determinantType: TAX_LEVY
-              determinantKey: "*"
-              role: OUTPUT
-              account:
-                id: "019a7ad0-6180-78ab-8de3-9381687d0c5f"
-                code: "2100"
-                name: "Output VAT and levies payable"
-              validFrom: "2026-11-01"
-              validTo: null
-            - id: "019a7adb-4186-72a3-a7db-330230b7abe0"
-              determinantType: LOSS_GROUP
-              determinantKey: MORTALITY
-              role: LOSS
-              account:
-                id: "019a7ad0-be4d-7655-bb8d-6e27d590e705"
-                code: "5100"
-                name: "Mortality and cull losses"
-              validFrom: "2026-11-01"
-              validTo: null
-          page:
-            nextCursor: eyJpZCI6IjAxOWE3YyJ9
-            limit: 25
-            hasMore: true
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7ada-68fd-7d6a-b2a3-df7ddce0585b"
+                  determinantType: GL_GROUP
+                  determinantKey: MEAT
+                  role: SALES
+                  account:
+                    id: "019a7ad0-9f5e-7c71-a1aa-cff05bdf48ce"
+                    code: "4010"
+                    name: "Sales, meat"
+                  validFrom: "2026-11-01"
+                  validTo: null
+                - id: "019a7ada-87ec-774e-8c86-7db55691f693"
+                  determinantType: GL_GROUP
+                  determinantKey: MEAT
+                  role: INVENTORY
+                  account:
+                    id: "019a7ada-a6db-7131-9669-1becd04294ca"
+                    code: "1320"
+                    name: "Inventory, meat"
+                  validFrom: "2026-11-01"
+                  validTo: null
+                - id: "019a7ada-c5ca-7b15-a04d-ba2449f33302"
+                  determinantType: GL_GROUP
+                  determinantKey: MEAT
+                  role: COST_OF_SALES
+                  account:
+                    id: "019a7ada-e4b9-74f8-ba30-585bc3a4d139"
+                    code: "5010"
+                    name: "Cost of sales, meat"
+                  validFrom: "2026-11-01"
+                  validTo: null
+                - id: "019a7adb-03a8-7edc-8414-f6933d556f71"
+                  determinantType: PAYMENT_METHOD_KIND
+                  determinantKey: MOBILE_MONEY
+                  role: TENDER
+                  account:
+                    id: "019a7ad3-28f9-7c1a-b153-ca7d5764435b"
+                    code: "1120"
+                    name: "Payment provider clearing"
+                  validFrom: "2026-11-01"
+                  validTo: null
+                - id: "019a7adb-2297-78bf-9df7-94cab7060da8"
+                  determinantType: TAX_LEVY
+                  determinantKey: "*"
+                  role: OUTPUT
+                  account:
+                    id: "019a7ad0-6180-78ab-8de3-9381687d0c5f"
+                    code: "2100"
+                    name: "Output VAT and levies payable"
+                  validFrom: "2026-11-01"
+                  validTo: null
+                - id: "019a7adb-4186-72a3-a7db-330230b7abe0"
+                  determinantType: LOSS_GROUP
+                  determinantKey: MORTALITY
+                  role: LOSS
+                  account:
+                    id: "019a7ad0-be4d-7655-bb8d-6e27d590e705"
+                    code: "5100"
+                    name: "Mortality and cull losses"
+                  validFrom: "2026-11-01"
+                  validTo: null
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

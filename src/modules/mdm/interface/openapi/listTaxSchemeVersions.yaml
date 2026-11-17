@@ -34,371 +34,381 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/TaxSchemeVersionPage"
-        example:
-          data:
-            - id: "019a7aa9-78e2-788e-adc6-91ba57db0a98"
-              versionNo: 6
-              status: ACTIVE
-              validFrom: "2026-01-01"
-              validTo: null
-              sourceNote: "VAT Act 2025 regime from 1 January 2026: VAT 15%, NHIL 2.5%, GETFund 2.5% on one base, no compounding. Confirmed by the owner on 2026-11-13; accountant to confirm registration and imported inputs."
-              approvalRequestId: "019a7aa9-97d1-7272-b7aa-2ff1d18ca8cf"
-              cells:
-                - taxCategory:
-                    id: "019a7a8a-6af3-7b33-906b-bc092d2a34e7"
-                    code: LIVE_ANIMALS
-                    name: "Live Animals"
-                  levy:
-                    id: "019a7a8b-437c-706b-85a4-0f8d8101886b"
-                    code: VAT
-                    name: "Value Added Tax"
-                  treatment: ZERO_RATED
-                  ratePercent: "0.00"
-                  baseKind: NET
-                  baseIncludes: []
-                  isReclaimable: true
-                  calcOrder: 1
-                - taxCategory:
-                    id: "019a7a8a-6af3-7b33-906b-bc092d2a34e7"
-                    code: LIVE_ANIMALS
-                    name: "Live Animals"
-                  levy:
-                    id: "019a7a8b-626b-7a4f-9f87-adc4fab226a2"
-                    code: NHIL
-                    name: "National Health Insurance Levy"
-                  treatment: ZERO_RATED
-                  ratePercent: "0.00"
-                  baseKind: NET
-                  baseIncludes: []
-                  isReclaimable: true
-                  calcOrder: 2
-                - taxCategory:
-                    id: "019a7a8a-6af3-7b33-906b-bc092d2a34e7"
-                    code: LIVE_ANIMALS
-                    name: "Live Animals"
-                  levy:
-                    id: "019a7a8b-815a-7432-a96a-4bfc7463c4da"
-                    code: GETFUND
-                    name: "GETFund Levy"
-                  treatment: ZERO_RATED
-                  ratePercent: "0.00"
-                  baseKind: NET
-                  baseIncludes: []
-                  isReclaimable: true
-                  calcOrder: 3
-                - taxCategory:
-                    id: "019a7a8a-89e2-7516-aa4f-5a40a6dbd31e"
-                    code: RAW_PRODUCE
-                    name: "Raw Produce"
-                  levy:
-                    id: "019a7a8b-437c-706b-85a4-0f8d8101886b"
-                    code: VAT
-                    name: "Value Added Tax"
-                  treatment: ZERO_RATED
-                  ratePercent: "0.00"
-                  baseKind: NET
-                  baseIncludes: []
-                  isReclaimable: true
-                  calcOrder: 1
-                - taxCategory:
-                    id: "019a7a8a-89e2-7516-aa4f-5a40a6dbd31e"
-                    code: RAW_PRODUCE
-                    name: "Raw Produce"
-                  levy:
-                    id: "019a7a8b-626b-7a4f-9f87-adc4fab226a2"
-                    code: NHIL
-                    name: "National Health Insurance Levy"
-                  treatment: ZERO_RATED
-                  ratePercent: "0.00"
-                  baseKind: NET
-                  baseIncludes: []
-                  isReclaimable: true
-                  calcOrder: 2
-                - taxCategory:
-                    id: "019a7a8a-89e2-7516-aa4f-5a40a6dbd31e"
-                    code: RAW_PRODUCE
-                    name: "Raw Produce"
-                  levy:
-                    id: "019a7a8b-815a-7432-a96a-4bfc7463c4da"
-                    code: GETFUND
-                    name: "GETFund Levy"
-                  treatment: ZERO_RATED
-                  ratePercent: "0.00"
-                  baseKind: NET
-                  baseIncludes: []
-                  isReclaimable: true
-                  calcOrder: 3
-                - taxCategory:
-                    id: "019a7a8a-a8d1-7efa-b432-f878208c7156"
-                    code: EGGS
-                    name: Eggs
-                  levy:
-                    id: "019a7a8b-437c-706b-85a4-0f8d8101886b"
-                    code: VAT
-                    name: "Value Added Tax"
-                  treatment: ZERO_RATED
-                  ratePercent: "0.00"
-                  baseKind: NET
-                  baseIncludes: []
-                  isReclaimable: true
-                  calcOrder: 1
-                - taxCategory:
-                    id: "019a7a8a-a8d1-7efa-b432-f878208c7156"
-                    code: EGGS
-                    name: Eggs
-                  levy:
-                    id: "019a7a8b-626b-7a4f-9f87-adc4fab226a2"
-                    code: NHIL
-                    name: "National Health Insurance Levy"
-                  treatment: ZERO_RATED
-                  ratePercent: "0.00"
-                  baseKind: NET
-                  baseIncludes: []
-                  isReclaimable: true
-                  calcOrder: 2
-                - taxCategory:
-                    id: "019a7a8a-a8d1-7efa-b432-f878208c7156"
-                    code: EGGS
-                    name: Eggs
-                  levy:
-                    id: "019a7a8b-815a-7432-a96a-4bfc7463c4da"
-                    code: GETFUND
-                    name: "GETFund Levy"
-                  treatment: ZERO_RATED
-                  ratePercent: "0.00"
-                  baseKind: NET
-                  baseIncludes: []
-                  isReclaimable: true
-                  calcOrder: 3
-                - taxCategory:
-                    id: "019a7a8a-c7c0-78dd-8e16-96af9a3d0f8d"
-                    code: PROCESSED_MEAT
-                    name: "Processed Meat"
-                  levy:
-                    id: "019a7a8b-437c-706b-85a4-0f8d8101886b"
-                    code: VAT
-                    name: "Value Added Tax"
-                  treatment: STANDARD
-                  ratePercent: "15.00"
-                  baseKind: NET
-                  baseIncludes: []
-                  isReclaimable: true
-                  calcOrder: 1
-                - taxCategory:
-                    id: "019a7a8a-c7c0-78dd-8e16-96af9a3d0f8d"
-                    code: PROCESSED_MEAT
-                    name: "Processed Meat"
-                  levy:
-                    id: "019a7a8b-626b-7a4f-9f87-adc4fab226a2"
-                    code: NHIL
-                    name: "National Health Insurance Levy"
-                  treatment: STANDARD
-                  ratePercent: "2.50"
-                  baseKind: NET
-                  baseIncludes: []
-                  isReclaimable: true
-                  calcOrder: 2
-                - taxCategory:
-                    id: "019a7a8a-c7c0-78dd-8e16-96af9a3d0f8d"
-                    code: PROCESSED_MEAT
-                    name: "Processed Meat"
-                  levy:
-                    id: "019a7a8b-815a-7432-a96a-4bfc7463c4da"
-                    code: GETFUND
-                    name: "GETFund Levy"
-                  treatment: STANDARD
-                  ratePercent: "2.50"
-                  baseKind: NET
-                  baseIncludes: []
-                  isReclaimable: true
-                  calcOrder: 3
-                - taxCategory:
-                    id: "019a7a8a-e6af-72c1-97f9-34e713eeadc4"
-                    code: FARM_INPUTS
-                    name: "Farm Inputs"
-                  levy:
-                    id: "019a7a8b-437c-706b-85a4-0f8d8101886b"
-                    code: VAT
-                    name: "Value Added Tax"
-                  treatment: ZERO_RATED
-                  ratePercent: "0.00"
-                  baseKind: NET
-                  baseIncludes: []
-                  isReclaimable: true
-                  calcOrder: 1
-                - taxCategory:
-                    id: "019a7a8a-e6af-72c1-97f9-34e713eeadc4"
-                    code: FARM_INPUTS
-                    name: "Farm Inputs"
-                  levy:
-                    id: "019a7a8b-626b-7a4f-9f87-adc4fab226a2"
-                    code: NHIL
-                    name: "National Health Insurance Levy"
-                  treatment: ZERO_RATED
-                  ratePercent: "0.00"
-                  baseKind: NET
-                  baseIncludes: []
-                  isReclaimable: true
-                  calcOrder: 2
-                - taxCategory:
-                    id: "019a7a8a-e6af-72c1-97f9-34e713eeadc4"
-                    code: FARM_INPUTS
-                    name: "Farm Inputs"
-                  levy:
-                    id: "019a7a8b-815a-7432-a96a-4bfc7463c4da"
-                    code: GETFUND
-                    name: "GETFund Levy"
-                  treatment: ZERO_RATED
-                  ratePercent: "0.00"
-                  baseKind: NET
-                  baseIncludes: []
-                  isReclaimable: true
-                  calcOrder: 3
-                - taxCategory:
-                    id: "019a7a8b-059e-7ca4-a1dd-d31e8d9f4bfc"
-                    code: DELIVERY_SERVICE
-                    name: "Delivery Service"
-                  levy:
-                    id: "019a7a8b-437c-706b-85a4-0f8d8101886b"
-                    code: VAT
-                    name: "Value Added Tax"
-                  treatment: STANDARD
-                  ratePercent: "15.00"
-                  baseKind: NET
-                  baseIncludes: []
-                  isReclaimable: true
-                  calcOrder: 1
-                - taxCategory:
-                    id: "019a7a8b-059e-7ca4-a1dd-d31e8d9f4bfc"
-                    code: DELIVERY_SERVICE
-                    name: "Delivery Service"
-                  levy:
-                    id: "019a7a8b-626b-7a4f-9f87-adc4fab226a2"
-                    code: NHIL
-                    name: "National Health Insurance Levy"
-                  treatment: STANDARD
-                  ratePercent: "2.50"
-                  baseKind: NET
-                  baseIncludes: []
-                  isReclaimable: true
-                  calcOrder: 2
-                - taxCategory:
-                    id: "019a7a8b-059e-7ca4-a1dd-d31e8d9f4bfc"
-                    code: DELIVERY_SERVICE
-                    name: "Delivery Service"
-                  levy:
-                    id: "019a7a8b-815a-7432-a96a-4bfc7463c4da"
-                    code: GETFUND
-                    name: "GETFund Levy"
-                  treatment: STANDARD
-                  ratePercent: "2.50"
-                  baseKind: NET
-                  baseIncludes: []
-                  isReclaimable: true
-                  calcOrder: 3
-                - taxCategory:
-                    id: "019a7a8b-248d-7688-bbc0-71560750ea33"
-                    code: OTHER_GOODS
-                    name: "Other Goods"
-                  levy:
-                    id: "019a7a8b-437c-706b-85a4-0f8d8101886b"
-                    code: VAT
-                    name: "Value Added Tax"
-                  treatment: STANDARD
-                  ratePercent: "15.00"
-                  baseKind: NET
-                  baseIncludes: []
-                  isReclaimable: true
-                  calcOrder: 1
-                - taxCategory:
-                    id: "019a7a8b-248d-7688-bbc0-71560750ea33"
-                    code: OTHER_GOODS
-                    name: "Other Goods"
-                  levy:
-                    id: "019a7a8b-626b-7a4f-9f87-adc4fab226a2"
-                    code: NHIL
-                    name: "National Health Insurance Levy"
-                  treatment: STANDARD
-                  ratePercent: "2.50"
-                  baseKind: NET
-                  baseIncludes: []
-                  isReclaimable: true
-                  calcOrder: 2
-                - taxCategory:
-                    id: "019a7a8b-248d-7688-bbc0-71560750ea33"
-                    code: OTHER_GOODS
-                    name: "Other Goods"
-                  levy:
-                    id: "019a7a8b-815a-7432-a96a-4bfc7463c4da"
-                    code: GETFUND
-                    name: "GETFund Levy"
-                  treatment: STANDARD
-                  ratePercent: "2.50"
-                  baseKind: NET
-                  baseIncludes: []
-                  isReclaimable: true
-                  calcOrder: 3
-              version: 1
-              createdAt: "2026-11-02T10:00:00Z"
-              createdBy:
-                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
-                displayName: "Efua Asante"
-            - id: "019a7aa9-b6c0-7c55-818d-ce294b3d4707"
-              versionNo: 5
-              status: SUPERSEDED
-              validFrom: "2025-01-01"
-              validTo: "2025-12-31"
-              sourceNote: "Pre-2026 regime with COVID-19 levy; historical"
-              approvalRequestId: "019a7aa9-d5af-7638-9b71-6c60c4eee53e"
-              cells: []
-              version: 1
-              createdAt: "2026-11-02T10:00:00Z"
-              createdBy:
-                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
-                displayName: "Efua Asante"
-            - id: "019a7aa9-f49e-701c-a554-0a983e9f8376"
-              versionNo: 4
-              status: ACTIVE
-              validFrom: "2026-01-01"
-              validTo: null
-              sourceNote: "VAT Act 2025 regime from 1 January 2026: VAT 15%, NHIL 2.5%, GETFund 2.5% on one base, no compounding. Confirmed by the owner on 2026-11-13; accountant to confirm registration and imported inputs."
-              approvalRequestId: "019a7aa9-97d1-7272-b7aa-2ff1d18ca8cf"
-              cells: []
-              version: 1
-              createdAt: "2026-11-02T10:00:00Z"
-              createdBy:
-                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
-                displayName: "Efua Asante"
-            - id: "019a7aaa-138d-79ff-bf38-a8cfb85021ad"
-              versionNo: 3
-              status: SUPERSEDED
-              validFrom: "2025-01-01"
-              validTo: "2025-12-31"
-              sourceNote: "Pre-2026 regime with COVID-19 levy; historical"
-              approvalRequestId: "019a7aa9-d5af-7638-9b71-6c60c4eee53e"
-              cells: []
-              version: 1
-              createdAt: "2026-11-02T10:00:00Z"
-              createdBy:
-                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
-                displayName: "Efua Asante"
-            - id: "019a7aaa-327c-73e3-891b-47073201bfe5"
-              versionNo: 2
-              status: ACTIVE
-              validFrom: "2026-01-01"
-              validTo: null
-              sourceNote: "VAT Act 2025 regime from 1 January 2026: VAT 15%, NHIL 2.5%, GETFund 2.5% on one base, no compounding. Confirmed by the owner on 2026-11-13; accountant to confirm registration and imported inputs."
-              approvalRequestId: "019a7aa9-97d1-7272-b7aa-2ff1d18ca8cf"
-              cells: []
-              version: 1
-              createdAt: "2026-11-02T10:00:00Z"
-              createdBy:
-                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
-                displayName: "Efua Asante"
-          page:
-            nextCursor: null
-            limit: 25
-            hasMore: false
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7aa9-78e2-788e-adc6-91ba57db0a98"
+                  versionNo: 6
+                  status: ACTIVE
+                  validFrom: "2026-01-01"
+                  validTo: null
+                  sourceNote: "VAT Act 2025 regime from 1 January 2026: VAT 15%, NHIL 2.5%, GETFund 2.5% on one base, no compounding. Confirmed by the owner on 2026-11-13; accountant to confirm registration and imported inputs."
+                  approvalRequestId: "019a7aa9-97d1-7272-b7aa-2ff1d18ca8cf"
+                  cells:
+                    - taxCategory:
+                        id: "019a7a8a-6af3-7b33-906b-bc092d2a34e7"
+                        code: LIVE_ANIMALS
+                        name: "Live Animals"
+                      levy:
+                        id: "019a7a8b-437c-706b-85a4-0f8d8101886b"
+                        code: VAT
+                        name: "Value Added Tax"
+                      treatment: ZERO_RATED
+                      ratePercent: "0.00"
+                      baseKind: NET
+                      baseIncludes: []
+                      isReclaimable: true
+                      calcOrder: 1
+                    - taxCategory:
+                        id: "019a7a8a-6af3-7b33-906b-bc092d2a34e7"
+                        code: LIVE_ANIMALS
+                        name: "Live Animals"
+                      levy:
+                        id: "019a7a8b-626b-7a4f-9f87-adc4fab226a2"
+                        code: NHIL
+                        name: "National Health Insurance Levy"
+                      treatment: ZERO_RATED
+                      ratePercent: "0.00"
+                      baseKind: NET
+                      baseIncludes: []
+                      isReclaimable: true
+                      calcOrder: 2
+                    - taxCategory:
+                        id: "019a7a8a-6af3-7b33-906b-bc092d2a34e7"
+                        code: LIVE_ANIMALS
+                        name: "Live Animals"
+                      levy:
+                        id: "019a7a8b-815a-7432-a96a-4bfc7463c4da"
+                        code: GETFUND
+                        name: "GETFund Levy"
+                      treatment: ZERO_RATED
+                      ratePercent: "0.00"
+                      baseKind: NET
+                      baseIncludes: []
+                      isReclaimable: true
+                      calcOrder: 3
+                    - taxCategory:
+                        id: "019a7a8a-89e2-7516-aa4f-5a40a6dbd31e"
+                        code: RAW_PRODUCE
+                        name: "Raw Produce"
+                      levy:
+                        id: "019a7a8b-437c-706b-85a4-0f8d8101886b"
+                        code: VAT
+                        name: "Value Added Tax"
+                      treatment: ZERO_RATED
+                      ratePercent: "0.00"
+                      baseKind: NET
+                      baseIncludes: []
+                      isReclaimable: true
+                      calcOrder: 1
+                    - taxCategory:
+                        id: "019a7a8a-89e2-7516-aa4f-5a40a6dbd31e"
+                        code: RAW_PRODUCE
+                        name: "Raw Produce"
+                      levy:
+                        id: "019a7a8b-626b-7a4f-9f87-adc4fab226a2"
+                        code: NHIL
+                        name: "National Health Insurance Levy"
+                      treatment: ZERO_RATED
+                      ratePercent: "0.00"
+                      baseKind: NET
+                      baseIncludes: []
+                      isReclaimable: true
+                      calcOrder: 2
+                    - taxCategory:
+                        id: "019a7a8a-89e2-7516-aa4f-5a40a6dbd31e"
+                        code: RAW_PRODUCE
+                        name: "Raw Produce"
+                      levy:
+                        id: "019a7a8b-815a-7432-a96a-4bfc7463c4da"
+                        code: GETFUND
+                        name: "GETFund Levy"
+                      treatment: ZERO_RATED
+                      ratePercent: "0.00"
+                      baseKind: NET
+                      baseIncludes: []
+                      isReclaimable: true
+                      calcOrder: 3
+                    - taxCategory:
+                        id: "019a7a8a-a8d1-7efa-b432-f878208c7156"
+                        code: EGGS
+                        name: Eggs
+                      levy:
+                        id: "019a7a8b-437c-706b-85a4-0f8d8101886b"
+                        code: VAT
+                        name: "Value Added Tax"
+                      treatment: ZERO_RATED
+                      ratePercent: "0.00"
+                      baseKind: NET
+                      baseIncludes: []
+                      isReclaimable: true
+                      calcOrder: 1
+                    - taxCategory:
+                        id: "019a7a8a-a8d1-7efa-b432-f878208c7156"
+                        code: EGGS
+                        name: Eggs
+                      levy:
+                        id: "019a7a8b-626b-7a4f-9f87-adc4fab226a2"
+                        code: NHIL
+                        name: "National Health Insurance Levy"
+                      treatment: ZERO_RATED
+                      ratePercent: "0.00"
+                      baseKind: NET
+                      baseIncludes: []
+                      isReclaimable: true
+                      calcOrder: 2
+                    - taxCategory:
+                        id: "019a7a8a-a8d1-7efa-b432-f878208c7156"
+                        code: EGGS
+                        name: Eggs
+                      levy:
+                        id: "019a7a8b-815a-7432-a96a-4bfc7463c4da"
+                        code: GETFUND
+                        name: "GETFund Levy"
+                      treatment: ZERO_RATED
+                      ratePercent: "0.00"
+                      baseKind: NET
+                      baseIncludes: []
+                      isReclaimable: true
+                      calcOrder: 3
+                    - taxCategory:
+                        id: "019a7a8a-c7c0-78dd-8e16-96af9a3d0f8d"
+                        code: PROCESSED_MEAT
+                        name: "Processed Meat"
+                      levy:
+                        id: "019a7a8b-437c-706b-85a4-0f8d8101886b"
+                        code: VAT
+                        name: "Value Added Tax"
+                      treatment: STANDARD
+                      ratePercent: "15.00"
+                      baseKind: NET
+                      baseIncludes: []
+                      isReclaimable: true
+                      calcOrder: 1
+                    - taxCategory:
+                        id: "019a7a8a-c7c0-78dd-8e16-96af9a3d0f8d"
+                        code: PROCESSED_MEAT
+                        name: "Processed Meat"
+                      levy:
+                        id: "019a7a8b-626b-7a4f-9f87-adc4fab226a2"
+                        code: NHIL
+                        name: "National Health Insurance Levy"
+                      treatment: STANDARD
+                      ratePercent: "2.50"
+                      baseKind: NET
+                      baseIncludes: []
+                      isReclaimable: true
+                      calcOrder: 2
+                    - taxCategory:
+                        id: "019a7a8a-c7c0-78dd-8e16-96af9a3d0f8d"
+                        code: PROCESSED_MEAT
+                        name: "Processed Meat"
+                      levy:
+                        id: "019a7a8b-815a-7432-a96a-4bfc7463c4da"
+                        code: GETFUND
+                        name: "GETFund Levy"
+                      treatment: STANDARD
+                      ratePercent: "2.50"
+                      baseKind: NET
+                      baseIncludes: []
+                      isReclaimable: true
+                      calcOrder: 3
+                    - taxCategory:
+                        id: "019a7a8a-e6af-72c1-97f9-34e713eeadc4"
+                        code: FARM_INPUTS
+                        name: "Farm Inputs"
+                      levy:
+                        id: "019a7a8b-437c-706b-85a4-0f8d8101886b"
+                        code: VAT
+                        name: "Value Added Tax"
+                      treatment: ZERO_RATED
+                      ratePercent: "0.00"
+                      baseKind: NET
+                      baseIncludes: []
+                      isReclaimable: true
+                      calcOrder: 1
+                    - taxCategory:
+                        id: "019a7a8a-e6af-72c1-97f9-34e713eeadc4"
+                        code: FARM_INPUTS
+                        name: "Farm Inputs"
+                      levy:
+                        id: "019a7a8b-626b-7a4f-9f87-adc4fab226a2"
+                        code: NHIL
+                        name: "National Health Insurance Levy"
+                      treatment: ZERO_RATED
+                      ratePercent: "0.00"
+                      baseKind: NET
+                      baseIncludes: []
+                      isReclaimable: true
+                      calcOrder: 2
+                    - taxCategory:
+                        id: "019a7a8a-e6af-72c1-97f9-34e713eeadc4"
+                        code: FARM_INPUTS
+                        name: "Farm Inputs"
+                      levy:
+                        id: "019a7a8b-815a-7432-a96a-4bfc7463c4da"
+                        code: GETFUND
+                        name: "GETFund Levy"
+                      treatment: ZERO_RATED
+                      ratePercent: "0.00"
+                      baseKind: NET
+                      baseIncludes: []
+                      isReclaimable: true
+                      calcOrder: 3
+                    - taxCategory:
+                        id: "019a7a8b-059e-7ca4-a1dd-d31e8d9f4bfc"
+                        code: DELIVERY_SERVICE
+                        name: "Delivery Service"
+                      levy:
+                        id: "019a7a8b-437c-706b-85a4-0f8d8101886b"
+                        code: VAT
+                        name: "Value Added Tax"
+                      treatment: STANDARD
+                      ratePercent: "15.00"
+                      baseKind: NET
+                      baseIncludes: []
+                      isReclaimable: true
+                      calcOrder: 1
+                    - taxCategory:
+                        id: "019a7a8b-059e-7ca4-a1dd-d31e8d9f4bfc"
+                        code: DELIVERY_SERVICE
+                        name: "Delivery Service"
+                      levy:
+                        id: "019a7a8b-626b-7a4f-9f87-adc4fab226a2"
+                        code: NHIL
+                        name: "National Health Insurance Levy"
+                      treatment: STANDARD
+                      ratePercent: "2.50"
+                      baseKind: NET
+                      baseIncludes: []
+                      isReclaimable: true
+                      calcOrder: 2
+                    - taxCategory:
+                        id: "019a7a8b-059e-7ca4-a1dd-d31e8d9f4bfc"
+                        code: DELIVERY_SERVICE
+                        name: "Delivery Service"
+                      levy:
+                        id: "019a7a8b-815a-7432-a96a-4bfc7463c4da"
+                        code: GETFUND
+                        name: "GETFund Levy"
+                      treatment: STANDARD
+                      ratePercent: "2.50"
+                      baseKind: NET
+                      baseIncludes: []
+                      isReclaimable: true
+                      calcOrder: 3
+                    - taxCategory:
+                        id: "019a7a8b-248d-7688-bbc0-71560750ea33"
+                        code: OTHER_GOODS
+                        name: "Other Goods"
+                      levy:
+                        id: "019a7a8b-437c-706b-85a4-0f8d8101886b"
+                        code: VAT
+                        name: "Value Added Tax"
+                      treatment: STANDARD
+                      ratePercent: "15.00"
+                      baseKind: NET
+                      baseIncludes: []
+                      isReclaimable: true
+                      calcOrder: 1
+                    - taxCategory:
+                        id: "019a7a8b-248d-7688-bbc0-71560750ea33"
+                        code: OTHER_GOODS
+                        name: "Other Goods"
+                      levy:
+                        id: "019a7a8b-626b-7a4f-9f87-adc4fab226a2"
+                        code: NHIL
+                        name: "National Health Insurance Levy"
+                      treatment: STANDARD
+                      ratePercent: "2.50"
+                      baseKind: NET
+                      baseIncludes: []
+                      isReclaimable: true
+                      calcOrder: 2
+                    - taxCategory:
+                        id: "019a7a8b-248d-7688-bbc0-71560750ea33"
+                        code: OTHER_GOODS
+                        name: "Other Goods"
+                      levy:
+                        id: "019a7a8b-815a-7432-a96a-4bfc7463c4da"
+                        code: GETFUND
+                        name: "GETFund Levy"
+                      treatment: STANDARD
+                      ratePercent: "2.50"
+                      baseKind: NET
+                      baseIncludes: []
+                      isReclaimable: true
+                      calcOrder: 3
+                  version: 1
+                  createdAt: "2026-11-02T10:00:00Z"
+                  createdBy:
+                    id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                    displayName: "Efua Asante"
+                - id: "019a7aa9-b6c0-7c55-818d-ce294b3d4707"
+                  versionNo: 5
+                  status: SUPERSEDED
+                  validFrom: "2025-01-01"
+                  validTo: "2025-12-31"
+                  sourceNote: "Pre-2026 regime with COVID-19 levy; historical"
+                  approvalRequestId: "019a7aa9-d5af-7638-9b71-6c60c4eee53e"
+                  cells: []
+                  version: 1
+                  createdAt: "2026-11-02T10:00:00Z"
+                  createdBy:
+                    id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                    displayName: "Efua Asante"
+                - id: "019a7aa9-f49e-701c-a554-0a983e9f8376"
+                  versionNo: 4
+                  status: ACTIVE
+                  validFrom: "2026-01-01"
+                  validTo: null
+                  sourceNote: "VAT Act 2025 regime from 1 January 2026: VAT 15%, NHIL 2.5%, GETFund 2.5% on one base, no compounding. Confirmed by the owner on 2026-11-13; accountant to confirm registration and imported inputs."
+                  approvalRequestId: "019a7aa9-97d1-7272-b7aa-2ff1d18ca8cf"
+                  cells: []
+                  version: 1
+                  createdAt: "2026-11-02T10:00:00Z"
+                  createdBy:
+                    id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                    displayName: "Efua Asante"
+                - id: "019a7aaa-138d-79ff-bf38-a8cfb85021ad"
+                  versionNo: 3
+                  status: SUPERSEDED
+                  validFrom: "2025-01-01"
+                  validTo: "2025-12-31"
+                  sourceNote: "Pre-2026 regime with COVID-19 levy; historical"
+                  approvalRequestId: "019a7aa9-d5af-7638-9b71-6c60c4eee53e"
+                  cells: []
+                  version: 1
+                  createdAt: "2026-11-02T10:00:00Z"
+                  createdBy:
+                    id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                    displayName: "Efua Asante"
+                - id: "019a7aaa-327c-73e3-891b-47073201bfe5"
+                  versionNo: 2
+                  status: ACTIVE
+                  validFrom: "2026-01-01"
+                  validTo: null
+                  sourceNote: "VAT Act 2025 regime from 1 January 2026: VAT 15%, NHIL 2.5%, GETFund 2.5% on one base, no compounding. Confirmed by the owner on 2026-11-13; accountant to confirm registration and imported inputs."
+                  approvalRequestId: "019a7aa9-97d1-7272-b7aa-2ff1d18ca8cf"
+                  cells: []
+                  version: 1
+                  createdAt: "2026-11-02T10:00:00Z"
+                  createdBy:
+                    id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                    displayName: "Efua Asante"
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

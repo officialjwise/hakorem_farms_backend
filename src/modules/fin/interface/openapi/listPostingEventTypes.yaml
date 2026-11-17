@@ -34,57 +34,67 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/PostingEventTypePage"
-        example:
-          data:
-            - hasCompleteRules: true
-              code: inv.StockIssuedForSale
-              ownerModule: inv
-              description: "Stock issued for a sale"
-              amountKeys:
-                - value
-            - hasCompleteRules: true
-              code: bil.InvoiceIssued
-              ownerModule: bil
-              description: "Invoice or receipt issued"
-              amountKeys:
-                - receivable
-                - net
-                - levies
-                - priceVariance
-                - deliveryFee
-            - hasCompleteRules: true
-              code: pay.PaymentCleared
-              ownerModule: pay
-              description: "Payment cleared"
-              amountKeys:
-                - tender
-                - allocated
-                - unallocated
-            - hasCompleteRules: true
-              code: inv.StockWrittenOff
-              ownerModule: inv
-              description: "Mortality, cull, shrinkage or wastage"
-              amountKeys:
-                - value
-            - hasCompleteRules: true
-              code: cap.DistributionDeclared
-              ownerModule: cap
-              description: "Investor distribution declared"
-              amountKeys:
-                - declared
-                - withheld
-            - hasCompleteRules: true
-              code: pos.ShiftClosed
-              ownerModule: pos
-              description: "Shift closed with over or short"
-              amountKeys:
-                - returnedToSafe
-                - over
-                - short
-          page:
-            nextCursor: eyJpZCI6IjAxOWE3YyJ9
-            limit: 25
-            hasMore: true
+        examples:
+          default:
+            value:
+              data:
+                - hasCompleteRules: true
+                  code: inv.StockIssuedForSale
+                  ownerModule: inv
+                  description: "Stock issued for a sale"
+                  amountKeys:
+                    - value
+                - hasCompleteRules: true
+                  code: bil.InvoiceIssued
+                  ownerModule: bil
+                  description: "Invoice or receipt issued"
+                  amountKeys:
+                    - receivable
+                    - net
+                    - levies
+                    - priceVariance
+                    - deliveryFee
+                - hasCompleteRules: true
+                  code: pay.PaymentCleared
+                  ownerModule: pay
+                  description: "Payment cleared"
+                  amountKeys:
+                    - tender
+                    - allocated
+                    - unallocated
+                - hasCompleteRules: true
+                  code: inv.StockWrittenOff
+                  ownerModule: inv
+                  description: "Mortality, cull, shrinkage or wastage"
+                  amountKeys:
+                    - value
+                - hasCompleteRules: true
+                  code: cap.DistributionDeclared
+                  ownerModule: cap
+                  description: "Investor distribution declared"
+                  amountKeys:
+                    - declared
+                    - withheld
+                - hasCompleteRules: true
+                  code: pos.ShiftClosed
+                  ownerModule: pos
+                  description: "Shift closed with over or short"
+                  amountKeys:
+                    - returnedToSafe
+                    - over
+                    - short
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

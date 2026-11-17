@@ -96,265 +96,275 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/StockUnitPage"
-        example:
-          data:
-            - id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
-              product:
-                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                sku: LIV-GOAT
-                name: Goat
-              tracking: SERIAL
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-              identifier: G-0142
-              currentLocation:
-                id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
-                code: PEN-G1
-                name: "Goat pen 1"
-                kind: PEN
-              status: ACTIVE
-              producedOn: null
-              expiresOn: null
-              storageTempClass: null
-              supplier:
-                id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                supplierNo: S-0012
-                name: "Kpone Livestock Traders"
-              grade:
-                id: "019a7a8c-d59f-70f8-9631-185eaefe913c"
-                code: A
-                name: "Grade A, well finished"
-              lastWeightKg: "26.400"
-              lastWeighedAt: "2026-11-11T07:00:00Z"
-              onHandQty: "1.000"
-              uom: HEAD
-              uomDisplayDecimals: 0
-              valueAtCostPesewas: 61250
-              currency: GHS
-              activeHolds: []
-              activeReservation: null
-              sourceDocument:
-                id: "019a7aad-f16d-766e-bba7-6fbeee70e89c"
-                docType: GOODS_RECEIPT
-                number: GRN-2026-DDW-000070
-              createdAt: "2026-11-03T11:00:00Z"
-            - id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
-              product:
-                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                sku: LIV-GOAT
-                name: Goat
-              tracking: SERIAL
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-              identifier: G-0157
-              currentLocation:
-                id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
-                code: PEN-G1
-                name: "Goat pen 1"
-                kind: PEN
-              status: ACTIVE
-              producedOn: null
-              expiresOn: null
-              storageTempClass: null
-              supplier: null
-              grade: null
-              lastWeightKg: "31.800"
-              lastWeighedAt: "2026-11-11T07:00:00Z"
-              onHandQty: "1.000"
-              uom: HEAD
-              uomDisplayDecimals: 0
-              valueAtCostPesewas: 74800
-              currency: GHS
-              activeHolds: []
-              activeReservation:
-                id: "019a7aae-105c-7052-858a-0df6682186d4"
-                holderDocument:
-                  id: "019a7a95-a7c6-72d5-a80e-36306277af0e"
-                  docType: QUOTE
-                  number: QUO-2026-DDW-000088
-                expiresAt: "2026-11-20T18:00:00Z"
-              sourceDocument:
-                id: "019a7aad-f16d-766e-bba7-6fbeee70e89c"
-                docType: GOODS_RECEIPT
-                number: GRN-2026-DDW-000070
-              createdAt: "2026-11-03T11:00:00Z"
-            - id: "019a7a8f-9d18-7468-89a0-4f5a9de5c838"
-              product:
-                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                sku: LIV-GOAT
-                name: Goat
-              tracking: SERIAL
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-              identifier: G-0163
-              currentLocation:
-                id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
-                code: PEN-G2
-                name: "Goat pen 2"
-                kind: PEN
-              status: ACTIVE
-              producedOn: null
-              expiresOn: null
-              storageTempClass: null
-              supplier: null
-              grade: null
-              lastWeightKg: "22.150"
-              lastWeighedAt: "2026-11-11T07:00:00Z"
-              onHandQty: "1.000"
-              uom: HEAD
-              uomDisplayDecimals: 0
-              valueAtCostPesewas: 52300
-              currency: GHS
-              activeHolds:
-                - id: "019a7aae-2f4b-7a35-9f6e-ac2de1d2250b"
-                  kind: WITHDRAWAL
-                  startsAt: "2026-11-01T10:00:00Z"
-                  endsAt: "2026-11-28T23:59:00Z"
-              activeReservation: null
-              sourceDocument:
-                id: "019a7aad-f16d-766e-bba7-6fbeee70e89c"
-                docType: GOODS_RECEIPT
-                number: GRN-2026-DDW-000070
-              createdAt: "2026-11-03T11:00:00Z"
-            - id: "019a7a90-f15d-712e-b666-1bbcd880949a"
-              product:
-                id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
-                sku: MEAT-GOAT
-                name: "Goat meat, 15 kg pack"
-              tracking: LOT
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-              identifier: MEAT-GOAT-261109-01
-              currentLocation:
-                id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
-                code: COLD-1
-                name: "Cold room"
-                kind: COLD_ROOM
-              status: ACTIVE
-              producedOn: "2026-11-09"
-              expiresOn: "2026-12-09"
-              storageTempClass: FROZEN
-              supplier: null
-              grade: null
-              lastWeightKg: "58.350"
-              lastWeighedAt: "2026-11-09T15:00:00Z"
-              onHandQty: "58.350"
-              uom: KG
-              uomDisplayDecimals: 3
-              valueAtCostPesewas: 141600
-              currency: GHS
-              activeHolds: []
-              activeReservation: null
-              sourceDocument:
-                id: "019a7aac-7e39-7fc5-b4fd-05253a247e03"
-                docType: PROCESSING_ORDER
-                number: PRC-2026-DDW-000012
-              createdAt: "2026-11-09T16:00:00Z"
-            - id: "019a7a91-104c-7b12-804a-b9f4523132d2"
-              product:
-                id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                sku: MEAT-CHK-FULL
-                name: "Full chicken, 15 kg pack"
-              tracking: LOT
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-              identifier: MEAT-CHK-261106-02
-              currentLocation:
-                id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
-                code: COLD-1
-                name: "Cold room"
-                kind: COLD_ROOM
-              status: ACTIVE
-              producedOn: "2026-11-06"
-              expiresOn: "2026-12-06"
-              storageTempClass: FROZEN
-              supplier:
-                id: "019a7a89-16ae-7e6d-a3a5-efa6f28f6884"
-                supplierNo: S-0019
-                name: "Awutu Poultry Farm"
-              grade: null
-              lastWeightKg: "142.800"
-              lastWeighedAt: "2026-11-06T15:00:00Z"
-              onHandQty: "142.800"
-              uom: KG
-              uomDisplayDecimals: 3
-              valueAtCostPesewas: 228480
-              currency: GHS
-              activeHolds: []
-              activeReservation: null
-              sourceDocument:
-                id: "019a7aae-4e3a-7419-a951-4a655b83c343"
-                docType: GOODS_RECEIPT
-                number: GRN-2026-DDW-000064
-              createdAt: "2026-11-06T16:00:00Z"
-            - id: "019a7a91-2f3b-74f5-9a2d-582bcbe2d109"
-              product:
-                id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                sku: MEAT-BEEF
-                name: "Beef, 15 kg pack"
-              tracking: LOT
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-              identifier: MEAT-BEEF-261104-01
-              currentLocation:
-                id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
-                code: COLD-1
-                name: "Cold room"
-                kind: COLD_ROOM
-              status: ACTIVE
-              producedOn: "2026-11-04"
-              expiresOn: "2026-12-04"
-              storageTempClass: FROZEN
-              supplier:
-                id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                supplierNo: S-0012
-                name: "Kpone Livestock Traders"
-              grade: null
-              lastWeightKg: "88.200"
-              lastWeighedAt: "2026-11-04T15:00:00Z"
-              onHandQty: "88.200"
-              uom: KG
-              uomDisplayDecimals: 3
-              valueAtCostPesewas: 220500
-              currency: GHS
-              activeHolds: []
-              activeReservation: null
-              sourceDocument:
-                id: "019a7aae-6d29-7dfc-b334-e89cd534617a"
-                docType: GOODS_RECEIPT
-                number: GRN-2026-DDW-000065
-              createdAt: "2026-11-04T16:00:00Z"
-            - id: "019a7a91-4e2a-7ed9-a411-f66345936f41"
-              product:
-                id: "019a7a8d-704a-726a-a7a2-2f740f73a851"
-                sku: LIV-BROILER
-                name: "Broiler chicken"
-              tracking: LOT
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-              identifier: BRL-2610-01
-              currentLocation:
-                id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
-                code: HSE-B1
-                name: "Broiler house 1"
-                kind: PEN
-              status: ACTIVE
-              producedOn: "2026-10-02"
-              expiresOn: null
-              storageTempClass: null
-              supplier: null
-              grade: null
-              lastWeightKg: null
-              lastWeighedAt: null
-              onHandQty: "462.000"
-              uom: HEAD
-              uomDisplayDecimals: 0
-              valueAtCostPesewas: 6237000
-              currency: GHS
-              activeHolds: []
-              activeReservation: null
-              sourceDocument:
-                id: "019a7aae-8c18-77e0-8d18-86d44ee5ffb2"
-                docType: GOODS_RECEIPT
-                number: GRN-2026-DDW-000066
-              createdAt: "2026-11-02T16:00:00Z"
-          page:
-            nextCursor: eyJpZCI6IjAxOWE3YyJ9
-            limit: 25
-            hasMore: true
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
+                  product:
+                    id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                    sku: LIV-GOAT
+                    name: Goat
+                  tracking: SERIAL
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  identifier: G-0142
+                  currentLocation:
+                    id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+                    code: PEN-G1
+                    name: "Goat pen 1"
+                    kind: PEN
+                  status: ACTIVE
+                  producedOn: null
+                  expiresOn: null
+                  storageTempClass: null
+                  supplier:
+                    id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
+                    supplierNo: S-0012
+                    name: "Kpone Livestock Traders"
+                  grade:
+                    id: "019a7a8c-d59f-70f8-9631-185eaefe913c"
+                    code: A
+                    name: "Grade A, well finished"
+                  lastWeightKg: "26.400"
+                  lastWeighedAt: "2026-11-11T07:00:00Z"
+                  onHandQty: "1.000"
+                  uom: HEAD
+                  uomDisplayDecimals: 0
+                  valueAtCostPesewas: 61250
+                  currency: GHS
+                  activeHolds: []
+                  activeReservation: null
+                  sourceDocument:
+                    id: "019a7aad-f16d-766e-bba7-6fbeee70e89c"
+                    docType: GOODS_RECEIPT
+                    number: GRN-2026-DDW-000070
+                  createdAt: "2026-11-03T11:00:00Z"
+                - id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
+                  product:
+                    id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                    sku: LIV-GOAT
+                    name: Goat
+                  tracking: SERIAL
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  identifier: G-0157
+                  currentLocation:
+                    id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+                    code: PEN-G1
+                    name: "Goat pen 1"
+                    kind: PEN
+                  status: ACTIVE
+                  producedOn: null
+                  expiresOn: null
+                  storageTempClass: null
+                  supplier: null
+                  grade: null
+                  lastWeightKg: "31.800"
+                  lastWeighedAt: "2026-11-11T07:00:00Z"
+                  onHandQty: "1.000"
+                  uom: HEAD
+                  uomDisplayDecimals: 0
+                  valueAtCostPesewas: 74800
+                  currency: GHS
+                  activeHolds: []
+                  activeReservation:
+                    id: "019a7aae-105c-7052-858a-0df6682186d4"
+                    holderDocument:
+                      id: "019a7a95-a7c6-72d5-a80e-36306277af0e"
+                      docType: QUOTE
+                      number: QUO-2026-DDW-000088
+                    expiresAt: "2026-11-20T18:00:00Z"
+                  sourceDocument:
+                    id: "019a7aad-f16d-766e-bba7-6fbeee70e89c"
+                    docType: GOODS_RECEIPT
+                    number: GRN-2026-DDW-000070
+                  createdAt: "2026-11-03T11:00:00Z"
+                - id: "019a7a8f-9d18-7468-89a0-4f5a9de5c838"
+                  product:
+                    id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                    sku: LIV-GOAT
+                    name: Goat
+                  tracking: SERIAL
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  identifier: G-0163
+                  currentLocation:
+                    id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                    code: PEN-G2
+                    name: "Goat pen 2"
+                    kind: PEN
+                  status: ACTIVE
+                  producedOn: null
+                  expiresOn: null
+                  storageTempClass: null
+                  supplier: null
+                  grade: null
+                  lastWeightKg: "22.150"
+                  lastWeighedAt: "2026-11-11T07:00:00Z"
+                  onHandQty: "1.000"
+                  uom: HEAD
+                  uomDisplayDecimals: 0
+                  valueAtCostPesewas: 52300
+                  currency: GHS
+                  activeHolds:
+                    - id: "019a7aae-2f4b-7a35-9f6e-ac2de1d2250b"
+                      kind: WITHDRAWAL
+                      startsAt: "2026-11-01T10:00:00Z"
+                      endsAt: "2026-11-28T23:59:00Z"
+                  activeReservation: null
+                  sourceDocument:
+                    id: "019a7aad-f16d-766e-bba7-6fbeee70e89c"
+                    docType: GOODS_RECEIPT
+                    number: GRN-2026-DDW-000070
+                  createdAt: "2026-11-03T11:00:00Z"
+                - id: "019a7a90-f15d-712e-b666-1bbcd880949a"
+                  product:
+                    id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
+                    sku: MEAT-GOAT
+                    name: "Goat meat, 15 kg pack"
+                  tracking: LOT
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  identifier: MEAT-GOAT-261109-01
+                  currentLocation:
+                    id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+                    code: COLD-1
+                    name: "Cold room"
+                    kind: COLD_ROOM
+                  status: ACTIVE
+                  producedOn: "2026-11-09"
+                  expiresOn: "2026-12-09"
+                  storageTempClass: FROZEN
+                  supplier: null
+                  grade: null
+                  lastWeightKg: "58.350"
+                  lastWeighedAt: "2026-11-09T15:00:00Z"
+                  onHandQty: "58.350"
+                  uom: KG
+                  uomDisplayDecimals: 3
+                  valueAtCostPesewas: 141600
+                  currency: GHS
+                  activeHolds: []
+                  activeReservation: null
+                  sourceDocument:
+                    id: "019a7aac-7e39-7fc5-b4fd-05253a247e03"
+                    docType: PROCESSING_ORDER
+                    number: PRC-2026-DDW-000012
+                  createdAt: "2026-11-09T16:00:00Z"
+                - id: "019a7a91-104c-7b12-804a-b9f4523132d2"
+                  product:
+                    id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                    sku: MEAT-CHK-FULL
+                    name: "Full chicken, 15 kg pack"
+                  tracking: LOT
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  identifier: MEAT-CHK-261106-02
+                  currentLocation:
+                    id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+                    code: COLD-1
+                    name: "Cold room"
+                    kind: COLD_ROOM
+                  status: ACTIVE
+                  producedOn: "2026-11-06"
+                  expiresOn: "2026-12-06"
+                  storageTempClass: FROZEN
+                  supplier:
+                    id: "019a7a89-16ae-7e6d-a3a5-efa6f28f6884"
+                    supplierNo: S-0019
+                    name: "Awutu Poultry Farm"
+                  grade: null
+                  lastWeightKg: "142.800"
+                  lastWeighedAt: "2026-11-06T15:00:00Z"
+                  onHandQty: "142.800"
+                  uom: KG
+                  uomDisplayDecimals: 3
+                  valueAtCostPesewas: 228480
+                  currency: GHS
+                  activeHolds: []
+                  activeReservation: null
+                  sourceDocument:
+                    id: "019a7aae-4e3a-7419-a951-4a655b83c343"
+                    docType: GOODS_RECEIPT
+                    number: GRN-2026-DDW-000064
+                  createdAt: "2026-11-06T16:00:00Z"
+                - id: "019a7a91-2f3b-74f5-9a2d-582bcbe2d109"
+                  product:
+                    id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
+                    sku: MEAT-BEEF
+                    name: "Beef, 15 kg pack"
+                  tracking: LOT
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  identifier: MEAT-BEEF-261104-01
+                  currentLocation:
+                    id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+                    code: COLD-1
+                    name: "Cold room"
+                    kind: COLD_ROOM
+                  status: ACTIVE
+                  producedOn: "2026-11-04"
+                  expiresOn: "2026-12-04"
+                  storageTempClass: FROZEN
+                  supplier:
+                    id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
+                    supplierNo: S-0012
+                    name: "Kpone Livestock Traders"
+                  grade: null
+                  lastWeightKg: "88.200"
+                  lastWeighedAt: "2026-11-04T15:00:00Z"
+                  onHandQty: "88.200"
+                  uom: KG
+                  uomDisplayDecimals: 3
+                  valueAtCostPesewas: 220500
+                  currency: GHS
+                  activeHolds: []
+                  activeReservation: null
+                  sourceDocument:
+                    id: "019a7aae-6d29-7dfc-b334-e89cd534617a"
+                    docType: GOODS_RECEIPT
+                    number: GRN-2026-DDW-000065
+                  createdAt: "2026-11-04T16:00:00Z"
+                - id: "019a7a91-4e2a-7ed9-a411-f66345936f41"
+                  product:
+                    id: "019a7a8d-704a-726a-a7a2-2f740f73a851"
+                    sku: LIV-BROILER
+                    name: "Broiler chicken"
+                  tracking: LOT
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  identifier: BRL-2610-01
+                  currentLocation:
+                    id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+                    code: HSE-B1
+                    name: "Broiler house 1"
+                    kind: PEN
+                  status: ACTIVE
+                  producedOn: "2026-10-02"
+                  expiresOn: null
+                  storageTempClass: null
+                  supplier: null
+                  grade: null
+                  lastWeightKg: null
+                  lastWeighedAt: null
+                  onHandQty: "462.000"
+                  uom: HEAD
+                  uomDisplayDecimals: 0
+                  valueAtCostPesewas: 6237000
+                  currency: GHS
+                  activeHolds: []
+                  activeReservation: null
+                  sourceDocument:
+                    id: "019a7aae-8c18-77e0-8d18-86d44ee5ffb2"
+                    docType: GOODS_RECEIPT
+                    number: GRN-2026-DDW-000066
+                  createdAt: "2026-11-02T16:00:00Z"
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

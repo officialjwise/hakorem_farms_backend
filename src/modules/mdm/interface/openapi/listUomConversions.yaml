@@ -49,82 +49,92 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/UomConversionPage"
-        example:
-          data:
-            - id: "019a7f10-2b40-7c11-9a20-3e5d7c1b0a01"
-              product:
-                id: "019a7a8d-f1c2-7a10-9e3b-5d2c4a6b8e01"
-                sku: FEED-BRL-GROWER
-                name: "Broiler grower pellets, per kg"
-              fromUom: BAG
-              toUom: KG
-              numerator: 50
-              denominator: 1
-              factor: "50.000"
-              version: 1
-              createdAt: "2026-11-15T09:00:00Z"
-              archivedAt: null
-              archiveReason: null
-            - id: "019a7f10-2b41-7d22-8b31-4f6e8d2c1b12"
-              product:
-                id: "019a7a8d-f1c2-7a10-9e3b-5d2c4a6b8e01"
-                sku: FEED-BRL-GROWER
-                name: "Broiler grower pellets, per kg"
-              fromUom: PACK
-              toUom: KG
-              numerator: 1
-              denominator: 2
-              factor: "0.500"
-              version: 1
-              createdAt: "2026-11-15T09:02:00Z"
-              archivedAt: null
-              archiveReason: null
-            - id: "019a7f10-2b42-7e33-9c42-5a7f9e3d2c23"
-              product:
-                id: "019a7a8d-f1c3-7b21-8f4c-6e3d5b7c9f12"
-                sku: FEED-GOAT-CONC
-                name: "Goat and sheep concentrate, per kg"
-              fromUom: BAG
-              toUom: KG
-              numerator: 25
-              denominator: 1
-              factor: "25.000"
-              version: 1
-              createdAt: "2026-11-15T09:04:00Z"
-              archivedAt: null
-              archiveReason: null
-            - id: "019a7f10-2b43-7f44-8d53-6b8a1f4e3d34"
-              product:
-                id: "019a7a8d-f1c4-7c32-9e5d-7f4e6c8d1a23"
-                sku: PRD-CABBAGE-HEAD
-                name: "Cabbage, per head"
-              fromUom: CRATE
-              toUom: UNIT
-              numerator: 24
-              denominator: 1
-              factor: "24.000"
-              version: 1
-              createdAt: "2026-11-15T09:06:00Z"
-              archivedAt: null
-              archiveReason: null
-            - id: "019a7f10-2b44-7a55-9e64-7c9b2a5f4e45"
-              product:
-                id: "019a7a8d-f1c5-7d43-8f6e-8a5f7d9e2b34"
-                sku: PRD-LETTUCE-HEAD
-                name: "Lettuce, per head"
-              fromUom: CRATE
-              toUom: UNIT
-              numerator: 40
-              denominator: 1
-              factor: "40.000"
-              version: 1
-              createdAt: "2026-11-15T09:08:00Z"
-              archivedAt: null
-              archiveReason: null
-          page:
-            nextCursor: null
-            limit: 25
-            hasMore: false
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7f10-2b40-7c11-9a20-3e5d7c1b0a01"
+                  product:
+                    id: "019a7a8d-f1c2-7a10-9e3b-5d2c4a6b8e01"
+                    sku: FEED-BRL-GROWER
+                    name: "Broiler grower pellets, per kg"
+                  fromUom: BAG
+                  toUom: KG
+                  numerator: 50
+                  denominator: 1
+                  factor: "50.000"
+                  version: 1
+                  createdAt: "2026-11-15T09:00:00Z"
+                  archivedAt: null
+                  archiveReason: null
+                - id: "019a7f10-2b41-7d22-8b31-4f6e8d2c1b12"
+                  product:
+                    id: "019a7a8d-f1c2-7a10-9e3b-5d2c4a6b8e01"
+                    sku: FEED-BRL-GROWER
+                    name: "Broiler grower pellets, per kg"
+                  fromUom: PACK
+                  toUom: KG
+                  numerator: 1
+                  denominator: 2
+                  factor: "0.500"
+                  version: 1
+                  createdAt: "2026-11-15T09:02:00Z"
+                  archivedAt: null
+                  archiveReason: null
+                - id: "019a7f10-2b42-7e33-9c42-5a7f9e3d2c23"
+                  product:
+                    id: "019a7a8d-f1c3-7b21-8f4c-6e3d5b7c9f12"
+                    sku: FEED-GOAT-CONC
+                    name: "Goat and sheep concentrate, per kg"
+                  fromUom: BAG
+                  toUom: KG
+                  numerator: 25
+                  denominator: 1
+                  factor: "25.000"
+                  version: 1
+                  createdAt: "2026-11-15T09:04:00Z"
+                  archivedAt: null
+                  archiveReason: null
+                - id: "019a7f10-2b43-7f44-8d53-6b8a1f4e3d34"
+                  product:
+                    id: "019a7a8d-f1c4-7c32-9e5d-7f4e6c8d1a23"
+                    sku: PRD-CABBAGE-HEAD
+                    name: "Cabbage, per head"
+                  fromUom: CRATE
+                  toUom: UNIT
+                  numerator: 24
+                  denominator: 1
+                  factor: "24.000"
+                  version: 1
+                  createdAt: "2026-11-15T09:06:00Z"
+                  archivedAt: null
+                  archiveReason: null
+                - id: "019a7f10-2b44-7a55-9e64-7c9b2a5f4e45"
+                  product:
+                    id: "019a7a8d-f1c5-7d43-8f6e-8a5f7d9e2b34"
+                    sku: PRD-LETTUCE-HEAD
+                    name: "Lettuce, per head"
+                  fromUom: CRATE
+                  toUom: UNIT
+                  numerator: 40
+                  denominator: 1
+                  factor: "40.000"
+                  version: 1
+                  createdAt: "2026-11-15T09:08:00Z"
+                  archivedAt: null
+                  archiveReason: null
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

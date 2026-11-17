@@ -56,126 +56,136 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/LocationPage"
-        example:
-          data:
-            - id: "019a7a83-68cd-7daa-b2e2-e3779b105c55"
-              branch:
-                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                code: DDW
-                name: "HaKorem Farms, Dodowa"
-              parentId: null
-              code: DDW-SITE
-              name: "Dodowa farm"
-              kind: SITE
-              isVirtual: false
-              isSellable: false
-              allowsNegative: false
-              tempClass: null
-              tempMinC: null
-              tempMaxC: null
-              capacityHead: null
-              version: 2
-              createdAt: "2026-11-02T08:00:00Z"
-              updatedAt: "2026-11-10T14:00:00Z"
-            - id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
-              branch:
-                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                code: DDW
-                name: "HaKorem Farms, Dodowa"
-              parentId: "019a7a83-68cd-7daa-b2e2-e3779b105c55"
-              code: PEN-G1
-              name: "Goat pen 1"
-              kind: PEN
-              isVirtual: false
-              isSellable: true
-              allowsNegative: false
-              tempClass: null
-              tempMinC: null
-              tempMaxC: null
-              capacityHead: 40
-              version: 3
-              createdAt: "2026-11-02T08:01:00Z"
-              updatedAt: "2026-11-11T14:01:00Z"
-            - id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
-              branch:
-                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                code: DDW
-                name: "HaKorem Farms, Dodowa"
-              parentId: "019a7a83-68cd-7daa-b2e2-e3779b105c55"
-              code: PEN-G2
-              name: "Goat pen 2"
-              kind: PEN
-              isVirtual: false
-              isSellable: true
-              allowsNegative: false
-              tempClass: null
-              tempMinC: null
-              tempMaxC: null
-              capacityHead: 25
-              version: 4
-              createdAt: "2026-11-02T08:02:00Z"
-              updatedAt: "2026-11-12T14:02:00Z"
-            - id: "019a7a83-c59a-7b54-a08d-be1e082336fb"
-              branch:
-                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                code: DDW
-                name: "HaKorem Farms, Dodowa"
-              parentId: "019a7a83-68cd-7daa-b2e2-e3779b105c55"
-              code: PEN-S1
-              name: "Sheep pen"
-              kind: PEN
-              isVirtual: false
-              isSellable: true
-              allowsNegative: false
-              tempClass: null
-              tempMinC: null
-              tempMaxC: null
-              capacityHead: 12
-              version: 2
-              createdAt: "2026-11-02T08:03:00Z"
-              updatedAt: "2026-11-10T14:03:00Z"
-            - id: "019a7a83-e489-7538-ba70-5c5581d4d533"
-              branch:
-                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                code: DDW
-                name: "HaKorem Farms, Dodowa"
-              parentId: "019a7a83-68cd-7daa-b2e2-e3779b105c55"
-              code: PEN-P1
-              name: "Pig pen"
-              kind: PEN
-              isVirtual: false
-              isSellable: true
-              allowsNegative: false
-              tempClass: null
-              tempMinC: null
-              tempMaxC: null
-              capacityHead: 600
-              version: 3
-              createdAt: "2026-11-02T08:04:00Z"
-              updatedAt: "2026-11-11T14:04:00Z"
-            - id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
-              branch:
-                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                code: DDW
-                name: "HaKorem Farms, Dodowa"
-              parentId: "019a7a83-68cd-7daa-b2e2-e3779b105c55"
-              code: HSE-B1
-              name: "Broiler house 1"
-              kind: PEN
-              isVirtual: false
-              isSellable: true
-              allowsNegative: false
-              tempClass: null
-              tempMinC: null
-              tempMaxC: null
-              capacityHead: 800
-              version: 4
-              createdAt: "2026-11-02T08:05:00Z"
-              updatedAt: "2026-11-12T14:05:00Z"
-          page:
-            nextCursor: eyJpZCI6IjAxOWE3YyJ9
-            limit: 25
-            hasMore: true
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7a83-68cd-7daa-b2e2-e3779b105c55"
+                  branch:
+                    id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    code: DDW
+                    name: "HaKorem Farms, Dodowa"
+                  parentId: null
+                  code: DDW-SITE
+                  name: "Dodowa farm"
+                  kind: SITE
+                  isVirtual: false
+                  isSellable: false
+                  allowsNegative: false
+                  tempClass: null
+                  tempMinC: null
+                  tempMaxC: null
+                  capacityHead: null
+                  version: 2
+                  createdAt: "2026-11-02T08:00:00Z"
+                  updatedAt: "2026-11-10T14:00:00Z"
+                - id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+                  branch:
+                    id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    code: DDW
+                    name: "HaKorem Farms, Dodowa"
+                  parentId: "019a7a83-68cd-7daa-b2e2-e3779b105c55"
+                  code: PEN-G1
+                  name: "Goat pen 1"
+                  kind: PEN
+                  isVirtual: false
+                  isSellable: true
+                  allowsNegative: false
+                  tempClass: null
+                  tempMinC: null
+                  tempMaxC: null
+                  capacityHead: 40
+                  version: 3
+                  createdAt: "2026-11-02T08:01:00Z"
+                  updatedAt: "2026-11-11T14:01:00Z"
+                - id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                  branch:
+                    id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    code: DDW
+                    name: "HaKorem Farms, Dodowa"
+                  parentId: "019a7a83-68cd-7daa-b2e2-e3779b105c55"
+                  code: PEN-G2
+                  name: "Goat pen 2"
+                  kind: PEN
+                  isVirtual: false
+                  isSellable: true
+                  allowsNegative: false
+                  tempClass: null
+                  tempMinC: null
+                  tempMaxC: null
+                  capacityHead: 25
+                  version: 4
+                  createdAt: "2026-11-02T08:02:00Z"
+                  updatedAt: "2026-11-12T14:02:00Z"
+                - id: "019a7a83-c59a-7b54-a08d-be1e082336fb"
+                  branch:
+                    id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    code: DDW
+                    name: "HaKorem Farms, Dodowa"
+                  parentId: "019a7a83-68cd-7daa-b2e2-e3779b105c55"
+                  code: PEN-S1
+                  name: "Sheep pen"
+                  kind: PEN
+                  isVirtual: false
+                  isSellable: true
+                  allowsNegative: false
+                  tempClass: null
+                  tempMinC: null
+                  tempMaxC: null
+                  capacityHead: 12
+                  version: 2
+                  createdAt: "2026-11-02T08:03:00Z"
+                  updatedAt: "2026-11-10T14:03:00Z"
+                - id: "019a7a83-e489-7538-ba70-5c5581d4d533"
+                  branch:
+                    id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    code: DDW
+                    name: "HaKorem Farms, Dodowa"
+                  parentId: "019a7a83-68cd-7daa-b2e2-e3779b105c55"
+                  code: PEN-P1
+                  name: "Pig pen"
+                  kind: PEN
+                  isVirtual: false
+                  isSellable: true
+                  allowsNegative: false
+                  tempClass: null
+                  tempMinC: null
+                  tempMaxC: null
+                  capacityHead: 600
+                  version: 3
+                  createdAt: "2026-11-02T08:04:00Z"
+                  updatedAt: "2026-11-11T14:04:00Z"
+                - id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+                  branch:
+                    id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    code: DDW
+                    name: "HaKorem Farms, Dodowa"
+                  parentId: "019a7a83-68cd-7daa-b2e2-e3779b105c55"
+                  code: HSE-B1
+                  name: "Broiler house 1"
+                  kind: PEN
+                  isVirtual: false
+                  isSellable: true
+                  allowsNegative: false
+                  tempClass: null
+                  tempMinC: null
+                  tempMaxC: null
+                  capacityHead: 800
+                  version: 4
+                  createdAt: "2026-11-02T08:05:00Z"
+                  updatedAt: "2026-11-12T14:05:00Z"
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

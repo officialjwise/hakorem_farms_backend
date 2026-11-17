@@ -40,48 +40,58 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/SlotOptionPage"
-        example:
-          data:
-            - id: "019a7afd-16ee-736d-a8a6-3faf4a4fb88d"
-              date: "2026-11-14"
-              startsAt: "10:00"
-              endsAt: "12:00"
-              available: true
-              remaining: 4
-            - id: "019a7a94-b04e-73ba-a8f2-447494efbd52"
-              date: "2026-11-14"
-              startsAt: "14:00"
-              endsAt: "16:00"
-              available: false
-              remaining: 0
-            - id: "019a7afd-35dd-7d51-b289-dde6c40056c4"
-              date: "2026-11-15"
-              startsAt: "10:00"
-              endsAt: "12:00"
-              available: true
-              remaining: 6
-            - id: "019a7af2-74c6-7d3c-a275-dc9d7577557b"
-              date: "2026-11-15"
-              startsAt: "14:00"
-              endsAt: "16:00"
-              available: true
-              remaining: 6
-            - id: "019a7afd-54cc-7734-8c6d-7c1e3db1f4fc"
-              date: "2026-11-16"
-              startsAt: "10:00"
-              endsAt: "12:00"
-              available: true
-              remaining: 8
-            - id: "019a7afd-73bb-7118-9650-1a55b7629333"
-              date: "2026-11-16"
-              startsAt: "14:00"
-              endsAt: "16:00"
-              available: true
-              remaining: 8
-          page:
-            nextCursor: null
-            limit: 25
-            hasMore: false
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7afd-16ee-736d-a8a6-3faf4a4fb88d"
+                  date: "2026-11-14"
+                  startsAt: "10:00"
+                  endsAt: "12:00"
+                  available: true
+                  remaining: 4
+                - id: "019a7a94-b04e-73ba-a8f2-447494efbd52"
+                  date: "2026-11-14"
+                  startsAt: "14:00"
+                  endsAt: "16:00"
+                  available: false
+                  remaining: 0
+                - id: "019a7afd-35dd-7d51-b289-dde6c40056c4"
+                  date: "2026-11-15"
+                  startsAt: "10:00"
+                  endsAt: "12:00"
+                  available: true
+                  remaining: 6
+                - id: "019a7af2-74c6-7d3c-a275-dc9d7577557b"
+                  date: "2026-11-15"
+                  startsAt: "14:00"
+                  endsAt: "16:00"
+                  available: true
+                  remaining: 6
+                - id: "019a7afd-54cc-7734-8c6d-7c1e3db1f4fc"
+                  date: "2026-11-16"
+                  startsAt: "10:00"
+                  endsAt: "12:00"
+                  available: true
+                  remaining: 8
+                - id: "019a7afd-73bb-7118-9650-1a55b7629333"
+                  date: "2026-11-16"
+                  startsAt: "14:00"
+                  endsAt: "16:00"
+                  available: true
+                  remaining: 8
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "429":

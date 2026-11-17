@@ -106,7 +106,9 @@ function livAndPrcOperations(): ContractOperation[] {
         .filter(([status]) => status.startsWith('2'))
         .map(([status, response]) => {
           const content = ((response as Json)['content'] as Json | undefined)?.['application/json'] as Json | undefined;
-          return { status, schema: content?.['schema'], example: content?.['example'] };
+          // A list names its examples (CR-005): every one of them is walked, the populated and the empty alike.
+          const named = Object.values((content?.['examples'] as Json | undefined) ?? {}).map((example) => (example as Json)['value']);
+          return { status, schema: content?.['schema'], example: content?.['example'] ?? named };
         });
       found.push({
         operationId: operation['operationId'] as string,

@@ -40,60 +40,70 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/WeightBandPage"
-        example:
-          data:
-            - id: "019a7a8c-3af4-7f87-84bf-01494e897a27"
-              code: GOAT-S
-              minKg: "10.000"
-              maxKg: "18.000"
-              speciesId: "019a7a8b-a049-7e16-b34e-ea33ee146311"
-              version: 2
-              createdAt: "2026-11-02T08:00:00Z"
-              updatedAt: "2026-11-10T14:00:00Z"
-            - id: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
-              code: GOAT-M
-              minKg: "18.000"
-              maxKg: "28.000"
-              speciesId: "019a7a8b-a049-7e16-b34e-ea33ee146311"
-              version: 3
-              createdAt: "2026-11-02T08:01:00Z"
-              updatedAt: "2026-11-11T14:01:00Z"
-            - id: "019a7a8c-78d2-734e-a886-3db841ebb696"
-              code: GOAT-L
-              minKg: "28.000"
-              maxKg: "45.000"
-              speciesId: "019a7a8b-a049-7e16-b34e-ea33ee146311"
-              version: 4
-              createdAt: "2026-11-02T08:02:00Z"
-              updatedAt: "2026-11-12T14:02:00Z"
-            - id: "019a7a8c-97c1-7d31-b26a-dbefbb9c54cd"
-              code: SHEEP-M
-              minKg: "25.000"
-              maxKg: "40.000"
-              speciesId: "019a7a8b-bf38-77f9-8d31-886b67c50149"
-              version: 2
-              createdAt: "2026-11-02T08:03:00Z"
-              updatedAt: "2026-11-10T14:03:00Z"
-            - id: "019a7a8c-b6b0-7715-8c4d-7a27354df305"
-              code: SHEEP-L
-              minKg: "40.000"
-              maxKg: "70.000"
-              speciesId: "019a7a8b-bf38-77f9-8d31-886b67c50149"
-              version: 3
-              createdAt: "2026-11-02T08:04:00Z"
-              updatedAt: "2026-11-11T14:04:00Z"
-            - id: "019a7aa1-2277-7e3f-9377-ecc68b2665a4"
-              code: PIG-W
-              minKg: "8.000"
-              maxKg: "20.000"
-              speciesId: "019a7a8b-de27-71dd-9715-26a2e1769f80"
-              version: 4
-              createdAt: "2026-11-02T08:05:00Z"
-              updatedAt: "2026-11-12T14:05:00Z"
-          page:
-            nextCursor: eyJpZCI6IjAxOWE3YyJ9
-            limit: 25
-            hasMore: true
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7a8c-3af4-7f87-84bf-01494e897a27"
+                  code: GOAT-S
+                  minKg: "10.000"
+                  maxKg: "18.000"
+                  speciesId: "019a7a8b-a049-7e16-b34e-ea33ee146311"
+                  version: 2
+                  createdAt: "2026-11-02T08:00:00Z"
+                  updatedAt: "2026-11-10T14:00:00Z"
+                - id: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
+                  code: GOAT-M
+                  minKg: "18.000"
+                  maxKg: "28.000"
+                  speciesId: "019a7a8b-a049-7e16-b34e-ea33ee146311"
+                  version: 3
+                  createdAt: "2026-11-02T08:01:00Z"
+                  updatedAt: "2026-11-11T14:01:00Z"
+                - id: "019a7a8c-78d2-734e-a886-3db841ebb696"
+                  code: GOAT-L
+                  minKg: "28.000"
+                  maxKg: "45.000"
+                  speciesId: "019a7a8b-a049-7e16-b34e-ea33ee146311"
+                  version: 4
+                  createdAt: "2026-11-02T08:02:00Z"
+                  updatedAt: "2026-11-12T14:02:00Z"
+                - id: "019a7a8c-97c1-7d31-b26a-dbefbb9c54cd"
+                  code: SHEEP-M
+                  minKg: "25.000"
+                  maxKg: "40.000"
+                  speciesId: "019a7a8b-bf38-77f9-8d31-886b67c50149"
+                  version: 2
+                  createdAt: "2026-11-02T08:03:00Z"
+                  updatedAt: "2026-11-10T14:03:00Z"
+                - id: "019a7a8c-b6b0-7715-8c4d-7a27354df305"
+                  code: SHEEP-L
+                  minKg: "40.000"
+                  maxKg: "70.000"
+                  speciesId: "019a7a8b-bf38-77f9-8d31-886b67c50149"
+                  version: 3
+                  createdAt: "2026-11-02T08:04:00Z"
+                  updatedAt: "2026-11-11T14:04:00Z"
+                - id: "019a7aa1-2277-7e3f-9377-ecc68b2665a4"
+                  code: PIG-W
+                  minKg: "8.000"
+                  maxKg: "20.000"
+                  speciesId: "019a7a8b-de27-71dd-9715-26a2e1769f80"
+                  version: 4
+                  createdAt: "2026-11-02T08:05:00Z"
+                  updatedAt: "2026-11-12T14:05:00Z"
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

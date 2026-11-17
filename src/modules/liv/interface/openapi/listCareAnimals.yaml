@@ -81,301 +81,311 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/CareAnimalPage"
-        example:
-          data:
-            - id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
-              tagNo: G-0142
-              species:
-                id: "019a7a8b-a049-7e16-b34e-ea33ee146311"
-                code: GOAT
-                name: Goat
-              product:
-                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                sku: LIV-GOAT
-                name: Goat
-              breed: "West African Dwarf"
-              sex: MALE
-              dateOfBirth: null
-              acquiredOn: "2026-10-03"
-              source: PURCHASE
-              supplier:
-                id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                supplierNo: S-0012
-                name: "Kpone Livestock Traders"
-              dam: null
-              sire: null
-              batch: null
-              purpose: GROWING
-              status: ALIVE
-              currentLocation:
-                id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
-                code: PEN-G1
-                name: "Goat pen 1"
-                kind: PEN
-              grade:
-                id: "019a7a8c-d59f-70f8-9631-185eaefe913c"
-                code: A
-                name: "Grade A, well finished"
-              lastWeightKg: "26.400"
-              lastWeighedAt: "2026-11-11T07:00:00Z"
-              weightBand:
-                id: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
-                code: GOAT-M
-                minKg: "18.000"
-                maxKg: "28.000"
-              withdrawalUntil: null
-              sellable: true
-              version: 4
-              createdAt: "2026-11-03T11:00:00Z"
-            - id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
-              tagNo: G-0157
-              species:
-                id: "019a7a8b-a049-7e16-b34e-ea33ee146311"
-                code: GOAT
-                name: Goat
-              product:
-                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                sku: LIV-GOAT
-                name: Goat
-              breed: "West African Dwarf"
-              sex: MALE
-              dateOfBirth: null
-              acquiredOn: "2026-11-04"
-              source: PURCHASE
-              supplier:
-                id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                supplierNo: S-0012
-                name: "Kpone Livestock Traders"
-              dam: null
-              sire: null
-              batch: null
-              purpose: GROWING
-              status: ALIVE
-              currentLocation:
-                id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
-                code: PEN-G1
-                name: "Goat pen 1"
-                kind: PEN
-              grade:
-                id: "019a7a8c-d59f-70f8-9631-185eaefe913c"
-                code: A
-                name: "Grade A, well finished"
-              lastWeightKg: "31.800"
-              lastWeighedAt: "2026-11-11T07:01:00Z"
-              weightBand:
-                id: "019a7a8c-78d2-734e-a886-3db841ebb696"
-                code: GOAT-L
-                minKg: "28.000"
-                maxKg: "45.000"
-              withdrawalUntil: null
-              sellable: false
-              version: 4
-              createdAt: "2026-11-04T11:00:00Z"
-            - id: "019a7a8f-9d18-7468-89a0-4f5a9de5c838"
-              tagNo: G-0163
-              species:
-                id: "019a7a8b-a049-7e16-b34e-ea33ee146311"
-                code: GOAT
-                name: Goat
-              product:
-                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                sku: LIV-GOAT
-                name: Goat
-              breed: "West African Dwarf"
-              sex: FEMALE
-              dateOfBirth: null
-              acquiredOn: "2026-10-05"
-              source: PURCHASE
-              supplier:
-                id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                supplierNo: S-0012
-                name: "Kpone Livestock Traders"
-              dam: null
-              sire: null
-              batch: null
-              purpose: GROWING
-              status: ALIVE
-              currentLocation:
-                id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
-                code: PEN-G2
-                name: "Goat pen 2"
-                kind: PEN
-              grade: null
-              lastWeightKg: "22.150"
-              lastWeighedAt: "2026-11-11T07:02:00Z"
-              weightBand:
-                id: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
-                code: GOAT-M
-                minKg: "18.000"
-                maxKg: "28.000"
-              withdrawalUntil: "2026-11-28T23:59:00Z"
-              sellable: false
-              version: 4
-              createdAt: "2026-11-05T11:00:00Z"
-            - id: "019a7a8f-bc07-7e4c-9384-ed921796666f"
-              tagNo: G-0171
-              species:
-                id: "019a7a8b-a049-7e16-b34e-ea33ee146311"
-                code: GOAT
-                name: Goat
-              product:
-                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                sku: LIV-GOAT
-                name: Goat
-              breed: "West African Dwarf"
-              sex: MALE
-              dateOfBirth: null
-              acquiredOn: "2026-11-06"
-              source: PURCHASE
-              supplier:
-                id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                supplierNo: S-0012
-                name: "Kpone Livestock Traders"
-              dam: null
-              sire: null
-              batch: null
-              purpose: GROWING
-              status: ALIVE
-              currentLocation:
-                id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
-                code: PEN-G2
-                name: "Goat pen 2"
-                kind: PEN
-              grade: null
-              lastWeightKg: "24.900"
-              lastWeighedAt: "2026-11-11T07:03:00Z"
-              weightBand:
-                id: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
-                code: GOAT-M
-                minKg: "18.000"
-                maxKg: "28.000"
-              withdrawalUntil: null
-              sellable: true
-              version: 4
-              createdAt: "2026-11-06T11:00:00Z"
-            - id: "019a7a8f-daf6-782f-ad67-8bc9914704a7"
-              tagNo: S-0031
-              species:
-                id: "019a7a8b-bf38-77f9-8d31-886b67c50149"
-                code: SHEEP
-                name: Sheep
-              product:
-                id: "019a7a8d-326c-7ea3-83db-f3051c116be3"
-                sku: LIV-SHEEP
-                name: Sheep
-              breed: "Djallonké"
-              sex: MALE
-              dateOfBirth: null
-              acquiredOn: "2026-10-07"
-              source: PURCHASE
-              supplier:
-                id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                supplierNo: S-0012
-                name: "Kpone Livestock Traders"
-              dam: null
-              sire: null
-              batch: null
-              purpose: GROWING
-              status: ALIVE
-              currentLocation:
-                id: "019a7a83-c59a-7b54-a08d-be1e082336fb"
-                code: PEN-S1
-                name: "Sheep pen"
-                kind: PEN
-              grade: null
-              lastWeightKg: "43.200"
-              lastWeighedAt: "2026-11-11T07:04:00Z"
-              weightBand:
-                id: "019a7a8c-b6b0-7715-8c4d-7a27354df305"
-                code: SHEEP-L
-                minKg: "40.000"
-                maxKg: "70.000"
-              withdrawalUntil: null
-              sellable: true
-              version: 4
-              createdAt: "2026-11-07T11:00:00Z"
-            - id: "019a7a8f-f9e5-7212-b74b-2a010af8a2de"
-              tagNo: G-0118
-              species:
-                id: "019a7a8b-a049-7e16-b34e-ea33ee146311"
-                code: GOAT
-                name: Goat
-              product:
-                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                sku: LIV-GOAT
-                name: Goat
-              breed: "West African Dwarf"
-              sex: FEMALE
-              dateOfBirth: "2025-03-14"
-              acquiredOn: "2026-11-03"
-              source: PURCHASE
-              supplier:
-                id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                supplierNo: S-0012
-                name: "Kpone Livestock Traders"
-              dam: null
-              sire: null
-              batch: null
-              purpose: BREEDING
-              status: ALIVE
-              currentLocation:
-                id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
-                code: PEN-G1
-                name: "Goat pen 1"
-                kind: PEN
-              grade: null
-              lastWeightKg: "29.600"
-              lastWeighedAt: "2026-11-11T07:05:00Z"
-              weightBand:
-                id: "019a7a8c-78d2-734e-a886-3db841ebb696"
-                code: GOAT-L
-                minKg: "28.000"
-                maxKg: "45.000"
-              withdrawalUntil: null
-              sellable: false
-              version: 4
-              createdAt: "2026-11-03T11:00:00Z"
-            - id: "019a7a90-18d4-7bf6-812e-c83884a94116"
-              tagNo: P-0009
-              species:
-                id: "019a7a8b-de27-71dd-9715-26a2e1769f80"
-                code: PIG
-                name: Pig
-              product:
-                id: "019a7a8d-515b-7886-9dbe-913c95c20a1a"
-                sku: LIV-PIGLET
-                name: "Baby pig"
-              breed: "Large White cross"
-              sex: FEMALE
-              dateOfBirth: null
-              acquiredOn: "2026-10-04"
-              source: PURCHASE
-              supplier:
-                id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-                supplierNo: S-0012
-                name: "Kpone Livestock Traders"
-              dam: null
-              sire: null
-              batch: null
-              purpose: GROWING
-              status: ALIVE
-              currentLocation:
-                id: "019a7a83-e489-7538-ba70-5c5581d4d533"
-                code: PEN-P1
-                name: "Pig pen"
-                kind: PEN
-              grade: null
-              lastWeightKg: "14.300"
-              lastWeighedAt: "2026-11-11T07:06:00Z"
-              weightBand: null
-              withdrawalUntil: null
-              sellable: true
-              version: 4
-              createdAt: "2026-11-04T11:00:00Z"
-          page:
-            nextCursor: eyJpZCI6IjAxOWE3YyJ9
-            limit: 25
-            hasMore: true
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
+                  tagNo: G-0142
+                  species:
+                    id: "019a7a8b-a049-7e16-b34e-ea33ee146311"
+                    code: GOAT
+                    name: Goat
+                  product:
+                    id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                    sku: LIV-GOAT
+                    name: Goat
+                  breed: "West African Dwarf"
+                  sex: MALE
+                  dateOfBirth: null
+                  acquiredOn: "2026-10-03"
+                  source: PURCHASE
+                  supplier:
+                    id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
+                    supplierNo: S-0012
+                    name: "Kpone Livestock Traders"
+                  dam: null
+                  sire: null
+                  batch: null
+                  purpose: GROWING
+                  status: ALIVE
+                  currentLocation:
+                    id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+                    code: PEN-G1
+                    name: "Goat pen 1"
+                    kind: PEN
+                  grade:
+                    id: "019a7a8c-d59f-70f8-9631-185eaefe913c"
+                    code: A
+                    name: "Grade A, well finished"
+                  lastWeightKg: "26.400"
+                  lastWeighedAt: "2026-11-11T07:00:00Z"
+                  weightBand:
+                    id: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
+                    code: GOAT-M
+                    minKg: "18.000"
+                    maxKg: "28.000"
+                  withdrawalUntil: null
+                  sellable: true
+                  version: 4
+                  createdAt: "2026-11-03T11:00:00Z"
+                - id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
+                  tagNo: G-0157
+                  species:
+                    id: "019a7a8b-a049-7e16-b34e-ea33ee146311"
+                    code: GOAT
+                    name: Goat
+                  product:
+                    id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                    sku: LIV-GOAT
+                    name: Goat
+                  breed: "West African Dwarf"
+                  sex: MALE
+                  dateOfBirth: null
+                  acquiredOn: "2026-11-04"
+                  source: PURCHASE
+                  supplier:
+                    id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
+                    supplierNo: S-0012
+                    name: "Kpone Livestock Traders"
+                  dam: null
+                  sire: null
+                  batch: null
+                  purpose: GROWING
+                  status: ALIVE
+                  currentLocation:
+                    id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+                    code: PEN-G1
+                    name: "Goat pen 1"
+                    kind: PEN
+                  grade:
+                    id: "019a7a8c-d59f-70f8-9631-185eaefe913c"
+                    code: A
+                    name: "Grade A, well finished"
+                  lastWeightKg: "31.800"
+                  lastWeighedAt: "2026-11-11T07:01:00Z"
+                  weightBand:
+                    id: "019a7a8c-78d2-734e-a886-3db841ebb696"
+                    code: GOAT-L
+                    minKg: "28.000"
+                    maxKg: "45.000"
+                  withdrawalUntil: null
+                  sellable: false
+                  version: 4
+                  createdAt: "2026-11-04T11:00:00Z"
+                - id: "019a7a8f-9d18-7468-89a0-4f5a9de5c838"
+                  tagNo: G-0163
+                  species:
+                    id: "019a7a8b-a049-7e16-b34e-ea33ee146311"
+                    code: GOAT
+                    name: Goat
+                  product:
+                    id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                    sku: LIV-GOAT
+                    name: Goat
+                  breed: "West African Dwarf"
+                  sex: FEMALE
+                  dateOfBirth: null
+                  acquiredOn: "2026-10-05"
+                  source: PURCHASE
+                  supplier:
+                    id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
+                    supplierNo: S-0012
+                    name: "Kpone Livestock Traders"
+                  dam: null
+                  sire: null
+                  batch: null
+                  purpose: GROWING
+                  status: ALIVE
+                  currentLocation:
+                    id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                    code: PEN-G2
+                    name: "Goat pen 2"
+                    kind: PEN
+                  grade: null
+                  lastWeightKg: "22.150"
+                  lastWeighedAt: "2026-11-11T07:02:00Z"
+                  weightBand:
+                    id: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
+                    code: GOAT-M
+                    minKg: "18.000"
+                    maxKg: "28.000"
+                  withdrawalUntil: "2026-11-28T23:59:00Z"
+                  sellable: false
+                  version: 4
+                  createdAt: "2026-11-05T11:00:00Z"
+                - id: "019a7a8f-bc07-7e4c-9384-ed921796666f"
+                  tagNo: G-0171
+                  species:
+                    id: "019a7a8b-a049-7e16-b34e-ea33ee146311"
+                    code: GOAT
+                    name: Goat
+                  product:
+                    id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                    sku: LIV-GOAT
+                    name: Goat
+                  breed: "West African Dwarf"
+                  sex: MALE
+                  dateOfBirth: null
+                  acquiredOn: "2026-11-06"
+                  source: PURCHASE
+                  supplier:
+                    id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
+                    supplierNo: S-0012
+                    name: "Kpone Livestock Traders"
+                  dam: null
+                  sire: null
+                  batch: null
+                  purpose: GROWING
+                  status: ALIVE
+                  currentLocation:
+                    id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                    code: PEN-G2
+                    name: "Goat pen 2"
+                    kind: PEN
+                  grade: null
+                  lastWeightKg: "24.900"
+                  lastWeighedAt: "2026-11-11T07:03:00Z"
+                  weightBand:
+                    id: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
+                    code: GOAT-M
+                    minKg: "18.000"
+                    maxKg: "28.000"
+                  withdrawalUntil: null
+                  sellable: true
+                  version: 4
+                  createdAt: "2026-11-06T11:00:00Z"
+                - id: "019a7a8f-daf6-782f-ad67-8bc9914704a7"
+                  tagNo: S-0031
+                  species:
+                    id: "019a7a8b-bf38-77f9-8d31-886b67c50149"
+                    code: SHEEP
+                    name: Sheep
+                  product:
+                    id: "019a7a8d-326c-7ea3-83db-f3051c116be3"
+                    sku: LIV-SHEEP
+                    name: Sheep
+                  breed: "Djallonké"
+                  sex: MALE
+                  dateOfBirth: null
+                  acquiredOn: "2026-10-07"
+                  source: PURCHASE
+                  supplier:
+                    id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
+                    supplierNo: S-0012
+                    name: "Kpone Livestock Traders"
+                  dam: null
+                  sire: null
+                  batch: null
+                  purpose: GROWING
+                  status: ALIVE
+                  currentLocation:
+                    id: "019a7a83-c59a-7b54-a08d-be1e082336fb"
+                    code: PEN-S1
+                    name: "Sheep pen"
+                    kind: PEN
+                  grade: null
+                  lastWeightKg: "43.200"
+                  lastWeighedAt: "2026-11-11T07:04:00Z"
+                  weightBand:
+                    id: "019a7a8c-b6b0-7715-8c4d-7a27354df305"
+                    code: SHEEP-L
+                    minKg: "40.000"
+                    maxKg: "70.000"
+                  withdrawalUntil: null
+                  sellable: true
+                  version: 4
+                  createdAt: "2026-11-07T11:00:00Z"
+                - id: "019a7a8f-f9e5-7212-b74b-2a010af8a2de"
+                  tagNo: G-0118
+                  species:
+                    id: "019a7a8b-a049-7e16-b34e-ea33ee146311"
+                    code: GOAT
+                    name: Goat
+                  product:
+                    id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                    sku: LIV-GOAT
+                    name: Goat
+                  breed: "West African Dwarf"
+                  sex: FEMALE
+                  dateOfBirth: "2025-03-14"
+                  acquiredOn: "2026-11-03"
+                  source: PURCHASE
+                  supplier:
+                    id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
+                    supplierNo: S-0012
+                    name: "Kpone Livestock Traders"
+                  dam: null
+                  sire: null
+                  batch: null
+                  purpose: BREEDING
+                  status: ALIVE
+                  currentLocation:
+                    id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+                    code: PEN-G1
+                    name: "Goat pen 1"
+                    kind: PEN
+                  grade: null
+                  lastWeightKg: "29.600"
+                  lastWeighedAt: "2026-11-11T07:05:00Z"
+                  weightBand:
+                    id: "019a7a8c-78d2-734e-a886-3db841ebb696"
+                    code: GOAT-L
+                    minKg: "28.000"
+                    maxKg: "45.000"
+                  withdrawalUntil: null
+                  sellable: false
+                  version: 4
+                  createdAt: "2026-11-03T11:00:00Z"
+                - id: "019a7a90-18d4-7bf6-812e-c83884a94116"
+                  tagNo: P-0009
+                  species:
+                    id: "019a7a8b-de27-71dd-9715-26a2e1769f80"
+                    code: PIG
+                    name: Pig
+                  product:
+                    id: "019a7a8d-515b-7886-9dbe-913c95c20a1a"
+                    sku: LIV-PIGLET
+                    name: "Baby pig"
+                  breed: "Large White cross"
+                  sex: FEMALE
+                  dateOfBirth: null
+                  acquiredOn: "2026-10-04"
+                  source: PURCHASE
+                  supplier:
+                    id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
+                    supplierNo: S-0012
+                    name: "Kpone Livestock Traders"
+                  dam: null
+                  sire: null
+                  batch: null
+                  purpose: GROWING
+                  status: ALIVE
+                  currentLocation:
+                    id: "019a7a83-e489-7538-ba70-5c5581d4d533"
+                    code: PEN-P1
+                    name: "Pig pen"
+                    kind: PEN
+                  grade: null
+                  lastWeightKg: "14.300"
+                  lastWeighedAt: "2026-11-11T07:06:00Z"
+                  weightBand: null
+                  withdrawalUntil: null
+                  sellable: true
+                  version: 4
+                  createdAt: "2026-11-04T11:00:00Z"
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

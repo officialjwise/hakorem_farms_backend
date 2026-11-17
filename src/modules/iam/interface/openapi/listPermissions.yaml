@@ -40,36 +40,46 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/PermissionPage"
-        example:
-          data:
-            - code: pos.sale.create
-              module: pos
-              description: "Make a counter sale"
-              requiresStepUp: false
-            - code: ord.order.void.approve
-              module: ord
-              description: "Approve a void of a completed sale"
-              requiresStepUp: false
-            - code: cap.distribution.approve
-              module: cap
-              description: "Approve an investor distribution run"
-              requiresStepUp: true
-            - code: rpt.report.export.bulk
-              module: rpt
-              description: "Export a report of more than 1,000 rows"
-              requiresStepUp: true
-            - code: inv.adjustment.approve
-              module: inv
-              description: "Approve a stock adjustment above the threshold"
-              requiresStepUp: false
-            - code: iam.role.manage
-              module: iam
-              description: "Create and change roles"
-              requiresStepUp: true
-          page:
-            nextCursor: eyJpZCI6IjAxOWE3YyJ9
-            limit: 25
-            hasMore: true
+        examples:
+          default:
+            value:
+              data:
+                - code: pos.sale.create
+                  module: pos
+                  description: "Make a counter sale"
+                  requiresStepUp: false
+                - code: ord.order.void.approve
+                  module: ord
+                  description: "Approve a void of a completed sale"
+                  requiresStepUp: false
+                - code: cap.distribution.approve
+                  module: cap
+                  description: "Approve an investor distribution run"
+                  requiresStepUp: true
+                - code: rpt.report.export.bulk
+                  module: rpt
+                  description: "Export a report of more than 1,000 rows"
+                  requiresStepUp: true
+                - code: inv.adjustment.approve
+                  module: inv
+                  description: "Approve a stock adjustment above the threshold"
+                  requiresStepUp: false
+                - code: iam.role.manage
+                  module: iam
+                  description: "Create and change roles"
+                  requiresStepUp: true
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

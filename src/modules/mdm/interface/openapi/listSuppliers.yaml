@@ -53,114 +53,124 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/SupplierPage"
-        example:
-          data:
-            - id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
-              supplierNo: S-0007
-              name: "Ashanti Feeds Ltd"
-              contactName: "Samuel Ofosu"
-              phone: "+233322031447"
-              email: "sales@ashanti.com.gh"
-              address: "Kaase Industrial Area, Kumasi"
-              tinMasked: "C00••••••20"
-              status: ACTIVE
-              categories:
-                - id: "019a7a8a-0e26-7d89-a2c1-e162c0175a40"
-                  code: FEED
-                  name: "Feed and medication"
-              hasProfile: true
-              version: 2
-              createdAt: "2026-11-02T08:00:00Z"
-              updatedAt: "2026-11-10T14:00:00Z"
-            - id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
-              supplierNo: S-0012
-              name: "Kpone Livestock Traders"
-              contactName: "Alhaji Ibrahim Mahama"
-              phone: "+233244870031"
-              email: "sales@kpone.com.gh"
-              address: "Kpone Cattle Market, Tema"
-              tinMasked: "C00••••••21"
-              status: ACTIVE
-              categories:
-                - id: "019a7a89-737b-7c17-9150-ca4d5fa2432b"
-                  code: LIVE
-                  name: "Live animals"
-              hasProfile: true
-              version: 3
-              createdAt: "2026-11-02T08:01:00Z"
-              updatedAt: "2026-11-11T14:01:00Z"
-            - id: "019a7a88-f7bf-7489-99c2-516f78deca4d"
-              supplierNo: S-0003
-              name: "Agrivet Ghana Ltd"
-              contactName: "Patience Kumi"
-              phone: "+233302551928"
-              email: "sales@agrivet.com.gh"
-              address: "Spintex Road, Accra"
-              tinMasked: "C00••••••22"
-              status: ACTIVE
-              categories:
-                - id: "019a7a8a-0e26-7d89-a2c1-e162c0175a40"
-                  code: FEED
-                  name: "Feed and medication"
-              hasProfile: true
-              version: 4
-              createdAt: "2026-11-02T08:02:00Z"
-              updatedAt: "2026-11-12T14:02:00Z"
-            - id: "019a7a89-16ae-7e6d-a3a5-efa6f28f6884"
-              supplierNo: S-0019
-              name: "Awutu Poultry Farm"
-              contactName: "Daniel Quansah"
-              phone: "+233209914472"
-              email: "sales@awutu.com.gh"
-              address: "Awutu Breku, Central Region"
-              tinMasked: "C00••••••23"
-              status: ACTIVE
-              categories:
-                - id: "019a7a89-926a-75fb-ab33-6884d953e162"
-                  code: POULTRY
-                  name: "Live poultry"
-              hasProfile: true
-              version: 2
-              createdAt: "2026-11-02T08:03:00Z"
-              updatedAt: "2026-11-10T14:03:00Z"
-            - id: "019a7a89-359d-7850-bd89-8dde6c4006bc"
-              supplierNo: S-0021
-              name: "Dodowa Vegetable Growers Cooperative"
-              contactName: "Mercy Lartey"
-              phone: "+233551204887"
-              email: "sales@dodowa.com.gh"
-              address: "Dodowa Market"
-              tinMasked: "C00••••••24"
-              status: ACTIVE
-              categories:
-                - id: "019a7a89-ef37-73a5-98dd-432b4666bc09"
-                  code: PRODUCE
-                  name: "Fresh produce"
-              hasProfile: true
-              version: 3
-              createdAt: "2026-11-02T08:04:00Z"
-              updatedAt: "2026-11-11T14:04:00Z"
-            - id: "019a7a89-548c-7234-876c-2c15e5f1a4f3"
-              supplierNo: S-0025
-              name: "Tema Packaging Supplies"
-              contactName: "Joseph Nartey"
-              phone: "+233303208119"
-              email: "sales@tema.com.gh"
-              address: "Tema Heavy Industrial Area"
-              tinMasked: "C00••••••25"
-              status: ACTIVE
-              categories:
-                - id: "019a7a8a-4c04-7150-8688-1dd1b37996af"
-                  code: SERVICE
-                  name: Services
-              hasProfile: true
-              version: 4
-              createdAt: "2026-11-02T08:05:00Z"
-              updatedAt: "2026-11-12T14:05:00Z"
-          page:
-            nextCursor: eyJpZCI6IjAxOWE3YyJ9
-            limit: 25
-            hasMore: true
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7a88-b9e1-70c2-b5fb-1500857c8dde"
+                  supplierNo: S-0007
+                  name: "Ashanti Feeds Ltd"
+                  contactName: "Samuel Ofosu"
+                  phone: "+233322031447"
+                  email: "sales@ashanti.com.gh"
+                  address: "Kaase Industrial Area, Kumasi"
+                  tinMasked: "C00••••••20"
+                  status: ACTIVE
+                  categories:
+                    - id: "019a7a8a-0e26-7d89-a2c1-e162c0175a40"
+                      code: FEED
+                      name: "Feed and medication"
+                  hasProfile: true
+                  version: 2
+                  createdAt: "2026-11-02T08:00:00Z"
+                  updatedAt: "2026-11-10T14:00:00Z"
+                - id: "019a7a88-d8d0-7aa6-8fde-b337ff2d2c15"
+                  supplierNo: S-0012
+                  name: "Kpone Livestock Traders"
+                  contactName: "Alhaji Ibrahim Mahama"
+                  phone: "+233244870031"
+                  email: "sales@kpone.com.gh"
+                  address: "Kpone Cattle Market, Tema"
+                  tinMasked: "C00••••••21"
+                  status: ACTIVE
+                  categories:
+                    - id: "019a7a89-737b-7c17-9150-ca4d5fa2432b"
+                      code: LIVE
+                      name: "Live animals"
+                  hasProfile: true
+                  version: 3
+                  createdAt: "2026-11-02T08:01:00Z"
+                  updatedAt: "2026-11-11T14:01:00Z"
+                - id: "019a7a88-f7bf-7489-99c2-516f78deca4d"
+                  supplierNo: S-0003
+                  name: "Agrivet Ghana Ltd"
+                  contactName: "Patience Kumi"
+                  phone: "+233302551928"
+                  email: "sales@agrivet.com.gh"
+                  address: "Spintex Road, Accra"
+                  tinMasked: "C00••••••22"
+                  status: ACTIVE
+                  categories:
+                    - id: "019a7a8a-0e26-7d89-a2c1-e162c0175a40"
+                      code: FEED
+                      name: "Feed and medication"
+                  hasProfile: true
+                  version: 4
+                  createdAt: "2026-11-02T08:02:00Z"
+                  updatedAt: "2026-11-12T14:02:00Z"
+                - id: "019a7a89-16ae-7e6d-a3a5-efa6f28f6884"
+                  supplierNo: S-0019
+                  name: "Awutu Poultry Farm"
+                  contactName: "Daniel Quansah"
+                  phone: "+233209914472"
+                  email: "sales@awutu.com.gh"
+                  address: "Awutu Breku, Central Region"
+                  tinMasked: "C00••••••23"
+                  status: ACTIVE
+                  categories:
+                    - id: "019a7a89-926a-75fb-ab33-6884d953e162"
+                      code: POULTRY
+                      name: "Live poultry"
+                  hasProfile: true
+                  version: 2
+                  createdAt: "2026-11-02T08:03:00Z"
+                  updatedAt: "2026-11-10T14:03:00Z"
+                - id: "019a7a89-359d-7850-bd89-8dde6c4006bc"
+                  supplierNo: S-0021
+                  name: "Dodowa Vegetable Growers Cooperative"
+                  contactName: "Mercy Lartey"
+                  phone: "+233551204887"
+                  email: "sales@dodowa.com.gh"
+                  address: "Dodowa Market"
+                  tinMasked: "C00••••••24"
+                  status: ACTIVE
+                  categories:
+                    - id: "019a7a89-ef37-73a5-98dd-432b4666bc09"
+                      code: PRODUCE
+                      name: "Fresh produce"
+                  hasProfile: true
+                  version: 3
+                  createdAt: "2026-11-02T08:04:00Z"
+                  updatedAt: "2026-11-11T14:04:00Z"
+                - id: "019a7a89-548c-7234-876c-2c15e5f1a4f3"
+                  supplierNo: S-0025
+                  name: "Tema Packaging Supplies"
+                  contactName: "Joseph Nartey"
+                  phone: "+233303208119"
+                  email: "sales@tema.com.gh"
+                  address: "Tema Heavy Industrial Area"
+                  tinMasked: "C00••••••25"
+                  status: ACTIVE
+                  categories:
+                    - id: "019a7a8a-4c04-7150-8688-1dd1b37996af"
+                      code: SERVICE
+                      name: Services
+                  hasProfile: true
+                  version: 4
+                  createdAt: "2026-11-02T08:05:00Z"
+                  updatedAt: "2026-11-12T14:05:00Z"
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

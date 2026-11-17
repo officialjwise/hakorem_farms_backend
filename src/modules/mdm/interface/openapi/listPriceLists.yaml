@@ -44,126 +44,136 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/PriceListPage"
-        example:
-          data:
-            - id: "019a7a94-5381-760f-bb48-69ce27dce2ac"
-              code: BASE
-              name: "Base prices"
-              kind: BASE
-              channel: null
-              customerTier: null
-              branch: null
-              taxInclusive: true
-              currency: GHS
-              activeVersion:
-                id: "019a7aa4-46bd-7f59-b491-fe68e7207746"
-                versionNo: 4
-                validFrom: "2026-11-01T00:00:00Z"
-                validTo: null
-              draftVersionId: "019a7aa3-e9f0-71af-86e7-23c27a0d9ca0"
-              version: 2
-              createdAt: "2026-11-02T08:00:00Z"
-              updatedAt: "2026-11-10T14:00:00Z"
-            - id: "019a7aa4-27ce-7576-aaae-60316d6fd90f"
-              code: POS
-              name: "Counter prices"
-              kind: CHANNEL
-              channel: POS
-              customerTier: null
-              branch: null
-              taxInclusive: true
-              currency: GHS
-              activeVersion:
-                id: "019a7ab1-0b11-7a2e-8c41-2e6f9d3b5c01"
-                versionNo: 4
-                validFrom: "2026-11-01T00:00:00Z"
-                validTo: null
-              draftVersionId: null
-              version: 3
-              createdAt: "2026-11-02T08:01:00Z"
-              updatedAt: "2026-11-11T14:01:00Z"
-            - id: "019a7aa4-65ac-793c-8e75-9ca060d1157e"
-              code: ONLINE
-              name: "Online prices"
-              kind: CHANNEL
-              channel: ONLINE
-              customerTier: null
-              branch: null
-              taxInclusive: true
-              currency: GHS
-              activeVersion:
-                id: "019a7ab1-0b12-7a2e-8c41-2e6f9d3b5c02"
-                versionNo: 3
-                validFrom: "2026-11-01T00:00:00Z"
-                validTo: null
-              draftVersionId: null
-              version: 4
-              createdAt: "2026-11-02T08:02:00Z"
-              updatedAt: "2026-11-12T14:02:00Z"
-            - id: "019a7aa4-a38a-7d03-a23c-d90f543351ed"
-              code: WHOLESALE-TIER
-              name: "Wholesale tier prices"
-              kind: TIER
-              channel: WHOLESALE
-              customerTier:
-                id: "019a7a88-7c03-7cfc-9234-d891921a516f"
-                code: WHOLESALE
-                name: Wholesale
-              branch: null
-              taxInclusive: false
-              currency: GHS
-              activeVersion:
-                id: "019a7ab1-0b13-7a2e-8c41-2e6f9d3b5c03"
-                versionNo: 4
-                validFrom: "2026-11-01T00:00:00Z"
-                validTo: null
-              draftVersionId: null
-              version: 2
-              createdAt: "2026-11-02T08:03:00Z"
-              updatedAt: "2026-11-10T14:03:00Z"
-            - id: "019a7aa4-e168-70ca-8603-157e47958e5c"
-              code: CUST-ROYALPALM
-              name: "Royal Palm Hotel contract prices"
-              kind: CUSTOMER
-              channel: null
-              customerTier: null
-              branch: null
-              taxInclusive: false
-              currency: GHS
-              activeVersion:
-                id: "019a7ab1-0b14-7a2e-8c41-2e6f9d3b5c04"
-                versionNo: 3
-                validFrom: "2026-11-01T00:00:00Z"
-                validTo: null
-              draftVersionId: null
-              version: 3
-              createdAt: "2026-11-02T08:04:00Z"
-              updatedAt: "2026-11-11T14:04:00Z"
-            - id: "019a7aa5-1f46-7491-a9ca-51ed3af7cacb"
-              code: RESELLER-TIER
-              name: "Reseller prices"
-              kind: TIER
-              channel: WHOLESALE
-              customerTier:
-                id: "019a7a88-9af2-76df-ac17-76c90bcbefa6"
-                code: RESELLER
-                name: Reseller
-              branch: null
-              taxInclusive: false
-              currency: GHS
-              activeVersion:
-                id: "019a7aa5-3e35-7e75-b3ad-f024b4a86902"
-                versionNo: 4
-                validFrom: "2026-11-01T00:00:00Z"
-                validTo: null
-              draftVersionId: null
-              version: 4
-              createdAt: "2026-11-02T08:05:00Z"
-              updatedAt: "2026-11-12T14:05:00Z"
-          page:
-            nextCursor: eyJpZCI6IjAxOWE3YyJ9
-            limit: 25
-            hasMore: true
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7a94-5381-760f-bb48-69ce27dce2ac"
+                  code: BASE
+                  name: "Base prices"
+                  kind: BASE
+                  channel: null
+                  customerTier: null
+                  branch: null
+                  taxInclusive: true
+                  currency: GHS
+                  activeVersion:
+                    id: "019a7aa4-46bd-7f59-b491-fe68e7207746"
+                    versionNo: 4
+                    validFrom: "2026-11-01T00:00:00Z"
+                    validTo: null
+                  draftVersionId: "019a7aa3-e9f0-71af-86e7-23c27a0d9ca0"
+                  version: 2
+                  createdAt: "2026-11-02T08:00:00Z"
+                  updatedAt: "2026-11-10T14:00:00Z"
+                - id: "019a7aa4-27ce-7576-aaae-60316d6fd90f"
+                  code: POS
+                  name: "Counter prices"
+                  kind: CHANNEL
+                  channel: POS
+                  customerTier: null
+                  branch: null
+                  taxInclusive: true
+                  currency: GHS
+                  activeVersion:
+                    id: "019a7ab1-0b11-7a2e-8c41-2e6f9d3b5c01"
+                    versionNo: 4
+                    validFrom: "2026-11-01T00:00:00Z"
+                    validTo: null
+                  draftVersionId: null
+                  version: 3
+                  createdAt: "2026-11-02T08:01:00Z"
+                  updatedAt: "2026-11-11T14:01:00Z"
+                - id: "019a7aa4-65ac-793c-8e75-9ca060d1157e"
+                  code: ONLINE
+                  name: "Online prices"
+                  kind: CHANNEL
+                  channel: ONLINE
+                  customerTier: null
+                  branch: null
+                  taxInclusive: true
+                  currency: GHS
+                  activeVersion:
+                    id: "019a7ab1-0b12-7a2e-8c41-2e6f9d3b5c02"
+                    versionNo: 3
+                    validFrom: "2026-11-01T00:00:00Z"
+                    validTo: null
+                  draftVersionId: null
+                  version: 4
+                  createdAt: "2026-11-02T08:02:00Z"
+                  updatedAt: "2026-11-12T14:02:00Z"
+                - id: "019a7aa4-a38a-7d03-a23c-d90f543351ed"
+                  code: WHOLESALE-TIER
+                  name: "Wholesale tier prices"
+                  kind: TIER
+                  channel: WHOLESALE
+                  customerTier:
+                    id: "019a7a88-7c03-7cfc-9234-d891921a516f"
+                    code: WHOLESALE
+                    name: Wholesale
+                  branch: null
+                  taxInclusive: false
+                  currency: GHS
+                  activeVersion:
+                    id: "019a7ab1-0b13-7a2e-8c41-2e6f9d3b5c03"
+                    versionNo: 4
+                    validFrom: "2026-11-01T00:00:00Z"
+                    validTo: null
+                  draftVersionId: null
+                  version: 2
+                  createdAt: "2026-11-02T08:03:00Z"
+                  updatedAt: "2026-11-10T14:03:00Z"
+                - id: "019a7aa4-e168-70ca-8603-157e47958e5c"
+                  code: CUST-ROYALPALM
+                  name: "Royal Palm Hotel contract prices"
+                  kind: CUSTOMER
+                  channel: null
+                  customerTier: null
+                  branch: null
+                  taxInclusive: false
+                  currency: GHS
+                  activeVersion:
+                    id: "019a7ab1-0b14-7a2e-8c41-2e6f9d3b5c04"
+                    versionNo: 3
+                    validFrom: "2026-11-01T00:00:00Z"
+                    validTo: null
+                  draftVersionId: null
+                  version: 3
+                  createdAt: "2026-11-02T08:04:00Z"
+                  updatedAt: "2026-11-11T14:04:00Z"
+                - id: "019a7aa5-1f46-7491-a9ca-51ed3af7cacb"
+                  code: RESELLER-TIER
+                  name: "Reseller prices"
+                  kind: TIER
+                  channel: WHOLESALE
+                  customerTier:
+                    id: "019a7a88-9af2-76df-ac17-76c90bcbefa6"
+                    code: RESELLER
+                    name: Reseller
+                  branch: null
+                  taxInclusive: false
+                  currency: GHS
+                  activeVersion:
+                    id: "019a7aa5-3e35-7e75-b3ad-f024b4a86902"
+                    versionNo: 4
+                    validFrom: "2026-11-01T00:00:00Z"
+                    validTo: null
+                  draftVersionId: null
+                  version: 4
+                  createdAt: "2026-11-02T08:05:00Z"
+                  updatedAt: "2026-11-12T14:05:00Z"
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

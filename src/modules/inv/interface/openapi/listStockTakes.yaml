@@ -45,176 +45,186 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/StockTakePage"
-        example:
-          data:
-            - id: "019a7aba-06c9-7349-b881-3d6a7794b648"
-              stockTakeNo: STK-2026-DDW-000014
-              status: COUNTING
-              location:
-                id: "019a7a84-7f34-76a9-8be1-736ae249ec48"
-                code: SHOP
-                name: "Shop floor"
-                kind: SHOP_FLOOR
-              scope: CYCLE
-              snapshotAt: "2026-11-13T06:00:00Z"
-              countedBy:
-                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                displayName: "Yaw Boateng"
-              lineCount: 24
-              countedLineCount: 11
-              gainValuePesewas: null
-              lossValuePesewas: null
-              currency: GHS
-              approvalRequestId: null
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-              version: 2
-              createdAt: "2026-11-12T08:00:00Z"
-              createdBy:
-                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                displayName: "Yaw Boateng"
-              postedAt: null
-              postedBy: null
-            - id: "019a7aba-25b8-7d2d-8265-dba1f145547f"
-              stockTakeNo: STK-2026-DDW-000015
-              status: REVIEW
-              location:
-                id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
-                code: COLD-1
-                name: "Cold room"
-                kind: COLD_ROOM
-              scope: FULL
-              snapshotAt: "2026-11-12T06:00:00Z"
-              countedBy:
-                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                displayName: "Yaw Boateng"
-              lineCount: 9
-              countedLineCount: 9
-              gainValuePesewas: 0
-              lossValuePesewas: 971
-              currency: GHS
-              approvalRequestId: null
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-              version: 2
-              createdAt: "2026-11-12T08:01:00Z"
-              createdBy:
-                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                displayName: "Yaw Boateng"
-              postedAt: null
-              postedBy: null
-            - id: "019a7aba-44a7-7710-9c48-79d96af6f2b7"
-              stockTakeNo: STK-2026-DDW-000016
-              status: POSTED
-              location:
-                id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
-                code: PEN-G1
-                name: "Goat pen 1"
-                kind: PEN
-              scope: CYCLE
-              snapshotAt: "2026-11-11T06:00:00Z"
-              countedBy:
-                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                displayName: "Yaw Boateng"
-              lineCount: 14
-              countedLineCount: 14
-              gainValuePesewas: 0
-              lossValuePesewas: 0
-              currency: GHS
-              approvalRequestId: null
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-              version: 2
-              createdAt: "2026-11-12T08:02:00Z"
-              createdBy:
-                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                displayName: "Yaw Boateng"
-              postedAt: "2026-11-12T09:02:00Z"
-              postedBy:
-                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                displayName: "Yaw Boateng"
-            - id: "019a7aba-6396-70f3-a62c-1810e4a790ee"
-              stockTakeNo: STK-2026-DDW-000017
-              status: POSTED
-              location:
-                id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
-                code: STORE-1
-                name: "Feed and produce store"
-                kind: STORE
-              scope: FULL
-              snapshotAt: "2026-11-10T06:00:00Z"
-              countedBy:
-                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                displayName: "Yaw Boateng"
-              lineCount: 31
-              countedLineCount: 31
-              gainValuePesewas: 3200
-              lossValuePesewas: 12000
-              currency: GHS
-              approvalRequestId: null
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-              version: 2
-              createdAt: "2026-11-12T08:03:00Z"
-              createdBy:
-                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                displayName: "Yaw Boateng"
-              postedAt: "2026-11-12T09:03:00Z"
-              postedBy:
-                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                displayName: "Yaw Boateng"
-            - id: "019a7aba-8285-7ad7-b00f-b6485e582f26"
-              stockTakeNo: STK-2026-DDW-000018
-              status: PENDING_APPROVAL
-              location:
-                id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
-                code: HSE-B1
-                name: "Broiler house 1"
-                kind: PEN
-              scope: CYCLE
-              snapshotAt: "2026-11-09T06:00:00Z"
-              countedBy:
-                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                displayName: "Yaw Boateng"
-              lineCount: 1
-              countedLineCount: 1
-              gainValuePesewas: 0
-              lossValuePesewas: 40500
-              currency: GHS
-              approvalRequestId: "019a7aba-a174-74ba-89f3-547fd809cd5d"
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-              version: 2
-              createdAt: "2026-11-12T08:04:00Z"
-              createdBy:
-                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                displayName: "Yaw Boateng"
-              postedAt: null
-              postedBy: null
-            - id: "019a7aba-c063-7e9e-93d6-f2b751ba6b95"
-              stockTakeNo: null
-              status: DRAFT
-              location:
-                id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
-                code: PEN-G2
-                name: "Goat pen 2"
-                kind: PEN
-              scope: FULL
-              snapshotAt: null
-              countedBy: null
-              lineCount: 0
-              countedLineCount: 0
-              gainValuePesewas: null
-              lossValuePesewas: null
-              currency: GHS
-              approvalRequestId: null
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-              version: 2
-              createdAt: "2026-11-12T08:05:00Z"
-              createdBy:
-                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                displayName: "Yaw Boateng"
-              postedAt: null
-              postedBy: null
-          page:
-            nextCursor: eyJpZCI6IjAxOWE3YyJ9
-            limit: 25
-            hasMore: true
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7aba-06c9-7349-b881-3d6a7794b648"
+                  stockTakeNo: STK-2026-DDW-000014
+                  status: COUNTING
+                  location:
+                    id: "019a7a84-7f34-76a9-8be1-736ae249ec48"
+                    code: SHOP
+                    name: "Shop floor"
+                    kind: SHOP_FLOOR
+                  scope: CYCLE
+                  snapshotAt: "2026-11-13T06:00:00Z"
+                  countedBy:
+                    id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                    displayName: "Yaw Boateng"
+                  lineCount: 24
+                  countedLineCount: 11
+                  gainValuePesewas: null
+                  lossValuePesewas: null
+                  currency: GHS
+                  approvalRequestId: null
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 2
+                  createdAt: "2026-11-12T08:00:00Z"
+                  createdBy:
+                    id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                    displayName: "Yaw Boateng"
+                  postedAt: null
+                  postedBy: null
+                - id: "019a7aba-25b8-7d2d-8265-dba1f145547f"
+                  stockTakeNo: STK-2026-DDW-000015
+                  status: REVIEW
+                  location:
+                    id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+                    code: COLD-1
+                    name: "Cold room"
+                    kind: COLD_ROOM
+                  scope: FULL
+                  snapshotAt: "2026-11-12T06:00:00Z"
+                  countedBy:
+                    id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                    displayName: "Yaw Boateng"
+                  lineCount: 9
+                  countedLineCount: 9
+                  gainValuePesewas: 0
+                  lossValuePesewas: 971
+                  currency: GHS
+                  approvalRequestId: null
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 2
+                  createdAt: "2026-11-12T08:01:00Z"
+                  createdBy:
+                    id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                    displayName: "Yaw Boateng"
+                  postedAt: null
+                  postedBy: null
+                - id: "019a7aba-44a7-7710-9c48-79d96af6f2b7"
+                  stockTakeNo: STK-2026-DDW-000016
+                  status: POSTED
+                  location:
+                    id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+                    code: PEN-G1
+                    name: "Goat pen 1"
+                    kind: PEN
+                  scope: CYCLE
+                  snapshotAt: "2026-11-11T06:00:00Z"
+                  countedBy:
+                    id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                    displayName: "Yaw Boateng"
+                  lineCount: 14
+                  countedLineCount: 14
+                  gainValuePesewas: 0
+                  lossValuePesewas: 0
+                  currency: GHS
+                  approvalRequestId: null
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 2
+                  createdAt: "2026-11-12T08:02:00Z"
+                  createdBy:
+                    id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                    displayName: "Yaw Boateng"
+                  postedAt: "2026-11-12T09:02:00Z"
+                  postedBy:
+                    id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                    displayName: "Yaw Boateng"
+                - id: "019a7aba-6396-70f3-a62c-1810e4a790ee"
+                  stockTakeNo: STK-2026-DDW-000017
+                  status: POSTED
+                  location:
+                    id: "019a7a84-6045-7cc6-b1fe-d53368984e11"
+                    code: STORE-1
+                    name: "Feed and produce store"
+                    kind: STORE
+                  scope: FULL
+                  snapshotAt: "2026-11-10T06:00:00Z"
+                  countedBy:
+                    id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                    displayName: "Yaw Boateng"
+                  lineCount: 31
+                  countedLineCount: 31
+                  gainValuePesewas: 3200
+                  lossValuePesewas: 12000
+                  currency: GHS
+                  approvalRequestId: null
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 2
+                  createdAt: "2026-11-12T08:03:00Z"
+                  createdBy:
+                    id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                    displayName: "Yaw Boateng"
+                  postedAt: "2026-11-12T09:03:00Z"
+                  postedBy:
+                    id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                    displayName: "Yaw Boateng"
+                - id: "019a7aba-8285-7ad7-b00f-b6485e582f26"
+                  stockTakeNo: STK-2026-DDW-000018
+                  status: PENDING_APPROVAL
+                  location:
+                    id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+                    code: HSE-B1
+                    name: "Broiler house 1"
+                    kind: PEN
+                  scope: CYCLE
+                  snapshotAt: "2026-11-09T06:00:00Z"
+                  countedBy:
+                    id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                    displayName: "Yaw Boateng"
+                  lineCount: 1
+                  countedLineCount: 1
+                  gainValuePesewas: 0
+                  lossValuePesewas: 40500
+                  currency: GHS
+                  approvalRequestId: "019a7aba-a174-74ba-89f3-547fd809cd5d"
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 2
+                  createdAt: "2026-11-12T08:04:00Z"
+                  createdBy:
+                    id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                    displayName: "Yaw Boateng"
+                  postedAt: null
+                  postedBy: null
+                - id: "019a7aba-c063-7e9e-93d6-f2b751ba6b95"
+                  stockTakeNo: null
+                  status: DRAFT
+                  location:
+                    id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                    code: PEN-G2
+                    name: "Goat pen 2"
+                    kind: PEN
+                  scope: FULL
+                  snapshotAt: null
+                  countedBy: null
+                  lineCount: 0
+                  countedLineCount: 0
+                  gainValuePesewas: null
+                  lossValuePesewas: null
+                  currency: GHS
+                  approvalRequestId: null
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 2
+                  createdAt: "2026-11-12T08:05:00Z"
+                  createdBy:
+                    id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                    displayName: "Yaw Boateng"
+                  postedAt: null
+                  postedBy: null
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

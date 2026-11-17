@@ -34,68 +34,78 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/MovementTypePage"
-        example:
-          data:
-            - code: RECEIPT_PURCHASE
-              name: "Purchase receipt"
-              isValueOnly: false
-              allowsNegative: false
-              blockedByHold: false
-              requiresReason: false
-              requiresStockUnit: false
-            - code: SALE_ISSUE
-              name: Sale
-              isValueOnly: false
-              allowsNegative: false
-              blockedByHold: true
-              requiresReason: false
-              requiresStockUnit: false
-            - code: SALE_ISSUE_OFFLINE
-              name: "Sale made offline"
-              isValueOnly: false
-              allowsNegative: true
-              blockedByHold: true
-              requiresReason: false
-              requiresStockUnit: false
-            - code: MORTALITY
-              name: Death
-              isValueOnly: false
-              allowsNegative: false
-              blockedByHold: false
-              requiresReason: true
-              requiresStockUnit: true
-            - code: TRANSFER_INTERNAL
-              name: "Move within branch"
-              isValueOnly: false
-              allowsNegative: false
-              blockedByHold: false
-              requiresReason: false
-              requiresStockUnit: false
-            - code: PROCESS_CONSUME
-              name: "Consumed in processing"
-              isValueOnly: false
-              allowsNegative: false
-              blockedByHold: true
-              requiresReason: false
-              requiresStockUnit: true
-            - code: COST_CAPITALISE
-              name: "Cost added to stock"
-              isValueOnly: true
-              allowsNegative: false
-              blockedByHold: false
-              requiresReason: false
-              requiresStockUnit: true
-            - code: ADJUST_LOSS
-              name: "Adjustment, loss"
-              isValueOnly: false
-              allowsNegative: false
-              blockedByHold: false
-              requiresReason: true
-              requiresStockUnit: false
-          page:
-            nextCursor: null
-            limit: 25
-            hasMore: false
+        examples:
+          default:
+            value:
+              data:
+                - code: RECEIPT_PURCHASE
+                  name: "Purchase receipt"
+                  isValueOnly: false
+                  allowsNegative: false
+                  blockedByHold: false
+                  requiresReason: false
+                  requiresStockUnit: false
+                - code: SALE_ISSUE
+                  name: Sale
+                  isValueOnly: false
+                  allowsNegative: false
+                  blockedByHold: true
+                  requiresReason: false
+                  requiresStockUnit: false
+                - code: SALE_ISSUE_OFFLINE
+                  name: "Sale made offline"
+                  isValueOnly: false
+                  allowsNegative: true
+                  blockedByHold: true
+                  requiresReason: false
+                  requiresStockUnit: false
+                - code: MORTALITY
+                  name: Death
+                  isValueOnly: false
+                  allowsNegative: false
+                  blockedByHold: false
+                  requiresReason: true
+                  requiresStockUnit: true
+                - code: TRANSFER_INTERNAL
+                  name: "Move within branch"
+                  isValueOnly: false
+                  allowsNegative: false
+                  blockedByHold: false
+                  requiresReason: false
+                  requiresStockUnit: false
+                - code: PROCESS_CONSUME
+                  name: "Consumed in processing"
+                  isValueOnly: false
+                  allowsNegative: false
+                  blockedByHold: true
+                  requiresReason: false
+                  requiresStockUnit: true
+                - code: COST_CAPITALISE
+                  name: "Cost added to stock"
+                  isValueOnly: true
+                  allowsNegative: false
+                  blockedByHold: false
+                  requiresReason: false
+                  requiresStockUnit: true
+                - code: ADJUST_LOSS
+                  name: "Adjustment, loss"
+                  isValueOnly: false
+                  allowsNegative: false
+                  blockedByHold: false
+                  requiresReason: true
+                  requiresStockUnit: false
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

@@ -73,881 +73,891 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/BillingDocumentPage"
-        example:
-          data:
-            - id: "019a7ae2-fd46-7b80-a0b9-c0e09cf739be"
-              kind: RECEIPT
-              status: ISSUED
-              documentNo: RCP-2026-DDW-T1-018834
-              provisionalRef: null
-              customer: null
-              customerName: null
-              customerTin: null
-              billingAddress: null
-              order:
-                id: "019a7aac-216c-721a-8753-2a7ecd11a35c"
-                docType: SALES_ORDER
-                number: SO-2026-DDW-004211
-              originalDocument: null
-              issueDate: "2026-11-13"
-              dueDate: null
-              taxInclusive: true
-              taxSchemeVersionId: "019a7aa9-78e2-788e-adc6-91ba57db0a98"
-              netPesewas: 130250
-              taxPesewas: 7650
-              grossPesewas: 137900
-              currency: GHS
-              levyTotals:
-                - levyCode: VAT
-                  levyName: "Value Added Tax"
-                  amountPesewas: 5738
-                - levyCode: NHIL
-                  levyName: "National Health Insurance Levy"
-                  amountPesewas: 956
-                - levyCode: GETFUND
-                  levyName: "GETFund Levy"
-                  amountPesewas: 956
-              lines:
-                - id: "019a7ae3-1c35-7564-ba9c-5f1816a8d7f5"
-                  lineNo: 1
-                  lineKind: PRODUCT
-                  product:
-                    id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                    sku: LIV-GOAT
-                    name: Goat
-                  description: Goat
-                  stockUnit:
-                    id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
-                    identifier: G-0142
-                    tracking: SERIAL
-                  quantity: "1.000"
-                  uom: HEAD
-                  weightKg: "26.400"
-                  unitPricePesewas: 80000
-                  resolvedUnitPricePesewas: 85000
-                  discountPesewas: 0
-                  taxCategory:
-                    id: "019a7a8a-6af3-7b33-906b-bc092d2a34e7"
-                    code: LIVE_ANIMALS
-                    name: "Live Animals"
-                  lineNetPesewas: 80000
-                  lineTaxPesewas: 0
-                  lineGrossPesewas: 80000
-                  levies:
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7ae2-fd46-7b80-a0b9-c0e09cf739be"
+                  kind: RECEIPT
+                  status: ISSUED
+                  documentNo: RCP-2026-DDW-T1-018834
+                  provisionalRef: null
+                  customer: null
+                  customerName: null
+                  customerTin: null
+                  billingAddress: null
+                  order:
+                    id: "019a7aac-216c-721a-8753-2a7ecd11a35c"
+                    docType: SALES_ORDER
+                    number: SO-2026-DDW-004211
+                  originalDocument: null
+                  issueDate: "2026-11-13"
+                  dueDate: null
+                  taxInclusive: true
+                  taxSchemeVersionId: "019a7aa9-78e2-788e-adc6-91ba57db0a98"
+                  netPesewas: 130250
+                  taxPesewas: 7650
+                  grossPesewas: 137900
+                  currency: GHS
+                  levyTotals:
                     - levyCode: VAT
                       levyName: "Value Added Tax"
-                      treatment: ZERO_RATED
-                      ratePercent: "0.00"
-                      basePesewas: 80000
-                      amountPesewas: 0
-                    - levyCode: NHIL
-                      levyName: "National Health Insurance Levy"
-                      treatment: ZERO_RATED
-                      ratePercent: "0.00"
-                      basePesewas: 80000
-                      amountPesewas: 0
-                    - levyCode: GETFUND
-                      levyName: "GETFund Levy"
-                      treatment: ZERO_RATED
-                      ratePercent: "0.00"
-                      basePesewas: 80000
-                      amountPesewas: 0
-                - id: "019a7ae3-3b24-7f47-8480-fd4f9059762d"
-                  lineNo: 2
-                  lineKind: PRODUCT
-                  product:
-                    id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                    sku: EGG-BIG
-                    name: "Eggs, big, crate of 30"
-                  description: "Eggs, big, crate of 30"
-                  stockUnit:
-                    id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
-                    identifier: EGG-261112-L1
-                    tracking: LOT
-                  quantity: "2.000"
-                  uom: CRATE
-                  weightKg: null
-                  unitPricePesewas: 6000
-                  resolvedUnitPricePesewas: 6000
-                  discountPesewas: 0
-                  taxCategory:
-                    id: "019a7a8a-a8d1-7efa-b432-f878208c7156"
-                    code: EGGS
-                    name: Eggs
-                  lineNetPesewas: 12000
-                  lineTaxPesewas: 0
-                  lineGrossPesewas: 12000
-                  levies:
-                    - levyCode: VAT
-                      levyName: "Value Added Tax"
-                      treatment: ZERO_RATED
-                      ratePercent: "0.00"
-                      basePesewas: 12000
-                      amountPesewas: 0
-                    - levyCode: NHIL
-                      levyName: "National Health Insurance Levy"
-                      treatment: ZERO_RATED
-                      ratePercent: "0.00"
-                      basePesewas: 12000
-                      amountPesewas: 0
-                    - levyCode: GETFUND
-                      levyName: "GETFund Levy"
-                      treatment: ZERO_RATED
-                      ratePercent: "0.00"
-                      basePesewas: 12000
-                      amountPesewas: 0
-                - id: "019a7ae3-5a13-792b-9e63-9b870a0a1464"
-                  lineNo: 3
-                  lineKind: PRODUCT
-                  product:
-                    id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                    sku: MEAT-BEEF
-                    name: "Beef, 15 kg pack"
-                  description: "Beef, 15 kg pack"
-                  stockUnit:
-                    id: "019a7a91-2f3b-74f5-9a2d-582bcbe2d109"
-                    identifier: MEAT-BEEF-261104-01
-                    tracking: LOT
-                  quantity: "15.300"
-                  uom: KG
-                  weightKg: "15.300"
-                  unitPricePesewas: 3000
-                  resolvedUnitPricePesewas: 3000
-                  discountPesewas: 0
-                  taxCategory:
-                    id: "019a7a8a-c7c0-78dd-8e16-96af9a3d0f8d"
-                    code: PROCESSED_MEAT
-                    name: "Processed Meat"
-                  lineNetPesewas: 38250
-                  lineTaxPesewas: 7650
-                  lineGrossPesewas: 45900
-                  levies:
-                    - levyCode: VAT
-                      levyName: "Value Added Tax"
-                      treatment: STANDARD
-                      ratePercent: "15.00"
-                      basePesewas: 38250
                       amountPesewas: 5738
                     - levyCode: NHIL
                       levyName: "National Health Insurance Levy"
-                      treatment: STANDARD
-                      ratePercent: "2.50"
-                      basePesewas: 38250
                       amountPesewas: 956
                     - levyCode: GETFUND
                       levyName: "GETFund Levy"
-                      treatment: STANDARD
-                      ratePercent: "2.50"
-                      basePesewas: 38250
                       amountPesewas: 956
-              settlement:
-                allocatedPesewas: 137900
-                creditedPesewas: 0
-                outstandingPesewas: 0
-                refundedPesewas: 0
-                refundablePesewas: 0
-                paymentStatus: PAID
-                settledAt: "2026-11-13T09:12:00Z"
-                asOf: "2026-11-13T09:30:00Z"
-              certification: null
-              reasonCode: null
-              archivedDocumentId: "019a7ae3-97f1-7cf2-b22a-d7f5fd6c50d3"
-              contentHash: 4f2ac1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7
-              issuedAt: "2026-11-13T09:12:00Z"
-              occurredAt: "2026-11-13T09:12:00Z"
-              reprintCount: 1
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-            - id: "019a7adf-f7ef-744a-9982-4d75baaec653"
-              kind: INVOICE
-              status: ISSUED
-              documentNo: INV-2026-DDW-001198
-              provisionalRef: null
-              customer:
-                id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                customerNo: C-00042
-                name: "Royal Palm Hotel Ltd"
-              customerName: "Royal Palm Hotel Ltd"
-              customerTin: C0034412290
-              billingAddress: "7 Liberation Road, Airport Residential, Accra"
-              order:
-                id: "019a7ae4-13ad-7480-b9b8-50d3e430c9b1"
-                docType: SALES_ORDER
-                number: SO-2026-DDW-004201
-              originalDocument: null
-              issueDate: "2026-11-12"
-              dueDate: "2026-12-12"
-              taxInclusive: false
-              taxSchemeVersionId: "019a7aa9-78e2-788e-adc6-91ba57db0a98"
-              netPesewas: 245245
-              taxPesewas: 37449
-              grossPesewas: 282694
-              currency: GHS
-              levyTotals:
-                - levyCode: VAT
-                  levyName: "Value Added Tax"
-                  amountPesewas: 28087
-                - levyCode: NHIL
-                  levyName: "National Health Insurance Levy"
-                  amountPesewas: 4681
-                - levyCode: GETFUND
-                  levyName: "GETFund Levy"
-                  amountPesewas: 4681
-              lines:
-                - id: "019a7ae3-b6e0-76d5-8c0e-762d771def0b"
-                  lineNo: 1
-                  lineKind: PRODUCT
-                  product:
-                    id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                    sku: MEAT-CHK-FULL
-                    name: "Full chicken, 15 kg pack"
-                  description: "Full chicken, 15 kg pack"
-                  stockUnit:
-                    id: "019a7a91-104c-7b12-804a-b9f4523132d2"
-                    identifier: MEAT-CHK-261106-02
-                    tracking: LOT
-                  quantity: "30.150"
-                  uom: KG
-                  weightKg: "30.150"
-                  unitPricePesewas: 1900
-                  resolvedUnitPricePesewas: 1900
-                  discountPesewas: 0
-                  taxCategory:
-                    id: "019a7a8a-c7c0-78dd-8e16-96af9a3d0f8d"
-                    code: PROCESSED_MEAT
-                    name: "Processed Meat"
-                  lineNetPesewas: 57285
-                  lineTaxPesewas: 11457
-                  lineGrossPesewas: 68742
-                  levies:
+                  lines:
+                    - id: "019a7ae3-1c35-7564-ba9c-5f1816a8d7f5"
+                      lineNo: 1
+                      lineKind: PRODUCT
+                      product:
+                        id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                        sku: LIV-GOAT
+                        name: Goat
+                      description: Goat
+                      stockUnit:
+                        id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
+                        identifier: G-0142
+                        tracking: SERIAL
+                      quantity: "1.000"
+                      uom: HEAD
+                      weightKg: "26.400"
+                      unitPricePesewas: 80000
+                      resolvedUnitPricePesewas: 85000
+                      discountPesewas: 0
+                      taxCategory:
+                        id: "019a7a8a-6af3-7b33-906b-bc092d2a34e7"
+                        code: LIVE_ANIMALS
+                        name: "Live Animals"
+                      lineNetPesewas: 80000
+                      lineTaxPesewas: 0
+                      lineGrossPesewas: 80000
+                      levies:
+                        - levyCode: VAT
+                          levyName: "Value Added Tax"
+                          treatment: ZERO_RATED
+                          ratePercent: "0.00"
+                          basePesewas: 80000
+                          amountPesewas: 0
+                        - levyCode: NHIL
+                          levyName: "National Health Insurance Levy"
+                          treatment: ZERO_RATED
+                          ratePercent: "0.00"
+                          basePesewas: 80000
+                          amountPesewas: 0
+                        - levyCode: GETFUND
+                          levyName: "GETFund Levy"
+                          treatment: ZERO_RATED
+                          ratePercent: "0.00"
+                          basePesewas: 80000
+                          amountPesewas: 0
+                    - id: "019a7ae3-3b24-7f47-8480-fd4f9059762d"
+                      lineNo: 2
+                      lineKind: PRODUCT
+                      product:
+                        id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                        sku: EGG-BIG
+                        name: "Eggs, big, crate of 30"
+                      description: "Eggs, big, crate of 30"
+                      stockUnit:
+                        id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
+                        identifier: EGG-261112-L1
+                        tracking: LOT
+                      quantity: "2.000"
+                      uom: CRATE
+                      weightKg: null
+                      unitPricePesewas: 6000
+                      resolvedUnitPricePesewas: 6000
+                      discountPesewas: 0
+                      taxCategory:
+                        id: "019a7a8a-a8d1-7efa-b432-f878208c7156"
+                        code: EGGS
+                        name: Eggs
+                      lineNetPesewas: 12000
+                      lineTaxPesewas: 0
+                      lineGrossPesewas: 12000
+                      levies:
+                        - levyCode: VAT
+                          levyName: "Value Added Tax"
+                          treatment: ZERO_RATED
+                          ratePercent: "0.00"
+                          basePesewas: 12000
+                          amountPesewas: 0
+                        - levyCode: NHIL
+                          levyName: "National Health Insurance Levy"
+                          treatment: ZERO_RATED
+                          ratePercent: "0.00"
+                          basePesewas: 12000
+                          amountPesewas: 0
+                        - levyCode: GETFUND
+                          levyName: "GETFund Levy"
+                          treatment: ZERO_RATED
+                          ratePercent: "0.00"
+                          basePesewas: 12000
+                          amountPesewas: 0
+                    - id: "019a7ae3-5a13-792b-9e63-9b870a0a1464"
+                      lineNo: 3
+                      lineKind: PRODUCT
+                      product:
+                        id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
+                        sku: MEAT-BEEF
+                        name: "Beef, 15 kg pack"
+                      description: "Beef, 15 kg pack"
+                      stockUnit:
+                        id: "019a7a91-2f3b-74f5-9a2d-582bcbe2d109"
+                        identifier: MEAT-BEEF-261104-01
+                        tracking: LOT
+                      quantity: "15.300"
+                      uom: KG
+                      weightKg: "15.300"
+                      unitPricePesewas: 3000
+                      resolvedUnitPricePesewas: 3000
+                      discountPesewas: 0
+                      taxCategory:
+                        id: "019a7a8a-c7c0-78dd-8e16-96af9a3d0f8d"
+                        code: PROCESSED_MEAT
+                        name: "Processed Meat"
+                      lineNetPesewas: 38250
+                      lineTaxPesewas: 7650
+                      lineGrossPesewas: 45900
+                      levies:
+                        - levyCode: VAT
+                          levyName: "Value Added Tax"
+                          treatment: STANDARD
+                          ratePercent: "15.00"
+                          basePesewas: 38250
+                          amountPesewas: 5738
+                        - levyCode: NHIL
+                          levyName: "National Health Insurance Levy"
+                          treatment: STANDARD
+                          ratePercent: "2.50"
+                          basePesewas: 38250
+                          amountPesewas: 956
+                        - levyCode: GETFUND
+                          levyName: "GETFund Levy"
+                          treatment: STANDARD
+                          ratePercent: "2.50"
+                          basePesewas: 38250
+                          amountPesewas: 956
+                  settlement:
+                    allocatedPesewas: 137900
+                    creditedPesewas: 0
+                    outstandingPesewas: 0
+                    refundedPesewas: 0
+                    refundablePesewas: 0
+                    paymentStatus: PAID
+                    settledAt: "2026-11-13T09:12:00Z"
+                    asOf: "2026-11-13T09:30:00Z"
+                  certification: null
+                  reasonCode: null
+                  archivedDocumentId: "019a7ae3-97f1-7cf2-b22a-d7f5fd6c50d3"
+                  contentHash: "4f2ac1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7"
+                  issuedAt: "2026-11-13T09:12:00Z"
+                  occurredAt: "2026-11-13T09:12:00Z"
+                  reprintCount: 1
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                - id: "019a7adf-f7ef-744a-9982-4d75baaec653"
+                  kind: INVOICE
+                  status: ISSUED
+                  documentNo: INV-2026-DDW-001198
+                  provisionalRef: null
+                  customer:
+                    id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+                    customerNo: C-00042
+                    name: "Royal Palm Hotel Ltd"
+                  customerName: "Royal Palm Hotel Ltd"
+                  customerTin: C0034412290
+                  billingAddress: "7 Liberation Road, Airport Residential, Accra"
+                  order:
+                    id: "019a7ae4-13ad-7480-b9b8-50d3e430c9b1"
+                    docType: SALES_ORDER
+                    number: SO-2026-DDW-004201
+                  originalDocument: null
+                  issueDate: "2026-11-12"
+                  dueDate: "2026-12-12"
+                  taxInclusive: false
+                  taxSchemeVersionId: "019a7aa9-78e2-788e-adc6-91ba57db0a98"
+                  netPesewas: 245245
+                  taxPesewas: 37449
+                  grossPesewas: 282694
+                  currency: GHS
+                  levyTotals:
                     - levyCode: VAT
                       levyName: "Value Added Tax"
-                      treatment: STANDARD
-                      ratePercent: "15.00"
-                      basePesewas: 57285
-                      amountPesewas: 8593
+                      amountPesewas: 28087
                     - levyCode: NHIL
                       levyName: "National Health Insurance Levy"
-                      treatment: STANDARD
-                      ratePercent: "2.50"
-                      basePesewas: 57285
-                      amountPesewas: 1432
+                      amountPesewas: 4681
                     - levyCode: GETFUND
                       levyName: "GETFund Levy"
-                      treatment: STANDARD
-                      ratePercent: "2.50"
-                      basePesewas: 57285
-                      amountPesewas: 1432
-                - id: "019a7ae3-d5cf-70b9-95f1-1464f0ce8d42"
-                  lineNo: 2
-                  lineKind: PRODUCT
-                  product:
-                    id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                    sku: MEAT-BEEF
-                    name: "Beef, 15 kg pack"
-                  description: "Beef, 15 kg pack"
-                  stockUnit:
-                    id: "019a7a91-2f3b-74f5-9a2d-582bcbe2d109"
-                    identifier: MEAT-BEEF-261104-01
-                    tracking: LOT
-                  quantity: "45.600"
-                  uom: KG
-                  weightKg: "45.600"
-                  unitPricePesewas: 2850
-                  resolvedUnitPricePesewas: 2850
-                  discountPesewas: 0
-                  taxCategory:
-                    id: "019a7a8a-c7c0-78dd-8e16-96af9a3d0f8d"
-                    code: PROCESSED_MEAT
-                    name: "Processed Meat"
-                  lineNetPesewas: 129960
-                  lineTaxPesewas: 25992
-                  lineGrossPesewas: 155952
-                  levies:
+                      amountPesewas: 4681
+                  lines:
+                    - id: "019a7ae3-b6e0-76d5-8c0e-762d771def0b"
+                      lineNo: 1
+                      lineKind: PRODUCT
+                      product:
+                        id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                        sku: MEAT-CHK-FULL
+                        name: "Full chicken, 15 kg pack"
+                      description: "Full chicken, 15 kg pack"
+                      stockUnit:
+                        id: "019a7a91-104c-7b12-804a-b9f4523132d2"
+                        identifier: MEAT-CHK-261106-02
+                        tracking: LOT
+                      quantity: "30.150"
+                      uom: KG
+                      weightKg: "30.150"
+                      unitPricePesewas: 1900
+                      resolvedUnitPricePesewas: 1900
+                      discountPesewas: 0
+                      taxCategory:
+                        id: "019a7a8a-c7c0-78dd-8e16-96af9a3d0f8d"
+                        code: PROCESSED_MEAT
+                        name: "Processed Meat"
+                      lineNetPesewas: 57285
+                      lineTaxPesewas: 11457
+                      lineGrossPesewas: 68742
+                      levies:
+                        - levyCode: VAT
+                          levyName: "Value Added Tax"
+                          treatment: STANDARD
+                          ratePercent: "15.00"
+                          basePesewas: 57285
+                          amountPesewas: 8593
+                        - levyCode: NHIL
+                          levyName: "National Health Insurance Levy"
+                          treatment: STANDARD
+                          ratePercent: "2.50"
+                          basePesewas: 57285
+                          amountPesewas: 1432
+                        - levyCode: GETFUND
+                          levyName: "GETFund Levy"
+                          treatment: STANDARD
+                          ratePercent: "2.50"
+                          basePesewas: 57285
+                          amountPesewas: 1432
+                    - id: "019a7ae3-d5cf-70b9-95f1-1464f0ce8d42"
+                      lineNo: 2
+                      lineKind: PRODUCT
+                      product:
+                        id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
+                        sku: MEAT-BEEF
+                        name: "Beef, 15 kg pack"
+                      description: "Beef, 15 kg pack"
+                      stockUnit:
+                        id: "019a7a91-2f3b-74f5-9a2d-582bcbe2d109"
+                        identifier: MEAT-BEEF-261104-01
+                        tracking: LOT
+                      quantity: "45.600"
+                      uom: KG
+                      weightKg: "45.600"
+                      unitPricePesewas: 2850
+                      resolvedUnitPricePesewas: 2850
+                      discountPesewas: 0
+                      taxCategory:
+                        id: "019a7a8a-c7c0-78dd-8e16-96af9a3d0f8d"
+                        code: PROCESSED_MEAT
+                        name: "Processed Meat"
+                      lineNetPesewas: 129960
+                      lineTaxPesewas: 25992
+                      lineGrossPesewas: 155952
+                      levies:
+                        - levyCode: VAT
+                          levyName: "Value Added Tax"
+                          treatment: STANDARD
+                          ratePercent: "15.00"
+                          basePesewas: 129960
+                          amountPesewas: 19494
+                        - levyCode: NHIL
+                          levyName: "National Health Insurance Levy"
+                          treatment: STANDARD
+                          ratePercent: "2.50"
+                          basePesewas: 129960
+                          amountPesewas: 3249
+                        - levyCode: GETFUND
+                          levyName: "GETFund Levy"
+                          treatment: STANDARD
+                          ratePercent: "2.50"
+                          basePesewas: 129960
+                          amountPesewas: 3249
+                    - id: "019a7ae3-f4be-7a9c-afd4-b29c6a7f2b7a"
+                      lineNo: 3
+                      lineKind: PRODUCT
+                      product:
+                        id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                        sku: EGG-BIG
+                        name: "Eggs, big, crate of 30"
+                      description: "Eggs, big, crate of 30"
+                      stockUnit: null
+                      quantity: "10.000"
+                      uom: CRATE
+                      weightKg: null
+                      unitPricePesewas: 5800
+                      resolvedUnitPricePesewas: 5800
+                      discountPesewas: 0
+                      taxCategory:
+                        id: "019a7a8a-a8d1-7efa-b432-f878208c7156"
+                        code: EGGS
+                        name: Eggs
+                      lineNetPesewas: 58000
+                      lineTaxPesewas: 0
+                      lineGrossPesewas: 58000
+                      levies:
+                        - levyCode: VAT
+                          levyName: "Value Added Tax"
+                          treatment: ZERO_RATED
+                          ratePercent: "0.00"
+                          basePesewas: 58000
+                          amountPesewas: 0
+                        - levyCode: NHIL
+                          levyName: "National Health Insurance Levy"
+                          treatment: ZERO_RATED
+                          ratePercent: "0.00"
+                          basePesewas: 58000
+                          amountPesewas: 0
+                        - levyCode: GETFUND
+                          levyName: "GETFund Levy"
+                          treatment: ZERO_RATED
+                          ratePercent: "0.00"
+                          basePesewas: 58000
+                          amountPesewas: 0
+                  settlement:
+                    allocatedPesewas: 0
+                    creditedPesewas: 0
+                    outstandingPesewas: 282694
+                    refundedPesewas: 0
+                    refundablePesewas: 0
+                    paymentStatus: UNPAID
+                    settledAt: null
+                    asOf: "2026-11-13T09:30:00Z"
+                  certification: null
+                  reasonCode: null
+                  archivedDocumentId: "019a7ae4-329c-7e63-839b-ef0b5de167e9"
+                  contentHash: "9b11c1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7"
+                  issuedAt: "2026-11-12T09:12:00Z"
+                  occurredAt: "2026-11-12T09:12:00Z"
+                  reprintCount: 0
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                - id: "019a7ae0-73ab-7bd8-9110-c653a1723f31"
+                  kind: CREDIT_NOTE
+                  status: ISSUED
+                  documentNo: CRN-2026-DDW-000086
+                  provisionalRef: null
+                  customer:
+                    id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+                    customerNo: C-00042
+                    name: "Royal Palm Hotel Ltd"
+                  customerName: "Royal Palm Hotel Ltd"
+                  customerTin: C0034412290
+                  billingAddress: "7 Liberation Road, Airport Residential, Accra"
+                  order:
+                    id: "019a7ae4-707a-722a-a762-2b7a5143a458"
+                    docType: SALES_ORDER
+                    number: SO-2026-DDW-004202
+                  originalDocument:
+                    id: "019a7adf-f7ef-744a-9982-4d75baaec653"
+                    docType: INVOICE
+                    number: INV-2026-DDW-001198
+                  issueDate: "2026-11-11"
+                  dueDate: null
+                  taxInclusive: false
+                  taxSchemeVersionId: "019a7aa9-78e2-788e-adc6-91ba57db0a98"
+                  netPesewas: 11600
+                  taxPesewas: 0
+                  grossPesewas: 11600
+                  currency: GHS
+                  levyTotals:
                     - levyCode: VAT
                       levyName: "Value Added Tax"
-                      treatment: STANDARD
-                      ratePercent: "15.00"
-                      basePesewas: 129960
-                      amountPesewas: 19494
-                    - levyCode: NHIL
-                      levyName: "National Health Insurance Levy"
-                      treatment: STANDARD
-                      ratePercent: "2.50"
-                      basePesewas: 129960
-                      amountPesewas: 3249
-                    - levyCode: GETFUND
-                      levyName: "GETFund Levy"
-                      treatment: STANDARD
-                      ratePercent: "2.50"
-                      basePesewas: 129960
-                      amountPesewas: 3249
-                - id: "019a7ae3-f4be-7a9c-afd4-b29c6a7f2b7a"
-                  lineNo: 3
-                  lineKind: PRODUCT
-                  product:
-                    id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                    sku: EGG-BIG
-                    name: "Eggs, big, crate of 30"
-                  description: "Eggs, big, crate of 30"
-                  stockUnit: null
-                  quantity: "10.000"
-                  uom: CRATE
-                  weightKg: null
-                  unitPricePesewas: 5800
-                  resolvedUnitPricePesewas: 5800
-                  discountPesewas: 0
-                  taxCategory:
-                    id: "019a7a8a-a8d1-7efa-b432-f878208c7156"
-                    code: EGGS
-                    name: Eggs
-                  lineNetPesewas: 58000
-                  lineTaxPesewas: 0
-                  lineGrossPesewas: 58000
-                  levies:
-                    - levyCode: VAT
-                      levyName: "Value Added Tax"
-                      treatment: ZERO_RATED
-                      ratePercent: "0.00"
-                      basePesewas: 58000
-                      amountPesewas: 0
-                    - levyCode: NHIL
-                      levyName: "National Health Insurance Levy"
-                      treatment: ZERO_RATED
-                      ratePercent: "0.00"
-                      basePesewas: 58000
-                      amountPesewas: 0
-                    - levyCode: GETFUND
-                      levyName: "GETFund Levy"
-                      treatment: ZERO_RATED
-                      ratePercent: "0.00"
-                      basePesewas: 58000
-                      amountPesewas: 0
-              settlement:
-                allocatedPesewas: 0
-                creditedPesewas: 0
-                outstandingPesewas: 282694
-                refundedPesewas: 0
-                refundablePesewas: 0
-                paymentStatus: UNPAID
-                settledAt: null
-                asOf: "2026-11-13T09:30:00Z"
-              certification: null
-              reasonCode: null
-              archivedDocumentId: "019a7ae4-329c-7e63-839b-ef0b5de167e9"
-              contentHash: 9b11c1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7
-              issuedAt: "2026-11-12T09:12:00Z"
-              occurredAt: "2026-11-12T09:12:00Z"
-              reprintCount: 0
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-            - id: "019a7ae0-73ab-7bd8-9110-c653a1723f31"
-              kind: CREDIT_NOTE
-              status: ISSUED
-              documentNo: CRN-2026-DDW-000086
-              provisionalRef: null
-              customer:
-                id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                customerNo: C-00042
-                name: "Royal Palm Hotel Ltd"
-              customerName: "Royal Palm Hotel Ltd"
-              customerTin: C0034412290
-              billingAddress: "7 Liberation Road, Airport Residential, Accra"
-              order:
-                id: "019a7ae4-707a-722a-a762-2b7a5143a458"
-                docType: SALES_ORDER
-                number: SO-2026-DDW-004202
-              originalDocument:
-                id: "019a7adf-f7ef-744a-9982-4d75baaec653"
-                docType: INVOICE
-                number: INV-2026-DDW-001198
-              issueDate: "2026-11-11"
-              dueDate: null
-              taxInclusive: false
-              taxSchemeVersionId: "019a7aa9-78e2-788e-adc6-91ba57db0a98"
-              netPesewas: 11600
-              taxPesewas: 0
-              grossPesewas: 11600
-              currency: GHS
-              levyTotals:
-                - levyCode: VAT
-                  levyName: "Value Added Tax"
-                  amountPesewas: 0
-                - levyCode: NHIL
-                  levyName: "National Health Insurance Levy"
-                  amountPesewas: 0
-                - levyCode: GETFUND
-                  levyName: "GETFund Levy"
-                  amountPesewas: 0
-              lines:
-                - id: "019a7ae4-518b-7847-9d7f-8d42d7920620"
-                  lineNo: 1
-                  lineKind: PRODUCT
-                  product:
-                    id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                    sku: EGG-BIG
-                    name: "Eggs, big, crate of 30"
-                  description: "Eggs, big, crate of 30: broken in delivery"
-                  stockUnit: null
-                  quantity: "2.000"
-                  uom: CRATE
-                  weightKg: null
-                  unitPricePesewas: 5800
-                  resolvedUnitPricePesewas: 5800
-                  discountPesewas: 0
-                  taxCategory:
-                    id: "019a7a8a-a8d1-7efa-b432-f878208c7156"
-                    code: EGGS
-                    name: Eggs
-                  lineNetPesewas: 11600
-                  lineTaxPesewas: 0
-                  lineGrossPesewas: 11600
-                  levies:
-                    - levyCode: VAT
-                      levyName: "Value Added Tax"
-                      treatment: ZERO_RATED
-                      ratePercent: "0.00"
-                      basePesewas: 11600
-                      amountPesewas: 0
-                    - levyCode: NHIL
-                      levyName: "National Health Insurance Levy"
-                      treatment: ZERO_RATED
-                      ratePercent: "0.00"
-                      basePesewas: 11600
-                      amountPesewas: 0
-                    - levyCode: GETFUND
-                      levyName: "GETFund Levy"
-                      treatment: ZERO_RATED
-                      ratePercent: "0.00"
-                      basePesewas: 11600
-                      amountPesewas: 0
-              settlement:
-                allocatedPesewas: 0
-                creditedPesewas: 0
-                outstandingPesewas: 0
-                refundedPesewas: 0
-                refundablePesewas: 0
-                paymentStatus: NOT_APPLICABLE
-                settledAt: null
-                asOf: "2026-11-13T09:30:00Z"
-              certification: null
-              reasonCode: DAMAGED_IN_DELIVERY
-              archivedDocumentId: "019a7ae4-8f69-7c0e-b146-c9b1caf4428f"
-              contentHash: c03ec1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7
-              issuedAt: "2026-11-11T09:12:00Z"
-              occurredAt: "2026-11-11T09:12:00Z"
-              reprintCount: 0
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-            - id: "019a7ae0-ef67-7366-989e-3f318836b80f"
-              kind: INVOICE
-              status: ISSUED
-              documentNo: INV-2026-DDW-001204
-              provisionalRef: null
-              customer:
-                id: "019a7a87-659c-73fc-8935-489e4ae1c17c"
-                customerNo: C-00118
-                name: "Ama Serwaa Ofori"
-              customerName: "Ama Serwaa Ofori"
-              customerTin: null
-              billingAddress: null
-              order:
-                id: "019a7ae4-ec36-79b8-aef0-a45838071d36"
-                docType: SALES_ORDER
-                number: SO-2026-DDW-004203
-              originalDocument: null
-              issueDate: "2026-11-10"
-              dueDate: "2026-12-10"
-              taxInclusive: true
-              taxSchemeVersionId: "019a7aa9-78e2-788e-adc6-91ba57db0a98"
-              netPesewas: 26917
-              taxPesewas: 5383
-              grossPesewas: 32300
-              currency: GHS
-              levyTotals:
-                - levyCode: VAT
-                  levyName: "Value Added Tax"
-                  amountPesewas: 4038
-                - levyCode: NHIL
-                  levyName: "National Health Insurance Levy"
-                  amountPesewas: 673
-                - levyCode: GETFUND
-                  levyName: "GETFund Levy"
-                  amountPesewas: 672
-              lines:
-                - id: "019a7ae4-ae58-75f1-8b29-67e944a5e0c7"
-                  lineNo: 1
-                  lineKind: PRODUCT
-                  product:
-                    id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                    sku: MEAT-CHK-FULL
-                    name: "Full chicken, 15 kg pack"
-                  description: "Full chicken, 15 kg pack: weighed 14.650 kg"
-                  stockUnit:
-                    id: "019a7a91-104c-7b12-804a-b9f4523132d2"
-                    identifier: MEAT-CHK-261106-02
-                    tracking: LOT
-                  quantity: "14.650"
-                  uom: KG
-                  weightKg: "14.650"
-                  unitPricePesewas: 2000
-                  resolvedUnitPricePesewas: 2000
-                  discountPesewas: 0
-                  taxCategory:
-                    id: "019a7a8a-c7c0-78dd-8e16-96af9a3d0f8d"
-                    code: PROCESSED_MEAT
-                    name: "Processed Meat"
-                  lineNetPesewas: 24417
-                  lineTaxPesewas: 4883
-                  lineGrossPesewas: 29300
-                  levies:
-                    - levyCode: VAT
-                      levyName: "Value Added Tax"
-                      treatment: STANDARD
-                      ratePercent: "15.00"
-                      basePesewas: 24417
-                      amountPesewas: 3663
-                    - levyCode: NHIL
-                      levyName: "National Health Insurance Levy"
-                      treatment: STANDARD
-                      ratePercent: "2.50"
-                      basePesewas: 24417
-                      amountPesewas: 610
-                    - levyCode: GETFUND
-                      levyName: "GETFund Levy"
-                      treatment: STANDARD
-                      ratePercent: "2.50"
-                      basePesewas: 24417
-                      amountPesewas: 610
-                - id: "019a7ae4-cd47-7fd4-950d-0620be567efe"
-                  lineNo: 2
-                  lineKind: DELIVERY_FEE
-                  product:
-                    id: "019a7a8f-404b-76be-9bf6-74b430d2ed92"
-                    sku: SVC-DELIVERY
-                    name: Delivery
-                  description: "Delivery, Accra East"
-                  stockUnit: null
-                  quantity: "1.000"
-                  uom: UNIT
-                  weightKg: null
-                  unitPricePesewas: 3000
-                  resolvedUnitPricePesewas: 3000
-                  discountPesewas: 0
-                  taxCategory:
-                    id: "019a7a8b-059e-7ca4-a1dd-d31e8d9f4bfc"
-                    code: DELIVERY_SERVICE
-                    name: "Delivery Service"
-                  lineNetPesewas: 2500
-                  lineTaxPesewas: 500
-                  lineGrossPesewas: 3000
-                  levies:
-                    - levyCode: VAT
-                      levyName: "Value Added Tax"
-                      treatment: STANDARD
-                      ratePercent: "15.00"
-                      basePesewas: 2500
-                      amountPesewas: 375
-                    - levyCode: NHIL
-                      levyName: "National Health Insurance Levy"
-                      treatment: STANDARD
-                      ratePercent: "2.50"
-                      basePesewas: 2500
-                      amountPesewas: 63
-                    - levyCode: GETFUND
-                      levyName: "GETFund Levy"
-                      treatment: STANDARD
-                      ratePercent: "2.50"
-                      basePesewas: 2500
-                      amountPesewas: 62
-              settlement:
-                allocatedPesewas: 0
-                creditedPesewas: 0
-                outstandingPesewas: 32300
-                refundedPesewas: 0
-                refundablePesewas: 0
-                paymentStatus: UNPAID
-                settledAt: null
-                asOf: "2026-11-13T09:30:00Z"
-              certification: null
-              reasonCode: null
-              archivedDocumentId: "019a7ae5-0b25-739b-b8d4-428fb1b8bb6d"
-              contentHash: 71ddc1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7
-              issuedAt: "2026-11-10T09:12:00Z"
-              occurredAt: "2026-11-10T09:12:00Z"
-              reprintCount: 0
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-            - id: "019a7ae1-6b23-7af3-902c-b80f6efa30ed"
-              kind: PROFORMA
-              status: ISSUED
-              documentNo: PRF-2026-DDW-000019
-              provisionalRef: null
-              customer:
-                id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                customerNo: C-00241
-                name: "Emmanuel Tetteh"
-              customerName: "Emmanuel Tetteh"
-              customerTin: null
-              billingAddress: null
-              order:
-                id: "019a7ae5-67f2-7146-a67e-1d361ecb9614"
-                docType: SALES_ORDER
-                number: SO-2026-DDW-004204
-              originalDocument: null
-              issueDate: "2026-11-09"
-              dueDate: null
-              taxInclusive: false
-              taxSchemeVersionId: "019a7aa9-78e2-788e-adc6-91ba57db0a98"
-              netPesewas: 1716000
-              taxPesewas: 1200
-              grossPesewas: 1717200
-              currency: GHS
-              levyTotals:
-                - levyCode: VAT
-                  levyName: "Value Added Tax"
-                  amountPesewas: 900
-                - levyCode: NHIL
-                  levyName: "National Health Insurance Levy"
-                  amountPesewas: 150
-                - levyCode: GETFUND
-                  levyName: "GETFund Levy"
-                  amountPesewas: 150
-              lines:
-                - id: "019a7ae5-2a14-7d7f-82b7-e0c72b6959a5"
-                  lineNo: 1
-                  lineKind: PRODUCT
-                  product:
-                    id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                    sku: LIV-GOAT
-                    name: Goat
-                  description: "Goats, 22 to 28 kg, for funeral, delivered to Kasoa"
-                  stockUnit: null
-                  quantity: "18.000"
-                  uom: HEAD
-                  weightKg: null
-                  unitPricePesewas: 95000
-                  resolvedUnitPricePesewas: 95000
-                  discountPesewas: 0
-                  taxCategory:
-                    id: "019a7a8a-6af3-7b33-906b-bc092d2a34e7"
-                    code: LIVE_ANIMALS
-                    name: "Live Animals"
-                  lineNetPesewas: 1710000
-                  lineTaxPesewas: 0
-                  lineGrossPesewas: 1710000
-                  levies:
-                    - levyCode: VAT
-                      levyName: "Value Added Tax"
-                      treatment: ZERO_RATED
-                      ratePercent: "0.00"
-                      basePesewas: 1710000
                       amountPesewas: 0
                     - levyCode: NHIL
                       levyName: "National Health Insurance Levy"
-                      treatment: ZERO_RATED
-                      ratePercent: "0.00"
-                      basePesewas: 1710000
                       amountPesewas: 0
                     - levyCode: GETFUND
                       levyName: "GETFund Levy"
-                      treatment: ZERO_RATED
-                      ratePercent: "0.00"
-                      basePesewas: 1710000
                       amountPesewas: 0
-                - id: "019a7ae5-4903-7762-9c9b-7efea51af7dc"
-                  lineNo: 2
-                  lineKind: DELIVERY_FEE
-                  product:
-                    id: "019a7a8f-404b-76be-9bf6-74b430d2ed92"
-                    sku: SVC-DELIVERY
-                    name: Delivery
-                  description: "Delivery, Kasoa"
-                  stockUnit: null
-                  quantity: "1.000"
-                  uom: UNIT
-                  weightKg: null
-                  unitPricePesewas: 6000
-                  resolvedUnitPricePesewas: 6000
-                  discountPesewas: 0
-                  taxCategory:
-                    id: "019a7a8b-059e-7ca4-a1dd-d31e8d9f4bfc"
-                    code: DELIVERY_SERVICE
-                    name: "Delivery Service"
-                  lineNetPesewas: 6000
-                  lineTaxPesewas: 1200
-                  lineGrossPesewas: 7200
-                  levies:
+                  lines:
+                    - id: "019a7ae4-518b-7847-9d7f-8d42d7920620"
+                      lineNo: 1
+                      lineKind: PRODUCT
+                      product:
+                        id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                        sku: EGG-BIG
+                        name: "Eggs, big, crate of 30"
+                      description: "Eggs, big, crate of 30: broken in delivery"
+                      stockUnit: null
+                      quantity: "2.000"
+                      uom: CRATE
+                      weightKg: null
+                      unitPricePesewas: 5800
+                      resolvedUnitPricePesewas: 5800
+                      discountPesewas: 0
+                      taxCategory:
+                        id: "019a7a8a-a8d1-7efa-b432-f878208c7156"
+                        code: EGGS
+                        name: Eggs
+                      lineNetPesewas: 11600
+                      lineTaxPesewas: 0
+                      lineGrossPesewas: 11600
+                      levies:
+                        - levyCode: VAT
+                          levyName: "Value Added Tax"
+                          treatment: ZERO_RATED
+                          ratePercent: "0.00"
+                          basePesewas: 11600
+                          amountPesewas: 0
+                        - levyCode: NHIL
+                          levyName: "National Health Insurance Levy"
+                          treatment: ZERO_RATED
+                          ratePercent: "0.00"
+                          basePesewas: 11600
+                          amountPesewas: 0
+                        - levyCode: GETFUND
+                          levyName: "GETFund Levy"
+                          treatment: ZERO_RATED
+                          ratePercent: "0.00"
+                          basePesewas: 11600
+                          amountPesewas: 0
+                  settlement:
+                    allocatedPesewas: 0
+                    creditedPesewas: 0
+                    outstandingPesewas: 0
+                    refundedPesewas: 0
+                    refundablePesewas: 0
+                    paymentStatus: NOT_APPLICABLE
+                    settledAt: null
+                    asOf: "2026-11-13T09:30:00Z"
+                  certification: null
+                  reasonCode: DAMAGED_IN_DELIVERY
+                  archivedDocumentId: "019a7ae4-8f69-7c0e-b146-c9b1caf4428f"
+                  contentHash: c03ec1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7
+                  issuedAt: "2026-11-11T09:12:00Z"
+                  occurredAt: "2026-11-11T09:12:00Z"
+                  reprintCount: 0
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                - id: "019a7ae0-ef67-7366-989e-3f318836b80f"
+                  kind: INVOICE
+                  status: ISSUED
+                  documentNo: INV-2026-DDW-001204
+                  provisionalRef: null
+                  customer:
+                    id: "019a7a87-659c-73fc-8935-489e4ae1c17c"
+                    customerNo: C-00118
+                    name: "Ama Serwaa Ofori"
+                  customerName: "Ama Serwaa Ofori"
+                  customerTin: null
+                  billingAddress: null
+                  order:
+                    id: "019a7ae4-ec36-79b8-aef0-a45838071d36"
+                    docType: SALES_ORDER
+                    number: SO-2026-DDW-004203
+                  originalDocument: null
+                  issueDate: "2026-11-10"
+                  dueDate: "2026-12-10"
+                  taxInclusive: true
+                  taxSchemeVersionId: "019a7aa9-78e2-788e-adc6-91ba57db0a98"
+                  netPesewas: 26917
+                  taxPesewas: 5383
+                  grossPesewas: 32300
+                  currency: GHS
+                  levyTotals:
                     - levyCode: VAT
                       levyName: "Value Added Tax"
-                      treatment: STANDARD
-                      ratePercent: "15.00"
-                      basePesewas: 6000
+                      amountPesewas: 4038
+                    - levyCode: NHIL
+                      levyName: "National Health Insurance Levy"
+                      amountPesewas: 673
+                    - levyCode: GETFUND
+                      levyName: "GETFund Levy"
+                      amountPesewas: 672
+                  lines:
+                    - id: "019a7ae4-ae58-75f1-8b29-67e944a5e0c7"
+                      lineNo: 1
+                      lineKind: PRODUCT
+                      product:
+                        id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                        sku: MEAT-CHK-FULL
+                        name: "Full chicken, 15 kg pack"
+                      description: "Full chicken, 15 kg pack: weighed 14.650 kg"
+                      stockUnit:
+                        id: "019a7a91-104c-7b12-804a-b9f4523132d2"
+                        identifier: MEAT-CHK-261106-02
+                        tracking: LOT
+                      quantity: "14.650"
+                      uom: KG
+                      weightKg: "14.650"
+                      unitPricePesewas: 2000
+                      resolvedUnitPricePesewas: 2000
+                      discountPesewas: 0
+                      taxCategory:
+                        id: "019a7a8a-c7c0-78dd-8e16-96af9a3d0f8d"
+                        code: PROCESSED_MEAT
+                        name: "Processed Meat"
+                      lineNetPesewas: 24417
+                      lineTaxPesewas: 4883
+                      lineGrossPesewas: 29300
+                      levies:
+                        - levyCode: VAT
+                          levyName: "Value Added Tax"
+                          treatment: STANDARD
+                          ratePercent: "15.00"
+                          basePesewas: 24417
+                          amountPesewas: 3663
+                        - levyCode: NHIL
+                          levyName: "National Health Insurance Levy"
+                          treatment: STANDARD
+                          ratePercent: "2.50"
+                          basePesewas: 24417
+                          amountPesewas: 610
+                        - levyCode: GETFUND
+                          levyName: "GETFund Levy"
+                          treatment: STANDARD
+                          ratePercent: "2.50"
+                          basePesewas: 24417
+                          amountPesewas: 610
+                    - id: "019a7ae4-cd47-7fd4-950d-0620be567efe"
+                      lineNo: 2
+                      lineKind: DELIVERY_FEE
+                      product:
+                        id: "019a7a8f-404b-76be-9bf6-74b430d2ed92"
+                        sku: SVC-DELIVERY
+                        name: Delivery
+                      description: "Delivery, Accra East"
+                      stockUnit: null
+                      quantity: "1.000"
+                      uom: UNIT
+                      weightKg: null
+                      unitPricePesewas: 3000
+                      resolvedUnitPricePesewas: 3000
+                      discountPesewas: 0
+                      taxCategory:
+                        id: "019a7a8b-059e-7ca4-a1dd-d31e8d9f4bfc"
+                        code: DELIVERY_SERVICE
+                        name: "Delivery Service"
+                      lineNetPesewas: 2500
+                      lineTaxPesewas: 500
+                      lineGrossPesewas: 3000
+                      levies:
+                        - levyCode: VAT
+                          levyName: "Value Added Tax"
+                          treatment: STANDARD
+                          ratePercent: "15.00"
+                          basePesewas: 2500
+                          amountPesewas: 375
+                        - levyCode: NHIL
+                          levyName: "National Health Insurance Levy"
+                          treatment: STANDARD
+                          ratePercent: "2.50"
+                          basePesewas: 2500
+                          amountPesewas: 63
+                        - levyCode: GETFUND
+                          levyName: "GETFund Levy"
+                          treatment: STANDARD
+                          ratePercent: "2.50"
+                          basePesewas: 2500
+                          amountPesewas: 62
+                  settlement:
+                    allocatedPesewas: 0
+                    creditedPesewas: 0
+                    outstandingPesewas: 32300
+                    refundedPesewas: 0
+                    refundablePesewas: 0
+                    paymentStatus: UNPAID
+                    settledAt: null
+                    asOf: "2026-11-13T09:30:00Z"
+                  certification: null
+                  reasonCode: null
+                  archivedDocumentId: "019a7ae5-0b25-739b-b8d4-428fb1b8bb6d"
+                  contentHash: "71ddc1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7"
+                  issuedAt: "2026-11-10T09:12:00Z"
+                  occurredAt: "2026-11-10T09:12:00Z"
+                  reprintCount: 0
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                - id: "019a7ae1-6b23-7af3-902c-b80f6efa30ed"
+                  kind: PROFORMA
+                  status: ISSUED
+                  documentNo: PRF-2026-DDW-000019
+                  provisionalRef: null
+                  customer:
+                    id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
+                    customerNo: C-00241
+                    name: "Emmanuel Tetteh"
+                  customerName: "Emmanuel Tetteh"
+                  customerTin: null
+                  billingAddress: null
+                  order:
+                    id: "019a7ae5-67f2-7146-a67e-1d361ecb9614"
+                    docType: SALES_ORDER
+                    number: SO-2026-DDW-004204
+                  originalDocument: null
+                  issueDate: "2026-11-09"
+                  dueDate: null
+                  taxInclusive: false
+                  taxSchemeVersionId: "019a7aa9-78e2-788e-adc6-91ba57db0a98"
+                  netPesewas: 1716000
+                  taxPesewas: 1200
+                  grossPesewas: 1717200
+                  currency: GHS
+                  levyTotals:
+                    - levyCode: VAT
+                      levyName: "Value Added Tax"
                       amountPesewas: 900
                     - levyCode: NHIL
                       levyName: "National Health Insurance Levy"
-                      treatment: STANDARD
-                      ratePercent: "2.50"
-                      basePesewas: 6000
                       amountPesewas: 150
                     - levyCode: GETFUND
                       levyName: "GETFund Levy"
-                      treatment: STANDARD
-                      ratePercent: "2.50"
-                      basePesewas: 6000
                       amountPesewas: 150
-              settlement:
-                allocatedPesewas: 0
-                creditedPesewas: 0
-                outstandingPesewas: 0
-                refundedPesewas: 0
-                refundablePesewas: 0
-                paymentStatus: NOT_APPLICABLE
-                settledAt: null
-                asOf: "2026-11-13T09:30:00Z"
-              certification: null
-              reasonCode: null
-              archivedDocumentId: "019a7ae5-86e1-7b29-b062-bb6d987c344b"
-              contentHash: aa90c1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7
-              issuedAt: "2026-11-09T09:12:00Z"
-              occurredAt: "2026-11-09T09:12:00Z"
-              reprintCount: 0
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-            - id: "019a7ae1-e6df-7281-97ba-30ed55bea9cb"
-              kind: RECEIPT
-              status: ISSUED
-              documentNo: RCP-2026-DDW-T2-006101
-              provisionalRef: P-T2-311-0042
-              customer:
-                id: "019a7a87-a37a-77c3-acfc-850d3e43fdeb"
-                customerNo: C-00207
-                name: "Kofi Agyeman"
-              customerName: "Kofi Agyeman"
-              customerTin: null
-              billingAddress: null
-              order:
-                id: "019a7ae5-e3ae-78d4-ae0c-9614058f0ef1"
-                docType: SALES_ORDER
-                number: SO-2026-DDW-004205
-              originalDocument: null
-              issueDate: "2026-11-08"
-              dueDate: null
-              taxInclusive: true
-              taxSchemeVersionId: "019a7aa9-78e2-788e-adc6-91ba57db0a98"
-              netPesewas: 80000
-              taxPesewas: 0
-              grossPesewas: 80000
-              currency: GHS
-              levyTotals:
-                - levyCode: VAT
-                  levyName: "Value Added Tax"
-                  amountPesewas: 0
-                - levyCode: NHIL
-                  levyName: "National Health Insurance Levy"
-                  amountPesewas: 0
-                - levyCode: GETFUND
-                  levyName: "GETFund Levy"
-                  amountPesewas: 0
-              lines:
-                - id: "019a7ae5-a5d0-750d-8a45-59a5122dd282"
-                  lineNo: 1
-                  lineKind: PRODUCT
-                  product:
-                    id: "019a7a8e-86b1-7b69-b0a1-bf6756ac3845"
-                    sku: PRD-TOMATO
-                    name: "Tomatoes, crate"
-                  description: "Tomatoes, crate"
-                  stockUnit: null
-                  quantity: "1.000"
-                  uom: CRATE
-                  weightKg: null
-                  unitPricePesewas: 65000
-                  resolvedUnitPricePesewas: 65000
-                  discountPesewas: 0
-                  taxCategory:
-                    id: "019a7a8a-89e2-7516-aa4f-5a40a6dbd31e"
-                    code: RAW_PRODUCE
-                    name: "Raw Produce"
-                  lineNetPesewas: 65000
-                  lineTaxPesewas: 0
-                  lineGrossPesewas: 65000
-                  levies:
+                  lines:
+                    - id: "019a7ae5-2a14-7d7f-82b7-e0c72b6959a5"
+                      lineNo: 1
+                      lineKind: PRODUCT
+                      product:
+                        id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                        sku: LIV-GOAT
+                        name: Goat
+                      description: "Goats, 22 to 28 kg, for funeral, delivered to Kasoa"
+                      stockUnit: null
+                      quantity: "18.000"
+                      uom: HEAD
+                      weightKg: null
+                      unitPricePesewas: 95000
+                      resolvedUnitPricePesewas: 95000
+                      discountPesewas: 0
+                      taxCategory:
+                        id: "019a7a8a-6af3-7b33-906b-bc092d2a34e7"
+                        code: LIVE_ANIMALS
+                        name: "Live Animals"
+                      lineNetPesewas: 1710000
+                      lineTaxPesewas: 0
+                      lineGrossPesewas: 1710000
+                      levies:
+                        - levyCode: VAT
+                          levyName: "Value Added Tax"
+                          treatment: ZERO_RATED
+                          ratePercent: "0.00"
+                          basePesewas: 1710000
+                          amountPesewas: 0
+                        - levyCode: NHIL
+                          levyName: "National Health Insurance Levy"
+                          treatment: ZERO_RATED
+                          ratePercent: "0.00"
+                          basePesewas: 1710000
+                          amountPesewas: 0
+                        - levyCode: GETFUND
+                          levyName: "GETFund Levy"
+                          treatment: ZERO_RATED
+                          ratePercent: "0.00"
+                          basePesewas: 1710000
+                          amountPesewas: 0
+                    - id: "019a7ae5-4903-7762-9c9b-7efea51af7dc"
+                      lineNo: 2
+                      lineKind: DELIVERY_FEE
+                      product:
+                        id: "019a7a8f-404b-76be-9bf6-74b430d2ed92"
+                        sku: SVC-DELIVERY
+                        name: Delivery
+                      description: "Delivery, Kasoa"
+                      stockUnit: null
+                      quantity: "1.000"
+                      uom: UNIT
+                      weightKg: null
+                      unitPricePesewas: 6000
+                      resolvedUnitPricePesewas: 6000
+                      discountPesewas: 0
+                      taxCategory:
+                        id: "019a7a8b-059e-7ca4-a1dd-d31e8d9f4bfc"
+                        code: DELIVERY_SERVICE
+                        name: "Delivery Service"
+                      lineNetPesewas: 6000
+                      lineTaxPesewas: 1200
+                      lineGrossPesewas: 7200
+                      levies:
+                        - levyCode: VAT
+                          levyName: "Value Added Tax"
+                          treatment: STANDARD
+                          ratePercent: "15.00"
+                          basePesewas: 6000
+                          amountPesewas: 900
+                        - levyCode: NHIL
+                          levyName: "National Health Insurance Levy"
+                          treatment: STANDARD
+                          ratePercent: "2.50"
+                          basePesewas: 6000
+                          amountPesewas: 150
+                        - levyCode: GETFUND
+                          levyName: "GETFund Levy"
+                          treatment: STANDARD
+                          ratePercent: "2.50"
+                          basePesewas: 6000
+                          amountPesewas: 150
+                  settlement:
+                    allocatedPesewas: 0
+                    creditedPesewas: 0
+                    outstandingPesewas: 0
+                    refundedPesewas: 0
+                    refundablePesewas: 0
+                    paymentStatus: NOT_APPLICABLE
+                    settledAt: null
+                    asOf: "2026-11-13T09:30:00Z"
+                  certification: null
+                  reasonCode: null
+                  archivedDocumentId: "019a7ae5-86e1-7b29-b062-bb6d987c344b"
+                  contentHash: aa90c1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7
+                  issuedAt: "2026-11-09T09:12:00Z"
+                  occurredAt: "2026-11-09T09:12:00Z"
+                  reprintCount: 0
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                - id: "019a7ae1-e6df-7281-97ba-30ed55bea9cb"
+                  kind: RECEIPT
+                  status: ISSUED
+                  documentNo: RCP-2026-DDW-T2-006101
+                  provisionalRef: P-T2-311-0042
+                  customer:
+                    id: "019a7a87-a37a-77c3-acfc-850d3e43fdeb"
+                    customerNo: C-00207
+                    name: "Kofi Agyeman"
+                  customerName: "Kofi Agyeman"
+                  customerTin: null
+                  billingAddress: null
+                  order:
+                    id: "019a7ae5-e3ae-78d4-ae0c-9614058f0ef1"
+                    docType: SALES_ORDER
+                    number: SO-2026-DDW-004205
+                  originalDocument: null
+                  issueDate: "2026-11-08"
+                  dueDate: null
+                  taxInclusive: true
+                  taxSchemeVersionId: "019a7aa9-78e2-788e-adc6-91ba57db0a98"
+                  netPesewas: 80000
+                  taxPesewas: 0
+                  grossPesewas: 80000
+                  currency: GHS
+                  levyTotals:
                     - levyCode: VAT
                       levyName: "Value Added Tax"
-                      treatment: ZERO_RATED
-                      ratePercent: "0.00"
-                      basePesewas: 65000
                       amountPesewas: 0
                     - levyCode: NHIL
                       levyName: "National Health Insurance Levy"
-                      treatment: ZERO_RATED
-                      ratePercent: "0.00"
-                      basePesewas: 65000
                       amountPesewas: 0
                     - levyCode: GETFUND
                       levyName: "GETFund Levy"
-                      treatment: ZERO_RATED
-                      ratePercent: "0.00"
-                      basePesewas: 65000
                       amountPesewas: 0
-                - id: "019a7ae5-c4bf-7ef0-9428-f7dc8bde70ba"
-                  lineNo: 2
-                  lineKind: PRODUCT
-                  product:
-                    id: "019a7a8e-a5a0-754c-8a85-5d9ed05dd67c"
-                    sku: PRD-YAM
-                    name: "Yam, tuber"
-                  description: "Yam, tuber"
-                  stockUnit: null
-                  quantity: "6.000"
-                  uom: TUBER
-                  weightKg: null
-                  unitPricePesewas: 2500
-                  resolvedUnitPricePesewas: 2500
-                  discountPesewas: 0
-                  taxCategory:
-                    id: "019a7a8a-89e2-7516-aa4f-5a40a6dbd31e"
-                    code: RAW_PRODUCE
-                    name: "Raw Produce"
-                  lineNetPesewas: 15000
-                  lineTaxPesewas: 0
-                  lineGrossPesewas: 15000
-                  levies:
-                    - levyCode: VAT
-                      levyName: "Value Added Tax"
-                      treatment: ZERO_RATED
-                      ratePercent: "0.00"
-                      basePesewas: 15000
-                      amountPesewas: 0
-                    - levyCode: NHIL
-                      levyName: "National Health Insurance Levy"
-                      treatment: ZERO_RATED
-                      ratePercent: "0.00"
-                      basePesewas: 15000
-                      amountPesewas: 0
-                    - levyCode: GETFUND
-                      levyName: "GETFund Levy"
-                      treatment: ZERO_RATED
-                      ratePercent: "0.00"
-                      basePesewas: 15000
-                      amountPesewas: 0
-              settlement:
-                allocatedPesewas: 80000
-                creditedPesewas: 0
-                outstandingPesewas: 0
-                refundedPesewas: 0
-                refundablePesewas: 0
-                paymentStatus: PAID
-                settledAt: "2026-11-08T09:12:00Z"
-                asOf: "2026-11-13T09:30:00Z"
-              certification: null
-              reasonCode: null
-              archivedDocumentId: "019a7ae6-029d-72b7-b7ef-344b7f40ad29"
-              contentHash: 5e6cc1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7
-              issuedAt: "2026-11-08T09:12:00Z"
-              occurredAt: "2026-11-08T09:12:00Z"
-              reprintCount: 0
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-          page:
-            nextCursor: eyJpZCI6IjAxOWE3YyJ9
-            limit: 25
-            hasMore: true
+                  lines:
+                    - id: "019a7ae5-a5d0-750d-8a45-59a5122dd282"
+                      lineNo: 1
+                      lineKind: PRODUCT
+                      product:
+                        id: "019a7a8e-86b1-7b69-b0a1-bf6756ac3845"
+                        sku: PRD-TOMATO
+                        name: "Tomatoes, crate"
+                      description: "Tomatoes, crate"
+                      stockUnit: null
+                      quantity: "1.000"
+                      uom: CRATE
+                      weightKg: null
+                      unitPricePesewas: 65000
+                      resolvedUnitPricePesewas: 65000
+                      discountPesewas: 0
+                      taxCategory:
+                        id: "019a7a8a-89e2-7516-aa4f-5a40a6dbd31e"
+                        code: RAW_PRODUCE
+                        name: "Raw Produce"
+                      lineNetPesewas: 65000
+                      lineTaxPesewas: 0
+                      lineGrossPesewas: 65000
+                      levies:
+                        - levyCode: VAT
+                          levyName: "Value Added Tax"
+                          treatment: ZERO_RATED
+                          ratePercent: "0.00"
+                          basePesewas: 65000
+                          amountPesewas: 0
+                        - levyCode: NHIL
+                          levyName: "National Health Insurance Levy"
+                          treatment: ZERO_RATED
+                          ratePercent: "0.00"
+                          basePesewas: 65000
+                          amountPesewas: 0
+                        - levyCode: GETFUND
+                          levyName: "GETFund Levy"
+                          treatment: ZERO_RATED
+                          ratePercent: "0.00"
+                          basePesewas: 65000
+                          amountPesewas: 0
+                    - id: "019a7ae5-c4bf-7ef0-9428-f7dc8bde70ba"
+                      lineNo: 2
+                      lineKind: PRODUCT
+                      product:
+                        id: "019a7a8e-a5a0-754c-8a85-5d9ed05dd67c"
+                        sku: PRD-YAM
+                        name: "Yam, tuber"
+                      description: "Yam, tuber"
+                      stockUnit: null
+                      quantity: "6.000"
+                      uom: TUBER
+                      weightKg: null
+                      unitPricePesewas: 2500
+                      resolvedUnitPricePesewas: 2500
+                      discountPesewas: 0
+                      taxCategory:
+                        id: "019a7a8a-89e2-7516-aa4f-5a40a6dbd31e"
+                        code: RAW_PRODUCE
+                        name: "Raw Produce"
+                      lineNetPesewas: 15000
+                      lineTaxPesewas: 0
+                      lineGrossPesewas: 15000
+                      levies:
+                        - levyCode: VAT
+                          levyName: "Value Added Tax"
+                          treatment: ZERO_RATED
+                          ratePercent: "0.00"
+                          basePesewas: 15000
+                          amountPesewas: 0
+                        - levyCode: NHIL
+                          levyName: "National Health Insurance Levy"
+                          treatment: ZERO_RATED
+                          ratePercent: "0.00"
+                          basePesewas: 15000
+                          amountPesewas: 0
+                        - levyCode: GETFUND
+                          levyName: "GETFund Levy"
+                          treatment: ZERO_RATED
+                          ratePercent: "0.00"
+                          basePesewas: 15000
+                          amountPesewas: 0
+                  settlement:
+                    allocatedPesewas: 80000
+                    creditedPesewas: 0
+                    outstandingPesewas: 0
+                    refundedPesewas: 0
+                    refundablePesewas: 0
+                    paymentStatus: PAID
+                    settledAt: "2026-11-08T09:12:00Z"
+                    asOf: "2026-11-13T09:30:00Z"
+                  certification: null
+                  reasonCode: null
+                  archivedDocumentId: "019a7ae6-029d-72b7-b7ef-344b7f40ad29"
+                  contentHash: "5e6cc1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7"
+                  issuedAt: "2026-11-08T09:12:00Z"
+                  occurredAt: "2026-11-08T09:12:00Z"
+                  reprintCount: 0
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

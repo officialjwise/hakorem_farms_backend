@@ -44,168 +44,178 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/PromotionPage"
-        example:
-          data:
-            - id: "019a7aa7-4c14-7690-8bc8-71d3c969eab1"
-              code: XMAS-CHICKEN
-              name: "Christmas chicken 5% off"
-              kind: PERCENT_OFF
-              percentOff: "5.00"
-              amountOffPesewas: null
-              bundlePricePesewas: null
-              appliesTo: LINE
-              channel: ONLINE
-              minOrderPesewas: null
-              stackGroup: PRICE
-              isExclusive: false
-              requiresCoupon: false
-              maxRedemptions: null
-              redemptions: 44
-              validFrom: "2026-11-01T00:00:00Z"
-              validTo: "2026-12-31T23:59:00Z"
-              status: ACTIVE
-              approvalRequestId: null
-              targets:
-                - product:
-                    id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                    sku: MEAT-CHK-FULL
-                    name: "Full chicken, 15 kg pack"
-                  category: null
-                  bundleQty: null
-              currency: GHS
-              version: 1
-              createdAt: "2026-11-01T09:00:00Z"
-            - id: "019a7aa7-6b03-7073-95ab-100b431a88e9"
-              code: FREE-DEL-500
-              name: "Free delivery over GHS 500"
-              kind: FREE_DELIVERY
-              percentOff: null
-              amountOffPesewas: null
-              bundlePricePesewas: null
-              appliesTo: ORDER
-              channel: ONLINE
-              minOrderPesewas: 50000
-              stackGroup: DELIVERY
-              isExclusive: false
-              requiresCoupon: false
-              maxRedemptions: null
-              redemptions: 112
-              validFrom: "2026-11-01T00:00:00Z"
-              validTo: "2026-12-31T23:59:00Z"
-              status: ACTIVE
-              approvalRequestId: null
-              targets: []
-              currency: GHS
-              version: 1
-              createdAt: "2026-11-01T09:00:00Z"
-            - id: "019a7aa7-89f2-7a57-af8f-ae42bccb2720"
-              code: EGGS-3FOR
-              name: "Three crates of big eggs for GHS 170"
-              kind: BUNDLE_PRICE
-              percentOff: null
-              amountOffPesewas: null
-              bundlePricePesewas: 17000
-              appliesTo: LINE
-              channel: null
-              minOrderPesewas: null
-              stackGroup: PRICE
-              isExclusive: false
-              requiresCoupon: false
-              maxRedemptions: null
-              redemptions: 9
-              validFrom: "2026-11-01T00:00:00Z"
-              validTo: "2026-12-31T23:59:00Z"
-              status: ACTIVE
-              approvalRequestId: null
-              targets:
-                - product:
-                    id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                    sku: EGG-BIG
-                    name: "Eggs, big, crate of 30"
-                  category: null
-                  bundleQty: "3.000"
-              currency: GHS
-              version: 1
-              createdAt: "2026-11-01T09:00:00Z"
-            - id: "019a7aa7-a8e1-743a-b972-4c7a367cc558"
-              code: WELCOME20
-              name: "GHS 20 off your first order"
-              kind: AMOUNT_OFF
-              percentOff: null
-              amountOffPesewas: 2000
-              bundlePricePesewas: null
-              appliesTo: ORDER
-              channel: ONLINE
-              minOrderPesewas: null
-              stackGroup: PRICE
-              isExclusive: true
-              requiresCoupon: true
-              maxRedemptions: 500
-              redemptions: 61
-              validFrom: "2026-11-01T00:00:00Z"
-              validTo: "2026-12-31T23:59:00Z"
-              status: ACTIVE
-              approvalRequestId: null
-              targets: []
-              currency: GHS
-              version: 1
-              createdAt: "2026-11-01T09:00:00Z"
-            - id: "019a7aa7-c7d0-7e1e-8356-eab1b02d638f"
-              code: BEEF-WKND
-              name: "Weekend beef 10% off"
-              kind: PERCENT_OFF
-              percentOff: "10.00"
-              amountOffPesewas: null
-              bundlePricePesewas: null
-              appliesTo: LINE
-              channel: POS
-              minOrderPesewas: null
-              stackGroup: PRICE
-              isExclusive: false
-              requiresCoupon: false
-              maxRedemptions: null
-              redemptions: 0
-              validFrom: "2026-11-01T00:00:00Z"
-              validTo: "2026-12-31T23:59:00Z"
-              status: PENDING_APPROVAL
-              approvalRequestId: "019a7aa7-e6bf-7801-9d39-88e929de01c7"
-              targets:
-                - product:
-                    id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                    sku: MEAT-BEEF
-                    name: "Beef, 15 kg pack"
-                  category: null
-                  bundleQty: null
-              currency: GHS
-              version: 1
-              createdAt: "2026-11-01T09:00:00Z"
-            - id: "019a7aa8-05ae-71e4-a71d-2720a38f9ffe"
-              code: EID-GOAT
-              name: "Eid goat delivery offer"
-              kind: FREE_DELIVERY
-              percentOff: null
-              amountOffPesewas: null
-              bundlePricePesewas: null
-              appliesTo: ORDER
-              channel: QUOTE
-              minOrderPesewas: null
-              stackGroup: DELIVERY
-              isExclusive: false
-              requiresCoupon: false
-              maxRedemptions: null
-              redemptions: 3
-              validFrom: "2026-11-01T00:00:00Z"
-              validTo: "2026-12-31T23:59:00Z"
-              status: DRAFT
-              approvalRequestId: null
-              targets: []
-              currency: GHS
-              version: 1
-              createdAt: "2026-11-01T09:00:00Z"
-          page:
-            nextCursor: eyJpZCI6IjAxOWE3YyJ9
-            limit: 25
-            hasMore: true
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7aa7-4c14-7690-8bc8-71d3c969eab1"
+                  code: XMAS-CHICKEN
+                  name: "Christmas chicken 5% off"
+                  kind: PERCENT_OFF
+                  percentOff: "5.00"
+                  amountOffPesewas: null
+                  bundlePricePesewas: null
+                  appliesTo: LINE
+                  channel: ONLINE
+                  minOrderPesewas: null
+                  stackGroup: PRICE
+                  isExclusive: false
+                  requiresCoupon: false
+                  maxRedemptions: null
+                  redemptions: 44
+                  validFrom: "2026-11-01T00:00:00Z"
+                  validTo: "2026-12-31T23:59:00Z"
+                  status: ACTIVE
+                  approvalRequestId: null
+                  targets:
+                    - product:
+                        id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                        sku: MEAT-CHK-FULL
+                        name: "Full chicken, 15 kg pack"
+                      category: null
+                      bundleQty: null
+                  currency: GHS
+                  version: 1
+                  createdAt: "2026-11-01T09:00:00Z"
+                - id: "019a7aa7-6b03-7073-95ab-100b431a88e9"
+                  code: FREE-DEL-500
+                  name: "Free delivery over GHS 500"
+                  kind: FREE_DELIVERY
+                  percentOff: null
+                  amountOffPesewas: null
+                  bundlePricePesewas: null
+                  appliesTo: ORDER
+                  channel: ONLINE
+                  minOrderPesewas: 50000
+                  stackGroup: DELIVERY
+                  isExclusive: false
+                  requiresCoupon: false
+                  maxRedemptions: null
+                  redemptions: 112
+                  validFrom: "2026-11-01T00:00:00Z"
+                  validTo: "2026-12-31T23:59:00Z"
+                  status: ACTIVE
+                  approvalRequestId: null
+                  targets: []
+                  currency: GHS
+                  version: 1
+                  createdAt: "2026-11-01T09:00:00Z"
+                - id: "019a7aa7-89f2-7a57-af8f-ae42bccb2720"
+                  code: EGGS-3FOR
+                  name: "Three crates of big eggs for GHS 170"
+                  kind: BUNDLE_PRICE
+                  percentOff: null
+                  amountOffPesewas: null
+                  bundlePricePesewas: 17000
+                  appliesTo: LINE
+                  channel: null
+                  minOrderPesewas: null
+                  stackGroup: PRICE
+                  isExclusive: false
+                  requiresCoupon: false
+                  maxRedemptions: null
+                  redemptions: 9
+                  validFrom: "2026-11-01T00:00:00Z"
+                  validTo: "2026-12-31T23:59:00Z"
+                  status: ACTIVE
+                  approvalRequestId: null
+                  targets:
+                    - product:
+                        id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                        sku: EGG-BIG
+                        name: "Eggs, big, crate of 30"
+                      category: null
+                      bundleQty: "3.000"
+                  currency: GHS
+                  version: 1
+                  createdAt: "2026-11-01T09:00:00Z"
+                - id: "019a7aa7-a8e1-743a-b972-4c7a367cc558"
+                  code: WELCOME20
+                  name: "GHS 20 off your first order"
+                  kind: AMOUNT_OFF
+                  percentOff: null
+                  amountOffPesewas: 2000
+                  bundlePricePesewas: null
+                  appliesTo: ORDER
+                  channel: ONLINE
+                  minOrderPesewas: null
+                  stackGroup: PRICE
+                  isExclusive: true
+                  requiresCoupon: true
+                  maxRedemptions: 500
+                  redemptions: 61
+                  validFrom: "2026-11-01T00:00:00Z"
+                  validTo: "2026-12-31T23:59:00Z"
+                  status: ACTIVE
+                  approvalRequestId: null
+                  targets: []
+                  currency: GHS
+                  version: 1
+                  createdAt: "2026-11-01T09:00:00Z"
+                - id: "019a7aa7-c7d0-7e1e-8356-eab1b02d638f"
+                  code: BEEF-WKND
+                  name: "Weekend beef 10% off"
+                  kind: PERCENT_OFF
+                  percentOff: "10.00"
+                  amountOffPesewas: null
+                  bundlePricePesewas: null
+                  appliesTo: LINE
+                  channel: POS
+                  minOrderPesewas: null
+                  stackGroup: PRICE
+                  isExclusive: false
+                  requiresCoupon: false
+                  maxRedemptions: null
+                  redemptions: 0
+                  validFrom: "2026-11-01T00:00:00Z"
+                  validTo: "2026-12-31T23:59:00Z"
+                  status: PENDING_APPROVAL
+                  approvalRequestId: "019a7aa7-e6bf-7801-9d39-88e929de01c7"
+                  targets:
+                    - product:
+                        id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
+                        sku: MEAT-BEEF
+                        name: "Beef, 15 kg pack"
+                      category: null
+                      bundleQty: null
+                  currency: GHS
+                  version: 1
+                  createdAt: "2026-11-01T09:00:00Z"
+                - id: "019a7aa8-05ae-71e4-a71d-2720a38f9ffe"
+                  code: EID-GOAT
+                  name: "Eid goat delivery offer"
+                  kind: FREE_DELIVERY
+                  percentOff: null
+                  amountOffPesewas: null
+                  bundlePricePesewas: null
+                  appliesTo: ORDER
+                  channel: QUOTE
+                  minOrderPesewas: null
+                  stackGroup: DELIVERY
+                  isExclusive: false
+                  requiresCoupon: false
+                  maxRedemptions: null
+                  redemptions: 3
+                  validFrom: "2026-11-01T00:00:00Z"
+                  validTo: "2026-12-31T23:59:00Z"
+                  status: DRAFT
+                  approvalRequestId: null
+                  targets: []
+                  currency: GHS
+                  version: 1
+                  createdAt: "2026-11-01T09:00:00Z"
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

@@ -41,84 +41,94 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/PaymentMethodPage"
-        example:
-          data:
-            - id: "019a7a92-a26f-7b9f-90d7-c2c5802e3ba3"
-              code: CASH
-              name: Cash
-              kind: CASH
-              requiresProviderVerification: false
-              allowedOffline: true
-              channels:
-                - POS
-                - ONLINE
-                - WHOLESALE
-                - QUOTE
-              isEnabled: true
-              version: 1
-            - id: "019a7a92-c15e-7582-aabb-60fcf9dfd9da"
-              code: MOMO
-              name: "Mobile money"
-              kind: MOBILE_MONEY
-              requiresProviderVerification: true
-              allowedOffline: false
-              channels:
-                - POS
-                - ONLINE
-                - WHOLESALE
-                - QUOTE
-              isEnabled: true
-              version: 1
-            - id: "019a7a92-e04d-7f66-b49e-ff3473907812"
-              code: CARD
-              name: Card
-              kind: CARD
-              requiresProviderVerification: true
-              allowedOffline: false
-              channels:
-                - ONLINE
-                - POS
-              isEnabled: true
-              version: 1
-            - id: "019a7a92-ff3c-7949-8e81-9d6bed411649"
-              code: BANK_TRANSFER
-              name: "Bank transfer"
-              kind: BANK_TRANSFER
-              requiresProviderVerification: false
-              allowedOffline: false
-              channels:
-                - WHOLESALE
-                - QUOTE
-              isEnabled: true
-              version: 1
-            - id: "019a7a93-1e2b-732d-9865-3ba366f2b481"
-              code: CHEQUE
-              name: Cheque
-              kind: CHEQUE
-              requiresProviderVerification: false
-              allowedOffline: false
-              channels:
-                - WHOLESALE
-                - QUOTE
-              isEnabled: true
-              version: 1
-            - id: "019a7a93-3d1a-7d10-a248-d9dae0a352b8"
-              code: STORE_CREDIT
-              name: "Store credit"
-              kind: STORE_CREDIT
-              requiresProviderVerification: false
-              allowedOffline: false
-              channels:
-                - POS
-                - ONLINE
-                - WHOLESALE
-                - QUOTE
-              isEnabled: true
-              version: 1
-          page:
-            nextCursor: null
-            limit: 25
-            hasMore: false
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7a92-a26f-7b9f-90d7-c2c5802e3ba3"
+                  code: CASH
+                  name: Cash
+                  kind: CASH
+                  requiresProviderVerification: false
+                  allowedOffline: true
+                  channels:
+                    - POS
+                    - ONLINE
+                    - WHOLESALE
+                    - QUOTE
+                  isEnabled: true
+                  version: 1
+                - id: "019a7a92-c15e-7582-aabb-60fcf9dfd9da"
+                  code: MOMO
+                  name: "Mobile money"
+                  kind: MOBILE_MONEY
+                  requiresProviderVerification: true
+                  allowedOffline: false
+                  channels:
+                    - POS
+                    - ONLINE
+                    - WHOLESALE
+                    - QUOTE
+                  isEnabled: true
+                  version: 1
+                - id: "019a7a92-e04d-7f66-b49e-ff3473907812"
+                  code: CARD
+                  name: Card
+                  kind: CARD
+                  requiresProviderVerification: true
+                  allowedOffline: false
+                  channels:
+                    - ONLINE
+                    - POS
+                  isEnabled: true
+                  version: 1
+                - id: "019a7a92-ff3c-7949-8e81-9d6bed411649"
+                  code: BANK_TRANSFER
+                  name: "Bank transfer"
+                  kind: BANK_TRANSFER
+                  requiresProviderVerification: false
+                  allowedOffline: false
+                  channels:
+                    - WHOLESALE
+                    - QUOTE
+                  isEnabled: true
+                  version: 1
+                - id: "019a7a93-1e2b-732d-9865-3ba366f2b481"
+                  code: CHEQUE
+                  name: Cheque
+                  kind: CHEQUE
+                  requiresProviderVerification: false
+                  allowedOffline: false
+                  channels:
+                    - WHOLESALE
+                    - QUOTE
+                  isEnabled: true
+                  version: 1
+                - id: "019a7a93-3d1a-7d10-a248-d9dae0a352b8"
+                  code: STORE_CREDIT
+                  name: "Store credit"
+                  kind: STORE_CREDIT
+                  requiresProviderVerification: false
+                  allowedOffline: false
+                  channels:
+                    - POS
+                    - ONLINE
+                    - WHOLESALE
+                    - QUOTE
+                  isEnabled: true
+                  version: 1
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":
