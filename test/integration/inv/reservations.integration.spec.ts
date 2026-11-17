@@ -133,13 +133,13 @@ describe('one active reservation per animal, and reserved never above on hand (F
     expect(rows[0]!.n).toBe(1);
   });
 
-  it('reserving 41 of 40 yams is refused with INSUFFICIENT_STOCK; 50 concurrent reservations of one crate of eggs from 30 give exactly 30', async () => {
+  it('reserving 41 of 40 yams is refused with INSUFFICIENT_STOCK; 50 concurrent reservations of a crate of eggs (30) from 30 crates (900, A-261) give exactly 30', async () => {
     expect(await reserve('PRD-0005', null, 'SHOP', '41.000', await holder(), inMinutes(15))).toBe('INSUFFICIENT_STOCK');
-    const outcomes = await Promise.all(Array.from({ length: 50 }, async () => reserve('EGG-0003', 'EGG-BIG-2026-1110', 'SHOP', '1.000', await holder(), inMinutes(15))));
+    const outcomes = await Promise.all(Array.from({ length: 50 }, async () => reserve('EGG-0003', 'EGG-BIG-2026-1110', 'SHOP', '30.000', await holder(), inMinutes(15))));
     expect(outcomes.filter((o) => /^[0-9a-f-]{36}$/.test(o))).toHaveLength(30);
     expect(outcomes.filter((o) => o === 'INSUFFICIENT_STOCK')).toHaveLength(20);
-    expect(await reserved('EGG-0003', 'SHOP')).toBe('30.000');
-    expect(await activeSum('EGG-0003', 'SHOP')).toBe('30.000');
+    expect(await reserved('EGG-0003', 'SHOP')).toBe('900.000');
+    expect(await activeSum('EGG-0003', 'SHOP')).toBe('900.000');
   });
 
   it('a sale that does not name a reservation cannot dip below what is reserved; the reserved goat is sold by consuming its reservation whole', async () => {
@@ -222,7 +222,7 @@ describe('availability is on hand less reserved less held, and the stock unit li
   it('eggs fully reserved are out of stock; a product with no stock answers a zero line; in-transit stock is left out', async () => {
     const response = await get(manager, `/stock/availability?branchId=${id('branch:DDW')}&productId=${id('product:EGG-0003')}&productId=${id('product:MEAT-0006')}`);
     const lines = new Map((response.body.data as Array<{ productId: string }>).map((l) => [l.productId, l]));
-    expect(lines.get(id('product:EGG-0003'))).toMatchObject({ onHandQty: '30.000', reservedQty: '30.000', availableQty: '0.000', availability: 'OUT_OF_STOCK' });
+    expect(lines.get(id('product:EGG-0003'))).toMatchObject({ onHandQty: '900.000', reservedQty: '900.000', availableQty: '0.000', availability: 'OUT_OF_STOCK' });
     expect(lines.get(id('product:MEAT-0006'))).toMatchObject({ onHandQty: '0.000', availableQty: '0.000', availability: 'OUT_OF_STOCK' });
   });
 

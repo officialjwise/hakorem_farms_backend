@@ -58,6 +58,7 @@ export const OrderCreateBody = z.strictObject({
         productId: z.uuid(),
         stockUnitId: z.uuid().optional(),
         quantity: Quantity.refine((q) => !/^0\.000$/.test(q), { message: 'must be above zero' }),
+        uom: z.string().regex(/^[A-Z]{2,10}$/).optional(),
         gradeId: z.uuid().optional(),
         weightKg: Kilograms.optional(),
         agreedUnitPricePesewas: Pesewas.optional(),

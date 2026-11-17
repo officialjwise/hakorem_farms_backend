@@ -82,7 +82,7 @@ describe('B05x gate: lot and animal label data answers from the real API', () =>
     );
   });
 
-  it('prints a goat by its tag, with no weight before it is weighed, and a lot of egg crates with no weight', async () => {
+  it('prints a goat by its tag, with no weight before it is weighed, and a lot of eggs, held one by one (A-261), with no weight', async () => {
     const goat = await get(manager, `/stock-units/${id('unit:G-0143')}/label`);
     expect(goat.status).toBe(200);
     expect(goat.body).toMatchObject({ kind: 'ANIMAL', lotNo: null, tagNo: 'G-0143', onHandQty: '1.000', uom: 'HEAD', });
@@ -90,7 +90,7 @@ describe('B05x gate: lot and animal label data answers from the real API', () =>
     const weight = await database.pool('admin').query<{ kg: string | null }>('SELECT last_weight_kg::text AS kg FROM inv.stock_unit WHERE id = $1', [id('unit:G-0143')]);
     expect(goat.body.weightKg).toBe(weight.rows[0]!.kg);
     const eggs = await get(manager, `/stock-units/${id('unit:EGG-BIG-2026-1110')}/label`);
-    expect(eggs.body).toMatchObject({ kind: 'LOT', lotNo: 'EGG-BIG-2026-1110', weightKg: null, onHandQty: '30.000', uom: 'CRATE', expiresOn: seeded.eggsExpireOn });
+    expect(eggs.body).toMatchObject({ kind: 'LOT', lotNo: 'EGG-BIG-2026-1110', weightKg: null, onHandQty: '900.000', uom: 'UNIT', expiresOn: seeded.eggsExpireOn });
   });
 
   it('refuses a stock unit label to the Cashier, Sales, Driver and Farm hand, and to a Storekeeper at another location', async () => {

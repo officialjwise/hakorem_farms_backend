@@ -7,9 +7,13 @@ import { halfUpDivide } from '@hakorem/kernel';
  *
  * Live animals are priced per head in weight bands whose floors and ceilings together span the brief's indicative
  * range (a goat from GHS 120 to GHS 1,950). Meat is priced per kilogram so a 15 kg pack spans the brief's pack band
- * (full chicken GHS 220 to 350 is 1,467 to 2,333 pesewas a kilogram). Eggs are a fixed price per crate. Produce is
- * priced for the season, except lettuce, which has no price yet this season and so must be quoted.
+ * (full chicken GHS 220 to 350 is 1,467 to 2,333 pesewas a kilogram). Eggs are held one by one and sold by the crate of
+ * 30 or singly, each at a fixed price of its own (B09e, A-261): a crate's price is never thirty times an egg's. Produce
+ * is priced for the season, except lettuce, which has no price yet this season and so must be quoted.
  */
+
+/** Eggs to the crate: the seeded conversion of each egg product's selling unit to its base unit (A-261). */
+export const EGGS_PER_CRATE = 30;
 
 export type Basis = 'PER_HEAD' | 'PER_KG' | 'PER_UNIT';
 export type SeedChannel = 'POS' | 'ONLINE' | 'WHOLESALE' | 'QUOTE';
@@ -53,6 +57,8 @@ export interface SeedEntry {
   readonly list: bigint;
   readonly ceiling: bigint;
   readonly quoteOnly: boolean;
+  /** The selling unit the price is for; absent for the product's base unit (B09e). */
+  readonly uom?: string;
 }
 
 export interface SeedPriceList {
@@ -132,6 +138,8 @@ const countable = (sku: string, name: string, category: 'EGGS' | 'PRODUCE', uom:
   onlineMode: 'LISTED',
   fromB3,
 });
+/** Eggs counted one by one (`UNIT`) and sold by the crate of 30 (A-261). */
+const eggs = (sku: string, name: string, fromB3 = false): SeedProduct => ({ ...countable(sku, name, 'EGGS', 'UNIT', fromB3), saleUom: 'CRATE' });
 
 /** The whole reference catalogue: six products B3 seeded, and the rest. */
 export const SEED_PRODUCTS: readonly SeedProduct[] = [
@@ -151,9 +159,9 @@ export const SEED_PRODUCTS: readonly SeedProduct[] = [
   meat('MEAT-0007', 'Goat meat, 15 kg pack', true),
   // Offal from the slab (B6): sold loose by the kilogram at the counter, never online.
   { ...meat('MEAT-0008', 'Goat offal, per kg (SEED)'), saleUom: 'KG', onlineMode: 'HIDDEN' },
-  countable('EGG-0001', 'Eggs, local, crate of 30', 'EGGS', 'CRATE'),
-  countable('EGG-0002', 'Eggs, small, crate of 30', 'EGGS', 'CRATE'),
-  countable('EGG-0003', 'Eggs, big, crate of 30', 'EGGS', 'CRATE', true),
+  eggs('EGG-0001', 'Eggs, local, crate of 30'),
+  eggs('EGG-0002', 'Eggs, small, crate of 30'),
+  eggs('EGG-0003', 'Eggs, big, crate of 30', true),
   countable('PRD-0001', 'Tomatoes, crate', 'PRODUCE', 'CRATE'),
   countable('PRD-0002', 'Cabbage, per head', 'PRODUCE', 'UNIT'),
   countable('PRD-0003', 'Pepper, bag', 'PRODUCE', 'BAG'),
@@ -209,9 +217,13 @@ const BASE_ENTRIES: readonly SeedEntry[] = [
   entry('MEAT-0006', 'PER_KG', 1_133, 1_700, 2_267),
   entry('MEAT-0007', 'PER_KG', 1_400, 2_200, 3_133),
   entry('MEAT-0008', 'PER_KG', 1_000, 1_500, 1_800),
-  entry('EGG-0001', 'PER_UNIT', 3_500, 3_500, 3_500),
-  entry('EGG-0002', 'PER_UNIT', 4_500, 4_500, 4_500),
-  entry('EGG-0003', 'PER_UNIT', 6_000, 6_000, 6_000),
+  // A crate of 30 at its own price, and a single egg at its own (A-261), each fixed.
+  { ...entry('EGG-0001', 'PER_UNIT', 3_500, 3_500, 3_500), uom: 'CRATE' },
+  { ...entry('EGG-0002', 'PER_UNIT', 4_500, 4_500, 4_500), uom: 'CRATE' },
+  { ...entry('EGG-0003', 'PER_UNIT', 6_000, 6_000, 6_000), uom: 'CRATE' },
+  entry('EGG-0001', 'PER_UNIT', 130, 130, 130),
+  entry('EGG-0002', 'PER_UNIT', 170, 170, 170),
+  entry('EGG-0003', 'PER_UNIT', 220, 220, 220),
   entry('PRD-0001', 'PER_UNIT', 35_000, 40_000, 45_000),
   entry('PRD-0002', 'PER_UNIT', 800, 1_000, 1_200),
   entry('PRD-0003', 'PER_UNIT', 25_000, 30_000, 35_000),

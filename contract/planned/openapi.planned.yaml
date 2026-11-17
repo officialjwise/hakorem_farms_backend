@@ -39464,6 +39464,11 @@ components:
           description: "Required for a serialised product: one line per animal."
         quantity:
           $ref: "#/components/schemas/Quantity"
+          description: "In `uom`: the product's base unit when `uom` is left out."
+        uom:
+          type: string
+          pattern: "^[A-Z]{2,10}$"
+          description: "The unit sold (B09e): the product's base unit when left out, or a unit it converts from (a crate of eggs), converted by the server through MDM's exact factor. The line keeps this unit and is priced by its entry; confirmation reserves the base quantity (4 crates hold 120 eggs), and a shortfall names base quantities. A unit the product is not sold by is 422 `ORDER_INVALID` with `NO_CONVERSION`, a quantity that converts inexactly `INEXACT_QUANTITY`."
         gradeId:
           type: string
           format: uuid

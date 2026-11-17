@@ -105,7 +105,7 @@ describe('wrong roles are refused on every transfer, adjustment and reversal wri
   let movementId: string;
   beforeAll(async () => {
     transferId = (await post(coldStorekeeper, '/stock-transfers', beefTransfer('1.000'))).body.id as string;
-    adjustmentId = (await post(shopStorekeeper, '/stock-adjustments', eggLoss('1.000'))).body.id as string;
+    adjustmentId = (await post(shopStorekeeper, '/stock-adjustments', eggLoss('30.000'))).body.id as string;
     movementId = (await get(manager, `/stock-units/${id('unit:EGG-BIG-2026-1110')}/movements`)).body.data[0].id as string;
     expect([transferId, adjustmentId, movementId].every((v) => typeof v === 'string')).toBe(true);
   });
@@ -115,7 +115,7 @@ describe('wrong roles are refused on every transfer, adjustment and reversal wri
     ['dispatchStockTransfer', `/stock-transfers/${transferId}/dispatch`, {}],
     ['receiveStockTransfer', `/stock-transfers/${transferId}/receive`, { lines: [] }],
     ['cancelStockTransfer', `/stock-transfers/${transferId}/cancel`, { reason: 'Refused' }],
-    ['createStockAdjustment', '/stock-adjustments', eggLoss('1.000')],
+    ['createStockAdjustment', '/stock-adjustments', eggLoss('30.000')],
     ['submitStockAdjustment', `/stock-adjustments/${adjustmentId}/submit`, {}],
     ['reverseStockMovement', `/stock/movements/${movementId}/reverse`, { reasonCode: 'COUNT_ERROR', note: 'Refused' }],
   ];
@@ -140,7 +140,7 @@ describe('wrong roles are refused on every transfer, adjustment and reversal wri
     expect((await post(shopStorekeeper, '/stock-transfers', beefTransfer('1.000'))).status).toBe(403);
     expect((await post(shopStorekeeper, `/stock-transfers/${transferId}/dispatch`)).status).toBe(403);
     expect((await post(shopStorekeeper, `/stock-transfers/${transferId}/cancel`, { reason: 'Not mine' })).status).toBe(403);
-    expect((await post(coldStorekeeper, '/stock-adjustments', eggLoss('1.000'))).status).toBe(403);
+    expect((await post(coldStorekeeper, '/stock-adjustments', eggLoss('30.000'))).status).toBe(403);
     expect((await post(coldStorekeeper, `/stock-adjustments/${adjustmentId}/submit`)).status).toBe(403);
     expect((await post(coldStorekeeper, `/stock/movements/${movementId}/reverse`, { reasonCode: 'COUNT_ERROR', note: 'Not mine' })).status).toBe(403);
     expect((await post(coldStorekeeper, `/stock-transfers/${transferId}/dispatch`)).status).toBe(200);
@@ -237,21 +237,21 @@ describe('a transfer through in-transit, received with a variance (FR-INV-010, F
 });
 
 describe('an adjustment needs approval at or above the threshold, by someone else (FR-INV-012, abuse case: an adjustment used to hide a shortage)', () => {
-  it('a loss of 12 crates of eggs valued 3,500 each (42,000) posts at once', async () => {
+  it('a loss of 12 crates of eggs (360 eggs, A-261) valued 3,500 a crate (42,000) posts at once', async () => {
     const before = await onHand('SHOP', 'EGG-BIG-2026-1110', 'EGG-0003');
-    const created = await post(shopStorekeeper, '/stock-adjustments', eggLoss('12.000'));
+    const created = await post(shopStorekeeper, '/stock-adjustments', eggLoss('360.000'));
     expect(created.status, JSON.stringify(created.body)).toBe(201);
     expect(created.body).toMatchObject({ status: 'DRAFT', totalValuePesewas: 42_000, lines: [{ valuePesewas: 42_000, movementId: null }] });
     const submitted = await post(shopStorekeeper, `/stock-adjustments/${created.body.id as string}/submit`);
     expect(submitted.status, JSON.stringify(submitted.body)).toBe(200);
     expect(submitted.body).toMatchObject({ status: 'POSTED', totalValuePesewas: 42_000, approvalRequestId: null });
     expect(submitted.body.lines[0].movementId).toEqual(expect.any(String));
-    expect(await onHand('SHOP', 'EGG-BIG-2026-1110', 'EGG-0003')).toBe((Number(before) - 12).toFixed(3));
+    expect(await onHand('SHOP', 'EGG-BIG-2026-1110', 'EGG-0003')).toBe((Number(before) - 360).toFixed(3));
   });
 
-  it('a loss of 15 crates (52,500) returns 202 and leaves stock unchanged; the maker cannot approve it; a different manager approves and it posts', async () => {
+  it('a loss of 15 crates (450 eggs, 52,500) returns 202 and leaves stock unchanged; the maker cannot approve it; a different manager approves and it posts', async () => {
     const before = await onHand('SHOP', 'EGG-BIG-2026-1110', 'EGG-0003');
-    const created = await post(manager, '/stock-adjustments', eggLoss('15.000', 'THEFT_SUSPECTED', 'Crates missing after the night shift'));
+    const created = await post(manager, '/stock-adjustments', eggLoss('450.000', 'THEFT_SUSPECTED', 'Crates missing after the night shift'));
     expect(created.body.totalValuePesewas).toBe(52_500);
     const submitted = await post(manager, `/stock-adjustments/${created.body.id as string}/submit`);
     expect(submitted.status, JSON.stringify(submitted.body)).toBe(202);
@@ -270,7 +270,7 @@ describe('an adjustment needs approval at or above the threshold, by someone els
     expect(approved.status, JSON.stringify(approved.body)).toBe(200);
     const posted = (await get(manager, `/stock-adjustments/${created.body.id as string}`)).body;
     expect(posted).toMatchObject({ status: 'POSTED', totalValuePesewas: 52_500, postedBy: { displayName: 'Nana Ama Korsah' } });
-    expect(await onHand('SHOP', 'EGG-BIG-2026-1110', 'EGG-0003')).toBe((Number(before) - 15).toFixed(3));
+    expect(await onHand('SHOP', 'EGG-BIG-2026-1110', 'EGG-0003')).toBe((Number(before) - 450).toFixed(3));
   });
 
   it('a rejected adjustment is final and moved nothing', async () => {
@@ -290,15 +290,15 @@ describe('an adjustment needs approval at or above the threshold, by someone els
   });
 
   it('a reason outside the adjustment and wastage lists, a missing note and an animal are refused with STOCK_ADJUSTMENT_INVALID', async () => {
-    expect((await post(shopStorekeeper, '/stock-adjustments', eggLoss('1.000', 'REGULAR_CUSTOMER'))).body.error).toMatchObject({ code: 'STOCK_ADJUSTMENT_INVALID', details: [{ field: '/reasonCode', code: 'REASON_NOT_ALLOWED' }] });
-    expect((await post(shopStorekeeper, '/stock-adjustments', { ...eggLoss('1.000', 'THEFT_SUSPECTED'), note: undefined })).body.error.details).toEqual([expect.objectContaining({ code: 'NOTE_REQUIRED' })]);
+    expect((await post(shopStorekeeper, '/stock-adjustments', eggLoss('30.000', 'REGULAR_CUSTOMER'))).body.error).toMatchObject({ code: 'STOCK_ADJUSTMENT_INVALID', details: [{ field: '/reasonCode', code: 'REASON_NOT_ALLOWED' }] });
+    expect((await post(shopStorekeeper, '/stock-adjustments', { ...eggLoss('30.000', 'THEFT_SUSPECTED'), note: undefined })).body.error.details).toEqual([expect.objectContaining({ code: 'NOTE_REQUIRED' })]);
     const goat = await post(manager, '/stock-adjustments', { locationId: id('location:PENS'), reasonCode: 'COUNT_ERROR', note: 'Hidden goat', lines: [{ productId: id('product:LIV-0004'), stockUnitId: id('unit:G-0145'), direction: 'LOSS', qty: '1.000' }] });
     expect(goat.body.error.details).toEqual([expect.objectContaining({ code: 'ANIMAL_NOT_ADJUSTED' })]);
-    expect((await post(shopStorekeeper, '/stock-adjustments', eggLoss('1.000', 'NOT_A_REASON'))).body.error.code).toBe('REFERENCE_NOT_FOUND');
+    expect((await post(shopStorekeeper, '/stock-adjustments', eggLoss('30.000', 'NOT_A_REASON'))).body.error.code).toBe('REFERENCE_NOT_FOUND');
   });
 
   it('the database refuses an adjustment posted at or above its threshold without an approval, whoever writes', async () => {
-    const created = await post(shopStorekeeper, '/stock-adjustments', eggLoss('1.000'));
+    const created = await post(shopStorekeeper, '/stock-adjustments', eggLoss('30.000'));
     const app = database.pool('app');
     const refused = (await app
       .query("UPDATE inv.stock_adjustment SET status = 'POSTED', total_value_pesewas = 60000, approval_threshold_pesewas = 50000, posted_at = now(), posted_by = created_by, version = version + 1 WHERE id = $1", [created.body.id])
@@ -310,15 +310,15 @@ describe('an adjustment needs approval at or above the threshold, by someone els
 describe('reversing a movement (FR-INV-004)', () => {
   let lossId: string;
 
-  it('reverses a 3,500 pesewa egg loss at once with its original value, and on-hand returns to its prior figure', async () => {
-    const created = await post(shopStorekeeper, '/stock-adjustments', eggLoss('1.000'));
+  it('reverses a 3,500 pesewa loss of a crate of eggs (30) at once with its original value, and on-hand returns to its prior figure', async () => {
+    const created = await post(shopStorekeeper, '/stock-adjustments', eggLoss('30.000'));
     const submitted = await post(shopStorekeeper, `/stock-adjustments/${created.body.id as string}/submit`);
     lossId = submitted.body.lines[0].movementId as string;
     const before = await onHand('SHOP', 'EGG-BIG-2026-1110', 'EGG-0003');
     const reversed = await post(shopStorekeeper, `/stock/movements/${lossId}/reverse`, { reasonCode: 'COUNT_ERROR', note: 'The crate was found intact' });
     expect(reversed.status, JSON.stringify(reversed.body)).toBe(201);
-    expect(reversed.body).toMatchObject({ movementType: 'ADJUST_LOSS', reversesMovementId: lossId, valuePesewas: 3_500, qty: '1.000', reasonCode: 'COUNT_ERROR', sourceDocument: { docType: 'STOCK_REVERSAL' } });
-    expect(await onHand('SHOP', 'EGG-BIG-2026-1110', 'EGG-0003')).toBe((Number(before) + 1).toFixed(3));
+    expect(reversed.body).toMatchObject({ movementType: 'ADJUST_LOSS', reversesMovementId: lossId, valuePesewas: 3_500, qty: '30.000', reasonCode: 'COUNT_ERROR', sourceDocument: { docType: 'STOCK_REVERSAL' } });
+    expect(await onHand('SHOP', 'EGG-BIG-2026-1110', 'EGG-0003')).toBe((Number(before) + 30).toFixed(3));
     expect((await get(manager, `/stock/movements/${lossId}`)).body.reversedByMovementId).toBe(reversed.body.id);
   });
 

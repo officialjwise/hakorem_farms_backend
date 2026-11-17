@@ -230,7 +230,7 @@ describe('the guest cart (FR-SHP-003, FR-SHP-004)', () => {
       expect(started.body.finalChargeRule).toContain('GHS 1,168.29');
       expect(Date.parse(started.body.reservedUntil) - clock.now().getTime()).toBe(15 * 60_000);
       expect(await reserved(started.body.id)).toEqual([
-        { product: 'EGG-0003', qty: '2.000', status: 'ACTIVE' },
+        { product: 'EGG-0003', qty: '60.000', status: 'ACTIVE' },
         { product: 'MEAT-0005', qty: '30.000', status: 'ACTIVE' },
       ]);
       expect((await add(cart, 'PRD-0005', '1.000')).body.error.code).toBe('CART_NOT_ACTIVE');
@@ -255,7 +255,7 @@ describe('the guest cart (FR-SHP-003, FR-SHP-004)', () => {
       const answers = await Promise.all([checkout(first), checkout(second)]);
       expect(answers.map((a) => a.status).sort()).toEqual([201, 422]);
       expect(answers.find((a) => a.status === 422)!.body.error.code).toBe('STOCK_UNAVAILABLE');
-      expect(await reservedAt('EGG-0003')).toBe('30.000');
+      expect(await reservedAt('EGG-0003')).toBe('900.000');
     });
 
     it('charges the Dodowa fee of exactly 1,500 on a 4,000 cart, collection only outside every zone, nothing to collect', async () => {
@@ -307,12 +307,12 @@ describe('the guest cart (FR-SHP-003, FR-SHP-004)', () => {
       const expired = await runAsSystem({ principalId: SCHEDULER, displayName: 'Scheduler' }, randomUUID(), () => api.app.get(ReservationExpiry).run({ kind: 'SYSTEM', principalId: SCHEDULER }));
       expect(expired.length).toBeGreaterThanOrEqual(2);
       expect(await reserved(started.body.id)).toEqual([
-        { product: 'EGG-0003', qty: '2.000', status: 'EXPIRED' },
+        { product: 'EGG-0003', qty: '60.000', status: 'EXPIRED' },
         { product: 'MEAT-0005', qty: '30.000', status: 'EXPIRED' },
       ]);
       expect(await reservedAt('MEAT-0005')).toBe((Number(beforeBeef) - 30).toFixed(3));
       expect(await reservedAt('EGG-0003')).toBe('0.000');
-      expect(beforeEggs).toBe('30.000');
+      expect(beforeEggs).toBe('900.000');
       const seen = await read(`/shop/checkouts/${started.body.id}`, cart);
       expect(seen.body.status).toBe('EXPIRED');
       expect((await read(`/shop/carts/${cart.cartId}`, cart)).body.status).toBe('ACTIVE');

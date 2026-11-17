@@ -399,7 +399,7 @@ describe('expiring and expired lots (FR-INV-016, A-134 (j))', () => {
     const session = await login(api.server, await createUser(database, { name: 'Ama Owusu', grants: [{ role: 'STOREKEEPER', branchId: id('branch:DDW'), locationId: id('location:SHOP') }] }));
     const listed = await get(session, '/stock/alerts?kind=EXPIRING');
     expect(listed.body.data).toEqual([
-      expect.objectContaining({ kind: 'EXPIRING', stockUnit: expect.objectContaining({ identifier: EGGS }), location: expect.objectContaining({ code: 'SHOP' }), onHandQty: '30.000', expiresOn: seeded.eggsExpireOn, daysToExpiry: 5, thresholdQty: null, suggestedQty: null }),
+      expect.objectContaining({ kind: 'EXPIRING', stockUnit: expect.objectContaining({ identifier: EGGS }), location: expect.objectContaining({ code: 'SHOP' }), onHandQty: '900.000', expiresOn: seeded.eggsExpireOn, daysToExpiry: 5, thresholdQty: null, suggestedQty: null }),
     ]);
   });
 
@@ -419,7 +419,7 @@ describe('expiring and expired lots (FR-INV-016, A-134 (j))', () => {
       { kind: 'EXPIRED', status: 'OPEN' },
     ]);
     // A write-off is not a sale: the expired lot leaves by an adjustment loss.
-    expect(await move('ADJUST_LOSS', 'EGG-0003', 'location:SHOP', 'virtual:LOSS', '29.000', EGGS)).not.toBe('STOCK_UNIT_EXPIRED');
+    expect(await move('ADJUST_LOSS', 'EGG-0003', 'location:SHOP', 'virtual:LOSS', '899.000', EGGS)).not.toBe('STOCK_UNIT_EXPIRED');
   });
 
   it('refuses the sale of an expired lot at the database for every role, whoever inserts it', async () => {

@@ -154,7 +154,7 @@ describe('a blind count posts its variances (FR-INV-013)', () => {
   let takeId: string;
   let lineId: string;
 
-  it('freezes 30 crates of eggs as expected at start, and nobody reads it, nor any variance, while counting', async () => {
+  it('freezes 30 crates of eggs (900, A-261) as expected at start, and nobody reads it, nor any variance, while counting', async () => {
     const take = await started(shopStorekeeper, cycle('SHOP', 'EGG-0003'));
     takeId = take.takeId;
     expect(take.lines).toHaveLength(1);
@@ -164,36 +164,36 @@ describe('a blind count posts its variances (FR-INV-013)', () => {
       expect(line).toMatchObject({ expectedQty: null, countedQty: null, varianceQty: null, varianceValuePesewas: null, varianceDirection: null, needsRecount: false });
     }
     const { rows } = await admin().query<{ expected_qty: string }>('SELECT expected_qty FROM inv.stock_take_line WHERE id = $1', [lineId]);
-    expect(rows[0]!.expected_qty).toBe('30.000');
+    expect(rows[0]!.expected_qty).toBe('900.000');
   });
 
   it('refuses to close counting with a line uncounted, and a recount while counting', async () => {
     const closed = await post(shopStorekeeper, `/stock-takes/${takeId}/review`);
     expect(closed.status).toBe(422);
     expect(closed.body.error.code).toBe('STOCK_TAKE_NOT_COUNTED');
-    const recount = await put(shopStorekeeper, `/stock-takes/${takeId}/counts`, { counts: [{ lineId, countedQty: '29.000', isRecount: true }] });
+    const recount = await put(shopStorekeeper, `/stock-takes/${takeId}/counts`, { counts: [{ lineId, countedQty: '870.000', isRecount: true }] });
     expect(recount.status).toBe(422);
     expect(recount.body.error.details[0].code).toBe('RECOUNT_IN_REVIEW_ONLY');
   });
 
-  it('a counted 29, corrected to 29 again, then counting closes: expected 30, variance -1 crate valued 3,500, and a recount is asked for', async () => {
+  it('a counted 29 crates (870), corrected to 870 again, then counting closes: expected 900, variance -30 eggs (a crate) valued 3,500, and a recount is asked for', async () => {
     expect((await put(shopStorekeeper, `/stock-takes/${takeId}/counts`, { counts: [{ lineId, countedQty: '28.000' }] })).status).toBe(200);
-    const counted = await put(shopStorekeeper, `/stock-takes/${takeId}/counts`, { counts: [{ lineId, countedQty: '29.000' }] });
+    const counted = await put(shopStorekeeper, `/stock-takes/${takeId}/counts`, { counts: [{ lineId, countedQty: '870.000' }] });
     expect(counted.body).toMatchObject({ status: 'COUNTING', lineCount: 1, countedLineCount: 1, countedBy: { displayName: 'Efua Quaye' }, gainValuePesewas: null });
     const review = await post(shopStorekeeper, `/stock-takes/${takeId}/review`);
     expect(review.status).toBe(200);
     expect(review.body).toMatchObject({ status: 'REVIEW', gainValuePesewas: 0, lossValuePesewas: 3_500 });
     const line = (await get(manager, `/stock-takes/${takeId}/lines`)).body.data[0];
-    expect(line).toMatchObject({ expectedQty: '30.000', countedQty: '29.000', recountQty: null, varianceQty: '-1.000', varianceValuePesewas: 3_500, varianceDirection: 'LOSS', needsRecount: true, uom: 'CRATE' });
+    expect(line).toMatchObject({ expectedQty: '900.000', countedQty: '870.000', recountQty: null, varianceQty: '-30.000', varianceValuePesewas: 3_500, varianceDirection: 'LOSS', needsRecount: true, uom: 'UNIT' });
   });
 
-  it('refuses to submit before the recount; the recount confirms 29 and the manager posts one STOCKTAKE_LOSS of 3,500', async () => {
+  it('refuses to submit before the recount; the recount confirms 870 and the manager posts one STOCKTAKE_LOSS of 3,500', async () => {
     const early = await post(manager, `/stock-takes/${takeId}/submit`);
     expect(early.status).toBe(422);
     expect(early.body.error.details[0].code).toBe('RECOUNT_REQUIRED');
-    expect((await put(shopStorekeeper, `/stock-takes/${takeId}/counts`, { counts: [{ lineId, countedQty: '29.000' }] })).body.error.details[0].code).toBe('COUNTING_CLOSED');
-    expect((await put(shopStorekeeper, `/stock-takes/${takeId}/counts`, { counts: [{ lineId, countedQty: '29.000', isRecount: true }] })).status).toBe(200);
-    const twice = await put(shopStorekeeper, `/stock-takes/${takeId}/counts`, { counts: [{ lineId, countedQty: '30.000', isRecount: true }] });
+    expect((await put(shopStorekeeper, `/stock-takes/${takeId}/counts`, { counts: [{ lineId, countedQty: '870.000' }] })).body.error.details[0].code).toBe('COUNTING_CLOSED');
+    expect((await put(shopStorekeeper, `/stock-takes/${takeId}/counts`, { counts: [{ lineId, countedQty: '870.000', isRecount: true }] })).status).toBe(200);
+    const twice = await put(shopStorekeeper, `/stock-takes/${takeId}/counts`, { counts: [{ lineId, countedQty: '900.000', isRecount: true }] });
     expect(twice.body.error.details[0].code).toBe('RECOUNT_NOT_NEEDED');
     const posted = await post(manager, `/stock-takes/${takeId}/submit`);
     expect(posted.status, JSON.stringify(posted.body)).toBe(200);
@@ -202,8 +202,8 @@ describe('a blind count posts its variances (FR-INV-013)', () => {
       'SELECT movement_type, qty_base, value_pesewas, reason_code FROM inv.stock_movement WHERE source_document_id = $1',
       [takeId],
     );
-    expect(rows).toEqual([{ movement_type: 'STOCKTAKE_LOSS', qty_base: '1.000', value_pesewas: '3500', reason_code: 'COUNT_ERROR' }]);
-    expect(await onHand('SHOP', 'EGG-BIG-2026-1110', 'EGG-0003')).toBe('29.000');
+    expect(rows).toEqual([{ movement_type: 'STOCKTAKE_LOSS', qty_base: '30.000', value_pesewas: '3500', reason_code: 'COUNT_ERROR' }]);
+    expect(await onHand('SHOP', 'EGG-BIG-2026-1110', 'EGG-0003')).toBe('870.000');
     expect((await post(manager, `/stock-takes/${takeId}/cancel`, { reason: 'Too late' })).body.error.code).toBe('INVALID_STATE_TRANSITION');
     expect(await sqlStateOf(admin().query('UPDATE inv.stock_take_line SET counted_qty = 30 WHERE id = $1', [lineId]))).toBe(SQLSTATE.documentFrozen);
   });

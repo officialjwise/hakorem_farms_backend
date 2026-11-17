@@ -214,7 +214,7 @@ describe('placeOrder: a guest places the checkout and the charge is sent (FR-SHP
     const orderId = placed.body.orderId as string;
     expect(await paymentOf(orderId)).toEqual([{ id: placed.body.payment.paymentId, status: 'PENDING', amount: 12_000, method: 'MOBILE_MONEY' }]);
     expect(fake.transactions.get(referenceFor(placed.body.payment.paymentId as string))).toMatchObject({ amount: 12_000 });
-    expect(await reserved(checkoutId)).toEqual([{ product: 'EGG-0003', qty: '2.000', status: 'ACTIVE', expires: true }]);
+    expect(await reserved(checkoutId)).toEqual([{ product: 'EGG-0003', qty: '60.000', status: 'ACTIVE', expires: true }]);
     expect(await reserved(orderId)).toEqual([]);
     expect((await read(`/shop/carts/${guest.cartId}`, guest)).body).toMatchObject({ status: 'CHECKOUT', checkoutId });
   });
@@ -252,8 +252,8 @@ describe('placeOrder: a guest places the checkout and the charge is sent (FR-SHP
       [null, 'PLACED'],
       ['PLACED', 'CONFIRMED'],
     ]);
-    expect(await reserved(orderId)).toEqual([{ product: 'EGG-0003', qty: '2.000', status: 'ACTIVE', expires: false }]);
-    expect(await reserved(checkoutId)).toEqual([{ product: 'EGG-0003', qty: '2.000', status: 'RELEASED', expires: true }]);
+    expect(await reserved(orderId)).toEqual([{ product: 'EGG-0003', qty: '60.000', status: 'ACTIVE', expires: false }]);
+    expect(await reserved(checkoutId)).toEqual([{ product: 'EGG-0003', qty: '60.000', status: 'RELEASED', expires: true }]);
     expect((await linesOf(orderId))[0]).toMatchObject({ held: true });
     expect(await checkoutStatus(checkoutId)).toEqual({ status: 'COMPLETED', order_id: orderId });
     expect((await read(`/shop/carts/${guest.cartId}`, guest)).body).toMatchObject({ status: 'CONVERTED', checkoutId: null });
@@ -270,7 +270,7 @@ describe('placeOrder: a guest places the checkout and the charge is sent (FR-SHP
     await expire();
     expect(await orderRow(orderId)).toMatchObject({ status: 'CONFIRMED' });
     expect(await outboxCount('ord.OrderConfirmed', orderId)).toBe(1);
-    expect(await reserved(orderId)).toEqual([{ product: 'EGG-0003', qty: '2.000', status: 'ACTIVE', expires: false }]);
+    expect(await reserved(orderId)).toEqual([{ product: 'EGG-0003', qty: '60.000', status: 'ACTIVE', expires: false }]);
   });
 });
 
@@ -283,7 +283,7 @@ describe('placeOrder for cash on delivery: confirmed at once, the delivery and i
     const orderId = placed.body.orderId as string;
     expect(await orderRow(orderId)).toMatchObject({ status: 'CONFIRMED', payment_terms: 'COD', fulfilment_mode: 'DELIVERY', delivery_zone_id: id('zone:DDW'), fee: 1_500, estimated: 13_500, maximum: 13_500, area: 'Dodowa', credit_check: 'NOT_REQUIRED' });
     expect(await paymentOf(orderId)).toEqual([]);
-    expect(await reserved(orderId)).toEqual([{ product: 'EGG-0003', qty: '2.000', status: 'ACTIVE', expires: false }]);
+    expect(await reserved(orderId)).toEqual([{ product: 'EGG-0003', qty: '60.000', status: 'ACTIVE', expires: false }]);
     expect(placed.body.checkout).toMatchObject({ status: 'COMPLETED', orderId });
     expect((await read(`/shop/carts/${guest.cartId}`, guest)).body).toMatchObject({ status: 'CONVERTED', checkoutId: null });
   });
@@ -411,7 +411,7 @@ describe('the order stops waiting when its hold lapses or its charge fails (FR-O
     ]);
     expect(await orderRow(orderId)).toMatchObject({ status: 'PLACED' });
     expect(await reserved(orderId)).toEqual([]);
-    expect(await reserved(checkoutId)).toEqual([{ product: 'EGG-0003', qty: '2.000', status: 'ACTIVE', expires: true }]);
+    expect(await reserved(checkoutId)).toEqual([{ product: 'EGG-0003', qty: '60.000', status: 'ACTIVE', expires: true }]);
   });
 
   it('cancels the order when its charge fails, releasing the checkout’s stock and giving the cart back', async () => {
@@ -424,7 +424,7 @@ describe('the order stops waiting when its hold lapses or its charge fails (FR-O
     await runSweep(api);
     expect((await paymentOf(orderId))[0]).toMatchObject({ status: 'FAILED' });
     expect(await orderRow(orderId)).toMatchObject({ status: 'CANCELLED', cancel_reason_code: 'PAYMENT_NOT_RECEIVED' });
-    expect(await reserved(checkoutId)).toEqual([{ product: 'EGG-0003', qty: '1.000', status: 'RELEASED', expires: true }]);
+    expect(await reserved(checkoutId)).toEqual([{ product: 'EGG-0003', qty: '30.000', status: 'RELEASED', expires: true }]);
     expect(await checkoutStatus(checkoutId)).toMatchObject({ status: 'CANCELLED' });
     expect((await read(`/shop/carts/${guest.cartId}`, guest)).body).toMatchObject({ status: 'ACTIVE', checkoutId: null });
   });
@@ -435,7 +435,7 @@ describe('the order stops waiting when its hold lapses or its charge fails (FR-O
     const orderId = placed.body.orderId as string;
     const cancelled = await consolePost(api.server, as('sales'), `/v1/orders/${orderId}/cancel`).send({ reasonCode: 'CUSTOMER_CANCELLED' });
     expect(cancelled.status, JSON.stringify(cancelled.body)).toBe(200);
-    expect(await reserved(checkoutId)).toEqual([{ product: 'EGG-0003', qty: '1.000', status: 'RELEASED', expires: true }]);
+    expect(await reserved(checkoutId)).toEqual([{ product: 'EGG-0003', qty: '30.000', status: 'RELEASED', expires: true }]);
     expect(await checkoutStatus(checkoutId)).toMatchObject({ status: 'CANCELLED' });
     expect((await read(`/shop/carts/${guest.cartId}`, guest)).body).toMatchObject({ status: 'ACTIVE', checkoutId: null });
     const released = await admin().query<{ released: boolean }>('SELECT released_at IS NOT NULL AS released FROM pay.provider_transaction WHERE payment_id = $1', [placed.body.payment.paymentId]);
@@ -578,7 +578,7 @@ describe('trackOrder: the link carries its own random token, stored only as its 
     expect(await sqlStateOf(insert(second.orderId, sha256(second.token), 30))).toBe(SQLSTATE.uniqueViolation);
     expect(await sqlStateOf(insert(second.orderId, sha256(randomUUID()), 31))).toBe(SQLSTATE.checkViolation);
     expect(await sqlStateOf(insert(second.orderId, sha256(randomUUID()), 0))).toBe(SQLSTATE.checkViolation);
-    const counter = await consolePost(api.server, as('sales'), '/v1/orders').send({ channel: 'WHOLESALE', customerId: id('tema'), fulfilmentMode: 'COLLECTION', paymentTerms: 'COD', lines: [{ productId: id('EGG-0003'), quantity: '1.000' }] });
+    const counter = await consolePost(api.server, as('sales'), '/v1/orders').send({ channel: 'WHOLESALE', customerId: id('tema'), fulfilmentMode: 'COLLECTION', paymentTerms: 'COD', lines: [{ productId: id('EGG-0003'), quantity: '1.000', uom: 'CRATE' }] });
     expect(counter.status, JSON.stringify(counter.body)).toBe(201);
     expect(await sqlStateOf(insert(counter.body.id as string, sha256(randomUUID()), 30))).toBe(SQLSTATE.checkViolation);
     for (const [role, refusal] of [['app', SQLSTATE.insufficientPrivilege], ['admin', SQLSTATE.ledgerImmutable]] as const) {
@@ -593,7 +593,7 @@ describe('listMyOrders and getMyOrder: a customer reads only their own orders', 
   let theirs: string;
 
   beforeAll(async () => {
-    const order = (customerId: string) => ({ channel: 'ONLINE', customerId, fulfilmentMode: 'COLLECTION', paymentTerms: 'COD', lines: [{ productId: id('EGG-0003'), quantity: '3.000' }] });
+    const order = (customerId: string) => ({ channel: 'ONLINE', customerId, fulfilmentMode: 'COLLECTION', paymentTerms: 'COD', lines: [{ productId: id('EGG-0003'), quantity: '3.000', uom: 'CRATE' }] });
     const a = await consolePost(api.server, as('sales'), '/v1/orders').send(order(id('tema')));
     const b = await consolePost(api.server, as('sales'), '/v1/orders').send(order(id('other')));
     expect([a.status, b.status]).toEqual([201, 201]);

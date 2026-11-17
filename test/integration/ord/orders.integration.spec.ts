@@ -35,7 +35,7 @@ const order = (body: Record<string, unknown> = {}) => ({
   customerId: id('tema'),
   fulfilmentMode: 'COLLECTION',
   paymentTerms: 'COD',
-  lines: [{ productId: id('eggs'), quantity: '4.000' }],
+  lines: [{ productId: id('eggs'), quantity: '4.000', uom: 'CRATE' }],
   ...body,
 });
 const create = (session: TestSession, body: Record<string, unknown>, key = randomUUID()) => consolePost(api.server, session, '/v1/orders', key).send(body);
@@ -149,7 +149,7 @@ describe('createOrder (FR-ORD-001, FR-ORD-003, FR-ORD-004)', () => {
     const key = randomUUID();
     const body = order({
       lines: [
-        { productId: id('eggs'), quantity: '4.000' },
+        { productId: id('eggs'), quantity: '4.000', uom: 'CRATE' },
         { productId: id('cabbage'), quantity: '3.000', agreedUnitPricePesewas: 1_100, varianceReasonCode: 'REGULAR_CUSTOMER' },
       ],
       notes: 'Collecting Friday morning',
@@ -251,8 +251,8 @@ describe('createOrder (FR-ORD-001, FR-ORD-003, FR-ORD-004)', () => {
       as('sales'),
       order({
         lines: [
-          { productId: id('eggs'), quantity: '1.000' },
-          { productId: id('eggs'), quantity: '2.000' },
+          { productId: id('eggs'), quantity: '1.000', uom: 'CRATE' },
+          { productId: id('eggs'), quantity: '2.000', uom: 'CRATE' },
           { productId: id('goat'), stockUnitId: id('G-0143'), quantity: '2.000' },
           { productId: id('goat'), quantity: '1.000' },
         ],
@@ -275,6 +275,17 @@ describe('createOrder (FR-ORD-001, FR-ORD-003, FR-ORD-004)', () => {
     expect(goat.body.lines[0]).toMatchObject({ stockUnit: { id: id('G-0143'), identifier: 'G-0143', tracking: 'SERIAL' }, qtyOrdered: '1.000', priceBasis: 'PER_HEAD', lineStatus: 'OPEN' });
   });
 
+  it('takes a line in crates or in eggs, each at its own price, and refuses a unit the eggs are not sold by (B09e)', async () => {
+    const mixed = await create(as('sales'), order({ lines: [{ productId: id('eggs'), quantity: '2.000', uom: 'CRATE' }, { productId: id('cabbage'), quantity: '1.000' }] }));
+    expect(mixed.status).toBe(201);
+    expect(mixed.body.lines[0]).toMatchObject({ qtyOrdered: '2.000', uom: 'CRATE', resolvedUnitPricePesewas: 6_000, estimatedLineTotalPesewas: 12_000 });
+    const singles = await create(as('sales'), order({ lines: [{ productId: id('eggs'), quantity: '12.000' }] }));
+    expect(singles.body.lines[0]).toMatchObject({ qtyOrdered: '12.000', uom: 'UNIT', resolvedUnitPricePesewas: 220, estimatedLineTotalPesewas: 2_640 });
+    const bag = await create(as('sales'), order({ lines: [{ productId: id('eggs'), quantity: '1.000', uom: 'BAG' }] }));
+    expect(bag.status).toBe(422);
+    expect(bag.body.error).toMatchObject({ code: 'ORDER_INVALID', details: [expect.objectContaining({ field: '/lines/0/uom', code: 'NO_CONVERSION' })] });
+  });
+
   it('refuses an order at no branch: a person who enters orders nowhere whole is told to name none', async () => {
     const fieldHand = await createUser(database, { name: 'Abena Sarpong', grants: [{ role: 'SALES', branchId, locationId: id('SHOP') }] });
     const session = await login(api.server, fieldHand);
@@ -286,12 +297,12 @@ describe('createOrder (FR-ORD-001, FR-ORD-003, FR-ORD-004)', () => {
 
 describe('confirmOrder (FR-ORD-005)', () => {
   it('reserves every line for the order, moves it CONFIRMED and records the change once', async () => {
-    const placed = (await create(as('sales'), order({ lines: [{ productId: id('eggs'), quantity: '4.000' }] }))).body;
+    const placed = (await create(as('sales'), order({ lines: [{ productId: id('eggs'), quantity: '4.000', uom: 'CRATE' }] }))).body;
     const key = randomUUID();
     const confirmed = await confirm(as('manager'), placed.id, key);
     expect(confirmed.status).toBe(200);
     expect(confirmed.body).toMatchObject({ id: placed.id, status: 'CONFIRMED', creditCheck: 'NOT_REQUIRED', estimatedTotalPesewas: 24_000, outstandingPesewas: 24_000, version: placed.version + 1 });
-    expect(await reservations(placed.id)).toEqual([{ product: 'EGG-0003', qty: '4.000', status: 'ACTIVE' }]);
+    expect(await reservations(placed.id)).toEqual([{ product: 'EGG-0003', qty: '120.000', status: 'ACTIVE' }]);
     const held = await admin().query<{ reservation_id: string; unit: string }>(
       'SELECT l.reservation_id, r.stock_unit_id AS unit FROM ord.sales_order_line l JOIN inv.stock_reservation r ON r.id = l.reservation_id WHERE l.sales_order_id = $1',
       [placed.id],
@@ -339,20 +350,20 @@ describe('confirmOrder (FR-ORD-005)', () => {
     expect(await reservations(placed.id)).toEqual([{ product: 'PRD-0002', qty: '26.000', status: 'ACTIVE' }]);
   });
 
-  it('confirms the last 26 crates once when two people confirm two orders for them at the same moment', async () => {
+  it('confirms the last 26 crates (780 eggs) once when two people confirm two orders for them at the same moment', async () => {
     const left = await admin().query<{ qty: string }>('SELECT sum(on_hand_qty - reserved_qty)::numeric(14,3)::text AS qty FROM inv.stock_balance WHERE product_id = $1 AND location_id = $2', [
       id('eggs'),
       id('SHOP'),
     ]);
-    expect(left.rows[0]!.qty).toBe('26.000');
-    const first = (await create(as('sales'), order({ lines: [{ productId: id('eggs'), quantity: '26.000' }] }))).body;
-    const second = (await create(as('sales2'), order({ lines: [{ productId: id('eggs'), quantity: '26.000' }] }))).body;
+    expect(left.rows[0]!.qty).toBe('780.000');
+    const first = (await create(as('sales'), order({ lines: [{ productId: id('eggs'), quantity: '26.000', uom: 'CRATE' }] }))).body;
+    const second = (await create(as('sales2'), order({ lines: [{ productId: id('eggs'), quantity: '26.000', uom: 'CRATE' }] }))).body;
     const answers = await Promise.all([confirm(as('sales'), first.id), confirm(as('sales2'), second.id)]);
     expect(answers.map((a) => a.status).sort()).toEqual([200, 422]);
     const refused = answers.find((a) => a.status === 422)!;
-    expect(refused.body.error.details).toEqual([expect.objectContaining({ code: 'NOT_ENOUGH_STOCK', message: 'Not enough stock for this line: 26.000 short of 26.000.' })]);
+    expect(refused.body.error.details).toEqual([expect.objectContaining({ code: 'NOT_ENOUGH_STOCK', message: 'Not enough stock for this line: 780.000 short of 780.000.' })]);
     const held = [...(await reservations(first.id)), ...(await reservations(second.id))];
-    expect(held).toEqual([{ product: 'EGG-0003', qty: '26.000', status: 'ACTIVE' }]);
+    expect(held).toEqual([{ product: 'EGG-0003', qty: '780.000', status: 'ACTIVE' }]);
   });
 
   it('confirms a prepaid order only once its estimate is received in a cleared payment', async () => {

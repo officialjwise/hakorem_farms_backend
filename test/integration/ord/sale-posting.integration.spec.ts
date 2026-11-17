@@ -65,7 +65,7 @@ function wholesaleSale(overrides: Partial<SaleRequest> = {}): SaleRequest {
     taxInclusive: true,
     lines: [
       { productId: id('goat'), stockUnitId: id('G-0142'), fromLocationId: id('PENS'), quantity: '1.000' },
-      { productId: id('eggs'), stockUnitId: id('eggLot'), fromLocationId: id('SHOP'), quantity: '2.000' },
+      { productId: id('eggs'), stockUnitId: id('eggLot'), fromLocationId: id('SHOP'), quantity: '2.000', uom: 'CRATE' },
       { productId: id('cabbage'), fromLocationId: id('SHOP'), quantity: '3.000' },
       { productId: id('meat'), stockUnitId: id('meatLot'), fromLocationId: id('COLD'), quantity: '3.500', weightKg: '3.500', weightSource: 'SCALE' },
     ],
@@ -338,7 +338,7 @@ describe('a sale posts stock, document, payment and ledger in one transaction, o
 describe('a replay of a sale answers the first sale and posts nothing twice (ADR-0013, ADR-0014)', () => {
   it('returns the same sale for the same order id and request, with no second movement, document, payment or journal', async () => {
     const request = wholesaleSale({
-      lines: [{ productId: id('eggs'), stockUnitId: id('eggLot'), fromLocationId: id('SHOP'), quantity: '1.000' }],
+      lines: [{ productId: id('eggs'), stockUnitId: id('eggLot'), fromLocationId: id('SHOP'), quantity: '1.000', uom: 'CRATE' }],
       tenders: [{ methodCode: 'CASH', amountPesewas: 6_000n, register: till }],
     });
     const first = await post(request);
@@ -350,7 +350,7 @@ describe('a replay of a sale answers the first sale and posts nothing twice (ADR
 
   it('refuses the same order id with a different request, posting nothing', async () => {
     const request = wholesaleSale({
-      lines: [{ productId: id('eggs'), stockUnitId: id('eggLot'), fromLocationId: id('SHOP'), quantity: '1.000' }],
+      lines: [{ productId: id('eggs'), stockUnitId: id('eggLot'), fromLocationId: id('SHOP'), quantity: '1.000', uom: 'CRATE' }],
       tenders: [{ methodCode: 'CASH', amountPesewas: 6_000n, register: till }],
     });
     await post(request);
@@ -363,7 +363,7 @@ describe('a replay of a sale answers the first sale and posts nothing twice (ADR
 describe('an order id is one sale, whoever sends it (ADR-0014)', () => {
   it('refuses a sale under an order id another person already posted, posting nothing', async () => {
     const request = wholesaleSale({
-      lines: [{ productId: id('eggs'), stockUnitId: id('eggLot'), fromLocationId: id('SHOP'), quantity: '1.000' }],
+      lines: [{ productId: id('eggs'), stockUnitId: id('eggLot'), fromLocationId: id('SHOP'), quantity: '1.000', uom: 'CRATE' }],
       tenders: [{ methodCode: 'CASH', amountPesewas: 6_000n, register: till }],
     });
     await post(request);
@@ -456,7 +456,7 @@ describe('after a trading day of sales the books still tie (FR-FIN-011, FR-FIN-0
       fulfilmentMode: 'COLLECTION',
       contactName: 'Efua Asante',
       contactPhone: '+233244000301',
-      lines: [{ productId: id('eggs'), stockUnitId: id('eggLot'), fromLocationId: id('SHOP'), quantity: '1.000' }],
+      lines: [{ productId: id('eggs'), stockUnitId: id('eggLot'), fromLocationId: id('SHOP'), quantity: '1.000', uom: 'CRATE' }],
       tenders: [{ methodCode: 'COD', amountPesewas: 6_000n, register: till }],
     }));
     expect([sale.channel, sale.status, sale.paymentStatus, sale.finalTotalPesewas]).toEqual(['ONLINE', 'COMPLETED', 'PAID', 6_000]);

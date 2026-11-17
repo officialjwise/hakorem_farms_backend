@@ -37,6 +37,14 @@ function estimatedKg(product: OnlineProductFacts, quantity: Quantity): string | 
 }
 
 /**
+ * The unit a storefront line is priced in (B09e): its sale unit, a crate of eggs priced by the crate's own entry,
+ * unless it is a catch-weight pack (priced per kilogram at its estimated weight) or the sale unit is the base unit.
+ */
+export function pricingUom(product: Pick<OnlineProductFacts, 'stockPolicy' | 'nominalPackKg' | 'saleUom' | 'baseUom'>): string | undefined {
+  return isCatchWeight(product as OnlineProductFacts) || product.saleUom === product.baseUom ? undefined : product.saleUom;
+}
+
+/**
  * Prices storefront lines through MDM's engine on the ONLINE channel (FR-SHP-003, FR-SHP-004, ADR-0004, ADR-0040):
  * the price is never a column. A catch-weight line is resolved at its estimated weight, so a promotion's discount is
  * taken from the same anchor the estimate is. A coupon the engine refuses throws its 422.
@@ -49,7 +57,8 @@ export async function priceLinesIn(pricing: PricingService, tx: Transaction, bra
     ...(couponCode === null ? {} : { couponCode }),
     lines: lines.map((line) => {
       const weightKg = estimatedKg(line.product, line.quantity);
-      return { lineRef: line.lineRef, productId: line.product.id, quantity: line.quantity.toDecimalString(), ...(weightKg === undefined ? {} : { weightKg }) };
+      const uom = pricingUom(line.product);
+      return { lineRef: line.lineRef, productId: line.product.id, quantity: line.quantity.toDecimalString(), ...(weightKg === undefined ? {} : { weightKg }), ...(uom === undefined ? {} : { uom }) };
     }),
   });
   return lines.map((line, index): LinePrice => {
