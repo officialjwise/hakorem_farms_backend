@@ -78,6 +78,12 @@ const NO_FOCUSED_TESTS = {
 };
 
 const FRAMEWORK_IMPORTS = ['@nestjs/*', 'drizzle-orm', 'drizzle-orm/*', 'pg', 'ioredis', 'express', 'pino', '@opentelemetry/*', 'bullmq'];
+/**
+ * QR code and barcode libraries. The TOTP enrolment QR, drawn by IAM's one adapter, is the only QR code the system
+ * makes, and the server draws no barcode (ADR-0072, owner 2026-11-17): a label's barcode is data the client draws.
+ */
+const QR_AND_BARCODE_IMPORTS = ['uqr', 'qrcode', 'qrcode-*', 'qr-image', 'qrious', 'jsqr', '@zxing/*', 'bwip-js', 'jsbarcode'];
+const QR_RULE = { group: QR_AND_BARCODE_IMPORTS, message: 'The TOTP enrolment QR is the only QR code, drawn in src/modules/iam/infrastructure/uqr-qr-codes.ts; nothing else draws a QR code or a barcode (ADR-0072).' };
 
 export default tseslint.config(
   {
@@ -119,6 +125,7 @@ export default tseslint.config(
       'no-console': 'error',
       'no-empty': ['error', { allowEmptyCatch: false }],
       'no-restricted-syntax': ['error', NO_FOCUSED_TESTS],
+      'no-restricted-imports': ['error', { patterns: [QR_RULE] }],
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', destructuredArrayIgnorePattern: '^_' }],
       '@typescript-eslint/consistent-type-imports': ['error', { fixStyle: 'inline-type-imports' }],
     },
@@ -127,8 +134,19 @@ export default tseslint.config(
     // The domain is pure: no framework, no input or output, no clock (ADR-0008, ENGINEERING_STANDARDS section 8).
     files: ['**/src/modules/*/domain/**/*.ts', '**/packages/kernel/src/**/*.ts'],
     rules: {
-      'no-restricted-imports': ['error', { patterns: [{ group: FRAMEWORK_IMPORTS, message: 'Domain code imports only the kernel and its own files (ADR-0008).' }] }],
+      // Repeats QR_RULE: a later config replaces this rule's whole list rather than adding to it.
+      'no-restricted-imports': ['error', { patterns: [{ group: FRAMEWORK_IMPORTS, message: 'Domain code imports only the kernel and its own files (ADR-0008).' }, QR_RULE] }],
     },
+  },
+  {
+    // The one QR code: TOTP enrolment (ADR-0037, ADR-0072).
+    files: ['**/src/modules/iam/infrastructure/uqr-qr-codes.ts'],
+    rules: { 'no-restricted-imports': 'off' },
+  },
+  {
+    // Tests read the TOTP QR code back with an independent decoder (ADR-0037).
+    files: ['test/**/*.ts', '**/src/modules/iam/infrastructure/uqr-qr-codes.spec.ts'],
+    rules: { 'no-restricted-imports': 'off' },
   },
   {
     files: ['**/src/modules/*/domain/**/*.ts', '**/src/modules/*/application/**/*.ts'],
