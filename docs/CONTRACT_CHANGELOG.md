@@ -4,6 +4,10 @@ Every change to `contract/openapi.yaml`, newest first. A breaking change needs a
 
 Version numbers follow semantic versioning: a major bump breaks an existing client, a minor bump adds operations or optional fields, a patch fixes descriptions or examples.
 
+## 1.48.0 (2026-11-17, B09a continued 2c)
+
+Minor. Two planned ORD operations move into code with their descriptions made exact: `cancelOrder` (what is released and asked back in one transaction, the statuses it accepts, the reason's domain) and `voidOrder` (always 202 under `SALE_VOID`, who may approve, the rules a void is judged by at the request and again at the approval, and what the approval reverses). No error code added: the refusals are `INVALID_STATE_TRANSITION`, `ORDER_INVALID` with named details, and `MAKER_CANNOT_CHECK`. No field removed, renamed or retyped, no schema changed, and nothing a client sends made required. 409 operations from code, 226 planned. Redocly is clean, with no warnings.
+
 ## 1.47.0 (2026-11-17, B09a continued 2b)
 
 Minor. Five planned ORD operations move into code with their descriptions made exact: `listOrders`, `createOrder`, `getOrder`, `confirmOrder` and `listOrderHistory`. One error code is added (`ORDER_INVALID`, documented in docs/API.md section 10). The examples of `createOrder` and `confirmOrder` are corrected to an order this build accepts (a cash-on-delivery collection of eggs and cabbage at their seeded prices; delivery, a line priced per kilogram and credit confirmation wait for B11 and B10, A-224). No field removed, renamed or retyped, no schema changed, and nothing a client sends made required in a schema. 407 operations from code, 228 planned. The versioning check against `main` passes and Redocly is clean, with no warnings.
