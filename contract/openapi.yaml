@@ -24828,6 +24828,10 @@ paths:
                         minQty: "10.000"
                         reorderPointQty: "15.000"
                         maxQty: "60.000"
+                        baseUom: KG
+                        minQtyBase: "500.000"
+                        reorderPointQtyBase: "750.000"
+                        maxQtyBase: "3000.000"
                         expiryAlertDays: null
                         version: 1
                       - id: "019a7abb-b7db-7dba-92f2-e4731f425d51"
@@ -24841,6 +24845,10 @@ paths:
                         minQty: "20.000"
                         reorderPointQty: "30.000"
                         maxQty: "80.000"
+                        baseUom: UNIT
+                        minQtyBase: "600.000"
+                        reorderPointQtyBase: "900.000"
+                        maxQtyBase: "2400.000"
                         expiryAlertDays: 5
                         version: 1
                       - id: "019a7abb-d6ca-779d-acd5-82aa98f3fb88"
@@ -24854,6 +24862,10 @@ paths:
                         minQty: "60.000"
                         reorderPointQty: "90.000"
                         maxQty: "300.000"
+                        baseUom: KG
+                        minQtyBase: "60.000"
+                        reorderPointQtyBase: "90.000"
+                        maxQtyBase: "300.000"
                         expiryAlertDays: 5
                         version: 1
                       - id: "019a7abb-f5b9-7181-b6b9-20e212a499bf"
@@ -24871,6 +24883,10 @@ paths:
                         minQty: "15.000"
                         reorderPointQty: "25.000"
                         maxQty: "80.000"
+                        baseUom: TUBER
+                        minQtyBase: "15.000"
+                        reorderPointQtyBase: "25.000"
+                        maxQtyBase: "80.000"
                         expiryAlertDays: null
                         version: 1
                       - id: "019a7abc-14a8-7b64-809c-bf198c5537f7"
@@ -24884,6 +24900,10 @@ paths:
                         minQty: "3.000"
                         reorderPointQty: "5.000"
                         maxQty: "20.000"
+                        baseUom: UNIT
+                        minQtyBase: "3.000"
+                        reorderPointQtyBase: "5.000"
+                        maxQtyBase: "20.000"
                         expiryAlertDays: null
                         version: 1
                       - id: "019a7abc-3397-7547-9a80-5d510606d62e"
@@ -24897,6 +24917,10 @@ paths:
                         minQty: "4.000"
                         reorderPointQty: "6.000"
                         maxQty: "15.000"
+                        baseUom: CRATE
+                        minQtyBase: "4.000"
+                        reorderPointQtyBase: "6.000"
+                        maxQtyBase: "15.000"
                         expiryAlertDays: 5
                         version: 1
                     page:
@@ -24926,7 +24950,7 @@ paths:
       tags:
         - inv
       summary: "Create a reorder rule"
-      description: "One rule per product and branch, or per product and one physical stock location of the branch (not in transit, not a site). The minimum is at or under the reorder point, which is at or under the maximum, which is above zero; `expiryAlertDays` is 1 to 365. A broken rule is 422 `REORDER_RULE_INVALID` with each `details[].code` naming it (`BELOW_MINIMUM`, `BELOW_REORDER_POINT`, `MAXIMUM_REQUIRED`, `OUT_OF_RANGE`, `NOT_A_STOCK_PRODUCT`, `NOT_A_STOCK_LOCATION`, `NOT_IN_THE_BRANCH`, `RULE_EXISTS`). The rule is judged at once against available stock (on hand less reserved less held): if that is already at or below the reorder point a `LOW_STOCK` alert is raised.\n\nPermission: `inv.reorder_rule.manage`, scoped to the branch and the location."
+      description: "One rule per product and branch, or per product and one physical stock location of the branch (not in transit, not a site). The minimum is at or under the reorder point, which is at or under the maximum, which is above zero; `expiryAlertDays` is 1 to 365. A broken rule is 422 `REORDER_RULE_INVALID` with each `details[].code` naming it (`BELOW_MINIMUM`, `BELOW_REORDER_POINT`, `MAXIMUM_REQUIRED`, `OUT_OF_RANGE`, `NOT_A_STOCK_PRODUCT`, `NOT_A_STOCK_LOCATION`, `NOT_IN_THE_BRANCH`, `RULE_EXISTS`, and from B09e continued `NO_CONVERSION` and `INEXACT_QUANTITY` for a rule counted in a selling unit: the levels may be entered in `uom`, a unit the product converts from, and are stored in its base unit). The rule is judged at once against available stock (on hand less reserved less held): if that is already at or below the reorder point a `LOW_STOCK` alert is raised.\n\nPermission: `inv.reorder_rule.manage`, scoped to the branch and the location."
       x-permission: inv.reorder_rule.manage
       x-error-codes:
         - VALIDATION_FAILED
@@ -24955,6 +24979,7 @@ paths:
             example:
               productId: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
               branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              uom: BAG
               minQty: "10.000"
               reorderPointQty: "15.000"
               maxQty: "60.000"
@@ -24980,6 +25005,10 @@ paths:
                 minQty: "10.000"
                 reorderPointQty: "15.000"
                 maxQty: "60.000"
+                baseUom: KG
+                minQtyBase: "500.000"
+                reorderPointQtyBase: "750.000"
+                maxQtyBase: "3000.000"
                 expiryAlertDays: null
                 version: 1
         "400":
@@ -25060,6 +25089,10 @@ paths:
                 minQty: "10.000"
                 reorderPointQty: "15.000"
                 maxQty: "60.000"
+                baseUom: KG
+                minQtyBase: "500.000"
+                reorderPointQtyBase: "750.000"
+                maxQtyBase: "3000.000"
                 expiryAlertDays: null
                 version: 1
         "400":
@@ -25084,7 +25117,7 @@ paths:
       tags:
         - inv
       summary: "List low-stock and expiring-stock alerts"
-      description: "Open alerts within the caller's grants, newest first. `LOW_STOCK` (available at or below the reorder point) and `BELOW_MINIMUM` (under the minimum) belong to a reorder rule and are raised once per crossing, in the transaction of the movement, reservation or hold that crossed it, and cleared once stock rises above the level again; `onHandQty` is what is available now, `thresholdQty` the level crossed and `suggestedQty` what brings it back to the maximum. `EXPIRING` (within the lead time of the product's rule, default 3 days) and `EXPIRED` (past the expiry date, and refused to any sale with `STOCK_UNIT_EXPIRED`, so flagged for write-off) belong to a lot where it stands and are raised by the daily job; `onHandQty` is its on hand there and `daysToExpiry` counts from today in Africa/Accra. Each alert is also published as `inv.StockAlertRaised`.\n\nPermission: `inv.stock.read`."
+      description: "Open alerts within the caller's grants, newest first. `LOW_STOCK` (available at or below the reorder point) and `BELOW_MINIMUM` (under the minimum) belong to a reorder rule and are raised once per crossing, in the transaction of the movement, reservation or hold that crossed it, and cleared once stock rises above the level again; `onHandQty` is what is available now, `thresholdQty` the level crossed and `suggestedQty` what brings it back to the maximum, all in the product's base unit (`uom`); a rule counted in a selling unit also answers them in that unit (`inRuleUnit`, B09e continued): whole units and what is left over, and the suggestion in whole units rounded up so the order reaches the maximum. `EXPIRING` (within the lead time of the product's rule, default 3 days) and `EXPIRED` (past the expiry date, and refused to any sale with `STOCK_UNIT_EXPIRED`, so flagged for write-off) belong to a lot where it stands and are raised by the daily job; `onHandQty` is its on hand there and `daysToExpiry` counts from today in Africa/Accra. Each alert is also published as `inv.StockAlertRaised`.\n\nPermission: `inv.stock.read`."
       x-permission: inv.stock.read
       x-error-codes:
         - VALIDATION_FAILED
@@ -25143,12 +25176,18 @@ paths:
                           name: "Broiler finisher feed, 50 kg bag"
                         location: null
                         stockUnit: null
-                        uom: BAG
-                        onHandQty: "12.000"
-                        thresholdQty: "15.000"
-                        suggestedQty: "48.000"
+                        uom: KG
+                        onHandQty: "610.000"
+                        thresholdQty: "750.000"
+                        suggestedQty: "2390.000"
                         expiresOn: null
                         daysToExpiry: null
+                        inRuleUnit:
+                          uom: BAG
+                          onHandQty: "12.000"
+                          onHandLooseQty: "10.000"
+                          thresholdQty: "15.000"
+                          suggestedQty: "48.000"
                         raisedAt: "2026-11-13T05:00:00Z"
                       - kind: EXPIRING
                         product:
@@ -25170,6 +25209,7 @@ paths:
                         suggestedQty: null
                         expiresOn: "2026-11-18"
                         daysToExpiry: 5
+                        inRuleUnit: null
                         raisedAt: "2026-11-13T05:01:00Z"
                       - kind: BELOW_MINIMUM
                         product:
@@ -25184,6 +25224,7 @@ paths:
                         suggestedQty: "18.000"
                         expiresOn: null
                         daysToExpiry: null
+                        inRuleUnit: null
                         raisedAt: "2026-11-13T05:02:00Z"
                       - kind: EXPIRING
                         product:
@@ -25199,12 +25240,13 @@ paths:
                           id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
                           identifier: EGG-261112-L1
                           tracking: LOT
-                        uom: CRATE
-                        onHandQty: "48.000"
+                        uom: UNIT
+                        onHandQty: "1440.000"
                         thresholdQty: null
                         suggestedQty: null
                         expiresOn: "2026-12-03"
                         daysToExpiry: 20
+                        inRuleUnit: null
                         raisedAt: "2026-11-13T05:03:00Z"
                       - kind: LOW_STOCK
                         product:
@@ -25223,6 +25265,7 @@ paths:
                         suggestedQty: "58.000"
                         expiresOn: null
                         daysToExpiry: null
+                        inRuleUnit: null
                         raisedAt: "2026-11-13T05:04:00Z"
                       - kind: EXPIRED
                         product:
@@ -25244,6 +25287,7 @@ paths:
                         suggestedQty: null
                         expiresOn: "2026-11-12"
                         daysToExpiry: -1
+                        inRuleUnit: null
                         raisedAt: "2026-11-13T05:05:00Z"
                     page:
                       nextCursor: eyJpZCI6IjAxOWE3YyJ9
@@ -85719,12 +85763,25 @@ components:
             - type: "null"
         uom:
           type: string
+          description: "The unit the levels were entered in: the product's base unit unless the rule named another (a crate, B09e continued). `minQty`, `reorderPointQty` and `maxQty` are in it."
         minQty:
           $ref: "#/components/schemas/Quantity"
         reorderPointQty:
           $ref: "#/components/schemas/Quantity"
         maxQty:
           $ref: "#/components/schemas/Quantity"
+        baseUom:
+          type: string
+          description: "The product's base unit, which stock is counted in and the three `...Base` levels are in (B09e continued)."
+        minQtyBase:
+          $ref: "#/components/schemas/Quantity"
+          description: "`minQty` in the base unit, by the product's exact conversion: what the alerts compare (600 eggs)."
+        reorderPointQtyBase:
+          $ref: "#/components/schemas/Quantity"
+          description: "`reorderPointQty` in the base unit (900 eggs for 30 crates)."
+        maxQtyBase:
+          $ref: "#/components/schemas/Quantity"
+          description: "`maxQty` in the base unit (2,400 eggs for 80 crates)."
         expiryAlertDays:
           type:
             - integer
@@ -85740,6 +85797,10 @@ components:
         - minQty
         - reorderPointQty
         - maxQty
+        - baseUom
+        - minQtyBase
+        - reorderPointQtyBase
+        - maxQtyBase
         - expiryAlertDays
         - version
     ReorderRuleCreate:
@@ -85754,6 +85815,10 @@ components:
         locationId:
           type: string
           format: uuid
+        uom:
+          type: string
+          pattern: "^[A-Z]{2,10}$"
+          description: "The unit the three levels are counted in (B09e continued): the product's base unit when left out, or a unit it converts from (`listUomConversions`), converted by the server's exact conversion and stored in the base unit; a reorder point of 30 crates is 900 eggs. The rule keeps it, and `updateReorderRule` takes levels in it. A unit the product does not convert from is 422 `REORDER_RULE_INVALID` with `NO_CONVERSION`, a level that would need a fourth decimal place in the base unit `INEXACT_QUANTITY`."
         minQty:
           $ref: "#/components/schemas/Quantity"
         reorderPointQty:
@@ -85776,6 +85841,7 @@ components:
           type: integer
         minQty:
           $ref: "#/components/schemas/Quantity"
+          description: "In the rule's own unit (`ReorderRule.uom`), as all three levels are (B09e continued)."
         reorderPointQty:
           $ref: "#/components/schemas/Quantity"
         maxQty:
@@ -85840,6 +85906,11 @@ components:
           type:
             - integer
             - "null"
+        inRuleUnit:
+          anyOf:
+            - $ref: "#/components/schemas/StockAlertInRuleUnit"
+            - type: "null"
+          description: "A level alert of a rule counted in a selling unit, in that unit (B09e continued); null for an expiry alert or a rule in the base unit, which `onHandQty`, `thresholdQty` and `suggestedQty` already answer."
         raisedAt:
           type: string
           format: date-time
@@ -85854,7 +85925,37 @@ components:
         - suggestedQty
         - expiresOn
         - daysToExpiry
+        - inRuleUnit
         - raisedAt
+    StockAlertInRuleUnit:
+      type: object
+      description: "A level alert's figures in its reorder rule's selling unit (B09e continued): exact, never a rounded part of a unit."
+      properties:
+        uom:
+          type: string
+          description: "The rule's unit (`ReorderRule.uom`)."
+        onHandQty:
+          $ref: "#/components/schemas/SignedQuantity"
+          description: "The whole units of `uom` available now (30 crates for 905 eggs), counted toward zero."
+        onHandLooseQty:
+          $ref: "#/components/schemas/SignedQuantity"
+          description: "What is left over, in the base unit (`StockAlert.uom`): 5 eggs for 905."
+        thresholdQty:
+          anyOf:
+            - $ref: "#/components/schemas/Quantity"
+            - type: "null"
+          description: "The level crossed, as the rule counts it (30 crates)."
+        suggestedQty:
+          anyOf:
+            - $ref: "#/components/schemas/Quantity"
+            - type: "null"
+          description: "The suggested reorder in whole units of `uom`, rounded up so the order reaches the rule's maximum: 2,095 eggs short is 70 crates."
+      required:
+        - uom
+        - onHandQty
+        - onHandLooseQty
+        - thresholdQty
+        - suggestedQty
     StockAlertPage:
       type: object
       description: "A page of `StockAlert` results."

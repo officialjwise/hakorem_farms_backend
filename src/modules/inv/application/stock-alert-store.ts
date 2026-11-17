@@ -10,9 +10,15 @@ export interface ReorderRuleRecord {
   readonly productId: string;
   readonly branchId: string;
   readonly locationId: string | null;
+  /** The three levels in the product's base unit: what the alerts and `inv.pub_reorder_level` compare. */
   readonly minQty: string;
   readonly reorderPointQty: string;
   readonly maxQty: string;
+  /** The unit the levels were entered in when it is not the base unit (a crate), and the levels as entered; else null. */
+  readonly uom: string | null;
+  readonly minQtyUom: string | null;
+  readonly reorderPointQtyUom: string | null;
+  readonly maxQtyUom: string | null;
   readonly expiryAlertDays: number | null;
   readonly version: number;
 }
@@ -106,7 +112,13 @@ export interface StockAlertStore {
   rules(tx: Transaction, filters: { readonly productId?: string | undefined; readonly branchId?: string | undefined }, scopes: readonly ReadScope[], afterId: string | null, limit: number): Promise<ReorderRuleRecord[]>;
   insertRule(tx: Transaction, rule: Omit<ReorderRuleRecord, 'version'>, actorId: string): Promise<void>;
   /** Writes the levels if the rule is still at `version`; false when it has moved on. */
-  updateRule(tx: Transaction, id: string, version: number, levels: Pick<ReorderRuleRecord, 'minQty' | 'reorderPointQty' | 'maxQty' | 'expiryAlertDays'>, actorId: string): Promise<boolean>;
+  updateRule(
+    tx: Transaction,
+    id: string,
+    version: number,
+    levels: Pick<ReorderRuleRecord, 'minQty' | 'reorderPointQty' | 'maxQty' | 'minQtyUom' | 'reorderPointQtyUom' | 'maxQtyUom' | 'expiryAlertDays'>,
+    actorId: string,
+  ): Promise<boolean>;
   /** The expiry lead times of the live rules of these products, by product, branch and location (null for branch-wide). */
   leadTimes(tx: Transaction, productIds: readonly string[]): Promise<ReorderRuleRecord[]>;
   // Levels and alerts.

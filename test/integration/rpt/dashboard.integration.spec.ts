@@ -162,7 +162,13 @@ describe('B05x gate: each tile answers alone, with the dashboard value and the m
   it('counts the products at or below their reorder point: the eggs, at 30 crates against a point of 30', async () => {
     const tile = await get(accountant, '/dashboard/tiles/low-stock');
     expect(tile.status).toBe(200);
-    const atPoint = SEED_REORDER_RULES.filter((rule) => SEED_HAND_COUNT.lines.some((l) => l.sku === rule.sku && Quantity.parse(l.onHand).thousandths <= Quantity.parse(rule.reorderPointQty).thousandths));
+    // The rules' reorder points in the base unit, as stored: the eggs' 30 crates are 900 eggs (B09e continued).
+    const points = new Map(
+      (await database.pool('admin').query<{ sku: string; point: string }>('SELECT p.sku, r.reorder_point_qty::text AS point FROM inv.reorder_rule r JOIN mdm.product p ON p.id = r.product_id WHERE r.deleted_at IS NULL')).rows.map(
+        (r) => [r.sku, r.point] as const,
+      ),
+    );
+    const atPoint = SEED_REORDER_RULES.filter((rule) => SEED_HAND_COUNT.lines.some((l) => l.sku === rule.sku && Quantity.parse(l.onHand).thousandths <= Quantity.parse(points.get(rule.sku)!).thousandths));
     expect(atPoint.map((r) => r.sku)).toEqual(['EGG-0003']);
     expect(tile.body).toMatchObject({ branchIds: [id('branch:DDW')], lowStockCount: atPoint.length });
   });

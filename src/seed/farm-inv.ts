@@ -19,6 +19,8 @@ type SeedSupplier = (typeof SEED_SUPPLIERS)[number]['name'];
 interface SeedLine {
   readonly sku: string;
   readonly qty: string;
+  /** The unit `qty` is entered in, when it is not the product's base unit (B09e continued): a crate of 30 eggs. */
+  readonly uom?: string;
   readonly valuePesewas: bigint;
   readonly weightKg?: string;
   readonly batchNo?: string;
@@ -74,8 +76,8 @@ export const SEED_RECEIPTS: readonly SeedReceipt[] = [
     kind: 'PURCHASE',
     supplier: 'Awutu Poultry Farm (SEED)',
     location: 'SHOP',
-    // 30 crates of big eggs at 3,500 a crate, held as the 900 eggs they are (A-261).
-    lines: [{ sku: 'EGG-0003', qty: '900.000', valuePesewas: 105_000n, batchNo: 'EGG-BIG-2026-1110', expires: 'eggsExpireOn' }],
+    // 30 crates of big eggs at 3,500 a crate, entered in crates and held as the 900 eggs they are (A-261, B09e continued).
+    lines: [{ sku: 'EGG-0003', qty: '30.000', uom: 'CRATE', valuePesewas: 105_000n, batchNo: 'EGG-BIG-2026-1110', expires: 'eggsExpireOn' }],
   },
   {
     deliveryNoteRef: 'SEED-HARVEST-1110',
@@ -115,10 +117,10 @@ export const SEED_HAND_COUNT = {
 /**
  * Reorder rules at Dodowa (FR-INV-015), whole branch. The eggs' reorder point is the 30 crates (900 eggs) the seed
  * receives, so the seeded farm opens with one low-stock alert, suggesting 50 crates (1,500 eggs) to reach the maximum;
- * yam and beef are above. The egg levels are held in eggs, the base unit (A-261).
+ * yam and beef are above. The egg levels are counted in crates and stored in eggs, the base unit (A-261, B09e continued).
  */
 export const SEED_REORDER_RULES = [
-  { sku: 'EGG-0003', minQty: '600.000', reorderPointQty: '900.000', maxQty: '2400.000', expiryAlertDays: 5 },
+  { sku: 'EGG-0003', uom: 'CRATE', minQty: '20.000', reorderPointQty: '30.000', maxQty: '80.000', expiryAlertDays: 5 },
   { sku: 'PRD-0005', minQty: '15.000', reorderPointQty: '25.000', maxQty: '80.000' },
   { sku: 'MEAT-0005', minQty: '10.000', reorderPointQty: '20.000', maxQty: '90.000', expiryAlertDays: 5 },
 ] as const;
@@ -184,6 +186,7 @@ export function farmSeedInv(calendarOf: (app: INestApplicationContext) => SeedCa
         await staff.as('manager', async (manager) => {
           const lines: ReceiptLineInput[] = receipt.lines.map((line) => ({
             productId: required(products, line.sku, 'product'),
+            uom: line.uom,
             qtyReceived: line.qty,
             valuePesewas: line.valuePesewas,
             weightKg: line.weightKg,

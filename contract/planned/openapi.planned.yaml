@@ -32069,12 +32069,25 @@ components:
             - type: "null"
         uom:
           type: string
+          description: "The unit the levels were entered in: the product's base unit unless the rule named another (a crate, B09e continued). `minQty`, `reorderPointQty` and `maxQty` are in it."
         minQty:
           $ref: "#/components/schemas/Quantity"
         reorderPointQty:
           $ref: "#/components/schemas/Quantity"
         maxQty:
           $ref: "#/components/schemas/Quantity"
+        baseUom:
+          type: string
+          description: "The product's base unit, which stock is counted in and the three `...Base` levels are in (B09e continued)."
+        minQtyBase:
+          $ref: "#/components/schemas/Quantity"
+          description: "`minQty` in the base unit, by the product's exact conversion: what the alerts compare (600 eggs)."
+        reorderPointQtyBase:
+          $ref: "#/components/schemas/Quantity"
+          description: "`reorderPointQty` in the base unit (900 eggs for 30 crates)."
+        maxQtyBase:
+          $ref: "#/components/schemas/Quantity"
+          description: "`maxQty` in the base unit (2,400 eggs for 80 crates)."
         expiryAlertDays:
           type:
             - integer
@@ -32090,6 +32103,10 @@ components:
         - minQty
         - reorderPointQty
         - maxQty
+        - baseUom
+        - minQtyBase
+        - reorderPointQtyBase
+        - maxQtyBase
         - expiryAlertDays
         - version
     ReorderRuleCreate:
@@ -32104,6 +32121,10 @@ components:
         locationId:
           type: string
           format: uuid
+        uom:
+          type: string
+          pattern: "^[A-Z]{2,10}$"
+          description: "The unit the three levels are counted in (B09e continued): the product's base unit when left out, or a unit it converts from (`listUomConversions`), converted by the server's exact conversion and stored in the base unit; a reorder point of 30 crates is 900 eggs. The rule keeps it, and `updateReorderRule` takes levels in it. A unit the product does not convert from is 422 `REORDER_RULE_INVALID` with `NO_CONVERSION`, a level that would need a fourth decimal place in the base unit `INEXACT_QUANTITY`."
         minQty:
           $ref: "#/components/schemas/Quantity"
         reorderPointQty:
@@ -32126,6 +32147,7 @@ components:
           type: integer
         minQty:
           $ref: "#/components/schemas/Quantity"
+          description: "In the rule's own unit (`ReorderRule.uom`), as all three levels are (B09e continued)."
         reorderPointQty:
           $ref: "#/components/schemas/Quantity"
         maxQty:
@@ -32190,6 +32212,11 @@ components:
           type:
             - integer
             - "null"
+        inRuleUnit:
+          anyOf:
+            - $ref: "#/components/schemas/StockAlertInRuleUnit"
+            - type: "null"
+          description: "A level alert of a rule counted in a selling unit, in that unit (B09e continued); null for an expiry alert or a rule in the base unit, which `onHandQty`, `thresholdQty` and `suggestedQty` already answer."
         raisedAt:
           type: string
           format: date-time
@@ -32204,7 +32231,37 @@ components:
         - suggestedQty
         - expiresOn
         - daysToExpiry
+        - inRuleUnit
         - raisedAt
+    StockAlertInRuleUnit:
+      type: object
+      description: "A level alert's figures in its reorder rule's selling unit (B09e continued): exact, never a rounded part of a unit."
+      properties:
+        uom:
+          type: string
+          description: "The rule's unit (`ReorderRule.uom`)."
+        onHandQty:
+          $ref: "#/components/schemas/SignedQuantity"
+          description: "The whole units of `uom` available now (30 crates for 905 eggs), counted toward zero."
+        onHandLooseQty:
+          $ref: "#/components/schemas/SignedQuantity"
+          description: "What is left over, in the base unit (`StockAlert.uom`): 5 eggs for 905."
+        thresholdQty:
+          anyOf:
+            - $ref: "#/components/schemas/Quantity"
+            - type: "null"
+          description: "The level crossed, as the rule counts it (30 crates)."
+        suggestedQty:
+          anyOf:
+            - $ref: "#/components/schemas/Quantity"
+            - type: "null"
+          description: "The suggested reorder in whole units of `uom`, rounded up so the order reaches the rule's maximum: 2,095 eggs short is 70 crates."
+      required:
+        - uom
+        - onHandQty
+        - onHandLooseQty
+        - thresholdQty
+        - suggestedQty
     StockAlertPage:
       type: object
       description: "A page of `StockAlert` results."

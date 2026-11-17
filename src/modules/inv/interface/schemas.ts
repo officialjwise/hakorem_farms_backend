@@ -281,6 +281,7 @@ export const ReorderRuleCreate = z.strictObject({
   productId: z.uuid(),
   branchId: z.uuid(),
   locationId: z.uuid().optional(),
+  uom: UomCode.optional(),
   minQty: Quantity,
   reorderPointQty: Quantity,
   maxQty: Quantity,

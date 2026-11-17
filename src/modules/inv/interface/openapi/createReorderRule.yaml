@@ -2,7 +2,7 @@ operationId: createReorderRule
 tags:
   - inv
 summary: "Create a reorder rule"
-description: "One rule per product and branch, or per product and one physical stock location of the branch (not in transit, not a site). The minimum is at or under the reorder point, which is at or under the maximum, which is above zero; `expiryAlertDays` is 1 to 365. A broken rule is 422 `REORDER_RULE_INVALID` with each `details[].code` naming it (`BELOW_MINIMUM`, `BELOW_REORDER_POINT`, `MAXIMUM_REQUIRED`, `OUT_OF_RANGE`, `NOT_A_STOCK_PRODUCT`, `NOT_A_STOCK_LOCATION`, `NOT_IN_THE_BRANCH`, `RULE_EXISTS`). The rule is judged at once against available stock (on hand less reserved less held): if that is already at or below the reorder point a `LOW_STOCK` alert is raised.\n\nPermission: `inv.reorder_rule.manage`, scoped to the branch and the location."
+description: "One rule per product and branch, or per product and one physical stock location of the branch (not in transit, not a site). The minimum is at or under the reorder point, which is at or under the maximum, which is above zero; `expiryAlertDays` is 1 to 365. A broken rule is 422 `REORDER_RULE_INVALID` with each `details[].code` naming it (`BELOW_MINIMUM`, `BELOW_REORDER_POINT`, `MAXIMUM_REQUIRED`, `OUT_OF_RANGE`, `NOT_A_STOCK_PRODUCT`, `NOT_A_STOCK_LOCATION`, `NOT_IN_THE_BRANCH`, `RULE_EXISTS`, and from B09e continued `NO_CONVERSION` and `INEXACT_QUANTITY` for a rule counted in a selling unit: the levels may be entered in `uom`, a unit the product converts from, and are stored in its base unit). The rule is judged at once against available stock (on hand less reserved less held): if that is already at or below the reorder point a `LOW_STOCK` alert is raised.\n\nPermission: `inv.reorder_rule.manage`, scoped to the branch and the location."
 x-permission: inv.reorder_rule.manage
 x-error-codes:
   - VALIDATION_FAILED
@@ -31,6 +31,7 @@ requestBody:
       example:
         productId: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
         branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+        uom: BAG
         minQty: "10.000"
         reorderPointQty: "15.000"
         maxQty: "60.000"
@@ -56,6 +57,10 @@ responses:
           minQty: "10.000"
           reorderPointQty: "15.000"
           maxQty: "60.000"
+          baseUom: KG
+          minQtyBase: "500.000"
+          reorderPointQtyBase: "750.000"
+          maxQtyBase: "3000.000"
           expiryAlertDays: null
           version: 1
   "400":
