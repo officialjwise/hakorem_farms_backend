@@ -76,6 +76,8 @@ responses:
                     ceilingPricePesewas: 52000
                     quoteOnly: false
                     minQty: "0.000"
+                    minQtyBase: "0.000"
+                    uom: HEAD
                     currency: GHS
                   proposed:
                     id: "019a7ab0-1a01-7c3e-9d11-4b2f6e8a1001"
@@ -95,6 +97,8 @@ responses:
                     ceilingPricePesewas: 52000
                     quoteOnly: false
                     minQty: "0.000"
+                    minQtyBase: "0.000"
+                    uom: HEAD
                     currency: GHS
                 - kind: CHANGED
                   current:
@@ -115,6 +119,8 @@ responses:
                     ceilingPricePesewas: 195000
                     quoteOnly: false
                     minQty: "0.000"
+                    minQtyBase: "0.000"
+                    uom: HEAD
                     currency: GHS
                   proposed:
                     id: "019a7ab0-1a03-7c3e-9d11-4b2f6e8a1003"
@@ -134,6 +140,8 @@ responses:
                     ceilingPricePesewas: 195000
                     quoteOnly: false
                     minQty: "0.000"
+                    minQtyBase: "0.000"
+                    uom: HEAD
                     currency: GHS
                 - kind: CHANGED
                   current:
@@ -157,6 +165,8 @@ responses:
                     ceilingPricePesewas: 98000
                     quoteOnly: false
                     minQty: "0.000"
+                    minQtyBase: "0.000"
+                    uom: HEAD
                     currency: GHS
                   proposed:
                     id: "019a7ab0-1a02-7c3e-9d11-4b2f6e8a1002"
@@ -179,6 +189,8 @@ responses:
                     ceilingPricePesewas: 98000
                     quoteOnly: false
                     minQty: "0.000"
+                    minQtyBase: "0.000"
+                    uom: HEAD
                     currency: GHS
                 - kind: ADDED
                   current: null
@@ -203,6 +215,8 @@ responses:
                     ceilingPricePesewas: 210000
                     quoteOnly: false
                     minQty: "0.000"
+                    minQtyBase: "0.000"
+                    uom: HEAD
                     currency: GHS
                 - kind: UNCHANGED
                   current:
@@ -223,6 +237,8 @@ responses:
                     ceilingPricePesewas: 300000
                     quoteOnly: false
                     minQty: "0.000"
+                    minQtyBase: "0.000"
+                    uom: HEAD
                     currency: GHS
                   proposed:
                     id: "019a7ab0-1a05-7c3e-9d11-4b2f6e8a1005"
@@ -242,6 +258,8 @@ responses:
                     ceilingPricePesewas: 300000
                     quoteOnly: false
                     minQty: "0.000"
+                    minQtyBase: "0.000"
+                    uom: HEAD
                     currency: GHS
                 - kind: REMOVED
                   current:
@@ -258,6 +276,8 @@ responses:
                     ceilingPricePesewas: 0
                     quoteOnly: true
                     minQty: "0.000"
+                    minQtyBase: "0.000"
+                    uom: HEAD
                     currency: GHS
                   proposed: null
               page:

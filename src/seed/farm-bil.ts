@@ -73,7 +73,7 @@ export function farmSeedBil(): ServiceSeedUnit {
             taxInclusive: false,
             lines: [
               { lineKind: 'PRODUCT', productId: meat, description: 'Goat meat, weighed at dispatch (SEED)', quantity: '30.800', uom: 'KG', weightKg: '30.800', unitPricePesewas: 2_800n },
-              { lineKind: 'PRODUCT', productId: eggs, quantity: '3.000', unitPricePesewas: 6_000n },
+              { lineKind: 'PRODUCT', productId: eggs, quantity: '3.000', uom: 'CRATE', unitPricePesewas: 6_000n },
               { lineKind: 'DELIVERY_FEE', description: 'Delivery to Tema (SEED)', quantity: '1.000', uom: 'UNIT', unitPricePesewas: 2_500n, taxCategoryId: delivery },
             ],
           }),
@@ -87,7 +87,7 @@ export function farmSeedBil(): ServiceSeedUnit {
             taxInclusive: true,
             lines: [
               { lineKind: 'PRODUCT', productId: cabbage, quantity: '4.000', unitPricePesewas: 1_500n },
-              { lineKind: 'PRODUCT', productId: eggs, quantity: '2.000', unitPricePesewas: 6_500n, resolvedUnitPricePesewas: 6_000n, discountPesewas: 500n },
+              { lineKind: 'PRODUCT', productId: eggs, quantity: '2.000', uom: 'CRATE', unitPricePesewas: 6_500n, resolvedUnitPricePesewas: 6_000n, discountPesewas: 500n },
             ],
           }),
         ),

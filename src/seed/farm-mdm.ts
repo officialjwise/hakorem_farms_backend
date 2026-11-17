@@ -2,12 +2,12 @@ import { randomUUID } from 'node:crypto';
 import type { INestApplicationContext } from '@nestjs/common';
 import type pg from 'pg';
 import { Approvals } from '../modules/iam';
-import { CatalogueAdmin, LocationsAdmin, PartiesAdmin, PriceListAdmin, ProductCatalogue, Promotions, ReferenceDataAdmin, TaxAdmin, type TaxCellRequest } from '../modules/mdm';
+import { CatalogueAdmin, LocationsAdmin, PartiesAdmin, PriceListAdmin, ProductCatalogue, Promotions, ReferenceDataAdmin, TaxAdmin, UomConversions, type TaxCellRequest } from '../modules/mdm';
 import { runWithRequestContext, type Actor } from '../platform/context/request-context';
 import { UnitOfWork } from '../platform/database/unit-of-work';
 import { PG_POOL } from '../platform/platform.module';
 import { SEED_CATEGORIES, SEED_SPECIES_LIST } from './reference-catalogue';
-import { SEED_CUSTOMERS, SEED_PRICE_LISTS, SEED_PRODUCTS, SEED_PROMOTIONS, SEED_SPECIES, SEED_TAX_SCHEME } from './reference-pricing';
+import { EGGS_PER_CRATE, SEED_CUSTOMERS, SEED_PRICE_LISTS, SEED_PRODUCTS, SEED_PROMOTIONS, SEED_SPECIES, SEED_TAX_SCHEME } from './reference-pricing';
 import type { SeedCalendar } from './seed-calendar';
 import { SEED_USER_AGENT, SeedStaff } from './seed-staff';
 import { expectSeededSku, type ServiceSeedUnit } from './seed-unit';
@@ -280,6 +280,21 @@ export function farmSeedMdm(calendarOf: (app: INestApplicationContext) => SeedCa
         return written;
       });
 
+      // The egg products' selling unit (A-261): a crate of 30 eggs, through MDM's UomConversions as the Manager, before
+      // the price lists price the crate.
+      const conversions = app.get(UomConversions);
+      const converted = new Set(
+        (await pool.query<{ product_id: string }>("SELECT product_id FROM mdm.product_uom_conversion WHERE from_uom = 'CRATE' AND deleted_at IS NULL")).rows.map((r) => r.product_id),
+      );
+      for (const product of SEED_PRODUCTS.filter((p) => p.category === 'EGGS')) {
+        const productId = required(products, product.sku, 'product');
+        if (converted.has(productId)) continue;
+        await staff.as('manager', (manager) =>
+          conversions.create(manager, { productId, fromUom: product.saleUom, numerator: EGGS_PER_CRATE, denominator: 1 }, key('uom-conversion', product.sku, product.saleUom)),
+        );
+        records += 1;
+      }
+
       // Tax scheme version 1 (ADR-0020, ADR-0039): the Accountant drafts and submits, the Owner approves.
       const tax = app.get(TaxAdmin);
       const schemes = await pool.query('SELECT 1 FROM mdm.tax_scheme_version LIMIT 1');
@@ -318,6 +333,7 @@ export function farmSeedMdm(calendarOf: (app: INestApplicationContext) => SeedCa
             floorPricePesewas: entry.floor,
             ceilingPricePesewas: entry.ceiling,
             quoteOnly: entry.quoteOnly,
+            ...(entry.uom === undefined ? {} : { uom: entry.uom }),
           }));
           const filled = await priceLists.replaceEntries(manager, version.body.id, { version: version.body.version, entries }, key('price-list', list.code, 'v1', 'entries'));
           return priceLists.submit(manager, filled.body.id, key('price-list', list.code, 'v1', 'submit'));

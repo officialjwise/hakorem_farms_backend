@@ -5,12 +5,32 @@ Every change to `contract/openapi.yaml`, newest first. A breaking change needs a
 Version numbers follow semantic versioning: a major bump breaks an existing client, a minor bump adds operations or optional fields, a patch fixes descriptions or examples.
 
 **Read first (cold-read summary), rewritten for 2.0.0:** changes that alter an answer or a request a client already handles.
+- **2.1.0:** additive. No existing field, parameter or status changed. A price list entry, a price resolution and an order line name their selling unit (`uom`), so a crate and a single egg carry prices of their own. The seeded eggs are counted per egg (900 where it was 30 crates). See its entry.
 - **2.0.1:** no shape changed. The tracking link's token is random and stored only as its hash (a replay of `placeOrder` answers a fresh one); staff lists and reads of a branch's ledger records show only the branches the reader's grants reach. See its entry.
 - **2.0.0, BREAKING, approved by the owner (2026-11-17).** Read the 2.0.0 entry below before anything else. In short: (1) **no product barcode**: `barcode` is gone from `Product`, `ProductCreate`, `ProductUpdate`, `ProductLabel`, `StockUnitLabel` and `OfflineProduct`, `listProducts` has no `barcode` filter (sending one is 400), and the labels print text; (2) **the SKU is the server's**: `ProductCreate` has no `sku`, and sending `sku` to `createProduct` or `updateProduct` is 422 `FIELD_SERVER_ASSIGNED`; (3) **public IDs**: `customerNo` and `supplierNo` are gone from every answer (`Customer`, `CustomerRef`, `CustomerProfile`, `Supplier`, `SupplierRef`, in 98 operations), replaced by `publicId` (`cus_…`, `sup_…`); (4) the customer, supplier and product import sheets change their naming column. The meat pack labels (`createPacks`, `listPacks`, `printPackLabels`) are byte for byte as in 1.54.0, barcode included. The only QR code is TOTP enrolment's.
 - **1.54.0:** no answer of an implemented operation changed. `getShopProfile` is new, and `getBusinessProfile` and `updateBusinessProfile` move into code; `BusinessProfile` gains `whatsapp`, `directions` and `openingHours`.
 - **1.53.0, LOUD for the Farm hand:** `reportCareMortality` and `submitCareMortalityRecord` refuse a report without its `EVIDENCE` photograph from a reporter who cannot see its value (the Farm hand), whatever the value, with 422 `MORTALITY_PHOTO_REQUIRED`. `markSupplierPaymentPaid` and the payment reads answer `paymentNo` (`SPY-…`) where it was null. Every list's single `example` is now an `examples` map (`default` and `empty`).
 - **1.50.0, LOUD:** `createOrder` answers **202 `ApprovalPending`** (kind `PRICE_OVERRIDE`) where it answered 422 `PRICE_OVERRIDE_NEEDS_APPROVAL` for a price outside the band or below list beyond the seller's limit.
 - Earlier LOUD changes, each on an operation that was still planned when it changed, are in their entries below and in "Reading 1.5.0 to 1.37.0 cold".
+
+## 2.1.0 (2026-11-17, B09e)
+
+Minor, additive: optional request fields, new response fields and new error details only. The owner's decisions of 2026-11-17 on eggs, ADR-0075.
+
+- **Price per selling unit (decision 1):**
+  - `PriceListEntryInput.uom`: optional. It is the selling unit the price is for: the product's base unit when left out, or a unit the product converts from (`listUomConversions`). It is never on a `PER_KG` entry.
+  - `PriceListEntry.uom` and `PriceListEntry.minQtyBase`: required in the answer. `minQty` is now the break as entered, counted in `uom`; for every entry in the base unit it is unchanged. `minQtyBase` is the same break in the base unit.
+  - `PriceResolveLine.uom`: optional. A line is priced only by an entry for the unit it is sold in.
+  - `ResolvedPrice.uom`: required in the answer.
+  - New `PRICE_ENTRY_INVALID` details: `NO_CONVERSION`, `NOT_PER_KG` and `INEXACT_QUANTITY`. A line in a unit the product is not sold by is 422 `REFERENCE_NOT_FOUND` (`/lines/{i}/uom`).
+- **Quantity breaks counted in the selling unit (decision 6):** a break of 10 crates is entered as `minQty: "10.000"` with `uom: CRATE`, and stored and compared as 300 eggs.
+- **`OrderLineInput.uom`** (`createOrder`): optional. A line in crates is priced by the crate's entry and keeps its unit (`OrderLine.uom`, `qtyOrdered` in it). `confirmOrder` reserves the base quantity, so 4 crates hold 120 eggs. Its shortfall (`NOT_ENOUGH_STOCK`) names base quantities. A unit the product is not sold by is 422 `ORDER_INVALID` with `NO_CONVERSION`.
+- **Behaviour, same shapes:**
+  - A counter or online sale, an online placement and a return keep the unit the line was sold in: an `OrderLine` of 1 `CRATE` at 6,000, with a receipt line of 1 `CRATE`. Stock moves in the base unit, 30 eggs.
+  - The cost of a bought lot's issue is valued by its place in the delivery (ADR-0075).
+  - The seeded egg products are now counted per egg (`baseUom: UNIT`, `saleUom: CRATE`, a conversion of 30). Their stock, reservations, reorder levels and movements answer in eggs (900 where it was 30), and their prices are a crate's and a single egg's (A-261). Examples that still show eggs in crates are examples, not the seed.
+
+**What a client does:** nothing for an entry or a line in the base unit. A screen that prices a crate sends `uom: CRATE` and shows the answer's `uom`.
 
 ## 2.0.1 (2026-11-17, B09q continued)
 

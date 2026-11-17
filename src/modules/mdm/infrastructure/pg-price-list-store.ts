@@ -109,13 +109,17 @@ interface EntryRecord {
   ceiling_price: string;
   quote_only: boolean;
   min_qty: string;
+  min_qty_in_uom: string;
+  uom: string;
+  stored_uom: string | null;
 }
 
 const ENTRY_SELECT = `
   SELECT e.id, e.version_id, p.id AS product_id, p.sku, p.name AS product_name, g.id AS grade_id, g.code AS grade_code, g.name AS grade_name,
          w.id AS band_id, w.code AS band_code, w.min_kg::text AS min_kg, w.max_kg::text AS max_kg, e.basis,
          e.list_price_pesewas::text AS list_price, e.floor_price_pesewas::text AS floor_price, e.ceiling_price_pesewas::text AS ceiling_price,
-         e.quote_only, e.min_qty::text AS min_qty
+         e.quote_only, e.min_qty::text AS min_qty, COALESCE(e.min_qty_uom, e.min_qty)::text AS min_qty_in_uom,
+         COALESCE(e.uom, p.base_uom) AS uom, e.uom AS stored_uom
     FROM mdm.price_list_entry e
     JOIN mdm.product p ON p.id = e.product_id
     LEFT JOIN mdm.grade g ON g.id = e.grade_id
@@ -132,7 +136,10 @@ function toEntry(row: EntryRecord): EntryRow {
     floorPricePesewas: BigInt(row.floor_price),
     ceilingPricePesewas: BigInt(row.ceiling_price),
     quoteOnly: row.quote_only,
-    minQty: row.min_qty,
+    minQty: row.min_qty_in_uom,
+    minQtyBase: row.min_qty,
+    uom: row.uom,
+    storedUom: row.stored_uom,
   };
 }
 
@@ -279,13 +286,22 @@ export class PgPriceListStore implements PriceListStore {
 
   async entryReferences(tx: Transaction, inputs: readonly EntryInput[]): Promise<EntryReferences> {
     const ids = (pick: (input: EntryInput) => string | undefined) => [...new Set(inputs.flatMap((input) => (pick(input) === undefined ? [] : [pick(input)!])))];
-    const [products, grades, bands] = await Promise.all([
-      tx.query<{ id: string; species_id: string | null }>('SELECT id, species_id FROM mdm.product WHERE id = ANY($1::uuid[]) AND deleted_at IS NULL', [ids((i) => i.productId)]),
+    const [products, grades, bands, factors] = await Promise.all([
+      tx.query<{ id: string; species_id: string | null; base_uom: string }>('SELECT id, species_id, base_uom FROM mdm.product WHERE id = ANY($1::uuid[]) AND deleted_at IS NULL', [
+        ids((i) => i.productId),
+      ]),
       tx.query<{ id: string; species_id: string }>('SELECT id, species_id FROM mdm.grade WHERE id = ANY($1::uuid[]) AND deleted_at IS NULL', [ids((i) => i.gradeId)]),
       tx.query<{ id: string; species_id: string }>('SELECT id, species_id FROM mdm.weight_band WHERE id = ANY($1::uuid[]) AND deleted_at IS NULL', [ids((i) => i.weightBandId)]),
+      // The live conversions of each product: the selling units an entry may price (B09e).
+      tx.query<{ product_id: string; from_uom: string; numerator: string; denominator: string }>(
+        'SELECT product_id, from_uom, numerator::text, denominator::text FROM mdm.product_uom_conversion WHERE product_id = ANY($1::uuid[]) AND deleted_at IS NULL',
+        [ids((i) => i.productId)],
+      ),
     ]);
+    const unitsOf = (productId: string) =>
+      new Map(factors.rows.filter((row) => row.product_id === productId).map((row) => [row.from_uom, { numerator: BigInt(row.numerator), denominator: BigInt(row.denominator) }]));
     return {
-      products: new Map(products.rows.map((row) => [row.id, { speciesId: row.species_id }])),
+      products: new Map(products.rows.map((row) => [row.id, { speciesId: row.species_id, baseUom: row.base_uom, factors: unitsOf(row.id) }])),
       grades: new Map(grades.rows.map((row) => [row.id, { speciesId: row.species_id }])),
       bands: new Map(bands.rows.map((row) => [row.id, { speciesId: row.species_id }])),
     };
@@ -303,9 +319,11 @@ export class PgPriceListStore implements PriceListStore {
       ceiling_price: string;
       quote_only: boolean;
       min_qty: string;
+      uom: string | null;
+      min_qty_uom: string | null;
     }>(
       `SELECT id, product_id, grade_id, weight_band_id, basis, list_price_pesewas::text AS list_price, floor_price_pesewas::text AS floor_price,
-              ceiling_price_pesewas::text AS ceiling_price, quote_only, min_qty::text
+              ceiling_price_pesewas::text AS ceiling_price, quote_only, min_qty::text, uom, min_qty_uom::text
          FROM mdm.price_list_entry WHERE version_id = $1 ORDER BY id`,
       [versionId],
     );
@@ -320,6 +338,8 @@ export class PgPriceListStore implements PriceListStore {
       ceilingPricePesewas: BigInt(row.ceiling_price),
       quoteOnly: row.quote_only,
       minQty: row.min_qty,
+      uom: row.uom,
+      minQtyUom: row.min_qty_uom,
     }));
   }
 
@@ -328,7 +348,7 @@ export class PgPriceListStore implements PriceListStore {
     await this.insertEntries(
       tx,
       toVersionId,
-      source.map((entry) => ({ ...entry, basis: entry.basis as EntryDefinition['basis'], minQty: entry.minQty })),
+      source.map((entry) => ({ ...entry, basis: entry.basis as EntryDefinition['basis'], minQty: entry.minQty, minQtyInUom: entry.minQtyUom })),
       actorId,
       newId,
     );
@@ -339,7 +359,7 @@ export class PgPriceListStore implements PriceListStore {
     await this.insertEntries(
       tx,
       versionId,
-      entries.map((entry) => ({ ...entry, minQty: entry.minQty.toDecimalString() })),
+      entries.map((entry) => ({ ...entry, minQty: entry.minQty.toDecimalString(), minQtyInUom: entry.minQtyInUom?.toDecimalString() ?? null })),
       actorId,
       newId,
     );
@@ -388,7 +408,7 @@ export class PgPriceListStore implements PriceListStore {
   private async insertEntries(
     tx: Transaction,
     versionId: string,
-    entries: ReadonlyArray<Omit<EntryDefinition, 'minQty'> & { readonly minQty: string }>,
+    entries: ReadonlyArray<Omit<EntryDefinition, 'minQty' | 'minQtyInUom'> & { readonly minQty: string; readonly minQtyInUom: string | null }>,
     actorId: string,
     newId: () => string,
   ): Promise<void> {
@@ -398,10 +418,12 @@ export class PgPriceListStore implements PriceListStore {
     // One statement for the whole set, from parallel arrays: no SQL is built from values.
     await tx.query(
       `INSERT INTO mdm.price_list_entry (id, version_id, product_id, grade_id, weight_band_id, basis, list_price_pesewas, floor_price_pesewas,
-                                         ceiling_price_pesewas, quote_only, min_qty, created_by, updated_by)
-       SELECT u.id, $1, u.product_id, u.grade_id, u.weight_band_id, u.basis, u.list_price, u.floor_price, u.ceiling_price, u.quote_only, u.min_qty, $2, $2
-         FROM unnest($3::uuid[], $4::uuid[], $5::uuid[], $6::uuid[], $7::text[], $8::bigint[], $9::bigint[], $10::bigint[], $11::boolean[], $12::numeric[])
-              AS u (id, product_id, grade_id, weight_band_id, basis, list_price, floor_price, ceiling_price, quote_only, min_qty)`,
+                                         ceiling_price_pesewas, quote_only, min_qty, uom, min_qty_uom, created_by, updated_by)
+       SELECT u.id, $1, u.product_id, u.grade_id, u.weight_band_id, u.basis, u.list_price, u.floor_price, u.ceiling_price, u.quote_only, u.min_qty,
+              u.uom, u.min_qty_uom, $2, $2
+         FROM unnest($3::uuid[], $4::uuid[], $5::uuid[], $6::uuid[], $7::text[], $8::bigint[], $9::bigint[], $10::bigint[], $11::boolean[], $12::numeric[],
+                     $13::text[], $14::numeric[])
+              AS u (id, product_id, grade_id, weight_band_id, basis, list_price, floor_price, ceiling_price, quote_only, min_qty, uom, min_qty_uom)`,
       [
         versionId,
         actorId,
@@ -415,6 +437,8 @@ export class PgPriceListStore implements PriceListStore {
         entries.map((e) => e.ceilingPricePesewas.toString()),
         entries.map((e) => e.quoteOnly),
         entries.map((e) => e.minQty),
+        entries.map((e) => e.uom),
+        entries.map((e) => e.minQtyInUom),
       ],
     );
   }

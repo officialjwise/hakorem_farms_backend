@@ -54,7 +54,11 @@ export interface EntrySnapshot {
   readonly floorPricePesewas: bigint;
   readonly ceilingPricePesewas: bigint;
   readonly quoteOnly: boolean;
+  /** The break in the base unit. */
   readonly minQty: string;
+  /** The selling unit (B09e), null for the base unit, with the break as entered in it. */
+  readonly uom: string | null;
+  readonly minQtyUom: string | null;
 }
 
 interface Ref {
@@ -74,7 +78,14 @@ export interface EntryRow {
   readonly floorPricePesewas: bigint;
   readonly ceilingPricePesewas: bigint;
   readonly quoteOnly: boolean;
+  /** The quantity break counted in `uom`, as entered (10 crates). */
   readonly minQty: string;
+  /** The same break in the product's base unit, which the engine compares (300 eggs). */
+  readonly minQtyBase: string;
+  /** The selling unit the price is for: the product's base unit unless the entry names another (B09e). */
+  readonly uom: string;
+  /** The unit as stored: null for the base unit. Not answered; it keeps an entry's identity (`entryIdentity`). */
+  readonly storedUom: string | null;
 }
 
 /** What still prices with a list or is assigned it, now or later (archivePriceList, updatePriceList). */

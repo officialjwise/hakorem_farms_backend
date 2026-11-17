@@ -39,7 +39,10 @@ export interface PriceEntry {
   readonly floorPricePesewas: bigint;
   readonly ceilingPricePesewas: bigint;
   readonly quoteOnly: boolean;
+  /** The quantity break, always in the product's base unit (10 crates are stored as 300 eggs, B09e). */
   readonly minQty: Quantity;
+  /** The selling unit this price is for; null for the product's base unit. A crate's price is never an egg's times 30. */
+  readonly uom: string | null;
 }
 
 /** A list in its slot of the resolution order, with its entries for the product. */
@@ -51,7 +54,10 @@ export interface PriceListCandidate {
 export interface PricingQuery {
   readonly gradeId: string | null;
   readonly weight: Weight | null;
+  /** The quantity sold, in the product's base unit, which quantity breaks are compared with. */
   readonly quantity: Quantity;
+  /** The unit sold; null for the product's base unit. Only an entry for this unit can price the line (B09e). */
+  readonly uom: string | null;
 }
 
 export type PriceResolution =
@@ -69,7 +75,8 @@ function specificity(entry: PriceEntry): number {
 }
 
 /**
- * Walks the candidates in the order given and stops at the first list with a matching entry; inside a list the
+ * Walks the candidates in the order given and stops at the first list with a matching entry, an entry for the unit
+ * sold and no other (a crate is priced by a crate's entry, a single egg by the base unit's); inside a list the
  * most specific entry wins, then the largest quantity break not above the quantity. A matching `quote_only` entry
  * stops the walk. With no match anywhere, the reason is MISSING_GRADE_OR_WEIGHT if some entry would have matched
  * once given the grade or weight the request lacks, otherwise NO_RULE: a weight outside every band is NO_RULE, and so
@@ -85,7 +92,7 @@ export function resolvePrice(query: PricingQuery, bands: readonly WeightBand[], 
       const weightMissing = entry.weightBandId !== null && query.weight === null;
       const gradeFits = entry.gradeId === null || gradeMissing || entry.gradeId === query.gradeId;
       const bandFits = entry.weightBandId === null || weightMissing || entry.weightBandId === band?.id;
-      if (!gradeFits || !bandFits || entry.minQty.compareTo(query.quantity) > 0) {
+      if (entry.uom !== query.uom || !gradeFits || !bandFits || entry.minQty.compareTo(query.quantity) > 0) {
         continue;
       }
       if (gradeMissing || weightMissing) {

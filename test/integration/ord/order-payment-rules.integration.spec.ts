@@ -43,7 +43,7 @@ const eggs = (overrides: Partial<SaleRequest> = {}): SaleRequest => ({
   branchId,
   fulfilmentMode: 'COUNTER',
   taxInclusive: true,
-  lines: [{ productId: id('eggs'), stockUnitId: id('eggLot'), fromLocationId: id('SHOP'), quantity: '1.000' }],
+  lines: [{ productId: id('eggs'), stockUnitId: id('eggLot'), fromLocationId: id('SHOP'), quantity: '1.000', uom: 'CRATE' }],
   tenders: [{ methodCode: 'CASH', amountPesewas: 6_000n, register: till }],
   ...overrides,
 });

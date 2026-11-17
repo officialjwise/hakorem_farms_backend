@@ -87,7 +87,7 @@ export interface PriceListVersionView {
 }
 
 /** The contract's `PriceListEntry`, money as JSON integers of pesewas. */
-export type PriceListEntryView = Omit<EntryRow, 'listPricePesewas' | 'floorPricePesewas' | 'ceilingPricePesewas'> & {
+export type PriceListEntryView = Omit<EntryRow, 'listPricePesewas' | 'floorPricePesewas' | 'ceilingPricePesewas' | 'storedUom'> & {
   readonly listPricePesewas: number;
   readonly floorPricePesewas: number;
   readonly ceilingPricePesewas: number;
@@ -656,8 +656,9 @@ export class PriceListAdmin implements ApprovalHandler {
 }
 
 function entryView(row: EntryRow): PriceListEntryView {
+  const { storedUom: _storedUom, ...answered } = row;
   return {
-    ...row,
+    ...answered,
     listPricePesewas: jsonPesewas(row.listPricePesewas),
     floorPricePesewas: jsonPesewas(row.floorPricePesewas),
     ceilingPricePesewas: jsonPesewas(row.ceilingPricePesewas),
@@ -667,7 +668,7 @@ function entryView(row: EntryRow): PriceListEntryView {
 
 /** An entry as the comparison reads it, carrying the row it answers with. */
 function previewEntry(row: EntryRow): PreviewEntry & { readonly row: EntryRow } {
-  return { ...row, productId: row.product.id, gradeId: row.grade?.id ?? null, weightBandId: row.weightBand?.id ?? null, row };
+  return { ...row, productId: row.product.id, gradeId: row.grade?.id ?? null, weightBandId: row.weightBand?.id ?? null, minQty: row.minQtyBase, uom: row.storedUom, row };
 }
 
 function entriesHash(entries: readonly unknown[]): string {

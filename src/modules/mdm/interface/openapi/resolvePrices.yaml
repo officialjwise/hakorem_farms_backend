@@ -2,7 +2,7 @@ operationId: resolvePrices
 tags:
   - pricing
 summary: "Resolve prices for one or more lines"
-description: "Walks the customer list, then tier and channel, then channel, then base, and stops at the first hit; inside a list the most specific entry wins. A line that cannot be priced returns outcome QUOTE_REQUIRED with a reason, never an error and never a zero. Promotions apply only to tier, channel and base prices: each resolved line lists the active line promotions that discount it, each `discountPesewas` taken from the line extended at list price and rounded half-up once; one per stack group, the larger; an exclusive promotion alone. A per-kilogram line without a weight takes no promotion until it is weighed. A coupon promotion applies only with its `couponCode`; a code that exists but cannot be used is 422 `COUPON_UNAVAILABLE`, with the reason as `details[0].code`. Read-only: nothing is stored.\n\nPermission: `mdm.price.resolve`."
+description: "Walks the customer list, then tier and channel, then channel, then base, and stops at the first hit; inside a list the most specific entry wins. A line is priced by an entry for the unit it is sold in (`uom`, B09e): a crate by the crate's entry and a single egg by the base unit's, never one derived from the other, while quantity breaks compare the quantity in the base unit. A line that cannot be priced returns outcome QUOTE_REQUIRED with a reason, never an error and never a zero. Promotions apply only to tier, channel and base prices: each resolved line lists the active line promotions that discount it, each `discountPesewas` taken from the line extended at list price and rounded half-up once; one per stack group, the larger; an exclusive promotion alone. A per-kilogram line without a weight takes no promotion until it is weighed. A coupon promotion applies only with its `couponCode`; a code that exists but cannot be used is 422 `COUPON_UNAVAILABLE`, with the reason as `details[0].code`. Read-only: nothing is stored.\n\nPermission: `mdm.price.resolve`."
 x-permission: mdm.price.resolve
 x-error-codes:
   - VALIDATION_FAILED
@@ -65,6 +65,7 @@ responses:
                   name: "Counter prices"
                   kind: CHANNEL
                 basis: PER_HEAD
+                uom: HEAD
                 listPricePesewas: 85000
                 floorPricePesewas: 70000
                 ceilingPricePesewas: 98000
@@ -89,6 +90,7 @@ responses:
                   name: "Base prices"
                   kind: BASE
                 basis: PER_KG
+                uom: KG
                 listPricePesewas: 2000
                 floorPricePesewas: 1467
                 ceilingPricePesewas: 2333

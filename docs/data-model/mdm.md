@@ -381,9 +381,12 @@ Mutable while its version is a draft; frozen by trigger afterwards. Published ke
 | `floor_price_pesewas` | `pesewas` | NOT NULL | Lowest price without approval |
 | `ceiling_price_pesewas` | `pesewas` | NOT NULL | Highest price without approval |
 | `quote_only` | `boolean` | NOT NULL DEFAULT `false` | Stops resolution and sends the buyer to a quote |
-| `min_qty` | `qty` | NOT NULL DEFAULT 0 | Quantity break; the entry with the largest `min_qty` not above the quantity applies |
+| `min_qty` | `qty` | NOT NULL DEFAULT 0 | Quantity break in the product's base unit; the entry with the largest `min_qty` not above the quantity applies |
+| `uom` | `text` | NULL, FK `mdm.uom` | The selling unit the price is for (B09e, migration 0215): null for the base unit, otherwise a unit the product converts from, live when the entry is written (`mdm.price_list_entry_uom_guard`, HK010 `ck_price_list_entry_uom_conversion`). A crate's price is its own, never thirty times an egg's |
+| `min_qty_uom` | `qty` | NULL; set exactly with `uom` (`ck_price_list_entry_uom`) | The break as entered, counted in `uom` (10 crates); `min_qty` holds it in the base unit (300 eggs) |
 
-- UNIQUE NULLS NOT DISTINCT (`version_id`, `product_id`, `grade_id`, `weight_band_id`, `min_qty`): no two entries can match the same request.
+- UNIQUE NULLS NOT DISTINCT (`version_id`, `product_id`, `grade_id`, `weight_band_id`, `uom`, `min_qty`): no two entries can match the same request (B09e adds `uom`).
+- CHECK `ck_price_list_entry_uom`: a unit other than the base comes with its break as entered, and is never on a `PER_KG` entry (A-157).
 - CHECK: `floor_price_pesewas <= list_price_pesewas <= ceiling_price_pesewas`.
 - CHECK: `quote_only` or `floor_price_pesewas > 0`: a priced entry never lets a sale be agreed at nothing (B4).
 - Created and changed columns as `MASTER`, without soft delete: a draft entry is removed outright, an active one never. `hk_app` holds no `DELETE`; the removal is `mdm.clear_draft_price_list_entries(version_id)`, `SECURITY DEFINER`, and the guard trigger `mdm.price_list_entry_guard` refuses any insert, update or delete of an entry whose version is not `DRAFT` (ADR-0036).

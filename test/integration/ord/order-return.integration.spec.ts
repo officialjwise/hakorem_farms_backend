@@ -335,6 +335,39 @@ describe('submitReturn waits for a supervisor who did not make the return (ADR-0
   });
 });
 
+describe('a crate sold by the crate comes back as the eggs it is (B09e)', () => {
+  it('takes back 1 crate of a 2-crate line as 30 eggs at exactly its cost of 3,500, crediting 6,000', async () => {
+    const uow = api.app.get(UnitOfWork);
+    const sales = api.app.get(SalePosting);
+    const actor: Actor = { principalId: id('user:cashier'), kind: 'USER', displayName: 'cashier', realm: 'STAFF', sessionId: null, steppedUpAt: null };
+    const eggs = (await admin().query<{ id: string }>("SELECT id FROM mdm.product WHERE sku = 'EGG-0003'")).rows[0]!.id;
+    const lot = (await admin().query<{ id: string }>("SELECT id FROM inv.stock_unit WHERE identifier = 'EGG-BIG-2026-1110'")).rows[0]!.id;
+    const request: SaleRequest = {
+      orderId: createUuidV7Generator(clock)(),
+      channel: 'WHOLESALE',
+      branchId,
+      fulfilmentMode: 'COUNTER',
+      taxInclusive: true,
+      lines: [{ productId: eggs, stockUnitId: lot, fromLocationId: id('SHOP'), quantity: '2.000', uom: 'CRATE' }],
+      tenders: [{ methodCode: 'CASH', amountPesewas: 12_000n, register: nextTill() }],
+    };
+    const sold = await runWithRequestContext({ correlationId: randomUUID(), ip: null, userAgent: 'returns test', actor }, () =>
+      uow.run({ isolation: 'serializable', seriesLocks: sales.locksFor(branchId) }, (tx) => sales.postIn(tx, actor, request)),
+    );
+    const line = sold.lines[0]!;
+    const receiptId = (await admin().query<{ billing_document_id: string }>('SELECT billing_document_id FROM ord.sales_order WHERE id = $1', [sold.id])).rows[0]!.billing_document_id;
+    ids.set('eggs', eggs);
+    const sale: Sale = { id: sold.id, receiptId, lines: new Map([['eggs', { id: line.id, movementId: line.stockMovementId! }]]) };
+    const done = await completedReturn('cashier', sale, [['eggs', 1, 'RESTOCK']]);
+    expect(await returnedMovements(done.id)).toEqual([{ qty: '30.000', value: '3500', to_location_id: id('SHOP'), returns_movement_id: line.stockMovementId, movement_type: 'SALE_RETURN' }]);
+    const credit = await admin().query<{ qty: string; uom: string; gross: string }>(
+      "SELECT l.qty::text, l.uom, l.line_gross_pesewas::text AS gross FROM bil.billing_document d JOIN bil.billing_document_line l ON l.billing_document_id = d.id WHERE d.original_document_id = $1 AND d.kind = 'CREDIT_NOTE'",
+      [receiptId],
+    );
+    expect(credit.rows).toEqual([{ qty: '1.000', uom: 'CRATE', gross: '6000' }]);
+  });
+});
+
 describe('an approved return credits the sale, takes the goods back and asks for the refund (ADR-0066, abuse case 12)', () => {
   it('leaves a credit note of 4,000 by its maker, the yams back on the shelf at their cost, and a refund that neither the maker nor the credit note’s maker approves', async () => {
     const sale = await sell('cashier', { yam: 3 });

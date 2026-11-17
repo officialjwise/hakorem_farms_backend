@@ -1,4 +1,5 @@
 import { Quantity } from '@hakorem/kernel';
+import { pricingUom } from './line-pricing';
 import type { Actor } from '../../../platform/context/request-context';
 import type { Transaction, UnitOfWork } from '../../../platform/database/unit-of-work';
 import { NotFoundError } from '../../../platform/errors/api-error';
@@ -185,10 +186,25 @@ export class CatalogueListing {
 
   private async priceRanges(tx: Transaction, branchId: string, products: readonly OnlineProductFacts[]) {
     const floors = await this.storefront.bandFloorsIn(tx, products.flatMap((p) => (p.speciesId === null ? [] : [p.speciesId])));
-    const lines: ResolveLine[] = products.flatMap((p) => {
+    // One sale unit of each: a crate of eggs is listed at the crate's own price (B09e), when the product converts from it.
+    const saleUnits = new Map<string, string>();
+    for (const p of products) {
+      const uom = pricingUom(p);
+      if (uom !== undefined && (await this.refs.toBaseIn(tx, p.id, uom, Quantity.ofUnits(1n))).ok) saleUnits.set(p.id, uom);
+    }
+    const lines: ResolveLine[] = products.flatMap((p): ResolveLine[] => {
       const bands = p.speciesId === null ? [] : (floors.get(p.speciesId) ?? []);
       if (bands.length > 0) return bands.map((kg, index) => ({ lineRef: `${p.id}:${index}`, productId: p.id, weightKg: kg, quantity: '1.000' }));
-      return [{ lineRef: `${p.id}:0`, productId: p.id, quantity: '1.000', ...(p.stockPolicy === 'CATCH_WEIGHT' && p.nominalPackKg !== null ? { weightKg: p.nominalPackKg } : {}) }];
+      const uom = saleUnits.get(p.id);
+      return [
+        {
+          lineRef: `${p.id}:0`,
+          productId: p.id,
+          quantity: '1.000',
+          ...(p.stockPolicy === 'CATCH_WEIGHT' && p.nominalPackKg !== null ? { weightKg: p.nominalPackKg } : {}),
+          ...(uom === undefined ? {} : { uom }),
+        },
+      ];
     });
     const resolved = lines.length === 0 ? [] : (await this.pricing.resolveIn(tx, { channel: 'ONLINE', branchId, lines })).lines;
     const inclusive = await this.storefront.priceListsTaxInclusiveIn(tx, resolved.flatMap((r) => (r.resolved === null ? [] : [r.resolved.priceList.id])));

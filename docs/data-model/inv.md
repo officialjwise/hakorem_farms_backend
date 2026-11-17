@@ -143,10 +143,13 @@ Value of stock: per stock unit, or per untracked product and branch. Written onl
 | `branch_id` | `uuid` | NOT NULL, FK `mdm.branch` | |
 | `qty` | `numeric(14,3)` | NOT NULL | Signed for the allowed-negative case |
 | `value_pesewas` | `pesewas` | NOT NULL | Never negative |
+| `anchor_qty` | `numeric(14,3)` | NULL; with `anchor_value_pesewas` (`ck_cost_pool_anchor`) | A bought lot's delivery quantity Q0 (B09e, ADR-0075, migration 0214); null for every other pool |
+| `anchor_value_pesewas` | `bigint` | NULL, `>= 0` | The delivery's value V0 |
 | `updated_at` | `timestamptz` | NOT NULL | |
 
 - UNIQUE NULLS NOT DISTINCT (`product_id`, `stock_unit_id`, `branch_id`).
 - CHECK: `qty <> 0 OR value_pesewas = 0`. A pool with no quantity has no value.
+- A bought lot (ADR-0075): `trg_stock_movement_pool_anchor` sets the anchor to what the pool holds after a `RECEIPT_PURCHASE` of a lot (not a reversal). `trg_stock_movement_delivery_cost` values an issue of `q` from a physical location, with `p = anchor_qty - qty`, at `half_up(V0 x (p + q) / Q0) - half_up(V0 x p / Q0)`, so a whole crate always carries its price and the delivery sums exactly. A pool off its delivery's schedule (after a value-only addition, a gain, a return or an earlier reversal) is anchored again at what it holds, at the next issue. Every other pool keeps ADR-0018's `half_up(V x q / Q)`.
 
 ### `inv.stock_reservation` · DOCUMENT
 

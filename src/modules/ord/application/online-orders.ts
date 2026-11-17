@@ -183,7 +183,13 @@ export class OnlineOrders {
       channel: 'ONLINE',
       branchId: p.branchId,
       at,
-      lines: p.lines.map((l, i) => ({ lineRef: String(i), productId: l.productId, quantity: l.quantity, ...(l.estimatedWeightKg === null ? {} : { weightKg: l.estimatedWeightKg }) })),
+      // Each line priced in the unit it was put in the cart in (a crate, B09e); a catch-weight line by its estimated weight.
+      lines: p.lines.map((l, i) => ({
+        lineRef: String(i),
+        productId: l.productId,
+        quantity: l.quantity,
+        ...(l.estimatedWeightKg === null ? { uom: l.uom } : { weightKg: l.estimatedWeightKg }),
+      })),
     });
     const orderId = this.nextId();
     const lines: NewOrderLine[] = [];

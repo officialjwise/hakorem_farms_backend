@@ -44,11 +44,13 @@ const PROFORMA = 'bil.proforma.create';
 export const ORDER_PLACED = 'ord.OrderPlaced';
 export const ORDER_CONFIRMED = 'ord.OrderConfirmed';
 
-/** An order line as staff enter it (the contract's `OrderLineInput`): quantities in the product's base unit. */
+/** An order line as staff enter it (the contract's `OrderLineInput`): the quantity in `uom`, the base unit by default. */
 export interface OrderLineInput {
   readonly productId: string;
   readonly stockUnitId?: string | null;
   readonly quantity: string;
+  /** The unit sold (B09e): a crate of eggs, priced by the crate's own entry and reserved as 30 eggs. */
+  readonly uom?: string | null;
   readonly gradeId?: string | null;
   readonly weightKg?: string | null;
   readonly agreedUnitPricePesewas?: bigint | null;
@@ -402,25 +404,28 @@ export class Orders {
       );
       const left = new Map<number, Quantity>(balances.map((b, i) => [i, b.availableQty]));
       const short: { lineNo: number; wanted: string; short: string }[] = [];
-      const planned: { line: OrderLineRecord; pieces: { balance: PromisableStock; qty: Quantity; index: number }[] }[] = [];
+      const planned: { line: OrderLineRecord; wanted: string; pieces: { balance: PromisableStock; qty: Quantity; index: number }[] }[] = [];
       for (const line of open) {
         const offered = balances.map((b, index) => ({ b, index })).filter(({ b }) => b.productId === line.productId && (line.stockUnitId === null || b.stockUnitId === line.stockUnitId));
+        // Stock is reserved in the base unit: a line of 4 crates holds 120 eggs (B09e). The shortfall is in the base unit too.
+        const base = await this.refs.toBaseIn(tx, line.productId, line.uom, Quantity.parse(line.qtyOrdered));
+        if (!base.ok) throw new Error(`order line ${line.id} in ${line.uom} has no exact base quantity (${base.error})`);
         const plan = planLineReservation(
-          Quantity.parse(line.qtyOrdered),
+          base.value,
           offered.map(({ index }) => ({ availableQty: left.get(index)! })),
         );
         if (plan.kind === 'SHORT') {
-          short.push({ lineNo: line.lineNo, wanted: line.qtyOrdered, short: plan.short.toDecimalString() });
+          short.push({ lineNo: line.lineNo, wanted: base.value.toDecimalString(), short: plan.short.toDecimalString() });
           continue;
         }
         const pieces = plan.pieces.map((p) => ({ balance: offered[p.index]!.b, qty: p.qty, index: offered[p.index]!.index }));
         for (const piece of pieces) left.set(piece.index, left.get(piece.index)!.minus(piece.qty));
-        planned.push({ line, pieces });
+        planned.push({ line, wanted: base.value.toDecimalString(), pieces });
       }
       if (short.length > 0) throw new OrderStockShortError(short);
 
       const reservationIds: string[] = [];
-      for (const { line, pieces } of planned) {
+      for (const { line, wanted, pieces } of planned) {
         const held: string[] = [];
         for (const piece of pieces) {
           try {
@@ -436,7 +441,7 @@ export class Orders {
             );
           } catch (error) {
             if (error instanceof InsufficientStockError || error instanceof StockUnitNotAvailableError || error instanceof StockUnitReservedError || error instanceof StockUnitOnHoldError) {
-              throw new OrderStockShortError([{ lineNo: line.lineNo, wanted: line.qtyOrdered, short: piece.qty.toDecimalString() }]);
+              throw new OrderStockShortError([{ lineNo: line.lineNo, wanted, short: piece.qty.toDecimalString() }]);
             }
             throw error;
           }
@@ -575,7 +580,7 @@ export class Orders {
     );
     const broken: SaleRule[] = [];
     const seen = new Set<string>();
-    const checked: { index: number; product: ProductFacts; qty: Quantity; unitId: string | null; gradeId: string | undefined; weightKg: string | undefined }[] = [];
+    const checked: { index: number; product: ProductFacts; qty: Quantity; uom: string; unitId: string | null; gradeId: string | undefined; weightKg: string | undefined }[] = [];
     for (const [i, line] of request.lines.entries()) {
       const product = products.get(line.productId);
       if (product === undefined || !product.isLive) {
@@ -592,8 +597,14 @@ export class Orders {
       if (unitId !== null && (unit === undefined || unit.productId !== product.id)) broken.push({ field: lineField(i, 'stockUnitId'), rule: 'STOCK_UNIT_OTHER_PRODUCT' });
       else if (unit !== undefined && (unit.status !== 'ACTIVE' || unit.branchId !== branchId)) broken.push({ field: lineField(i, 'stockUnitId'), rule: 'STOCK_UNIT_NOT_AVAILABLE' });
       const qty = Quantity.parse(line.quantity);
+      // A line in another unit (a crate) converts through MDM's exact factor, never one of ORD's own (B09e, B06u).
+      const uom = line.uom ?? product.baseUom;
+      if (uom !== product.baseUom) {
+        const converted = await this.refs.toBaseIn(tx, product.id, uom, qty);
+        if (!converted.ok) broken.push({ field: lineField(i, 'uom'), rule: converted.error === 'INEXACT_QUANTITY' ? 'INEXACT_QUANTITY' : 'NO_CONVERSION' });
+      }
       if (product.tracking === 'SERIAL' && !qty.equals(Quantity.ofUnits(1n))) broken.push({ field: lineField(i, 'quantity'), rule: 'ONE_ANIMAL_PER_LINE' });
-      checked.push({ index: i, product, qty, unitId, gradeId: line.gradeId ?? unit?.gradeId ?? undefined, weightKg: line.weightKg ?? unit?.lastWeightKg ?? undefined });
+      checked.push({ index: i, product, qty, uom, unitId, gradeId: line.gradeId ?? unit?.gradeId ?? undefined, weightKg: line.weightKg ?? unit?.lastWeightKg ?? undefined });
     }
     if (broken.length > 0) throw new OrderInvalidError(broken);
 
@@ -606,6 +617,7 @@ export class Orders {
         lineRef: String(c.index),
         productId: c.product.id,
         quantity: c.qty.toDecimalString(),
+        ...(c.uom === c.product.baseUom ? {} : { uom: c.uom }),
         ...(c.gradeId === undefined ? {} : { gradeId: c.gradeId }),
         ...(c.weightKg === undefined ? {} : { weightKg: c.weightKg }),
       })),
@@ -649,7 +661,7 @@ export class Orders {
         productId: c.product.id,
         stockUnitId: c.unitId,
         qtyOrdered: c.qty.toDecimalString(),
-        uom: c.product.baseUom,
+        uom: c.uom,
         qtyFulfilled: '0.000',
         fulfilledWeightKg: null,
         weightSource: null,

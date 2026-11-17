@@ -78,6 +78,7 @@ export class OrdersController {
             productId: l.productId,
             stockUnitId: l.stockUnitId ?? null,
             quantity: l.quantity,
+            uom: l.uom ?? null,
             gradeId: l.gradeId ?? null,
             weightKg: l.weightKg ?? null,
             agreedUnitPricePesewas: l.agreedUnitPricePesewas === undefined ? null : BigInt(l.agreedUnitPricePesewas),

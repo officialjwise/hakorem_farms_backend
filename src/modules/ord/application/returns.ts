@@ -292,9 +292,13 @@ export class Returns {
     for (const [i, line] of record.lines.entries()) {
       let movementId: string | null = null;
       if (line.disposition !== 'WRITE_OFF') {
+        const soldLine = sold.get(line.salesOrderLineId)!;
+        // The return counts in the unit the line was sold in (a crate); stock takes it back in the base unit (30 eggs, B09e).
+        const base = await this.refs.toBaseIn(tx, soldLine.productId, soldLine.uom, Quantity.parse(line.qty));
+        if (!base.ok) throw new Error(`a returned ${soldLine.uom} of product ${soldLine.productId} has no exact base quantity (${base.error})`);
         movementId = await this.movements.returnSaleIn(tx, decider, {
-          issueMovementId: sold.get(line.salesOrderLineId)!.stockMovementId!,
-          qty: Quantity.parse(line.qty),
+          issueMovementId: soldLine.stockMovementId!,
+          qty: base.value,
           toLocationId: line.disposition === 'RETURNS_HOLD' ? holding : null,
           reasonCode: record.reasonCode,
           sourceDocumentId: record.id,

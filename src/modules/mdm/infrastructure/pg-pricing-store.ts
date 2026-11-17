@@ -19,6 +19,7 @@ interface ListRow {
   ceiling_price: string | null;
   quote_only: boolean | null;
   min_qty: string | null;
+  uom: string | null;
 }
 
 /**
@@ -33,19 +34,32 @@ export class PgPricingStore implements PricingStore {
 
   async products(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, PricingProduct>> {
     // The category and its ancestors; the tree is shallow, and the depth bound stops a cycle a bad row could make.
-    const { rows } = await tx.query<{ id: string; species_id: string | null; category_ids: string[] }>(
+    const { rows } = await tx.query<{ id: string; species_id: string | null; base_uom: string; category_ids: string[]; factors: { uom: string; numerator: string; denominator: string }[] }>(
       `WITH RECURSIVE up (product_id, category_id, depth) AS (
          SELECT p.id, p.category_id, 1 FROM mdm.product p WHERE p.id = ANY($1::uuid[]) AND p.deleted_at IS NULL
          UNION ALL
          SELECT up.product_id, c.parent_id, up.depth + 1 FROM up JOIN mdm.category c ON c.id = up.category_id
           WHERE c.parent_id IS NOT NULL AND up.depth < 20
        )
-       SELECT p.id, p.species_id, array_agg(up.category_id ORDER BY up.depth) AS category_ids
+       SELECT p.id, p.species_id, p.base_uom, array_agg(up.category_id ORDER BY up.depth) AS category_ids,
+              (SELECT COALESCE(json_agg(json_build_object('uom', c.from_uom, 'numerator', c.numerator::text, 'denominator', c.denominator::text)), '[]'::json)
+                 FROM mdm.product_uom_conversion c WHERE c.product_id = p.id AND c.deleted_at IS NULL) AS factors
          FROM mdm.product p JOIN up ON up.product_id = p.id
-        GROUP BY p.id, p.species_id`,
+        GROUP BY p.id, p.species_id, p.base_uom`,
       [[...new Set(ids)]],
     );
-    return new Map(rows.map((row) => [row.id, { id: row.id, speciesId: row.species_id, categoryIds: row.category_ids }]));
+    return new Map(
+      rows.map((row) => [
+        row.id,
+        {
+          id: row.id,
+          speciesId: row.species_id,
+          baseUom: row.base_uom,
+          categoryIds: row.category_ids,
+          factors: new Map(row.factors.map((f) => [f.uom, { numerator: BigInt(f.numerator), denominator: BigInt(f.denominator) }])),
+        },
+      ]),
+    );
   }
 
   async grades(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, GradeRow>> {
@@ -95,7 +109,7 @@ export class PgPricingStore implements PricingStore {
     const { rows } = await tx.query<ListRow>(
       `SELECT l.id AS list_id, l.code, l.name, l.kind, l.branch_id,
               e.id AS entry_id, e.product_id, e.grade_id, e.weight_band_id, e.basis, e.list_price_pesewas::text AS list_price,
-              e.floor_price_pesewas::text AS floor_price, e.ceiling_price_pesewas::text AS ceiling_price, e.quote_only, e.min_qty::text
+              e.floor_price_pesewas::text AS floor_price, e.ceiling_price_pesewas::text AS ceiling_price, e.quote_only, e.min_qty::text, e.uom
          FROM mdm.price_list l
          JOIN mdm.price_list_version v
            ON v.price_list_id = l.id AND v.status = 'ACTIVE' AND v.valid_from <= $5 AND (v.valid_to IS NULL OR v.valid_to > $5)
@@ -128,6 +142,7 @@ export class PgPricingStore implements PricingStore {
           ceilingPricePesewas: BigInt(row.ceiling_price!),
           quoteOnly: row.quote_only!,
           minQty: Quantity.parse(row.min_qty!),
+          uom: row.uom,
         });
       }
     }

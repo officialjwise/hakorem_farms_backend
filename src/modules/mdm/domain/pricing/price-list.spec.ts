@@ -7,8 +7,9 @@ const goat = 'product-goat';
 const eggs = 'product-eggs';
 const refs: EntryReferences = {
   products: new Map([
-    [goat, { speciesId: GOAT }],
-    [eggs, { speciesId: null }],
+    [goat, { speciesId: GOAT, baseUom: 'HEAD', factors: new Map() }],
+    // Eggs held one by one and sold by the crate of 30 (B09e).
+    [eggs, { speciesId: null, baseUom: 'UNIT', factors: new Map([['CRATE', { numerator: 30n, denominator: 1n }], ['PACK', { numerator: 1n, denominator: 8n }]]) }],
   ]),
   grades: new Map([
     ['grade-goat-a', { speciesId: GOAT }],
@@ -108,6 +109,53 @@ describe('entries of a draft version (FR-MDM-015)', () => {
         { field: '/entries/3/weightBandId', rule: 'UNKNOWN' },
       ],
     });
+  });
+});
+
+describe('an entry priced per selling unit, its break counted in that unit and stored in the base unit (B09e, decisions 1 and 6)', () => {
+  const crate = (fields: Partial<EntryInput> = {}): EntryInput => ({
+    productId: eggs,
+    basis: 'PER_UNIT',
+    listPricePesewas: 5_500n,
+    floorPricePesewas: 5_500n,
+    ceilingPricePesewas: 5_500n,
+    uom: 'CRATE',
+    ...fields,
+  });
+
+  it('keeps a crate entry at 5,500 beside a single egg entry at 200, and stores a break of 10 crates as 300 eggs', () => {
+    const result = defineEntries([crate(), crate({ minQty: '10.000', listPricePesewas: 5_250n, floorPricePesewas: 5_250n }), priced({ productId: eggs, basis: 'PER_UNIT', listPricePesewas: 200n, floorPricePesewas: 200n, ceilingPricePesewas: 200n })], refs);
+    expect(result.ok).toBe(true);
+    const entries = result.ok ? result.value : [];
+    expect(entries.map((e) => [e.uom, e.minQty.toDecimalString(), e.minQtyInUom?.toDecimalString() ?? null, e.listPricePesewas])).toEqual([
+      ['CRATE', '0.000', '0.000', 5_500n],
+      ['CRATE', '300.000', '10.000', 5_250n],
+      [null, '0.000', null, 200n],
+    ]);
+  });
+
+  it('stores the base unit named explicitly as the base unit, so it matches a line in eggs', () => {
+    const result = defineEntries([crate({ uom: 'UNIT', listPricePesewas: 200n, floorPricePesewas: 200n, ceilingPricePesewas: 200n, minQty: '12.000' })], refs);
+    expect(result.ok && result.value[0]).toMatchObject({ uom: null, minQtyInUom: null });
+    expect(result.ok && result.value[0]!.minQty.toDecimalString()).toBe('12.000');
+  });
+
+  it('refuses a unit the product does not convert from, a unit on a per-kilogram price, and a break that would need a fourth decimal place', () => {
+    const result = defineEntries([crate({ uom: 'TRAY' }), crate({ basis: 'PER_KG' }), crate({ uom: 'PACK', minQty: '0.001' }), crate({ productId: goat, basis: 'PER_HEAD' })], refs);
+    expect(result).toEqual({
+      ok: false,
+      error: [
+        { field: '/entries/0/uom', rule: 'NO_CONVERSION' },
+        { field: '/entries/1/uom', rule: 'NOT_PER_KG' },
+        { field: '/entries/2/minQty', rule: 'INEXACT_QUANTITY' },
+        { field: '/entries/3/uom', rule: 'NO_CONVERSION' },
+      ],
+    });
+  });
+
+  it('refuses two crate entries with one break, but not a crate and a single egg with the same break', () => {
+    expect(defineEntries([crate(), crate({ listPricePesewas: 6_000n, ceilingPricePesewas: 6_000n })], refs)).toEqual({ ok: false, error: [{ field: '/entries/1', rule: 'DUPLICATE_ENTRY' }] });
+    expect(defineEntries([crate(), crate({ uom: undefined, listPricePesewas: 200n, floorPricePesewas: 200n, ceilingPricePesewas: 200n })], refs).ok).toBe(true);
   });
 });
 

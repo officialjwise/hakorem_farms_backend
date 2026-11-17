@@ -39,6 +39,8 @@ interface Case {
   readonly grade: string | null;
   readonly weightKg: string | null;
   readonly quantity: string;
+  /** The unit sold; null for the base unit (B09e: a crate of eggs beside a single egg). */
+  readonly uom: string | null;
 }
 
 /** A weight inside a band: its lower edge plus a quarter of its width, to the gram. */
@@ -55,21 +57,23 @@ function cases(): Case[] {
     const species = SEED_SPECIES.find((s) => s.code === product.species);
     if (species === undefined) {
       const quantity = product.category === 'MEAT' ? '15.000' : '1.000';
-      all.push({ sku: product.sku, band: null, grade: null, weightKg: product.category === 'MEAT' ? '15.000' : null, quantity });
+      all.push({ sku: product.sku, band: null, grade: null, weightKg: product.category === 'MEAT' ? '15.000' : null, quantity, uom: null });
+      // A product sold by a unit other than its base (a crate of 30 eggs) is also priced in that unit, by its own entry.
+      if (product.category !== 'MEAT' && product.saleUom !== product.baseUom) all.push({ sku: product.sku, band: null, grade: null, weightKg: null, quantity, uom: product.saleUom });
       continue;
     }
     for (const band of species.bands) {
       for (const grade of [null, ...species.grades.map((g) => g.code)]) {
-        all.push({ sku: product.sku, band: band.code, grade, weightKg: inside(band.minKg, band.maxKg), quantity: '1.000' });
+        all.push({ sku: product.sku, band: band.code, grade, weightKg: inside(band.minKg, band.maxKg), quantity: '1.000', uom: null });
       }
       // The lower edge belongs to this band, not the one below (half-open bands).
-      all.push({ sku: product.sku, band: band.code, grade: null, weightKg: band.minKg, quantity: '1.000' });
+      all.push({ sku: product.sku, band: band.code, grade: null, weightKg: band.minKg, quantity: '1.000', uom: null });
     }
     const top = species.bands.at(-1)!;
     const bottom = species.bands[0]!;
-    all.push({ sku: product.sku, band: null, grade: null, weightKg: top.maxKg, quantity: '1.000' }); // above every band
-    all.push({ sku: product.sku, band: null, grade: null, weightKg: Weight.ofGrams(Weight.parseKg(bottom.minKg).grams - 1n).toKgString(), quantity: '1.000' }); // below
-    all.push({ sku: product.sku, band: null, grade: null, weightKg: null, quantity: '1.000' }); // no weight at all
+    all.push({ sku: product.sku, band: null, grade: null, weightKg: top.maxKg, quantity: '1.000', uom: null }); // above every band
+    all.push({ sku: product.sku, band: null, grade: null, weightKg: Weight.ofGrams(Weight.parseKg(bottom.minKg).grams - 1n).toKgString(), quantity: '1.000', uom: null }); // below
+    all.push({ sku: product.sku, band: null, grade: null, weightKg: null, quantity: '1.000', uom: null }); // no weight at all
   }
   return all;
 }
@@ -88,7 +92,7 @@ function expected(channel: SeedChannel, buyer: Buyer, line: Case): Expected {
   ];
   let lacked = false;
   for (const list of walk) {
-    const forProduct = list.entries.filter((e) => e.sku === line.sku);
+    const forProduct = list.entries.filter((e) => e.sku === line.sku && (e.uom ?? null) === line.uom);
     // An entry "needed" a missing grade or weight only if it would match once given it.
     const fits = (e: SeedEntry) => (e.band === null || line.weightKg === null || e.band === line.band) && (e.grade === null || line.grade === null || e.grade === line.grade);
     lacked ||= forProduct.some((e) => fits(e) && ((e.band !== null && line.weightKg === null) || (e.grade !== null && line.grade === null)));
@@ -118,6 +122,7 @@ function resolve(channel: SeedChannel, buyer: Buyer, lines: readonly Case[]) {
         productId: productIds.get(line.sku),
         ...(line.grade === null ? {} : { gradeId: gradeIds.get(`${species(line.sku)}:${line.grade}`) }),
         ...(line.weightKg === null ? {} : { weightKg: line.weightKg }),
+        ...(line.uom === null ? {} : { uom: line.uom }),
         quantity: line.quantity,
       })),
     });
@@ -169,7 +174,7 @@ describe('B4 gate: every band, channel and customer tier in the seeded catalogue
         lines.forEach((line, index) => {
           const want = expected(channel, buyer, line);
           const got = response.body.lines[index];
-          const label = `${line.sku} ${line.band ?? '-'} ${line.grade ?? '-'} ${line.weightKg ?? 'no weight'}`;
+          const label = `${line.sku} ${line.band ?? '-'} ${line.grade ?? '-'} ${line.weightKg ?? 'no weight'} ${line.uom ?? 'base unit'}`;
           expect(got.lineRef, label).toBe(String(index));
           expect(got.promotions, label).toEqual([]);
           if (want.outcome === 'QUOTE_REQUIRED') {
@@ -186,6 +191,7 @@ describe('B4 gate: every band, channel and customer tier in the seeded catalogue
             Number(want.entry.ceiling),
           ]);
           expect(got.resolved.basis, label).toBe(want.entry.basis);
+          expect(got.resolved.uom, label).toBe(line.uom ?? SEED_PRODUCTS.find((p) => p.sku === line.sku)!.baseUom);
           expect(got.resolved.weightBand?.code ?? null, label).toBe(want.entry.band);
           expect(got.resolved.grade?.code ?? null, label).toBe(want.entry.grade);
           expect(got.resolved.listPricePesewas, label).toBeGreaterThan(0);
@@ -202,7 +208,7 @@ describe('B4 gate: pinned exact prices, so the oracle itself is checked', () => 
     expect(response.status).toBe(200);
     return response.body.lines[0];
   };
-  const goatA = (kg: string): Case => ({ sku: 'LIV-0004', band: 'GOAT-M', grade: 'A', weightKg: kg, quantity: '1.000' });
+  const goatA = (kg: string): Case => ({ sku: 'LIV-0004', band: 'GOAT-M', grade: 'A', weightKg: kg, quantity: '1.000', uom: null });
 
   it('a 22.400 kg grade A goat at the counter is GHS 720.00 from the base list, band 450.00 to 900.00', async () => {
     const got = await one('POS', null, goatA('22.400'));
@@ -223,19 +229,29 @@ describe('B4 gate: pinned exact prices, so the oracle itself is checked', () => 
     expect(gradeB.resolved).toMatchObject({ priceList: { code: 'WHOLESALE' }, listPricePesewas: 58_500 });
   });
 
+  it('a crate of big eggs at the counter is GHS 60.00 and a single big egg GHS 2.20, each its own entry; a reseller at the counter pays 8 percent less for each (B09e)', async () => {
+    const crate: Case = { sku: 'EGG-0003', band: null, grade: null, weightKg: null, quantity: '1.000', uom: 'CRATE' };
+    const single: Case = { ...crate, uom: null };
+    expect((await one('POS', null, crate)).resolved).toMatchObject({ priceList: { code: 'BASE' }, uom: 'CRATE', listPricePesewas: 6_000 });
+    expect((await one('POS', null, single)).resolved).toMatchObject({ priceList: { code: 'BASE' }, uom: 'UNIT', listPricePesewas: 220 });
+    // 6,000 x 0.92 = 5,520 and 220 x 0.92 = 202.4, rounded half-up once when the list was set: 202.
+    expect((await one('POS', 'C-00003', crate)).resolved).toMatchObject({ priceList: { code: 'POS-RESELLER-TIER' }, uom: 'CRATE', listPricePesewas: 5_520 });
+    expect((await one('POS', 'C-00003', single)).resolved).toMatchObject({ priceList: { code: 'POS-RESELLER-TIER' }, uom: 'UNIT', listPricePesewas: 202 });
+  });
+
   it('derived prices were rounded half-up once when the list was set: 1,067 x 0.85 = 906.95 is 907, 733 x 0.85 = 623.05 is 623', async () => {
-    const meat = (sku: string): Case => ({ sku, band: null, grade: null, weightKg: '15.000', quantity: '15.000' });
+    const meat = (sku: string): Case => ({ sku, band: null, grade: null, weightKg: '15.000', quantity: '15.000', uom: null });
     expect((await one('WHOLESALE', 'C-00003', meat('MEAT-0004'))).resolved).toMatchObject({ priceList: { code: 'WHL-RESELLER-TIER' }, floorPricePesewas: 907, listPricePesewas: 1_105 });
     expect((await one('WHOLESALE', 'C-00003', meat('MEAT-0002'))).resolved).toMatchObject({ floorPricePesewas: 623, listPricePesewas: 935 });
   });
 
   it('extends a resolved per-kilogram price to a line once, half-up: 0.500 kg of online wings at 1,155 is 577.5, so 578', async () => {
-    const got = await one('ONLINE', null, { sku: 'MEAT-0002', band: null, grade: null, weightKg: '0.500', quantity: '0.500' });
+    const got = await one('ONLINE', null, { sku: 'MEAT-0002', band: null, grade: null, weightKg: '0.500', quantity: '0.500', uom: null });
     expect(got.resolved).toMatchObject({ priceList: { code: 'ONLINE' }, listPricePesewas: 1_155, basis: 'PER_KG' });
     const measure = { quantity: Quantity.parse('0.500'), weight: Weight.parseKg('0.500') };
     expect(extendPrice(BigInt(got.resolved.listPricePesewas), 'PER_KG', measure)).toEqual({ ok: true, value: 578n });
     // A full 15.250 kg pack of online full chicken at 1,995 a kilogram: 30,423.75, so 30,424.
-    const chicken = await one('ONLINE', null, { sku: 'MEAT-0001', band: null, grade: null, weightKg: '15.250', quantity: '15.250' });
+    const chicken = await one('ONLINE', null, { sku: 'MEAT-0001', band: null, grade: null, weightKg: '15.250', quantity: '15.250', uom: null });
     expect(chicken.resolved.listPricePesewas).toBe(1_995);
     expect(extendPrice(1_995n, 'PER_KG', { quantity: Quantity.parse('15.250'), weight: Weight.parseKg('15.250') })).toEqual({ ok: true, value: 30_424n });
   });
@@ -249,7 +265,7 @@ describe('B4 gate: an unresolvable request becomes a quote, not an error', () =>
   };
 
   it('a 65.000 kg goat, above every goat band, is QUOTE_REQUIRED with NO_RULE', async () => {
-    expect(await one({ sku: 'LIV-0004', band: null, grade: null, weightKg: '65.000', quantity: '1.000' })).toEqual({
+    expect(await one({ sku: 'LIV-0004', band: null, grade: null, weightKg: '65.000', quantity: '1.000', uom: null })).toEqual({
       lineRef: '0',
       outcome: 'QUOTE_REQUIRED',
       resolved: null,
@@ -259,16 +275,16 @@ describe('B4 gate: an unresolvable request becomes a quote, not an error', () =>
   });
 
   it('a goat with no weight is MISSING_GRADE_OR_WEIGHT', async () => {
-    expect((await one({ sku: 'LIV-0004', band: null, grade: null, weightKg: null, quantity: '1.000' })).quoteRequiredReason).toBe('MISSING_GRADE_OR_WEIGHT');
+    expect((await one({ sku: 'LIV-0004', band: null, grade: null, weightKg: null, quantity: '1.000', uom: null })).quoteRequiredReason).toBe('MISSING_GRADE_OR_WEIGHT');
   });
 
   it('a 70.000 kg festival ram is QUOTE_ONLY even though smaller sheep have list prices', async () => {
-    expect((await one({ sku: 'LIV-0005', band: 'SHEEP-XL', grade: null, weightKg: '70.000', quantity: '1.000' }, 'WHOLESALE')).quoteRequiredReason).toBe('QUOTE_ONLY');
+    expect((await one({ sku: 'LIV-0005', band: 'SHEEP-XL', grade: null, weightKg: '70.000', quantity: '1.000', uom: null }, 'WHOLESALE')).quoteRequiredReason).toBe('QUOTE_ONLY');
   });
 
   it('lettuce, unpriced this season, is NO_RULE on every channel and never a zero price', async () => {
     for (const channel of CHANNELS) {
-      const got = await one({ sku: 'PRD-0006', band: null, grade: null, weightKg: null, quantity: '1.000' }, channel);
+      const got = await one({ sku: 'PRD-0006', band: null, grade: null, weightKg: null, quantity: '1.000', uom: null }, channel);
       expect(got).toMatchObject({ outcome: 'QUOTE_REQUIRED', quoteRequiredReason: 'NO_RULE', resolved: null });
     }
   });

@@ -107,6 +107,7 @@ Each card gives: what the module owns, its public interface (the services export
 - **Imports:** platform, IAM.
 - **Subscribes:** nothing.
 - **Built in B09q (ADR-0072, A-248 to A-252):** a product's SKU is the server's: `ProductCatalogue.createIn` allocates it through `ProductStore.allocateSku` (`mdm.allocate_sku`, the category's `sku_prefix` and its own counter in `mdm.sku_counter`), and every create, update and import refuses an input carrying one (`serverAssignedFieldsIn`, 422 `FIELD_SERVER_ASSIGNED`); `createProduct` queues on the advisory lock `SKU_SERIES_LOCK`. No product barcode: the product views, `ProductCatalogue.getLabel` (built by the domain's `productLabel`) and the product sheet carry none, and `mdm.product.barcode` is unused until it is dropped (BL-075). Categories carry `skuPrefix`. Customers and suppliers carry a public ID (ADR-0073, A-253): `PublicIds` (a provider) draws it and `insertWithFresh` retries a collision; `MasterDataRefs` gives `publicId` in `CustomerFacts` and `SupplierFacts` in place of the sequential numbers, which every higher module's `CustomerRef` and `SupplierRef` now show; search and the customer and supplier sheets take it.
+- **Built in B09e (A-261):** `PricingService.resolveIn` prices a line in the unit it is sold in (`ResolveLine.uom`; an entry names its selling unit, `mdm.price_list_entry.uom`, migration 0215), with quantity breaks entered in that unit and compared in the base unit; a selling module passes the line's unit and its quantity in it (ORD's sale posting, online placement and returns, SHP's lines and catalogue). No new port.
 
 ### DOC: documents and media (layer 3)
 
@@ -143,6 +144,7 @@ Each card gives: what the module owns, its public interface (the services export
 - **Built in B09a continued 2d (A-228, ADR-0068):** `StockMovements.returnSaleIn`, a customer return of part or all of a sale issue in the caller's transaction (`SALE_RETURN` naming `returns_movement_id`), valued by the database at its share of the issue (migration 0199).
 - **Built in B09a continued 2f (A-232, ADR-0070):** `Reservations.transferHeldByIn`, every active reservation of one document handed to another in the caller's serializable transaction (an online order taking over its checkout's hold): each ended RELEASED and published with `transferredToDocumentId`, the same stock reserved again for the new holder with no expiry; it authorises nothing. `inv.ReservationReleased` and `inv.ReservationExpired` carry `transferredToDocumentId` (null except for a hand-over).
 - **Built in B09q (ADR-0072, A-251):** the stock unit label (`StockQueries.getStockUnitLabel`, the domain's `stockUnitLabel`) prints its text only, with no barcode.
+- **Built in B09e (ADR-0075, A-259):** a bought lot is valued by its place in the delivery, by the triggers of migration 0214 (`inv.cost_pool.anchor_qty`, `anchor_value_pesewas`); no interface changed, and the value is still the database's.
 
 ### LIV: livestock management (layer 6)
 

@@ -14,6 +14,7 @@ import {
   type QuoteRequiredReason,
 } from '../domain/pricing/pricing-engine';
 import { applyLinePromotions, judgeCoupon } from '../domain/pricing/promotions';
+import { toBase } from '../domain/unit-conversion';
 import { CouponUnavailableError, referencesNotFound } from './errors';
 import type { CouponRow, PromotionStore } from './promotion-store';
 import { promotionRule } from './promotions';
@@ -27,7 +28,10 @@ export interface ResolveLine {
   readonly stockUnitId?: string | undefined;
   readonly gradeId?: string | undefined;
   readonly weightKg?: string | undefined;
+  /** In `uom`: the product's base unit when it is left out, otherwise a unit the product is sold by (a crate, B09e). */
   readonly quantity: string;
+  /** The unit sold. Only an entry for that unit prices the line; a crate's price is never derived from an egg's. */
+  readonly uom?: string | undefined;
 }
 
 export interface ResolveRequest {
@@ -68,6 +72,8 @@ export interface PriceResolutionView {
     readonly priceListEntryId: string;
     readonly priceList: PriceListRef;
     readonly basis: PriceBasis;
+    /** The unit the price is for: the unit the line was asked in (B09e). */
+    readonly uom: string;
     readonly listPricePesewas: number;
     readonly floorPricePesewas: number;
     readonly ceilingPricePesewas: number;
@@ -153,6 +159,11 @@ export class PricingService {
       if (line.gradeId !== undefined && (grade === undefined || (product !== undefined && grade.speciesId !== product.speciesId))) {
         unknown.push(`/lines/${index}/gradeId`);
       }
+      // A unit the product is not sold by names nothing to price; so does a quantity in it that is no exact base quantity.
+      if (product !== undefined && line.uom !== undefined && line.uom !== product.baseUom) {
+        const factor = product.factors.get(line.uom);
+        if (factor === undefined || !toBase(Quantity.parse(line.quantity), factor).ok) unknown.push(`/lines/${index}/uom`);
+      }
     });
     if (unknown.length > 0) {
       throw referencesNotFound(unknown);
@@ -172,16 +183,19 @@ export class PricingService {
       const candidates: PriceListCandidate[] = ordered.map((entry) => ({ list: entry.list, entries: entry.entries.filter((e) => e.productId === line.productId) }));
       const weight = line.weightKg === undefined ? null : Weight.parseKg(line.weightKg);
       const quantity = Quantity.parse(line.quantity);
-      const result = resolvePrice({ gradeId: line.gradeId ?? null, weight, quantity }, speciesBands, candidates);
-      // The line extended at list price, the anchor a discount is taken from; a per-kilogram line without a weight has
-      // none, so it takes no promotion until it is weighed.
+      // The unit sold, and the quantity in the base unit that quantity breaks count in (10 crates are 300 eggs).
+      const uom = line.uom === undefined || line.uom === product.baseUom ? null : line.uom;
+      const baseQuantity = uom === null ? quantity : (toBase(quantity, product.factors.get(uom)!) as { readonly value: Quantity }).value;
+      const result = resolvePrice({ gradeId: line.gradeId ?? null, weight, quantity: baseQuantity, uom }, speciesBands, candidates);
+      // The line extended at list price, the anchor a discount is taken from, by the quantity in the unit sold; a
+      // per-kilogram line without a weight has none, so it takes no promotion until it is weighed.
       const extended = result.kind === 'Resolved' ? extendPrice(result.entry.listPricePesewas, result.entry.basis, { quantity, weight }) : null;
-      return { line, product, speciesBands, result, lineAmount: extended?.ok === true ? extended.value : null };
+      return { line, product, speciesBands, result, uom: uom ?? product.baseUom, lineAmount: extended?.ok === true ? extended.value : null };
     });
     const rules = (await this.promotions.inForce(tx, request.channel, at)).map(promotionRule);
     const orderAmountPesewas = results.reduce((sum, item) => sum + (item.lineAmount ?? 0n), 0n);
 
-    const lines = results.map(({ line, product, speciesBands, result, lineAmount }): PriceResolutionView => {
+    const lines = results.map(({ line, product, speciesBands, result, uom, lineAmount }): PriceResolutionView => {
       if (result.kind === 'QuoteRequired') {
         return { lineRef: line.lineRef, outcome: 'QUOTE_REQUIRED', resolved: null, quoteRequiredReason: result.reason, promotions: [] };
       }
@@ -196,7 +210,7 @@ export class PricingService {
       return {
         lineRef: line.lineRef,
         outcome: 'RESOLVED',
-        resolved: resolvedView(result, grades, speciesBands),
+        resolved: resolvedView(result, uom, grades, speciesBands),
         quoteRequiredReason: null,
         promotions: applied.map((item) => ({
           promotionId: item.promotion.id,
@@ -221,11 +235,12 @@ export class PricingService {
   }
 }
 
-function resolvedView(result: Extract<PriceResolution, { kind: 'Resolved' }>, grades: ReadonlyMap<string, GradeRow>, bands: readonly BandRow[]): PriceResolutionView['resolved'] {
+function resolvedView(result: Extract<PriceResolution, { kind: 'Resolved' }>, uom: string, grades: ReadonlyMap<string, GradeRow>, bands: readonly BandRow[]): PriceResolutionView['resolved'] {
   return {
     priceListEntryId: result.entry.id,
     priceList: result.list,
     basis: result.entry.basis,
+    uom,
     listPricePesewas: Money.ofPesewas(result.entry.listPricePesewas).toJsonInteger(),
     floorPricePesewas: Money.ofPesewas(result.entry.floorPricePesewas).toJsonInteger(),
     ceilingPricePesewas: Money.ofPesewas(result.entry.ceilingPricePesewas).toJsonInteger(),

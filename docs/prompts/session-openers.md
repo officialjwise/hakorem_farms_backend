@@ -74,7 +74,9 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B09x continued | `B09x2-shop-profile.md` | `b09x2-shop-profile` | B4 to B12 | The business profile is stored and changed only through AUD's audited, step-up write; getShopProfile answers anonymously and cacheably with the contact fields only, its keys listed exactly by a test; the seed uses invented, clearly fictional numbers; every write refuses the wrong role |
 | B09q | `B09q-ids-barcodes.md` | `b09q-ids-barcodes` | B4 to B12 | TOTP the only QR; no product barcode, lookup or label barcode while meat pack labels stay as built; server-generated SKUs; unguessable customer and supplier public IDs; no identifier reads anything without authorisation; contract 2.0.0 with every example updated |
 | B09q continued | `B09q2-no-id-is-a-key.md` | `b09q2-no-id-is-a-key` | B4 to B12 | Knowing a public ID, a SKU or a UUID reads nothing without authorisation, per operation that takes one, as an anonymous caller and as another customer; every link sent to a customer carries its own long random token (built) |
-| B09e | `B09e-eggs.md` | `b09e-eggs` | B4 to B12 | Crate and single prices on the price list; delivery cost spread exactly (a GHS 47.50 crate posts 4,750); lines in crates or eggs; received date and oldest-first; cracked-on-arrival reasons and a claim that drafts the credit note; breaks and reorder points in the selling unit; last price paid on a PO line |
+| B09e | `B09e-eggs.md` | `b09e-eggs` | B4 to B12 | Built and split (A-259 to A-262): a crate and a single egg each carry their own price on the price list while stock stays in eggs; a bought lot's cost is valued by its place in the delivery, so a crate bought at GHS 47.50 posts exactly 4,750 (ADR-0075); quantity breaks counted in the selling unit and stored in eggs; orders, the counter and online sale take a line in crates; the seeded eggs counted per egg |
+| B09e continued | `B09e2-eggs-lines-lots.md` | `b09e2-eggs-lines-lots` | B4 to B12 | Goods receipts and transfers take a line in crates or eggs, converted by the server through MasterDataRefs.toBaseIn; every bought lot has a received date and sells oldest first by expiry, then by received date, wherever the server picks a lot; reorder points counted in the selling unit and stored in eggs; every write refuses the wrong role |
+| B09e continued 2 | `B09e3-eggs-claims.md` | `b09e3-eggs-claims` | B4 to B12 | A rejected quantity carries its reason (CRACKED, BROKEN, DIRTY, SHORT, WRONG_ITEM, QUALITY_REJECTED) and a claim raised from the receipt drafts the supplier credit note from the rejected lines and their cost, maker and checker apart (CR-035, CR-036); breakage reasons for stock adjustments; a purchase order line defaults to the last price paid; every write refuses the wrong role |
 | B9b | `B09b-pos-shifts-offline.md` | `b09b-pos-shifts-offline` | B4 to B12 | Shift close reconciles; 500 queued offline transactions sync exactly once |
 | B09c | `B09c-card-payment.md` | `b09c-card-payment` | B4 to B12 | Card payment online through the provider port with every payment edge case, no card details on our servers, and the card cases run against the real sandbox |
 | B08 continued 2d | `B08c2d-customer-statements.md` | `b08c2d-customer-statements` | B4 to B12 | A customer statement for a period ties to the customer's documents and the ledger's 1200 for that customer and period, opening plus movements equal to closing to the pesewa, and is rendered after commit and archived once; every statement write refuses the wrong role |
@@ -2183,13 +2185,79 @@ Additive contract changes only, unless one is unavoidable and recorded loudly.
 Stop at the gate, write docs/sessions/B09e-eggs.md, and merge into main when every run on the pull request is green.
 ```
 
+## B09e continued — Eggs: lines in crates, received dates and oldest first
+
+Branch `b09e2-eggs-lines-lots`, from `main`. Report `docs/sessions/B09e2-eggs-lines-lots.md`. Inserted by B09e's split (A-262, ADR-0026 Amendments) after B09e and before B09e continued 2: B09e built prices per selling unit, the cost by place in the delivery (ADR-0075), breaks in the selling unit, the counter and online sale in crates and the seeded eggs counted per egg. Gate: goods receipts and stock transfers take a line in crates or eggs, converted by the server through MasterDataRefs.toBaseIn, never with a factor of their own (orders already do: B09e built createOrder, the sale posting and online placement in the unit sold); every bought lot has a received date and sells oldest first by expiry, then by received date, wherever the server picks a lot (promisable stock, reservations, checkout, and the sale when no lot is named); reorder points are counted in the selling unit and stored in eggs; every write refuses the wrong role.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B09e-eggs.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md).
+For this phase, read the owner's decisions 3, 4 and 6 below, ADR-0018 and ADR-0075, A-157, A-163 and A-259 to A-262,
+docs/data-model/inv.md, mdm.md and ord.md, and the MDM, INV and ORD cards in docs/MODULE_BOUNDARIES.md. Load
+hakorem-stock, hakorem-money, hakorem-migration, hakorem-endpoint and hakorem-tests. Do not read any other document
+unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B09e continued only, on branch b09e2-eggs-lines-lots, branched from main. The owner's decisions
+(2026-11-17), each test-first with exact quantity and pesewa assertions:
+3. Lines in crates: goods receipts (createGoodsReceipt and its lines) and stock transfers accept a line in crates or in
+   eggs, converted by the server through MasterDataRefs.toBaseIn (B06u), never with a factor of their own; the line
+   keeps the unit it was entered in, and stock moves in eggs. Orders already do (B09e: createOrder, its confirmation's
+   reservations, the sale posting, online placement and returns). A purchase order line already converts (B7): a
+   receipt against it in crates matches it.
+4. A received date on every bought lot (the receipt's received_at, kept on the stock unit); sell oldest first by
+   expiry, then by received date, wherever the server picks a lot: promisable stock, reservations, checkout, and the
+   sale when no lot is named.
+6. (The rest of it.) Reorder points, minimum and maximum levels counted in the selling unit (a reorder point of 30
+   crates), stored in eggs; the alert and the suggested reorder answer in both.
+The cost of each issue stays the database's (ADR-0075): a crate bought at GHS 47.50 still posts exactly 4,750.
+Additive contract changes only, unless one is unavoidable and recorded loudly.
+Stop at the gate, write docs/sessions/B09e2-eggs-lines-lots.md, and merge into main when every run on the pull
+request is green.
+```
+
+## B09e continued 2 — Eggs: cracked on arrival, the claim, the last price paid
+
+Branch `b09e3-eggs-claims`, from `main`. Report `docs/sessions/B09e3-eggs-claims.md`. Inserted by B09e's split (A-262, ADR-0026 Amendments) after B09e continued and before B9b. Gate: a rejected quantity carries its reason from the `GOODS_RECEIPT_REJECTION` domain (CRACKED, BROKEN, DIRTY, SHORT, WRONG_ITEM, QUALITY_REJECTED, A-260), refused without one and refused on nothing rejected; a claim raised from a posted receipt drafts the supplier credit note from the rejected lines and their cost, never keyed by hand, linked both ways, moving no stock, and keeps the credit note's approval with maker and checker apart; breakage reasons exist for stock adjustments; a purchase order line defaults to the last price paid to that supplier for that product; every write refuses the wrong role.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B09e2-eggs-lines-lots.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md).
+For this phase, read the owner's decisions 5 and 7 below, CR-035 and CR-036 as committed on the frontend's main,
+ADR-0075, A-260, docs/data-model/inv.md, pur.md and mdm.md (the reason codes), and the INV and PUR cards in
+docs/MODULE_BOUNDARIES.md. Load hakorem-money, hakorem-stock, hakorem-ledger, hakorem-migration, hakorem-endpoint,
+hakorem-security-review and hakorem-tests. Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B09e continued 2 only, on branch b09e3-eggs-claims, branched from main. The owner's decisions
+(2026-11-17), each test-first with exact pesewa assertions:
+5. Cracked on arrival: a reason on every rejected quantity, from a new reason code domain GOODS_RECEIPT_REJECTION
+   seeded with CRACKED, BROKEN, DIRTY, SHORT, WRONG_ITEM and QUALITY_REJECTED (A-260), each with requiresNote; the
+   receipt line answers its reason and note (CR-035 points 2 and 3, with the codes A-260 names); STOCK_ADJUSTMENT
+   breakage reasons (BREAKAGE and any the seed already names, CR-035 point 1); supplier scoring's rejection rate reads
+   the same field (CR-035 point 4). A claim raised from the posted receipt drafts the supplier credit note from the
+   rejected lines and their cost (from the purchase order line's price, split exactly with the kernel's allocate
+   between accepted and rejected), never keyed by hand, linked both ways (the receipt answers its claims; the claim
+   names its receipt, purchase order and the credit note or invoice that settles it), moving no stock, on the
+   supplier's account until settled; the credit note keeps its existing approval, maker and checker apart,
+   mutation-checked with test data where the maker, the receiver and the approver are different people (CR-036).
+7. A purchase order line defaults to the last price paid to that supplier for that product; no full supplier price
+   list yet.
+Answer CR-035 and CR-036 in the report. Every new read is authorised and joins the contract-generated identifier walk
+(B09q continued). Additive contract changes only, unless one is unavoidable and recorded loudly.
+Stop at the gate, write docs/sessions/B09e3-eggs-claims.md, and merge into main when every run on the pull request is
+green.
+```
+
 ## B9b — Point of sale, shifts and offline sync
 
 Branch `b09b-pos-shifts-offline`. Report `docs/sessions/B09b-pos-shifts-offline.md`. Gate: shift close reconciles, and 500 queued offline transactions sync exactly once.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9b row).
-List docs/sessions/ and read only the most recent report (docs/sessions/B09e-eggs.md).
+List docs/sessions/ and read only the most recent report (docs/sessions/B09e3-eggs-claims.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
 reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the POS requirement block of docs/SRS.md (nothing else from the SRS),

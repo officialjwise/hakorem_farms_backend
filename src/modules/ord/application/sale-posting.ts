@@ -134,7 +134,11 @@ interface PlannedLine {
   readonly approval: OverrideApproval;
   readonly record: NewOrderLine;
   readonly product: ProductFacts;
+  /** What leaves stock, in the product's base unit (30 eggs for a crate). */
   readonly baseQty: Quantity;
+  /** What was sold, in the unit it was sold in (1 crate): the order line and the receipt line count in it (B09e). */
+  readonly soldQty: Quantity;
+  readonly soldUom: string;
   readonly weight: { readonly kg: Weight; readonly source: WeightSource } | null;
   readonly stockUnit: { readonly id: string; readonly identifier: string; readonly tracking: 'SERIAL' | 'LOT' } | null;
   readonly fromLocationId: string;
@@ -282,8 +286,8 @@ export class SalePosting {
         productId: line.product.id,
         stockUnit: line.stockUnit,
         orderLineRef: line.record.id,
-        quantity: line.record.priceBasis === 'PER_KG' ? line.weight!.kg.toKgString() : line.baseQty.toDecimalString(),
-        uom: line.record.priceBasis === 'PER_KG' ? 'KG' : line.product.baseUom,
+        quantity: line.record.priceBasis === 'PER_KG' ? line.weight!.kg.toKgString() : line.soldQty.toDecimalString(),
+        uom: line.record.priceBasis === 'PER_KG' ? 'KG' : line.soldUom,
         weightKg: line.weight?.kg.toKgString() ?? null,
         unitPricePesewas: line.record.agreedUnitPricePesewas,
         resolvedUnitPricePesewas: line.record.resolvedUnitPricePesewas,
@@ -438,7 +442,17 @@ export class SalePosting {
     const units = await this.units.factsIn(tx, unitIds, at);
     const reasons = await this.refs.reasonCodesIn(tx, request.lines.flatMap((l) => (l.varianceReasonCode === undefined || l.varianceReasonCode === null ? [] : [l.varianceReasonCode])));
     const broken: SaleRule[] = [];
-    const checked: { index: number; product: ProductFacts; baseQty: Quantity; weight: PlannedLine['weight']; gradeId: string | undefined; pricingWeight: string | undefined; unit: PlannedLine['stockUnit'] }[] = [];
+    const checked: {
+      index: number;
+      product: ProductFacts;
+      baseQty: Quantity;
+      soldQty: Quantity;
+      soldUom: string;
+      weight: PlannedLine['weight'];
+      gradeId: string | undefined;
+      pricingWeight: string | undefined;
+      unit: PlannedLine['stockUnit'];
+    }[] = [];
     for (const [i, line] of request.lines.entries()) {
       const product = products.get(line.productId);
       if (product === undefined || !product.isLive) {
@@ -482,6 +496,8 @@ export class SalePosting {
         index: i,
         product,
         baseQty: converted.value,
+        soldQty: quantity,
+        soldUom: uom,
         weight,
         gradeId: line.gradeId ?? unit?.gradeId ?? undefined,
         pricingWeight: line.weightKg ?? unit?.lastWeightKg ?? undefined,
@@ -498,7 +514,9 @@ export class SalePosting {
       lines: checked.map((c) => ({
         lineRef: String(c.index),
         productId: c.product.id,
-        quantity: c.baseQty.toDecimalString(),
+        // The price of the unit sold (B09e): a crate is priced by the crate's entry, never thirty eggs at an egg's.
+        quantity: c.soldQty.toDecimalString(),
+        ...(c.soldUom === c.product.baseUom ? {} : { uom: c.soldUom }),
         ...(c.gradeId === undefined ? {} : { gradeId: c.gradeId }),
         ...(c.pricingWeight === undefined ? {} : { weightKg: c.pricingWeight }),
       })),
@@ -519,7 +537,7 @@ export class SalePosting {
         else if (reason === undefined || reason.domain !== 'PRICE_OVERRIDE') broken.push({ field: field(c.index, 'varianceReasonCode'), rule: 'VARIANCE_REASON_INVALID' });
         else if (reason.requiresNote) broken.push({ field: field(c.index, 'varianceReasonCode'), rule: 'VARIANCE_NOTE_REQUIRED' });
       }
-      const measure = { quantity: c.baseQty, weight: c.weight?.kg ?? null };
+      const measure = { quantity: c.soldQty, weight: c.weight?.kg ?? null };
       const agreedTotal = extendPrice(agreed, band.basis, measure);
       const resolvedTotal = extendPrice(list, band.basis, measure);
       if (!agreedTotal.ok || !resolvedTotal.ok) {
@@ -533,6 +551,8 @@ export class SalePosting {
         approval: verdict.kind === 'VARIANCE' ? verdict.approval : null,
         product: c.product,
         baseQty: c.baseQty,
+        soldQty: c.soldQty,
+        soldUom: c.soldUom,
         weight: c.weight,
         stockUnit: c.unit,
         fromLocationId: line.fromLocationId,
@@ -542,9 +562,9 @@ export class SalePosting {
           lineNo: lineNumber(c.index),
           productId: c.product.id,
           stockUnitId: c.unit?.id ?? null,
-          qtyOrdered: c.baseQty.toDecimalString(),
-          uom: c.product.baseUom,
-          qtyFulfilled: c.baseQty.toDecimalString(),
+          qtyOrdered: c.soldQty.toDecimalString(),
+          uom: c.soldUom,
+          qtyFulfilled: c.soldQty.toDecimalString(),
           fulfilledWeightKg: c.weight?.kg.toKgString() ?? null,
           weightSource: c.weight?.source ?? null,
           priceSource: 'ENGINE',

@@ -16,6 +16,7 @@ import type { ServiceSeedUnit } from './seed-unit';
  *   goat meat weighed at the scale, 80,430 in cash;
  * - an online order collected and paid in cash on collection: 1 crate of big eggs, 6,000;
  * - a wholesale counter sale of 4 yam tubers at their list of 2,000, 8,000 in cash.
+ * Eggs are sold by the crate (`uom: CRATE`), priced by the crate's own entry and issued as 30 eggs a crate (A-261).
  * The day is the seed calendar's `today`: the sales post at the seed's clock, which reads that business day. The cash
  * goes to till T1, a till of the seed's own until B9b's registers exist.
  *
@@ -29,7 +30,7 @@ export const SEED_TRADING_DAY = {
   /** What the day takes off the farm's hand count, by location and SKU. */
   sold: [
     { location: 'PENS', sku: 'LIV-0004', qty: '1.000' },
-    { location: 'SHOP', sku: 'EGG-0003', qty: '3.000' },
+    { location: 'SHOP', sku: 'EGG-0003', qty: '90.000' },
     { location: 'SHOP', sku: 'PRD-0002', qty: '3.000' },
     { location: 'COLD', sku: 'MEAT-0007', qty: '3.500' },
     { location: 'SHOP', sku: 'PRD-0005', qty: '4.000' },
@@ -72,7 +73,7 @@ export function farmSeedOrd(calendar: (app: INestApplicationContext) => SeedCale
           notes: 'Seeded trading day (SEED)',
           lines: [
             { productId: goat, stockUnitId: g0142, fromLocationId: pens, quantity: '1.000' },
-            { productId: eggs, stockUnitId: eggLot, fromLocationId: shop, quantity: '2.000' },
+            { productId: eggs, stockUnitId: eggLot, fromLocationId: shop, quantity: '2.000', uom: 'CRATE' },
             { productId: cabbage, fromLocationId: shop, quantity: '3.000' },
             { productId: meat, stockUnitId: meatLot, fromLocationId: cold, quantity: '3.500', weightKg: '3.500', weightSource: 'SCALE' },
           ],
@@ -87,7 +88,7 @@ export function farmSeedOrd(calendar: (app: INestApplicationContext) => SeedCale
           contactName: SEED_TRADING_DAY.online.contactName,
           contactPhone: SEED_TRADING_DAY.online.contactPhone,
           notes: 'Seeded trading day, collected (SEED)',
-          lines: [{ productId: eggs, stockUnitId: eggLot, fromLocationId: shop, quantity: '1.000' }],
+          lines: [{ productId: eggs, stockUnitId: eggLot, fromLocationId: shop, quantity: '1.000', uom: 'CRATE' }],
           tenders: [{ methodCode: 'COD', amountPesewas: 6_000n, register: till }],
         },
         {
