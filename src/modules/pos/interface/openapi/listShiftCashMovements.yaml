@@ -1,0 +1,118 @@
+operationId: listShiftCashMovements
+tags:
+  - pos
+summary: "List a shift's float, drops and pay-outs"
+description: "The shift's float, drops, pay-outs and pay-ins, newest first.\n\nPermission: `pos.shift.read`. Ownership: a cashier sees only their own shifts."
+x-permission: pos.shift.read
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/CashMovementPage"
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7afa-3086-761a-ab52-6a7be1b7e359"
+                  kind: FLOAT_IN
+                  amountPesewas: 20000
+                  reasonCode: null
+                  note: null
+                  witness: null
+                  actor:
+                    id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                    displayName: "Adwoa Darko"
+                  occurredAt: "2026-11-13T06:55:00Z"
+                - id: "019a7afa-4f75-7ffe-b536-08b35b688191"
+                  kind: CASH_DROP
+                  amountPesewas: 500000
+                  reasonCode: null
+                  note: null
+                  witness:
+                    id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                    displayName: "Kwabena Owusu"
+                  actor:
+                    id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                    displayName: "Adwoa Darko"
+                  occurredAt: "2026-11-13T08:55:00Z"
+                - id: "019a7afa-6e64-79e1-8f19-a6ead5191fc8"
+                  kind: PAY_OUT
+                  amountPesewas: 4500
+                  reasonCode: TRANSPORT
+                  note: "Trotro fare to the market for supplies"
+                  witness: null
+                  actor:
+                    id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                    displayName: "Adwoa Darko"
+                  occurredAt: "2026-11-13T10:55:00Z"
+                - id: "019a7afa-8d53-73c5-98fd-45224ecabe00"
+                  kind: CASH_DROP
+                  amountPesewas: 400000
+                  reasonCode: null
+                  note: null
+                  witness:
+                    id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                    displayName: "Kwabena Owusu"
+                  actor:
+                    id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                    displayName: "Adwoa Darko"
+                  occurredAt: "2026-11-13T12:55:00Z"
+                - id: "019a7afa-ac42-7da8-a2e0-e359c87b5c37"
+                  kind: PAY_IN
+                  amountPesewas: 2000
+                  reasonCode: CHANGE_FROM_SAFE
+                  note: null
+                  witness: null
+                  actor:
+                    id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                    displayName: "Adwoa Darko"
+                  occurredAt: "2026-11-13T14:55:00Z"
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

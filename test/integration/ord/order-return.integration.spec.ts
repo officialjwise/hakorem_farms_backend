@@ -12,6 +12,7 @@ import { consoleGet, consolePost, createBranch, createUser, enrolAndLogin, login
 import { journalOf, trialBalanceSum } from '../../support/pay';
 import { startTestApp, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
+import { openTestShift } from '../../support/till';
 
 /**
  * Returns against the original sale (FR-ORD-015, FR-PAY-012, ADR-0066, abuse case 12, A-228). A return never takes back
@@ -66,7 +67,7 @@ async function sell(who: string, items: Readonly<Record<string, number>>): Promi
     tenders: [{ methodCode: 'CASH', amountPesewas: BigInt(gross), register: nextTill() }],
   };
   const sold = await runWithRequestContext({ correlationId: randomUUID(), ip: null, userAgent: 'returns test', actor }, () =>
-    uow.run({ isolation: 'serializable', seriesLocks: sales.locksFor(branchId) }, (tx) => sales.postIn(tx, actor, request)),
+    uow.run({ isolation: 'serializable', seriesLocks: sales.locksFor(branchId) }, async (tx) => sales.postIn(tx, actor, { shiftDocumentId: await openTestShift(tx, actor.principalId, request.branchId), ...request })),
   );
   const order = await admin().query<{ billing_document_id: string }>('SELECT billing_document_id FROM ord.sales_order WHERE id = $1', [sold.id]);
   const lines = await admin().query<{ id: string; product_id: string; stock_movement_id: string }>('SELECT id, product_id, stock_movement_id FROM ord.sales_order_line WHERE sales_order_id = $1', [sold.id]);
@@ -352,7 +353,7 @@ describe('a crate sold by the crate comes back as the eggs it is (B09e)', () => 
       tenders: [{ methodCode: 'CASH', amountPesewas: 12_000n, register: nextTill() }],
     };
     const sold = await runWithRequestContext({ correlationId: randomUUID(), ip: null, userAgent: 'returns test', actor }, () =>
-      uow.run({ isolation: 'serializable', seriesLocks: sales.locksFor(branchId) }, (tx) => sales.postIn(tx, actor, request)),
+      uow.run({ isolation: 'serializable', seriesLocks: sales.locksFor(branchId) }, async (tx) => sales.postIn(tx, actor, { shiftDocumentId: await openTestShift(tx, actor.principalId, request.branchId), ...request })),
     );
     const line = sold.lines[0]!;
     const receiptId = (await admin().query<{ billing_document_id: string }>('SELECT billing_document_id FROM ord.sales_order WHERE id = $1', [sold.id])).rows[0]!.billing_document_id;

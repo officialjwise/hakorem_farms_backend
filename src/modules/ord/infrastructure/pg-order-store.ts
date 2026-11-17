@@ -1,5 +1,5 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
-import type { NewOrder, NewOrderLine, OrderFilter, OrderHeaderRecord, OrderLineRecord, OrderRecord, OrderStore, OrderVoidRecord, StatusChangeRecord, TrackingTokenRecord } from '../application/order-store';
+import type { NewOrder, NewOrderLine, OrderFilter, OrderHeaderRecord, OrderLineRecord, OrderRecord, OrderStore, OrderVoidRecord, ShiftSalesSummary, StatusChangeRecord, TrackingTokenRecord } from '../application/order-store';
 
 const big = (value: string | null): bigint | null => (value === null ? null : BigInt(value));
 
@@ -130,6 +130,26 @@ export class PgOrderStore implements OrderStore {
         WHERE id = $1`,
       [orderId, c.billingDocumentId, c.finalTotalPesewas.toString(), c.completedAt, c.actorId],
     );
+  }
+
+  async shiftSales(tx: Transaction, shiftDocumentId: string): Promise<ShiftSalesSummary> {
+    const { rows } = await tx.query<{ sales: number; gross: string; voids: number; voided: string; overrides: number; given: string }>(
+      `SELECT count(*) FILTER (WHERE o.status = 'COMPLETED')::int AS sales,
+              COALESCE(sum(o.final_total_pesewas) FILTER (WHERE o.status = 'COMPLETED'), 0)::text AS gross,
+              count(*) FILTER (WHERE o.status = 'VOIDED')::int AS voids,
+              COALESCE(sum(o.final_total_pesewas) FILTER (WHERE o.status = 'VOIDED'), 0)::text AS voided,
+              COALESCE(sum(v.lines), 0)::int AS overrides,
+              COALESCE(sum(v.given), 0)::text AS given
+         FROM ord.sales_order o
+         LEFT JOIN LATERAL (
+           SELECT count(*) AS lines, sum(l.variance_pesewas) AS given FROM ord.sales_order_line l
+            WHERE l.sales_order_id = o.id AND l.variance_direction = 'BELOW' AND l.variance_pesewas > 0 AND o.status = 'COMPLETED'
+         ) v ON true
+        WHERE o.shift_document_id = $1`,
+      [shiftDocumentId],
+    );
+    const r = rows[0]!;
+    return { salesCount: r.sales, grossSalesPesewas: BigInt(r.gross), voidsCount: r.voids, voidsPesewas: BigInt(r.voided), overridesCount: r.overrides, overridesPesewas: BigInt(r.given) };
   }
 
   async orders(tx: Transaction, ids: readonly string[]): Promise<OrderRecord[]> {

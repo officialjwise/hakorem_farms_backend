@@ -11,6 +11,7 @@ import { consoleGet, consolePost, createBranch, createUser, enrolAndLogin, login
 import { journalOf, trialBalanceSum } from '../../support/pay';
 import { startTestApp, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
+import { openTestShift } from '../../support/till';
 
 /**
  * Price overrides and their approval by a different user (FR-ORD-003, ADR-0017, abuse case 3, A-230), on createOrder and
@@ -114,7 +115,7 @@ const inUnit = <T>(who: string, work: (sales: SalePosting, tx: Parameters<Parame
     uow.run({ isolation: 'serializable', seriesLocks: sales.locksFor(branchId) }, (tx) => work(sales, tx)),
   );
 };
-const postSale = (who: string, request: SaleRequest) => inUnit(who, (sales, tx) => sales.postIn(tx, actorOf(who), request));
+const postSale = (who: string, request: SaleRequest) => inUnit(who, async (sales, tx) => sales.postIn(tx, actorOf(who), { shiftDocumentId: await openTestShift(tx, actorOf(who).principalId, request.branchId), ...request }));
 const askOverride = (who: string, request: SaleRequest) => inUnit(who, (sales, tx) => sales.requestOverrideIn(tx, actorOf(who), request));
 
 beforeAll(async () => {

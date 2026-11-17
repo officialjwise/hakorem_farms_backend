@@ -12,6 +12,7 @@ import { consoleGet, consolePost, createBranch, createUser, enrolAndLogin, login
 import { approveAndDeliver, balanceOf, initiateCharge, journalOf, referenceFor, trialBalanceSum } from '../../support/pay';
 import { startTestApp, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
+import { openTestShift } from '../../support/till';
 
 /**
  * The order's reversals (FR-ORD-002, FR-ORD-014, ADR-0010, ADR-0035, abuse case 1, A-226). A cancellation releases the
@@ -99,7 +100,7 @@ async function counterSale(who: string, yams: number, till: { id: string; code: 
     tenders: [{ methodCode: 'CASH', amountPesewas: BigInt(yams * 2_000), register: till }],
   };
   const sold = await runWithRequestContext({ correlationId: randomUUID(), ip: null, userAgent: 'reversals test', actor }, () =>
-    uow.run({ isolation: 'serializable', seriesLocks: sales.locksFor(branchId) }, (tx) => sales.postIn(tx, actor, request)),
+    uow.run({ isolation: 'serializable', seriesLocks: sales.locksFor(branchId) }, async (tx) => sales.postIn(tx, actor, { shiftDocumentId: await openTestShift(tx, actor.principalId, request.branchId), ...request })),
   );
   const { rows } = await admin().query<{ billing_document_id: string }>('SELECT billing_document_id FROM ord.sales_order WHERE id = $1', [sold.id]);
   return { id: sold.id, receiptId: rows[0]!.billing_document_id };

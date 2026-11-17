@@ -1,0 +1,101 @@
+operationId: closeShift
+tags:
+  - pos
+summary: "Close a shift blind"
+description: "The cashier declares the count of their own OPEN shift, blind: one figure per payment method counted, and exactly one for cash (422 `SHIFT_INVALID` with `CASH_NOT_DECLARED`, `METHOD_DECLARED_TWICE`, `METHOD_UNKNOWN`, or `DEVICE_SALES_NOT_SYNCED` when `lastDeviceCounter` is above the highest counter synced). Nothing expected is shown before; the answer shows the expected figures and the over or short as the records stand. The shift moves to CLOSING, takes no more sales or cash movements, and its declared count never changes. 422 `SHIFT_NOT_OPEN` for a shift already closing or closed.\n\nPermission: `pos.shift.close`. Ownership: the cashier's own shift."
+x-permission: pos.shift.close
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+    deviceCredential: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ShiftClose"
+      example:
+        declared:
+          - paymentMethodId: "019a7a92-a26f-7b9f-90d7-c2c5802e3ba3"
+            declaredPesewas: 822500
+          - paymentMethodId: "019a7a92-c15e-7582-aabb-60fcf9dfd9da"
+            declaredPesewas: 412000
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Shift"
+        example:
+          id: "019a7af9-d3b9-7870-bda8-8fd574a408b3"
+          shiftNo: SHF-2026-DDW-000309
+          status: CLOSING
+          register:
+            id: "019a7af8-9e63-758d-9ac5-61aab3bada88"
+            code: T2
+            name: "Shop till 2"
+          cashier:
+            id: "019a7a86-caf1-728b-b7c3-3188ea6caa66"
+            displayName: "Nana Yeboah"
+          shiftSeq: 309
+          openedAt: "2026-11-12T06:55:00Z"
+          openingFloatPesewas: 20000
+          closedAt: null
+          declaredCashPesewas: 822500
+          expectedCashPesewas: 834500
+          overShortPesewas: 12000
+          overShortDirection: SHORT
+          closeApprovedBy: null
+          forceClosed: false
+          lastDeviceCounter: 0
+          salesCount: 38
+          tenders:
+            - paymentMethod:
+                id: "019a7a92-a26f-7b9f-90d7-c2c5802e3ba3"
+                code: CASH
+                name: Cash
+                kind: CASH
+              declaredPesewas: 822500
+              expectedPesewas: 834500
+              variancePesewas: 12000
+              varianceDirection: SHORT
+            - paymentMethod:
+                id: "019a7a92-c15e-7582-aabb-60fcf9dfd9da"
+                code: MOMO
+                name: "Mobile money"
+                kind: MOBILE_MONEY
+              declaredPesewas: 412000
+              expectedPesewas: 412000
+              variancePesewas: 0
+              varianceDirection: EXACT
+          currency: GHS
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 4
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

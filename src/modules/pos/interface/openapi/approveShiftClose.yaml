@@ -1,0 +1,100 @@
+operationId: approveShiftClose
+tags:
+  - pos
+summary: "Sign off a shift close and post over or short"
+description: "A supervisor who is not the cashier (422 `SHIFT_CLOSE_SAME_PERSON`, held again by the database) signs off a CLOSING shift (422 `SHIFT_INVALID` with `SHIFT_NOT_CLOSING` otherwise), with a reason. Expected cash is the float plus the shift's cash payments less their refunds, plus pay-ins, less drops and pay-outs; each declared method's expected figure and variance is frozen. ◆ `pos.ShiftClosed` posts the count: Cr 1000 the expected cash against the register, Dr 1010 what was counted, Dr 6900 when short, Cr 6900 when over, so the till's account returns to zero. The Z report is stored. The event names the cashier, the supervisor and the over or short for the daily exception report (abuse case 17). The audit chain is anchored by the worker's daily anchor; an anchor at each sign-off follows in B09b continued.\n\nPermission: `pos.shift.close.approve`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+x-permission: pos.shift.close.approve
+x-requires-step-up: true
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ReasonRequest"
+      example:
+        reason: "Counted with Nana; short GHS 120.00 noted"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Shift"
+        example:
+          id: "019a7af9-d3b9-7870-bda8-8fd574a408b3"
+          shiftNo: SHF-2026-DDW-000309
+          status: CLOSED
+          register:
+            id: "019a7af8-9e63-758d-9ac5-61aab3bada88"
+            code: T2
+            name: "Shop till 2"
+          cashier:
+            id: "019a7a86-caf1-728b-b7c3-3188ea6caa66"
+            displayName: "Nana Yeboah"
+          shiftSeq: 309
+          openedAt: "2026-11-12T06:55:00Z"
+          openingFloatPesewas: 20000
+          closedAt: "2026-11-12T19:05:00Z"
+          declaredCashPesewas: 822500
+          expectedCashPesewas: 834500
+          overShortPesewas: 12000
+          overShortDirection: SHORT
+          closeApprovedBy:
+            id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+            displayName: "Kwabena Owusu"
+          forceClosed: false
+          lastDeviceCounter: 0
+          salesCount: 38
+          tenders:
+            - paymentMethod:
+                id: "019a7a92-a26f-7b9f-90d7-c2c5802e3ba3"
+                code: CASH
+                name: Cash
+                kind: CASH
+              declaredPesewas: 822500
+              expectedPesewas: 834500
+              variancePesewas: 12000
+              varianceDirection: SHORT
+            - paymentMethod:
+                id: "019a7a92-c15e-7582-aabb-60fcf9dfd9da"
+                code: MOMO
+                name: "Mobile money"
+                kind: MOBILE_MONEY
+              declaredPesewas: 412000
+              expectedPesewas: 412000
+              variancePesewas: 0
+              varianceDirection: EXACT
+          currency: GHS
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 4
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

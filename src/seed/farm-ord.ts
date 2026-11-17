@@ -2,6 +2,7 @@ import type { INestApplicationContext } from '@nestjs/common';
 import { createUuidV7Generator, toBusinessDate, type Clock } from '@hakorem/kernel';
 import type pg from 'pg';
 import { SalePosting, type SaleRequest } from '../modules/ord';
+import { Registers, Shifts } from '../modules/pos';
 import { UnitOfWork } from '../platform/database/unit-of-work';
 import { CLOCK, PG_POOL } from '../platform/platform.module';
 import type { SeedCalendar } from './seed-calendar';
@@ -17,15 +18,18 @@ import type { ServiceSeedUnit } from './seed-unit';
  * - an online order collected and paid in cash on collection: 1 crate of big eggs, 6,000;
  * - a wholesale counter sale of 4 yam tubers at their list of 2,000, 8,000 in cash.
  * Eggs are sold by the crate (`uom: CRATE`), priced by the crate's own entry and issued as 30 eggs a crate (A-261).
- * The day is the seed calendar's `today`: the sales post at the seed's clock, which reads that business day. The cash
- * goes to till T1, a till of the seed's own until B9b's registers exist.
+ * The day is the seed calendar's `today`: the sales post at the seed's clock, which reads that business day. Cash enters
+ * a till only in a shift (A-212 (a), B9b): the manager sets up till T1 on the shop floor, the cashier opens her shift on
+ * it with no float, since the seeded books hold no cash in the safe to give one (A-273 (h)), and every sale's cash goes
+ * into that shift. The shift stays open: the day
+ * is still trading.
  *
  * Its own unit, run after the farm (`seedUnits(env, { tradingDay: true })`, as `pnpm db:seed` does): the farm every
  * other test loads keeps the B5 hand count and its exact amounts, and the tests that read the trading day load it.
  */
 export const SEED_TRADING_DAY = {
   branchCode: 'DDW',
-  till: { id: '019a8000-0000-7000-8000-00000000a7a1', code: 'T1' },
+  till: { code: 'T1', name: 'Shop till 1', floatPesewas: 0 },
   online: { contactName: 'Efua Asante (SEED)', contactPhone: '+233200000301' },
   /** What the day takes off the farm's hand count, by location and SKU. */
   sold: [
@@ -60,13 +64,18 @@ export function farmSeedOrd(calendar: (app: INestApplicationContext) => SeedCale
       const [pens, shop, cold] = [await location('PENS'), await location('SHOP'), await location('COLD')];
       const [goat, eggs, cabbage, meat, yam] = [await product('LIV-0004'), await product('EGG-0003'), await product('PRD-0002'), await product('MEAT-0007'), await product('PRD-0005')];
       const [g0142, eggLot, meatLot] = [await unit('G-0142'), await unit('EGG-BIG-2026-1110'), await unit('LOT-GOAT-0001')];
-      const till = SEED_TRADING_DAY.till;
       const nextId = createUuidV7Generator(clock);
+      const t1 = SEED_TRADING_DAY.till;
+      const register = await staff.as('manager', async (manager) => (await app.get(Registers).create(manager, { branchId, locationId: shop, code: t1.code, name: t1.name }, nextId())).body);
+      const shiftId = nextId();
+      await staff.as('cashier', (cashier) => app.get(Shifts).open(cashier, { id: shiftId, registerId: register.id, openingFloatPesewas: BigInt(t1.floatPesewas), openedAt: clock.now() }, shiftId));
+      const till = { id: register.id, code: register.code };
       const cash = (amount: bigint) => [{ methodCode: 'CASH', amountPesewas: amount, register: till }] as const;
       const sales: SaleRequest[] = [
         {
           orderId: nextId(),
           channel: 'WHOLESALE',
+          shiftDocumentId: shiftId,
           branchId,
           fulfilmentMode: 'COUNTER',
           taxInclusive: true,
@@ -82,6 +91,7 @@ export function farmSeedOrd(calendar: (app: INestApplicationContext) => SeedCale
         {
           orderId: nextId(),
           channel: 'ONLINE',
+          shiftDocumentId: shiftId,
           branchId,
           fulfilmentMode: 'COLLECTION',
           taxInclusive: true,
@@ -93,7 +103,8 @@ export function farmSeedOrd(calendar: (app: INestApplicationContext) => SeedCale
         },
         {
           orderId: nextId(),
-          channel: 'WHOLESALE',
+          channel: 'POS',
+          shiftDocumentId: shiftId,
           branchId,
           fulfilmentMode: 'COUNTER',
           taxInclusive: true,

@@ -11,6 +11,7 @@ import { stepUp, type TotpSession } from '../../support/fin';
 import { consoleGet, consolePost, createUser, enrolAndLogin, login, relaxRateLimits, testStartTime, type TestSession } from '../../support/iam';
 import { startTestApp, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
+import { openTestShift } from '../../support/till';
 
 /** The return operations (B09a continued 2d) answer in the shapes of contract/openapi.yaml, refusals included. */
 let database: TestDatabase;
@@ -56,9 +57,10 @@ describe('B09a continued 2d return operations answer in the contract shapes', ()
     const actor: Actor = { principalId: cashierId, kind: 'USER', displayName: 'Adwoa Darko', realm: 'STAFF', sessionId: null, steppedUpAt: null };
     const sales = api.app.get(SalePosting);
     const sale = await runWithRequestContext({ correlationId: randomUUID(), ip: null, userAgent: 'contract', actor }, () =>
-      api.app.get(UnitOfWork).run({ isolation: 'serializable', seriesLocks: sales.locksFor(branchId) }, (tx) =>
+      api.app.get(UnitOfWork).run({ isolation: 'serializable', seriesLocks: sales.locksFor(branchId) }, async (tx) =>
         sales.postIn(tx, actor, {
           orderId: createUuidV7Generator(clock)(),
+          shiftDocumentId: await openTestShift(tx, cashierId, branchId),
           channel: 'WHOLESALE',
           branchId,
           fulfilmentMode: 'COUNTER',

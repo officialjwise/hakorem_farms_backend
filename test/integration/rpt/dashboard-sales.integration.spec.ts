@@ -38,8 +38,9 @@ const decide = (who: string, approvalId: string) => post(who, `/iam/approvals/${
 const admin = () => database.pool('admin');
 
 // The seeded trading day, priced by the engine at list (src/seed/farm-ord.ts): goat 58,500, two crates of eggs 12,000,
-// three cabbages 3,000 and 3.500 kg of goat meat 6,930 on one wholesale receipt of 80,430; one crate collected and paid
-// on collection, 6,000; four yams on a wholesale receipt, 8,000.
+// three cabbages 3,000 and 3.500 kg of goat meat 6,930 on one wholesale receipt at the counter of 80,430; one crate
+// collected and paid on collection, 6,000; four yams sold at the counter on channel POS, 8,000. Every sale's cash is
+// taken on the seeded cashier's open shift at till T1 (B9b, A-212 (a)).
 const WHOLESALE_ONE = 80_430;
 const ONLINE = 6_000;
 const YAMS = 8_000;
@@ -107,11 +108,24 @@ describe('the seeded trading day keeps the books and the hand count true (hakore
     expect(rows.map((r) => [r.channel, r.status, Number(r.total), r.cashier])).toEqual([
       ['WHOLESALE', 'COMPLETED', WHOLESALE_ONE, 'Adwoa Darko'],
       ['ONLINE', 'COMPLETED', ONLINE, 'Adwoa Darko'],
-      ['WHOLESALE', 'COMPLETED', YAMS, 'Adwoa Darko'],
+      ['POS', 'COMPLETED', YAMS, 'Adwoa Darko'],
     ]);
     expect(rows.every((r) => /^SO-\d{4}-DDW-\d{6}$/.test(r.order_no))).toBe(true);
     const unpaid = await admin().query("SELECT 1 FROM bil.pub_document WHERE kind = 'RECEIPT' AND order_document_id IS NOT NULL AND outstanding_pesewas > 0");
     expect(unpaid.rowCount).toBe(0);
+  });
+
+  it('took every sale and its cash on the seeded cashier\'s open shift at till T1, opened with no float (A-212 (a), A-273 (h))', async () => {
+    const shifts = await admin().query<{ id: string; status: string; float: string; code: string; cashier: string }>(
+      `SELECT s.id, s.status, s.opening_float_pesewas::text AS float, r.code, p.display_name AS cashier
+         FROM pos.shift s JOIN pos.register r ON r.id = s.register_id JOIN iam.principal p ON p.id = s.cashier_id`,
+    );
+    expect(shifts.rows.map((s) => [s.status, Number(s.float), s.code, s.cashier])).toEqual([['OPEN', 0, 'T1', 'Adwoa Darko']]);
+    const shift = shifts.rows[0]!.id;
+    expect((await admin().query('SELECT 1 FROM ord.sales_order WHERE shift_document_id IS DISTINCT FROM $1', [shift])).rowCount).toBe(0);
+    const cash = await admin().query<{ n: string }>("SELECT sum(amount_pesewas)::text AS n FROM pay.payment WHERE method_kind = 'CASH' AND shift_document_id = $1", [shift]);
+    expect(Number(cash.rows[0]!.n)).toBe(DAY_TOTAL);
+    expect((await admin().query("SELECT 1 FROM pay.payment WHERE method_kind = 'CASH' AND shift_document_id IS NULL")).rowCount).toBe(0);
   });
 
   it('changes nothing on a second run of the seed with its trading day', async () => {
@@ -176,9 +190,9 @@ describe('the owner dashboard answers its sales figures exactly from completed o
     expect(body.date).toBe(TODAY);
     expect([body.salesTodayPesewas, body.salesYesterdayPesewas, body.salesMonthToDatePesewas]).toEqual([DAY_TOTAL, 0, DAY_TOTAL]);
     expect(body.salesByChannel).toEqual([
-      { channel: 'POS', amountPesewas: 0, count: 0 },
+      { channel: 'POS', amountPesewas: YAMS, count: 1 },
       { channel: 'ONLINE', amountPesewas: ONLINE, count: 1 },
-      { channel: 'WHOLESALE', amountPesewas: WHOLESALE_ONE + YAMS, count: 2 },
+      { channel: 'WHOLESALE', amountPesewas: WHOLESALE_ONE, count: 1 },
       { channel: 'QUOTE', amountPesewas: 0, count: 0 },
     ]);
     expect(body.topMovers.map((m: { product: { sku: string }; qty: string; uom: string; revenuePesewas: number }) => [m.product.sku, m.qty, m.uom, m.revenuePesewas])).toEqual([
@@ -261,6 +275,7 @@ describe('a VOIDED order is not a sale, and a completed return leaves the figure
     const body = (await get('owner', '/dashboard/owner')).body;
     expect([body.salesTodayPesewas, body.salesMonthToDatePesewas, body.salesSeries.totalPesewas, body.salesSeries.orderCount]).toEqual([DAY_TOTAL - YAMS, DAY_TOTAL - YAMS, DAY_TOTAL - YAMS, 2]);
     expect(body.salesByChannel.find((c: { channel: string }) => c.channel === 'WHOLESALE')).toEqual({ channel: 'WHOLESALE', amountPesewas: WHOLESALE_ONE, count: 1 });
+    expect(body.salesByChannel.find((c: { channel: string }) => c.channel === 'POS')).toEqual({ channel: 'POS', amountPesewas: 0, count: 0 });
     expect(body.topMovers.map((m: { product: { sku: string } }) => m.product.sku)).toEqual(['LIV-0004', 'EGG-0003', 'MEAT-0007', 'PRD-0002']);
     expect((await get('manager', '/dashboard/tiles/sales-today')).body).toMatchObject({ salesPesewas: DAY_TOTAL - YAMS, orderCount: 2 });
   });

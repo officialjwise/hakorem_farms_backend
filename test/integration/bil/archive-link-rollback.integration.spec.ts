@@ -48,6 +48,13 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0230_iam_grant_pos_permissions',
+      '0229_iam_seed_pos_permissions',
+      '0228_fin_pos_postings',
+      '0227_pay_cash_in_a_shift',
+      '0226_pos_registers_shifts',
+      '0225_mdm_cash_drop_reason',
+      '0224_platform_add_shift_document',
       '0223_pur_supplier_claims',
       '0222_platform_add_supplier_claim_document',
       '0221_inv_goods_receipt_rejection_reason',

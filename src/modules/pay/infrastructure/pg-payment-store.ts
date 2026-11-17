@@ -1,5 +1,7 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
+import type { MethodKind } from '../domain/tender';
 import type {
+  ShiftTenderRow,
   AllocationRecord,
   ChargeChange,
   ChargeRecord,
@@ -268,6 +270,16 @@ export class PgPaymentStore implements PaymentStore {
     );
     const r = rows[0];
     return r === undefined ? null : { id: r.id, paymentId: r.payment_id, billingDocumentId: r.billing_document_id, amountPesewas: BigInt(r.amount_pesewas), direction: r.direction, reversed: r.reversed };
+  }
+
+  async shiftTotals(tx: Transaction, shiftDocumentId: string): Promise<ShiftTenderRow[]> {
+    const { rows } = await tx.query<{ payment_method_id: string; method_kind: MethodKind; n: number; amount: string; refunded: string }>(
+      `SELECT payment_method_id, method_kind, count(*)::int AS n, sum(amount_pesewas)::text AS amount, sum(refunded_pesewas)::text AS refunded
+         FROM pay.payment WHERE shift_document_id = $1 AND status = 'CLEARED'
+        GROUP BY payment_method_id, method_kind ORDER BY payment_method_id`,
+      [shiftDocumentId],
+    );
+    return rows.map((r) => ({ paymentMethodId: r.payment_method_id, methodKind: r.method_kind, count: r.n, amountPesewas: BigInt(r.amount), refundedPesewas: BigInt(r.refunded) }));
   }
 
   async list(tx: Transaction, f: PaymentFilter, beforeId: string | null, limit: number): Promise<string[]> {

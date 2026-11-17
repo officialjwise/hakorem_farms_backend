@@ -1,0 +1,152 @@
+operationId: listRegisters
+tags:
+  - pos
+summary: "List registers"
+description: "Permission: `pos.register.read`."
+x-permission: pos.register.read
+parameters:
+  - name: branchId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/RegisterPage"
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7a94-15a3-7248-9781-2d5f347aa63d"
+                  branch:
+                    id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    code: DDW
+                    name: "HaKorem Farms, Dodowa"
+                  location:
+                    id: "019a7a84-7f34-76a9-8be1-736ae249ec48"
+                    code: SHOP
+                    name: "Shop floor"
+                    kind: SHOP_FLOOR
+                  code: T1
+                  name: "Shop till 1"
+                  status: ACTIVE
+                  openShift:
+                    id: "019a7a93-f6b4-7865-8d9d-8f27bac90805"
+                    cashier:
+                      id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                      displayName: "Adwoa Darko"
+                    openedAt: "2026-11-13T06:55:00Z"
+                  deviceCount: 1
+                  version: 2
+                - id: "019a7af8-9e63-758d-9ac5-61aab3bada88"
+                  branch:
+                    id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    code: DDW
+                    name: "HaKorem Farms, Dodowa"
+                  location:
+                    id: "019a7a84-7f34-76a9-8be1-736ae249ec48"
+                    code: SHOP
+                    name: "Shop floor"
+                    kind: SHOP_FLOOR
+                  code: T2
+                  name: "Shop till 2"
+                  status: ACTIVE
+                  openShift:
+                    id: "019a7af1-da1b-7bcb-9103-c58815023e65"
+                    cashier:
+                      id: "019a7a86-caf1-728b-b7c3-3188ea6caa66"
+                      displayName: "Nana Yeboah"
+                    openedAt: "2026-11-13T06:56:00Z"
+                  deviceCount: 1
+                  version: 2
+                - id: "019a7af8-bd52-7f71-a4a9-ffe22d6b78c0"
+                  branch:
+                    id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    code: DDW
+                    name: "HaKorem Farms, Dodowa"
+                  location:
+                    id: "019a7a84-7f34-76a9-8be1-736ae249ec48"
+                    code: SHOP
+                    name: "Shop floor"
+                    kind: SHOP_FLOOR
+                  code: T3
+                  name: "Shop till 3 (spare)"
+                  status: RETIRED
+                  openShift: null
+                  deviceCount: 0
+                  version: 2
+                - id: "019a7af8-dc41-7954-be8c-9e19a71c16f7"
+                  branch:
+                    id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    code: DDW
+                    name: "HaKorem Farms, Dodowa"
+                  location:
+                    id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+                    code: PEN-G1
+                    name: "Goat pen 1"
+                    kind: PEN
+                  code: YARD
+                  name: "Livestock yard till"
+                  status: ACTIVE
+                  openShift: null
+                  deviceCount: 1
+                  version: 2
+                - id: "019a7af8-fb30-7337-8870-3c5120cdb52f"
+                  branch:
+                    id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    code: DDW
+                    name: "HaKorem Farms, Dodowa"
+                  location:
+                    id: "019a7a84-9e23-708d-95c5-11a25bfa8a80"
+                    code: VAN-GT4521
+                    name: "Delivery van GT-4521-24"
+                    kind: VEHICLE
+                  code: MKT
+                  name: "Saturday market stall"
+                  status: ACTIVE
+                  openShift: null
+                  deviceCount: 1
+                  version: 2
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

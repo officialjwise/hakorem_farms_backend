@@ -233,6 +233,8 @@ export interface RefundFilter {
 
 /** PAY's own tables (schema `pay`). Ledger rows are inserted only; the database's triggers keep the derived amounts. */
 export interface PaymentStore {
+  /** What a till shift took by payment method: its cleared payments, counted and summed, and what was refunded of them. */
+  shiftTotals(tx: Transaction, shiftDocumentId: string): Promise<ShiftTenderRow[]>;
   insert(tx: Transaction, payment: NewPayment): Promise<void>;
   allocate(tx: Transaction, allocation: AllocationRecord & { readonly actorId: string; readonly reason?: string | null }): Promise<void>;
   payments(tx: Transaction, ids: readonly string[], forUpdate?: boolean): Promise<PaymentRecord[]>;
@@ -286,4 +288,13 @@ export interface PaymentStore {
   resolveRefundBreaks(tx: Transaction, refundId: string, note: string, at: Date, actorId: string): Promise<void>;
   lastSweepEnd(tx: Transaction, provider: string): Promise<Date | null>;
   insertSweep(tx: Transaction, row: { readonly id: string; readonly provider: string; readonly from: Date; readonly to: Date; readonly transactions: number; readonly cleared: number; readonly breaksRaised: number; readonly actorId: string }): Promise<void>;
+}
+
+/** One payment method's cleared payments in a till shift, as PAY stores them. */
+export interface ShiftTenderRow {
+  readonly paymentMethodId: string;
+  readonly methodKind: MethodKind;
+  readonly count: number;
+  readonly amountPesewas: bigint;
+  readonly refundedPesewas: bigint;
 }

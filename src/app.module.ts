@@ -10,6 +10,7 @@ import { FinModule } from './modules/fin';
 import { InvModule } from './modules/inv';
 import { LivModule } from './modules/liv';
 import { PrcModule } from './modules/prc';
+import { PosModule } from './modules/pos';
 import { PurModule } from './modules/pur';
 import { BilModule } from './modules/bil';
 import { OrdModule } from './modules/ord';
@@ -33,7 +34,7 @@ export class AppModule {
   ): DynamicModule {
     return {
       module: AppModule,
-      imports: [PlatformModule.forRoot(config, logger, clock), IamModule, AudModule, MdmModule, DocModule, FinModule, InvModule, LivModule, PrcModule, BilModule, PayModule, PurModule, DelModule, OrdModule, ShpModule, RptModule, ...extra],
+      imports: [PlatformModule.forRoot(config, logger, clock), IamModule, AudModule, MdmModule, DocModule, FinModule, InvModule, LivModule, PrcModule, BilModule, PayModule, PurModule, DelModule, OrdModule, PosModule, ShpModule, RptModule, ...extra],
     };
   }
 }

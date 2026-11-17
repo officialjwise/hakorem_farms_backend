@@ -11,6 +11,7 @@ import { seedUnits } from '../../../src/seed/seed-units';
 import { createUser, relaxRateLimits, testStartTime } from '../../support/iam';
 import { startTestApp, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
+import { openTestShift } from '../../support/till';
 
 /**
  * The order and payment rules a sale relies on, each refused by the service and, where the data model puts it there, by
@@ -36,7 +37,7 @@ const app = () => database.pool('app');
 const till = { id: '019a8000-0000-7000-8000-00000000a7a2', code: 'T2' };
 
 const asCashier = <T>(work: () => Promise<T>) => runWithRequestContext({ correlationId: randomUUID(), ip: null, userAgent: 'order rules test', actor: cashier }, work);
-const post = (request: SaleRequest) => asCashier(() => uow.run({ isolation: 'serializable', seriesLocks: sales.locksFor(request.branchId) }, (tx) => sales.postIn(tx, cashier, request)));
+const post = (request: SaleRequest) => asCashier(() => uow.run({ isolation: 'serializable', seriesLocks: sales.locksFor(request.branchId) }, async (tx) => sales.postIn(tx, cashier, { shiftDocumentId: await openTestShift(tx, cashier.principalId, request.branchId), ...request })));
 const eggs = (overrides: Partial<SaleRequest> = {}): SaleRequest => ({
   orderId: nextOrderId(),
   channel: 'WHOLESALE',
@@ -118,8 +119,8 @@ describe('a sale is refused, posting nothing, when it breaks a rule (FR-ORD-003,
     await expect(post(eggs({ lines: [{ productId: id('sheep'), stockUnitId: id('S-0031'), fromLocationId: id('PENS'), quantity: '1.000', weightKg: '70.000', weightSource: 'SCALE' }] }))).rejects.toMatchObject({ code: 'QUOTE_REQUIRED' });
   });
 
-  it('refuses a POS or QUOTE sale (their own paths, B9b and B10), delivery (B11), no lines and no tenders, every rule at once', async () => {
-    await expect(post(eggs({ channel: 'POS', fulfilmentMode: 'DELIVERY', lines: [], tenders: [] }))).rejects.toMatchObject({
+  it('refuses a QUOTE sale (its own path, B10), delivery (B11), no lines and no tenders, every rule at once', async () => {
+    await expect(post(eggs({ channel: 'QUOTE', fulfilmentMode: 'DELIVERY', lines: [], tenders: [] }))).rejects.toMatchObject({
       code: 'SALE_INVALID',
       details: [
         expect.objectContaining({ code: 'CHANNEL_NOT_AVAILABLE' }),
@@ -128,6 +129,12 @@ describe('a sale is refused, posting nothing, when it breaks a rule (FR-ORD-003,
         expect.objectContaining({ code: 'NO_TENDERS' }),
       ],
     });
+  });
+
+  it('refuses a POS sale that names no till shift (B9b, A-212 (a))', async () => {
+    await expect(
+      asCashier(() => uow.run({ isolation: 'serializable', seriesLocks: sales.locksFor(branchId) }, (tx) => sales.postIn(tx, cashier, eggs({ channel: 'POS' })))),
+    ).rejects.toMatchObject({ code: 'SALE_INVALID', details: [expect.objectContaining({ field: '/shiftId', code: 'SHIFT_REQUIRED' })] });
   });
 
   it('refuses two goats on one line, and a lot product with no lot named that no single lot covers', async () => {
@@ -245,9 +252,9 @@ describe('the database holds the payment record (FR-PAY-001, FR-PAY-002, FR-PAY-
     await admin().query("INSERT INTO platform.business_document (id, doc_type, owner_module, branch_id, actor_id) VALUES ($1, 'PAYMENT', 'pay', $2, $3)", [cashId, branchId, cashier.principalId]);
     expect(
       await refusedBy(
-        `INSERT INTO pay.payment (id, payment_method_id, method_kind, amount_pesewas, verification, register_ref, register_code, received_at, cleared_at, status, branch_id, created_by, updated_by, posted_at, posted_by)
-         VALUES ($1, '01900000-0000-7000-8001-000000000001', 'CASH', 6000, 'UNVERIFIED', $4, 'T1', now(), now(), 'CLEARED', $2, $3, $3, now(), $3)`,
-        [cashId, branchId, cashier.principalId, randomUUID()],
+        `INSERT INTO pay.payment (id, payment_method_id, method_kind, amount_pesewas, verification, register_ref, register_code, shift_document_id, received_at, cleared_at, status, branch_id, created_by, updated_by, posted_at, posted_by)
+         VALUES ($1, '01900000-0000-7000-8001-000000000001', 'CASH', 6000, 'UNVERIFIED', $4, 'T1', $5, now(), now(), 'CLEARED', $2, $3, $3, now(), $3)`,
+        [cashId, branchId, cashier.principalId, randomUUID(), await openTestShift(admin(), cashier.principalId, branchId)],
       ),
     ).toBe('23514:ck_payment_verified');
   });
@@ -270,8 +277,8 @@ describe('the database holds the payment record (FR-PAY-001, FR-PAY-002, FR-PAY-
 describe('pay.PaymentCleared posts its exact amounts (ADR-0003, ADR-0056)', () => {
   it('holds the part of a cash payment not allocated as the customer’s deposit in 2200', async () => {
     const payment = await asCashier(() =>
-      uow.run({ isolation: 'serializable', seriesLocks: [`JOURNAL:${clock.now().getUTCFullYear()}:${branchId}`] }, (tx) =>
-        api.app.get(Payments).recordIn(tx, cashier, { branchId, channel: 'WHOLESALE', methodCode: 'CASH', amountPesewas: 120_000n, customerId: id('tema'), orderDocumentId: null, register: till, receivedAt: clock.now(), allocations: [] }),
+      uow.run({ isolation: 'serializable', seriesLocks: [`JOURNAL:${clock.now().getUTCFullYear()}:${branchId}`] }, async (tx) =>
+        api.app.get(Payments).recordIn(tx, cashier, { branchId, channel: 'WHOLESALE', methodCode: 'CASH', amountPesewas: 120_000n, customerId: id('tema'), orderDocumentId: null, shiftDocumentId: await openTestShift(tx, cashier.principalId, branchId), register: till, receivedAt: clock.now(), allocations: [] }),
       ),
     );
     expect([payment.status, payment.amountPesewas, payment.allocatedPesewas, payment.unallocatedPesewas]).toEqual(['CLEARED', 120_000, 0, 120_000]);
