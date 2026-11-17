@@ -45,11 +45,19 @@ describe('a claim line is the delivery at the order price, split exactly between
   it('refuses a delivery of nothing', () => {
     expect(() => claimLineValue({ ...crate, qtyAcceptedBase: q('0.000'), qtyRejectedBase: q('0.000') })).toThrow();
   });
+
+  it('refuses a negative quantity, which allocate never splits', () => {
+    expect(() => claimLineValue({ ...crate, qtyAcceptedBase: q('-1.000'), qtyRejectedBase: q('31.000') })).toThrow('ALLOCATION_NEGATIVE_WEIGHT');
+  });
 });
 
 describe('an invoice line that carries a claimed quantity clears 2010 only for what was received (ADR-0076)', () => {
   it('values the 23 received eggs of a crate invoiced whole at 4,751 at 3,642', () => {
     expect(receivedPartValue(Money.ofPesewas(4_751n), q('1.000'), q('30.000'), q('7.000')).pesewas).toBe(3_642n);
+  });
+
+  it('refuses an invoice line of no quantity', () => {
+    expect(() => receivedPartValue(Money.ofPesewas(4_751n), q('1.000'), q('0.000'), q('0.000'))).toThrow();
   });
 
   it('values the received two of three crates invoiced at 4,751 at 9,502', () => {
