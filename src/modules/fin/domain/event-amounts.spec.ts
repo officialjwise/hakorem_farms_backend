@@ -480,6 +480,10 @@ describe('the till\'s events (B9b, FR-POS-015, FR-POS-016, FR-POS-019)', () => {
     expect(amounts.map((a) => [a.key, a.amount.pesewas])).toEqual([['expected', 64_000n], ['returnedToSafe', 63_500n], ['short', 500n], ['over', 0n]]);
   });
 
+  it('refuses a close that leaves one of its four amounts out', () => {
+    expect(() => tillAmounts({ register: t1, amountsPesewas: { expected: 64_000, returnedToSafe: 63_500, short: 500 }, reasonCode: null })).toThrow(/names expected, returnedToSafe, short and over/);
+  });
+
   it('refuses a close whose parts do not balance by one pesewa', () => {
     expect(() => tillAmounts({ register: t1, amountsPesewas: { expected: 64_000, returnedToSafe: 63_500, short: 499, over: 0 }, reasonCode: null })).toThrow(/balance/);
   });

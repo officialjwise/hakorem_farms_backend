@@ -433,11 +433,12 @@ export function tillAmounts(payload: TillPostingFields): PostingAmount[] {
   const till: SubledgerRef = { kind: 'REGISTER', refId: payload.register.id, displayName: payload.register.code };
   const keys = Object.keys(payload.amountsPesewas);
   if (keys.includes('expected')) {
-    const [expected, returned, short, over] = CLOSE_KEYS.map((k) => Money.fromJsonInteger(payload.amountsPesewas[k] ?? 0));
+    if (CLOSE_KEYS.some((k) => payload.amountsPesewas[k] === undefined)) throw new Error('pos.ShiftClosed: a close names expected, returnedToSafe, short and over');
+    const [expected, returned, short, over] = CLOSE_KEYS.map((k) => Money.fromJsonInteger(payload.amountsPesewas[k]!));
     if (!returned!.plus(short!).equals(expected!.plus(over!))) {
       throw new Error(`pos.ShiftClosed: returned ${returned!.pesewas} and short ${short!.pesewas} do not balance expected ${expected!.pesewas} and over ${over!.pesewas}`);
     }
-    return CLOSE_KEYS.map((key) => ({ key, amount: Money.fromJsonInteger(payload.amountsPesewas[key] ?? 0), subledgers: [till] }));
+    return CLOSE_KEYS.map((key) => ({ key, amount: Money.fromJsonInteger(payload.amountsPesewas[key]!), subledgers: [till] }));
   }
   return keys.map((key) => ({
     key,
