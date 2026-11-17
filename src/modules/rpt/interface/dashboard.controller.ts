@@ -14,16 +14,18 @@ import {
   type LowStockTileView,
   type OwnerDashboardView,
   type PurchasesSeriesTileView,
+  type SalesSeriesTileView,
+  type SalesTodayTileView,
   type StockValueTileView,
 } from '../application/dashboards';
-import { DashboardQuery, SeriesQuery, TileQuery } from './schemas';
+import { DashboardQuery, DayQuery, SeriesQuery, TileQuery } from './schemas';
 
 const READ = { access: 'SESSION', realms: ['STAFF'], idempotent: false, csrf: false, rateLimit: 'console' } as const;
 
 /**
  * The owner dashboard and the tiles whose data exists (FR-RPT-001, NFR-023). Parses and delegates; the handler
- * authorises. Today's sales, receivables and the sales series are in the contract only until their source modules
- * exist (B08 continued 2, B9a, B9b); the cash position answers from the ledger since B08 continued 1c.
+ * authorises. The cash position answers from the ledger since B08 continued 1c, receivables since B08 continued 2, and
+ * today's sales and the sales series from completed orders since B09a continued 2g.
  */
 @Controller('dashboard')
 export class DashboardController {
@@ -69,5 +71,17 @@ export class DashboardController {
   @Operation({ operationId: 'getPurchasesSeries', ...READ, permission: TILE_PERMISSION })
   purchases(@CurrentActor() actor: Actor | undefined, @Query(zodPipe(SeriesQuery)) query: z.infer<typeof SeriesQuery>): Promise<PurchasesSeriesTileView> {
     return this.dashboards.getPurchasesSeries(actor, query);
+  }
+
+  @Get('tiles/sales-today')
+  @Operation({ operationId: 'getSalesTodayTile', ...READ, permission: TILE_PERMISSION })
+  salesToday(@CurrentActor() actor: Actor | undefined, @Query(zodPipe(DayQuery)) query: z.infer<typeof DayQuery>): Promise<SalesTodayTileView> {
+    return this.dashboards.getSalesTodayTile(actor, query);
+  }
+
+  @Get('tiles/sales')
+  @Operation({ operationId: 'getSalesSeries', ...READ, permission: TILE_PERMISSION })
+  sales(@CurrentActor() actor: Actor | undefined, @Query(zodPipe(SeriesQuery)) query: z.infer<typeof SeriesQuery>): Promise<SalesSeriesTileView> {
+    return this.dashboards.getSalesSeries(actor, query);
   }
 }

@@ -1,0 +1,61 @@
+operationId: getSalesTodayTile
+tags:
+  - rpt
+summary: "Today's sales"
+description: "Completed orders' gross totals and their count on `date` (today unless asked, never later), every channel. Sales are completed orders' gross totals (each order's billing document), by the business date in Africa/Accra the order completed on, from ORD's published `ord.pub_completed_sale` (ADR-0011, ADR-0023). A VOIDED, cancelled or open order is not a sale; a completed return does not change the figure (its credit note is the ledger's, A-234). A `date` after today is 422 `REPORT_PERIOD_INVALID`. Answered by the API since 1.52.0 (B09a continued 2g).\n\nPermission: `rpt.tile.read`."
+x-permission: rpt.tile.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - REPORT_PERIOD_INVALID
+  - RATE_LIMITED
+parameters:
+  - name: branchId
+    in: query
+    required: false
+    description: "One branch; without it, every branch where the caller holds `rpt.tile.read` for the whole branch."
+    schema:
+      type: string
+      format: uuid
+  - name: date
+    in: query
+    required: false
+    description: "The business date (Africa/Accra); today when left out, never after today."
+    schema:
+      type: string
+      format: date
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/SalesTodayTile"
+        example:
+          branchIds:
+            - "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          date: "2026-11-15"
+          salesPesewas: 1622300
+          orderCount: 28
+          currency: GHS
+          asOf: "2026-11-15T09:30:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

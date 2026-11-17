@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.51.0"
+  version: "1.52.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -19247,148 +19247,10 @@ paths:
   "/dashboard/tiles/animals-on-hand": {}
   "/dashboard/tiles/low-stock": {}
   "/dashboard/tiles/purchases": {}
-  "/dashboard/tiles/sales-today":
-    get:
-      operationId: getSalesTodayTile
-      tags:
-        - rpt
-      summary: "Today's sales"
-      description: "Completed orders' gross totals on a business date in Africa/Accra, every channel. Not answered by the API until the order core exists (B9a, with counter sales from B9b): until then only the mock serves it.\n\nPermission: `rpt.tile.read`."
-      x-permission: rpt.tile.read
-      parameters:
-        - name: branchId
-          in: query
-          required: false
-          description: "One branch; without it, every branch where the caller holds `rpt.tile.read` for the whole branch."
-          schema:
-            type: string
-            format: uuid
-        - name: date
-          in: query
-          required: false
-          schema:
-            type: string
-            format: date
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SalesTodayTile"
-              example:
-                branchIds:
-                  - "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                date: "2026-11-15"
-                salesPesewas: 1622300
-                orderCount: 28
-                currency: GHS
-                asOf: "2026-11-15T09:30:00Z"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+  "/dashboard/tiles/sales-today": {}
   "/dashboard/tiles/cash-position": {}
   "/dashboard/tiles/receivables": {}
-  "/dashboard/tiles/sales":
-    get:
-      operationId: getSalesSeries
-      tags:
-        - rpt
-      summary: "Sales per day"
-      description: "Completed orders' gross totals per business day in Africa/Accra, every day of the period listed. Not answered by the API until the order core exists (B9a, with counter sales from B9b): until then only the mock serves it.\n\nPermission: `rpt.tile.read`."
-      x-permission: rpt.tile.read
-      parameters:
-        - name: branchId
-          in: query
-          required: false
-          description: "One branch; without it, every branch where the caller holds `rpt.tile.read` for the whole branch."
-          schema:
-            type: string
-            format: uuid
-        - name: from
-          in: query
-          required: false
-          description: "First business date (Africa/Accra), included. Without `from` and `to`, the 30 days ending today."
-          schema:
-            type: string
-            format: date
-        - name: to
-          in: query
-          required: false
-          description: "Last business date, included; not after today. A period covers at most 92 days."
-          schema:
-            type: string
-            format: date
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SalesSeriesTile"
-              example:
-                branchIds:
-                  - "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                sales:
-                  from: "2026-11-09"
-                  to: "2026-11-15"
-                  points:
-                    - date: "2026-11-09"
-                      salesPesewas: 2410500
-                      orderCount: 31
-                    - date: "2026-11-10"
-                      salesPesewas: 1987000
-                      orderCount: 27
-                    - date: "2026-11-11"
-                      salesPesewas: 2205400
-                      orderCount: 29
-                    - date: "2026-11-12"
-                      salesPesewas: 2840500
-                      orderCount: 35
-                    - date: "2026-11-13"
-                      salesPesewas: 1622300
-                      orderCount: 28
-                    - date: "2026-11-14"
-                      salesPesewas: 3102000
-                      orderCount: 38
-                    - date: "2026-11-15"
-                      salesPesewas: 845000
-                      orderCount: 11
-                  totalPesewas: 15012700
-                  orderCount: 199
-                currency: GHS
-                asOf: "2026-11-15T09:30:00Z"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+  "/dashboard/tiles/sales": {}
   "/reports/daily-sales":
     get:
       operationId: getDailySales
@@ -45563,18 +45425,22 @@ components:
           anyOf:
             - $ref: "#/components/schemas/Pesewas"
             - type: "null"
+          description: "Completed orders' gross totals on `date` (A-234): a VOIDED order is not a sale, and a completed return does not change the figure. The same figure as its point in `salesSeries` and as `getSalesTodayTile`."
         salesYesterdayPesewas:
           anyOf:
             - $ref: "#/components/schemas/Pesewas"
             - type: "null"
+          description: "The same on the day before `date`."
         salesMonthToDatePesewas:
           anyOf:
             - $ref: "#/components/schemas/Pesewas"
             - type: "null"
+          description: "The same from the first day of the month of `date` to `date`, both included."
         salesByChannel:
           type:
             - array
             - "null"
+          description: "The sales of `date` by channel, every channel listed in `Channel` order, one with no sale at 0; they sum to `salesTodayPesewas`."
           items:
             $ref: "#/components/schemas/ChannelSales"
         cash:
@@ -45605,6 +45471,7 @@ components:
           type:
             - array
             - "null"
+          description: "The five products with the highest gross on completed orders on `date`, a tie in SKU order; `qty` is the weighed kilograms of a line priced per kilogram (`uom` KG), else the quantity in the product's unit."
           items:
             $ref: "#/components/schemas/TopMover"
         alerts:

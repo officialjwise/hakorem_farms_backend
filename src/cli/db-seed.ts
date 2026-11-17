@@ -58,7 +58,7 @@ runCli('db:seed', async () => {
       abortOnError: false,
     });
     try {
-      const units = seedUnits(env);
+      const units = seedUnits(env, { tradingDay: true });
       const records = await runSeedUnits(pool, app, units);
       process.stdout.write(`db:seed: database marked ${databaseEnvironment}; ran ${units.length} seed units, ${records} records\n`);
     } finally {

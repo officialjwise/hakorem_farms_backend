@@ -5,9 +5,16 @@ Every change to `contract/openapi.yaml`, newest first. A breaking change needs a
 Version numbers follow semantic versioning: a major bump breaks an existing client, a minor bump adds operations or optional fields, a patch fixes descriptions or examples.
 
 **Read first (cold-read summary):** changes that alter an answer a client already handles from an implemented operation.
+- **1.52.0:** `getOwnerDashboard`'s six sales figures answer numbers where they were null, and `pendingFigures` lists only `alerts` and `exceptionsToday`: the change the schema and CR-013 planned (a figure is null exactly while it is listed). No field's type changed.
 - **1.51.0:** no answer of an implemented operation changed. `placeOrder` and the customer's order reads are new from code; `placeOrder` takes a guest checkout only.
 - **1.50.0, LOUD:** `createOrder` answers **202 `ApprovalPending`** (kind `PRICE_OVERRIDE`, subject the order) where it answered 422 `PRICE_OVERRIDE_NEEDS_APPROVAL` for a price outside the band or below list beyond the seller's limit. The order is entered `PLACED` and waits; it cannot be confirmed or given a proforma until a different user approves.
 - Earlier LOUD changes, each on an operation that was still planned when it changed, are in their entries below and in "Reading 1.5.0 to 1.37.0 cold".
+
+## 1.52.0 (2026-11-17, B09a continued 2g)
+
+Minor. Two planned RPT operations move into code with their descriptions made exact: `getSalesTodayTile` and `getSalesSeries`, answered from ORD's published completed sales (A-234). `getSalesTodayTile` gains its `x-error-codes`, a description of `date` and a `422` response (`REPORT_PERIOD_INVALID` for a date after today); `getSalesSeries` gains its `x-error-codes`. `getOwnerDashboard`'s description says how the sales figures are made (a `COMPLETED` order's gross on the Africa/Accra date it completed; a VOIDED order is not a sale; a completed return leaves the figures unchanged), its `beforeSalesAndBilling` example becomes `beforeExceptionReport` (every figure but the two B12 ones live), and `OwnerDashboard` describes `salesTodayPesewas`, `salesYesterdayPesewas`, `salesMonthToDatePesewas`, `salesByChannel` and `topMovers`. No field removed, renamed or retyped, no schema's shape changed, nothing a client sends made required, and no error code added.
+
+419 operations from code, 216 planned. The versioning check against `main` passes and Redocly is clean, with no warnings.
 
 ## 1.51.0 (2026-11-17, B09a continued 2f)
 

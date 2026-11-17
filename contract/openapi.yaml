@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.51.0"
+  version: "1.52.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -69734,7 +69734,7 @@ paths:
       tags:
         - rpt
       summary: "The owner dashboard"
-      description: "The owner's first screen in one request (FR-RPT-001, NFR-023). It composes the dashboard tiles: stock value at cost, animals on hand by species, the low stock count and purchases on `date` and the day before, and the purchases of the week (or, with `period=MONTH`, the 30 days) ending `date`, the cash position (the balances of ledger accounts 1000 to 1130, as `getCashPositionTile` answers it, since 1.37.0), and receivables (the balance of 1200 and the part past its due date, as `getReceivablesTile` answers them, since 1.39.0), read from the published views of inventory, master data and the ledger (ADR-0011, ADR-0023) and scoped to the branch asked for or to every branch where the caller holds `rpt.dashboard.owner` for the whole branch. A figure whose source module is not built yet (sales, top movers and the sales series until B9a, alerts and the exception count until B12) is null and listed in `pendingFigures` with its reason and phase; it is never answered with a zero. Stock figures are as of `asOf`; `date` (today unless asked, never later) dates the sales figures and ends the purchases period. A `date` after today is 422 `REPORT_PERIOD_INVALID`.\n\nPermission: `rpt.dashboard.owner`."
+      description: "The owner's first screen in one request (FR-RPT-001, NFR-023). It composes the dashboard tiles: stock value at cost, animals on hand by species, the low stock count and purchases on `date` and the day before, and the purchases of the week (or, with `period=MONTH`, the 30 days) ending `date`, the cash position (the balances of ledger accounts 1000 to 1130, as `getCashPositionTile` answers it, since 1.37.0), and receivables (the balance of 1200 and the part past its due date, as `getReceivablesTile` answers them, since 1.39.0), read from the published views of inventory, master data and the ledger (ADR-0011, ADR-0023) and scoped to the branch asked for or to every branch where the caller holds `rpt.dashboard.owner` for the whole branch. Sales (`salesTodayPesewas`, `salesYesterdayPesewas`, `salesMonthToDatePesewas`, `salesByChannel`, `topMovers` and `salesSeries`, since 1.52.0) are completed orders' gross totals by the Africa/Accra business date they completed on, from ORD's published `ord.pub_completed_sale` and `ord.pub_completed_sale_line`, as `getSalesTodayTile` and `getSalesSeries` answer them: a VOIDED order is not a sale, and a completed return does not change them (A-234). A figure whose source module is not built yet (alerts and the exception count until B12) is null and listed in `pendingFigures` with its reason and phase; it is never answered with a zero. Stock figures are as of `asOf`; `date` (today unless asked, never later) dates the sales figures and ends the purchases period. A `date` after today is 422 `REPORT_PERIOD_INVALID`.\n\nPermission: `rpt.dashboard.owner`."
       x-permission: rpt.dashboard.owner
       x-error-codes:
         - VALIDATION_FAILED
@@ -69922,18 +69922,30 @@ paths:
                       orderCount: 230
                     pendingFigures: []
                     currency: GHS
-                beforeSalesAndBilling:
-                  summary: "Today: sales have no source yet, so they are null and listed in pendingFigures; cash and receivables answer from the ledger and billing"
+                beforeExceptionReport:
+                  summary: "Today (1.52.0): every figure but the alerts and the exception count answers; sales from completed orders, cash and receivables from the ledger and billing"
                   value:
                     date: "2026-11-15"
                     branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                     branchIds:
                       - "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                     asOf: "2026-11-15T09:30:00Z"
-                    salesTodayPesewas: null
-                    salesYesterdayPesewas: null
-                    salesMonthToDatePesewas: null
-                    salesByChannel: null
+                    salesTodayPesewas: 86430
+                    salesYesterdayPesewas: 0
+                    salesMonthToDatePesewas: 86430
+                    salesByChannel:
+                      - channel: POS
+                        amountPesewas: 0
+                        count: 0
+                      - channel: ONLINE
+                        amountPesewas: 6000
+                        count: 1
+                      - channel: WHOLESALE
+                        amountPesewas: 80430
+                        count: 1
+                      - channel: QUOTE
+                        amountPesewas: 0
+                        count: 0
                     cash:
                       tillsPesewas: 0
                       safePesewas: 900000
@@ -69948,7 +69960,35 @@ paths:
                     purchasesYesterdayPesewas: 96500
                     receivablesOutstandingPesewas: 109389
                     receivablesOverduePesewas: 0
-                    topMovers: null
+                    topMovers:
+                      - product:
+                          id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                          sku: LIV-GOAT
+                          name: Goat
+                        qty: "1.000"
+                        uom: HEAD
+                        revenuePesewas: 58500
+                      - product:
+                          id: "019a7a8d-ae28-7631-8b69-6be302d5e4c1"
+                          sku: EGG-CRATE-BIG
+                          name: "Eggs, big, crate of 30"
+                        qty: "3.000"
+                        uom: CRATE
+                        revenuePesewas: 18000
+                      - product:
+                          id: "019a7a8e-3b1f-7c2a-9d4e-5f6a7b8c9d01"
+                          sku: MEAT-GOAT-15KG
+                          name: "Goat meat, 15 kg pack"
+                        qty: "3.500"
+                        uom: KG
+                        revenuePesewas: 6930
+                      - product:
+                          id: "019a7a8e-4c2a-7d3b-8e5f-6a7b8c9d0e12"
+                          sku: PRD-CABBAGE-HEAD
+                          name: Cabbage
+                        qty: "3.000"
+                        uom: HEAD
+                        revenuePesewas: 3000
                     alerts: null
                     exceptionsToday: null
                     animalsOnHand:
@@ -69992,32 +70032,34 @@ paths:
                           receiptCount: 0
                       totalPesewas: 1843501
                       receiptCount: 6
-                    salesSeries: null
+                    salesSeries:
+                      from: "2026-11-09"
+                      to: "2026-11-15"
+                      points:
+                        - date: "2026-11-09"
+                          salesPesewas: 0
+                          orderCount: 0
+                        - date: "2026-11-10"
+                          salesPesewas: 0
+                          orderCount: 0
+                        - date: "2026-11-11"
+                          salesPesewas: 0
+                          orderCount: 0
+                        - date: "2026-11-12"
+                          salesPesewas: 0
+                          orderCount: 0
+                        - date: "2026-11-13"
+                          salesPesewas: 0
+                          orderCount: 0
+                        - date: "2026-11-14"
+                          salesPesewas: 0
+                          orderCount: 0
+                        - date: "2026-11-15"
+                          salesPesewas: 86430
+                          orderCount: 2
+                      totalPesewas: 86430
+                      orderCount: 2
                     pendingFigures:
-                      - figure: salesTodayPesewas
-                        source: ord
-                        reason: "Sales are completed orders; the order core that records them on every channel is built in B9a, and counter sales reach it from B9b."
-                        phase: B9a
-                      - figure: salesYesterdayPesewas
-                        source: ord
-                        reason: "Sales are completed orders; the order core that records them on every channel is built in B9a, and counter sales reach it from B9b."
-                        phase: B9a
-                      - figure: salesMonthToDatePesewas
-                        source: ord
-                        reason: "Sales are completed orders; the order core that records them on every channel is built in B9a, and counter sales reach it from B9b."
-                        phase: B9a
-                      - figure: salesByChannel
-                        source: ord
-                        reason: "Sales are completed orders; the order core that records them on every channel is built in B9a, and counter sales reach it from B9b."
-                        phase: B9a
-                      - figure: salesSeries
-                        source: ord
-                        reason: "Sales are completed orders; the order core that records them on every channel is built in B9a, and counter sales reach it from B9b."
-                        phase: B9a
-                      - figure: topMovers
-                        source: ord
-                        reason: "Top movers rank the products sold today by revenue, from completed orders built in B9a."
-                        phase: B9a
                       - figure: alerts
                         source: rpt
                         reason: "The alert feed gathers stock exceptions, approvals and the daily exception report, which are composed in B12."
@@ -70302,8 +70344,15 @@ paths:
       tags:
         - rpt
       summary: "Today's sales"
-      description: "Completed orders' gross totals on a business date in Africa/Accra, every channel. Not answered by the API until the order core exists (B9a, with counter sales from B9b): until then only the mock serves it.\n\nPermission: `rpt.tile.read`."
+      description: "Completed orders' gross totals and their count on `date` (today unless asked, never later), every channel. Sales are completed orders' gross totals (each order's billing document), by the business date in Africa/Accra the order completed on, from ORD's published `ord.pub_completed_sale` (ADR-0011, ADR-0023). A VOIDED, cancelled or open order is not a sale; a completed return does not change the figure (its credit note is the ledger's, A-234). A `date` after today is 422 `REPORT_PERIOD_INVALID`. Answered by the API since 1.52.0 (B09a continued 2g).\n\nPermission: `rpt.tile.read`."
       x-permission: rpt.tile.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - REPORT_PERIOD_INVALID
+        - RATE_LIMITED
       parameters:
         - name: branchId
           in: query
@@ -70315,6 +70364,7 @@ paths:
         - name: date
           in: query
           required: false
+          description: "The business date (Africa/Accra); today when left out, never after today."
           schema:
             type: string
             format: date
@@ -70345,6 +70395,8 @@ paths:
           $ref: "#/components/responses/Unauthenticated"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/BusinessRuleViolation"
         "429":
           $ref: "#/components/responses/RateLimited"
         "500":
@@ -70465,8 +70517,15 @@ paths:
       tags:
         - rpt
       summary: "Sales per day"
-      description: "Completed orders' gross totals per business day in Africa/Accra, every day of the period listed. Not answered by the API until the order core exists (B9a, with counter sales from B9b): until then only the mock serves it.\n\nPermission: `rpt.tile.read`."
+      description: "Completed orders' gross totals and their count per business day in Africa/Accra, every day of the period listed; a day with none is 0. Sales are completed orders' gross totals (each order's billing document), by the business date in Africa/Accra the order completed on, from ORD's published `ord.pub_completed_sale` (ADR-0011, ADR-0023). A VOIDED, cancelled or open order is not a sale; a completed return does not change the figure (its credit note is the ledger's, A-234). A period that ends after today, starts after it ends or covers more than 92 days is 422 `REPORT_PERIOD_INVALID`. Answered by the API since 1.52.0 (B09a continued 2g).\n\nPermission: `rpt.tile.read`."
       x-permission: rpt.tile.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - REPORT_PERIOD_INVALID
+        - RATE_LIMITED
       parameters:
         - name: branchId
           in: query
@@ -97583,18 +97642,22 @@ components:
           anyOf:
             - $ref: "#/components/schemas/Pesewas"
             - type: "null"
+          description: "Completed orders' gross totals on `date` (A-234): a VOIDED order is not a sale, and a completed return does not change the figure. The same figure as its point in `salesSeries` and as `getSalesTodayTile`."
         salesYesterdayPesewas:
           anyOf:
             - $ref: "#/components/schemas/Pesewas"
             - type: "null"
+          description: "The same on the day before `date`."
         salesMonthToDatePesewas:
           anyOf:
             - $ref: "#/components/schemas/Pesewas"
             - type: "null"
+          description: "The same from the first day of the month of `date` to `date`, both included."
         salesByChannel:
           type:
             - array
             - "null"
+          description: "The sales of `date` by channel, every channel listed in `Channel` order, one with no sale at 0; they sum to `salesTodayPesewas`."
           items:
             $ref: "#/components/schemas/ChannelSales"
         cash:
@@ -97625,6 +97688,7 @@ components:
           type:
             - array
             - "null"
+          description: "The five products with the highest gross on completed orders on `date`, a tie in SKU order; `qty` is the weighed kilograms of a line priced per kilogram (`uom` KG), else the quantity in the product's unit."
           items:
             $ref: "#/components/schemas/TopMover"
         alerts:

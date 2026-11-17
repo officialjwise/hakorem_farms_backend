@@ -2,7 +2,7 @@ operationId: getOwnerDashboard
 tags:
   - rpt
 summary: "The owner dashboard"
-description: "The owner's first screen in one request (FR-RPT-001, NFR-023). It composes the dashboard tiles: stock value at cost, animals on hand by species, the low stock count and purchases on `date` and the day before, and the purchases of the week (or, with `period=MONTH`, the 30 days) ending `date`, the cash position (the balances of ledger accounts 1000 to 1130, as `getCashPositionTile` answers it, since 1.37.0), and receivables (the balance of 1200 and the part past its due date, as `getReceivablesTile` answers them, since 1.39.0), read from the published views of inventory, master data and the ledger (ADR-0011, ADR-0023) and scoped to the branch asked for or to every branch where the caller holds `rpt.dashboard.owner` for the whole branch. A figure whose source module is not built yet (sales, top movers and the sales series until B9a, alerts and the exception count until B12) is null and listed in `pendingFigures` with its reason and phase; it is never answered with a zero. Stock figures are as of `asOf`; `date` (today unless asked, never later) dates the sales figures and ends the purchases period. A `date` after today is 422 `REPORT_PERIOD_INVALID`.\n\nPermission: `rpt.dashboard.owner`."
+description: "The owner's first screen in one request (FR-RPT-001, NFR-023). It composes the dashboard tiles: stock value at cost, animals on hand by species, the low stock count and purchases on `date` and the day before, and the purchases of the week (or, with `period=MONTH`, the 30 days) ending `date`, the cash position (the balances of ledger accounts 1000 to 1130, as `getCashPositionTile` answers it, since 1.37.0), and receivables (the balance of 1200 and the part past its due date, as `getReceivablesTile` answers them, since 1.39.0), read from the published views of inventory, master data and the ledger (ADR-0011, ADR-0023) and scoped to the branch asked for or to every branch where the caller holds `rpt.dashboard.owner` for the whole branch. Sales (`salesTodayPesewas`, `salesYesterdayPesewas`, `salesMonthToDatePesewas`, `salesByChannel`, `topMovers` and `salesSeries`, since 1.52.0) are completed orders' gross totals by the Africa/Accra business date they completed on, from ORD's published `ord.pub_completed_sale` and `ord.pub_completed_sale_line`, as `getSalesTodayTile` and `getSalesSeries` answer them: a VOIDED order is not a sale, and a completed return does not change them (A-234). A figure whose source module is not built yet (alerts and the exception count until B12) is null and listed in `pendingFigures` with its reason and phase; it is never answered with a zero. Stock figures are as of `asOf`; `date` (today unless asked, never later) dates the sales figures and ends the purchases period. A `date` after today is 422 `REPORT_PERIOD_INVALID`.\n\nPermission: `rpt.dashboard.owner`."
 x-permission: rpt.dashboard.owner
 x-error-codes:
   - VALIDATION_FAILED
@@ -190,18 +190,30 @@ responses:
                 orderCount: 230
               pendingFigures: []
               currency: GHS
-          beforeSalesAndBilling:
-            summary: "Today: sales have no source yet, so they are null and listed in pendingFigures; cash and receivables answer from the ledger and billing"
+          beforeExceptionReport:
+            summary: "Today (1.52.0): every figure but the alerts and the exception count answers; sales from completed orders, cash and receivables from the ledger and billing"
             value:
               date: "2026-11-15"
               branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
               branchIds:
                 - "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
               asOf: "2026-11-15T09:30:00Z"
-              salesTodayPesewas: null
-              salesYesterdayPesewas: null
-              salesMonthToDatePesewas: null
-              salesByChannel: null
+              salesTodayPesewas: 86430
+              salesYesterdayPesewas: 0
+              salesMonthToDatePesewas: 86430
+              salesByChannel:
+                - channel: POS
+                  amountPesewas: 0
+                  count: 0
+                - channel: ONLINE
+                  amountPesewas: 6000
+                  count: 1
+                - channel: WHOLESALE
+                  amountPesewas: 80430
+                  count: 1
+                - channel: QUOTE
+                  amountPesewas: 0
+                  count: 0
               cash:
                 tillsPesewas: 0
                 safePesewas: 900000
@@ -216,7 +228,35 @@ responses:
               purchasesYesterdayPesewas: 96500
               receivablesOutstandingPesewas: 109389
               receivablesOverduePesewas: 0
-              topMovers: null
+              topMovers:
+                - product:
+                    id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                    sku: LIV-GOAT
+                    name: Goat
+                  qty: "1.000"
+                  uom: HEAD
+                  revenuePesewas: 58500
+                - product:
+                    id: "019a7a8d-ae28-7631-8b69-6be302d5e4c1"
+                    sku: EGG-CRATE-BIG
+                    name: "Eggs, big, crate of 30"
+                  qty: "3.000"
+                  uom: CRATE
+                  revenuePesewas: 18000
+                - product:
+                    id: "019a7a8e-3b1f-7c2a-9d4e-5f6a7b8c9d01"
+                    sku: MEAT-GOAT-15KG
+                    name: "Goat meat, 15 kg pack"
+                  qty: "3.500"
+                  uom: KG
+                  revenuePesewas: 6930
+                - product:
+                    id: "019a7a8e-4c2a-7d3b-8e5f-6a7b8c9d0e12"
+                    sku: PRD-CABBAGE-HEAD
+                    name: Cabbage
+                  qty: "3.000"
+                  uom: HEAD
+                  revenuePesewas: 3000
               alerts: null
               exceptionsToday: null
               animalsOnHand:
@@ -260,32 +300,34 @@ responses:
                     receiptCount: 0
                 totalPesewas: 1843501
                 receiptCount: 6
-              salesSeries: null
+              salesSeries:
+                from: "2026-11-09"
+                to: "2026-11-15"
+                points:
+                  - date: "2026-11-09"
+                    salesPesewas: 0
+                    orderCount: 0
+                  - date: "2026-11-10"
+                    salesPesewas: 0
+                    orderCount: 0
+                  - date: "2026-11-11"
+                    salesPesewas: 0
+                    orderCount: 0
+                  - date: "2026-11-12"
+                    salesPesewas: 0
+                    orderCount: 0
+                  - date: "2026-11-13"
+                    salesPesewas: 0
+                    orderCount: 0
+                  - date: "2026-11-14"
+                    salesPesewas: 0
+                    orderCount: 0
+                  - date: "2026-11-15"
+                    salesPesewas: 86430
+                    orderCount: 2
+                totalPesewas: 86430
+                orderCount: 2
               pendingFigures:
-                - figure: salesTodayPesewas
-                  source: ord
-                  reason: "Sales are completed orders; the order core that records them on every channel is built in B9a, and counter sales reach it from B9b."
-                  phase: B9a
-                - figure: salesYesterdayPesewas
-                  source: ord
-                  reason: "Sales are completed orders; the order core that records them on every channel is built in B9a, and counter sales reach it from B9b."
-                  phase: B9a
-                - figure: salesMonthToDatePesewas
-                  source: ord
-                  reason: "Sales are completed orders; the order core that records them on every channel is built in B9a, and counter sales reach it from B9b."
-                  phase: B9a
-                - figure: salesByChannel
-                  source: ord
-                  reason: "Sales are completed orders; the order core that records them on every channel is built in B9a, and counter sales reach it from B9b."
-                  phase: B9a
-                - figure: salesSeries
-                  source: ord
-                  reason: "Sales are completed orders; the order core that records them on every channel is built in B9a, and counter sales reach it from B9b."
-                  phase: B9a
-                - figure: topMovers
-                  source: ord
-                  reason: "Top movers rank the products sold today by revenue, from completed orders built in B9a."
-                  phase: B9a
                 - figure: alerts
                   source: rpt
                   reason: "The alert feed gathers stock exceptions, approvals and the daily exception report, which are composed in B12."
