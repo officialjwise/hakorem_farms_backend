@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
-import { createUuidV7Generator, Money, type Clock } from '@hakorem/kernel';
+import { createUuidV7Generator, Money, toBusinessDate, type Clock } from '@hakorem/kernel';
 import type { AuditTrail } from '../../../platform/audit/audit-trail';
 import type { Actor } from '../../../platform/context/request-context';
 import type { Transaction, UnitOfWork } from '../../../platform/database/unit-of-work';
 import type { DocumentRegistry } from '../../../platform/documents/document-registry';
+import type { NumberSeries } from '../../../platform/documents/number-series';
 import { NotFoundError } from '../../../platform/errors/api-error';
 import type { DomainEvents } from '../../../platform/events/domain-events';
 import type { Cursors } from '../../../platform/http/cursor';
@@ -102,6 +103,11 @@ export interface SupplierRemittanceView {
   readonly recordedAt: string;
 }
 
+/** The series lock of a supplier payment's number, the shape of every series lock: `<DOC TYPE>:<YEAR>:<BRANCH>`. */
+function paymentSeriesLock(fiscalYear: number, branchId: string): string {
+  return `${DOC_TYPE}:${fiscalYear}:${branchId}`;
+}
+
 function paymentHash(payment: PaymentRecord): string {
   const payload = {
     supplierId: payment.supplierId,
@@ -158,6 +164,7 @@ export class SupplierPayments implements ApprovalHandler {
     readonly cursors: Cursors,
     private readonly clock: Clock,
     private readonly archive: Documents,
+    private readonly numbers: NumberSeries,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -281,11 +288,23 @@ export class SupplierPayments implements ApprovalHandler {
     });
   }
 
-  markPaid(actor: Actor | undefined, id: string, body: SupplierPaymentMarkPaid, idempotencyKey: string): Promise<StoredResponse<SupplierPaymentView>> {
+  /**
+   * `markSupplierPaymentPaid`: the payment is numbered from its SPY series in this transaction, the number the first
+   * write after the lock (A-205, ADR-0015), so a rollback gives it back; the fiscal year is the Africa/Accra year of the
+   * date it was paid. `ck_supplier_payment_number` holds the number to the payment it was allocated to.
+   */
+  async markPaid(actor: Actor | undefined, id: string, body: SupplierPaymentMarkPaid, idempotencyKey: string): Promise<StoredResponse<SupplierPaymentView>> {
+    const paidAt = new Date(body.paidAt);
+    const fiscalYear = Number(toBusinessDate(paidAt).slice(0, 4));
+    // Concurrent payers of one branch and year queue on the series lock instead of retrying (ADR-0005); the branch is
+    // read first, outside the command, only to name the lock.
+    const branchId = await this.uow.run({ isolation: 'read committed' }, async (tx) => (await this.store.payment(tx, id))?.branchId);
+    const locks = branchId === undefined ? [] : [paymentSeriesLock(fiscalYear, branchId)];
     return this.write(actor, PAY, 'markSupplierPaymentPaid', id, body, idempotencyKey, async (tx) => {
       const before = await this.locked(tx, id, ['APPROVED']);
-      const paidAt = new Date(body.paidAt);
-      await this.store.markPaymentPaid(tx, id, paidAt, body.externalReference.trim(), this.clock.now(), actor!.principalId);
+      const branch = (await this.refs.branchesIn(tx, [before.branchId])).get(before.branchId)!;
+      const paymentNo = await this.numbers.allocateIn(tx, { docType: DOC_TYPE, fiscalYear, branchId: before.branchId, branchCode: branch.code, documentId: id });
+      await this.store.markPaymentPaid(tx, id, paymentNo, paidAt, body.externalReference.trim(), this.clock.now(), actor!.principalId);
       const view = await this.audited(tx, 'PAY', before);
       await this.recordRemittance(tx, actor!.principalId, id);
       await this.events.publish<SupplierPaymentMade>(tx, {
@@ -306,7 +325,7 @@ export class SupplierPayments implements ApprovalHandler {
         },
       });
       return { status: 200, body: view };
-    });
+    }, locks);
   }
 
   cancel(actor: Actor | undefined, id: string, reason: string, idempotencyKey: string): Promise<StoredResponse<SupplierPaymentView>> {
@@ -515,6 +534,7 @@ export class SupplierPayments implements ApprovalHandler {
     body: object,
     idempotencyKey: string,
     work: (tx: Transaction) => Promise<StoredResponse<T>>,
+    seriesLocks: readonly string[] = [],
   ): Promise<StoredResponse<T>> {
     return runPurchaseCommand(
       this.uow,
@@ -530,6 +550,7 @@ export class SupplierPayments implements ApprovalHandler {
         return record === null ? {} : { branchId: record.branchId };
       },
       work,
+      seriesLocks,
     ).catch(translatePurRefusal);
   }
 

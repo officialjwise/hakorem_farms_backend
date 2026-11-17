@@ -11,6 +11,7 @@ import { seedCalendar, type SeedCalendar } from '../../../src/seed/seed-calendar
 import { seedUnits } from '../../../src/seed/seed-units';
 import { consoleGet, consolePost, createUser, enrolAndLogin, login, relaxRateLimits, SYSTEM_PRINCIPAL, testStartTime, type RoleCode, type TestSession } from '../../support/iam';
 import { startTestApp, TEST_ORIGIN, type TestApp } from '../../support/test-app';
+import { cleanEvidence } from '../../support/evidence';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
 
 /**
@@ -412,7 +413,9 @@ describe('rations (FR-LIV-014)', () => {
 
 describe('mortality waits for a photograph and a different approver at or above 50,000 (FR-LIV-012, abuse case 2)', () => {
   it('writes off a kid with accumulated cost 12,000 once a supervisor confirms the Farm hand\'s report, and the register shows it DEAD', async () => {
-    const reported = await post(farmHand, '/care/mortality-records', { kind: 'DEATH', stockUnitId: id('unit:K-0301'), reasonCode: 'UNKNOWN_CAUSE', foundAt: hoursAgo(1), disposalNote: 'Buried behind the pens' });
+    // The Farm hand's report always carries its photograph, whatever the value (owner, 2026-11-16).
+    const photoFileId = await cleanEvidence(api.server, farmHand, database, 303);
+    const reported = await post(farmHand, '/care/mortality-records', { kind: 'DEATH', stockUnitId: id('unit:K-0301'), reasonCode: 'UNKNOWN_CAUSE', foundAt: hoursAgo(1), disposalNote: 'Buried behind the pens', photoFileId });
     expect(reported.status, JSON.stringify(reported.body)).toBe(201);
     expect(reported.body).toMatchObject({ status: 'REPORTED', animal: { tagNo: 'K-0301' }, location: { code: 'PENS' }, reportedBy: { displayName: 'Abena Quaye' } });
     expect(reported.body).not.toHaveProperty('valuePesewas');

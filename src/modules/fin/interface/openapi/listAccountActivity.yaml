@@ -65,93 +65,112 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/AccountActivity"
-        example:
-          data:
-            - journalEntryId: "019a7adb-bd42-7a30-af69-abe0177b24bd"
-              entryNo: JNL-2026-DDW-030500
-              postingDate: "2026-11-10"
-              description: "Invoice INV-2026-DDW-001190 Royal Palm Hotel"
-              side: D
-              amountPesewas: 395200
-              runningBalancePesewas: 1245200
-              runningSide: D
-              sourceDocument:
-                id: "019a7adb-dc31-7414-b94c-4a17912cc2f5"
-                docType: INVOICE
-                number: null
-            - journalEntryId: "019a7adb-fb20-7df7-8330-e84f0add612c"
-              entryNo: JNL-2026-DDW-030507
-              postingDate: "2026-11-10"
-              description: "Payment GCB transfer Royal Palm Hotel"
-              side: C
-              amountPesewas: 395200
-              runningBalancePesewas: 850000
-              runningSide: D
-              sourceDocument:
-                id: "019a7adc-1a0f-77db-9d13-8686848eff64"
-                docType: PAYMENT
-                number: null
-            - journalEntryId: "019a7adc-38fe-71be-a6f7-24bdfe3f9d9b"
-              entryNo: JNL-2026-DDW-030514
-              postingDate: "2026-11-11"
-              description: "Invoice INV-2026-DDW-001198 Royal Palm Hotel"
-              side: D
-              amountPesewas: 612000
-              runningBalancePesewas: 1462000
-              runningSide: D
-              sourceDocument:
-                id: "019a7adc-57ed-7ba2-b0da-c2f577f03bd3"
-                docType: INVOICE
-                number: null
-            - journalEntryId: "019a7adc-76dc-7585-8abe-612cf1a1da0a"
-              entryNo: JNL-2026-DDW-030521
-              postingDate: "2026-11-11"
-              description: "Credit note CRN-2026-DDW-000086"
-              side: C
-              amountPesewas: 24000
-              runningBalancePesewas: 1438000
-              runningSide: D
-              sourceDocument:
-                id: "019a7adc-95cb-7f69-94a1-ff646b527842"
-                docType: CREDIT_NOTE
-                number: null
-            - journalEntryId: "019a7adc-b4ba-794c-ae84-9d9be5031679"
-              entryNo: JNL-2026-DDW-030528
-              postingDate: "2026-11-12"
-              description: "Invoice INV-2026-DDW-001204 Royal Palm Hotel"
-              side: D
-              amountPesewas: 488500
-              runningBalancePesewas: 1926500
-              runningSide: D
-              sourceDocument:
-                id: "019a7adc-d3a9-7330-b868-3bd35eb4b4b1"
-                docType: INVOICE
-                number: null
-            - journalEntryId: "019a7adc-f298-7d13-824b-da0ad86552e8"
-              entryNo: JNL-2026-DDW-030535
-              postingDate: "2026-11-12"
-              description: "Payment MTN MoMo Royal Palm Hotel"
-              side: C
-              amountPesewas: 300000
-              runningBalancePesewas: 1626500
-              runningSide: D
-              sourceDocument:
-                id: "019a7add-1187-76f7-9c2f-78425216f120"
-                docType: PAYMENT
-                number: null
-          page:
-            nextCursor: eyJpZCI6IjAxOWE3YyJ9
-            limit: 25
-            hasMore: true
-          account:
-            id: "019a7a95-0d1b-7164-969c-1f1b020297f8"
-            code: "1200"
-            name: "Trade receivables"
-          openingBalancePesewas: 850000
-          openingSide: D
-          closingBalancePesewas: 1626500
-          closingSide: D
-          currency: GHS
+        examples:
+          default:
+            value:
+              data:
+                - journalEntryId: "019a7adb-bd42-7a30-af69-abe0177b24bd"
+                  entryNo: JNL-2026-DDW-030500
+                  postingDate: "2026-11-10"
+                  description: "Invoice INV-2026-DDW-001190 Royal Palm Hotel"
+                  side: D
+                  amountPesewas: 395200
+                  runningBalancePesewas: 1245200
+                  runningSide: D
+                  sourceDocument:
+                    id: "019a7adb-dc31-7414-b94c-4a17912cc2f5"
+                    docType: INVOICE
+                    number: null
+                - journalEntryId: "019a7adb-fb20-7df7-8330-e84f0add612c"
+                  entryNo: JNL-2026-DDW-030507
+                  postingDate: "2026-11-10"
+                  description: "Payment GCB transfer Royal Palm Hotel"
+                  side: C
+                  amountPesewas: 395200
+                  runningBalancePesewas: 850000
+                  runningSide: D
+                  sourceDocument:
+                    id: "019a7adc-1a0f-77db-9d13-8686848eff64"
+                    docType: PAYMENT
+                    number: null
+                - journalEntryId: "019a7adc-38fe-71be-a6f7-24bdfe3f9d9b"
+                  entryNo: JNL-2026-DDW-030514
+                  postingDate: "2026-11-11"
+                  description: "Invoice INV-2026-DDW-001198 Royal Palm Hotel"
+                  side: D
+                  amountPesewas: 612000
+                  runningBalancePesewas: 1462000
+                  runningSide: D
+                  sourceDocument:
+                    id: "019a7adc-57ed-7ba2-b0da-c2f577f03bd3"
+                    docType: INVOICE
+                    number: null
+                - journalEntryId: "019a7adc-76dc-7585-8abe-612cf1a1da0a"
+                  entryNo: JNL-2026-DDW-030521
+                  postingDate: "2026-11-11"
+                  description: "Credit note CRN-2026-DDW-000086"
+                  side: C
+                  amountPesewas: 24000
+                  runningBalancePesewas: 1438000
+                  runningSide: D
+                  sourceDocument:
+                    id: "019a7adc-95cb-7f69-94a1-ff646b527842"
+                    docType: CREDIT_NOTE
+                    number: null
+                - journalEntryId: "019a7adc-b4ba-794c-ae84-9d9be5031679"
+                  entryNo: JNL-2026-DDW-030528
+                  postingDate: "2026-11-12"
+                  description: "Invoice INV-2026-DDW-001204 Royal Palm Hotel"
+                  side: D
+                  amountPesewas: 488500
+                  runningBalancePesewas: 1926500
+                  runningSide: D
+                  sourceDocument:
+                    id: "019a7adc-d3a9-7330-b868-3bd35eb4b4b1"
+                    docType: INVOICE
+                    number: null
+                - journalEntryId: "019a7adc-f298-7d13-824b-da0ad86552e8"
+                  entryNo: JNL-2026-DDW-030535
+                  postingDate: "2026-11-12"
+                  description: "Payment MTN MoMo Royal Palm Hotel"
+                  side: C
+                  amountPesewas: 300000
+                  runningBalancePesewas: 1626500
+                  runningSide: D
+                  sourceDocument:
+                    id: "019a7add-1187-76f7-9c2f-78425216f120"
+                    docType: PAYMENT
+                    number: null
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+              account:
+                id: "019a7a95-0d1b-7164-969c-1f1b020297f8"
+                code: "1200"
+                name: "Trade receivables"
+              openingBalancePesewas: 850000
+              openingSide: D
+              closingBalancePesewas: 1626500
+              closingSide: D
+              currency: GHS
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+              account:
+                id: "019a7a95-0d1b-7164-969c-1f1b020297f8"
+                code: "1200"
+                name: "Trade receivables"
+              openingBalancePesewas: 0
+              openingSide: D
+              closingBalancePesewas: 0
+              closingSide: D
+              currency: GHS
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

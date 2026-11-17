@@ -40,99 +40,109 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/DeliveryZonePage"
-        example:
-          data:
-            - id: "019a7a93-5c09-76f4-bc2c-78125a54f0f0"
-              branch:
-                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                code: DDW
-                name: "HaKorem Farms, Dodowa"
-              code: ACC-EAST
-              name: "Accra East: Madina, Adenta, East Legon"
-              areas:
-                - Madina
-                - Adenta
-                - "East Legon"
-                - "Ashaley Botwe"
-              feePesewas: 3000
-              freeOverPesewas: 50000
-              cutoffTime: "14:00"
-              isActive: true
-              currency: GHS
-              version: 1
-            - id: "019a7a93-7af8-70d7-860f-1649d4058f27"
-              branch:
-                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                code: DDW
-                name: "HaKorem Farms, Dodowa"
-              code: TEMA
-              name: "Tema and Community 25"
-              areas:
-                - "Tema Community 1-25"
-                - Sakumono
-                - Spintex
-              feePesewas: 4000
-              freeOverPesewas: 50000
-              cutoffTime: "14:00"
-              isActive: true
-              currency: GHS
-              version: 1
-            - id: "019a7a93-99e7-7abb-9ff3-b4814db62d5f"
-              branch:
-                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                code: DDW
-                name: "HaKorem Farms, Dodowa"
-              code: DODOWA
-              name: "Dodowa and surroundings"
-              areas:
-                - Dodowa
-                - Afienya
-                - Ayikuma
-              feePesewas: 1500
-              freeOverPesewas: null
-              cutoffTime: "14:00"
-              isActive: true
-              currency: GHS
-              version: 1
-            - id: "019a7a93-b8d6-749e-a9d6-52b8c767cb96"
-              branch:
-                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                code: DDW
-                name: "HaKorem Farms, Dodowa"
-              code: KASOA
-              name: "Kasoa and Weija"
-              areas:
-                - Kasoa
-                - Weija
-                - Gbawe
-              feePesewas: 6000
-              freeOverPesewas: 50000
-              cutoffTime: "14:00"
-              isActive: true
-              currency: GHS
-              version: 1
-            - id: "019a7a93-d7c5-7e81-b3ba-f0f0411869ce"
-              branch:
-                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                code: DDW
-                name: "HaKorem Farms, Dodowa"
-              code: ACC-CENTRAL
-              name: "Accra Central, Osu, Airport"
-              areas:
-                - Osu
-                - "Airport Residential"
-                - Cantonments
-                - Labone
-              feePesewas: 4500
-              freeOverPesewas: 50000
-              cutoffTime: "14:00"
-              isActive: true
-              currency: GHS
-              version: 1
-          page:
-            nextCursor: null
-            limit: 25
-            hasMore: false
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7a93-5c09-76f4-bc2c-78125a54f0f0"
+                  branch:
+                    id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    code: DDW
+                    name: "HaKorem Farms, Dodowa"
+                  code: ACC-EAST
+                  name: "Accra East: Madina, Adenta, East Legon"
+                  areas:
+                    - Madina
+                    - Adenta
+                    - "East Legon"
+                    - "Ashaley Botwe"
+                  feePesewas: 3000
+                  freeOverPesewas: 50000
+                  cutoffTime: "14:00"
+                  isActive: true
+                  currency: GHS
+                  version: 1
+                - id: "019a7a93-7af8-70d7-860f-1649d4058f27"
+                  branch:
+                    id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    code: DDW
+                    name: "HaKorem Farms, Dodowa"
+                  code: TEMA
+                  name: "Tema and Community 25"
+                  areas:
+                    - "Tema Community 1-25"
+                    - Sakumono
+                    - Spintex
+                  feePesewas: 4000
+                  freeOverPesewas: 50000
+                  cutoffTime: "14:00"
+                  isActive: true
+                  currency: GHS
+                  version: 1
+                - id: "019a7a93-99e7-7abb-9ff3-b4814db62d5f"
+                  branch:
+                    id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    code: DDW
+                    name: "HaKorem Farms, Dodowa"
+                  code: DODOWA
+                  name: "Dodowa and surroundings"
+                  areas:
+                    - Dodowa
+                    - Afienya
+                    - Ayikuma
+                  feePesewas: 1500
+                  freeOverPesewas: null
+                  cutoffTime: "14:00"
+                  isActive: true
+                  currency: GHS
+                  version: 1
+                - id: "019a7a93-b8d6-749e-a9d6-52b8c767cb96"
+                  branch:
+                    id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    code: DDW
+                    name: "HaKorem Farms, Dodowa"
+                  code: KASOA
+                  name: "Kasoa and Weija"
+                  areas:
+                    - Kasoa
+                    - Weija
+                    - Gbawe
+                  feePesewas: 6000
+                  freeOverPesewas: 50000
+                  cutoffTime: "14:00"
+                  isActive: true
+                  currency: GHS
+                  version: 1
+                - id: "019a7a93-d7c5-7e81-b3ba-f0f0411869ce"
+                  branch:
+                    id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    code: DDW
+                    name: "HaKorem Farms, Dodowa"
+                  code: ACC-CENTRAL
+                  name: "Accra Central, Osu, Airport"
+                  areas:
+                    - Osu
+                    - "Airport Residential"
+                    - Cantonments
+                    - Labone
+                  feePesewas: 4500
+                  freeOverPesewas: 50000
+                  cutoffTime: "14:00"
+                  isActive: true
+                  currency: GHS
+                  version: 1
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

@@ -41,75 +41,85 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/TemplateVersionPage"
-        example:
-          data:
-            - id: "019a7adf-9b22-769f-abd8-72cf4d9bebad"
-              templateId: "019a7ae2-43ac-702c-8564-0b93c2d18471"
-              versionNo: 3
-              status: DRAFT
-              body: null
-              activatedAt: null
-              activatedBy: null
-              createdAt: "2026-11-12T15:00:00Z"
-              createdBy:
-                id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
-                displayName: "Kwabena Owusu"
-            - id: "019a7ae0-16de-7e2d-a366-ebad345f648b"
-              templateId: "019a7ae2-43ac-702c-8564-0b93c2d18471"
-              versionNo: 2
-              status: ACTIVE
-              body: null
-              activatedAt: "2026-11-01T08:00:00Z"
-              activatedBy:
-                id: "019a7a86-3046-711a-a652-1a7389f79351"
-                displayName: "Akua Mensah"
-              createdAt: "2026-11-12T15:00:00Z"
-              createdBy:
-                id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
-                displayName: "Kwabena Owusu"
-            - id: "019a7ae0-929a-75bb-aaf3-648b1b23dd69"
-              templateId: "019a7ae2-43ac-702c-8564-0b93c2d18471"
-              versionNo: 1
-              status: RETIRED
-              body: null
-              activatedAt: "2026-10-01T08:00:00Z"
-              activatedBy:
-                id: "019a7a86-3046-711a-a652-1a7389f79351"
-                displayName: "Akua Mensah"
-              createdAt: "2026-11-12T15:00:00Z"
-              createdBy:
-                id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
-                displayName: "Kwabena Owusu"
-            - id: "019a7ae1-0e56-7d49-a281-dd6901e75646"
-              templateId: "019a7ae2-43ac-702c-8564-0b93c2d18471"
-              versionNo: 0
-              status: RETIRED
-              body: null
-              activatedAt: "2026-09-01T08:00:00Z"
-              activatedBy:
-                id: "019a7a86-3046-711a-a652-1a7389f79351"
-                displayName: "Akua Mensah"
-              createdAt: "2026-11-12T15:00:00Z"
-              createdBy:
-                id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
-                displayName: "Kwabena Owusu"
-            - id: "019a7ae1-8a12-74d7-aa0f-5646e8abcf24"
-              templateId: "019a7ae2-43ac-702c-8564-0b93c2d18471"
-              versionNo: -1
-              status: RETIRED
-              body: null
-              activatedAt: "2026-08-01T08:00:00Z"
-              activatedBy:
-                id: "019a7a86-3046-711a-a652-1a7389f79351"
-                displayName: "Akua Mensah"
-              createdAt: "2026-11-12T15:00:00Z"
-              createdBy:
-                id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
-                displayName: "Kwabena Owusu"
-          page:
-            nextCursor: null
-            limit: 25
-            hasMore: false
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7adf-9b22-769f-abd8-72cf4d9bebad"
+                  templateId: "019a7ae2-43ac-702c-8564-0b93c2d18471"
+                  versionNo: 3
+                  status: DRAFT
+                  body: null
+                  activatedAt: null
+                  activatedBy: null
+                  createdAt: "2026-11-12T15:00:00Z"
+                  createdBy:
+                    id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                    displayName: "Kwabena Owusu"
+                - id: "019a7ae0-16de-7e2d-a366-ebad345f648b"
+                  templateId: "019a7ae2-43ac-702c-8564-0b93c2d18471"
+                  versionNo: 2
+                  status: ACTIVE
+                  body: null
+                  activatedAt: "2026-11-01T08:00:00Z"
+                  activatedBy:
+                    id: "019a7a86-3046-711a-a652-1a7389f79351"
+                    displayName: "Akua Mensah"
+                  createdAt: "2026-11-12T15:00:00Z"
+                  createdBy:
+                    id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                    displayName: "Kwabena Owusu"
+                - id: "019a7ae0-929a-75bb-aaf3-648b1b23dd69"
+                  templateId: "019a7ae2-43ac-702c-8564-0b93c2d18471"
+                  versionNo: 1
+                  status: RETIRED
+                  body: null
+                  activatedAt: "2026-10-01T08:00:00Z"
+                  activatedBy:
+                    id: "019a7a86-3046-711a-a652-1a7389f79351"
+                    displayName: "Akua Mensah"
+                  createdAt: "2026-11-12T15:00:00Z"
+                  createdBy:
+                    id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                    displayName: "Kwabena Owusu"
+                - id: "019a7ae1-0e56-7d49-a281-dd6901e75646"
+                  templateId: "019a7ae2-43ac-702c-8564-0b93c2d18471"
+                  versionNo: 0
+                  status: RETIRED
+                  body: null
+                  activatedAt: "2026-09-01T08:00:00Z"
+                  activatedBy:
+                    id: "019a7a86-3046-711a-a652-1a7389f79351"
+                    displayName: "Akua Mensah"
+                  createdAt: "2026-11-12T15:00:00Z"
+                  createdBy:
+                    id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                    displayName: "Kwabena Owusu"
+                - id: "019a7ae1-8a12-74d7-aa0f-5646e8abcf24"
+                  templateId: "019a7ae2-43ac-702c-8564-0b93c2d18471"
+                  versionNo: -1
+                  status: RETIRED
+                  body: null
+                  activatedAt: "2026-08-01T08:00:00Z"
+                  activatedBy:
+                    id: "019a7a86-3046-711a-a652-1a7389f79351"
+                    displayName: "Akua Mensah"
+                  createdAt: "2026-11-12T15:00:00Z"
+                  createdBy:
+                    id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                    displayName: "Kwabena Owusu"
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

@@ -8,6 +8,7 @@ import { seedUnits } from '../../../src/seed/seed-units';
 import { contractSchema } from '../../support/contract-schemas';
 import { consoleGet, consolePost, createUser, enrolAndLogin, login, relaxRateLimits, testStartTime, type TestSession } from '../../support/iam';
 import { startTestApp, TEST_ORIGIN, type TestApp } from '../../support/test-app';
+import { cleanEvidence } from '../../support/evidence';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
 
 /**
@@ -106,7 +107,9 @@ function livAndPrcOperations(): ContractOperation[] {
         .filter(([status]) => status.startsWith('2'))
         .map(([status, response]) => {
           const content = ((response as Json)['content'] as Json | undefined)?.['application/json'] as Json | undefined;
-          return { status, schema: content?.['schema'], example: content?.['example'] };
+          // A list names its examples (CR-005): every one of them is walked, the populated and the empty alike.
+          const named = Object.values((content?.['examples'] as Json | undefined) ?? {}).map((example) => (example as Json)['value']);
+          return { status, schema: content?.['schema'], example: content?.['example'] ?? named };
         });
       found.push({
         operationId: operation['operationId'] as string,
@@ -189,7 +192,8 @@ const calls: Record<string, () => Promise<Response>> = {
     return updated;
   },
   reportCareMortality: async () => {
-    const reported = await send(farmHand, 'POST', '/care/mortality-records', { kind: 'DEATH', stockUnitId: id('unit:CARE-HATCH'), head: 12, reasonCode: 'UNKNOWN_CAUSE', foundAt: clock.now().toISOString() });
+    const photoFileId = await cleanEvidence(api.server, farmHand, database, 304);
+    const reported = await send(farmHand, 'POST', '/care/mortality-records', { kind: 'DEATH', stockUnitId: id('unit:CARE-HATCH'), head: 12, reasonCode: 'UNKNOWN_CAUSE', foundAt: clock.now().toISOString(), photoFileId });
     mortalityId = reported.body.id as string;
     return reported;
   },

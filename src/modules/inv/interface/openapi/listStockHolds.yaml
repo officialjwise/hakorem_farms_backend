@@ -54,128 +54,138 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/StockHoldPage"
-        example:
-          data:
-            - id: "019a7aaf-45b2-7334-a86d-3c21290bb4ff"
-              stockUnit:
-                id: "019a7a8f-9d18-7468-89a0-4f5a9de5c838"
-                identifier: G-0163
-                tracking: SERIAL
-              kind: WITHDRAWAL
-              startsAt: "2026-11-01T10:00:00Z"
-              endsAt: "2026-11-28T23:59:00Z"
-              sourceDocument:
-                id: "019a7aaf-64a1-7d18-b250-da58a2bc5336"
-                docType: HEALTH_EVENT
-                number: null
-              releasedAt: null
-              releasedBy: null
-              releaseReasonCode: null
-              createdAt: "2026-11-01T10:00:00Z"
-              createdBy:
-                id: "019a7a87-27be-7035-a56e-0c2f577f850d"
-                displayName: "Dr Selorm Agbeko"
-            - id: "019a7aae-2f4b-7a35-9f6e-ac2de1d2250b"
-              stockUnit:
-                id: "019a7a8f-daf6-782f-ad67-8bc9914704a7"
-                identifier: S-0031
-                tracking: SERIAL
-              kind: WITHDRAWAL
-              startsAt: "2026-11-02T10:00:00Z"
-              endsAt: "2026-11-27T23:59:00Z"
-              sourceDocument:
-                id: "019a7aaf-8390-76fb-8c34-78901c6df16e"
-                docType: HEALTH_EVENT
-                number: null
-              releasedAt: null
-              releasedBy: null
-              releaseReasonCode: null
-              createdAt: "2026-11-02T10:00:00Z"
-              createdBy:
-                id: "019a7a87-27be-7035-a56e-0c2f577f850d"
-                displayName: "Dr Selorm Agbeko"
-            - id: "019a7aaf-a27f-70df-9617-16c7961e8fa5"
-              stockUnit:
-                id: "019a7a90-18d4-7bf6-812e-c83884a94116"
-                identifier: P-0009
-                tracking: SERIAL
-              kind: WITHDRAWAL
-              startsAt: "2026-11-03T10:00:00Z"
-              endsAt: "2026-11-26T23:59:00Z"
-              sourceDocument:
-                id: "019a7aaf-c16e-7ac2-affb-b4ff0fcf2ddc"
-                docType: HEALTH_EVENT
-                number: null
-              releasedAt: null
-              releasedBy: null
-              releaseReasonCode: null
-              createdAt: "2026-11-03T10:00:00Z"
-              createdBy:
-                id: "019a7a87-27be-7035-a56e-0c2f577f850d"
-                displayName: "Dr Selorm Agbeko"
-            - id: "019a7aaf-e05d-74a6-b9de-53368980cc14"
-              stockUnit:
-                id: "019a7a91-4e2a-7ed9-a411-f66345936f41"
-                identifier: BRL-2610-01
-                tracking: LOT
-              kind: QUARANTINE
-              startsAt: "2026-11-04T10:00:00Z"
-              endsAt: null
-              sourceDocument:
-                id: "019a7aaf-ff4c-7e89-83c2-f16e03316a4b"
-                docType: TEMPERATURE_READING
-                number: null
-              releasedAt: null
-              releasedBy: null
-              releaseReasonCode: null
-              createdAt: "2026-11-04T10:00:00Z"
-              createdBy:
-                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                displayName: "Yaw Boateng"
-            - id: "019a7ab0-1e3b-786d-9da5-8fa57ce20883"
-              stockUnit:
-                id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
-                identifier: EGG-261112-L1
-                tracking: LOT
-              kind: INVESTIGATION
-              startsAt: "2026-11-05T10:00:00Z"
-              endsAt: null
-              sourceDocument:
-                id: "019a7ab0-3d2a-7250-a789-2ddcf693a6ba"
-                docType: TEMPERATURE_READING
-                number: null
-              releasedAt: null
-              releasedBy: null
-              releaseReasonCode: null
-              createdAt: "2026-11-05T10:00:00Z"
-              createdBy:
-                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                displayName: "Yaw Boateng"
-            - id: "019a7ab0-5c19-7c34-b16c-cc14704444f2"
-              stockUnit:
-                id: "019a7a91-8c08-72a0-87d8-32d238f5abb0"
-                identifier: TOM-261111-COOP
-                tracking: LOT
-              kind: QUARANTINE
-              startsAt: "2026-11-06T10:00:00Z"
-              endsAt: null
-              sourceDocument:
-                id: "019a7ab0-7b08-7617-8b4f-6a4be9f5e329"
-                docType: TEMPERATURE_READING
-                number: null
-              releasedAt: "2026-11-09T14:00:00Z"
-              releasedBy:
-                id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
-                displayName: "Kwabena Owusu"
-              releaseReasonCode: TEMPERATURE_RECOVERED_CHECKED
-              createdAt: "2026-11-06T10:00:00Z"
-              createdBy:
-                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                displayName: "Yaw Boateng"
-          page:
-            nextCursor: eyJpZCI6IjAxOWE3YyJ9
-            limit: 25
-            hasMore: true
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7aaf-45b2-7334-a86d-3c21290bb4ff"
+                  stockUnit:
+                    id: "019a7a8f-9d18-7468-89a0-4f5a9de5c838"
+                    identifier: G-0163
+                    tracking: SERIAL
+                  kind: WITHDRAWAL
+                  startsAt: "2026-11-01T10:00:00Z"
+                  endsAt: "2026-11-28T23:59:00Z"
+                  sourceDocument:
+                    id: "019a7aaf-64a1-7d18-b250-da58a2bc5336"
+                    docType: HEALTH_EVENT
+                    number: null
+                  releasedAt: null
+                  releasedBy: null
+                  releaseReasonCode: null
+                  createdAt: "2026-11-01T10:00:00Z"
+                  createdBy:
+                    id: "019a7a87-27be-7035-a56e-0c2f577f850d"
+                    displayName: "Dr Selorm Agbeko"
+                - id: "019a7aae-2f4b-7a35-9f6e-ac2de1d2250b"
+                  stockUnit:
+                    id: "019a7a8f-daf6-782f-ad67-8bc9914704a7"
+                    identifier: S-0031
+                    tracking: SERIAL
+                  kind: WITHDRAWAL
+                  startsAt: "2026-11-02T10:00:00Z"
+                  endsAt: "2026-11-27T23:59:00Z"
+                  sourceDocument:
+                    id: "019a7aaf-8390-76fb-8c34-78901c6df16e"
+                    docType: HEALTH_EVENT
+                    number: null
+                  releasedAt: null
+                  releasedBy: null
+                  releaseReasonCode: null
+                  createdAt: "2026-11-02T10:00:00Z"
+                  createdBy:
+                    id: "019a7a87-27be-7035-a56e-0c2f577f850d"
+                    displayName: "Dr Selorm Agbeko"
+                - id: "019a7aaf-a27f-70df-9617-16c7961e8fa5"
+                  stockUnit:
+                    id: "019a7a90-18d4-7bf6-812e-c83884a94116"
+                    identifier: P-0009
+                    tracking: SERIAL
+                  kind: WITHDRAWAL
+                  startsAt: "2026-11-03T10:00:00Z"
+                  endsAt: "2026-11-26T23:59:00Z"
+                  sourceDocument:
+                    id: "019a7aaf-c16e-7ac2-affb-b4ff0fcf2ddc"
+                    docType: HEALTH_EVENT
+                    number: null
+                  releasedAt: null
+                  releasedBy: null
+                  releaseReasonCode: null
+                  createdAt: "2026-11-03T10:00:00Z"
+                  createdBy:
+                    id: "019a7a87-27be-7035-a56e-0c2f577f850d"
+                    displayName: "Dr Selorm Agbeko"
+                - id: "019a7aaf-e05d-74a6-b9de-53368980cc14"
+                  stockUnit:
+                    id: "019a7a91-4e2a-7ed9-a411-f66345936f41"
+                    identifier: BRL-2610-01
+                    tracking: LOT
+                  kind: QUARANTINE
+                  startsAt: "2026-11-04T10:00:00Z"
+                  endsAt: null
+                  sourceDocument:
+                    id: "019a7aaf-ff4c-7e89-83c2-f16e03316a4b"
+                    docType: TEMPERATURE_READING
+                    number: null
+                  releasedAt: null
+                  releasedBy: null
+                  releaseReasonCode: null
+                  createdAt: "2026-11-04T10:00:00Z"
+                  createdBy:
+                    id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                    displayName: "Yaw Boateng"
+                - id: "019a7ab0-1e3b-786d-9da5-8fa57ce20883"
+                  stockUnit:
+                    id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
+                    identifier: EGG-261112-L1
+                    tracking: LOT
+                  kind: INVESTIGATION
+                  startsAt: "2026-11-05T10:00:00Z"
+                  endsAt: null
+                  sourceDocument:
+                    id: "019a7ab0-3d2a-7250-a789-2ddcf693a6ba"
+                    docType: TEMPERATURE_READING
+                    number: null
+                  releasedAt: null
+                  releasedBy: null
+                  releaseReasonCode: null
+                  createdAt: "2026-11-05T10:00:00Z"
+                  createdBy:
+                    id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                    displayName: "Yaw Boateng"
+                - id: "019a7ab0-5c19-7c34-b16c-cc14704444f2"
+                  stockUnit:
+                    id: "019a7a91-8c08-72a0-87d8-32d238f5abb0"
+                    identifier: TOM-261111-COOP
+                    tracking: LOT
+                  kind: QUARANTINE
+                  startsAt: "2026-11-06T10:00:00Z"
+                  endsAt: null
+                  sourceDocument:
+                    id: "019a7ab0-7b08-7617-8b4f-6a4be9f5e329"
+                    docType: TEMPERATURE_READING
+                    number: null
+                  releasedAt: "2026-11-09T14:00:00Z"
+                  releasedBy:
+                    id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                    displayName: "Kwabena Owusu"
+                  releaseReasonCode: TEMPERATURE_RECOVERED_CHECKED
+                  createdAt: "2026-11-06T10:00:00Z"
+                  createdBy:
+                    id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                    displayName: "Yaw Boateng"
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

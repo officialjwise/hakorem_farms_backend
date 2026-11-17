@@ -54,82 +54,92 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/ReasonCodePage"
-        example:
-          data:
-            - code: CHARGE_OMITTED
-              domain: BILLING_ADJUSTMENT
-              description: "A charge was left off the invoice"
-              requiresNote: true
-              lossAccountGroup: null
-            - code: CHEQUE_DISHONOURED
-              domain: PAYMENT_REVERSAL
-              description: "Cheque returned unpaid by the bank"
-              requiresNote: true
-              lossAccountGroup: null
-            - code: COUNT_ERROR
-              domain: STOCK_ADJUSTMENT
-              description: "Earlier count was wrong"
-              requiresNote: true
-              lossAccountGroup: SHRINKAGE
-            - code: CUSTOMER_CHANGED_MIND
-              domain: VOID
-              description: "Customer changed mind before leaving"
-              requiresNote: false
-              lossAccountGroup: null
-            - code: DAMAGED_IN_DELIVERY
-              domain: REFUND
-              description: "Damaged in delivery"
-              requiresNote: true
-              lossAccountGroup: null
-            - code: DISEASE_SUSPECTED
-              domain: MORTALITY
-              description: "Died, disease suspected"
-              requiresNote: true
-              lossAccountGroup: MORTALITY
-            - code: OVERCHARGED
-              domain: REFUND
-              description: "Customer was overcharged"
-              requiresNote: true
-              lossAccountGroup: null
-            - code: QUALITY_COMPLAINT
-              domain: REFUND
-              description: "Quality complaint upheld"
-              requiresNote: true
-              lossAccountGroup: null
-            - code: RECORDED_IN_ERROR
-              domain: PAYMENT_REVERSAL
-              description: "Payment recorded in error"
-              requiresNote: true
-              lossAccountGroup: null
-            - code: RETURN_QUALITY
-              domain: RETURN
-              description: "Returned for quality"
-              requiresNote: true
-              lossAccountGroup: null
-            - code: RETURN_UNWANTED
-              domain: RETURN
-              description: "Returned unused, not wanted"
-              requiresNote: false
-              lossAccountGroup: null
-            - code: RETURN_WRONG_ITEM
-              domain: RETURN
-              description: "Returned, wrong item"
-              requiresNote: true
-              lossAccountGroup: null
-            - code: UNDERCHARGED
-              domain: BILLING_ADJUSTMENT
-              description: "Customer was undercharged"
-              requiresNote: true
-              lossAccountGroup: null
-            - code: WRONG_ITEM
-              domain: REFUND
-              description: "Wrong item supplied"
-              requiresNote: true
-              lossAccountGroup: null
-          page:
-            nextCursor: null
-            limit: 25
-            hasMore: false
+        examples:
+          default:
+            value:
+              data:
+                - code: CHARGE_OMITTED
+                  domain: BILLING_ADJUSTMENT
+                  description: "A charge was left off the invoice"
+                  requiresNote: true
+                  lossAccountGroup: null
+                - code: CHEQUE_DISHONOURED
+                  domain: PAYMENT_REVERSAL
+                  description: "Cheque returned unpaid by the bank"
+                  requiresNote: true
+                  lossAccountGroup: null
+                - code: COUNT_ERROR
+                  domain: STOCK_ADJUSTMENT
+                  description: "Earlier count was wrong"
+                  requiresNote: true
+                  lossAccountGroup: SHRINKAGE
+                - code: CUSTOMER_CHANGED_MIND
+                  domain: VOID
+                  description: "Customer changed mind before leaving"
+                  requiresNote: false
+                  lossAccountGroup: null
+                - code: DAMAGED_IN_DELIVERY
+                  domain: REFUND
+                  description: "Damaged in delivery"
+                  requiresNote: true
+                  lossAccountGroup: null
+                - code: DISEASE_SUSPECTED
+                  domain: MORTALITY
+                  description: "Died, disease suspected"
+                  requiresNote: true
+                  lossAccountGroup: MORTALITY
+                - code: OVERCHARGED
+                  domain: REFUND
+                  description: "Customer was overcharged"
+                  requiresNote: true
+                  lossAccountGroup: null
+                - code: QUALITY_COMPLAINT
+                  domain: REFUND
+                  description: "Quality complaint upheld"
+                  requiresNote: true
+                  lossAccountGroup: null
+                - code: RECORDED_IN_ERROR
+                  domain: PAYMENT_REVERSAL
+                  description: "Payment recorded in error"
+                  requiresNote: true
+                  lossAccountGroup: null
+                - code: RETURN_QUALITY
+                  domain: RETURN
+                  description: "Returned for quality"
+                  requiresNote: true
+                  lossAccountGroup: null
+                - code: RETURN_UNWANTED
+                  domain: RETURN
+                  description: "Returned unused, not wanted"
+                  requiresNote: false
+                  lossAccountGroup: null
+                - code: RETURN_WRONG_ITEM
+                  domain: RETURN
+                  description: "Returned, wrong item"
+                  requiresNote: true
+                  lossAccountGroup: null
+                - code: UNDERCHARGED
+                  domain: BILLING_ADJUSTMENT
+                  description: "Customer was undercharged"
+                  requiresNote: true
+                  lossAccountGroup: null
+                - code: WRONG_ITEM
+                  domain: REFUND
+                  description: "Wrong item supplied"
+                  requiresNote: true
+                  lossAccountGroup: null
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

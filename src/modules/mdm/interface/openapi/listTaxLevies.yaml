@@ -34,37 +34,47 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/TaxLevyPage"
-        example:
-          data:
-            - id: "019a7a8b-437c-706b-85a4-0f8d8101886b"
-              code: VAT
-              name: "Value Added Tax"
-              sortOrder: 0
-              version: 1
-            - id: "019a7a8b-626b-7a4f-9f87-adc4fab226a2"
-              code: NHIL
-              name: "National Health Insurance Levy"
-              sortOrder: 1
-              version: 1
-            - id: "019a7a8b-815a-7432-a96a-4bfc7463c4da"
-              code: GETFUND
-              name: "GETFund Levy"
-              sortOrder: 2
-              version: 1
-            - id: "019a7aa9-3b04-74c7-89ff-554b6479ce29"
-              code: COVID19
-              name: "COVID-19 Health Recovery Levy (abolished)"
-              sortOrder: 3
-              version: 1
-            - id: "019a7aa9-59f3-7eab-93e3-f382de2a6c60"
-              code: TOURISM
-              name: "Tourism Levy"
-              sortOrder: 4
-              version: 1
-          page:
-            nextCursor: null
-            limit: 25
-            hasMore: false
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7a8b-437c-706b-85a4-0f8d8101886b"
+                  code: VAT
+                  name: "Value Added Tax"
+                  sortOrder: 0
+                  version: 1
+                - id: "019a7a8b-626b-7a4f-9f87-adc4fab226a2"
+                  code: NHIL
+                  name: "National Health Insurance Levy"
+                  sortOrder: 1
+                  version: 1
+                - id: "019a7a8b-815a-7432-a96a-4bfc7463c4da"
+                  code: GETFUND
+                  name: "GETFund Levy"
+                  sortOrder: 2
+                  version: 1
+                - id: "019a7aa9-3b04-74c7-89ff-554b6479ce29"
+                  code: COVID19
+                  name: "COVID-19 Health Recovery Levy (abolished)"
+                  sortOrder: 3
+                  version: 1
+                - id: "019a7aa9-59f3-7eab-93e3-f382de2a6c60"
+                  code: TOURISM
+                  name: "Tourism Levy"
+                  sortOrder: 4
+                  version: 1
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

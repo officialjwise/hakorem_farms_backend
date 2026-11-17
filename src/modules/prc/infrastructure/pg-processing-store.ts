@@ -92,6 +92,7 @@ export class PgProcessingStore implements ProcessingStore {
     }
     if (filters.status !== undefined) where.push(`o.status = ${add(filters.status)}`);
     if (filters.yieldVarianceFlag !== undefined) where.push(`o.yield_variance_flag = ${add(filters.yieldVarianceFlag)}`);
+    if (filters.reversalId !== undefined) where.push(`EXISTS (SELECT 1 FROM prc.processing_reversal r WHERE r.id = ${add(filters.reversalId)}::uuid AND r.processing_order_id = o.id)`);
     if (filters.from !== undefined) where.push(`(o.created_at AT TIME ZONE 'Africa/Accra')::date >= ${add(filters.from)}::date`);
     if (filters.to !== undefined) where.push(`(o.created_at AT TIME ZONE 'Africa/Accra')::date <= ${add(filters.to)}::date`);
     if (afterId !== null) where.push(`o.id < ${add(afterId)}`);

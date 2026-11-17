@@ -57,86 +57,104 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/TrialBalance"
-        example:
-          data:
-            - account:
-                id: "019a7ad0-04b3-7b00-9038-b8dafb6a31b8"
-                code: "1000"
-                name: "Cash on hand, tills"
-              type: ASSET
-              openingDebitPesewas: 145000
-              openingCreditPesewas: 0
-              periodDebitPesewas: 5520900
-              periodCreditPesewas: 5410300
-              closingDebitPesewas: 255600
-              closingCreditPesewas: 0
-            - account:
-                id: "019a7a95-0d1b-7164-969c-1f1b020297f8"
-                code: "1200"
-                name: "Trade receivables"
-              type: ASSET
-              openingDebitPesewas: 3840000
-              openingCreditPesewas: 0
-              periodDebitPesewas: 14822500
-              periodCreditPesewas: 14105200
-              closingDebitPesewas: 4557300
-              closingCreditPesewas: 0
-            - account:
-                id: "019a7ad0-4291-7ec7-b3ff-f549eecc6e27"
-                code: "1310"
-                name: "Inventory, live animals"
-              type: ASSET
-              openingDebitPesewas: 8120000
-              openingCreditPesewas: 0
-              periodDebitPesewas: 6481200
-              periodCreditPesewas: 5133800
-              closingDebitPesewas: 9467400
-              closingCreditPesewas: 0
-            - account:
-                id: "019a7ad0-6180-78ab-8de3-9381687d0c5f"
-                code: "2100"
-                name: "Output VAT and levies payable"
-              type: LIABILITY
-              openingDebitPesewas: 0
-              openingCreditPesewas: 98000
-              periodDebitPesewas: 0
-              periodCreditPesewas: 412500
-              closingDebitPesewas: 0
-              closingCreditPesewas: 510500
-            - account:
-                id: "019a7ad0-806f-728e-97c6-31b8e22eaa96"
-                code: "3000"
-                name: "Investor capital"
-              type: EQUITY
-              openingDebitPesewas: 0
-              openingCreditPesewas: 25000000
-              periodDebitPesewas: 0
-              periodCreditPesewas: 5000000
-              closingDebitPesewas: 0
-              closingCreditPesewas: 30000000
-            - account:
-                id: "019a7ad0-9f5e-7c71-a1aa-cff05bdf48ce"
-                code: "4010"
-                name: "Sales, meat"
-              type: INCOME
-              openingDebitPesewas: 0
-              openingCreditPesewas: 0
-              periodDebitPesewas: 0
-              periodCreditPesewas: 3920400
-              closingDebitPesewas: 0
-              closingCreditPesewas: 3920400
-          page:
-            nextCursor: null
-            limit: 25
-            hasMore: false
-          from: "2026-11-01"
-          to: "2026-11-13"
-          branchId: null
-          totalDebitPesewas: 61884220
-          totalCreditPesewas: 61884220
-          balanced: true
-          currency: GHS
-          asOf: "2026-11-13T09:30:00Z"
+        examples:
+          default:
+            value:
+              data:
+                - account:
+                    id: "019a7ad0-04b3-7b00-9038-b8dafb6a31b8"
+                    code: "1000"
+                    name: "Cash on hand, tills"
+                  type: ASSET
+                  openingDebitPesewas: 145000
+                  openingCreditPesewas: 0
+                  periodDebitPesewas: 5520900
+                  periodCreditPesewas: 5410300
+                  closingDebitPesewas: 255600
+                  closingCreditPesewas: 0
+                - account:
+                    id: "019a7a95-0d1b-7164-969c-1f1b020297f8"
+                    code: "1200"
+                    name: "Trade receivables"
+                  type: ASSET
+                  openingDebitPesewas: 3840000
+                  openingCreditPesewas: 0
+                  periodDebitPesewas: 14822500
+                  periodCreditPesewas: 14105200
+                  closingDebitPesewas: 4557300
+                  closingCreditPesewas: 0
+                - account:
+                    id: "019a7ad0-4291-7ec7-b3ff-f549eecc6e27"
+                    code: "1310"
+                    name: "Inventory, live animals"
+                  type: ASSET
+                  openingDebitPesewas: 8120000
+                  openingCreditPesewas: 0
+                  periodDebitPesewas: 6481200
+                  periodCreditPesewas: 5133800
+                  closingDebitPesewas: 9467400
+                  closingCreditPesewas: 0
+                - account:
+                    id: "019a7ad0-6180-78ab-8de3-9381687d0c5f"
+                    code: "2100"
+                    name: "Output VAT and levies payable"
+                  type: LIABILITY
+                  openingDebitPesewas: 0
+                  openingCreditPesewas: 98000
+                  periodDebitPesewas: 0
+                  periodCreditPesewas: 412500
+                  closingDebitPesewas: 0
+                  closingCreditPesewas: 510500
+                - account:
+                    id: "019a7ad0-806f-728e-97c6-31b8e22eaa96"
+                    code: "3000"
+                    name: "Investor capital"
+                  type: EQUITY
+                  openingDebitPesewas: 0
+                  openingCreditPesewas: 25000000
+                  periodDebitPesewas: 0
+                  periodCreditPesewas: 5000000
+                  closingDebitPesewas: 0
+                  closingCreditPesewas: 30000000
+                - account:
+                    id: "019a7ad0-9f5e-7c71-a1aa-cff05bdf48ce"
+                    code: "4010"
+                    name: "Sales, meat"
+                  type: INCOME
+                  openingDebitPesewas: 0
+                  openingCreditPesewas: 0
+                  periodDebitPesewas: 0
+                  periodCreditPesewas: 3920400
+                  closingDebitPesewas: 0
+                  closingCreditPesewas: 3920400
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+              from: "2026-11-01"
+              to: "2026-11-13"
+              branchId: null
+              totalDebitPesewas: 61884220
+              totalCreditPesewas: 61884220
+              balanced: true
+              currency: GHS
+              asOf: "2026-11-13T09:30:00Z"
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+              from: "2026-11-01"
+              to: "2026-11-13"
+              branchId: null
+              totalDebitPesewas: 0
+              totalCreditPesewas: 0
+              balanced: true
+              currency: GHS
+              asOf: "2026-11-13T09:30:00Z"
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

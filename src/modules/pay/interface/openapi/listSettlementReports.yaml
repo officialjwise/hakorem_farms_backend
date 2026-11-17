@@ -45,128 +45,138 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/SettlementReportPage"
-        example:
-          data:
-            - id: "019a7aec-0d4b-7125-965d-1b2143d293ff"
-              provider: PAYSTACK
-              settlementRef: STL-40881
-              settledOn: "2026-11-13"
-              bankAccount:
-                id: "019a7a92-6491-77d8-bd10-86568cccff34"
-                name: "GCB current account"
-                kind: BANK
-                last4: "4821"
-              grossPesewas: 1842500
-              feePesewas: 35927
-              netPesewas: 1806573
-              status: HAS_BREAKS
-              matchedCount: 41
-              breakCount: 1
-              currency: GHS
-              lines:
-                - id: "019a7aec-2c3a-7b08-a040-b958bd833236"
-                  providerReference: T7731049912
-                  amountPesewas: 50000
-                  feePesewas: 975
-                  matchedPayment:
-                    id: "019a7ae6-5f6a-7062-a59a-0ef1ec5387cf"
-                    paymentNo: PAY-2026-DDW-021800
-                  matchStatus: MATCHED
-                - id: "019a7aec-4b29-74eb-ba24-57903734d06e"
-                  providerReference: T7730994017
-                  amountPesewas: 18000
-                  feePesewas: 351
-                  matchedPayment: null
-                  matchStatus: NOT_FOUND
-            - id: "019a7aec-6a18-7ecf-8407-f5c7b0e56ea5"
-              provider: PAYSTACK
-              settlementRef: STL-40882
-              settledOn: "2026-11-12"
-              bankAccount:
-                id: "019a7a92-6491-77d8-bd10-86568cccff34"
-                name: "GCB current account"
-                kind: BANK
-                last4: "4821"
-              grossPesewas: 1210300
-              feePesewas: 23601
-              netPesewas: 1186699
-              status: POSTED
-              matchedCount: 29
-              breakCount: 0
-              currency: GHS
-              lines: []
-            - id: "019a7aec-8907-78b2-9deb-93ff2a960cdd"
-              provider: PAYSTACK
-              settlementRef: STL-40883
-              settledOn: "2026-11-11"
-              bankAccount:
-                id: "019a7a92-6491-77d8-bd10-86568cccff34"
-                name: "GCB current account"
-                kind: BANK
-                last4: "4821"
-              grossPesewas: 960000
-              feePesewas: 18720
-              netPesewas: 941280
-              status: POSTED
-              matchedCount: 22
-              breakCount: 0
-              currency: GHS
-              lines: []
-            - id: "019a7aec-a7f6-7296-a7ce-3236a447ab14"
-              provider: PAYSTACK
-              settlementRef: STL-40884
-              settledOn: "2026-11-10"
-              bankAccount:
-                id: "019a7a92-6491-77d8-bd10-86568cccff34"
-                name: "GCB current account"
-                kind: BANK
-                last4: "4821"
-              grossPesewas: 2210400
-              feePesewas: 43103
-              netPesewas: 2167297
-              status: POSTED
-              matchedCount: 51
-              breakCount: 0
-              currency: GHS
-              lines: []
-            - id: "019a7aec-c6e5-7c79-b1b2-d06e1df8494c"
-              provider: PAYSTACK
-              settlementRef: STL-40885
-              settledOn: "2026-11-09"
-              bankAccount:
-                id: "019a7a92-6491-77d8-bd10-86568cccff34"
-                name: "GCB current account"
-                kind: BANK
-                last4: "4821"
-              grossPesewas: 1385000
-              feePesewas: 27008
-              netPesewas: 1357992
-              status: POSTED
-              matchedCount: 33
-              breakCount: 0
-              currency: GHS
-              lines: []
-            - id: "019a7aec-e5d4-765d-8b95-6ea597a9e783"
-              provider: PAYSTACK
-              settlementRef: STL-40886
-              settledOn: "2026-11-08"
-              bankAccount:
-                id: "019a7a92-6491-77d8-bd10-86568cccff34"
-                name: "GCB current account"
-                kind: BANK
-                last4: "4821"
-              grossPesewas: 744200
-              feePesewas: 14512
-              netPesewas: 729688
-              status: POSTED
-              matchedCount: 18
-              breakCount: 0
-              currency: GHS
-              lines: []
-          page:
-            nextCursor: eyJpZCI6IjAxOWE3YyJ9
-            limit: 25
-            hasMore: true
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7aec-0d4b-7125-965d-1b2143d293ff"
+                  provider: PAYSTACK
+                  settlementRef: STL-40881
+                  settledOn: "2026-11-13"
+                  bankAccount:
+                    id: "019a7a92-6491-77d8-bd10-86568cccff34"
+                    name: "GCB current account"
+                    kind: BANK
+                    last4: "4821"
+                  grossPesewas: 1842500
+                  feePesewas: 35927
+                  netPesewas: 1806573
+                  status: HAS_BREAKS
+                  matchedCount: 41
+                  breakCount: 1
+                  currency: GHS
+                  lines:
+                    - id: "019a7aec-2c3a-7b08-a040-b958bd833236"
+                      providerReference: T7731049912
+                      amountPesewas: 50000
+                      feePesewas: 975
+                      matchedPayment:
+                        id: "019a7ae6-5f6a-7062-a59a-0ef1ec5387cf"
+                        paymentNo: PAY-2026-DDW-021800
+                      matchStatus: MATCHED
+                    - id: "019a7aec-4b29-74eb-ba24-57903734d06e"
+                      providerReference: T7730994017
+                      amountPesewas: 18000
+                      feePesewas: 351
+                      matchedPayment: null
+                      matchStatus: NOT_FOUND
+                - id: "019a7aec-6a18-7ecf-8407-f5c7b0e56ea5"
+                  provider: PAYSTACK
+                  settlementRef: STL-40882
+                  settledOn: "2026-11-12"
+                  bankAccount:
+                    id: "019a7a92-6491-77d8-bd10-86568cccff34"
+                    name: "GCB current account"
+                    kind: BANK
+                    last4: "4821"
+                  grossPesewas: 1210300
+                  feePesewas: 23601
+                  netPesewas: 1186699
+                  status: POSTED
+                  matchedCount: 29
+                  breakCount: 0
+                  currency: GHS
+                  lines: []
+                - id: "019a7aec-8907-78b2-9deb-93ff2a960cdd"
+                  provider: PAYSTACK
+                  settlementRef: STL-40883
+                  settledOn: "2026-11-11"
+                  bankAccount:
+                    id: "019a7a92-6491-77d8-bd10-86568cccff34"
+                    name: "GCB current account"
+                    kind: BANK
+                    last4: "4821"
+                  grossPesewas: 960000
+                  feePesewas: 18720
+                  netPesewas: 941280
+                  status: POSTED
+                  matchedCount: 22
+                  breakCount: 0
+                  currency: GHS
+                  lines: []
+                - id: "019a7aec-a7f6-7296-a7ce-3236a447ab14"
+                  provider: PAYSTACK
+                  settlementRef: STL-40884
+                  settledOn: "2026-11-10"
+                  bankAccount:
+                    id: "019a7a92-6491-77d8-bd10-86568cccff34"
+                    name: "GCB current account"
+                    kind: BANK
+                    last4: "4821"
+                  grossPesewas: 2210400
+                  feePesewas: 43103
+                  netPesewas: 2167297
+                  status: POSTED
+                  matchedCount: 51
+                  breakCount: 0
+                  currency: GHS
+                  lines: []
+                - id: "019a7aec-c6e5-7c79-b1b2-d06e1df8494c"
+                  provider: PAYSTACK
+                  settlementRef: STL-40885
+                  settledOn: "2026-11-09"
+                  bankAccount:
+                    id: "019a7a92-6491-77d8-bd10-86568cccff34"
+                    name: "GCB current account"
+                    kind: BANK
+                    last4: "4821"
+                  grossPesewas: 1385000
+                  feePesewas: 27008
+                  netPesewas: 1357992
+                  status: POSTED
+                  matchedCount: 33
+                  breakCount: 0
+                  currency: GHS
+                  lines: []
+                - id: "019a7aec-e5d4-765d-8b95-6ea597a9e783"
+                  provider: PAYSTACK
+                  settlementRef: STL-40886
+                  settledOn: "2026-11-08"
+                  bankAccount:
+                    id: "019a7a92-6491-77d8-bd10-86568cccff34"
+                    name: "GCB current account"
+                    kind: BANK
+                    last4: "4821"
+                  grossPesewas: 744200
+                  feePesewas: 14512
+                  netPesewas: 729688
+                  status: POSTED
+                  matchedCount: 18
+                  breakCount: 0
+                  currency: GHS
+                  lines: []
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

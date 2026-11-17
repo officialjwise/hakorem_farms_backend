@@ -63,141 +63,151 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/CareHealthEventPage"
-        example:
-          data:
-            - id: "019a7aaf-64a1-7d18-b250-da58a2bc5336"
-              kind: TREATMENT
-              stockUnit:
-                id: "019a7a8f-9d18-7468-89a0-4f5a9de5c838"
-                identifier: G-0163
-                tracking: SERIAL
-              location: null
-              product:
-                id: "019a7a8f-026d-72f7-b82f-38453d70b123"
-                sku: VET-OXYTET
-                name: "Oxytetracycline 20% injection, 100 ml"
-              dose: "5 ml intramuscular"
-              qtyUsed: "0.050"
-              withdrawalDays: 28
-              withdrawalEndsAt: "2026-11-28T23:59:00Z"
-              holdsPlaced: 1
-              administeredBy: "Dr Selorm Agbeko"
-              notes: "Cough and fever"
-              occurredAt: "2026-11-01T10:00:00Z"
-              recordedAt: "2026-11-01T10:05:00Z"
-              actor:
-                id: "019a7a87-27be-7035-a56e-0c2f577f850d"
-                displayName: "Dr Selorm Agbeko"
-            - id: "019a7aaf-8390-76fb-8c34-78901c6df16e"
-              kind: VACCINATION
-              stockUnit: null
-              location:
-                id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
-                code: HSE-B1
-                name: "Broiler house 1"
-                kind: PEN
-              product: null
-              dose: "Newcastle, drinking water"
-              qtyUsed: null
-              withdrawalDays: 0
-              withdrawalEndsAt: null
-              holdsPlaced: 0
-              administeredBy: "Dr Selorm Agbeko"
-              notes: "Batch BRL-2610-01, day 21"
-              occurredAt: "2026-11-02T10:00:00Z"
-              recordedAt: "2026-11-02T10:05:00Z"
-              actor:
-                id: "019a7a87-27be-7035-a56e-0c2f577f850d"
-                displayName: "Dr Selorm Agbeko"
-            - id: "019a7aaf-c16e-7ac2-affb-b4ff0fcf2ddc"
-              kind: DEWORMING
-              stockUnit: null
-              location:
-                id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
-                code: PEN-G1
-                name: "Goat pen 1"
-                kind: PEN
-              product: null
-              dose: "Albendazole 10% oral"
-              qtyUsed: null
-              withdrawalDays: 14
-              withdrawalEndsAt: "2026-11-17T23:59:00Z"
-              holdsPlaced: 31
-              administeredBy: "Dr Selorm Agbeko"
-              notes: "Whole pen"
-              occurredAt: "2026-11-03T10:00:00Z"
-              recordedAt: "2026-11-03T10:05:00Z"
-              actor:
-                id: "019a7a87-27be-7035-a56e-0c2f577f850d"
-                displayName: "Dr Selorm Agbeko"
-            - id: "019a7aaf-26c3-7951-9e89-9de9af5a16c7"
-              kind: CHECK
-              stockUnit:
-                id: "019a7a8f-daf6-782f-ad67-8bc9914704a7"
-                identifier: S-0031
-                tracking: SERIAL
-              location: null
-              product: null
-              dose: null
-              qtyUsed: null
-              withdrawalDays: 0
-              withdrawalEndsAt: null
-              holdsPlaced: 0
-              administeredBy: "Dr Selorm Agbeko"
-              notes: "Pre-sale check, healthy"
-              occurredAt: "2026-11-04T10:00:00Z"
-              recordedAt: "2026-11-04T10:05:00Z"
-              actor:
-                id: "019a7a87-27be-7035-a56e-0c2f577f850d"
-                displayName: "Dr Selorm Agbeko"
-            - id: "019a7abe-9e43-7b0d-9045-b9a687da3284"
-              kind: TREATMENT
-              stockUnit:
-                id: "019a7a90-18d4-7bf6-812e-c83884a94116"
-                identifier: P-0009
-                tracking: SERIAL
-              location: null
-              product:
-                id: "019a7a8f-026d-72f7-b82f-38453d70b123"
-                sku: VET-OXYTET
-                name: "Oxytetracycline 20% injection, 100 ml"
-              dose: "3 ml intramuscular"
-              qtyUsed: "0.030"
-              withdrawalDays: 28
-              withdrawalEndsAt: "2026-11-24T23:59:00Z"
-              holdsPlaced: 1
-              administeredBy: "Dr Selorm Agbeko"
-              notes: Scours
-              occurredAt: "2026-11-05T10:00:00Z"
-              recordedAt: "2026-11-05T10:05:00Z"
-              actor:
-                id: "019a7a87-27be-7035-a56e-0c2f577f850d"
-                displayName: "Dr Selorm Agbeko"
-            - id: "019a7abe-bd32-74f0-aa29-57de018bd0bb"
-              kind: VACCINATION
-              stockUnit: null
-              location:
-                id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
-                code: PEN-G2
-                name: "Goat pen 2"
-                kind: PEN
-              product: null
-              dose: "PPR vaccine"
-              qtyUsed: null
-              withdrawalDays: 0
-              withdrawalEndsAt: null
-              holdsPlaced: 0
-              administeredBy: "Dr Selorm Agbeko"
-              notes: "Annual PPR"
-              occurredAt: "2026-11-06T10:00:00Z"
-              recordedAt: "2026-11-06T10:05:00Z"
-              actor:
-                id: "019a7a87-27be-7035-a56e-0c2f577f850d"
-                displayName: "Dr Selorm Agbeko"
-          page:
-            nextCursor: eyJpZCI6IjAxOWE3YyJ9
-            limit: 25
-            hasMore: true
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7aaf-64a1-7d18-b250-da58a2bc5336"
+                  kind: TREATMENT
+                  stockUnit:
+                    id: "019a7a8f-9d18-7468-89a0-4f5a9de5c838"
+                    identifier: G-0163
+                    tracking: SERIAL
+                  location: null
+                  product:
+                    id: "019a7a8f-026d-72f7-b82f-38453d70b123"
+                    sku: VET-OXYTET
+                    name: "Oxytetracycline 20% injection, 100 ml"
+                  dose: "5 ml intramuscular"
+                  qtyUsed: "0.050"
+                  withdrawalDays: 28
+                  withdrawalEndsAt: "2026-11-28T23:59:00Z"
+                  holdsPlaced: 1
+                  administeredBy: "Dr Selorm Agbeko"
+                  notes: "Cough and fever"
+                  occurredAt: "2026-11-01T10:00:00Z"
+                  recordedAt: "2026-11-01T10:05:00Z"
+                  actor:
+                    id: "019a7a87-27be-7035-a56e-0c2f577f850d"
+                    displayName: "Dr Selorm Agbeko"
+                - id: "019a7aaf-8390-76fb-8c34-78901c6df16e"
+                  kind: VACCINATION
+                  stockUnit: null
+                  location:
+                    id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+                    code: HSE-B1
+                    name: "Broiler house 1"
+                    kind: PEN
+                  product: null
+                  dose: "Newcastle, drinking water"
+                  qtyUsed: null
+                  withdrawalDays: 0
+                  withdrawalEndsAt: null
+                  holdsPlaced: 0
+                  administeredBy: "Dr Selorm Agbeko"
+                  notes: "Batch BRL-2610-01, day 21"
+                  occurredAt: "2026-11-02T10:00:00Z"
+                  recordedAt: "2026-11-02T10:05:00Z"
+                  actor:
+                    id: "019a7a87-27be-7035-a56e-0c2f577f850d"
+                    displayName: "Dr Selorm Agbeko"
+                - id: "019a7aaf-c16e-7ac2-affb-b4ff0fcf2ddc"
+                  kind: DEWORMING
+                  stockUnit: null
+                  location:
+                    id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+                    code: PEN-G1
+                    name: "Goat pen 1"
+                    kind: PEN
+                  product: null
+                  dose: "Albendazole 10% oral"
+                  qtyUsed: null
+                  withdrawalDays: 14
+                  withdrawalEndsAt: "2026-11-17T23:59:00Z"
+                  holdsPlaced: 31
+                  administeredBy: "Dr Selorm Agbeko"
+                  notes: "Whole pen"
+                  occurredAt: "2026-11-03T10:00:00Z"
+                  recordedAt: "2026-11-03T10:05:00Z"
+                  actor:
+                    id: "019a7a87-27be-7035-a56e-0c2f577f850d"
+                    displayName: "Dr Selorm Agbeko"
+                - id: "019a7aaf-26c3-7951-9e89-9de9af5a16c7"
+                  kind: CHECK
+                  stockUnit:
+                    id: "019a7a8f-daf6-782f-ad67-8bc9914704a7"
+                    identifier: S-0031
+                    tracking: SERIAL
+                  location: null
+                  product: null
+                  dose: null
+                  qtyUsed: null
+                  withdrawalDays: 0
+                  withdrawalEndsAt: null
+                  holdsPlaced: 0
+                  administeredBy: "Dr Selorm Agbeko"
+                  notes: "Pre-sale check, healthy"
+                  occurredAt: "2026-11-04T10:00:00Z"
+                  recordedAt: "2026-11-04T10:05:00Z"
+                  actor:
+                    id: "019a7a87-27be-7035-a56e-0c2f577f850d"
+                    displayName: "Dr Selorm Agbeko"
+                - id: "019a7abe-9e43-7b0d-9045-b9a687da3284"
+                  kind: TREATMENT
+                  stockUnit:
+                    id: "019a7a90-18d4-7bf6-812e-c83884a94116"
+                    identifier: P-0009
+                    tracking: SERIAL
+                  location: null
+                  product:
+                    id: "019a7a8f-026d-72f7-b82f-38453d70b123"
+                    sku: VET-OXYTET
+                    name: "Oxytetracycline 20% injection, 100 ml"
+                  dose: "3 ml intramuscular"
+                  qtyUsed: "0.030"
+                  withdrawalDays: 28
+                  withdrawalEndsAt: "2026-11-24T23:59:00Z"
+                  holdsPlaced: 1
+                  administeredBy: "Dr Selorm Agbeko"
+                  notes: Scours
+                  occurredAt: "2026-11-05T10:00:00Z"
+                  recordedAt: "2026-11-05T10:05:00Z"
+                  actor:
+                    id: "019a7a87-27be-7035-a56e-0c2f577f850d"
+                    displayName: "Dr Selorm Agbeko"
+                - id: "019a7abe-bd32-74f0-aa29-57de018bd0bb"
+                  kind: VACCINATION
+                  stockUnit: null
+                  location:
+                    id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                    code: PEN-G2
+                    name: "Goat pen 2"
+                    kind: PEN
+                  product: null
+                  dose: "PPR vaccine"
+                  qtyUsed: null
+                  withdrawalDays: 0
+                  withdrawalEndsAt: null
+                  holdsPlaced: 0
+                  administeredBy: "Dr Selorm Agbeko"
+                  notes: "Annual PPR"
+                  occurredAt: "2026-11-06T10:00:00Z"
+                  recordedAt: "2026-11-06T10:05:00Z"
+                  actor:
+                    id: "019a7a87-27be-7035-a56e-0c2f577f850d"
+                    displayName: "Dr Selorm Agbeko"
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

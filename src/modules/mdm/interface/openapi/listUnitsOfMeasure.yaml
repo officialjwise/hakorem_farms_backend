@@ -34,40 +34,50 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/UomPage"
-        example:
-          data:
-            - code: HEAD
-              name: Head
-              kind: COUNT
-              displayDecimals: 0
-            - code: KG
-              name: Kilogram
-              kind: WEIGHT
-              displayDecimals: 3
-            - code: CRATE
-              name: Crate
-              kind: COUNT
-              displayDecimals: 0
-            - code: PACK
-              name: Pack
-              kind: COUNT
-              displayDecimals: 0
-            - code: TUBER
-              name: Tuber
-              kind: COUNT
-              displayDecimals: 0
-            - code: BAG
-              name: Bag
-              kind: COUNT
-              displayDecimals: 0
-            - code: UNIT
-              name: Unit
-              kind: COUNT
-              displayDecimals: 0
-          page:
-            nextCursor: null
-            limit: 25
-            hasMore: false
+        examples:
+          default:
+            value:
+              data:
+                - code: HEAD
+                  name: Head
+                  kind: COUNT
+                  displayDecimals: 0
+                - code: KG
+                  name: Kilogram
+                  kind: WEIGHT
+                  displayDecimals: 3
+                - code: CRATE
+                  name: Crate
+                  kind: COUNT
+                  displayDecimals: 0
+                - code: PACK
+                  name: Pack
+                  kind: COUNT
+                  displayDecimals: 0
+                - code: TUBER
+                  name: Tuber
+                  kind: COUNT
+                  displayDecimals: 0
+                - code: BAG
+                  name: Bag
+                  kind: COUNT
+                  displayDecimals: 0
+                - code: UNIT
+                  name: Unit
+                  kind: COUNT
+                  displayDecimals: 0
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

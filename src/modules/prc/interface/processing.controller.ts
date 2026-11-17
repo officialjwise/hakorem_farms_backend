@@ -41,7 +41,7 @@ export class ProcessingController {
   @Get('processing-orders')
   @Operation({ operationId: 'listProcessingOrders', ...READ, permission: 'prc.order.read' })
   list(@CurrentActor() actor: Actor | undefined, @Query(zodPipe(ListProcessingOrdersQuery)) query: z.infer<typeof ListProcessingOrdersQuery>): Promise<Page<ProcessingOrderView>> {
-    return this.processing.list(actor, { status: query.status, from: query.from, to: query.to, yieldVarianceFlag: query.yieldVarianceFlag }, query.cursor, query.limit);
+    return this.processing.list(actor, { status: query.status, from: query.from, to: query.to, yieldVarianceFlag: query.yieldVarianceFlag, reversalId: query.reversalId }, query.cursor, query.limit);
   }
 
   @Post('processing-orders')

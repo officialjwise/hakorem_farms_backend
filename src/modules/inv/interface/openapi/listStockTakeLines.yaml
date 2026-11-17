@@ -262,6 +262,14 @@ responses:
                 nextCursor: eyJpZCI6IjAxOWE3YyJ9
                 limit: 25
                 hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

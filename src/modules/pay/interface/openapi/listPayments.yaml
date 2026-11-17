@@ -73,246 +73,256 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/PaymentPage"
-        example:
-          data:
-            - id: "019a7ae6-5f6a-7062-a59a-0ef1ec5387cf"
-              paymentNo: PAY-2026-DDW-021800
-              status: CLEARED
-              method:
-                id: "019a7a92-c15e-7582-aabb-60fcf9dfd9da"
-                code: MOMO
-                name: "Mobile money"
-                kind: MOBILE_MONEY
-              amountPesewas: 50000
-              currency: GHS
-              customer: null
-              order:
-                id: "019a7aac-216c-721a-8753-2a7ecd11a35c"
-                docType: SALES_ORDER
-                number: SO-2026-DDW-004211
-              shiftId: "019a7a93-f6b4-7865-8d9d-8f27bac90805"
-              driver: null
-              bankAccount: null
-              provider: PAYSTACK
-              providerReference: T7731049912
-              externalReference: null
-              payerPhoneMasked: "+233 24 *** *876"
-              verification: PROVIDER_CALLBACK
-              chequeDueOn: null
-              allocatedPesewas: 50000
-              unallocatedPesewas: 0
-              refundedPesewas: 0
-              receivedAt: "2026-11-13T09:05:00Z"
-              clearedAt: "2026-11-13T09:06:00Z"
-              reversesPaymentId: null
-              failureReason: null
-              allocations:
-                - id: "019a7ae6-7e59-7a45-bf7d-ad2966042607"
-                  billingDocument:
-                    id: "019a7ae2-fd46-7b80-a0b9-c0e09cf739be"
-                    docType: RECEIPT
-                    number: RCP-2026-DDW-T1-018834
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7ae6-5f6a-7062-a59a-0ef1ec5387cf"
+                  paymentNo: PAY-2026-DDW-021800
+                  status: CLEARED
+                  method:
+                    id: "019a7a92-c15e-7582-aabb-60fcf9dfd9da"
+                    code: MOMO
+                    name: "Mobile money"
+                    kind: MOBILE_MONEY
                   amountPesewas: 50000
-                  direction: APPLY
-                  recordedAt: "2026-11-13T09:12:00Z"
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-            - id: "019a7ae6-9d48-7428-8961-4b60dfb5c43e"
-              paymentNo: PAY-2026-DDW-021801
-              status: CLEARED
-              method:
-                id: "019a7a92-a26f-7b9f-90d7-c2c5802e3ba3"
-                code: CASH
-                name: Cash
-                kind: CASH
-              amountPesewas: 87900
-              currency: GHS
-              customer: null
-              order:
-                id: "019a7aac-216c-721a-8753-2a7ecd11a35c"
-                docType: SALES_ORDER
-                number: SO-2026-DDW-004211
-              shiftId: "019a7a93-f6b4-7865-8d9d-8f27bac90805"
-              driver: null
-              bankAccount: null
-              provider: null
-              providerReference: null
-              externalReference: null
-              payerPhoneMasked: null
-              verification: NOT_REQUIRED
-              chequeDueOn: null
-              allocatedPesewas: 87900
-              unallocatedPesewas: 0
-              refundedPesewas: 0
-              receivedAt: "2026-11-13T09:06:00Z"
-              clearedAt: "2026-11-13T09:07:00Z"
-              reversesPaymentId: null
-              failureReason: null
-              allocations:
-                - id: "019a7ae6-bc37-7e0c-9344-e99859666276"
-                  billingDocument:
-                    id: "019a7ae2-fd46-7b80-a0b9-c0e09cf739be"
-                    docType: RECEIPT
-                    number: RCP-2026-DDW-T1-018834
+                  currency: GHS
+                  customer: null
+                  order:
+                    id: "019a7aac-216c-721a-8753-2a7ecd11a35c"
+                    docType: SALES_ORDER
+                    number: SO-2026-DDW-004211
+                  shiftId: "019a7a93-f6b4-7865-8d9d-8f27bac90805"
+                  driver: null
+                  bankAccount: null
+                  provider: PAYSTACK
+                  providerReference: T7731049912
+                  externalReference: null
+                  payerPhoneMasked: "+233 24 *** *876"
+                  verification: PROVIDER_CALLBACK
+                  chequeDueOn: null
+                  allocatedPesewas: 50000
+                  unallocatedPesewas: 0
+                  refundedPesewas: 0
+                  receivedAt: "2026-11-13T09:05:00Z"
+                  clearedAt: "2026-11-13T09:06:00Z"
+                  reversesPaymentId: null
+                  failureReason: null
+                  allocations:
+                    - id: "019a7ae6-7e59-7a45-bf7d-ad2966042607"
+                      billingDocument:
+                        id: "019a7ae2-fd46-7b80-a0b9-c0e09cf739be"
+                        docType: RECEIPT
+                        number: RCP-2026-DDW-T1-018834
+                      amountPesewas: 50000
+                      direction: APPLY
+                      recordedAt: "2026-11-13T09:12:00Z"
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                - id: "019a7ae6-9d48-7428-8961-4b60dfb5c43e"
+                  paymentNo: PAY-2026-DDW-021801
+                  status: CLEARED
+                  method:
+                    id: "019a7a92-a26f-7b9f-90d7-c2c5802e3ba3"
+                    code: CASH
+                    name: Cash
+                    kind: CASH
                   amountPesewas: 87900
-                  direction: APPLY
-                  recordedAt: "2026-11-13T09:12:00Z"
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-            - id: "019a7ae6-db26-77ef-ad28-87cfd31700ad"
-              paymentNo: PAY-2026-DDW-021802
-              status: CLEARED
-              method:
-                id: "019a7a92-ff3c-7949-8e81-9d6bed411649"
-                code: BANK_TRANSFER
-                name: "Bank transfer"
-                kind: BANK_TRANSFER
-              amountPesewas: 300000
-              currency: GHS
-              customer:
-                id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                customerNo: C-00042
-                name: "Royal Palm Hotel Ltd"
-              order: null
-              shiftId: null
-              driver: null
-              bankAccount:
-                id: "019a7a92-6491-77d8-bd10-86568cccff34"
-                name: "GCB current account"
-                kind: BANK
-                last4: "4821"
-              provider: null
-              providerReference: null
-              externalReference: GCB-TRF-20261112-0119
-              payerPhoneMasked: null
-              verification: NOT_REQUIRED
-              chequeDueOn: null
-              allocatedPesewas: 300000
-              unallocatedPesewas: 0
-              refundedPesewas: 0
-              receivedAt: "2026-11-12T09:07:00Z"
-              clearedAt: "2026-11-12T09:08:00Z"
-              reversesPaymentId: null
-              failureReason: null
-              allocations:
-                - id: "019a7ae6-fa15-71d3-b70b-26074cc89ee5"
-                  billingDocument:
-                    id: "019a7adf-f7ef-744a-9982-4d75baaec653"
-                    docType: INVOICE
-                    number: INV-2026-DDW-001198
+                  currency: GHS
+                  customer: null
+                  order:
+                    id: "019a7aac-216c-721a-8753-2a7ecd11a35c"
+                    docType: SALES_ORDER
+                    number: SO-2026-DDW-004211
+                  shiftId: "019a7a93-f6b4-7865-8d9d-8f27bac90805"
+                  driver: null
+                  bankAccount: null
+                  provider: null
+                  providerReference: null
+                  externalReference: null
+                  payerPhoneMasked: null
+                  verification: NOT_REQUIRED
+                  chequeDueOn: null
+                  allocatedPesewas: 87900
+                  unallocatedPesewas: 0
+                  refundedPesewas: 0
+                  receivedAt: "2026-11-13T09:06:00Z"
+                  clearedAt: "2026-11-13T09:07:00Z"
+                  reversesPaymentId: null
+                  failureReason: null
+                  allocations:
+                    - id: "019a7ae6-bc37-7e0c-9344-e99859666276"
+                      billingDocument:
+                        id: "019a7ae2-fd46-7b80-a0b9-c0e09cf739be"
+                        docType: RECEIPT
+                        number: RCP-2026-DDW-T1-018834
+                      amountPesewas: 87900
+                      direction: APPLY
+                      recordedAt: "2026-11-13T09:12:00Z"
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                - id: "019a7ae6-db26-77ef-ad28-87cfd31700ad"
+                  paymentNo: PAY-2026-DDW-021802
+                  status: CLEARED
+                  method:
+                    id: "019a7a92-ff3c-7949-8e81-9d6bed411649"
+                    code: BANK_TRANSFER
+                    name: "Bank transfer"
+                    kind: BANK_TRANSFER
                   amountPesewas: 300000
-                  direction: APPLY
-                  recordedAt: "2026-11-12T09:12:00Z"
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-            - id: "019a7ae7-1904-7bb6-80ef-c43ec6793d1c"
-              paymentNo: PAY-2026-DDW-021803
-              status: PENDING
-              method:
-                id: "019a7a93-1e2b-732d-9865-3ba366f2b481"
-                code: CHEQUE
-                name: Cheque
-                kind: CHEQUE
-              amountPesewas: 412000
-              currency: GHS
-              customer:
-                id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                customerNo: C-00056
-                name: "Asantewaa Chop Bar"
-              order: null
-              shiftId: null
-              driver: null
-              bankAccount: null
-              provider: null
-              providerReference: null
-              externalReference: "CHQ 004417 Fidelity"
-              payerPhoneMasked: null
-              verification: NOT_REQUIRED
-              chequeDueOn: "2026-11-20"
-              allocatedPesewas: 0
-              unallocatedPesewas: 0
-              refundedPesewas: 0
-              receivedAt: "2026-11-11T09:08:00Z"
-              clearedAt: null
-              reversesPaymentId: null
-              failureReason: null
-              allocations: []
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-            - id: "019a7ae7-37f3-759a-9ad2-6276402adb54"
-              paymentNo: PAY-2026-DDW-021804
-              status: CLEARED
-              method:
-                id: "019a7a92-e04d-7f66-b49e-ff3473907812"
-                code: CARD
-                name: Card
-                kind: CARD
-              amountPesewas: 32300
-              currency: GHS
-              customer:
-                id: "019a7a87-659c-73fc-8935-489e4ae1c17c"
-                customerNo: C-00118
-                name: "Ama Serwaa Ofori"
-              order:
-                id: "019a7ae4-ec36-79b8-aef0-a45838071d36"
-                docType: SALES_ORDER
-                number: SO-2026-DDW-004203
-              shiftId: null
-              driver: null
-              bankAccount: null
-              provider: PAYSTACK
-              providerReference: T7731102288
-              externalReference: null
-              payerPhoneMasked: null
-              verification: PROVIDER_LOOKUP
-              chequeDueOn: null
-              allocatedPesewas: 32300
-              unallocatedPesewas: 0
-              refundedPesewas: 0
-              receivedAt: "2026-11-10T09:09:00Z"
-              clearedAt: "2026-11-10T09:10:00Z"
-              reversesPaymentId: null
-              failureReason: null
-              allocations:
-                - id: "019a7ae7-56e2-7f7d-a4b6-00adb9db798b"
-                  billingDocument:
-                    id: "019a7ae0-ef67-7366-989e-3f318836b80f"
-                    docType: INVOICE
-                    number: INV-2026-DDW-001204
+                  currency: GHS
+                  customer:
+                    id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+                    customerNo: C-00042
+                    name: "Royal Palm Hotel Ltd"
+                  order: null
+                  shiftId: null
+                  driver: null
+                  bankAccount:
+                    id: "019a7a92-6491-77d8-bd10-86568cccff34"
+                    name: "GCB current account"
+                    kind: BANK
+                    last4: "4821"
+                  provider: null
+                  providerReference: null
+                  externalReference: GCB-TRF-20261112-0119
+                  payerPhoneMasked: null
+                  verification: NOT_REQUIRED
+                  chequeDueOn: null
+                  allocatedPesewas: 300000
+                  unallocatedPesewas: 0
+                  refundedPesewas: 0
+                  receivedAt: "2026-11-12T09:07:00Z"
+                  clearedAt: "2026-11-12T09:08:00Z"
+                  reversesPaymentId: null
+                  failureReason: null
+                  allocations:
+                    - id: "019a7ae6-fa15-71d3-b70b-26074cc89ee5"
+                      billingDocument:
+                        id: "019a7adf-f7ef-744a-9982-4d75baaec653"
+                        docType: INVOICE
+                        number: INV-2026-DDW-001198
+                      amountPesewas: 300000
+                      direction: APPLY
+                      recordedAt: "2026-11-12T09:12:00Z"
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                - id: "019a7ae7-1904-7bb6-80ef-c43ec6793d1c"
+                  paymentNo: PAY-2026-DDW-021803
+                  status: PENDING
+                  method:
+                    id: "019a7a93-1e2b-732d-9865-3ba366f2b481"
+                    code: CHEQUE
+                    name: Cheque
+                    kind: CHEQUE
+                  amountPesewas: 412000
+                  currency: GHS
+                  customer:
+                    id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
+                    customerNo: C-00056
+                    name: "Asantewaa Chop Bar"
+                  order: null
+                  shiftId: null
+                  driver: null
+                  bankAccount: null
+                  provider: null
+                  providerReference: null
+                  externalReference: "CHQ 004417 Fidelity"
+                  payerPhoneMasked: null
+                  verification: NOT_REQUIRED
+                  chequeDueOn: "2026-11-20"
+                  allocatedPesewas: 0
+                  unallocatedPesewas: 0
+                  refundedPesewas: 0
+                  receivedAt: "2026-11-11T09:08:00Z"
+                  clearedAt: null
+                  reversesPaymentId: null
+                  failureReason: null
+                  allocations: []
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                - id: "019a7ae7-37f3-759a-9ad2-6276402adb54"
+                  paymentNo: PAY-2026-DDW-021804
+                  status: CLEARED
+                  method:
+                    id: "019a7a92-e04d-7f66-b49e-ff3473907812"
+                    code: CARD
+                    name: Card
+                    kind: CARD
                   amountPesewas: 32300
-                  direction: APPLY
-                  recordedAt: "2026-11-10T09:12:00Z"
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-            - id: "019a7ae7-75d1-7961-be99-9ee5338c17c3"
-              paymentNo: PAY-2026-DDW-021805
-              status: PENDING
-              method:
-                id: "019a7a92-c15e-7582-aabb-60fcf9dfd9da"
-                code: MOMO
-                name: "Mobile money"
-                kind: MOBILE_MONEY
-              amountPesewas: 25000
-              currency: GHS
-              customer: null
-              order: null
-              shiftId: "019a7a93-f6b4-7865-8d9d-8f27bac90805"
-              driver: null
-              bankAccount: null
-              provider: null
-              providerReference: null
-              externalReference: null
-              payerPhoneMasked: "+233 55 *** *224"
-              verification: UNVERIFIED
-              chequeDueOn: null
-              allocatedPesewas: 0
-              unallocatedPesewas: 0
-              refundedPesewas: 0
-              receivedAt: "2026-11-09T09:10:00Z"
-              clearedAt: null
-              reversesPaymentId: null
-              failureReason: null
-              allocations: []
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-          page:
-            nextCursor: eyJpZCI6IjAxOWE3YyJ9
-            limit: 25
-            hasMore: true
+                  currency: GHS
+                  customer:
+                    id: "019a7a87-659c-73fc-8935-489e4ae1c17c"
+                    customerNo: C-00118
+                    name: "Ama Serwaa Ofori"
+                  order:
+                    id: "019a7ae4-ec36-79b8-aef0-a45838071d36"
+                    docType: SALES_ORDER
+                    number: SO-2026-DDW-004203
+                  shiftId: null
+                  driver: null
+                  bankAccount: null
+                  provider: PAYSTACK
+                  providerReference: T7731102288
+                  externalReference: null
+                  payerPhoneMasked: null
+                  verification: PROVIDER_LOOKUP
+                  chequeDueOn: null
+                  allocatedPesewas: 32300
+                  unallocatedPesewas: 0
+                  refundedPesewas: 0
+                  receivedAt: "2026-11-10T09:09:00Z"
+                  clearedAt: "2026-11-10T09:10:00Z"
+                  reversesPaymentId: null
+                  failureReason: null
+                  allocations:
+                    - id: "019a7ae7-56e2-7f7d-a4b6-00adb9db798b"
+                      billingDocument:
+                        id: "019a7ae0-ef67-7366-989e-3f318836b80f"
+                        docType: INVOICE
+                        number: INV-2026-DDW-001204
+                      amountPesewas: 32300
+                      direction: APPLY
+                      recordedAt: "2026-11-10T09:12:00Z"
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                - id: "019a7ae7-75d1-7961-be99-9ee5338c17c3"
+                  paymentNo: PAY-2026-DDW-021805
+                  status: PENDING
+                  method:
+                    id: "019a7a92-c15e-7582-aabb-60fcf9dfd9da"
+                    code: MOMO
+                    name: "Mobile money"
+                    kind: MOBILE_MONEY
+                  amountPesewas: 25000
+                  currency: GHS
+                  customer: null
+                  order: null
+                  shiftId: "019a7a93-f6b4-7865-8d9d-8f27bac90805"
+                  driver: null
+                  bankAccount: null
+                  provider: null
+                  providerReference: null
+                  externalReference: null
+                  payerPhoneMasked: "+233 55 *** *224"
+                  verification: UNVERIFIED
+                  chequeDueOn: null
+                  allocatedPesewas: 0
+                  unallocatedPesewas: 0
+                  refundedPesewas: 0
+                  receivedAt: "2026-11-09T09:10:00Z"
+                  clearedAt: null
+                  reversesPaymentId: null
+                  failureReason: null
+                  allocations: []
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

@@ -3,6 +3,7 @@ import jsQR from 'jsqr';
 import { describe, expect, it } from 'vitest';
 import { HTTP_METHODS } from '../../../scripts/contract/build-contract';
 import { PUBLISHED_PATH, readYaml } from '../../../scripts/contract/generate';
+import { EMPTY_EXAMPLE } from '../../../scripts/contract/empty-examples';
 import type { Json } from '../../../scripts/contract/yaml-emitter';
 
 type JsonObject = { [key: string]: Json };
@@ -39,6 +40,76 @@ function repeatedIds(node: Json, where: string, found: string[]): string[] {
 describe('response examples (CR-008)', () => {
   it('never repeat a row id, because the mock server serves an example as the answer', () => {
     const problems = operations().flatMap(({ where, operation }) => repeatedIds(operation['responses'] ?? null, where, []));
+    expect(problems).toEqual([]);
+  });
+});
+
+const components = contract['components'] as JsonObject;
+
+function follow(node: Json | undefined): JsonObject | undefined {
+  let current = node;
+  while (current !== null && typeof current === 'object' && !Array.isArray(current) && typeof current['$ref'] === 'string') {
+    const [, , kind, name] = current['$ref'].split('/');
+    current = (components[kind!] as JsonObject | undefined)?.[name!];
+  }
+  return current !== null && typeof current === 'object' && !Array.isArray(current) ? current : undefined;
+}
+
+/** The properties a schema declares, through `allOf` and references. */
+function propertiesOf(node: Json | undefined): JsonObject {
+  const schema = follow(node);
+  if (schema === undefined) return {};
+  let found: JsonObject = { ...((schema['properties'] as JsonObject | undefined) ?? {}) };
+  for (const part of (schema['allOf'] as Json[] | undefined) ?? []) found = { ...found, ...propertiesOf(part) };
+  return found;
+}
+
+/** Every GET whose 2xx JSON answer is a page of rows by its schema (`data` and `page`), whatever its example says. */
+function listAnswers(): Array<{ readonly where: string; readonly operation: JsonObject; readonly media: JsonObject }> {
+  const found: Array<{ readonly where: string; readonly operation: JsonObject; readonly media: JsonObject }> = [];
+  for (const { where, operation } of operations()) {
+    if (!where.startsWith('GET ')) continue;
+    for (const [status, raw] of Object.entries((operation['responses'] ?? {}) as JsonObject)) {
+      const media = ((follow(raw)?.['content'] as JsonObject | undefined)?.['application/json'] ?? undefined) as JsonObject | undefined;
+      const properties = propertiesOf(media?.['schema']);
+      if (status.startsWith('2') && media !== undefined && properties['data'] !== undefined && properties['page'] !== undefined) {
+        found.push({ where: `${where} ${status} (${String(operation['operationId'])})`, operation, media });
+      }
+    }
+  }
+  return found;
+}
+
+function defaultLimitOf(operation: JsonObject): number | undefined {
+  for (const raw of (operation['parameters'] as Json[] | undefined) ?? []) {
+    const parameter = follow(raw);
+    if (parameter?.['name'] === 'limit' && parameter['in'] === 'query') return follow(parameter['schema'])?.['default'] as number | undefined;
+  }
+  return undefined;
+}
+
+describe('named empty examples on every list (CR-005)', () => {
+  it('finds the lists by their schema, from code and planned alike', () => {
+    expect(listAnswers().length).toBeGreaterThanOrEqual(160);
+  });
+
+  it('gives every list a named empty example beside a populated one, with no rows, no next page and the default limit', () => {
+    const problems = listAnswers().flatMap(({ where, operation, media }) => {
+      const examples = media['examples'] as JsonObject | undefined;
+      if (media['example'] !== undefined) return [`${where}: a single example, not a named map`];
+      if (examples === undefined) return [`${where}: no examples`];
+      const empty = (examples[EMPTY_EXAMPLE] as JsonObject | undefined)?.['value'] as JsonObject | undefined;
+      if (empty === undefined) return [`${where}: no ${EMPTY_EXAMPLE} example`];
+      const populated = Object.entries(examples).filter(([name, example]) => name !== EMPTY_EXAMPLE && ((example as JsonObject)['value'] as JsonObject | undefined)?.['data'] !== undefined);
+      const rows = populated.map(([, example]) => (((example as JsonObject)['value'] as JsonObject)['data'] as Json[]).length);
+      const problemsHere: string[] = [];
+      if (populated.length === 0 || rows.every((count) => count === 0)) problemsHere.push(`${where}: no populated example beside ${EMPTY_EXAMPLE}`);
+      const limit = defaultLimitOf(operation) ?? ((populated[0]?.[1] as JsonObject | undefined)?.['value'] as { page?: { limit?: number } } | undefined)?.page?.limit;
+      const expected = { nextCursor: null, limit, hasMore: false };
+      if (JSON.stringify(empty['data']) !== '[]') problemsHere.push(`${where}: ${EMPTY_EXAMPLE} has rows`);
+      if (JSON.stringify(empty['page']) !== JSON.stringify(expected)) problemsHere.push(`${where}: ${EMPTY_EXAMPLE} page is ${JSON.stringify(empty['page'])}, not ${JSON.stringify(expected)}`);
+      return problemsHere;
+    });
     expect(problems).toEqual([]);
   });
 });

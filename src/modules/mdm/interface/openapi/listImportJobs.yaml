@@ -47,114 +47,124 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/ImportJobPage"
-        example:
-          data:
-            - id: "019a7aaa-ae38-7b71-80a9-bfe518c538c2"
-              entity: PRODUCT
-              direction: IMPORT
-              file:
-                id: "019a7aaa-cd27-7554-9a8c-5e1c9276d6fa"
-                originalName: catalogue-2026-11.xlsx
-                contentType: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
-              status: APPLIED
-              rowsTotal: 42
-              rowsValid: 42
-              rowsApplied: 42
-              rowsToCreate: 40
-              rowsToUpdate: 2
-              createdAt: "2026-11-01T10:00:00Z"
-              createdBy:
-                id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
-                displayName: "Kwabena Owusu"
-            - id: "019a7aaa-ec16-7f38-a470-fc540c277531"
-              entity: CUSTOMER
-              direction: IMPORT
-              file:
-                id: "019a7aab-0b05-791b-be53-9a8b85d81369"
-                originalName: customers-from-notebook.xlsx
-                contentType: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
-              status: VALIDATED
-              rowsTotal: 318
-              rowsValid: 309
-              rowsApplied: null
-              rowsToCreate: 300
-              rowsToUpdate: 18
-              createdAt: "2026-11-03T10:00:00Z"
-              createdBy:
-                id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
-                displayName: "Kojo Antwi"
-            - id: "019a7aab-29f4-72ff-8837-38c2ff89b1a0"
-              entity: PRICE_LIST_ENTRY
-              direction: IMPORT
-              file:
-                id: "019a7aab-48e3-7ce2-921a-d6fa793a4fd8"
-                originalName: xmas-prices.xlsx
-                contentType: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
-              status: APPLIED
-              rowsTotal: 38
-              rowsValid: 38
-              rowsApplied: 38
-              rowsToCreate: 36
-              rowsToUpdate: 2
-              createdAt: "2026-11-05T10:00:00Z"
-              createdBy:
-                id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
-                displayName: "Kwabena Owusu"
-            - id: "019a7aab-67d2-76c6-abfe-7531f2ebee0f"
-              entity: OPENING_STOCK
-              direction: IMPORT
-              file:
-                id: "019a7aab-86c1-70a9-b5e1-13696c9c8c47"
-                originalName: opening-stock-2026-11-01.xlsx
-                contentType: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
-              status: APPLIED
-              rowsTotal: 96
-              rowsValid: 96
-              rowsApplied: 96
-              rowsToCreate: 94
-              rowsToUpdate: 2
-              createdAt: "2026-11-07T10:00:00Z"
-              createdBy:
-                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
-                displayName: "Efua Asante"
-            - id: "019a7aab-a5b0-7a8c-8fc5-b1a0e64d2a7e"
-              entity: SUPPLIER
-              direction: IMPORT
-              file:
-                id: "019a7aab-c49f-7470-99a8-4fd85ffec8b6"
-                originalName: suppliers.xlsx
-                contentType: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
-              status: FAILED
-              rowsTotal: null
-              rowsValid: 0
-              rowsApplied: null
-              rowsToCreate: null
-              rowsToUpdate: null
-              createdAt: "2026-11-09T10:00:00Z"
-              createdBy:
-                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                displayName: "Yaw Boateng"
-            - id: "019a7aab-e38e-7e53-a38c-ee0fd9af66ed"
-              entity: CUSTOMER
-              direction: EXPORT
-              file:
-                id: "019a7aac-027d-7837-bd6f-8c4753600525"
-                originalName: customers-export-2026-11-11.xlsx
-                contentType: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
-              status: APPLIED
-              rowsTotal: 412
-              rowsValid: 412
-              rowsApplied: 412
-              rowsToCreate: null
-              rowsToUpdate: null
-              createdAt: "2026-11-11T10:00:00Z"
-              createdBy:
-                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
-                displayName: "Efua Asante"
-          page:
-            nextCursor: eyJpZCI6IjAxOWE3YyJ9
-            limit: 25
-            hasMore: true
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7aaa-ae38-7b71-80a9-bfe518c538c2"
+                  entity: PRODUCT
+                  direction: IMPORT
+                  file:
+                    id: "019a7aaa-cd27-7554-9a8c-5e1c9276d6fa"
+                    originalName: catalogue-2026-11.xlsx
+                    contentType: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+                  status: APPLIED
+                  rowsTotal: 42
+                  rowsValid: 42
+                  rowsApplied: 42
+                  rowsToCreate: 40
+                  rowsToUpdate: 2
+                  createdAt: "2026-11-01T10:00:00Z"
+                  createdBy:
+                    id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                    displayName: "Kwabena Owusu"
+                - id: "019a7aaa-ec16-7f38-a470-fc540c277531"
+                  entity: CUSTOMER
+                  direction: IMPORT
+                  file:
+                    id: "019a7aab-0b05-791b-be53-9a8b85d81369"
+                    originalName: customers-from-notebook.xlsx
+                    contentType: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+                  status: VALIDATED
+                  rowsTotal: 318
+                  rowsValid: 309
+                  rowsApplied: null
+                  rowsToCreate: 300
+                  rowsToUpdate: 18
+                  createdAt: "2026-11-03T10:00:00Z"
+                  createdBy:
+                    id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                    displayName: "Kojo Antwi"
+                - id: "019a7aab-29f4-72ff-8837-38c2ff89b1a0"
+                  entity: PRICE_LIST_ENTRY
+                  direction: IMPORT
+                  file:
+                    id: "019a7aab-48e3-7ce2-921a-d6fa793a4fd8"
+                    originalName: xmas-prices.xlsx
+                    contentType: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+                  status: APPLIED
+                  rowsTotal: 38
+                  rowsValid: 38
+                  rowsApplied: 38
+                  rowsToCreate: 36
+                  rowsToUpdate: 2
+                  createdAt: "2026-11-05T10:00:00Z"
+                  createdBy:
+                    id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                    displayName: "Kwabena Owusu"
+                - id: "019a7aab-67d2-76c6-abfe-7531f2ebee0f"
+                  entity: OPENING_STOCK
+                  direction: IMPORT
+                  file:
+                    id: "019a7aab-86c1-70a9-b5e1-13696c9c8c47"
+                    originalName: opening-stock-2026-11-01.xlsx
+                    contentType: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+                  status: APPLIED
+                  rowsTotal: 96
+                  rowsValid: 96
+                  rowsApplied: 96
+                  rowsToCreate: 94
+                  rowsToUpdate: 2
+                  createdAt: "2026-11-07T10:00:00Z"
+                  createdBy:
+                    id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                    displayName: "Efua Asante"
+                - id: "019a7aab-a5b0-7a8c-8fc5-b1a0e64d2a7e"
+                  entity: SUPPLIER
+                  direction: IMPORT
+                  file:
+                    id: "019a7aab-c49f-7470-99a8-4fd85ffec8b6"
+                    originalName: suppliers.xlsx
+                    contentType: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+                  status: FAILED
+                  rowsTotal: null
+                  rowsValid: 0
+                  rowsApplied: null
+                  rowsToCreate: null
+                  rowsToUpdate: null
+                  createdAt: "2026-11-09T10:00:00Z"
+                  createdBy:
+                    id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                    displayName: "Yaw Boateng"
+                - id: "019a7aab-e38e-7e53-a38c-ee0fd9af66ed"
+                  entity: CUSTOMER
+                  direction: EXPORT
+                  file:
+                    id: "019a7aac-027d-7837-bd6f-8c4753600525"
+                    originalName: customers-export-2026-11-11.xlsx
+                    contentType: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+                  status: APPLIED
+                  rowsTotal: 412
+                  rowsValid: 412
+                  rowsApplied: 412
+                  rowsToCreate: null
+                  rowsToUpdate: null
+                  createdAt: "2026-11-11T10:00:00Z"
+                  createdBy:
+                    id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                    displayName: "Efua Asante"
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

@@ -51,8 +51,9 @@ export function runPurchaseCommand<T>(
   idempotencyKey: string,
   scope: (tx: Transaction) => Promise<{ branchId?: string; locationId?: string }>,
   work: (tx: Transaction) => Promise<StoredResponse<T>>,
+  seriesLocks: readonly string[] = [],
 ): Promise<StoredResponse<T>> {
-  return uow.run({ isolation: 'serializable' }, async (tx) => {
+  return uow.run({ isolation: 'serializable', seriesLocks }, async (tx) => {
     await authoriser.authorise(tx, actor, permission, await scope(tx));
     const claim = await idempotency.claim(tx, { operationId, principalId: actor!.principalId, key: idempotencyKey, request });
     if (claim.kind === 'REPLAY') return claim.response as StoredResponse<T>;

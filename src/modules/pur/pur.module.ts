@@ -3,6 +3,7 @@ import type { Clock } from '@hakorem/kernel';
 import { AuditTrail } from '../../platform/audit/audit-trail';
 import { UnitOfWork } from '../../platform/database/unit-of-work';
 import { DocumentRegistry } from '../../platform/documents/document-registry';
+import { NumberSeries } from '../../platform/documents/number-series';
 import { DomainEvents } from '../../platform/events/domain-events';
 import { Cursors } from '../../platform/http/cursor';
 import { Idempotency } from '../../platform/idempotency/idempotency';
@@ -106,8 +107,9 @@ import { SupplierRegisterController } from './interface/supplier-register.contro
         cursors: Cursors,
         clock: Clock,
         archive: Documents,
-      ) => new SupplierPayments(uow, store, register, refs, approvals, authoriser, idempotency, audit, events, documents, principals, bankAccounts, cursors, clock, archive),
-      inject: [UnitOfWork, PURCHASING_STORE, SUPPLIER_REGISTER_STORE, MasterDataRefs, Approvals, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, PRINCIPAL_NAMES, BankAccounts, Cursors, CLOCK, Documents],
+        numbers: NumberSeries,
+      ) => new SupplierPayments(uow, store, register, refs, approvals, authoriser, idempotency, audit, events, documents, principals, bankAccounts, cursors, clock, archive, numbers),
+      inject: [UnitOfWork, PURCHASING_STORE, SUPPLIER_REGISTER_STORE, MasterDataRefs, Approvals, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, PRINCIPAL_NAMES, BankAccounts, Cursors, CLOCK, Documents, NumberSeries],
     },
     {
       provide: Suppliers,

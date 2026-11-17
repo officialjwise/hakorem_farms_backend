@@ -28,37 +28,47 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/ShopCategoryPage"
-        example:
-          data:
-            - code: LIVE
-              name: "Live animals"
-              parentCode: null
-              productCount: 3
-              image: null
-            - code: POULTRY
-              name: "Live poultry"
-              parentCode: LIVE
-              productCount: 2
-              image: null
-            - code: MEAT
-              name: Meat
-              parentCode: null
-              productCount: 5
-              image: null
-            - code: EGGS
-              name: Eggs
-              parentCode: null
-              productCount: 2
-              image: null
-            - code: PRODUCE
-              name: "Fresh produce"
-              parentCode: null
-              productCount: 3
-              image: null
-          page:
-            nextCursor: null
-            limit: 25
-            hasMore: false
+        examples:
+          default:
+            value:
+              data:
+                - code: LIVE
+                  name: "Live animals"
+                  parentCode: null
+                  productCount: 3
+                  image: null
+                - code: POULTRY
+                  name: "Live poultry"
+                  parentCode: LIVE
+                  productCount: 2
+                  image: null
+                - code: MEAT
+                  name: Meat
+                  parentCode: null
+                  productCount: 5
+                  image: null
+                - code: EGGS
+                  name: Eggs
+                  parentCode: null
+                  productCount: 2
+                  image: null
+                - code: PRODUCE
+                  name: "Fresh produce"
+                  parentCode: null
+                  productCount: 3
+                  image: null
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "429":

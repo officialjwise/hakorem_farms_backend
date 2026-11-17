@@ -63,6 +63,7 @@ export const ListProcessingOrdersQuery = z.object({
   from: CalendarDate.optional(),
   to: CalendarDate.optional(),
   yieldVarianceFlag: Bool.optional(),
+  reversalId: z.uuid().optional(),
   cursor: Cursor,
   limit: Limit,
 });

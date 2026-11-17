@@ -44,240 +44,250 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/ManualJournalPage"
-        example:
-          data:
-            - id: "019a7ad4-9c2d-72c4-b7fc-35170bb0adf4"
-              status: PENDING_APPROVAL
-              kind: MANUAL
-              postingDate: "2026-11-12"
-              description: "November wages, farm hands"
-              debitTotalPesewas: 960000
-              creditTotalPesewas: 960000
-              balanced: true
-              currency: GHS
-              approvalRequestId: "019a7ad4-bb1c-7ca7-81e0-d34e85614c2c"
-              journalEntryId: null
-              lines:
-                - id: "019a7ad4-da0b-768b-9bc3-7185ff12ea63"
-                  lineNo: 1
-                  account:
-                    id: "019a7ad4-f8fa-706e-a5a7-0fbd78c3889b"
-                    code: "6000"
-                    name: Wages
-                  side: D
-                  amountPesewas: 960000
-                  subledger: null
-                  memo: null
-                - id: "019a7ad5-17e9-7a52-bf8a-adf4f27426d2"
-                  lineNo: 2
-                  account:
-                    id: "019a7ad5-36d8-7435-896d-4c2c6c25c50a"
-                    code: "1010"
-                    name: "Cash, safe"
-                  side: C
-                  amountPesewas: 960000
-                  subledger: null
-                  memo: null
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-              version: 2
-              createdAt: "2026-11-10T09:00:00Z"
-              createdBy:
-                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
-                displayName: "Efua Asante"
-            - id: "019a7ad5-55c7-7e19-9351-ea63e5d66341"
-              status: POSTED
-              kind: MANUAL
-              postingDate: "2026-10-31"
-              description: "October generator fuel paid in cash from the safe"
-              debitTotalPesewas: 84000
-              creditTotalPesewas: 84000
-              balanced: true
-              currency: GHS
-              approvalRequestId: "019a7ad5-74b6-77fc-ad34-889b5f870179"
-              journalEntryId: "019a7ad5-93a5-71e0-b718-26d2d9389fb0"
-              lines:
-                - id: "019a7ad5-b294-7bc3-80fb-c50a52e93de8"
-                  lineNo: 1
-                  account:
-                    id: "019a7ad4-f8fa-706e-a5a7-0fbd78c3889b"
-                    code: "6000"
-                    name: Wages
-                  side: D
-                  amountPesewas: 84000
-                  subledger: null
-                  memo: null
-                - id: "019a7ad5-d183-75a7-9adf-6341cc9adc1f"
-                  lineNo: 2
-                  account:
-                    id: "019a7ad5-36d8-7435-896d-4c2c6c25c50a"
-                    code: "1010"
-                    name: "Cash, safe"
-                  side: C
-                  amountPesewas: 84000
-                  subledger: null
-                  memo: null
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-              version: 2
-              createdAt: "2026-11-10T09:01:00Z"
-              createdBy:
-                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
-                displayName: "Efua Asante"
-            - id: "019a7ad5-f072-7f8a-a4c2-0179464b7a57"
-              status: POSTED
-              kind: OPENING
-              postingDate: "2026-11-01"
-              description: "Opening balances at 1 November 2026"
-              debitTotalPesewas: 18450000
-              creditTotalPesewas: 18450000
-              balanced: true
-              currency: GHS
-              approvalRequestId: "019a7ad6-0f61-796d-bea6-9fb0bffc188e"
-              journalEntryId: "019a7ad6-2e50-7351-8889-3de839adb6c6"
-              lines:
-                - id: "019a7ad6-4d3f-7d34-926d-dc1fb35e54fd"
-                  lineNo: 1
-                  account:
-                    id: "019a7ad1-3a09-7de3-b31b-e705bc545fe3"
-                    code: "1100"
-                    name: "Bank accounts"
-                  side: D
-                  amountPesewas: 18450000
-                  subledger: null
-                  memo: null
-                - id: "019a7ad6-6c2e-7718-ac50-7a572d0ff335"
-                  lineNo: 2
-                  account:
-                    id: "019a7ad6-8b1d-70fb-b634-188ea6c0916c"
-                    code: "3900"
-                    name: "Opening balance equity"
-                  side: C
-                  amountPesewas: 18450000
-                  subledger: null
-                  memo: null
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-              version: 2
-              createdAt: "2026-11-10T09:02:00Z"
-              createdBy:
-                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
-                displayName: "Efua Asante"
-            - id: "019a7ad6-aa0c-7adf-8017-b6c620712fa4"
-              status: DRAFT
-              kind: MANUAL
-              postingDate: "2026-11-13"
-              description: "Accrue electricity for the cold room"
-              debitTotalPesewas: 65000
-              creditTotalPesewas: 65000
-              balanced: true
-              currency: GHS
-              approvalRequestId: null
-              journalEntryId: null
-              lines:
-                - id: "019a7ad6-c8fb-74c2-99fb-54fd9a22cddb"
-                  lineNo: 1
-                  account:
-                    id: "019a7ad4-f8fa-706e-a5a7-0fbd78c3889b"
-                    code: "6000"
-                    name: Wages
-                  side: D
-                  amountPesewas: 65000
-                  subledger: null
-                  memo: null
-                - id: "019a7ad6-e7ea-7ea6-a3de-f33513d36c12"
-                  lineNo: 2
-                  account:
-                    id: "019a7ad5-36d8-7435-896d-4c2c6c25c50a"
-                    code: "1010"
-                    name: "Cash, safe"
-                  side: C
-                  amountPesewas: 65000
-                  subledger: null
-                  memo: null
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-              version: 2
-              createdAt: "2026-11-10T09:03:00Z"
-              createdBy:
-                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
-                displayName: "Efua Asante"
-            - id: "019a7ad7-06d9-7889-bdc1-916c8d840a4a"
-              status: REJECTED
-              kind: MANUAL
-              postingDate: "2026-11-05"
-              description: "Reclassify a delivery fee posted to sales"
-              debitTotalPesewas: 3000
-              creditTotalPesewas: 3000
-              balanced: true
-              currency: GHS
-              approvalRequestId: "019a7ad7-25c8-726d-87a5-2fa40735a881"
-              journalEntryId: null
-              lines:
-                - id: "019a7ad7-44b7-7c50-9188-cddb80e646b9"
-                  lineNo: 1
-                  account:
-                    id: "019a7ad4-f8fa-706e-a5a7-0fbd78c3889b"
-                    code: "6000"
-                    name: Wages
-                  side: D
-                  amountPesewas: 3000
-                  subledger: null
-                  memo: null
-                - id: "019a7ad7-63a6-7634-ab6c-6c12fa97e4f0"
-                  lineNo: 2
-                  account:
-                    id: "019a7ad5-36d8-7435-896d-4c2c6c25c50a"
-                    code: "1010"
-                    name: "Cash, safe"
-                  side: C
-                  amountPesewas: 3000
-                  subledger: null
-                  memo: null
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-              version: 2
-              createdAt: "2026-11-10T09:04:00Z"
-              createdBy:
-                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
-                displayName: "Efua Asante"
-            - id: "019a7ad7-8295-7017-b54f-0a4a74488328"
-              status: POSTED
-              kind: MANUAL
-              postingDate: "2026-10-31"
-              description: "Bank charges October"
-              debitTotalPesewas: 4200
-              creditTotalPesewas: 4200
-              balanced: true
-              currency: GHS
-              approvalRequestId: "019a7ad7-a184-79fb-8f33-a881edf9215f"
-              journalEntryId: "019a7ad7-c073-73de-9916-46b967aabf97"
-              lines:
-                - id: "019a7ad7-df62-7dc1-a2fa-e4f0e15b5dce"
-                  lineNo: 1
-                  account:
-                    id: "019a7ad4-f8fa-706e-a5a7-0fbd78c3889b"
-                    code: "6000"
-                    name: Wages
-                  side: D
-                  amountPesewas: 4200
-                  subledger: null
-                  memo: null
-                - id: "019a7ad7-fe51-77a5-bcdd-83285b0cfc06"
-                  lineNo: 2
-                  account:
-                    id: "019a7ad5-36d8-7435-896d-4c2c6c25c50a"
-                    code: "1010"
-                    name: "Cash, safe"
-                  side: C
-                  amountPesewas: 4200
-                  subledger: null
-                  memo: null
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-              version: 2
-              createdAt: "2026-11-10T09:05:00Z"
-              createdBy:
-                id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
-                displayName: "Efua Asante"
-          page:
-            nextCursor: eyJpZCI6IjAxOWE3YyJ9
-            limit: 25
-            hasMore: true
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7ad4-9c2d-72c4-b7fc-35170bb0adf4"
+                  status: PENDING_APPROVAL
+                  kind: MANUAL
+                  postingDate: "2026-11-12"
+                  description: "November wages, farm hands"
+                  debitTotalPesewas: 960000
+                  creditTotalPesewas: 960000
+                  balanced: true
+                  currency: GHS
+                  approvalRequestId: "019a7ad4-bb1c-7ca7-81e0-d34e85614c2c"
+                  journalEntryId: null
+                  lines:
+                    - id: "019a7ad4-da0b-768b-9bc3-7185ff12ea63"
+                      lineNo: 1
+                      account:
+                        id: "019a7ad4-f8fa-706e-a5a7-0fbd78c3889b"
+                        code: "6000"
+                        name: Wages
+                      side: D
+                      amountPesewas: 960000
+                      subledger: null
+                      memo: null
+                    - id: "019a7ad5-17e9-7a52-bf8a-adf4f27426d2"
+                      lineNo: 2
+                      account:
+                        id: "019a7ad5-36d8-7435-896d-4c2c6c25c50a"
+                        code: "1010"
+                        name: "Cash, safe"
+                      side: C
+                      amountPesewas: 960000
+                      subledger: null
+                      memo: null
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 2
+                  createdAt: "2026-11-10T09:00:00Z"
+                  createdBy:
+                    id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                    displayName: "Efua Asante"
+                - id: "019a7ad5-55c7-7e19-9351-ea63e5d66341"
+                  status: POSTED
+                  kind: MANUAL
+                  postingDate: "2026-10-31"
+                  description: "October generator fuel paid in cash from the safe"
+                  debitTotalPesewas: 84000
+                  creditTotalPesewas: 84000
+                  balanced: true
+                  currency: GHS
+                  approvalRequestId: "019a7ad5-74b6-77fc-ad34-889b5f870179"
+                  journalEntryId: "019a7ad5-93a5-71e0-b718-26d2d9389fb0"
+                  lines:
+                    - id: "019a7ad5-b294-7bc3-80fb-c50a52e93de8"
+                      lineNo: 1
+                      account:
+                        id: "019a7ad4-f8fa-706e-a5a7-0fbd78c3889b"
+                        code: "6000"
+                        name: Wages
+                      side: D
+                      amountPesewas: 84000
+                      subledger: null
+                      memo: null
+                    - id: "019a7ad5-d183-75a7-9adf-6341cc9adc1f"
+                      lineNo: 2
+                      account:
+                        id: "019a7ad5-36d8-7435-896d-4c2c6c25c50a"
+                        code: "1010"
+                        name: "Cash, safe"
+                      side: C
+                      amountPesewas: 84000
+                      subledger: null
+                      memo: null
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 2
+                  createdAt: "2026-11-10T09:01:00Z"
+                  createdBy:
+                    id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                    displayName: "Efua Asante"
+                - id: "019a7ad5-f072-7f8a-a4c2-0179464b7a57"
+                  status: POSTED
+                  kind: OPENING
+                  postingDate: "2026-11-01"
+                  description: "Opening balances at 1 November 2026"
+                  debitTotalPesewas: 18450000
+                  creditTotalPesewas: 18450000
+                  balanced: true
+                  currency: GHS
+                  approvalRequestId: "019a7ad6-0f61-796d-bea6-9fb0bffc188e"
+                  journalEntryId: "019a7ad6-2e50-7351-8889-3de839adb6c6"
+                  lines:
+                    - id: "019a7ad6-4d3f-7d34-926d-dc1fb35e54fd"
+                      lineNo: 1
+                      account:
+                        id: "019a7ad1-3a09-7de3-b31b-e705bc545fe3"
+                        code: "1100"
+                        name: "Bank accounts"
+                      side: D
+                      amountPesewas: 18450000
+                      subledger: null
+                      memo: null
+                    - id: "019a7ad6-6c2e-7718-ac50-7a572d0ff335"
+                      lineNo: 2
+                      account:
+                        id: "019a7ad6-8b1d-70fb-b634-188ea6c0916c"
+                        code: "3900"
+                        name: "Opening balance equity"
+                      side: C
+                      amountPesewas: 18450000
+                      subledger: null
+                      memo: null
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 2
+                  createdAt: "2026-11-10T09:02:00Z"
+                  createdBy:
+                    id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                    displayName: "Efua Asante"
+                - id: "019a7ad6-aa0c-7adf-8017-b6c620712fa4"
+                  status: DRAFT
+                  kind: MANUAL
+                  postingDate: "2026-11-13"
+                  description: "Accrue electricity for the cold room"
+                  debitTotalPesewas: 65000
+                  creditTotalPesewas: 65000
+                  balanced: true
+                  currency: GHS
+                  approvalRequestId: null
+                  journalEntryId: null
+                  lines:
+                    - id: "019a7ad6-c8fb-74c2-99fb-54fd9a22cddb"
+                      lineNo: 1
+                      account:
+                        id: "019a7ad4-f8fa-706e-a5a7-0fbd78c3889b"
+                        code: "6000"
+                        name: Wages
+                      side: D
+                      amountPesewas: 65000
+                      subledger: null
+                      memo: null
+                    - id: "019a7ad6-e7ea-7ea6-a3de-f33513d36c12"
+                      lineNo: 2
+                      account:
+                        id: "019a7ad5-36d8-7435-896d-4c2c6c25c50a"
+                        code: "1010"
+                        name: "Cash, safe"
+                      side: C
+                      amountPesewas: 65000
+                      subledger: null
+                      memo: null
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 2
+                  createdAt: "2026-11-10T09:03:00Z"
+                  createdBy:
+                    id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                    displayName: "Efua Asante"
+                - id: "019a7ad7-06d9-7889-bdc1-916c8d840a4a"
+                  status: REJECTED
+                  kind: MANUAL
+                  postingDate: "2026-11-05"
+                  description: "Reclassify a delivery fee posted to sales"
+                  debitTotalPesewas: 3000
+                  creditTotalPesewas: 3000
+                  balanced: true
+                  currency: GHS
+                  approvalRequestId: "019a7ad7-25c8-726d-87a5-2fa40735a881"
+                  journalEntryId: null
+                  lines:
+                    - id: "019a7ad7-44b7-7c50-9188-cddb80e646b9"
+                      lineNo: 1
+                      account:
+                        id: "019a7ad4-f8fa-706e-a5a7-0fbd78c3889b"
+                        code: "6000"
+                        name: Wages
+                      side: D
+                      amountPesewas: 3000
+                      subledger: null
+                      memo: null
+                    - id: "019a7ad7-63a6-7634-ab6c-6c12fa97e4f0"
+                      lineNo: 2
+                      account:
+                        id: "019a7ad5-36d8-7435-896d-4c2c6c25c50a"
+                        code: "1010"
+                        name: "Cash, safe"
+                      side: C
+                      amountPesewas: 3000
+                      subledger: null
+                      memo: null
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 2
+                  createdAt: "2026-11-10T09:04:00Z"
+                  createdBy:
+                    id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                    displayName: "Efua Asante"
+                - id: "019a7ad7-8295-7017-b54f-0a4a74488328"
+                  status: POSTED
+                  kind: MANUAL
+                  postingDate: "2026-10-31"
+                  description: "Bank charges October"
+                  debitTotalPesewas: 4200
+                  creditTotalPesewas: 4200
+                  balanced: true
+                  currency: GHS
+                  approvalRequestId: "019a7ad7-a184-79fb-8f33-a881edf9215f"
+                  journalEntryId: "019a7ad7-c073-73de-9916-46b967aabf97"
+                  lines:
+                    - id: "019a7ad7-df62-7dc1-a2fa-e4f0e15b5dce"
+                      lineNo: 1
+                      account:
+                        id: "019a7ad4-f8fa-706e-a5a7-0fbd78c3889b"
+                        code: "6000"
+                        name: Wages
+                      side: D
+                      amountPesewas: 4200
+                      subledger: null
+                      memo: null
+                    - id: "019a7ad7-fe51-77a5-bcdd-83285b0cfc06"
+                      lineNo: 2
+                      account:
+                        id: "019a7ad5-36d8-7435-896d-4c2c6c25c50a"
+                        code: "1010"
+                        name: "Cash, safe"
+                      side: C
+                      amountPesewas: 4200
+                      subledger: null
+                      memo: null
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 2
+                  createdAt: "2026-11-10T09:05:00Z"
+                  createdBy:
+                    id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                    displayName: "Efua Asante"
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

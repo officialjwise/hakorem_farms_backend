@@ -51,123 +51,133 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/BreedingRecordPage"
-        example:
-          data:
-            - id: "019a7abf-f288-77d3-8d0b-8608c275fee6"
-              dam:
-                id: "019a7a90-0027-7c4e-8b1a-3e5d7f900027"
-                tagNo: S-0027
-              sire:
-                id: "019a7a90-0008-7a2b-9c3d-4e5f6a700008"
-                tagNo: S-0008
-              matedOn: "2026-05-19"
-              expectedBirthOn: "2026-10-12"
-              actualBirthOn: "2026-10-14"
-              litterSize: 1
-              liveBirths: 1
-              status: BORN
-              notes: null
-              offspring:
-                - id: "019a7ab9-0041-7e8f-a0b1-c2d3e4f50041"
-                  tagNo: S-0041
-                  sex: FEMALE
-              version: 2
-            - id: "019a7abf-d399-7df0-b328-e7d148c460af"
-              dam:
-                id: "019a7a8f-a122-7d10-9a6e-4c2f0b1d0122"
-                tagNo: G-0122
-              sire:
-                id: "019a7abf-19ff-729b-97d3-32846e9eab62"
-                tagNo: G-0101
-              matedOn: "2026-09-01"
-              expectedBirthOn: "2027-01-28"
-              actualBirthOn: null
-              litterSize: null
-              liveBirths: null
-              status: FAILED
-              notes: null
-              offspring: []
-              version: 2
-            - id: "019a7abf-b4aa-740c-a944-4999cf13c277"
-              dam:
-                id: "019a7a90-5003-7b6c-8d7e-9f0a1b2c5003"
-                tagNo: P-0003
-              sire:
-                id: "019a7a90-5001-7a5b-8c6d-7e8f9a0b5001"
-                tagNo: P-0001
-              matedOn: "2026-08-04"
-              expectedBirthOn: "2026-11-25"
-              actualBirthOn: null
-              litterSize: null
-              liveBirths: null
-              status: CONFIRMED
-              notes: null
-              offspring: []
-              version: 2
-            - id: "019a7abf-95bb-7a29-9f61-ab6255622440"
-              dam:
-                id: "019a7a8f-0114-7b3c-8d4e-5f6a7b8c0114"
-                tagNo: G-0114
-              sire:
-                id: "019a7abf-19ff-729b-97d3-32846e9eab62"
-                tagNo: G-0101
-              matedOn: "2026-01-20"
-              expectedBirthOn: "2026-06-18"
-              actualBirthOn: "2026-06-21"
-              litterSize: 3
-              liveBirths: 2
-              status: BORN
-              notes: "One kid stillborn"
-              offspring:
-                - id: "019a7ab0-0161-7f1e-9d2c-3b4a59680161"
-                  tagNo: G-0161
-                  sex: MALE
-                - id: "019a7ab0-0162-7a2b-8c3d-4e5f60710162"
-                  tagNo: G-0162
-                  sex: FEMALE
-              version: 2
-            - id: "019a7abf-76cc-7045-857d-0d2adbb18608"
-              dam:
-                id: "019a7a8f-0109-7e2d-9c1b-0a9f8e7d0109"
-                tagNo: G-0109
-              sire:
-                id: "019a7abf-19ff-729b-97d3-32846e9eab62"
-                tagNo: G-0101
-              matedOn: "2026-07-11"
-              expectedBirthOn: "2026-12-07"
-              actualBirthOn: null
-              litterSize: null
-              liveBirths: null
-              status: CONFIRMED
-              notes: null
-              offspring: []
-              version: 2
-            - id: "019a7abe-fb10-78b7-8df0-944cf4ed0d2a"
-              dam:
-                id: "019a7a8f-f9e5-7212-b74b-2a010af8a2de"
-                tagNo: G-0118
-              sire:
-                id: "019a7abf-19ff-729b-97d3-32846e9eab62"
-                tagNo: G-0101
-              matedOn: "2026-06-02"
-              expectedBirthOn: "2026-10-29"
-              actualBirthOn: "2026-11-02"
-              litterSize: 2
-              liveBirths: 2
-              status: BORN
-              notes: null
-              offspring:
-                - id: "019a7abf-38ee-7c7e-a1b6-d0bbe84f4999"
-                  tagNo: G-0181
-                  sex: MALE
-                - id: "019a7abf-57dd-7662-bb9a-6ef36200e7d1"
-                  tagNo: G-0182
-                  sex: FEMALE
-              version: 3
-          page:
-            nextCursor: eyJpZCI6IjAxOWE3YWJlLWZiMTAifQ
-            limit: 25
-            hasMore: true
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7abf-f288-77d3-8d0b-8608c275fee6"
+                  dam:
+                    id: "019a7a90-0027-7c4e-8b1a-3e5d7f900027"
+                    tagNo: S-0027
+                  sire:
+                    id: "019a7a90-0008-7a2b-9c3d-4e5f6a700008"
+                    tagNo: S-0008
+                  matedOn: "2026-05-19"
+                  expectedBirthOn: "2026-10-12"
+                  actualBirthOn: "2026-10-14"
+                  litterSize: 1
+                  liveBirths: 1
+                  status: BORN
+                  notes: null
+                  offspring:
+                    - id: "019a7ab9-0041-7e8f-a0b1-c2d3e4f50041"
+                      tagNo: S-0041
+                      sex: FEMALE
+                  version: 2
+                - id: "019a7abf-d399-7df0-b328-e7d148c460af"
+                  dam:
+                    id: "019a7a8f-a122-7d10-9a6e-4c2f0b1d0122"
+                    tagNo: G-0122
+                  sire:
+                    id: "019a7abf-19ff-729b-97d3-32846e9eab62"
+                    tagNo: G-0101
+                  matedOn: "2026-09-01"
+                  expectedBirthOn: "2027-01-28"
+                  actualBirthOn: null
+                  litterSize: null
+                  liveBirths: null
+                  status: FAILED
+                  notes: null
+                  offspring: []
+                  version: 2
+                - id: "019a7abf-b4aa-740c-a944-4999cf13c277"
+                  dam:
+                    id: "019a7a90-5003-7b6c-8d7e-9f0a1b2c5003"
+                    tagNo: P-0003
+                  sire:
+                    id: "019a7a90-5001-7a5b-8c6d-7e8f9a0b5001"
+                    tagNo: P-0001
+                  matedOn: "2026-08-04"
+                  expectedBirthOn: "2026-11-25"
+                  actualBirthOn: null
+                  litterSize: null
+                  liveBirths: null
+                  status: CONFIRMED
+                  notes: null
+                  offspring: []
+                  version: 2
+                - id: "019a7abf-95bb-7a29-9f61-ab6255622440"
+                  dam:
+                    id: "019a7a8f-0114-7b3c-8d4e-5f6a7b8c0114"
+                    tagNo: G-0114
+                  sire:
+                    id: "019a7abf-19ff-729b-97d3-32846e9eab62"
+                    tagNo: G-0101
+                  matedOn: "2026-01-20"
+                  expectedBirthOn: "2026-06-18"
+                  actualBirthOn: "2026-06-21"
+                  litterSize: 3
+                  liveBirths: 2
+                  status: BORN
+                  notes: "One kid stillborn"
+                  offspring:
+                    - id: "019a7ab0-0161-7f1e-9d2c-3b4a59680161"
+                      tagNo: G-0161
+                      sex: MALE
+                    - id: "019a7ab0-0162-7a2b-8c3d-4e5f60710162"
+                      tagNo: G-0162
+                      sex: FEMALE
+                  version: 2
+                - id: "019a7abf-76cc-7045-857d-0d2adbb18608"
+                  dam:
+                    id: "019a7a8f-0109-7e2d-9c1b-0a9f8e7d0109"
+                    tagNo: G-0109
+                  sire:
+                    id: "019a7abf-19ff-729b-97d3-32846e9eab62"
+                    tagNo: G-0101
+                  matedOn: "2026-07-11"
+                  expectedBirthOn: "2026-12-07"
+                  actualBirthOn: null
+                  litterSize: null
+                  liveBirths: null
+                  status: CONFIRMED
+                  notes: null
+                  offspring: []
+                  version: 2
+                - id: "019a7abe-fb10-78b7-8df0-944cf4ed0d2a"
+                  dam:
+                    id: "019a7a8f-f9e5-7212-b74b-2a010af8a2de"
+                    tagNo: G-0118
+                  sire:
+                    id: "019a7abf-19ff-729b-97d3-32846e9eab62"
+                    tagNo: G-0101
+                  matedOn: "2026-06-02"
+                  expectedBirthOn: "2026-10-29"
+                  actualBirthOn: "2026-11-02"
+                  litterSize: 2
+                  liveBirths: 2
+                  status: BORN
+                  notes: null
+                  offspring:
+                    - id: "019a7abf-38ee-7c7e-a1b6-d0bbe84f4999"
+                      tagNo: G-0181
+                      sex: MALE
+                    - id: "019a7abf-57dd-7662-bb9a-6ef36200e7d1"
+                      tagNo: G-0182
+                      sex: FEMALE
+                  version: 3
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YWJlLWZiMTAifQ
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

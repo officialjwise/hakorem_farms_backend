@@ -142,6 +142,7 @@ beforeAll(async () => {
     ['FH-G08', 29_000],
     ['FH-G09', 30_000],
     ['FH-G10', 31_000],
+    ['FH-G11', 19_000],
   ]);
 });
 
@@ -236,9 +237,68 @@ describe('at or above the threshold: the Farm hand reports and submits, and the 
   });
 });
 
+/** One statement as the superuser with every trigger off: to stand up a record the rules no longer let anyone write. */
+async function bypassingTriggers(sql: string, values: unknown[]): Promise<void> {
+  const client = await admin().connect();
+  try {
+    await client.query('BEGIN');
+    await client.query("SET LOCAL session_replication_role = 'replica'");
+    await client.query(sql, values);
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/** A distinct EVIDENCE photograph the Farm hand uploads for one report, its id. */
+async function evidence(seed: number): Promise<string> {
+  const uploaded = await upload(farmHand, photo(seed));
+  expect(uploaded.status, JSON.stringify(uploaded.body)).toBe(201);
+  return uploaded.body.id as string;
+}
+
+describe('the Farm hand\'s death report always carries its photograph, whatever its value (owner, 2026-11-16)', () => {
+  it('refuses the Farm hand\'s report of FH-G02 at 18,000, below the 50,000 threshold, without its photograph, naming no value', async () => {
+    const refused = await post(farmHand, '/care/mortality-records', { kind: 'DEATH', stockUnitId: id('unit:FH-G02'), reasonCode: 'UNKNOWN_CAUSE', foundAt: hoursAgo(1) });
+    expect(refused.status).toBe(422);
+    expect(refused.body.error).toMatchObject({ code: 'MORTALITY_PHOTO_REQUIRED', details: [{ field: '/photoFileId', code: 'PHOTO_REQUIRED' }] });
+    // The Farm hand cannot see the value, so the refusal does not tell it.
+    expect(JSON.stringify(refused.body)).not.toMatch(/18000|18,000|50000|50,000/);
+    expect(await statusOf('FH-G02')).toBe('ALIVE');
+    const { rows } = await admin().query('SELECT id FROM liv.mortality_record WHERE stock_unit_id = $1', [id('unit:FH-G02')]);
+    expect(rows).toEqual([]);
+  });
+
+  it('refuses the submission of a Farm hand record of FH-G11 at 19,000 that has lost its photograph, below the threshold', async () => {
+    const recordId = await report(farmHand, 'FH-G11', await evidence(201));
+    // A record reported before the rule, without its photograph, stands for one here. The database never lets a
+    // reported photograph go, so the record is changed with the triggers off, as only a superuser can.
+    await bypassingTriggers('UPDATE liv.mortality_record SET photo_file_id = NULL, photo_sha256 = NULL WHERE id = $1', [recordId]);
+    const refused = await submit(farmHand, recordId);
+    expect(refused.status).toBe(422);
+    expect(refused.body.error).toMatchObject({ code: 'MORTALITY_PHOTO_REQUIRED', details: [{ field: '/photoFileId', code: 'PHOTO_REQUIRED' }] });
+    expect(JSON.stringify(refused.body)).not.toMatch(/19000|19,000|50000|50,000/);
+    expect((await recordOf(recordId)).status).toBe('REPORTED');
+    expect(await statusOf('FH-G11')).toBe('ALIVE');
+  });
+
+  it('refuses the care report to every role without the report permission, photograph or not', async () => {
+    const photoFileId = await evidence(202);
+    for (const [role, session] of [['ACCOUNTANT', accountant], ...wrong.entries()] as const) {
+      const refused = await post(session, '/care/mortality-records', { kind: 'DEATH', stockUnitId: id('unit:FH-G02'), reasonCode: 'UNKNOWN_CAUSE', foundAt: hoursAgo(1), photoFileId });
+      expect(refused.status, role).toBe(403);
+    }
+  });
+});
+
 describe('below the threshold: the Farm hand never writes off alone, and a manager confirms (owner, 2026-11-15)', () => {
   it('holds FH-G02 at 18,000 for a manager\'s confirmation instead of posting it, and refuses every other confirmer', async () => {
-    const recordId = await report(farmHand, 'FH-G02');
+    const photoFileId = await evidence(203);
+    await scanned(photoFileId, 'CLEAN');
+    const recordId = await report(farmHand, 'FH-G02', photoFileId);
     const submitted = await submit(farmHand, recordId);
     expect(submitted.status, JSON.stringify(submitted.body)).toBe(202);
     expect(submitted.body).toMatchObject({ status: 'PENDING_APPROVAL', kind: 'MORTALITY_CONFIRMATION', subject: { id: recordId } });
@@ -259,7 +319,7 @@ describe('below the threshold: the Farm hand never writes off alone, and a manag
     expect(await eventsOf('liv.MortalityReported', recordId)).toEqual([expect.objectContaining({ needsApproval: true, approvalKind: 'MORTALITY_CONFIRMATION', valuePesewas: 18_000 })]);
   });
 
-  it('lets the Storekeeper, who may post a write-off, still write off FH-G03 at 21,000 directly', async () => {
+  it('lets the Storekeeper, who sees the value, still report FH-G03 at 21,000 without a photograph and write it off directly: the threshold rule is unchanged for every other maker', async () => {
     const recordId = await report(storekeeper, 'FH-G03');
     const submitted = await submit(storekeeper, recordId);
     expect(submitted.status, JSON.stringify(submitted.body)).toBe(200);
@@ -332,7 +392,9 @@ describe('a photograph reused on a second death report goes to the exception rep
 
 describe('the database holds the confirmation and the photograph on its own (abuse case 2)', () => {
   it('refuses to post a record that needs a confirmation without an approval, and an approval checked by its reporter', async () => {
-    const recordId = await report(farmHand, 'FH-G09');
+    const photoFileId = await evidence(209);
+    await scanned(photoFileId, 'CLEAN');
+    const recordId = await report(farmHand, 'FH-G09', photoFileId);
     await submit(farmHand, recordId);
     const movement = (await admin().query<{ id: string }>('SELECT id FROM inv.stock_movement LIMIT 1')).rows[0]!.id;
     const unconfirmed = await admin()

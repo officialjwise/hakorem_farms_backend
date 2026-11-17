@@ -710,11 +710,12 @@ export class PgPurchasingStore implements PurchasingStore {
     await tx.query(`UPDATE pur.supplier_payment SET version = version + 1, status = $2, cancel_reason = $3, updated_at = now(), updated_by = $4 WHERE id = $1`, [id, status, reason, actorId]);
   }
 
-  async markPaymentPaid(tx: Transaction, id: string, paidAt: Date, externalReference: string, at: Date, actorId: string): Promise<void> {
+  async markPaymentPaid(tx: Transaction, id: string, paymentNo: string, paidAt: Date, externalReference: string, at: Date, actorId: string): Promise<void> {
     await tx.query(
-      `UPDATE pur.supplier_payment SET version = version + 1, status = 'PAID', paid_at = $2, external_reference = $3, posted_at = $4, posted_by = $5, updated_at = $4, updated_by = $5
+      `UPDATE pur.supplier_payment SET version = version + 1, status = 'PAID', payment_no = $6, paid_at = $2, external_reference = $3, posted_at = $4, posted_by = $5,
+              updated_at = $4, updated_by = $5
         WHERE id = $1`,
-      [id, paidAt, externalReference, at, actorId],
+      [id, paidAt, externalReference, at, actorId, paymentNo],
     );
   }
 

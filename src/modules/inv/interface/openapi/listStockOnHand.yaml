@@ -89,280 +89,293 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/StockOnHandPage"
-        example:
-          data:
-            - product:
-                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                sku: LIV-GOAT
-                name: Goat
-              stockUnit:
-                id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
-                identifier: G-0142
-                tracking: SERIAL
-              location:
-                id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
-                code: PEN-G1
-                name: "Goat pen 1"
-                kind: PEN
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-              uom: HEAD
-              uomDisplayDecimals: 0
-              onHandQty: "1.000"
-              reservedQty: "0.000"
-              heldQty: "0.000"
-              availableQty: "1.000"
-              onHandWeightKg: "26.400"
-              packCount: null
-              unitCostPesewas: 61250
-              valueAtCostPesewas: 61250
-              valuationMethod: SPECIFIC_IDENTIFICATION
-              priceBand:
-                listPricePesewas: 85000
-                floorPricePesewas: 70000
-                ceilingPricePesewas: 98000
-                basis: PER_HEAD
-              expiresOn: null
-              ageDays: 40
-              holds: []
-            - product:
-                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                sku: LIV-GOAT
-                name: Goat
-              stockUnit:
-                id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
-                identifier: G-0157
-                tracking: SERIAL
-              location:
-                id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
-                code: PEN-G1
-                name: "Goat pen 1"
-                kind: PEN
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-              uom: HEAD
-              uomDisplayDecimals: 0
-              onHandQty: "1.000"
-              reservedQty: "1.000"
-              heldQty: "0.000"
-              availableQty: "0.000"
-              onHandWeightKg: "31.800"
-              packCount: null
-              unitCostPesewas: 74800
-              valueAtCostPesewas: 74800
-              valuationMethod: SPECIFIC_IDENTIFICATION
-              priceBand:
-                listPricePesewas: 140000
-                floorPricePesewas: 120000
-                ceilingPricePesewas: 195000
-                basis: PER_HEAD
-              expiresOn: null
-              ageDays: 49
-              holds: []
-            - product:
-                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                sku: LIV-GOAT
-                name: Goat
-              stockUnit:
-                id: "019a7a8f-9d18-7468-89a0-4f5a9de5c838"
-                identifier: G-0163
-                tracking: SERIAL
-              location:
-                id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
-                code: PEN-G2
-                name: "Goat pen 2"
-                kind: PEN
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-              uom: HEAD
-              uomDisplayDecimals: 0
-              onHandQty: "1.000"
-              reservedQty: "0.000"
-              heldQty: "1.000"
-              availableQty: "0.000"
-              onHandWeightKg: "22.150"
-              packCount: null
-              unitCostPesewas: 52300
-              valueAtCostPesewas: 52300
-              valuationMethod: SPECIFIC_IDENTIFICATION
-              priceBand:
-                listPricePesewas: 85000
-                floorPricePesewas: 70000
-                ceilingPricePesewas: 98000
-                basis: PER_HEAD
-              expiresOn: null
-              ageDays: 58
-              holds:
-                - WITHDRAWAL
-            - product:
-                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                sku: LIV-GOAT
-                name: Goat
-              stockUnit:
-                id: "019a7a8f-bc07-7e4c-9384-ed921796666f"
-                identifier: G-0171
-                tracking: SERIAL
-              location:
-                id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
-                code: PEN-G2
-                name: "Goat pen 2"
-                kind: PEN
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-              uom: HEAD
-              uomDisplayDecimals: 0
-              onHandQty: "1.000"
-              reservedQty: "0.000"
-              heldQty: "0.000"
-              availableQty: "1.000"
-              onHandWeightKg: "24.900"
-              packCount: null
-              unitCostPesewas: 58900
-              valueAtCostPesewas: 58900
-              valuationMethod: SPECIFIC_IDENTIFICATION
-              priceBand:
-                listPricePesewas: 85000
-                floorPricePesewas: 70000
-                ceilingPricePesewas: 98000
-                basis: PER_HEAD
-              expiresOn: null
-              ageDays: 67
-              holds: []
-            - product:
-                id: "019a7a8d-704a-726a-a7a2-2f740f73a851"
-                sku: LIV-BROILER
-                name: "Broiler chicken"
-              stockUnit:
-                id: "019a7a91-4e2a-7ed9-a411-f66345936f41"
-                identifier: BRL-2610-01
-                tracking: LOT
-              location:
-                id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
-                code: HSE-B1
-                name: "Broiler house 1"
-                kind: PEN
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-              uom: HEAD
-              uomDisplayDecimals: 0
-              onHandQty: "462.000"
-              reservedQty: "0.000"
-              heldQty: "0.000"
-              availableQty: "462.000"
-              onHandWeightKg: null
-              packCount: null
-              unitCostPesewas: 13500
-              valueAtCostPesewas: 6237000
-              valuationMethod: SPECIFIC_IDENTIFICATION
-              priceBand:
-                listPricePesewas: 17000
-                floorPricePesewas: 12000
-                ceilingPricePesewas: 22000
-                basis: PER_HEAD
-              expiresOn: null
-              ageDays: 11
-              holds: []
-            - product:
-                id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                sku: MEAT-CHK-FULL
-                name: "Full chicken, 15 kg pack"
-              stockUnit:
-                id: "019a7a91-104c-7b12-804a-b9f4523132d2"
-                identifier: MEAT-CHK-261106-02
-                tracking: LOT
-              location:
-                id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
-                code: COLD-1
-                name: "Cold room"
-                kind: COLD_ROOM
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-              uom: KG
-              uomDisplayDecimals: 3
-              onHandQty: "142.800"
-              reservedQty: "15.000"
-              heldQty: "0.000"
-              availableQty: "127.800"
-              onHandWeightKg: "142.800"
-              packCount: 10
-              unitCostPesewas: 1600
-              valueAtCostPesewas: 228480
-              valuationMethod: SPECIFIC_IDENTIFICATION
-              priceBand:
-                listPricePesewas: 2000
-                floorPricePesewas: 1467
-                ceilingPricePesewas: 2333
-                basis: PER_KG
-              expiresOn: "2026-12-06"
-              ageDays: 9
-              holds: []
-            - product:
-                id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                sku: MEAT-BEEF
-                name: "Beef, 15 kg pack"
-              stockUnit:
-                id: "019a7a91-2f3b-74f5-9a2d-582bcbe2d109"
-                identifier: MEAT-BEEF-261104-01
-                tracking: LOT
-              location:
-                id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
-                code: COLD-1
-                name: "Cold room"
-                kind: COLD_ROOM
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-              uom: KG
-              uomDisplayDecimals: 3
-              onHandQty: "88.200"
-              reservedQty: "0.000"
-              heldQty: "0.000"
-              availableQty: "88.200"
-              onHandWeightKg: "88.200"
-              packCount: 6
-              unitCostPesewas: 2500
-              valueAtCostPesewas: 220500
-              valuationMethod: SPECIFIC_IDENTIFICATION
-              priceBand:
-                listPricePesewas: 3000
-                floorPricePesewas: 2200
-                ceilingPricePesewas: 4333
-                basis: PER_KG
-              expiresOn: "2026-12-04"
-              ageDays: 10
-              holds: []
-            - product:
-                id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
-                sku: MEAT-GOAT
-                name: "Goat meat, 15 kg pack"
-              stockUnit:
-                id: "019a7a90-f15d-712e-b666-1bbcd880949a"
-                identifier: MEAT-GOAT-261109-01
-                tracking: LOT
-              location:
-                id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
-                code: COLD-1
-                name: "Cold room"
-                kind: COLD_ROOM
-              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-              uom: KG
-              uomDisplayDecimals: 3
-              onHandQty: "58.350"
-              reservedQty: "0.000"
-              heldQty: "0.000"
-              availableQty: "58.350"
-              onHandWeightKg: "58.350"
-              packCount: 4
-              unitCostPesewas: 2427
-              valueAtCostPesewas: 141600
-              valuationMethod: SPECIFIC_IDENTIFICATION
-              priceBand:
-                listPricePesewas: 2600
-                floorPricePesewas: 1400
-                ceilingPricePesewas: 3133
-                basis: PER_KG
-              expiresOn: "2026-12-09"
-              ageDays: 8
-              holds: []
-          page:
-            nextCursor: eyJpZCI6IjAxOWE3YyJ9
-            limit: 25
-            hasMore: true
-          totalValueAtCostPesewas: 13816210
-          currency: GHS
-          asOf: "2026-11-13T09:30:00Z"
+        examples:
+          default:
+            value:
+              data:
+                - product:
+                    id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                    sku: LIV-GOAT
+                    name: Goat
+                  stockUnit:
+                    id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
+                    identifier: G-0142
+                    tracking: SERIAL
+                  location:
+                    id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+                    code: PEN-G1
+                    name: "Goat pen 1"
+                    kind: PEN
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  uom: HEAD
+                  uomDisplayDecimals: 0
+                  onHandQty: "1.000"
+                  reservedQty: "0.000"
+                  heldQty: "0.000"
+                  availableQty: "1.000"
+                  onHandWeightKg: "26.400"
+                  packCount: null
+                  unitCostPesewas: 61250
+                  valueAtCostPesewas: 61250
+                  valuationMethod: SPECIFIC_IDENTIFICATION
+                  priceBand:
+                    listPricePesewas: 85000
+                    floorPricePesewas: 70000
+                    ceilingPricePesewas: 98000
+                    basis: PER_HEAD
+                  expiresOn: null
+                  ageDays: 40
+                  holds: []
+                - product:
+                    id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                    sku: LIV-GOAT
+                    name: Goat
+                  stockUnit:
+                    id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
+                    identifier: G-0157
+                    tracking: SERIAL
+                  location:
+                    id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+                    code: PEN-G1
+                    name: "Goat pen 1"
+                    kind: PEN
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  uom: HEAD
+                  uomDisplayDecimals: 0
+                  onHandQty: "1.000"
+                  reservedQty: "1.000"
+                  heldQty: "0.000"
+                  availableQty: "0.000"
+                  onHandWeightKg: "31.800"
+                  packCount: null
+                  unitCostPesewas: 74800
+                  valueAtCostPesewas: 74800
+                  valuationMethod: SPECIFIC_IDENTIFICATION
+                  priceBand:
+                    listPricePesewas: 140000
+                    floorPricePesewas: 120000
+                    ceilingPricePesewas: 195000
+                    basis: PER_HEAD
+                  expiresOn: null
+                  ageDays: 49
+                  holds: []
+                - product:
+                    id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                    sku: LIV-GOAT
+                    name: Goat
+                  stockUnit:
+                    id: "019a7a8f-9d18-7468-89a0-4f5a9de5c838"
+                    identifier: G-0163
+                    tracking: SERIAL
+                  location:
+                    id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                    code: PEN-G2
+                    name: "Goat pen 2"
+                    kind: PEN
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  uom: HEAD
+                  uomDisplayDecimals: 0
+                  onHandQty: "1.000"
+                  reservedQty: "0.000"
+                  heldQty: "1.000"
+                  availableQty: "0.000"
+                  onHandWeightKg: "22.150"
+                  packCount: null
+                  unitCostPesewas: 52300
+                  valueAtCostPesewas: 52300
+                  valuationMethod: SPECIFIC_IDENTIFICATION
+                  priceBand:
+                    listPricePesewas: 85000
+                    floorPricePesewas: 70000
+                    ceilingPricePesewas: 98000
+                    basis: PER_HEAD
+                  expiresOn: null
+                  ageDays: 58
+                  holds:
+                    - WITHDRAWAL
+                - product:
+                    id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                    sku: LIV-GOAT
+                    name: Goat
+                  stockUnit:
+                    id: "019a7a8f-bc07-7e4c-9384-ed921796666f"
+                    identifier: G-0171
+                    tracking: SERIAL
+                  location:
+                    id: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                    code: PEN-G2
+                    name: "Goat pen 2"
+                    kind: PEN
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  uom: HEAD
+                  uomDisplayDecimals: 0
+                  onHandQty: "1.000"
+                  reservedQty: "0.000"
+                  heldQty: "0.000"
+                  availableQty: "1.000"
+                  onHandWeightKg: "24.900"
+                  packCount: null
+                  unitCostPesewas: 58900
+                  valueAtCostPesewas: 58900
+                  valuationMethod: SPECIFIC_IDENTIFICATION
+                  priceBand:
+                    listPricePesewas: 85000
+                    floorPricePesewas: 70000
+                    ceilingPricePesewas: 98000
+                    basis: PER_HEAD
+                  expiresOn: null
+                  ageDays: 67
+                  holds: []
+                - product:
+                    id: "019a7a8d-704a-726a-a7a2-2f740f73a851"
+                    sku: LIV-BROILER
+                    name: "Broiler chicken"
+                  stockUnit:
+                    id: "019a7a91-4e2a-7ed9-a411-f66345936f41"
+                    identifier: BRL-2610-01
+                    tracking: LOT
+                  location:
+                    id: "019a7a84-0378-7f1b-8454-fa8cfb85736a"
+                    code: HSE-B1
+                    name: "Broiler house 1"
+                    kind: PEN
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  uom: HEAD
+                  uomDisplayDecimals: 0
+                  onHandQty: "462.000"
+                  reservedQty: "0.000"
+                  heldQty: "0.000"
+                  availableQty: "462.000"
+                  onHandWeightKg: null
+                  packCount: null
+                  unitCostPesewas: 13500
+                  valueAtCostPesewas: 6237000
+                  valuationMethod: SPECIFIC_IDENTIFICATION
+                  priceBand:
+                    listPricePesewas: 17000
+                    floorPricePesewas: 12000
+                    ceilingPricePesewas: 22000
+                    basis: PER_HEAD
+                  expiresOn: null
+                  ageDays: 11
+                  holds: []
+                - product:
+                    id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                    sku: MEAT-CHK-FULL
+                    name: "Full chicken, 15 kg pack"
+                  stockUnit:
+                    id: "019a7a91-104c-7b12-804a-b9f4523132d2"
+                    identifier: MEAT-CHK-261106-02
+                    tracking: LOT
+                  location:
+                    id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+                    code: COLD-1
+                    name: "Cold room"
+                    kind: COLD_ROOM
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  uom: KG
+                  uomDisplayDecimals: 3
+                  onHandQty: "142.800"
+                  reservedQty: "15.000"
+                  heldQty: "0.000"
+                  availableQty: "127.800"
+                  onHandWeightKg: "142.800"
+                  packCount: 10
+                  unitCostPesewas: 1600
+                  valueAtCostPesewas: 228480
+                  valuationMethod: SPECIFIC_IDENTIFICATION
+                  priceBand:
+                    listPricePesewas: 2000
+                    floorPricePesewas: 1467
+                    ceilingPricePesewas: 2333
+                    basis: PER_KG
+                  expiresOn: "2026-12-06"
+                  ageDays: 9
+                  holds: []
+                - product:
+                    id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
+                    sku: MEAT-BEEF
+                    name: "Beef, 15 kg pack"
+                  stockUnit:
+                    id: "019a7a91-2f3b-74f5-9a2d-582bcbe2d109"
+                    identifier: MEAT-BEEF-261104-01
+                    tracking: LOT
+                  location:
+                    id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+                    code: COLD-1
+                    name: "Cold room"
+                    kind: COLD_ROOM
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  uom: KG
+                  uomDisplayDecimals: 3
+                  onHandQty: "88.200"
+                  reservedQty: "0.000"
+                  heldQty: "0.000"
+                  availableQty: "88.200"
+                  onHandWeightKg: "88.200"
+                  packCount: 6
+                  unitCostPesewas: 2500
+                  valueAtCostPesewas: 220500
+                  valuationMethod: SPECIFIC_IDENTIFICATION
+                  priceBand:
+                    listPricePesewas: 3000
+                    floorPricePesewas: 2200
+                    ceilingPricePesewas: 4333
+                    basis: PER_KG
+                  expiresOn: "2026-12-04"
+                  ageDays: 10
+                  holds: []
+                - product:
+                    id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
+                    sku: MEAT-GOAT
+                    name: "Goat meat, 15 kg pack"
+                  stockUnit:
+                    id: "019a7a90-f15d-712e-b666-1bbcd880949a"
+                    identifier: MEAT-GOAT-261109-01
+                    tracking: LOT
+                  location:
+                    id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+                    code: COLD-1
+                    name: "Cold room"
+                    kind: COLD_ROOM
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  uom: KG
+                  uomDisplayDecimals: 3
+                  onHandQty: "58.350"
+                  reservedQty: "0.000"
+                  heldQty: "0.000"
+                  availableQty: "58.350"
+                  onHandWeightKg: "58.350"
+                  packCount: 4
+                  unitCostPesewas: 2427
+                  valueAtCostPesewas: 141600
+                  valuationMethod: SPECIFIC_IDENTIFICATION
+                  priceBand:
+                    listPricePesewas: 2600
+                    floorPricePesewas: 1400
+                    ceilingPricePesewas: 3133
+                    basis: PER_KG
+                  expiresOn: "2026-12-09"
+                  ageDays: 8
+                  holds: []
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+              totalValueAtCostPesewas: 13816210
+              currency: GHS
+              asOf: "2026-11-13T09:30:00Z"
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+              totalValueAtCostPesewas: 0
+              currency: GHS
+              asOf: "2026-11-13T09:30:00Z"
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

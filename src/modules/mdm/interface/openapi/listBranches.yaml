@@ -34,42 +34,52 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/BranchPage"
-        example:
-          data:
-            - id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-              code: DDW
-              name: "HaKorem Farms, Dodowa"
-              address: "Off Dodowa–Afienya Road, Dodowa"
-              phone: "+233302900111"
-              isTest: false
-              status: ACTIVE
-              version: 2
-              createdAt: "2026-11-02T08:00:00Z"
-              updatedAt: "2026-11-10T14:00:00Z"
-            - id: "019a7a83-49de-73c6-a8ff-4540215fbe1e"
-              code: TST
-              name: "Smoke test branch"
-              address: "Not a real location"
-              phone: "+233302900111"
-              isTest: true
-              status: ACTIVE
-              version: 3
-              createdAt: "2026-11-02T08:01:00Z"
-              updatedAt: "2026-11-11T14:01:00Z"
-            - id: "019a7aa3-cb01-77cb-bd03-858b005cfe68"
-              code: KSI
-              name: "HaKorem Farms, Kumasi (planned)"
-              address: "Ahodwo, Kumasi"
-              phone: "+233302900111"
-              isTest: false
-              status: CLOSED
-              version: 4
-              createdAt: "2026-11-02T08:02:00Z"
-              updatedAt: "2026-11-12T14:02:00Z"
-          page:
-            nextCursor: null
-            limit: 25
-            hasMore: false
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  code: DDW
+                  name: "HaKorem Farms, Dodowa"
+                  address: "Off Dodowa–Afienya Road, Dodowa"
+                  phone: "+233302900111"
+                  isTest: false
+                  status: ACTIVE
+                  version: 2
+                  createdAt: "2026-11-02T08:00:00Z"
+                  updatedAt: "2026-11-10T14:00:00Z"
+                - id: "019a7a83-49de-73c6-a8ff-4540215fbe1e"
+                  code: TST
+                  name: "Smoke test branch"
+                  address: "Not a real location"
+                  phone: "+233302900111"
+                  isTest: true
+                  status: ACTIVE
+                  version: 3
+                  createdAt: "2026-11-02T08:01:00Z"
+                  updatedAt: "2026-11-11T14:01:00Z"
+                - id: "019a7aa3-cb01-77cb-bd03-858b005cfe68"
+                  code: KSI
+                  name: "HaKorem Farms, Kumasi (planned)"
+                  address: "Ahodwo, Kumasi"
+                  phone: "+233302900111"
+                  isTest: false
+                  status: CLOSED
+                  version: 4
+                  createdAt: "2026-11-02T08:02:00Z"
+                  updatedAt: "2026-11-12T14:02:00Z"
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

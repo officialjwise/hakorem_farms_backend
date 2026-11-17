@@ -178,6 +178,22 @@ describe('a completed order is frozen and reverses only while its outputs are un
     expect(codes(twice.body)).toEqual(['REVERSAL_PENDING']);
   });
 
+  it('finds the order from its approval request\'s subject: listProcessingOrders by reversalId answers that order alone (CR-027)', async () => {
+    const request = await get(approver, `/iam/approvals/${requestId}`);
+    expect(request.status, JSON.stringify(request.body)).toBe(200);
+    // The request's subject stays the reversal; the order is one read away by it.
+    expect(request.body.subject).toMatchObject({ docType: 'PROCESSING_REVERSAL' });
+    const reversalId = request.body.subject.id as string;
+    const found = await get(manager, `/processing-orders?reversalId=${reversalId}`);
+    expect(found.status, JSON.stringify(found.body)).toBe(200);
+    expect(found.body.data.map((o: { id: string }) => o.id)).toEqual([orderId]);
+    expect(found.body.data[0].pendingReversal.id).toBe(reversalId);
+    expect(found.body.page).toEqual({ nextCursor: null, limit: 25, hasMore: false });
+    expect((await get(manager, `/processing-orders?reversalId=${randomUUID()}`)).body.data).toEqual([]);
+    expect((await get(manager, '/processing-orders?reversalId=not-a-uuid')).status).toBe(400);
+    for (const [role, session] of wrong) expect((await get(session, `/processing-orders?reversalId=${reversalId}`)).status, role).toBe(403);
+  });
+
   it('keeps the threshold it was judged against: raising the policy afterwards changes nothing on the reversal', async () => {
     await admin().query("UPDATE iam.approval_policy SET threshold_pesewas = 100000, version = version + 1 WHERE kind = 'STOCK_WRITE_OFF' AND branch_id IS NULL");
     expect((await get(manager, `/processing-orders/${orderId}`)).body.pendingReversal.thresholdPesewas).toBe(50_000);

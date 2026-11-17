@@ -51,108 +51,118 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/DeliverySlotPage"
-        example:
-          data:
-            - id: "019a7afd-16ee-736d-a8a6-3faf4a4fb88d"
-              branch:
-                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                code: DDW
-                name: "HaKorem Farms, Dodowa"
-              deliveryZone:
-                id: "019a7a93-5c09-76f4-bc2c-78125a54f0f0"
-                code: ACC-EAST
-                name: "Accra East: Madina, Adenta, East Legon"
-              slotDate: "2026-11-14"
-              startsAt: "10:00"
-              endsAt: "12:00"
-              capacity: 8
-              booked: 4
-              remaining: 4
-              version: 3
-            - id: "019a7a94-b04e-73ba-a8f2-447494efbd52"
-              branch:
-                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                code: DDW
-                name: "HaKorem Farms, Dodowa"
-              deliveryZone:
-                id: "019a7a93-5c09-76f4-bc2c-78125a54f0f0"
-                code: ACC-EAST
-                name: "Accra East: Madina, Adenta, East Legon"
-              slotDate: "2026-11-14"
-              startsAt: "14:00"
-              endsAt: "16:00"
-              capacity: 8
-              booked: 8
-              remaining: 0
-              version: 3
-            - id: "019a7afd-35dd-7d51-b289-dde6c40056c4"
-              branch:
-                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                code: DDW
-                name: "HaKorem Farms, Dodowa"
-              deliveryZone:
-                id: "019a7a93-7af8-70d7-860f-1649d4058f27"
-                code: TEMA
-                name: "Tema and Community 25"
-              slotDate: "2026-11-15"
-              startsAt: "10:00"
-              endsAt: "12:00"
-              capacity: 8
-              booked: 2
-              remaining: 6
-              version: 3
-            - id: "019a7af2-74c6-7d3c-a275-dc9d7577557b"
-              branch:
-                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                code: DDW
-                name: "HaKorem Farms, Dodowa"
-              deliveryZone:
-                id: "019a7a93-7af8-70d7-860f-1649d4058f27"
-                code: TEMA
-                name: "Tema and Community 25"
-              slotDate: "2026-11-15"
-              startsAt: "14:00"
-              endsAt: "16:00"
-              capacity: 8
-              booked: 2
-              remaining: 6
-              version: 3
-            - id: "019a7afd-54cc-7734-8c6d-7c1e3db1f4fc"
-              branch:
-                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                code: DDW
-                name: "HaKorem Farms, Dodowa"
-              deliveryZone:
-                id: "019a7a93-99e7-7abb-9ff3-b4814db62d5f"
-                code: DODOWA
-                name: "Dodowa and surroundings"
-              slotDate: "2026-11-16"
-              startsAt: "10:00"
-              endsAt: "12:00"
-              capacity: 8
-              booked: 0
-              remaining: 8
-              version: 3
-            - id: "019a7afd-73bb-7118-9650-1a55b7629333"
-              branch:
-                id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                code: DDW
-                name: "HaKorem Farms, Dodowa"
-              deliveryZone:
-                id: "019a7a93-99e7-7abb-9ff3-b4814db62d5f"
-                code: DODOWA
-                name: "Dodowa and surroundings"
-              slotDate: "2026-11-16"
-              startsAt: "14:00"
-              endsAt: "16:00"
-              capacity: 8
-              booked: 0
-              remaining: 8
-              version: 3
-          page:
-            nextCursor: eyJpZCI6IjAxOWE3YyJ9
-            limit: 25
-            hasMore: true
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7afd-16ee-736d-a8a6-3faf4a4fb88d"
+                  branch:
+                    id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    code: DDW
+                    name: "HaKorem Farms, Dodowa"
+                  deliveryZone:
+                    id: "019a7a93-5c09-76f4-bc2c-78125a54f0f0"
+                    code: ACC-EAST
+                    name: "Accra East: Madina, Adenta, East Legon"
+                  slotDate: "2026-11-14"
+                  startsAt: "10:00"
+                  endsAt: "12:00"
+                  capacity: 8
+                  booked: 4
+                  remaining: 4
+                  version: 3
+                - id: "019a7a94-b04e-73ba-a8f2-447494efbd52"
+                  branch:
+                    id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    code: DDW
+                    name: "HaKorem Farms, Dodowa"
+                  deliveryZone:
+                    id: "019a7a93-5c09-76f4-bc2c-78125a54f0f0"
+                    code: ACC-EAST
+                    name: "Accra East: Madina, Adenta, East Legon"
+                  slotDate: "2026-11-14"
+                  startsAt: "14:00"
+                  endsAt: "16:00"
+                  capacity: 8
+                  booked: 8
+                  remaining: 0
+                  version: 3
+                - id: "019a7afd-35dd-7d51-b289-dde6c40056c4"
+                  branch:
+                    id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    code: DDW
+                    name: "HaKorem Farms, Dodowa"
+                  deliveryZone:
+                    id: "019a7a93-7af8-70d7-860f-1649d4058f27"
+                    code: TEMA
+                    name: "Tema and Community 25"
+                  slotDate: "2026-11-15"
+                  startsAt: "10:00"
+                  endsAt: "12:00"
+                  capacity: 8
+                  booked: 2
+                  remaining: 6
+                  version: 3
+                - id: "019a7af2-74c6-7d3c-a275-dc9d7577557b"
+                  branch:
+                    id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    code: DDW
+                    name: "HaKorem Farms, Dodowa"
+                  deliveryZone:
+                    id: "019a7a93-7af8-70d7-860f-1649d4058f27"
+                    code: TEMA
+                    name: "Tema and Community 25"
+                  slotDate: "2026-11-15"
+                  startsAt: "14:00"
+                  endsAt: "16:00"
+                  capacity: 8
+                  booked: 2
+                  remaining: 6
+                  version: 3
+                - id: "019a7afd-54cc-7734-8c6d-7c1e3db1f4fc"
+                  branch:
+                    id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    code: DDW
+                    name: "HaKorem Farms, Dodowa"
+                  deliveryZone:
+                    id: "019a7a93-99e7-7abb-9ff3-b4814db62d5f"
+                    code: DODOWA
+                    name: "Dodowa and surroundings"
+                  slotDate: "2026-11-16"
+                  startsAt: "10:00"
+                  endsAt: "12:00"
+                  capacity: 8
+                  booked: 0
+                  remaining: 8
+                  version: 3
+                - id: "019a7afd-73bb-7118-9650-1a55b7629333"
+                  branch:
+                    id: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    code: DDW
+                    name: "HaKorem Farms, Dodowa"
+                  deliveryZone:
+                    id: "019a7a93-99e7-7abb-9ff3-b4814db62d5f"
+                    code: DODOWA
+                    name: "Dodowa and surroundings"
+                  slotDate: "2026-11-16"
+                  startsAt: "14:00"
+                  endsAt: "16:00"
+                  capacity: 8
+                  booked: 0
+                  remaining: 8
+                  version: 3
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

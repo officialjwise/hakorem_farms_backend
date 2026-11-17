@@ -41,52 +41,62 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/SupplierDocumentPage"
-        example:
-          data:
-            - id: "019a7ac8-2a04-783f-8d77-8cc5157905a2"
-              kind: REGISTRATION
-              file:
-                id: "019a7ac8-48f3-7222-975a-2afc8f2aa3da"
-                originalName: business-registration.pdf
-                contentType: application/pdf
-              expiresOn: null
-              createdAt: "2026-11-02T10:00:00Z"
-            - id: "019a7ac8-67e2-7c06-a13e-c93408db4211"
-              kind: TAX_CLEARANCE
-              file:
-                id: "019a7ac8-86d1-75e9-bb21-676b828ce049"
-                originalName: tax-clearance-2026.pdf
-                contentType: application/pdf
-              expiresOn: "2026-12-31"
-              createdAt: "2026-11-03T10:00:00Z"
-            - id: "019a7ac8-a5c0-7fcd-8505-05a2fc3d7e80"
-              kind: HEALTH_CERTIFICATE
-              file:
-                id: "019a7ac8-c4af-79b0-9ee8-a3da75ee1cb8"
-                originalName: vet-health-cert-kpone.pdf
-                contentType: application/pdf
-              expiresOn: "2027-02-28"
-              createdAt: "2026-11-04T10:00:00Z"
-            - id: "019a7ac8-e39e-7394-a8cc-4211ef9fbaef"
-              kind: CONTRACT
-              file:
-                id: "019a7ac9-028d-7d77-b2af-e04969505927"
-                originalName: supply-agreement-2026.pdf
-                contentType: application/pdf
-              expiresOn: "2027-06-30"
-              createdAt: "2026-11-05T10:00:00Z"
-            - id: "019a7ac9-217c-775a-8c93-7e80e301f75e"
-              kind: OTHER
-              file:
-                id: "019a7ac9-406b-713e-9676-1cb85cb29596"
-                originalName: price-list-nov.pdf
-                contentType: application/pdf
-              expiresOn: null
-              createdAt: "2026-11-06T10:00:00Z"
-          page:
-            nextCursor: null
-            limit: 25
-            hasMore: false
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7ac8-2a04-783f-8d77-8cc5157905a2"
+                  kind: REGISTRATION
+                  file:
+                    id: "019a7ac8-48f3-7222-975a-2afc8f2aa3da"
+                    originalName: business-registration.pdf
+                    contentType: application/pdf
+                  expiresOn: null
+                  createdAt: "2026-11-02T10:00:00Z"
+                - id: "019a7ac8-67e2-7c06-a13e-c93408db4211"
+                  kind: TAX_CLEARANCE
+                  file:
+                    id: "019a7ac8-86d1-75e9-bb21-676b828ce049"
+                    originalName: tax-clearance-2026.pdf
+                    contentType: application/pdf
+                  expiresOn: "2026-12-31"
+                  createdAt: "2026-11-03T10:00:00Z"
+                - id: "019a7ac8-a5c0-7fcd-8505-05a2fc3d7e80"
+                  kind: HEALTH_CERTIFICATE
+                  file:
+                    id: "019a7ac8-c4af-79b0-9ee8-a3da75ee1cb8"
+                    originalName: vet-health-cert-kpone.pdf
+                    contentType: application/pdf
+                  expiresOn: "2027-02-28"
+                  createdAt: "2026-11-04T10:00:00Z"
+                - id: "019a7ac8-e39e-7394-a8cc-4211ef9fbaef"
+                  kind: CONTRACT
+                  file:
+                    id: "019a7ac9-028d-7d77-b2af-e04969505927"
+                    originalName: supply-agreement-2026.pdf
+                    contentType: application/pdf
+                  expiresOn: "2027-06-30"
+                  createdAt: "2026-11-05T10:00:00Z"
+                - id: "019a7ac9-217c-775a-8c93-7e80e301f75e"
+                  kind: OTHER
+                  file:
+                    id: "019a7ac9-406b-713e-9676-1cb85cb29596"
+                    originalName: price-list-nov.pdf
+                    contentType: application/pdf
+                  expiresOn: null
+                  createdAt: "2026-11-06T10:00:00Z"
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

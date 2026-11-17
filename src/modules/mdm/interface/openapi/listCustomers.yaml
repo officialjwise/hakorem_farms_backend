@@ -62,135 +62,145 @@ responses:
       application/json:
         schema:
           $ref: "#/components/schemas/CustomerPage"
-        example:
-          data:
-            - id: "019a7a87-659c-73fc-8935-489e4ae1c17c"
-              customerNo: C-00118
-              kind: INDIVIDUAL
-              name: "Ama Serwaa Ofori"
-              phone: "+233244512876"
-              email: null
-              tier:
-                id: "019a7a88-5d14-7318-8850-3a5a1869b337"
-                code: RETAIL
-                name: Retail
-              hasLogin: true
-              tinMasked: null
-              marketingConsentAt: "2026-11-03T12:00:00Z"
-              status: ACTIVE
-              priceList: null
-              hasBusinessAccount: false
-              defaultArea: Madina
-              version: 2
-              createdAt: "2026-11-02T08:00:00Z"
-              updatedAt: "2026-11-10T14:00:00Z"
-            - id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-              customerNo: C-00042
-              kind: BUSINESS
-              name: "Royal Palm Hotel Ltd"
-              phone: "+233302765410"
-              email: "accounts@royalpalmhotelltd.com.gh"
-              tier:
-                id: "019a7a88-7c03-7cfc-9234-d891921a516f"
-                code: WHOLESALE
-                name: Wholesale
-              hasLogin: false
-              tinMasked: "C00••••••41"
-              marketingConsentAt: null
-              status: ACTIVE
-              priceList:
-                id: "019a7aa2-d389-78af-bde8-93cf32d40cad"
-                code: CUST-ROYALPALM
-                name: "Royal Palm Hotel contract prices"
-              hasBusinessAccount: true
-              defaultArea: "Airport Residential"
-              version: 3
-              createdAt: "2026-11-02T08:01:00Z"
-              updatedAt: "2026-11-11T14:01:00Z"
-            - id: "019a7a87-a37a-77c3-acfc-850d3e43fdeb"
-              customerNo: C-00207
-              kind: INDIVIDUAL
-              name: "Kofi Agyeman"
-              phone: "+233201447302"
-              email: null
-              tier:
-                id: "019a7a88-5d14-7318-8850-3a5a1869b337"
-                code: RETAIL
-                name: Retail
-              hasLogin: true
-              tinMasked: null
-              marketingConsentAt: "2026-11-03T12:00:00Z"
-              status: ACTIVE
-              priceList: null
-              hasBusinessAccount: false
-              defaultArea: "East Legon"
-              version: 4
-              createdAt: "2026-11-02T08:02:00Z"
-              updatedAt: "2026-11-12T14:02:00Z"
-            - id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-              customerNo: C-00056
-              kind: BUSINESS
-              name: "Asantewaa Chop Bar"
-              phone: "+233557018924"
-              email: "accounts@asantewaachopbar.com.gh"
-              tier:
-                id: "019a7a88-7c03-7cfc-9234-d891921a516f"
-                code: WHOLESALE
-                name: Wholesale
-              hasLogin: false
-              tinMasked: "C00••••••41"
-              marketingConsentAt: null
-              status: ACTIVE
-              priceList: null
-              hasBusinessAccount: true
-              defaultArea: Adenta
-              version: 2
-              createdAt: "2026-11-02T08:03:00Z"
-              updatedAt: "2026-11-10T14:03:00Z"
-            - id: "019a7a87-e158-7b8a-80c2-c17c31a53a5a"
-              customerNo: C-00233
-              kind: INDIVIDUAL
-              name: "Grace Nyarko"
-              phone: "+233249903118"
-              email: null
-              tier:
-                id: "019a7a88-5d14-7318-8850-3a5a1869b337"
-                code: RETAIL
-                name: Retail
-              hasLogin: true
-              tinMasked: null
-              marketingConsentAt: "2026-11-03T12:00:00Z"
-              status: ACTIVE
-              priceList: null
-              hasBusinessAccount: false
-              defaultArea: "Tema Community 11"
-              version: 3
-              createdAt: "2026-11-02T08:04:00Z"
-              updatedAt: "2026-11-11T14:04:00Z"
-            - id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-              customerNo: C-00241
-              kind: INDIVIDUAL
-              name: "Emmanuel Tetteh"
-              phone: "+233268114590"
-              email: null
-              tier:
-                id: "019a7a88-5d14-7318-8850-3a5a1869b337"
-                code: RETAIL
-                name: Retail
-              hasLogin: true
-              tinMasked: null
-              marketingConsentAt: null
-              status: ACTIVE
-              priceList: null
-              hasBusinessAccount: false
-              defaultArea: Kasoa
-              version: 4
-              createdAt: "2026-11-02T08:05:00Z"
-              updatedAt: "2026-11-12T14:05:00Z"
-          page:
-            nextCursor: eyJpZCI6IjAxOWE3YyJ9
-            limit: 25
-            hasMore: true
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7a87-659c-73fc-8935-489e4ae1c17c"
+                  customerNo: C-00118
+                  kind: INDIVIDUAL
+                  name: "Ama Serwaa Ofori"
+                  phone: "+233244512876"
+                  email: null
+                  tier:
+                    id: "019a7a88-5d14-7318-8850-3a5a1869b337"
+                    code: RETAIL
+                    name: Retail
+                  hasLogin: true
+                  tinMasked: null
+                  marketingConsentAt: "2026-11-03T12:00:00Z"
+                  status: ACTIVE
+                  priceList: null
+                  hasBusinessAccount: false
+                  defaultArea: Madina
+                  version: 2
+                  createdAt: "2026-11-02T08:00:00Z"
+                  updatedAt: "2026-11-10T14:00:00Z"
+                - id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+                  customerNo: C-00042
+                  kind: BUSINESS
+                  name: "Royal Palm Hotel Ltd"
+                  phone: "+233302765410"
+                  email: "accounts@royalpalmhotelltd.com.gh"
+                  tier:
+                    id: "019a7a88-7c03-7cfc-9234-d891921a516f"
+                    code: WHOLESALE
+                    name: Wholesale
+                  hasLogin: false
+                  tinMasked: "C00••••••41"
+                  marketingConsentAt: null
+                  status: ACTIVE
+                  priceList:
+                    id: "019a7aa2-d389-78af-bde8-93cf32d40cad"
+                    code: CUST-ROYALPALM
+                    name: "Royal Palm Hotel contract prices"
+                  hasBusinessAccount: true
+                  defaultArea: "Airport Residential"
+                  version: 3
+                  createdAt: "2026-11-02T08:01:00Z"
+                  updatedAt: "2026-11-11T14:01:00Z"
+                - id: "019a7a87-a37a-77c3-acfc-850d3e43fdeb"
+                  customerNo: C-00207
+                  kind: INDIVIDUAL
+                  name: "Kofi Agyeman"
+                  phone: "+233201447302"
+                  email: null
+                  tier:
+                    id: "019a7a88-5d14-7318-8850-3a5a1869b337"
+                    code: RETAIL
+                    name: Retail
+                  hasLogin: true
+                  tinMasked: null
+                  marketingConsentAt: "2026-11-03T12:00:00Z"
+                  status: ACTIVE
+                  priceList: null
+                  hasBusinessAccount: false
+                  defaultArea: "East Legon"
+                  version: 4
+                  createdAt: "2026-11-02T08:02:00Z"
+                  updatedAt: "2026-11-12T14:02:00Z"
+                - id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
+                  customerNo: C-00056
+                  kind: BUSINESS
+                  name: "Asantewaa Chop Bar"
+                  phone: "+233557018924"
+                  email: "accounts@asantewaachopbar.com.gh"
+                  tier:
+                    id: "019a7a88-7c03-7cfc-9234-d891921a516f"
+                    code: WHOLESALE
+                    name: Wholesale
+                  hasLogin: false
+                  tinMasked: "C00••••••41"
+                  marketingConsentAt: null
+                  status: ACTIVE
+                  priceList: null
+                  hasBusinessAccount: true
+                  defaultArea: Adenta
+                  version: 2
+                  createdAt: "2026-11-02T08:03:00Z"
+                  updatedAt: "2026-11-10T14:03:00Z"
+                - id: "019a7a87-e158-7b8a-80c2-c17c31a53a5a"
+                  customerNo: C-00233
+                  kind: INDIVIDUAL
+                  name: "Grace Nyarko"
+                  phone: "+233249903118"
+                  email: null
+                  tier:
+                    id: "019a7a88-5d14-7318-8850-3a5a1869b337"
+                    code: RETAIL
+                    name: Retail
+                  hasLogin: true
+                  tinMasked: null
+                  marketingConsentAt: "2026-11-03T12:00:00Z"
+                  status: ACTIVE
+                  priceList: null
+                  hasBusinessAccount: false
+                  defaultArea: "Tema Community 11"
+                  version: 3
+                  createdAt: "2026-11-02T08:04:00Z"
+                  updatedAt: "2026-11-11T14:04:00Z"
+                - id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
+                  customerNo: C-00241
+                  kind: INDIVIDUAL
+                  name: "Emmanuel Tetteh"
+                  phone: "+233268114590"
+                  email: null
+                  tier:
+                    id: "019a7a88-5d14-7318-8850-3a5a1869b337"
+                    code: RETAIL
+                    name: Retail
+                  hasLogin: true
+                  tinMasked: null
+                  marketingConsentAt: null
+                  status: ACTIVE
+                  priceList: null
+                  hasBusinessAccount: false
+                  defaultArea: Kasoa
+                  version: 4
+                  createdAt: "2026-11-02T08:05:00Z"
+                  updatedAt: "2026-11-12T14:05:00Z"
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

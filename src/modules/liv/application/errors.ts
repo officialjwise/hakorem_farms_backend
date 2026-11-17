@@ -8,6 +8,7 @@ registerMessages({
   'liv.livestock_rule': 'This value is not valid on a livestock record.',
   'liv.reference_not_found': 'Something this record refers to does not exist.',
   'liv.mortality_photo_required': 'A photograph is required: the value written off is at or above the threshold.',
+  'liv.mortality_photo_always_required': 'A photograph of the animal is required with every death or cull you report.',
   'liv.ration_invalid': 'This ration is not valid.',
   'liv.evidence_not_scanned': 'The photograph is still being checked for viruses. Approve it once the check has passed.',
 });
@@ -38,10 +39,17 @@ export class MortalityPhotoRequiredError extends BusinessRuleError {
   readonly code = 'MORTALITY_PHOTO_REQUIRED';
   readonly messageKey = 'liv.mortality_photo_required';
 
-  constructor(valuePesewas: bigint, thresholdPesewas: bigint) {
-    super(`a write-off of ${valuePesewas} pesewas is at or above the threshold of ${thresholdPesewas}`, [
-      { field: '/photoFileId', code: 'PHOTO_REQUIRED', message: translate('liv.mortality_photo_required') },
-    ]);
+  /**
+   * With the value and the threshold for a reporter who sees the value; without them for one who does not (the Farm
+   * hand, owner 2026-11-16), whose report always carries its photograph and whose refusal names no amount.
+   */
+  constructor(amounts?: { readonly valuePesewas: bigint; readonly thresholdPesewas: bigint }) {
+    super(
+      amounts === undefined
+        ? 'a report by someone who cannot see its value carries its photograph'
+        : `a write-off of ${amounts.valuePesewas} pesewas is at or above the threshold of ${amounts.thresholdPesewas}`,
+      [{ field: '/photoFileId', code: 'PHOTO_REQUIRED', message: translate(amounts === undefined ? 'liv.mortality_photo_always_required' : 'liv.mortality_photo_required') }],
+    );
   }
 }
 
