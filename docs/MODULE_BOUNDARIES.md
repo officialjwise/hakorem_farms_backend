@@ -192,6 +192,7 @@ Each card gives: what the module owns, its public interface (the services export
 - **Built in B09a continued 2c (A-226):** `Refunds.requestIn` (a refund asked for in the caller's transaction, the same rules and approval as `requestRefund`; ORD's cancellation) and `Receipts.reverseApprovedIn` (a payment reversed in the caller's transaction under the caller's own approval, reason `SALE_VOIDED`; ORD's void). Neither authorises; the caller's command has.
 - **Built in B09a continued 2d (A-228):** read-only `Refunds.summariesIn` (id, status, amount), for ORD's return view.
 - **Built in B09a continued 2f (A-232):** `ProviderPayments.chargeIn` (a mobile money charge for an order written PENDING in the caller's serializable transaction, exactly as `initiateMobileMoneyCharge` writes one; it authorises nothing) and `sendCharge` (the charge sent after that transaction commits).
+- **Built in B09b continued (ADR-0077):** the `TillShiftCheck` port and `TillShiftRegistry` (deny by default), asked through `Payments.tillCashIn` or `tillCashAnswerIn` before any cash moves into or out of a till: in `Payments.writeIn`, a mobile money charge naming a shift, `Refunds.markPaid` (a till cash refund names the open shift it is paid out of, `pay.refund.paid_from_shift_id`) and `Receipts.reverseIn`. A shift's refunds count against the shift they were paid out of.
 
 ### PUR: procurement and suppliers (layer 7)
 
@@ -235,6 +236,7 @@ Each card gives: what the module owns, its public interface (the services export
 - **Imports:** platform, IAM, MDM, INV (availability), PAY, ORD.
 - **Subscribes (T):** `pay.PaymentCleared`, to add a tender to the shift's expected totals.
 - **Built in B9b (A-273):** `Registers` and `Shifts` (HTTP only): registers, shifts with the float, cash drops, pay-outs and pay-ins, the X and Z reports, and the blind close signed off by a supervisor. The shift's expected figures are read when needed rather than kept by a subscription: PAY's new read-only `Payments.shiftTotalsIn` (a shift's cleared payments by method, and what was refunded of them) and ORD's new read-only `Orders.shiftSalesIn` (its completed sales, voids and price given below list). Publishes the ◆ events `pos.ShiftOpened`, `pos.CashDropped`, `pos.CashPaidIn`, `pos.CashPaidOut` and `pos.ShiftClosed` (FIN posts them, migration 0228). No module imports POS; `index.ts` exports `Registers` and `Shifts` for the seed. ORD's `SalePosting` takes the sale's `shiftDocumentId` (channel POS needs one), and PAY refuses cash into a till with no shift (A-212 (a)).
+- **Built in B09b continued (A-274, ADR-0077):** `Devices` (enrolment, the list, revocation, and `deviceOfIn`, the device credential's check) and `CounterSales` (`completeCounterSale` through ORD's `SalePosting.postIn`, with the shift's per-shift override room) behind HTTP; `TillCash`, POS's implementation of PAY's `TillShiftCheck` port, registered at start. POS now imports BIL (the receipt's view, `Billing.viewsIn`). Publishes `pos.TillClockOutOfTolerance` (the exception source).
 
 ### SHP: online store (layer 10)
 
