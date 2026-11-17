@@ -1,5 +1,5 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
-import type { NewOrder, NewOrderLine, OrderLineRecord, OrderRecord, OrderStore, StatusChangeRecord } from '../application/order-store';
+import type { NewOrder, NewOrderLine, OrderFilter, OrderHeaderRecord, OrderLineRecord, OrderRecord, OrderStore, StatusChangeRecord } from '../application/order-store';
 
 const big = (value: string | null): bigint | null => (value === null ? null : BigInt(value));
 
@@ -90,7 +90,16 @@ export class PgOrderStore implements OrderStore {
     ]);
   }
 
-  async complete(tx: Transaction, orderId: string, c: { readonly billingDocumentId: string; readonly finalTotalPesewas: bigint; readonly completedAt: Date; readonly actorId: string }): Promise<void> {
+  async complete(
+    tx: Transaction,
+    orderId: string,
+    c: {
+      readonly billingDocumentId: string;
+      readonly finalTotalPesewas: bigint;
+      readonly completedAt: Date;
+      readonly actorId: string;
+    },
+  ): Promise<void> {
     await tx.query(
       `UPDATE ord.sales_order SET status = 'COMPLETED', billing_document_id = $2, final_total_pesewas = $3, completed_at = $4, posted_at = $4, posted_by = $5,
               updated_at = $4, updated_by = $5, version = version + 1
@@ -104,7 +113,8 @@ export class PgOrderStore implements OrderStore {
     const { rows } = await tx.query<Record<string, unknown>>(
       `SELECT id, order_no, channel, customer_id, contact_name, contact_phone_e164, status, payment_terms, fulfilment_mode, source_document_id, shift_document_id,
               salesperson_id, tax_inclusive, delivery_fee_pesewas::text, estimated_total_pesewas::text, maximum_total_pesewas::text, final_total_pesewas::text,
-              billing_document_id, is_offline, placed_at, completed_at, recorded_at, notes, branch_id, version
+              billing_document_id, is_offline, placed_at, completed_at, recorded_at, notes, branch_id, version,
+              parent_order_id, credit_check, delivery_address_snapshot, delivery_zone_id
          FROM ord.sales_order WHERE id = ANY($1::uuid[]) ORDER BY id`,
       [ids],
     );
@@ -112,7 +122,8 @@ export class PgOrderStore implements OrderStore {
       `SELECT id, sales_order_id, line_no, product_id, stock_unit_id, qty_ordered::text, uom, qty_fulfilled::text, fulfilled_weight_kg::text, weight_source,
               price_source, price_basis, price_list_entry_id, resolved_unit_price_pesewas::text, floor_unit_price_pesewas::text, ceiling_unit_price_pesewas::text,
               agreed_unit_price_pesewas::text, variance_pesewas::text, variance_direction, variance_reason_code, variance_requires_approval, discount_pesewas::text,
-              estimated_line_total_pesewas::text, final_line_total_pesewas::text, reservation_id, stock_movement_id, stock_exception_id, line_status
+              estimated_line_total_pesewas::text, final_line_total_pesewas::text, reservation_id, stock_movement_id, stock_exception_id, line_status,
+              estimated_weight_kg::text, tolerance_percent::text, qty_backordered::text, quote_line_ref, variance_approval_request_id
          FROM ord.sales_order_line WHERE sales_order_id = ANY($1::uuid[]) ORDER BY sales_order_id, line_no`,
       [ids],
     );
@@ -146,45 +157,114 @@ export class PgOrderStore implements OrderStore {
         reservationId: r['reservation_id'] as string | null,
         stockMovementId: r['stock_movement_id'] as string | null,
         stockExceptionId: r['stock_exception_id'] as string | null,
+        estimatedWeightKg: r['estimated_weight_kg'] as string | null,
+        tolerancePercent: r['tolerance_percent'] as string | null,
+        qtyBackordered: r['qty_backordered'] as string,
+        quoteLineRef: r['quote_line_ref'] as string | null,
+        varianceApprovalRequestId: r['variance_approval_request_id'] as string | null,
         lineStatus: r['line_status'] as OrderLineRecord['lineStatus'],
       };
       lines.set(line.salesOrderId, [...(lines.get(line.salesOrderId) ?? []), line]);
     }
     return rows.map((r) => ({
-      id: r['id'] as string,
-      orderNo: r['order_no'] as string | null,
-      channel: r['channel'] as OrderRecord['channel'],
-      customerId: r['customer_id'] as string | null,
-      contactName: r['contact_name'] as string | null,
-      contactPhone: r['contact_phone_e164'] as string | null,
-      status: r['status'] as OrderRecord['status'],
-      paymentTerms: r['payment_terms'] as OrderRecord['paymentTerms'],
-      fulfilmentMode: r['fulfilment_mode'] as OrderRecord['fulfilmentMode'],
-      sourceDocumentId: r['source_document_id'] as string | null,
-      shiftDocumentId: r['shift_document_id'] as string | null,
-      salespersonId: r['salesperson_id'] as string | null,
-      taxInclusive: r['tax_inclusive'] as boolean,
-      deliveryFeePesewas: BigInt(r['delivery_fee_pesewas'] as string),
-      estimatedTotalPesewas: BigInt(r['estimated_total_pesewas'] as string),
-      maximumTotalPesewas: BigInt(r['maximum_total_pesewas'] as string),
-      finalTotalPesewas: big(r['final_total_pesewas'] as string | null),
-      billingDocumentId: r['billing_document_id'] as string | null,
-      isOffline: r['is_offline'] as boolean,
-      placedAt: r['placed_at'] as Date,
-      completedAt: r['completed_at'] as Date | null,
-      recordedAt: r['recorded_at'] as Date,
-      notes: r['notes'] as string | null,
-      branchId: r['branch_id'] as string,
-      version: r['version'] as number,
+      ...header(r),
       lines: lines.get(r['id'] as string) ?? [],
     }));
   }
 
-  async history(tx: Transaction, orderId: string): Promise<StatusChangeRecord[]> {
-    const { rows } = await tx.query<{ id: string; from_status: StatusChangeRecord['fromStatus']; to_status: StatusChangeRecord['toStatus']; reason: string | null; occurred_at: Date; recorded_at: Date; actor_id: string }>(
-      'SELECT id, from_status, to_status, reason, occurred_at, recorded_at, actor_id FROM ord.order_status_history WHERE sales_order_id = $1 ORDER BY recorded_at, id',
-      [orderId],
-    );
-    return rows.map((r) => ({ id: r.id, fromStatus: r.from_status, toStatus: r.to_status, reason: r.reason, occurredAt: r.occurred_at, recordedAt: r.recorded_at, actorId: r.actor_id }));
+  async lock(tx: Transaction, orderId: string): Promise<OrderHeaderRecord | null> {
+    const { rows } = await tx.query<Record<string, unknown>>(`SELECT ${HEADER_COLUMNS} FROM ord.sales_order WHERE id = $1 FOR UPDATE`, [orderId]);
+    return rows[0] === undefined ? null : header(rows[0]);
   }
+
+  async confirm(
+    tx: Transaction,
+    orderId: string,
+    c: {
+      readonly creditCheck: 'PASSED' | 'NOT_REQUIRED';
+      readonly at: Date;
+      readonly actorId: string;
+    },
+  ): Promise<void> {
+    await tx.query("UPDATE ord.sales_order SET status = 'CONFIRMED', credit_check = $2, updated_at = $3, updated_by = $4, version = version + 1 WHERE id = $1", [orderId, c.creditCheck, c.at, c.actorId]);
+  }
+
+  async holdLine(tx: Transaction, lineId: string, reservationId: string): Promise<void> {
+    await tx.query('UPDATE ord.sales_order_line SET reservation_id = $2 WHERE id = $1', [lineId, reservationId]);
+  }
+
+  async list(tx: Transaction, f: OrderFilter, beforeId: string | null, limit: number): Promise<string[]> {
+    const { rows } = await tx.query<{ id: string }>(
+      `SELECT id FROM ord.sales_order
+        WHERE branch_id = ANY($1::uuid[])
+          AND ($2::text IS NULL OR channel = $2) AND ($3::text IS NULL OR status = $3)
+          AND ($4::uuid IS NULL OR customer_id = $4) AND ($5::uuid IS NULL OR shift_document_id = $5) AND ($6::uuid IS NULL OR salesperson_id = $6)
+          AND ($7::timestamptz IS NULL OR placed_at >= $7) AND ($8::timestamptz IS NULL OR placed_at < $8)
+          AND ($9::text IS NULL OR order_no ILIKE $9 || '%' OR contact_name ILIKE '%' || $9 || '%')
+          AND ($10::uuid IS NULL OR id < $10)
+        ORDER BY id DESC LIMIT $11`,
+      [f.branchIds, f.channel, f.status, f.customerId, f.shiftId, f.salespersonId, f.from, f.to, f.q, beforeId, limit],
+    );
+    return rows.map((r) => r.id);
+  }
+
+  async history(tx: Transaction, orderId: string): Promise<StatusChangeRecord[]> {
+    const { rows } = await tx.query<{
+      id: string;
+      from_status: StatusChangeRecord['fromStatus'];
+      to_status: StatusChangeRecord['toStatus'];
+      reason: string | null;
+      occurred_at: Date;
+      recorded_at: Date;
+      actor_id: string;
+    }>('SELECT id, from_status, to_status, reason, occurred_at, recorded_at, actor_id FROM ord.order_status_history WHERE sales_order_id = $1 ORDER BY recorded_at, id', [orderId]);
+    return rows.map((r) => ({
+      id: r.id,
+      fromStatus: r.from_status,
+      toStatus: r.to_status,
+      reason: r.reason,
+      occurredAt: r.occurred_at,
+      recordedAt: r.recorded_at,
+      actorId: r.actor_id,
+    }));
+  }
+}
+
+const HEADER_COLUMNS = `id, order_no, channel, customer_id, contact_name, contact_phone_e164, status, payment_terms, fulfilment_mode, source_document_id, shift_document_id,
+              salesperson_id, tax_inclusive, delivery_fee_pesewas::text, estimated_total_pesewas::text, maximum_total_pesewas::text, final_total_pesewas::text,
+              billing_document_id, is_offline, placed_at, completed_at, recorded_at, notes, branch_id, version,
+              parent_order_id, credit_check, delivery_address_snapshot, delivery_zone_id`;
+
+function header(r: Record<string, unknown>): OrderHeaderRecord {
+  return {
+    id: r['id'] as string,
+    orderNo: r['order_no'] as string | null,
+    channel: r['channel'] as OrderRecord['channel'],
+    customerId: r['customer_id'] as string | null,
+    contactName: r['contact_name'] as string | null,
+    contactPhone: r['contact_phone_e164'] as string | null,
+    status: r['status'] as OrderRecord['status'],
+    paymentTerms: r['payment_terms'] as OrderRecord['paymentTerms'],
+    fulfilmentMode: r['fulfilment_mode'] as OrderRecord['fulfilmentMode'],
+    sourceDocumentId: r['source_document_id'] as string | null,
+    shiftDocumentId: r['shift_document_id'] as string | null,
+    salespersonId: r['salesperson_id'] as string | null,
+    taxInclusive: r['tax_inclusive'] as boolean,
+    deliveryFeePesewas: BigInt(r['delivery_fee_pesewas'] as string),
+    estimatedTotalPesewas: BigInt(r['estimated_total_pesewas'] as string),
+    maximumTotalPesewas: BigInt(r['maximum_total_pesewas'] as string),
+    finalTotalPesewas: big(r['final_total_pesewas'] as string | null),
+    billingDocumentId: r['billing_document_id'] as string | null,
+    isOffline: r['is_offline'] as boolean,
+    placedAt: r['placed_at'] as Date,
+    completedAt: r['completed_at'] as Date | null,
+    recordedAt: r['recorded_at'] as Date,
+    notes: r['notes'] as string | null,
+    branchId: r['branch_id'] as string,
+    version: r['version'] as number,
+    parentOrderId: r['parent_order_id'] as string | null,
+    creditCheck: r['credit_check'] as OrderHeaderRecord['creditCheck'],
+    deliveryAddressSnapshot: r['delivery_address_snapshot'] ?? null,
+    deliveryZoneId: r['delivery_zone_id'] as string | null,
+  };
 }

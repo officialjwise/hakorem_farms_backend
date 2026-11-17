@@ -1,0 +1,159 @@
+operationId: createOrder
+tags:
+  - ord
+summary: "Enter an order for a customer"
+description: "Enters a PLACED order at the one branch where the caller enters orders, numbered from its `SALES_ORDER` series; nothing is reserved or charged until `confirmOrder`. Every line is priced by the pricing engine now and keeps the full pricing record. A line the pricing engine cannot price is refused with 422 QUOTE_REQUIRED naming the line; raise a quote instead. A price below list or outside the band is 422 PRICE_OVERRIDE_NEEDS_APPROVAL until its approval is built; a price above list within the band needs a `PRICE_OVERRIDE` reason. Until delivery scheduling, catch weight and promotions on staff orders are built, `DELIVERY`, a line priced per kilogram and a coupon are refused (422 ORDER_INVALID: `FULFILMENT_NOT_AVAILABLE`, `CATCH_WEIGHT_NOT_AVAILABLE`, `COUPON_NOT_AVAILABLE`); every other rule a line breaks is also named in `details[].code` (A-224).\n\nPermission: `ord.order.create`."
+x-permission: ord.order.create
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/OrderCreate"
+      example:
+        channel: WHOLESALE
+        customerId: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+        fulfilmentMode: COLLECTION
+        paymentTerms: COD
+        lines:
+          - productId: "019a7a8e-6b1f-7a02-9c41-2f6d8e1b5a30"
+            quantity: "4.000"
+          - productId: "019a7a8e-8c27-7b3d-a1e5-4d9f0c2a6b71"
+            quantity: "10.000"
+        notes: "Collecting Friday morning for the hotel kitchen"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/SalesOrder"
+        example:
+          id: "019a7af0-a4c5-78e8-be21-975d5418103b"
+          orderNo: SO-2026-DDW-004198
+          channel: WHOLESALE
+          status: PLACED
+          paymentStatus: UNPAID
+          customer:
+            id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+            customerNo: C-00042
+            name: "Royal Palm Hotel Ltd"
+          contactName: null
+          contactPhone: null
+          paymentTerms: COD
+          fulfilmentMode: COLLECTION
+          source: null
+          parentOrderId: null
+          shiftId: null
+          salesperson:
+            id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+            displayName: "Kojo Antwi"
+          deliveryAddress: null
+          deliveryZone: null
+          deliveryFeePesewas: 0
+          delivery: null
+          taxInclusive: true
+          estimatedTotalPesewas: 39000
+          maximumTotalPesewas: 39000
+          finalTotalPesewas: null
+          paidPesewas: 0
+          outstandingPesewas: 39000
+          currency: GHS
+          billingDocument: null
+          creditCheck: null
+          isOffline: false
+          placedAt: "2026-11-12T16:00:00Z"
+          completedAt: null
+          recordedAt: "2026-11-12T16:00:00Z"
+          lines:
+            - id: "019a7af0-e2a3-7caf-91e7-d3cc477a4caa"
+              lineNo: 1
+              product:
+                id: "019a7a8e-6b1f-7a02-9c41-2f6d8e1b5a30"
+                sku: EGG-CRATE-BIG
+                name: "Eggs, big, crate of 30"
+              stockUnit: null
+              qtyOrdered: "4.000"
+              uom: CRATE
+              estimatedWeightKg: null
+              tolerancePercent: null
+              qtyFulfilled: "0.000"
+              fulfilledWeightKg: null
+              weightSource: null
+              qtyBackordered: "0.000"
+              priceSource: ENGINE
+              priceBasis: PER_UNIT
+              priceListEntryId: "019a7af0-c3b4-72cc-8804-3594cdc9ae72"
+              quoteLineId: null
+              resolvedUnitPricePesewas: 6000
+              floorUnitPricePesewas: 6000
+              ceilingUnitPricePesewas: 6000
+              agreedUnitPricePesewas: 6000
+              variancePesewas: 0
+              varianceDirection: null
+              varianceReasonCode: null
+              varianceApprovalRequestId: null
+              discountPesewas: 0
+              estimatedLineTotalPesewas: 24000
+              finalLineTotalPesewas: null
+              lineStatus: OPEN
+              stockException: null
+            - id: "019a7af1-2081-7076-b5ae-103b3adc8919"
+              lineNo: 2
+              product:
+                id: "019a7a8e-8c27-7b3d-a1e5-4d9f0c2a6b71"
+                sku: PRD-CABBAGE-HEAD
+                name: "Cabbage, per head"
+              stockUnit: null
+              qtyOrdered: "10.000"
+              uom: EACH
+              estimatedWeightKg: null
+              tolerancePercent: null
+              qtyFulfilled: "0.000"
+              fulfilledWeightKg: null
+              weightSource: null
+              qtyBackordered: "0.000"
+              priceSource: ENGINE
+              priceBasis: PER_UNIT
+              priceListEntryId: "019a7af1-0192-7693-abcb-7203c12beae1"
+              quoteLineId: null
+              resolvedUnitPricePesewas: 1500
+              floorUnitPricePesewas: 1200
+              ceilingUnitPricePesewas: 1800
+              agreedUnitPricePesewas: 1500
+              variancePesewas: 0
+              varianceDirection: null
+              varianceReasonCode: null
+              varianceApprovalRequestId: null
+              discountPesewas: 0
+              estimatedLineTotalPesewas: 15000
+              finalLineTotalPesewas: null
+              lineStatus: OPEN
+              stockException: null
+          adjustments: []
+          notes: "Collecting Friday morning for the hotel kitchen"
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 1
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -1,0 +1,96 @@
+operationId: listOrderHistory
+tags:
+  - ord
+summary: "List an order's status changes"
+description: "Every status change once, oldest first, with who made it and when (FR-ORD-002).\n\nPermission: `ord.order.read`."
+x-permission: ord.order.read
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/OrderStatusChangePage"
+        example:
+          data:
+            - fromStatus: null
+              toStatus: PLACED
+              reason: null
+              actor:
+                id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                displayName: "Adwoa Darko"
+              occurredAt: "2026-11-13T07:41:00Z"
+            - fromStatus: PLACED
+              toStatus: CONFIRMED
+              reason: "Payment cleared by provider callback"
+              actor:
+                id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                displayName: "Adwoa Darko"
+              occurredAt: "2026-11-13T07:44:00Z"
+            - fromStatus: CONFIRMED
+              toStatus: PICKING
+              reason: null
+              actor:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              occurredAt: "2026-11-13T07:47:00Z"
+            - fromStatus: PICKING
+              toStatus: PACKED
+              reason: null
+              actor:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              occurredAt: "2026-11-13T07:50:00Z"
+            - fromStatus: PACKED
+              toStatus: DISPATCHED
+              reason: null
+              actor:
+                id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                displayName: "Yaw Boateng"
+              occurredAt: "2026-11-13T07:53:00Z"
+            - fromStatus: DISPATCHED
+              toStatus: DELIVERED
+              reason: null
+              actor:
+                id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+                displayName: "Kwesi Appiah"
+              occurredAt: "2026-11-13T07:56:00Z"
+          page:
+            nextCursor: null
+            limit: 25
+            hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

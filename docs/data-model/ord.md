@@ -4,6 +4,8 @@ Owner: ORD module. The single order record for every channel, sale posting, fulf
 
 **As built in B9a (migration 0163, A-208):** `ord.sales_order`, `ord.sales_order_line` and `ord.order_status_history`, with the state machine (`trg_sales_order_guard`: written PLACED, listed edges only, COMPLETED frozen but for the void, CANCELLED and VOIDED frozen), `ck_sales_order_pos_shift`, `ck_sales_order_completed` (a completed order has its billing document and final total), the line checks of this dictionary (band, price source, agreed price outside the band flagged, variance with its direction and reason, weight with its source), `trg_sales_order_line_guard` (one named animal to a serialised line; lines frozen once the order is posted) and the deferred `trg_sales_order_check` (the number is its allocation; past PLACED every flagged line has its approval; every line of a COMPLETED order has its movement or exception, so a `NON_STOCK` product is not sold on an order line). Not yet: `ord.sales_order_adjustment`, `delivery_id` (B11's expand migration), fulfilments and returns.
 
+**B09a continued 2b (A-224):** no table changes. A staff order is written `PLACED` with `OPEN` lines and moves to `CONFIRMED` with `credit_check` set; its reservations are held by the order (`inv.stock_reservation.holder_document_id`, no expiry), and `reservation_id` names the reservation of a line held by exactly one. The permissions are migrations 0188 and 0189.
+
 ---
 
 ### `ord.sales_order` · DOCUMENT
