@@ -44,6 +44,8 @@ const GoodsReceiptLineInput = z.strictObject({
   uom: UomCode.optional(),
   qtyReceived: Quantity.refine((value) => value !== '0.000', 'must be above zero'),
   qtyRejected: Quantity.optional(),
+  rejectionReasonCode: z.string().regex(/^[A-Z][A-Z_]{1,39}$/).optional(),
+  rejectionNote: z.string().trim().min(1).max(500).optional(),
   weightKg: Kilograms.optional(),
   weightSource: WeightSource.optional(),
   valuePesewas: Pesewas,

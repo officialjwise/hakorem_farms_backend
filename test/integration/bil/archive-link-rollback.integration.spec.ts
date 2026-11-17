@@ -48,6 +48,8 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0221_inv_goods_receipt_rejection_reason',
+      '0220_mdm_receipt_rejection_and_breakage_reasons',
       '0219_inv_reorder_rule_selling_unit',
       '0218_inv_stock_unit_received_at',
       '0217_inv_lines_in_selling_unit',

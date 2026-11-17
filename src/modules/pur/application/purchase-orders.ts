@@ -41,7 +41,8 @@ export interface OrderLineInput {
   readonly description?: string | undefined;
   readonly uom?: string | undefined;
   readonly qtyOrdered: string;
-  readonly unitPricePesewas: number;
+  /** Per `uom`. Left out, the last price paid to the supplier for the product in that unit (the owner's decision 7, A-270). */
+  readonly unitPricePesewas?: number | undefined;
   readonly overReceiptTolerancePercent?: string | undefined;
   readonly expenseCategory?: string | undefined;
 }
@@ -211,7 +212,7 @@ export class PurchaseOrders implements ApprovalHandler {
    */
   async createIn(tx: Transaction, actor: Actor, body: PurchaseOrderCreate): Promise<PurchaseOrderView> {
     const header = await this.header(tx, body);
-    const lines = await this.pricedLines(tx, body.orderDate, body.lines);
+    const lines = await this.pricedLines(tx, header.supplierId, body.orderDate, body.lines);
     const id = this.nextId();
     await this.documents.register(tx, { id, docType: DOC_TYPE, ownerModule: 'pur', branchId: header.branchId, actorId: actor.principalId });
     await this.store.insertOrder(tx, id, { ...header, ...lines.totals, taxSchemeVersionId: lines.versionId }, lines.records, actor.principalId);
@@ -233,7 +234,7 @@ export class PurchaseOrders implements ApprovalHandler {
       const priced =
         body.lines === undefined
           ? { records: before.lines, totals: { netPesewas: before.netPesewas, taxPesewas: before.taxPesewas, grossPesewas: before.grossPesewas }, versionId: before.taxSchemeVersionId }
-          : await this.pricedLines(tx, before.orderDate, body.lines);
+          : await this.pricedLines(tx, before.supplierId, before.orderDate, body.lines);
       const header: OrderHeader = { ...before, expectedOn, ...priced.totals, taxSchemeVersionId: priced.versionId };
       await this.store.replaceOrder(tx, id, header, priced.records, actor!.principalId);
       return { status: 200, body: await this.audited(tx, 'UPDATE', before) };
@@ -533,9 +534,14 @@ export class PurchaseOrders implements ApprovalHandler {
     };
   }
 
-  /** Lines checked against master data, priced exactly and taxed by MDM's calculator on the order date. */
+  /**
+   * Lines checked against master data, priced exactly and taxed by MDM's calculator on the order date. A line that
+   * names no price takes the last price paid to the supplier for the product in the line's unit (A-270), or is refused
+   * with `PRICE_REQUIRED` when nothing was paid for it yet.
+   */
   private async pricedLines(
     tx: Transaction,
+    supplierId: string,
     orderDate: string,
     inputs: readonly OrderLineInput[],
   ): Promise<{ records: OrderLineRecord[]; totals: { netPesewas: bigint; taxPesewas: bigint; grossPesewas: bigint }; versionId: string }> {
@@ -546,6 +552,8 @@ export class PurchaseOrders implements ApprovalHandler {
     const broken: BrokenRule[] = [];
     const seen = new Set<string>();
     const lines: Omit<OrderLineRecord, 'taxPesewas'>[] = [];
+    const unpriced = inputs.filter((l) => l.unitPricePesewas === undefined).map((l) => l.productId);
+    const lastPaid = unpriced.length === 0 ? new Map<string, bigint>() : await this.store.lastPricesPaid(tx, supplierId, unpriced);
     for (const [i, input] of inputs.entries()) {
       const product = products.get(input.productId)!;
       const uom = input.uom ?? product.baseUom;
@@ -560,7 +568,12 @@ export class PurchaseOrders implements ApprovalHandler {
         broken.push({ field: `/lines/${i}/${base.error === 'INEXACT_QUANTITY' ? 'qtyOrdered' : 'uom'}`, rule: base.error });
         continue;
       }
-      const unitPrice = Money.ofPesewas(BigInt(input.unitPricePesewas));
+      const price = input.unitPricePesewas === undefined ? lastPaid.get(`${product.id}/${uom}`) : BigInt(input.unitPricePesewas);
+      if (price === undefined) {
+        broken.push({ field: `/lines/${i}/unitPricePesewas`, rule: 'PRICE_REQUIRED' });
+        continue;
+      }
+      const unitPrice = Money.ofPesewas(price);
       lines.push({
         id: this.nextId(),
         lineNo: lineNumber(i),

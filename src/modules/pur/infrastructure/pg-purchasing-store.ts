@@ -556,6 +556,19 @@ export class PgPurchasingStore implements PurchasingStore {
     await tx.query(`UPDATE pur.supplier_invoice SET version = version + 1, status = 'CANCELLED', cancel_reason = $2, updated_at = now(), updated_by = $3 WHERE id = $1`, [id, reason, actorId]);
   }
 
+  async lastPricesPaid(tx: Transaction, supplierId: string, productIds: readonly string[]): Promise<ReadonlyMap<string, bigint>> {
+    if (productIds.length === 0) return new Map();
+    const { rows } = await tx.query<{ product_id: string; uom: string; price: string }>(
+      `SELECT DISTINCT ON (l.product_id, l.uom) l.product_id, l.uom, l.unit_price_pesewas::text AS price
+         FROM pur.supplier_invoice i JOIN pur.supplier_invoice_line l ON l.supplier_invoice_id = i.id
+        WHERE i.supplier_id = $1 AND i.kind = 'INVOICE' AND i.status IN ('APPROVED', 'PAID')
+          AND l.product_id = ANY($2::uuid[]) AND l.uom IS NOT NULL
+        ORDER BY l.product_id, l.uom, i.invoice_date DESC, i.posted_at DESC NULLS LAST, i.id DESC, l.line_no DESC`,
+      [supplierId, [...new Set(productIds)]],
+    );
+    return new Map(rows.map((r) => [`${r.product_id}/${r.uom}`, BigInt(r.price)] as const));
+  }
+
   async promised(tx: Transaction, invoiceIds: readonly string[]): Promise<ReadonlyMap<string, bigint>> {
     if (invoiceIds.length === 0) return new Map();
     const { rows } = await tx.query<{ invoice_id: string; amount: string }>(

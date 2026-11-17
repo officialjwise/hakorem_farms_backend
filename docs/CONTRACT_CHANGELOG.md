@@ -5,6 +5,7 @@ Every change to `contract/openapi.yaml`, newest first. A breaking change needs a
 Version numbers follow semantic versioning: a major bump breaks an existing client, a minor bump adds operations or optional fields, a patch fixes descriptions or examples.
 
 **Read first (cold-read summary), rewritten for 2.0.0:** changes that alter an answer or a request a client already handles.
+- **2.3.0:** additive. No existing field, parameter or status changed. A goods receipt line takes and answers `rejectionReasonCode` and `rejectionNote`; a rejected quantity without a reason is now refused (a client that rejected nothing is unaffected). `listReasonCodes` has the domain `GOODS_RECEIPT_REJECTION` and the adjustment reasons `BREAKAGE` and `RODENT_DAMAGE`. A purchase order line may leave out `unitPricePesewas` and takes the last price paid. See its entry.
 - **2.2.0:** additive. No existing field, parameter or status changed for a line, rule or unit in the base unit. Goods receipt lines, transfer lines and reorder rules may name the unit they are entered in (`uom`) and answer their base quantities beside it; stock units answer `receivedAt`; stock alerts answer `inRuleUnit`. A sale that names no lot of a lot-tracked product now takes the oldest lot that covers it instead of being refused. See its entry.
 - **2.1.0:** additive. No existing field, parameter or status changed. A price list entry, a price resolution and an order line name their selling unit (`uom`), so a crate and a single egg carry prices of their own. The seeded eggs are counted per egg (900 where it was 30 crates). See its entry.
 - **2.0.1:** no shape changed. The tracking link's token is random and stored only as its hash (a replay of `placeOrder` answers a fresh one); staff lists and reads of a branch's ledger records show only the branches the reader's grants reach. See its entry.
@@ -13,6 +14,19 @@ Version numbers follow semantic versioning: a major bump breaks an existing clie
 - **1.53.0, LOUD for the Farm hand:** `reportCareMortality` and `submitCareMortalityRecord` refuse a report without its `EVIDENCE` photograph from a reporter who cannot see its value (the Farm hand), whatever the value, with 422 `MORTALITY_PHOTO_REQUIRED`. `markSupplierPaymentPaid` and the payment reads answer `paymentNo` (`SPY-…`) where it was null. Every list's single `example` is now an `examples` map (`default` and `empty`).
 - **1.50.0, LOUD:** `createOrder` answers **202 `ApprovalPending`** (kind `PRICE_OVERRIDE`) where it answered 422 `PRICE_OVERRIDE_NEEDS_APPROVAL` for a price outside the band or below list beyond the seller's limit.
 - Earlier LOUD changes, each on an operation that was still planned when it changed, are in their entries below and in "Reading 1.5.0 to 1.37.0 cold".
+
+## 2.3.0 (2026-11-17, B09e continued 2)
+
+Minor, additive: an optional request field made optional, new optional request fields, new response fields and new error details only. The owner's decisions 5 (the reasons; the claim follows in B09e continued 3, A-271) and 7 of 2026-11-17; CR-035.
+
+- **Rejected at the door (decision 5, CR-035 points 2 and 3, A-260, A-269):**
+  - `GoodsReceiptLineInput.rejectionReasonCode` (a `GOODS_RECEIPT_REJECTION` reason) and `rejectionNote` (1 to 500 characters): optional. A line with `qtyRejected` above zero must name a reason: 422 `GOODS_RECEIPT_INVALID` with `REJECTION_REASON_REQUIRED` on `/lines/{i}/rejectionReasonCode`. A reason or a note on a line that rejects nothing, an unknown reason and a reason of another domain are `REASON_NOT_ALLOWED`; a reason with `requiresNote` and no note is `NOTE_REQUIRED` on `/lines/{i}/rejectionNote`. This is the one tightening: a client that sent a rejected quantity without a reason is now refused, which CR-035 asked for; a client that rejected nothing sees no change.
+  - `GoodsReceiptLine.rejectionReasonCode` and `rejectionNote` (string or null): required in the answer, null when nothing was rejected. `valuePesewas` stays the cost of the accepted quantity.
+  - `listReasonCodes`: the `domain` filter takes `GOODS_RECEIPT_REJECTION`, which holds `CRACKED`, `BROKEN`, `DIRTY`, `SHORT` (no note), `WRONG_ITEM_DELIVERED` and `QUALITY_REJECTED` (a note). CR-035's `WRONG_ITEM` is `WRONG_ITEM_DELIVERED` because `WRONG_ITEM` is already the REFUND domain's code (A-269).
+- **Breakage in store (CR-035 point 1):** the `STOCK_ADJUSTMENT` reasons `BREAKAGE` ("Broken or cracked in store", no note) and `RODENT_DAMAGE` (a note), both in the `WASTAGE` loss group. `listReasonCodes`' example now includes `BREAKAGE` and `CRACKED`, and its description says the example is a part of the list.
+- **Supplier scoring (CR-035 point 4):** behaviour, same shapes. The rejection rate reads the rejected quantity the reason explains.
+- **The last price paid (decision 7, A-270):** `PurchaseOrderLineInput.unitPricePesewas` is optional on `createPurchaseOrder` and `updatePurchaseOrder`. Left out, the line takes the unit price of the latest invoice line of the order's supplier for the same product in the same unit, on an invoice approved for payment (`APPROVED` or `PAID`); the answer shows it in `unitPricePesewas`. With nothing paid yet in that unit, 422 `PURCHASE_ORDER_INVALID` with `PRICE_REQUIRED` on `/lines/{i}/unitPricePesewas`. A price sent is always kept.
+- **Checks:** `contract:generate --check` is up to date (422 operations from code, 214 planned). Redocly is clean.
 
 ## 2.2.0 (2026-11-17, B09e continued)
 

@@ -66,6 +66,8 @@ responses:
               baseUom: HEAD
               qtyReceivedBase: "4.000"
               qtyRejectedBase: "0.000"
+              rejectionReasonCode: null
+              rejectionNote: null
               weightKg: "98.600"
               weightSource: SCALE
               valuePesewas: 228000

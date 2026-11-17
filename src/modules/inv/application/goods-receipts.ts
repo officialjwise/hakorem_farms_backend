@@ -10,6 +10,7 @@ import type { Idempotency, StoredResponse } from '../../../platform/idempotency/
 import type { Authoriser, PrincipalNames, PrincipalRef } from '../../iam';
 import type { LocationFacts, MasterDataRefs, ProductFacts } from '../../mdm';
 import { checkReceiptLines, type ReceiptKind, type ReceiptRuleBroken } from '../domain/goods-receipt';
+import { checkRejection } from '../domain/rejection';
 import { splitEvenly } from '../domain/valuation/pool-lines';
 import type { GoodsReceiptPosted, StockUnitRegistered } from '../events';
 import { isInTheFuture, ordinal, pageProbe } from './counting';
@@ -44,6 +45,9 @@ export interface ReceiptLineInput {
   readonly uom?: string | undefined;
   readonly qtyReceived: string;
   readonly qtyRejected?: string | undefined;
+  /** Why `qtyRejected` was turned away at the door: a GOODS_RECEIPT_REJECTION reason (A-260), required exactly when it is above zero. */
+  readonly rejectionReasonCode?: string | undefined;
+  readonly rejectionNote?: string | undefined;
   readonly weightKg?: string | undefined;
   readonly weightSource?: WeightSource | undefined;
   readonly valuePesewas: bigint;
@@ -107,6 +111,9 @@ export interface GoodsReceiptLineView {
   readonly baseUom: string;
   readonly qtyReceivedBase: string;
   readonly qtyRejectedBase: string;
+  /** Why the rejected quantity was turned away, and the note its reason asks for; null when nothing was rejected (CR-035). */
+  readonly rejectionReasonCode: string | null;
+  readonly rejectionNote: string | null;
   readonly weightKg: string | null;
   readonly weightSource: WeightSource | null;
   readonly valuePesewas: number;
@@ -423,7 +430,7 @@ export class GoodsReceipts {
         supplierId: receipt.supplierId,
         purchaseOrderId: receipt.orderDocumentId,
         receivedAt: receipt.receivedAt.toISOString(),
-        lines: receipt.lines.map((l) => ({ goodsReceiptLineId: l.id, productId: l.productId, purchaseOrderLineId: l.orderLineRef, qtyReceived: l.qtyReceived, qtyRejected: l.qtyRejected })),
+        lines: receipt.lines.map((l) => ({ goodsReceiptLineId: l.id, productId: l.productId, purchaseOrderLineId: l.orderLineRef, qtyReceived: l.qtyReceived, qtyRejected: l.qtyRejected, rejectionReasonCode: l.rejectionReasonCode })),
       },
     });
     await this.store.markPosted(tx, id, now, actor.principalId);
@@ -537,6 +544,11 @@ export class GoodsReceipts {
       converted.push({ input: l, uom: { code: uom, received, rejected }, received: receivedBase.value, rejected: rejectedBase.value });
     }
     if (broken.length > 0) throw new GoodsReceiptInvalidError(broken);
+    const reasonCodes = [...new Set(lines.flatMap((l) => (l.rejectionReasonCode === undefined ? [] : [l.rejectionReasonCode])))];
+    const reasons = reasonCodes.length === 0 ? new Map() : await this.refs.reasonCodesIn(tx, reasonCodes);
+    converted.forEach(({ input: l, rejected }, index) => {
+      broken.push(...checkRejection({ rejected, reasonCode: l.rejectionReasonCode ?? null, note: l.rejectionNote ?? null }, reasons, `/lines/${index}`));
+    });
     lines.forEach((l, index) => {
       if ((l.weightKg === undefined) !== (l.weightSource === undefined)) broken.push({ field: `/lines/${index}/weightSource`, rule: 'WEIGHT_NEEDS_SOURCE' });
       (l.animals ?? []).forEach((a, n) => {
@@ -577,6 +589,8 @@ export class GoodsReceipts {
         uom: uom?.code ?? null,
         qtyReceivedUom: uom?.received.toDecimalString() ?? null,
         qtyRejectedUom: uom?.rejected.toDecimalString() ?? null,
+        rejectionReasonCode: line.rejectionReasonCode ?? null,
+        rejectionNote: line.rejectionNote ?? null,
         weightKg: line.weightKg === undefined ? null : Weight.parseKg(line.weightKg).toKgString(),
         weightSource: line.weightSource ?? null,
         valuePesewas: line.valuePesewas,
@@ -705,6 +719,8 @@ export class GoodsReceipts {
             baseUom: product.baseUom,
             qtyReceivedBase: l.qtyReceived,
             qtyRejectedBase: l.qtyRejected,
+            rejectionReasonCode: l.rejectionReasonCode,
+            rejectionNote: l.rejectionNote,
             weightKg: l.weightKg,
             weightSource: l.weightSource,
             valuePesewas: Money.ofPesewas(l.valuePesewas).toJsonInteger(),
@@ -744,6 +760,9 @@ function lineInputOf(line: ReceiptLineRecord): ReceiptLineInput {
   return {
     productId: line.productId,
     qtyReceived: line.qtyReceived,
+    qtyRejected: line.qtyRejected,
+    rejectionReasonCode: line.rejectionReasonCode ?? undefined,
+    rejectionNote: line.rejectionNote ?? undefined,
     valuePesewas: line.valuePesewas,
     weightKg: line.weightKg ?? undefined,
     weightSource: line.weightSource ?? undefined,

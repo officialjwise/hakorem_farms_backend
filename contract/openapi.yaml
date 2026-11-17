@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.2.0"
+  version: "2.3.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -16674,7 +16674,7 @@ paths:
       tags:
         - mdm
       summary: "List reason codes"
-      description: "A fixed list changed only by migration, as the threat model requires; the contract has no write operation for it. Ordered by code.\n\nPermission: `mdm.reason_code.read`."
+      description: "A fixed list changed only by migration, as the threat model requires; the contract has no write operation for it. Ordered by code. The example shows a part of the list, not all of it. `GOODS_RECEIPT_REJECTION` (B09e continued 2, 2.3.0) holds the reasons for goods rejected at the door, which a goods receipt line names in `rejectionReasonCode`: `CRACKED`, `BROKEN`, `DIRTY`, `SHORT`, `WRONG_ITEM_DELIVERED` and `QUALITY_REJECTED`. `STOCK_ADJUSTMENT` holds `BREAKAGE` (broken or cracked in store, no note) and `RODENT_DAMAGE`, both written off to the `WASTAGE` loss group.\n\nPermission: `mdm.reason_code.read`."
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHENTICATED
@@ -16703,6 +16703,7 @@ paths:
               - HOLD_RELEASE
               - BILLING_ADJUSTMENT
               - PAYMENT_REVERSAL
+              - GOODS_RECEIPT_REJECTION
         - name: cursor
           in: query
           required: false
@@ -16730,6 +16731,11 @@ paths:
                 default:
                   value:
                     data:
+                      - code: BREAKAGE
+                        domain: STOCK_ADJUSTMENT
+                        description: "Broken or cracked in store"
+                        requiresNote: false
+                        lossAccountGroup: WASTAGE
                       - code: CHARGE_OMITTED
                         domain: BILLING_ADJUSTMENT
                         description: "A charge was left off the invoice"
@@ -16745,6 +16751,11 @@ paths:
                         description: "Earlier count was wrong"
                         requiresNote: true
                         lossAccountGroup: SHRINKAGE
+                      - code: CRACKED
+                        domain: GOODS_RECEIPT_REJECTION
+                        description: "Cracked on arrival"
+                        requiresNote: false
+                        lossAccountGroup: null
                       - code: CUSTOMER_CHANGED_MIND
                         domain: VOID
                         description: "Customer changed mind before leaving"
@@ -20988,6 +20999,8 @@ paths:
                             baseUom: HEAD
                             qtyReceivedBase: "4.000"
                             qtyRejectedBase: "0.000"
+                            rejectionReasonCode: null
+                            rejectionNote: null
                             weightKg: "98.600"
                             weightSource: SCALE
                             valuePesewas: 228000
@@ -21073,6 +21086,8 @@ paths:
                             baseUom: KG
                             qtyReceivedBase: "1000.000"
                             qtyRejectedBase: "0.000"
+                            rejectionReasonCode: null
+                            rejectionNote: null
                             weightKg: null
                             weightSource: null
                             valuePesewas: 1040000
@@ -21126,6 +21141,8 @@ paths:
                             baseUom: HEAD
                             qtyReceivedBase: "500.000"
                             qtyRejectedBase: "6.000"
+                            rejectionReasonCode: QUALITY_REJECTED
+                            rejectionNote: "Dead on arrival"
                             weightKg: null
                             weightSource: null
                             valuePesewas: 6237000
@@ -21176,6 +21193,8 @@ paths:
                             baseUom: UNIT
                             qtyReceivedBase: "1440.000"
                             qtyRejectedBase: "60.000"
+                            rejectionReasonCode: CRACKED
+                            rejectionNote: null
                             weightKg: null
                             weightSource: null
                             valuePesewas: 0
@@ -21232,6 +21251,8 @@ paths:
                             baseUom: CRATE
                             qtyReceivedBase: "12.000"
                             qtyRejectedBase: "1.000"
+                            rejectionReasonCode: QUALITY_REJECTED
+                            rejectionNote: "Crate of tomatoes soft and split"
                             weightKg: null
                             weightSource: null
                             valuePesewas: 618000
@@ -21285,6 +21306,8 @@ paths:
                             baseUom: UNIT
                             qtyReceivedBase: "10.000"
                             qtyRejectedBase: "0.000"
+                            rejectionReasonCode: null
+                            rejectionNote: null
                             weightKg: null
                             weightSource: null
                             valuePesewas: 85000
@@ -21425,6 +21448,8 @@ paths:
                     baseUom: UNIT
                     qtyReceivedBase: "10.000"
                     qtyRejectedBase: "0.000"
+                    rejectionReasonCode: null
+                    rejectionNote: null
                     weightKg: null
                     weightSource: null
                     valuePesewas: 85000
@@ -21526,6 +21551,8 @@ paths:
                     baseUom: HEAD
                     qtyReceivedBase: "4.000"
                     qtyRejectedBase: "0.000"
+                    rejectionReasonCode: null
+                    rejectionNote: null
                     weightKg: "98.600"
                     weightSource: SCALE
                     valuePesewas: 228000
@@ -21677,6 +21704,8 @@ paths:
                     baseUom: HEAD
                     qtyReceivedBase: "4.000"
                     qtyRejectedBase: "0.000"
+                    rejectionReasonCode: null
+                    rejectionNote: null
                     weightKg: "98.600"
                     weightSource: SCALE
                     valuePesewas: 228000
@@ -21828,6 +21857,8 @@ paths:
                     baseUom: HEAD
                     qtyReceivedBase: "4.000"
                     qtyRejectedBase: "0.000"
+                    rejectionReasonCode: null
+                    rejectionNote: null
                     weightKg: "98.600"
                     weightSource: SCALE
                     valuePesewas: 228000
@@ -21980,6 +22011,8 @@ paths:
                     baseUom: HEAD
                     qtyReceivedBase: "4.000"
                     qtyRejectedBase: "0.000"
+                    rejectionReasonCode: null
+                    rejectionNote: null
                     weightKg: "98.600"
                     weightSource: SCALE
                     valuePesewas: 228000
@@ -35826,7 +35859,7 @@ paths:
       tags:
         - pur
       summary: "Draft a purchase order"
-      description: "Drafts an order to a supplier for delivery to a physical location (FR-PUR-005). Each line's net is its quantity times its unit price, rounded half-up once; its levies come from the tax calculator on the order date by the product's tax category; the totals are the sums. A line bought by another unit than the product's base unit names it in `uom` (feed by the 50 kg `BAG`) and converts by the product's exact conversion, or is refused (`NO_CONVERSION`, `INEXACT_QUANTITY`). Refused with 422 `PURCHASE_ORDER_INVALID`: `NO_LINES`, `LINE_REPEATED`, `PRODUCT_NOT_ACTIVE`, `NOT_PURCHASABLE`, `SUPPLIER_NOT_ACTIVE`, `NOT_A_RECEIVING_LOCATION`, `EXPECTED_BEFORE_ORDER`, and `TAX_INCLUSIVE_NOT_AVAILABLE` (orders are tax-exclusive for now, A-164). Order numbers are allocated once numbering exists (B8); until then `orderNo` is null.\n\nPermission: `pur.purchase_order.create`."
+      description: "Drafts an order to a supplier for delivery to a physical location (FR-PUR-005). Each line's net is its quantity times its unit price, rounded half-up once; its levies come from the tax calculator on the order date by the product's tax category; the totals are the sums. A line bought by another unit than the product's base unit names it in `uom` (feed by the 50 kg `BAG`) and converts by the product's exact conversion, or is refused (`NO_CONVERSION`, `INEXACT_QUANTITY`). Refused with 422 `PURCHASE_ORDER_INVALID`: `NO_LINES`, `LINE_REPEATED`, `PRODUCT_NOT_ACTIVE`, `NOT_PURCHASABLE`, `SUPPLIER_NOT_ACTIVE`, `NOT_A_RECEIVING_LOCATION`, `EXPECTED_BEFORE_ORDER`, `PRICE_REQUIRED` (a line with no price and no last price paid, 2.3.0), and `TAX_INCLUSIVE_NOT_AVAILABLE` (orders are tax-exclusive for now, A-164). Order numbers are allocated once numbering exists (B8); until then `orderNo` is null.\n\nPermission: `pur.purchase_order.create`."
       x-permission: pur.purchase_order.create
       x-error-codes:
         - VALIDATION_FAILED
@@ -84857,6 +84890,16 @@ components:
         qtyRejectedBase:
           $ref: "#/components/schemas/Quantity"
           description: "`qtyRejected` in the base unit, by the product's exact conversion."
+        rejectionReasonCode:
+          type:
+            - string
+            - "null"
+          description: "Why `qtyRejected` was turned away at the door: a `GOODS_RECEIPT_REJECTION` reason (`listReasonCodes`, B09e continued 2). Null exactly when nothing was rejected."
+        rejectionNote:
+          type:
+            - string
+            - "null"
+          description: "The note given with the rejection, required when its reason has `requiresNote`; null when none was given."
         weightKg:
           anyOf:
             - $ref: "#/components/schemas/Kilograms"
@@ -84896,6 +84939,8 @@ components:
         - baseUom
         - qtyReceivedBase
         - qtyRejectedBase
+        - rejectionReasonCode
+        - rejectionNote
         - weightKg
         - weightSource
         - valuePesewas
@@ -85041,6 +85086,15 @@ components:
         qtyRejected:
           $ref: "#/components/schemas/Quantity"
           description: "Rejected at the door, in `uom`."
+        rejectionReasonCode:
+          type: string
+          pattern: "^[A-Z][A-Z_]{1,39}$"
+          description: "Why `qtyRejected` was turned away: a `GOODS_RECEIPT_REJECTION` reason (CRACKED, BROKEN, DIRTY, SHORT, WRONG_ITEM_DELIVERED, QUALITY_REJECTED; B09e continued 2). Required when `qtyRejected` is above zero (422 `GOODS_RECEIPT_INVALID` with `REJECTION_REASON_REQUIRED`) and refused when it is zero or left out, or when the code is not a `GOODS_RECEIPT_REJECTION` reason (`REASON_NOT_ALLOWED`)."
+        rejectionNote:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: "Required when the reason has `requiresNote` (`NOTE_REQUIRED`); refused with nothing rejected (`REASON_NOT_ALLOWED`)."
         weightKg:
           $ref: "#/components/schemas/Kilograms"
         weightSource:
@@ -89109,7 +89163,9 @@ components:
         qtyOrdered:
           $ref: "#/components/schemas/Quantity"
         unitPricePesewas:
-          $ref: "#/components/schemas/Pesewas"
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "Per `uom`. Optional since 2.3.0 (B09e continued 2, the owner's decision 7): left out, the line takes the last price paid to the order's supplier for this product in this unit, the unit price of the latest invoice line approved for payment (`APPROVED` or `PAID`; never a draft, a matched invoice not yet approved, a cancelled one or a credit note), and the answer shows it. With nothing paid yet, 422 `PURCHASE_ORDER_INVALID` with `PRICE_REQUIRED`. A price sent is always kept."
         overReceiptTolerancePercent:
           $ref: "#/components/schemas/Percent"
         expenseCategory:
@@ -89117,7 +89173,6 @@ components:
       required:
         - productId
         - qtyOrdered
-        - unitPricePesewas
       additionalProperties: false
     PurchaseOrderCreate:
       type: object
