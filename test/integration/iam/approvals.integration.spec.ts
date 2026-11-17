@@ -8,7 +8,7 @@ import { createBranch, createUser, SYSTEM_PRINCIPAL, testStartTime, type TestBra
 import { startTestApp, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
 
-const KIND = 'SALE_VOID';
+const KIND = 'QUOTE_BELOW_MARGIN';
 let database: TestDatabase;
 let api: TestApp;
 let approvals: Approvals;

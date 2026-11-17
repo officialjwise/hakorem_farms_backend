@@ -16,7 +16,7 @@ import { createTestDatabase, type TestDatabase } from '../../support/test-databa
  * role in the application layer (ADR-0035), nobody changes a role they hold or beyond what they hold, the maker never
  * checks, an approval binds to the subject's payload, and only the maker withdraws a request.
  */
-const KIND = 'SALE_VOID';
+const KIND = 'QUOTE_BELOW_MARGIN';
 const APPROVER = 'iam.probe.approve';
 let database: TestDatabase;
 let api: TestApp;
