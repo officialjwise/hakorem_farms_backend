@@ -313,6 +313,30 @@ describe('maker and checker on a claim credit note: the receiver, the claim make
     const bySecond = await approve(secondAccountant, submitted.body.approvalRequestId as string);
     expect(bySecond.status, JSON.stringify(bySecond.body)).toBe(200);
     expect((await get(accountant, `/supplier-claims/${raised.body.id}`)).body).toMatchObject({ status: 'SETTLED', settlement: 'CREDIT_NOTE' });
+
+    // The database holds the same rule (pur.supplier_claim_guard): with the claim opened again and its credit note made
+    // to read as approved by the claim's maker (triggers off, in a transaction rolled back), settling it is refused.
+    const client = await admin().connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('SET LOCAL session_replication_role = replica');
+      await client.query(
+        "UPDATE pur.supplier_claim SET status = 'OPEN', settlement = NULL, settled_by_invoice_id = NULL, posted_at = NULL, posted_by = NULL WHERE id = $1",
+        [raised.body.id],
+      );
+      await client.query('UPDATE pur.supplier_invoice SET posted_by = (SELECT created_by FROM pur.supplier_claim WHERE id = $2) WHERE id = $1', [drafted.body.id, raised.body.id]);
+      await client.query('SET LOCAL session_replication_role = origin');
+      await expect(
+        client.query(
+          `UPDATE pur.supplier_claim SET version = version + 1, status = 'SETTLED', settlement = 'CREDIT_NOTE', settled_by_invoice_id = $2, posted_at = updated_at, posted_by = created_by
+            WHERE id = $1`,
+          [raised.body.id, drafted.body.id],
+        ),
+      ).rejects.toMatchObject({ code: 'HK010' });
+    } finally {
+      await client.query('ROLLBACK');
+      client.release();
+    }
   });
 });
 
