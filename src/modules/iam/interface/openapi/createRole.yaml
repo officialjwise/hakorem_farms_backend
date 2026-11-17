@@ -36,7 +36,7 @@ requestBody:
         name: "Shop supervisor"
         requiresTotp: false
         permissions:
-          - ord.order.void.approve
+          - ord.void.approve
           - pos.shift.close.approve
         limits:
           - limitKind: PRICE_OVERRIDE_PER_LINE

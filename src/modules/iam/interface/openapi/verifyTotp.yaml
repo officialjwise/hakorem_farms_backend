@@ -53,7 +53,7 @@ responses:
                 locationCode: null
             permissions:
               - inv.adjustment.approve
-              - ord.order.void.approve
+              - ord.void.approve
               - mdm.price_list.approve
   "400":
     $ref: "#/components/responses/BadRequest"

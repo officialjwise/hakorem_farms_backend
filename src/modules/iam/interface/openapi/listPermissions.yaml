@@ -48,10 +48,10 @@ responses:
                   module: pos
                   description: "Make a counter sale"
                   requiresStepUp: false
-                - code: ord.order.void.approve
+                - code: ord.void.approve
                   module: ord
-                  description: "Approve a void of a completed sale"
-                  requiresStepUp: false
+                  description: "Approve the void of a sale someone else made and someone else asked to void"
+                  requiresStepUp: true
                 - code: cap.distribution.approve
                   module: cap
                   description: "Approve an investor distribution run"

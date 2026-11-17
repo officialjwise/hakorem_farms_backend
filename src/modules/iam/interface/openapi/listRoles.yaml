@@ -64,7 +64,7 @@ responses:
                   isSystem: true
                   requiresTotp: true
                   permissions:
-                    - ord.order.void.approve
+                    - ord.void.approve
                     - inv.adjustment.approve
                     - liv.mortality.approve
                     - mdm.price_list.approve
