@@ -2401,6 +2401,10 @@ the variance posted when the drawer is counted later); held sales (holdSale, lis
 recall, lapsing at close); a cash refund paid only out of an open shift of the till that took the payment (A-273 (i));
 the audit chain anchored at each sign-off through the worker. Every write gets its wrong-role refusal test; every new
 read joins the identifier walk. Maker and checker never the same user, mutation-checked.
+A cash drop's witness (owner, 2026-11-17, A-273 (d)): a supervisor when one is signed in at that branch; when none is,
+the drop is allowed unwitnessed, marked as unwitnessed (a field the drop and the X and Z reports show), and put on the
+daily exception report's source. A one-person shop is never forced to keep cash in the drawer; the safe and bank
+deposit counts are the check. Test both, and that a drop with a supervisor signed in still needs the witness.
 Stop at the gate and write docs/sessions/B09b2-pos-devices-counter.md.
 ```
 
@@ -2446,6 +2450,8 @@ stock through `MasterDataRefs.toBaseIn`, and re-price by that unit's entry at sy
 `VALIDATION_FAILED` on `/lines/{i}/uom`. A return refunds in the unit sold (say so in `createReturn`'s description).
 Test-first with exact pesewas, at a crate and a single egg of the seeded eggs, online and offline. Unit names and CR-040
 are B09c's.
+The clock tolerance (owner, 2026-11-17, A-273 (g)): 300 seconds. A synced sale whose till time is outside it is recorded
+and flagged (the sale and the exception report's source show it), never refused. Test it at 301 seconds either way.
 Stop at the gate and write docs/sessions/B09b3-pos-offline-sync.md.
 ```
 
