@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.0.1"
+  version: "2.1.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -12037,7 +12037,7 @@ paths:
       tags:
         - pricing
       summary: "Replace the entries of a draft version"
-      description: "Two entries for the same product, grade, band and quantity break are refused.\n\nPermission: `mdm.price_list.update`."
+      description: "Two entries for the same product, grade, band, selling unit and quantity break are refused. An entry may price a selling unit other than the product's base unit (`uom`, a unit the product converts from: a crate beside a single egg, B09e), never derived from the base unit's price; its `minQty` is counted in that unit and stored in the base unit (`minQtyBase`). A unit the product is not sold by is 422 `PRICE_ENTRY_INVALID` with `NO_CONVERSION`, a unit on a `PER_KG` entry `NOT_PER_KG`, and a break that would need a fourth decimal place in the base unit `INEXACT_QUANTITY`.\n\nPermission: `mdm.price_list.update`."
       x-permission: mdm.price_list.update
       x-error-codes:
         - VALIDATION_FAILED
@@ -12209,6 +12209,8 @@ paths:
                         ceilingPricePesewas: 52000
                         quoteOnly: false
                         minQty: "0.000"
+                        minQtyBase: "0.000"
+                        uom: HEAD
                         currency: GHS
                       - id: "019a7aa6-16be-73ad-a8e5-43a9087fbc86"
                         product:
@@ -12230,6 +12232,8 @@ paths:
                         ceilingPricePesewas: 98000
                         quoteOnly: false
                         minQty: "0.000"
+                        minQtyBase: "0.000"
+                        uom: HEAD
                         currency: GHS
                       - id: "019a7aa6-35ad-7d90-b2c9-e1e082305abe"
                         product:
@@ -12248,6 +12252,8 @@ paths:
                         ceilingPricePesewas: 195000
                         quoteOnly: false
                         minQty: "0.000"
+                        minQtyBase: "0.000"
+                        uom: HEAD
                         currency: GHS
                       - id: "019a7aa6-549c-7774-8cac-8017fbe1f8f5"
                         product:
@@ -12266,6 +12272,8 @@ paths:
                         ceilingPricePesewas: 300000
                         quoteOnly: false
                         minQty: "0.000"
+                        minQtyBase: "0.000"
+                        uom: HEAD
                         currency: GHS
                       - id: "019a7aa6-738b-7157-9690-1e4f7592972d"
                         product:
@@ -12280,6 +12288,8 @@ paths:
                         ceilingPricePesewas: 2333
                         quoteOnly: false
                         minQty: "0.000"
+                        minQtyBase: "0.000"
+                        uom: KG
                         currency: GHS
                       - id: "019a7aa6-927a-7b3b-a073-bc86ef433564"
                         product:
@@ -12294,6 +12304,8 @@ paths:
                         ceilingPricePesewas: 6000
                         quoteOnly: false
                         minQty: "0.000"
+                        minQtyBase: "0.000"
+                        uom: CRATE
                         currency: GHS
                       - id: "019a7aa6-b169-751e-ba57-5abe68f4d39c"
                         product:
@@ -12308,6 +12320,8 @@ paths:
                         ceilingPricePesewas: 4333
                         quoteOnly: false
                         minQty: "0.000"
+                        minQtyBase: "0.000"
+                        uom: KG
                         currency: GHS
                       - id: "019a7aa6-d058-7f02-843a-f8f5e2a571d3"
                         product:
@@ -12322,6 +12336,8 @@ paths:
                         ceilingPricePesewas: 0
                         quoteOnly: true
                         minQty: "0.000"
+                        minQtyBase: "0.000"
+                        uom: HEAD
                         currency: GHS
                     page:
                       nextCursor: eyJpZCI6IjAxOWE3YyJ9
@@ -12348,6 +12364,8 @@ paths:
                         ceilingPricePesewas: 52000
                         quoteOnly: false
                         minQty: "0.000"
+                        minQtyBase: "0.000"
+                        uom: HEAD
                         currency: GHS
                       - id: "019a7ab0-1a02-7c3e-9d11-4b2f6e8a1002"
                         product:
@@ -12369,6 +12387,8 @@ paths:
                         ceilingPricePesewas: 98000
                         quoteOnly: false
                         minQty: "0.000"
+                        minQtyBase: "0.000"
+                        uom: HEAD
                         currency: GHS
                       - id: "019a7ab0-1a03-7c3e-9d11-4b2f6e8a1003"
                         product:
@@ -12387,6 +12407,8 @@ paths:
                         ceilingPricePesewas: 195000
                         quoteOnly: false
                         minQty: "0.000"
+                        minQtyBase: "0.000"
+                        uom: HEAD
                         currency: GHS
                       - id: "019a7ab0-1a04-7c3e-9d11-4b2f6e8a1004"
                         product:
@@ -12408,6 +12430,8 @@ paths:
                         ceilingPricePesewas: 210000
                         quoteOnly: false
                         minQty: "0.000"
+                        minQtyBase: "0.000"
+                        uom: HEAD
                         currency: GHS
                       - id: "019a7ab0-1a05-7c3e-9d11-4b2f6e8a1005"
                         product:
@@ -12426,6 +12450,8 @@ paths:
                         ceilingPricePesewas: 300000
                         quoteOnly: false
                         minQty: "0.000"
+                        minQtyBase: "0.000"
+                        uom: HEAD
                         currency: GHS
                       - id: "019a7ab0-1a06-7c3e-9d11-4b2f6e8a1006"
                         product:
@@ -12440,6 +12466,8 @@ paths:
                         ceilingPricePesewas: 2333
                         quoteOnly: false
                         minQty: "0.000"
+                        minQtyBase: "0.000"
+                        uom: KG
                         currency: GHS
                       - id: "019a7ab0-1a07-7c3e-9d11-4b2f6e8a1007"
                         product:
@@ -12454,6 +12482,8 @@ paths:
                         ceilingPricePesewas: 6000
                         quoteOnly: false
                         minQty: "0.000"
+                        minQtyBase: "0.000"
+                        uom: CRATE
                         currency: GHS
                       - id: "019a7ab0-1a08-7c3e-9d11-4b2f6e8a1008"
                         product:
@@ -12468,6 +12498,8 @@ paths:
                         ceilingPricePesewas: 4333
                         quoteOnly: false
                         minQty: "0.000"
+                        minQtyBase: "0.000"
+                        uom: KG
                         currency: GHS
                     page:
                       nextCursor: eyJpZCI6IjAxOWE3YyJ9
@@ -12590,7 +12622,7 @@ paths:
       tags:
         - pricing
       summary: "Resolve prices for one or more lines"
-      description: "Walks the customer list, then tier and channel, then channel, then base, and stops at the first hit; inside a list the most specific entry wins. A line that cannot be priced returns outcome QUOTE_REQUIRED with a reason, never an error and never a zero. Promotions apply only to tier, channel and base prices: each resolved line lists the active line promotions that discount it, each `discountPesewas` taken from the line extended at list price and rounded half-up once; one per stack group, the larger; an exclusive promotion alone. A per-kilogram line without a weight takes no promotion until it is weighed. A coupon promotion applies only with its `couponCode`; a code that exists but cannot be used is 422 `COUPON_UNAVAILABLE`, with the reason as `details[0].code`. Read-only: nothing is stored.\n\nPermission: `mdm.price.resolve`."
+      description: "Walks the customer list, then tier and channel, then channel, then base, and stops at the first hit; inside a list the most specific entry wins. A line is priced by an entry for the unit it is sold in (`uom`, B09e): a crate by the crate's entry and a single egg by the base unit's, never one derived from the other, while quantity breaks compare the quantity in the base unit. A line that cannot be priced returns outcome QUOTE_REQUIRED with a reason, never an error and never a zero. Promotions apply only to tier, channel and base prices: each resolved line lists the active line promotions that discount it, each `discountPesewas` taken from the line extended at list price and rounded half-up once; one per stack group, the larger; an exclusive promotion alone. A per-kilogram line without a weight takes no promotion until it is weighed. A coupon promotion applies only with its `couponCode`; a code that exists but cannot be used is 422 `COUPON_UNAVAILABLE`, with the reason as `details[0].code`. Read-only: nothing is stored.\n\nPermission: `mdm.price.resolve`."
       x-permission: mdm.price.resolve
       x-error-codes:
         - VALIDATION_FAILED
@@ -12653,6 +12685,7 @@ paths:
                         name: "Counter prices"
                         kind: CHANNEL
                       basis: PER_HEAD
+                      uom: HEAD
                       listPricePesewas: 85000
                       floorPricePesewas: 70000
                       ceilingPricePesewas: 98000
@@ -12677,6 +12710,7 @@ paths:
                         name: "Base prices"
                         kind: BASE
                       basis: PER_KG
+                      uom: KG
                       listPricePesewas: 2000
                       floorPricePesewas: 1467
                       ceilingPricePesewas: 2333
@@ -77143,6 +77177,8 @@ paths:
                           ceilingPricePesewas: 52000
                           quoteOnly: false
                           minQty: "0.000"
+                          minQtyBase: "0.000"
+                          uom: HEAD
                           currency: GHS
                         proposed:
                           id: "019a7ab0-1a01-7c3e-9d11-4b2f6e8a1001"
@@ -77162,6 +77198,8 @@ paths:
                           ceilingPricePesewas: 52000
                           quoteOnly: false
                           minQty: "0.000"
+                          minQtyBase: "0.000"
+                          uom: HEAD
                           currency: GHS
                       - kind: CHANGED
                         current:
@@ -77182,6 +77220,8 @@ paths:
                           ceilingPricePesewas: 195000
                           quoteOnly: false
                           minQty: "0.000"
+                          minQtyBase: "0.000"
+                          uom: HEAD
                           currency: GHS
                         proposed:
                           id: "019a7ab0-1a03-7c3e-9d11-4b2f6e8a1003"
@@ -77201,6 +77241,8 @@ paths:
                           ceilingPricePesewas: 195000
                           quoteOnly: false
                           minQty: "0.000"
+                          minQtyBase: "0.000"
+                          uom: HEAD
                           currency: GHS
                       - kind: CHANGED
                         current:
@@ -77224,6 +77266,8 @@ paths:
                           ceilingPricePesewas: 98000
                           quoteOnly: false
                           minQty: "0.000"
+                          minQtyBase: "0.000"
+                          uom: HEAD
                           currency: GHS
                         proposed:
                           id: "019a7ab0-1a02-7c3e-9d11-4b2f6e8a1002"
@@ -77246,6 +77290,8 @@ paths:
                           ceilingPricePesewas: 98000
                           quoteOnly: false
                           minQty: "0.000"
+                          minQtyBase: "0.000"
+                          uom: HEAD
                           currency: GHS
                       - kind: ADDED
                         current: null
@@ -77270,6 +77316,8 @@ paths:
                           ceilingPricePesewas: 210000
                           quoteOnly: false
                           minQty: "0.000"
+                          minQtyBase: "0.000"
+                          uom: HEAD
                           currency: GHS
                       - kind: UNCHANGED
                         current:
@@ -77290,6 +77338,8 @@ paths:
                           ceilingPricePesewas: 300000
                           quoteOnly: false
                           minQty: "0.000"
+                          minQtyBase: "0.000"
+                          uom: HEAD
                           currency: GHS
                         proposed:
                           id: "019a7ab0-1a05-7c3e-9d11-4b2f6e8a1005"
@@ -77309,6 +77359,8 @@ paths:
                           ceilingPricePesewas: 300000
                           quoteOnly: false
                           minQty: "0.000"
+                          minQtyBase: "0.000"
+                          uom: HEAD
                           currency: GHS
                       - kind: REMOVED
                         current:
@@ -77325,6 +77377,8 @@ paths:
                           ceilingPricePesewas: 0
                           quoteOnly: true
                           minQty: "0.000"
+                          minQtyBase: "0.000"
+                          uom: HEAD
                           currency: GHS
                         proposed: null
                     page:
@@ -82248,6 +82302,14 @@ components:
           type: boolean
         minQty:
           $ref: "#/components/schemas/Quantity"
+          description: "The quantity break, counted in `uom` as it was entered (10 crates)."
+        minQtyBase:
+          $ref: "#/components/schemas/Quantity"
+          description: "The same break in the product's base unit, which the engine compares (300 eggs; B09e)."
+        uom:
+          type: string
+          pattern: "^[A-Z]{2,10}$"
+          description: "The selling unit the price is for: the product's base unit unless the entry names another (B09e)."
         currency:
           $ref: "#/components/schemas/Currency"
       required:
@@ -82261,6 +82323,8 @@ components:
         - ceilingPricePesewas
         - quoteOnly
         - minQty
+        - minQtyBase
+        - uom
         - currency
     PriceListEntryPage:
       type: object
@@ -82373,6 +82437,11 @@ components:
           type: boolean
         minQty:
           $ref: "#/components/schemas/Quantity"
+          description: "The quantity break, counted in `uom` (10 crates); stored in the product's base unit (B09e)."
+        uom:
+          type: string
+          pattern: "^[A-Z]{2,10}$"
+          description: "The selling unit this price is for (B09e): the product's base unit when left out, or a unit it converts from (`listUomConversions`), never on a `PER_KG` entry. A crate's price is entered as a crate's price, never derived from a single unit's."
       required:
         - productId
         - basis
@@ -82414,6 +82483,11 @@ components:
           $ref: "#/components/schemas/Kilograms"
         quantity:
           $ref: "#/components/schemas/Quantity"
+          description: "In `uom`: the product's base unit when `uom` is left out."
+        uom:
+          type: string
+          pattern: "^[A-Z]{2,10}$"
+          description: "The unit sold (B09e): the product's base unit when left out, or a unit it converts from. Only an entry for that unit prices the line; quantity breaks compare the quantity in the base unit. A unit the product is not sold by is 422 `REFERENCE_NOT_FOUND`."
       required:
         - lineRef
         - productId
@@ -82455,6 +82529,10 @@ components:
           $ref: "#/components/schemas/PriceListResolved"
         basis:
           $ref: "#/components/schemas/PriceBasis"
+        uom:
+          type: string
+          pattern: "^[A-Z]{2,10}$"
+          description: "The unit the price is for: the unit the line was asked in (B09e)."
         listPricePesewas:
           $ref: "#/components/schemas/Pesewas"
         floorPricePesewas:
@@ -82473,6 +82551,7 @@ components:
         - priceListEntryId
         - priceList
         - basis
+        - uom
         - listPricePesewas
         - floorPricePesewas
         - ceilingPricePesewas

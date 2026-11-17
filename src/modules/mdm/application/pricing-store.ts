@@ -1,9 +1,13 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
 import type { Channel, PriceEntry, PriceListRef, WeightBand } from '../domain/pricing/pricing-engine';
+import type { UomFactor } from '../domain/unit-conversion';
 
 export interface PricingProduct {
   readonly id: string;
   readonly speciesId: string | null;
+  /** The unit stock is held in, and the live factors of the units the product is also sold by (B09e). */
+  readonly baseUom: string;
+  readonly factors: ReadonlyMap<string, UomFactor>;
   /** The product's category and every category above it, for promotions that target a category (FR-MDM-018). */
   readonly categoryIds: readonly string[];
 }

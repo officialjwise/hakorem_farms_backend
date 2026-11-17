@@ -34,6 +34,14 @@ describe('the identity of a price list entry is the engine\'s own', () => {
     expect(entryIdentity(a)).not.toBe(entryIdentity(goatM({ id: 'f', minQty: '10.000' })));
   });
 
+  it('tells a crate entry from a single egg entry at the same break, and keeps a base unit entry\'s identity as it was (B09e)', () => {
+    const single = goatM({ id: 'a' });
+    expect(entryIdentity(goatM({ id: 'b', uom: null }))).toBe(entryIdentity(single));
+    expect(entryIdentity(single)).toBe([GOAT, GRADE_A, BAND_M, '0'.padStart(20, '0')].join('|'));
+    expect(entryIdentity(goatM({ id: 'c', uom: 'CRATE' }))).toBe(`${entryIdentity(single)}|CRATE`);
+    expect(comparePriceListVersions([single], [single, goatM({ id: 'd', uom: 'CRATE' })]).counts).toEqual({ added: 1, changed: 0, removed: 0, unchanged: 1 });
+  });
+
   it('reads the quantity break exactly, so 5, 5.0 and 5.000 are one break', () => {
     expect(entryIdentity(goatM({ id: 'a', minQty: '5' }))).toBe(entryIdentity(goatM({ id: 'b', minQty: '5.000' })));
     expect(entryIdentity(goatM({ id: 'a', minQty: '5.0' }))).toBe(entryIdentity(goatM({ id: 'b', minQty: '5.000' })));

@@ -37,15 +37,17 @@ function entry(fields: Partial<PriceEntry> & Pick<PriceEntry, 'listPricePesewas'
     ceilingPricePesewas: fields.listPricePesewas,
     quoteOnly: false,
     minQty: Quantity.zero(),
+    uom: null,
     ...fields,
   };
 }
 
-function query(fields: { grade?: string; kg?: string; qty?: string } = {}): PricingQuery {
+function query(fields: { grade?: string; kg?: string; qty?: string; uom?: string } = {}): PricingQuery {
   return {
     gradeId: fields.grade ?? null,
     weight: fields.kg === undefined ? null : Weight.parseKg(fields.kg),
     quantity: Quantity.parse(fields.qty ?? '1.000'),
+    uom: fields.uom ?? null,
   };
 }
 
@@ -159,6 +161,39 @@ describe('quantity breaks (min_qty)', () => {
   it('does not match an entry whose minimum is above the quantity', () => {
     const result = resolvePrice(query({ qty: '5.000' }), [], [{ list: BASE_LIST, entries: [bulk] }]);
     expect(result).toEqual({ kind: 'QuoteRequired', reason: 'NO_RULE', stoppedAt: null });
+  });
+});
+
+describe('a price per selling unit: a crate and a single egg each carry their own (B09e, decision 1)', () => {
+  // Eggs held one by one; a crate of 30 is a selling unit with its own price, never thirty times an egg's.
+  const single = entry({ basis: 'PER_UNIT', listPricePesewas: 200n });
+  const crate = entry({ basis: 'PER_UNIT', listPricePesewas: 5_500n, uom: 'CRATE' });
+  const tenCrates = entry({ basis: 'PER_UNIT', listPricePesewas: 5_250n, uom: 'CRATE', minQty: Quantity.parse('300.000') });
+  const list = [{ list: BASE_LIST, entries: [single, crate, tenCrates] }];
+
+  it('resolves 5,500 for a crate and 200 for a single egg from one list', () => {
+    expect(priced(resolvePrice(query({ uom: 'CRATE', qty: '30.000' }), [], list))).toMatchObject({ entry: crate.id, listPrice: 5_500n });
+    expect(priced(resolvePrice(query({ qty: '1.000' }), [], list))).toMatchObject({ entry: single.id, listPrice: 200n });
+  });
+
+  it('counts a break of 10 crates as the 300 eggs it is stored in: 300 takes 5,250, 270 keeps 5,500', () => {
+    expect(priced(resolvePrice(query({ uom: 'CRATE', qty: '300.000' }), [], list))).toMatchObject({ entry: tenCrates.id, listPrice: 5_250n });
+    expect(priced(resolvePrice(query({ uom: 'CRATE', qty: '270.000' }), [], list))).toMatchObject({ entry: crate.id, listPrice: 5_500n });
+  });
+
+  it("never applies a crate's break to single eggs: 300 single eggs stay at 200", () => {
+    expect(priced(resolvePrice(query({ qty: '300.000' }), [], list))).toMatchObject({ entry: single.id, listPrice: 200n });
+  });
+
+  it('never derives a crate from an egg: a list with only the single egg price sends a crate to a quote', () => {
+    expect(resolvePrice(query({ uom: 'CRATE', qty: '30.000' }), [], [{ list: BASE_LIST, entries: [single] }])).toEqual({ kind: 'QuoteRequired', reason: 'NO_RULE', stoppedAt: null });
+  });
+
+  it('walks on to the next list for the unit sold when the first prices only the other unit', () => {
+    const channelSingle = entry({ basis: 'PER_UNIT', listPricePesewas: 180n });
+    const walk = [{ list: CHANNEL_LIST, entries: [channelSingle] }, ...list];
+    expect(priced(resolvePrice(query({ uom: 'CRATE', qty: '30.000' }), [], walk))).toMatchObject({ list: 'BASE', entry: crate.id });
+    expect(priced(resolvePrice(query({ qty: '1.000' }), [], walk))).toMatchObject({ list: 'WHOLESALE', entry: channelSingle.id });
   });
 });
 

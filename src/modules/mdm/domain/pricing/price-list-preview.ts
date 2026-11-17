@@ -20,6 +20,8 @@ export interface PreviewEntry {
   readonly floorPricePesewas: bigint;
   readonly ceilingPricePesewas: bigint;
   readonly quoteOnly: boolean;
+  /** The selling unit the entry prices (B09e); null or absent for the base unit. */
+  readonly uom?: string | null | undefined;
 }
 
 export interface PreviewLine<E extends PreviewEntry> {
@@ -48,10 +50,14 @@ const NONE = '-';
 const QTY_KEY_DIGITS = 20;
 const SEPARATOR = '|';
 
-/** The engine's identity of an entry, as sortable text: product, grade, band, quantity break. */
+/**
+ * The engine's identity of an entry, as sortable text: product, grade, band, quantity break, and the selling unit when it
+ * is not the base unit (B09e), so an entry in the base unit keeps the identity, and a cursor, it had before.
+ */
 export function entryIdentity(entry: PreviewEntry): string {
   const breakAt = Quantity.parse(entry.minQty).thousandths.toString().padStart(QTY_KEY_DIGITS, '0');
-  return [entry.productId, entry.gradeId ?? NONE, entry.weightBandId ?? NONE, breakAt].join(SEPARATOR);
+  const parts = [entry.productId, entry.gradeId ?? NONE, entry.weightBandId ?? NONE, breakAt];
+  return (entry.uom === undefined || entry.uom === null ? parts : [...parts, entry.uom]).join(SEPARATOR);
 }
 
 /** Whether a buyer would be priced differently: the basis, any of the three prices, or quote-only. */

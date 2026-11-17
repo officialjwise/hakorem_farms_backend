@@ -2,7 +2,7 @@ operationId: replacePriceListEntries
 tags:
   - pricing
 summary: "Replace the entries of a draft version"
-description: "Two entries for the same product, grade, band and quantity break are refused.\n\nPermission: `mdm.price_list.update`."
+description: "Two entries for the same product, grade, band, selling unit and quantity break are refused. An entry may price a selling unit other than the product's base unit (`uom`, a unit the product converts from: a crate beside a single egg, B09e), never derived from the base unit's price; its `minQty` is counted in that unit and stored in the base unit (`minQtyBase`). A unit the product is not sold by is 422 `PRICE_ENTRY_INVALID` with `NO_CONVERSION`, a unit on a `PER_KG` entry `NOT_PER_KG`, and a break that would need a fourth decimal place in the base unit `INEXACT_QUANTITY`.\n\nPermission: `mdm.price_list.update`."
 x-permission: mdm.price_list.update
 x-error-codes:
   - VALIDATION_FAILED

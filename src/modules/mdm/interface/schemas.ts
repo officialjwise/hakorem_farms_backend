@@ -107,6 +107,7 @@ export const PriceResolveRequest = z.strictObject({
         gradeId: z.uuid().optional(),
         weightKg: Kilograms.optional(),
         quantity: Quantity,
+        uom: z.string().regex(/^[A-Z]{2,10}$/).optional(),
       }),
     )
     .min(1)
@@ -147,6 +148,7 @@ export const PriceListEntriesReplace = z.strictObject({
         ceilingPricePesewas: Pesewas,
         quoteOnly: z.boolean().optional(),
         minQty: Quantity.optional(),
+        uom: z.string().regex(/^[A-Z]{2,10}$/).optional(),
       }),
     )
     .max(MAX_PRICE_LIST_ENTRIES),

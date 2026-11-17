@@ -1,5 +1,6 @@
 import { err, ok, Quantity, type Result } from '@hakorem/kernel';
 import type { FieldRule } from '../product';
+import { toBase, type UomFactor } from '../unit-conversion';
 import type { Channel, PriceBasis, PriceListKind } from './pricing-engine';
 
 /** Price lists, versions and entries (FR-MDM-015, ADR-0004, ADR-0036). Pure rules; the database repeats them. */
@@ -51,7 +52,10 @@ export interface EntryInput {
   readonly floorPricePesewas: bigint;
   readonly ceilingPricePesewas: bigint;
   readonly quoteOnly?: boolean | undefined;
+  /** The quantity break, counted in `uom` (10 crates). */
   readonly minQty?: string | undefined;
+  /** The selling unit the price is for (B09e): the product's base unit when left out, or a unit it converts from. */
+  readonly uom?: string | undefined;
 }
 
 export interface EntryDefinition {
@@ -63,12 +67,24 @@ export interface EntryDefinition {
   readonly floorPricePesewas: bigint;
   readonly ceilingPricePesewas: bigint;
   readonly quoteOnly: boolean;
+  /** The break in the product's base unit, which the engine compares (300 eggs). */
   readonly minQty: Quantity;
+  /** The selling unit, or null for the base unit. */
+  readonly uom: string | null;
+  /** The break as entered in `uom` (10 crates); null for the base unit. */
+  readonly minQtyInUom: Quantity | null;
 }
 
-/** What the entries refer to, looked up by the application: each product's species, each grade's and band's. */
+/** A product as its entries need it: its species, its base unit and the live factors of the units it converts from. */
+export interface EntryProduct {
+  readonly speciesId: string | null;
+  readonly baseUom: string;
+  readonly factors: ReadonlyMap<string, UomFactor>;
+}
+
+/** What the entries refer to, looked up by the application: each product's species and units, each grade's and band's. */
 export interface EntryReferences {
-  readonly products: ReadonlyMap<string, { readonly speciesId: string | null }>;
+  readonly products: ReadonlyMap<string, EntryProduct>;
   readonly grades: ReadonlyMap<string, { readonly speciesId: string }>;
   readonly bands: ReadonlyMap<string, { readonly speciesId: string }>;
 }
@@ -86,7 +102,9 @@ function speciesRule(id: string | undefined, found: { readonly speciesId: string
 /**
  * Validates the full set of entries of a draft version. A priced entry is a band with floor <= list <= ceiling and
  * a floor above zero (no sale can be agreed at nothing without approval); a quote-only entry carries no price.
- * A grade or band must belong to the product's species. No two entries share product, grade, band and break.
+ * A grade or band must belong to the product's species. An entry in a selling unit other than the base (a crate, B09e)
+ * names a unit the product converts from, is never per kilogram, and has its break converted exactly to the base unit;
+ * the base unit named explicitly is stored as the base unit. No two entries share product, grade, band, unit and break.
  */
 export function defineEntries(inputs: readonly EntryInput[], refs: EntryReferences): Result<EntryDefinition[], FieldRule[]> {
   const problems: FieldRule[] = [];
@@ -113,8 +131,22 @@ export function defineEntries(inputs: readonly EntryInput[], refs: EntryReferenc
     } else if (!quoteOnly && input.floorPricePesewas === 0n) {
       problems.push({ field: `${at}/floorPricePesewas`, rule: 'ZERO_PRICE' });
     }
-    const minQty = Quantity.parse(input.minQty ?? '0.000');
-    const key = [input.productId, input.gradeId ?? '-', input.weightBandId ?? '-', minQty.toDecimalString()].join('|');
+    const entered = Quantity.parse(input.minQty ?? '0.000');
+    const uom = input.uom === undefined || input.uom === product?.baseUom ? null : input.uom;
+    let minQty = entered;
+    if (uom !== null) {
+      const factor = product?.factors.get(uom);
+      if (factor === undefined) {
+        problems.push({ field: `${at}/uom`, rule: 'NO_CONVERSION' });
+      } else if (input.basis === 'PER_KG') {
+        problems.push({ field: `${at}/uom`, rule: 'NOT_PER_KG' });
+      } else {
+        const base = toBase(entered, factor);
+        if (base.ok) minQty = base.value;
+        else problems.push({ field: `${at}/minQty`, rule: 'INEXACT_QUANTITY' });
+      }
+    }
+    const key = [input.productId, input.gradeId ?? '-', input.weightBandId ?? '-', uom ?? '-', minQty.toDecimalString()].join('|');
     if (seen.has(key)) {
       problems.push({ field: at, rule: 'DUPLICATE_ENTRY' });
     }
@@ -129,6 +161,8 @@ export function defineEntries(inputs: readonly EntryInput[], refs: EntryReferenc
       ceilingPricePesewas: input.ceilingPricePesewas,
       quoteOnly,
       minQty,
+      uom,
+      minQtyInUom: uom === null ? null : entered,
     };
   });
   return problems.length > 0 ? err(problems) : ok(entries);
