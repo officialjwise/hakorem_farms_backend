@@ -94,6 +94,15 @@ export class Authoriser {
     return this.store.grantsWithPermission(tx, actor.principalId, permission, this.clock.now());
   }
 
+  /**
+   * What the actor may do without an approval under a role limit of the kind at the branch (`iam.role_limit`): the
+   * largest among the roles they hold there now, and 0 when none sets one, so an unset limit allows nothing (A-230).
+   * Not audited: it refuses nothing; the selling command compares and asks for the approval.
+   */
+  async limitIn(tx: Transaction, actor: Actor, limitKind: 'PRICE_OVERRIDE_PER_LINE', branchId: string): Promise<bigint> {
+    return (await this.store.roleLimit(tx, actor.principalId, limitKind, branchId, this.clock.now())) ?? 0n;
+  }
+
   private async refuse(actor: Actor, permission: string, reason: string, scope: AuthoriseScope): Promise<void> {
     const fields = { principalId: actor.principalId, realm: actor.realm, permission, reason };
     if (actor.realm === 'INVESTOR') {

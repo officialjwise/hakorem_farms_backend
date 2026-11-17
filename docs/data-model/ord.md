@@ -10,6 +10,8 @@ Owner: ORD module. The single order record for every channel, sale posting, fulf
 
 **B09a continued 2d (A-228, ADR-0068, migrations 0195 to 0200):** `ord.order_return` and `ord.order_return_line` as below. A return is written `REQUESTED` against a `COMPLETED` sale and its own receipt, numbered from its `ORDER_RETURN` series (`ck_order_return_number`); submitted by its maker only (`ck_order_return_submitted`); decided by someone else (`ck_order_return_decided`); frozen once decided, what was asked never changing (`ck_order_return_transition`, HK004). `trg_order_return_line_guard` holds `ck_order_return_line_cap` under the sold line's row lock. The stock that comes back names its sale issue (`inv.stock_movement.returns_movement_id`, `docs/data-model/inv.md`). The permissions are migrations 0196 and 0197.
 
+
+**B09a continued 2e (A-230, ADR-0069, migrations 0201 to 0203):** `ord.sales_order_line` adds `variance_approved_by` and `variance_approved_at` (`ck_sales_order_line_approved`: both or neither, and only on a flagged line naming its request; `ck_sales_order_line_flagged`: a line names an override request only when its price needs one). Once a line names its `PRICE_OVERRIDE` request, its pricing record and then its approver never change (`ck_sales_order_line_priced`, in `trg_sales_order_line_guard`). `ck_sales_order_settled_lines` now requires, past `PLACED` and not `CANCELLED`, every flagged line to name its request and its approver, who is neither the order's `created_by` nor its `salesperson_id`. `ord.sales_order` adds `proforma_document_id` (FK `bil.billing_document`, unique, written once: `ck_sales_order_proforma`). The permissions are migrations 0201 and 0202.
 ---
 
 ### `ord.sales_order` · DOCUMENT
@@ -42,6 +44,7 @@ Posted statuses: `COMPLETED`, `CANCELLED`, `VOIDED`. The state machine is in `do
 | `maximum_total_pesewas` | `pesewas` | NOT NULL, CHECK `>= estimated_total_pesewas` | Estimate plus tolerance: the most the customer can be charged without consent |
 | `final_total_pesewas` | `pesewas` | NULL | After weighing; equals the billing document |
 | `billing_document_id` | `uuid` | NULL, FK `bil.billing_document` | Invoice or receipt |
+| `proforma_document_id` | `uuid` | NULL, UNIQUE, FK `bil.billing_document`; written once | The order's proforma (issueProforma, B09a continued 2e) |
 | `credit_check` | `text` | NULL, CHECK in (`PASSED`, `OVERRIDDEN`, `NOT_REQUIRED`) | Result of the confirmation policy |
 | `customer_consent` | `jsonb` | NULL | Consent to a higher total or a substitution: what, when, how obtained |
 | `cancel_reason_code` | `text` | NULL, FK `mdm.reason_code` | |
@@ -104,7 +107,8 @@ Carries the full pricing record the brief requires on every sale line. Published
 | `variance_direction` | `text` | NULL, CHECK in (`BELOW`, `ABOVE`) | |
 | `variance_reason_code` | `text` | NULL, FK `mdm.reason_code`; required when there is a variance | Mandatory reason |
 | `variance_requires_approval` | `boolean` | NOT NULL DEFAULT `false` | Outside the band or beyond the role limit |
-| `variance_approval_request_id` | `uuid` | NULL, FK `iam.approval_request` | Who approved |
+| `variance_approval_request_id` | `uuid` | NULL, FK `iam.approval_request`; only on a flagged line | The `PRICE_OVERRIDE` approval asked for |
+| `variance_approved_by`, `variance_approved_at` | `uuid`, `timestamptz` | NULL until approved; never the order's writer nor its salesperson; fixed once written | Who approved and when (B09a continued 2e) |
 | `discount_pesewas` | `pesewas` | NOT NULL DEFAULT 0 | Promotions |
 | `estimated_line_total_pesewas` | `pesewas` | NOT NULL | |
 | `final_line_total_pesewas` | `pesewas` | NULL | On weighed quantity |
@@ -116,7 +120,7 @@ Carries the full pricing record the brief requires on every sale line. Published
 
 - UNIQUE (`sales_order_id`, `line_no`).
 - CHECK: `floor_unit_price_pesewas <= resolved_unit_price_pesewas <= ceiling_unit_price_pesewas`.
-- CHECK: `variance_requires_approval` implies `variance_approval_request_id IS NOT NULL` once the order is past `PLACED`. For an offline sale synced with an override beyond the limit, the approval is requested after the fact and the line is listed as an exception until decided.
+- CHECK: `variance_requires_approval` implies `variance_approval_request_id` and `variance_approved_by` (neither the order's writer nor its salesperson) once the order is past `PLACED` and not `CANCELLED`. For an offline sale synced with an override beyond the limit, the approval is requested after the fact and the line is listed as an exception until decided.
 - CHECK: when the order is `COMPLETED`, a product line with stock has `stock_movement_id` or `stock_exception_id`.
 - Trigger: a line for a serialised product has `stock_unit_id` set and `qty_ordered = 1`.
 

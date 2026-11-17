@@ -57,7 +57,6 @@ describe('B09a continued 2b order operations answer in the contract shapes', () 
 
     const refusals = [
       await consolePost(api.server, sales, '/v1/orders').send({ ...body, fulfilmentMode: 'DELIVERY' }),
-      await consolePost(api.server, sales, '/v1/orders').send({ ...body, lines: [{ productId: cabbage, quantity: '2.000', agreedUnitPricePesewas: 700, varianceReasonCode: 'BULK_PURCHASE' }] }),
       await consolePost(api.server, sales, `/v1/orders/${created.body.id as string}/confirm`).send(),
       await consolePost(api.server, storekeeper, '/v1/orders').send(body),
       await consoleGet(api.server, sales, `/v1/orders/${randomUUID()}`),
@@ -65,13 +64,16 @@ describe('B09a continued 2b order operations answer in the contract shapes', () 
     ];
     expect(refusals.map((r) => [r.status, r.body.error.code])).toEqual([
       [422, 'ORDER_INVALID'],
-      [422, 'PRICE_OVERRIDE_NEEDS_APPROVAL'],
       [422, 'INVALID_STATE_TRANSITION'],
       [403, 'FORBIDDEN'],
       [404, 'NOT_FOUND'],
       [400, 'VALIDATION_FAILED'],
     ]);
     for (const refusal of refusals) expectShape('Error', refusal.body);
+    // Outside the band the order waits for a different user's approval (B09a continued 2e, A-230).
+    const waiting = await consolePost(api.server, sales, '/v1/orders').send({ ...body, lines: [{ productId: cabbage, quantity: '2.000', agreedUnitPricePesewas: 700, varianceReasonCode: 'BULK_PURCHASE' }] });
+    expect(waiting.status).toBe(202);
+    expectShape('ApprovalPending', waiting.body);
 
     const placed = await consolePost(api.server, sales, '/v1/orders').send({ ...body, lines: [{ productId: cabbage, quantity: '99.000' }] });
     const short = await consolePost(api.server, sales, `/v1/orders/${placed.body.id as string}/confirm`).send();

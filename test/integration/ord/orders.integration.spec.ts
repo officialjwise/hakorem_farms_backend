@@ -217,14 +217,14 @@ describe('createOrder (FR-ORD-001, FR-ORD-003, FR-ORD-004)', () => {
     expect((await admin().query('SELECT count(*)::int AS n FROM ord.sales_order WHERE id = $1', [o.id])).rows[0].n).toBe(1);
   });
 
-  it('refuses a price below list, and one above the ceiling, for an approval it cannot yet take; nothing is written', async () => {
-    const before = (await admin().query('SELECT count(*)::int AS n FROM ord.sales_order')).rows[0].n;
+  it('enters a price below list, and one above the ceiling, PLACED to wait for an approval (A-230); a variance with no reason writes nothing', async () => {
     for (const agreed of [999, 1_201]) {
-      const refused = await create(as('sales'), order({ lines: [{ productId: id('cabbage'), quantity: '2.000', agreedUnitPricePesewas: agreed, varianceReasonCode: 'REGULAR_CUSTOMER' }] }));
-      expect(refused.status, String(agreed)).toBe(422);
-      expect(refused.body.error.code).toBe('PRICE_OVERRIDE_NEEDS_APPROVAL');
-      expect(refused.body.error.details[0].field).toBe('/lines/0/agreedUnitPricePesewas');
+      const waiting = await create(as('sales'), order({ lines: [{ productId: id('cabbage'), quantity: '2.000', agreedUnitPricePesewas: agreed, varianceReasonCode: 'REGULAR_CUSTOMER' }] }));
+      expect(waiting.status, String(agreed)).toBe(202);
+      expect(waiting.body).toMatchObject({ status: 'PENDING_APPROVAL', kind: 'PRICE_OVERRIDE', subject: { docType: 'SALES_ORDER' } });
+      expect(await reservations(waiting.body.subject.id)).toEqual([]);
     }
+    const before = (await admin().query('SELECT count(*)::int AS n FROM ord.sales_order')).rows[0].n;
     const noReason = await create(as('sales'), order({ lines: [{ productId: id('cabbage'), quantity: '2.000', agreedUnitPricePesewas: 1_100 }] }));
     expect(noReason.status).toBe(422);
     expect(noReason.body.error.details).toEqual([expect.objectContaining({ field: '/lines/0/varianceReasonCode', code: 'VARIANCE_REASON_REQUIRED' })]);

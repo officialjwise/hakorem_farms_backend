@@ -6,6 +6,7 @@ import { CurrentActor } from '../../../platform/http/actor-param';
 import { IdempotencyKeyHeader, Operation } from '../../../platform/http/operation';
 import { zodPipe } from '../../../platform/http/validation';
 import type { StoredResponse } from '../../../platform/idempotency/idempotency';
+import type { BillingDocumentView } from '../../bil';
 import { OrderReversals, type ApprovalPendingView } from '../application/order-reversals';
 import { Orders, type OrderStatusChangeView, type Page, type SalesOrderView } from '../application/orders';
 import { IdParam, OrderCreateBody, OrderPageQuery, PageQuery, ReasonCodeBody } from './schemas';
@@ -59,7 +60,7 @@ export class OrdersController {
     @Body(zodPipe(OrderCreateBody)) body: z.infer<typeof OrderCreateBody>,
     @IdempotencyKeyHeader() key: string,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<SalesOrderView> {
+  ): Promise<SalesOrderView | ApprovalPendingView> {
     return reply(
       res,
       this.orders.create(
@@ -104,6 +105,18 @@ export class OrdersController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<SalesOrderView> {
     return reply(res, this.orders.confirm(actor, id, key));
+  }
+
+  @Post(':id/proforma')
+  @HttpCode(201)
+  @Operation({ operationId: 'issueProforma', ...WRITE, permission: 'bil.proforma.create' })
+  issueProforma(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<BillingDocumentView> {
+    return reply(res, this.orders.issueProforma(actor, id, key));
   }
 
   @Post(':id/cancel')

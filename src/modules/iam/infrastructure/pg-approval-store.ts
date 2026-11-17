@@ -166,6 +166,11 @@ export class PgApprovalStore implements ApprovalStore {
     return rows[0] === undefined ? null : listing(rows[0]);
   }
 
+  async ofSubject(tx: Transaction, subjectDocumentId: string, kind: string): Promise<ApprovalListing[]> {
+    const { rows } = await tx.query<ListingRow>(`${LISTING_SELECT} WHERE a.subject_document_id = $1 AND a.kind = $2 ORDER BY a.requested_at, a.id`, [subjectDocumentId, kind]);
+    return rows.map(listing);
+  }
+
   async decidableBy(tx: Transaction, viewerId: string, ids: readonly string[], now: Date): Promise<Set<string>> {
     if (ids.length === 0) return new Set();
     const { rows } = await tx.query<{ id: string }>(`SELECT a.id FROM iam.approval_request a WHERE a.id = ANY($3::uuid[]) AND ${DECIDABLE_BY_VIEWER}`, [viewerId, now, ids]);

@@ -43,8 +43,9 @@ export class PgOrderStore implements OrderStore {
                                            resolved_unit_price_pesewas, floor_unit_price_pesewas, ceiling_unit_price_pesewas, agreed_unit_price_pesewas,
                                            variance_pesewas, variance_direction, variance_reason_code, variance_requires_approval, discount_pesewas,
                                            estimated_line_total_pesewas, reservation_id, qty_fulfilled, fulfilled_weight_kg, weight_source,
-                                           final_line_total_pesewas, stock_movement_id, line_status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)`,
+                                           final_line_total_pesewas, stock_movement_id, line_status, variance_approval_request_id, variance_approved_by,
+                                           variance_approved_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30)`,
         [
           l.id,
           l.salesOrderId,
@@ -73,6 +74,9 @@ export class PgOrderStore implements OrderStore {
           l.finalLineTotalPesewas?.toString() ?? null,
           l.stockMovementId,
           l.lineStatus,
+          l.varianceApprovalRequestId,
+          l.varianceApprovedBy,
+          l.varianceApprovedAt,
         ],
       );
     }
@@ -111,11 +115,7 @@ export class PgOrderStore implements OrderStore {
   async orders(tx: Transaction, ids: readonly string[]): Promise<OrderRecord[]> {
     if (ids.length === 0) return [];
     const { rows } = await tx.query<Record<string, unknown>>(
-      `SELECT id, order_no, channel, customer_id, contact_name, contact_phone_e164, status, payment_terms, fulfilment_mode, source_document_id, shift_document_id,
-              salesperson_id, tax_inclusive, delivery_fee_pesewas::text, estimated_total_pesewas::text, maximum_total_pesewas::text, final_total_pesewas::text,
-              billing_document_id, is_offline, placed_at, completed_at, recorded_at, notes, branch_id, version,
-              parent_order_id, credit_check, delivery_address_snapshot, delivery_zone_id
-         FROM ord.sales_order WHERE id = ANY($1::uuid[]) ORDER BY id`,
+      `SELECT ${HEADER_COLUMNS} FROM ord.sales_order WHERE id = ANY($1::uuid[]) ORDER BY id`,
       [ids],
     );
     const { rows: lineRows } = await tx.query<Record<string, unknown>>(
@@ -123,7 +123,8 @@ export class PgOrderStore implements OrderStore {
               price_source, price_basis, price_list_entry_id, resolved_unit_price_pesewas::text, floor_unit_price_pesewas::text, ceiling_unit_price_pesewas::text,
               agreed_unit_price_pesewas::text, variance_pesewas::text, variance_direction, variance_reason_code, variance_requires_approval, discount_pesewas::text,
               estimated_line_total_pesewas::text, final_line_total_pesewas::text, reservation_id, stock_movement_id, stock_exception_id, line_status,
-              estimated_weight_kg::text, tolerance_percent::text, qty_backordered::text, quote_line_ref, variance_approval_request_id
+              estimated_weight_kg::text, tolerance_percent::text, qty_backordered::text, quote_line_ref, variance_approval_request_id,
+              variance_approved_by, variance_approved_at
          FROM ord.sales_order_line WHERE sales_order_id = ANY($1::uuid[]) ORDER BY sales_order_id, line_no`,
       [ids],
     );
@@ -162,6 +163,8 @@ export class PgOrderStore implements OrderStore {
         qtyBackordered: r['qty_backordered'] as string,
         quoteLineRef: r['quote_line_ref'] as string | null,
         varianceApprovalRequestId: r['variance_approval_request_id'] as string | null,
+        varianceApprovedBy: r['variance_approved_by'] as string | null,
+        varianceApprovedAt: r['variance_approved_at'] as Date | null,
         lineStatus: r['line_status'] as OrderLineRecord['lineStatus'],
       };
       lines.set(line.salesOrderId, [...(lines.get(line.salesOrderId) ?? []), line]);
@@ -240,6 +243,18 @@ export class PgOrderStore implements OrderStore {
     return rows[0] ?? null;
   }
 
+  async approveVariances(tx: Transaction, orderId: string, a: { readonly approvalRequestId: string; readonly approvedBy: string; readonly at: Date }): Promise<void> {
+    await tx.query(
+      `UPDATE ord.sales_order_line SET variance_approved_by = $3, variance_approved_at = $4
+        WHERE sales_order_id = $1 AND variance_approval_request_id = $2 AND variance_approved_by IS NULL`,
+      [orderId, a.approvalRequestId, a.approvedBy, a.at],
+    );
+  }
+
+  async setProforma(tx: Transaction, orderId: string, p: { readonly documentId: string; readonly at: Date; readonly actorId: string }): Promise<void> {
+    await tx.query('UPDATE ord.sales_order SET proforma_document_id = $2, updated_at = $3, updated_by = $4, version = version + 1 WHERE id = $1', [orderId, p.documentId, p.at, p.actorId]);
+  }
+
   async list(tx: Transaction, f: OrderFilter, beforeId: string | null, limit: number): Promise<string[]> {
     const { rows } = await tx.query<{ id: string }>(
       `SELECT id FROM ord.sales_order
@@ -280,7 +295,7 @@ export class PgOrderStore implements OrderStore {
 const HEADER_COLUMNS = `id, order_no, channel, customer_id, contact_name, contact_phone_e164, status, payment_terms, fulfilment_mode, source_document_id, shift_document_id,
               salesperson_id, tax_inclusive, delivery_fee_pesewas::text, estimated_total_pesewas::text, maximum_total_pesewas::text, final_total_pesewas::text,
               billing_document_id, is_offline, placed_at, completed_at, recorded_at, notes, branch_id, version,
-              parent_order_id, credit_check, delivery_address_snapshot, delivery_zone_id, created_by`;
+              parent_order_id, credit_check, delivery_address_snapshot, delivery_zone_id, created_by, proforma_document_id`;
 
 function header(r: Record<string, unknown>): OrderHeaderRecord {
   return {
@@ -314,5 +329,6 @@ function header(r: Record<string, unknown>): OrderHeaderRecord {
     deliveryAddressSnapshot: r['delivery_address_snapshot'] ?? null,
     deliveryZoneId: r['delivery_zone_id'] as string | null,
     createdBy: r['created_by'] as string,
+    proformaDocumentId: r['proforma_document_id'] as string | null,
   };
 }

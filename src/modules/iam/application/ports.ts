@@ -202,6 +202,11 @@ export interface IamStore {
   currentPermissions(tx: Transaction, principalId: string, now: Date): Promise<string[]>;
   grantsWithPermission(tx: Transaction, principalId: string, permission: string, now: Date): Promise<GrantScope[]>;
   permissionRequiresStepUp(tx: Transaction, permission: string): Promise<boolean | null>;
+  /**
+   * The largest live limit of the kind among the roles the principal holds now through a grant at the branch (a grant at
+   * one location of it included), or null when none of them sets one.
+   */
+  roleLimit(tx: Transaction, principalId: string, limitKind: string, branchId: string, now: Date): Promise<bigint | null>;
 }
 
 /**

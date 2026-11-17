@@ -8,14 +8,18 @@ import { UnauthenticatedError } from '../../../platform/errors/api-error';
 import type { DomainEvents } from '../../../platform/events/domain-events';
 import { IdempotencyKeyReusedError, type Idempotency } from '../../../platform/idempotency/idempotency';
 import type { Billing, BillingDocumentView } from '../../bil';
+import type { ApprovalListing } from '../../iam';
 import type { Reservations, Stock, StockUnits } from '../../inv';
-import { extendPrice, judgeAgreedPrice, type MasterDataRefs, type PriceBasis, type PricingService, type ProductFacts } from '../../mdm';
+import { extendPrice, type MasterDataRefs, type PriceBasis, type PricingService, type ProductFacts } from '../../mdm';
 import type { Payments, PaymentView } from '../../pay';
 import { lineNumber } from '../domain/line-numbers';
 import { judgeTenders, paymentStatusOf, type PaymentStatus } from '../domain/order';
+import { judgeOverride, judgePriceApprover, type OverrideApproval } from '../domain/price-override';
 import type { OrderCompleted } from '../events';
-import { PriceOverrideNeedsApprovalError, QuoteRequiredError, SaleInvalidError, type SaleRule } from './errors';
+import { PriceApproverIsSellerError, PriceOverrideNeedsApprovalError, QuoteRequiredError, SaleInvalidError, type SaleRule } from './errors';
+import type { ApprovalPendingView } from './order-reversals';
 import type { NewOrderLine, OrderRecord, OrderStore, WeightSource } from './order-store';
+import { overrideHash, type FlaggedLine, type PriceOverrides } from './price-overrides';
 
 export const ORDER_COMPLETED = 'ord.OrderCompleted';
 /** The operation a sale's idempotency key is scoped to (ADR-0014): the order's own client id is the key. */
@@ -27,11 +31,6 @@ const UNIQUE_VIOLATION = '23505';
 const POSTABLE_CHANNELS: ReadonlySet<string> = new Set(['ONLINE', 'WHOLESALE']);
 /** Fulfilled at the sale; delivery is B11's dispatch. */
 const POSTABLE_FULFILMENT: ReadonlySet<string> = new Set(['COUNTER', 'COLLECTION']);
-/**
- * What a seller may take off the list price without approval until role limits per shift exist (B9b; A-208): nothing.
- * A price above list within the ceiling costs the farm nothing and needs only its reason.
- */
-const ALLOWANCE_BEFORE_ROLE_LIMITS = 0n;
 
 export interface SaleLineRequest {
   readonly productId: string;
@@ -130,6 +129,9 @@ export interface SaleView {
 }
 
 interface PlannedLine {
+  readonly index: number;
+  /** Why the line's agreed price waits for a different user's approval, or null (A-230). */
+  readonly approval: OverrideApproval;
   readonly record: NewOrderLine;
   readonly product: ProductFacts;
   readonly baseQty: Quantity;
@@ -175,6 +177,7 @@ export class SalePosting {
     private readonly idempotency: Idempotency,
     private readonly audit: AuditTrail,
     private readonly clock: Clock,
+    private readonly overrides: PriceOverrides,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -185,6 +188,36 @@ export class SalePosting {
     return [`SALES_ORDER:${today.slice(0, 4)}:${branchId}`, ...this.billing.seriesLocksFor('RECEIPT', branchId)];
   }
 
+  /**
+   * Asks for the approval of a sale's price override before the sale posts (A-230): a price outside the band, or below
+   * list beyond the seller's per-line limit at the branch, prices exactly as `postIn` will price it. The sale's id is
+   * registered as its order's document and a `PRICE_OVERRIDE` approval is asked for on it, binding every flagged line's
+   * pricing record; nothing is stocked, issued or paid. Asked again for the same sale, it answers the approval that
+   * waits. Once a holder of `ord.price_override.approve` who is not the seller approves it, the same seller posts the
+   * same sale through `postIn`. It authorises nothing: the selling command that calls it has.
+   */
+  async requestOverrideIn(tx: Transaction, actor: Actor | undefined, request: SaleRequest): Promise<ApprovalPendingView> {
+    if (tx.isolation !== 'serializable') throw new IsolationLevelError(tx.isolation);
+    if (actor === undefined) throw new UnauthenticatedError('a sale needs an actor');
+    const { customerId } = await this.precheck(tx, request);
+    const asked = await this.overrides.ofSubjectIn(tx, request.orderId);
+    if (asked.some((a) => a.requestedBy !== actor.principalId) || (await this.store.orders(tx, [request.orderId])).length > 0) {
+      throw new IdempotencyKeyReusedError('the order id is another sale, or already posted');
+    }
+    const limit = await this.overrides.lineLimitIn(tx, actor, request.branchId);
+    const planned = await this.plan(tx, request, request.occurredAt ?? this.clock.now(), limit);
+    const flagged: FlaggedLine[] = planned.flatMap((p) => (p.approval === null ? [] : [{ ...p.record, varianceRequiresApproval: true, approval: p.approval }]));
+    if (flagged.length === 0) throw new SaleInvalidError([{ field: '/lines', rule: 'NO_OVERRIDE_TO_APPROVE' }]);
+    const pending = asked.find((a) => a.status === 'PENDING');
+    if (pending !== undefined) {
+      if (pending.payloadHash === overrideHash(request.orderId, customerId, flagged)) return this.overrides.pendingView(pending, { id: request.orderId, number: null });
+      throw new SaleInvalidError([{ field: '/lines', rule: 'OVERRIDE_PENDING' }]);
+    }
+    if (asked.length === 0) await this.register(tx, actor, request);
+    const approval = await this.overrides.requestIn(tx, actor, { orderId: request.orderId, orderNo: null, branchId: request.branchId, customerId, salespersonId: actor.principalId, lines: flagged });
+    return this.overrides.pendingView(approval, { id: request.orderId, number: null });
+  }
+
   async postIn(tx: Transaction, actor: Actor | undefined, request: SaleRequest): Promise<SaleView> {
     if (tx.isolation !== 'serializable') throw new IsolationLevelError(tx.isolation);
     if (actor === undefined) throw new UnauthenticatedError('a sale needs an actor');
@@ -193,30 +226,13 @@ export class SalePosting {
 
     const now = this.clock.now();
     const occurredAt = request.occurredAt ?? now;
-    const customerId = request.customerId ?? null;
-    const broken: SaleRule[] = [];
-    if (!POSTABLE_CHANNELS.has(request.channel)) broken.push({ field: '/channel', rule: 'CHANNEL_NOT_AVAILABLE' });
-    if (!POSTABLE_FULFILMENT.has(request.fulfilmentMode)) broken.push({ field: '/fulfilmentMode', rule: 'FULFILMENT_NOT_AVAILABLE' });
-    if (request.lines.length === 0) broken.push({ field: '/lines', rule: 'NO_LINES' });
-    if (request.tenders.length === 0) broken.push({ field: '/tenders', rule: 'NO_TENDERS' });
-    if (customerId !== null) {
-      const customer = (await this.refs.customersIn(tx, [customerId])).get(customerId);
-      if (customer === undefined || !customer.isLive) broken.push({ field: '/customerId', rule: 'CUSTOMER_NOT_ACTIVE' });
-    }
-    if (broken.length > 0) throw new SaleInvalidError(broken);
+    const { customerId, branch, customerLocation } = await this.precheck(tx, request);
 
-    const branch = (await this.refs.branchesIn(tx, [request.branchId])).get(request.branchId);
-    const customerLocation = branch === undefined ? null : await this.refs.virtualLocationIn(tx, request.branchId, 'CUSTOMER');
-    if (branch === undefined || customerLocation === null) throw new SaleInvalidError([{ field: '/branchId', rule: 'LOCATION_NOT_IN_BRANCH' }]);
-
-    // The order is a registered document before anything names it; its number is allocated in this transaction.
-    try {
-      await this.documents.register(tx, { id: request.orderId, docType: 'SALES_ORDER', ownerModule: 'ord', branchId: request.branchId, actorId: actor.principalId });
-    } catch (error) {
-      // Another document, or another person's sale, already has this id: never post a second sale under it.
-      if (sqlStateOf(error) === UNIQUE_VIOLATION) throw new IdempotencyKeyReusedError('the order id is already a registered document');
-      throw error;
-    }
+    // The order is a registered document before anything names it (by its override approval, when one was asked for
+    // first by this seller); its number is allocated in this transaction.
+    const asked = await this.overrides.ofSubjectIn(tx, request.orderId);
+    if (asked.some((a) => a.requestedBy !== actor.principalId)) throw new IdempotencyKeyReusedError('the order id is another person\'s sale');
+    if (asked.length === 0) await this.register(tx, actor, request);
     const orderNo = await this.numbers.allocateIn(tx, {
       docType: 'SALES_ORDER',
       fiscalYear: Number(toBusinessDate(now).slice(0, 4)),
@@ -225,7 +241,7 @@ export class SalePosting {
       documentId: request.orderId,
     });
 
-    const planned = await this.plan(tx, request, occurredAt);
+    const planned = this.approved(request, customerId, asked, actor.principalId, await this.plan(tx, request, occurredAt, await this.overrides.lineLimitIn(tx, actor, request.branchId)));
     const movements = new Map<string, string>();
     for (const line of planned) {
       const posted =
@@ -354,12 +370,68 @@ export class SalePosting {
     return view;
   }
 
+  /** The rules a sale breaks before anything is priced, and where it is sold from and to. */
+  private async precheck(tx: Transaction, request: SaleRequest): Promise<{ readonly customerId: string | null; readonly branch: { readonly code: string }; readonly customerLocation: string }> {
+    const customerId = request.customerId ?? null;
+    const broken: SaleRule[] = [];
+    if (!POSTABLE_CHANNELS.has(request.channel)) broken.push({ field: '/channel', rule: 'CHANNEL_NOT_AVAILABLE' });
+    if (!POSTABLE_FULFILMENT.has(request.fulfilmentMode)) broken.push({ field: '/fulfilmentMode', rule: 'FULFILMENT_NOT_AVAILABLE' });
+    if (request.lines.length === 0) broken.push({ field: '/lines', rule: 'NO_LINES' });
+    if (request.tenders.length === 0) broken.push({ field: '/tenders', rule: 'NO_TENDERS' });
+    if (customerId !== null) {
+      const customer = (await this.refs.customersIn(tx, [customerId])).get(customerId);
+      if (customer === undefined || !customer.isLive) broken.push({ field: '/customerId', rule: 'CUSTOMER_NOT_ACTIVE' });
+    }
+    if (broken.length > 0) throw new SaleInvalidError(broken);
+    const branch = (await this.refs.branchesIn(tx, [request.branchId])).get(request.branchId);
+    const customerLocation = branch === undefined ? null : await this.refs.virtualLocationIn(tx, request.branchId, 'CUSTOMER');
+    if (branch === undefined || customerLocation === null) throw new SaleInvalidError([{ field: '/branchId', rule: 'LOCATION_NOT_IN_BRANCH' }]);
+    return { customerId, branch, customerLocation };
+  }
+
+  private async register(tx: Transaction, actor: Actor, request: SaleRequest): Promise<void> {
+    try {
+      await this.documents.register(tx, { id: request.orderId, docType: 'SALES_ORDER', ownerModule: 'ord', branchId: request.branchId, actorId: actor.principalId });
+    } catch (error) {
+      // Another document, or another person's sale, already has this id: never post a second sale under it.
+      if (sqlStateOf(error) === UNIQUE_VIOLATION) throw new IdempotencyKeyReusedError('the order id is already a registered document');
+      throw error;
+    }
+  }
+
+  /**
+   * The planned lines with every flagged line naming the approval this seller asked for and a different user gave for
+   * exactly these prices (A-230); refused when there is none: still waiting, given for other prices, or never asked.
+   */
+  private approved(request: SaleRequest, customerId: string | null, asked: readonly ApprovalListing[], sellerId: string, planned: readonly PlannedLine[]): PlannedLine[] {
+    const flagged = planned.filter((p) => p.approval !== null);
+    if (flagged.length === 0) return [...planned];
+    const hash = overrideHash(
+      request.orderId,
+      customerId,
+      flagged.map((p) => ({ ...p.record, varianceRequiresApproval: true })),
+    );
+    const approval = asked.find((a) => a.status === 'APPROVED' && a.payloadHash === hash);
+    if (approval === undefined) {
+      const why = asked.some((a) => a.status === 'PENDING') ? 'APPROVAL_PENDING' : asked.some((a) => a.status === 'APPROVED') ? 'APPROVAL_DIFFERS' : null;
+      throw new PriceOverrideNeedsApprovalError(flagged.map((p) => ({ field: field(p.index, 'agreedUnitPricePesewas'), reason: why ?? p.approval! })));
+    }
+    if (!judgePriceApprover(approval.decidedBy!, { requestedBy: approval.requestedBy, salespersonId: sellerId, postedBy: sellerId }).ok) {
+      throw new PriceApproverIsSellerError('the seller of this price cannot approve it');
+    }
+    return planned.map((p) =>
+      p.approval === null
+        ? p
+        : { ...p, record: { ...p.record, varianceRequiresApproval: true, varianceApprovalRequestId: approval.id, varianceApprovedBy: approval.decidedBy, varianceApprovedAt: approval.decidedAt } },
+    );
+  }
+
   /**
    * Every line checked, converted to its base unit and priced by the engine: the resolved band, the agreed price and its
    * variance, extended once (ADR-0001). A line the engine cannot price is QUOTE_REQUIRED; an agreed price outside the
-   * band, or below list beyond the allowance, needs an approval this phase does not take (PRICE_OVERRIDE_NEEDS_APPROVAL).
+   * band, or below list beyond the seller's per-line limit, is marked with why it needs an approval (A-230).
    */
-  private async plan(tx: Transaction, request: SaleRequest, at: Date): Promise<PlannedLine[]> {
+  private async plan(tx: Transaction, request: SaleRequest, at: Date, lineLimit: bigint): Promise<PlannedLine[]> {
     const products = await this.refs.productsIn(tx, request.lines.map((l) => l.productId));
     const locations = await this.refs.locationsIn(tx, request.lines.map((l) => l.fromLocationId));
     const unitIds = request.lines.flatMap((l) => (l.stockUnitId === undefined || l.stockUnitId === null ? [] : [l.stockUnitId]));
@@ -434,17 +506,14 @@ export class SalePosting {
     const unpriced = resolved.lines.filter((l) => l.outcome !== 'RESOLVED' || l.resolved === null);
     if (unpriced.length > 0) throw new QuoteRequiredError(unpriced.map((l) => ({ field: `/lines/${l.lineRef}`, reason: l.quoteRequiredReason ?? 'NO_RULE' })));
 
-    const overrides: { field: string; reason: string }[] = [];
     const planned: PlannedLine[] = [];
     for (const c of checked) {
       const line = request.lines[c.index]!;
       const band = resolved.lines.find((l) => l.lineRef === String(c.index))!.resolved!;
       const list = BigInt(band.listPricePesewas);
       const agreed = line.agreedUnitPricePesewas ?? list;
-      const verdict = judgeAgreedPrice({ listPricePesewas: list, floorPricePesewas: BigInt(band.floorPricePesewas), ceilingPricePesewas: BigInt(band.ceilingPricePesewas) }, agreed, ALLOWANCE_BEFORE_ROLE_LIMITS);
-      if (verdict.kind === 'VARIANCE' && verdict.approval !== null) overrides.push({ field: field(c.index, 'agreedUnitPricePesewas'), reason: verdict.approval });
       const reasonCode = line.varianceReasonCode ?? null;
-      if (verdict.kind === 'VARIANCE') {
+      if (agreed !== list) {
         const reason = reasonCode === null ? undefined : reasons.get(reasonCode);
         if (reasonCode === null) broken.push({ field: field(c.index, 'varianceReasonCode'), rule: 'VARIANCE_REASON_REQUIRED' });
         else if (reason === undefined || reason.domain !== 'PRICE_OVERRIDE') broken.push({ field: field(c.index, 'varianceReasonCode'), rule: 'VARIANCE_REASON_INVALID' });
@@ -458,7 +527,10 @@ export class SalePosting {
         continue;
       }
       const variance = resolvedTotal.value > agreedTotal.value ? resolvedTotal.value - agreedTotal.value : agreedTotal.value - resolvedTotal.value;
+      const verdict = judgeOverride({ listPricePesewas: list, floorPricePesewas: BigInt(band.floorPricePesewas), ceilingPricePesewas: BigInt(band.ceilingPricePesewas) }, agreed, variance, lineLimit);
       planned.push({
+        index: c.index,
+        approval: verdict.kind === 'VARIANCE' ? verdict.approval : null,
         product: c.product,
         baseQty: c.baseQty,
         weight: c.weight,
@@ -486,6 +558,9 @@ export class SalePosting {
           varianceDirection: verdict.kind === 'VARIANCE' ? verdict.direction : null,
           varianceReasonCode: verdict.kind === 'VARIANCE' ? reasonCode : null,
           varianceRequiresApproval: false,
+          varianceApprovalRequestId: null,
+          varianceApprovedBy: null,
+          varianceApprovedAt: null,
           discountPesewas: 0n,
           estimatedLineTotalPesewas: agreedTotal.value,
           finalLineTotalPesewas: agreedTotal.value,
@@ -495,7 +570,6 @@ export class SalePosting {
         },
       });
     }
-    if (overrides.length > 0) throw new PriceOverrideNeedsApprovalError(overrides);
     if (broken.length > 0) throw new SaleInvalidError(broken);
     return planned;
   }

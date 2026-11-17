@@ -96,6 +96,8 @@ export interface ApprovalStore {
    */
   list(tx: Transaction, filter: ApprovalFilter): Promise<ApprovalListing[]>;
   listing(tx: Transaction, id: string): Promise<ApprovalListing | null>;
+  /** Every request of the kind on the subject, oldest first, with when each was decided. */
+  ofSubject(tx: Transaction, subjectDocumentId: string, kind: string): Promise<ApprovalListing[]>;
   /** The ids among `ids` that the viewer could decide now, by the same rule as `decidableByMe`. */
   decidableBy(tx: Transaction, viewerId: string, ids: readonly string[], now: Date): Promise<Set<string>>;
 }
@@ -141,6 +143,14 @@ export class Approvals {
    * default): at or above the threshold it needs approval; a policy with no threshold always does. The owning module
    * keeps the threshold it was judged against on its document, so the database can hold the rule on its own row.
    */
+  /**
+   * The requests of a kind on a subject, oldest first, as the owning module reads them in its own transaction (ORD's
+   * sale posting finds the override approved for the sale it is asked to post). Read only; it authorises nothing.
+   */
+  ofSubjectIn(tx: Transaction, subjectDocumentId: string, kind: string): Promise<ApprovalListing[]> {
+    return this.store.ofSubject(tx, subjectDocumentId, kind);
+  }
+
   async judgeIn(tx: Transaction, kind: string, branchId: string, amountPesewas: bigint): Promise<ApprovalJudgement> {
     const rule = await this.store.approverRule(tx, kind, branchId);
     if (rule === null) {
