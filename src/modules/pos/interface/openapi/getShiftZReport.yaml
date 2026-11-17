@@ -60,6 +60,8 @@ responses:
               amountPesewas: 500000
             - kind: PAY_OUT
               amountPesewas: 4500
+          unwitnessedDropsCount: 0
+          unwitnessedDropsPesewas: 0
           currency: GHS
           documentId: "019a7afa-ea20-716f-86a7-1fc8bbdd98a6"
   "400":

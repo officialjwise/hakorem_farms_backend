@@ -1,6 +1,6 @@
 import { Money } from '@hakorem/kernel';
 import { describe, expect, it } from 'vitest';
-import { changeDue, closeAmounts, expectedCash, judgeCashMovement, judgeCountSignOff, overShort, type CashMovementFacts } from './till';
+import { changeDue, closeAmounts, expectedCash, judgeCashMovement, isUnwitnessedDrop, judgeCountSignOff, overShort, type CashMovementFacts } from './till';
 
 const p = (n: bigint) => Money.ofPesewas(n);
 const MAX = 9_007_199_254_740_991n;
@@ -99,6 +99,7 @@ const movement = (over: Partial<CashMovementFacts> = {}): CashMovementFacts => (
   cashierId: 'cashier',
   actorId: 'cashier',
   witnessIsSupervisor: true,
+  supervisorSignedIn: true,
   tillHolds: p(64_000n),
   ...over,
 });
@@ -119,6 +120,22 @@ describe('a cash movement (FR-POS-016)', () => {
     expect(judgeCashMovement(movement({ witnessId: 'cashier' }))).toEqual([{ field: '/witnessId', rule: 'WITNESS_IS_MAKER' }]);
     expect(judgeCashMovement(movement({ actorId: 'manager', witnessId: 'manager' }))).toEqual([{ field: '/witnessId', rule: 'WITNESS_IS_MAKER' }]);
     expect(judgeCashMovement(movement({ witnessIsSupervisor: false }))).toEqual([{ field: '/witnessId', rule: 'WITNESS_NOT_SUPERVISOR' }]);
+  });
+
+  it('a drop with no witness while a supervisor is signed in at the branch still needs the witness (the owner on A-273 (d))', () => {
+    expect(judgeCashMovement(movement({ witnessId: null, supervisorSignedIn: true }))).toEqual([{ field: '/witnessId', rule: 'WITNESS_REQUIRED' }]);
+  });
+
+  it('takes a drop with no witness when no supervisor is signed in at the branch, so a one-person shop is never forced to keep cash in the drawer', () => {
+    expect(judgeCashMovement(movement({ witnessId: null, witnessIsSupervisor: false, supervisorSignedIn: false }))).toEqual([]);
+    expect(isUnwitnessedDrop(movement({ witnessId: null, witnessIsSupervisor: false, supervisorSignedIn: false }))).toBe(true);
+    expect(isUnwitnessedDrop(movement())).toBe(false);
+    expect(isUnwitnessedDrop(movement({ kind: 'PAY_OUT', reasonCode: 'OTHER_PAYOUT', witnessId: null, supervisorSignedIn: false }))).toBe(false);
+  });
+
+  it('still refuses a named witness who is the maker or not a supervisor when no supervisor is signed in', () => {
+    expect(judgeCashMovement(movement({ witnessId: 'cashier', supervisorSignedIn: false }))).toEqual([{ field: '/witnessId', rule: 'WITNESS_IS_MAKER' }]);
+    expect(judgeCashMovement(movement({ witnessIsSupervisor: false, supervisorSignedIn: false }))).toEqual([{ field: '/witnessId', rule: 'WITNESS_NOT_SUPERVISOR' }]);
   });
 
   it('takes a pay-out for fuel with its note and no witness, and refuses one that needs a note without it', () => {

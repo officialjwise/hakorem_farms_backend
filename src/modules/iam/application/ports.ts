@@ -207,6 +207,11 @@ export interface IamStore {
    * one location of it included), or null when none of them sets one.
    */
   roleLimit(tx: Transaction, principalId: string, limitKind: string, branchId: string, now: Date): Promise<bigint | null>;
+  /**
+   * The active staff principals who hold the permission now through a grant at the branch (a grant at one location of it
+   * included) and have a live session: not revoked, and neither idle nor absolutely expired.
+   */
+  signedInHolders(tx: Transaction, permission: string, branchId: string, now: Date): Promise<string[]>;
 }
 
 /**

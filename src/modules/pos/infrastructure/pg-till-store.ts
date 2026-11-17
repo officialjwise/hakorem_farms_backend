@@ -42,6 +42,7 @@ interface MovementRow {
   reason_code: string | null;
   note: string | null;
   witness_id: string | null;
+  unwitnessed: boolean;
   occurred_at: Date;
   recorded_at: Date;
   actor_id: string;
@@ -60,7 +61,7 @@ const REGISTER_COLUMNS = 'id, branch_id, location_id, code, name, status, versio
 const SHIFT_COLUMNS = `id, shift_no, register_id, cashier_id, shift_seq, opened_at, opening_float_pesewas::text, declared_at, declared_cash_pesewas::text,
   expected_cash_pesewas::text, over_short_pesewas::text, over_short_direction, close_approved_by, closed_at, last_device_counter, force_closed, status,
   branch_id, version`;
-const MOVEMENT_COLUMNS = 'id, shift_id, kind, amount_pesewas::text, reason_code, note, witness_id, occurred_at, recorded_at, actor_id';
+const MOVEMENT_COLUMNS = 'id, shift_id, kind, amount_pesewas::text, reason_code, note, witness_id, unwitnessed, occurred_at, recorded_at, actor_id';
 const COUNT_COLUMNS = 'shift_id, payment_method_id, declared_pesewas::text, expected_pesewas::text, variance_pesewas::text, variance_direction';
 
 const big = (value: string | null): bigint | null => (value === null ? null : BigInt(value));
@@ -102,6 +103,7 @@ function movement(r: MovementRow): CashMovementRecord {
     reasonCode: r.reason_code,
     note: r.note,
     witnessId: r.witness_id,
+    unwitnessed: r.unwitnessed,
     occurredAt: r.occurred_at,
     recordedAt: r.recorded_at,
     actorId: r.actor_id,
@@ -225,9 +227,9 @@ export class PgTillStore implements TillStore {
 
   async insertCashMovement(tx: Transaction, m: CashMovementRecord): Promise<void> {
     await tx.query(
-      `INSERT INTO pos.cash_movement (id, shift_id, kind, amount_pesewas, reason_code, note, witness_id, occurred_at, recorded_at, actor_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-      [m.id, m.shiftId, m.kind, m.amountPesewas.toString(), m.reasonCode, m.note, m.witnessId, m.occurredAt, m.recordedAt, m.actorId],
+      `INSERT INTO pos.cash_movement (id, shift_id, kind, amount_pesewas, reason_code, note, witness_id, unwitnessed, occurred_at, recorded_at, actor_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+      [m.id, m.shiftId, m.kind, m.amountPesewas.toString(), m.reasonCode, m.note, m.witnessId, m.unwitnessed, m.occurredAt, m.recordedAt, m.actorId],
     );
   }
 
@@ -251,6 +253,14 @@ export class PgTillStore implements TillStore {
       [shiftId],
     );
     return new Map(rows.map((r) => [r.kind, BigInt(r.total)]));
+  }
+
+  async unwitnessedDrops(tx: Transaction, shiftId: string): Promise<{ readonly count: number; readonly amountPesewas: bigint }> {
+    const { rows } = await tx.query<{ n: number; total: string }>(
+      "SELECT count(*)::int AS n, COALESCE(sum(amount_pesewas), 0)::text AS total FROM pos.cash_movement WHERE shift_id = $1 AND kind = 'CASH_DROP' AND unwitnessed",
+      [shiftId],
+    );
+    return { count: rows[0]!.n, amountPesewas: BigInt(rows[0]!.total) };
   }
 
   async insertTenderCounts(tx: Transaction, counts: readonly TenderCountRecord[], actorId: string, at: Date): Promise<void> {

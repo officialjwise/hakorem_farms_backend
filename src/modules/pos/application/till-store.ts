@@ -56,6 +56,8 @@ export interface CashMovementRecord {
   readonly reasonCode: string | null;
   readonly note: string | null;
   readonly witnessId: string | null;
+  /** A drop taken while no supervisor was signed in at the branch (A-273 (d)). */
+  readonly unwitnessed: boolean;
   readonly occurredAt: Date;
   readonly recordedAt: Date;
   readonly actorId: string;
@@ -107,6 +109,8 @@ export interface TillStore {
   cashMovementsOf(tx: Transaction, shiftId: string, beforeId: string | null, limit: number): Promise<CashMovementRecord[]>;
   /** Each kind's total over the shift's movements. */
   cashMovementTotals(tx: Transaction, shiftId: string): Promise<ReadonlyMap<CashMovementKind, bigint>>;
+  /** The shift's drops taken unwitnessed (A-273 (d)): how many and how much. */
+  unwitnessedDrops(tx: Transaction, shiftId: string): Promise<{ readonly count: number; readonly amountPesewas: bigint }>;
   insertTenderCounts(tx: Transaction, counts: readonly TenderCountRecord[], actorId: string, at: Date): Promise<void>;
   completeTenderCount(tx: Transaction, count: TenderCountRecord): Promise<void>;
   tenderCounts(tx: Transaction, shiftIds: readonly string[]): Promise<TenderCountRecord[]>;

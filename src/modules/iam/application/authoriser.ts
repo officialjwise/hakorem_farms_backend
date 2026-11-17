@@ -103,6 +103,14 @@ export class Authoriser {
     return (await this.store.roleLimit(tx, actor.principalId, limitKind, branchId, this.clock.now())) ?? 0n;
   }
 
+  /**
+   * Who holds the permission at the branch and is signed in now (a live staff session), for a rule that depends on a
+   * supervisor being present, such as a cash drop's witness (the owner on A-273 (d)). Not audited: it refuses nothing.
+   */
+  async signedInHoldersIn(tx: Transaction, permission: string, branchId: string): Promise<readonly string[]> {
+    return this.store.signedInHolders(tx, permission, branchId, this.clock.now());
+  }
+
   private async refuse(actor: Actor, permission: string, reason: string, scope: AuthoriseScope): Promise<void> {
     const fields = { principalId: actor.principalId, realm: actor.realm, permission, reason };
     if (actor.realm === 'INVESTOR') {

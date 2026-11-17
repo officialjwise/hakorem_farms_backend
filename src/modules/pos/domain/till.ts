@@ -83,6 +83,11 @@ export interface CashMovementFacts {
   readonly actorId: string;
   /** The witness holds the count sign-off permission at the shift's branch (A-273 (d)). */
   readonly witnessIsSupervisor: boolean;
+  /**
+   * A supervisor who is neither the cashier nor the person recording it is signed in at the shift's branch now (the
+   * owner on A-273 (d), 2026-11-17): a drop then needs their witness; with none signed in it may go unwitnessed.
+   */
+  readonly supervisorSignedIn: boolean;
   /** What the till should hold before this movement. */
   readonly tillHolds: Money;
 }
@@ -94,7 +99,8 @@ export interface CashMovementRule {
 
 /**
  * What a cash movement breaks (FR-POS-016, A-273): a reason from the fixed list for its kind, a note when the reason
- * needs one, a drop witnessed by a supervisor who is neither the cashier nor the person recording it, and never more
+ * needs one, a drop witnessed by a supervisor who is neither the cashier nor the person recording it (unwitnessed only
+ * while no such supervisor is signed in at the branch, `isUnwitnessedDrop`), and never more
  * taken out than the till holds.
  */
 export function judgeCashMovement(m: CashMovementFacts): CashMovementRule[] {
@@ -104,7 +110,9 @@ export function judgeCashMovement(m: CashMovementFacts): CashMovementRule[] {
   else if (m.reasonDomain !== REASON_DOMAIN || !REASONS_BY_KIND[m.kind].includes(m.reasonCode)) broken.push({ field: '/reasonCode', rule: 'REASON_NOT_FOR_KIND' });
   else if (m.reasonNeedsNote && (m.note === null || m.note.trim() === '')) broken.push({ field: '/note', rule: 'NOTE_REQUIRED' });
   if (m.kind === 'CASH_DROP') {
-    if (m.witnessId === null) broken.push({ field: '/witnessId', rule: 'WITNESS_REQUIRED' });
+    if (m.witnessId === null) {
+      if (m.supervisorSignedIn) broken.push({ field: '/witnessId', rule: 'WITNESS_REQUIRED' });
+    }
     else if (m.witnessId === m.cashierId || m.witnessId === m.actorId) broken.push({ field: '/witnessId', rule: 'WITNESS_IS_MAKER' });
     else if (!m.witnessIsSupervisor) broken.push({ field: '/witnessId', rule: 'WITNESS_NOT_SUPERVISOR' });
   } else if (m.witnessId !== null) {
@@ -112,6 +120,15 @@ export function judgeCashMovement(m: CashMovementFacts): CashMovementRule[] {
   }
   if (m.kind !== 'PAY_IN' && m.amount.compareTo(m.tillHolds) > 0) broken.push({ field: '/amountPesewas', rule: 'TILL_OVERDRAWN' });
   return broken;
+}
+
+/**
+ * A drop taken with no witness because no supervisor was signed in at the branch (the owner on A-273 (d)): allowed, so a
+ * one-person shop is never forced to keep cash in the drawer, and marked so the drop, the X and Z reports and the daily
+ * exception report's source show it; the safe and the bank deposit counts are its check.
+ */
+export function isUnwitnessedDrop(m: Pick<CashMovementFacts, 'kind' | 'witnessId' | 'supervisorSignedIn'>): boolean {
+  return m.kind === 'CASH_DROP' && m.witnessId === null && !m.supervisorSignedIn;
 }
 
 /** The supervisor signing off a count is never its cashier (FR-POS-018, held again by `ck_shift_close_checker`). */

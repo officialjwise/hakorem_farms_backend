@@ -28,6 +28,12 @@ export interface CashMoved extends TillPosting {
   readonly witnessId: string | null;
   readonly actorId: string;
   readonly occurredAt: string;
+  /**
+   * Present on a drop taken while no supervisor was signed in at the branch (the owner on A-273 (d)): it reaches the
+   * daily exception report's source as `UNWITNESSED_CASH_DROP` with abuse case 17, the cashier and the amount (B12).
+   */
+  readonly unwitnessed?: true;
+  readonly abuseCases?: readonly number[];
   readonly amountsPesewas: { readonly drop: number } | { readonly payIn: number } | { readonly payOut: number };
 }
 
