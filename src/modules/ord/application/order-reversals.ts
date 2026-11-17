@@ -15,6 +15,7 @@ import type { MasterDataRefs } from '../../mdm';
 import type { Payments, ProviderPayments, Receipts, Refunds } from '../../pay';
 import type { OrderStatus } from '../domain/order';
 import { judgeCancellation, judgeVoid, judgeVoidApprover, planCancellationMoney } from '../domain/reversal';
+import { PRICE_OVERRIDE_KIND } from '../domain/price-override';
 import type { OrderCancelled, OrderVoided, SaleVoidRequested } from '../events';
 import { OrderInvalidError, VoidApproverIsCashierError, type SaleRule } from './errors';
 import type { OrderHeaderRecord, OrderStore, OrderVoidRecord } from './order-store';
@@ -119,6 +120,11 @@ export class OrderReversals {
           note: `Order ${header.orderNo!} cancelled`,
         });
         refundIds.push(asked.subject.id);
+      }
+
+      // A price override still waiting is withdrawn: nobody may approve a price on a cancelled order (A-230).
+      for (const asked of await this.approvals.ofSubjectIn(tx, id, PRICE_OVERRIDE_KIND)) {
+        if (asked.status === 'PENDING') await this.approvals.withdrawIn(tx, asked.id, `Order ${header.orderNo!} cancelled before its price override was decided`);
       }
 
       const at = this.clock.now();

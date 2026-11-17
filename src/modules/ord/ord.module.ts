@@ -19,6 +19,7 @@ import { ORDER_STORE, type OrderStore } from './application/order-store';
 import { Orders } from './application/orders';
 import { RETURN_STORE, type ReturnStore } from './application/return-store';
 import { RETURN_KIND, Returns } from './application/returns';
+import { PRICE_OVERRIDE_KIND, PriceOverrides } from './application/price-overrides';
 import { SalePosting } from './application/sale-posting';
 import { PgOrderStore } from './infrastructure/pg-order-store';
 import { PgReturnStore } from './infrastructure/pg-return-store';
@@ -29,7 +30,7 @@ import { ReturnsController } from './interface/returns.controller';
  * ORD (layer 9): the one order record of every channel and the sale posting that issues stock, the billing document
  * and the tenders in one serializable transaction (B9a). B09a continued 2b adds `Orders` (the order record's reads, entry and
  * confirmation) and the `OrderConfirmationPolicy` port; cancellation, voids, returns, price override approvals and online
- * placement follow in B09a continued 2c (A-225), which adds `OrderReversals` (cancellation and the void under `SALE_VOID`), and B09a continued 2d adds `Returns` (returns against the sale under `RETURN`, A-228); POS's counter sale (B9b) and fulfilment's dispatch (B11) call `SalePosting.postIn`.
+ * placement follow in B09a continued 2c (A-225), which adds `OrderReversals` (cancellation and the void under `SALE_VOID`), B09a continued 2d adds `Returns` (returns against the sale under `RETURN`, A-228), and B09a continued 2e adds `PriceOverrides` (`PRICE_OVERRIDE`, A-230) and the proforma; POS's counter sale (B9b) and fulfilment's dispatch (B11) call `SalePosting.postIn`.
  */
 @Module({
   imports: [IamModule, MdmModule, InvModule, BilModule, PayModule],
@@ -39,6 +40,12 @@ import { ReturnsController } from './interface/returns.controller';
     { provide: RETURN_STORE, useClass: PgReturnStore },
     // The OrderConfirmationPolicy port (MODULE_BOUNDARIES section 6): WHL registers its credit policy in B10; none yet.
     { provide: ORDER_CONFIRMATION_POLICIES, useValue: [] satisfies OrderConfirmationPolicy[] },
+    {
+      provide: PriceOverrides,
+      useFactory: (store: OrderStore, approvals: Approvals, authoriser: Authoriser, events: DomainEvents, audit: AuditTrail, clock: Clock) =>
+        new PriceOverrides(store, approvals, authoriser, events, audit, clock),
+      inject: [ORDER_STORE, Approvals, Authoriser, DomainEvents, AuditTrail, CLOCK],
+    },
     {
       provide: Orders,
       useFactory: (
@@ -62,6 +69,7 @@ import { ReturnsController } from './interface/returns.controller';
         principals: PrincipalNames,
         cursors: Cursors,
         clock: Clock,
+        overrides: PriceOverrides,
       ) =>
         new Orders(
           uow,
@@ -84,6 +92,7 @@ import { ReturnsController } from './interface/returns.controller';
           principals,
           cursors,
           clock,
+          overrides,
         ),
       inject: [
         UnitOfWork,
@@ -106,6 +115,7 @@ import { ReturnsController } from './interface/returns.controller';
         PRINCIPAL_NAMES,
         Cursors,
         CLOCK,
+        PriceOverrides,
       ],
     },
     {
@@ -207,8 +217,9 @@ import { ReturnsController } from './interface/returns.controller';
         idempotency: Idempotency,
         audit: AuditTrail,
         clock: Clock,
-      ) => new SalePosting(store, refs, pricing, stock, units, reservations, billing, payments, numbers, documents, events, idempotency, audit, clock),
-      inject: [ORDER_STORE, MasterDataRefs, PricingService, Stock, StockUnits, Reservations, Billing, Payments, NumberSeries, DocumentRegistry, DomainEvents, Idempotency, AuditTrail, CLOCK],
+        overrides: PriceOverrides,
+      ) => new SalePosting(store, refs, pricing, stock, units, reservations, billing, payments, numbers, documents, events, idempotency, audit, clock, overrides),
+      inject: [ORDER_STORE, MasterDataRefs, PricingService, Stock, StockUnits, Reservations, Billing, Payments, NumberSeries, DocumentRegistry, DomainEvents, Idempotency, AuditTrail, CLOCK, PriceOverrides],
     },
   ],
   exports: [SalePosting, Orders, OrderReversals, Returns],
@@ -218,11 +229,13 @@ export class OrdModule implements OnModuleInit {
     @Inject(Approvals) private readonly approvals: Approvals,
     @Inject(OrderReversals) private readonly reversals: OrderReversals,
     @Inject(Returns) private readonly returns: Returns,
+    @Inject(PriceOverrides) private readonly overrides: PriceOverrides,
   ) {}
 
-  /** Registers the `SALE_VOID` and `RETURN` approval handlers. */
+  /** Registers the `SALE_VOID`, `RETURN` and `PRICE_OVERRIDE` approval handlers. */
   onModuleInit(): void {
     this.approvals.registerHandler(SALE_VOID_KIND, this.reversals.approvalHandler);
     this.approvals.registerHandler(RETURN_KIND, this.returns.approvalHandler);
+    this.approvals.registerHandler(PRICE_OVERRIDE_KIND, this.overrides.approvalHandler);
   }
 }

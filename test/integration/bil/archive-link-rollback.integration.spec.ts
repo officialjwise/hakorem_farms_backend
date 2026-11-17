@@ -48,6 +48,9 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0203_ord_price_override_approval',
+      '0202_iam_grant_ord_price_override_permissions',
+      '0201_iam_seed_ord_price_override_permissions',
       '0200_ord_order_return',
       '0199_inv_sale_return_of_issue',
       '0198_mdm_order_return_reason',

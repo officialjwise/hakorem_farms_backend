@@ -10,6 +10,7 @@ registerMessages({
   'ord.stock_short': 'Not enough stock for this line: {short} short of {wanted}.',
   'ord.void_cashier_cannot_approve': 'The cashier who made this sale cannot approve its void.',
   'ord.return_maker_cannot_approve': 'The person who made this return cannot approve it.',
+  'ord.price_seller_cannot_approve': 'The person who sold at this price cannot approve it.',
 });
 
 /** A registered message with its `{name}` placeholders filled (the values are numbers, never user text). */
@@ -53,7 +54,11 @@ export class QuoteRequiredError extends BusinessRuleError {
   }
 }
 
-/** 422 PRICE_OVERRIDE_NEEDS_APPROVAL (FR-ORD-003): outside the band, or below list beyond what the seller may give. */
+/**
+ * 422 PRICE_OVERRIDE_NEEDS_APPROVAL (FR-ORD-003, A-230): outside the band (`OUTSIDE_BAND`), or below list beyond what the
+ * seller may give (`BEYOND_ROLE_LIMIT`), with no approval to name; the approval still waits (`APPROVAL_PENDING`), was
+ * rejected, withdrawn or lapsed (`APPROVAL_REJECTED`), or was given for another price (`APPROVAL_DIFFERS`).
+ */
 export class PriceOverrideNeedsApprovalError extends BusinessRuleError {
   readonly code = 'PRICE_OVERRIDE_NEEDS_APPROVAL';
   readonly messageKey = 'ord.price_override_needs_approval';
@@ -109,4 +114,10 @@ export class VoidApproverIsCashierError extends BusinessRuleError {
 export class ReturnApproverIsMakerError extends BusinessRuleError {
   readonly code = 'MAKER_CANNOT_CHECK';
   readonly messageKey = 'ord.return_maker_cannot_approve';
+}
+
+/** 422 MAKER_CANNOT_CHECK: the approver of a price override is the order's salesperson or the person who wrote it (abuse case 3). */
+export class PriceApproverIsSellerError extends BusinessRuleError {
+  readonly code = 'MAKER_CANNOT_CHECK';
+  readonly messageKey = 'ord.price_seller_cannot_approve';
 }

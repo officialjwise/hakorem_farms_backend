@@ -152,3 +152,35 @@ export interface ReturnCompleted {
   readonly completedAt: string;
   readonly abuseCases: readonly number[];
 }
+
+/**
+ * `ord.PriceOverrideRequested` v1 (abuse case 3): a price outside the band, or below list beyond the seller's per-line
+ * limit, waits for a different user's approval (A-230). `orderId` is the order entered, or the sale the sale posting is
+ * asked to post (not yet written). B12's daily exception report lists it under `PRICE_OVERRIDE`, with the override
+ * value by user.
+ */
+export interface PriceOverrideRequested {
+  readonly orderId: string;
+  readonly orderNo: string | null;
+  readonly branchId: string;
+  readonly approvalRequestId: string;
+  readonly requestedBy: string;
+  readonly salespersonId: string;
+  /** What the flagged lines take off list, or add above the ceiling, extended over each line. */
+  readonly variancePesewas: number;
+  readonly lines: readonly { readonly lineNo: number; readonly productId: string; readonly agreedUnitPricePesewas: number; readonly resolvedUnitPricePesewas: number; readonly reason: string }[];
+  readonly requestedAt: string;
+  readonly abuseCases: readonly number[];
+}
+
+/** `ord.PriceOverrideApproved` v1 (abuse case 3): the override approved by someone who neither asked nor sold. */
+export interface PriceOverrideApproved {
+  readonly orderId: string;
+  readonly branchId: string;
+  readonly approvalRequestId: string;
+  readonly requestedBy: string;
+  readonly approvedBy: string;
+  readonly variancePesewas: number;
+  readonly approvedAt: string;
+  readonly abuseCases: readonly number[];
+}

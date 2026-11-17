@@ -2,7 +2,7 @@ operationId: createOrder
 tags:
   - ord
 summary: "Enter an order for a customer"
-description: "Enters a PLACED order at the one branch where the caller enters orders, numbered from its `SALES_ORDER` series; nothing is reserved or charged until `confirmOrder`. Every line is priced by the pricing engine now and keeps the full pricing record. A line the pricing engine cannot price is refused with 422 QUOTE_REQUIRED naming the line; raise a quote instead. A price below list or outside the band is 422 PRICE_OVERRIDE_NEEDS_APPROVAL until its approval is built; a price above list within the band needs a `PRICE_OVERRIDE` reason. Until delivery scheduling, catch weight and promotions on staff orders are built, `DELIVERY`, a line priced per kilogram and a coupon are refused (422 ORDER_INVALID: `FULFILMENT_NOT_AVAILABLE`, `CATCH_WEIGHT_NOT_AVAILABLE`, `COUPON_NOT_AVAILABLE`); every other rule a line breaks is also named in `details[].code` (A-224).\n\nPermission: `ord.order.create`."
+description: "Enters a PLACED order at the one branch where the caller enters orders, numbered from its `SALES_ORDER` series; nothing is reserved or charged until `confirmOrder`. Every line is priced by the pricing engine now and keeps the full pricing record. A line the pricing engine cannot price is refused with 422 QUOTE_REQUIRED naming the line; raise a quote instead. Every agreed price that differs from list needs a `PRICE_OVERRIDE` reason. A price above list up to the ceiling needs nothing more. A price below list within the band needs nothing more while the line's whole variance (the difference extended over the line) is at or under the seller's per-line limit (`PRICE_OVERRIDE_PER_LINE`, the largest among the roles they hold at the branch; with none set, every price below list waits). A price outside the band, or below list beyond that limit, makes the order wait for a different user: it is entered `PLACED` with those lines' `varianceApprovalRequestId` set, and the answer is 202 `ApprovalPending` (kind `PRICE_OVERRIDE`, its subject the order, with its number). The order cannot be confirmed, nor its proforma issued, until a holder of `ord.price_override.approve`, with a fresh step-up, who neither asked, nor sold, nor wrote the order, approves (422 MAKER_CANNOT_CHECK otherwise; the database refuses it too). A rejected override leaves the order `PLACED` and unconfirmable; cancelling it withdraws a waiting override (A-230). Until delivery scheduling, catch weight and promotions on staff orders are built, `DELIVERY`, a line priced per kilogram and a coupon are refused (422 ORDER_INVALID: `FULFILMENT_NOT_AVAILABLE`, `CATCH_WEIGHT_NOT_AVAILABLE`, `COUPON_NOT_AVAILABLE`); every other rule a line breaks is also named in `details[].code` (A-224).\n\nPermission: `ord.order.create`."
 x-permission: ord.order.create
 parameters:
   - $ref: "#/components/parameters/IdempotencyKey"
@@ -143,6 +143,25 @@ responses:
           notes: "Collecting Friday morning for the hotel kitchen"
           branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
           version: 1
+  "202":
+    description: "Accepted for approval: the order is entered PLACED and waits for a different user to approve its price."
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ApprovalPending"
+        example:
+          status: PENDING_APPROVAL
+          approvalRequestId: "019a7af3-1c2d-7e4f-8a6b-3c5d7e9f1a2b"
+          kind: PRICE_OVERRIDE
+          subject:
+            id: "019a7af0-a4c5-78e8-be21-975d5418103b"
+            docType: SALES_ORDER
+            number: SO-2026-DDW-004198
+          summary: "Price override on SO-2026-DDW-004198: 1 line, GHS 1.00 from list (BEYOND_ROLE_LIMIT)"
+          requestedAt: "2026-11-12T16:00:00Z"
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

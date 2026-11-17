@@ -362,6 +362,17 @@ export class PgIamStore implements IamStore {
     return rows.map((row) => ({ branchId: row.branch_id, locationId: row.location_id }));
   }
 
+  async roleLimit(tx: Transaction, principalId: string, limitKind: string, branchId: string, now: Date): Promise<bigint | null> {
+    const { rows } = await tx.query<{ amount: string | null }>(
+      `SELECT max(l.amount_pesewas)::text AS amount
+         FROM iam.role_grant g JOIN iam.role r ON r.id = g.role_id JOIN iam.role_limit l ON l.role_id = r.id AND l.deleted_at IS NULL
+         JOIN iam.principal p ON p.id = g.principal_id
+        WHERE g.principal_id = $1 AND ${CURRENT_GRANT} AND l.limit_kind = $3 AND g.branch_id = $4 AND p.status = 'ACTIVE' AND p.deleted_at IS NULL`,
+      [principalId, now, limitKind, branchId],
+    );
+    return rows[0]?.amount === null || rows[0] === undefined ? null : BigInt(rows[0].amount);
+  }
+
   async permissionRequiresStepUp(tx: Transaction, permission: string): Promise<boolean | null> {
     const { rows } = await tx.query<{ requires_step_up: boolean }>('SELECT requires_step_up FROM iam.permission WHERE code = $1', [permission]);
     return rows[0]?.requires_step_up ?? null;

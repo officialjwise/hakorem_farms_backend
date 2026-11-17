@@ -39,6 +39,8 @@ export interface OrderHeaderRecord {
   readonly deliveryZoneId: string | null;
   /** Who wrote the order: for a counter sale, the cashier who posted it (a void's approver is never this person). */
   readonly createdBy: string;
+  /** The order's proforma (issueProforma, A-201), once issued; never replaced. */
+  readonly proformaDocumentId: string | null;
 }
 
 export interface OrderLineRecord {
@@ -74,7 +76,10 @@ export interface OrderLineRecord {
   readonly tolerancePercent: string | null;
   readonly qtyBackordered: string;
   readonly quoteLineRef: string | null;
+  /** The PRICE_OVERRIDE approval a flagged line waits for or holds, and who approved it and when (A-230). */
   readonly varianceApprovalRequestId: string | null;
+  readonly varianceApprovedBy: string | null;
+  readonly varianceApprovedAt: Date | null;
   readonly lineStatus: 'OPEN' | 'FULFILLED' | 'PARTIAL' | 'BACKORDERED' | 'SUBSTITUTED' | 'CANCELLED' | 'RETURNED';
 }
 
@@ -92,8 +97,8 @@ export interface StatusChangeRecord {
   readonly actorId: string;
 }
 
-type ReadOnlyHeader = 'parentOrderId' | 'creditCheck' | 'deliveryAddressSnapshot' | 'deliveryZoneId' | 'createdBy';
-type ReadOnlyLine = 'stockExceptionId' | 'estimatedWeightKg' | 'tolerancePercent' | 'qtyBackordered' | 'quoteLineRef' | 'varianceApprovalRequestId';
+type ReadOnlyHeader = 'parentOrderId' | 'creditCheck' | 'deliveryAddressSnapshot' | 'deliveryZoneId' | 'createdBy' | 'proformaDocumentId';
+type ReadOnlyLine = 'stockExceptionId' | 'estimatedWeightKg' | 'tolerancePercent' | 'qtyBackordered' | 'quoteLineRef';
 
 export interface NewOrder extends Omit<OrderHeaderRecord, 'status' | 'finalTotalPesewas' | 'billingDocumentId' | 'completedAt' | 'recordedAt' | 'version' | 'orderNo' | ReadOnlyHeader> {
   readonly orderNo: string;
@@ -144,6 +149,10 @@ export interface OrderStore {
   openVoidOf(tx: Transaction, orderId: string): Promise<OrderVoidRecord | null>;
   voidByApproval(tx: Transaction, approvalRequestId: string): Promise<OrderVoidRecord | null>;
   decideVoid(tx: Transaction, id: string, d: { readonly status: 'APPROVED' | 'REJECTED'; readonly creditNoteId: string | null; readonly decidedBy: string; readonly at: Date }): Promise<void>;
+  /** Every flagged line waiting for the approval named: approved by whom and when (PRICE_OVERRIDE, A-230). */
+  approveVariances(tx: Transaction, orderId: string, a: { readonly approvalRequestId: string; readonly approvedBy: string; readonly at: Date }): Promise<void>;
+  /** The order's proforma, written once. */
+  setProforma(tx: Transaction, orderId: string, p: { readonly documentId: string; readonly at: Date; readonly actorId: string }): Promise<void>;
   /** Ids of the orders matching the filter at the branches given, newest first, before `beforeId`, at most `limit`. */
   list(tx: Transaction, filter: OrderFilter, beforeId: string | null, limit: number): Promise<string[]>;
 }

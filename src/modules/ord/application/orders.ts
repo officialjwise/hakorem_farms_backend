@@ -23,28 +23,26 @@ import {
   type StockQueries,
   type StockUnits,
 } from '../../inv';
-import { extendPrice, judgeAgreedPrice, type MasterDataRefs, type PriceBasis, type PricingService, type ProductFacts } from '../../mdm';
+import { extendPrice, type MasterDataRefs, type PriceBasis, type PricingService, type ProductFacts } from '../../mdm';
 import type { Payments, PaymentView } from '../../pay';
 import { judgeConfirmation, planLineReservation, receivedForOrder, type CreditAnswer } from '../domain/confirmation';
+import { judgeOverride } from '../domain/price-override';
 import { lineNumber } from '../domain/line-numbers';
 import { paymentStatusOf, type OrderStatus, type PaymentStatus } from '../domain/order';
 import { pageProbe, windowAfter } from '../domain/paging';
 import type { OrderConfirmed, OrderPlaced } from '../events';
 import { OrderInvalidError, OrderStockShortError, PriceOverrideNeedsApprovalError, QuoteRequiredError, type SaleRule } from './errors';
 import type { OrderConfirmationPolicy } from './order-confirmation-policy';
+import type { ApprovalPendingView } from './order-reversals';
+import type { FlaggedLine, PriceOverrides } from './price-overrides';
 import type { NewOrderLine, OrderHeaderRecord, OrderLineRecord, OrderRecord, OrderStore } from './order-store';
 
 const READ = 'ord.order.read';
 const CREATE = 'ord.order.create';
 const CONFIRM = 'ord.order.confirm';
+const PROFORMA = 'bil.proforma.create';
 export const ORDER_PLACED = 'ord.OrderPlaced';
 export const ORDER_CONFIRMED = 'ord.OrderConfirmed';
-/**
- * What a seller may take off the list price without an approval until role limits and their approval are built
- * (B09a continued 2c, A-225): nothing, as in the sale posting (A-208 (c)). A price above list within the ceiling needs
- * only its reason.
- */
-const ALLOWANCE_BEFORE_ROLE_LIMITS = 0n;
 
 /** An order line as staff enter it (the contract's `OrderLineInput`): quantities in the product's base unit. */
 export interface OrderLineInput {
@@ -205,6 +203,7 @@ export class Orders {
     private readonly principals: PrincipalNames,
     private readonly cursors: Cursors,
     private readonly clock: Clock,
+    private readonly overrides: PriceOverrides,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -265,10 +264,12 @@ export class Orders {
   /**
    * createOrder (FR-ORD-001, FR-ORD-003, FR-ORD-004, A-224): an order for a customer at the one branch the caller enters
    * orders for, PLACED with its number, every line priced by the engine now; nothing is reserved or charged yet. A line
-   * the engine cannot price is QUOTE_REQUIRED; a price below list or outside the band is PRICE_OVERRIDE_NEEDS_APPROVAL
-   * until its approval exists (A-225). Replayed by its Idempotency-Key.
+   * the engine cannot price is QUOTE_REQUIRED. A price outside the band, or below list beyond the seller's per-line
+   * limit, makes the order wait for a different user's approval: it is entered PLACED with those lines flagged and a
+   * `PRICE_OVERRIDE` approval asked for, and the answer is 202 `ApprovalPending`; it cannot be confirmed until approved
+   * (A-230). Replayed by its Idempotency-Key.
    */
-  async create(actor: Actor | undefined, request: OrderCreateRequest, key: string): Promise<StoredResponse<SalesOrderView>> {
+  async create(actor: Actor | undefined, request: OrderCreateRequest, key: string): Promise<StoredResponse<SalesOrderView | ApprovalPendingView>> {
     const branchId = await this.uow.run({ isolation: 'read committed' }, async (tx) => {
       await this.authoriser.authorise(tx, actor, CREATE);
       const branches = await this.wholeBranches(tx, actor!, CREATE);
@@ -285,7 +286,7 @@ export class Orders {
         key,
         request: { ...request, lines: request.lines.map((l) => ({ ...l, agreedUnitPricePesewas: l.agreedUnitPricePesewas?.toString() ?? null })) },
       });
-      if (claim.kind === 'REPLAY') return claim.response as StoredResponse<SalesOrderView>;
+      if (claim.kind === 'REPLAY') return claim.response as StoredResponse<SalesOrderView | ApprovalPendingView>;
 
       const at = this.clock.now();
       const broken: SaleRule[] = [];
@@ -300,9 +301,15 @@ export class Orders {
 
       const branch = (await this.refs.branchesIn(tx, [branchId])).get(branchId)!;
       const orderId = this.nextId();
-      const lines = await this.priceLines(tx, orderId, branchId, request, at);
+      const limit = await this.overrides.lineLimitIn(tx, actor!, branchId);
+      const { lines: priced, flagged } = await this.priceLines(tx, orderId, branchId, request, at, limit);
       await this.documents.register(tx, { id: orderId, docType: 'SALES_ORDER', ownerModule: 'ord', branchId, actorId: actor!.principalId });
       const orderNo = await this.numbers.allocateIn(tx, { docType: 'SALES_ORDER', fiscalYear: Number(toBusinessDate(at).slice(0, 4)), branchId, branchCode: branch.code, documentId: orderId });
+      const approval =
+        flagged.length === 0
+          ? null
+          : await this.overrides.requestIn(tx, actor!, { orderId, orderNo, branchId, customerId: request.customerId, salespersonId: actor!.principalId, lines: flagged });
+      const lines = priced.map((l) => (l.varianceRequiresApproval ? { ...l, varianceApprovalRequestId: approval!.id } : l));
       const estimated = Money.sum(lines.map((l) => Money.ofPesewas(l.estimatedLineTotalPesewas)));
       await this.store.insertOrder(tx, {
         id: orderId,
@@ -341,7 +348,8 @@ export class Orders {
       };
       await this.events.publish(tx, { type: ORDER_PLACED, subjectType: 'SalesOrder', subjectId: orderId, branchId, payload: placed, occurredAt: at });
       await this.audit.record(tx, { module: 'ord', action: 'CREATE', entityType: 'SalesOrder', entityId: orderId, branchId, before: null, after: { ...view } });
-      const response = { status: 201, body: view };
+      const response: StoredResponse<SalesOrderView | ApprovalPendingView> =
+        approval === null ? { status: 201, body: view } : { status: 202, body: this.overrides.pendingView(approval, { id: orderId, number: orderNo }) };
       await this.idempotency.complete(tx, claim.id, response);
       return response;
     });
@@ -377,6 +385,8 @@ export class Orders {
       if (header.status !== 'PLACED')
         throw new InvalidStateTransitionError(`order ${id} is ${header.status}`, [{ field: null, code: header.status, message: translate('error.invalid_state_transition') }]);
       const before = await this.viewOf(tx, id);
+      const waiting = await this.overrides.unapprovedIn(tx, (await this.store.orders(tx, [id]))[0]!);
+      if (waiting.length > 0) throw new PriceOverrideNeedsApprovalError(waiting);
 
       const received = receivedForOrder(await this.payments.ofOrderIn(tx, id));
       const credit = header.paymentTerms === 'CREDIT' ? await this.creditFor(tx, header) : null;
@@ -456,6 +466,77 @@ export class Orders {
     });
   }
 
+  /**
+   * issueProforma (A-201): the order's proforma through BIL's `Billing.issueIn`, numbered from its `PROFORMA` series, at
+   * the prices the order's lines keep (agreed, with the resolved price beside it), posting nothing to the ledger. Only a
+   * PLACED or CONFIRMED order, once, with every override approved: an unapproved price is never offered on paper. A
+   * second copy is a reprint (`reprintBillingDocument`). Authorised at the order's branch with `bil.proforma.create`.
+   */
+  async issueProforma(actor: Actor | undefined, id: string, key: string): Promise<StoredResponse<BillingDocumentView>> {
+    const branchId = await this.uow.run({ isolation: 'read committed' }, async (tx) => {
+      await this.authoriser.authorise(tx, actor, PROFORMA);
+      const [order] = await this.store.orders(tx, [id]);
+      if (order === undefined) throw new NotFoundError('no such order');
+      await this.authoriser.authorise(tx, actor, PROFORMA, { branchId: order.branchId });
+      return order.branchId;
+    });
+    return this.uow.run({ isolation: 'serializable', seriesLocks: this.billing.seriesLocksFor('PROFORMA', branchId) }, async (tx) => {
+      await this.authoriser.authorise(tx, actor, PROFORMA);
+      const claim = await this.idempotency.claim(tx, { operationId: 'issueProforma', principalId: actor!.principalId, key, request: { id } });
+      if (claim.kind === 'REPLAY') return claim.response as StoredResponse<BillingDocumentView>;
+      const header = await this.store.lock(tx, id);
+      if (header === null) throw new NotFoundError('no such order');
+      await this.authoriser.authorise(tx, actor, PROFORMA, { branchId: header.branchId });
+      if (header.status !== 'PLACED' && header.status !== 'CONFIRMED') {
+        throw new InvalidStateTransitionError(`order ${id} is ${header.status}`, [{ field: null, code: header.status, message: translate('error.invalid_state_transition') }]);
+      }
+      if (header.proformaDocumentId !== null) throw new OrderInvalidError([{ field: '', rule: 'PROFORMA_ISSUED' }]);
+      const [order] = await this.store.orders(tx, [id]);
+      const waiting = await this.overrides.unapprovedIn(tx, order!);
+      if (waiting.length > 0) throw new PriceOverrideNeedsApprovalError(waiting);
+      const open = order!.lines.filter((l) => l.lineStatus !== 'CANCELLED');
+      const units = await this.units.factsIn(
+        tx,
+        open.flatMap((l) => (l.stockUnitId === null ? [] : [l.stockUnitId])),
+        this.clock.now(),
+      );
+      const proforma = await this.billing.issueIn(tx, actor, {
+        kind: 'PROFORMA',
+        branchId: header.branchId,
+        customerId: header.customerId,
+        orderDocumentId: id,
+        taxInclusive: header.taxInclusive,
+        lines: open.map((l) => {
+          const unit = l.stockUnitId === null ? undefined : units.get(l.stockUnitId);
+          return {
+            lineKind: 'PRODUCT' as const,
+            productId: l.productId,
+            stockUnit: unit === undefined ? null : { id: unit.id, identifier: unit.identifier, tracking: unit.tracking },
+            orderLineRef: l.id,
+            quantity: l.qtyOrdered,
+            uom: l.uom,
+            unitPricePesewas: l.agreedUnitPricePesewas,
+            resolvedUnitPricePesewas: l.resolvedUnitPricePesewas,
+          };
+        }),
+      });
+      const at = this.clock.now();
+      await this.store.setProforma(tx, id, { documentId: proforma.id, at, actorId: actor!.principalId });
+      await this.audit.record(tx, {
+        module: 'ord',
+        action: 'ISSUE_PROFORMA',
+        entityType: 'SalesOrder',
+        entityId: id,
+        branchId: header.branchId,
+        before: { proformaDocumentId: null },
+        after: { proformaDocumentId: proforma.id, documentNo: proforma.documentNo, grossPesewas: proforma.grossPesewas },
+      });
+      const response = { status: 201, body: proforma };
+      await this.idempotency.complete(tx, claim.id, response);
+      return response;
+    });
+  }
+
   /** The branches where the caller holds the permission for the whole branch; a grant at one location adds none. */
   private async wholeBranches(tx: Transaction, actor: Actor, permission: string): Promise<string[]> {
     return [...new Set((await this.authoriser.scopes(tx, actor, permission)).filter((s) => s.locationId === null).map((s) => s.branchId))].sort();
@@ -474,7 +555,14 @@ export class Orders {
    * posting prices a sale. A line priced by the kilogram waits for catch weight (B11): its estimate, tolerance and
    * re-pricing at the scale are not built, so it is refused rather than estimated here (A-224).
    */
-  private async priceLines(tx: Transaction, orderId: string, branchId: string, request: OrderCreateRequest, at: Date): Promise<NewOrderLine[]> {
+  private async priceLines(
+    tx: Transaction,
+    orderId: string,
+    branchId: string,
+    request: OrderCreateRequest,
+    at: Date,
+    lineLimit: bigint,
+  ): Promise<{ readonly lines: NewOrderLine[]; readonly flagged: FlaggedLine[] }> {
     const products = await this.refs.productsIn(
       tx,
       request.lines.map((l) => l.productId),
@@ -525,8 +613,8 @@ export class Orders {
     const unpriced = resolved.lines.filter((l) => l.outcome !== 'RESOLVED' || l.resolved === null);
     if (unpriced.length > 0) throw new QuoteRequiredError(unpriced.map((l) => ({ field: `/lines/${l.lineRef}`, reason: l.quoteRequiredReason ?? 'NO_RULE' })));
 
-    const overrides: { field: string; reason: string }[] = [];
     const lines: NewOrderLine[] = [];
+    const flagged: FlaggedLine[] = [];
     for (const c of checked) {
       const line = request.lines[c.index]!;
       const band = resolved.lines.find((l) => l.lineRef === String(c.index))!.resolved!;
@@ -536,12 +624,17 @@ export class Orders {
       }
       const list = BigInt(band.listPricePesewas);
       const agreed = line.agreedUnitPricePesewas ?? list;
-      const verdict = judgeAgreedPrice(
+      const measure = { quantity: c.qty, weight: null };
+      const agreedTotal = extendPrice(agreed, band.basis, measure);
+      const resolvedTotal = extendPrice(list, band.basis, measure);
+      if (!agreedTotal.ok || !resolvedTotal.ok) throw new Error(`a ${band.basis} line extends without a weight`);
+      const variance = resolvedTotal.value > agreedTotal.value ? resolvedTotal.value - agreedTotal.value : agreedTotal.value - resolvedTotal.value;
+      const verdict = judgeOverride(
         { listPricePesewas: list, floorPricePesewas: BigInt(band.floorPricePesewas), ceilingPricePesewas: BigInt(band.ceilingPricePesewas) },
         agreed,
-        ALLOWANCE_BEFORE_ROLE_LIMITS,
+        variance,
+        lineLimit,
       );
-      if (verdict.kind === 'VARIANCE' && verdict.approval !== null) overrides.push({ field: lineField(c.index, 'agreedUnitPricePesewas'), reason: verdict.approval });
       const reasonCode = line.varianceReasonCode ?? null;
       if (verdict.kind === 'VARIANCE') {
         const reason = reasonCode === null ? undefined : reasons.get(reasonCode);
@@ -549,12 +642,7 @@ export class Orders {
         else if (reason === undefined || reason.domain !== 'PRICE_OVERRIDE') broken.push({ field: lineField(c.index, 'varianceReasonCode'), rule: 'VARIANCE_REASON_INVALID' });
         else if (reason.requiresNote) broken.push({ field: lineField(c.index, 'varianceReasonCode'), rule: 'VARIANCE_NOTE_REQUIRED' });
       }
-      const measure = { quantity: c.qty, weight: null };
-      const agreedTotal = extendPrice(agreed, band.basis, measure);
-      const resolvedTotal = extendPrice(list, band.basis, measure);
-      if (!agreedTotal.ok || !resolvedTotal.ok) throw new Error(`a ${band.basis} line extends without a weight`);
-      const variance = resolvedTotal.value > agreedTotal.value ? resolvedTotal.value - agreedTotal.value : agreedTotal.value - resolvedTotal.value;
-      lines.push({
+      const record: NewOrderLine = {
         id: this.nextId(),
         salesOrderId: orderId,
         lineNo: lineNumber(c.index),
@@ -575,18 +663,22 @@ export class Orders {
         variancePesewas: verdict.kind === 'VARIANCE' ? variance : 0n,
         varianceDirection: verdict.kind === 'VARIANCE' ? verdict.direction : null,
         varianceReasonCode: verdict.kind === 'VARIANCE' ? reasonCode : null,
-        varianceRequiresApproval: false,
+        varianceRequiresApproval: verdict.kind === 'VARIANCE' && verdict.approval !== null,
+        varianceApprovalRequestId: null,
+        varianceApprovedBy: null,
+        varianceApprovedAt: null,
         discountPesewas: 0n,
         estimatedLineTotalPesewas: agreedTotal.value,
         finalLineTotalPesewas: null,
         reservationId: null,
         stockMovementId: null,
         lineStatus: 'OPEN',
-      });
+      };
+      lines.push(record);
+      if (verdict.kind === 'VARIANCE' && verdict.approval !== null) flagged.push({ ...record, approval: verdict.approval });
     }
-    if (overrides.length > 0) throw new PriceOverrideNeedsApprovalError(overrides);
     if (broken.length > 0) throw new OrderInvalidError(broken);
-    return lines;
+    return { lines, flagged };
   }
 
   /** The order as the contract reads it, in the caller's transaction (ORD's own reversals answer with it). */

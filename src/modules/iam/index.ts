@@ -4,7 +4,7 @@
  */
 export { Authoriser, type AuthoriseScope } from './application/authoriser';
 export type { GrantScope } from './domain/authorisation-policy';
-export { Approvals, type ApprovalHandler, type ApprovalJudgement, type ApprovalRecord, type NewApproval } from './application/approvals';
+export { Approvals, type ApprovalHandler, type ApprovalJudgement, type ApprovalListing, type ApprovalRecord, type NewApproval } from './application/approvals';
 export { PRINCIPAL_NAMES, type PrincipalNames, type PrincipalRef } from './application/principal-names';
 export { ScopeNamesRegistry } from './application/authentication.service';
 export type { BranchRefRecord, LocationRefRecord, ScopeNames } from './application/ports';

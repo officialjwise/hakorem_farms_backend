@@ -3,7 +3,8 @@
  * `postIn` posts a sale on any channel in the caller's serializable transaction, with `locksFor` naming its series
  * locks. B09a continued 2b adds `Orders` (the order record's reads, entry and confirmation) and the
  * `OrderConfirmationPolicy` port WHL implements (B10). B09a continued 2c adds `OrderReversals` (cancelOrder, and voidOrder
- * under the `SALE_VOID` approval). Events are in `events.ts`.
+ * under the `SALE_VOID` approval). B09a continued 2d adds `Returns`; 2e adds the `PRICE_OVERRIDE` approval and the
+ * sale posting's `requestOverrideIn` (A-230). Events are in `events.ts`.
  */
 export { OrdModule } from './ord.module';
 export { SalePosting, ORDER_COMPLETED, POST_SALE_OPERATION, type SaleLineRequest, type SaleRequest, type SaleTenderRequest, type SaleView } from './application/sale-posting';
@@ -15,3 +16,6 @@ export { OrderReversals, ORDER_CANCELLED, ORDER_VOIDED, SALE_VOID_KIND, SALE_VOI
 export type { OrderCancelled, OrderCompleted, OrderConfirmed, OrderPlaced, OrderVoided, SaleVoidRequested } from './events';
 export { Returns, RETURN_COMPLETED, RETURN_KIND, RETURN_SUBMITTED, type OrderReturnView } from './application/returns';
 export type { ReturnCompleted, ReturnSubmitted } from './events';
+export { PRICE_OVERRIDE_APPROVED, PRICE_OVERRIDE_REQUESTED } from './application/price-overrides';
+export { PRICE_OVERRIDE_KIND } from './domain/price-override';
+export type { PriceOverrideApproved, PriceOverrideRequested } from './events';

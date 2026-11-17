@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.49.0"
+  version: "1.50.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -44489,7 +44489,7 @@ paths:
       tags:
         - bil
       summary: "Issue a proforma invoice for an order"
-      description: "Permission: `bil.proforma.create`."
+      description: "Issues the order's proforma invoice, numbered from its `PROFORMA` series (`PRO-...`), at the prices the order's lines keep (the agreed price, with the resolved list price beside it) and taxed as the order is; it posts nothing to the ledger and changes nothing on the order but naming it. Only a `PLACED` or `CONFIRMED` order (422 INVALID_STATE_TRANSITION, `details[].code` the status), once (422 ORDER_INVALID `PROFORMA_ISSUED`: print another copy with `reprintBillingDocument`), and only once every price override on it is approved (422 PRICE_OVERRIDE_NEEDS_APPROVAL, `APPROVAL_PENDING` or `APPROVAL_REJECTED` per line), so an unapproved price is never offered on paper. Authorised at the order's branch (A-201, A-230).\n\nPermission: `bil.proforma.create`."
       x-permission: bil.proforma.create
       parameters:
         - name: id
@@ -44517,7 +44517,7 @@ paths:
                 id: "019a7ae1-6b23-7af3-902c-b80f6efa30ed"
                 kind: PROFORMA
                 status: ISSUED
-                documentNo: PRF-2026-DDW-000019
+                documentNo: PRO-2026-DDW-000019
                 provisionalRef: null
                 customer:
                   id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
@@ -49367,7 +49367,7 @@ paths:
       tags:
         - ord
       summary: "Enter an order for a customer"
-      description: "Enters a PLACED order at the one branch where the caller enters orders, numbered from its `SALES_ORDER` series; nothing is reserved or charged until `confirmOrder`. Every line is priced by the pricing engine now and keeps the full pricing record. A line the pricing engine cannot price is refused with 422 QUOTE_REQUIRED naming the line; raise a quote instead. A price below list or outside the band is 422 PRICE_OVERRIDE_NEEDS_APPROVAL until its approval is built; a price above list within the band needs a `PRICE_OVERRIDE` reason. Until delivery scheduling, catch weight and promotions on staff orders are built, `DELIVERY`, a line priced per kilogram and a coupon are refused (422 ORDER_INVALID: `FULFILMENT_NOT_AVAILABLE`, `CATCH_WEIGHT_NOT_AVAILABLE`, `COUPON_NOT_AVAILABLE`); every other rule a line breaks is also named in `details[].code` (A-224).\n\nPermission: `ord.order.create`."
+      description: "Enters a PLACED order at the one branch where the caller enters orders, numbered from its `SALES_ORDER` series; nothing is reserved or charged until `confirmOrder`. Every line is priced by the pricing engine now and keeps the full pricing record. A line the pricing engine cannot price is refused with 422 QUOTE_REQUIRED naming the line; raise a quote instead. Every agreed price that differs from list needs a `PRICE_OVERRIDE` reason. A price above list up to the ceiling needs nothing more. A price below list within the band needs nothing more while the line's whole variance (the difference extended over the line) is at or under the seller's per-line limit (`PRICE_OVERRIDE_PER_LINE`, the largest among the roles they hold at the branch; with none set, every price below list waits). A price outside the band, or below list beyond that limit, makes the order wait for a different user: it is entered `PLACED` with those lines' `varianceApprovalRequestId` set, and the answer is 202 `ApprovalPending` (kind `PRICE_OVERRIDE`, its subject the order, with its number). The order cannot be confirmed, nor its proforma issued, until a holder of `ord.price_override.approve`, with a fresh step-up, who neither asked, nor sold, nor wrote the order, approves (422 MAKER_CANNOT_CHECK otherwise; the database refuses it too). A rejected override leaves the order `PLACED` and unconfirmable; cancelling it withdraws a waiting override (A-230). Until delivery scheduling, catch weight and promotions on staff orders are built, `DELIVERY`, a line priced per kilogram and a coupon are refused (422 ORDER_INVALID: `FULFILMENT_NOT_AVAILABLE`, `CATCH_WEIGHT_NOT_AVAILABLE`, `COUPON_NOT_AVAILABLE`); every other rule a line breaks is also named in `details[].code` (A-224).\n\nPermission: `ord.order.create`."
       x-permission: ord.order.create
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -49508,6 +49508,25 @@ paths:
                 notes: "Collecting Friday morning for the hotel kitchen"
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                 version: 1
+        "202":
+          description: "Accepted for approval: the order is entered PLACED and waits for a different user to approve its price."
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalPending"
+              example:
+                status: PENDING_APPROVAL
+                approvalRequestId: "019a7af3-1c2d-7e4f-8a6b-3c5d7e9f1a2b"
+                kind: PRICE_OVERRIDE
+                subject:
+                  id: "019a7af0-a4c5-78e8-be21-975d5418103b"
+                  docType: SALES_ORDER
+                  number: SO-2026-DDW-004198
+                summary: "Price override on SO-2026-DDW-004198: 1 line, GHS 1.00 from list (BEYOND_ROLE_LIMIT)"
+                requestedAt: "2026-11-12T16:00:00Z"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -49715,7 +49734,7 @@ paths:
       tags:
         - ord
       summary: "Confirm an order: reserve stock and check credit"
-      description: "Runs at serializable isolation. First the payment or credit check: a cash-on-delivery order needs none, a prepaid order needs its estimate received in cleared payments (else 422 ORDER_INVALID `PREPAYMENT_SHORT`), and a credit order needs a credit policy to pass it. Then every open line is reserved for the order from the stock a remote buyer may be promised, oldest first. If any line cannot be covered, nothing is reserved, the order stays `PLACED`, and the answer is 422 STOCK_UNAVAILABLE with one `NOT_ENOUGH_STOCK` detail per short line (`field` `/lines/<lineNo>`, the message saying how much is short). A confirmed order holds its stock until fulfilment, cancellation or void. Only a `PLACED` order is confirmed (else 422 INVALID_STATE_TRANSITION, `details[].code` the status). For a business account over its credit limit or on hold, returns 202 with an approval for a credit override (credit control, B10; until it is built a credit order is refused with 422 ORDER_INVALID `CREDIT_CHECK_UNAVAILABLE`, A-224).\n\nPermission: `ord.order.confirm`.\n\nMay require approval of kind `CREDIT_OVERRIDE`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+      description: "Runs at serializable isolation. First the payment or credit check: a cash-on-delivery order needs none, a prepaid order needs its estimate received in cleared payments (else 422 ORDER_INVALID `PREPAYMENT_SHORT`), and a credit order needs a credit policy to pass it. Then every open line is reserved for the order from the stock a remote buyer may be promised, oldest first. If any line cannot be covered, nothing is reserved, the order stays `PLACED`, and the answer is 422 STOCK_UNAVAILABLE with one `NOT_ENOUGH_STOCK` detail per short line (`field` `/lines/<lineNo>`, the message saying how much is short). A confirmed order holds its stock until fulfilment, cancellation or void. Only a `PLACED` order is confirmed (else 422 INVALID_STATE_TRANSITION, `details[].code` the status). An order with a price override not yet approved is 422 PRICE_OVERRIDE_NEEDS_APPROVAL, one detail per line (`/lines/<lineNo>/agreedUnitPricePesewas`, `APPROVAL_PENDING` or `APPROVAL_REJECTED`), and nothing is reserved (A-230). For a business account over its credit limit or on hold, returns 202 with an approval for a credit override (credit control, B10; until it is built a credit order is refused with 422 ORDER_INVALID `CREDIT_CHECK_UNAVAILABLE`, A-224).\n\nPermission: `ord.order.confirm`.\n\nMay require approval of kind `CREDIT_OVERRIDE`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
       x-permission: ord.order.confirm
       parameters:
         - name: id
