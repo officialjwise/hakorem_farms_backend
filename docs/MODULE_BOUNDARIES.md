@@ -143,6 +143,7 @@ Each card gives: what the module owns, its public interface (the services export
 - **Built in B09a continued 2d (A-228, ADR-0068):** `StockMovements.returnSaleIn`, a customer return of part or all of a sale issue in the caller's transaction (`SALE_RETURN` naming `returns_movement_id`), valued by the database at its share of the issue (migration 0199).
 - **Built in B09a continued 2f (A-232, ADR-0070):** `Reservations.transferHeldByIn`, every active reservation of one document handed to another in the caller's serializable transaction (an online order taking over its checkout's hold): each ended RELEASED and published with `transferredToDocumentId`, the same stock reserved again for the new holder with no expiry; it authorises nothing. `inv.ReservationReleased` and `inv.ReservationExpired` carry `transferredToDocumentId` (null except for a hand-over).
 - **Built in B09q (ADR-0072, A-251):** the stock unit label (`StockQueries.getStockUnitLabel`, the domain's `stockUnitLabel`) prints its text only, with no barcode.
+- **Built in B09e (ADR-0075, A-259):** a bought lot is valued by its place in the delivery, by the triggers of migration 0214 (`inv.cost_pool.anchor_qty`, `anchor_value_pesewas`); no interface changed, and the value is still the database's.
 
 ### LIV: livestock management (layer 6)
 

@@ -41,6 +41,8 @@ export interface StockFixture {
   readonly eggs: string;
   /** Catch-weight beef in kilogram lots. */
   readonly beef: string;
+  /** Eggs counted one by one and held in lots, one per delivery (B09e): the crate of 30 is how they are sold, not stored. */
+  readonly eggLots: string;
   readonly actor: string;
 }
 
@@ -97,6 +99,7 @@ export async function createStockFixture(database: TestDatabase): Promise<StockF
     goat: await product(app, { sku: 'LIV-0004', categoryId: catalogue.liveCategoryId, policy: 'SERIALISED', tracking: 'SERIAL', speciesId: catalogue.goatSpeciesId, uom: 'HEAD', gl: 'LIVE_ANIMALS', tax: TAX_CATEGORY.LIVE_ANIMALS }),
     eggs: await product(app, { sku: 'EGG-0003', categoryId: catalogue.eggsCategoryId, policy: 'COUNTABLE', tracking: 'NONE', uom: 'CRATE', gl: 'PRODUCE_EGGS', tax: TAX_CATEGORY.EGGS }),
     beef: await product(app, { sku: 'MEAT-BEEF-15', categoryId: catalogue.meatCategoryId, policy: 'CATCH_WEIGHT', tracking: 'LOT', uom: 'KG', gl: 'MEAT', tax: TAX_CATEGORY.PROCESSED_MEAT }),
+    eggLots: await product(app, { sku: 'EGG-LOT-0001', categoryId: catalogue.eggsCategoryId, policy: 'COUNTABLE', tracking: 'LOT', uom: 'UNIT', gl: 'PRODUCE_EGGS', tax: TAX_CATEGORY.EGGS }),
     actor,
   };
 }
