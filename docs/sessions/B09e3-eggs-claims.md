@@ -1,6 +1,6 @@
 # B09e continued 2: reasons for goods rejected at the door, breakage in store, the last price paid
 
-Date: 2026-11-17 · Branch `b09e3-eggs-claims`, from `main` (`bf4e41d`) · Pull request #90 · Status: **phase split** (A-271). The rejection reasons, the breakage reasons and the last price paid reached their part of the gate. The claim moves to **B09e continued 3**, which runs next.
+Date: 2026-11-17 · Branch `b09e3-eggs-claims`, from `main` (`bf4e41d`) · Pull request #90 (**not merged**: the dependency audit turned red on an upstream advisory with no fix; see CI) · Status: **phase split** (A-271). The rejection reasons, the breakage reasons and the last price paid reached their part of the gate. The claim moves to **B09e continued 3**, which runs next.
 
 Run as a fresh agent inside the 2026-11-15 overnight session: the parent session cannot issue /clear or /compact, so each phase starts in a new context that reads only this handoff from disk.
 
@@ -192,8 +192,18 @@ I fetched the frontend's `main` at `5a44d38` at the start and again before writi
 ## CI
 
 - **`9747b73`** (the code and docs head, pushed before pull request #90 was opened): run **44134426749 (push)** **succeeded**. Its jobs: lint and type check; unit and integration with the coverage gate; contract; the setup script with end to end, smoke and the last migration rolled back and applied again; the image build and scan; and security. No `pull_request` run exists for `9747b73`, because the pull request was opened after that push.
-- No run was red on this branch, and nothing was re-run, skipped or quarantined.
-- A commit cannot name its own runs, so the runs on this report's commit (the final head, with its `push` and `pull_request` runs) are named in the session's closing message. The pull request is merged with a merge commit only once every run on its head is green.
+- **`51a1dd3`** (this report's first commit): run **44135873247 (push)** **failed**. One job failed: "secret scan, dependency audit, static analysis (SEC-034)", at its step "dependency audit, high and critical block" (`pnpm audit --audit-level high`). Every other job succeeded. No `pull_request` run exists for `51a1dd3`.
+- **What failed, and why it is not this phase's change:**
+  - The audit now reports a **high** advisory, GHSA-fc5q-39xc-vjpf: picomatch ReDoS through repeated extglobs, all versions up to 4.0.7, **no patched version** ("<0.0.0").
+  - It reaches the repository only through development tooling: `eslint-import-resolver-typescript > tinyglobby > picomatch` and `eslint-plugin-boundaries > micromatch > picomatch`. `pnpm audit --audit-level high --prod` reports no high finding.
+  - The same job passed on `9747b73` half an hour earlier with the same lockfile, so the advisory's rating changed in between. `main` will fail the same job on its next run.
+  - 4.0.7 is the latest picomatch on npm, so no override can reach a fixed version (unlike A-076's multer and handlebars).
+- **Not fixed, and the pull request is not merged.** The ways out are an owner's security decision, not a reversible choice this phase may make on its own:
+  - accept the risk with a time-limited `pnpm.auditConfig.ignoreGhsas` entry and its assumption;
+  - run the CI audit over production dependencies only;
+  - drop or replace the two eslint dependencies.
+
+  Nothing was re-run, skipped or quarantined. The runs on this report's final commit are named in the session's closing message.
 
 ## Next session
 
