@@ -48,6 +48,10 @@ export const PROFORMA_ISSUED = 'bil.ProformaIssued';
 export const BIL_LEDGER_EVENTS = [INVOICE_ISSUED, CREDIT_NOTE_ISSUED, DEBIT_NOTE_ISSUED] as const;
 const READ = 'bil.document.read';
 const CREDIT = 'bil.credit_note.create';
+/** The reasons a credit note raised on its own takes (A-200 (c)). */
+const CREDIT_REASON_DOMAINS = ['REFUND', 'RETURN'] as const;
+/** A credit note issued in a higher module's approved correction may also give a sale's void reason. */
+const IN_TRANSACTION_CREDIT_REASON_DOMAINS = ['REFUND', 'RETURN', 'VOID'] as const;
 const DEBIT = 'bil.debit_note.create';
 const REPRINT = 'bil.document.reprint';
 const BILLING_KINDS: readonly string[] = ['PROFORMA', 'INVOICE', 'RECEIPT', 'CREDIT_NOTE', 'DEBIT_NOTE'];
@@ -463,61 +467,7 @@ export class Billing {
   issueCreditNote(actor: Actor | undefined, originalId: string, body: CreditNoteRequest, idempotencyKey: string): Promise<StoredResponse<BillingDocumentView | ApprovalPendingView>> {
     const locks = (branchId: string) => this.seriesLocksFor('CREDIT_NOTE', branchId);
     return this.command<CreditNoteRequest, BillingDocumentView | ApprovalPendingView>(actor, CREDIT, 'issueCreditNote', originalId, body, idempotencyKey, locks, async (tx, original) => {
-      const reason = (await this.refs.reasonCodesIn(tx, [body.reasonCode])).get(body.reasonCode);
-      const broken: BrokenRule[] = [...noteReasonRule('CREDIT_NOTE', reason, body.note ?? null)];
-      const anchorOf = (l: LineRecord) => (original.taxInclusive ? l.lineGrossPesewas : l.lineNetPesewas);
-      const credited = await this.store.creditedAnchors(
-        tx,
-        original.lines.map((l) => l.id),
-        original.taxInclusive,
-      );
-      const creditable = original.lines.map((l) => ({
-        id: l.id,
-        pricing: {
-          unitPrice: Money.ofPesewas(l.unitPricePesewas),
-          resolvedUnitPrice: Money.ofPesewas(l.resolvedUnitPricePesewas),
-          quantity: Quantity.parse(l.qty),
-          discount: Money.ofPesewas(l.discountPesewas),
-        },
-        anchor: Money.ofPesewas(anchorOf(l)),
-        creditedAnchor: Money.ofPesewas(credited.get(l.id) ?? 0n),
-      }));
-      const inputs = body.lines.map((l) => ({
-        lineId: l.lineId,
-        quantity: l.quantity === undefined ? undefined : Quantity.parse(l.quantity),
-        amount: l.amountPesewas === undefined ? undefined : Money.fromJsonInteger(l.amountPesewas),
-      }));
-      const { plans, broken: lineRules } = planCreditLines(creditable, inputs);
-      broken.push(...lineRules);
-      if (broken.length > 0) throw new BillingDocumentInvalidError(broken);
-      const byId = new Map(original.lines.map((l) => [l.id, l] as const));
-      const priced: PricedLine[] = plans.map((plan, i) => {
-        const source = byId.get(plan.lineId)!;
-        return {
-          ref: String(lineNumber(i)),
-          anchor: plan.anchor,
-          variance: 0n,
-          record: {
-            ...source,
-            id: this.nextId(),
-            lineNo: lineNumber(i),
-            orderLineRef: null,
-            creditsLineId: source.id,
-            qty: plan.pricing.quantity.toDecimalString(),
-            discountPesewas: plan.pricing.discount.pesewas,
-            resolvedUnitPricePesewas: source.unitPricePesewas,
-          },
-        };
-      });
-      // The original's tax date gives its scheme version: a credit takes back exactly what was charged (ADR-0020).
-      const { versionId, lines } = await this.taxed(tx, original.taxInclusive, original.issueDate, priced);
-      const gross = documentTotals(lines.map(figures)).gross.pesewas;
-      if (original.creditedPesewas + gross > original.grossPesewas) throw new CreditNoteExceedsOriginalError(original.grossPesewas - original.creditedPesewas);
-      // Never due before it is drafted, as a debit note (A-223): a credit against an overdue invoice is due today.
-      const today = toBusinessDate(this.clock.now());
-      const due = original.dueDate === null ? null : original.dueDate < today ? today : original.dueDate;
-      const header = this.noteHeader(original, 'CREDIT_NOTE', versionId, body.reasonCode, body.note, actor!.principalId, due);
-      await this.writeDraft(tx, header, lines);
+      const { header, gross } = await this.draftCreditIn(tx, original, body, actor!.principalId, CREDIT_REASON_DOMAINS);
       const judged = await this.approvals.judgeIn(tx, CREDIT_NOTE_KIND, original.branchId, gross);
       if (!judged.required) {
         return { status: 201, body: await this.issueDraft(tx, header.id, actor!.principalId, null) };
@@ -554,6 +504,83 @@ export class Billing {
         },
       };
     });
+  }
+
+  /**
+   * A credit note issued at once in the caller's serializable transaction, the correction of a higher module's own
+   * approved document (ORD's void of a sale, B09a continued 2c): the caller has authorised its command and decided, with
+   * its own approval by a different person, that the credit may be made, so no `CREDIT_NOTE` approval is asked here.
+   * The same rules hold as `issueCreditNote`'s: an issued invoice or receipt, never more than it has left uncredited,
+   * its levies recomputed by the original's scheme; a `VOID` reason is admitted beside `REFUND` and `RETURN`. The
+   * caller declares `seriesLocksFor('CREDIT_NOTE', branch)`. It authorises nothing.
+   */
+  async creditIn(tx: Transaction, actorId: string, originalId: string, body: CreditNoteRequest, approvalRequestId: string): Promise<BillingDocumentView> {
+    return translateRefusal(async () => {
+      const original = await this.documentOf(tx, originalId, true);
+      if (!correctable(original)) throw new BillingDocumentInvalidError([{ field: null, rule: 'ORIGINAL_NOT_CORRECTABLE' }]);
+      const { header } = await this.draftCreditIn(tx, original, body, actorId, IN_TRANSACTION_CREDIT_REASON_DOMAINS);
+      return this.issueDraft(tx, header.id, actorId, approvalRequestId);
+    });
+  }
+
+  /** The credit note's draft against an issued original, written and not yet issued, with its gross. */
+  private async draftCreditIn(tx: Transaction, original: DocumentRecord, body: CreditNoteRequest, makerId: string, domains: readonly string[]): Promise<{ readonly header: DraftHeader; readonly gross: bigint }> {
+    const reason = (await this.refs.reasonCodesIn(tx, [body.reasonCode])).get(body.reasonCode);
+    const broken: BrokenRule[] = [...noteReasonRule('CREDIT_NOTE', reason, body.note ?? null, domains)];
+    const anchorOf = (l: LineRecord) => (original.taxInclusive ? l.lineGrossPesewas : l.lineNetPesewas);
+    const credited = await this.store.creditedAnchors(
+      tx,
+      original.lines.map((l) => l.id),
+      original.taxInclusive,
+    );
+    const creditable = original.lines.map((l) => ({
+      id: l.id,
+      pricing: {
+        unitPrice: Money.ofPesewas(l.unitPricePesewas),
+        resolvedUnitPrice: Money.ofPesewas(l.resolvedUnitPricePesewas),
+        quantity: Quantity.parse(l.qty),
+        discount: Money.ofPesewas(l.discountPesewas),
+      },
+      anchor: Money.ofPesewas(anchorOf(l)),
+      creditedAnchor: Money.ofPesewas(credited.get(l.id) ?? 0n),
+    }));
+    const inputs = body.lines.map((l) => ({
+      lineId: l.lineId,
+      quantity: l.quantity === undefined ? undefined : Quantity.parse(l.quantity),
+      amount: l.amountPesewas === undefined ? undefined : Money.fromJsonInteger(l.amountPesewas),
+    }));
+    const { plans, broken: lineRules } = planCreditLines(creditable, inputs);
+    broken.push(...lineRules);
+    if (broken.length > 0) throw new BillingDocumentInvalidError(broken);
+    const byId = new Map(original.lines.map((l) => [l.id, l] as const));
+    const priced: PricedLine[] = plans.map((plan, i) => {
+      const source = byId.get(plan.lineId)!;
+      return {
+        ref: String(lineNumber(i)),
+        anchor: plan.anchor,
+        variance: 0n,
+        record: {
+          ...source,
+          id: this.nextId(),
+          lineNo: lineNumber(i),
+          orderLineRef: null,
+          creditsLineId: source.id,
+          qty: plan.pricing.quantity.toDecimalString(),
+          discountPesewas: plan.pricing.discount.pesewas,
+          resolvedUnitPricePesewas: source.unitPricePesewas,
+        },
+      };
+    });
+    // The original's tax date gives its scheme version: a credit takes back exactly what was charged (ADR-0020).
+    const { versionId, lines } = await this.taxed(tx, original.taxInclusive, original.issueDate, priced);
+    const gross = documentTotals(lines.map(figures)).gross.pesewas;
+    if (original.creditedPesewas + gross > original.grossPesewas) throw new CreditNoteExceedsOriginalError(original.grossPesewas - original.creditedPesewas);
+    // Never due before it is drafted, as a debit note (A-223): a credit against an overdue invoice is due today.
+    const today = toBusinessDate(this.clock.now());
+    const due = original.dueDate === null ? null : original.dueDate < today ? today : original.dueDate;
+    const header = this.noteHeader(original, 'CREDIT_NOTE', versionId, body.reasonCode, body.note, makerId, due);
+    await this.writeDraft(tx, header, lines);
+    return { header, gross };
   }
 
   /** IAM's handler for `CREDIT_NOTE`: the approved draft is issued and posted, numbered in the approval's transaction. */

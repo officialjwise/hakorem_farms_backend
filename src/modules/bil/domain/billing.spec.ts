@@ -179,6 +179,10 @@ describe('the reasons and originals a note may take (FR-BIL-007, FR-MDM-011)', (
     expect(noteReasonRule('CREDIT_NOTE', { domain: 'REFUND', requiresNote: true }, ' ')).toEqual([{ field: '/note', rule: 'NOTE_REQUIRED' }]);
     expect(noteReasonRule('CREDIT_NOTE', { domain: 'REFUND', requiresNote: true }, null)).toEqual([{ field: '/note', rule: 'NOTE_REQUIRED' }]);
   });
+  it('takes a VOID reason only where the caller admits it: a sale voided under its own approval (B09a continued 2c)', () => {
+    expect(noteReasonRule('CREDIT_NOTE', { domain: 'VOID', requiresNote: false }, null)).toEqual([{ field: '/reasonCode', rule: 'REASON_NOT_ALLOWED' }]);
+    expect(noteReasonRule('CREDIT_NOTE', { domain: 'VOID', requiresNote: false }, null, ['REFUND', 'RETURN', 'VOID'])).toEqual([]);
+  });
   it('corrects only an issued invoice or receipt', () => {
     expect(correctable({ kind: 'INVOICE', status: 'ISSUED' })).toBe(true);
     expect(correctable({ kind: 'RECEIPT', status: 'ISSUED' })).toBe(true);

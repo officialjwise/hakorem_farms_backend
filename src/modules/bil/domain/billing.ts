@@ -187,9 +187,13 @@ export function planCreditLines(original: readonly CreditableLine[], inputs: rea
 }
 
 /** A reason a credit or debit note may carry: a credit note a REFUND or RETURN reason, a debit note a BILLING_ADJUSTMENT one. */
-export function noteReasonRule(kind: 'CREDIT_NOTE' | 'DEBIT_NOTE', reason: { readonly domain: string; readonly requiresNote: boolean } | undefined, note: string | null): BrokenRule[] {
+export function noteReasonRule(
+  kind: 'CREDIT_NOTE' | 'DEBIT_NOTE',
+  reason: { readonly domain: string; readonly requiresNote: boolean } | undefined,
+  note: string | null,
+  domains: readonly string[] = kind === 'CREDIT_NOTE' ? ['REFUND', 'RETURN'] : ['BILLING_ADJUSTMENT'],
+): BrokenRule[] {
   if (reason === undefined) return [{ field: '/reasonCode', rule: 'REASON_NOT_ALLOWED' }];
-  const domains = kind === 'CREDIT_NOTE' ? ['REFUND', 'RETURN'] : ['BILLING_ADJUSTMENT'];
   if (!domains.includes(reason.domain)) return [{ field: '/reasonCode', rule: 'REASON_NOT_ALLOWED' }];
   if (reason.requiresNote && (note === null || note.trim() === '')) return [{ field: '/note', rule: 'NOTE_REQUIRED' }];
   return [];

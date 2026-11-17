@@ -27,6 +27,11 @@ export class PgStockReservationStore implements StockReservationStore {
     return rows[0] ?? null;
   }
 
+  async activeOfHolder(tx: Transaction, holderDocumentId: string): Promise<StockReservationRecord[]> {
+    const { rows } = await tx.query<StockReservationRecord>(`${RESERVATION} WHERE r.holder_document_id = $1 AND r.status = 'ACTIVE' ORDER BY r.id FOR UPDATE`, [holderDocumentId]);
+    return rows;
+  }
+
   async reservations(tx: Transaction, filters: StockReservationFilters, scopes: readonly ReadScope[], afterId: string | null, limit: number): Promise<StockReservationRecord[]> {
     const { rows } = await tx.query<StockReservationRecord>(
       `${RESERVATION}

@@ -8,5 +8,6 @@ export { PayModule } from './pay.module';
 export { Payments, PAYMENT_CLEARED, type PaymentView, type SalesChannel, type TenderRequest } from './application/payments';
 export { ProviderPayments } from './application/provider-payments';
 export { Refunds } from './application/refunds';
+export { Receipts } from './application/receipts';
 export { PaymentInvalidError, PaymentRequiresVerificationError } from './application/errors';
 export type { DepositAllocated, PaymentCleared, PaymentFailed, RefundPaid, RegisterRefPayload } from './events';

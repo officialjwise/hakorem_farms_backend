@@ -32,6 +32,8 @@ export interface StockReservationStore {
   insert(tx: Transaction, r: Omit<StockReservationRecord, 'status' | 'releasedReason' | 'createdAt'>, actorId: string): Promise<void>;
   reservation(tx: Transaction, id: string): Promise<StockReservationRecord | null>;
   lock(tx: Transaction, id: string): Promise<StockReservationRecord | null>;
+  /** The ACTIVE reservations a document holds, oldest first, under their row locks (a point read by `ix_stock_reservation_holder`). */
+  activeOfHolder(tx: Transaction, holderDocumentId: string): Promise<StockReservationRecord[]>;
   /** Oldest first, narrowed to the branch of a scope and, for a location-bound scope, its location. */
   reservations(tx: Transaction, filters: StockReservationFilters, scopes: readonly ReadScope[], afterId: string | null, limit: number): Promise<StockReservationRecord[]>;
   /** Ends an ACTIVE reservation once, with its reason; the trigger gives its quantity back to available. */
