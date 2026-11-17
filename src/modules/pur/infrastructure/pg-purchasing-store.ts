@@ -100,7 +100,7 @@ function orderLine(r: LineRow): OrderLineRecord & { purchaseOrderId: string } {
 const INVOICE_COLUMNS = `i.id, i.kind, i.status, i.supplier_id, i.supplier_invoice_no, i.invoice_date::text AS invoice_date, i.due_date::text AS due_date,
   i.purchase_order_id, i.original_invoice_id, i.net_pesewas::text AS net, i.tax_pesewas::text AS tax, i.gross_pesewas::text AS gross,
   i.stated_gross_pesewas::text AS stated, i.paid_pesewas::text AS paid, i.credited_pesewas::text AS credited, i.match_status, i.file_id, i.tax_scheme_version_id, i.branch_id,
-  i.approval_request_id, i.variance_reason, i.return_reason_code, i.posted_by, i.version, i.created_at, i.created_by`;
+  i.approval_request_id, i.variance_reason, i.return_reason_code, i.supplier_claim_id, i.posted_by, i.version, i.created_at, i.created_by`;
 
 interface InvoiceRow {
   id: string;
@@ -125,6 +125,7 @@ interface InvoiceRow {
   approval_request_id: string | null;
   variance_reason: string | null;
   return_reason_code: string | null;
+  supplier_claim_id: string | null;
   posted_by: string | null;
   version: number;
   created_at: Date;
@@ -153,6 +154,7 @@ interface InvoiceLineRow {
   match_reasons: MatchReason[];
   return_location_id: string | null;
   return_stock_unit_id: string | null;
+  supplier_claim_line_id: string | null;
 }
 
 interface LevyRow {
@@ -294,6 +296,12 @@ export class PgPurchasingStore implements PurchasingStore {
     return rows.map(orderLine);
   }
 
+  async orderLinesIn(tx: Transaction, ids: readonly string[]): Promise<(OrderLineRecord & { readonly purchaseOrderId: string })[]> {
+    if (ids.length === 0) return [];
+    const { rows } = await tx.query<LineRow>(`SELECT ${LINE_COLUMNS} FROM pur.purchase_order_line l WHERE l.id = ANY($1::uuid[])`, [ids]);
+    return rows.map(orderLine);
+  }
+
   async setReceived(tx: Transaction, lineId: string, qtyReceived: string): Promise<void> {
     await tx.query('UPDATE pur.purchase_order_line SET qty_received = $2 WHERE id = $1', [lineId, qtyReceived]);
   }
@@ -363,6 +371,8 @@ export class PgPurchasingStore implements PurchasingStore {
       readonly purchaseOrderId: string | null;
       readonly originalInvoiceId: string | null;
       readonly branchId: string;
+      /** A credit note drafted from a receipt's claim (ADR-0076); null otherwise. */
+      readonly supplierClaimId?: string | null;
     },
     lines: readonly InvoiceLineRecord[],
     actorId: string,
@@ -370,11 +380,11 @@ export class PgPurchasingStore implements PurchasingStore {
     await tx.query(
       `INSERT INTO pur.supplier_invoice (id, kind, supplier_id, supplier_invoice_no, invoice_date, due_date, purchase_order_id, net_pesewas, tax_pesewas,
                                          gross_pesewas, stated_gross_pesewas, file_id, tax_scheme_version_id, status, branch_id, created_by, updated_by,
-                                         original_invoice_id, return_reason_code)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'DRAFT', $14, $15, $15, $16, $17)`,
+                                         original_invoice_id, return_reason_code, supplier_claim_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'DRAFT', $14, $15, $15, $16, $17, $18)`,
       [id, header.kind, header.supplierId, header.supplierInvoiceNo, header.invoiceDate, header.dueDate, header.purchaseOrderId, header.netPesewas.toString(),
         header.taxPesewas.toString(), header.grossPesewas.toString(), header.statedGrossPesewas?.toString() ?? null, header.fileId, header.taxSchemeVersionId,
-        header.branchId, actorId, header.originalInvoiceId, header.returnReasonCode],
+        header.branchId, actorId, header.originalInvoiceId, header.returnReasonCode, header.supplierClaimId ?? null],
     );
     await this.insertInvoiceLines(tx, id, lines);
   }
@@ -399,10 +409,11 @@ export class PgPurchasingStore implements PurchasingStore {
     for (const l of lines) {
       await tx.query(
         `INSERT INTO pur.supplier_invoice_line (id, supplier_invoice_id, line_no, product_id, description, purchase_order_line_id, goods_receipt_line_id, uom,
-                                                qty, qty_base, unit_price_pesewas, line_net_pesewas, tax_category_id, expense_category, return_location_id, return_stock_unit_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+                                                qty, qty_base, unit_price_pesewas, line_net_pesewas, tax_category_id, expense_category, return_location_id, return_stock_unit_id,
+                                                supplier_claim_line_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
         [l.id, invoiceId, l.lineNo, l.productId, l.description, l.purchaseOrderLineId, l.goodsReceiptLineId, l.uom, l.qty, l.qtyBase, l.unitPricePesewas.toString(),
-          l.lineNetPesewas.toString(), l.taxCategoryId, l.expenseCategory, l.returnLocationId, l.returnStockUnitId],
+          l.lineNetPesewas.toString(), l.taxCategoryId, l.expenseCategory, l.returnLocationId, l.returnStockUnitId, l.supplierClaimLineId ?? null],
       );
       for (const levy of l.levies) {
         await tx.query(
@@ -448,7 +459,7 @@ export class PgPurchasingStore implements PurchasingStore {
       `SELECT l.id, l.supplier_invoice_id, l.line_no, l.product_id, l.description, l.purchase_order_line_id, l.goods_receipt_line_id, l.uom,
               l.qty::text AS qty, l.qty_base::text AS qty_base, l.unit_price_pesewas::text AS unit_price, l.line_net_pesewas::text AS line_net,
               l.tax_category_id, l.expense_category, l.qty_variance::text AS qty_variance, l.price_variance_pesewas::text AS price_variance,
-              l.price_variance_direction, l.match_status, l.match_reasons, l.return_location_id, l.return_stock_unit_id
+              l.price_variance_direction, l.match_status, l.match_reasons, l.return_location_id, l.return_stock_unit_id, l.supplier_claim_line_id
          FROM pur.supplier_invoice_line l WHERE l.supplier_invoice_id = ANY($1::uuid[]) ORDER BY l.line_no`,
       [ids],
     );
@@ -491,6 +502,7 @@ export class PgPurchasingStore implements PurchasingStore {
       approvalRequestId: r.approval_request_id,
       varianceReason: r.variance_reason,
       returnReasonCode: r.return_reason_code,
+      supplierClaimId: r.supplier_claim_id,
       postedBy: r.posted_by,
       fileId: r.file_id,
       taxSchemeVersionId: r.tax_scheme_version_id,
@@ -521,6 +533,7 @@ export class PgPurchasingStore implements PurchasingStore {
           matchReasons: l.match_reasons,
           returnLocationId: l.return_location_id,
           returnStockUnitId: l.return_stock_unit_id,
+          supplierClaimLineId: l.supplier_claim_line_id,
           levies: levyRows.filter((t) => t.supplier_invoice_line_id === l.id).map(levy),
         })),
     }));

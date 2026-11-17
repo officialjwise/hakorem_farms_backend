@@ -14,7 +14,7 @@ import { FileStore } from '../../platform/storage/file-store';
 import { DocModule, Documents } from '../doc';
 import { BankAccounts, FinModule } from '../fin';
 import { Approvals, Authoriser, IamModule, PRINCIPAL_NAMES, type PrincipalNames } from '../iam';
-import { InvModule, Stock } from '../inv';
+import { GoodsReceipts, InvModule, Stock } from '../inv';
 import { MasterDataRefs, MdmModule, TaxService } from '../mdm';
 import { PURCHASE_ORDER_KIND, PurchaseOrders } from './application/purchase-orders';
 import { PURCHASING_STORE, type PurchasingStore } from './application/purchasing-store';
@@ -22,10 +22,13 @@ import { Requisitions } from './application/requisitions';
 import { PUR_LEDGER_EVENTS, SUPPLIER_CREDIT_NOTE_KIND, SUPPLIER_INVOICE_VARIANCE_KIND, SupplierInvoices } from './application/supplier-invoices';
 import { SUPPLIER_PAYMENT_KIND, SupplierPayments } from './application/supplier-payments';
 import { SupplierScores } from './application/supplier-scores';
+import { SupplierClaims } from './application/supplier-claims';
+import { SUPPLIER_CLAIM_STORE, type SupplierClaimStore } from './application/supplier-claim-store';
 import { SUPPLIER_REGISTER_STORE, type SupplierRegisterStore } from './application/supplier-register-store';
 import { SUPPLIER_PAYOUT_CHANGE_KIND, Suppliers } from './application/suppliers';
 import { PgPurchasingStore } from './infrastructure/pg-purchasing-store';
 import { PgSupplierRegisterStore } from './infrastructure/pg-supplier-register-store';
+import { PgSupplierClaimStore } from './infrastructure/pg-supplier-claim-store';
 import { PurchasingController } from './interface/purchasing.controller';
 import { SupplierRegisterController } from './interface/supplier-register.controller';
 
@@ -41,6 +44,7 @@ import { SupplierRegisterController } from './interface/supplier-register.contro
   providers: [
     { provide: PURCHASING_STORE, useClass: PgPurchasingStore },
     { provide: SUPPLIER_REGISTER_STORE, useClass: PgSupplierRegisterStore },
+    { provide: SUPPLIER_CLAIM_STORE, useClass: PgSupplierClaimStore },
     {
       provide: PurchaseOrders,
       useFactory: (
@@ -80,8 +84,29 @@ import { SupplierRegisterController } from './interface/supplier-register.contro
         principals: PrincipalNames,
         cursors: Cursors,
         clock: Clock,
-      ) => new SupplierInvoices(uow, store, register, refs, tax, files, approvals, stock, authoriser, idempotency, audit, events, documents, principals, cursors, clock),
-      inject: [UnitOfWork, PURCHASING_STORE, SUPPLIER_REGISTER_STORE, MasterDataRefs, TaxService, FileStore, Approvals, Stock, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, PRINCIPAL_NAMES, Cursors, CLOCK],
+        claims: SupplierClaimStore,
+      ) => new SupplierInvoices(uow, store, register, refs, tax, files, approvals, stock, authoriser, idempotency, audit, events, documents, principals, cursors, clock, claims),
+      inject: [UnitOfWork, PURCHASING_STORE, SUPPLIER_REGISTER_STORE, MasterDataRefs, TaxService, FileStore, Approvals, Stock, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, PRINCIPAL_NAMES, Cursors, CLOCK, SUPPLIER_CLAIM_STORE],
+    },
+    {
+      provide: SupplierClaims,
+      useFactory: (
+        uow: UnitOfWork,
+        claims: SupplierClaimStore,
+        store: PurchasingStore,
+        invoices: SupplierInvoices,
+        receipts: GoodsReceipts,
+        refs: MasterDataRefs,
+        authoriser: Authoriser,
+        idempotency: Idempotency,
+        audit: AuditTrail,
+        events: DomainEvents,
+        documents: DocumentRegistry,
+        principals: PrincipalNames,
+        cursors: Cursors,
+        clock: Clock,
+      ) => new SupplierClaims(uow, claims, store, invoices, receipts, refs, authoriser, idempotency, audit, events, documents, principals, cursors, clock),
+      inject: [UnitOfWork, SUPPLIER_CLAIM_STORE, PURCHASING_STORE, SupplierInvoices, GoodsReceipts, MasterDataRefs, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, PRINCIPAL_NAMES, Cursors, CLOCK],
     },
     {
       provide: SupplierScores,
@@ -149,7 +174,7 @@ import { SupplierRegisterController } from './interface/supplier-register.contro
       inject: [UnitOfWork, SUPPLIER_REGISTER_STORE, PurchaseOrders, MasterDataRefs, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, PRINCIPAL_NAMES, Cursors, CLOCK],
     },
   ],
-  exports: [PurchaseOrders, SupplierInvoices, SupplierPayments, SupplierScores, Suppliers, Requisitions],
+  exports: [PurchaseOrders, SupplierInvoices, SupplierClaims, SupplierPayments, SupplierScores, Suppliers, Requisitions],
 })
 export class PurModule implements OnModuleInit {
   constructor(

@@ -154,6 +154,35 @@ export interface GoodsReceiptView {
   readonly postedBy: PrincipalRef | null;
 }
 
+/**
+ * A goods receipt's facts as a higher module's document reads them, in its own transaction (PUR's claim, ADR-0076):
+ * the header, who posted it, and each line in the base unit with its order line and rejection. It authorises nothing;
+ * the caller has.
+ */
+export interface GoodsReceiptFacts {
+  readonly id: string;
+  readonly receiptNo: string | null;
+  readonly kind: ReceiptKind;
+  readonly status: ReceiptStatus;
+  readonly supplierId: string | null;
+  readonly purchaseOrderId: string | null;
+  readonly branchId: string;
+  readonly locationId: string;
+  readonly postedBy: string | null;
+  readonly lines: readonly {
+    readonly id: string;
+    readonly lineNo: number;
+    readonly productId: string;
+    readonly purchaseOrderLineId: string | null;
+    readonly qtyReceivedBase: string;
+    readonly qtyRejectedBase: string;
+    /** The unit the line was entered in when it is not the base unit, and the rejected quantity as entered; else null. */
+    readonly uom: string | null;
+    readonly qtyRejectedUom: string | null;
+    readonly rejectionReasonCode: string | null;
+  }[];
+}
+
 export interface Page<V> {
   readonly data: readonly V[];
   readonly page: { readonly nextCursor: string | null; readonly limit: number; readonly hasMore: boolean };
@@ -230,6 +259,34 @@ export class GoodsReceipts {
       if (record === null) throw new NotFoundError(`no goods receipt ${id}`);
       return (await this.views(tx, [record]))[0]!;
     });
+  }
+
+  /** A receipt's facts in the caller's transaction, or null if there is none; it authorises nothing (the caller has). */
+  async factsIn(tx: Transaction, id: string): Promise<GoodsReceiptFacts | null> {
+    const record = await this.store.receipt(tx, id);
+    if (record === null) return null;
+    return {
+      id: record.id,
+      receiptNo: record.receiptNo,
+      kind: record.kind,
+      status: record.status,
+      supplierId: record.supplierId,
+      purchaseOrderId: record.orderDocumentId,
+      branchId: record.branchId,
+      locationId: record.locationId,
+      postedBy: record.postedBy,
+      lines: record.lines.map((l) => ({
+        id: l.id,
+        lineNo: l.lineNo,
+        productId: l.productId,
+        purchaseOrderLineId: l.orderLineRef,
+        qtyReceivedBase: l.qtyReceived,
+        qtyRejectedBase: l.qtyRejected,
+        uom: l.uom,
+        qtyRejectedUom: l.qtyRejectedUom,
+        rejectionReasonCode: l.rejectionReasonCode,
+      })),
+    };
   }
 
   create(actor: Actor | undefined, body: GoodsReceiptCreateRequest, idempotencyKey: string): Promise<StoredResponse<GoodsReceiptView>> {

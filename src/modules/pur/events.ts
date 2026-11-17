@@ -33,6 +33,31 @@ export interface SupplierInvoiceMismatched {
   readonly lines: readonly { readonly lineNo: number; readonly reasons: readonly string[] }[];
 }
 
+/**
+ * `pur.SupplierClaimRaised` v1 (ADR-0076, CR-036): a claim was raised from a posted goods receipt's rejected lines, at
+ * the order price, never keyed. It moves no stock and posts nothing. The daily exception report (B12) reads it under
+ * `RECEIPT_CLAIM` (THREAT_MODEL abuse case 34: rejections inflated at the door), with who received the goods, who
+ * raised the claim, the reasons and each line's rejected share.
+ */
+export interface SupplierClaimRaised {
+  readonly supplierClaimId: string;
+  readonly supplierId: string;
+  readonly purchaseOrderId: string;
+  readonly goodsReceiptId: string;
+  readonly receivedBy: string;
+  readonly raisedBy: string;
+  readonly claimedPesewas: number;
+  readonly lines: readonly {
+    readonly lineNo: number;
+    readonly productId: string;
+    readonly rejectionReasonCode: string;
+    readonly qtyAcceptedBase: string;
+    readonly qtyRejectedBase: string;
+    readonly claimedValuePesewas: number;
+  }[];
+  readonly abuseCases: readonly number[];
+}
+
 /** One invoice line as the ledger posts it: what it costs at the order price, and what the supplier charged. */
 export interface PurchasePostingLine {
   readonly lineNo: number;

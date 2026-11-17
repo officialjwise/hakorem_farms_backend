@@ -8,16 +8,22 @@ import { zodPipe } from '../../../platform/http/validation';
 import type { StoredResponse } from '../../../platform/idempotency/idempotency';
 import type { ApprovalPendingView, Page } from '../application/purchase-command';
 import { PurchaseOrders, type PurchaseOrderView } from '../application/purchase-orders';
+import { SupplierClaims, type SupplierClaimView } from '../application/supplier-claims';
 import { SupplierInvoices, type SupplierInvoiceView } from '../application/supplier-invoices';
 import { SupplierPayments, type SupplierPaymentView, type SupplierRemittanceView } from '../application/supplier-payments';
 import { SupplierScores, type SupplierScoreView } from '../application/supplier-scores';
 import {
   IdParam,
+  PageQuery,
   PurchaseOrderCreate,
   PurchaseOrderPageQuery,
   PurchaseOrderSend,
   PurchaseOrderUpdate,
   ReasonBody,
+  SupplierClaimCreditNoteDraft,
+  SupplierClaimPageQuery,
+  SupplierClaimRaise,
+  SupplierClaimSettle,
   SupplierInvoiceCreate,
   SupplierInvoicePageQuery,
   SupplierInvoiceUpdate,
@@ -48,7 +54,68 @@ export class PurchasingController {
     @Inject(SupplierInvoices) private readonly invoices: SupplierInvoices,
     @Inject(SupplierPayments) private readonly payments: SupplierPayments,
     @Inject(SupplierScores) private readonly scores: SupplierScores,
+    @Inject(SupplierClaims) private readonly claims: SupplierClaims,
   ) {}
+
+  // Claims from a goods receipt's rejected lines (ADR-0076, CR-036).
+
+  @Post('goods-receipts/:id/claims')
+  @Operation({ operationId: 'raiseSupplierClaim', ...WRITE, permission: 'pur.supplier_invoice.create' })
+  raiseSupplierClaim(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(SupplierClaimRaise)) body: z.infer<typeof SupplierClaimRaise>,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<SupplierClaimView> {
+    return reply(res, this.claims.raise(actor, id, body, key));
+  }
+
+  @Get('goods-receipts/:id/claims')
+  @Operation({ operationId: 'listGoodsReceiptClaims', ...READ, permission: 'pur.supplier_invoice.read' })
+  listGoodsReceiptClaims(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Query(zodPipe(PageQuery)) query: z.infer<typeof PageQuery>,
+  ): Promise<Page<SupplierClaimView>> {
+    return this.claims.listForReceipt(actor, id, query.cursor, query.limit);
+  }
+
+  @Get('supplier-claims')
+  @Operation({ operationId: 'listSupplierClaims', ...READ, permission: 'pur.supplier_invoice.read' })
+  listSupplierClaims(@CurrentActor() actor: Actor | undefined, @Query(zodPipe(SupplierClaimPageQuery)) query: z.infer<typeof SupplierClaimPageQuery>): Promise<Page<SupplierClaimView>> {
+    return this.claims.list(actor, { status: query.status, supplierId: query.supplierId, purchaseOrderId: query.purchaseOrderId, goodsReceiptId: query.goodsReceiptId }, query.cursor, query.limit);
+  }
+
+  @Get('supplier-claims/:id')
+  @Operation({ operationId: 'getSupplierClaim', ...READ, permission: 'pur.supplier_invoice.read' })
+  getSupplierClaim(@CurrentActor() actor: Actor | undefined, @Param('id', zodPipe(IdParam)) id: string): Promise<SupplierClaimView> {
+    return this.claims.get(actor, id);
+  }
+
+  @Post('supplier-claims/:id/credit-note')
+  @Operation({ operationId: 'draftSupplierClaimCreditNote', ...WRITE, permission: 'pur.supplier_invoice.create' })
+  draftSupplierClaimCreditNote(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(SupplierClaimCreditNoteDraft)) body: z.infer<typeof SupplierClaimCreditNoteDraft>,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<SupplierInvoiceView> {
+    return reply(res, this.claims.draftCreditNote(actor, id, body, key));
+  }
+
+  @Post('supplier-claims/:id/settle')
+  @Operation({ operationId: 'settleSupplierClaim', ...WRITE, permission: 'pur.supplier_invoice.match' })
+  settleSupplierClaim(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(SupplierClaimSettle)) body: z.infer<typeof SupplierClaimSettle>,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<SupplierClaimView> {
+    return reply(res, this.claims.settle(actor, id, body, key));
+  }
 
   @Get('purchase-orders')
   @Operation({ operationId: 'listPurchaseOrders', ...READ, permission: 'pur.purchase_order.read' })

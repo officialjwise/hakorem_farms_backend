@@ -1,9 +1,10 @@
-import { Quantity, Rate, type Money } from '@hakorem/kernel';
+import { Rate, type Money, type Quantity } from '@hakorem/kernel';
 
 /**
  * The three-way match (FR-PUR-009, SA-08): each supplier invoice line against its purchase order line and what was
  * received. Pure: the application supplies the order line's price, the quantity received and the quantity other live
- * invoices already hold against it, all in the product's base unit.
+ * invoices already hold against it, and the rejected quantity its open claims allow beyond what was received
+ * (ADR-0076), all in the product's base unit.
  */
 export type MatchStatus = 'UNMATCHED' | 'MATCHED' | 'MISMATCH' | 'NOT_REQUIRED';
 
@@ -29,6 +30,11 @@ export interface InvoiceLineFacts {
     readonly qtyReceived: Quantity;
     /** What other live invoices (matched, approved or paid) already hold against this order line. */
     readonly qtyInvoicedElsewhere: Quantity;
+    /**
+     * The rejected quantity of this order line's claims not settled by an invoice (ADR-0076): the supplier may invoice
+     * it, and a credit note drafted from the claim takes it off again. Zero without a claim.
+     */
+    readonly qtyClaimed: Quantity;
   } | null;
 }
 
@@ -68,7 +74,7 @@ export function matchLine(line: InvoiceLineFacts): LineMatch {
   }
   const reasons: MatchReason[] = [];
   const qtyVariance = line.qtyBase.minus(line.order.qtyReceived.minus(line.order.qtyInvoicedElsewhere));
-  if (qtyVariance.compareTo(Quantity.zero()) > 0) reasons.push('QTY_EXCEEDS_RECEIVED');
+  if (qtyVariance.compareTo(line.order.qtyClaimed) > 0) reasons.push('QTY_EXCEEDS_RECEIVED');
   const over = line.unitPrice.compareTo(line.order.unitPrice);
   const priceVariance = over >= 0 ? line.unitPrice.minus(line.order.unitPrice) : line.order.unitPrice.minus(line.unitPrice);
   if (!withinTolerance(priceVariance, line.order.unitPrice)) reasons.push('PRICE_OUTSIDE_TOLERANCE');

@@ -23,7 +23,7 @@ export { Stock, type MovementRequest, type PostedMovement, type StockPostingPayl
 export { Lineage, type Trace, type TracedUnit } from './application/lineage';
 export { StockUnits, type LotRegistration, type SerialRegistration, type StockUnitFacts, type UnitOnHand } from './application/stock-units';
 export { BalanceReconciliation, type DriftFound } from './application/reconciliation';
-export { GoodsReceipts, type GoodsReceiptCreateRequest, type GoodsReceiptView, type ReceiptLineInput } from './application/goods-receipts';
+export { GoodsReceipts, type GoodsReceiptCreateRequest, type GoodsReceiptFacts, type GoodsReceiptView, type ReceiptLineInput } from './application/goods-receipts';
 export { StockQueries, type PromisableStock, type StockOnHandPageView, type StockTraceView, type StockUnitView } from './application/stock-queries';
 export { StockMovements, type ReversalRequest, type SaleReturnRequest } from './application/stock-movements';
 export { StockTransfers, type StockTransferView, type TransferCreateRequest, type TransferReceiveRequest } from './application/stock-transfers';
