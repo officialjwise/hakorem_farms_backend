@@ -302,6 +302,13 @@ export interface PurchasingStore {
   recordMatch(tx: Transaction, id: string, lines: readonly LineMatchRecord[], matchStatus: Exclude<MatchStatus, 'UNMATCHED'>, at: Date, actorId: string): Promise<void>;
   markInvoiceApproved(tx: Transaction, id: string, at: Date, actorId: string): Promise<void>;
   markInvoiceCancelled(tx: Transaction, id: string, reason: string, actorId: string): Promise<void>;
+  /**
+   * The last price paid (the owner's decision 7, A-270): per `<productId>/<uom>`, the unit price of the latest invoice
+   * line of the supplier for that product in that unit, on an invoice approved for payment (APPROVED or PAID), latest by
+   * invoice date, then approval time, then id. A draft, matched, mismatched or cancelled invoice, and a credit note,
+   * never count.
+   */
+  lastPricesPaid(tx: Transaction, supplierId: string, productIds: readonly string[]): Promise<ReadonlyMap<string, bigint>>;
   /** Per invoice, what live payments (not REJECTED or CANCELLED) allocate to it. */
   promised(tx: Transaction, invoiceIds: readonly string[]): Promise<ReadonlyMap<string, bigint>>;
   /** Per invoice, the gross of the credit notes against it that are not CANCELLED (FR-PUR-011). */

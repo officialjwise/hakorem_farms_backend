@@ -27,7 +27,7 @@ const PurchaseOrderLineInput = z.strictObject({
   description: Text(200).optional(),
   uom: UomCode.optional(),
   qtyOrdered: PositiveQuantity,
-  unitPricePesewas: Pesewas,
+  unitPricePesewas: Pesewas.optional(),
   overReceiptTolerancePercent: Percent.optional(),
   expenseCategory: Text(60).optional(),
 });
