@@ -100,6 +100,7 @@ The stock ledger. Published key.
 | `source_line_ref` | `uuid` | NULL | The line within that document |
 | `reservation_id` | `uuid` | NULL, FK `inv.stock_reservation` | The reservation this movement consumes |
 | `reverses_movement_id` | `uuid` | NULL, UNIQUE, FK `inv.stock_movement` | A correction; a movement is reversed at most once |
+| `returns_movement_id` | `uuid` | NULL, FK `inv.stock_movement` (B09a continued 2d, migration 0199) | The sale issue a `SALE_RETURN` takes back. Required on every `SALE_RETURN` that is not a reversal; from where the issue went, same product, unit and branch, never beyond what the issue issued less its returns not reversed, under the issue's row lock (`ck_stock_sale_return`). The trigger sets its value to `half_up(V x (p+q)/Q) - half_up(V x p/Q)` and its cost element to the issue's (ADR-0068) |
 | `occurred_at` | `timestamptz` | NOT NULL | When it physically happened |
 
 Standard columns: `LEDGER` (`recorded_at`, `actor_id`).
