@@ -31625,7 +31625,7 @@ paths:
       tags:
         - prc
       summary: "List processing orders"
-      description: "Processing orders, newest first, within the reader's grants: an order is listed where the reader holds the permission for its branch or its processing location. `from` and `to` are Accra calendar dates of creation.\n\nPermission: `prc.order.read`."
+      description: "Processing orders, newest first, within the reader's grants: an order is listed where the reader holds the permission for its branch or its processing location. `from` and `to` are Accra calendar dates of creation. `reversalId` finds the order of a processing reversal, so an approvals inbox links a `PROCESSING_REVERSAL` request (whose `subject` stays the reversal) to its order in one read (CR-027).\n\nPermission: `prc.order.read`."
       x-permission: prc.order.read
       x-error-codes:
         - VALIDATION_FAILED
@@ -31657,6 +31657,13 @@ paths:
           required: false
           schema:
             type: boolean
+        - name: reversalId
+          in: query
+          required: false
+          description: "The order a processing reversal belongs to, pending, posted or rejected: the `subject.id` of a `PROCESSING_REVERSAL` approval request (CR-027, 1.53.0). An unknown id answers an empty page."
+          schema:
+            type: string
+            format: uuid
         - name: cursor
           in: query
           required: false

@@ -78,6 +78,8 @@ export interface OrderFilters {
   readonly from?: string | undefined;
   readonly to?: string | undefined;
   readonly yieldVarianceFlag?: boolean | undefined;
+  /** The order a reversal belongs to, pending, posted or rejected (CR-027): an approval inbox's way from its subject. */
+  readonly reversalId?: string | undefined;
 }
 
 /** A grant an order list is narrowed to: a whole branch, or one location of it. */
