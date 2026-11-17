@@ -37,6 +37,8 @@ export interface OrderHeaderRecord {
   readonly creditCheck: 'PASSED' | 'OVERRIDDEN' | 'NOT_REQUIRED' | null;
   readonly deliveryAddressSnapshot: unknown;
   readonly deliveryZoneId: string | null;
+  /** Who wrote the order: for a counter sale, the cashier who posted it (a void's approver is never this person). */
+  readonly createdBy: string;
 }
 
 export interface OrderLineRecord {
@@ -90,7 +92,7 @@ export interface StatusChangeRecord {
   readonly actorId: string;
 }
 
-type ReadOnlyHeader = 'parentOrderId' | 'creditCheck' | 'deliveryAddressSnapshot' | 'deliveryZoneId';
+type ReadOnlyHeader = 'parentOrderId' | 'creditCheck' | 'deliveryAddressSnapshot' | 'deliveryZoneId' | 'createdBy';
 type ReadOnlyLine = 'stockExceptionId' | 'estimatedWeightKg' | 'tolerancePercent' | 'qtyBackordered' | 'quoteLineRef' | 'varianceApprovalRequestId';
 
 export interface NewOrder extends Omit<OrderHeaderRecord, 'status' | 'finalTotalPesewas' | 'billingDocumentId' | 'completedAt' | 'recordedAt' | 'version' | 'orderNo' | ReadOnlyHeader> {
@@ -100,6 +102,20 @@ export interface NewOrder extends Omit<OrderHeaderRecord, 'status' | 'finalTotal
 
 /** A line as written: open, or (a sale fulfilled at once) fulfilled with its movement. */
 export type NewOrderLine = Omit<OrderLineRecord, ReadOnlyLine>;
+
+/** One void asked for of a completed sale (`ord.order_void`, migration 0194). */
+export interface OrderVoidRecord {
+  readonly id: string;
+  readonly salesOrderId: string;
+  readonly reasonCode: string;
+  readonly note: string | null;
+  readonly status: 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
+  readonly approvalRequestId: string;
+  readonly creditNoteId: string | null;
+  readonly decidedBy: string | null;
+  readonly branchId: string;
+  readonly createdBy: string;
+}
 
 /** ORD's own tables (schema `ord`). The status history is inserted only. */
 export interface OrderStore {
@@ -119,6 +135,15 @@ export interface OrderStore {
   confirm(tx: Transaction, orderId: string, c: { readonly creditCheck: 'PASSED' | 'NOT_REQUIRED'; readonly at: Date; readonly actorId: string }): Promise<void>;
   /** The one reservation that holds an open line, when one does. */
   holdLine(tx: Transaction, lineId: string, reservationId: string): Promise<void>;
+  /** PLACED or CONFIRMED to CANCELLED with its reason, every open line cancelled; the history row is the caller's. */
+  cancel(tx: Transaction, orderId: string, c: { readonly reasonCode: string; readonly at: Date; readonly actorId: string }): Promise<void>;
+  /** COMPLETED to VOIDED with its approval, the supervisor who approved it and when. */
+  markVoided(tx: Transaction, orderId: string, v: { readonly approvalRequestId: string; readonly voidedBy: string; readonly at: Date }): Promise<void>;
+  insertVoid(tx: Transaction, v: Omit<OrderVoidRecord, 'status' | 'creditNoteId' | 'decidedBy'>): Promise<void>;
+  /** The void that is not rejected (waiting or approved), under its row lock, or null. */
+  openVoidOf(tx: Transaction, orderId: string): Promise<OrderVoidRecord | null>;
+  voidByApproval(tx: Transaction, approvalRequestId: string): Promise<OrderVoidRecord | null>;
+  decideVoid(tx: Transaction, id: string, d: { readonly status: 'APPROVED' | 'REJECTED'; readonly creditNoteId: string | null; readonly decidedBy: string; readonly at: Date }): Promise<void>;
   /** Ids of the orders matching the filter at the branches given, newest first, before `beforeId`, at most `limit`. */
   list(tx: Transaction, filter: OrderFilter, beforeId: string | null, limit: number): Promise<string[]>;
 }

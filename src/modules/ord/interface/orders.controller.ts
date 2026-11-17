@@ -6,8 +6,9 @@ import { CurrentActor } from '../../../platform/http/actor-param';
 import { IdempotencyKeyHeader, Operation } from '../../../platform/http/operation';
 import { zodPipe } from '../../../platform/http/validation';
 import type { StoredResponse } from '../../../platform/idempotency/idempotency';
+import { OrderReversals, type ApprovalPendingView } from '../application/order-reversals';
 import { Orders, type OrderStatusChangeView, type Page, type SalesOrderView } from '../application/orders';
-import { IdParam, OrderCreateBody, OrderPageQuery, PageQuery } from './schemas';
+import { IdParam, OrderCreateBody, OrderPageQuery, PageQuery, ReasonCodeBody } from './schemas';
 
 const READ = { access: 'SESSION', realms: ['STAFF'], idempotent: false, csrf: false, rateLimit: 'console' } as const;
 const WRITE = { access: 'SESSION', realms: ['STAFF'], idempotent: true, csrf: true, rateLimit: 'console' } as const;
@@ -20,10 +21,16 @@ async function reply<T>(res: Response, pending: Promise<StoredResponse<T>>): Pro
 
 const dateOrNull = (value: string | undefined) => (value === undefined ? null : new Date(value));
 
-/** The order record of every channel (FR-ORD-001, FR-ORD-002, FR-ORD-005). Parses and delegates; `Orders` authorises. */
+/**
+ * The order record of every channel (FR-ORD-001, FR-ORD-002, FR-ORD-005, FR-ORD-014). Parses and delegates; `Orders`
+ * and `OrderReversals` authorise.
+ */
 @Controller('orders')
 export class OrdersController {
-  constructor(@Inject(Orders) private readonly orders: Orders) {}
+  constructor(
+    @Inject(Orders) private readonly orders: Orders,
+    @Inject(OrderReversals) private readonly reversals: OrderReversals,
+  ) {}
 
   @Get()
   @Operation({ operationId: 'listOrders', ...READ, permission: 'ord.order.read' })
@@ -97,6 +104,32 @@ export class OrdersController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<SalesOrderView> {
     return reply(res, this.orders.confirm(actor, id, key));
+  }
+
+  @Post(':id/cancel')
+  @HttpCode(200)
+  @Operation({ operationId: 'cancelOrder', ...WRITE, permission: 'ord.order.cancel' })
+  cancelOrder(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(ReasonCodeBody)) body: z.infer<typeof ReasonCodeBody>,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<SalesOrderView> {
+    return reply(res, this.reversals.cancel(actor, id, { reasonCode: body.reasonCode, note: body.note ?? null }, key));
+  }
+
+  @Post(':id/void')
+  @HttpCode(202)
+  @Operation({ operationId: 'voidOrder', ...WRITE, permission: 'ord.order.void' })
+  voidOrder(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(ReasonCodeBody)) body: z.infer<typeof ReasonCodeBody>,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<ApprovalPendingView> {
+    return reply(res, this.reversals.requestVoid(actor, id, { reasonCode: body.reasonCode, note: body.note ?? null }, key));
   }
 
   @Get(':id/history')

@@ -589,7 +589,8 @@ export class Orders {
     return lines;
   }
 
-  private async viewOf(tx: Transaction, id: string): Promise<SalesOrderView> {
+  /** The order as the contract reads it, in the caller's transaction (ORD's own reversals answer with it). */
+  async viewOf(tx: Transaction, id: string): Promise<SalesOrderView> {
     return (await this.viewsIn(tx, await this.store.orders(tx, [id])))[0]!;
   }
 

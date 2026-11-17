@@ -69,6 +69,8 @@ const VALID_BODY: Readonly<Record<string, object>> = {
   matchBankStatementLine: { paymentId: randomUUID() },
   resolveReconciliationBreak: { note: 'Checked against the bank' },
   createOrder: { channel: 'WHOLESALE', customerId: randomUUID(), fulfilmentMode: 'COLLECTION', paymentTerms: 'COD', lines: [{ productId: randomUUID(), quantity: '1.000' }] },
+  cancelOrder: { reasonCode: 'CUSTOMER_CANCELLED' },
+  voidOrder: { reasonCode: 'CUSTOMER_CHANGED_MIND', note: 'Returned before leaving' },
   generateDeliverySlots: { zoneId: randomUUID(), from: '2026-12-01', to: '2026-12-07', weekdays: [2], times: [{ startsAt: '10:00', endsAt: '12:00', capacity: 8 }] },
   updateDeliverySlot: { version: 1, capacity: 10 },
   createAccount: { code: '6110', name: 'Generator fuel', type: 'EXPENSE', isPostable: true },
@@ -333,7 +335,7 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'listSettlementReports', 'importSettlementReport', 'getSettlementReport', 'matchSettlementReport',
         'listBankStatements', 'importBankStatement', 'getBankStatement', 'matchBankStatement', 'matchBankStatementLine',
         'listReconciliationBreaks', 'getReconciliationBreak', 'resolveReconciliationBreak',
-        'listOrders', 'createOrder', 'getOrder', 'confirmOrder', 'listOrderHistory',
+        'listOrders', 'createOrder', 'getOrder', 'confirmOrder', 'listOrderHistory', 'cancelOrder', 'voidOrder',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);

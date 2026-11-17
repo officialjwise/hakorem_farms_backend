@@ -8,6 +8,7 @@ registerMessages({
   'ord.price_override_needs_approval': 'This price needs a manager’s approval.',
   'ord.order_invalid': 'This order cannot be taken like this.',
   'ord.stock_short': 'Not enough stock for this line: {short} short of {wanted}.',
+  'ord.void_cashier_cannot_approve': 'The cashier who made this sale cannot approve its void.',
 });
 
 /** A registered message with its `{name}` placeholders filled (the values are numbers, never user text). */
@@ -69,7 +70,8 @@ export class PriceOverrideNeedsApprovalError extends BusinessRuleError {
  * `PRODUCT_NOT_ACTIVE`, `PRODUCT_NOT_STOCKED`, `PRODUCT_REPEATED`, `STOCK_UNIT_REQUIRED`, `STOCK_UNIT_OTHER_PRODUCT`,
  * `STOCK_UNIT_NOT_AVAILABLE`, `ONE_ANIMAL_PER_LINE`, `CATCH_WEIGHT_NOT_AVAILABLE`, `NO_CONVERSION`, `INEXACT_QUANTITY`,
  * `VARIANCE_REASON_REQUIRED`, `VARIANCE_REASON_INVALID`, `VARIANCE_NOTE_REQUIRED`; at confirmation `PREPAYMENT_SHORT`,
- * `CREDIT_CHECK_UNAVAILABLE`, `CREDIT_REFUSED` and `TERMS_NOT_CONFIRMED`.
+ * `CREDIT_CHECK_UNAVAILABLE`, `CREDIT_REFUSED` and `TERMS_NOT_CONFIRMED`; at cancellation and void (B09a continued 2c, A-226)
+ * `REASON_NOT_ALLOWED`, `NOTE_REQUIRED`, `VOID_DAY_CLOSED`, `NOT_A_COUNTER_SALE`, `VOID_PENDING` and `TENDER_NOT_VOIDABLE`.
  */
 export class OrderInvalidError extends BusinessRuleError {
   readonly code = 'ORDER_INVALID';
@@ -95,4 +97,10 @@ export class OrderStockShortError extends BusinessRuleError {
       lines.map((l) => ({ field: `/lines/${l.lineNo}`, code: 'NOT_ENOUGH_STOCK', message: fill('ord.stock_short', { short: l.short, wanted: l.wanted }) })),
     );
   }
+}
+
+/** 422 MAKER_CANNOT_CHECK: the supervisor approving a void is the cashier who made the sale (abuse case 1). */
+export class VoidApproverIsCashierError extends BusinessRuleError {
+  readonly code = 'MAKER_CANNOT_CHECK';
+  readonly messageKey = 'ord.void_cashier_cannot_approve';
 }
