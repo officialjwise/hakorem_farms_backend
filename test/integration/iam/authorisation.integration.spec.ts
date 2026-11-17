@@ -295,7 +295,7 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'listStockExceptions', 'getStockException', 'resolveStockException',
         'listStockReservations', 'releaseStockReservation', 'listStockAvailability', 'listStockUnits',
         'listReorderRules', 'createReorderRule', 'updateReorderRule', 'listStockAlerts', 'listTemperatureReadings', 'recordTemperatureReading',
-        'getOwnerDashboard', 'getStockValueTile', 'getAnimalsOnHandTile', 'getLowStockTile', 'getPurchasesSeries', 'getStockUnitLabel', 'getProductLabel',
+        'getOwnerDashboard', 'getStockValueTile', 'getAnimalsOnHandTile', 'getLowStockTile', 'getPurchasesSeries', 'getSalesTodayTile', 'getSalesSeries', 'getStockUnitLabel', 'getProductLabel',
         'listProcessingOrders', 'createProcessingOrder', 'getProcessingOrder', 'updateProcessingOrder', 'startProcessingOrder', 'recordProcessingOutputs',
         'addProcessingCost', 'completeProcessingOrder', 'cancelProcessingOrder', 'listYieldStandards', 'createYieldStandard', 'updateYieldStandard',
         'previewPriceListVersion',

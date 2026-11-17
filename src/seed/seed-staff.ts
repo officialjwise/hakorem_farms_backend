@@ -15,6 +15,8 @@ export const SEED_STAFF = {
   owner: 'kwabena.owusu@seed.hakoremfarms.invalid',
   manager: 'akosua.boateng@seed.hakoremfarms.invalid',
   accountant: 'yaw.agyeman@seed.hakoremfarms.invalid',
+  /** The counter's cashier, who posts the seeded trading day's sales (B09a continued 2g). */
+  cashier: 'adwoa.darko@seed.hakoremfarms.invalid',
 } as const;
 
 export type SeedStaffMember = keyof typeof SEED_STAFF;

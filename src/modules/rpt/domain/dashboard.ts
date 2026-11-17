@@ -25,20 +25,13 @@ export interface PendingFigure {
   readonly phase: string;
 }
 
-const SALES = 'Sales are completed orders; the order core that records them on every channel is built in B9a, and counter sales reach it from B9b.';
-
 /**
  * Every figure of the owner dashboard that has no source today, in the order of the `OwnerDashboard` schema. B8, B9a,
  * B9b and B12 each remove their own entries, and set the figure, with no contract change. B08 continued 1c made `cash`
- * live, from the ledger's published `fin.pub_cash_balance` (A-196).
+ * live, from the ledger's published `fin.pub_cash_balance` (A-196); B09a continued 2g made the sales figures, the
+ * sales series and top movers live, from ORD's published completed sales (A-234).
  */
 export const PENDING_FIGURES: readonly PendingFigure[] = [
-  { figure: 'salesTodayPesewas', source: 'ord', reason: SALES, phase: 'B9a' },
-  { figure: 'salesYesterdayPesewas', source: 'ord', reason: SALES, phase: 'B9a' },
-  { figure: 'salesMonthToDatePesewas', source: 'ord', reason: SALES, phase: 'B9a' },
-  { figure: 'salesByChannel', source: 'ord', reason: SALES, phase: 'B9a' },
-  { figure: 'salesSeries', source: 'ord', reason: SALES, phase: 'B9a' },
-  { figure: 'topMovers', source: 'ord', reason: 'Top movers rank the products sold today by revenue, from completed orders built in B9a.', phase: 'B9a' },
   {
     figure: 'alerts',
     source: 'rpt',
@@ -47,6 +40,20 @@ export const PENDING_FIGURES: readonly PendingFigure[] = [
   },
   { figure: 'exceptionsToday', source: 'rpt', reason: 'The count of exception items comes from the daily exception report, built in B12.', phase: 'B12' },
 ];
+
+/** The sales channels in the contract's `Channel` order (FR-ORD-001). */
+export const CHANNELS = ['POS', 'ONLINE', 'WHOLESALE', 'QUOTE'] as const;
+export type SalesChannel = (typeof CHANNELS)[number];
+
+/** The orders counted in the rows, added up (a count, never money). */
+export function sumCounts(rows: ReadonlyArray<{ readonly count: number }>): number {
+  return rows.reduce((sum, row) => sum + row.count, 0);
+}
+
+/** The month to date that ends on `date`: from the first of its month, both ends counted. */
+export function monthToDate(date: string): Period {
+  return { from: `${date.slice(0, 8)}01`, to: date };
+}
 
 /**
  * The receivables figures (FR-RPT-001, A-149, A-200): outstanding is the balance of trade receivables (1200, debits

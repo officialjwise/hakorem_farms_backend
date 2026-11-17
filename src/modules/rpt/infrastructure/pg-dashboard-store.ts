@@ -1,6 +1,11 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
 import type { DashboardStore } from '../application/dashboard-store';
-import type { DayTotal, Period, SpeciesCount } from '../domain/dashboard';
+import type { DayTotal, Period, SalesChannel, SpeciesCount } from '../domain/dashboard';
+import type { ChannelTotal, ProductSales } from '../domain/sales';
+
+/** Completed between the first instant of business date `$from` and the end of `$to`, in Africa/Accra (two date parameters). */
+const completedWithin = (from: number, to: number, alias: string): string =>
+  `${alias}.completed_at >= ($${from}::date::timestamp AT TIME ZONE 'Africa/Accra') AND ${alias}.completed_at < (($${to}::date + 1)::timestamp AT TIME ZONE 'Africa/Accra')`;
 
 /** The dashboard figures in plain SQL over published views only (ADR-0011, ADR-0023); never a module's own table. */
 export class PgDashboardStore implements DashboardStore {
@@ -64,5 +69,39 @@ export class PgDashboardStore implements DashboardStore {
       [branchIds, today],
     );
     return BigInt(rows[0]!.overdue);
+  }
+
+  async salesByDay(tx: Transaction, branchIds: readonly string[], period: Period): Promise<DayTotal[]> {
+    const { rows } = await tx.query<{ day: string; value: string; orders: number }>(
+      `SELECT to_char(s.business_date, 'YYYY-MM-DD') AS day, sum(s.gross_pesewas)::text AS value, count(*)::int AS orders
+         FROM ord.pub_completed_sale s
+        WHERE s.branch_id = ANY($1::uuid[]) AND ${completedWithin(2, 3, 's')}
+        GROUP BY 1`,
+      [branchIds, period.from, period.to],
+    );
+    return rows.map((r) => ({ date: r.day, valuePesewas: BigInt(r.value), count: r.orders }));
+  }
+
+  async salesByChannel(tx: Transaction, branchIds: readonly string[], date: string): Promise<ChannelTotal[]> {
+    const { rows } = await tx.query<{ channel: SalesChannel; value: string; orders: number }>(
+      `SELECT s.channel, sum(s.gross_pesewas)::text AS value, count(*)::int AS orders
+         FROM ord.pub_completed_sale s
+        WHERE s.branch_id = ANY($1::uuid[]) AND ${completedWithin(2, 2, 's')}
+        GROUP BY s.channel`,
+      [branchIds, date],
+    );
+    return rows.map((r) => ({ channel: r.channel, grossPesewas: BigInt(r.value), count: r.orders }));
+  }
+
+  async productSales(tx: Transaction, branchIds: readonly string[], date: string): Promise<ProductSales[]> {
+    const { rows } = await tx.query<{ product_id: string; sku: string; name: string; uom: string; qty: string; value: string }>(
+      `SELECT l.product_id, p.sku, p.name, l.sold_uom AS uom, sum(l.sold_qty)::numeric(14,3)::text AS qty, sum(l.gross_pesewas)::text AS value
+         FROM ord.pub_completed_sale_line l
+         JOIN mdm.pub_product p ON p.product_id = l.product_id
+        WHERE l.branch_id = ANY($1::uuid[]) AND ${completedWithin(2, 2, 'l')}
+        GROUP BY l.product_id, p.sku, p.name, l.sold_uom`,
+      [branchIds, date],
+    );
+    return rows.map((r) => ({ productId: r.product_id, sku: r.sku, name: r.name, uom: r.uom, qty: r.qty, grossPesewas: BigInt(r.value) }));
   }
 }

@@ -44,17 +44,17 @@ const PURCHASES_ON_SEED_DAY = Money.sum(
 const PURCHASE_RECEIPTS = [...SEED_RECEIPTS.filter((r) => r.kind === 'PURCHASE'), SEED_STORE_RECEIPT].length;
 const TAGGED_ANIMALS = { GOAT: 4, SHEEP: 2 };
 
-const PENDING = [
-  'salesTodayPesewas',
-  'salesYesterdayPesewas',
-  'salesMonthToDatePesewas',
-  'salesByChannel',
-  'salesSeries',
-  'topMovers',
-  'alerts',
-  'exceptionsToday',
+// Sales answer from completed orders since B09a continued 2g (A-234); the farm this spec loads has none.
+const PENDING = ['alerts', 'exceptionsToday'];
+const TILES = [
+  '/dashboard/tiles/stock-value',
+  '/dashboard/tiles/animals-on-hand',
+  '/dashboard/tiles/low-stock',
+  '/dashboard/tiles/purchases',
+  '/dashboard/tiles/cash-position',
+  '/dashboard/tiles/sales-today',
+  '/dashboard/tiles/sales',
 ];
-const TILES = ['/dashboard/tiles/stock-value', '/dashboard/tiles/animals-on-hand', '/dashboard/tiles/low-stock', '/dashboard/tiles/purchases', '/dashboard/tiles/cash-position'];
 const NO_CASH = { tillsPesewas: 0, safePesewas: 0, driversPesewas: 0, bankPesewas: 0, mobileMoneyPesewas: 0, totalPesewas: 0, negativeFigures: [] };
 
 beforeAll(async () => {
@@ -103,7 +103,10 @@ describe('B05x gate: getOwnerDashboard answers in one request', () => {
     });
     expect(body.asOf).toBe(clock.now().toISOString());
     expect(body.pendingFigures.map((f) => f.figure)).toEqual(PENDING);
-    expect(Object.fromEntries(body.pendingFigures.map((f) => [f.figure, f.phase]))).toMatchObject({ salesTodayPesewas: 'B9a', topMovers: 'B9a', exceptionsToday: 'B12' });
+    expect(Object.fromEntries(body.pendingFigures.map((f) => [f.figure, f.phase]))).toEqual({ alerts: 'B12', exceptionsToday: 'B12' });
+    // No order is completed on the farm this spec loads (the trading day is its own seed unit): real zeros, not nulls.
+    expect([body.salesTodayPesewas, body.salesYesterdayPesewas, body.salesMonthToDatePesewas, body.topMovers]).toEqual([0, 0, 0, []]);
+    expect((body.salesByChannel as Array<{ amountPesewas: number; count: number }>).map((c) => [c.amountPesewas, c.count])).toEqual([[0, 0], [0, 0], [0, 0], [0, 0]]);
     // The seeded trading day moves no cash: every cash account is at nil, from the ledger (B08 continued 1c).
     expect(body.cash).toEqual(NO_CASH);
     expect(body.pendingFigures.every((f) => f.reason.length > 20 && /^[a-z]{3}$/.test(f.source))).toBe(true);
@@ -216,10 +219,10 @@ describe('B05x gate: each tile answers alone, with the dashboard value and the m
     expect((await get(owner, '/dashboard/tiles/receivables')).body).toMatchObject({ outstandingPesewas: dashboard.receivablesOutstandingPesewas, overduePesewas: dashboard.receivablesOverduePesewas });
   });
 
-  it('serves no tile for a figure without a source: today and the sales series are the mock\'s alone', async () => {
-    for (const path of ['/dashboard/tiles/sales-today', '/dashboard/tiles/sales']) {
-      expect((await get(owner, path)).status, path).toBe(404);
-    }
+  it('answers the sales tiles with the dashboard\'s figures (B09a continued 2g): no completed order, so exact zeros', async () => {
+    const dashboard = (await get(owner, `/dashboard/owner?date=${SEED_DAY}`)).body;
+    expect((await get(owner, `/dashboard/tiles/sales-today?date=${SEED_DAY}`)).body).toMatchObject({ date: SEED_DAY, salesPesewas: dashboard.salesTodayPesewas, orderCount: 0 });
+    expect((await get(owner, `/dashboard/tiles/sales?from=${dashboard.salesSeries.from}&to=${dashboard.salesSeries.to}`)).body.sales).toEqual(dashboard.salesSeries);
   });
 });
 

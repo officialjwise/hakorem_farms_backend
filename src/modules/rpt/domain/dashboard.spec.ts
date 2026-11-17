@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, animalsBySpecies, dashboardBranches, dashboardDate, daysBetween, isPending, PENDING_FIGURES, receivablesFigures, seriesPeriod } from './dashboard';
+import { addDays, animalsBySpecies, dashboardBranches, dashboardDate, daysBetween, isPending, monthToDate, PENDING_FIGURES, receivablesFigures, seriesPeriod } from './dashboard';
+import { salesByChannel, topMovers } from './sales';
 import { fillSeries } from './series';
 
 const TODAY = '2026-11-15';
@@ -103,12 +104,6 @@ describe('the branches a dashboard read covers', () => {
 describe('the figures without a source yet', () => {
   it('names each with its source module, its reason and the phase that makes it live', () => {
     expect(PENDING_FIGURES.map((f) => [f.figure, f.phase])).toEqual([
-      ['salesTodayPesewas', 'B9a'],
-      ['salesYesterdayPesewas', 'B9a'],
-      ['salesMonthToDatePesewas', 'B9a'],
-      ['salesByChannel', 'B9a'],
-      ['salesSeries', 'B9a'],
-      ['topMovers', 'B9a'],
       ['alerts', 'B12'],
       ['exceptionsToday', 'B12'],
     ]);
@@ -117,6 +112,50 @@ describe('the figures without a source yet', () => {
     expect(isPending('receivablesOutstandingPesewas')).toBe(false);
     expect(isPending('receivablesOverduePesewas')).toBe(false);
     expect(isPending('stockValueAtCostPesewas')).toBe(false);
+    for (const figure of ['salesTodayPesewas', 'salesYesterdayPesewas', 'salesMonthToDatePesewas', 'salesByChannel', 'salesSeries', 'topMovers']) expect(isPending(figure), figure).toBe(false);
+  });
+});
+
+describe('the sales figures from completed orders (FR-RPT-001, CR-013, A-234)', () => {
+  it('runs the month to date from the first of the month of the date, both ends counted', () => {
+    expect(monthToDate('2026-11-15')).toEqual({ from: '2026-11-01', to: '2026-11-15' });
+    expect(monthToDate('2026-11-01')).toEqual({ from: '2026-11-01', to: '2026-11-01' });
+    expect(monthToDate('2027-02-28')).toEqual({ from: '2027-02-01', to: '2027-02-28' });
+  });
+
+  it('lists every channel in the contract order, a channel with no sale at an exact zero, and adds two rows of one channel', () => {
+    expect(salesByChannel([
+      { channel: 'WHOLESALE', grossPesewas: 80_430n, count: 1 },
+      { channel: 'ONLINE', grossPesewas: 6_000n, count: 1 },
+      { channel: 'WHOLESALE', grossPesewas: 3n, count: 2 },
+    ])).toEqual([
+      { channel: 'POS', amountPesewas: 0, count: 0 },
+      { channel: 'ONLINE', amountPesewas: 6_000, count: 1 },
+      { channel: 'WHOLESALE', amountPesewas: 80_433, count: 3 },
+      { channel: 'QUOTE', amountPesewas: 0, count: 0 },
+    ]);
+    expect(salesByChannel([]).every((c) => c.amountPesewas === 0 && c.count === 0)).toBe(true);
+  });
+
+  it('ranks the five products that took the most by gross, a tie by SKU, and keeps each product and unit apart', () => {
+    const row = (sku: string, gross: bigint, qty = '1.000', uom = 'HEAD') => ({ productId: `p-${sku}`, sku, name: sku, uom, qty, grossPesewas: gross });
+    const ranked = topMovers([row('LIV-GOAT', 58_500n), row('EGG-CRATE-BIG', 12_000n, '2.000', 'CRATE'), row('A-TIE', 3_000n), row('PRD-CABBAGE-HEAD', 3_000n, '3.000', 'HEAD'), row('MEAT-GOAT-15KG', 6_930n, '3.500', 'KG'), row('PRD-YAM-TUBER', 1n)]);
+    expect(ranked.map((m) => [m.product.sku, m.revenuePesewas, m.qty, m.uom])).toEqual([
+      ['LIV-GOAT', 58_500, '1.000', 'HEAD'],
+      ['EGG-CRATE-BIG', 12_000, '2.000', 'CRATE'],
+      ['MEAT-GOAT-15KG', 6_930, '3.500', 'KG'],
+      ['A-TIE', 3_000, '1.000', 'HEAD'],
+      ['PRD-CABBAGE-HEAD', 3_000, '3.000', 'HEAD'],
+    ]);
+    expect(ranked[0]!.product).toEqual({ id: 'p-LIV-GOAT', sku: 'LIV-GOAT', name: 'LIV-GOAT' });
+    expect(topMovers([])).toEqual([]);
+    const twoUnits = topMovers([row('MEAT-BEEF-15KG', 4_000n, '1.000', 'PACK'), row('MEAT-BEEF-15KG', 4_000n, '1.250', 'KG')]);
+    expect(twoUnits.map((m) => [m.product.sku, m.uom, m.qty])).toEqual([['MEAT-BEEF-15KG', 'KG', '1.250'], ['MEAT-BEEF-15KG', 'PACK', '1.000']]);
+  });
+
+  it('answers the largest sum of pesewas exactly and refuses one beyond it', () => {
+    expect(salesByChannel([{ channel: 'POS', grossPesewas: 9_007_199_254_740_991n, count: 1 }])[0]!.amountPesewas).toBe(9_007_199_254_740_991);
+    expect(() => salesByChannel([{ channel: 'POS', grossPesewas: 9_007_199_254_740_991n, count: 1 }, { channel: 'POS', grossPesewas: 1n, count: 1 }])).toThrow();
   });
 });
 
