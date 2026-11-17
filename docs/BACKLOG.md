@@ -81,11 +81,19 @@ Each item says why it is parked and what would bring it back.
 | BL-071 | A returns figure on the owner dashboard: completed returns' credit notes on the day each was approved, beside the sales | The dashboard's sales are completed orders' gross (FR-RPT-001, A-234 (c)); netting a credit on its approval day could make a day negative, which `Pesewas` cannot carry. It needs a new additive figure (`returnsTodayPesewas` and a point field), which no screen has asked for yet | The owner or the frontend asks for returns on the dashboard (a contract request) | FR-RPT-001, FR-RPT-003, A-234 |
 | BL-068 | A fixed asset's full depreciation schedule on the register, and depreciation up to a disposal date | FR-FIN-014's acceptance says "the register lists its schedule", but the contract's `FixedAsset` has no schedule field, and a disposal does not charge the months since the last run (A-199). An additive `schedule` on `getFixedAsset` (each future month's exact `allocate` part from `depreciationCharge`) and an optional "charge to the disposal date" step need a contract change the frontend asks for | A frontend contract request, or the accountant asks | A-199 |
 
+## Parked by the owner, 2026-11-17
+
+| ID | Item | Why it is not in version one yet | What would bring it back | Related |
+| --- | --- | --- | --- | --- |
+| BL-072 | Registered checkout: a signed-in customer placing an online order (`customerSession` on `placeOrder`) | The owner, 2026-11-17: the launch path is guest checkout with a phone number and an SMS tracking link (A-232) | After launch, by the owner's decision | A-232, ADR-0070 |
+| BL-073 | Order promotions and coupons on an order (`ord.sales_order_adjustment`) | The owner, 2026-11-17: after launch | After launch, by the owner's decision | A-232, FR-MDM-018 |
+| BL-074 | Returnable egg trays and crates owed to or by the supplier (a packaging item, a container balance per supplier, deposits, return movements) | The owner, 2026-11-17: not scheduled until the owner confirms whether the supplier takes trays and crates back | The owner confirms the supplier takes them back | The egg coverage check of 2026-11-17 |
+
 ## Parked in B09q
 
 | ID | Item | Why it is not in version one yet | What would bring it back | Related |
 | --- | --- | --- | --- | --- |
-| BL-072 | Dropping the unused column `mdm.product.barcode` (the contract step of its removal) | Contract 2.0.0 neither reads nor writes it and migration 0211 dropped its unique index (the expand step), but the previous API version still selects it, so the column may only go once 2.0.0 is the version running everywhere (docs/DATA_MODEL.md, Migrations: expand then contract) | The first migration after 2.0.0 is deployed: `ALTER TABLE mdm.product DROP COLUMN barcode`, the Drizzle table already free of it | ADR-0072, A-249 |
+| BL-075 | Dropping the unused column `mdm.product.barcode` (the contract step of its removal) | Contract 2.0.0 neither reads nor writes it and migration 0211 dropped its unique index (the expand step), but the previous API version still selects it, so the column may only go once 2.0.0 is the version running everywhere (docs/DATA_MODEL.md, Migrations: expand then contract) | The first migration after 2.0.0 is deployed: `ALTER TABLE mdm.product DROP COLUMN barcode`, the Drizzle table already free of it | ADR-0072, A-249 |
 
 ## Explicitly outside the brief
 

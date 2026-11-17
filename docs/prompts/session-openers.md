@@ -73,7 +73,9 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B09x | `B09x-contract-requests.md` | `b09x-contract-requests` | B4 to B12 | Every list operation has a named empty example (CR-005) and the seeded role matrix is published in the contract, generated from the IAM seed and checked in CI so it cannot drift (CR-023); no existing shape changes (built; the session split before CR-028, A-241) |
 | B09x continued | `B09x2-shop-profile.md` | `b09x2-shop-profile` | B4 to B12 | The business profile is stored and changed only through AUD's audited, step-up write; getShopProfile answers anonymously and cacheably with the contact fields only, its keys listed exactly by a test; the seed uses invented, clearly fictional numbers; every write refuses the wrong role |
 | B09q | `B09q-ids-barcodes.md` | `b09q-ids-barcodes` | B4 to B12 | TOTP the only QR; no product barcode, lookup or label barcode while meat pack labels stay as built; server-generated SKUs; unguessable customer and supplier public IDs; no identifier reads anything without authorisation; contract 2.0.0 with every example updated |
+| B09e | `B09e-eggs.md` | `b09e-eggs` | B4 to B12 | Crate and single prices on the price list; delivery cost spread exactly (a GHS 47.50 crate posts 4,750); lines in crates or eggs; received date and oldest-first; cracked-on-arrival reasons and a claim that drafts the credit note; breaks and reorder points in the selling unit; last price paid on a PO line |
 | B9b | `B09b-pos-shifts-offline.md` | `b09b-pos-shifts-offline` | B4 to B12 | Shift close reconciles; 500 queued offline transactions sync exactly once |
+| B09c | `B09c-card-payment.md` | `b09c-card-payment` | B4 to B12 | Card payment online through the provider port with every payment edge case, no card details on our servers, and the card cases run against the real sandbox |
 | B08 continued 2d | `B08c2d-customer-statements.md` | `b08c2d-customer-statements` | B4 to B12 | A customer statement for a period ties to the customer's documents and the ledger's 1200 for that customer and period, opening plus movements equal to closing to the pesewa, and is rendered after commit and archived once; every statement write refuses the wrong role |
 | B10 | `B10-quotations-wholesale.md` | `b10-quotations-wholesale` | B4 to B12 | Quote revisions are versioned; conversion to invoice preserves every link; a credit limit blocks with an audited override |
 | B11 | `B11-fulfilment-delivery.md` | `b11-fulfilment-delivery` | B4 to B12 | A catch-weight order re-prices at pick; cash on delivery lands against the driver; the outbox guarantees the customer notification |
@@ -2105,13 +2107,52 @@ Stop at the gate, write docs/sessions/B09q-ids-barcodes.md, and merge into main 
 green.
 ```
 
+## B09e — Eggs: prices per selling unit, cost without drift, crates and singles, cracked on arrival
+
+Branch `b09e-eggs`, from `main`. Report `docs/sessions/B09e-eggs.md`. Inserted by the owner on 2026-11-17 after B09q and before B9b (ADR-0026 Amendments): the business starts with eggs bought from a supplier and resold, and the egg coverage check found gaps the till would meet on day one. Gate: a crate and a single egg each carry their own price on the price list, so GHS 55.00 a crate is possible, while stock stays in eggs; a delivery's total cost is spread across its eggs by largest-remainder allocation, never rounded egg by egg, and a crate bought at GHS 47.50 and sold whole posts cost of exactly 4,750 pesewas; receipts, orders and transfers take lines in crates or eggs, converted by the server; every bought lot has a received date and sells oldest first by expiry, then by received date; a rejected quantity carries its reason and a claim drafts the supplier credit note from the receipt; quantity breaks and reorder points are counted in the selling unit and stored in eggs; a purchase order line defaults to the last price paid to that supplier for that product; every write refuses the wrong role.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B09q-ids-barcodes.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md).
+For this phase, read the owner's decisions below, ADR-0018 (valuation and cost accumulation), ADR-0048, A-157 and
+B06u's report on unit conversions, docs/data-model/mdm.md, inv.md and pur.md, and the MDM, INV and PUR cards in
+docs/MODULE_BOUNDARIES.md. Load hakorem-money, hakorem-pricing, hakorem-stock, hakorem-ledger, hakorem-migration,
+hakorem-endpoint and hakorem-tests. Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B09e only, on branch b09e-eggs, branched from main. The owner's decisions (2026-11-17), each test-first
+with exact pesewa assertions:
+1. Price per selling unit: a crate and a single egg each carry their own price on the price list; never derive a
+   crate's price from a per-egg price. Stock stays held in eggs. The engine resolves the price of the unit sold.
+2. Cost without drift: keep each delivery's total cost and spread it across its eggs with largest-remainder allocation
+   (the kernel's allocate, as the distributions do); never round cost egg by egg. A crate bought at GHS 47.50 and sold
+   whole posts cost of exactly 4,750 pesewas; a crate broken into singles posts costs summing exactly to 4,750. Read
+   ADR-0018 first: if lot-level exact cost contradicts its valuation method, STOP and report the options to the owner
+   rather than building.
+3. Lines in crates: goods receipts, orders and transfers accept a line in crates or in eggs, converted by the server
+   through MasterDataRefs.toBaseIn (B06u), never with a factor of their own.
+4. A received date on every bought lot; sell oldest first by expiry, then by received date, wherever the server picks a
+   lot (promisable stock, reservations, checkout, and the sale when no lot is named).
+5. Cracked on arrival: a reason on every rejected quantity (CRACKED, BROKEN, DIRTY, SHORT, as reason codes), and a
+   claim raised from the receipt that drafts the supplier credit note from the rejected lines and their cost, instead
+   of keying it by hand; the credit note keeps its existing approval (maker and checker apart).
+6. Quantity breaks and reorder points counted in the selling unit (10 crates), stored in eggs.
+7. A purchase order line defaults to the last price paid to that supplier for that product; no full supplier price
+   list yet.
+Not in this phase: returnable trays and crates (BL-074, until the owner confirms); registered checkout and order
+promotions (BL-072, BL-073). Kasoa and KNUST are real selling points the owner creates through the API: never seed them.
+Additive contract changes only, unless one is unavoidable and recorded loudly.
+Stop at the gate, write docs/sessions/B09e-eggs.md, and merge into main when every run on the pull request is green.
+```
+
 ## B9b — Point of sale, shifts and offline sync
 
 Branch `b09b-pos-shifts-offline`. Report `docs/sessions/B09b-pos-shifts-offline.md`. Gate: shift close reconciles, and 500 queued offline transactions sync exactly once.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9b row).
-List docs/sessions/ and read only the most recent report (docs/sessions/B09q-ids-barcodes.md).
+List docs/sessions/ and read only the most recent report (docs/sessions/B09e-eggs.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
 reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the POS requirement block of docs/SRS.md (nothing else from the SRS),
@@ -2159,13 +2200,35 @@ no other customer's data, and test that a guessed token, another sale's token or
 Stop at the gate and write docs/sessions/B09b-pos-shifts-offline.md.
 ```
 
+## B09c — Card payment
+
+Branch `b09c-card-payment`, from `main`. Report `docs/sessions/B09c-card-payment.md`. Inserted by the owner on 2026-11-17 right after B9b and before B10 (ADR-0026 Amendments). Gate: an online order can be paid by card through the Paystack provider port with every edge case B09a continued proved for mobile money (timeout after charge, webhook before response, duplicate webhook, unknown reference, amount mismatch on re-verification, late webhook, refund, and the refund idempotency the sandbox exposed, A-218), a card payment's card details never touch our servers or logs, and the on-demand sandbox suite (`pnpm test:sandbox`) runs the card cases against the real Paystack sandbox with the owner's test key, reporting any difference from the documentation.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B09b-pos-shifts-offline.md, or the last report
+of B9b's own splits).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md).
+For this phase, read the PAY requirement block of docs/SRS.md, docs/data-model/pay.md, ADR-0063, A-210 and A-218, and
+the reports of B09a continued and B09a continued 2 (the sandbox run). Load hakorem-money, hakorem-ledger,
+hakorem-security-review, hakorem-endpoint and hakorem-tests. Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B09c only, on branch b09c-card-payment, branched from main: card as an online payment method through the
+existing provider port (Paystack's hosted or inline card flow, so no card number reaches the server), every edge case
+test-first against the fake, then the card cases in the sandbox suite (never in CI) with the key the proxy injects;
+fix the fake to match what the sandbox really returns. No secret in the repository.
+Stop at the gate, write docs/sessions/B09c-card-payment.md, and merge into main when every run on the pull request is
+green.
+```
+
 ## B08 continued 2d — Customer statements
 
 Branch `b08c2d-customer-statements`, from `main`. Report `docs/sessions/B08c2d-customer-statements.md`. Inserted by B08 continued 2c's split (A-206, ADR-0026 Amendments), and placed after B9b by the parent session (A-207): a statement nets payments, which PAY builds in B9a, and its home module WHL is B10's. Gate: a customer statement for a period lists the customer's issued documents and their settlement, ties to the ledger's 1200 for that customer's subledger party and period (opening plus invoices and debit notes less credit notes and payments equals closing, to the pesewa, asserted against SQL sums taken straight from `bil.billing_document` and `fin.journal_line`), is numbered from its own gap-free series, rendered after commit and archived exactly once; every statement write refuses the wrong role.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
-List docs/sessions/ and read only the most recent report (docs/sessions/B09b-pos-shifts-offline.md).
+List docs/sessions/ and read only the most recent report (docs/sessions/B09c-card-payment.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
 reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
 For this phase, read FR-WHL-009 and the DOC requirement block of docs/SRS.md (nothing else from the SRS),
@@ -2255,6 +2318,9 @@ never typed in outside one.
 CR-033 point 3: the receipt SMS is sent once, through the outbox and NTF, when a counter sale that carried customerPhone
 syncs, with the receipt link B9b built, the official number and the sale reference; the sync result or the order says
 whether it was sent, and a replayed sync never sends it twice.
+The launch path for online orders (owner, 2026-11-17): guest checkout with a phone number and an SMS tracking link. Send
+the tracking link by SMS through the outbox and NTF when a guest order is placed, carrying its own long random token
+(B09q: no ID is ever a key), and test that a guessed token or the order's id answers 404.
 Stop at the gate and write docs/sessions/B11-fulfilment-delivery.md.
 ```
 
