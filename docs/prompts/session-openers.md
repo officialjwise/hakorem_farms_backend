@@ -2174,6 +2174,9 @@ with exact pesewa assertions:
 6. Quantity breaks and reorder points counted in the selling unit (10 crates), stored in eggs.
 7. A purchase order line defaults to the last price paid to that supplier for that product; no full supplier price
    list yet.
+The frontend's CR-035 (breakage and rejection reasons) and CR-036 (a claim raised from a receipt's rejected lines) are
+answered by points 5 and the breakage reasons above (owner, 2026-11-17): build them to the requests' shapes as committed
+on the frontend's main, and answer both in the report.
 Not in this phase: returnable trays and crates (BL-074, until the owner confirms); registered checkout and order
 promotions (BL-072, BL-073). Kasoa and KNUST are real selling points the owner creates through the API: never seed them.
 Additive contract changes only, unless one is unavoidable and recorded loudly.
@@ -2223,6 +2226,12 @@ from each product's price list, SyncResultItem.grossPesewas (null when nothing w
 pack's CASH_MOVEMENT reason codes; decide CR-032 point 2, the offline PIN verifier (an operation that sets a till
 PIN and the salted verifier the device stores, or a statement in OFFLINE_SYNC.md that the device derives it from the
 PIN typed at an online sign-in), record it as an ADR and answer it in the report.
+The owner's rules for the till PIN (CR-032, 2026-11-17), which the frontend already enforces on the device and the server
+must match, each test-first: a PIN verifier is PBKDF2-SHA256 with at least 600,000 iterations and a random salt of at
+least 16 bytes per person, never weaker (refuse a weaker verifier, and test the parameters); at most five wrong tries,
+enforced on the server too (counted at sync for offline attempts and at any online check, then locked); signing out a
+locked cashier requires a supervisor's PIN, is audited, and reaches the daily exception report's source (B12). The PIN
+never authenticates to the server and is never the only control (CR-032 point 5).
 CR-033 points 1 and 2 (owner's rule, 2026-11-16: every sale produces a digital receipt, by SMS or a link, and a printer
 is optional): a public receipt read with no session, by an unguessable token, answering the official number, the sale
 reference, the lines, the tenders, the change and the business's details (read through AUD's `BusinessProfiles`, B09x continued), and "being recorded" until the sale has
