@@ -46,3 +46,46 @@ export const ShiftClose = z.strictObject({
 export const ReasonBody = z.strictObject({ reason: Text(500) });
 
 export const DeviceEnrolmentCreate = z.strictObject({ deviceLabel: Text(80) });
+
+/** The contract's `Quantity` and `Kilograms`: decimal strings with exactly three places. */
+const Quantity = z.string().regex(/^(0|[1-9][0-9]{0,10})\.[0-9]{3}$/);
+const Kilograms = z.string().regex(/^(0|[1-9][0-9]{0,6})\.[0-9]{3}$/);
+/** The contract's `PhoneNumber` (E.164). */
+const PhoneNumber = z.string().regex(/^\+[1-9][0-9]{7,14}$/);
+
+export const CounterSale = z.strictObject({
+  id: z.uuid(),
+  shiftId: z.uuid(),
+  customerId: z.uuid().optional(),
+  customerPhone: PhoneNumber.optional(),
+  lines: z
+    .array(
+      z.strictObject({
+        productId: z.uuid(),
+        stockUnitId: z.uuid().optional(),
+        quantity: Quantity,
+        weightKg: Kilograms.optional(),
+        weightSource: z.enum(['SCALE', 'MANUAL', 'ESTIMATE']).optional(),
+        gradeId: z.uuid().optional(),
+        agreedUnitPricePesewas: Pesewas,
+        varianceReasonCode: ReasonCode.optional(),
+      }),
+    )
+    .min(1)
+    .max(100),
+  tenders: z
+    .array(
+      z.strictObject({
+        paymentMethodId: z.uuid(),
+        amountPesewas: Pesewas,
+        paymentId: z.uuid().optional(),
+        tenderedPesewas: Pesewas.optional(),
+        unverifiedMobileMoney: z
+          .strictObject({ payerPhone: PhoneNumber, network: z.enum(['MTN', 'TELECEL', 'AIRTELTIGO']), providerReference: Text(100).optional(), approvedById: z.uuid() })
+          .optional(),
+      }),
+    )
+    .min(1)
+    .max(10),
+  occurredAt: Instant,
+});

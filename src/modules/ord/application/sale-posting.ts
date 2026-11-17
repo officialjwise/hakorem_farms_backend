@@ -78,6 +78,12 @@ export interface SaleRequest {
    * The selling module that names it has checked, under the shift's lock, that it is open and the seller's own.
    */
   readonly shiftDocumentId?: string | null;
+  /**
+   * What the seller's till shift has left of its per-shift override limit (FR-POS-004, B09b continued): price given
+   * below list, summed over the sale's lines that need no approval otherwise, beyond this waits for a `PRICE_OVERRIDE`
+   * approval (`BEYOND_SHIFT_LIMIT`). Left out, no per-shift limit applies (a sale away from a till).
+   */
+  readonly shiftOverrideRoomPesewas?: bigint | null;
   readonly notes?: string | null;
   readonly lines: readonly SaleLineRequest[];
   readonly tenders: readonly SaleTenderRequest[];
@@ -542,6 +548,9 @@ export class SalePosting {
     if (unpriced.length > 0) throw new QuoteRequiredError(unpriced.map((l) => ({ field: `/lines/${l.lineRef}`, reason: l.quoteRequiredReason ?? 'NO_RULE' })));
 
     const planned: PlannedLine[] = [];
+    // Price given below list on this sale's lines that need no approval otherwise, against the shift's room (FR-POS-004).
+    let shiftUsed = 0n;
+    const shiftRoom = request.shiftOverrideRoomPesewas ?? null;
     for (const c of checked) {
       const line = request.lines[c.index]!;
       const band = resolved.lines.find((l) => l.lineRef === String(c.index))!.resolved!;
@@ -563,9 +572,14 @@ export class SalePosting {
       }
       const variance = resolvedTotal.value > agreedTotal.value ? resolvedTotal.value - agreedTotal.value : agreedTotal.value - resolvedTotal.value;
       const verdict = judgeOverride({ listPricePesewas: list, floorPricePesewas: BigInt(band.floorPricePesewas), ceilingPricePesewas: BigInt(band.ceilingPricePesewas) }, agreed, variance, lineLimit);
+      let approval: OverrideApproval = verdict.kind === 'VARIANCE' ? verdict.approval : null;
+      if (verdict.kind === 'VARIANCE' && verdict.direction === 'BELOW' && approval === null && shiftRoom !== null) {
+        shiftUsed += variance;
+        if (shiftUsed > shiftRoom) approval = 'BEYOND_SHIFT_LIMIT';
+      }
       planned.push({
         index: c.index,
-        approval: verdict.kind === 'VARIANCE' ? verdict.approval : null,
+        approval,
         product: c.product,
         baseQty: c.baseQty,
         soldQty: c.soldQty,

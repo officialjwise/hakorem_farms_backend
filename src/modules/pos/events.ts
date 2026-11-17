@@ -53,3 +53,22 @@ export interface ShiftClosed extends TillPosting {
   readonly abuseCases: readonly number[];
   readonly amountsPesewas: { readonly expected: number; readonly returnedToSafe: number; readonly short: number; readonly over: number };
 }
+
+/**
+ * `pos.TillClockOutOfTolerance`: a counter sale whose till time was further from the server's than the tolerance. The
+ * sale is recorded at the server's time, never refused (the owner on A-273 (g)); this reaches the daily exception
+ * report's source with the device, the cashier and both times (B12).
+ */
+export interface TillClockOutOfTolerance {
+  readonly saleId: string;
+  readonly shiftId: string;
+  readonly branchId: string;
+  readonly register: { readonly id: string; readonly code: string };
+  readonly deviceId: string;
+  readonly cashierId: string;
+  readonly tillTime: string;
+  readonly serverTime: string;
+  readonly differenceSeconds: number;
+  readonly toleranceSeconds: number;
+  readonly exceptionKind: 'TILL_CLOCK_OUT_OF_TOLERANCE';
+}

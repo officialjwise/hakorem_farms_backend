@@ -10,8 +10,10 @@ import { Idempotency } from '../../platform/idempotency/idempotency';
 import { CLOCK } from '../../platform/platform.module';
 import { Authoriser, IamModule, PRINCIPAL_NAMES, type PrincipalNames } from '../iam';
 import { MasterDataRefs, MdmModule } from '../mdm';
-import { OrdModule, Orders } from '../ord';
+import { BilModule, Billing } from '../bil';
+import { OrdModule, Orders, SalePosting } from '../ord';
 import { PayModule, Payments, TillShiftRegistry } from '../pay';
+import { CounterSales } from './application/counter-sales';
 import { Devices } from './application/devices';
 import { Registers } from './application/registers';
 import { POS_LEDGER_EVENTS, Shifts } from './application/shifts';
@@ -28,7 +30,7 @@ import { PosController } from './interface/pos.controller';
  * `TillShiftCheck` port, so no PAY path takes or pays out a till's cash outside its open shift (ADR-0077).
  */
 @Module({
-  imports: [IamModule, MdmModule, PayModule, OrdModule],
+  imports: [IamModule, MdmModule, BilModule, PayModule, OrdModule],
   controllers: [PosController],
   providers: [
     { provide: TILL_STORE, useClass: PgTillStore },
@@ -43,6 +45,12 @@ import { PosController } from './interface/pos.controller';
       useFactory: (uow: UnitOfWork, store: TillStore, authoriser: Authoriser, idempotency: Idempotency, audit: AuditTrail, principals: PrincipalNames, cursors: Cursors, clock: Clock) =>
         new Devices(uow, store, authoriser, idempotency, audit, principals, cursors, clock, createUuidV7Generator(clock)),
       inject: [UnitOfWork, TILL_STORE, Authoriser, Idempotency, AuditTrail, PRINCIPAL_NAMES, Cursors, CLOCK],
+    },
+    {
+      provide: CounterSales,
+      useFactory: (uow: UnitOfWork, store: TillStore, devices: Devices, posting: SalePosting, orders: Orders, billing: Billing, refs: MasterDataRefs, authoriser: Authoriser, idempotency: Idempotency, events: DomainEvents, clock: Clock) =>
+        new CounterSales(uow, store, devices, posting, orders, billing, refs, authoriser, idempotency, events, clock),
+      inject: [UnitOfWork, TILL_STORE, Devices, SalePosting, Orders, Billing, MasterDataRefs, Authoriser, Idempotency, DomainEvents, CLOCK],
     },
     {
       provide: Shifts,

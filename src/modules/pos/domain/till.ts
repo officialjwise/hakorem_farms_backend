@@ -154,3 +154,11 @@ export function judgeTillCash(
   if (cash.actorId !== shift.cashierId && !cash.actorRecoversAnyShift) return err('SHIFT_NOT_OWN');
   return ok(null);
 }
+
+/**
+ * What a till shift has left of the seller's per-shift override limit (FR-POS-004): the limit less the price already
+ * given below list on the shift's sales, and never less than nothing. A role with no per-shift limit has none left.
+ */
+export function shiftOverrideRoom(limit: Money, used: Money): Money {
+  return used.compareTo(limit) >= 0 ? Money.zero() : limit.minus(used);
+}

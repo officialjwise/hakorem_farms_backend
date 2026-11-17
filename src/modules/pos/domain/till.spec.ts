@@ -1,6 +1,6 @@
 import { Money } from '@hakorem/kernel';
 import { describe, expect, it } from 'vitest';
-import { changeDue, closeAmounts, expectedCash, judgeCashMovement, isUnwitnessedDrop, judgeCountSignOff, judgeTillCash, overShort, type CashMovementFacts } from './till';
+import { changeDue, closeAmounts, expectedCash, judgeCashMovement, isUnwitnessedDrop, judgeCountSignOff, judgeTillCash, overShort, shiftOverrideRoom, type CashMovementFacts } from './till';
 
 const p = (n: bigint) => Money.ofPesewas(n);
 const MAX = 9_007_199_254_740_991n;
@@ -199,5 +199,14 @@ describe('cash through a till shift (ADR-0077, A-212 (a), A-273 (i) and (k))', (
 
   it('refuses a closed shift before anything else, even to the shift own cashier on its own till', () => {
     expect(judgeTillCash({ ...shift, status: 'CLOSED' }, { ...cash, actorId: 'nana', registerId: 'T2' })).toEqual({ ok: false, error: 'SHIFT_NOT_OPEN' });
+  });
+});
+
+describe('what a shift has left of its override limit (FR-POS-004)', () => {
+  it('is the limit less what the shift already gave below list, never below zero', () => {
+    expect(shiftOverrideRoom(p(10_000n), p(4_000n)).pesewas).toBe(6_000n);
+    expect(shiftOverrideRoom(p(10_000n), p(10_000n)).pesewas).toBe(0n);
+    expect(shiftOverrideRoom(p(10_000n), p(10_001n)).pesewas).toBe(0n);
+    expect(shiftOverrideRoom(p(0n), p(0n)).pesewas).toBe(0n);
   });
 });

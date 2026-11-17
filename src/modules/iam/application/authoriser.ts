@@ -99,7 +99,7 @@ export class Authoriser {
    * largest among the roles they hold there now, and 0 when none sets one, so an unset limit allows nothing (A-230).
    * Not audited: it refuses nothing; the selling command compares and asks for the approval.
    */
-  async limitIn(tx: Transaction, actor: Actor, limitKind: 'PRICE_OVERRIDE_PER_LINE', branchId: string): Promise<bigint> {
+  async limitIn(tx: Transaction, actor: Actor, limitKind: 'PRICE_OVERRIDE_PER_LINE' | 'PRICE_OVERRIDE_PER_SHIFT', branchId: string): Promise<bigint> {
     return (await this.store.roleLimit(tx, actor.principalId, limitKind, branchId, this.clock.now())) ?? 0n;
   }
 
