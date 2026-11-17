@@ -10,14 +10,14 @@ export class PgStockStore implements StockStore {
       `WITH posted AS (
          INSERT INTO inv.stock_movement (id, movement_type, product_id, stock_unit_id, branch_id, from_location_id, to_location_id, qty_base, weight_kg,
                                          weight_source, pack_count, value_pesewas, cost_element, reason_code, source_document_id, source_line_ref,
-                                         reservation_id, reverses_movement_id, occurred_at, actor_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+                                         reservation_id, reverses_movement_id, occurred_at, actor_id, returns_movement_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
          RETURNING value_pesewas, movement_type)
        SELECT p.value_pesewas, t.posting_event FROM posted p JOIN inv.movement_type t ON t.code = p.movement_type`,
       [
         m.id, m.movementType, m.productId, m.stockUnitId, m.branchId, m.fromLocationId, m.toLocationId, m.qtyBase, m.weightKg, m.weightSource,
         m.packCount, m.valuePesewas.toString(), m.costElement, m.reasonCode, m.sourceDocumentId, m.sourceLineRef, m.reservationId,
-        m.reversesMovementId, m.occurredAt, m.actorId,
+        m.reversesMovementId, m.occurredAt, m.actorId, m.returnsMovementId,
       ],
     );
     return { valuePesewas: BigInt(rows[0]!.value_pesewas), postingEvent: rows[0]!.posting_event };

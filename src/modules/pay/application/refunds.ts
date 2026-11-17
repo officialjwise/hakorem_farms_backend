@@ -204,6 +204,12 @@ export class Refunds {
     return { status: 'PENDING_APPROVAL' as const, approvalRequestId: approval.id, kind: REFUND_KIND, subject: { id, docType: 'REFUND', number: null }, summary, requestedAt: approval.requestedAt.toISOString() };
   }
 
+  /** Refunds by id as a higher module's document shows them (ORD's return, A-228): id, status, amount. It authorises nothing. */
+  async summariesIn(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, { readonly id: string; readonly status: RefundStatus; readonly amountPesewas: number }>> {
+    if (ids.length === 0) return new Map();
+    return new Map((await this.store.refunds(tx, ids)).map((r) => [r.id, { id: r.id, status: r.status, amountPesewas: json(r.amountPesewas) }] as const));
+  }
+
   /** IAM's handler for `REFUND`: the approved refund goes to the provider's queue, or waits to be paid by hand. */
   readonly approvalHandler: ApprovalHandler = {
     currentPayloadHash: async (tx, subjectDocumentId) => {

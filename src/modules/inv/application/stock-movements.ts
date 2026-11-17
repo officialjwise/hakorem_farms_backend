@@ -46,6 +46,17 @@ export interface ReversalRequest {
  * for a different person (`STOCK_REVERSAL`, ADR-0017), and nothing moves until they approve. Each reversal is kept
  * as an `inv.stock_reversal` document, the reversing movement's source document (A-139).
  */
+/** A customer return of part or all of a sale issue (`returnSaleIn`). */
+export interface SaleReturnRequest {
+  readonly issueMovementId: string;
+  readonly qty: Quantity;
+  /** Where the goods go; null puts them back where they were issued from. */
+  readonly toLocationId: string | null;
+  readonly reasonCode: string;
+  readonly sourceDocumentId: string;
+  readonly sourceLineRef: string | null;
+}
+
 export class StockMovements implements ApprovalHandler {
   private readonly nextId: () => string;
 
@@ -230,6 +241,33 @@ export class StockMovements implements ApprovalHandler {
       throw new StockMovementAlreadyReversedError(`movement ${movementId} is reversed, or its reversal waits for approval`);
     }
     return this.postReversal(tx, actorId, movement, sourceDocumentId, null);
+  }
+
+  /**
+   * Takes part or all of a sale issue back from the customer, in the caller's serializable transaction, as the higher
+   * module's return document (FR-ORD-015, migration 0199): a SALE_RETURN from where the issue went to `toLocationId`, or
+   * back where it was issued from when that is null, with the return's reason. The database values it at its share of
+   * the issue (the parts sum to the issue exactly) and refuses more than was issued. It authorises nothing: the caller
+   * has authorised and approved its own command.
+   */
+  async returnSaleIn(tx: Transaction, actorId: string, request: SaleReturnRequest): Promise<string> {
+    const issue = await this.store.movement(tx, request.issueMovementId);
+    if (issue === null) throw new NotFoundError(`no stock movement ${request.issueMovementId}`);
+    const posted = await this.stock.postIn(tx, actorId, {
+      movementType: 'SALE_RETURN',
+      productId: issue.productId,
+      stockUnitId: issue.stockUnitId,
+      branchId: issue.branchId,
+      fromLocationId: issue.toLocationId,
+      toLocationId: request.toLocationId ?? issue.fromLocationId,
+      qty: request.qty,
+      reasonCode: request.reasonCode,
+      sourceDocumentId: request.sourceDocumentId,
+      sourceLineRef: request.sourceLineRef,
+      returnsMovementId: issue.id,
+      occurredAt: this.clock.now(),
+    });
+    return posted.id;
   }
 
   /** ApprovalHandler: the reversal as it was asked for; it cannot change while it waits. */

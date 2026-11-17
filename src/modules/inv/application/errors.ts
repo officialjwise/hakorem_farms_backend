@@ -258,6 +258,8 @@ const BY_RULE: Readonly<Record<string, new (message: string) => Error>> = {
   ck_stock_reserved: StockUnitReservedError,
   ck_stock_reservation_use: StockUnitReservedError,
   ck_stock_reversal: StockMovementInvalidError,
+  // Migration 0199: a customer return takes back no more of a sale issue than it issued.
+  ck_stock_sale_return: StockMovementInvalidError,
   ck_stock_reversal_value: StockPoolValueGoneError,
   ck_stock_movement_type: StockMovementInvalidError,
   // Migration 0060 (ADR-0048): in-transit stock is not sellable, and what a held variance holds stays.

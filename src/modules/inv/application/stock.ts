@@ -24,6 +24,8 @@ export interface MovementRequest {
   readonly sourceLineRef?: string | null;
   readonly reservationId?: string | null;
   readonly reversesMovementId?: string | null;
+  /** The sale issue a SALE_RETURN takes back; the database then sets its value and cost element (migration 0199). */
+  readonly returnsMovementId?: string | null;
   readonly occurredAt: Date;
 }
 
@@ -119,6 +121,7 @@ export class Stock {
       sourceLineRef: request.sourceLineRef ?? null,
       reservationId: request.reservationId ?? null,
       reversesMovementId: request.reversesMovementId ?? null,
+      returnsMovementId: request.returnsMovementId ?? null,
       occurredAt: request.occurredAt,
       actorId,
     };

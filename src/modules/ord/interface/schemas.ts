@@ -71,3 +71,22 @@ export const OrderCreateBody = z.strictObject({
 
 /** The contract's `ReasonCodeRequest` (cancelOrder, voidOrder). */
 export const ReasonCodeBody = z.strictObject({ reasonCode: ReasonCode, note: Text(500).optional() });
+
+/** The contract's `ReturnCreate` (createReturn): quantities in the sold line's base unit, each above zero. */
+export const ReturnCreateBody = z.strictObject({
+  orderId: z.uuid(),
+  kind: z.enum(['RETURN', 'EXCHANGE']),
+  reasonCode: ReasonCode,
+  refundDestination: z.enum(['ORIGINAL_METHOD', 'STORE_CREDIT', 'CASH']),
+  lines: z
+    .array(
+      z.strictObject({
+        orderLineId: z.uuid(),
+        qty: Quantity.refine((q) => !/^0\.000$/.test(q), { message: 'must be above zero' }),
+        weightKg: Kilograms.optional(),
+        disposition: z.enum(['RESTOCK', 'RETURNS_HOLD', 'WRITE_OFF']),
+      }),
+    )
+    .max(100),
+  note: Text(500).optional(),
+});

@@ -8,6 +8,8 @@ Owner: ORD module. The single order record for every channel, sale posting, fulf
 
 **B09a continued 2c (A-226, migration 0194):** `ord.sales_order` adds `voided_by` and `voided_at` with `ck_sales_order_void_checker` (a VOIDED order names who voided it and when, never the one who posted it nor its salesperson), and the guard lets a COMPLETED order change only its status, `void_approval_request_id`, `voided_by` and `voided_at`. A cancellation writes `cancel_reason_code` and `posted_at`/`posted_by`, and turns every OPEN line CANCELLED. `ord.order_void` (below) holds each void asked for. The permissions are migrations 0190 and 0191.
 
+**B09a continued 2d (A-228, ADR-0068, migrations 0195 to 0200):** `ord.order_return` and `ord.order_return_line` as below. A return is written `REQUESTED` against a `COMPLETED` sale and its own receipt, numbered from its `ORDER_RETURN` series (`ck_order_return_number`); submitted by its maker only (`ck_order_return_submitted`); decided by someone else (`ck_order_return_decided`); frozen once decided, what was asked never changing (`ck_order_return_transition`, HK004). `trg_order_return_line_guard` holds `ck_order_return_line_cap` under the sold line's row lock. The stock that comes back names its sale issue (`inv.stock_movement.returns_movement_id`, `docs/data-model/inv.md`). The permissions are migrations 0196 and 0197.
+
 ---
 
 ### `ord.sales_order` · DOCUMENT
@@ -192,12 +194,16 @@ A return or exchange against an original order. Posted statuses: `COMPLETED`, `R
 | `original_billing_document_id` | `uuid` | NOT NULL, FK `bil.billing_document` | The original receipt |
 | `kind` | `text` | NOT NULL, CHECK in (`RETURN`, `EXCHANGE`) | |
 | `reason_code` | `text` | NOT NULL, FK `mdm.reason_code` | |
-| `credit_note_id` | `uuid` | NULL, FK `bil.billing_document` | |
-| `refund_id` | `uuid` | NULL, FK `pay.refund` | |
-| `exchange_order_id` | `uuid` | NULL, FK `ord.sales_order` | The replacement sale |
-| `approval_request_id` | `uuid` | NULL, FK `iam.approval_request` | |
+| `refund_destination` | `text` | NOT NULL, CHECK in (`ORIGINAL_METHOD`, `STORE_CREDIT`, `CASH`) | Where the refund goes, judged by PAY when it is asked for |
+| `note` | `text` | NULL | Required where the reason asks for one |
+| `credit_note_id` | `uuid` | NULL, UNIQUE, FK `bil.billing_document`; set exactly when COMPLETED | The credit note, made by the return's maker under its approval |
+| `refund_id` | `uuid` | NULL, UNIQUE, FK `pay.refund`; only when COMPLETED | The refund against the credit note, when the sale owed money back |
+| `exchange_order_id` | `uuid` | NULL, FK `ord.sales_order`; NULL until exchanges are built (B9b) | The replacement sale |
+| `approval_request_id` | `uuid` | NULL, UNIQUE, FK `iam.approval_request`; set at submission | The `RETURN` approval |
+| `submitted_by`, `submitted_at` | `uuid`, `timestamptz` | NULL until submitted; `submitted_by` is `created_by` | |
+| `decided_by`, `decided_at` | `uuid`, `timestamptz` | NULL until decided; never `created_by` | |
 
-Standard columns: `DOCUMENT` (`status` in `REQUESTED`, `PENDING_APPROVAL`, `COMPLETED`, `REJECTED`).
+`return_no` is NOT NULL as built (allocated when the return is made). Standard columns: `DOCUMENT` (`status` in `REQUESTED`, `PENDING_APPROVAL`, `COMPLETED`, `REJECTED`).
 
 ### `ord.order_return_line` · DOCUMENT
 
@@ -208,9 +214,12 @@ The lines and quantities being returned.
 | `id` | `uuid` | PK | |
 | `order_return_id` | `uuid` | NOT NULL, FK `ord.order_return` | |
 | `sales_order_line_id` | `uuid` | NOT NULL, FK `ord.sales_order_line` | |
+| `line_no` | `integer` | NOT NULL, UNIQUE per return | |
 | `qty` | `qty` | NOT NULL, CHECK `> 0` | |
 | `weight_kg` | `kg` | NULL | |
 | `disposition` | `text` | NOT NULL, CHECK in (`RESTOCK`, `RETURNS_HOLD`, `WRITE_OFF`) | Where the goods go |
-| `stock_movement_id` | `uuid` | NULL, FK `inv.stock_movement` | |
+| `refund_pesewas` | `pesewas` | NOT NULL DEFAULT 0 | What the line's credit carries: BIL's preview when made, the credit note's figure once completed |
+| `stock_movement_id` | `uuid` | NULL, UNIQUE, FK `inv.stock_movement`; NULL for `WRITE_OFF` | The `SALE_RETURN` |
 
-- Trigger: total returned against an order line does not exceed what was fulfilled.
+- UNIQUE (`order_return_id`, `sales_order_line_id`).
+- Trigger (`ck_order_return_line_cap`): what returns not `REJECTED` hold of a sold line never exceeds its `qty_fulfilled`, under the sold line's row lock; the line is of the return's own sale; lines are written while the return is `REQUESTED`, and afterwards only `refund_pesewas` and `stock_movement_id`, while it is open.

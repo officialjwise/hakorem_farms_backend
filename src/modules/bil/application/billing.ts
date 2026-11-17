@@ -523,8 +523,39 @@ export class Billing {
     });
   }
 
+  /** An issued document's lines by the order line each was raised for (ORD's returns, A-228). It authorises nothing. */
+  async linesByOrderLineIn(tx: Transaction, documentId: string): Promise<ReadonlyMap<string, string>> {
+    const [record] = await this.store.documents(tx, [documentId]);
+    return new Map((record?.lines ?? []).flatMap((l) => (l.orderLineRef === null ? [] : [[l.orderLineRef, l.id] as const])));
+  }
+
+  /**
+   * What a credit note of these lines would take back of an issued original, by `issueCreditNote`'s rules, without
+   * writing anything: each credited line's gross and the total (ORD's return before it is approved, A-228). It refuses
+   * as the credit would. It authorises nothing.
+   */
+  async creditPreviewIn(tx: Transaction, originalId: string, body: CreditNoteRequest): Promise<CreditPreview> {
+    return translateRefusal(async () => {
+      const original = await this.documentOf(tx, originalId, false);
+      if (!correctable(original)) throw new BillingDocumentInvalidError([{ field: null, rule: 'ORIGINAL_NOT_CORRECTABLE' }]);
+      const { lines, gross } = await this.planCreditIn(tx, original, body, IN_TRANSACTION_CREDIT_REASON_DOMAINS);
+      return { grossPesewas: gross, lines: lines.map((l) => ({ lineId: l.creditsLineId!, grossPesewas: l.lineGrossPesewas })) };
+    });
+  }
+
   /** The credit note's draft against an issued original, written and not yet issued, with its gross. */
   private async draftCreditIn(tx: Transaction, original: DocumentRecord, body: CreditNoteRequest, makerId: string, domains: readonly string[]): Promise<{ readonly header: DraftHeader; readonly gross: bigint }> {
+    const { versionId, lines, gross } = await this.planCreditIn(tx, original, body, domains);
+    // Never due before it is drafted, as a debit note (A-223): a credit against an overdue invoice is due today.
+    const today = toBusinessDate(this.clock.now());
+    const due = original.dueDate === null ? null : original.dueDate < today ? today : original.dueDate;
+    const header = this.noteHeader(original, 'CREDIT_NOTE', versionId, body.reasonCode, body.note, makerId, due);
+    await this.writeDraft(tx, header, lines);
+    return { header, gross };
+  }
+
+  /** The credit note's lines against an issued original, priced and taxed by the original's terms, and its gross. */
+  private async planCreditIn(tx: Transaction, original: DocumentRecord, body: CreditNoteRequest, domains: readonly string[]): Promise<{ readonly versionId: string; readonly lines: LineRecord[]; readonly gross: bigint }> {
     const reason = (await this.refs.reasonCodesIn(tx, [body.reasonCode])).get(body.reasonCode);
     const broken: BrokenRule[] = [...noteReasonRule('CREDIT_NOTE', reason, body.note ?? null, domains)];
     const anchorOf = (l: LineRecord) => (original.taxInclusive ? l.lineGrossPesewas : l.lineNetPesewas);
@@ -575,12 +606,7 @@ export class Billing {
     const { versionId, lines } = await this.taxed(tx, original.taxInclusive, original.issueDate, priced);
     const gross = documentTotals(lines.map(figures)).gross.pesewas;
     if (original.creditedPesewas + gross > original.grossPesewas) throw new CreditNoteExceedsOriginalError(original.grossPesewas - original.creditedPesewas);
-    // Never due before it is drafted, as a debit note (A-223): a credit against an overdue invoice is due today.
-    const today = toBusinessDate(this.clock.now());
-    const due = original.dueDate === null ? null : original.dueDate < today ? today : original.dueDate;
-    const header = this.noteHeader(original, 'CREDIT_NOTE', versionId, body.reasonCode, body.note, makerId, due);
-    await this.writeDraft(tx, header, lines);
-    return { header, gross };
+    return { versionId, lines, gross };
   }
 
   /** IAM's handler for `CREDIT_NOTE`: the approved draft is issued and posted, numbered in the approval's transaction. */
@@ -1060,6 +1086,12 @@ export class Billing {
 
 function figures(l: LineRecord): { net: Money; tax: Money; gross: Money } {
   return { net: Money.ofPesewas(l.lineNetPesewas), tax: Money.ofPesewas(l.lineTaxPesewas), gross: Money.ofPesewas(l.lineGrossPesewas) };
+}
+
+/** What a credit note would take back (`Billing.creditPreviewIn`): each credited original line's gross, and the total. */
+export interface CreditPreview {
+  readonly grossPesewas: bigint;
+  readonly lines: readonly { readonly lineId: string; readonly grossPesewas: bigint }[];
 }
 
 /** A billing document as a payment sees it (`Billing.settleableIn`). */

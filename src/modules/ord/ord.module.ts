@@ -17,21 +17,26 @@ import { ORDER_CONFIRMATION_POLICIES, type OrderConfirmationPolicy } from './app
 import { OrderReversals, SALE_VOID_KIND } from './application/order-reversals';
 import { ORDER_STORE, type OrderStore } from './application/order-store';
 import { Orders } from './application/orders';
+import { RETURN_STORE, type ReturnStore } from './application/return-store';
+import { RETURN_KIND, Returns } from './application/returns';
 import { SalePosting } from './application/sale-posting';
 import { PgOrderStore } from './infrastructure/pg-order-store';
+import { PgReturnStore } from './infrastructure/pg-return-store';
 import { OrdersController } from './interface/orders.controller';
+import { ReturnsController } from './interface/returns.controller';
 
 /**
  * ORD (layer 9): the one order record of every channel and the sale posting that issues stock, the billing document
  * and the tenders in one serializable transaction (B9a). B09a continued 2b adds `Orders` (the order record's reads, entry and
  * confirmation) and the `OrderConfirmationPolicy` port; cancellation, voids, returns, price override approvals and online
- * placement follow in B09a continued 2c (A-225), which adds `OrderReversals` (cancellation and the void under `SALE_VOID`); POS's counter sale (B9b) and fulfilment's dispatch (B11) call `SalePosting.postIn`.
+ * placement follow in B09a continued 2c (A-225), which adds `OrderReversals` (cancellation and the void under `SALE_VOID`), and B09a continued 2d adds `Returns` (returns against the sale under `RETURN`, A-228); POS's counter sale (B9b) and fulfilment's dispatch (B11) call `SalePosting.postIn`.
  */
 @Module({
   imports: [IamModule, MdmModule, InvModule, BilModule, PayModule],
-  controllers: [OrdersController],
+  controllers: [OrdersController, ReturnsController],
   providers: [
     { provide: ORDER_STORE, useClass: PgOrderStore },
+    { provide: RETURN_STORE, useClass: PgReturnStore },
     // The OrderConfirmationPolicy port (MODULE_BOUNDARIES section 6): WHL registers its credit policy in B10; none yet.
     { provide: ORDER_CONFIRMATION_POLICIES, useValue: [] satisfies OrderConfirmationPolicy[] },
     {
@@ -145,6 +150,47 @@ import { OrdersController } from './interface/orders.controller';
       ],
     },
     {
+      provide: Returns,
+      useFactory: (
+        uow: UnitOfWork,
+        store: ReturnStore,
+        orders: OrderStore,
+        refs: MasterDataRefs,
+        movements: StockMovements,
+        billing: Billing,
+        payments: Payments,
+        refunds: Refunds,
+        approvals: Approvals,
+        authoriser: Authoriser,
+        principals: PrincipalNames,
+        numbers: NumberSeries,
+        documents: DocumentRegistry,
+        idempotency: Idempotency,
+        events: DomainEvents,
+        audit: AuditTrail,
+        clock: Clock,
+      ) => new Returns(uow, store, orders, refs, movements, billing, payments, refunds, approvals, authoriser, principals, numbers, documents, idempotency, events, audit, clock),
+      inject: [
+        UnitOfWork,
+        RETURN_STORE,
+        ORDER_STORE,
+        MasterDataRefs,
+        StockMovements,
+        Billing,
+        Payments,
+        Refunds,
+        Approvals,
+        Authoriser,
+        PRINCIPAL_NAMES,
+        NumberSeries,
+        DocumentRegistry,
+        Idempotency,
+        DomainEvents,
+        AuditTrail,
+        CLOCK,
+      ],
+    },
+    {
       provide: SalePosting,
       useFactory: (
         store: OrderStore,
@@ -165,16 +211,18 @@ import { OrdersController } from './interface/orders.controller';
       inject: [ORDER_STORE, MasterDataRefs, PricingService, Stock, StockUnits, Reservations, Billing, Payments, NumberSeries, DocumentRegistry, DomainEvents, Idempotency, AuditTrail, CLOCK],
     },
   ],
-  exports: [SalePosting, Orders, OrderReversals],
+  exports: [SalePosting, Orders, OrderReversals, Returns],
 })
 export class OrdModule implements OnModuleInit {
   constructor(
     @Inject(Approvals) private readonly approvals: Approvals,
     @Inject(OrderReversals) private readonly reversals: OrderReversals,
+    @Inject(Returns) private readonly returns: Returns,
   ) {}
 
-  /** Registers the `SALE_VOID` approval handler. */
+  /** Registers the `SALE_VOID` and `RETURN` approval handlers. */
   onModuleInit(): void {
     this.approvals.registerHandler(SALE_VOID_KIND, this.reversals.approvalHandler);
+    this.approvals.registerHandler(RETURN_KIND, this.returns.approvalHandler);
   }
 }

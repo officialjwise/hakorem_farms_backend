@@ -134,7 +134,7 @@ import {
 import { SettingUpdate as AudSettingUpdate } from '../../../src/modules/aud/interface/schemas';
 import { SlotGenerate, SlotUpdate } from '../../../src/modules/del/interface/schemas';
 import { CreditNoteCreate, DebitNoteCreate, ReprintRequest } from '../../../src/modules/bil/interface/schemas';
-import { OrderCreateBody, ReasonCodeBody } from '../../../src/modules/ord/interface/schemas';
+import { OrderCreateBody, ReasonCodeBody, ReturnCreateBody } from '../../../src/modules/ord/interface/schemas';
 import {
   AllocationBody,
   BankLineMatchBody,
@@ -449,6 +449,7 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     createOrder: OrderCreateBody,
     cancelOrder: ReasonCodeBody,
     voidOrder: ReasonCodeBody,
+    createReturn: ReturnCreateBody,
     receivePaymentWebhook: ProviderWebhookBody,
     issueDebitNote: DebitNoteCreate,
     reprintBillingDocument: ReprintRequest,

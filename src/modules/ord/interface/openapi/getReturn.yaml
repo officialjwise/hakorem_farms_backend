@@ -1,0 +1,81 @@
+operationId: getReturn
+tags:
+  - ord
+summary: "Get a return"
+description: "One return, at a branch the caller reads returns at.\n\nPermission: `ord.return.read`."
+x-permission: ord.return.read
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/OrderReturn"
+        example:
+          id: "019a7a9e-79ed-74b3-b9eb-540215f0ccdf"
+          returnNo: RET-2026-DDW-000012
+          status: COMPLETED
+          order:
+            id: "019a7af4-82a5-7557-ba8f-5e4c8a38d72a"
+            docType: SALES_ORDER
+            number: SO-2026-DDW-004150
+          originalBillingDocument:
+            id: "019a7af4-a194-7f3b-8473-fc8403e97561"
+            docType: RECEIPT
+            number: RCP-2026-DDW-T1-018700
+          kind: RETURN
+          reasonCode: DAMAGED_IN_DELIVERY
+          lines:
+            - id: "019a7af4-c083-791e-9e56-9abb7d9a1399"
+              orderLineId: "019a7af4-df72-7302-a83a-38f2f74bb1d0"
+              product:
+                id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                sku: EGG-BIG
+                name: "Eggs, big, crate of 30"
+              qty: "2.000"
+              weightKg: null
+              disposition: WRITE_OFF
+              refundPesewas: 12000
+          creditNote:
+            id: "019a7af4-fe61-7ce5-b21d-d72a70fc5008"
+            docType: CREDIT_NOTE
+            number: CRN-2026-DDW-000080
+          refund:
+            id: "019a7af5-1d50-76c9-8c01-7561eaadee3f"
+            status: PAID
+            amountPesewas: 12000
+          exchangeOrderId: null
+          approvalRequestId: null
+          totalRefundPesewas: 12000
+          currency: GHS
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 2
+          createdAt: "2026-11-13T12:00:00Z"
+          createdBy:
+            id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+            displayName: "Adwoa Darko"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

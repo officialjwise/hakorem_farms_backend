@@ -13,3 +13,5 @@ export { Orders, ORDER_CONFIRMED, ORDER_PLACED, type SalesOrderView } from './ap
 export { ORDER_CONFIRMATION_POLICIES, type OrderConfirmationPolicy } from './application/order-confirmation-policy';
 export { OrderReversals, ORDER_CANCELLED, ORDER_VOIDED, SALE_VOID_KIND, SALE_VOID_REQUESTED } from './application/order-reversals';
 export type { OrderCancelled, OrderCompleted, OrderConfirmed, OrderPlaced, OrderVoided, SaleVoidRequested } from './events';
+export { Returns, RETURN_COMPLETED, RETURN_KIND, RETURN_SUBMITTED, type OrderReturnView } from './application/returns';
+export type { ReturnCompleted, ReturnSubmitted } from './events';

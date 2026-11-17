@@ -437,4 +437,98 @@ describe('voidOrder under SALE_VOID (FR-ORD-002, abuse case 1)', () => {
     expect(await statusOf(late.id)).toBe('COMPLETED');
     expect(await trialBalanceSum(database)).toBe('0');
   });
+
+  /**
+   * A sale credited to a salesperson other than the person who posted it. Every path built so far makes the poster its
+   * salesperson; B9b's counter and B10's quotes will not. The admin connection credits it here, with the order's guard
+   * off for that one statement, so each half of the rule is proved on its own.
+   */
+  async function creditedTo(saleId: string, salesperson: string): Promise<void> {
+    const client = await admin().connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('SET LOCAL session_replication_role = replica');
+      await client.query('UPDATE ord.sales_order SET salesperson_id = $2 WHERE id = $1', [saleId, id(`user:${salesperson}`)]);
+      await client.query('COMMIT');
+    } finally {
+      client.release();
+    }
+  }
+
+  it('refuses the supervisor who asked for a void approving it, in the application and in the database', async () => {
+    const sale = await counterSale('cashier', 1, { id: '019a8000-0000-7000-8000-00000000c008', code: 'C8' });
+    const asked = await askVoid('manager', sale.id, { reasonCode: 'KEYING_ERROR' });
+    expect(asked.status, JSON.stringify(asked.body)).toBe(202);
+    await step('manager');
+    const own = await decide('manager', asked.body.approvalRequestId, 'approve');
+    expect(own.status).toBe(422);
+    expect(own.body.error.code).toBe('MAKER_CANNOT_CHECK');
+    expect(await statusOf(sale.id)).toBe('COMPLETED');
+    const app = database.pool('app');
+    await expect(
+      app.query("UPDATE ord.order_void SET status = 'REJECTED', decided_by = created_by, decided_at = $2, updated_by = created_by, version = version + 1 WHERE sales_order_id = $1", [
+        sale.id,
+        clock.now(),
+      ]),
+    ).rejects.toMatchObject({ constraint: 'ck_order_void_decided' });
+    expect((await admin().query<{ status: string }>('SELECT status FROM ord.order_void WHERE sales_order_id = $1', [sale.id])).rows.map((r) => r.status)).toEqual(['PENDING_APPROVAL']);
+  });
+
+  it('refuses the sale’s salesperson and its poster each on their own, in the application and in the database', async () => {
+    // Posted by the cashier, credited to the Manager: the Manager is refused as its salesperson.
+    const bySalesperson = await counterSale('cashier', 1, { id: '019a8000-0000-7000-8000-00000000c009', code: 'C9' });
+    await creditedTo(bySalesperson.id, 'manager');
+    const first = await askVoid('cashier', bySalesperson.id, { reasonCode: 'KEYING_ERROR' });
+    expect(first.status, JSON.stringify(first.body)).toBe(202);
+    await step('manager');
+    const salesperson = await decide('manager', first.body.approvalRequestId, 'approve');
+    expect(salesperson.status, JSON.stringify(salesperson.body)).toBe(422);
+    expect(salesperson.body.error.code).toBe('MAKER_CANNOT_CHECK');
+    expect(await statusOf(bySalesperson.id)).toBe('COMPLETED');
+
+    // Posted by the Manager, credited to Sales: the Manager is refused as its poster.
+    const byPoster = await counterSale('manager', 1, { id: '019a8000-0000-7000-8000-00000000c00a', code: 'CA' });
+    await creditedTo(byPoster.id, 'sales');
+    const second = await askVoid('cashier', byPoster.id, { reasonCode: 'KEYING_ERROR' });
+    expect(second.status, JSON.stringify(second.body)).toBe(202);
+    await step('manager');
+    const poster = await decide('manager', second.body.approvalRequestId, 'approve');
+    expect(poster.status, JSON.stringify(poster.body)).toBe(422);
+    expect(poster.body.error.code).toBe('MAKER_CANNOT_CHECK');
+    expect(await statusOf(byPoster.id)).toBe('COMPLETED');
+
+    // The database refuses each half of the rule where the other half would not catch it.
+    const app = database.pool('app');
+    const approval = second.body.approvalRequestId as string;
+    for (const [saleId, voider] of [
+      [bySalesperson.id, 'salesperson_id'],
+      [byPoster.id, 'created_by'],
+    ] as const) {
+      await expect(
+        app.query(`UPDATE ord.sales_order SET status = 'VOIDED', void_approval_request_id = $2, voided_by = ${voider}, voided_at = $3, updated_by = created_by, version = version + 1 WHERE id = $1`, [
+          saleId,
+          approval,
+          clock.now(),
+        ]),
+        voider,
+      ).rejects.toMatchObject({ constraint: 'ck_sales_order_void_checker' });
+    }
+
+    // The Owner, neither of them, voids the sale credited to the Manager.
+    await step('owner');
+    const approved = await decide('owner', first.body.approvalRequestId, 'approve');
+    expect(approved.status, JSON.stringify(approved.body)).toBe(200);
+    expect(await statusOf(bySalesperson.id)).toBe('VOIDED');
+    expect(await trialBalanceSum(database)).toBe('0');
+  });
+
+  it('refuses a void of a sale that also holds a mobile money payment: that money goes back through a return', async () => {
+    const sale = await counterSale('cashier', 1, { id: '019a8000-0000-7000-8000-00000000c00b', code: 'CB' });
+    const charge = await initiateCharge(api.server, as('sales'), { amountPesewas: 500, orderId: sale.id, customerId: id('tema') });
+    expect(charge.status, JSON.stringify(charge.body)).toBe(201);
+    const asked = await askVoid('cashier', sale.id, { reasonCode: 'KEYING_ERROR' });
+    expect(asked.status, JSON.stringify(asked.body)).toBe(422);
+    expect(asked.body.error.details).toEqual([expect.objectContaining({ code: 'TENDER_NOT_VOIDABLE', field: '/payments' })]);
+    expect(await admin().query('SELECT 1 FROM ord.order_void WHERE sales_order_id = $1', [sale.id])).toMatchObject({ rowCount: 0 });
+  });
 });

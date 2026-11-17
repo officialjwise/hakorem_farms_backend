@@ -1,0 +1,103 @@
+operationId: submitReturn
+tags:
+  - ord
+summary: "Submit a return: credit note, stock and refund"
+description: "Always 202 with an `ApprovalPending` body (kind `RETURN`), and only by the return's maker (422 ORDER_INVALID `NOT_RETURN_MAKER`); a return already submitted is 422 INVALID_STATE_TRANSITION. Nothing takes effect until a holder of `ord.return.approve`, with a fresh step-up, approves who is not its maker (422 MAKER_CANNOT_CHECK, also refused by the database). On approval, in the approval's transaction: the credit note is issued against the original receipt for the returned quantities, made by the return's maker under that approval; each line not written off comes back into stock at its share of the cost it left at (`RESTOCK` to where it was sold from, `RETURNS_HOLD` to the branch's returns holding area; `WRITE_OFF` moves no stock); and the refund of what the sale now owes the customer is asked for against that credit note from the cleared payment that paid the most of it, the return's maker its maker, so that neither the maker nor the credit note's maker may approve it. A rejection gives the quantities back. Every submission and completion is on the daily exception report with the refunds (`REFUND`, abuse case 12). The `200` response is kept for the contract and not used.\n\nPermission: `ord.return.create`.\n\nMay require approval of kind `RETURN`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+x-permission: ord.return.create
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/OrderReturn"
+        example:
+          id: "019a7a9e-79ed-74b3-b9eb-540215f0ccdf"
+          returnNo: RET-2026-DDW-000012
+          status: COMPLETED
+          order:
+            id: "019a7af4-82a5-7557-ba8f-5e4c8a38d72a"
+            docType: SALES_ORDER
+            number: SO-2026-DDW-004150
+          originalBillingDocument:
+            id: "019a7af4-a194-7f3b-8473-fc8403e97561"
+            docType: RECEIPT
+            number: RCP-2026-DDW-T1-018700
+          kind: RETURN
+          reasonCode: DAMAGED_IN_DELIVERY
+          lines:
+            - id: "019a7af4-c083-791e-9e56-9abb7d9a1399"
+              orderLineId: "019a7af4-df72-7302-a83a-38f2f74bb1d0"
+              product:
+                id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                sku: EGG-BIG
+                name: "Eggs, big, crate of 30"
+              qty: "2.000"
+              weightKg: null
+              disposition: WRITE_OFF
+              refundPesewas: 12000
+          creditNote:
+            id: "019a7af4-fe61-7ce5-b21d-d72a70fc5008"
+            docType: CREDIT_NOTE
+            number: CRN-2026-DDW-000080
+          refund:
+            id: "019a7af5-1d50-76c9-8c01-7561eaadee3f"
+            status: PAID
+            amountPesewas: 12000
+          exchangeOrderId: null
+          approvalRequestId: null
+          totalRefundPesewas: 12000
+          currency: GHS
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 2
+          createdAt: "2026-11-13T12:00:00Z"
+          createdBy:
+            id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+            displayName: "Adwoa Darko"
+  "202":
+    description: "Accepted for approval. Nothing has taken effect yet."
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ApprovalPending"
+        example:
+          status: PENDING_APPROVAL
+          approvalRequestId: "019a7af8-6085-71c6-b6fe-253bc0589e19"
+          kind: RETURN
+          subject:
+            id: "019a7a9f-1498-7624-8b5c-6b177665e3f5"
+            docType: ORDER_RETURN
+            number: RET-2026-DDW-000017
+          summary: "Return RET-2026-DDW-000017 of GHS 456.00 (RETURN_QUALITY)"
+          requestedAt: "2026-11-13T10:12:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
