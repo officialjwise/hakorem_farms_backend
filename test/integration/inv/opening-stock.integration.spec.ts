@@ -37,10 +37,10 @@ const HEADER = 'branch,location,sku,qty,valuePesewas,batch,expiresOn,tag,sex,wei
 let porkExpiresOn: string;
 let wingsExpireOn: string;
 const good = () => [
-  'DDW,PENS,LIV-PIG,1,150000,,,P-0001,FEMALE,12.500',
-  'DDW,PENS,LIV-PIG,1.000,150001,,,P-0002,male,',
-  `DDW,COLD,MEAT-PORK-15KG,30.000,340000,PORK-2026-1101,${porkExpiresOn},,,30.000`,
-  'DDW,SHOP,PRD-CARROT-CRATE,6,120000,,,,,',
+  'DDW,PENS,LIV-0003,1,150000,,,P-0001,FEMALE,12.500',
+  'DDW,PENS,LIV-0003,1.000,150001,,,P-0002,male,',
+  `DDW,COLD,MEAT-0006,30.000,340000,PORK-2026-1101,${porkExpiresOn},,,30.000`,
+  'DDW,SHOP,PRD-0004,6,120000,,,,,',
 ];
 
 async function upload(session: TestSession, lines: readonly string[]): Promise<string> {
@@ -101,22 +101,22 @@ describe('the OPENING_STOCK dry run (A-128, A-147)', () => {
     const job = await post(owner, '/imports', {
       entity: 'OPENING_STOCK',
       fileId: await upload(owner, [
-        'DDW,SHOP,PRD-YAM-TUBER,10,5000,,,,,',
-        'KSA,SHOP,PRD-CARROT-CRATE,1,1000,,,,,',
-        'DDW,TRANSIT,PRD-TOMATO-CRATE,1,1000,,,,,',
-        'DDW,SHOP,PRD-LETTUCE-HEAD,1,0,,,,,',
-        `DDW,COLD,MEAT-CHICKEN-WINGS-15KG,15.000,90000,,${wingsExpireOn},,,`,
-        'DDW,PENS,LIV-RABBIT,2,4000,,,R-01,FEMALE,',
-        'DDW,PENS,LIV-RABBIT,1,4000,,,R-02,MALE,',
-        'DDW,PENS,LIV-RABBIT,1,4000,,,R-02,MALE,',
-        'DDW,PENS,LIV-RABBIT,1,4000,,,R-03,,',
+        'DDW,SHOP,PRD-0005,10,5000,,,,,',
+        'KSA,SHOP,PRD-0004,1,1000,,,,,',
+        'DDW,TRANSIT,PRD-0001,1,1000,,,,,',
+        'DDW,SHOP,PRD-0006,1,0,,,,,',
+        `DDW,COLD,MEAT-0002,15.000,90000,,${wingsExpireOn},,,`,
+        'DDW,PENS,LIV-0007,2,4000,,,R-01,FEMALE,',
+        'DDW,PENS,LIV-0007,1,4000,,,R-02,MALE,',
+        'DDW,PENS,LIV-0007,1,4000,,,R-02,MALE,',
+        'DDW,PENS,LIV-0007,1,4000,,,R-03,,',
       ]),
     });
     expect(job.body).toMatchObject({ status: 'VALIDATED', rowsTotal: 9, rowsValid: 1 });
     const errors = await get(owner, `/imports/${job.body.id as string}/errors?limit=100`);
     const byRow = new Map<number, string[]>();
     for (const e of errors.body.data as Array<{ rowNo: number; column: string; message: string }>) byRow.set(e.rowNo, [...(byRow.get(e.rowNo) ?? []), `${e.column}: ${e.message}`]);
-    expect(byRow.get(2)).toEqual(['sku: PRD-YAM-TUBER already has stock history at DDW: opening stock is loaded once, before trading']);
+    expect(byRow.get(2)).toEqual(['sku: PRD-0005 already has stock history at DDW: opening stock is loaded once, before trading']);
     expect(byRow.get(3)).toEqual(['branch: No branch KSA']);
     expect(byRow.get(4)).toEqual(['location: TRANSIT does not hold stock of its own']);
     expect(byRow.get(5)).toEqual(['valuePesewas: Opening stock is carried at its cost: valuePesewas must be above zero']);
@@ -161,14 +161,14 @@ describe('applying opening stock (A-147, ADR-0050)', () => {
       )
     ).rows;
     expect(movements).toEqual([
-      { sku: 'LIV-PIG', to: 'PENS', from_kind: 'OPENING', qty: '1.000', value: '150000', element: 'PURCHASE', identifier: 'P-0001', weight: '12.500', source: 'MANUAL' },
-      { sku: 'LIV-PIG', to: 'PENS', from_kind: 'OPENING', qty: '1.000', value: '150001', element: 'PURCHASE', identifier: 'P-0002', weight: null, source: null },
-      { sku: 'MEAT-PORK-15KG', to: 'COLD', from_kind: 'OPENING', qty: '30.000', value: '340000', element: 'PURCHASE', identifier: 'PORK-2026-1101', weight: '30.000', source: 'MANUAL' },
-      { sku: 'PRD-CARROT-CRATE', to: 'SHOP', from_kind: 'OPENING', qty: '6.000', value: '120000', element: 'PURCHASE', identifier: null, weight: null, source: null },
+      { sku: 'LIV-0003', to: 'PENS', from_kind: 'OPENING', qty: '1.000', value: '150000', element: 'PURCHASE', identifier: 'P-0001', weight: '12.500', source: 'MANUAL' },
+      { sku: 'LIV-0003', to: 'PENS', from_kind: 'OPENING', qty: '1.000', value: '150001', element: 'PURCHASE', identifier: 'P-0002', weight: null, source: null },
+      { sku: 'MEAT-0006', to: 'COLD', from_kind: 'OPENING', qty: '30.000', value: '340000', element: 'PURCHASE', identifier: 'PORK-2026-1101', weight: '30.000', source: 'MANUAL' },
+      { sku: 'PRD-0004', to: 'SHOP', from_kind: 'OPENING', qty: '6.000', value: '120000', element: 'PURCHASE', identifier: null, weight: null, source: null },
     ]);
     const posted = await admin().query("SELECT 1 FROM platform.outbox_message WHERE event_type = 'inv.OpeningStockLoaded'");
     expect(posted.rowCount).toBe(4);
-    const pool = await admin().query<{ value: string }>("SELECT sum(c.value_pesewas)::text AS value FROM inv.cost_pool c JOIN mdm.product p ON p.id = c.product_id WHERE p.sku IN ('LIV-PIG', 'MEAT-PORK-15KG', 'PRD-CARROT-CRATE')");
+    const pool = await admin().query<{ value: string }>("SELECT sum(c.value_pesewas)::text AS value FROM inv.cost_pool c JOIN mdm.product p ON p.id = c.product_id WHERE p.sku IN ('LIV-0003', 'MEAT-0006', 'PRD-0004')");
     expect(pool.rows[0]!.value).toBe('760001');
     const pork = await admin().query<{ expires_on: string; status: string }>("SELECT to_char(expires_on, 'YYYY-MM-DD') AS expires_on, status FROM inv.stock_unit WHERE identifier = 'PORK-2026-1101'");
     expect(pork.rows).toEqual([{ expires_on: porkExpiresOn, status: 'ACTIVE' }]);
@@ -181,7 +181,7 @@ describe('applying opening stock (A-147, ADR-0050)', () => {
 
   it('still refuses a goods receipt of kind OPENING over HTTP (A-136, decided in A-147)', async () => {
     const location = (await admin().query<{ id: string }>("SELECT id FROM mdm.location WHERE code = 'SHOP'")).rows[0]!.id;
-    const product = (await admin().query<{ id: string }>("SELECT id FROM mdm.product WHERE sku = 'PRD-TOMATO-CRATE'")).rows[0]!.id;
+    const product = (await admin().query<{ id: string }>("SELECT id FROM mdm.product WHERE sku = 'PRD-0001'")).rows[0]!.id;
     const refused = await post(owner, '/goods-receipts', { kind: 'OPENING', locationId: location, receivedAt: clock.now().toISOString(), lines: [{ productId: product, qtyReceived: '1.000', valuePesewas: 1000 }] });
     expect(refused.status).toBe(422);
     expect(refused.body.error).toMatchObject({ code: 'GOODS_RECEIPT_INVALID', details: [{ field: '/kind', code: 'OPENING_NOT_AVAILABLE' }] });

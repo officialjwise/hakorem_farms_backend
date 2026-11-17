@@ -12,7 +12,7 @@ import type { ServiceSeedUnit } from './seed-unit';
  * awaiting delivery; and Kpone Livestock Traders' transport invoice for the goats, GHS 150.00, an expense with no order
  * that needs no match, approved for payment. No stock moves, so the B5 hand count is unchanged.
  */
-export const SEED_FEED_ORDER = { sku: 'FEED-BRL-GROWER', uom: 'BAG', qtyOrdered: '4.000', unitPricePesewas: 45_000, supplier: 'Awutu Poultry Farm (SEED)', location: 'STORE' } as const;
+export const SEED_FEED_ORDER = { sku: 'FEED-0001', uom: 'BAG', qtyOrdered: '4.000', unitPricePesewas: 45_000, supplier: 'Awutu Poultry Farm (SEED)', location: 'STORE' } as const;
 export const SEED_TRANSPORT_INVOICE = { supplier: 'Kpone Livestock Traders (SEED)', supplierInvoiceNo: 'KLT-T-0457', amountPesewas: 15_000, taxCategory: 'LIVE_ANIMALS' } as const;
 
 const key = (...parts: string[]): string => `seed:pur:${parts.join(':')}`;

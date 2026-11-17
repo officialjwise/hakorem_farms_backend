@@ -78,8 +78,14 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Products (FR-MDM-001, FR-MDM-003, FR-MDM-004).
 
+/**
+ * The product sheet's columns. The `sku` column is always there, as an export writes it: a SKU names a product the
+ * catalogue holds, and a blank one creates a product, whose SKU the server generates (B09q, ADR-0072). There is no
+ * barcode column from contract 2.0.0: a file that has one is refused as having an unknown column, never imported with
+ * the barcode ignored.
+ */
 export const PRODUCT_COLUMNS: SheetColumns = {
-  all: ['sku', 'name', 'category', 'stockPolicy', 'species', 'baseUom', 'saleUom', 'taxCategory', 'nominalPackKg', 'shelfLifeDays', 'barcode', 'description', 'onlineMode'],
+  all: ['sku', 'name', 'category', 'stockPolicy', 'species', 'baseUom', 'saleUom', 'taxCategory', 'nominalPackKg', 'shelfLifeDays', 'description', 'onlineMode'],
   required: ['sku'],
 };
 
@@ -88,7 +94,7 @@ const STOCK_POLICIES: readonly StockPolicy[] = ['SERIALISED', 'CATCH_WEIGHT', 'C
 const ONLINE_MODES: readonly OnlineMode[] = ['HIDDEN', 'LISTED', 'REQUEST_TO_BUY'];
 const KILOGRAMS = /^(0|[1-9][0-9]{0,6})(\.[0-9]{1,3})?$/;
 
-/** A product row: the SKU names the product; a SKU not in the catalogue creates one. */
+/** A product row: a SKU names a product the catalogue holds; a row without one creates a product. */
 export interface ProductRow {
   readonly rowNo: number;
   readonly sku: string | null;
@@ -102,7 +108,6 @@ export interface ProductRow {
   /** Kilograms with exactly three places ("15.000"), as the contract's `Kilograms`. */
   readonly nominalPackKg: string | null;
   readonly shelfLifeDays: number | null;
-  readonly barcode: string | null;
   readonly description: string | null;
   readonly onlineMode: OnlineMode | null;
 }
@@ -116,8 +121,7 @@ function kilograms(value: string): string {
 export function readProductRow(rowNo: number, cells: Cells): Reading<ProductRow> {
   const { errors, fail } = collector(rowNo);
   const sku = blank(cells.get('sku'))?.toUpperCase() ?? null;
-  if (sku === null) fail('sku', 'SKU is empty');
-  else if (!SKU.test(sku)) fail('sku', 'SKU must be 2 to 40 letters, digits or hyphens, such as GOAT-LIVE');
+  if (sku !== null && !SKU.test(sku)) fail('sku', 'SKU must be a SKU the catalogue holds, such as EGG-0001, or blank to create a product');
   const name = text(cells, 'name', 120, fail);
   const packText = blank(cells.get('nominalPackKg'));
   let nominalPackKg: string | null = null;
@@ -125,8 +129,6 @@ export function readProductRow(rowNo: number, cells: Cells): Reading<ProductRow>
     if (KILOGRAMS.test(packText)) nominalPackKg = kilograms(packText);
     else fail('nominalPackKg', 'nominalPackKg must be kilograms with at most three decimal places, such as 15.000');
   }
-  const barcode = blank(cells.get('barcode'));
-  if (barcode !== null && !/^[0-9A-Za-z-]{4,40}$/.test(barcode)) fail('barcode', 'barcode must be 4 to 40 letters, digits or hyphens');
   return {
     row: {
       rowNo,
@@ -140,7 +142,6 @@ export function readProductRow(rowNo: number, cells: Cells): Reading<ProductRow>
       taxCategoryCode: code(cells, 'taxCategory', TAX_CATEGORY_CODE, 'LIVE_ANIMALS', fail),
       nominalPackKg,
       shelfLifeDays: wholeNumber(cells, 'shelfLifeDays', 1, 3_650, fail),
-      barcode: barcode !== null && /^[0-9A-Za-z-]{4,40}$/.test(barcode) ? barcode : null,
       description: text(cells, 'description', 2_000, fail),
       onlineMode: oneOf(cells, 'onlineMode', ONLINE_MODES, fail),
     },

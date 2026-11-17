@@ -2,7 +2,7 @@ operationId: updateCategory
 tags:
   - mdm
 summary: "Update a product category"
-description: "Send the `version` you read; a stale version is refused with 409. Names are unique among a category's siblings (422 `DUPLICATE_VALUE`).\n\nPermission: `mdm.category.update`."
+description: "Send the `version` you read; a stale version is refused with 409. Names are unique among a category's siblings (422 `DUPLICATE_VALUE`). A new `skuPrefix` (2.0.0) applies to products created after the change; no product's SKU ever changes (ADR-0072).\n\nPermission: `mdm.category.update`."
 x-permission: mdm.category.update
 x-error-codes:
   - VALIDATION_FAILED
@@ -61,6 +61,7 @@ responses:
             name: "Live Animals"
           sortOrder: 0
           isOnlineVisible: true
+          skuPrefix: LIV
           productCount: 3
           version: 2
           createdAt: "2026-11-02T08:00:00Z"

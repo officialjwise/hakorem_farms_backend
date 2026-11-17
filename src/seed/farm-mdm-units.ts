@@ -12,9 +12,9 @@ import type { ServiceSeedUnit } from './seed-unit';
  * none: a catch-weight pack is charged by its weighed kilograms (A-157).
  */
 export const SEED_UOM_CONVERSIONS = [
-  { sku: 'FEED-BRL-GROWER', fromUom: 'BAG', numerator: 50, denominator: 1 },
-  { sku: 'FEED-GOAT-CONC', fromUom: 'BAG', numerator: 25, denominator: 1 },
-  { sku: 'PRD-CABBAGE-HEAD', fromUom: 'CRATE', numerator: 24, denominator: 1 },
+  { sku: 'FEED-0001', fromUom: 'BAG', numerator: 50, denominator: 1 },
+  { sku: 'FEED-0002', fromUom: 'BAG', numerator: 25, denominator: 1 },
+  { sku: 'PRD-0002', fromUom: 'CRATE', numerator: 24, denominator: 1 },
 ] as const;
 
 const key = (...parts: string[]): string => `seed:mdm-units:${parts.join(':')}`;

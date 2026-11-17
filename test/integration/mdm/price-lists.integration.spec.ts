@@ -53,7 +53,7 @@ beforeAll(async () => {
   gradeId = randomUUID();
   await app.query(
     `INSERT INTO mdm.product (id, sku, name, category_id, stock_policy, tracking, species_id, base_uom, sale_uom, tax_category_id, gl_group, online_mode, status, created_by, updated_by)
-     VALUES ($1, 'LIV-GOAT', 'Goat', $2, 'SERIALISED', 'SERIAL', $3, 'HEAD', 'HEAD', $4, 'LIVE_ANIMALS', 'REQUEST_TO_BUY', 'ACTIVE', $5, $5)`,
+     VALUES ($1, 'LIV-0004', 'Goat', $2, 'SERIALISED', 'SERIAL', $3, 'HEAD', 'HEAD', $4, 'LIVE_ANIMALS', 'REQUEST_TO_BUY', 'ACTIVE', $5, $5)`,
     [goatId, catalogue.liveCategoryId, catalogue.goatSpeciesId, TAX_CATEGORY.LIVE_ANIMALS, SYSTEM_PRINCIPAL],
   );
   await app.query("INSERT INTO mdm.weight_band (id, species_id, code, min_kg, max_kg, created_by, updated_by) VALUES ($1, $2, 'GOAT-M', 20, 25, $3, $3)", [bandId, catalogue.goatSpeciesId, SYSTEM_PRINCIPAL]);
@@ -206,7 +206,7 @@ describe('a branch list comes before the all-branch list in the same slot (ADR-0
     const catalogue = await database.pool('admin').query<{ id: string }>("SELECT id FROM mdm.category WHERE code = 'EGGS'");
     await database.pool('app').query(
       `INSERT INTO mdm.product (id, sku, name, category_id, stock_policy, tracking, base_uom, sale_uom, tax_category_id, gl_group, online_mode, status, created_by, updated_by)
-       VALUES ($1, 'EGG-CRATE-BIG', 'Eggs, big', $2, 'COUNTABLE', 'LOT', 'CRATE', 'CRATE', $3, 'PRODUCE_EGGS', 'LISTED', 'ACTIVE', $4, $4)`,
+       VALUES ($1, 'EGG-0003', 'Eggs, big', $2, 'COUNTABLE', 'LOT', 'CRATE', 'CRATE', $3, 'PRODUCE_EGGS', 'LISTED', 'ACTIVE', $4, $4)`,
       [eggsId, catalogue.rows[0]!.id, TAX_CATEGORY.EGGS, SYSTEM_PRINCIPAL],
     );
     const list = await post(manager, '/price-lists', { code: 'BASE-DDW', name: 'Dodowa base prices', kind: 'BASE', branchId, taxInclusive: true });

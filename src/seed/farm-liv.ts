@@ -6,7 +6,7 @@ import { CatalogueAdmin, LocationsAdmin, ProductCatalogue } from '../modules/mdm
 import { PG_POOL } from '../platform/platform.module';
 import type { SeedCalendar } from './seed-calendar';
 import { SeedStaff } from './seed-staff';
-import type { ServiceSeedUnit } from './seed-unit';
+import { expectSeededSku, type ServiceSeedUnit } from './seed-unit';
 
 /**
  * The first weighing of the seeded animals at Dodowa's pens (FR-LIV-004), SEED: West African Dwarf goats of 19 to 27
@@ -25,13 +25,16 @@ export const SEED_WEIGHINGS = [
 ] as const;
 
 /** The category feed and medicine sit in: bought for the farm, not for sale. */
-export const SEED_FEED_CATEGORY = { code: 'FEED-MED', name: 'Feed and medicine (SEED)', productLine: 'FEED', glGroup: 'FEED_MEDICATION', taxCategory: 'RAW_PRODUCE' } as const;
+export const SEED_FEED_CATEGORY = { code: 'FEED-MED', name: 'Feed and medicine (SEED)', productLine: 'FEED', glGroup: 'FEED_MEDICATION', taxCategory: 'RAW_PRODUCE', skuPrefix: 'FEED' } as const;
 
-/** Feed and medicine (FR-LIV-014, FR-LIV-007), SEED: untracked, held in the store, never sold. */
+/**
+ * Feed and medicine (FR-LIV-014, FR-LIV-007), SEED: untracked, held in the store, never sold. Each `sku` is the one the
+ * server gives it (B09q, ADR-0072), in this order; the seed never sends it.
+ */
 export const SEED_FEED_PRODUCTS = [
-  { sku: 'FEED-BRL-GROWER', name: 'Broiler grower pellets, per kg (SEED)', baseUom: 'KG' },
-  { sku: 'FEED-GOAT-CONC', name: 'Goat and sheep concentrate, per kg (SEED)', baseUom: 'KG' },
-  { sku: 'MED-ALBENDAZOLE', name: 'Albendazole 10% oral suspension, per litre (SEED)', baseUom: 'LITRE', withdrawalDays: 14 },
+  { sku: 'FEED-0001', name: 'Broiler grower pellets, per kg (SEED)', baseUom: 'KG' },
+  { sku: 'FEED-0002', name: 'Goat and sheep concentrate, per kg (SEED)', baseUom: 'KG' },
+  { sku: 'FEED-0003', name: 'Albendazole 10% oral suspension, per litre (SEED)', baseUom: 'LITRE', withdrawalDays: 14 },
 ] as const;
 
 /** Dodowa's feed and medicine store (FR-LIV-015): where feed is issued from unless a record names another place. */
@@ -46,17 +49,17 @@ export const SEED_STORE_RECEIPT = {
   deliveryNoteRef: 'SEED-APF-1184',
   supplier: 'Awutu Poultry Farm (SEED)',
   lines: [
-    { sku: 'FEED-BRL-GROWER', qty: '200.000', valuePesewas: 110_000n },
-    { sku: 'FEED-GOAT-CONC', qty: '150.000', valuePesewas: 60_000n },
-    { sku: 'MED-ALBENDAZOLE', qty: '2.000', valuePesewas: 24_000n },
+    { sku: 'FEED-0001', qty: '200.000', valuePesewas: 110_000n },
+    { sku: 'FEED-0002', qty: '150.000', valuePesewas: 60_000n },
+    { sku: 'FEED-0003', qty: '2.000', valuePesewas: 24_000n },
   ],
 } as const;
 
 /** Feeding standards (FR-LIV-014), SEED: 0.120 kg a broiler a day is the requirement's own example. */
 export const SEED_RATIONS = [
-  { name: 'Broiler grower (SEED)', species: 'BROILER', feed: 'FEED-BRL-GROWER', qtyPerHeadPerDay: '0.120', stage: 'Grower' },
-  { name: 'Goat finisher (SEED)', species: 'GOAT', feed: 'FEED-GOAT-CONC', qtyPerHeadPerDay: '0.400', stage: 'Finisher' },
-  { name: 'Sheep finisher (SEED)', species: 'SHEEP', feed: 'FEED-GOAT-CONC', qtyPerHeadPerDay: '0.500', stage: 'Finisher' },
+  { name: 'Broiler grower (SEED)', species: 'BROILER', feed: 'FEED-0001', qtyPerHeadPerDay: '0.120', stage: 'Grower' },
+  { name: 'Goat finisher (SEED)', species: 'GOAT', feed: 'FEED-0002', qtyPerHeadPerDay: '0.400', stage: 'Finisher' },
+  { name: 'Sheep finisher (SEED)', species: 'SHEEP', feed: 'FEED-0002', qtyPerHeadPerDay: '0.500', stage: 'Finisher' },
 ] as const;
 
 const key = (...parts: string[]): string => `seed:liv:${parts.join(':')}`;
@@ -101,10 +104,11 @@ async function seedStore(app: INestApplicationContext, staff: SeedStaff, pool: p
     }
     for (const product of SEED_FEED_PRODUCTS) {
       if (products.has(product.sku)) continue;
+      const { sku, ...fields } = product;
       const created = await app.get(ProductCatalogue).create(
         manager,
         {
-          ...product,
+          ...fields,
           categoryId: required(categories, SEED_FEED_CATEGORY.code, 'category'),
           stockPolicy: 'COUNTABLE',
           saleUom: product.baseUom,
@@ -112,9 +116,10 @@ async function seedStore(app: INestApplicationContext, staff: SeedStaff, pool: p
           isSellable: false,
           description: `SEED. ${product.name}, for the farm's own use.`,
         },
-        key('product', product.sku),
+        key('product', sku),
       );
-      products.set(product.sku, created.body.id);
+      expectSeededSku(created.body.sku, sku);
+      products.set(sku, created.body.id);
       written += 1;
     }
     if (!received) {

@@ -21,6 +21,8 @@ function withVersion(document: JsonObject, version: string): JsonObject {
 const CURRENT = String((committed()['info'] as JsonObject)['version']);
 const [MAJOR, MINOR] = CURRENT.split('.').map(Number) as [number, number];
 const NEXT_MINOR = `${MAJOR}.${MINOR + 1}.0`;
+/** The next major version after the committed one (the contract itself became 2.0.0 in B09q). */
+const NEXT_MAJOR = `${MAJOR + 1}.0.0`;
 
 describe('contract versioning (FR-API-001)', () => {
   it('fails on an unversioned breaking change', () => {
@@ -86,7 +88,7 @@ describe('contract versioning (FR-API-001)', () => {
 
   it('passes a breaking change with a new major version', () => {
     const previous = committed();
-    const next = withVersion(structuredClone(previous), '2.0.0');
+    const next = withVersion(structuredClone(previous), NEXT_MAJOR);
     delete (schema(next, 'Health')['properties'] as JsonObject)['version'];
     expect(versioningProblems(previous, next)).toEqual([]);
   });

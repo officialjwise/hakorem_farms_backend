@@ -125,7 +125,7 @@ beforeAll(async () => {
   await runSeedUnits(app(), api.app, seedUnits({ SEED_STAFF_PASSWORD: `Seed-${randomUUID()}` }));
   branchId = (await admin().query<{ id: string }>("SELECT id FROM mdm.branch WHERE code = 'DDW'")).rows[0]!.id;
   for (const code of ['SHOP', 'PENS']) ids.set(code, (await admin().query<{ id: string }>('SELECT id FROM mdm.location WHERE branch_id = $1 AND code = $2', [branchId, code])).rows[0]!.id);
-  for (const [name, sku] of [['goat', 'LIV-GOAT'], ['cabbage', 'PRD-CABBAGE-HEAD'], ['yam', 'PRD-YAM-TUBER']] as const) {
+  for (const [name, sku] of [['goat', 'LIV-0004'], ['cabbage', 'PRD-0002'], ['yam', 'PRD-0005']] as const) {
     ids.set(name, (await admin().query<{ id: string }>('SELECT id FROM mdm.product WHERE sku = $1', [sku])).rows[0]!.id);
   }
   ids.set('G-0142', (await admin().query<{ id: string }>("SELECT id FROM inv.stock_unit WHERE identifier = 'G-0142'")).rows[0]!.id);

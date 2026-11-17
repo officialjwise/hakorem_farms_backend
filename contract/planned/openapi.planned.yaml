@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.54.0"
+  version: "2.0.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -2658,7 +2658,7 @@ paths:
                     lineNo: 1
                     product:
                       id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                      sku: LIV-GOAT
+                      sku: LIV-0004
                       name: Goat
                     stockUnit:
                       id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
@@ -2693,7 +2693,7 @@ paths:
                     lineNo: 2
                     product:
                       id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                      sku: EGG-BIG
+                      sku: EGG-0003
                       name: "Eggs, big, crate of 30"
                     stockUnit:
                       id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
@@ -2728,7 +2728,7 @@ paths:
                     lineNo: 3
                     product:
                       id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                      sku: MEAT-BEEF
+                      sku: MEAT-0005
                       name: "Beef, 15 kg pack"
                     stockUnit:
                       id: "019a7a91-2f3b-74f5-9a2d-582bcbe2d109"
@@ -2862,7 +2862,7 @@ paths:
                     lineNo: 1
                     product:
                       id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                      sku: LIV-GOAT
+                      sku: LIV-0004
                       name: Goat
                     stockUnit:
                       id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
@@ -2897,7 +2897,7 @@ paths:
                     lineNo: 2
                     product:
                       id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                      sku: EGG-BIG
+                      sku: EGG-0003
                       name: "Eggs, big, crate of 30"
                     stockUnit:
                       id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
@@ -2932,7 +2932,7 @@ paths:
                     lineNo: 3
                     product:
                       id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                      sku: MEAT-BEEF
+                      sku: MEAT-0005
                       name: "Beef, 15 kg pack"
                     stockUnit:
                       id: "019a7a91-2f3b-74f5-9a2d-582bcbe2d109"
@@ -3051,7 +3051,7 @@ paths:
                           - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                             product:
                               id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                              sku: MEAT-CHK-FULL
+                              sku: MEAT-0001
                               name: "Full chicken, 15 kg pack"
                             qtyToPick: "1.000"
                             uom: PACK
@@ -3065,7 +3065,7 @@ paths:
                             orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                             product:
                               id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                              sku: MEAT-CHK-FULL
+                              sku: MEAT-0001
                               name: "Full chicken, 15 kg pack"
                             stockUnit:
                               id: "019a7a91-104c-7b12-804a-b9f4523132d2"
@@ -3104,7 +3104,7 @@ paths:
                           - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                             product:
                               id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                              sku: MEAT-CHK-FULL
+                              sku: MEAT-0001
                               name: "Full chicken, 15 kg pack"
                             qtyToPick: "1.000"
                             uom: PACK
@@ -3118,7 +3118,7 @@ paths:
                             orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                             product:
                               id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                              sku: MEAT-CHK-FULL
+                              sku: MEAT-0001
                               name: "Full chicken, 15 kg pack"
                             stockUnit:
                               id: "019a7a91-104c-7b12-804a-b9f4523132d2"
@@ -3157,7 +3157,7 @@ paths:
                           - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                             product:
                               id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                              sku: MEAT-CHK-FULL
+                              sku: MEAT-0001
                               name: "Full chicken, 15 kg pack"
                             qtyToPick: "1.000"
                             uom: PACK
@@ -3195,7 +3195,7 @@ paths:
                           - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                             product:
                               id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                              sku: MEAT-CHK-FULL
+                              sku: MEAT-0001
                               name: "Full chicken, 15 kg pack"
                             qtyToPick: "1.000"
                             uom: PACK
@@ -3209,7 +3209,7 @@ paths:
                             orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                             product:
                               id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                              sku: MEAT-CHK-FULL
+                              sku: MEAT-0001
                               name: "Full chicken, 15 kg pack"
                             stockUnit:
                               id: "019a7a91-104c-7b12-804a-b9f4523132d2"
@@ -3248,7 +3248,7 @@ paths:
                           - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                             product:
                               id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                              sku: MEAT-CHK-FULL
+                              sku: MEAT-0001
                               name: "Full chicken, 15 kg pack"
                             qtyToPick: "1.000"
                             uom: PACK
@@ -3262,7 +3262,7 @@ paths:
                             orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                             product:
                               id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                              sku: MEAT-CHK-FULL
+                              sku: MEAT-0001
                               name: "Full chicken, 15 kg pack"
                             stockUnit:
                               id: "019a7a91-104c-7b12-804a-b9f4523132d2"
@@ -3301,7 +3301,7 @@ paths:
                           - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                             product:
                               id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                              sku: MEAT-CHK-FULL
+                              sku: MEAT-0001
                               name: "Full chicken, 15 kg pack"
                             qtyToPick: "1.000"
                             uom: PACK
@@ -3315,7 +3315,7 @@ paths:
                             orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                             product:
                               id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                              sku: MEAT-CHK-FULL
+                              sku: MEAT-0001
                               name: "Full chicken, 15 kg pack"
                             stockUnit:
                               id: "019a7a91-104c-7b12-804a-b9f4523132d2"
@@ -3415,7 +3415,7 @@ paths:
                   - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     qtyToPick: "1.000"
                     uom: PACK
@@ -3498,7 +3498,7 @@ paths:
                   - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     qtyToPick: "1.000"
                     uom: PACK
@@ -3512,7 +3512,7 @@ paths:
                     orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     stockUnit:
                       id: "019a7a91-104c-7b12-804a-b9f4523132d2"
@@ -3609,7 +3609,7 @@ paths:
                   - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     qtyToPick: "1.000"
                     uom: PACK
@@ -3623,7 +3623,7 @@ paths:
                     orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     stockUnit:
                       id: "019a7a91-104c-7b12-804a-b9f4523132d2"
@@ -3717,7 +3717,7 @@ paths:
                   - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     qtyToPick: "1.000"
                     uom: PACK
@@ -3731,7 +3731,7 @@ paths:
                     orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     stockUnit:
                       id: "019a7a91-104c-7b12-804a-b9f4523132d2"
@@ -3826,7 +3826,7 @@ paths:
                   - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     qtyToPick: "1.000"
                     uom: PACK
@@ -3840,7 +3840,7 @@ paths:
                     orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     stockUnit:
                       id: "019a7a91-104c-7b12-804a-b9f4523132d2"
@@ -3926,7 +3926,7 @@ paths:
                   - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     qtyToPick: "1.000"
                     uom: PACK
@@ -3940,7 +3940,7 @@ paths:
                     orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     stockUnit:
                       id: "019a7a91-104c-7b12-804a-b9f4523132d2"
@@ -4034,7 +4034,7 @@ paths:
                   - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     qtyToPick: "1.000"
                     uom: PACK
@@ -4048,7 +4048,7 @@ paths:
                     orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     stockUnit:
                       id: "019a7a91-104c-7b12-804a-b9f4523132d2"
@@ -4155,7 +4155,7 @@ paths:
                             orderLineId: "019a7af4-df72-7302-a83a-38f2f74bb1d0"
                             product:
                               id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                              sku: EGG-BIG
+                              sku: EGG-0003
                               name: "Eggs, big, crate of 30"
                             qty: "2.000"
                             weightKg: null
@@ -4197,7 +4197,7 @@ paths:
                             orderLineId: "019a7af5-990c-7e56-838f-ee3fd171671d"
                             product:
                               id: "019a7a8e-0af5-73db-b913-46896fe8bf67"
-                              sku: MEAT-CHK-WING
+                              sku: MEAT-0002
                               name: "Chicken wings, 15 kg pack"
                             qty: "13.900"
                             weightKg: "13.900"
@@ -4233,7 +4233,7 @@ paths:
                             orderLineId: "019a7af6-33b7-7fc8-9500-055531e67e33"
                             product:
                               id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
-                              sku: MEAT-GOAT
+                              sku: MEAT-0007
                               name: "Goat meat, 15 kg pack"
                             qty: "14.850"
                             weightKg: "14.850"
@@ -4275,7 +4275,7 @@ paths:
                             orderLineId: "019a7af7-0c40-7500-8a38-58d985bdd1b7"
                             product:
                               id: "019a7a8e-c48f-7f30-9468-fbd64a0e74b4"
-                              sku: PRD-CABBAGE
+                              sku: PRD-0002
                               name: "Cabbage, head"
                             qty: "3.000"
                             weightKg: null
@@ -4311,7 +4311,7 @@ paths:
                             orderLineId: "019a7af7-a6eb-7671-9baa-6feee632e8cc"
                             product:
                               id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                              sku: MEAT-CHK-FULL
+                              sku: MEAT-0001
                               name: "Full chicken, 15 kg pack"
                             qty: "1.000"
                             weightKg: "14.700"
@@ -4347,7 +4347,7 @@ paths:
                             orderLineId: "019a7af8-4196-77e3-ad1b-870446a7ffe2"
                             product:
                               id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                              sku: MEAT-BEEF
+                              sku: MEAT-0005
                               name: "Beef, 15 kg pack"
                             qty: "15.200"
                             weightKg: "15.200"
@@ -6354,10 +6354,9 @@ paths:
                 products:
                   - product:
                       id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                      sku: LIV-GOAT
+                      sku: LIV-0004
                       name: Goat
                     saleUom: HEAD
-                    barcode: null
                     taxCategoryId: "019a7a8a-6af3-7b33-906b-bc092d2a34e7"
                     priceBasis: PER_HEAD
                     priceBand:
@@ -6371,10 +6370,9 @@ paths:
                     tileCategory: "Live animals"
                   - product:
                       id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                      sku: EGG-BIG
+                      sku: EGG-0003
                       name: "Eggs, big, crate of 30"
                     saleUom: CRATE
-                    barcode: "603470011"
                     taxCategoryId: "019a7a8a-a8d1-7efa-b432-f878208c7156"
                     priceBasis: PER_UNIT
                     priceBand:
@@ -6388,10 +6386,9 @@ paths:
                     tileCategory: Eggs
                   - product:
                       id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                      sku: MEAT-BEEF
+                      sku: MEAT-0005
                       name: "Beef, 15 kg pack"
                     saleUom: PACK
-                    barcode: "603490011"
                     taxCategoryId: "019a7a8a-c7c0-78dd-8e16-96af9a3d0f8d"
                     priceBasis: PER_KG
                     priceBand:
@@ -6405,10 +6402,9 @@ paths:
                     tileCategory: Meat
                   - product:
                       id: "019a7a8e-86b1-7b69-b0a1-bf6756ac3845"
-                      sku: PRD-TOMATO
+                      sku: PRD-0001
                       name: "Tomatoes, crate"
                     saleUom: CRATE
-                    barcode: "6034100011"
                     taxCategoryId: "019a7a8a-89e2-7516-aa4f-5a40a6dbd31e"
                     priceBasis: PER_UNIT
                     priceBand:
@@ -6422,10 +6418,9 @@ paths:
                     tileCategory: "Fresh produce"
                   - product:
                       id: "019a7a8e-a5a0-754c-8a85-5d9ed05dd67c"
-                      sku: PRD-YAM
+                      sku: PRD-0005
                       name: "Yam, tuber"
                     saleUom: TUBER
-                    barcode: "603470011"
                     taxCategoryId: "019a7a8a-89e2-7516-aa4f-5a40a6dbd31e"
                     priceBasis: PER_UNIT
                     priceBand:
@@ -6622,7 +6617,7 @@ paths:
                       lineNo: 1
                       product:
                         id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                        sku: LIV-GOAT
+                        sku: LIV-0004
                         name: Goat
                       stockUnit:
                         id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
@@ -6657,7 +6652,7 @@ paths:
                       lineNo: 2
                       product:
                         id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                        sku: EGG-BIG
+                        sku: EGG-0003
                         name: "Eggs, big, crate of 30"
                       stockUnit:
                         id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
@@ -6692,7 +6687,7 @@ paths:
                       lineNo: 3
                       product:
                         id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                        sku: MEAT-BEEF
+                        sku: MEAT-0005
                         name: "Beef, 15 kg pack"
                       stockUnit:
                         id: "019a7a91-2f3b-74f5-9a2d-582bcbe2d109"
@@ -6762,7 +6757,7 @@ paths:
                       lineKind: PRODUCT
                       product:
                         id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                        sku: LIV-GOAT
+                        sku: LIV-0004
                         name: Goat
                       description: Goat
                       stockUnit:
@@ -6806,7 +6801,7 @@ paths:
                       lineKind: PRODUCT
                       product:
                         id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                        sku: EGG-BIG
+                        sku: EGG-0003
                         name: "Eggs, big, crate of 30"
                       description: "Eggs, big, crate of 30"
                       stockUnit:
@@ -6850,7 +6845,7 @@ paths:
                       lineKind: PRODUCT
                       product:
                         id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                        sku: MEAT-BEEF
+                        sku: MEAT-0005
                         name: "Beef, 15 kg pack"
                       description: "Beef, 15 kg pack"
                       stockUnit:
@@ -8114,7 +8109,7 @@ paths:
                         requirements: "Interested in goat G-0157 on the website, can I see it?"
                         product:
                           id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                          sku: LIV-GOAT
+                          sku: LIV-0004
                           name: Goat
                         stockUnit:
                           id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
@@ -8544,7 +8539,7 @@ paths:
                               lineNo: 1
                               product:
                                 id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                                sku: LIV-GOAT
+                                sku: LIV-0004
                                 name: Goat
                               description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
                               grade: null
@@ -9003,7 +8998,7 @@ paths:
                       lineNo: 1
                       product:
                         id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                        sku: LIV-GOAT
+                        sku: LIV-0004
                         name: Goat
                       description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
                       grade: null
@@ -9110,7 +9105,7 @@ paths:
                             lineNo: 1
                             product:
                               id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                              sku: LIV-GOAT
+                              sku: LIV-0004
                               name: Goat
                             description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
                             grade: null
@@ -9156,7 +9151,7 @@ paths:
                             lineNo: 1
                             product:
                               id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                              sku: LIV-GOAT
+                              sku: LIV-0004
                               name: Goat
                             description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
                             grade: null
@@ -9202,7 +9197,7 @@ paths:
                             lineNo: 1
                             product:
                               id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                              sku: LIV-GOAT
+                              sku: LIV-0004
                               name: Goat
                             description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
                             grade: null
@@ -9248,7 +9243,7 @@ paths:
                             lineNo: 1
                             product:
                               id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                              sku: LIV-GOAT
+                              sku: LIV-0004
                               name: Goat
                             description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
                             grade: null
@@ -9294,7 +9289,7 @@ paths:
                             lineNo: 1
                             product:
                               id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                              sku: LIV-GOAT
+                              sku: LIV-0004
                               name: Goat
                             description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
                             grade: null
@@ -9401,7 +9396,7 @@ paths:
                     lineNo: 1
                     product:
                       id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                      sku: LIV-GOAT
+                      sku: LIV-0004
                       name: Goat
                     description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
                     grade: null
@@ -9509,7 +9504,7 @@ paths:
                     lineNo: 1
                     product:
                       id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                      sku: LIV-GOAT
+                      sku: LIV-0004
                       name: Goat
                     description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
                     grade: null
@@ -9612,7 +9607,7 @@ paths:
                     lineNo: 1
                     product:
                       id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                      sku: LIV-GOAT
+                      sku: LIV-0004
                       name: Goat
                     description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
                     grade: null
@@ -9947,7 +9942,7 @@ paths:
                       lineNo: 1
                       product:
                         id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                        sku: LIV-GOAT
+                        sku: LIV-0004
                         name: Goat
                       description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
                       grade: null
@@ -10095,7 +10090,7 @@ paths:
                     lineNo: 1
                     product:
                       id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                      sku: LIV-GOAT
+                      sku: LIV-0004
                       name: Goat
                     stockUnit:
                       id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
@@ -10130,7 +10125,7 @@ paths:
                     lineNo: 2
                     product:
                       id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                      sku: LIV-GOAT
+                      sku: LIV-0004
                       name: Goat
                     stockUnit:
                       id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
@@ -11255,7 +11250,7 @@ paths:
                             lineNo: 1
                             product:
                               id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                              sku: MEAT-CHK-FULL
+                              sku: MEAT-0001
                               name: "Full chicken, 15 kg pack"
                             quantity: "2.000"
                             uom: PACK
@@ -11287,7 +11282,7 @@ paths:
                             lineNo: 1
                             product:
                               id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
-                              sku: MEAT-GOAT
+                              sku: MEAT-0007
                               name: "Goat meat, 15 kg pack"
                             quantity: "1.000"
                             uom: PACK
@@ -11311,7 +11306,7 @@ paths:
                             lineNo: 1
                             product:
                               id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                              sku: EGG-BIG
+                              sku: EGG-0003
                               name: "Eggs, big, crate of 30"
                             quantity: "20.000"
                             uom: CRATE
@@ -11343,7 +11338,7 @@ paths:
                             lineNo: 1
                             product:
                               id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                              sku: MEAT-BEEF
+                              sku: MEAT-0005
                               name: "Beef, 15 kg pack"
                             quantity: "4.000"
                             uom: PACK
@@ -11375,7 +11370,7 @@ paths:
                             lineNo: 1
                             product:
                               id: "019a7a8e-a5a0-754c-8a85-5d9ed05dd67c"
-                              sku: PRD-YAM
+                              sku: PRD-0005
                               name: "Yam, tuber"
                             quantity: "30.000"
                             uom: TUBER
@@ -11468,7 +11463,7 @@ paths:
                     lineNo: 1
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     quantity: "2.000"
                     uom: PACK
@@ -11543,7 +11538,7 @@ paths:
                     lineNo: 1
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     quantity: "2.000"
                     uom: PACK
@@ -11628,7 +11623,7 @@ paths:
                     lineNo: 1
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     quantity: "2.000"
                     uom: PACK
@@ -11715,7 +11710,7 @@ paths:
                     lineNo: 1
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     quantity: "2.000"
                     uom: PACK
@@ -11802,7 +11797,7 @@ paths:
                     lineNo: 1
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     quantity: "2.000"
                     uom: PACK
@@ -11889,7 +11884,7 @@ paths:
                     lineNo: 1
                     product:
                       id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
+                      sku: MEAT-0001
                       name: "Full chicken, 15 kg pack"
                     quantity: "2.000"
                     uom: PACK
@@ -26890,6 +26885,10 @@ components:
           type: integer
         isOnlineVisible:
           type: boolean
+        skuPrefix:
+          type: string
+          pattern: "^[A-Z]{2,5}$"
+          description: "The prefix of the SKUs the server gives the category's products (`EGG` gives `EGG-0001`, ADR-0072). Without one at creation, the first three letters of the code."
         productCount:
           type: integer
         version:
@@ -26910,6 +26909,7 @@ components:
         - taxCategory
         - sortOrder
         - isOnlineVisible
+        - skuPrefix
         - productCount
         - version
         - createdAt
@@ -26935,6 +26935,10 @@ components:
           type: integer
         isOnlineVisible:
           type: boolean
+        skuPrefix:
+          type: string
+          pattern: "^[A-Z]{2,5}$"
+          description: "Two to five capital letters. Optional: without one the server takes the first three letters of `code` (CAT when it has fewer than two)."
       required:
         - code
         - name
@@ -26956,6 +26960,10 @@ components:
           type: integer
         isOnlineVisible:
           type: boolean
+        skuPrefix:
+          type: string
+          pattern: "^[A-Z]{2,5}$"
+          description: "A new prefix applies to products created after the change; no product's SKU ever changes."
       required:
         - version
       additionalProperties: false
@@ -27439,6 +27447,7 @@ components:
           format: uuid
         sku:
           type: string
+          description: "Generated by the server when the product is created: the category's `skuPrefix` and the next number of that prefix, zero-padded to four digits (`EGG-0001`). Unique over every product ever made, never reused and never changed, even when the product moves to another category (ADR-0072)."
         name:
           type: string
         category:
@@ -27490,10 +27499,6 @@ components:
             - integer
             - "null"
           description: "For veterinary products: days a treated animal may not be sold or slaughtered."
-        barcode:
-          type:
-            - string
-            - "null"
         description:
           type:
             - string
@@ -27541,7 +27546,6 @@ components:
         - shelfLifeDays
         - storageTempClass
         - withdrawalDays
-        - barcode
         - description
         - onlineMode
         - seo
@@ -27554,9 +27558,8 @@ components:
         - updatedAt
     ProductCreate:
       type: object
+      description: "The SKU is not sent: the server generates it from the category's prefix (ADR-0072). A request that carries `sku`, whatever its value, is refused with 422 `FIELD_SERVER_ASSIGNED` (`/sku`), never silently ignored. There is no product barcode from 2.0.0."
       properties:
-        sku:
-          type: string
         name:
           type: string
         categoryId:
@@ -27589,8 +27592,6 @@ components:
             - FROZEN
         withdrawalDays:
           type: integer
-        barcode:
-          type: string
         description:
           type: string
         onlineMode:
@@ -27602,7 +27603,6 @@ components:
         isSellable:
           type: boolean
       required:
-        - sku
         - name
         - categoryId
         - stockPolicy
@@ -27622,7 +27622,7 @@ components:
       additionalProperties: false
     ProductUpdate:
       type: object
-      description: "The stock-keeping policy cannot change once the product has stock history."
+      description: "The stock-keeping policy cannot change once the product has stock history. The SKU never changes: a request that carries `sku` is refused with 422 `FIELD_SERVER_ASSIGNED` (ADR-0072). There is no product barcode from 2.0.0."
       properties:
         version:
           type: integer
@@ -27640,8 +27640,6 @@ components:
           format: uuid
         shelfLifeDays:
           type: integer
-        barcode:
-          type: string
         description:
           type: string
         onlineMode:
@@ -40610,10 +40608,6 @@ components:
           $ref: "#/components/schemas/ProductRef"
         saleUom:
           type: string
-        barcode:
-          type:
-            - string
-            - "null"
         taxCategoryId:
           type: string
           format: uuid
@@ -40640,7 +40634,6 @@ components:
       required:
         - product
         - saleUom
-        - barcode
         - taxCategoryId
         - priceBasis
         - priceBand
@@ -45891,6 +45884,7 @@ components:
         - text
     ProductLabel:
       type: object
+      description: "What a shelf or counter label prints, as text: the SKU, name, sale unit, nominal pack weight, shelf life and storage class. No barcode from 2.0.0 (owner 2026-11-17, ADR-0072)."
       properties:
         product:
           $ref: "#/components/schemas/ProductRef"
@@ -45913,17 +45907,15 @@ components:
             - CHILLED
             - FROZEN
             - null
-        barcode:
-          $ref: "#/components/schemas/LabelBarcode"
       required:
         - product
         - saleUom
         - nominalPackKg
         - shelfLifeDays
         - storageTempClass
-        - barcode
     StockUnitLabel:
       type: object
+      description: "What a lot or animal label prints, as text: the product and its SKU, the batch or tag, the weight, the quantity on hand, the dates and the storage class. No barcode from 2.0.0 (owner 2026-11-17, ADR-0072); the meat pack labels of `printPackLabels` keep theirs."
       properties:
         stockUnit:
           $ref: "#/components/schemas/StockUnitRef"
@@ -45983,8 +45975,6 @@ components:
             - CHILLED
             - FROZEN
             - null
-        barcode:
-          $ref: "#/components/schemas/LabelBarcode"
       required:
         - stockUnit
         - product
@@ -46000,7 +45990,6 @@ components:
         - producedOn
         - expiresOn
         - storageTempClass
-        - barcode
     OwnerDashboard:
       type: object
       description: "Every figure of the owner's first screen in one response (NFR-023). A figure whose source module is not built yet is null and named in `pendingFigures` with why and the phase that makes it live; a figure is null exactly while it is listed there, and a listed figure is never answered with a zero. Stock figures are as of `asOf`, whatever `date` asks for."

@@ -83,3 +83,30 @@ describe('every example is valid against its schema (the frontend mock serves th
     expect(checked).toBeGreaterThan(1_000);
   });
 });
+
+/** The operations of the meat pack labels and of picking a pack, which keep their pack barcode (meat is future work). */
+const MEAT_PACK_OPERATIONS = new Set(['createPacks', 'listPacks', 'printPackLabels', 'listFulfilments', 'getFulfilment', 'recordPicks', 'packFulfilment', 'dispatchFulfilment', 'collectFulfilment', 'cancelFulfilment']);
+const MEAT_PACK_SCHEMAS = new Set(['Pack', 'PackLabel', 'PackLabelSheet', 'LabelBarcode', 'FulfilmentLine', 'PickInput']);
+
+describe('no product barcode, barcode lookup or till scanning (ADR-0072, contract 2.0.0)', () => {
+  it('leaves a barcode only on the meat pack labels and the picking of a pack, and elsewhere only in a text saying it went in 2.0.0', () => {
+    const barcode = /barcode/i;
+    const where = [
+      ...operations().filter(({ operationId }) => !MEAT_PACK_OPERATIONS.has(operationId)).flatMap(({ operationId, operation }) => mentions(operation, barcode, operationId, [])),
+      ...Object.entries(schemas).filter(([name]) => !MEAT_PACK_SCHEMAS.has(name)).flatMap(([name, schema]) => mentions(schema, barcode, name, [])),
+    ];
+    const text = (pointer: string): Json => pointer.split('/').slice(1).reduce<Json>((node, key) => (node as JsonObject)[key]!, pointer.split('/')[0]! in schemas ? schemas[pointer.split('/')[0]!]! : operations().find((o) => o.operationId === pointer.split('/')[0])!.operation);
+    // A property, parameter or example that is a barcode is gone; a description may say that it went, and when.
+    expect(where.filter((pointer) => !(pointer.endsWith('/description') && String(text(pointer)).includes('2.0.0')))).toEqual([]);
+  });
+
+  it('gives listProducts no barcode filter, and a product, its label, a lot or animal label and the offline pack no barcode', () => {
+    const listProducts = operations().find(({ operationId }) => operationId === 'listProducts')!.operation;
+    expect(((listProducts['parameters'] ?? []) as JsonObject[]).map((parameter) => parameter['name'])).not.toContain('barcode');
+    for (const name of ['Product', 'ProductCreate', 'ProductUpdate', 'ProductLabel', 'StockUnitLabel', 'OfflineProduct']) {
+      const schema = schemas[name] as JsonObject;
+      expect(Object.keys(schema['properties'] as JsonObject), name).not.toContain('barcode');
+      expect((schema['required'] ?? []) as string[], name).not.toContain('barcode');
+    }
+  });
+});

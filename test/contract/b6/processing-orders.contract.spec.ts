@@ -66,9 +66,9 @@ describe('B6 operations answer in the contract shapes', () => {
     const recorded = await put(`/processing-orders/${orderId}/outputs`, {
       version: started.body.version,
       outputs: [
-        { productId: id('product:MEAT-GOAT-15KG'), outputKind: 'MEAT', weightKg: '13.400', weightSource: 'SCALE', packCount: 1 },
-        { productId: id('product:BYP-GOAT-OFFAL'), outputKind: 'OFFAL', weightKg: '3.100', weightSource: 'SCALE' },
-        { productId: id('product:BYP-GOAT-OFFAL'), outputKind: 'WASTE', weightKg: '9.000', weightSource: 'MANUAL' },
+        { productId: id('product:MEAT-0007'), outputKind: 'MEAT', weightKg: '13.400', weightSource: 'SCALE', packCount: 1 },
+        { productId: id('product:MEAT-0008'), outputKind: 'OFFAL', weightKg: '3.100', weightSource: 'SCALE' },
+        { productId: id('product:MEAT-0008'), outputKind: 'WASTE', weightKg: '9.000', weightSource: 'MANUAL' },
       ],
     });
     expectShape('ProcessingOrder', recorded.body);
@@ -95,10 +95,10 @@ describe('B6 operations answer in the contract shapes', () => {
     expectShape('YieldStandardPage', page.body);
     const standard = page.body.data[0];
     expectShape('YieldStandard', (await patch(`/yield-standards/${standard.id}`, { version: standard.version, tolerancePercent: '6' })).body);
-    const created = await post('/yield-standards', { inputProductId: id('product:LIV-SHEEP'), outputProductId: id('product:BYP-GOAT-OFFAL'), expectedPercent: '9.5' });
+    const created = await post('/yield-standards', { inputProductId: id('product:LIV-0005'), outputProductId: id('product:MEAT-0008'), expectedPercent: '9.5' });
     expect(created.status).toBe(201);
     expectShape('YieldStandard', created.body);
-    const duplicate = await post('/yield-standards', { inputProductId: id('product:LIV-SHEEP'), outputProductId: id('product:BYP-GOAT-OFFAL'), expectedPercent: '9.5' });
+    const duplicate = await post('/yield-standards', { inputProductId: id('product:LIV-0005'), outputProductId: id('product:MEAT-0008'), expectedPercent: '9.5' });
     expect(duplicate.status).toBe(422);
     expectShape('Error', duplicate.body);
   });

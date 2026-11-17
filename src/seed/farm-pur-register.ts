@@ -22,7 +22,7 @@ export const SEED_PAYOUTS = [
   { supplier: 'Kpone Livestock Traders (SEED)', details: { method: 'MOBILE_MONEY', momoNetwork: 'MTN', momoNumber: '+233200000211' } },
   { supplier: 'Awutu Poultry Farm (SEED)', details: { method: 'BANK', bankName: 'Ecobank Ghana', accountName: 'Awutu Poultry Farm (SEED)', accountNumber: '0000000000202', bankBranch: 'Kasoa' } },
 ] as const;
-export const SEED_REQUISITION = { sku: 'FEED-BRL-GROWER', qty: '100.000', location: 'STORE', justification: 'Grower feed for the next brooder batch (SEED)' } as const;
+export const SEED_REQUISITION = { sku: 'FEED-0001', qty: '100.000', location: 'STORE', justification: 'Grower feed for the next brooder batch (SEED)' } as const;
 
 const key = (...parts: string[]): string => `seed:pur-register:${parts.join(':')}`;
 

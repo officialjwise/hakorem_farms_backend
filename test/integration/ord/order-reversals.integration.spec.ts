@@ -116,9 +116,9 @@ beforeAll(async () => {
   for (const code of ['SHOP']) ids.set(code, (await admin().query<{ id: string }>('SELECT id FROM mdm.location WHERE branch_id = $1 AND code = $2', [branchId, code])).rows[0]!.id);
   ids.set('SUPPLIER', (await admin().query<{ id: string }>("SELECT id FROM mdm.location WHERE branch_id = $1 AND kind = 'SUPPLIER'", [branchId])).rows[0]!.id);
   for (const [name, sku] of [
-    ['eggs', 'EGG-CRATE-BIG'],
-    ['cabbage', 'PRD-CABBAGE-HEAD'],
-    ['yam', 'PRD-YAM-TUBER'],
+    ['eggs', 'EGG-0003'],
+    ['cabbage', 'PRD-0002'],
+    ['yam', 'PRD-0005'],
   ] as const) {
     ids.set(name, (await admin().query<{ id: string }>('SELECT id FROM mdm.product WHERE sku = $1', [sku])).rows[0]!.id);
   }

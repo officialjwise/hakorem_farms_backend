@@ -408,11 +408,10 @@ describe('price list listings and updates (FR-MDM-015)', () => {
 
 describe('archiveProduct (FR-MDM-001)', () => {
   it('refuses a product an active price list prices, and archives an unpriced one with an audit event and mdm.ProductArchived', async () => {
-    const goat = (await get(manager, `/products/${ids.get('product:LIV-GOAT')!}`)).body;
+    const goat = (await get(manager, `/products/${ids.get('product:LIV-0004')!}`)).body;
     const refused = await post(manager, `/products/${goat.id}/archive`, { version: goat.version, reason: 'Refused' });
     expect(refused.body.error).toMatchObject({ code: 'RECORD_IN_USE', details: [{ code: 'USED_BY_LIVE_PRICES' }] });
     const created = await post(manager, '/products', {
-      sku: 'PRD-PLANTAIN-BUNCH',
       name: 'Plantain, bunch',
       categoryId: ids.get('category:PRODUCE')!,
       stockPolicy: 'COUNTABLE',

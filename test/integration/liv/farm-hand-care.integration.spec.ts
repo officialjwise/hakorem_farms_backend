@@ -168,10 +168,10 @@ const calls: Record<string, () => Promise<Response>> = {
   listCareHealthEvents: () => send(farmHand, 'GET', `/care/health-events?stockUnitId=${id('unit:CARE-G1')}`),
   getCareHealthEvent: () => send(farmHand, 'GET', `/care/health-events/${healthEventId}`),
   recordCareHealthEvent: () =>
-    send(farmHand, 'POST', '/care/health-events', { kind: 'DEWORMING', stockUnitId: id('unit:CARE-G2'), productId: id('product:MED-ALBENDAZOLE'), qtyUsed: '0.010', occurredAt: clock.now().toISOString() }),
+    send(farmHand, 'POST', '/care/health-events', { kind: 'DEWORMING', stockUnitId: id('unit:CARE-G2'), productId: id('product:FEED-0003'), qtyUsed: '0.010', occurredAt: clock.now().toISOString() }),
   listCareRations: () => send(farmHand, 'GET', '/care/rations'),
   recordCareFeedConsumption: () =>
-    send(farmHand, 'POST', '/care/feed-consumption', { locationId: id('location:PEN-CARE'), feedProductId: id('product:FEED-GOAT-CONC'), qty: '2.000', consumedOn: toBusinessDate(clock.now()), rationId }),
+    send(farmHand, 'POST', '/care/feed-consumption', { locationId: id('location:PEN-CARE'), feedProductId: id('product:FEED-0002'), qty: '2.000', consumedOn: toBusinessDate(clock.now()), rationId }),
   listCareBatches: () => send(farmHand, 'GET', '/care/batches'),
   getCareBatch: () => send(farmHand, 'GET', `/care/batches/${id('batch:CARE-BRL')}`),
   createCareBatch: async () => {
@@ -248,7 +248,7 @@ beforeAll(async () => {
   await refresh();
   await receive('PEN-CARE', [
     {
-      productId: id('product:LIV-GOAT'),
+      productId: id('product:LIV-0004'),
       qtyReceived: '5.000',
       valuePesewas: 200_000,
       animals: [
@@ -260,7 +260,7 @@ beforeAll(async () => {
       ],
     },
   ]);
-  await receive('PEN-CARE-BR', [{ productId: id('product:LIV-BROILER'), qtyReceived: '30.000', valuePesewas: 60_000, batchNo: 'CARE-BRL' }]);
+  await receive('PEN-CARE-BR', [{ productId: id('product:LIV-0001'), qtyReceived: '30.000', valuePesewas: 60_000, batchNo: 'CARE-BRL' }]);
   const rations = await send(manager, 'GET', `/rations?speciesId=${id('species:GOAT')}`);
   rationId = (rations.body.data as Array<{ id: string }>)[0]!.id;
 });
@@ -276,7 +276,7 @@ describe('the Farm hand reads animal work without cost (owner, 2026-11-15; A-160
     const treated = await send(manager, 'POST', '/health-events', {
       kind: 'TREATMENT',
       stockUnitId: id('unit:CARE-G1'),
-      productId: id('product:MED-ALBENDAZOLE'),
+      productId: id('product:FEED-0003'),
       qtyUsed: '0.010',
       withdrawalDays: 28,
       costPesewas: 2_500,
@@ -351,8 +351,8 @@ describe('the Farm hand reads animal work without cost (owner, 2026-11-15; A-160
       createBatch: ['/batches', { batchNo: 'CARE-NO', speciesId: id('species:BROILER'), startedOn: toBusinessDate(clock.now()), initialHead: 5, purpose: 'GROWING', locationId: id('location:PEN-CARE-BR') }],
       updateBatch: [`/batches/${id('batch:CARE-BRL')}`, { version: 1, purpose: 'LAYING' }],
       closeBatch: [`/batches/${id('batch:CARE-BRL')}/close`, { reason: 'Sold out' }],
-      recordHealthEvent: ['/health-events', { kind: 'DEWORMING', stockUnitId: id('unit:CARE-G1'), productId: id('product:MED-ALBENDAZOLE'), qtyUsed: '0.010', occurredAt: clock.now().toISOString() }],
-      recordFeedConsumption: ['/feed-consumption', { locationId: id('location:PEN-CARE'), feedProductId: id('product:FEED-GOAT-CONC'), qty: '1.000', consumedOn: toBusinessDate(clock.now()) }],
+      recordHealthEvent: ['/health-events', { kind: 'DEWORMING', stockUnitId: id('unit:CARE-G1'), productId: id('product:FEED-0003'), qtyUsed: '0.010', occurredAt: clock.now().toISOString() }],
+      recordFeedConsumption: ['/feed-consumption', { locationId: id('location:PEN-CARE'), feedProductId: id('product:FEED-0002'), qty: '1.000', consumedOn: toBusinessDate(clock.now()) }],
       reportMortality: ['/mortality-records', { kind: 'DEATH', stockUnitId: id('unit:CARE-BRL'), head: 1, reasonCode: 'UNKNOWN_CAUSE', foundAt: clock.now().toISOString() }],
       submitMortalityRecord: [`/mortality-records/${mortalityId}/submit`, {}],
     };

@@ -58,7 +58,7 @@ function move(branch: string, movementType: 'ADJUST_GAIN' | 'ADJUST_LOSS', from:
       await api.app.get(DocumentRegistry).register(tx, { id: documentId, docType: 'STOCK_ADJUSTMENT', ownerModule: 'inv', branchId: id(`branch:${branch}`), actorId: SYSTEM_PRINCIPAL });
       const posted = await api.app.get(Stock).postIn(tx, SYSTEM_PRINCIPAL, {
         movementType,
-        productId: id('product:PRD-YAM-TUBER'),
+        productId: id('product:PRD-0005'),
         stockUnitId: null,
         branchId: id(`branch:${branch}`),
         fromLocationId: id(from),
@@ -127,7 +127,7 @@ describe('closing and reopening a branch (FR-MDM-006, B05x)', () => {
       kind: 'HARVEST',
       locationId: id('location:KSA:SHOP'),
       receivedAt: new Date(clock.now().getTime() - 3_600_000).toISOString(),
-      lines: [{ productId: id('product:PRD-YAM-TUBER'), qtyReceived: '10.000', valuePesewas: 12_000 }],
+      lines: [{ productId: id('product:PRD-0005'), qtyReceived: '10.000', valuePesewas: 12_000 }],
     });
     expect(receipt.status).toBe(201);
     let ksa = await branch('KSA');

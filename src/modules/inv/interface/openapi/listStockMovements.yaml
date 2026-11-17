@@ -99,7 +99,7 @@ responses:
                   movementType: TRANSFER_INTERNAL
                   product:
                     id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
-                    sku: MEAT-GOAT
+                    sku: MEAT-0007
                     name: "Goat meat, 15 kg pack"
                   stockUnit:
                     id: "019a7a90-f15d-712e-b666-1bbcd880949a"
@@ -140,7 +140,7 @@ responses:
                   movementType: MORTALITY
                   product:
                     id: "019a7a8d-704a-726a-a7a2-2f740f73a851"
-                    sku: LIV-BROILER
+                    sku: LIV-0001
                     name: "Broiler chicken"
                   stockUnit:
                     id: "019a7a91-4e2a-7ed9-a411-f66345936f41"
@@ -181,7 +181,7 @@ responses:
                   movementType: PROCESS_CONSUME
                   product:
                     id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                    sku: LIV-GOAT
+                    sku: LIV-0004
                     name: Goat
                   stockUnit:
                     id: "019a7a90-37c3-75d9-9b12-666ffe5adf4d"
@@ -222,7 +222,7 @@ responses:
                   movementType: COST_CAPITALISE
                   product:
                     id: "019a7a8d-704a-726a-a7a2-2f740f73a851"
-                    sku: LIV-BROILER
+                    sku: LIV-0001
                     name: "Broiler chicken"
                   stockUnit:
                     id: "019a7a91-4e2a-7ed9-a411-f66345936f41"
@@ -263,7 +263,7 @@ responses:
                   movementType: FEED_ISSUE
                   product:
                     id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
-                    sku: FD-BRL-FIN
+                    sku: FEED-0004
                     name: "Broiler finisher feed, 50 kg bag"
                   stockUnit: null
                   from:
@@ -301,7 +301,7 @@ responses:
                   movementType: RECEIPT_PURCHASE
                   product:
                     id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
-                    sku: FD-BRL-FIN
+                    sku: FEED-0004
                     name: "Broiler finisher feed, 50 kg bag"
                   stockUnit: null
                   from:
@@ -339,7 +339,7 @@ responses:
                   movementType: SALE_ISSUE
                   product:
                     id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                    sku: LIV-GOAT
+                    sku: LIV-0004
                     name: Goat
                   stockUnit:
                     id: "019a7a8f-bc07-7e4c-9384-ed921796666f"

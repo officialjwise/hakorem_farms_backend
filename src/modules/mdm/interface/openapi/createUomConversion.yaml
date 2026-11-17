@@ -48,7 +48,7 @@ responses:
           id: "019a7f10-2b40-7c11-9a20-3e5d7c1b0a01"
           product:
             id: "019a7a8d-f1c2-7a10-9e3b-5d2c4a6b8e01"
-            sku: FEED-BRL-GROWER
+            sku: FEED-0001
             name: "Broiler grower pellets, per kg"
           fromUom: BAG
           toUom: KG

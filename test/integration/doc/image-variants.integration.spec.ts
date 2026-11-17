@@ -99,7 +99,6 @@ let skuCounter = 0;
 async function product(): Promise<string> {
   skuCounter += 1;
   const response = await consolePost(api.server, manager, '/v1/products').send({
-    sku: `MEAT-GOAT-${skuCounter}KG`,
     name: `Goat meat pack ${skuCounter} kg`,
     categoryId: catalogue.meatCategoryId,
     stockPolicy: 'CATCH_WEIGHT',

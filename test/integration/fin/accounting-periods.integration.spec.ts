@@ -70,7 +70,7 @@ async function harvest(receivedAt: Date): Promise<{ status: number; body: { id?:
     kind: 'HARVEST',
     locationId: id('location:SHOP'),
     receivedAt: receivedAt.toISOString(),
-    lines: [{ productId: id('product:PRD-YAM-TUBER'), qtyReceived: '10.000', valuePesewas: 12_000 }],
+    lines: [{ productId: id('product:PRD-0005'), qtyReceived: '10.000', valuePesewas: 12_000 }],
   });
   expect(created.status, JSON.stringify(created.body)).toBe(201);
   const posted = await post('manager', `/goods-receipts/${created.body.id as string}/post`);

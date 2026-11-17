@@ -75,7 +75,7 @@ responses:
               lineNo: 1
               product:
                 id: "019a7a8e-86b1-7b69-b0a1-bf6756ac3845"
-                sku: PRD-TOMATO
+                sku: PRD-0001
                 name: "Tomatoes, crate"
               description: null
               qtyOrdered: "12.000"

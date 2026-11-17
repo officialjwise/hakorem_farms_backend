@@ -71,8 +71,8 @@ describe('B06 continued 3 operations answer in the contract shapes', () => {
     await consolePut(api.server, manager, v1(`/processing-orders/${orderId}/outputs`)).send({
       version,
       outputs: [
-        { productId: id('product:MEAT-GOAT-15KG'), outputKind: 'MEAT', weightKg: '14.600', weightSource: 'SCALE' },
-        { productId: id('product:BYP-GOAT-OFFAL'), outputKind: 'WASTE', weightKg: '9.000', weightSource: 'MANUAL' },
+        { productId: id('product:MEAT-0007'), outputKind: 'MEAT', weightKg: '14.600', weightSource: 'SCALE' },
+        { productId: id('product:MEAT-0008'), outputKind: 'WASTE', weightKg: '9.000', weightSource: 'MANUAL' },
       ],
     });
     expect((await consolePost(api.server, manager, v1(`/processing-orders/${orderId}/complete`)).send({})).status).toBe(200);

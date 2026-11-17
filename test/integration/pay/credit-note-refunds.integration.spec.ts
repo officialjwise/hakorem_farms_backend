@@ -97,7 +97,7 @@ beforeAll(async () => {
   branchId = (await admin().query<{ id: string }>("SELECT id FROM mdm.branch WHERE code = 'DDW'")).rows[0]!.id;
   for (const [name, sql, value] of [
     ['tema', 'SELECT id FROM mdm.customer WHERE name = $1', TEMA],
-    ['goat', 'SELECT id FROM mdm.product WHERE sku = $1', 'LIV-GOAT'],
+    ['goat', 'SELECT id FROM mdm.product WHERE sku = $1', 'LIV-0004'],
     ['gcb', 'SELECT id FROM fin.bank_account WHERE name = $1', GCB],
     ['CHEQUE', 'SELECT id FROM mdm.payment_method WHERE code = $1', 'CHEQUE'],
   ] as const) {

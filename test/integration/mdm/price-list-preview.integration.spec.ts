@@ -65,13 +65,13 @@ beforeAll(async () => {
   [goatId, eggsId, gradeId, bandM, bandL] = [randomUUID(), randomUUID(), randomUUID(), randomUUID(), randomUUID()];
   await app.query(
     `INSERT INTO mdm.product (id, sku, name, category_id, stock_policy, tracking, species_id, base_uom, sale_uom, tax_category_id, gl_group, online_mode, status, created_by, updated_by)
-     VALUES ($1, 'LIV-GOAT', 'Goat', $2, 'SERIALISED', 'SERIAL', $3, 'HEAD', 'HEAD', $4, 'LIVE_ANIMALS', 'REQUEST_TO_BUY', 'ACTIVE', $5, $5)`,
+     VALUES ($1, 'LIV-0004', 'Goat', $2, 'SERIALISED', 'SERIAL', $3, 'HEAD', 'HEAD', $4, 'LIVE_ANIMALS', 'REQUEST_TO_BUY', 'ACTIVE', $5, $5)`,
     [goatId, catalogue.liveCategoryId, catalogue.goatSpeciesId, TAX_CATEGORY.LIVE_ANIMALS, SYSTEM_PRINCIPAL],
   );
   const eggCategory = await database.pool('admin').query<{ id: string }>("SELECT id FROM mdm.category WHERE code = 'EGGS'");
   await app.query(
     `INSERT INTO mdm.product (id, sku, name, category_id, stock_policy, tracking, base_uom, sale_uom, tax_category_id, gl_group, online_mode, status, created_by, updated_by)
-     VALUES ($1, 'EGG-CRATE-BIG', 'Eggs, big, crate of 30', $2, 'COUNTABLE', 'LOT', 'CRATE', 'CRATE', $3, 'PRODUCE_EGGS', 'LISTED', 'ACTIVE', $4, $4)`,
+     VALUES ($1, 'EGG-0003', 'Eggs, big, crate of 30', $2, 'COUNTABLE', 'LOT', 'CRATE', 'CRATE', $3, 'PRODUCE_EGGS', 'LISTED', 'ACTIVE', $4, $4)`,
     [eggsId, eggCategory.rows[0]!.id, TAX_CATEGORY.EGGS, SYSTEM_PRINCIPAL],
   );
   await app.query(
@@ -151,12 +151,12 @@ describe('a draft against the version in force, one line of each kind (CR-009)',
     expect(answer.body.counts).toEqual({ added: 1, changed: 1, removed: 1, unchanged: 1 });
     expect(answer.body.data).toHaveLength(4);
     const byKind = Object.fromEntries(answer.body.data.map((line: { kind: string }) => [line.kind, line]));
-    expect(byKind.CHANGED.current).toMatchObject({ product: { id: goatId, sku: 'LIV-GOAT' }, grade: { id: gradeId, code: 'A' }, weightBand: { code: 'GOAT-M' }, listPricePesewas: 90_000, ceilingPricePesewas: 100_000, minQty: '0.000', currency: 'GHS' });
+    expect(byKind.CHANGED.current).toMatchObject({ product: { id: goatId, sku: 'LIV-0004' }, grade: { id: gradeId, code: 'A' }, weightBand: { code: 'GOAT-M' }, listPricePesewas: 90_000, ceilingPricePesewas: 100_000, minQty: '0.000', currency: 'GHS' });
     expect(byKind.CHANGED.proposed).toMatchObject({ grade: { code: 'A' }, weightBand: { code: 'GOAT-M' }, listPricePesewas: 95_000, floorPricePesewas: 80_000, ceilingPricePesewas: 105_000, minQty: '0.000' });
     expect(byKind.CHANGED.proposed.id).not.toBe(byKind.CHANGED.current.id);
     expect(byKind.ADDED).toMatchObject({ current: null, proposed: { weightBand: { code: 'GOAT-M' }, minQty: '10.000', listPricePesewas: 85_000 } });
     expect(byKind.UNCHANGED).toMatchObject({ current: { weightBand: { code: 'GOAT-L' }, listPricePesewas: 140_000 }, proposed: { weightBand: { code: 'GOAT-L' }, listPricePesewas: 140_000 } });
-    expect(byKind.REMOVED).toMatchObject({ current: { product: { sku: 'EGG-CRATE-BIG' }, basis: 'PER_UNIT', listPricePesewas: 6_000 }, proposed: null });
+    expect(byKind.REMOVED).toMatchObject({ current: { product: { sku: 'EGG-0003' }, basis: 'PER_UNIT', listPricePesewas: 6_000 }, proposed: null });
   });
 
   it('answers cursor pages that add up to the whole comparison, with the same counts on every page', async () => {

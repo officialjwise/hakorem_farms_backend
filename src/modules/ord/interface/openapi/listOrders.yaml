@@ -122,7 +122,7 @@ responses:
                       lineNo: 1
                       product:
                         id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                        sku: LIV-GOAT
+                        sku: LIV-0004
                         name: Goat
                       stockUnit:
                         id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
@@ -157,7 +157,7 @@ responses:
                       lineNo: 2
                       product:
                         id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                        sku: EGG-BIG
+                        sku: EGG-0003
                         name: "Eggs, big, crate of 30"
                       stockUnit:
                         id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
@@ -192,7 +192,7 @@ responses:
                       lineNo: 3
                       product:
                         id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                        sku: MEAT-BEEF
+                        sku: MEAT-0005
                         name: "Beef, 15 kg pack"
                       stockUnit:
                         id: "019a7a91-2f3b-74f5-9a2d-582bcbe2d109"
@@ -286,7 +286,7 @@ responses:
                       lineNo: 1
                       product:
                         id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                        sku: MEAT-CHK-FULL
+                        sku: MEAT-0001
                         name: "Full chicken, 15 kg pack"
                       stockUnit: null
                       qtyOrdered: "1.000"
@@ -318,7 +318,7 @@ responses:
                       lineNo: 2
                       product:
                         id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                        sku: EGG-BIG
+                        sku: EGG-0003
                         name: "Eggs, big, crate of 30"
                       stockUnit: null
                       qtyOrdered: "2.000"
@@ -402,7 +402,7 @@ responses:
                       lineNo: 1
                       product:
                         id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                        sku: MEAT-CHK-FULL
+                        sku: MEAT-0001
                         name: "Full chicken, 15 kg pack"
                       stockUnit: null
                       qtyOrdered: "2.000"
@@ -434,7 +434,7 @@ responses:
                       lineNo: 2
                       product:
                         id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                        sku: MEAT-BEEF
+                        sku: MEAT-0005
                         name: "Beef, 15 kg pack"
                       stockUnit: null
                       qtyOrdered: "3.000"
@@ -521,7 +521,7 @@ responses:
                       lineNo: 1
                       product:
                         id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                        sku: LIV-GOAT
+                        sku: LIV-0004
                         name: Goat
                       stockUnit:
                         id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
@@ -556,7 +556,7 @@ responses:
                       lineNo: 2
                       product:
                         id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                        sku: LIV-GOAT
+                        sku: LIV-0004
                         name: Goat
                       stockUnit:
                         id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
@@ -632,7 +632,7 @@ responses:
                       lineNo: 1
                       product:
                         id: "019a7a8e-86b1-7b69-b0a1-bf6756ac3845"
-                        sku: PRD-TOMATO
+                        sku: PRD-0001
                         name: "Tomatoes, crate"
                       stockUnit:
                         id: "019a7a91-8c08-72a0-87d8-32d238f5abb0"
@@ -667,7 +667,7 @@ responses:
                       lineNo: 2
                       product:
                         id: "019a7a8e-a5a0-754c-8a85-5d9ed05dd67c"
-                        sku: PRD-YAM
+                        sku: PRD-0005
                         name: "Yam, tuber"
                       stockUnit: null
                       qtyOrdered: "6.000"
@@ -742,7 +742,7 @@ responses:
                       lineNo: 1
                       product:
                         id: "019a7a8e-a5a0-754c-8a85-5d9ed05dd67c"
-                        sku: PRD-YAM
+                        sku: PRD-0005
                         name: "Yam, tuber"
                       stockUnit: null
                       qtyOrdered: "20.000"

@@ -21,7 +21,6 @@ const COLUMN_OF: Readonly<Record<string, string>> = {
   '/saleUom': 'saleUom',
   '/nominalPackKg': 'nominalPackKg',
   '/shelfLifeDays': 'shelfLifeDays',
-  '/barcode': 'barcode',
   '/onlineMode': 'onlineMode',
 };
 
@@ -59,9 +58,10 @@ function fixedErrors(row: ProductRow, before: ProductView): RowError[] {
 const orUndefined = <T>(value: T | null): T | undefined => (value === null ? undefined : value);
 
 /**
- * Products (FR-MDM-001) through a sheet, written by ProductCatalogue's own create and update (A-130). The SKU names
- * the product: one the catalogue does not hold creates a product, ACTIVE and HIDDEN online unless the row says
- * otherwise; one it holds changes that product, and the stock-keeping policy, species and units never change.
+ * Products (FR-MDM-001) through a sheet, written by ProductCatalogue's own create and update (A-130). A row without a
+ * SKU creates a product, ACTIVE and HIDDEN online unless the row says otherwise, and the server generates its SKU; a
+ * row naming a SKU the catalogue holds changes that product, and the stock-keeping policy, species and units never
+ * change. A SKU the catalogue does not hold is a row error: a SKU is never typed in (B09q, ADR-0072, A-250).
  */
 export class ProductSheet implements EntitySheet<readonly ProductPlanRow[]> {
   readonly entity = 'PRODUCT' as const;
@@ -79,7 +79,7 @@ export class ProductSheet implements EntitySheet<readonly ProductPlanRow[]> {
   async check(tx: Transaction, records: SheetRecords): Promise<SheetCheck<readonly ProductPlanRow[]>> {
     const errors: RowError[] = [];
     const rows = readRows(records, readProductRow, errors);
-    errors.push(...duplicateErrors(rows, 'sku', (row) => row.sku), ...duplicateErrors(rows, 'barcode', (row) => row.barcode));
+    errors.push(...duplicateErrors(rows, 'sku', (row) => row.sku));
     const category = cached((code) => this.lookups.categoryIdByCode(tx, code));
     const species = cached((code) => this.lookups.speciesIdByCode(tx, code));
     const taxCategory = cached((code) => this.lookups.taxCategoryIdByCode(tx, code));
@@ -97,6 +97,9 @@ export class ProductSheet implements EntitySheet<readonly ProductPlanRow[]> {
       const speciesId = await resolve(row.speciesCode, 'species', species);
       const taxCategoryId = await resolve(row.taxCategoryCode, 'taxCategory', taxCategory);
       const existing = row.sku === null ? null : await this.lookups.productBySku(tx, row.sku);
+      if (row.sku !== null && existing === null) {
+        rowErrors.push({ rowNo: row.rowNo, column: 'sku', message: `No product has the SKU ${row.sku}: a SKU is given by the system when a product is created, so leave sku blank to create one` });
+      }
       if (existing !== null) toUpdate += 1;
       const formed = !errors.some((error) => error.rowNo === row.rowNo) && rowErrors.length === 0;
       const change = {
@@ -105,14 +108,13 @@ export class ProductSheet implements EntitySheet<readonly ProductPlanRow[]> {
         taxCategoryId,
         nominalPackKg: orUndefined(row.nominalPackKg),
         shelfLifeDays: orUndefined(row.shelfLifeDays),
-        barcode: orUndefined(row.barcode),
         description: orUndefined(row.description),
         onlineMode: orUndefined(row.onlineMode),
       };
       if (existing === null) {
-        rowErrors.push(...productCreateErrors(row));
+        if (row.sku === null) rowErrors.push(...productCreateErrors(row));
         if (formed && rowErrors.length === 0) {
-          const draft: ProductDraft = { ...change, sku: row.sku!, name: row.name!, categoryId: categoryId!, stockPolicy: row.stockPolicy!, speciesId, baseUom: row.baseUom!, saleUom: row.saleUom!, onlineMode: row.onlineMode ?? 'HIDDEN' };
+          const draft: ProductDraft = { ...change, name: row.name!, categoryId: categoryId!, stockPolicy: row.stockPolicy!, speciesId, baseUom: row.baseUom!, saleUom: row.saleUom!, onlineMode: row.onlineMode ?? 'HIDDEN' };
           rowErrors.push(...(await this.catalogue.createRules(tx, draft)).map((rule) => productRuleError(row.rowNo, rule)));
           plan.push({ kind: 'CREATE', draft });
         }
@@ -154,7 +156,6 @@ export class ProductSheet implements EntitySheet<readonly ProductPlanRow[]> {
           product.taxCategory.code,
           product.nominalPackKg ?? '',
           product.shelfLifeDays === null ? '' : String(product.shelfLifeDays),
-          product.barcode ?? '',
           product.description ?? '',
           product.onlineMode,
         ]);

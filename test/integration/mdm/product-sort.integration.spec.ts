@@ -90,15 +90,15 @@ beforeAll(async () => {
   nobody = await login(api.server, await createUser(database, { name: 'Ama Owusu' }));
   // Thirteen products in three statements: names tie in case-insensitive runs, statuses and categories in long runs.
   await insertProducts([
-    { sku: 'EGG-CRATE-BIG', name: 'Eggs, big', categoryId: catalogue.eggsCategoryId, status: 'ACTIVE' },
+    { sku: 'EGG-0003', name: 'Eggs, big', categoryId: catalogue.eggsCategoryId, status: 'ACTIVE' },
     { sku: 'EGG-CRATE-SML', name: 'Eggs, small', categoryId: catalogue.eggsCategoryId, status: 'ACTIVE' },
     { sku: 'EGG-CRATE-LOC', name: 'EGGS, BIG', categoryId: catalogue.eggsCategoryId, status: 'DRAFT' },
-    { sku: 'LIV-GOAT', name: 'Goat', categoryId: catalogue.liveCategoryId, status: 'ACTIVE' },
+    { sku: 'LIV-0004', name: 'Goat', categoryId: catalogue.liveCategoryId, status: 'ACTIVE' },
     { sku: 'LIV-GOAT-KID', name: 'goat', categoryId: catalogue.liveCategoryId, status: 'DISCONTINUED' },
   ]);
   await insertProducts([
-    { sku: 'LIV-SHEEP', name: 'Sheep', categoryId: catalogue.liveCategoryId, status: 'ACTIVE' },
-    { sku: 'LIV-PIG', name: 'Baby pig', categoryId: catalogue.liveCategoryId, status: 'ACTIVE' },
+    { sku: 'LIV-0005', name: 'Sheep', categoryId: catalogue.liveCategoryId, status: 'ACTIVE' },
+    { sku: 'LIV-0003', name: 'Baby pig', categoryId: catalogue.liveCategoryId, status: 'ACTIVE' },
     { sku: 'MEAT-BEEF-15', name: 'Beef', categoryId: catalogue.meatCategoryId, status: 'ACTIVE' },
     { sku: 'MEAT-GOAT-15', name: 'Goat meat', categoryId: catalogue.meatCategoryId, status: 'DRAFT' },
   ]);
@@ -106,7 +106,7 @@ beforeAll(async () => {
     { sku: 'MEAT-PORK-15', name: 'Pork', categoryId: catalogue.meatCategoryId, status: 'ACTIVE' },
     { sku: 'MEAT-CHK-WINGS', name: 'Chicken wings', categoryId: catalogue.meatCategoryId, status: 'ACTIVE' },
     { sku: 'MEAT-CHK-FULL', name: 'Full chicken', categoryId: catalogue.meatCategoryId, status: 'DISCONTINUED' },
-    { sku: 'LIV-DUCK', name: 'Duck', categoryId: catalogue.liveCategoryId, status: 'ACTIVE' },
+    { sku: 'LIV-0006', name: 'Duck', categoryId: catalogue.liveCategoryId, status: 'ACTIVE' },
   ]);
 });
 

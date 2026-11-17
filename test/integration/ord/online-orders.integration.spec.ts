@@ -171,7 +171,7 @@ describe('placeOrder: a guest places the checkout and the charge is sent (FR-SHP
   let key: string;
 
   beforeAll(async () => {
-    ({ guest, checkoutId } = await atCheckout([['EGG-CRATE-BIG', '2']]));
+    ({ guest, checkoutId } = await atCheckout([['EGG-0003', '2']]));
     key = randomUUID();
     placed = await place(guest, checkoutId, momo, key);
   });
@@ -203,7 +203,7 @@ describe('placeOrder: a guest places the checkout and the charge is sent (FR-SHP
       maximum: 12_000,
     });
     expect(await linesOf(orderId)).toEqual([
-      expect.objectContaining({ sku: 'EGG-CRATE-BIG', qty: '2.000', price_source: 'ENGINE', price_basis: 'PER_UNIT', resolved: 6_000, agreed: 6_000, variance: 0, flagged: false, total: 12_000, line_status: 'OPEN', ruled: true }),
+      expect.objectContaining({ sku: 'EGG-0003', qty: '2.000', price_source: 'ENGINE', price_basis: 'PER_UNIT', resolved: 6_000, agreed: 6_000, variance: 0, flagged: false, total: 12_000, line_status: 'OPEN', ruled: true }),
     ]);
     expect(await historyOf(orderId)).toEqual([[null, 'PLACED']]);
     expect(await outboxCount('ord.OrderPlaced', orderId)).toBe(1);
@@ -213,7 +213,7 @@ describe('placeOrder: a guest places the checkout and the charge is sent (FR-SHP
     const orderId = placed.body.orderId as string;
     expect(await paymentOf(orderId)).toEqual([{ id: placed.body.payment.paymentId, status: 'PENDING', amount: 12_000, method: 'MOBILE_MONEY' }]);
     expect(fake.transactions.get(referenceFor(placed.body.payment.paymentId as string))).toMatchObject({ amount: 12_000 });
-    expect(await reserved(checkoutId)).toEqual([{ product: 'EGG-CRATE-BIG', qty: '2.000', status: 'ACTIVE', expires: true }]);
+    expect(await reserved(checkoutId)).toEqual([{ product: 'EGG-0003', qty: '2.000', status: 'ACTIVE', expires: true }]);
     expect(await reserved(orderId)).toEqual([]);
     expect((await read(`/shop/carts/${guest.cartId}`, guest)).body).toMatchObject({ status: 'CHECKOUT', checkoutId });
   });
@@ -229,7 +229,7 @@ describe('placeOrder: a guest places the checkout and the charge is sent (FR-SHP
   });
 
   it('tells a stranger and a request with no cookie that the checkout does not exist', async () => {
-    const { checkoutId: mine } = await atCheckout([['EGG-CRATE-BIG', '1']]);
+    const { checkoutId: mine } = await atCheckout([['EGG-0003', '1']]);
     const stranger = await newCart();
     expect((await place(stranger, mine)).status).toBe(404);
     expect((await place(null, mine)).status).toBe(404);
@@ -251,8 +251,8 @@ describe('placeOrder: a guest places the checkout and the charge is sent (FR-SHP
       [null, 'PLACED'],
       ['PLACED', 'CONFIRMED'],
     ]);
-    expect(await reserved(orderId)).toEqual([{ product: 'EGG-CRATE-BIG', qty: '2.000', status: 'ACTIVE', expires: false }]);
-    expect(await reserved(checkoutId)).toEqual([{ product: 'EGG-CRATE-BIG', qty: '2.000', status: 'RELEASED', expires: true }]);
+    expect(await reserved(orderId)).toEqual([{ product: 'EGG-0003', qty: '2.000', status: 'ACTIVE', expires: false }]);
+    expect(await reserved(checkoutId)).toEqual([{ product: 'EGG-0003', qty: '2.000', status: 'RELEASED', expires: true }]);
     expect((await linesOf(orderId))[0]).toMatchObject({ held: true });
     expect(await checkoutStatus(checkoutId)).toEqual({ status: 'COMPLETED', order_id: orderId });
     expect((await read(`/shop/carts/${guest.cartId}`, guest)).body).toMatchObject({ status: 'CONVERTED', checkoutId: null });
@@ -269,20 +269,20 @@ describe('placeOrder: a guest places the checkout and the charge is sent (FR-SHP
     await expire();
     expect(await orderRow(orderId)).toMatchObject({ status: 'CONFIRMED' });
     expect(await outboxCount('ord.OrderConfirmed', orderId)).toBe(1);
-    expect(await reserved(orderId)).toEqual([{ product: 'EGG-CRATE-BIG', qty: '2.000', status: 'ACTIVE', expires: false }]);
+    expect(await reserved(orderId)).toEqual([{ product: 'EGG-0003', qty: '2.000', status: 'ACTIVE', expires: false }]);
   });
 });
 
 describe('placeOrder for cash on delivery: confirmed at once, the delivery and its fee on the order', () => {
   it('places 2 crates to Dodowa at 13,500 (12,000 and the fee of 1,500), confirmed with no charge, the checkout completed', async () => {
-    const { guest, checkoutId } = await atCheckout([['EGG-CRATE-BIG', '2']], { contactName: 'Kofi Boateng', contactPhone: '0201234567', fulfilmentMode: 'DELIVERY', address: dodowa, paymentTerms: 'COD' });
+    const { guest, checkoutId } = await atCheckout([['EGG-0003', '2']], { contactName: 'Kofi Boateng', contactPhone: '0201234567', fulfilmentMode: 'DELIVERY', address: dodowa, paymentTerms: 'COD' });
     const placed = await place(guest, checkoutId, { paymentMethod: 'COD' });
     expect(placed.status, JSON.stringify(placed.body)).toBe(201);
     expect(placed.body.payment).toBeNull();
     const orderId = placed.body.orderId as string;
     expect(await orderRow(orderId)).toMatchObject({ status: 'CONFIRMED', payment_terms: 'COD', fulfilment_mode: 'DELIVERY', delivery_zone_id: id('zone:DDW'), fee: 1_500, estimated: 13_500, maximum: 13_500, area: 'Dodowa', credit_check: 'NOT_REQUIRED' });
     expect(await paymentOf(orderId)).toEqual([]);
-    expect(await reserved(orderId)).toEqual([{ product: 'EGG-CRATE-BIG', qty: '2.000', status: 'ACTIVE', expires: false }]);
+    expect(await reserved(orderId)).toEqual([{ product: 'EGG-0003', qty: '2.000', status: 'ACTIVE', expires: false }]);
     expect(placed.body.checkout).toMatchObject({ status: 'COMPLETED', orderId });
     expect((await read(`/shop/carts/${guest.cartId}`, guest)).body).toMatchObject({ status: 'CONVERTED', checkoutId: null });
   });
@@ -290,7 +290,7 @@ describe('placeOrder for cash on delivery: confirmed at once, the delivery and i
 
 describe('placeOrder refuses what this phase does not take, and changes nothing', () => {
   it('refuses a method that does not match the terms, a card, a mobile money charge without its phone or network, and a coupon', async () => {
-    const { guest, checkoutId } = await atCheckout([['EGG-CRATE-BIG', '1']]);
+    const { guest, checkoutId } = await atCheckout([['EGG-0003', '1']]);
     const cases: Array<[object, string]> = [
       [{ paymentMethod: 'COD' }, 'PAYMENT_METHOD_MISMATCH'],
       [{ paymentMethod: 'CARD' }, 'CARD_NOT_AVAILABLE'],
@@ -303,7 +303,7 @@ describe('placeOrder refuses what this phase does not take, and changes nothing'
     }
     expect((await checkoutStatus(checkoutId)).status).toBe('STARTED');
     const coupon = await newCart();
-    await write('post', `/shop/carts/${coupon.cartId}/lines`, coupon, { productId: id('EGG-CRATE-BIG'), quantity: '1.000' });
+    await write('post', `/shop/carts/${coupon.cartId}/lines`, coupon, { productId: id('EGG-0003'), quantity: '1.000' });
     expect((await write('put', `/shop/carts/${coupon.cartId}/coupon`, coupon, { code: 'welcome10' })).status).toBe(200);
     const started = await write('post', `/shop/carts/${coupon.cartId}/checkout`, coupon, collection);
     expect(started.status).toBe(201);
@@ -313,7 +313,7 @@ describe('placeOrder refuses what this phase does not take, and changes nothing'
   });
 
   it('refuses a price the engine no longer gives (422 ORDER_INVALID PRICE_CHANGED), placing nothing', async () => {
-    const { guest, checkoutId } = await atCheckout([['EGG-CRATE-BIG', '2']]);
+    const { guest, checkoutId } = await atCheckout([['EGG-0003', '2']]);
     // As if the online list changed after the checkout priced the line: the checkout says 5,900, the engine 6,000.
     // Lines are written once (trg on shp.checkout_line), so the test steps past the trigger as the superuser.
     await admin().query(`BEGIN; SET LOCAL session_replication_role = replica; UPDATE shp.checkout_line SET unit_price_pesewas = 5900 WHERE checkout_id = '${checkoutId}'; COMMIT`);
@@ -324,7 +324,7 @@ describe('placeOrder refuses what this phase does not take, and changes nothing'
   });
 
   it('refuses a checkout whose hold has lapsed (409 CHECKOUT_NOT_OPEN)', async () => {
-    const { guest, checkoutId } = await atCheckout([['EGG-CRATE-BIG', '1']]);
+    const { guest, checkoutId } = await atCheckout([['EGG-0003', '1']]);
     clock.advanceBy(16 * 60_000);
     const late = await place(guest, checkoutId);
     expect([late.status, late.body.error.code]).toEqual([409, 'CHECKOUT_NOT_OPEN']);
@@ -333,14 +333,14 @@ describe('placeOrder refuses what this phase does not take, and changes nothing'
 
 describe('catch weight at placement (ADR-0021): the estimate is charged, the tolerance kept on the line', () => {
   it('places one 15 kg beef pack at 3,213 a kg: 48,195 estimated, the checkout’s maximum, the pack’s weight and tolerance on the line', async () => {
-    const { guest, checkoutId } = await atCheckout([['MEAT-BEEF-15KG', '1']]);
+    const { guest, checkoutId } = await atCheckout([['MEAT-0005', '1']]);
     const shown = (await read(`/shop/checkouts/${checkoutId}`, guest)).body;
     const placed = await place(guest, checkoutId);
     expect(placed.status, JSON.stringify(placed.body)).toBe(201);
     const orderId = placed.body.orderId as string;
     expect(await orderRow(orderId)).toMatchObject({ estimated: 48_195, maximum: shown.maximumTotalPesewas });
     expect(await linesOf(orderId)).toEqual([
-      expect.objectContaining({ sku: 'MEAT-BEEF-15KG', qty: '1.000', uom: shown.lines[0].uom, price_basis: 'PER_KG', resolved: 3_213, agreed: 3_213, weight: '15.000', total: 48_195, variance: 0 }),
+      expect.objectContaining({ sku: 'MEAT-0005', qty: '1.000', uom: shown.lines[0].uom, price_basis: 'PER_KG', resolved: 3_213, agreed: 3_213, weight: '15.000', total: 48_195, variance: 0 }),
     ]);
     expect((await linesOf(orderId))[0]!['tolerance']).not.toBeNull();
     expect(await paymentOf(orderId)).toEqual([expect.objectContaining({ amount: 48_195, status: 'PENDING' })]);
@@ -349,7 +349,7 @@ describe('catch weight at placement (ADR-0021): the estimate is charged, the tol
 
 describe('the order stops waiting when its hold lapses or its charge fails (FR-ORD-014, FR-PAY-008)', () => {
   it('cancels the order when the checkout’s hold expires and releases the charge: money paid afterwards is held unmatched, never the order’s', async () => {
-    const { guest, checkoutId } = await atCheckout([['EGG-CRATE-BIG', '1']]);
+    const { guest, checkoutId } = await atCheckout([['EGG-0003', '1']]);
     const placed = await place(guest, checkoutId);
     const orderId = placed.body.orderId as string;
     const paymentId = placed.body.payment.paymentId as string;
@@ -375,7 +375,7 @@ describe('the order stops waiting when its hold lapses or its charge fails (FR-O
   });
 
   it('never confirms on money paid after the charge window, even before the expiry job has ended the hold', async () => {
-    const { guest, checkoutId } = await atCheckout([['EGG-CRATE-BIG', '1']]);
+    const { guest, checkoutId } = await atCheckout([['EGG-0003', '1']]);
     const placed = await place(guest, checkoutId);
     const orderId = placed.body.orderId as string;
     const paymentId = placed.body.payment.paymentId as string;
@@ -395,7 +395,7 @@ describe('the order stops waiting when its hold lapses or its charge fails (FR-O
   });
 
   it('never confirms on less than the estimate: a smaller payment a cashier takes against the order leaves it waiting', async () => {
-    const { guest, checkoutId } = await atCheckout([['EGG-CRATE-BIG', '2']]);
+    const { guest, checkoutId } = await atCheckout([['EGG-0003', '2']]);
     const placed = await place(guest, checkoutId);
     const orderId = placed.body.orderId as string;
     fake.transactions.get(referenceFor(placed.body.payment.paymentId as string))!.status = 'ongoing';
@@ -410,11 +410,11 @@ describe('the order stops waiting when its hold lapses or its charge fails (FR-O
     ]);
     expect(await orderRow(orderId)).toMatchObject({ status: 'PLACED' });
     expect(await reserved(orderId)).toEqual([]);
-    expect(await reserved(checkoutId)).toEqual([{ product: 'EGG-CRATE-BIG', qty: '2.000', status: 'ACTIVE', expires: true }]);
+    expect(await reserved(checkoutId)).toEqual([{ product: 'EGG-0003', qty: '2.000', status: 'ACTIVE', expires: true }]);
   });
 
   it('cancels the order when its charge fails, releasing the checkout’s stock and giving the cart back', async () => {
-    const { guest, checkoutId } = await atCheckout([['EGG-CRATE-BIG', '1']]);
+    const { guest, checkoutId } = await atCheckout([['EGG-0003', '1']]);
     const placed = await place(guest, checkoutId);
     const orderId = placed.body.orderId as string;
     fake.transactions.get(referenceFor(placed.body.payment.paymentId as string))!.status = 'failed';
@@ -423,18 +423,18 @@ describe('the order stops waiting when its hold lapses or its charge fails (FR-O
     await runSweep(api);
     expect((await paymentOf(orderId))[0]).toMatchObject({ status: 'FAILED' });
     expect(await orderRow(orderId)).toMatchObject({ status: 'CANCELLED', cancel_reason_code: 'PAYMENT_NOT_RECEIVED' });
-    expect(await reserved(checkoutId)).toEqual([{ product: 'EGG-CRATE-BIG', qty: '1.000', status: 'RELEASED', expires: true }]);
+    expect(await reserved(checkoutId)).toEqual([{ product: 'EGG-0003', qty: '1.000', status: 'RELEASED', expires: true }]);
     expect(await checkoutStatus(checkoutId)).toMatchObject({ status: 'CANCELLED' });
     expect((await read(`/shop/carts/${guest.cartId}`, guest)).body).toMatchObject({ status: 'ACTIVE', checkoutId: null });
   });
 
   it('a staff cancellation of a placed online order releases the checkout’s stock and its pending charge', async () => {
-    const { guest, checkoutId } = await atCheckout([['EGG-CRATE-BIG', '1']]);
+    const { guest, checkoutId } = await atCheckout([['EGG-0003', '1']]);
     const placed = await place(guest, checkoutId);
     const orderId = placed.body.orderId as string;
     const cancelled = await consolePost(api.server, as('sales'), `/v1/orders/${orderId}/cancel`).send({ reasonCode: 'CUSTOMER_CANCELLED' });
     expect(cancelled.status, JSON.stringify(cancelled.body)).toBe(200);
-    expect(await reserved(checkoutId)).toEqual([{ product: 'EGG-CRATE-BIG', qty: '1.000', status: 'RELEASED', expires: true }]);
+    expect(await reserved(checkoutId)).toEqual([{ product: 'EGG-0003', qty: '1.000', status: 'RELEASED', expires: true }]);
     expect(await checkoutStatus(checkoutId)).toMatchObject({ status: 'CANCELLED' });
     expect((await read(`/shop/carts/${guest.cartId}`, guest)).body).toMatchObject({ status: 'ACTIVE', checkoutId: null });
     const released = await admin().query<{ released: boolean }>('SELECT released_at IS NOT NULL AS released FROM pay.provider_transaction WHERE payment_id = $1', [placed.body.payment.paymentId]);
@@ -445,7 +445,7 @@ describe('the order stops waiting when its hold lapses or its charge fails (FR-O
 
 describe('the database holds one online order per checkout, and a checkout awaiting payment names its order', () => {
   it('refuses a second ONLINE order from the same checkout and an awaiting checkout with no order, by direct SQL', async () => {
-    const { guest, checkoutId } = await atCheckout([['EGG-CRATE-BIG', '1']]);
+    const { guest, checkoutId } = await atCheckout([['EGG-0003', '1']]);
     const placed = await place(guest, checkoutId);
     expect(placed.status).toBe(201);
     const copy = randomUUID();
@@ -457,14 +457,14 @@ describe('the database holds one online order per checkout, and a checkout await
       [copy, SYSTEM_PRINCIPAL, placed.body.orderId],
     );
     expect(await sqlStateOf(second)).toBe(SQLSTATE.uniqueViolation);
-    const { checkoutId: open } = await atCheckout([['EGG-CRATE-BIG', '1']]);
+    const { checkoutId: open } = await atCheckout([['EGG-0003', '1']]);
     expect(await sqlStateOf(app.query("UPDATE shp.checkout_session SET status = 'AWAITING_PAYMENT', version = version + 1 WHERE id = $1", [open]))).toBe(SQLSTATE.checkViolation);
   });
 });
 
 describe('trackOrder: the signed link, read by anyone holding it', () => {
   it('shows the order’s progress without the customer’s details, and refuses a tampered token or the order id', async () => {
-    const { guest, checkoutId } = await atCheckout([['EGG-CRATE-BIG', '1']]);
+    const { guest, checkoutId } = await atCheckout([['EGG-0003', '1']]);
     const placed = await place(guest, checkoutId);
     const token = placed.body.trackingToken as string;
     const tracked = await read(`/shop/orders/track/${token}`);
@@ -487,7 +487,7 @@ describe('listMyOrders and getMyOrder: a customer reads only their own orders', 
   let theirs: string;
 
   beforeAll(async () => {
-    const order = (customerId: string) => ({ channel: 'ONLINE', customerId, fulfilmentMode: 'COLLECTION', paymentTerms: 'COD', lines: [{ productId: id('EGG-CRATE-BIG'), quantity: '3.000' }] });
+    const order = (customerId: string) => ({ channel: 'ONLINE', customerId, fulfilmentMode: 'COLLECTION', paymentTerms: 'COD', lines: [{ productId: id('EGG-0003'), quantity: '3.000' }] });
     const a = await consolePost(api.server, as('sales'), '/v1/orders').send(order(id('tema')));
     const b = await consolePost(api.server, as('sales'), '/v1/orders').send(order(id('other')));
     expect([a.status, b.status]).toEqual([201, 201]);

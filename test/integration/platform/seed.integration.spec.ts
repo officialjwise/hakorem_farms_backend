@@ -57,7 +57,7 @@ describe('the seeded farm (hakorem-seed)', () => {
     const products = await admin.query<{ sku: string }>('SELECT sku FROM mdm.product ORDER BY sku');
     // B3's six products, from B4 the rest of the reference catalogue, and from B06 continued 2 the store's feed and medicine.
     expect(products.rows.map((row) => row.sku)).toEqual([...SEED_PRODUCTS, ...SEED_FEED_PRODUCTS].map((product) => product.sku).sort());
-    expect(products.rows.map((row) => row.sku)).toEqual(expect.arrayContaining(['EGG-CRATE-BIG', 'LIV-GOAT', 'LIV-SHEEP', 'MEAT-CHICKEN-WINGS-15KG', 'MEAT-GOAT-15KG', 'PRD-YAM-TUBER']));
+    expect(products.rows.map((row) => row.sku)).toEqual(expect.arrayContaining(['EGG-0003', 'LIV-0004', 'LIV-0005', 'MEAT-0002', 'MEAT-0007', 'PRD-0005']));
   });
 
   it('lets the seeded cashier log in with the generated password and see the catalogue', async () => {
@@ -94,12 +94,12 @@ describe('the MDM seed through the services (A-085)', () => {
       { entity_type: 'Species', n: 7, actors: ['Akosua Boateng'], agents: ['hakorem-seed'] },
       { entity_type: 'WeightBand', n: bands, actors: ['Akosua Boateng'], agents: ['hakorem-seed'] },
     ]);
-    const tracking = await admin.query<{ sku: string; tracking: string }>("SELECT sku, tracking FROM mdm.product WHERE sku IN ('LIV-BROILER', 'LIV-GOAT', 'EGG-CRATE-BIG', 'PRD-YAM-TUBER') ORDER BY sku");
+    const tracking = await admin.query<{ sku: string; tracking: string }>("SELECT sku, tracking FROM mdm.product WHERE sku IN ('LIV-0001', 'LIV-0004', 'EGG-0003', 'PRD-0005') ORDER BY sku");
     expect(tracking.rows).toEqual([
-      { sku: 'EGG-CRATE-BIG', tracking: 'LOT' },
-      { sku: 'LIV-BROILER', tracking: 'LOT' },
-      { sku: 'LIV-GOAT', tracking: 'SERIAL' },
-      { sku: 'PRD-YAM-TUBER', tracking: 'NONE' },
+      { sku: 'EGG-0003', tracking: 'LOT' },
+      { sku: 'LIV-0001', tracking: 'LOT' },
+      { sku: 'LIV-0004', tracking: 'SERIAL' },
+      { sku: 'PRD-0005', tracking: 'NONE' },
     ]);
   });
 

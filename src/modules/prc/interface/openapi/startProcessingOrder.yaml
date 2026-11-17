@@ -65,7 +65,7 @@ responses:
                 tracking: SERIAL
               product:
                 id: "019a7a8d-326c-7ea3-83db-f3051c116be3"
-                sku: LIV-SHEEP
+                sku: LIV-0005
                 name: Sheep
               qty: "1.000"
               uom: HEAD

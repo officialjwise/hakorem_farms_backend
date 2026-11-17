@@ -12,13 +12,15 @@ export interface SeedCategory {
   /** The tax category code (migration 0009) its products default to. */
   readonly taxCategory: 'LIVE_ANIMALS' | 'PROCESSED_MEAT' | 'EGGS' | 'RAW_PRODUCE';
   readonly sortOrder: number;
+  /** The prefix of the SKUs the server gives the category's products (B09q, ADR-0072). */
+  readonly skuPrefix: string;
 }
 
 export const SEED_CATEGORIES: readonly SeedCategory[] = [
-  { code: 'LIVE', name: 'Live animals', productLine: 'LIVE', glGroup: 'LIVE_ANIMALS', taxCategory: 'LIVE_ANIMALS', sortOrder: 1 },
-  { code: 'MEAT', name: 'Meat', productLine: 'MEAT', glGroup: 'MEAT', taxCategory: 'PROCESSED_MEAT', sortOrder: 2 },
-  { code: 'EGGS', name: 'Eggs', productLine: 'PRODUCE', glGroup: 'PRODUCE_EGGS', taxCategory: 'EGGS', sortOrder: 3 },
-  { code: 'PRODUCE', name: 'Fresh produce', productLine: 'PRODUCE', glGroup: 'PRODUCE_EGGS', taxCategory: 'RAW_PRODUCE', sortOrder: 4 },
+  { code: 'LIVE', name: 'Live animals', productLine: 'LIVE', glGroup: 'LIVE_ANIMALS', taxCategory: 'LIVE_ANIMALS', sortOrder: 1, skuPrefix: 'LIV' },
+  { code: 'MEAT', name: 'Meat', productLine: 'MEAT', glGroup: 'MEAT', taxCategory: 'PROCESSED_MEAT', sortOrder: 2, skuPrefix: 'MEAT' },
+  { code: 'EGGS', name: 'Eggs', productLine: 'PRODUCE', glGroup: 'PRODUCE_EGGS', taxCategory: 'EGGS', sortOrder: 3, skuPrefix: 'EGG' },
+  { code: 'PRODUCE', name: 'Fresh produce', productLine: 'PRODUCE', glGroup: 'PRODUCE_EGGS', taxCategory: 'RAW_PRODUCE', sortOrder: 4, skuPrefix: 'PRD' },
 ];
 
 /** Goats, sheep, pigs and rabbits are tagged individuals; broilers, local chickens and ducks are kept in flocks. */

@@ -112,9 +112,9 @@ describe('B6 gate: a processing order consumes an animal and its lots cost exact
   it('refuses outputs weighing one gram more than the input, then records 13.400 kg of meat, 3.100 of offal and 9.000 of waste', async () => {
     const version = (await get(manager, `/processing-orders/${orderId}`)).body.version as number;
     const outputs = (wasteKg: string) => [
-      { productId: id('product:MEAT-GOAT-15KG'), outputKind: 'MEAT', weightKg: '13.400', weightSource: 'SCALE', packCount: 1 },
-      { productId: id('product:BYP-GOAT-OFFAL'), outputKind: 'OFFAL', weightKg: '3.100', weightSource: 'SCALE' },
-      { productId: id('product:BYP-GOAT-OFFAL'), outputKind: 'WASTE', weightKg: wasteKg, weightSource: 'MANUAL' },
+      { productId: id('product:MEAT-0007'), outputKind: 'MEAT', weightKg: '13.400', weightSource: 'SCALE', packCount: 1 },
+      { productId: id('product:MEAT-0008'), outputKind: 'OFFAL', weightKg: '3.100', weightSource: 'SCALE' },
+      { productId: id('product:MEAT-0008'), outputKind: 'WASTE', weightKg: wasteKg, weightSource: 'MANUAL' },
     ];
     const over = await put(manager, `/processing-orders/${orderId}/outputs`, { version, outputs: outputs('11.501') });
     expect(over.status).toBe(422);
@@ -233,8 +233,8 @@ describe('an awkward split and the yield variance flag (FR-PRC-005, threat model
     await put(storekeeper, `/processing-orders/${orderId}/outputs`, {
       version,
       outputs: [
-        { productId: id('product:MEAT-GOAT-15KG'), outputKind: 'MEAT', weightKg: '12.000', weightSource: 'SCALE' },
-        { productId: id('product:BYP-GOAT-OFFAL'), outputKind: 'OFFAL', weightKg: '3.000', weightSource: 'SCALE' },
+        { productId: id('product:MEAT-0007'), outputKind: 'MEAT', weightKg: '12.000', weightSource: 'SCALE' },
+        { productId: id('product:MEAT-0008'), outputKind: 'OFFAL', weightKg: '3.000', weightSource: 'SCALE' },
       ],
     });
     const done = await post(storekeeper, `/processing-orders/${orderId}/complete`);
@@ -247,8 +247,8 @@ describe('an awkward split and the yield variance flag (FR-PRC-005, threat model
       abuseCases: [18],
       inputWeightKg: '28.000',
       lines: [
-        { productId: id('product:MEAT-GOAT-15KG'), expectedKg: '13.440', actualKg: '12.000', varianceKg: '-1.440', flagged: true },
-        { productId: id('product:BYP-GOAT-OFFAL'), expectedKg: '3.080', actualKg: '3.000', varianceKg: '-0.080', flagged: false },
+        { productId: id('product:MEAT-0007'), expectedKg: '13.440', actualKg: '12.000', varianceKg: '-1.440', flagged: true },
+        { productId: id('product:MEAT-0008'), expectedKg: '3.080', actualKg: '3.000', varianceKg: '-0.080', flagged: false },
       ],
     });
     const listed = await get(manager, '/processing-orders?yieldVarianceFlag=true');
@@ -294,7 +294,7 @@ describe('inputs under a hold, absent or of the wrong kind are refused (FR-PRC-0
 
 describe('cancelling an order in progress moves nothing (FR-PRC-011)', () => {
   it('cancels a started order of a sheep, which stays active in the pens at its cost', async () => {
-    const sheep = (await admin().query<{ identifier: string }>("SELECT u.identifier FROM inv.stock_unit u JOIN mdm.product p ON p.id = u.product_id WHERE p.sku = 'LIV-SHEEP' ORDER BY u.identifier LIMIT 1")).rows[0]!.identifier;
+    const sheep = (await admin().query<{ identifier: string }>("SELECT u.identifier FROM inv.stock_unit u JOIN mdm.product p ON p.id = u.product_id WHERE p.sku = 'LIV-0005' ORDER BY u.identifier LIMIT 1")).rows[0]!.identifier;
     const planned = await plan(manager, sheep, '31.500');
     await post(manager, `/processing-orders/${planned.body.id}/start`);
     const cancelled = await post(manager, `/processing-orders/${planned.body.id}/cancel`, { reason: 'Buyer wants the ram live' });
@@ -308,7 +308,7 @@ describe('cancelling an order in progress moves nothing (FR-PRC-011)', () => {
 
 describe('the database checks a completed order\'s sums at commit (ck_processing_order_costs)', () => {
   it('refuses a completion whose output costs sum to one pesewa less than the total, and accepts the exact sum', async () => {
-    const sheep = (await admin().query<{ identifier: string }>("SELECT u.identifier FROM inv.stock_unit u JOIN mdm.product p ON p.id = u.product_id WHERE p.sku = 'LIV-SHEEP' ORDER BY u.identifier DESC LIMIT 1")).rows[0]!.identifier;
+    const sheep = (await admin().query<{ identifier: string }>("SELECT u.identifier FROM inv.stock_unit u JOIN mdm.product p ON p.id = u.product_id WHERE p.sku = 'LIV-0005' ORDER BY u.identifier DESC LIMIT 1")).rows[0]!.identifier;
     const planned = await plan(manager, sheep, '31.500');
     const orderId = planned.body.id as string;
     await post(manager, `/processing-orders/${orderId}/start`);
@@ -316,8 +316,8 @@ describe('the database checks a completed order\'s sums at commit (ck_processing
     await put(manager, `/processing-orders/${orderId}/outputs`, {
       version,
       outputs: [
-        { productId: id('product:MEAT-GOAT-15KG'), outputKind: 'MEAT', weightKg: '14.000', weightSource: 'SCALE' },
-        { productId: id('product:BYP-GOAT-OFFAL'), outputKind: 'OFFAL', weightKg: '3.000', weightSource: 'SCALE' },
+        { productId: id('product:MEAT-0007'), outputKind: 'MEAT', weightKg: '14.000', weightSource: 'SCALE' },
+        { productId: id('product:MEAT-0008'), outputKind: 'OFFAL', weightKg: '3.000', weightSource: 'SCALE' },
       ],
     });
     const anyMovement = (await admin().query<{ id: string; unit: string }>('SELECT id, stock_unit_id AS unit FROM inv.stock_movement WHERE stock_unit_id IS NOT NULL LIMIT 1')).rows[0]!;
@@ -376,10 +376,10 @@ describe('yield standards (FR-PRC-004)', () => {
   it('lists the seeded goat standards, refuses a second standard for the same pair, and refuses a stale version', async () => {
     const listed = await get(manager, '/yield-standards');
     expect(listed.body.data.map((s: { outputProduct: { sku: string }; expectedPercent: string; tolerancePercent: string }) => [s.outputProduct.sku, s.expectedPercent, s.tolerancePercent])).toEqual([
-      ['MEAT-GOAT-15KG', '48', '5'],
-      ['BYP-GOAT-OFFAL', '11', '5'],
+      ['MEAT-0007', '48', '5'],
+      ['MEAT-0008', '11', '5'],
     ]);
-    const duplicate = await post(manager, '/yield-standards', { inputProductId: id('product:LIV-GOAT'), outputProductId: id('product:MEAT-GOAT-15KG'), expectedPercent: '50' });
+    const duplicate = await post(manager, '/yield-standards', { inputProductId: id('product:LIV-0004'), outputProductId: id('product:MEAT-0007'), expectedPercent: '50' });
     expect(duplicate.status).toBe(422);
     expect(duplicate.body.error.details).toEqual([expect.objectContaining({ code: 'STANDARD_EXISTS' })]);
     const standard = listed.body.data[0];

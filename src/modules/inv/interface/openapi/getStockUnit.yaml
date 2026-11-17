@@ -35,7 +35,7 @@ responses:
           id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
           product:
             id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-            sku: LIV-GOAT
+            sku: LIV-0004
             name: Goat
           tracking: SERIAL
           branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"

@@ -43,20 +43,20 @@ describe('B06u operations answer in the contract shapes', () => {
     expect(listed.status).toBe(200);
     expectShape('UomConversionPage', listed.body);
     expect(listed.body.data.map((row: { product: { sku: string }; fromUom: string; toUom: string; factor: string }) => `${row.product.sku} ${row.fromUom}=${row.factor} ${row.toUom}`)).toEqual([
-      'FEED-BRL-GROWER BAG=50.000 KG',
-      'FEED-GOAT-CONC BAG=25.000 KG',
-      'PRD-CABBAGE-HEAD CRATE=24.000 UNIT',
+      'FEED-0001 BAG=50.000 KG',
+      'FEED-0002 BAG=25.000 KG',
+      'PRD-0002 CRATE=24.000 UNIT',
     ]);
   });
 
   it('makes and archives a conversion, and refuses an inexact one in the error envelope', async () => {
-    const made = await consolePost(api.server, manager, v1('/uom-conversions')).send({ productId: products.get('PRD-LETTUCE-HEAD'), fromUom: 'CRATE', numerator: 40, denominator: 1 });
+    const made = await consolePost(api.server, manager, v1('/uom-conversions')).send({ productId: products.get('PRD-0006'), fromUom: 'CRATE', numerator: 40, denominator: 1 });
     expect(made.status).toBe(201);
     expectShape('UomConversion', made.body);
     const archived = await consolePost(api.server, manager, v1(`/uom-conversions/${made.body.id}/archive`)).send({ version: 1, reason: 'Traders now take crates of 36' });
     expect(archived.status).toBe(200);
     expectShape('UomConversion', archived.body);
-    const refused = await consolePost(api.server, manager, v1('/uom-conversions')).send({ productId: products.get('PRD-YAM-TUBER'), fromUom: 'BAG', numerator: 1, denominator: 3 });
+    const refused = await consolePost(api.server, manager, v1('/uom-conversions')).send({ productId: products.get('PRD-0005'), fromUom: 'BAG', numerator: 1, denominator: 3 });
     expect(refused.status).toBe(422);
     expectShape('Error', refused.body);
     expect(refused.body.error).toMatchObject({ code: 'UOM_CONVERSION_INVALID', details: [{ field: '/denominator', code: 'INEXACT_FACTOR' }] });

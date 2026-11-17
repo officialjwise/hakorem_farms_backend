@@ -44,7 +44,6 @@ export interface ProductView {
   readonly shelfLifeDays: number | null;
   readonly storageTempClass: 'AMBIENT' | 'CHILLED' | 'FROZEN' | null;
   readonly withdrawalDays: number | null;
-  readonly barcode: string | null;
   readonly description: string | null;
   readonly onlineMode: OnlineMode;
   readonly seo: { readonly slug: string | null; readonly title: string | null; readonly description: string | null };
@@ -63,11 +62,13 @@ export interface ProductListFilter {
   readonly stockPolicy?: StockPolicy | undefined;
   readonly onlineMode?: OnlineMode | undefined;
   readonly status?: ProductStatus | undefined;
-  readonly barcode?: string | undefined;
 }
 
-/** The unique fields of a product, for the DUPLICATE_VALUE refusal. */
-export type UniqueProductField = 'sku' | 'barcode' | 'seoSlug';
+/**
+ * The unique fields of a product a request can set, for the DUPLICATE_VALUE refusal. The SKU is unique too, but the
+ * server allocates it (`allocateSku`), so no request can collide on it.
+ */
+export type UniqueProductField = 'seoSlug';
 
 /** MDM's product tables, each call in the caller's transaction. */
 export interface ProductStore {
@@ -78,7 +79,12 @@ export interface ProductStore {
   lock(tx: Transaction, id: string): Promise<boolean>;
   /** Writes the definition if the row is still at `expectedVersion`; false when it is not. */
   update(tx: Transaction, id: string, expectedVersion: number, definition: ProductDefinition, actorId: string, now: Date): Promise<boolean>;
-  insert(tx: Transaction, id: string, definition: ProductDefinition, actorId: string, now: Date): Promise<void>;
+  /**
+   * The next SKU of the category's prefix (B09q, ADR-0072): `mdm.allocate_sku`, its own counter per prefix, never
+   * reset, stepping over any SKU a product already holds. Called once per product, in the transaction that inserts it.
+   */
+  allocateSku(tx: Transaction, categoryId: string): Promise<string>;
+  insert(tx: Transaction, id: string, sku: string, definition: ProductDefinition, actorId: string, now: Date): Promise<void>;
   view(tx: Transaction, id: string): Promise<ProductView | null>;
   /** The product's view whether or not it is archived. */
   viewAny(tx: Transaction, id: string): Promise<ProductView | null>;

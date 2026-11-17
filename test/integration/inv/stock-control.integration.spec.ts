@@ -57,13 +57,13 @@ async function stockValue(): Promise<string> {
 const beefTransfer = (qty = '10.000') => ({
   fromLocationId: id('location:COLD'),
   toLocationId: id('location:SHOP'),
-  lines: [{ productId: id('product:MEAT-BEEF-15KG'), stockUnitId: id('unit:LOT-BEEF-2026-1110'), qty }],
+  lines: [{ productId: id('product:MEAT-0005'), stockUnitId: id('unit:LOT-BEEF-2026-1110'), qty }],
 });
 const eggLoss = (qty: string, reasonCode = 'DAMAGED', note: string | undefined = 'Crates dropped off the shelf') => ({
   locationId: id('location:SHOP'),
   reasonCode,
   ...(note === undefined ? {} : { note }),
-  lines: [{ productId: id('product:EGG-CRATE-BIG'), stockUnitId: id('unit:EGG-BIG-2026-1110'), direction: 'LOSS', qty }],
+  lines: [{ productId: id('product:EGG-0003'), stockUnitId: id('unit:EGG-BIG-2026-1110'), direction: 'LOSS', qty }],
 });
 
 beforeAll(async () => {
@@ -171,7 +171,7 @@ describe('a transfer through in-transit, received with a variance (FR-INV-010, F
   let transfer: { id: string; lines: Array<{ id: string }> };
 
   it('dispatching 10.000 kg of beef from the cold room leaves it there 10.000 kg lower, puts 10.000 kg in transit, and keeps the stock value exactly', async () => {
-    const coldBefore = await onHand('COLD', 'LOT-BEEF-2026-1110', 'MEAT-BEEF-15KG');
+    const coldBefore = await onHand('COLD', 'LOT-BEEF-2026-1110', 'MEAT-0005');
     const valueBefore = await stockValue();
     const created = await post(coldStorekeeper, '/stock-transfers', beefTransfer());
     expect(created.status, JSON.stringify(created.body)).toBe(201);
@@ -180,8 +180,8 @@ describe('a transfer through in-transit, received with a variance (FR-INV-010, F
     const dispatched = await post(coldStorekeeper, `/stock-transfers/${transfer.id}/dispatch`);
     expect(dispatched.status, JSON.stringify(dispatched.body)).toBe(200);
     expect(dispatched.body.status).toBe('DISPATCHED');
-    expect(await onHand('COLD', 'LOT-BEEF-2026-1110', 'MEAT-BEEF-15KG')).toBe((Number(coldBefore) - 10).toFixed(3));
-    expect(await onHand('TRANSIT', 'LOT-BEEF-2026-1110', 'MEAT-BEEF-15KG')).toBe('10.000');
+    expect(await onHand('COLD', 'LOT-BEEF-2026-1110', 'MEAT-0005')).toBe((Number(coldBefore) - 10).toFixed(3));
+    expect(await onHand('TRANSIT', 'LOT-BEEF-2026-1110', 'MEAT-0005')).toBe('10.000');
     expect(await stockValue()).toBe(valueBefore);
   });
 
@@ -191,17 +191,17 @@ describe('a transfer through in-transit, received with a variance (FR-INV-010, F
     expect(refused.body.error).toMatchObject({ code: 'TRANSFER_VARIANCE', details: [{ field: '/lines/0/varianceReasonCode', code: 'VARIANCE_REASON_REQUIRED' }] });
     const wrongReason = await post(shopStorekeeper, `/stock-transfers/${transfer.id}/receive`, { lines: [{ lineId: transfer.lines[0]!.id, qtyReceived: '9.800', varianceReasonCode: 'REGULAR_CUSTOMER' }] });
     expect(wrongReason.body.error.details).toEqual([expect.objectContaining({ code: 'REASON_NOT_ALLOWED' })]);
-    expect(await onHand('TRANSIT', 'LOT-BEEF-2026-1110', 'MEAT-BEEF-15KG')).toBe('10.000');
+    expect(await onHand('TRANSIT', 'LOT-BEEF-2026-1110', 'MEAT-0005')).toBe('10.000');
   });
 
   it('receives 9.800 kg into the shop and holds the 0.200 kg variance in transit at its value, with a TRANSFER_VARIANCE exception and no loss (ADR-0048)', async () => {
     const valueBefore = BigInt(await stockValue());
-    const shopBefore = await onHand('SHOP', 'LOT-BEEF-2026-1110', 'MEAT-BEEF-15KG');
+    const shopBefore = await onHand('SHOP', 'LOT-BEEF-2026-1110', 'MEAT-0005');
     const received = await post(shopStorekeeper, `/stock-transfers/${transfer.id}/receive`, { lines: [{ lineId: transfer.lines[0]!.id, qtyReceived: '9.800', varianceReasonCode: 'DAMAGED' }] });
     expect(received.status, JSON.stringify(received.body)).toBe(200);
     expect(received.body).toMatchObject({ status: 'RECEIVED', lines: [{ qtyDispatched: '10.000', qtyReceived: '9.800', varianceQty: '0.200', varianceReasonCode: 'DAMAGED' }] });
-    expect(await onHand('TRANSIT', 'LOT-BEEF-2026-1110', 'MEAT-BEEF-15KG')).toBe('0.200');
-    expect(await onHand('SHOP', 'LOT-BEEF-2026-1110', 'MEAT-BEEF-15KG')).toBe((Number(shopBefore) + 9.8).toFixed(3));
+    expect(await onHand('TRANSIT', 'LOT-BEEF-2026-1110', 'MEAT-0005')).toBe('0.200');
+    expect(await onHand('SHOP', 'LOT-BEEF-2026-1110', 'MEAT-0005')).toBe((Number(shopBefore) + 9.8).toFixed(3));
     const loss = await admin().query("SELECT 1 FROM inv.stock_movement WHERE source_document_id = $1 AND movement_type = 'ADJUST_LOSS'", [transfer.id]);
     expect(loss.rowCount).toBe(0);
     expect(BigInt(await stockValue())).toBe(valueBefore);
@@ -228,7 +228,7 @@ describe('a transfer through in-transit, received with a variance (FR-INV-010, F
   it('a transfer to the same place, or of more than one goat on a line, is refused with STOCK_TRANSFER_INVALID; a draft is cancelled with its reason', async () => {
     const same = await post(coldStorekeeper, '/stock-transfers', { ...beefTransfer(), toLocationId: id('location:COLD') });
     expect(same.body.error).toMatchObject({ code: 'STOCK_TRANSFER_INVALID', details: [{ field: '/toLocationId', code: 'SAME_LOCATION' }] });
-    const goats = await post(manager, '/stock-transfers', { fromLocationId: id('location:PENS'), toLocationId: id('location:SHOP'), lines: [{ productId: id('product:LIV-GOAT'), stockUnitId: id('unit:G-0144'), qty: '2.000' }] });
+    const goats = await post(manager, '/stock-transfers', { fromLocationId: id('location:PENS'), toLocationId: id('location:SHOP'), lines: [{ productId: id('product:LIV-0004'), stockUnitId: id('unit:G-0144'), qty: '2.000' }] });
     expect(goats.body.error.details).toEqual([expect.objectContaining({ code: 'WHOLE_ANIMALS_ONLY' })]);
     const draft = await post(coldStorekeeper, '/stock-transfers', beefTransfer('1.000'));
     const cancelled = await post(coldStorekeeper, `/stock-transfers/${draft.body.id as string}/cancel`, { reason: 'Van not available today' });
@@ -238,7 +238,7 @@ describe('a transfer through in-transit, received with a variance (FR-INV-010, F
 
 describe('an adjustment needs approval at or above the threshold, by someone else (FR-INV-012, abuse case: an adjustment used to hide a shortage)', () => {
   it('a loss of 12 crates of eggs valued 3,500 each (42,000) posts at once', async () => {
-    const before = await onHand('SHOP', 'EGG-BIG-2026-1110', 'EGG-CRATE-BIG');
+    const before = await onHand('SHOP', 'EGG-BIG-2026-1110', 'EGG-0003');
     const created = await post(shopStorekeeper, '/stock-adjustments', eggLoss('12.000'));
     expect(created.status, JSON.stringify(created.body)).toBe(201);
     expect(created.body).toMatchObject({ status: 'DRAFT', totalValuePesewas: 42_000, lines: [{ valuePesewas: 42_000, movementId: null }] });
@@ -246,35 +246,35 @@ describe('an adjustment needs approval at or above the threshold, by someone els
     expect(submitted.status, JSON.stringify(submitted.body)).toBe(200);
     expect(submitted.body).toMatchObject({ status: 'POSTED', totalValuePesewas: 42_000, approvalRequestId: null });
     expect(submitted.body.lines[0].movementId).toEqual(expect.any(String));
-    expect(await onHand('SHOP', 'EGG-BIG-2026-1110', 'EGG-CRATE-BIG')).toBe((Number(before) - 12).toFixed(3));
+    expect(await onHand('SHOP', 'EGG-BIG-2026-1110', 'EGG-0003')).toBe((Number(before) - 12).toFixed(3));
   });
 
   it('a loss of 15 crates (52,500) returns 202 and leaves stock unchanged; the maker cannot approve it; a different manager approves and it posts', async () => {
-    const before = await onHand('SHOP', 'EGG-BIG-2026-1110', 'EGG-CRATE-BIG');
+    const before = await onHand('SHOP', 'EGG-BIG-2026-1110', 'EGG-0003');
     const created = await post(manager, '/stock-adjustments', eggLoss('15.000', 'THEFT_SUSPECTED', 'Crates missing after the night shift'));
     expect(created.body.totalValuePesewas).toBe(52_500);
     const submitted = await post(manager, `/stock-adjustments/${created.body.id as string}/submit`);
     expect(submitted.status, JSON.stringify(submitted.body)).toBe(202);
     expect(submitted.body).toMatchObject({ status: 'PENDING_APPROVAL', kind: 'STOCK_WRITE_OFF', subject: { id: created.body.id, docType: 'STOCK_ADJUSTMENT' } });
-    expect(await onHand('SHOP', 'EGG-BIG-2026-1110', 'EGG-CRATE-BIG')).toBe(before);
+    expect(await onHand('SHOP', 'EGG-BIG-2026-1110', 'EGG-0003')).toBe(before);
     expect((await get(manager, `/stock-adjustments/${created.body.id as string}`)).body.status).toBe('PENDING_APPROVAL');
 
     await stepUp(manager);
     const self = await post(manager, `/iam/approvals/${submitted.body.approvalRequestId as string}/approve`, { reason: 'My own' });
     expect(self.status).toBe(422);
     expect(self.body.error.code).toBe('MAKER_CANNOT_CHECK');
-    expect(await onHand('SHOP', 'EGG-BIG-2026-1110', 'EGG-CRATE-BIG')).toBe(before);
+    expect(await onHand('SHOP', 'EGG-BIG-2026-1110', 'EGG-0003')).toBe(before);
 
     await stepUp(owner);
     const approved = await post(owner, `/iam/approvals/${submitted.body.approvalRequestId as string}/approve`, { reason: 'Checked the night log' });
     expect(approved.status, JSON.stringify(approved.body)).toBe(200);
     const posted = (await get(manager, `/stock-adjustments/${created.body.id as string}`)).body;
     expect(posted).toMatchObject({ status: 'POSTED', totalValuePesewas: 52_500, postedBy: { displayName: 'Nana Ama Korsah' } });
-    expect(await onHand('SHOP', 'EGG-BIG-2026-1110', 'EGG-CRATE-BIG')).toBe((Number(before) - 15).toFixed(3));
+    expect(await onHand('SHOP', 'EGG-BIG-2026-1110', 'EGG-0003')).toBe((Number(before) - 15).toFixed(3));
   });
 
   it('a rejected adjustment is final and moved nothing', async () => {
-    const yam = { locationId: id('location:SHOP'), reasonCode: 'SPOILED', note: 'Rotten at the core', lines: [{ productId: id('product:PRD-YAM-TUBER'), direction: 'LOSS', qty: '40.000' }] };
+    const yam = { locationId: id('location:SHOP'), reasonCode: 'SPOILED', note: 'Rotten at the core', lines: [{ productId: id('product:PRD-0005'), direction: 'LOSS', qty: '40.000' }] };
     const created = await post(shopStorekeeper, '/stock-adjustments', yam);
     expect(created.body.totalValuePesewas).toBe(48_000);
     const gain = await post(shopStorekeeper, '/stock-adjustments', { ...yam, reasonCode: 'FOUND_STOCK', note: 'Sack behind the counter', lines: [{ ...yam.lines[0], direction: 'GAIN', qty: '50.000' }] });
@@ -286,13 +286,13 @@ describe('an adjustment needs approval at or above the threshold, by someone els
     const rejected = await post(manager, `/iam/approvals/${submitted.body.approvalRequestId as string}/reject`, { reason: 'Count it again first' });
     expect(rejected.status, JSON.stringify(rejected.body)).toBe(200);
     expect((await get(manager, `/stock-adjustments/${gain.body.id as string}`)).body.status).toBe('REJECTED');
-    expect(await onHand('SHOP', null, 'PRD-YAM-TUBER')).toBe('40.000');
+    expect(await onHand('SHOP', null, 'PRD-0005')).toBe('40.000');
   });
 
   it('a reason outside the adjustment and wastage lists, a missing note and an animal are refused with STOCK_ADJUSTMENT_INVALID', async () => {
     expect((await post(shopStorekeeper, '/stock-adjustments', eggLoss('1.000', 'REGULAR_CUSTOMER'))).body.error).toMatchObject({ code: 'STOCK_ADJUSTMENT_INVALID', details: [{ field: '/reasonCode', code: 'REASON_NOT_ALLOWED' }] });
     expect((await post(shopStorekeeper, '/stock-adjustments', { ...eggLoss('1.000', 'THEFT_SUSPECTED'), note: undefined })).body.error.details).toEqual([expect.objectContaining({ code: 'NOTE_REQUIRED' })]);
-    const goat = await post(manager, '/stock-adjustments', { locationId: id('location:PENS'), reasonCode: 'COUNT_ERROR', note: 'Hidden goat', lines: [{ productId: id('product:LIV-GOAT'), stockUnitId: id('unit:G-0145'), direction: 'LOSS', qty: '1.000' }] });
+    const goat = await post(manager, '/stock-adjustments', { locationId: id('location:PENS'), reasonCode: 'COUNT_ERROR', note: 'Hidden goat', lines: [{ productId: id('product:LIV-0004'), stockUnitId: id('unit:G-0145'), direction: 'LOSS', qty: '1.000' }] });
     expect(goat.body.error.details).toEqual([expect.objectContaining({ code: 'ANIMAL_NOT_ADJUSTED' })]);
     expect((await post(shopStorekeeper, '/stock-adjustments', eggLoss('1.000', 'NOT_A_REASON'))).body.error.code).toBe('REFERENCE_NOT_FOUND');
   });
@@ -314,11 +314,11 @@ describe('reversing a movement (FR-INV-004)', () => {
     const created = await post(shopStorekeeper, '/stock-adjustments', eggLoss('1.000'));
     const submitted = await post(shopStorekeeper, `/stock-adjustments/${created.body.id as string}/submit`);
     lossId = submitted.body.lines[0].movementId as string;
-    const before = await onHand('SHOP', 'EGG-BIG-2026-1110', 'EGG-CRATE-BIG');
+    const before = await onHand('SHOP', 'EGG-BIG-2026-1110', 'EGG-0003');
     const reversed = await post(shopStorekeeper, `/stock/movements/${lossId}/reverse`, { reasonCode: 'COUNT_ERROR', note: 'The crate was found intact' });
     expect(reversed.status, JSON.stringify(reversed.body)).toBe(201);
     expect(reversed.body).toMatchObject({ movementType: 'ADJUST_LOSS', reversesMovementId: lossId, valuePesewas: 3_500, qty: '1.000', reasonCode: 'COUNT_ERROR', sourceDocument: { docType: 'STOCK_REVERSAL' } });
-    expect(await onHand('SHOP', 'EGG-BIG-2026-1110', 'EGG-CRATE-BIG')).toBe((Number(before) + 1).toFixed(3));
+    expect(await onHand('SHOP', 'EGG-BIG-2026-1110', 'EGG-0003')).toBe((Number(before) + 1).toFixed(3));
     expect((await get(manager, `/stock/movements/${lossId}`)).body.reversedByMovementId).toBe(reversed.body.id);
   });
 
@@ -339,12 +339,12 @@ describe('reversing a movement (FR-INV-004)', () => {
     const asked = await post(manager, `/stock/movements/${receipt.id as string}/reverse`, { reasonCode: 'RECEIPT_ERROR', note: 'The supplier took the sheep back at the gate' });
     expect(asked.status, JSON.stringify(asked.body)).toBe(202);
     expect(asked.body).toMatchObject({ kind: 'STOCK_REVERSAL', subject: { docType: 'STOCK_REVERSAL' } });
-    expect(await onHand('PENS', 'S-0031', 'LIV-SHEEP')).toBe('1.000');
+    expect(await onHand('PENS', 'S-0031', 'LIV-0005')).toBe('1.000');
     expect((await post(manager, `/stock/movements/${receipt.id as string}/reverse`, { reasonCode: 'RECEIPT_ERROR', note: 'Twice' })).body.error.code).toBe('STOCK_MOVEMENT_ALREADY_REVERSED');
     await stepUp(owner);
     const approved = await post(owner, `/iam/approvals/${asked.body.approvalRequestId as string}/approve`, { reason: 'Seen the supplier note' });
     expect(approved.status, JSON.stringify(approved.body)).toBe(200);
-    expect(await onHand('PENS', 'S-0031', 'LIV-SHEEP')).toBe('0.000');
+    expect(await onHand('PENS', 'S-0031', 'LIV-0005')).toBe('0.000');
     const reversal = (await get(manager, `/stock/movements/${receipt.id as string}`)).body.reversedByMovementId as string;
     expect((await get(manager, `/stock/movements/${reversal}`)).body).toMatchObject({ valuePesewas: 75_001, reversesMovementId: receipt.id, actor: { displayName: 'Nana Ama Korsah' } });
   });

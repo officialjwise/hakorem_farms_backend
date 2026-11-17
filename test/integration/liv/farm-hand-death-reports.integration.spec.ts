@@ -76,7 +76,7 @@ async function buyGoats(goats: ReadonlyArray<readonly [tag: string, valuePesewas
       locationId: id('location:PENS'),
       deliveryNoteRef: `FH-${randomUUID().slice(0, 8)}`,
       receivedAt: hoursAgo(48),
-      lines: [{ productId: id('product:LIV-GOAT'), qtyReceived: '1.000', valuePesewas, animals: [{ tagNo: tag, sex: 'MALE', breed: 'West African Dwarf', purpose: 'GROWING' }] }],
+      lines: [{ productId: id('product:LIV-0004'), qtyReceived: '1.000', valuePesewas, animals: [{ tagNo: tag, sex: 'MALE', breed: 'West African Dwarf', purpose: 'GROWING' }] }],
     });
     expect(created.status, JSON.stringify(created.body)).toBe(201);
     expect((await post(manager, `/goods-receipts/${created.body.id as string}/post`)).status).toBe(200);

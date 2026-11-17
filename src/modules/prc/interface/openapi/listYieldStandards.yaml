@@ -41,11 +41,11 @@ responses:
                 - id: "019a7ac7-328c-7923-8e5b-9b0947f113e7"
                   inputProduct:
                     id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                    sku: LIV-GOAT
+                    sku: LIV-0004
                     name: Goat
                   outputProduct:
                     id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
-                    sku: MEAT-GOAT
+                    sku: MEAT-0007
                     name: "Goat meat, 15 kg pack"
                   expectedPercent: "48"
                   tolerancePercent: "5"
@@ -53,11 +53,11 @@ responses:
                 - id: "019a7ac7-517b-7306-983f-3940c1a2b21e"
                   inputProduct:
                     id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                    sku: LIV-GOAT
+                    sku: LIV-0004
                     name: Goat
                   outputProduct:
                     id: "019a7a8f-215c-7cda-8212-d67cb7214f5a"
-                    sku: BYP-GOAT-OFFAL
+                    sku: MEAT-0008
                     name: "Goat offal, kg"
                   expectedPercent: "11"
                   tolerancePercent: "5"
@@ -65,11 +65,11 @@ responses:
                 - id: "019a7ac7-706a-7cea-a222-d7783b535056"
                   inputProduct:
                     id: "019a7a8d-326c-7ea3-83db-f3051c116be3"
-                    sku: LIV-SHEEP
+                    sku: LIV-0005
                     name: Sheep
                   outputProduct:
                     id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
-                    sku: MEAT-GOAT
+                    sku: MEAT-0007
                     name: "Goat meat, 15 kg pack"
                   expectedPercent: "47"
                   tolerancePercent: "5"
@@ -77,11 +77,11 @@ responses:
                 - id: "019a7ac7-8f59-76cd-bc06-75afb504ee8d"
                   inputProduct:
                     id: "019a7a8d-326c-7ea3-83db-f3051c116be3"
-                    sku: LIV-SHEEP
+                    sku: LIV-0005
                     name: Sheep
                   outputProduct:
                     id: "019a7a8f-215c-7cda-8212-d67cb7214f5a"
-                    sku: BYP-GOAT-OFFAL
+                    sku: MEAT-0008
                     name: "Goat offal, kg"
                   expectedPercent: "10"
                   tolerancePercent: "5"
@@ -89,11 +89,11 @@ responses:
                 - id: "019a7ac7-ae48-70b1-85e9-13e72eb58cc5"
                   inputProduct:
                     id: "019a7a8d-704a-726a-a7a2-2f740f73a851"
-                    sku: LIV-BROILER
+                    sku: LIV-0001
                     name: "Broiler chicken"
                   outputProduct:
                     id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                    sku: MEAT-CHK-FULL
+                    sku: MEAT-0001
                     name: "Full chicken, 15 kg pack"
                   expectedPercent: "72"
                   tolerancePercent: "5"
@@ -101,11 +101,11 @@ responses:
                 - id: "019a7ac7-cd37-7a94-9fcd-b21ea8662afc"
                   inputProduct:
                     id: "019a7a8d-515b-7886-9dbe-913c95c20a1a"
-                    sku: LIV-PIGLET
+                    sku: LIV-0003
                     name: "Baby pig"
                   outputProduct:
                     id: "019a7a8e-67c2-7185-a6be-212fdcfb9a0d"
-                    sku: MEAT-PORK
+                    sku: MEAT-0006
                     name: "Pork, 15 kg pack"
                   expectedPercent: "62"
                   tolerancePercent: "5"

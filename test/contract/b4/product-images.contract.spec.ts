@@ -58,7 +58,6 @@ afterAll(async () => {
 describe('product gallery shapes (contract 1.13.0)', () => {
   it('addProductImage answers 201 with a Product whose images carry ImageVariants, and getProduct the same', async () => {
     const created = await consolePost(api.server, manager, '/v1/products').send({
-      sku: 'MEAT-GOAT-1KG',
       name: 'Goat meat pack 1 kg',
       categoryId: catalogue.meatCategoryId,
       stockPolicy: 'CATCH_WEIGHT',

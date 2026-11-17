@@ -76,7 +76,7 @@ responses:
               lineNo: 1
               product:
                 id: "019a7a8d-704a-726a-a7a2-2f740f73a851"
-                sku: LIV-BROILER
+                sku: LIV-0001
                 name: "Broiler chicken"
               description: "Broiler chicken"
               purchaseOrderLineId: "019a7ab5-5060-71a2-86da-22f6ed9d9bd4"

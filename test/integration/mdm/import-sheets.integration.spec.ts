@@ -75,7 +75,7 @@ afterAll(async () => {
 });
 
 const SHEETS = {
-  PRODUCT: { file: csv('sku,name,category,stockPolicy,baseUom,saleUom', 'REFUSED-1,Refused,EGGS,COUNTABLE,CRATE,CRATE'), permission: 'mdm.product.create', table: 'mdm.product' },
+  PRODUCT: { file: csv('sku,name,category,stockPolicy,baseUom,saleUom', ',Refused,EGGS,COUNTABLE,CRATE,CRATE'), permission: 'mdm.product.create', table: 'mdm.product' },
   SUPPLIER: { file: csv('name,phone', 'Refused Feeds,0244990001'), permission: 'mdm.supplier.create', table: 'mdm.supplier' },
   LOCATION: { file: csv('branch,code,name,kind', 'DDW,REFUSED,Refused store,STORE'), permission: 'mdm.location.create', table: 'mdm.location' },
 } as const;
@@ -128,27 +128,27 @@ describe('every new sheet refuses the wrong role (ADR-0035, deny by default)', (
 });
 
 describe('products (FR-MDM-001 through FR-MDM-019)', () => {
-  const header = 'sku,name,category,stockPolicy,species,baseUom,saleUom,taxCategory,nominalPackKg,shelfLifeDays,barcode,description,onlineMode';
+  const header = 'sku,name,category,stockPolicy,species,baseUom,saleUom,taxCategory,nominalPackKg,shelfLifeDays,description,onlineMode';
 
-  it('reports each bad row with its column, writes no product, and refuses to apply', async () => {
+  it('reports each bad row with its column, a SKU the catalogue does not hold among them, writes no product, and refuses to apply', async () => {
     const products = await count(world, 'SELECT count(*)::int AS n FROM mdm.product');
     const created = await audits('Product', 'CREATE');
     const job = await dryRun(
       'PRODUCT',
       csv(
         header,
-        'GOAT-LIVE,Live goat,LIVE,SERIALISED,GOAT,HEAD,HEAD,,,,,,LISTED',
-        'BEEF-15KG,Beef 15 kg pack,MEAT,CATCH_WEIGHT,,KG,KG,,15,5,,,LISTED',
-        'EGGS-30,Crate of 30 eggs,POULTRY,COUNTABLE,,CRATE,CRATE,,,,,,',
-        'BEEF-15KG,Beef again,MEAT,CATCH_WEIGHT,,KG,KG,,,,,,',
-        'SVC-DEL,Delivery,MEAT,NON_STOCK,,UNIT,UNIT,,,7,,,',
+        ',Live goat,LIVE,SERIALISED,GOAT,HEAD,HEAD,,,,,LISTED',
+        ',Beef 15 kg pack,MEAT,CATCH_WEIGHT,,KG,KG,,15,5,,LISTED',
+        ',Crate of 30 eggs,POULTRY,COUNTABLE,,CRATE,CRATE,,,,,',
+        'MEAT-0042,Beef again,MEAT,CATCH_WEIGHT,,KG,KG,,,,,',
+        ',Delivery,MEAT,NON_STOCK,,UNIT,UNIT,,,7,,',
       ),
     );
     expect(job).toMatchObject({ status: 'VALIDATED', rowsTotal: 5, rowsValid: 1, rowsToCreate: 5, rowsToUpdate: 0 });
     expect(await errorsOf(job)).toEqual([
       { rowNo: 2, column: 'onlineMode', message: 'A live animal is sold on request: onlineMode must be REQUEST_TO_BUY or HIDDEN' },
       { rowNo: 4, column: 'category', message: 'Unknown category "POULTRY"' },
-      { rowNo: 5, column: 'sku', message: 'Duplicate of row 3' },
+      { rowNo: 5, column: 'sku', message: 'No product has the SKU MEAT-0042: a SKU is given by the system when a product is created, so leave sku blank to create one' },
       { rowNo: 6, column: 'shelfLifeDays', message: 'A NON_STOCK product has no shelfLifeDays' },
     ]);
     expect(await count(world, 'SELECT count(*)::int AS n FROM mdm.product')).toBe(products);
@@ -156,7 +156,13 @@ describe('products (FR-MDM-001 through FR-MDM-019)', () => {
     expect((await apply(job)).body.error.code).toBe('IMPORT_NOT_VALIDATED');
   });
 
-  it('applies the corrected file through createProduct: every product created, audited and published, the tax category from its category', async () => {
+  it('refuses a sheet that still has a barcode column, as an unknown column, rather than importing it without the barcode (B09q)', async () => {
+    const job = await dryRun('PRODUCT', csv('sku,name,barcode', ',Crate of 30 eggs,6001234500017'));
+    expect(job).toMatchObject({ status: 'FAILED' });
+    expect(await errorsOf(job)).toEqual([{ rowNo: 1, column: 'barcode', message: 'Unknown column "barcode"' }]);
+  });
+
+  it('applies the corrected file through createProduct: every product created with the SKU the server gives it, audited and published, the tax category from its category', async () => {
     const products = await count(world, 'SELECT count(*)::int AS n FROM mdm.product');
     const created = await audits('Product', 'CREATE');
     const events = await count(world, "SELECT count(*)::int AS n FROM platform.outbox_message WHERE event_type = 'mdm.ProductCreated'");
@@ -164,9 +170,9 @@ describe('products (FR-MDM-001 through FR-MDM-019)', () => {
       'PRODUCT',
       csv(
         header,
-        'GOAT-LIVE,Live goat,LIVE,SERIALISED,GOAT,HEAD,HEAD,,,,,,REQUEST_TO_BUY',
-        'BEEF-15KG,Beef 15 kg pack,MEAT,CATCH_WEIGHT,,KG,KG,,15,5,,,LISTED',
-        'EGGS-30,Crate of 30 eggs,EGGS,COUNTABLE,,CRATE,CRATE,,,,6001234500017,Fresh layers,',
+        ',Live goat,LIVE,SERIALISED,GOAT,HEAD,HEAD,,,,,REQUEST_TO_BUY',
+        ',Beef 15 kg pack,MEAT,CATCH_WEIGHT,,KG,KG,,15,5,,LISTED',
+        ',Crate of 30 eggs,EGGS,COUNTABLE,,CRATE,CRATE,,,,Fresh layers,',
       ),
     );
     expect(job).toMatchObject({ rowsTotal: 3, rowsValid: 3, rowsToCreate: 3 });
@@ -180,34 +186,33 @@ describe('products (FR-MDM-001 through FR-MDM-019)', () => {
       'SELECT p.sku, p.tracking, p.nominal_pack_kg::text, p.online_mode, t.code AS tax, p.status FROM mdm.product p JOIN mdm.tax_category t ON t.id = p.tax_category_id ORDER BY p.sku',
     );
     expect(rows.rows).toEqual([
-      { sku: 'BEEF-15KG', tracking: 'LOT', nominal_pack_kg: '15.000', online_mode: 'LISTED', tax: 'PROCESSED_MEAT', status: 'ACTIVE' },
-      { sku: 'EGGS-30', tracking: 'NONE', nominal_pack_kg: null, online_mode: 'HIDDEN', tax: 'EGGS', status: 'ACTIVE' },
-      { sku: 'GOAT-LIVE', tracking: 'SERIAL', nominal_pack_kg: null, online_mode: 'REQUEST_TO_BUY', tax: 'LIVE_ANIMALS', status: 'ACTIVE' },
+      { sku: 'EGG-0001', tracking: 'NONE', nominal_pack_kg: null, online_mode: 'HIDDEN', tax: 'EGGS', status: 'ACTIVE' },
+      { sku: 'LIV-0001', tracking: 'SERIAL', nominal_pack_kg: null, online_mode: 'REQUEST_TO_BUY', tax: 'LIVE_ANIMALS', status: 'ACTIVE' },
+      { sku: 'MEAT-0001', tracking: 'LOT', nominal_pack_kg: '15.000', online_mode: 'LISTED', tax: 'PROCESSED_MEAT', status: 'ACTIVE' },
     ]);
   });
 
-  it('changes a product named by its SKU, refuses a change to its stock-keeping policy or units, and a barcode another product has', async () => {
-    const refused = await dryRun('PRODUCT', csv('sku,stockPolicy,baseUom,barcode', 'EGGS-30,NON_STOCK,,', 'GOAT-LIVE,,KG,', 'BEEF-15KG,,,6001234500017'));
-    expect(refused).toMatchObject({ rowsToCreate: 0, rowsToUpdate: 3, rowsValid: 0 });
+  it('changes a product named by its SKU, and refuses a change to its stock-keeping policy or units', async () => {
+    const refused = await dryRun('PRODUCT', csv('sku,stockPolicy,baseUom', 'EGG-0001,NON_STOCK,', 'LIV-0001,,KG'));
+    expect(refused).toMatchObject({ rowsToCreate: 0, rowsToUpdate: 2, rowsValid: 0 });
     expect(await errorsOf(refused)).toEqual([
       { rowNo: 2, column: 'stockPolicy', message: 'stockPolicy cannot change once a product exists' },
       { rowNo: 3, column: 'baseUom', message: 'baseUom cannot change once a product exists' },
-      { rowNo: 4, column: 'barcode', message: 'barcode is already used by another product' },
     ]);
-    const change = await dryRun('PRODUCT', csv('sku,name,description,onlineMode', 'EGGS-30,Tray of 30 eggs,,LISTED'));
+    const change = await dryRun('PRODUCT', csv('sku,name,description,onlineMode', 'EGG-0001,Tray of 30 eggs,,LISTED'));
     expect(change).toMatchObject({ rowsToCreate: 0, rowsToUpdate: 1, rowsValid: 1 });
     expect((await apply(change)).status).toBe(202);
-    const after = await world.database.pool('admin').query<{ name: string; description: string; online_mode: string; version: number }>("SELECT name, description, online_mode, version FROM mdm.product WHERE sku = 'EGGS-30'");
-    expect(after.rows[0]).toEqual({ name: 'Tray of 30 eggs', description: 'Fresh layers', online_mode: 'LISTED', version: 2 });
+    const after = await world.database.pool('admin').query<{ sku: string; name: string; description: string; online_mode: string; version: number }>("SELECT sku, name, description, online_mode, version FROM mdm.product WHERE name = 'Tray of 30 eggs'");
+    expect(after.rows[0]).toEqual({ sku: 'EGG-0001', name: 'Tray of 30 eggs', description: 'Fresh layers', online_mode: 'LISTED', version: 2 });
   });
 
-  it('exports every product with a fresh step-up, audited with its row count', async () => {
+  it('exports every product with a fresh step-up, audited with its row count, its SKU and no barcode', async () => {
     const products = await count(world, 'SELECT count(*)::int AS n FROM mdm.product WHERE deleted_at IS NULL');
     const { job, audited, rows } = await exported('PRODUCT');
     expect(job).toMatchObject({ rowsTotal: products, rowsApplied: products });
     expect(audited).toMatchObject({ entity: 'PRODUCT', format: 'CSV', rowCount: products, bulk: false });
     expect(rows[0]).toEqual(header.split(','));
-    expect(rows).toContainEqual(['BEEF-15KG', 'Beef 15 kg pack', 'MEAT', 'CATCH_WEIGHT', '', 'KG', 'KG', 'PROCESSED_MEAT', '15.000', '5', '', '', 'LISTED']);
+    expect(rows).toContainEqual(['MEAT-0001', 'Beef 15 kg pack', 'MEAT', 'CATCH_WEIGHT', '', 'KG', 'KG', 'PROCESSED_MEAT', '15.000', '5', '', 'LISTED']);
   });
 });
 
@@ -341,12 +346,12 @@ describe('price list entries: into a draft version, never an active one (FR-MDM-
       'PRICE_LIST_ENTRY',
       csv(
         header,
-        'RETAIL,GOAT-LIVE,A,B20-25,,PER_HEAD,90000,80000,100000,',
-        'RETAIL,GOAT-LIVE,,B20-25,,PER_HEAD,850.00,75000,95000,',
-        'RETAIL,BEEF-15KG,,,,PER_KG,8000,9000,10000,',
-        'RETAIL,GOAT-LIVE,Z,,,PER_HEAD,1,1,1,',
-        'ONLINE,EGGS-30,,,,PER_UNIT,6000,5500,6500,',
-        'RETAIL,GOAT-LIVE,A,B20-25,0.000,PER_HEAD,91000,80000,100000,',
+        'RETAIL,LIV-0001,A,B20-25,,PER_HEAD,90000,80000,100000,',
+        'RETAIL,LIV-0001,,B20-25,,PER_HEAD,850.00,75000,95000,',
+        'RETAIL,MEAT-0001,,,,PER_KG,8000,9000,10000,',
+        'RETAIL,LIV-0001,Z,,,PER_HEAD,1,1,1,',
+        'ONLINE,EGG-0001,,,,PER_UNIT,6000,5500,6500,',
+        'RETAIL,LIV-0001,A,B20-25,0.000,PER_HEAD,91000,80000,100000,',
       ),
     );
     expect(job).toMatchObject({ rowsTotal: 6, rowsValid: 1 });
@@ -361,18 +366,18 @@ describe('price list entries: into a draft version, never an active one (FR-MDM-
   });
 
   it('writes the entries into the draft with exact pesewas, and the owner approves them live', async () => {
-    const job = await dryRun('PRICE_LIST_ENTRY', csv(header, 'RETAIL,GOAT-LIVE,A,B20-25,,PER_HEAD,90000,80000,100000,', 'RETAIL,GOAT-LIVE,,B20-25,,PER_HEAD,85000,75000,95000,', 'RETAIL,BEEF-15KG,,,,PER_KG,8000,7000,9000,'));
+    const job = await dryRun('PRICE_LIST_ENTRY', csv(header, 'RETAIL,LIV-0001,A,B20-25,,PER_HEAD,90000,80000,100000,', 'RETAIL,LIV-0001,,B20-25,,PER_HEAD,85000,75000,95000,', 'RETAIL,MEAT-0001,,,,PER_KG,8000,7000,9000,'));
     expect(job).toMatchObject({ rowsValid: 3, rowsToCreate: 3, rowsToUpdate: 0 });
     expect((await apply(job)).body).toMatchObject({ status: 'APPLIED', rowsApplied: 3 });
     expect(await entriesOf(activeId)).toEqual([
-      { sku: 'BEEF-15KG', grade: null, list: '8000', floor: '7000', ceiling: '9000', min_qty: '0.000' },
-      { sku: 'GOAT-LIVE', grade: null, list: '85000', floor: '75000', ceiling: '95000', min_qty: '0.000' },
-      { sku: 'GOAT-LIVE', grade: 'A', list: '90000', floor: '80000', ceiling: '100000', min_qty: '0.000' },
+      { sku: 'LIV-0001', grade: null, list: '85000', floor: '75000', ceiling: '95000', min_qty: '0.000' },
+      { sku: 'LIV-0001', grade: 'A', list: '90000', floor: '80000', ceiling: '100000', min_qty: '0.000' },
+      { sku: 'MEAT-0001', grade: null, list: '8000', floor: '7000', ceiling: '9000', min_qty: '0.000' },
     ]);
     const submitted = await post(world, world.manager, `/price-list-versions/${activeId}/submit`);
     expect(submitted.status).toBe(202);
     // A submitted version is never written by an import.
-    const pending = await dryRun('PRICE_LIST_ENTRY', csv(header, 'RETAIL,BEEF-15KG,,,,PER_KG,1,1,1,'));
+    const pending = await dryRun('PRICE_LIST_ENTRY', csv(header, 'RETAIL,MEAT-0001,,,,PER_KG,1,1,1,'));
     expect(await errorsOf(pending)).toEqual([{ rowNo: 2, column: 'priceList', message: 'Price list RETAIL has a version waiting for approval, which cannot change' }]);
     await stepUp(world, world.owner);
     const approved = await post(world, world.owner, `/iam/approvals/${submitted.body.approvalRequestId as string}/approve`, { reason: 'Checked against the market' });
@@ -384,19 +389,19 @@ describe('price list entries: into a draft version, never an active one (FR-MDM-
     const draft = await post(world, world.manager, `/price-lists/${listId}/versions`, { validFrom: new Date(world.clock.now().getTime() + 86_400_000).toISOString(), copyFromVersionId: activeId });
     expect(draft.status).toBe(201);
     draftId = draft.body.id as string;
-    const job = await dryRun('PRICE_LIST_ENTRY', csv(header, 'RETAIL,GOAT-LIVE,A,B20-25,,PER_HEAD,95000,85000,105000,', 'retail,beef-15kg,,,10,per_kg,7500,6500,8500,'));
+    const job = await dryRun('PRICE_LIST_ENTRY', csv(header, 'RETAIL,LIV-0001,A,B20-25,,PER_HEAD,95000,85000,105000,', 'retail,meat-0001,,,10,per_kg,7500,6500,8500,'));
     expect(job).toMatchObject({ rowsValid: 2, rowsToCreate: 1, rowsToUpdate: 1 });
     expect((await apply(job)).status).toBe(202);
     expect(await entriesOf(draftId)).toEqual([
-      { sku: 'BEEF-15KG', grade: null, list: '8000', floor: '7000', ceiling: '9000', min_qty: '0.000' },
-      { sku: 'BEEF-15KG', grade: null, list: '7500', floor: '6500', ceiling: '8500', min_qty: '10.000' },
-      { sku: 'GOAT-LIVE', grade: null, list: '85000', floor: '75000', ceiling: '95000', min_qty: '0.000' },
-      { sku: 'GOAT-LIVE', grade: 'A', list: '95000', floor: '85000', ceiling: '105000', min_qty: '0.000' },
+      { sku: 'LIV-0001', grade: null, list: '85000', floor: '75000', ceiling: '95000', min_qty: '0.000' },
+      { sku: 'LIV-0001', grade: 'A', list: '95000', floor: '85000', ceiling: '105000', min_qty: '0.000' },
+      { sku: 'MEAT-0001', grade: null, list: '8000', floor: '7000', ceiling: '9000', min_qty: '0.000' },
+      { sku: 'MEAT-0001', grade: null, list: '7500', floor: '6500', ceiling: '8500', min_qty: '10.000' },
     ]);
     expect(await entriesOf(activeId)).toEqual([
-      { sku: 'BEEF-15KG', grade: null, list: '8000', floor: '7000', ceiling: '9000', min_qty: '0.000' },
-      { sku: 'GOAT-LIVE', grade: null, list: '85000', floor: '75000', ceiling: '95000', min_qty: '0.000' },
-      { sku: 'GOAT-LIVE', grade: 'A', list: '90000', floor: '80000', ceiling: '100000', min_qty: '0.000' },
+      { sku: 'LIV-0001', grade: null, list: '85000', floor: '75000', ceiling: '95000', min_qty: '0.000' },
+      { sku: 'LIV-0001', grade: 'A', list: '90000', floor: '80000', ceiling: '100000', min_qty: '0.000' },
+      { sku: 'MEAT-0001', grade: null, list: '8000', floor: '7000', ceiling: '9000', min_qty: '0.000' },
     ]);
   });
 
@@ -404,7 +409,7 @@ describe('price list entries: into a draft version, never an active one (FR-MDM-
     const { audited, rows } = await exported('PRICE_LIST_ENTRY');
     expect(rows[0]).toEqual(header.split(','));
     expect(rows.slice(1)).toHaveLength(3);
-    expect(rows).toContainEqual(['RETAIL', 'GOAT-LIVE', 'A', 'B20-25', '0.000', 'PER_HEAD', '90000', '80000', '100000', 'FALSE']);
+    expect(rows).toContainEqual(['RETAIL', 'LIV-0001', 'A', 'B20-25', '0.000', 'PER_HEAD', '90000', '80000', '100000', 'FALSE']);
     expect(rows.some((row) => row[6] === '95000')).toBe(false);
     expect(audited).toMatchObject({ entity: 'PRICE_LIST_ENTRY', rowCount: 3, bulk: false });
   });

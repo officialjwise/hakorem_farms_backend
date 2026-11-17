@@ -94,8 +94,8 @@ export async function createStockFixture(database: TestDatabase): Promise<StockF
     otherShop: await location(app, otherBranchId, 'SHOP-FLOOR', 'SHOP_FLOOR', { sellable: true }),
     virtual: await virtuals(app, branchId),
     otherVirtual: await virtuals(app, otherBranchId),
-    goat: await product(app, { sku: 'LIV-GOAT', categoryId: catalogue.liveCategoryId, policy: 'SERIALISED', tracking: 'SERIAL', speciesId: catalogue.goatSpeciesId, uom: 'HEAD', gl: 'LIVE_ANIMALS', tax: TAX_CATEGORY.LIVE_ANIMALS }),
-    eggs: await product(app, { sku: 'EGG-CRATE-BIG', categoryId: catalogue.eggsCategoryId, policy: 'COUNTABLE', tracking: 'NONE', uom: 'CRATE', gl: 'PRODUCE_EGGS', tax: TAX_CATEGORY.EGGS }),
+    goat: await product(app, { sku: 'LIV-0004', categoryId: catalogue.liveCategoryId, policy: 'SERIALISED', tracking: 'SERIAL', speciesId: catalogue.goatSpeciesId, uom: 'HEAD', gl: 'LIVE_ANIMALS', tax: TAX_CATEGORY.LIVE_ANIMALS }),
+    eggs: await product(app, { sku: 'EGG-0003', categoryId: catalogue.eggsCategoryId, policy: 'COUNTABLE', tracking: 'NONE', uom: 'CRATE', gl: 'PRODUCE_EGGS', tax: TAX_CATEGORY.EGGS }),
     beef: await product(app, { sku: 'MEAT-BEEF-15', categoryId: catalogue.meatCategoryId, policy: 'CATCH_WEIGHT', tracking: 'LOT', uom: 'KG', gl: 'MEAT', tax: TAX_CATEGORY.PROCESSED_MEAT }),
     actor,
   };

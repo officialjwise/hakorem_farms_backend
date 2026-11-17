@@ -22,15 +22,21 @@ describe('product rows (FR-MDM-001, FR-MDM-019)', () => {
   });
 
   it('names the column of every malformed cell', () => {
-    const { errors } = readProductRow(7, cells({ sku: 'no spaces', stockPolicy: 'LOOSE', nominalPackKg: '1.2345', shelfLifeDays: '0', barcode: '12', onlineMode: 'SOMETIMES', category: 'bad code!' }));
-    expect(errors.map((error) => error.column)).toEqual(['sku', 'nominalPackKg', 'barcode', 'category', 'stockPolicy', 'shelfLifeDays', 'onlineMode']);
+    const { errors } = readProductRow(7, cells({ sku: 'no spaces', stockPolicy: 'LOOSE', nominalPackKg: '1.2345', shelfLifeDays: '0', onlineMode: 'SOMETIMES', category: 'bad code!' }));
+    expect(errors.map((error) => error.column)).toEqual(['sku', 'nominalPackKg', 'category', 'stockPolicy', 'shelfLifeDays', 'onlineMode']);
     expect(errors.every((error) => error.rowNo === 7)).toBe(true);
-    expect(readProductRow(3, cells({ sku: '' })).errors).toEqual([{ rowNo: 3, column: 'sku', message: 'SKU is empty' }]);
     expect(readProductRow(3, cells({ sku: 'A1', name: 'x'.repeat(121) })).errors[0]!.column).toBe('name');
   });
 
+  it('reads a blank SKU as a row that creates a product, whose SKU the server gives (B09q, ADR-0072)', () => {
+    const { row, errors } = readProductRow(3, cells({ sku: '', name: 'Eggs, big, crate of 30' }));
+    expect(errors).toEqual([]);
+    expect(row.sku).toBeNull();
+    expect(readProductRow(3, cells({ name: 'Eggs' })).row.sku).toBeNull();
+  });
+
   it('asks a row that creates a product for its name, category, policy and units', () => {
-    const { row } = readProductRow(4, cells({ sku: 'EGGS-30' }));
+    const { row } = readProductRow(4, cells({}));
     expect(productCreateErrors(row).map((error) => error.column)).toEqual(['name', 'category', 'stockPolicy', 'baseUom', 'saleUom']);
   });
 });

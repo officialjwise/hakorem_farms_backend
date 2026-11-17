@@ -100,7 +100,7 @@ const VALID_BODY: Readonly<Record<string, object>> = {
   previewTemplateVersion: { data: { title: 'Refused' } },
   reprintBillingDocument: { channel: 'PDF' },
   createDepreciationRun: { periodId: randomUUID() },
-  createProduct: { sku: 'MEAT-GOAT-5KG', name: 'Goat meat, 5 kg pack', categoryId: randomUUID(), stockPolicy: 'CATCH_WEIGHT', baseUom: 'KG', saleUom: 'PACK', onlineMode: 'LISTED' },
+  createProduct: { name: 'Goat meat, 5 kg pack', categoryId: randomUUID(), stockPolicy: 'CATCH_WEIGHT', baseUom: 'KG', saleUom: 'PACK', onlineMode: 'LISTED' },
   revokeSession: { reason: 'Tablet left unattended overnight' },
   createUser: { displayName: 'Kojo Asante', email: 'kojo.asante@hakoremfarms.test', realm: 'STAFF', grants: [] },
   updateUser: { version: 1, displayName: 'Kojo Asante' },

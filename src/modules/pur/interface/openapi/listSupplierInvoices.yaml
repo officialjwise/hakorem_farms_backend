@@ -109,7 +109,7 @@ responses:
                       lineNo: 1
                       product:
                         id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
-                        sku: FD-BRL-FIN
+                        sku: FEED-0004
                         name: "Broiler finisher feed, 50 kg bag"
                       description: "Broiler finisher feed, 50 kg bag"
                       purchaseOrderLineId: "019a7ab3-fc1b-74dc-9a14-5694b302cf72"
@@ -171,7 +171,7 @@ responses:
                       lineNo: 1
                       product:
                         id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                        sku: LIV-GOAT
+                        sku: LIV-0004
                         name: Goat
                       description: Goat
                       purchaseOrderLineId: "019a7ab4-d4a4-7a14-8f4c-aa1906d922f6"
@@ -233,7 +233,7 @@ responses:
                       lineNo: 1
                       product:
                         id: "019a7a8d-704a-726a-a7a2-2f740f73a851"
-                        sku: LIV-BROILER
+                        sku: LIV-0001
                         name: "Broiler chicken"
                       description: "Broiler chicken"
                       purchaseOrderLineId: "019a7ab5-5060-71a2-86da-22f6ed9d9bd4"
@@ -296,7 +296,7 @@ responses:
                       lineNo: 1
                       product:
                         id: "019a7a8e-86b1-7b69-b0a1-bf6756ac3845"
-                        sku: PRD-TOMATO
+                        sku: PRD-0001
                         name: "Tomatoes, crate"
                       description: "Tomatoes, crate"
                       purchaseOrderLineId: "019a7acb-2f5b-7f75-94ae-002ff7c2790d"
@@ -358,7 +358,7 @@ responses:
                       lineNo: 1
                       product:
                         id: "019a7a8f-026d-72f7-b82f-38453d70b123"
-                        sku: VET-OXYTET
+                        sku: FEED-0005
                         name: "Oxytetracycline 20% injection, 100 ml"
                       description: "Oxytetracycline 20% injection, 100 ml"
                       purchaseOrderLineId: "019a7ab5-eb0b-7313-984b-3a0c4e12b2ea"

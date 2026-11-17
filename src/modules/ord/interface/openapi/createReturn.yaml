@@ -54,7 +54,7 @@ responses:
               orderLineId: "019a7af8-4196-77e3-ad1b-870446a7ffe2"
               product:
                 id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                sku: MEAT-BEEF
+                sku: MEAT-0005
                 name: "Beef, 15 kg pack"
               qty: "15.200"
               weightKg: "15.200"

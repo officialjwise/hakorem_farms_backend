@@ -58,7 +58,7 @@ function broilerOrder(qty = '20.000', unitPricePesewas = 5_500) {
     supplierId: supplier('Awutu Poultry Farm'),
     deliverToLocationId: id('location:PENS'),
     orderDate: today(),
-    lines: [{ productId: id('product:LIV-BROILER'), qtyOrdered: qty, unitPricePesewas }],
+    lines: [{ productId: id('product:LIV-0001'), qtyOrdered: qty, unitPricePesewas }],
   };
 }
 
@@ -80,7 +80,7 @@ async function receive(order: { id: string; lineId: string }, qty: string) {
     purchaseOrderId: order.id,
     deliveryNoteRef: `APF-${randomUUID().slice(0, 6)}`,
     receivedAt: new Date(clock.now().getTime() - 60_000).toISOString(),
-    lines: [{ productId: id('product:LIV-BROILER'), purchaseOrderLineId: order.lineId, qtyReceived: qty, valuePesewas: 5_500 * Number.parseInt(qty, 10), batchNo: `BR-${randomUUID().slice(0, 8)}` }],
+    lines: [{ productId: id('product:LIV-0001'), purchaseOrderLineId: order.lineId, qtyReceived: qty, valuePesewas: 5_500 * Number.parseInt(qty, 10), batchNo: `BR-${randomUUID().slice(0, 8)}` }],
   });
   expect(draft.status).toBe(201);
   return post(pensStorekeeper, `/goods-receipts/${draft.body.id}/post`);
@@ -228,7 +228,7 @@ describe('a purchase order and its approval limit (FR-PUR-005)', () => {
       supplierId: supplier('Awutu Poultry Farm'),
       deliverToLocationId: id('location:STORE'),
       orderDate: today(),
-      lines: [{ productId: id('product:FEED-BRL-GROWER'), uom: 'BAG', qtyOrdered: '10.000', unitPricePesewas: 45_025 }],
+      lines: [{ productId: id('product:FEED-0001'), uom: 'BAG', qtyOrdered: '10.000', unitPricePesewas: 45_025 }],
     });
     expect(bags.status).toBe(201);
     expect(bags.body.lines[0]).toMatchObject({ uom: 'BAG', qtyOrdered: '10.000', baseUom: 'KG', qtyOrderedBase: '500.000', unitPricePesewas: 45_025, lineNetPesewas: 450_250 });
@@ -236,7 +236,7 @@ describe('a purchase order and its approval limit (FR-PUR-005)', () => {
       supplierId: supplier('Awutu Poultry Farm'),
       deliverToLocationId: id('location:STORE'),
       orderDate: today(),
-      lines: [{ productId: id('product:FEED-BRL-GROWER'), uom: 'CRATE', qtyOrdered: '1.000', unitPricePesewas: 100 }],
+      lines: [{ productId: id('product:FEED-0001'), uom: 'CRATE', qtyOrdered: '1.000', unitPricePesewas: 100 }],
     });
     expect([crates.status, crates.body.error.code, crates.body.error.details[0].code]).toEqual([422, 'PURCHASE_ORDER_INVALID', 'NO_CONVERSION']);
   });
@@ -246,7 +246,7 @@ describe('a purchase order and its approval limit (FR-PUR-005)', () => {
       supplierId: supplier('Awutu Poultry Farm'),
       deliverToLocationId: id('location:STORE'),
       orderDate: today(),
-      lines: [{ productId: id('product:FEED-BRL-GROWER'), uom: 'BAG', qtyOrdered: '2.500', unitPricePesewas: 45_025 }],
+      lines: [{ productId: id('product:FEED-0001'), uom: 'BAG', qtyOrdered: '2.500', unitPricePesewas: 45_025 }],
     });
     expect(half.body).toMatchObject({ netPesewas: 112_563, grossPesewas: 112_563 });
     expect(half.body.lines[0].qtyOrderedBase).toBe('125.000');
@@ -292,7 +292,7 @@ describe('receiving against an order (FR-PUR-006, FR-PUR-007)', () => {
       locationId: id('location:PENS'),
       purchaseOrderId: order.id,
       receivedAt: new Date(clock.now().getTime() - 60_000).toISOString(),
-      lines: [{ productId: id('product:LIV-BROILER'), purchaseOrderLineId: order.lineId, qtyReceived: '1.000', valuePesewas: 5_500, batchNo: `BR-${randomUUID().slice(0, 8)}` }],
+      lines: [{ productId: id('product:LIV-0001'), purchaseOrderLineId: order.lineId, qtyReceived: '1.000', valuePesewas: 5_500, batchNo: `BR-${randomUUID().slice(0, 8)}` }],
     });
     const posted = await post(pensStorekeeper, `/goods-receipts/${draft.body.id}/post`);
     expect([posted.status, posted.body.error.code]).toEqual([422, 'RECEIPT_ORDER_MISMATCH']);

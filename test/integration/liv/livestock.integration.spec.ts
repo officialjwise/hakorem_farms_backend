@@ -33,7 +33,9 @@ let farmHand: TestSession;
 let accountant: TestSession;
 const wrong = new Map<string, TestSession>();
 const ids = new Map<string, string>();
-const id = (code: string) => ids.get(code)!;
+/** Products this test makes, by a handle of its own: their SKUs are the server's (B09q, ADR-0072). */
+const handles = new Map<string, string>();
+const id = (code: string) => handles.get(code) ?? ids.get(code)!;
 const v1 = (path: string) => `/v1${path}`;
 const post = (session: TestSession, path: string, body: object = {}, key?: string) => consolePost(api.server, session, v1(path), key).send(body);
 const get = (session: TestSession, path: string) => consoleGet(api.server, session, v1(path));
@@ -68,7 +70,7 @@ async function sell(tag: string, from = 'location:PENS'): Promise<string> {
       await api.app.get(DocumentRegistry).register(tx, { id: documentId, docType: 'STOCK_ADJUSTMENT', ownerModule: 'inv', branchId: id('branch:DDW'), actorId: SYSTEM_PRINCIPAL });
       const posted = await api.app.get(Stock).postIn(tx, SYSTEM_PRINCIPAL, {
         movementType: 'SALE_ISSUE',
-        productId: id('product:LIV-GOAT'),
+        productId: id('product:LIV-0004'),
         stockUnitId: id(`unit:${tag}`),
         branchId: id('branch:DDW'),
         fromLocationId: id(from),
@@ -130,10 +132,14 @@ beforeAll(async () => {
   // Feed and medicine and two more pens, through MDM; then their stock, through INV.
   // The seed's feed and medicine category and its store (B06 continued 2); this test's own products keep their own pools.
   const categoryId = (await admin().query<{ id: string }>("SELECT id FROM mdm.category WHERE code = 'FEED-MED'")).rows[0]!.id;
-  const product = (sku: string, name: string, baseUom: string, extra: object = {}) =>
-    post(manager, '/products', { sku, name, categoryId, stockPolicy: 'COUNTABLE', baseUom, saleUom: baseUom, onlineMode: 'HIDDEN', isSellable: false, ...extra });
-  expect((await product('FEED-GROWER-KG', 'Broiler grower pellets, per kg', 'KG')).status).toBe(201);
-  expect((await product('MED-OXYTET-L', 'Oxytetracycline 20% injection, per litre', 'LITRE', { withdrawalDays: 28 })).status).toBe(201);
+  // The server gives each its SKU (B09q, ADR-0072); this test names them by a handle of its own.
+  const product = async (handle: string, name: string, baseUom: string, extra: object = {}) => {
+    const created = await post(manager, '/products', { name, categoryId, stockPolicy: 'COUNTABLE', baseUom, saleUom: baseUom, onlineMode: 'HIDDEN', isSellable: false, ...extra });
+    expect(created.status, JSON.stringify(created.body)).toBe(201);
+    handles.set(`product:${handle}`, created.body.id as string);
+  };
+  await product('FEED-GROWER-KG', 'Broiler grower pellets, per kg', 'KG');
+  await product('MED-OXYTET-L', 'Oxytetracycline 20% injection, per litre', 'LITRE', { withdrawalDays: 28 });
   for (const [code, name, kind] of [
     ['PEN-T', 'Treatment pen', 'PEN'],
     ['PEN-F', 'Broiler house 2', 'PEN'],
@@ -150,7 +156,7 @@ beforeAll(async () => {
   // Three goats in the treatment pen at 50,000 each, the third a breeding doe; three flocks of 10, 10 and 5 broilers.
   await receive('PEN-T', [
     {
-      productId: id('product:LIV-GOAT'),
+      productId: id('product:LIV-0004'),
       qtyReceived: '3.000',
       valuePesewas: 150_000,
       animals: [
@@ -161,14 +167,14 @@ beforeAll(async () => {
     },
   ]);
   await receive('PEN-F', [
-    { productId: id('product:LIV-BROILER'), qtyReceived: '10.000', valuePesewas: 50_000, batchNo: 'BRF-A' },
-    { productId: id('product:LIV-BROILER'), qtyReceived: '10.000', valuePesewas: 50_000, batchNo: 'BRF-B' },
-    { productId: id('product:LIV-BROILER'), qtyReceived: '5.000', valuePesewas: 25_000, batchNo: 'BRF-C' },
+    { productId: id('product:LIV-0001'), qtyReceived: '10.000', valuePesewas: 50_000, batchNo: 'BRF-A' },
+    { productId: id('product:LIV-0001'), qtyReceived: '10.000', valuePesewas: 50_000, batchNo: 'BRF-B' },
+    { productId: id('product:LIV-0001'), qtyReceived: '5.000', valuePesewas: 25_000, batchNo: 'BRF-C' },
   ]);
   // A kid at 12,000 and a doe at 62,500, for the mortality threshold of 50,000.
   await receive('PENS', [
-    { productId: id('product:LIV-GOAT'), qtyReceived: '1.000', valuePesewas: 12_000, animals: [{ tagNo: 'K-0301', sex: 'MALE', weightKg: '8.200', weightSource: 'SCALE' }] },
-    { productId: id('product:LIV-GOAT'), qtyReceived: '1.000', valuePesewas: 62_500, animals: [{ tagNo: 'D-017', sex: 'FEMALE', purpose: 'BREEDING' }] },
+    { productId: id('product:LIV-0004'), qtyReceived: '1.000', valuePesewas: 12_000, animals: [{ tagNo: 'K-0301', sex: 'MALE', weightKg: '8.200', weightSource: 'SCALE' }] },
+    { productId: id('product:LIV-0004'), qtyReceived: '1.000', valuePesewas: 62_500, animals: [{ tagNo: 'D-017', sex: 'FEMALE', purpose: 'BREEDING' }] },
   ]);
 });
 
@@ -184,7 +190,7 @@ describe('the animal register (FR-LIV-001, FR-LIV-017)', () => {
     expect(goat.body).toMatchObject({
       tagNo: 'G-0142',
       species: { code: 'GOAT' },
-      product: { sku: 'LIV-GOAT' },
+      product: { sku: 'LIV-0004' },
       sex: 'MALE',
       source: 'PURCHASE',
       supplier: { name: 'Kpone Livestock Traders (SEED)' },
@@ -216,7 +222,7 @@ describe('the animal register (FR-LIV-001, FR-LIV-017)', () => {
       supplierId: [...ids.entries()].find(([code]) => code.startsWith('supplier:'))![1],
       locationId: id('location:PENS'),
       receivedAt: hoursAgo(1),
-      lines: [{ productId: id('product:LIV-SHEEP'), qtyReceived: '1.000', valuePesewas: 70_000, animals: [{ tagNo: 'G-0142', sex: 'FEMALE' }] }],
+      lines: [{ productId: id('product:LIV-0005'), qtyReceived: '1.000', valuePesewas: 70_000, animals: [{ tagNo: 'G-0142', sex: 'FEMALE' }] }],
     });
     const posted = await post(manager, `/goods-receipts/${created.body.id as string}/post`);
     expect(posted.status).toBe(422);
@@ -291,7 +297,7 @@ describe('a withdrawal hold blocks sale and processing, and nobody releases it e
           `INSERT INTO inv.stock_movement (id, movement_type, product_id, stock_unit_id, branch_id, from_location_id, to_location_id, qty_base, source_document_id, occurred_at, actor_id)
            VALUES ($1, 'SALE_ISSUE', $2, $3, $4, $5, $6, 1, $7, $9, $8)`,
           // Dated by the application clock the hold was placed on, never the database's (ADR-0067).
-          [randomUUID(), id('product:LIV-GOAT'), id('unit:G-0143'), id('branch:DDW'), id('location:PENS'), id('virtual:CUSTOMER'), doc, SYSTEM_PRINCIPAL, clock.now()],
+          [randomUUID(), id('product:LIV-0004'), id('unit:G-0143'), id('branch:DDW'), id('location:PENS'), id('virtual:CUSTOMER'), doc, SYSTEM_PRINCIPAL, clock.now()],
         )
         .then(
           () => null,
@@ -392,7 +398,7 @@ describe('veterinary and feed cost spread by head-days, exactly (FR-LIV-009, FR-
   it('refuses feed for a pen with no animals, and anything that is not feed', async () => {
     const empty = await post(farmHand, '/care/feed-consumption', { locationId: id('location:COLD'), feedProductId: id('product:FEED-GROWER-KG'), qty: '1.000', consumedOn: clock.now().toISOString().slice(0, 10) });
     expect(empty.body.error.details).toEqual([expect.objectContaining({ code: 'NO_ANIMALS_HERE' })]);
-    const meat = await post(farmHand, '/care/feed-consumption', { locationId: id('location:PEN-F'), feedProductId: id('product:MEAT-BEEF-15KG'), qty: '1.000', consumedOn: clock.now().toISOString().slice(0, 10) });
+    const meat = await post(farmHand, '/care/feed-consumption', { locationId: id('location:PEN-F'), feedProductId: id('product:MEAT-0005'), qty: '1.000', consumedOn: clock.now().toISOString().slice(0, 10) });
     expect(meat.body.error.details).toEqual([expect.objectContaining({ code: 'NOT_FEED' })]);
   });
 });

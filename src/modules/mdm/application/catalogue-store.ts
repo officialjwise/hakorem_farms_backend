@@ -15,6 +15,8 @@ export interface CategoryView {
   readonly taxCategory: { readonly id: string; readonly code: string; readonly name: string };
   readonly sortOrder: number;
   readonly isOnlineVisible: boolean;
+  /** The prefix of the SKUs the server gives its products (B09q, ADR-0072). */
+  readonly skuPrefix: string;
   readonly productCount: number;
   readonly version: number;
   readonly createdAt: string;
@@ -84,6 +86,8 @@ export interface CategoryWrite {
   readonly taxCategoryId: string;
   readonly sortOrder: number;
   readonly isOnlineVisible: boolean;
+  /** Null takes the database's default: the first three letters of the code (migration 0210). */
+  readonly skuPrefix: string | null;
 }
 
 export interface GradeWrite {

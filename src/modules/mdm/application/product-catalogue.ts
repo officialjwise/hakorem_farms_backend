@@ -1,5 +1,5 @@
-import { productBarcode, type ProductLabelBarcode } from '../domain/label';
 import { createUuidV7Generator, type Clock } from '@hakorem/kernel';
+import { productLabel, type ProductLabelPrint } from '../domain/label';
 import type { AuditTrail } from '../../../platform/audit/audit-trail';
 import type { Actor } from '../../../platform/context/request-context';
 import { databaseErrorOf, sqlStateOf, type Transaction, type UnitOfWork } from '../../../platform/database/unit-of-work';
@@ -11,9 +11,9 @@ import { decodePosition, encodePosition, requestedSort, type SortFields, type So
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
 import type { Authoriser } from '../../iam';
 import { canChangeProductStatus, planReferencedArchive } from '../domain/catalogue';
-import { defineProduct, type FieldRule, type OnlineMode, type ProductDraft, type ProductStatus } from '../domain/product';
+import { defineProduct, serverAssignedFieldsIn, type FieldRule, type OnlineMode, type ProductDraft, type ProductStatus } from '../domain/product';
 import type { ProductArchived, ProductChanged, ProductCreated } from '../events';
-import { DuplicateValueError, RecordInUseError, ReferenceNotFoundError, StockPolicyConflictError } from './errors';
+import { DuplicateValueError, FieldServerAssignedError, RecordInUseError, ReferenceNotFoundError, StockPolicyConflictError } from './errors';
 import type { ProductListFilter, ProductStore, ProductView, UniqueProductField } from './product-store';
 
 /**
@@ -32,11 +32,20 @@ const PRODUCT_SORT: SortFields<'name' | 'sku' | 'category' | 'status' | 'updated
 };
 
 export const CREATE_PRODUCT = 'createProduct';
+
+/**
+ * The advisory lock createProduct takes before its transaction begins (`seriesLocks`): products are created one after
+ * another, so concurrent creates queue on it instead of meeting on the SKU counter and retrying (ADR-0072).
+ */
+export const SKU_SERIES_LOCK = 'mdm.sku';
 export const LIST_PRODUCTS = 'listProducts';
 export const UPDATE_PRODUCT = 'updateProduct';
 export const ARCHIVE_PRODUCT = 'archiveProduct';
 
-/** The contract's `ProductUpdate`, parsed at the boundary. The stock-keeping policy, units and species never change. */
+/**
+ * The contract's `ProductUpdate`, parsed at the boundary. The stock-keeping policy, units and species never change, and
+ * the SKU never does (ADR-0072).
+ */
 export interface ProductChange {
   readonly version: number;
   readonly name?: string | undefined;
@@ -45,7 +54,6 @@ export interface ProductChange {
   readonly weightTolerancePercent?: string | undefined;
   readonly taxCategoryId?: string | undefined;
   readonly shelfLifeDays?: number | undefined;
-  readonly barcode?: string | undefined;
   readonly description?: string | undefined;
   readonly onlineMode?: OnlineMode | undefined;
   readonly seo?: { readonly slug?: string | undefined; readonly title?: string | undefined; readonly description?: string | undefined } | undefined;
@@ -59,7 +67,6 @@ const orUndefined = <T>(value: T | null): T | undefined => (value === null ? und
 /** A change merged onto a product, as updateProduct checks it: the policy, units and species never change. */
 function mergedDraft(before: ProductView, change: ProductChange): ProductDraft {
   return {
-    sku: before.sku,
     name: change.name ?? before.name,
     categoryId: change.categoryId ?? before.category.id,
     stockPolicy: before.stockPolicy,
@@ -73,7 +80,6 @@ function mergedDraft(before: ProductView, change: ProductChange): ProductDraft {
     shelfLifeDays: change.shelfLifeDays ?? orUndefined(before.shelfLifeDays),
     storageTempClass: orUndefined(before.storageTempClass),
     withdrawalDays: orUndefined(before.withdrawalDays),
-    barcode: change.barcode ?? orUndefined(before.barcode),
     description: change.description ?? orUndefined(before.description),
     onlineMode: change.onlineMode ?? before.onlineMode,
     seo: {
@@ -86,13 +92,17 @@ function mergedDraft(before: ProductView, change: ProductChange): ProductDraft {
   };
 }
 
-const FIELD_POINTER: Readonly<Record<UniqueProductField, string>> = { sku: '/sku', barcode: '/barcode', seoSlug: '/seo/slug' };
+const FIELD_POINTER: Readonly<Record<UniqueProductField, string>> = { seoSlug: '/seo/slug' };
 /** Unique indexes of migration 0009, for a race that reaches the database before the check sees it. */
 const INDEX_FIELD: Readonly<Record<string, UniqueProductField>> = {
-  uq_product_sku: 'sku',
-  uq_product_barcode: 'barcode',
   uq_product_seo_slug: 'seoSlug',
 };
+
+/** Refuses an input that carries a field the server assigns (the SKU), rather than ignoring it (ADR-0072). */
+function refuseServerAssigned(input: object): void {
+  const fields = serverAssignedFieldsIn(input);
+  if (fields.length > 0) throw new FieldServerAssignedError(fields);
+}
 
 export interface Page<T> {
   readonly data: readonly T[];
@@ -104,15 +114,8 @@ export interface Page<T> {
  * handler authorises through the IAM policy engine first; a state change claims its idempotency key as the first
  * write, writes its row, its audit event and its domain event in the same transaction, and stores the response.
  */
-/** The contract's `ProductLabel`. */
-export interface ProductLabelView {
-  readonly product: { readonly id: string; readonly sku: string; readonly name: string };
-  readonly saleUom: string;
-  readonly nominalPackKg: string | null;
-  readonly shelfLifeDays: number | null;
-  readonly storageTempClass: 'AMBIENT' | 'CHILLED' | 'FROZEN' | null;
-  readonly barcode: ProductLabelBarcode;
-}
+/** The contract's `ProductLabel`: the text a shelf label prints, and no barcode (ADR-0072). */
+export type ProductLabelView = ProductLabelPrint;
 
 export class ProductCatalogue {
   private readonly nextId: () => string;
@@ -132,8 +135,9 @@ export class ProductCatalogue {
 
   async create(actor: Actor | undefined, draft: ProductDraft, idempotencyKey: string): Promise<StoredResponse<ProductView>> {
     try {
-      return await this.uow.run({ isolation: 'serializable' }, async (tx) => {
+      return await this.uow.run({ isolation: 'serializable', seriesLocks: [SKU_SERIES_LOCK] }, async (tx) => {
         await this.authoriser.authorise(tx, actor, 'mdm.product.create');
+        refuseServerAssigned(draft);
         const claim = await this.idempotency.claim(tx, { operationId: CREATE_PRODUCT, principalId: actor!.principalId, key: idempotencyKey, request: draft });
         if (claim.kind === 'REPLAY') {
           return claim.response as StoredResponse<ProductView>;
@@ -162,6 +166,7 @@ export class ProductCatalogue {
     try {
       return await this.uow.run({ isolation: 'serializable' }, async (tx) => {
         await this.authoriser.authorise(tx, actor, 'mdm.product.update');
+        refuseServerAssigned(change);
         const claim = await this.idempotency.claim(tx, { operationId: UPDATE_PRODUCT, principalId: actor!.principalId, key: idempotencyKey, request: { id, ...change } });
         if (claim.kind === 'REPLAY') {
           return claim.response as StoredResponse<ProductView>;
@@ -182,9 +187,12 @@ export class ProductCatalogue {
 
   /**
    * Creates a product in the caller's transaction, every rule of createProduct applied, audited and published. The
-   * caller has authorised `mdm.product.create`: createProduct, or an import being applied (FR-MDM-019).
+   * caller has authorised `mdm.product.create`: createProduct, or an import being applied (FR-MDM-019). The SKU is
+   * allocated here, from the category's prefix, once the product is known to be valid (ADR-0072); a draft that carries
+   * one is refused.
    */
   async createIn(tx: Transaction, actor: Actor, draft: ProductDraft): Promise<ProductView> {
+    refuseServerAssigned(draft);
     const defined = defineProduct(draft, await this.store.references(tx, draft));
     if (!defined.ok) {
       throw defined.error.code === 'REFERENCE_NOT_FOUND' ? new ReferenceNotFoundError(defined.error.fields) : new StockPolicyConflictError(defined.error.fields);
@@ -195,7 +203,8 @@ export class ProductCatalogue {
     }
     const id = this.nextId();
     const now = this.clock.now();
-    await this.store.insert(tx, id, defined.value, actor.principalId, now);
+    const sku = await this.store.allocateSku(tx, defined.value.categoryId);
+    await this.store.insert(tx, id, sku, defined.value, actor.principalId, now);
     const view = (await this.store.view(tx, id))!;
     await this.audit.record(tx, { module: 'mdm', action: 'CREATE', entityType: 'Product', entityId: id, before: null, after: { ...view } });
     const payload: ProductCreated = {
@@ -224,6 +233,7 @@ export class ProductCatalogue {
    * caller has authorised `mdm.product.update`: updateProduct, or an import being applied (FR-MDM-019).
    */
   async updateIn(tx: Transaction, actor: Actor, id: string, change: ProductChange): Promise<ProductView> {
+    refuseServerAssigned(change);
     if (!(await this.store.lock(tx, id))) {
       throw new NotFoundError('no such product');
     }
@@ -325,19 +335,11 @@ export class ProductCatalogue {
   }
 
   /**
-   * What a product label prints (B05x, A-151): SKU, name, sale unit, nominal pack weight, shelf life, storage class,
-   * and the barcode (the product's own, or its SKU) with its symbology. No image is rendered.
+   * What a product label prints (B05x, A-151): SKU, name, sale unit, nominal pack weight, shelf life and storage class.
+   * No image is rendered, and from contract 2.0.0 no barcode (owner 2026-11-17, ADR-0072).
    */
   async getLabel(actor: Actor | undefined, id: string): Promise<ProductLabelView> {
-    const view = await this.get(actor, id);
-    return {
-      product: { id: view.id, sku: view.sku, name: view.name },
-      saleUom: view.saleUom,
-      nominalPackKg: view.nominalPackKg,
-      shelfLifeDays: view.shelfLifeDays,
-      storageTempClass: view.storageTempClass,
-      barcode: productBarcode(view),
-    };
+    return productLabel(await this.get(actor, id));
   }
 
   /**

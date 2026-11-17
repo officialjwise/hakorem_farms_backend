@@ -81,7 +81,7 @@ responses:
               lineNo: 1
               product:
                 id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
-                sku: FD-BRL-FIN
+                sku: FEED-0004
                 name: "Broiler finisher feed, 50 kg bag"
               description: "Broiler finisher feed, 50 kg bag"
               purchaseOrderLineId: "019a7ab3-fc1b-74dc-9a14-5694b302cf72"

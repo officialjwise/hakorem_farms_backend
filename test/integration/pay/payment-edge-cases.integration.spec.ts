@@ -85,7 +85,7 @@ beforeAll(async () => {
   branchId = branches.get('DDW')!;
   for (const [name, sql, value] of [
     ['tema', 'SELECT id FROM mdm.customer WHERE name = $1', 'Tema Cold Store Ltd (SEED)'],
-    ['goat', 'SELECT id FROM mdm.product WHERE sku = $1', 'LIV-GOAT'],
+    ['goat', 'SELECT id FROM mdm.product WHERE sku = $1', 'LIV-0004'],
   ] as const) {
     ids.set(name, (await admin().query<{ id: string }>(sql, [value])).rows[0]!.id);
   }

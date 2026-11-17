@@ -157,7 +157,7 @@ beforeAll(async () => {
   // and a buck for breeding in pen 2. A flock of 20 broilers in house 3 before the window.
   await receive('PEN-GR', daysAgo(41), [
     {
-      productId: id('product:LIV-GOAT'),
+      productId: id('product:LIV-0004'),
       qtyReceived: '2.000',
       valuePesewas: 100_000,
       animals: [
@@ -169,7 +169,7 @@ beforeAll(async () => {
   // The breeding stock stands in pen 2 from the start, at 40,000 each, below the mortality threshold.
   await receive('PEN-GR2', daysAgo(41), [
     {
-      productId: id('product:LIV-GOAT'),
+      productId: id('product:LIV-0004'),
       qtyReceived: '3.000',
       valuePesewas: 120_000,
       animals: [
@@ -179,8 +179,8 @@ beforeAll(async () => {
       ],
     },
   ]);
-  await receive('PEN-GR', daysAgo(25), [{ productId: id('product:LIV-GOAT'), qtyReceived: '1.000', valuePesewas: 50_000, animals: [{ tagNo: 'GR-C', sex: 'MALE', purpose: 'GROWING' }] }]);
-  await receive('PEN-BR', daysAgo(41), [{ productId: id('product:LIV-BROILER'), qtyReceived: '20.000', valuePesewas: 40_000, batchNo: 'BRG-01' }]);
+  await receive('PEN-GR', daysAgo(25), [{ productId: id('product:LIV-0004'), qtyReceived: '1.000', valuePesewas: 50_000, animals: [{ tagNo: 'GR-C', sex: 'MALE', purpose: 'GROWING' }] }]);
+  await receive('PEN-BR', daysAgo(41), [{ productId: id('product:LIV-0001'), qtyReceived: '20.000', valuePesewas: 40_000, batchNo: 'BRG-01' }]);
 });
 
 afterAll(async () => {
@@ -199,8 +199,8 @@ describe('growth and feed conversion against a hand calculation (FR-LIV-005, FR-
     await weigh('BRG-01', '0.500', FROM, 10);
     await weigh('BRG-01', '2.500', TO, 10);
     // 33.000 kg of concentrate to the goats and 100.000 kg of grower to the broilers, both inside the window.
-    await feed('PEN-GR', 'FEED-GOAT-CONC', '33.000', dayOf(20));
-    await feed('PEN-BR', 'FEED-BRL-GROWER', '100.000', dayOf(20));
+    await feed('PEN-GR', 'FEED-0002', '33.000', dayOf(20));
+    await feed('PEN-BR', 'FEED-0001', '100.000', dayOf(20));
   });
 
   it('reports the growing pen over its two full-window goats: 0.220 kg a day, 13.200 kg gained on 33.000 kg of feed, 2.500', async () => {
@@ -266,7 +266,7 @@ describe('editing an animal (FR-LIV-002)', () => {
     );
     expect(audit.rows.map((r) => [r.before.purpose, r.after.purpose])).toEqual([['GROWING', 'BREEDING']]);
     const poolA = await poolOf('GR-A');
-    const fed = await feed('PEN-GR', 'FEED-GOAT-CONC', '3.000', toBusinessDate(clock.now()));
+    const fed = await feed('PEN-GR', 'FEED-0002', '3.000', toBusinessDate(clock.now()));
     expect(fed.allocations.map((a) => [a.stockUnit.identifier, a.treatment])).toEqual([
       ['GR-A', 'EXPENSED'],
       ['GR-B', 'CAPITALISED'],
@@ -326,13 +326,13 @@ describe('moving an animal between pens (FR-LIV-003)', () => {
     const again = await post(manager, `/animals/${id('unit:GR-B')}/move`, { toLocationId: id('location:PEN-GR2') });
     expect(again.status).toBe(422);
     expect(again.body.error.details).toEqual([expect.objectContaining({ code: 'ALREADY_THERE' })]);
-    expect(await postMovement('TRANSFER_INTERNAL', 'GR-B', 'LIV-GOAT', 'location:PEN-GR', 'location:PEN-GR2', '1.000')).toBe('STOCK_UNIT_NOT_AVAILABLE');
+    expect(await postMovement('TRANSFER_INTERNAL', 'GR-B', 'LIV-0004', 'location:PEN-GR', 'location:PEN-GR2', '1.000')).toBe('STOCK_UNIT_NOT_AVAILABLE');
     const virtual = await post(manager, `/animals/${id('unit:GR-B')}/move`, { toLocationId: id('virtual:CUSTOMER') });
     expect(virtual.body.error.details).toEqual([expect.objectContaining({ code: 'NOT_A_PEN' })]);
   });
 
   it('moves an animal under a withdrawal hold, which blocks a sale but not a pen move', async () => {
-    const treated = await post(farmHand, '/care/health-events', { kind: 'DEWORMING', stockUnitId: id('unit:GR-C'), productId: id('product:MED-ALBENDAZOLE'), qtyUsed: '0.010', occurredAt: daysAgo(0.01).toISOString() });
+    const treated = await post(farmHand, '/care/health-events', { kind: 'DEWORMING', stockUnitId: id('unit:GR-C'), productId: id('product:FEED-0003'), qtyUsed: '0.010', occurredAt: daysAgo(0.01).toISOString() });
     expect(treated.status, JSON.stringify(treated.body)).toBe(201);
     expect((await animal('GR-C'))['sellable']).toBe(false);
     const moved = await post(manager, `/animals/${id('unit:GR-C')}/move`, { toLocationId: id('location:PEN-GR2') });
@@ -355,7 +355,7 @@ describe('batches (FR-LIV-006)', () => {
     const early = await post(manager, `/batches/${id('batch:BRG-01')}/close`, { reason: 'House to be cleaned' });
     expect(early.status).toBe(422);
     expect(early.body.error.details).toEqual([expect.objectContaining({ code: 'BATCH_NOT_EMPTY' })]);
-    expect(await postMovement('SALE_ISSUE', 'BRG-01', 'LIV-BROILER', 'location:PEN-BR', 'virtual:CUSTOMER', '18.000')).toMatch(/^[0-9a-f-]{36}$/);
+    expect(await postMovement('SALE_ISSUE', 'BRG-01', 'LIV-0001', 'location:PEN-BR', 'virtual:CUSTOMER', '18.000')).toMatch(/^[0-9a-f-]{36}$/);
     const closed = await post(manager, `/batches/${id('batch:BRG-01')}/close`, { reason: 'All birds sold' });
     expect(closed.status, JSON.stringify(closed.body)).toBe(200);
     expect(closed.body).toMatchObject({ status: 'CLOSED', currentHead: 0, accumulatedCostPesewas: 0, mortalityPercent: '10.00' });
@@ -383,7 +383,7 @@ describe('batches (FR-LIV-006)', () => {
     const laying = await patch(manager, `/batches/${id('batch:BRL-HATCH-01')}`, { version: batch.version, purpose: 'LAYING' });
     expect(laying.status, JSON.stringify(laying.body)).toBe(200);
     expect(laying.body).toMatchObject({ purpose: 'LAYING', version: batch.version + 1 });
-    const fed = await feed('PEN-BR2', 'FEED-BRL-GROWER', '5.000', toBusinessDate(clock.now()));
+    const fed = await feed('PEN-BR2', 'FEED-0001', '5.000', toBusinessDate(clock.now()));
     expect(fed.allocations.map((a) => [a.stockUnit.identifier, a.treatment])).toEqual([['BRL-HATCH-01', 'EXPENSED']]);
     expect(await poolOf('BRL-HATCH-01')).toBe('0');
     const listed = await get(accountant, '/batches?status=ACTIVE');

@@ -202,7 +202,7 @@ describe('B4 gate: pinned exact prices, so the oracle itself is checked', () => 
     expect(response.status).toBe(200);
     return response.body.lines[0];
   };
-  const goatA = (kg: string): Case => ({ sku: 'LIV-GOAT', band: 'GOAT-M', grade: 'A', weightKg: kg, quantity: '1.000' });
+  const goatA = (kg: string): Case => ({ sku: 'LIV-0004', band: 'GOAT-M', grade: 'A', weightKg: kg, quantity: '1.000' });
 
   it('a 22.400 kg grade A goat at the counter is GHS 720.00 from the base list, band 450.00 to 900.00', async () => {
     const got = await one('POS', null, goatA('22.400'));
@@ -225,17 +225,17 @@ describe('B4 gate: pinned exact prices, so the oracle itself is checked', () => 
 
   it('derived prices were rounded half-up once when the list was set: 1,067 x 0.85 = 906.95 is 907, 733 x 0.85 = 623.05 is 623', async () => {
     const meat = (sku: string): Case => ({ sku, band: null, grade: null, weightKg: '15.000', quantity: '15.000' });
-    expect((await one('WHOLESALE', 'C-00003', meat('MEAT-CHICKEN-BACKS-15KG'))).resolved).toMatchObject({ priceList: { code: 'WHL-RESELLER-TIER' }, floorPricePesewas: 907, listPricePesewas: 1_105 });
-    expect((await one('WHOLESALE', 'C-00003', meat('MEAT-CHICKEN-WINGS-15KG'))).resolved).toMatchObject({ floorPricePesewas: 623, listPricePesewas: 935 });
+    expect((await one('WHOLESALE', 'C-00003', meat('MEAT-0004'))).resolved).toMatchObject({ priceList: { code: 'WHL-RESELLER-TIER' }, floorPricePesewas: 907, listPricePesewas: 1_105 });
+    expect((await one('WHOLESALE', 'C-00003', meat('MEAT-0002'))).resolved).toMatchObject({ floorPricePesewas: 623, listPricePesewas: 935 });
   });
 
   it('extends a resolved per-kilogram price to a line once, half-up: 0.500 kg of online wings at 1,155 is 577.5, so 578', async () => {
-    const got = await one('ONLINE', null, { sku: 'MEAT-CHICKEN-WINGS-15KG', band: null, grade: null, weightKg: '0.500', quantity: '0.500' });
+    const got = await one('ONLINE', null, { sku: 'MEAT-0002', band: null, grade: null, weightKg: '0.500', quantity: '0.500' });
     expect(got.resolved).toMatchObject({ priceList: { code: 'ONLINE' }, listPricePesewas: 1_155, basis: 'PER_KG' });
     const measure = { quantity: Quantity.parse('0.500'), weight: Weight.parseKg('0.500') };
     expect(extendPrice(BigInt(got.resolved.listPricePesewas), 'PER_KG', measure)).toEqual({ ok: true, value: 578n });
     // A full 15.250 kg pack of online full chicken at 1,995 a kilogram: 30,423.75, so 30,424.
-    const chicken = await one('ONLINE', null, { sku: 'MEAT-CHICKEN-FULL-15KG', band: null, grade: null, weightKg: '15.250', quantity: '15.250' });
+    const chicken = await one('ONLINE', null, { sku: 'MEAT-0001', band: null, grade: null, weightKg: '15.250', quantity: '15.250' });
     expect(chicken.resolved.listPricePesewas).toBe(1_995);
     expect(extendPrice(1_995n, 'PER_KG', { quantity: Quantity.parse('15.250'), weight: Weight.parseKg('15.250') })).toEqual({ ok: true, value: 30_424n });
   });
@@ -249,7 +249,7 @@ describe('B4 gate: an unresolvable request becomes a quote, not an error', () =>
   };
 
   it('a 65.000 kg goat, above every goat band, is QUOTE_REQUIRED with NO_RULE', async () => {
-    expect(await one({ sku: 'LIV-GOAT', band: null, grade: null, weightKg: '65.000', quantity: '1.000' })).toEqual({
+    expect(await one({ sku: 'LIV-0004', band: null, grade: null, weightKg: '65.000', quantity: '1.000' })).toEqual({
       lineRef: '0',
       outcome: 'QUOTE_REQUIRED',
       resolved: null,
@@ -259,16 +259,16 @@ describe('B4 gate: an unresolvable request becomes a quote, not an error', () =>
   });
 
   it('a goat with no weight is MISSING_GRADE_OR_WEIGHT', async () => {
-    expect((await one({ sku: 'LIV-GOAT', band: null, grade: null, weightKg: null, quantity: '1.000' })).quoteRequiredReason).toBe('MISSING_GRADE_OR_WEIGHT');
+    expect((await one({ sku: 'LIV-0004', band: null, grade: null, weightKg: null, quantity: '1.000' })).quoteRequiredReason).toBe('MISSING_GRADE_OR_WEIGHT');
   });
 
   it('a 70.000 kg festival ram is QUOTE_ONLY even though smaller sheep have list prices', async () => {
-    expect((await one({ sku: 'LIV-SHEEP', band: 'SHEEP-XL', grade: null, weightKg: '70.000', quantity: '1.000' }, 'WHOLESALE')).quoteRequiredReason).toBe('QUOTE_ONLY');
+    expect((await one({ sku: 'LIV-0005', band: 'SHEEP-XL', grade: null, weightKg: '70.000', quantity: '1.000' }, 'WHOLESALE')).quoteRequiredReason).toBe('QUOTE_ONLY');
   });
 
   it('lettuce, unpriced this season, is NO_RULE on every channel and never a zero price', async () => {
     for (const channel of CHANNELS) {
-      const got = await one({ sku: 'PRD-LETTUCE-HEAD', band: null, grade: null, weightKg: null, quantity: '1.000' }, channel);
+      const got = await one({ sku: 'PRD-0006', band: null, grade: null, weightKg: null, quantity: '1.000' }, channel);
       expect(got).toMatchObject({ outcome: 'QUOTE_REQUIRED', quoteRequiredReason: 'NO_RULE', resolved: null });
     }
   });

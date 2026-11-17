@@ -87,21 +87,21 @@ responses:
               topMovers:
                 - product:
                     id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                    sku: LIV-GOAT
+                    sku: LIV-0004
                     name: Goat
                   qty: "4.000"
                   uom: HEAD
                   revenuePesewas: 335000
                 - product:
                     id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                    sku: EGG-BIG
+                    sku: EGG-0003
                     name: "Eggs, big, crate of 30"
                   qty: "21.000"
                   uom: CRATE
                   revenuePesewas: 126000
                 - product:
                     id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                    sku: MEAT-BEEF
+                    sku: MEAT-0005
                     name: "Beef, 15 kg pack"
                   qty: "45.600"
                   uom: KG
@@ -231,28 +231,28 @@ responses:
               topMovers:
                 - product:
                     id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                    sku: LIV-GOAT
+                    sku: LIV-0004
                     name: Goat
                   qty: "1.000"
                   uom: HEAD
                   revenuePesewas: 58500
                 - product:
                     id: "019a7a8d-ae28-7631-8b69-6be302d5e4c1"
-                    sku: EGG-CRATE-BIG
+                    sku: EGG-0003
                     name: "Eggs, big, crate of 30"
                   qty: "3.000"
                   uom: CRATE
                   revenuePesewas: 18000
                 - product:
                     id: "019a7a8e-3b1f-7c2a-9d4e-5f6a7b8c9d01"
-                    sku: MEAT-GOAT-15KG
+                    sku: MEAT-0007
                     name: "Goat meat, 15 kg pack"
                   qty: "3.500"
                   uom: KG
                   revenuePesewas: 6930
                 - product:
                     id: "019a7a8e-4c2a-7d3b-8e5f-6a7b8c9d0e12"
-                    sku: PRD-CABBAGE-HEAD
+                    sku: PRD-0002
                     name: Cabbage
                   qty: "3.000"
                   uom: HEAD

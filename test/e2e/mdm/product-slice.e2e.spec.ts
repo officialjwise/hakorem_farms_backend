@@ -97,17 +97,19 @@ beforeAll(async () => {
 
 describe('the Product slice on the running stack', () => {
   it('lets the Manager create a product, then reads it back by id and in the list', async () => {
-    const sku = `PRD-CABBAGE-${randomUUID().slice(0, 6).toUpperCase()}`;
     const categories = await manager.call('GET', '/v1/products?q=yam');
     const categoryId = categories.body.data[0].category.id as string;
     const created = await manager.call(
       'POST',
       '/v1/products',
-      { sku, name: 'Cabbage, per head', categoryId, stockPolicy: 'COUNTABLE', baseUom: 'UNIT', saleUom: 'UNIT', onlineMode: 'LISTED' },
+      { name: 'Cabbage, per head', categoryId, stockPolicy: 'COUNTABLE', baseUom: 'UNIT', saleUom: 'UNIT', onlineMode: 'LISTED' },
       { 'Idempotency-Key': randomUUID() },
     );
     expect(created.status).toBe(201);
-    expect(created.body).toMatchObject({ sku, tracking: 'NONE', status: 'ACTIVE', category: { code: 'PRODUCE' } });
+    // The server gives the SKU (B09q, ADR-0072): the category's prefix and the next number.
+    const sku = created.body.sku as string;
+    expect(sku).toMatch(/^PRD-[0-9]{4,}$/);
+    expect(created.body).toMatchObject({ tracking: 'NONE', status: 'ACTIVE', category: { code: 'PRODUCE' } });
     const read = await cashier.call('GET', `/v1/products/${created.body.id}`);
     expect(read.body).toEqual(created.body);
     const list = await cashier.call('GET', `/v1/products?q=cabbage`);
@@ -115,7 +117,7 @@ describe('the Product slice on the running stack', () => {
   });
 
   it('refuses the cashier, who may read but not create', async () => {
-    const refused = await cashier.call('POST', '/v1/products', { sku: 'LIV-TURKEY', name: 'Turkey', categoryId: randomUUID(), stockPolicy: 'NON_STOCK', baseUom: 'UNIT', saleUom: 'UNIT', onlineMode: 'HIDDEN' }, { 'Idempotency-Key': randomUUID() });
+    const refused = await cashier.call('POST', '/v1/products', { name: 'Turkey', categoryId: randomUUID(), stockPolicy: 'NON_STOCK', baseUom: 'UNIT', saleUom: 'UNIT', onlineMode: 'HIDDEN' }, { 'Idempotency-Key': randomUUID() });
     expect(refused.status).toBe(403);
     expect(refused.body.error.code).toBe('FORBIDDEN');
   });
@@ -131,9 +133,8 @@ describe('the Product slice on the running stack', () => {
   });
 
   it('attaches only a clean product photograph and refuses the cashier the gallery (FR-DOC-005)', async () => {
-    const sku = `PRD-OKRA-${randomUUID().slice(0, 6).toUpperCase()}`;
     const categoryId = (await manager.call('GET', '/v1/products?q=yam')).body.data[0].category.id as string;
-    const created = await manager.call('POST', '/v1/products', { sku, name: 'Okra, per kilogram', categoryId, stockPolicy: 'COUNTABLE', baseUom: 'UNIT', saleUom: 'UNIT', onlineMode: 'LISTED' }, { 'Idempotency-Key': randomUUID() });
+    const created = await manager.call('POST', '/v1/products', { name: 'Okra, per kilogram', categoryId, stockPolicy: 'COUNTABLE', baseUom: 'UNIT', saleUom: 'UNIT', onlineMode: 'LISTED' }, { 'Idempotency-Key': randomUUID() });
     expect(created.status).toBe(201);
     const photo = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(4_092, 9)]);
     const stored = await manager.upload('PRODUCT_IMAGE', photo, 'okra.jpg');

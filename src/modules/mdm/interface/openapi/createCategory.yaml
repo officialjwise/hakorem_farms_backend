@@ -2,7 +2,7 @@ operationId: createCategory
 tags:
   - mdm
 summary: "Create a product category"
-description: "Codes are unique among live categories, and names among a category's siblings (422 `DUPLICATE_VALUE`).\n\nPermission: `mdm.category.create`."
+description: "Codes are unique among live categories, and names among a category's siblings (422 `DUPLICATE_VALUE`). `skuPrefix` (two to five capital letters, 2.0.0) starts the SKUs the server gives the category's products (`SEA-0001`, ADR-0072); without one it is the first three letters of `code`, or `CAT` when the code has fewer than two.\n\nPermission: `mdm.category.create`."
 x-permission: mdm.category.create
 x-error-codes:
   - VALIDATION_FAILED
@@ -35,6 +35,7 @@ requestBody:
         glGroup: PRODUCE_EGGS
         taxCategoryId: "019a7a8a-89e2-7516-aa4f-5a40a6dbd31e"
         sortOrder: 90
+        skuPrefix: SEA
 responses:
   "201":
     description: OK
@@ -58,6 +59,7 @@ responses:
             name: "Live Animals"
           sortOrder: 0
           isOnlineVisible: true
+          skuPrefix: LIV
           productCount: 3
           version: 2
           createdAt: "2026-11-02T08:00:00Z"

@@ -79,7 +79,7 @@ responses:
                       lineNo: 1
                       product:
                         id: "019a7a8e-a5a0-754c-8a85-5d9ed05dd67c"
-                        sku: PRD-YAM
+                        sku: PRD-0005
                         name: "Yam, tuber"
                       stockUnit: null
                       direction: LOSS
@@ -117,7 +117,7 @@ responses:
                       lineNo: 1
                       product:
                         id: "019a7a8e-0af5-73db-b913-46896fe8bf67"
-                        sku: MEAT-CHK-WING
+                        sku: MEAT-0002
                         name: "Chicken wings, 15 kg pack"
                       stockUnit:
                         id: "019a7a91-104c-7b12-804a-b9f4523132d2"
@@ -156,7 +156,7 @@ responses:
                       lineNo: 1
                       product:
                         id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                        sku: EGG-BIG
+                        sku: EGG-0003
                         name: "Eggs, big, crate of 30"
                       stockUnit:
                         id: "019a7a91-2f3b-74f5-9a2d-582bcbe2d109"
@@ -197,7 +197,7 @@ responses:
                       lineNo: 1
                       product:
                         id: "019a7a8e-c48f-7f30-9468-fbd64a0e74b4"
-                        sku: PRD-CABBAGE
+                        sku: PRD-0002
                         name: "Cabbage, head"
                       stockUnit: null
                       direction: GAIN
@@ -235,7 +235,7 @@ responses:
                       lineNo: 1
                       product:
                         id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
-                        sku: MEAT-GOAT
+                        sku: MEAT-0007
                         name: "Goat meat, 15 kg pack"
                       stockUnit:
                         id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
@@ -276,7 +276,7 @@ responses:
                       lineNo: 1
                       product:
                         id: "019a7a8e-e37e-7913-ae4c-9a0dc3bf12eb"
-                        sku: FD-BRL-FIN
+                        sku: FEED-0004
                         name: "Broiler finisher feed, 50 kg bag"
                       stockUnit: null
                       direction: LOSS

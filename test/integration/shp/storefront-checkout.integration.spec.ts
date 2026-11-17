@@ -165,8 +165,8 @@ describe('the guest cart (FR-SHP-003, FR-SHP-004)', () => {
 
   it('prices two crates of eggs at 12,000 and two beef packs at an estimated 30 kg, the server summing the lines', async () => {
     cart = await newCart();
-    expect((await add(cart, 'EGG-CRATE-BIG', '2.000')).status).toBe(200);
-    const after = await add(cart, 'MEAT-BEEF-15KG', '2.000');
+    expect((await add(cart, 'EGG-0003', '2.000')).status).toBe(200);
+    const after = await add(cart, 'MEAT-0005', '2.000');
     expect(after.status).toBe(200);
     const [eggs, beef] = after.body.lines as Array<Record<string, unknown>>;
     expect(eggs).toMatchObject({ quantity: '2.000', uom: 'CRATE', displayedUnitPricePesewas: 6_000, estimatedLineTotalPesewas: 12_000, catchWeight: false, available: true });
@@ -176,25 +176,25 @@ describe('the guest cart (FR-SHP-003, FR-SHP-004)', () => {
   });
 
   it('refuses a live animal with REQUEST_TO_BUY_ONLY and a fraction of a crate with QUANTITY_INVALID', async () => {
-    const goat = await add(cart, 'LIV-GOAT', '1.000');
+    const goat = await add(cart, 'LIV-0004', '1.000');
     expect(goat.status).toBe(422);
     expect(goat.body.error.code).toBe('REQUEST_TO_BUY_ONLY');
-    const half = await add(cart, 'EGG-CRATE-BIG', '1.500');
+    const half = await add(cart, 'EGG-0003', '1.500');
     expect(half.status).toBe(422);
     expect(half.body.error.code).toBe('QUANTITY_INVALID');
-    expect((await add(cart, 'BYP-GOAT-OFFAL', '1.000')).body.error.code).toBe('PRODUCT_UNAVAILABLE');
+    expect((await add(cart, 'MEAT-0008', '1.000')).body.error.code).toBe('PRODUCT_UNAVAILABLE');
   });
 
   it('answers 404 to a request without the cart token, or with another cart token', async () => {
     expect((await read(`/shop/carts/${cart.cartId}`)).status).toBe(404);
     const other = await newCart();
     expect((await read(`/shop/carts/${cart.cartId}`, other)).status).toBe(404);
-    expect((await write('post', `/shop/carts/${cart.cartId}/lines`, other, { productId: id('product:PRD-YAM-TUBER'), quantity: '1.000' })).status).toBe(404);
+    expect((await write('post', `/shop/carts/${cart.cartId}/lines`, other, { productId: id('product:PRD-0005'), quantity: '1.000' })).status).toBe(404);
     expect((await read(`/shop/carts/${cart.cartId}`, cart)).status).toBe(200);
   });
 
   it('refuses a cart write from an origin that is not allowed', async () => {
-    const forged = await request(api.server).post(`/v1/shop/carts/${cart.cartId}/lines`).set('Origin', 'https://evil.example').set('Idempotency-Key', randomUUID()).set('Cookie', cart.cookie).send({ productId: id('product:PRD-YAM-TUBER'), quantity: '1.000' });
+    const forged = await request(api.server).post(`/v1/shop/carts/${cart.cartId}/lines`).set('Origin', 'https://evil.example').set('Idempotency-Key', randomUUID()).set('Cookie', cart.cookie).send({ productId: id('product:PRD-0005'), quantity: '1.000' });
     expect(forged.status).toBe(403);
   });
 
@@ -230,37 +230,37 @@ describe('the guest cart (FR-SHP-003, FR-SHP-004)', () => {
       expect(started.body.finalChargeRule).toContain('GHS 1,168.29');
       expect(Date.parse(started.body.reservedUntil) - clock.now().getTime()).toBe(15 * 60_000);
       expect(await reserved(started.body.id)).toEqual([
-        { product: 'EGG-CRATE-BIG', qty: '2.000', status: 'ACTIVE' },
-        { product: 'MEAT-BEEF-15KG', qty: '30.000', status: 'ACTIVE' },
+        { product: 'EGG-0003', qty: '2.000', status: 'ACTIVE' },
+        { product: 'MEAT-0005', qty: '30.000', status: 'ACTIVE' },
       ]);
-      expect((await add(cart, 'PRD-YAM-TUBER', '1.000')).body.error.code).toBe('CART_NOT_ACTIVE');
+      expect((await add(cart, 'PRD-0005', '1.000')).body.error.code).toBe('CART_NOT_ACTIVE');
       expect((await checkout(cart)).body.error.code).toBe('CART_NOT_ACTIVE');
     });
 
     it('starts none of a cart whose last line cannot be covered', async () => {
       const short = await newCart();
-      await add(short, 'PRD-YAM-TUBER', '2.000');
-      await add(short, 'MEAT-BEEF-15KG', '2.000');
+      await add(short, 'PRD-0005', '2.000');
+      await add(short, 'MEAT-0005', '2.000');
       const refused = await checkout(short);
       expect(refused.status).toBe(422);
       expect(refused.body.error.code).toBe('STOCK_UNAVAILABLE');
-      expect(await reservedAt('PRD-YAM-TUBER')).toBe('0.000');
+      expect(await reservedAt('PRD-0005')).toBe('0.000');
       expect((await read(`/shop/carts/${short.cartId}`, short)).body.status).toBe('ACTIVE');
     });
 
     it('lets exactly one of two buyers of the last 28 crates check out at once', async () => {
       const [first, second] = [await newCart(), await newCart()];
-      await add(first, 'EGG-CRATE-BIG', '28.000');
-      await add(second, 'EGG-CRATE-BIG', '28.000');
+      await add(first, 'EGG-0003', '28.000');
+      await add(second, 'EGG-0003', '28.000');
       const answers = await Promise.all([checkout(first), checkout(second)]);
       expect(answers.map((a) => a.status).sort()).toEqual([201, 422]);
       expect(answers.find((a) => a.status === 422)!.body.error.code).toBe('STOCK_UNAVAILABLE');
-      expect(await reservedAt('EGG-CRATE-BIG')).toBe('30.000');
+      expect(await reservedAt('EGG-0003')).toBe('30.000');
     });
 
     it('charges the Dodowa fee of exactly 1,500 on a 4,000 cart, collection only outside every zone, nothing to collect', async () => {
       const small = await newCart();
-      await add(small, 'PRD-YAM-TUBER', '2.000');
+      await add(small, 'PRD-0005', '2.000');
       const outside = await checkout(small, { contactName: 'Kofi Mensah', contactPhone: '+233201234567', fulfilmentMode: 'DELIVERY', address: { ...dodowa, area: 'Bantama', city: 'Kumasi', region: 'Ashanti' }, paymentTerms: 'COD' });
       expect(outside.status).toBe(422);
       expect(outside.body.error.code).toBe('DELIVERY_UNAVAILABLE');
@@ -279,17 +279,17 @@ describe('the guest cart (FR-SHP-003, FR-SHP-004)', () => {
       expect(moved.status).toBe(200);
       expect(moved.body.deliverySlot.id).toBe(later!.id);
       const collected = await newCart();
-      await add(collected, 'PRD-YAM-TUBER', '2.000');
+      await add(collected, 'PRD-0005', '2.000');
       const pickUp = await checkout(collected);
       expect(pickUp.body).toMatchObject({ deliveryFeePesewas: 0, estimatedTotalPesewas: 4_000, deliveryZone: null });
       const codCollect = await newCart();
-      await add(codCollect, 'PRD-YAM-TUBER', '1.000');
+      await add(codCollect, 'PRD-0005', '1.000');
       expect((await checkout(codCollect, { contactName: 'Kofi Mensah', contactPhone: '+233201234567', fulfilmentMode: 'COLLECTION', paymentTerms: 'COD' })).body.error.code).toBe('CHECKOUT_INVALID');
     });
 
     it('answers a replayed start with the same checkout, and another guest a 404', async () => {
       const replayGuest = await newCart();
-      await add(replayGuest, 'PRD-CABBAGE-HEAD', '3.000');
+      await add(replayGuest, 'PRD-0002', '3.000');
       const key = randomUUID();
       const body = { contactName: 'Efua Asante', contactPhone: '+233277000111', fulfilmentMode: 'COLLECTION', paymentTerms: 'PREPAID' };
       const once = await write('post', `/shop/carts/${replayGuest.cartId}/checkout`, replayGuest, body, key);
@@ -301,17 +301,17 @@ describe('the guest cart (FR-SHP-003, FR-SHP-004)', () => {
     });
 
     it('releases exactly what it reserved 15 minutes and 1 second later, ends the checkout and gives the cart back', async () => {
-      const beforeEggs = await reservedAt('EGG-CRATE-BIG');
-      const beforeBeef = await reservedAt('MEAT-BEEF-15KG');
+      const beforeEggs = await reservedAt('EGG-0003');
+      const beforeBeef = await reservedAt('MEAT-0005');
       clock.advanceBy(15 * 60_000 + 1_000);
       const expired = await runAsSystem({ principalId: SCHEDULER, displayName: 'Scheduler' }, randomUUID(), () => api.app.get(ReservationExpiry).run({ kind: 'SYSTEM', principalId: SCHEDULER }));
       expect(expired.length).toBeGreaterThanOrEqual(2);
       expect(await reserved(started.body.id)).toEqual([
-        { product: 'EGG-CRATE-BIG', qty: '2.000', status: 'EXPIRED' },
-        { product: 'MEAT-BEEF-15KG', qty: '30.000', status: 'EXPIRED' },
+        { product: 'EGG-0003', qty: '2.000', status: 'EXPIRED' },
+        { product: 'MEAT-0005', qty: '30.000', status: 'EXPIRED' },
       ]);
-      expect(await reservedAt('MEAT-BEEF-15KG')).toBe((Number(beforeBeef) - 30).toFixed(3));
-      expect(await reservedAt('EGG-CRATE-BIG')).toBe('0.000');
+      expect(await reservedAt('MEAT-0005')).toBe((Number(beforeBeef) - 30).toFixed(3));
+      expect(await reservedAt('EGG-0003')).toBe('0.000');
       expect(beforeEggs).toBe('30.000');
       const seen = await read(`/shop/checkouts/${started.body.id}`, cart);
       expect(seen.body.status).toBe('EXPIRED');
@@ -335,10 +335,10 @@ describe('the guest cart (FR-SHP-003, FR-SHP-004)', () => {
       await expect(admin.query("UPDATE shp.checkout_session SET contact_name = 'Someone else', version = version + 1 WHERE id = $1", [started.body.id])).rejects.toMatchObject({ code: 'HK004' });
       await expect(admin.query('UPDATE shp.checkout_session SET maximum_total_pesewas = 1, version = version + 1 WHERE id = $1', [(await checkout(await (async () => {
         const g = await newCart();
-        await add(g, 'PRD-CABBAGE-HEAD', '1.000');
+        await add(g, 'PRD-0002', '1.000');
         return g;
       })())).body.id])).rejects.toMatchObject({ constraint: 'ck_checkout_session_totals' });
-      await expect(admin.query('INSERT INTO shp.product_listing (product_id) VALUES ($1)', [id('product:LIV-GOAT')])).rejects.toMatchObject({ code: '42501' });
+      await expect(admin.query('INSERT INTO shp.product_listing (product_id) VALUES ($1)', [id('product:LIV-0004')])).rejects.toMatchObject({ code: '42501' });
     });
   });
   describe('the cart names its open checkout, and only its own (CR-029)', () => {
@@ -347,7 +347,7 @@ describe('the guest cart (FR-SHP-003, FR-SHP-004)', () => {
     it('is null on an active cart and names the checkout while the cart is at checkout, never another cart’s', async () => {
       for (const quantity of ['1.000', '2.000']) {
         const guest = await newCart();
-        await add(guest, 'PRD-CABBAGE-HEAD', quantity);
+        await add(guest, 'PRD-0002', quantity);
         expect((await read(`/shop/carts/${guest.cartId}`, guest)).body).toMatchObject({ status: 'ACTIVE', checkoutId: null });
         const started = await checkout(guest);
         expect(started.status, JSON.stringify(started.body)).toBe(201);
@@ -375,7 +375,7 @@ describe('the guest cart (FR-SHP-003, FR-SHP-004)', () => {
 
     it('is null again once the checkout expires and the cart is given back', async () => {
       const guest = await newCart();
-      await add(guest, 'PRD-CABBAGE-HEAD', '1.000');
+      await add(guest, 'PRD-0002', '1.000');
       const started = await checkout(guest);
       expect((await read(`/shop/carts/${guest.cartId}`, guest)).body.checkoutId).toBe(started.body.id);
       clock.advanceBy(15 * 60_000 + 1_000);

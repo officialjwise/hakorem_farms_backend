@@ -91,7 +91,7 @@ responses:
               lineNo: 1
               product:
                 id: "019a7a8f-026d-72f7-b82f-38453d70b123"
-                sku: VET-OXYTET
+                sku: FEED-0005
                 name: "Oxytetracycline 20% injection, 100 ml"
               description: "Oxytetracycline 20% injection, 100 ml"
               purchaseOrderLineId: "019a7ab5-eb0b-7313-984b-3a0c4e12b2ea"

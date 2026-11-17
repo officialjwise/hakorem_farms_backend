@@ -28,6 +28,10 @@ export interface SeedSpecies {
 }
 
 export interface SeedProduct {
+  /**
+   * The SKU the server gives the product (B09q, ADR-0072): its category's prefix and the next number, in the order
+   * this list creates them on a fresh farm. The seed never sends it; it checks the product came back with it.
+   */
   readonly sku: string;
   readonly name: string;
   readonly category: 'LIVE' | 'MEAT' | 'EGGS' | 'PRODUCE';
@@ -131,31 +135,31 @@ const countable = (sku: string, name: string, category: 'EGGS' | 'PRODUCE', uom:
 
 /** The whole reference catalogue: six products B3 seeded, and the rest. */
 export const SEED_PRODUCTS: readonly SeedProduct[] = [
-  live('LIV-BROILER', 'Broiler chicken', 'BROILER', 'COUNTABLE'),
-  live('LIV-LOCAL-CHICKEN', 'Local chicken', 'LOCAL_CHICKEN', 'COUNTABLE'),
-  live('LIV-PIG', 'Baby pig', 'PIG', 'SERIALISED'),
-  live('LIV-GOAT', 'Goat', 'GOAT', 'SERIALISED', true),
-  live('LIV-SHEEP', 'Sheep', 'SHEEP', 'SERIALISED', true),
-  live('LIV-DUCK', 'Duck', 'DUCK', 'COUNTABLE'),
-  live('LIV-RABBIT', 'Rabbit', 'RABBIT', 'SERIALISED'),
-  meat('MEAT-CHICKEN-FULL-15KG', 'Full chicken, 15 kg pack'),
-  meat('MEAT-CHICKEN-WINGS-15KG', 'Chicken wings, 15 kg pack', true),
-  meat('MEAT-CHICKEN-DT-15KG', 'Chicken drumsticks and thighs, 15 kg pack'),
-  meat('MEAT-CHICKEN-BACKS-15KG', 'Chicken backs, 15 kg pack'),
-  meat('MEAT-BEEF-15KG', 'Beef, 15 kg pack'),
-  meat('MEAT-PORK-15KG', 'Pork, 15 kg pack'),
-  meat('MEAT-GOAT-15KG', 'Goat meat, 15 kg pack', true),
+  live('LIV-0001', 'Broiler chicken', 'BROILER', 'COUNTABLE'),
+  live('LIV-0002', 'Local chicken', 'LOCAL_CHICKEN', 'COUNTABLE'),
+  live('LIV-0003', 'Baby pig', 'PIG', 'SERIALISED'),
+  live('LIV-0004', 'Goat', 'GOAT', 'SERIALISED', true),
+  live('LIV-0005', 'Sheep', 'SHEEP', 'SERIALISED', true),
+  live('LIV-0006', 'Duck', 'DUCK', 'COUNTABLE'),
+  live('LIV-0007', 'Rabbit', 'RABBIT', 'SERIALISED'),
+  meat('MEAT-0001', 'Full chicken, 15 kg pack'),
+  meat('MEAT-0002', 'Chicken wings, 15 kg pack', true),
+  meat('MEAT-0003', 'Chicken drumsticks and thighs, 15 kg pack'),
+  meat('MEAT-0004', 'Chicken backs, 15 kg pack'),
+  meat('MEAT-0005', 'Beef, 15 kg pack'),
+  meat('MEAT-0006', 'Pork, 15 kg pack'),
+  meat('MEAT-0007', 'Goat meat, 15 kg pack', true),
   // Offal from the slab (B6): sold loose by the kilogram at the counter, never online.
-  { ...meat('BYP-GOAT-OFFAL', 'Goat offal, per kg (SEED)'), saleUom: 'KG', onlineMode: 'HIDDEN' },
-  countable('EGG-CRATE-LOCAL', 'Eggs, local, crate of 30', 'EGGS', 'CRATE'),
-  countable('EGG-CRATE-SMALL', 'Eggs, small, crate of 30', 'EGGS', 'CRATE'),
-  countable('EGG-CRATE-BIG', 'Eggs, big, crate of 30', 'EGGS', 'CRATE', true),
-  countable('PRD-TOMATO-CRATE', 'Tomatoes, crate', 'PRODUCE', 'CRATE'),
-  countable('PRD-CABBAGE-HEAD', 'Cabbage, per head', 'PRODUCE', 'UNIT'),
-  countable('PRD-PEPPER-BAG', 'Pepper, bag', 'PRODUCE', 'BAG'),
-  countable('PRD-CARROT-CRATE', 'Carrots, crate', 'PRODUCE', 'CRATE'),
-  countable('PRD-YAM-TUBER', 'Yam, per tuber', 'PRODUCE', 'TUBER', true),
-  countable('PRD-LETTUCE-HEAD', 'Lettuce, per head', 'PRODUCE', 'UNIT'),
+  { ...meat('MEAT-0008', 'Goat offal, per kg (SEED)'), saleUom: 'KG', onlineMode: 'HIDDEN' },
+  countable('EGG-0001', 'Eggs, local, crate of 30', 'EGGS', 'CRATE'),
+  countable('EGG-0002', 'Eggs, small, crate of 30', 'EGGS', 'CRATE'),
+  countable('EGG-0003', 'Eggs, big, crate of 30', 'EGGS', 'CRATE', true),
+  countable('PRD-0001', 'Tomatoes, crate', 'PRODUCE', 'CRATE'),
+  countable('PRD-0002', 'Cabbage, per head', 'PRODUCE', 'UNIT'),
+  countable('PRD-0003', 'Pepper, bag', 'PRODUCE', 'BAG'),
+  countable('PRD-0004', 'Carrots, crate', 'PRODUCE', 'CRATE'),
+  countable('PRD-0005', 'Yam, per tuber', 'PRODUCE', 'TUBER', true),
+  countable('PRD-0006', 'Lettuce, per head', 'PRODUCE', 'UNIT'),
 ];
 
 const entry = (sku: string, basis: Basis, floor: number, list: number, ceiling: number, band: string | null = null, grade: string | null = null): SeedEntry => ({
@@ -173,46 +177,46 @@ const quoteOnly = (sku: string, basis: Basis, band: string | null): SeedEntry =>
 
 /** Counter and every channel without its own list: the base prices, tax-inclusive (A-023). */
 const BASE_ENTRIES: readonly SeedEntry[] = [
-  head('LIV-BROILER', 'BR-S', 12_000, 13_500, 15_000),
-  head('LIV-BROILER', 'BR-M', 15_000, 17_000, 18_500),
-  head('LIV-BROILER', 'BR-L', 18_500, 20_000, 22_000),
-  head('LIV-LOCAL-CHICKEN', 'LC-S', 10_000, 11_500, 13_000),
-  head('LIV-LOCAL-CHICKEN', 'LC-M', 13_000, 14_500, 15_500),
-  head('LIV-LOCAL-CHICKEN', 'LC-L', 15_500, 16_500, 18_000),
-  head('LIV-PIG', 'PIG-W', 15_000, 22_000, 30_000),
-  head('LIV-PIG', 'PIG-G', 30_000, 60_000, 90_000),
-  head('LIV-PIG', 'PIG-F', 90_000, 150_000, 220_000),
-  head('LIV-GOAT', 'GOAT-S', 12_000, 25_000, 40_000),
-  head('LIV-GOAT', 'GOAT-M', 40_000, 65_000, 90_000),
-  head('LIV-GOAT', 'GOAT-M', 45_000, 72_000, 90_000, 'A'),
-  head('LIV-GOAT', 'GOAT-L', 90_000, 120_000, 150_000),
-  head('LIV-GOAT', 'GOAT-L', 100_000, 130_000, 150_000, 'A'),
-  head('LIV-GOAT', 'GOAT-XL', 150_000, 170_000, 195_000),
-  head('LIV-SHEEP', 'SHEEP-S', 15_000, 40_000, 70_000),
-  head('LIV-SHEEP', 'SHEEP-M', 70_000, 110_000, 150_000),
-  head('LIV-SHEEP', 'SHEEP-L', 150_000, 220_000, 300_000),
+  head('LIV-0001', 'BR-S', 12_000, 13_500, 15_000),
+  head('LIV-0001', 'BR-M', 15_000, 17_000, 18_500),
+  head('LIV-0001', 'BR-L', 18_500, 20_000, 22_000),
+  head('LIV-0002', 'LC-S', 10_000, 11_500, 13_000),
+  head('LIV-0002', 'LC-M', 13_000, 14_500, 15_500),
+  head('LIV-0002', 'LC-L', 15_500, 16_500, 18_000),
+  head('LIV-0003', 'PIG-W', 15_000, 22_000, 30_000),
+  head('LIV-0003', 'PIG-G', 30_000, 60_000, 90_000),
+  head('LIV-0003', 'PIG-F', 90_000, 150_000, 220_000),
+  head('LIV-0004', 'GOAT-S', 12_000, 25_000, 40_000),
+  head('LIV-0004', 'GOAT-M', 40_000, 65_000, 90_000),
+  head('LIV-0004', 'GOAT-M', 45_000, 72_000, 90_000, 'A'),
+  head('LIV-0004', 'GOAT-L', 90_000, 120_000, 150_000),
+  head('LIV-0004', 'GOAT-L', 100_000, 130_000, 150_000, 'A'),
+  head('LIV-0004', 'GOAT-XL', 150_000, 170_000, 195_000),
+  head('LIV-0005', 'SHEEP-S', 15_000, 40_000, 70_000),
+  head('LIV-0005', 'SHEEP-M', 70_000, 110_000, 150_000),
+  head('LIV-0005', 'SHEEP-L', 150_000, 220_000, 300_000),
   // A festival ram is priced by negotiation, never from a list.
-  quoteOnly('LIV-SHEEP', 'PER_HEAD', 'SHEEP-XL'),
-  head('LIV-DUCK', 'DUCK-S', 8_000, 12_000, 16_000),
-  head('LIV-DUCK', 'DUCK-L', 16_000, 24_000, 30_000),
-  head('LIV-RABBIT', 'RAB-S', 8_000, 12_000, 18_000),
-  head('LIV-RABBIT', 'RAB-L', 18_000, 26_000, 35_000),
-  entry('MEAT-CHICKEN-FULL-15KG', 'PER_KG', 1_467, 1_900, 2_333),
-  entry('MEAT-CHICKEN-WINGS-15KG', 'PER_KG', 733, 1_100, 1_667),
-  entry('MEAT-CHICKEN-DT-15KG', 'PER_KG', 1_200, 1_800, 2_467),
-  entry('MEAT-CHICKEN-BACKS-15KG', 'PER_KG', 1_067, 1_300, 1_600),
-  entry('MEAT-BEEF-15KG', 'PER_KG', 2_200, 3_060, 4_333),
-  entry('MEAT-PORK-15KG', 'PER_KG', 1_133, 1_700, 2_267),
-  entry('MEAT-GOAT-15KG', 'PER_KG', 1_400, 2_200, 3_133),
-  entry('BYP-GOAT-OFFAL', 'PER_KG', 1_000, 1_500, 1_800),
-  entry('EGG-CRATE-LOCAL', 'PER_UNIT', 3_500, 3_500, 3_500),
-  entry('EGG-CRATE-SMALL', 'PER_UNIT', 4_500, 4_500, 4_500),
-  entry('EGG-CRATE-BIG', 'PER_UNIT', 6_000, 6_000, 6_000),
-  entry('PRD-TOMATO-CRATE', 'PER_UNIT', 35_000, 40_000, 45_000),
-  entry('PRD-CABBAGE-HEAD', 'PER_UNIT', 800, 1_000, 1_200),
-  entry('PRD-PEPPER-BAG', 'PER_UNIT', 25_000, 30_000, 35_000),
-  entry('PRD-CARROT-CRATE', 'PER_UNIT', 20_000, 25_000, 30_000),
-  entry('PRD-YAM-TUBER', 'PER_UNIT', 1_500, 2_000, 2_500),
+  quoteOnly('LIV-0005', 'PER_HEAD', 'SHEEP-XL'),
+  head('LIV-0006', 'DUCK-S', 8_000, 12_000, 16_000),
+  head('LIV-0006', 'DUCK-L', 16_000, 24_000, 30_000),
+  head('LIV-0007', 'RAB-S', 8_000, 12_000, 18_000),
+  head('LIV-0007', 'RAB-L', 18_000, 26_000, 35_000),
+  entry('MEAT-0001', 'PER_KG', 1_467, 1_900, 2_333),
+  entry('MEAT-0002', 'PER_KG', 733, 1_100, 1_667),
+  entry('MEAT-0003', 'PER_KG', 1_200, 1_800, 2_467),
+  entry('MEAT-0004', 'PER_KG', 1_067, 1_300, 1_600),
+  entry('MEAT-0005', 'PER_KG', 2_200, 3_060, 4_333),
+  entry('MEAT-0006', 'PER_KG', 1_133, 1_700, 2_267),
+  entry('MEAT-0007', 'PER_KG', 1_400, 2_200, 3_133),
+  entry('MEAT-0008', 'PER_KG', 1_000, 1_500, 1_800),
+  entry('EGG-0001', 'PER_UNIT', 3_500, 3_500, 3_500),
+  entry('EGG-0002', 'PER_UNIT', 4_500, 4_500, 4_500),
+  entry('EGG-0003', 'PER_UNIT', 6_000, 6_000, 6_000),
+  entry('PRD-0001', 'PER_UNIT', 35_000, 40_000, 45_000),
+  entry('PRD-0002', 'PER_UNIT', 800, 1_000, 1_200),
+  entry('PRD-0003', 'PER_UNIT', 25_000, 30_000, 35_000),
+  entry('PRD-0004', 'PER_UNIT', 20_000, 25_000, 30_000),
+  entry('PRD-0005', 'PER_UNIT', 1_500, 2_000, 2_500),
 ];
 
 /** A price a percentage below another, rounded half-up once: `percentOff` of 10 is ten percent off. */
@@ -229,7 +233,7 @@ function discounted(predicate: (entry: SeedEntry) => boolean, percentOff: bigint
 }
 
 const isMeat = (e: SeedEntry) => e.sku.startsWith('MEAT-');
-const isLiveRuminantOrPig = (e: SeedEntry) => ['LIV-GOAT', 'LIV-SHEEP', 'LIV-PIG'].includes(e.sku);
+const isLiveRuminantOrPig = (e: SeedEntry) => ['LIV-0004', 'LIV-0005', 'LIV-0003'].includes(e.sku);
 const isEggs = (e: SeedEntry) => e.sku.startsWith('EGG-');
 
 export const SEED_PRICE_LISTS: readonly SeedPriceList[] = [
@@ -253,7 +257,7 @@ export const SEED_PRICE_LISTS: readonly SeedPriceList[] = [
     kind: 'CUSTOMER',
     channel: null,
     tier: null,
-    entries: [head('LIV-GOAT', 'GOAT-M', 68_000, 70_000, 72_000, 'A'), entry('MEAT-CHICKEN-FULL-15KG', 'PER_KG', 1_650, 1_700, 1_750)],
+    entries: [head('LIV-0004', 'GOAT-M', 68_000, 70_000, 72_000, 'A'), entry('MEAT-0001', 'PER_KG', 1_650, 1_700, 1_750)],
   },
 ];
 

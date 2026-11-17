@@ -223,7 +223,7 @@ describe('an excursion quarantines every lot in the room, in the reading\'s tran
   });
 
   it('refuses a sale of a quarantined lot with STOCK_UNIT_ON_HOLD, and leaves its pen moves alone', async () => {
-    expect(await move('SALE_ISSUE', 'MEAT-BEEF-15KG', 'location:COLD', 'virtual:CUSTOMER', '1.000', 'LOT-BEEF-2026-1110')).toBe('STOCK_UNIT_ON_HOLD');
+    expect(await move('SALE_ISSUE', 'MEAT-0005', 'location:COLD', 'virtual:CUSTOMER', '1.000', 'LOT-BEEF-2026-1110')).toBe('STOCK_UNIT_ON_HOLD');
     const listed = await get(manager, '/stock/holds?active=true&kind=QUARANTINE');
     expect(listed.body.data).toHaveLength(2);
   });
@@ -247,7 +247,7 @@ describe('an excursion quarantines every lot in the room, in the reading\'s tran
     }
     const audited = await admin().query("SELECT 1 FROM platform.audit_event WHERE entity_type = 'StockHold' AND action = 'RELEASE' AND entity_id = $1", [hold.id]);
     expect(audited.rowCount).toBe(1);
-    expect(await move('SALE_ISSUE', 'MEAT-BEEF-15KG', 'location:COLD', 'virtual:CUSTOMER', '1.000', 'LOT-BEEF-2026-1110')).toMatch(/^[0-9a-f-]{36}$/);
+    expect(await move('SALE_ISSUE', 'MEAT-0005', 'location:COLD', 'virtual:CUSTOMER', '1.000', 'LOT-BEEF-2026-1110')).toMatch(/^[0-9a-f-]{36}$/);
   });
 
   it('is refused to every role that does not record readings, each refusal audited', async () => {
@@ -265,7 +265,7 @@ describe('one low-stock alert per crossing (FR-INV-015)', () => {
 
   it('creates a rule for yam at Dodowa: 40 on hand is above its reorder point, so nothing is raised', async () => {
     const created = await post(shopStorekeeper, '/reorder-rules', {
-      productId: id('product:PRD-YAM-TUBER'),
+      productId: id('product:PRD-0005'),
       branchId: id('branch:DDW'),
       locationId: id('location:SHOP'),
       minQty: '10.000',
@@ -273,16 +273,16 @@ describe('one low-stock alert per crossing (FR-INV-015)', () => {
       maxQty: '100.000',
     });
     expect(created.status, JSON.stringify(created.body)).toBe(201);
-    expect(created.body).toMatchObject({ product: { sku: 'PRD-YAM-TUBER' }, location: { code: 'SHOP' }, minQty: '10.000', reorderPointQty: '20.000', maxQty: '100.000', expiryAlertDays: null, version: 1 });
+    expect(created.body).toMatchObject({ product: { sku: 'PRD-0005' }, location: { code: 'SHOP' }, minQty: '10.000', reorderPointQty: '20.000', maxQty: '100.000', expiryAlertDays: null, version: 1 });
     ruleId = created.body.id as string;
     expect(await alertsOf(ruleId)).toEqual([]);
-    const again = await post(manager, '/reorder-rules', { productId: id('product:PRD-YAM-TUBER'), branchId: id('branch:DDW'), locationId: id('location:SHOP'), minQty: '1.000', reorderPointQty: '2.000', maxQty: '3.000' });
+    const again = await post(manager, '/reorder-rules', { productId: id('product:PRD-0005'), branchId: id('branch:DDW'), locationId: id('location:SHOP'), minQty: '1.000', reorderPointQty: '2.000', maxQty: '3.000' });
     expect(again.body.error).toMatchObject({ code: 'REORDER_RULE_INVALID', details: [{ code: 'RULE_EXISTS' }] });
   });
 
   it('refuses levels out of order and a location that holds no stock of its own', async () => {
     const bad = await post(manager, '/reorder-rules', {
-      productId: id('product:EGG-CRATE-BIG'),
+      productId: id('product:EGG-0003'),
       branchId: id('branch:DDW'),
       locationId: id('location:TRANSIT'),
       minQty: '20.000',
@@ -296,15 +296,15 @@ describe('one low-stock alert per crossing (FR-INV-015)', () => {
   });
 
   it('raises nothing from 40 to 21, one alert suggesting 81 at 19, and no second one at 18', async () => {
-    expect(await move('SALE_ISSUE', 'PRD-YAM-TUBER', 'location:SHOP', 'virtual:CUSTOMER', '19.000')).toMatch(/^[0-9a-f-]{36}$/);
+    expect(await move('SALE_ISSUE', 'PRD-0005', 'location:SHOP', 'virtual:CUSTOMER', '19.000')).toMatch(/^[0-9a-f-]{36}$/);
     expect(await alertsOf(ruleId)).toEqual([]);
-    expect(await move('SALE_ISSUE', 'PRD-YAM-TUBER', 'location:SHOP', 'virtual:CUSTOMER', '2.000')).toMatch(/^[0-9a-f-]{36}$/);
+    expect(await move('SALE_ISSUE', 'PRD-0005', 'location:SHOP', 'virtual:CUSTOMER', '2.000')).toMatch(/^[0-9a-f-]{36}$/);
     expect(await alertsOf(ruleId)).toEqual([{ kind: 'LOW_STOCK', status: 'OPEN', qty: '19.000', suggested_qty: '81.000' }]);
-    expect(await move('SALE_ISSUE', 'PRD-YAM-TUBER', 'location:SHOP', 'virtual:CUSTOMER', '1.000')).toMatch(/^[0-9a-f-]{36}$/);
+    expect(await move('SALE_ISSUE', 'PRD-0005', 'location:SHOP', 'virtual:CUSTOMER', '1.000')).toMatch(/^[0-9a-f-]{36}$/);
     expect(await alertsOf(ruleId)).toEqual([{ kind: 'LOW_STOCK', status: 'OPEN', qty: '19.000', suggested_qty: '81.000' }]);
     // The seeded branch-wide yam rule (reorder point 25) raised its own alert on the way down; this is the shop's.
     const outbox = await admin().query("SELECT payload FROM platform.outbox_message WHERE event_type = 'inv.StockAlertRaised' AND payload->>'productId' = $1 AND payload->>'locationId' = $2", [
-      id('product:PRD-YAM-TUBER'),
+      id('product:PRD-0005'),
       id('location:SHOP'),
     ]);
     expect(outbox.rows.map((r) => (r.payload as { suggestedQty: string }).suggestedQty)).toEqual(['81.000']);
@@ -313,9 +313,9 @@ describe('one low-stock alert per crossing (FR-INV-015)', () => {
   it('lists the open alert with what is available now and the suggestion to reach the maximum', async () => {
     const listed = await get(shopStorekeeper, '/stock/alerts?kind=LOW_STOCK');
     expect(listed.status).toBe(200);
-    const yam = (listed.body.data as Array<{ product: { sku: string } }>).find((a) => a.product.sku === 'PRD-YAM-TUBER');
+    const yam = (listed.body.data as Array<{ product: { sku: string } }>).find((a) => a.product.sku === 'PRD-0005');
     expect(yam).toMatchObject({ kind: 'LOW_STOCK', location: { code: 'SHOP' }, stockUnit: null, uom: expect.any(String), onHandQty: '18.000', thresholdQty: '20.000', suggestedQty: '82.000', expiresOn: null, daysToExpiry: null });
-    expect((await get(coldStorekeeper, '/stock/alerts')).body.data.find((a: { product: { sku: string } }) => a.product.sku === 'PRD-YAM-TUBER')).toBeUndefined();
+    expect((await get(coldStorekeeper, '/stock/alerts')).body.data.find((a: { product: { sku: string } }) => a.product.sku === 'PRD-0005')).toBeUndefined();
     expect((await get(cashier, '/stock/alerts')).status).toBe(403);
   });
 
@@ -327,9 +327,9 @@ describe('one low-stock alert per crossing (FR-INV-015)', () => {
   });
 
   it('clears the alert once stock rises above the point, and raises a new one when it falls again', async () => {
-    expect(await move('ADJUST_GAIN', 'PRD-YAM-TUBER', 'virtual:ADJUSTMENT', 'location:SHOP', '7.000')).toMatch(/^[0-9a-f-]{36}$/);
+    expect(await move('ADJUST_GAIN', 'PRD-0005', 'virtual:ADJUSTMENT', 'location:SHOP', '7.000')).toMatch(/^[0-9a-f-]{36}$/);
     expect((await alertsOf(ruleId)).map((a) => a.status)).toEqual(['CLEARED']);
-    expect(await move('SALE_ISSUE', 'PRD-YAM-TUBER', 'location:SHOP', 'virtual:CUSTOMER', '5.000')).toMatch(/^[0-9a-f-]{36}$/);
+    expect(await move('SALE_ISSUE', 'PRD-0005', 'location:SHOP', 'virtual:CUSTOMER', '5.000')).toMatch(/^[0-9a-f-]{36}$/);
     expect(await alertsOf(ruleId)).toEqual([
       { kind: 'LOW_STOCK', status: 'CLEARED', qty: '19.000', suggested_qty: '81.000' },
       { kind: 'LOW_STOCK', status: 'OPEN', qty: '20.000', suggested_qty: '80.000' },
@@ -342,7 +342,7 @@ describe('one low-stock alert per crossing (FR-INV-015)', () => {
       api.app.get(UnitOfWork).run({ isolation: 'serializable' }, async (tx) => {
         await api.app.get(DocumentRegistry).register(tx, { id: holder, docType: 'STOCK_ADJUSTMENT', ownerModule: 'inv', branchId: id('branch:DDW'), actorId: SYSTEM_PRINCIPAL });
         await api.app.get(Reservations).reserveIn(tx, SYSTEM_PRINCIPAL, {
-          productId: id('product:PRD-YAM-TUBER'),
+          productId: id('product:PRD-0005'),
           locationId: id('location:SHOP'),
           qty: Quantity.parse('11.000'),
           holderDocumentId: holder,
@@ -362,7 +362,7 @@ describe('one low-stock alert per crossing (FR-INV-015)', () => {
       .query(
         `INSERT INTO inv.stock_alert (id, kind, branch_id, product_id, location_id, reorder_rule_id, qty, threshold_qty, status, raised_at, created_by, updated_by)
          VALUES ($1, 'LOW_STOCK', $2, $3, $4, $5, 1, 20, 'OPEN', now(), $6, $6)`,
-        [randomUUID(), id('branch:DDW'), id('product:PRD-YAM-TUBER'), id('location:SHOP'), ruleId, SYSTEM_PRINCIPAL],
+        [randomUUID(), id('branch:DDW'), id('product:PRD-0005'), id('location:SHOP'), ruleId, SYSTEM_PRINCIPAL],
       )
       .catch((e: unknown) => e as { code: string; constraint: string });
     expect(error).toMatchObject({ code: SQLSTATE.uniqueViolation, constraint: 'uq_stock_alert_open_rule' });
@@ -377,9 +377,9 @@ describe('one low-stock alert per crossing (FR-INV-015)', () => {
     expect((await patch(manager, `/reorder-rules/${ruleId}`, { version: 2, maxQty: '6.000' })).body.error).toMatchObject({ code: 'REORDER_RULE_INVALID', details: [{ code: 'BELOW_REORDER_POINT' }] });
     for (const session of [accountant, cashier, sales, driver, farmHand, coldStorekeeper]) {
       expect((await patch(session, `/reorder-rules/${ruleId}`, { version: 2, maxQty: '90.000' })).status).toBe(403);
-      expect((await post(session, '/reorder-rules', { productId: id('product:EGG-CRATE-BIG'), branchId: id('branch:DDW'), minQty: '1.000', reorderPointQty: '2.000', maxQty: '3.000' })).status).toBe(403);
+      expect((await post(session, '/reorder-rules', { productId: id('product:EGG-0003'), branchId: id('branch:DDW'), minQty: '1.000', reorderPointQty: '2.000', maxQty: '3.000' })).status).toBe(403);
     }
-    const listed = await get(accountant, '/reorder-rules?productId=' + id('product:PRD-YAM-TUBER'));
+    const listed = await get(accountant, '/reorder-rules?productId=' + id('product:PRD-0005'));
     expect(listed.body.data.map((r: { id: string }) => r.id)).toContain(ruleId);
     expect((await get(cashier, '/reorder-rules')).status).toBe(403);
   });
@@ -405,10 +405,10 @@ describe('expiring and expired lots (FR-INV-016, A-134 (j))', () => {
 
   it('sells the eggs on their expiry date, refuses a sale the day after with STOCK_UNIT_EXPIRED, and marks them expired', async () => {
     clock.set(fromExpiry(0, '18:00:00'));
-    expect(await move('SALE_ISSUE', 'EGG-CRATE-BIG', 'location:SHOP', 'virtual:CUSTOMER', '1.000', EGGS)).toMatch(/^[0-9a-f-]{36}$/);
+    expect(await move('SALE_ISSUE', 'EGG-0003', 'location:SHOP', 'virtual:CUSTOMER', '1.000', EGGS)).toMatch(/^[0-9a-f-]{36}$/);
     clock.set(fromExpiry(1, '06:30:00'));
-    expect(await move('SALE_ISSUE', 'EGG-CRATE-BIG', 'location:SHOP', 'virtual:CUSTOMER', '1.000', EGGS)).toBe('STOCK_UNIT_EXPIRED');
-    expect(await move('SALE_ISSUE_OFFLINE', 'EGG-CRATE-BIG', 'location:SHOP', 'virtual:CUSTOMER', '1.000', EGGS)).toBe('STOCK_UNIT_EXPIRED');
+    expect(await move('SALE_ISSUE', 'EGG-0003', 'location:SHOP', 'virtual:CUSTOMER', '1.000', EGGS)).toBe('STOCK_UNIT_EXPIRED');
+    expect(await move('SALE_ISSUE_OFFLINE', 'EGG-0003', 'location:SHOP', 'virtual:CUSTOMER', '1.000', EGGS)).toBe('STOCK_UNIT_EXPIRED');
     expect(await sweep()).toMatchObject({ expiryRaised: 1, expiryCleared: 1 });
     const open = await admin().query<{ kind: string; status: string }>(
       'SELECT kind, status FROM inv.stock_alert WHERE stock_unit_id = $1 ORDER BY raised_at',
@@ -419,7 +419,7 @@ describe('expiring and expired lots (FR-INV-016, A-134 (j))', () => {
       { kind: 'EXPIRED', status: 'OPEN' },
     ]);
     // A write-off is not a sale: the expired lot leaves by an adjustment loss.
-    expect(await move('ADJUST_LOSS', 'EGG-CRATE-BIG', 'location:SHOP', 'virtual:LOSS', '29.000', EGGS)).not.toBe('STOCK_UNIT_EXPIRED');
+    expect(await move('ADJUST_LOSS', 'EGG-0003', 'location:SHOP', 'virtual:LOSS', '29.000', EGGS)).not.toBe('STOCK_UNIT_EXPIRED');
   });
 
   it('refuses the sale of an expired lot at the database for every role, whoever inserts it', async () => {
@@ -434,7 +434,7 @@ describe('expiring and expired lots (FR-INV-016, A-134 (j))', () => {
       .query(
         `INSERT INTO inv.stock_movement (id, movement_type, product_id, stock_unit_id, branch_id, from_location_id, to_location_id, qty_base, value_pesewas, source_document_id, occurred_at, actor_id)
          VALUES ($1, 'SALE_ISSUE', $2, $3, $4, $5, $6, 1, 0, $7, $8, $9)`,
-        [randomUUID(), id('product:MEAT-GOAT-15KG'), id('unit:LOT-GOAT-0001'), id('branch:DDW'), id('location:COLD'), id('virtual:CUSTOMER'), documentId, fromExpiry(1, '10:00:00'), SYSTEM_PRINCIPAL],
+        [randomUUID(), id('product:MEAT-0007'), id('unit:LOT-GOAT-0001'), id('branch:DDW'), id('location:COLD'), id('virtual:CUSTOMER'), documentId, fromExpiry(1, '10:00:00'), SYSTEM_PRINCIPAL],
       )
       .then(() => null)
       .catch((e: unknown) => e as { code: string; constraint: string });
@@ -445,7 +445,7 @@ describe('expiring and expired lots (FR-INV-016, A-134 (j))', () => {
       .query(
         `INSERT INTO inv.stock_movement (id, movement_type, product_id, stock_unit_id, branch_id, from_location_id, to_location_id, qty_base, value_pesewas, source_document_id, occurred_at, actor_id)
          VALUES ($1, 'SALE_ISSUE', $2, $3, $4, $5, $6, 1, 0, $7, $8, $9)`,
-        [randomUUID(), id('product:MEAT-GOAT-15KG'), id('unit:LOT-GOAT-0001'), id('branch:DDW'), id('location:COLD'), id('virtual:CUSTOMER'), documentId, fromExpiry(1, '00:30:00'), SYSTEM_PRINCIPAL],
+        [randomUUID(), id('product:MEAT-0007'), id('unit:LOT-GOAT-0001'), id('branch:DDW'), id('location:COLD'), id('virtual:CUSTOMER'), documentId, fromExpiry(1, '00:30:00'), SYSTEM_PRINCIPAL],
       )
       .catch((e: unknown) => e as { code: string; constraint: string });
     expect(refused).toMatchObject({ code: 'HK010', constraint: 'ck_stock_expired' });

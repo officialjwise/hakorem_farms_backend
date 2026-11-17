@@ -31,6 +31,8 @@ export interface CategoryCreateRequest {
   readonly taxCategoryId: string;
   readonly sortOrder?: number | undefined;
   readonly isOnlineVisible?: boolean | undefined;
+  /** The prefix of its products' SKUs (B09q, ADR-0072); without one, the first three letters of the code. */
+  readonly skuPrefix?: string | undefined;
 }
 
 export interface CategoryUpdateRequest {
@@ -39,6 +41,8 @@ export interface CategoryUpdateRequest {
   readonly taxCategoryId?: string | undefined;
   readonly sortOrder?: number | undefined;
   readonly isOnlineVisible?: boolean | undefined;
+  /** A new prefix applies to products created after it; a product's SKU never changes. */
+  readonly skuPrefix?: string | undefined;
 }
 
 export interface ArchiveRequest {
@@ -171,6 +175,7 @@ export class CatalogueAdmin {
           taxCategoryId: body.taxCategoryId,
           sortOrder: body.sortOrder ?? 0,
           isOnlineVisible: body.isOnlineVisible ?? true,
+          skuPrefix: body.skuPrefix ?? null,
         },
         actor!.principalId,
       );
@@ -190,6 +195,7 @@ export class CatalogueAdmin {
         tax_category_id: body.taxCategoryId,
         sort_order: body.sortOrder,
         is_online_visible: body.isOnlineVisible,
+        sku_prefix: body.skuPrefix,
       }, actor!, () => this.store.category(tx, id));
       await this.audit.record(tx, { module: 'mdm', action: 'UPDATE', entityType: 'Category', entityId: id, before: { ...before }, after: { ...view } });
       return { status: 200, body: view };

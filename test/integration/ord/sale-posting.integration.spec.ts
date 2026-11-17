@@ -144,7 +144,7 @@ beforeAll(async () => {
   for (const code of ['PENS', 'SHOP', 'COLD']) {
     ids.set(code, (await admin().query<{ id: string }>('SELECT id FROM mdm.location WHERE branch_id = $1 AND code = $2', [branchId, code])).rows[0]!.id);
   }
-  for (const [name, sku] of [['goat', 'LIV-GOAT'], ['eggs', 'EGG-CRATE-BIG'], ['cabbage', 'PRD-CABBAGE-HEAD'], ['meat', 'MEAT-GOAT-15KG'], ['yam', 'PRD-YAM-TUBER'], ['sheep', 'LIV-SHEEP']] as const) {
+  for (const [name, sku] of [['goat', 'LIV-0004'], ['eggs', 'EGG-0003'], ['cabbage', 'PRD-0002'], ['meat', 'MEAT-0007'], ['yam', 'PRD-0005'], ['sheep', 'LIV-0005']] as const) {
     ids.set(name, (await admin().query<{ id: string }>('SELECT id FROM mdm.product WHERE sku = $1', [sku])).rows[0]!.id);
   }
   for (const [name, identifier] of [['G-0142', 'G-0142'], ['G-0143', 'G-0143'], ['G-0144', 'G-0144'], ['eggLot', 'EGG-BIG-2026-1110'], ['meatLot', 'LOT-GOAT-0001'], ['S-0031', 'S-0031']] as const) {

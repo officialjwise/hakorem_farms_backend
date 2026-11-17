@@ -45,7 +45,7 @@ async function effectsFor(key: string): Promise<number> {
 describe('idempotency keys (ADR-0014): the four outcomes', () => {
   it('processes a first request and stores its response with the key', async () => {
     const key = randomUUID();
-    const response = await createThing(key, { sku: 'LIV-GOAT' });
+    const response = await createThing(key, { sku: 'LIV-0004' });
     expect(response.status).toBe(201);
     const { rows } = await database.pool('admin').query<{ status: string; response_status: number }>(
       'SELECT status, response_status FROM platform.idempotency_key WHERE key = $1',
@@ -56,8 +56,8 @@ describe('idempotency keys (ADR-0014): the four outcomes', () => {
 
   it('returns the stored response for the same key and the same request, with no second effect', async () => {
     const key = randomUUID();
-    const first = await createThing(key, { sku: 'MEAT-BEEF-15KG' });
-    const again = await createThing(key, { sku: 'MEAT-BEEF-15KG' });
+    const first = await createThing(key, { sku: 'MEAT-0005' });
+    const again = await createThing(key, { sku: 'MEAT-0005' });
     expect(again).toEqual(first);
     expect(await effectsFor(key)).toBe(1);
   });
@@ -77,10 +77,10 @@ describe('idempotency keys (ADR-0014): the four outcomes', () => {
     const held = new Promise<void>((resolve) => {
       release = resolve;
     });
-    const first = createThing(key, { sku: 'LIV-SHEEP' }, () => held);
+    const first = createThing(key, { sku: 'LIV-0005' }, () => held);
     // Give the first transaction time to insert its key and block in its work.
     await new Promise((resolve) => setTimeout(resolve, 100));
-    const second = createThing(key, { sku: 'LIV-SHEEP' });
+    const second = createThing(key, { sku: 'LIV-0005' });
     await new Promise((resolve) => setTimeout(resolve, 100));
     release();
     const [a, b] = await Promise.all([first, second]);
@@ -90,9 +90,9 @@ describe('idempotency keys (ADR-0014): the four outcomes', () => {
 
   it('scopes keys by caller and operation, so two callers may use the same key', async () => {
     const key = randomUUID();
-    await createThing(key, { sku: 'LIV-PIG' });
+    await createThing(key, { sku: 'LIV-0003' });
     const other = await uow.run({ isolation: 'serializable' }, (tx) =>
-      idempotency.claim(tx, { operationId: 'createThing', principalId: '01900000-0000-7000-8000-000000000004', key, request: { sku: 'LIV-PIG' } }),
+      idempotency.claim(tx, { operationId: 'createThing', principalId: '01900000-0000-7000-8000-000000000004', key, request: { sku: 'LIV-0003' } }),
     );
     expect(other.kind).toBe('NEW');
   });

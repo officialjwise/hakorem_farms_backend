@@ -59,7 +59,7 @@ describe('the counter prices seeded goats (B4 gate)', () => {
   it('prices a 22.400 kg goat at GHS 650.00 from the base list, and a 65.000 kg goat as a quote', async () => {
     const goats = await call('GET', '/v1/products?q=Goat');
     expect(goats.status).toBe(200);
-    const goat = goats.body.data.find((p: Json) => p.sku === 'LIV-GOAT');
+    const goat = goats.body.data.find((p: Json) => p.sku === 'LIV-0004');
     expect(goat).toBeDefined();
     const priced = await call('POST', '/v1/pricing/resolve', {
       channel: 'POS',

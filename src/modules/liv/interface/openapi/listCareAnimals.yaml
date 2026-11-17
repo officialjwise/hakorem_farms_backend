@@ -93,7 +93,7 @@ responses:
                     name: Goat
                   product:
                     id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                    sku: LIV-GOAT
+                    sku: LIV-0004
                     name: Goat
                   breed: "West African Dwarf"
                   sex: MALE
@@ -137,7 +137,7 @@ responses:
                     name: Goat
                   product:
                     id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                    sku: LIV-GOAT
+                    sku: LIV-0004
                     name: Goat
                   breed: "West African Dwarf"
                   sex: MALE
@@ -181,7 +181,7 @@ responses:
                     name: Goat
                   product:
                     id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                    sku: LIV-GOAT
+                    sku: LIV-0004
                     name: Goat
                   breed: "West African Dwarf"
                   sex: FEMALE
@@ -222,7 +222,7 @@ responses:
                     name: Goat
                   product:
                     id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                    sku: LIV-GOAT
+                    sku: LIV-0004
                     name: Goat
                   breed: "West African Dwarf"
                   sex: MALE
@@ -263,7 +263,7 @@ responses:
                     name: Sheep
                   product:
                     id: "019a7a8d-326c-7ea3-83db-f3051c116be3"
-                    sku: LIV-SHEEP
+                    sku: LIV-0005
                     name: Sheep
                   breed: "Djallonké"
                   sex: MALE
@@ -304,7 +304,7 @@ responses:
                     name: Goat
                   product:
                     id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                    sku: LIV-GOAT
+                    sku: LIV-0004
                     name: Goat
                   breed: "West African Dwarf"
                   sex: FEMALE
@@ -345,7 +345,7 @@ responses:
                     name: Pig
                   product:
                     id: "019a7a8d-515b-7886-9dbe-913c95c20a1a"
-                    sku: LIV-PIGLET
+                    sku: LIV-0003
                     name: "Baby pig"
                   breed: "Large White cross"
                   sex: FEMALE

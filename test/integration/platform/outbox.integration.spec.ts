@@ -29,7 +29,7 @@ afterAll(async () => {
   await database.drop();
 });
 
-const publish = (events: DomainEvents, subjectId: string, payload: object = { sku: 'LIV-GOAT' }) =>
+const publish = (events: DomainEvents, subjectId: string, payload: object = { sku: 'LIV-0004' }) =>
   runAsSystem(SYSTEM, randomUUID(), () =>
     appUow.run({ isolation: 'serializable' }, (tx) => events.publish(tx, { type: 'mdm.ProductCreated', subjectType: 'Product', subjectId, payload })),
   );
@@ -86,7 +86,7 @@ describe('the outbox (ADR-0010)', () => {
 
   it('refuses an event that carries a secret', async () => {
     const events = new DomainEvents(new ManualClock(new Date()));
-    await expect(publish(events, randomUUID(), { sku: 'LIV-GOAT', resetToken: 'abc' })).rejects.toBeInstanceOf(SecretInEventError);
+    await expect(publish(events, randomUUID(), { sku: 'LIV-0004', resetToken: 'abc' })).rejects.toBeInstanceOf(SecretInEventError);
   });
 
   it('delivers after commit, as the worker role, and a redelivered message has no second effect', async () => {
@@ -98,7 +98,7 @@ describe('the outbox (ADR-0010)', () => {
     const envelope = await publish(events, subject);
     const dispatcher = new OutboxDispatcher(workerUow, events, clock, silent, settings);
     expect(await runAsSystem(SYSTEM, randomUUID(), () => dispatcher.dispatchOnce())).toEqual({ delivered: 1, failed: 0, dead: 0 });
-    expect(seen[0]).toMatchObject({ id: envelope.id, type: 'mdm.ProductCreated', subjectId: subject, actorId: SYSTEM.principalId, payload: { sku: 'LIV-GOAT' } });
+    expect(seen[0]).toMatchObject({ id: envelope.id, type: 'mdm.ProductCreated', subjectId: subject, actorId: SYSTEM.principalId, payload: { sku: 'LIV-0004' } });
 
     // Simulate a redelivery: the delivery is put back to PENDING, as after a crash between effect and acknowledgement.
     await database

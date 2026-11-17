@@ -44,7 +44,7 @@ beforeAll(async () => {
     .pool('app')
     .query(
       `INSERT INTO mdm.product (id, sku, name, category_id, stock_policy, tracking, base_uom, sale_uom, tax_category_id, gl_group, online_mode, status, created_by, updated_by)
-       VALUES ($1, 'EGG-CRATE-BIG', 'Eggs, big, crate of 30', $2, 'COUNTABLE', 'NONE', 'CRATE', 'CRATE', $3, 'PRODUCE_EGGS', 'LISTED', 'ACTIVE', $4, $4)`,
+       VALUES ($1, 'EGG-0003', 'Eggs, big, crate of 30', $2, 'COUNTABLE', 'NONE', 'CRATE', 'CRATE', $3, 'PRODUCE_EGGS', 'LISTED', 'ACTIVE', $4, $4)`,
       [productId, catalogue.eggsCategoryId, TAX_CATEGORY.EGGS, SYSTEM_PRINCIPAL],
     );
   manager = await enrolAndLogin(api.server, await createUser(database, { name: 'Akosua Boateng', grants: [{ role: 'MANAGER', branchId }] }), () => clock.now());

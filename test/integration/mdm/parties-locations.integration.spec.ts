@@ -297,7 +297,7 @@ describe('the price list assigned to a customer (FR-MDM-021)', () => {
     channel: 'WHOLESALE',
     branchId: ids.get('branch:DDW'),
     customerId: ids.get('customer:C-00002'),
-    lines: [{ lineRef: '1', productId: ids.get('product:LIV-GOAT'), quantity: '1.000', weightKg: '22.400', gradeId: undefined as string | undefined }],
+    lines: [{ lineRef: '1', productId: ids.get('product:LIV-0004'), quantity: '1.000', weightKg: '22.400', gradeId: undefined as string | undefined }],
   });
   const price = async (at?: string) => {
     const admin = database.pool('admin');

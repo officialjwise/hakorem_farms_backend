@@ -58,9 +58,9 @@ async function process(tag: string, inputKg: string, meatKg: string, packCount: 
   const recorded = await put(manager, `/processing-orders/${orderId}/outputs`, {
     version,
     outputs: [
-      { productId: id('product:MEAT-GOAT-15KG'), outputKind: 'MEAT', weightKg: meatKg, weightSource: 'SCALE', ...(packCount === null ? {} : { packCount }) },
-      { productId: id('product:BYP-GOAT-OFFAL'), outputKind: 'OFFAL', weightKg: '3.100', weightSource: 'SCALE' },
-      { productId: id('product:BYP-GOAT-OFFAL'), outputKind: 'WASTE', weightKg: '6.000', weightSource: 'MANUAL' },
+      { productId: id('product:MEAT-0007'), outputKind: 'MEAT', weightKg: meatKg, weightSource: 'SCALE', ...(packCount === null ? {} : { packCount }) },
+      { productId: id('product:MEAT-0008'), outputKind: 'OFFAL', weightKg: '3.100', weightSource: 'SCALE' },
+      { productId: id('product:MEAT-0008'), outputKind: 'WASTE', weightKg: '6.000', weightSource: 'MANUAL' },
     ],
   });
   expect(recorded.status, JSON.stringify(recorded.body)).toBe(200);
@@ -79,7 +79,7 @@ async function sellFromLot(lotId: string, kg: string): Promise<void> {
       await api.app.get(DocumentRegistry).register(tx, { id: documentId, docType: 'STOCK_ADJUSTMENT', ownerModule: 'inv', branchId: id('branch:DDW'), actorId: SYSTEM_PRINCIPAL });
       await api.app.get(Stock).postIn(tx, SYSTEM_PRINCIPAL, {
         movementType: 'SALE_ISSUE',
-        productId: id('product:MEAT-GOAT-15KG'),
+        productId: id('product:MEAT-0007'),
         stockUnitId: lotId,
         branchId: id('branch:DDW'),
         fromLocationId: id('location:COLD'),
@@ -211,7 +211,7 @@ describe('pack labels carry the lot and the weight (FR-PRC-010, A-151)', () => {
         {
           pack: { id: packIds[0], packNo: 1 },
           lotNo: lot,
-          product: { sku: 'MEAT-GOAT-15KG' },
+          product: { sku: 'MEAT-0007' },
           weightKg: '7.300',
           storageTempClass: expect.any(String),
           barcode: { symbology: 'CODE_128', payload: `${lot}/007300`, text: `${lot}/007300` },
@@ -220,6 +220,11 @@ describe('pack labels carry the lot and the weight (FR-PRC-010, A-151)', () => {
         },
       ],
     });
+    // Byte for byte as built (B09q, owner 2026-11-17: meat is future work): exactly these keys, and the barcode's.
+    expect(Object.keys(printed.body).sort()).toEqual(['format', 'labels']);
+    expect(Object.keys(printed.body.labels[0]).sort()).toEqual(['barcode', 'expiresOn', 'labelPrintedAt', 'line', 'lotNo', 'pack', 'producedOn', 'product', 'reprint', 'stockUnit', 'storageTempClass', 'weightKg', 'weightSource']);
+    expect(Object.keys(printed.body.labels[0].barcode).sort()).toEqual(['payload', 'symbology', 'text']);
+    expect(Object.keys(packed.body.packs[0]).sort()).toEqual(['barcode', 'id', 'labelPrintedAt', 'outputLineNo', 'packNo', 'status', 'stockUnit', 'weightKg', 'weightSource']);
     const first = printed.body.labels[0].labelPrintedAt as string;
     clock.advanceBy(60_000);
     const reprinted = await post(storekeeper, `/processing-orders/${orderId}/labels`, { packIds: packIds, format: 'ZPL' });

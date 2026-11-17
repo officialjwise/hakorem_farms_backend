@@ -1,12 +1,30 @@
 import { describe, expect, it } from 'vitest';
-import { productBarcode } from './label';
+import { productLabel } from './label';
 
-describe('what a product label encodes (B05x, A-151)', () => {
-  it("encodes the product's own barcode when it has one, as Code 128", () => {
-    expect(productBarcode({ sku: 'EGG-CRATE-BIG', barcode: '6034123757' })).toEqual({ symbology: 'CODE_128', payload: '6034123757', text: '6034123757' });
+const eggs = {
+  id: '019a7a8d-4c1e-7a35-9f62-1b0c2d3e4f50',
+  sku: 'EGG-0003',
+  name: 'Eggs, big, crate of 30',
+  saleUom: 'CRATE',
+  nominalPackKg: null,
+  shelfLifeDays: 21,
+  storageTempClass: 'AMBIENT',
+} as const;
+
+describe('what a product label prints (B05x, A-151; no barcode from contract 2.0.0, ADR-0072)', () => {
+  it('prints the SKU, name, sale unit, pack weight, shelf life and storage class, and nothing else', () => {
+    expect(productLabel(eggs)).toEqual({
+      product: { id: eggs.id, sku: 'EGG-0003', name: 'Eggs, big, crate of 30' },
+      saleUom: 'CRATE',
+      nominalPackKg: null,
+      shelfLifeDays: 21,
+      storageTempClass: 'AMBIENT',
+    });
   });
 
-  it('encodes the SKU when the product has no barcode', () => {
-    expect(productBarcode({ sku: 'PRD-YAM-TUBER', barcode: null })).toEqual({ symbology: 'CODE_128', payload: 'PRD-YAM-TUBER', text: 'PRD-YAM-TUBER' });
+  it('carries no barcode, whatever else the product holds', () => {
+    const label = productLabel({ ...eggs, barcode: '6034123757', description: 'Big eggs' } as typeof eggs);
+    expect(Object.keys(label).sort()).toEqual(['nominalPackKg', 'product', 'saleUom', 'shelfLifeDays', 'storageTempClass']);
+    expect(Object.keys(label.product).sort()).toEqual(['id', 'name', 'sku']);
   });
 });

@@ -51,7 +51,7 @@ responses:
               lineNo: 1
               product:
                 id: "019a7a8e-a5a0-754c-8a85-5d9ed05dd67c"
-                sku: PRD-YAM
+                sku: PRD-0005
                 name: "Yam, tuber"
               stockUnit: null
               direction: LOSS
