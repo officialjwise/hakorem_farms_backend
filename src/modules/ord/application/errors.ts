@@ -9,6 +9,7 @@ registerMessages({
   'ord.order_invalid': 'This order cannot be taken like this.',
   'ord.stock_short': 'Not enough stock for this line: {short} short of {wanted}.',
   'ord.void_cashier_cannot_approve': 'The cashier who made this sale cannot approve its void.',
+  'ord.return_maker_cannot_approve': 'The person who made this return cannot approve it.',
 });
 
 /** A registered message with its `{name}` placeholders filled (the values are numbers, never user text). */
@@ -103,4 +104,9 @@ export class OrderStockShortError extends BusinessRuleError {
 export class VoidApproverIsCashierError extends BusinessRuleError {
   readonly code = 'MAKER_CANNOT_CHECK';
   readonly messageKey = 'ord.void_cashier_cannot_approve';
+}
+
+export class ReturnApproverIsMakerError extends BusinessRuleError {
+  readonly code = 'MAKER_CANNOT_CHECK';
+  readonly messageKey = 'ord.return_maker_cannot_approve';
 }

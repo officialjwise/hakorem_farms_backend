@@ -15,7 +15,8 @@
  * `activeIdentifiersIn`, `registerLotIn`), through which PRC checks its inputs and registers its output lots. B06 continued
  * 2 adds `registerSerialIn` (an animal born on the farm), `onHandAsOfIn` (where units stood at an instant, for growth)
  * and `setGradeIn` (an animal's grade). B07 continued 2 adds `StockQueries.promisableIn`, the balances SHP's catalogue and
- * checkout may promise to a remote buyer.
+ * checkout may promise to a remote buyer. B09a continued 2d adds `StockMovements.returnSaleIn`, a customer return of a
+ * sale issue that the database values at its share of the issue (migration 0199).
  */
 export { InvModule } from './inv.module';
 export { Stock, type MovementRequest, type PostedMovement, type StockPostingPayload } from './application/stock';
@@ -24,7 +25,7 @@ export { StockUnits, type LotRegistration, type SerialRegistration, type StockUn
 export { BalanceReconciliation, type DriftFound } from './application/reconciliation';
 export { GoodsReceipts, type GoodsReceiptCreateRequest, type GoodsReceiptView, type ReceiptLineInput } from './application/goods-receipts';
 export { StockQueries, type PromisableStock, type StockOnHandPageView, type StockTraceView, type StockUnitView } from './application/stock-queries';
-export { StockMovements, type ReversalRequest } from './application/stock-movements';
+export { StockMovements, type ReversalRequest, type SaleReturnRequest } from './application/stock-movements';
 export { StockTransfers, type StockTransferView, type TransferCreateRequest, type TransferReceiveRequest } from './application/stock-transfers';
 export { StockAdjustments, type AdjustmentCreateRequest, type StockAdjustmentView } from './application/stock-adjustments';
 export { StockTakes, type StockTakeView } from './application/stock-takes';

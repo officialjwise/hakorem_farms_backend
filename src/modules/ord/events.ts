@@ -111,3 +111,44 @@ export interface OrderVoided {
   readonly voidedAt: string;
   readonly abuseCases: readonly number[];
 }
+
+/**
+ * `ord.ReturnSubmitted` v1 (abuse case 12): a return against a sale submitted by its maker; it waits for a supervisor
+ * who did not make it (`RETURN`). Nothing has moved yet. On the daily exception report with the refunds (`REFUND`).
+ */
+export interface ReturnSubmitted {
+  readonly returnId: string;
+  readonly returnNo: string;
+  readonly orderId: string;
+  readonly branchId: string;
+  readonly totalRefundPesewas: number;
+  readonly reasonCode: string;
+  readonly approvalRequestId: string;
+  readonly makerId: string;
+  readonly abuseCases: readonly number[];
+}
+
+/**
+ * `ord.ReturnCompleted` v1 (abuse case 12): an approved return. Its credit note, its stock movements and its refund
+ * request were written in the same transaction by BIL, INV and PAY, whose own events post the journals; the refund
+ * waits for a different approver (ADR-0066).
+ */
+export interface ReturnCompleted {
+  readonly returnId: string;
+  readonly returnNo: string;
+  readonly orderId: string;
+  readonly orderNo: string;
+  readonly branchId: string;
+  readonly reasonCode: string;
+  readonly creditNoteId: string;
+  readonly creditNoteNo: string;
+  readonly refundId: string | null;
+  readonly totalRefundPesewas: number;
+  readonly refundRequestedPesewas: number;
+  readonly movementIds: readonly string[];
+  readonly approvalRequestId: string;
+  readonly makerId: string;
+  readonly approvedBy: string;
+  readonly completedAt: string;
+  readonly abuseCases: readonly number[];
+}

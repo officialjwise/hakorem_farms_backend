@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.48.0"
+  version: "1.49.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -52123,7 +52123,7 @@ paths:
       tags:
         - ord
       summary: "Start a return or exchange against an original receipt"
-      description: "Permission: `ord.return.create`."
+      description: "A return against a `COMPLETED` sale and its own receipt, `REQUESTED` and numbered (`RET-...`), with the refund each line's credit would carry (`refundPesewas`, from the receipt's own prices and tax). Nothing moves until it is submitted and approved. On each line no more is taken back than was sold less what returns not `REJECTED` already hold (422 ORDER_INVALID `RETURN_EXCEEDS_SOLD`, also refused by the database under the sold line's lock, so two returns of the last of a line at once leave one). A named animal comes back whole (`SERIAL_RETURNS_WHOLE`); a line sold by weight waits for catch weight (`WEIGHED_LINE_NOT_RETURNABLE`); an `EXCHANGE` waits for the counter's replacement sale (`EXCHANGE_NOT_AVAILABLE`); the reason is a `RETURN` reason (`REASON_NOT_ALLOWED`, `NOTE_REQUIRED`); every broken rule is named at once. An order that is not a completed sale is 422 INVALID_STATE_TRANSITION. A refund destination is taken as asked and judged by PAY when the refund is asked for.\n\nPermission: `ord.return.create`."
       x-permission: ord.return.create
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -52213,7 +52213,7 @@ paths:
       tags:
         - ord
       summary: "Get a return"
-      description: "Permission: `ord.return.read`."
+      description: "One return, at a branch the caller reads returns at.\n\nPermission: `ord.return.read`."
       x-permission: ord.return.read
       parameters:
         - name: id
@@ -52296,7 +52296,7 @@ paths:
       tags:
         - ord
       summary: "Submit a return: credit note, stock and refund"
-      description: "Issues the credit note, posts the stock back to the chosen location and requests the refund, all approved by a different user above the refund limit.\n\nPermission: `ord.return.create`.\n\nMay require approval of kind `RETURN`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+      description: "Always 202 with an `ApprovalPending` body (kind `RETURN`), and only by the return's maker (422 ORDER_INVALID `NOT_RETURN_MAKER`); a return already submitted is 422 INVALID_STATE_TRANSITION. Nothing takes effect until a holder of `ord.return.approve`, with a fresh step-up, approves who is not its maker (422 MAKER_CANNOT_CHECK, also refused by the database). On approval, in the approval's transaction: the credit note is issued against the original receipt for the returned quantities, made by the return's maker under that approval; each line not written off comes back into stock at its share of the cost it left at (`RESTOCK` to where it was sold from, `RETURNS_HOLD` to the branch's returns holding area; `WRITE_OFF` moves no stock); and the refund of what the sale now owes the customer is asked for against that credit note from the cleared payment that paid the most of it, the return's maker its maker, so that neither the maker nor the credit note's maker may approve it. A rejection gives the quantities back. Every submission and completion is on the daily exception report with the refunds (`REFUND`, abuse case 12). The `200` response is kept for the contract and not used.\n\nPermission: `ord.return.create`.\n\nMay require approval of kind `RETURN`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
       x-permission: ord.return.create
       parameters:
         - name: id
@@ -52374,10 +52374,10 @@ paths:
                 approvalRequestId: "019a7af8-6085-71c6-b6fe-253bc0589e19"
                 kind: RETURN
                 subject:
-                  id: "019a7af8-7f74-7baa-80e2-c3733a093c51"
-                  docType: STOCK_ADJUSTMENT
-                  number: null
-                summary: "Awaiting approval by a different user with the approving permission"
+                  id: "019a7a9f-1498-7624-8b5c-6b177665e3f5"
+                  docType: ORDER_RETURN
+                  number: RET-2026-DDW-000017
+                summary: "Return RET-2026-DDW-000017 of GHS 456.00 (RETURN_QUALITY)"
                 requestedAt: "2026-11-13T10:12:00Z"
         "400":
           $ref: "#/components/responses/BadRequest"

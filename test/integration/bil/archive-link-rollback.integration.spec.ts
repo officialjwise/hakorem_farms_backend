@@ -48,6 +48,12 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0200_ord_order_return',
+      '0199_inv_sale_return_of_issue',
+      '0198_mdm_order_return_reason',
+      '0197_iam_grant_ord_return_permissions',
+      '0196_iam_seed_ord_return_permissions',
+      '0195_platform_add_order_return_document',
       '0194_ord_cancel_and_void',
       '0193_pay_reversal_per_payment_approval',
       '0192_mdm_order_reversal_reasons',

@@ -26,6 +26,8 @@ export interface MovementRow {
   readonly sourceLineRef: string | null;
   readonly reservationId: string | null;
   readonly reversesMovementId: string | null;
+  /** The sale issue a customer return takes back (migration 0199). */
+  readonly returnsMovementId: string | null;
   readonly occurredAt: Date;
   readonly actorId: string;
 }

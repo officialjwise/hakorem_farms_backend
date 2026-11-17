@@ -1,0 +1,88 @@
+operationId: createReturn
+tags:
+  - ord
+summary: "Start a return or exchange against an original receipt"
+description: "A return against a `COMPLETED` sale and its own receipt, `REQUESTED` and numbered (`RET-...`), with the refund each line's credit would carry (`refundPesewas`, from the receipt's own prices and tax). Nothing moves until it is submitted and approved. On each line no more is taken back than was sold less what returns not `REJECTED` already hold (422 ORDER_INVALID `RETURN_EXCEEDS_SOLD`, also refused by the database under the sold line's lock, so two returns of the last of a line at once leave one). A named animal comes back whole (`SERIAL_RETURNS_WHOLE`); a line sold by weight waits for catch weight (`WEIGHED_LINE_NOT_RETURNABLE`); an `EXCHANGE` waits for the counter's replacement sale (`EXCHANGE_NOT_AVAILABLE`); the reason is a `RETURN` reason (`REASON_NOT_ALLOWED`, `NOTE_REQUIRED`); every broken rule is named at once. An order that is not a completed sale is 422 INVALID_STATE_TRANSITION. A refund destination is taken as asked and judged by PAY when the refund is asked for.\n\nPermission: `ord.return.create`."
+x-permission: ord.return.create
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ReturnCreate"
+      example:
+        orderId: "019a7af4-82a5-7557-ba8f-5e4c8a38d72a"
+        kind: RETURN
+        reasonCode: DAMAGED_IN_DELIVERY
+        refundDestination: ORIGINAL_METHOD
+        lines:
+          - orderLineId: "019a7af4-df72-7302-a83a-38f2f74bb1d0"
+            qty: "2.000"
+            disposition: WRITE_OFF
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/OrderReturn"
+        example:
+          id: "019a7a9f-1498-7624-8b5c-6b177665e3f5"
+          returnNo: RET-2026-DDW-000017
+          status: REQUESTED
+          order:
+            id: "019a7af7-e4c9-7a38-bf71-ac5dd994253b"
+            docType: SALES_ORDER
+            number: SO-2026-DDW-004185
+          originalBillingDocument:
+            id: "019a7af8-03b8-741c-8954-4a955345c373"
+            docType: RECEIPT
+            number: RCP-2026-DDW-T1-018755
+          kind: RETURN
+          reasonCode: QUALITY_COMPLAINT
+          lines:
+            - id: "019a7af8-22a7-7dff-9337-e8ccccf661aa"
+              orderLineId: "019a7af8-4196-77e3-ad1b-870446a7ffe2"
+              product:
+                id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
+                sku: MEAT-BEEF
+                name: "Beef, 15 kg pack"
+              qty: "15.200"
+              weightKg: "15.200"
+              disposition: RETURNS_HOLD
+              refundPesewas: 45600
+          creditNote: null
+          refund: null
+          exchangeOrderId: null
+          approvalRequestId: null
+          totalRefundPesewas: 45600
+          currency: GHS
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 2
+          createdAt: "2026-11-08T12:00:00Z"
+          createdBy:
+            id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+            displayName: "Kwabena Owusu"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

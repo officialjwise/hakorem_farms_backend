@@ -82,6 +82,8 @@ describe('staff login (ADR-0016, docs/API.md section 3.1)', () => {
       'mdm.weight_band.read',
       'ord.order.read',
       'ord.order.void',
+      'ord.return.create',
+      'ord.return.read',
       'pay.payment.create',
       'pay.payment.initiate',
       'pay.payment.read',

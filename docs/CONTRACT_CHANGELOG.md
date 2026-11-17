@@ -4,6 +4,10 @@ Every change to `contract/openapi.yaml`, newest first. A breaking change needs a
 
 Version numbers follow semantic versioning: a major bump breaks an existing client, a minor bump adds operations or optional fields, a patch fixes descriptions or examples.
 
+## 1.49.0 (2026-11-17, B09a continued 2d)
+
+Minor. Three planned ORD operations move into code with their descriptions made exact: `createReturn` (what may be taken back, held by the database under concurrency, and the refund each line's credit would carry), `getReturn`, and `submitReturn` (always 202 under the new approval kind `RETURN`, by the return's maker only; on approval the credit note, the stock back by disposition and the refund against the credit note, in one transaction). `submitReturn`'s planned 200 response is kept, unused, so nothing is removed; its 202 example now names an `ORDER_RETURN` subject. No error code is added (the refusals are `ORDER_INVALID` details: `RETURN_EXCEEDS_SOLD`, `SERIAL_RETURNS_WHOLE`, `WEIGHED_LINE_NOT_RETURNABLE`, `EXCHANGE_NOT_AVAILABLE`, `LINE_NOT_ON_ORDER`, `LINE_REPEATED`, `NO_RETURNS_HOLD`, `REASON_NOT_ALLOWED`, `NOTE_REQUIRED`, `NOT_RETURN_MAKER`). No field removed, renamed or retyped, and nothing a client sends made required. 412 operations from code, 223 planned.
+
 ## 1.48.0 (2026-11-17, B09a continued 2c)
 
 Minor. Two planned ORD operations move into code with their descriptions made exact: `cancelOrder` (what is released and asked back in one transaction, the statuses it accepts, the reason's domain) and `voidOrder` (always 202 under `SALE_VOID`, who may approve, the rules a void is judged by at the request and again at the approval, and what the approval reverses). No error code added: the refusals are `INVALID_STATE_TRANSITION`, `ORDER_INVALID` with named details, and `MAKER_CANNOT_CHECK`. No field removed, renamed or retyped, no schema changed, and nothing a client sends made required. 409 operations from code, 226 planned. Redocly is clean, with no warnings.
