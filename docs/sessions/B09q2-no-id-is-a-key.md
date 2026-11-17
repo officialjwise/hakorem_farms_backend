@@ -1,6 +1,6 @@
 # B09q continued: no identifier is a key, and every customer link has its own random token
 
-Date: 2026-11-17 · Branch `b09q2-no-id-is-a-key`, from `main` (`edec540`) · Pull request #86 · Status: **gate passed**. B09e runs next.
+Date: 2026-11-17 · Branch `b09q2-no-id-is-a-key`, from `main` (`edec540`, with main's `a41df6e` merged in) · Pull request #86 · Status: **gate passed**. B09e runs next.
 
 Run as a fresh agent inside the 2026-11-15 overnight session: the parent session cannot issue /clear or /compact, so each phase starts in a new context that reads only this handoff from disk.
 
@@ -12,7 +12,7 @@ Run as a fresh agent inside the 2026-11-15 overnight session: the parent session
 | A-257 | **What stays farm-wide for staff outside a record's branch.** MDM master data (locations, delivery zones and the rest of the reference data) and `listGrants`, each by its documented rule. Every other branch record is refused at another branch, by id and in lists. | Owner |
 | A-258 | **FIN's records follow the branch; its statements do not.** Journal entries, manual journals, fixed assets and depreciation runs are read only where a whole-branch grant holds the read permission. The trial balance, profit and loss, balance sheet, cash flow and account activity stay farm-wide aggregates, as B08 built them. | Owner, Accountant |
 
-Still open, proceeded on as stated: A-033, A-034, A-062, A-182 to A-204, A-206, A-207, A-209, A-211, A-213, A-214, A-216 to A-240, A-242 to A-258.
+Still open, proceeded on as stated: A-033, A-034, A-062, A-182 to A-204, A-206, A-207, A-209, A-211, A-213, A-214, A-216 to A-240, A-242 to A-247, A-256 to A-258 (A-248 to A-255 approved by the owner on `main`, PR #85, merged into this branch).
 
 Phase, scope and gate, as confirmed at the start:
 1. **Phase:** B09q continued (`b09q2-no-id-is-a-key`, from `main` at `edec540`).
@@ -129,7 +129,8 @@ Phase, scope and gate, as confirmed at the start:
 
 ## Contract requests
 
-I fetched the frontend's `main` at `878c285`: CR-001 to CR-034.
+I fetched the frontend's `main` at `878c285` at the start, and again at `aea09a0` before merging: CR-001 to CR-036.
+- **CR-035 and CR-036 (new; larger, additive): scheduled to B09e** by the owner (main's `1895cf5`, B09e's opener). CR-035 asks for breakage reasons and a receipt-rejection reason domain with `rejectionReasonCode` on receipt lines; CR-036 asks for a claim raised from a receipt's rejected lines. Both are B09e's decision 5 (cracked on arrival); nothing of them is built here.
 - **CR-034 (new since B09q):** answered by 2.0.0. The server generates the SKU (`EGG-0001`), `sku` on create or update is 422 `FIELD_SERVER_ASSIGNED`, the SKU never changes, the product sheet names a product by SKU and a blank one creates, and `listProducts` searches by it. Nothing more to build.
 - **CR-033:** points 1 and 2 stay with B9b, and point 3 with B11. **Declined in the requested form:** the link cannot name the sale's client id (`/shop/receipts/{saleId}`), because decision 5 forbids an id as a key and a UUIDv7 is not secret. B9b gives the till an `rcp_` token of its own, drawn from Web Crypto when the sale is made (it works offline), with only its hash stored on the server (ADR-0074). The frontend's `OfflinePack.receiptLinkTemplate` should take `{token}`, not `{saleId}`; B9b answers it.
 - **CR-016:** labels print text (2.0.0), as B09q said.
@@ -165,11 +166,12 @@ I fetched the frontend's `main` at `878c285`: CR-001 to CR-034.
 ## CI
 
 - **`6d3c612`** (pull request #86 opened on it): run **44078351987 (push) failed**: secret scan only, fixed in `fix(shp)` as above.
+- **`487d06b`** (the first push of this report): run **44080178970 (push)**, success. No pull_request run existed: the pull request had a conflict with `main` (the owner's PR #85, `docs/ASSUMPTIONS.md`), resolved by merging `main` (`1260336`), keeping both sides.
 - The runs on the following commits, and on the final head (this report's commit), are named in the session's closing message: a commit cannot name its own runs. The pull request is merged with a merge commit only once every run on its head is green.
 
 ## Next session
 
-B09e, copied from `docs/prompts/session-openers.md` (unchanged).
+B09e, copied from `docs/prompts/session-openers.md` as merged from `main` (the owner's PR #85 gave B09e CR-035 and CR-036).
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
@@ -200,6 +202,9 @@ with exact pesewa assertions:
 6. Quantity breaks and reorder points counted in the selling unit (10 crates), stored in eggs.
 7. A purchase order line defaults to the last price paid to that supplier for that product; no full supplier price
    list yet.
+The frontend's CR-035 (breakage and rejection reasons) and CR-036 (a claim raised from a receipt's rejected lines) are
+answered by points 5 and the breakage reasons above (owner, 2026-11-17): build them to the requests' shapes as committed
+on the frontend's main, and answer both in the report.
 Not in this phase: returnable trays and crates (BL-074, until the owner confirms); registered checkout and order
 promotions (BL-072, BL-073). Kasoa and KNUST are real selling points the owner creates through the API: never seed them.
 Additive contract changes only, unless one is unavoidable and recorded loudly.
