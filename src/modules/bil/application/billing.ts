@@ -393,6 +393,12 @@ export class Billing {
     return this.store.openItems(tx, filter, beforeId, limit);
   }
 
+  /** Documents by id as the contract shows them, in the caller's transaction; unknown ids are absent. It authorises nothing (ORD's order view, A-224). */
+  async viewsIn(tx: Transaction, ids: readonly string[]): Promise<BillingDocumentView[]> {
+    if (ids.length === 0) return [];
+    return this.views(tx, await this.store.documents(tx, ids));
+  }
+
   /**
    * What a payment needs to know of the documents it would settle, read in the caller's transaction (A-210): kind,
    * status, branch, customer, number and what each has outstanding. Unknown ids are absent. It authorises nothing.
@@ -460,10 +466,19 @@ export class Billing {
       const reason = (await this.refs.reasonCodesIn(tx, [body.reasonCode])).get(body.reasonCode);
       const broken: BrokenRule[] = [...noteReasonRule('CREDIT_NOTE', reason, body.note ?? null)];
       const anchorOf = (l: LineRecord) => (original.taxInclusive ? l.lineGrossPesewas : l.lineNetPesewas);
-      const credited = await this.store.creditedAnchors(tx, original.lines.map((l) => l.id), original.taxInclusive);
+      const credited = await this.store.creditedAnchors(
+        tx,
+        original.lines.map((l) => l.id),
+        original.taxInclusive,
+      );
       const creditable = original.lines.map((l) => ({
         id: l.id,
-        pricing: { unitPrice: Money.ofPesewas(l.unitPricePesewas), resolvedUnitPrice: Money.ofPesewas(l.resolvedUnitPricePesewas), quantity: Quantity.parse(l.qty), discount: Money.ofPesewas(l.discountPesewas) },
+        pricing: {
+          unitPrice: Money.ofPesewas(l.unitPricePesewas),
+          resolvedUnitPrice: Money.ofPesewas(l.resolvedUnitPricePesewas),
+          quantity: Quantity.parse(l.qty),
+          discount: Money.ofPesewas(l.discountPesewas),
+        },
         anchor: Money.ofPesewas(anchorOf(l)),
         creditedAnchor: Money.ofPesewas(credited.get(l.id) ?? 0n),
       }));
@@ -509,12 +524,34 @@ export class Billing {
       }
       const [draft] = await this.store.documents(tx, [header.id]);
       const summary = `Credit ${gross} pesewas against ${original.documentNo} to ${original.customerName ?? 'a walk-in customer'} (${body.reasonCode})`;
-      const request = await this.approvals.request(tx, actor, { kind: CREDIT_NOTE_KIND, branchId: original.branchId, subjectDocumentId: header.id, payloadHash: draftHash(draft!), amountPesewas: gross, summary });
+      const request = await this.approvals.request(tx, actor, {
+        kind: CREDIT_NOTE_KIND,
+        branchId: original.branchId,
+        subjectDocumentId: header.id,
+        payloadHash: draftHash(draft!),
+        amountPesewas: gross,
+        summary,
+      });
       await this.store.markPending(tx, header.id, request.id, actor!.principalId);
-      await this.audit.record(tx, { module: 'bil', action: 'SUBMIT', entityType: 'BillingDocument', entityId: header.id, branchId: original.branchId, before: null, after: { ...auditShape(draft!), approvalRequestId: request.id } });
+      await this.audit.record(tx, {
+        module: 'bil',
+        action: 'SUBMIT',
+        entityType: 'BillingDocument',
+        entityId: header.id,
+        branchId: original.branchId,
+        before: null,
+        after: { ...auditShape(draft!), approvalRequestId: request.id },
+      });
       return {
         status: 202,
-        body: { status: 'PENDING_APPROVAL', approvalRequestId: request.id, kind: CREDIT_NOTE_KIND, subject: { id: header.id, docType: 'CREDIT_NOTE', number: null }, summary, requestedAt: request.requestedAt.toISOString() },
+        body: {
+          status: 'PENDING_APPROVAL',
+          approvalRequestId: request.id,
+          kind: CREDIT_NOTE_KIND,
+          subject: { id: header.id, docType: 'CREDIT_NOTE', number: null },
+          summary,
+          requestedAt: request.requestedAt.toISOString(),
+        },
       };
     });
   }
@@ -541,7 +578,10 @@ export class Billing {
       const reason = (await this.refs.reasonCodesIn(tx, [body.reasonCode])).get(body.reasonCode);
       const broken: BrokenRule[] = [...noteReasonRule('DEBIT_NOTE', reason, body.note ?? null)];
       if (body.lines.length === 0) broken.push({ field: '/lines', rule: 'NO_LINES' });
-      const categories = await this.refs.taxCategoriesIn(tx, body.lines.map((l) => l.taxCategoryId));
+      const categories = await this.refs.taxCategoriesIn(
+        tx,
+        body.lines.map((l) => l.taxCategoryId),
+      );
       const missing = body.lines.flatMap((l, i) => (categories.has(l.taxCategoryId) ? [] : [`/lines/${i}/taxCategoryId`]));
       if (missing.length > 0) throw new BilReferenceNotFoundError(missing);
       body.lines.forEach((l, i) => {
@@ -621,10 +661,25 @@ export class Billing {
       const copyNo = await this.store.appendReprint(tx, { id: this.nextId(), billingDocumentId: id, channel: body.channel, actorId: actor!.principalId, at: this.clock.now() });
       const marker = `REPRINT ${copyNo}`;
       const bytes = body.channel === 'PDF' ? withReprintMarker(original, marker) : escPosWithReprintMarker(original, marker);
-      await this.audit.record(tx, { module: 'bil', action: 'REPRINT', entityType: 'BillingDocument', entityId: id, branchId: archived.branchId, before: null, after: { copyNo, channel: body.channel, archivedDocumentId: archived.id } });
+      await this.audit.record(tx, {
+        module: 'bil',
+        action: 'REPRINT',
+        entityType: 'BillingDocument',
+        entityId: id,
+        branchId: archived.branchId,
+        before: null,
+        after: { copyNo, channel: body.channel, archivedDocumentId: archived.id },
+      });
       const response = {
         status: 200,
-        body: { copyNo, channel: body.channel, url: null, escPosBase64: body.channel === 'THERMAL' ? bytes.toString('base64') : null, pdfBase64: body.channel === 'PDF' ? bytes.toString('base64') : null, expiresAt: null },
+        body: {
+          copyNo,
+          channel: body.channel,
+          url: null,
+          escPosBase64: body.channel === 'THERMAL' ? bytes.toString('base64') : null,
+          pdfBase64: body.channel === 'PDF' ? bytes.toString('base64') : null,
+          expiresAt: null,
+        },
       };
       await this.idempotency.complete(tx, claim.id, response);
       return response;
@@ -685,7 +740,15 @@ export class Billing {
   }
 
   /** A credit or debit note's header: the original's branch, customer and printed party, never edited since. */
-  private noteHeader(original: DocumentRecord, kind: 'CREDIT_NOTE' | 'DEBIT_NOTE', versionId: string, reasonCode: string, note: string | undefined, actorId: string, dueDate: string | null): DraftHeader {
+  private noteHeader(
+    original: DocumentRecord,
+    kind: 'CREDIT_NOTE' | 'DEBIT_NOTE',
+    versionId: string,
+    reasonCode: string,
+    note: string | undefined,
+    actorId: string,
+    dueDate: string | null,
+  ): DraftHeader {
     return {
       id: this.nextId(),
       kind,
@@ -741,7 +804,11 @@ export class Billing {
 
   /** Every line's levy rows from MDM's calculator, one per levy including those at zero (ADR-0020). */
   private async taxed(tx: Transaction, taxInclusive: boolean, taxDate: string, priced: readonly PricedLine[]): Promise<{ versionId: string; lines: LineRecord[] }> {
-    const calculation = await this.tax.calculateIn(tx, { taxInclusive, taxDate, lines: priced.map((p) => ({ lineRef: p.ref, taxCategoryId: p.record.taxCategoryId, amountPesewas: p.anchor.pesewas })) });
+    const calculation = await this.tax.calculateIn(tx, {
+      taxInclusive,
+      taxDate,
+      lines: priced.map((p) => ({ lineRef: p.ref, taxCategoryId: p.record.taxCategoryId, amountPesewas: p.anchor.pesewas })),
+    });
     const byRef = new Map(calculation.lines.map((l) => [l.lineRef, l] as const));
     const lines = priced.map((p): LineRecord => {
       const breakdown = byRef.get(p.ref)!;
@@ -783,7 +850,16 @@ export class Billing {
     const totals = documentTotals(draft.lines.map(figures));
     // A draft approved on a later day is never due before its issue date (A-223, `ck_billing_document_due`).
     const dueDate = draft.dueDate !== null && draft.dueDate < issueDate ? issueDate : draft.dueDate;
-    await this.store.issue(tx, id, { documentNo, netPesewas: totals.net.pesewas, taxPesewas: totals.tax.pesewas, grossPesewas: totals.gross.pesewas, issueDate, dueDate, issuedAt: this.clock.now(), actorId });
+    await this.store.issue(tx, id, {
+      documentNo,
+      netPesewas: totals.net.pesewas,
+      taxPesewas: totals.tax.pesewas,
+      grossPesewas: totals.gross.pesewas,
+      issueDate,
+      dueDate,
+      issuedAt: this.clock.now(),
+      actorId,
+    });
     const payload: BillingDocumentPayload = {
       billingDocumentId: id,
       kind: draft.kind,
@@ -830,14 +906,33 @@ export class Billing {
   }
 
   private async views(tx: Transaction, records: readonly DocumentRecord[]): Promise<BillingDocumentView[]> {
-    const customers = await this.refs.customersIn(tx, records.flatMap((r) => (r.customerId === null ? [] : [r.customerId])));
+    const customers = await this.refs.customersIn(
+      tx,
+      records.flatMap((r) => (r.customerId === null ? [] : [r.customerId])),
+    );
     const lines = records.flatMap((r) => r.lines);
-    const products = await this.refs.productsIn(tx, lines.flatMap((l) => (l.productId === null ? [] : [l.productId])));
+    const products = await this.refs.productsIn(
+      tx,
+      lines.flatMap((l) => (l.productId === null ? [] : [l.productId])),
+    );
     const categories = await this.refs.taxCategoriesIn(tx, [...new Set(lines.map((l) => l.taxCategoryId))]);
-    const orders = await this.documents.refs(tx, records.flatMap((r) => (r.orderDocumentId === null ? [] : [r.orderDocumentId])));
-    const originals = new Map((await this.store.documents(tx, records.flatMap((r) => (r.originalDocumentId === null ? [] : [r.originalDocumentId])))).map((o) => [o.id, o] as const));
+    const orders = await this.documents.refs(
+      tx,
+      records.flatMap((r) => (r.orderDocumentId === null ? [] : [r.orderDocumentId])),
+    );
+    const originals = new Map(
+      (
+        await this.store.documents(
+          tx,
+          records.flatMap((r) => (r.originalDocumentId === null ? [] : [r.originalDocumentId])),
+        )
+      ).map((o) => [o.id, o] as const),
+    );
     const settlements = await this.store.settlements(tx, [...new Set([...records.map((r) => r.id), ...originals.keys()])]);
-    const reprints = await this.store.reprintCounts(tx, records.map((r) => r.id));
+    const reprints = await this.store.reprintCounts(
+      tx,
+      records.map((r) => r.id),
+    );
     return records.map((r) => {
       const customer = r.customerId === null ? undefined : customers.get(r.customerId);
       const settlement = settlements.get(r.id);
@@ -863,7 +958,9 @@ export class Billing {
         taxPesewas: json(r.taxPesewas),
         grossPesewas: json(r.grossPesewas),
         currency: 'GHS',
-        levyTotals: levyTotals(r.lines.flatMap((l) => l.levies.map((levy) => ({ levyCode: levy.levyCode, levyName: levy.levyName, calcOrder: levy.calcOrder, amount: Money.ofPesewas(levy.amountPesewas) })))).map((t) => ({
+        levyTotals: levyTotals(
+          r.lines.flatMap((l) => l.levies.map((levy) => ({ levyCode: levy.levyCode, levyName: levy.levyName, calcOrder: levy.calcOrder, amount: Money.ofPesewas(levy.amountPesewas) }))),
+        ).map((t) => ({
           levyCode: t.levyCode,
           levyName: t.levyName,
           amountPesewas: t.amount.toJsonInteger(),
@@ -900,7 +997,16 @@ export class Billing {
         }),
         settlement:
           settlement === undefined
-            ? { allocatedPesewas: 0, creditedPesewas: 0, outstandingPesewas: 0, refundedPesewas: 0, refundablePesewas: 0, paymentStatus: 'NOT_APPLICABLE', settledAt: null, asOf: (r.issuedAt ?? this.clock.now()).toISOString() }
+            ? {
+                allocatedPesewas: 0,
+                creditedPesewas: 0,
+                outstandingPesewas: 0,
+                refundedPesewas: 0,
+                refundablePesewas: 0,
+                paymentStatus: 'NOT_APPLICABLE',
+                settledAt: null,
+                asOf: (r.issuedAt ?? this.clock.now()).toISOString(),
+              }
             : {
                 allocatedPesewas: json(settlement.allocatedPesewas),
                 creditedPesewas: json(settlement.creditedPesewas),
@@ -911,7 +1017,8 @@ export class Billing {
                 settledAt: settlement.settledAt?.toISOString() ?? null,
                 asOf: settlement.asOf.toISOString(),
               },
-        certification: r.certification === null ? null : { certifiedTaxPesewas: json(r.certification.taxPesewas), certifiedGrossPesewas: json(r.certification.grossPesewas), reference: r.certification.reference },
+        certification:
+          r.certification === null ? null : { certifiedTaxPesewas: json(r.certification.taxPesewas), certifiedGrossPesewas: json(r.certification.grossPesewas), reference: r.certification.reference },
         reasonCode: r.reasonCode,
         archivedDocumentId: r.archivedDocumentId,
         contentHash: r.contentHash === null ? null : r.contentHash.toString('hex'),
@@ -947,7 +1054,10 @@ export interface SettleableDocument {
 
 /** `creditRefundableOf` over a stored document and its settlement rows. */
 function refundableOf(record: Pick<DocumentRecord, 'kind' | 'status' | 'grossPesewas'>, settlement: SettlementRecord, original: SettlementRecord | undefined): bigint {
-  return creditRefundableOf({ kind: record.kind, issued: record.status === 'ISSUED', grossPesewas: record.grossPesewas, refundedPesewas: settlement.refundedPesewas, refundablePesewas: settlement.refundablePesewas }, original?.refundablePesewas ?? null);
+  return creditRefundableOf(
+    { kind: record.kind, issued: record.status === 'ISSUED', grossPesewas: record.grossPesewas, refundedPesewas: settlement.refundedPesewas, refundablePesewas: settlement.refundablePesewas },
+    original?.refundablePesewas ?? null,
+  );
 }
 
 /** What a credit note's approval binds to: the draft as priced, line by line and levy by levy. */
@@ -958,7 +1068,14 @@ function draftHash(d: DocumentRecord): string {
     customerId: d.customerId,
     reasonCode: d.reasonCode,
     taxSchemeVersionId: d.taxSchemeVersionId,
-    lines: d.lines.map((l) => [l.creditsLineId, l.qty, l.discountPesewas.toString(), l.lineNetPesewas.toString(), l.lineGrossPesewas.toString(), l.levies.map((t) => [t.levyId, t.amountPesewas.toString()])]),
+    lines: d.lines.map((l) => [
+      l.creditsLineId,
+      l.qty,
+      l.discountPesewas.toString(),
+      l.lineNetPesewas.toString(),
+      l.lineGrossPesewas.toString(),
+      l.levies.map((t) => [t.levyId, t.amountPesewas.toString()]),
+    ]),
   };
   return createHash('sha256').update(JSON.stringify(payload)).digest('hex');
 }

@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "1.46.0"
+  version: "1.47.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -48582,7 +48582,7 @@ paths:
       tags:
         - ord
       summary: "List orders on every channel"
-      description: "Permission: `ord.order.read`."
+      description: "Every channel in one list, newest first, at the branches where the caller reads orders for the whole branch. `from` and `to` bound `placedAt` (from inclusive, to exclusive); `q` matches the start of an order number or part of a guest's name.\n\nPermission: `ord.order.read`."
       x-permission: ord.order.read
       parameters:
         - name: channel
@@ -49367,7 +49367,7 @@ paths:
       tags:
         - ord
       summary: "Enter an order for a customer"
-      description: "A line the pricing engine cannot price is refused with 422 QUOTE_REQUIRED naming the line; raise a quote instead.\n\nPermission: `ord.order.create`."
+      description: "Enters a PLACED order at the one branch where the caller enters orders, numbered from its `SALES_ORDER` series; nothing is reserved or charged until `confirmOrder`. Every line is priced by the pricing engine now and keeps the full pricing record. A line the pricing engine cannot price is refused with 422 QUOTE_REQUIRED naming the line; raise a quote instead. A price below list or outside the band is 422 PRICE_OVERRIDE_NEEDS_APPROVAL until its approval is built; a price above list within the band needs a `PRICE_OVERRIDE` reason. Until delivery scheduling, catch weight and promotions on staff orders are built, `DELIVERY`, a line priced per kilogram and a coupon are refused (422 ORDER_INVALID: `FULFILMENT_NOT_AVAILABLE`, `CATCH_WEIGHT_NOT_AVAILABLE`, `COUPON_NOT_AVAILABLE`); every other rule a line breaks is also named in `details[].code` (A-224).\n\nPermission: `ord.order.create`."
       x-permission: ord.order.create
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -49384,15 +49384,14 @@ paths:
             example:
               channel: WHOLESALE
               customerId: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-              fulfilmentMode: DELIVERY
-              paymentTerms: CREDIT
-              deliveryAddressId: "019a7aa3-3056-765a-ab92-6e759fe7e753"
-              deliverySlotId: "019a7af2-74c6-7d3c-a275-dc9d7577557b"
+              fulfilmentMode: COLLECTION
+              paymentTerms: COD
               lines:
-                - productId: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                  quantity: "2.000"
-                - productId: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                  quantity: "3.000"
+                - productId: "019a7a8e-6b1f-7a02-9c41-2f6d8e1b5a30"
+                  quantity: "4.000"
+                - productId: "019a7a8e-8c27-7b3d-a1e5-4d9f0c2a6b71"
+                  quantity: "10.000"
+              notes: "Collecting Friday morning for the hotel kitchen"
       responses:
         "201":
           description: OK
@@ -49405,121 +49404,110 @@ paths:
                 $ref: "#/components/schemas/SalesOrder"
               example:
                 id: "019a7af0-a4c5-78e8-be21-975d5418103b"
+                orderNo: SO-2026-DDW-004198
+                channel: WHOLESALE
+                status: PLACED
+                paymentStatus: UNPAID
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
                   customerNo: C-00042
                   name: "Royal Palm Hotel Ltd"
                 contactName: null
                 contactPhone: null
+                paymentTerms: COD
+                fulfilmentMode: COLLECTION
                 source: null
                 parentOrderId: null
                 shiftId: null
                 salesperson:
                   id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
                   displayName: "Kojo Antwi"
-                deliveryAddress:
-                  recipientName: "Royal Palm Hotel, kitchen"
-                  recipientPhone: "+233302765410"
-                  line1: "7 Liberation Road"
-                  area: "Airport Residential"
-                  city: Accra
-                  region: "Greater Accra"
-                  digitalAddress: GA-145-2208
-                  directions: "Deliveries through the back gate, ask for the head chef"
-                deliveryZone:
-                  id: "019a7a93-d7c5-7e81-b3ba-f0f0411869ce"
-                  code: ACC-CENTRAL
-                  name: "Accra Central, Osu, Airport"
+                deliveryAddress: null
+                deliveryZone: null
                 deliveryFeePesewas: 0
                 delivery: null
-                taxInclusive: false
+                taxInclusive: true
+                estimatedTotalPesewas: 39000
+                maximumTotalPesewas: 39000
                 finalTotalPesewas: null
+                paidPesewas: 0
+                outstandingPesewas: 39000
+                currency: GHS
                 billingDocument: null
                 creditCheck: null
                 isOffline: false
-                completedAt: null
-                adjustments: []
-                notes: null
-                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                version: 3
-                orderNo: SO-2026-DDW-004198
-                channel: WHOLESALE
-                status: PLACED
-                paymentStatus: UNPAID
-                paymentTerms: CREDIT
-                fulfilmentMode: DELIVERY
-                estimatedTotalPesewas: 224694
-                maximumTotalPesewas: 247163
-                paidPesewas: 0
-                outstandingPesewas: 224694
-                currency: GHS
                 placedAt: "2026-11-12T16:00:00Z"
+                completedAt: null
                 recordedAt: "2026-11-12T16:00:00Z"
                 lines:
                   - id: "019a7af0-e2a3-7caf-91e7-d3cc477a4caa"
                     lineNo: 1
                     product:
-                      id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
-                      name: "Full chicken, 15 kg pack"
+                      id: "019a7a8e-6b1f-7a02-9c41-2f6d8e1b5a30"
+                      sku: EGG-CRATE-BIG
+                      name: "Eggs, big, crate of 30"
                     stockUnit: null
-                    qtyOrdered: "2.000"
-                    uom: PACK
-                    estimatedWeightKg: "30.000"
-                    tolerancePercent: "10.00"
+                    qtyOrdered: "4.000"
+                    uom: CRATE
+                    estimatedWeightKg: null
+                    tolerancePercent: null
                     qtyFulfilled: "0.000"
                     fulfilledWeightKg: null
                     weightSource: null
                     qtyBackordered: "0.000"
                     priceSource: ENGINE
-                    priceBasis: PER_KG
+                    priceBasis: PER_UNIT
                     priceListEntryId: "019a7af0-c3b4-72cc-8804-3594cdc9ae72"
                     quoteLineId: null
-                    resolvedUnitPricePesewas: 1900
-                    floorUnitPricePesewas: 1467
-                    ceilingUnitPricePesewas: 2333
-                    agreedUnitPricePesewas: 1900
+                    resolvedUnitPricePesewas: 6000
+                    floorUnitPricePesewas: 6000
+                    ceilingUnitPricePesewas: 6000
+                    agreedUnitPricePesewas: 6000
                     variancePesewas: 0
                     varianceDirection: null
                     varianceReasonCode: null
                     varianceApprovalRequestId: null
                     discountPesewas: 0
-                    estimatedLineTotalPesewas: 57000
+                    estimatedLineTotalPesewas: 24000
                     finalLineTotalPesewas: null
                     lineStatus: OPEN
                     stockException: null
                   - id: "019a7af1-2081-7076-b5ae-103b3adc8919"
                     lineNo: 2
                     product:
-                      id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                      sku: MEAT-BEEF
-                      name: "Beef, 15 kg pack"
+                      id: "019a7a8e-8c27-7b3d-a1e5-4d9f0c2a6b71"
+                      sku: PRD-CABBAGE-HEAD
+                      name: "Cabbage, per head"
                     stockUnit: null
-                    qtyOrdered: "3.000"
-                    uom: PACK
-                    estimatedWeightKg: "45.000"
-                    tolerancePercent: "10.00"
+                    qtyOrdered: "10.000"
+                    uom: EACH
+                    estimatedWeightKg: null
+                    tolerancePercent: null
                     qtyFulfilled: "0.000"
                     fulfilledWeightKg: null
                     weightSource: null
                     qtyBackordered: "0.000"
                     priceSource: ENGINE
-                    priceBasis: PER_KG
+                    priceBasis: PER_UNIT
                     priceListEntryId: "019a7af1-0192-7693-abcb-7203c12beae1"
                     quoteLineId: null
-                    resolvedUnitPricePesewas: 2850
-                    floorUnitPricePesewas: 2200
-                    ceilingUnitPricePesewas: 4333
-                    agreedUnitPricePesewas: 2850
+                    resolvedUnitPricePesewas: 1500
+                    floorUnitPricePesewas: 1200
+                    ceilingUnitPricePesewas: 1800
+                    agreedUnitPricePesewas: 1500
                     variancePesewas: 0
                     varianceDirection: null
                     varianceReasonCode: null
                     varianceApprovalRequestId: null
                     discountPesewas: 0
-                    estimatedLineTotalPesewas: 128250
+                    estimatedLineTotalPesewas: 15000
                     finalLineTotalPesewas: null
                     lineStatus: OPEN
                     stockException: null
+                adjustments: []
+                notes: "Collecting Friday morning for the hotel kitchen"
+                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                version: 1
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -49540,7 +49528,7 @@ paths:
       tags:
         - ord
       summary: "Get an order"
-      description: "Permission: `ord.order.read`."
+      description: "The order with every line's pricing record, its payment status beside its status (derived from its cleared payments and, once issued, its billing document), and what is paid and outstanding. An order at a branch the caller does not read is refused (403).\n\nPermission: `ord.order.read`."
       x-permission: ord.order.read
       parameters:
         - name: id
@@ -49727,7 +49715,7 @@ paths:
       tags:
         - ord
       summary: "Confirm an order: reserve stock and check credit"
-      description: "Runs at serializable isolation. For a business account over its credit limit or on hold, returns 202 with an approval for a credit override.\n\nPermission: `ord.order.confirm`.\n\nMay require approval of kind `CREDIT_OVERRIDE`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+      description: "Runs at serializable isolation. First the payment or credit check: a cash-on-delivery order needs none, a prepaid order needs its estimate received in cleared payments (else 422 ORDER_INVALID `PREPAYMENT_SHORT`), and a credit order needs a credit policy to pass it. Then every open line is reserved for the order from the stock a remote buyer may be promised, oldest first. If any line cannot be covered, nothing is reserved, the order stays `PLACED`, and the answer is 422 STOCK_UNAVAILABLE with one `NOT_ENOUGH_STOCK` detail per short line (`field` `/lines/<lineNo>`, the message saying how much is short). A confirmed order holds its stock until fulfilment, cancellation or void. Only a `PLACED` order is confirmed (else 422 INVALID_STATE_TRANSITION, `details[].code` the status). For a business account over its credit limit or on hold, returns 202 with an approval for a credit override (credit control, B10; until it is built a credit order is refused with 422 ORDER_INVALID `CREDIT_CHECK_UNAVAILABLE`, A-224).\n\nPermission: `ord.order.confirm`.\n\nMay require approval of kind `CREDIT_OVERRIDE`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
       x-permission: ord.order.confirm
       parameters:
         - name: id
@@ -49753,121 +49741,110 @@ paths:
                 $ref: "#/components/schemas/SalesOrder"
               example:
                 id: "019a7af0-a4c5-78e8-be21-975d5418103b"
+                orderNo: SO-2026-DDW-004198
+                channel: WHOLESALE
+                status: CONFIRMED
+                paymentStatus: UNPAID
                 customer:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
                   customerNo: C-00042
                   name: "Royal Palm Hotel Ltd"
                 contactName: null
                 contactPhone: null
+                paymentTerms: COD
+                fulfilmentMode: COLLECTION
                 source: null
                 parentOrderId: null
                 shiftId: null
                 salesperson:
                   id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
                   displayName: "Kojo Antwi"
-                deliveryAddress:
-                  recipientName: "Royal Palm Hotel, kitchen"
-                  recipientPhone: "+233302765410"
-                  line1: "7 Liberation Road"
-                  area: "Airport Residential"
-                  city: Accra
-                  region: "Greater Accra"
-                  digitalAddress: GA-145-2208
-                  directions: "Deliveries through the back gate, ask for the head chef"
-                deliveryZone:
-                  id: "019a7a93-d7c5-7e81-b3ba-f0f0411869ce"
-                  code: ACC-CENTRAL
-                  name: "Accra Central, Osu, Airport"
+                deliveryAddress: null
+                deliveryZone: null
                 deliveryFeePesewas: 0
                 delivery: null
-                taxInclusive: false
+                taxInclusive: true
+                estimatedTotalPesewas: 39000
+                maximumTotalPesewas: 39000
                 finalTotalPesewas: null
-                billingDocument: null
-                creditCheck: PASSED
-                isOffline: false
-                completedAt: null
-                adjustments: []
-                notes: null
-                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                version: 3
-                orderNo: SO-2026-DDW-004198
-                channel: WHOLESALE
-                status: CONFIRMED
-                paymentStatus: UNPAID
-                paymentTerms: CREDIT
-                fulfilmentMode: DELIVERY
-                estimatedTotalPesewas: 224694
-                maximumTotalPesewas: 247163
                 paidPesewas: 0
-                outstandingPesewas: 224694
+                outstandingPesewas: 39000
                 currency: GHS
+                billingDocument: null
+                creditCheck: NOT_REQUIRED
+                isOffline: false
                 placedAt: "2026-11-12T16:00:00Z"
+                completedAt: null
                 recordedAt: "2026-11-12T16:00:00Z"
                 lines:
                   - id: "019a7af0-e2a3-7caf-91e7-d3cc477a4caa"
                     lineNo: 1
                     product:
-                      id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-CHK-FULL
-                      name: "Full chicken, 15 kg pack"
+                      id: "019a7a8e-6b1f-7a02-9c41-2f6d8e1b5a30"
+                      sku: EGG-CRATE-BIG
+                      name: "Eggs, big, crate of 30"
                     stockUnit: null
-                    qtyOrdered: "2.000"
-                    uom: PACK
-                    estimatedWeightKg: "30.000"
-                    tolerancePercent: "10.00"
+                    qtyOrdered: "4.000"
+                    uom: CRATE
+                    estimatedWeightKg: null
+                    tolerancePercent: null
                     qtyFulfilled: "0.000"
                     fulfilledWeightKg: null
                     weightSource: null
                     qtyBackordered: "0.000"
                     priceSource: ENGINE
-                    priceBasis: PER_KG
+                    priceBasis: PER_UNIT
                     priceListEntryId: "019a7af0-c3b4-72cc-8804-3594cdc9ae72"
                     quoteLineId: null
-                    resolvedUnitPricePesewas: 1900
-                    floorUnitPricePesewas: 1467
-                    ceilingUnitPricePesewas: 2333
-                    agreedUnitPricePesewas: 1900
+                    resolvedUnitPricePesewas: 6000
+                    floorUnitPricePesewas: 6000
+                    ceilingUnitPricePesewas: 6000
+                    agreedUnitPricePesewas: 6000
                     variancePesewas: 0
                     varianceDirection: null
                     varianceReasonCode: null
                     varianceApprovalRequestId: null
                     discountPesewas: 0
-                    estimatedLineTotalPesewas: 57000
+                    estimatedLineTotalPesewas: 24000
                     finalLineTotalPesewas: null
                     lineStatus: OPEN
                     stockException: null
                   - id: "019a7af1-2081-7076-b5ae-103b3adc8919"
                     lineNo: 2
                     product:
-                      id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                      sku: MEAT-BEEF
-                      name: "Beef, 15 kg pack"
+                      id: "019a7a8e-8c27-7b3d-a1e5-4d9f0c2a6b71"
+                      sku: PRD-CABBAGE-HEAD
+                      name: "Cabbage, per head"
                     stockUnit: null
-                    qtyOrdered: "3.000"
-                    uom: PACK
-                    estimatedWeightKg: "45.000"
-                    tolerancePercent: "10.00"
+                    qtyOrdered: "10.000"
+                    uom: EACH
+                    estimatedWeightKg: null
+                    tolerancePercent: null
                     qtyFulfilled: "0.000"
                     fulfilledWeightKg: null
                     weightSource: null
                     qtyBackordered: "0.000"
                     priceSource: ENGINE
-                    priceBasis: PER_KG
+                    priceBasis: PER_UNIT
                     priceListEntryId: "019a7af1-0192-7693-abcb-7203c12beae1"
                     quoteLineId: null
-                    resolvedUnitPricePesewas: 2850
-                    floorUnitPricePesewas: 2200
-                    ceilingUnitPricePesewas: 4333
-                    agreedUnitPricePesewas: 2850
+                    resolvedUnitPricePesewas: 1500
+                    floorUnitPricePesewas: 1200
+                    ceilingUnitPricePesewas: 1800
+                    agreedUnitPricePesewas: 1500
                     variancePesewas: 0
                     varianceDirection: null
                     varianceReasonCode: null
                     varianceApprovalRequestId: null
                     discountPesewas: 0
-                    estimatedLineTotalPesewas: 128250
+                    estimatedLineTotalPesewas: 15000
                     finalLineTotalPesewas: null
                     lineStatus: OPEN
                     stockException: null
+                adjustments: []
+                notes: "Collecting Friday morning for the hotel kitchen"
+                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                version: 2
         "202":
           description: "Accepted for approval. Nothing has taken effect yet."
           content:
@@ -50253,7 +50230,7 @@ paths:
       tags:
         - ord
       summary: "List an order's status changes"
-      description: "Permission: `ord.order.read`."
+      description: "Every status change once, oldest first, with who made it and when (FR-ORD-002).\n\nPermission: `ord.order.read`."
       x-permission: ord.order.read
       parameters:
         - name: id

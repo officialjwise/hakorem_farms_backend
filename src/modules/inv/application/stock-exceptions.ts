@@ -78,6 +78,16 @@ export class StockExceptions {
     private readonly clock: Clock,
   ) {}
 
+  /** The contract's `StockExceptionRef` of each exception asked for that exists, in the caller's transaction (ORD's order lines, A-224). */
+  async refsIn(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, { readonly id: string; readonly kind: string }>> {
+    const found = new Map<string, { readonly id: string; readonly kind: string }>();
+    for (const id of new Set(ids)) {
+      const record = await this.store.exception(tx, id);
+      if (record !== null) found.set(id, { id: record.id, kind: record.kind });
+    }
+    return found;
+  }
+
   list(actor: Actor | undefined, filters: StockExceptionFilters, cursor: string | undefined, limit: number): Promise<Page<StockExceptionView>> {
     return this.uow.run({ isolation: 'read committed' }, async (tx) => {
       await this.authoriser.authorise(tx, actor, 'inv.exception.read', filters.branchId === undefined ? {} : { branchId: filters.branchId });
@@ -213,11 +223,26 @@ export class StockExceptions {
   }
 
   private async views(tx: Transaction, records: readonly StockExceptionRecord[]): Promise<StockExceptionView[]> {
-    const products = await this.refs.productsIn(tx, records.map((r) => r.productId));
-    const locations = await this.refs.locationsIn(tx, records.flatMap((r) => (r.locationId === null ? [] : [r.locationId])));
-    const units = await this.documentsStore.units(tx, records.flatMap((r) => (r.stockUnitId === null ? [] : [r.stockUnitId])));
-    const docs = await this.documents.refs(tx, records.flatMap((r) => [r.sourceDocumentId, r.resolutionDocumentId].filter((d): d is string => d !== null)));
-    const names = await this.principals.refs(tx, records.flatMap((r) => (r.resolvedBy === null ? [] : [r.resolvedBy])));
+    const products = await this.refs.productsIn(
+      tx,
+      records.map((r) => r.productId),
+    );
+    const locations = await this.refs.locationsIn(
+      tx,
+      records.flatMap((r) => (r.locationId === null ? [] : [r.locationId])),
+    );
+    const units = await this.documentsStore.units(
+      tx,
+      records.flatMap((r) => (r.stockUnitId === null ? [] : [r.stockUnitId])),
+    );
+    const docs = await this.documents.refs(
+      tx,
+      records.flatMap((r) => [r.sourceDocumentId, r.resolutionDocumentId].filter((d): d is string => d !== null)),
+    );
+    const names = await this.principals.refs(
+      tx,
+      records.flatMap((r) => (r.resolvedBy === null ? [] : [r.resolvedBy])),
+    );
     const doc = (docId: string | null): DocumentRefRecord | null => (docId === null ? null : (docs.get(docId) ?? { id: docId, docType: 'UNKNOWN', number: null }));
     return records.map((r) => {
       const location = r.locationId === null ? undefined : locations.get(r.locationId);

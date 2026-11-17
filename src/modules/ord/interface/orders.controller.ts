@@ -1,0 +1,111 @@
+import { Body, Controller, Get, HttpCode, Inject, Param, Post, Query, Res } from '@nestjs/common';
+import type { Response } from 'express';
+import type { z } from 'zod';
+import type { Actor } from '../../../platform/context/request-context';
+import { CurrentActor } from '../../../platform/http/actor-param';
+import { IdempotencyKeyHeader, Operation } from '../../../platform/http/operation';
+import { zodPipe } from '../../../platform/http/validation';
+import type { StoredResponse } from '../../../platform/idempotency/idempotency';
+import { Orders, type OrderStatusChangeView, type Page, type SalesOrderView } from '../application/orders';
+import { IdParam, OrderCreateBody, OrderPageQuery, PageQuery } from './schemas';
+
+const READ = { access: 'SESSION', realms: ['STAFF'], idempotent: false, csrf: false, rateLimit: 'console' } as const;
+const WRITE = { access: 'SESSION', realms: ['STAFF'], idempotent: true, csrf: true, rateLimit: 'console' } as const;
+
+async function reply<T>(res: Response, pending: Promise<StoredResponse<T>>): Promise<T> {
+  const response = await pending;
+  res.status(response.status);
+  return response.body;
+}
+
+const dateOrNull = (value: string | undefined) => (value === undefined ? null : new Date(value));
+
+/** The order record of every channel (FR-ORD-001, FR-ORD-002, FR-ORD-005). Parses and delegates; `Orders` authorises. */
+@Controller('orders')
+export class OrdersController {
+  constructor(@Inject(Orders) private readonly orders: Orders) {}
+
+  @Get()
+  @Operation({ operationId: 'listOrders', ...READ, permission: 'ord.order.read' })
+  listOrders(@CurrentActor() actor: Actor | undefined, @Query(zodPipe(OrderPageQuery)) query: z.infer<typeof OrderPageQuery>): Promise<Page<SalesOrderView>> {
+    return this.orders.list(
+      actor,
+      {
+        channel: query.channel ?? null,
+        status: query.status ?? null,
+        customerId: query.customerId ?? null,
+        shiftId: query.shiftId ?? null,
+        salespersonId: query.salespersonId ?? null,
+        from: dateOrNull(query.from),
+        to: dateOrNull(query.to),
+        q: query.q ?? null,
+      },
+      query.cursor,
+      query.limit,
+    );
+  }
+
+  @Post()
+  @Operation({ operationId: 'createOrder', ...WRITE, permission: 'ord.order.create' })
+  createOrder(
+    @CurrentActor() actor: Actor | undefined,
+    @Body(zodPipe(OrderCreateBody)) body: z.infer<typeof OrderCreateBody>,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<SalesOrderView> {
+    return reply(
+      res,
+      this.orders.create(
+        actor,
+        {
+          channel: body.channel,
+          customerId: body.customerId,
+          fulfilmentMode: body.fulfilmentMode,
+          paymentTerms: body.paymentTerms,
+          deliveryAddressId: body.deliveryAddressId ?? null,
+          deliverySlotId: body.deliverySlotId ?? null,
+          couponCode: body.couponCode ?? null,
+          notes: body.notes ?? null,
+          lines: body.lines.map((l) => ({
+            productId: l.productId,
+            stockUnitId: l.stockUnitId ?? null,
+            quantity: l.quantity,
+            gradeId: l.gradeId ?? null,
+            weightKg: l.weightKg ?? null,
+            agreedUnitPricePesewas: l.agreedUnitPricePesewas === undefined ? null : BigInt(l.agreedUnitPricePesewas),
+            varianceReasonCode: l.varianceReasonCode ?? null,
+          })),
+        },
+        key,
+      ),
+    );
+  }
+
+  @Get(':id')
+  @Operation({ operationId: 'getOrder', ...READ, permission: 'ord.order.read' })
+  getOrder(@CurrentActor() actor: Actor | undefined, @Param('id', zodPipe(IdParam)) id: string): Promise<SalesOrderView> {
+    return this.orders.get(actor, id);
+  }
+
+  @Post(':id/confirm')
+  @HttpCode(200)
+  @Operation({ operationId: 'confirmOrder', ...WRITE, permission: 'ord.order.confirm' })
+  confirmOrder(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<SalesOrderView> {
+    return reply(res, this.orders.confirm(actor, id, key));
+  }
+
+  @Get(':id/history')
+  @Operation({ operationId: 'listOrderHistory', ...READ, permission: 'ord.order.read' })
+  listOrderHistory(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Query(zodPipe(PageQuery)) query: z.infer<typeof PageQuery>,
+  ): Promise<Page<OrderStatusChangeView>> {
+    return this.orders.history(actor, id, query.cursor, query.limit);
+  }
+}
