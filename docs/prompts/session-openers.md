@@ -2365,6 +2365,12 @@ whatever the reason; and the second sale is marked as needing a fresh server-mad
 reaches the exception source exactly once per refused sale, and that a replayed sync adds no second entry. If the
 sale carried no customer phone, say how the customer still gets a working receipt, the most conservative choice
 recorded as an assumption.
+CR-038 (owner, 2026-11-17, F10f): the till sells a product in more than one unit, each at its own price (a crate and a
+single egg): OfflineProduct.sellingUnits, one entry per unit sold at the register, saleUom first, each priced by its own
+entry and never derived from another unit's price; CounterSaleLine.uom (absent means saleUom), converted to the base unit
+for stock through MasterDataRefs.toBaseIn and re-priced by that unit's entry at sync; a unit the product is not sold by is
+VALIDATION_FAILED on /lines/{i}/uom; a return refunds in the unit sold. Test-first with exact pesewas, at a crate and a
+single egg of the seeded eggs, online and offline.
 Stop at the gate and write docs/sessions/B09b-pos-shifts-offline.md.
 ```
 
@@ -2537,6 +2543,16 @@ Then execute B09c only, on branch b09c-card-payment, branched from main: card as
 existing provider port (Paystack's hosted or inline card flow, so no card number reaches the server), every edge case
 test-first against the fake, then the card cases in the sandbox suite (never in CI) with the key the proxy injects;
 fix the fake to match what the sandbox really returns. No secret in the repository.
+Also in this phase (owner, 2026-11-17, F10f), each test-first, additive contract changes only:
+1. Unit names. Every unit answers a singular and a plural name in the contract (for example "egg" and "eggs",
+   "crate" and "crates"), so screens can say "540 eggs" and "from 10 crates". The seeded eggs' base unit is named
+   "egg": the egg products are counted in an egg unit, not the generic unit, with every stored quantity and price
+   unchanged (900 eggs are still 900, a crate still 30 of them). Update the seed and every example, the mock's
+   included. If renaming the base unit would change a stored figure or an existing shape, stop and report.
+2. CR-040. A goods receipt line that names purchaseOrderLineId may leave out valuePesewas: the server values it from
+   the order line for the accepted quantity, rounded half-up once (ADR-0001, ADR-0075's arithmetic untouched), and the
+   receipt's answer shows it; a typed value always wins. A line with no order line still requires it. The contract
+   no longer both requires the field and says it defaults. Test at a price that does not divide evenly.
 Stop at the gate, write docs/sessions/B09c-card-payment.md, and merge into main when every run on the pull request is
 green.
 ```
@@ -2597,6 +2613,10 @@ of docs/UAT.md as a dry run and record any difference, including the two rules t
 for the owner (credit check and delivery fee on a partial dispatch).
 The owner, 2026-11-16 (A-212 (d)): a bounced cheque (a reversal with CHEQUE_DISHONOURED) counts against the customer's
 credit standing.
+CR-041 (owner, 2026-11-17, F10f): who holds a buyer's price list. getCustomerPriceList (GET
+/customers/{id}/price-list, mdm.customer.read): the buyer's assignments, current and future; listPriceListAssignments
+(GET /price-lists/{id}/assignments): the buyers who hold a list, with their windows; and PriceListEntry.baseUom, the
+unit minQtyBase is in. Both reads are authorised and join the contract-generated identifier walk (B09q continued).
 Stop at the gate and write docs/sessions/B10-quotations-wholesale.md.
 ```
 
@@ -2643,6 +2663,11 @@ owner 2026-11-17) gets its SMS with a fresh server-made token, issued by the wor
 The launch path for online orders (owner, 2026-11-17): guest checkout with a phone number and an SMS tracking link. Send
 the tracking link by SMS through the outbox and NTF when a guest order is placed, carrying its own long random token
 (B09q: no ID is ever a key), and test that a guessed token or the order's id answers 404.
+CR-039 (owner, 2026-11-17, F10f), when the shop opens: the shop sells a product in more than one unit, each at its own
+price (the crate and the single egg). ProductDetail.sellingUnits and CatalogueItem.sellingUnits, saleUom first, each
+priced by its own entry and never derived; CartLineAdd.uom (absent means saleUom), kept on the cart line, priced by it
+at checkout and placement, with stock reserved in the base unit; a crate and a single egg of one product are two cart
+lines. Test-first with exact pesewas.
 Stop at the gate and write docs/sessions/B11-fulfilment-delivery.md.
 ```
 
@@ -2689,6 +2714,11 @@ reversal from prc.ProcessingOrderReversed with its value, the threshold copied o
 when one was needed, and the reason. Residual risk R18 (B07 continued 2): count the storefront checkouts
 started and expired per address a day from shp.CheckoutStarted and shp.CheckoutExpired, as an item when one
 address holds stock repeatedly without placing an order.
+It must include case 34, inflated rejections at the door (B09e continued 3, A-272, ADR-0076): a RECEIPT_CLAIM item for
+each pur.SupplierClaimRaised, with the receipt, the receiver, the claim's maker, the supplier, the rejected quantity,
+its reason and its value. And every exception source B9b, B09c and B11 add (their reports name each one), at least
+each reused till receipt token (a possible till fault or tampering, owner 2026-11-17) and each supervisor's PIN
+sign-out of a locked cashier (CR-032).
 Write the five tests of ADR-0028 under the names the ADR gives them, and run scenario 4 of
 docs/UAT.md as a dry run: the net profit for July to September 2026 in the seed is GHS 41,666.70 and
 the hand calculation must match the run to the pesewa.
