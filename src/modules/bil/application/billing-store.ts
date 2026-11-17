@@ -105,7 +105,7 @@ export interface DocumentFilter {
 export interface BillingStore {
   insertDraft(tx: Transaction, header: DraftHeader, lines: readonly LineRecord[]): Promise<void>;
   /** Issues a draft with its number and totals; the database checks them at commit. */
-  issue(tx: Transaction, id: string, issue: { readonly documentNo: string; readonly netPesewas: bigint; readonly taxPesewas: bigint; readonly grossPesewas: bigint; readonly issueDate: string; readonly issuedAt: Date; readonly actorId: string }): Promise<void>;
+  issue(tx: Transaction, id: string, issue: { readonly documentNo: string; readonly netPesewas: bigint; readonly taxPesewas: bigint; readonly grossPesewas: bigint; readonly issueDate: string; readonly dueDate: string | null; readonly issuedAt: Date; readonly actorId: string }): Promise<void>;
   markPending(tx: Transaction, id: string, approvalRequestId: string, actorId: string): Promise<void>;
   documents(tx: Transaction, ids: readonly string[], forUpdate?: boolean): Promise<DocumentRecord[]>;
   /** What issued credit notes already took off each original line, in the original's anchor terms (net or gross). */

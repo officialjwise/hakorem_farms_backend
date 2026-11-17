@@ -498,7 +498,10 @@ export class Billing {
       const { versionId, lines } = await this.taxed(tx, original.taxInclusive, original.issueDate, priced);
       const gross = documentTotals(lines.map(figures)).gross.pesewas;
       if (original.creditedPesewas + gross > original.grossPesewas) throw new CreditNoteExceedsOriginalError(original.grossPesewas - original.creditedPesewas);
-      const header = this.noteHeader(original, 'CREDIT_NOTE', versionId, body.reasonCode, body.note, actor!.principalId, original.dueDate);
+      // Never due before it is drafted, as a debit note (A-223): a credit against an overdue invoice is due today.
+      const today = toBusinessDate(this.clock.now());
+      const due = original.dueDate === null ? null : original.dueDate < today ? today : original.dueDate;
+      const header = this.noteHeader(original, 'CREDIT_NOTE', versionId, body.reasonCode, body.note, actor!.principalId, due);
       await this.writeDraft(tx, header, lines);
       const judged = await this.approvals.judgeIn(tx, CREDIT_NOTE_KIND, original.branchId, gross);
       if (!judged.required) {
@@ -778,7 +781,9 @@ export class Billing {
     const branch = (await this.refs.branchesIn(tx, [draft.branchId])).get(draft.branchId)!;
     const documentNo = await this.numbers.allocateIn(tx, { docType: draft.kind, fiscalYear: fiscalYearOf(issueDate), branchId: draft.branchId, branchCode: branch.code, documentId: id });
     const totals = documentTotals(draft.lines.map(figures));
-    await this.store.issue(tx, id, { documentNo, netPesewas: totals.net.pesewas, taxPesewas: totals.tax.pesewas, grossPesewas: totals.gross.pesewas, issueDate, issuedAt: this.clock.now(), actorId });
+    // A draft approved on a later day is never due before its issue date (A-223, `ck_billing_document_due`).
+    const dueDate = draft.dueDate !== null && draft.dueDate < issueDate ? issueDate : draft.dueDate;
+    await this.store.issue(tx, id, { documentNo, netPesewas: totals.net.pesewas, taxPesewas: totals.tax.pesewas, grossPesewas: totals.gross.pesewas, issueDate, dueDate, issuedAt: this.clock.now(), actorId });
     const payload: BillingDocumentPayload = {
       billingDocumentId: id,
       kind: draft.kind,
@@ -788,7 +793,7 @@ export class Billing {
       orderDocumentId: draft.orderDocumentId,
       originalDocumentId: draft.originalDocumentId,
       issueDate,
-      dueDate: draft.dueDate,
+      dueDate,
       taxInclusive: draft.taxInclusive,
       taxSchemeVersionId: draft.taxSchemeVersionId,
       netPesewas: json(totals.net.pesewas),

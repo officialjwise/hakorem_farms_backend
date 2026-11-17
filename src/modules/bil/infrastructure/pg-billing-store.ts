@@ -105,12 +105,12 @@ export class PgBillingStore implements BillingStore {
     }
   }
 
-  async issue(tx: Transaction, id: string, issue: { documentNo: string; netPesewas: bigint; taxPesewas: bigint; grossPesewas: bigint; issueDate: string; issuedAt: Date; actorId: string }): Promise<void> {
+  async issue(tx: Transaction, id: string, issue: { documentNo: string; netPesewas: bigint; taxPesewas: bigint; grossPesewas: bigint; issueDate: string; dueDate: string | null; issuedAt: Date; actorId: string }): Promise<void> {
     await tx.query(
       `UPDATE bil.billing_document SET status = 'ISSUED', document_no = $2, net_pesewas = $3, tax_pesewas = $4, gross_pesewas = $5,
-              issued_at = $6, issued_by = $7, updated_at = $6, updated_by = $7, issue_date = $8
+              issued_at = $6, issued_by = $7, updated_at = $6, updated_by = $7, issue_date = $8, due_date = $9::date
         WHERE id = $1 AND status = 'DRAFT'`,
-      [id, issue.documentNo, issue.netPesewas.toString(), issue.taxPesewas.toString(), issue.grossPesewas.toString(), issue.issuedAt, issue.actorId, issue.issueDate],
+      [id, issue.documentNo, issue.netPesewas.toString(), issue.taxPesewas.toString(), issue.grossPesewas.toString(), issue.issuedAt, issue.actorId, issue.issueDate, issue.dueDate],
     );
   }
 
