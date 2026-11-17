@@ -1,0 +1,91 @@
+operationId: listMyOrders
+tags:
+  - shp
+summary: "List my orders"
+parameters:
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - customerSession: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/CustomerOrderSummaryPage"
+        example:
+          data:
+            - id: "019a7afd-b199-74df-ba17-56c4aac4cfa2"
+              orderNo: SO-2026-DDW-004216
+              status: PICKING
+              paymentStatus: DEPOSIT_HELD
+              placedAt: "2026-11-13T07:41:00Z"
+              itemCount: 3
+              totalPesewas: 45000
+              currency: GHS
+            - id: "019a7afd-d088-7ec2-83fa-f4fc24756dda"
+              orderNo: SO-2026-DDW-004203
+              status: COMPLETED
+              paymentStatus: PAID
+              placedAt: "2026-11-11T07:41:00Z"
+              itemCount: 2
+              totalPesewas: 32300
+              currency: GHS
+            - id: "019a7afd-ef77-78a6-9dde-93339e260c11"
+              orderNo: SO-2026-DDW-004190
+              status: COMPLETED
+              paymentStatus: PART_REFUNDED
+              placedAt: "2026-11-09T07:41:00Z"
+              itemCount: 4
+              totalPesewas: 96400
+              currency: GHS
+            - id: "019a7afe-0e66-7289-a7c1-316b17d7aa48"
+              orderNo: SO-2026-DDW-004177
+              status: CANCELLED
+              paymentStatus: REFUNDED
+              placedAt: "2026-11-07T07:41:00Z"
+              itemCount: 1
+              totalPesewas: 30000
+              currency: GHS
+            - id: "019a7afe-2d55-7c6d-b1a5-cfa291884880"
+              orderNo: SO-2026-DDW-004164
+              status: COMPLETED
+              paymentStatus: PAID
+              placedAt: "2026-11-05T07:41:00Z"
+              itemCount: 2
+              totalPesewas: 18000
+              currency: GHS
+            - id: "019a7afe-4c44-7650-8b88-6dda0b39e6b7"
+              orderNo: SO-2026-DDW-004151
+              status: COMPLETED
+              paymentStatus: PAID
+              placedAt: "2026-11-03T07:41:00Z"
+              itemCount: 5
+              totalPesewas: 128900
+              currency: GHS
+          page:
+            nextCursor: eyJpZCI6IjAxOWE3YyJ9
+            limit: 25
+            hasMore: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -1,0 +1,75 @@
+operationId: trackOrder
+tags:
+  - shp
+summary: "Track an order by its signed tracking link"
+parameters:
+  - name: token
+    in: path
+    required: true
+    schema:
+      type: string
+security: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/OrderTracking"
+        example:
+          orderNo: SO-2026-DDW-004216
+          status: DISPATCHED
+          placedAt: "2026-11-13T07:41:00Z"
+          fulfilmentMode: DELIVERY
+          steps:
+            - status: PLACED
+              label: "Order placed"
+              at: "2026-11-13T07:41:00Z"
+              done: true
+            - status: CONFIRMED
+              label: "Payment received"
+              at: "2026-11-13T07:43:00Z"
+              done: true
+            - status: PACKED
+              label: "Weighed and packed"
+              at: "2026-11-13T10:20:00Z"
+              done: true
+            - status: DISPATCHED
+              label: "On the way"
+              at: "2026-11-13T11:00:00Z"
+              done: true
+            - status: DELIVERED
+              label: Delivered
+              at: null
+              done: false
+          delivery:
+            slotDate: "2026-11-14"
+            slotStartsAt: "10:00"
+            slotEndsAt: "12:00"
+            status: OUT_FOR_DELIVERY
+            driverFirstName: Kwesi
+            etaMinutes: 25
+          estimatedTotalPesewas: 45000
+          finalTotalPesewas: 44300
+          paidPesewas: 45000
+          currency: GHS
+          lines:
+            - name: "Full chicken, 15 kg pack"
+              quantity: "1.000"
+              uom: PACK
+              weightKg: "14.650"
+            - name: "Eggs, big, crate of 30"
+              quantity: "2.000"
+              uom: CRATE
+              weightKg: null
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -99,54 +99,8 @@ export class ProviderPayments {
       if (!this.provider.available() || this.payerEmail === null) throw new PaymentProviderUnavailableError('the payment provider cannot take a charge now');
       const branchId = await this.branchOf(tx, actor!, body);
       await this.authoriser.authorise(tx, actor, INITIATE, { branchId });
-      const method = (await this.refs.paymentMethodsByCodeIn(tx, ['MOMO'])).get('MOMO');
-      const broken: PaymentRule[] = [];
-      if (method === undefined || !method.isLive) broken.push({ field: '', rule: 'METHOD_DISABLED' });
-      if (body.amountPesewas <= 0n) broken.push({ field: '/amountPesewas', rule: 'AMOUNT_NOT_POSITIVE' });
-      if (body.shiftId !== null) broken.push({ field: '/shiftId', rule: 'SHIFT_NOT_AVAILABLE' });
-      if (body.customerId !== null && (await this.refs.customersIn(tx, [body.customerId])).get(body.customerId)?.isLive !== true) broken.push({ field: '/customerId', rule: 'CUSTOMER_UNKNOWN' });
-      if ((await this.store.payments(tx, [body.id])).length > 0 || (await this.documents.branchOf(tx, body.id)) !== null) broken.push({ field: '/id', rule: 'ID_IN_USE' });
-      if (broken.length > 0) throw new PaymentInvalidError(broken);
-      const now = this.clock.now();
-      const reference = referenceOf(body.id);
-      await this.documents.register(tx, { id: body.id, docType: 'PAYMENT', ownerModule: 'pay', branchId, actorId: actor!.principalId });
-      await this.store.insert(tx, {
-        id: body.id,
-        paymentMethodId: method!.id,
-        methodKind: 'MOBILE_MONEY',
-        amountPesewas: body.amountPesewas,
-        customerId: body.customerId,
-        orderDocumentId: body.orderId,
-        shiftDocumentId: null,
-        register: null,
-        provider: PROVIDER,
-        providerReference: reference,
-        payerPhoneMasked: maskPhone(body.payerPhone),
-        verification: 'UNVERIFIED',
-        status: 'PENDING',
-        receivedAt: now,
-        clearedAt: null,
-        branchId,
-        actorId: actor!.principalId,
-      });
-      await this.store.insertCharge(tx, {
-        id: this.nextId(),
-        paymentId: body.id,
-        provider: PROVIDER,
-        reference,
-        channel: 'MOBILE_MONEY',
-        network: body.network,
-        requestedPesewas: body.amountPesewas,
-        awaitedUntil: addMs(now, CHARGE_WINDOW_MS),
-        createdAt: now,
-        branchId,
-        actorId: actor!.principalId,
-      });
-      const payload: PaymentInitiated = { paymentId: body.id, branchId, methodKind: 'MOBILE_MONEY', amountPesewas: json(body.amountPesewas), orderDocumentId: body.orderId, provider: PROVIDER };
-      await this.events.publish(tx, { type: PAYMENT_INITIATED, subjectType: 'Payment', subjectId: body.id, branchId, payload });
-      const [view] = await this.payments.documentViewsIn(tx, [body.id]);
-      await this.audit.record(tx, { module: 'pay', action: 'INITIATE', entityType: 'Payment', entityId: body.id, branchId, before: null, after: { ...view! } });
-      const response = { status: 201, body: view! };
+      const view = await this.writeChargeIn(tx, actor!.principalId, branchId, body);
+      const response = { status: 201, body: view };
       await this.idempotency.complete(tx, claim.id, response);
       return { replay: false as const, response };
     });
@@ -154,6 +108,77 @@ export class ProviderPayments {
     await this.send(stored.response.body.id, body.payerPhone);
     const [current] = await this.uow.run({ isolation: 'read committed' }, (tx) => this.payments.documentViewsIn(tx, [stored.response.body.id]));
     return { status: stored.response.status, body: current! };
+  }
+
+  /**
+   * A mobile money charge for an order, written PENDING in the caller's serializable transaction (SHP's placeOrder,
+   * A-232), exactly as `initiateMobileMoneyCharge` writes one; the caller sends it with `sendCharge` once the
+   * transaction has committed, never inside it (ADR-0010). The payment's branch is the order's. It authorises nothing:
+   * the caller's command has. 503 while the provider cannot take a charge, so nothing is placed.
+   */
+  async chargeIn(tx: Transaction, actorId: string, body: MobileMoneyRequest): Promise<PaymentDocumentView> {
+    if (!this.provider.available() || this.payerEmail === null) throw new PaymentProviderUnavailableError('the payment provider cannot take a charge now');
+    if (body.orderId === null) throw new PaymentInvalidError([{ field: '/orderId', rule: 'ORDER_UNKNOWN' }]);
+    const branchId = await this.documents.branchOf(tx, body.orderId);
+    if (branchId === null) throw new PaymentInvalidError([{ field: '/orderId', rule: 'ORDER_UNKNOWN' }]);
+    return this.writeChargeIn(tx, actorId, branchId, body);
+  }
+
+  /** Sends a payment's charge after the transaction that wrote it committed (`chargeIn`); a replay sends nothing new. */
+  async sendCharge(paymentId: string, phone: string): Promise<PaymentDocumentView> {
+    await this.send(paymentId, phone);
+    return this.uow.run({ isolation: 'read committed' }, async (tx) => (await this.payments.documentViewsIn(tx, [paymentId]))[0]!);
+  }
+
+  private async writeChargeIn(tx: Transaction, actorId: string, branchId: string, body: MobileMoneyRequest): Promise<PaymentDocumentView> {
+    const method = (await this.refs.paymentMethodsByCodeIn(tx, ['MOMO'])).get('MOMO');
+    const broken: PaymentRule[] = [];
+    if (method === undefined || !method.isLive) broken.push({ field: '', rule: 'METHOD_DISABLED' });
+    if (body.amountPesewas <= 0n) broken.push({ field: '/amountPesewas', rule: 'AMOUNT_NOT_POSITIVE' });
+    if (body.shiftId !== null) broken.push({ field: '/shiftId', rule: 'SHIFT_NOT_AVAILABLE' });
+    if (body.customerId !== null && (await this.refs.customersIn(tx, [body.customerId])).get(body.customerId)?.isLive !== true) broken.push({ field: '/customerId', rule: 'CUSTOMER_UNKNOWN' });
+    if ((await this.store.payments(tx, [body.id])).length > 0 || (await this.documents.branchOf(tx, body.id)) !== null) broken.push({ field: '/id', rule: 'ID_IN_USE' });
+    if (broken.length > 0) throw new PaymentInvalidError(broken);
+    const now = this.clock.now();
+    const reference = referenceOf(body.id);
+    await this.documents.register(tx, { id: body.id, docType: 'PAYMENT', ownerModule: 'pay', branchId, actorId });
+    await this.store.insert(tx, {
+      id: body.id,
+      paymentMethodId: method!.id,
+      methodKind: 'MOBILE_MONEY',
+      amountPesewas: body.amountPesewas,
+      customerId: body.customerId,
+      orderDocumentId: body.orderId,
+      shiftDocumentId: null,
+      register: null,
+      provider: PROVIDER,
+      providerReference: reference,
+      payerPhoneMasked: maskPhone(body.payerPhone),
+      verification: 'UNVERIFIED',
+      status: 'PENDING',
+      receivedAt: now,
+      clearedAt: null,
+      branchId,
+      actorId,
+    });
+    await this.store.insertCharge(tx, {
+      id: this.nextId(),
+      paymentId: body.id,
+      provider: PROVIDER,
+      reference,
+      channel: 'MOBILE_MONEY',
+      network: body.network,
+      requestedPesewas: body.amountPesewas,
+      awaitedUntil: addMs(now, CHARGE_WINDOW_MS),
+      createdAt: now,
+      branchId,
+      actorId,
+    });
+    const payload: PaymentInitiated = { paymentId: body.id, branchId, methodKind: 'MOBILE_MONEY', amountPesewas: json(body.amountPesewas), orderDocumentId: body.orderId, provider: PROVIDER };
+    await this.events.publish(tx, { type: PAYMENT_INITIATED, subjectType: 'Payment', subjectId: body.id, branchId, payload });
+    const [view] = await this.payments.documentViewsIn(tx, [body.id]);
+    await this.audit.record(tx, { module: 'pay', action: 'INITIATE', entityType: 'Payment', entityId: body.id, branchId, before: null, after: { ...view! } });
+    return view!;
   }
 
   /** `checkPaymentStatus` (FR-PAY-007): the provider's own answer for one pending payment, through the one clearing path. */

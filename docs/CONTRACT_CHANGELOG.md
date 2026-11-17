@@ -5,8 +5,18 @@ Every change to `contract/openapi.yaml`, newest first. A breaking change needs a
 Version numbers follow semantic versioning: a major bump breaks an existing client, a minor bump adds operations or optional fields, a patch fixes descriptions or examples.
 
 **Read first (cold-read summary):** changes that alter an answer a client already handles from an implemented operation.
+- **1.51.0:** no answer of an implemented operation changed. `placeOrder` and the customer's order reads are new from code; `placeOrder` takes a guest checkout only.
 - **1.50.0, LOUD:** `createOrder` answers **202 `ApprovalPending`** (kind `PRICE_OVERRIDE`, subject the order) where it answered 422 `PRICE_OVERRIDE_NEEDS_APPROVAL` for a price outside the band or below list beyond the seller's limit. The order is entered `PLACED` and waits; it cannot be confirmed or given a proforma until a different user approves.
 - Earlier LOUD changes, each on an operation that was still planned when it changed, are in their entries below and in "Reading 1.5.0 to 1.37.0 cold".
+
+## 1.51.0 (2026-11-17, B09a continued 2f)
+
+Minor. Four planned operations move into code with their descriptions made exact: `placeOrder` (SHP; owner ORD), `trackOrder`, `listMyOrders` and `getMyOrder`. No field removed, renamed or retyped, no schema changed, and nothing a client sends made required. No error code added: the refusals are `CHECKOUT_NOT_OPEN`, `CHECKOUT_INVALID` and `ORDER_INVALID` with named details (docs/API.md, SHP and ORD), and 503 `SERVICE_UNAVAILABLE`.
+
+- **`placeOrder` is narrowed to a guest's checkout (A-232):** its `security` is now `[]` only (the planned `customerSession` alternative is removed) and the optional `X-CSRF-Token` parameter is removed, since the route takes no session. A client that sent either still succeeds: the header is ignored and the guest cookie is what proves the checkout. `placeOrder` gains a `503` response (the provider cannot take a charge; nothing is placed). `paymentMethod: CARD` is refused for now (`CARD_NOT_AVAILABLE`).
+- `trackOrder`'s `delivery`, and `getMyOrder`'s `delivery` and `pendingConsent`, are null until B11.
+
+417 operations from code, 218 planned. The versioning check against `main` passes and Redocly is clean, with no warnings.
 
 ## 1.50.0 (2026-11-17, B09a continued 2e)
 

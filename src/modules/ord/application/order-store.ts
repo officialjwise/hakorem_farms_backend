@@ -103,10 +103,17 @@ type ReadOnlyLine = 'stockExceptionId' | 'estimatedWeightKg' | 'tolerancePercent
 export interface NewOrder extends Omit<OrderHeaderRecord, 'status' | 'finalTotalPesewas' | 'billingDocumentId' | 'completedAt' | 'recordedAt' | 'version' | 'orderNo' | ReadOnlyHeader> {
   readonly orderNo: string;
   readonly actorId: string;
+  /** An online order's delivery as the checkout took it (A-232); null for every other order. */
+  readonly deliveryAddressSnapshot?: unknown;
+  readonly deliveryZoneId?: string | null;
 }
 
 /** A line as written: open, or (a sale fulfilled at once) fulfilled with its movement. */
-export type NewOrderLine = Omit<OrderLineRecord, ReadOnlyLine>;
+export type NewOrderLine = Omit<OrderLineRecord, ReadOnlyLine> & {
+  /** A catch-weight line's estimate at order time (ADR-0021): packs times the nominal pack, and the product's tolerance. */
+  readonly estimatedWeightKg?: string | null;
+  readonly tolerancePercent?: string | null;
+};
 
 /** One void asked for of a completed sale (`ord.order_void`, migration 0194). */
 export interface OrderVoidRecord {
@@ -155,6 +162,10 @@ export interface OrderStore {
   setProforma(tx: Transaction, orderId: string, p: { readonly documentId: string; readonly at: Date; readonly actorId: string }): Promise<void>;
   /** Ids of the orders matching the filter at the branches given, newest first, before `beforeId`, at most `limit`. */
   list(tx: Transaction, filter: OrderFilter, beforeId: string | null, limit: number): Promise<string[]>;
+  /** Ids of one customer's orders at every branch, newest first, before `beforeId`, at most `limit` (listMyOrders). */
+  ofCustomer(tx: Transaction, customerId: string, beforeId: string | null, limit: number): Promise<string[]>;
+  /** The ONLINE order placed from a checkout (its source document), under its row lock, or null. */
+  lockOnlineBySource(tx: Transaction, sourceDocumentId: string): Promise<OrderHeaderRecord | null>;
 }
 
 export interface OrderFilter {

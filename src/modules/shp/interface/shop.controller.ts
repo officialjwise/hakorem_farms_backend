@@ -7,8 +7,8 @@ import type { StoredResponse } from '../../../platform/idempotency/idempotency';
 import { Slots, type SlotOptionView } from '../../del';
 import { Catalogue, STOREFRONT_ACTOR, type CatalogueItemView, type Page, type ProductDetailView } from '../application/catalogue';
 import { Carts, type CartView, type GuestToken } from '../application/carts';
-import { Checkouts, type CheckoutView } from '../application/checkouts';
-import { CartLineAdd, CartLineUpdate, CatalogueQuery, CheckoutStart, CheckoutUpdate, CouponApply, IdParam, PageQuery, SlotOptionQuery, SlugParam } from './schemas';
+import { Checkouts, type CheckoutView, type PlaceOrderView } from '../application/checkouts';
+import { CartLineAdd, CartLineUpdate, CatalogueQuery, CheckoutStart, CheckoutUpdate, CouponApply, IdParam, PageQuery, PlaceOrder, SlotOptionQuery, SlugParam } from './schemas';
 
 /** The host-only cookie that proves a guest cart is the caller's (A-177): never readable by script, never cross-site. */
 export const GUEST_COOKIE = '__Host-hk_guest';
@@ -128,6 +128,12 @@ export class ShopController {
   @Operation({ operationId: 'startCheckout', ...CHECKOUT })
   startCheckout(@Req() req: Request, @Param('id', zodPipe(IdParam)) id: string, @Body(zodPipe(CheckoutStart)) body: z.infer<typeof CheckoutStart>, @IdempotencyKeyHeader() key: string, @Res({ passthrough: true }) res: Response): Promise<CheckoutView> {
     return reply(res, this.checkouts.start(guest(req), id, body, key));
+  }
+
+  @Post('checkouts/:id/place')
+  @Operation({ operationId: 'placeOrder', ...CHECKOUT })
+  placeOrder(@Req() req: Request, @Param('id', zodPipe(IdParam)) id: string, @Body(zodPipe(PlaceOrder)) body: z.infer<typeof PlaceOrder>, @IdempotencyKeyHeader() key: string, @Res({ passthrough: true }) res: Response): Promise<PlaceOrderView> {
+    return reply(res, this.checkouts.place(guest(req), id, body, key));
   }
 
   @Get('checkouts/:id')

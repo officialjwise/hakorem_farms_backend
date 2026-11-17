@@ -62,3 +62,10 @@ export const CheckoutUpdate = z.strictObject({
 });
 
 export const SlotOptionQuery = z.object({ zoneId: z.uuid(), from: z.iso.date().optional(), cursor: Cursor, limit: Limit });
+
+/** The contract's `PlaceOrderRequest`. */
+export const PlaceOrder = z.strictObject({
+  paymentMethod: z.enum(['MOBILE_MONEY', 'CARD', 'COD']),
+  payerPhone: Phone.optional(),
+  network: z.enum(['MTN', 'TELECEL', 'AIRTELTIGO']).optional(),
+});

@@ -20,3 +20,10 @@ export interface CheckoutEnded {
   /** The reason INV gave for ending the reservation. */
   readonly reason: string;
 }
+
+/** `shp.CheckoutCompleted` (A-232): the order placed from the checkout took over its hold; the cart is CONVERTED. */
+export interface CheckoutCompleted {
+  readonly checkoutId: string;
+  readonly cartId: string;
+  readonly orderId: string;
+}

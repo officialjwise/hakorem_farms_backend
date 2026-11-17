@@ -41,6 +41,12 @@ export interface ReservationEnded {
   readonly qty: string;
   readonly expiresAt: string | null;
   readonly reason: string;
+  /**
+   * Set when the reservation ended only because its stock was promised again, the same, to another document in the
+   * same transaction (`Reservations.transferHeldByIn`: an online order taking over its checkout's hold, A-232); null
+   * for every other release or expiry. A holder reads it to tell a hand-over from a loss.
+   */
+  readonly transferredToDocumentId: string | null;
 }
 
 /**

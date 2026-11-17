@@ -12,7 +12,9 @@ import type { ReservationEnded } from '../../inv';
 import type { OnlineProductFacts, PricingService, Storefront, TaxService } from '../../mdm';
 import { lineNumber, reservedUntil } from '../domain/checkout-clock';
 import { allocateReservation, checkoutTotals, deliveryFee, wholeUnits } from '../domain/pricing-lines';
-import type { CheckoutEnded, CheckoutStarted } from '../events';
+import type { CheckoutCompleted, CheckoutEnded, CheckoutStarted } from '../events';
+import type { OnlineOrders } from '../../ord';
+import type { ProviderPayments } from '../../pay';
 import { cedis, STOREFRONT_ACTOR, type CatalogueListing } from './catalogue';
 import type { CartProductView, Carts, GuestToken } from './carts';
 import {
@@ -57,6 +59,22 @@ export interface CheckoutStartRequest {
   readonly deliverySlotId?: string | undefined;
   readonly paymentTerms: 'PREPAID' | 'COD';
   readonly differencePreference?: 'REFUND' | 'STORE_CREDIT' | undefined;
+}
+
+/** The contract's `PlaceOrderRequest`. */
+export interface PlaceOrderRequest {
+  readonly paymentMethod: 'MOBILE_MONEY' | 'CARD' | 'COD';
+  readonly payerPhone?: string | undefined;
+  readonly network?: 'MTN' | 'TELECEL' | 'AIRTELTIGO' | undefined;
+}
+
+/** The contract's `PlaceOrderResult`. */
+export interface PlaceOrderView {
+  readonly orderId: string;
+  readonly orderNo: string;
+  readonly trackingToken: string;
+  readonly payment: { readonly paymentId: string; readonly status: 'PENDING' | 'CLEARED' | 'FAILED'; readonly redirectUrl: null; readonly instructions: string | null } | null;
+  readonly checkout: CheckoutView;
 }
 
 export interface CheckoutUpdateRequest {
@@ -140,6 +158,8 @@ export class Checkouts {
     private readonly documents: DocumentRegistry,
     private readonly settings: Settings,
     private readonly clock: Clock,
+    private readonly online: OnlineOrders,
+    private readonly providerPayments: ProviderPayments,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -239,6 +259,93 @@ export class Checkouts {
     });
   }
 
+  /**
+   * placeOrder (FR-SHP-005, FR-PAY-003, A-232): the guest's open checkout becomes an ONLINE order through ORD, in one
+   * serializable transaction with the checkout awaiting payment. Prepaid by mobile money, a charge for the estimate is
+   * written PENDING with the order and sent through PAY's provider port only after the transaction commits (ADR-0010);
+   * the order is confirmed when that payment clears for it. Cash on delivery is confirmed at once. A card, a coupon or
+   * promotion (no order adjustment exists yet), a method that is not the checkout's terms and a lapsed hold are
+   * refused, and nothing is placed. Replayed by its Idempotency-Key, bound to the guest's token.
+   */
+  async place(token: GuestToken, id: string, body: PlaceOrderRequest, key: string): Promise<StoredResponse<PlaceOrderView>> {
+    const locks = await this.uow.run({ isolation: 'read committed' }, async (tx) => {
+      const checkout = await this.ownedIn(tx, token, id, false);
+      const lines = await this.store.checkoutLines(tx, id);
+      const balances = await this.stock.promisableIn(tx, checkout.branchId, lines.map((l) => l.productId));
+      return [...this.online.locksFor(checkout.branchId), ...balances.map((r) => reservationLockKey(r.productId, r.stockUnitId, r.locationId))];
+    });
+    const stored = await this.uow.run({ isolation: 'serializable', seriesLocks: locks }, async (tx) => {
+      const checkout = await this.ownedIn(tx, token, id, true);
+      const cart = (await this.store.cart(tx, checkout.cartId, false))!;
+      const claim = await this.idempotency.claim(tx, { operationId: 'placeOrder', principalId: STOREFRONT_ACTOR.principalId, key, request: { id, token: cart.guestTokenHash!.toString('hex'), ...body } });
+      if (claim.kind === 'REPLAY') return claim.response as StoredResponse<PlaceOrderView>;
+      if (checkout.status !== 'STARTED' || checkout.reservedUntil.getTime() <= this.clock.now().getTime()) throw new CheckoutNotOpenError(`checkout ${id} is ${checkout.status}`);
+      const lines = await this.store.checkoutLines(tx, id);
+      const broken: { field: string | null; rule: string }[] = [];
+      const cod = checkout.paymentTerms === 'COD';
+      if ((body.paymentMethod === 'COD') !== cod) broken.push({ field: '/paymentMethod', rule: 'PAYMENT_METHOD_MISMATCH' });
+      else if (body.paymentMethod === 'CARD') broken.push({ field: '/paymentMethod', rule: 'CARD_NOT_AVAILABLE' });
+      const phone = body.payerPhone === undefined ? null : this.storefront.normalisePhone(body.payerPhone);
+      if (broken.length === 0 && body.paymentMethod === 'MOBILE_MONEY') {
+        if (body.payerPhone === undefined) broken.push({ field: '/payerPhone', rule: 'PAYER_PHONE_REQUIRED' });
+        else if (phone === null) broken.push({ field: '/payerPhone', rule: 'INVALID_PHONE' });
+        if (body.network === undefined) broken.push({ field: '/network', rule: 'NETWORK_REQUIRED' });
+      }
+      if (checkout.couponCode !== null || checkout.discountPesewas > 0n || lines.some((l) => l.discountPesewas > 0n)) broken.push({ field: '/promotions', rule: 'PROMOTION_NOT_AVAILABLE' });
+      if (broken.length > 0) throw new CheckoutInvalidError(broken);
+
+      const products = new Map((await this.storefront.onlineProductsIn(tx, lines.map((l) => l.productId))).map((p) => [p.id, p] as const));
+      const placed = await this.online.placeIn(tx, STOREFRONT_ACTOR.principalId, {
+        checkoutId: id,
+        branchId: checkout.branchId,
+        contactName: checkout.contactName,
+        contactPhone: checkout.contactPhone,
+        paymentTerms: checkout.paymentTerms,
+        fulfilmentMode: checkout.fulfilmentMode,
+        deliveryAddressSnapshot: checkout.addressSnapshot,
+        deliveryZoneId: checkout.deliveryZoneId,
+        deliveryFeePesewas: checkout.deliveryFeePesewas,
+        estimatedTotalPesewas: checkout.estimatedTotalPesewas,
+        maximumTotalPesewas: checkout.maximumTotalPesewas,
+        lines: lines.map((l) => ({
+          productId: l.productId,
+          quantity: l.qty,
+          uom: l.uom,
+          priceBasis: l.priceBasis,
+          priceListEntryId: l.priceListEntryId,
+          unitPricePesewas: l.unitPricePesewas,
+          estimatedWeightKg: l.estimatedWeightKg,
+          tolerancePercent: l.catchWeight ? (products.get(l.productId)?.weightTolerancePercent ?? null) : null,
+          estimatedLineTotalPesewas: l.estimatedLineTotalPesewas,
+          maximumLineTotalPesewas: l.maximumLineTotalPesewas,
+        })),
+      });
+      await this.store.awaitPayment(tx, id, placed.orderId, STOREFRONT_ACTOR.principalId);
+      let payment: PlaceOrderView['payment'] = null;
+      if (cod) {
+        await this.online.confirmFromCheckoutIn(tx, placed.orderId, STOREFRONT_ACTOR.principalId);
+      } else {
+        const charged = await this.providerPayments.chargeIn(tx, STOREFRONT_ACTOR.principalId, {
+          id: this.nextId(),
+          amountPesewas: checkout.estimatedTotalPesewas,
+          payerPhone: phone!,
+          network: body.network!,
+          orderId: placed.orderId,
+          shiftId: null,
+          customerId: null,
+        });
+        payment = { paymentId: charged.id, status: 'PENDING', redirectUrl: null, instructions: fill('shp.momo_instructions', { amount: cedis(checkout.estimatedTotalPesewas), network: body.network! }) };
+      }
+      await this.audit.record(tx, { module: 'shp', action: 'PLACE', entityType: 'CheckoutSession', entityId: id, branchId: checkout.branchId, before: { status: checkout.status }, after: { status: cod ? 'COMPLETED' : 'AWAITING_PAYMENT', orderId: placed.orderId, paymentId: payment?.paymentId ?? null } });
+      const response = { status: 201, body: { ...placed, payment, checkout: await this.viewIn(tx, (await this.store.checkout(tx, id, false))!) } };
+      await this.idempotency.complete(tx, claim.id, response);
+      return response;
+    });
+    // Outside any transaction: the charge is sent, or sent again on a replay after a timeout, with the same reference.
+    if (stored.body.payment !== null && body.payerPhone !== undefined) await this.providerPayments.sendCharge(stored.body.payment.paymentId, this.storefront.normalisePhone(body.payerPhone)!);
+    return stored;
+  }
+
   get(token: GuestToken, id: string): Promise<CheckoutView> {
     return this.uow.run({ isolation: 'read committed' }, async (tx) => {
       const checkout = await this.ownedIn(tx, token, id, false);
@@ -282,6 +389,21 @@ export class Checkouts {
     const payload = event.payload as unknown as ReservationEnded;
     const checkout = await this.store.checkout(tx, payload.holderDocumentId, true);
     if (checkout === null || (checkout.status !== 'STARTED' && checkout.status !== 'AWAITING_PAYMENT')) return;
+    if (payload.transferredToDocumentId !== null && payload.transferredToDocumentId === checkout.orderId) {
+      // The order placed from this checkout took over its hold (A-232): the checkout is done and the cart converted.
+      await this.store.endCheckout(tx, checkout.id, 'COMPLETED', event.actorId);
+      await this.store.setCart(tx, checkout.cartId, { status: 'CONVERTED' });
+      await this.audit.record(tx, { module: 'shp', action: 'COMPLETE', entityType: 'CheckoutSession', entityId: checkout.id, branchId: checkout.branchId, before: { status: checkout.status }, after: { status: 'COMPLETED', orderId: checkout.orderId } });
+      await this.events.publish<CheckoutCompleted>(tx, {
+        type: 'shp.CheckoutCompleted',
+        subjectType: 'CheckoutSession',
+        subjectId: checkout.id,
+        branchId: checkout.branchId,
+        causationId: event.id,
+        payload: { checkoutId: checkout.id, cartId: checkout.cartId, orderId: checkout.orderId },
+      });
+      return;
+    }
     const status = event.type === 'inv.ReservationExpired' ? 'EXPIRED' : 'CANCELLED';
     await this.store.endCheckout(tx, checkout.id, status, event.actorId);
     await this.store.setCart(tx, checkout.cartId, { status: 'ACTIVE' });

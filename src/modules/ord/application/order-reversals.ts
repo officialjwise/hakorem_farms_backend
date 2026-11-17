@@ -31,6 +31,8 @@ export const ORDER_VOIDED = 'ord.OrderVoided';
 const VOID_ABUSE_CASE = 1;
 /** The refund reason of what a cancelled order was paid (migration 0192). */
 const ORDER_CANCELLED_REFUND_REASON = 'ORDER_CANCELLED';
+/** The CANCELLATION reason of an online order whose money never came (seeded in 0024). */
+const PAYMENT_NOT_RECEIVED_REASON = 'PAYMENT_NOT_RECEIVED';
 /** The System principal, for the rows an approval writes when the decider is not named. */
 const SYSTEM_ACTOR_ID = '01900000-0000-7000-8000-000000000001';
 
@@ -103,53 +105,81 @@ export class OrderReversals {
       if (!judgeCancellation(header.status).ok) throw invalidState(id, header.status);
       const reasonRules = await this.reasonRules(tx, body, 'CANCELLATION');
       if (reasonRules.length > 0) throw new OrderInvalidError(reasonRules);
-      const before = await this.orders.viewOf(tx, id);
-      const actorId = actor!.principalId;
-
-      const released = await this.reservations.releaseHeldByIn(tx, actorId, id, `Order ${header.orderNo!} cancelled (${body.reasonCode})`);
-      const money = planCancellationMoney(await this.payments.ofOrderIn(tx, id));
-      for (const paymentId of money.releases) await this.providerPayments.releaseChargeIn(tx, paymentId, actorId);
-      const refundIds: string[] = [];
-      for (const refund of money.refunds) {
-        const asked = await this.refunds.requestIn(tx, actor!, {
-          originalPaymentId: refund.paymentId,
-          amountPesewas: refund.amount.pesewas,
-          destination: 'ORIGINAL_METHOD',
-          reasonCode: ORDER_CANCELLED_REFUND_REASON,
-          creditNoteId: null,
-          note: `Order ${header.orderNo!} cancelled`,
-        });
-        refundIds.push(asked.subject.id);
-      }
-
-      // A price override still waiting is withdrawn: nobody may approve a price on a cancelled order (A-230).
-      for (const asked of await this.approvals.ofSubjectIn(tx, id, PRICE_OVERRIDE_KIND)) {
-        if (asked.status === 'PENDING') await this.approvals.withdrawIn(tx, asked.id, `Order ${header.orderNo!} cancelled before its price override was decided`);
-      }
-
-      const at = this.clock.now();
-      await this.store.cancel(tx, id, { reasonCode: body.reasonCode, at, actorId });
-      await this.store.recordStatus(tx, id, { id: this.nextId(), fromStatus: header.status, toStatus: 'CANCELLED', reason: reasonText(body), occurredAt: at, actorId });
-      const view = await this.orders.viewOf(tx, id);
-      const cancelled: OrderCancelled = {
-        orderId: id,
-        orderNo: header.orderNo!,
-        branchId: header.branchId,
-        customerId: header.customerId,
-        fromStatus: header.status as 'PLACED' | 'CONFIRMED',
-        reasonCode: body.reasonCode,
-        releasedReservationIds: released.map((r) => r.id),
-        releasedChargePaymentIds: money.releases,
-        refundIds,
-        refundRequestedPesewas: money.total.toJsonInteger(),
-        cancelledAt: at.toISOString(),
-      };
-      await this.events.publish(tx, { type: ORDER_CANCELLED, subjectType: 'SalesOrder', subjectId: id, branchId: header.branchId, payload: cancelled, occurredAt: at });
-      await this.audit.record(tx, { module: 'ord', action: 'CANCEL', entityType: 'SalesOrder', entityId: id, branchId: header.branchId, before: { ...before }, after: { ...view, refundIds } });
+      const view = await this.cancelIn(tx, header, body, actor!);
       const response = { status: 200, body: view };
       await this.idempotency.complete(tx, claim.id, response);
       return response;
     });
+  }
+
+  /**
+   * An online order that stops waiting for its money (A-232), in the caller's transaction, as the System: its checkout's
+   * hold lapsed or was released (`holdEnded`, the checkout's stock is the expiry's or the releaser's to end), or its
+   * charge failed (the checkout's stock is released here, so the cart comes back at once). Only a PLACED order is
+   * cancelled; anything else is left as it is and false is answered. Reason `PAYMENT_NOT_RECEIVED`. It authorises
+   * nothing: no person asked.
+   */
+  async stopWaitingIn(tx: Transaction, header: OrderHeaderRecord, why: 'HOLD_ENDED' | 'PAYMENT_FAILED', actorId: string): Promise<boolean> {
+    if (header.status !== 'PLACED') return false;
+    const note = why === 'HOLD_ENDED' ? 'The checkout’s hold ended before the payment arrived' : 'The payment failed';
+    await this.cancelIn(tx, header, { reasonCode: PAYMENT_NOT_RECEIVED_REASON, note }, { principalId: actorId, kind: 'SYSTEM', displayName: 'System', realm: null, sessionId: null, steppedUpAt: null }, why === 'PAYMENT_FAILED');
+    return true;
+  }
+
+  /**
+   * The cancellation itself (FR-ORD-014), the order locked and judged by the caller. An online order still PLACED from
+   * its checkout also gives the checkout's stock back when `releaseSource` (a cancellation by staff or a failed charge),
+   * after the order is CANCELLED, so the checkout's own reaction (it ends and gives the cart back) finds the order ended.
+   */
+  private async cancelIn(tx: Transaction, header: OrderHeaderRecord, body: ReasonRequest, actor: Actor, releaseSource = header.channel === 'ONLINE' && header.status === 'PLACED'): Promise<SalesOrderView> {
+    const id = header.id;
+    const before = await this.orders.viewOf(tx, id);
+    const actorId = actor.principalId;
+
+    const released = [...(await this.reservations.releaseHeldByIn(tx, actorId, id, `Order ${header.orderNo!} cancelled (${body.reasonCode})`))];
+    const money = planCancellationMoney(await this.payments.ofOrderIn(tx, id));
+    for (const paymentId of money.releases) await this.providerPayments.releaseChargeIn(tx, paymentId, actorId);
+    const refundIds: string[] = [];
+    for (const refund of money.refunds) {
+      const asked = await this.refunds.requestIn(tx, actor, {
+        originalPaymentId: refund.paymentId,
+        amountPesewas: refund.amount.pesewas,
+        destination: 'ORIGINAL_METHOD',
+        reasonCode: ORDER_CANCELLED_REFUND_REASON,
+        creditNoteId: null,
+        note: `Order ${header.orderNo!} cancelled`,
+      });
+      refundIds.push(asked.subject.id);
+    }
+
+    // A price override still waiting is withdrawn: nobody may approve a price on a cancelled order (A-230).
+    for (const asked of await this.approvals.ofSubjectIn(tx, id, PRICE_OVERRIDE_KIND)) {
+      if (asked.status === 'PENDING') await this.approvals.withdrawIn(tx, asked.id, `Order ${header.orderNo!} cancelled before its price override was decided`);
+    }
+
+    const at = this.clock.now();
+    await this.store.cancel(tx, id, { reasonCode: body.reasonCode, at, actorId });
+    await this.store.recordStatus(tx, id, { id: this.nextId(), fromStatus: header.status, toStatus: 'CANCELLED', reason: reasonText(body), occurredAt: at, actorId });
+    if (releaseSource && header.sourceDocumentId !== null) {
+      released.push(...(await this.reservations.releaseHeldByIn(tx, actorId, header.sourceDocumentId, `Order ${header.orderNo!} cancelled (${body.reasonCode})`)));
+    }
+    const view = await this.orders.viewOf(tx, id);
+    const cancelled: OrderCancelled = {
+      orderId: id,
+      orderNo: header.orderNo!,
+      branchId: header.branchId,
+      customerId: header.customerId,
+      fromStatus: header.status as 'PLACED' | 'CONFIRMED',
+      reasonCode: body.reasonCode,
+      releasedReservationIds: released.map((r) => r.id),
+      releasedChargePaymentIds: money.releases,
+      refundIds,
+      refundRequestedPesewas: money.total.toJsonInteger(),
+      cancelledAt: at.toISOString(),
+    };
+    await this.events.publish(tx, { type: ORDER_CANCELLED, subjectType: 'SalesOrder', subjectId: id, branchId: header.branchId, payload: cancelled, occurredAt: at });
+    await this.audit.record(tx, { module: 'ord', action: 'CANCEL', entityType: 'SalesOrder', entityId: id, branchId: header.branchId, before: { ...before }, after: { ...view, refundIds } });
+    return view;
   }
 
   /** voidOrder (abuse case 1): always 202; nothing changes until a supervisor who is not the cashier approves. */

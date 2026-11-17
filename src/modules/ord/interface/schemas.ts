@@ -90,3 +90,6 @@ export const ReturnCreateBody = z.strictObject({
     .max(100),
   note: Text(500).optional(),
 });
+
+/** A tracking token as the link carries it (`trk_` and base64url); its signature is checked by the handler. */
+export const TrackingTokenParam = z.string().min(1).max(100);
