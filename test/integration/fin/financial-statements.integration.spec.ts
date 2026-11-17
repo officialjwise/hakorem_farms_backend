@@ -228,11 +228,14 @@ describe("the SRS's cash flow, and the statements after cash has moved (FR-FIN-0
   const day = () => toBusinessDate(new Date(clock.now().getTime() - 86_400_000));
 
   it('reconciles an opening 100,000, receipts 300,000 and payments 120,000 to a closing 280,000 equal to the cash accounts', async () => {
+    // Both days fixed once: each journal's step-ups move the clock, and a midnight between them would move the days (B09t2).
+    const openingDay = opening();
+    const tradingDay = day();
     const ledger = await ledgerIds(database);
     const people = { maker: accountant, checker: owner };
     await postManualJournal(api.server, clock, people, {
       kind: 'OPENING',
-      postingDate: opening(),
+      postingDate: openingDay,
       description: 'Opening cash in the safe',
       lines: [
         { accountId: ledger.account('1010'), side: 'D', amountPesewas: 100_000 },
@@ -240,7 +243,7 @@ describe("the SRS's cash flow, and the statements after cash has moved (FR-FIN-0
       ],
     });
     await postManualJournal(api.server, clock, people, {
-      postingDate: day(),
+      postingDate: tradingDay,
       description: 'Walk-in goat sales banked to the safe',
       lines: [
         { accountId: ledger.account('1010'), side: 'D', amountPesewas: 300_000 },
@@ -248,7 +251,7 @@ describe("the SRS's cash flow, and the statements after cash has moved (FR-FIN-0
       ],
     });
     await postManualJournal(api.server, clock, people, {
-      postingDate: day(),
+      postingDate: tradingDay,
       description: 'Cold room repair, 100,000, and a compressor, 20,000, paid from the safe',
       lines: [
         { accountId: ledger.account('6300'), side: 'D', amountPesewas: 100_000 },
@@ -256,7 +259,7 @@ describe("the SRS's cash flow, and the statements after cash has moved (FR-FIN-0
         { accountId: ledger.account('1010'), side: 'C', amountPesewas: 120_000 },
       ],
     });
-    const cf = await get(owner, `/finance/cash-flow?from=${day()}&to=${day()}`);
+    const cf = await get(owner, `/finance/cash-flow?from=${tradingDay}&to=${tradingDay}`);
     const sections = cf.body.sections as Section[];
     expect(total(sections, 'OPENING_CASH')).toBe(100_000n);
     expect(rowsOf(sections, 'OPERATING')).toEqual([
@@ -268,12 +271,12 @@ describe("the SRS's cash flow, and the statements after cash has moved (FR-FIN-0
     expect(total(sections, 'NET_CHANGE')).toBe(180_000n);
     expect(rowsOf(sections, 'CLOSING_CASH')).toEqual([['1010', 280_000n]]);
     expect(cf.body.checks[0].passed).toBe(true);
-    const balances = await sqlBalances('2000-01-01', day());
+    const balances = await sqlBalances('2000-01-01', tradingDay);
     expect(byClass(new Map([...balances].filter(([code]) => code >= '1000' && code <= '1130')), '1')).toBe(280_000n);
     // The opening journal is a financing inflow on its own day.
-    const first = await get(owner, `/finance/cash-flow?from=${opening()}&to=${opening()}`);
+    const first = await get(owner, `/finance/cash-flow?from=${openingDay}&to=${openingDay}`);
     expect(rowsOf(first.body.sections as Section[], 'FINANCING')).toEqual([['3900', 100_000n]]);
-    const pl = await get(owner, `/finance/profit-and-loss?from=${day()}&to=${day()}`);
+    const pl = await get(owner, `/finance/profit-and-loss?from=${tradingDay}&to=${tradingDay}`);
     expect(total(pl.body.sections as Section[], 'NET_PROFIT')).toBe(200_000n);
   });
 
