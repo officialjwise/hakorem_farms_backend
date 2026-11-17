@@ -26,8 +26,13 @@ export interface ReceiptLineRecord {
   readonly lineNo: number;
   readonly productId: string;
   readonly orderLineRef: string | null;
+  /** Both in the product's base unit: what stock, the cost pool and the purchase order's match read. */
   readonly qtyReceived: string;
   readonly qtyRejected: string;
+  /** The unit the line was entered in when it is not the base unit (a crate), with its quantities as entered; else null. */
+  readonly uom: string | null;
+  readonly qtyReceivedUom: string | null;
+  readonly qtyRejectedUom: string | null;
   readonly weightKg: string | null;
   readonly weightSource: WeightSource | null;
   readonly valuePesewas: bigint;

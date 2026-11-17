@@ -40,6 +40,8 @@ export interface AnimalArrivalInput {
 export interface ReceiptLineInput {
   readonly productId: string;
   readonly purchaseOrderLineId?: string | undefined;
+  /** The unit the quantities are entered in (a crate): the product's base unit when absent (B09e continued). */
+  readonly uom?: string | undefined;
   readonly qtyReceived: string;
   readonly qtyRejected?: string | undefined;
   readonly weightKg?: string | undefined;
@@ -48,6 +50,14 @@ export interface ReceiptLineInput {
   readonly batchNo?: string | undefined;
   readonly expiresOn?: string | undefined;
   readonly animals?: readonly AnimalArrivalInput[] | undefined;
+}
+
+/** A line as entered, with its quantities in the product's base unit and, for a line in another unit, as entered. */
+interface BaseLine {
+  readonly input: ReceiptLineInput;
+  readonly uom: { readonly code: string; readonly received: Quantity; readonly rejected: Quantity } | null;
+  readonly received: Quantity;
+  readonly rejected: Quantity;
 }
 
 export interface GoodsReceiptCreateRequest {
@@ -89,9 +99,14 @@ export interface GoodsReceiptLineView {
   readonly lineNo: number;
   readonly product: { readonly id: string; readonly sku: string; readonly name: string };
   readonly purchaseOrderLineId: string | null;
+  /** In `uom`, the unit the line was entered in. */
   readonly qtyReceived: string;
   readonly qtyRejected: string;
   readonly uom: string;
+  /** The product's base unit, which stock moves in, and the two quantities in it (B09e continued). */
+  readonly baseUom: string;
+  readonly qtyReceivedBase: string;
+  readonly qtyRejectedBase: string;
   readonly weightKg: string | null;
   readonly weightSource: WeightSource | null;
   readonly valuePesewas: number;
@@ -229,7 +244,7 @@ export class GoodsReceipts {
   async createIn(tx: Transaction, actor: Actor, body: GoodsReceiptCreateRequest, options: ReceiptOptions = {}): Promise<GoodsReceiptView> {
     const location = await this.receivingLocation(tx, body.locationId);
     await this.checkHeader(tx, body, false, options);
-    await this.checkLines(tx, body.kind, body.receivedAt, body.lines);
+    const lines = await this.checkLines(tx, body.kind, body.receivedAt, body.lines);
     const id = this.nextId();
     await this.documents.register(tx, { id, docType: 'GOODS_RECEIPT', ownerModule: 'inv', branchId: location.branchId, actorId: actor.principalId });
     await this.store.insertHeader(
@@ -247,7 +262,7 @@ export class GoodsReceipts {
       },
       actor.principalId,
     );
-    await this.insertLines(tx, id, body.lines);
+    await this.insertLines(tx, id, lines);
     const view = await this.view(tx, id);
     await this.audit.record(tx, { module: 'inv', action: 'CREATE', entityType: 'GoodsReceipt', entityId: id, branchId: location.branchId, before: null, after: { ...view } });
     return view;
@@ -264,8 +279,9 @@ export class GoodsReceipts {
       async (tx) => {
         const before = await this.lockedDraft(tx, id, body.version);
         const receivedAt = body.receivedAt ?? before.receivedAt;
+        let lines: BaseLine[] | null = null;
         if (body.lines !== undefined) {
-          await this.checkLines(tx, before.kind, receivedAt, body.lines);
+          lines = await this.checkLines(tx, before.kind, receivedAt, body.lines);
         } else if (body.receivedAt !== undefined) {
           await this.checkLines(tx, before.kind, receivedAt, before.lines.map(lineInputOf));
         }
@@ -277,9 +293,9 @@ export class GoodsReceipts {
         if (!(await this.store.updateHeader(tx, id, body.version, set, actor!.principalId))) {
           throw new VersionConflictError(`goods receipt ${id} changed while it was updated`);
         }
-        if (body.lines !== undefined) {
+        if (lines !== null) {
           await this.store.clearLines(tx, id);
-          await this.insertLines(tx, id, body.lines);
+          await this.insertLines(tx, id, lines);
         }
         const beforeView = (await this.views(tx, [before]))[0]!;
         const view = await this.view(tx, id);
@@ -488,13 +504,39 @@ export class GoodsReceipts {
     }
   }
 
-  private async checkLines(tx: Transaction, kind: ReceiptKind, receivedAt: Date, lines: readonly ReceiptLineInput[]): Promise<void> {
+  /**
+   * Checks the lines against master data and the receipt's rules, and answers them in the product's base unit: a line
+   * entered in another unit (a crate) is converted through `MasterDataRefs.toBaseIn`, never by a factor of its own, and
+   * a unit the product does not convert from, or a quantity that would need a fourth decimal place, is refused.
+   */
+  private async checkLines(tx: Transaction, kind: ReceiptKind, receivedAt: Date, lines: readonly ReceiptLineInput[]): Promise<BaseLine[]> {
     if (isInTheFuture(receivedAt, this.clock.now())) throw new GoodsReceiptInvalidError([{ field: '/receivedAt', rule: 'IN_THE_FUTURE' }]);
     if (lines.length === 0) throw new GoodsReceiptInvalidError([{ field: '/lines', rule: 'NO_LINES' }]);
     const products = await this.refs.productsIn(tx, lines.map((l) => l.productId));
     const missing = lines.flatMap((l, index) => (products.has(l.productId) ? [] : [`/lines/${index}/productId`]));
     if (missing.length > 0) throw new InvReferenceNotFoundError(missing);
     const broken: ReceiptRuleBroken[] = [];
+    const converted: BaseLine[] = [];
+    for (const [index, l] of lines.entries()) {
+      const product = products.get(l.productId)!;
+      const uom = l.uom === undefined || l.uom === product.baseUom ? null : l.uom;
+      const received = Quantity.parse(l.qtyReceived);
+      const rejected = Quantity.parse(l.qtyRejected ?? '0.000');
+      if (uom === null) {
+        converted.push({ input: l, uom: null, received, rejected });
+        continue;
+      }
+      const receivedBase = await this.refs.toBaseIn(tx, product.id, uom, received);
+      const rejectedBase = await this.refs.toBaseIn(tx, product.id, uom, rejected);
+      if (!receivedBase.ok || !rejectedBase.ok) {
+        // A unit the product is not bought by refuses both quantities alike; only a quantity can be inexact on its own.
+        const inexact = !receivedBase.ok && receivedBase.error === 'INEXACT_QUANTITY' ? 'qtyReceived' : !rejectedBase.ok && rejectedBase.error === 'INEXACT_QUANTITY' ? 'qtyRejected' : null;
+        broken.push(inexact === null ? { field: `/lines/${index}/uom`, rule: 'NO_CONVERSION' } : { field: `/lines/${index}/${inexact}`, rule: 'INEXACT_QUANTITY' });
+        continue;
+      }
+      converted.push({ input: l, uom: { code: uom, received, rejected }, received: receivedBase.value, rejected: rejectedBase.value });
+    }
+    if (broken.length > 0) throw new GoodsReceiptInvalidError(broken);
     lines.forEach((l, index) => {
       if ((l.weightKg === undefined) !== (l.weightSource === undefined)) broken.push({ field: `/lines/${index}/weightSource`, rule: 'WEIGHT_NEEDS_SOURCE' });
       (l.animals ?? []).forEach((a, n) => {
@@ -505,11 +547,11 @@ export class GoodsReceipts {
       ...checkReceiptLines({
         kind,
         receivedOn: toBusinessDate(receivedAt),
-        lines: lines.map((l) => ({
+        lines: converted.map(({ input: l, received }) => ({
           productId: l.productId,
           product: products.get(l.productId)!,
           draft: {
-            qtyReceived: Quantity.parse(l.qtyReceived),
+            qtyReceived: received,
             value: Money.ofPesewas(l.valuePesewas),
             batchNo: l.batchNo ?? null,
             expiresOn: l.expiresOn ?? null,
@@ -519,18 +561,22 @@ export class GoodsReceipts {
       }),
     );
     if (broken.length > 0) throw new GoodsReceiptInvalidError(broken);
+    return converted;
   }
 
-  private async insertLines(tx: Transaction, receiptId: string, lines: readonly ReceiptLineInput[]): Promise<void> {
-    for (const [index, line] of lines.entries()) {
+  private async insertLines(tx: Transaction, receiptId: string, lines: readonly BaseLine[]): Promise<void> {
+    for (const [index, { input: line, uom, received, rejected }] of lines.entries()) {
       const lineId = this.nextId();
       await this.store.insertLine(tx, receiptId, {
         id: lineId,
         lineNo: ordinal(index),
         productId: line.productId,
         orderLineRef: line.purchaseOrderLineId ?? null,
-        qtyReceived: Quantity.parse(line.qtyReceived).toDecimalString(),
-        qtyRejected: Quantity.parse(line.qtyRejected ?? '0').toDecimalString(),
+        qtyReceived: received.toDecimalString(),
+        qtyRejected: rejected.toDecimalString(),
+        uom: uom?.code ?? null,
+        qtyReceivedUom: uom?.received.toDecimalString() ?? null,
+        qtyRejectedUom: uom?.rejected.toDecimalString() ?? null,
         weightKg: line.weightKg === undefined ? null : Weight.parseKg(line.weightKg).toKgString(),
         weightSource: line.weightSource ?? null,
         valuePesewas: line.valuePesewas,
@@ -652,9 +698,12 @@ export class GoodsReceipts {
             lineNo: l.lineNo,
             product: { id: product.id, sku: product.sku, name: product.name },
             purchaseOrderLineId: l.orderLineRef,
-            qtyReceived: l.qtyReceived,
-            qtyRejected: l.qtyRejected,
-            uom: product.baseUom,
+            qtyReceived: l.qtyReceivedUom ?? l.qtyReceived,
+            qtyRejected: l.qtyRejectedUom ?? l.qtyRejected,
+            uom: l.uom ?? product.baseUom,
+            baseUom: product.baseUom,
+            qtyReceivedBase: l.qtyReceived,
+            qtyRejectedBase: l.qtyRejected,
             weightKg: l.weightKg,
             weightSource: l.weightSource,
             valuePesewas: Money.ofPesewas(l.valuePesewas).toJsonInteger(),
@@ -686,7 +735,10 @@ export class GoodsReceipts {
   }
 }
 
-/** A stored line as the input the rules check, for a re-check at posting or after a date change. */
+/**
+ * A stored line as the input the rules check, for a re-check at posting or after a date change: in the base unit, as
+ * it was converted when the line was written (and checked by the database, `ck_line_uom_conversion`).
+ */
 function lineInputOf(line: ReceiptLineRecord): ReceiptLineInput {
   return {
     productId: line.productId,

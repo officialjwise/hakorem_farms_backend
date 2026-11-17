@@ -78,6 +78,9 @@ responses:
               qtyReceived: "4.000"
               qtyRejected: "0.000"
               uom: HEAD
+              baseUom: HEAD
+              qtyReceivedBase: "4.000"
+              qtyRejectedBase: "0.000"
               weightKg: "98.600"
               weightSource: SCALE
               valuePesewas: 228000

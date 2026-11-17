@@ -62,6 +62,8 @@ responses:
                 tracking: LOT
               uom: KG
               qtyDispatched: "30.150"
+              baseUom: KG
+              qtyDispatchedBase: "30.150"
               qtyReceived: "29.750"
               varianceQty: "0.400"
               varianceReasonCode: DRIP_LOSS

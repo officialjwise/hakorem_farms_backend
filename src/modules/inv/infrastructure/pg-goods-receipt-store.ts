@@ -40,6 +40,9 @@ interface LineRow {
   order_line_ref: string | null;
   qty_received: string;
   qty_rejected: string;
+  uom: string | null;
+  qty_received_uom: string | null;
+  qty_rejected_uom: string | null;
   weight_kg: string | null;
   weight_source: WeightSource | null;
   value_pesewas: string;
@@ -98,8 +101,8 @@ export class PgGoodsReceiptStore implements GoodsReceiptStore {
   async insertLine(tx: Transaction, receiptId: string, line: Omit<ReceiptLineRecord, 'stockUnitId' | 'animals'>): Promise<void> {
     await tx.query(
       `INSERT INTO inv.goods_receipt_line (id, goods_receipt_id, line_no, product_id, order_line_ref, qty_received, qty_rejected, weight_kg, weight_source,
-                                           value_pesewas, batch_no, expires_on)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+                                           value_pesewas, batch_no, expires_on, uom, qty_received_uom, qty_rejected_uom)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
       [
         line.id,
         receiptId,
@@ -113,6 +116,9 @@ export class PgGoodsReceiptStore implements GoodsReceiptStore {
         line.valuePesewas.toString(),
         line.batchNo,
         line.expiresOn,
+        line.uom,
+        line.qtyReceivedUom,
+        line.qtyRejectedUom,
       ],
     );
   }
@@ -221,8 +227,8 @@ export class PgGoodsReceiptStore implements GoodsReceiptStore {
     if (headers.length === 0) return [];
     const ids = headers.map((h) => h.id);
     const lines = await tx.query<LineRow>(
-      `SELECT id, goods_receipt_id, line_no, product_id, order_line_ref, qty_received, qty_rejected, weight_kg, weight_source, value_pesewas, stock_unit_id,
-              batch_no, to_char(expires_on, 'YYYY-MM-DD') AS expires_on
+      `SELECT id, goods_receipt_id, line_no, product_id, order_line_ref, qty_received, qty_rejected, uom, qty_received_uom, qty_rejected_uom,
+              weight_kg, weight_source, value_pesewas, stock_unit_id, batch_no, to_char(expires_on, 'YYYY-MM-DD') AS expires_on
          FROM inv.goods_receipt_line WHERE goods_receipt_id = ANY($1::uuid[]) ORDER BY goods_receipt_id, line_no`,
       [ids],
     );
@@ -260,6 +266,9 @@ export class PgGoodsReceiptStore implements GoodsReceiptStore {
         orderLineRef: l.order_line_ref,
         qtyReceived: l.qty_received,
         qtyRejected: l.qty_rejected,
+        uom: l.uom,
+        qtyReceivedUom: l.qty_received_uom,
+        qtyRejectedUom: l.qty_rejected_uom,
         weightKg: l.weight_kg,
         weightSource: l.weight_source,
         valuePesewas: BigInt(l.value_pesewas),

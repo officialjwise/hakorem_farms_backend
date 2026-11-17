@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.1.0"
+  version: "2.2.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -20977,6 +20977,9 @@ paths:
                             qtyReceived: "4.000"
                             qtyRejected: "0.000"
                             uom: HEAD
+                            baseUom: HEAD
+                            qtyReceivedBase: "4.000"
+                            qtyRejectedBase: "0.000"
                             weightKg: "98.600"
                             weightSource: SCALE
                             valuePesewas: 228000
@@ -21059,6 +21062,9 @@ paths:
                             qtyReceived: "20.000"
                             qtyRejected: "0.000"
                             uom: BAG
+                            baseUom: KG
+                            qtyReceivedBase: "1000.000"
+                            qtyRejectedBase: "0.000"
                             weightKg: null
                             weightSource: null
                             valuePesewas: 1040000
@@ -21109,6 +21115,9 @@ paths:
                             qtyReceived: "500.000"
                             qtyRejected: "6.000"
                             uom: HEAD
+                            baseUom: HEAD
+                            qtyReceivedBase: "500.000"
+                            qtyRejectedBase: "6.000"
                             weightKg: null
                             weightSource: null
                             valuePesewas: 6237000
@@ -21156,6 +21165,9 @@ paths:
                             qtyReceived: "48.000"
                             qtyRejected: "2.000"
                             uom: CRATE
+                            baseUom: UNIT
+                            qtyReceivedBase: "1440.000"
+                            qtyRejectedBase: "60.000"
                             weightKg: null
                             weightSource: null
                             valuePesewas: 0
@@ -21209,6 +21221,9 @@ paths:
                             qtyReceived: "12.000"
                             qtyRejected: "1.000"
                             uom: CRATE
+                            baseUom: CRATE
+                            qtyReceivedBase: "12.000"
+                            qtyRejectedBase: "1.000"
                             weightKg: null
                             weightSource: null
                             valuePesewas: 618000
@@ -21259,6 +21274,9 @@ paths:
                             qtyReceived: "10.000"
                             qtyRejected: "0.000"
                             uom: UNIT
+                            baseUom: UNIT
+                            qtyReceivedBase: "10.000"
+                            qtyRejectedBase: "0.000"
                             weightKg: null
                             weightSource: null
                             valuePesewas: 85000
@@ -21396,6 +21414,9 @@ paths:
                     qtyReceived: "10.000"
                     qtyRejected: "0.000"
                     uom: UNIT
+                    baseUom: UNIT
+                    qtyReceivedBase: "10.000"
+                    qtyRejectedBase: "0.000"
                     weightKg: null
                     weightSource: null
                     valuePesewas: 85000
@@ -21494,6 +21515,9 @@ paths:
                     qtyReceived: "4.000"
                     qtyRejected: "0.000"
                     uom: HEAD
+                    baseUom: HEAD
+                    qtyReceivedBase: "4.000"
+                    qtyRejectedBase: "0.000"
                     weightKg: "98.600"
                     weightSource: SCALE
                     valuePesewas: 228000
@@ -21642,6 +21666,9 @@ paths:
                     qtyReceived: "4.000"
                     qtyRejected: "0.000"
                     uom: HEAD
+                    baseUom: HEAD
+                    qtyReceivedBase: "4.000"
+                    qtyRejectedBase: "0.000"
                     weightKg: "98.600"
                     weightSource: SCALE
                     valuePesewas: 228000
@@ -21790,6 +21817,9 @@ paths:
                     qtyReceived: "4.000"
                     qtyRejected: "0.000"
                     uom: HEAD
+                    baseUom: HEAD
+                    qtyReceivedBase: "4.000"
+                    qtyRejectedBase: "0.000"
                     weightKg: "98.600"
                     weightSource: SCALE
                     valuePesewas: 228000
@@ -21939,6 +21969,9 @@ paths:
                     qtyReceived: "4.000"
                     qtyRejected: "0.000"
                     uom: HEAD
+                    baseUom: HEAD
+                    qtyReceivedBase: "4.000"
+                    qtyRejectedBase: "0.000"
                     weightKg: "98.600"
                     weightSource: SCALE
                     valuePesewas: 228000
@@ -22095,6 +22128,8 @@ paths:
                               tracking: LOT
                             uom: KG
                             qtyDispatched: "30.150"
+                            baseUom: KG
+                            qtyDispatchedBase: "30.150"
                             qtyReceived: "29.750"
                             varianceQty: "0.400"
                             varianceReasonCode: DRIP_LOSS
@@ -22139,6 +22174,8 @@ paths:
                               tracking: LOT
                             uom: CRATE
                             qtyDispatched: "10.000"
+                            baseUom: UNIT
+                            qtyDispatchedBase: "300.000"
                             qtyReceived: null
                             varianceQty: null
                             varianceReasonCode: null
@@ -22181,6 +22218,8 @@ paths:
                               tracking: LOT
                             uom: KG
                             qtyDispatched: "45.000"
+                            baseUom: KG
+                            qtyDispatchedBase: "45.000"
                             qtyReceived: "45.000"
                             varianceQty: "0.000"
                             varianceReasonCode: null
@@ -22225,6 +22264,8 @@ paths:
                               tracking: SERIAL
                             uom: HEAD
                             qtyDispatched: "1.000"
+                            baseUom: HEAD
+                            qtyDispatchedBase: "1.000"
                             qtyReceived: "1.000"
                             varianceQty: "0.000"
                             varianceReasonCode: null
@@ -22269,6 +22310,8 @@ paths:
                               tracking: LOT
                             uom: CRATE
                             qtyDispatched: "4.000"
+                            baseUom: CRATE
+                            qtyDispatchedBase: "4.000"
                             qtyReceived: null
                             varianceQty: null
                             varianceReasonCode: null
@@ -22309,6 +22352,8 @@ paths:
                               tracking: LOT
                             uom: KG
                             qtyDispatched: "30.000"
+                            baseUom: KG
+                            qtyDispatchedBase: "30.000"
                             qtyReceived: "30.000"
                             varianceQty: "0.000"
                             varianceReasonCode: null
@@ -22424,6 +22469,8 @@ paths:
                       tracking: LOT
                     uom: CRATE
                     qtyDispatched: "4.000"
+                    baseUom: CRATE
+                    qtyDispatchedBase: "4.000"
                     qtyReceived: null
                     varianceQty: null
                     varianceReasonCode: null
@@ -22514,6 +22561,8 @@ paths:
                       tracking: LOT
                     uom: KG
                     qtyDispatched: "30.150"
+                    baseUom: KG
+                    qtyDispatchedBase: "30.150"
                     qtyReceived: "29.750"
                     varianceQty: "0.400"
                     varianceReasonCode: DRIP_LOSS
@@ -22619,6 +22668,8 @@ paths:
                       tracking: LOT
                     uom: CRATE
                     qtyDispatched: "10.000"
+                    baseUom: UNIT
+                    qtyDispatchedBase: "300.000"
                     qtyReceived: null
                     varianceQty: null
                     varianceReasonCode: null
@@ -22734,6 +22785,8 @@ paths:
                       tracking: LOT
                     uom: KG
                     qtyDispatched: "30.150"
+                    baseUom: KG
+                    qtyDispatchedBase: "30.150"
                     qtyReceived: "29.750"
                     varianceQty: "0.400"
                     varianceReasonCode: DRIP_LOSS
@@ -22845,6 +22898,8 @@ paths:
                       tracking: LOT
                     uom: KG
                     qtyDispatched: "30.150"
+                    baseUom: KG
+                    qtyDispatchedBase: "30.150"
                     qtyReceived: "29.750"
                     varianceQty: "0.400"
                     varianceReasonCode: DRIP_LOSS
@@ -84727,10 +84782,22 @@ components:
           format: uuid
         qtyReceived:
           $ref: "#/components/schemas/Quantity"
+          description: "Accepted, in `uom`, as the line was entered (10 crates)."
         qtyRejected:
           $ref: "#/components/schemas/Quantity"
+          description: "Rejected at the door, in `uom`."
         uom:
           type: string
+          description: "The unit the line was entered in: the product's base unit unless the line named another (a crate, B09e continued)."
+        baseUom:
+          type: string
+          description: "The product's base unit, which stock moves in and `qtyReceivedBase` and `qtyRejectedBase` are in (B09e continued)."
+        qtyReceivedBase:
+          $ref: "#/components/schemas/Quantity"
+          description: "`qtyReceived` in the base unit, by the product's exact conversion: what the receipt movement brings in (300 eggs)."
+        qtyRejectedBase:
+          $ref: "#/components/schemas/Quantity"
+          description: "`qtyRejected` in the base unit, by the product's exact conversion."
         weightKg:
           anyOf:
             - $ref: "#/components/schemas/Kilograms"
@@ -84767,6 +84834,9 @@ components:
         - qtyReceived
         - qtyRejected
         - uom
+        - baseUom
+        - qtyReceivedBase
+        - qtyRejectedBase
         - weightKg
         - weightSource
         - valuePesewas
@@ -84902,10 +84972,16 @@ components:
         purchaseOrderLineId:
           type: string
           format: uuid
+        uom:
+          type: string
+          pattern: "^[A-Z]{2,10}$"
+          description: "The unit `qtyReceived` and `qtyRejected` are counted in (B09e continued): the product's base unit when left out, or a unit it converts from (`listUomConversions`), converted by the server's exact conversion, never by a factor of the line's own. The line keeps it; stock moves in the base unit. A unit the product does not convert from is 422 `GOODS_RECEIPT_INVALID` with `NO_CONVERSION`, a quantity that would need a fourth decimal place in the base unit `INEXACT_QUANTITY`."
         qtyReceived:
           $ref: "#/components/schemas/Quantity"
+          description: "Accepted, in `uom`."
         qtyRejected:
           $ref: "#/components/schemas/Quantity"
+          description: "Rejected at the door, in `uom`."
         weightKg:
           $ref: "#/components/schemas/Kilograms"
         weightSource:
@@ -85013,16 +85089,26 @@ components:
             - type: "null"
         uom:
           type: string
+          description: "The unit the line was entered in: the product's base unit unless the line named another (a crate, B09e continued)."
         qtyDispatched:
           $ref: "#/components/schemas/Quantity"
+          description: "In `uom`, as the line was entered (2 crates)."
+        baseUom:
+          type: string
+          description: "The product's base unit, which stock moves in and `qtyDispatchedBase`, `qtyReceived` and `varianceQty` are in (B09e continued)."
+        qtyDispatchedBase:
+          $ref: "#/components/schemas/Quantity"
+          description: "`qtyDispatched` in the base unit, by the product's exact conversion: what the dispatch moves (60 eggs)."
         qtyReceived:
           anyOf:
             - $ref: "#/components/schemas/Quantity"
             - type: "null"
+          description: "What arrived, in the base unit (`baseUom`), however the receiver counted it."
         varianceQty:
           anyOf:
             - $ref: "#/components/schemas/Quantity"
             - type: "null"
+          description: "The shortfall on arrival, in the base unit (`baseUom`)."
         varianceReasonCode:
           type:
             - string
@@ -85034,6 +85120,8 @@ components:
         - stockUnit
         - uom
         - qtyDispatched
+        - baseUom
+        - qtyDispatchedBase
         - qtyReceived
         - varianceQty
         - varianceReasonCode
@@ -85114,8 +85202,13 @@ components:
         stockUnitId:
           type: string
           format: uuid
+        uom:
+          type: string
+          pattern: "^[A-Z]{2,10}$"
+          description: "The unit `qty` is counted in (B09e continued): the product's base unit when left out, or a unit it converts from, converted by the server's exact conversion, never by a factor of the line's own. The line keeps it; stock moves in the base unit. A unit the product does not convert from is 422 `STOCK_TRANSFER_INVALID` with `NO_CONVERSION`, a quantity that would need a fourth decimal place in the base unit `INEXACT_QUANTITY`."
         qty:
           $ref: "#/components/schemas/Quantity"
+          description: "In `uom`."
       required:
         - productId
         - qty
@@ -85157,8 +85250,13 @@ components:
         lineId:
           type: string
           format: uuid
+        uom:
+          type: string
+          pattern: "^[A-Z]{2,10}$"
+          description: "The unit the arrival is counted in (B09e continued): crates or eggs, whichever unit the line was entered in; the product's base unit when left out. A unit the product does not convert from is 422 `STOCK_TRANSFER_INVALID` with `NO_CONVERSION`."
         qtyReceived:
           $ref: "#/components/schemas/Quantity"
+          description: "In `uom`, or in the product's base unit when `uom` is left out."
         varianceReasonCode:
           type: string
       required:

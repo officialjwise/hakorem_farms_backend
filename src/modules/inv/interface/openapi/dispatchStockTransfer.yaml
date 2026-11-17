@@ -75,6 +75,8 @@ responses:
                 tracking: LOT
               uom: CRATE
               qtyDispatched: "10.000"
+              baseUom: UNIT
+              qtyDispatchedBase: "300.000"
               qtyReceived: null
               varianceQty: null
               varianceReasonCode: null

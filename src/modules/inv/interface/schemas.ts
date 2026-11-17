@@ -14,6 +14,8 @@ const DateTime = z.iso.datetime({ offset: true }).transform((value) => new Date(
 const CalendarDate = z.iso.date();
 /** A tag number or a batch number, as `inv.stock_unit.identifier` takes it (migration 0044). */
 const Identifier = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9/_-]{0,39}$/);
+/** A unit of measure's code, as `mdm.uom` keeps it: a crate (`CRATE`) beside the base unit (`UNIT`, B09e continued). */
+const UomCode = z.string().regex(/^[A-Z]{2,10}$/);
 
 /** The most lines one receipt carries, and the most animals one line lists: a lorry of goats, a house of broilers. */
 export const MAX_RECEIPT_LINES = 100;
@@ -39,6 +41,7 @@ const AnimalArrivalInput = z.strictObject({
 const GoodsReceiptLineInput = z.strictObject({
   productId: z.uuid(),
   purchaseOrderLineId: z.uuid().optional(),
+  uom: UomCode.optional(),
   qtyReceived: Quantity.refine((value) => value !== '0.000', 'must be above zero'),
   qtyRejected: Quantity.optional(),
   weightKg: Kilograms.optional(),
@@ -109,12 +112,12 @@ const ReasonCode = z.string().regex(/^[A-Z][A-Z_]{1,39}$/);
 export const StockTransferCreate = z.strictObject({
   fromLocationId: z.uuid(),
   toLocationId: z.uuid(),
-  lines: z.array(z.strictObject({ productId: z.uuid(), stockUnitId: z.uuid().optional(), qty: PositiveQuantity })).max(MAX_DOCUMENT_LINES),
+  lines: z.array(z.strictObject({ productId: z.uuid(), stockUnitId: z.uuid().optional(), uom: UomCode.optional(), qty: PositiveQuantity })).max(MAX_DOCUMENT_LINES),
 });
 
 /** The contract's `TransferReceive`, strict. */
 export const TransferReceive = z.strictObject({
-  lines: z.array(z.strictObject({ lineId: z.uuid(), qtyReceived: Quantity, varianceReasonCode: ReasonCode.optional() })).max(MAX_DOCUMENT_LINES),
+  lines: z.array(z.strictObject({ lineId: z.uuid(), uom: UomCode.optional(), qtyReceived: Quantity, varianceReasonCode: ReasonCode.optional() })).max(MAX_DOCUMENT_LINES),
 });
 
 /** The contract's `StockAdjustmentCreate`, strict. */

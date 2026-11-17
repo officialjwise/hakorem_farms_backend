@@ -48,6 +48,8 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0217_inv_lines_in_selling_unit',
+      '0216_mdm_publish_uom_to_base',
       '0215_mdm_price_per_selling_unit',
       '0214_inv_bought_lot_delivery_cost',
       '0213_ord_order_tracking_token',

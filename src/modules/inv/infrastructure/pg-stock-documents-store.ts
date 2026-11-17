@@ -255,8 +255,8 @@ export class PgStockDocumentsStore implements StockDocumentsStore {
 
   async insertTransferLine(tx: Transaction, transferId: string, line: Omit<TransferLineRecord, 'qtyReceived' | 'varianceQty' | 'varianceReasonCode'>): Promise<void> {
     await tx.query(
-      'INSERT INTO inv.stock_transfer_line (id, stock_transfer_id, line_no, product_id, stock_unit_id, qty_dispatched) VALUES ($1, $2, $3, $4, $5, $6)',
-      [line.id, transferId, line.lineNo, line.productId, line.stockUnitId, line.qtyDispatched],
+      'INSERT INTO inv.stock_transfer_line (id, stock_transfer_id, line_no, product_id, stock_unit_id, qty_dispatched, uom, qty_dispatched_uom) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+      [line.id, transferId, line.lineNo, line.productId, line.stockUnitId, line.qtyDispatched, line.uom, line.qtyDispatchedUom],
     );
   }
 
@@ -328,7 +328,7 @@ export class PgStockDocumentsStore implements StockDocumentsStore {
     if (headers.length === 0) return [];
     const { rows } = await tx.query<TransferLineRecord & { transferId: string }>(
       `SELECT id, stock_transfer_id AS "transferId", line_no AS "lineNo", product_id AS "productId", stock_unit_id AS "stockUnitId",
-              qty_dispatched AS "qtyDispatched", qty_received AS "qtyReceived", variance_qty AS "varianceQty", variance_reason_code AS "varianceReasonCode"
+              qty_dispatched AS "qtyDispatched", uom, qty_dispatched_uom AS "qtyDispatchedUom", qty_received AS "qtyReceived", variance_qty AS "varianceQty", variance_reason_code AS "varianceReasonCode"
          FROM inv.stock_transfer_line WHERE stock_transfer_id = ANY($1::uuid[]) ORDER BY stock_transfer_id, line_no`,
       [headers.map((h) => h.id)],
     );
