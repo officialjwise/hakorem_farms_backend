@@ -25,7 +25,7 @@ All paths in the contract are relative to the base URL, including `/v1`. There i
 
 **Rules a client must follow so that minor changes never break it:** ignore response fields it does not know; treat every response enum as open (an unknown value is displayed as unknown, never a crash); treat an unknown error `code` by its HTTP status; never depend on key order; never depend on the number of items in a page.
 
-A breaking change is announced at least one full release before it ships: the old behaviour stays and the new behaviour is published alongside. The backend never breaks the contract silently: a pull request that changes `contract/openapi.yaml` incompatibly fails CI (`pnpm contract:generate` produces the file from code and CI fails on any difference with the committed one).
+A breaking change is announced at least one full release before it ships: the old behaviour stays and the new behaviour is published alongside. **Contract 2.0.0** (B09q, 2026-11-17) was approved by the owner before anything was deployed, with no running client to keep the old behaviour for, so it keeps the `/v1` URL and shipped without a release of notice (A-255); from the first deployment on, a major version takes the next `/vN` with the old one alongside. The backend never breaks the contract silently: a pull request that changes `contract/openapi.yaml` incompatibly fails CI (`pnpm contract:generate` produces the file from code and CI fails on any difference with the committed one).
 
 ## 2. Headers at a glance
 
@@ -154,7 +154,7 @@ These rules are fixed by ADR-0029 and apply to every operation.
 - **Enumerations are upper snake case** in requests and responses (`WEIGHTED_AVERAGE`, `PENDING_APPROVAL`). Treat response enums as open (section 1).
 - **Times** are UTC in RFC 3339 (`2026-11-13T09:30:00Z`). **Business dates** (a posting date, a delivery date, a value date) are calendar dates `YYYY-MM-DD` in Africa/Accra, which is UTC+0 all year. Show times in Africa/Accra; send times in UTC. Times of day for slots are `HH:MM` in Africa/Accra.
 - **Phone numbers** are E.164: Ghanaian numbers are `+233` followed by nine digits.
-- **Identifiers** are UUIDv7 strings. Ids are never shown to people as references: documents show their number, animals their tag. Ids are time-ordered but not secret and not business time.
+- **Identifiers** are UUIDv7 strings. Ids are never shown to people as references: documents show their number, animals their tag, products their SKU, and customers and suppliers their **public ID** (2.0.0, ADR-0073): `cus_` or `sup_` and sixteen Crockford base32 characters (`cus_8F3K2M9Q7X4T1V6B`), drawn by the server from a secure source, unique, never reused, never changed and never sent by a client. Ids are time-ordered but not secret and not business time; knowing an id, a public ID or a SKU reads nothing without authorisation.
 - **Currency.** `GHS`.
 - **Nulls.** A field the server may not have is present and `null`, not omitted. A client omits optional request fields it does not set.
 - **Unknown request fields are rejected** (400 `VALIDATION_FAILED`, `additionalProperties: false`).
@@ -740,6 +740,7 @@ Categories, units of measure, species, grades, weight bands, products (with imag
 - **Categories** answer `skuPrefix` (two to five capital letters) and take it, optionally, on `createCategory` and `updateCategory`; without one it is the first three letters of the code. A changed prefix applies to products created afterwards.
 - **No product barcode.** `barcode` is gone from `Product`, `ProductCreate`, `ProductUpdate`, `ProductLabel` and the planned `OfflineProduct`; sending it in a body is 400 (`UNKNOWN_FIELD`), and `listProducts?barcode=` is 400 rather than the whole catalogue. Labels print text. The meat pack labels keep their barcode.
 - **Imports:** the product sheet's `sku` column names a product to change; leave it blank to create one. A SKU the catalogue does not hold is a row error; a sheet with a `barcode` column fails as having an unknown column.
+- **Public IDs** (ADR-0073, A-253): `Customer`, `CustomerRef`, `CustomerProfile`, `Supplier` and `SupplierRef` answer `publicId` where they answered `customerNo` and `supplierNo`, which are gone from every answer. Show the public ID wherever a customer or a supplier is named to a person; never show the UUID. `listCustomers?q=` and `listSuppliers?q=` find one by its public ID typed any way (case, spaces and hyphens do not matter, O reads as 0, I and L as 1); a sequential number finds nothing. A create or update that sends `publicId` is 400. The customer and supplier sheets name the record to change by `publicId` (blank creates one) and export it.
 
 ### Pricing (`pricing`, 23)
 

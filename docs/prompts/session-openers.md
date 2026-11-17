@@ -73,6 +73,7 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B09x | `B09x-contract-requests.md` | `b09x-contract-requests` | B4 to B12 | Every list operation has a named empty example (CR-005) and the seeded role matrix is published in the contract, generated from the IAM seed and checked in CI so it cannot drift (CR-023); no existing shape changes (built; the session split before CR-028, A-241) |
 | B09x continued | `B09x2-shop-profile.md` | `b09x2-shop-profile` | B4 to B12 | The business profile is stored and changed only through AUD's audited, step-up write; getShopProfile answers anonymously and cacheably with the contact fields only, its keys listed exactly by a test; the seed uses invented, clearly fictional numbers; every write refuses the wrong role |
 | B09q | `B09q-ids-barcodes.md` | `b09q-ids-barcodes` | B4 to B12 | TOTP the only QR; no product barcode, lookup or label barcode while meat pack labels stay as built; server-generated SKUs; unguessable customer and supplier public IDs; no identifier reads anything without authorisation; contract 2.0.0 with every example updated |
+| B09q continued | `B09q2-no-id-is-a-key.md` | `b09q2-no-id-is-a-key` | B4 to B12 | Knowing a public ID, a SKU or a UUID reads nothing without authorisation, per operation that takes one, as an anonymous caller and as another customer; every link sent to a customer carries its own long random token |
 | B09e | `B09e-eggs.md` | `b09e-eggs` | B4 to B12 | Crate and single prices on the price list; delivery cost spread exactly (a GHS 47.50 crate posts 4,750); lines in crates or eggs; received date and oldest-first; cracked-on-arrival reasons and a claim that drafts the credit note; breaks and reorder points in the selling unit; last price paid on a PO line |
 | B9b | `B09b-pos-shifts-offline.md` | `b09b-pos-shifts-offline` | B4 to B12 | Shift close reconciles; 500 queued offline transactions sync exactly once |
 | B09c | `B09c-card-payment.md` | `b09c-card-payment` | B4 to B12 | Card payment online through the provider port with every payment edge case, no card details on our servers, and the card cases run against the real sandbox |
@@ -2107,13 +2108,46 @@ Stop at the gate, write docs/sessions/B09q-ids-barcodes.md, and merge into main 
 green.
 ```
 
-## B09e — Eggs: prices per selling unit, cost without drift, crates and singles, cracked on arrival
+## B09q continued — No identifier is a key, and every customer link has its own random token
 
-Branch `b09e-eggs`, from `main`. Report `docs/sessions/B09e-eggs.md`. Inserted by the owner on 2026-11-17 after B09q and before B9b (ADR-0026 Amendments): the business starts with eggs bought from a supplier and resold, and the egg coverage check found gaps the till would meet on day one. Gate: a crate and a single egg each carry their own price on the price list, so GHS 55.00 a crate is possible, while stock stays in eggs; a delivery's total cost is spread across its eggs by largest-remainder allocation, never rounded egg by egg, and a crate bought at GHS 47.50 and sold whole posts cost of exactly 4,750 pesewas; receipts, orders and transfers take lines in crates or eggs, converted by the server; every bought lot has a received date and sells oldest first by expiry, then by received date; a rejected quantity carries its reason and a claim drafts the supplier credit note from the receipt; quantity breaks and reorder points are counted in the selling unit and stored in eggs; a purchase order line defaults to the last price paid to that supplier for that product; every write refuses the wrong role.
+Branch `b09q2-no-id-is-a-key`, from `main`. Report `docs/sessions/B09q2-no-id-is-a-key.md`. Inserted by B09q's split (A-254, ADR-0026 Amendments) after B09q and before B09e: B09q built every shape change of contract 2.0.0 (the QR guard, no product barcode, server-generated SKUs, public IDs, ADR-0072, ADR-0073); this phase builds the owner's decision 5 of 2026-11-17 unchanged. Gate: knowing someone's public ID, a SKU or a UUID gets you nothing: every operation that takes one (in its path, query or body) refuses an anonymous caller and another customer, and a staff role without the permission or outside its branch, proved by a test per operation, with the refusals mutation-checked; every link sent to a customer (the order tracking link, the receipt link B9b builds, a document link) carries its own long random token, stored only as a hash, never derived from an id, proved by a test that a guessed, altered or another order's token reads nothing; no shape of contract 2.0.0 changes (a description or a minor addition at most), with its changelog entry.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
 List docs/sessions/ and read only the most recent report (docs/sessions/B09q-ids-barcodes.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md).
+For this phase, read the owner's decision 5 below, ADR-0073, ADR-0070 (the tracking token it replaces),
+docs/security/SECURE_CODING_STANDARDS.md SC-02, the abuse cases on enumeration and on customer links in
+docs/security/THREAT_MODEL.md, and test/integration/iam/authorisation.integration.spec.ts (the handler walk). Load
+hakorem-security-review, hakorem-endpoint, hakorem-migration and hakorem-tests. Do not read any other document unless
+this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B09q continued only, on branch b09q2-no-id-is-a-key, branched from main. The owner's decision 5
+(2026-11-17), as B09q's opener gave it:
+5. No ID is ever a key: every read is authorised, whatever identifier it is given. Any link sent to a customer (order
+   tracking, the receipt, a document link) carries its own long random token. Test that knowing someone's public ID,
+   SKU or UUID gets you nothing, per operation that takes one, as an anonymous caller and as another customer.
+In practice: list from the contract every implemented operation that takes a UUID, a public ID (`q` on listCustomers
+and listSuppliers) or a SKU (`q` on listProducts, the import sheets) and write one generated test per operation that
+calls it as an anonymous caller, as another customer and as a staff role without its permission, expecting 401, 404 or
+403 as SC-02 says and nothing in the answer; a customer's own reads (getMyOrder and the like) answer 404 for another
+customer's record. Replace trackOrder's HMAC-signed id token (ADR-0070) with a random token of at least 128 bits made
+when the order is placed, stored only as its hash in ORD, looked up in constant time, never derived from the order id;
+record the change as an ADR superseding that part of ADR-0070, and keep trackOrder's shape. Name, in the report, the
+link B9b's receipt and B11's SMS must follow. Mutation-check the refusals (remove an authorisation and see the tests go
+red). The contract stays 2.0.x: descriptions, examples and at most additive changes.
+Stop at the gate, write docs/sessions/B09q2-no-id-is-a-key.md, and merge into main when every run on the pull request
+is green.
+```
+
+## B09e — Eggs: prices per selling unit, cost without drift, crates and singles, cracked on arrival
+
+Branch `b09e-eggs`, from `main`. Report `docs/sessions/B09e-eggs.md`. Inserted by the owner on 2026-11-17 after B09q (and, since B09q's split, B09q continued) and before B9b (ADR-0026 Amendments): the business starts with eggs bought from a supplier and resold, and the egg coverage check found gaps the till would meet on day one. Gate: a crate and a single egg each carry their own price on the price list, so GHS 55.00 a crate is possible, while stock stays in eggs; a delivery's total cost is spread across its eggs by largest-remainder allocation, never rounded egg by egg, and a crate bought at GHS 47.50 and sold whole posts cost of exactly 4,750 pesewas; receipts, orders and transfers take lines in crates or eggs, converted by the server; every bought lot has a received date and sells oldest first by expiry, then by received date; a rejected quantity carries its reason and a claim drafts the supplier credit note from the receipt; quantity breaks and reorder points are counted in the selling unit and stored in eggs; a purchase order line defaults to the last price paid to that supplier for that product; every write refuses the wrong role.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B09q2-no-id-is-a-key.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md).
 For this phase, read the owner's decisions below, ADR-0018 (valuation and cost accumulation), ADR-0048, A-157 and
 B06u's report on unit conversions, docs/data-model/mdm.md, inv.md and pur.md, and the MDM, INV and PUR cards in

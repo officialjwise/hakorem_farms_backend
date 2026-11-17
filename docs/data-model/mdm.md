@@ -101,7 +101,7 @@ The catalogue. One abstraction for all three stock archetypes.
 | `shelf_life_days` | `integer` | NULL, CHECK `> 0` | Default expiry for new lots |
 | `storage_temp_class` | `text` | NULL, CHECK in (`AMBIENT`, `CHILLED`, `FROZEN`) | Cold chain |
 | `withdrawal_days` | `integer` | NULL, CHECK `>= 0` | For veterinary products: days before a treated animal may be sold |
-| `barcode` | `text` | NULL | Unused from contract 2.0.0 (ADR-0072): no read, no write, no unique index (migration 0211); dropped by the first migration after 2.0.0 is deployed (BL-072) |
+| `barcode` | `text` | NULL | Unused from contract 2.0.0 (ADR-0072): no read, no write, no unique index (migration 0211); dropped by the first migration after 2.0.0 is deployed (BL-075) |
 | `description` | `text` | NULL | |
 | `online_mode` | `text` | NOT NULL, CHECK in (`HIDDEN`, `LISTED`, `REQUEST_TO_BUY`) | ADR-0019 |
 | `seo_slug` | `text` | NULL, UNIQUE among live rows | Storefront URL |
@@ -190,7 +190,8 @@ Customer identity. Credit terms are in `whl.business_account`.
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `id` | `uuid` | PK | Published key |
-| `customer_no` | `text` | NOT NULL, UNIQUE | Human reference |
+| `customer_no` | `text` | NOT NULL, UNIQUE | Internal sequential number; not shown from contract 2.0.0 (ADR-0073) |
+| `public_id` | `text` | NOT NULL, UNIQUE over every row, CHECK `^cus_[0-9A-HJKMNP-TV-Z]{16}$`, never changed | What people see and type (B09q, ADR-0073, migration 0212) |
 | `kind` | `text` | NOT NULL, CHECK in (`INDIVIDUAL`, `BUSINESS`) | |
 | `name` | `text` | NOT NULL | Confidential |
 | `phone_e164` | `text` | NULL | Receipts and delivery updates; confidential |
@@ -205,7 +206,8 @@ Customer identity. Credit terms are in `whl.business_account`.
 Standard columns: `MASTER`.
 
 - UNIQUE (`phone_hash`) among live rows: the keyed hash (HMAC of the E.164 number under a key derived from `LOOKUP_HMAC_KEY`) finds a customer by phone without indexing the number (B4).
-- `customer_no` comes from the sequence `mdm.customer_no_seq` as `C-00001` onward (migration 0021); a customer number is not a financial document, so a gap is harmless (A-112).
+- `customer_no` comes from the sequence `mdm.customer_no_seq` as `C-00001` onward (migration 0021); a customer number is not a financial document, so a gap is harmless (A-112). From contract 2.0.0 it is internal only.
+- `public_id` (migration 0212, ADR-0073): written by the application (`PublicIds`, a fresh ID tried again on a collision with `uq_customer_public_id`), defaulting to `mdm.new_public_id('cus')` (80 bits from `gen_random_uuid()`'s random bytes), which backfilled every existing row; trigger `trg_customer_public_id_fixed` refuses any change for every role (HK004 `ck_customer_public_id_fixed`).
 - `tin_enc` is sealed with the customer's subject key, bound to `mdm.customer.tin_enc:<id>` (ADR-0022); responses show its last four characters.
 
 ### `mdm.customer_address` · MASTER
@@ -242,7 +244,8 @@ Identity only. Terms and payout details are in `pur.supplier_profile`. Created i
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `id` | `uuid` | PK | Published key |
-| `supplier_no` | `text` | NOT NULL, UNIQUE, CHECK `^S-[0-9]{4,10}$` | From `mdm.supplier_no_seq`; not a financial document, so a gap is harmless |
+| `supplier_no` | `text` | NOT NULL, UNIQUE, CHECK `^S-[0-9]{4,10}$` | From `mdm.supplier_no_seq`; not a financial document, so a gap is harmless. Internal only from contract 2.0.0 |
+| `public_id` | `text` | NOT NULL, UNIQUE over every row, CHECK `^sup_[0-9A-HJKMNP-TV-Z]{16}$`, never changed (HK004 `ck_supplier_public_id_fixed`) | What people see and type (B09q, ADR-0073, migration 0212); default `mdm.new_public_id('sup')` |
 | `name` | `text` | NOT NULL | |
 | `contact_name` | `text` | NULL | |
 | `phone_e164` | `text` | NULL | Typed any way, stored in E.164 (FR-MDM-007, as FR-MDM-008) |
