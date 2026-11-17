@@ -96,7 +96,7 @@ Each card gives: what the module owns, its public interface (the services export
 ### AUD: audit, compliance and administration (layer 3)
 
 - **Owns:** schema `aud`. Retention policies, data-subject requests. Audited administration of settings, feature flags, number series and the business profile.
-- **Public interface:** `AuditLog` (authorised query of the platform audit trail), `Administration`, `DataSubjectRequests`, `Retention`. B07 continued builds `SettingsAdmin` (`updateSetting`, FR-AUD-007, A-168) over platform `Settings`, with its own catalogue of keys, types and ranges; the module reading a key keeps its default.
+- **Public interface:** `AuditLog` (authorised query of the platform audit trail), `Administration`, `DataSubjectRequests`, `Retention`. B07 continued builds `SettingsAdmin` (`updateSetting`, FR-AUD-007, A-168) over platform `Settings`, with its own catalogue of keys, types and ranges; the module reading a key keeps its default. B09x continued builds `BusinessProfiles` (FR-AUD-008, A-244): `get` and `update` behind AUD's own controller (and `update` for the seed), and `shopProfile`, the only door another module uses, which hands out the shop's contact fields and nothing else (CR-028); SHP reads it.
 - **Imports:** platform, IAM.
 - **Subscribes:** nothing.
 
@@ -226,9 +226,10 @@ Each card gives: what the module owns, its public interface (the services export
 
 - **Owns:** schema `shp`. Carts, cart lines, checkout sessions, product listing read model, abandoned-cart notices.
 - **Public interface:** none used by other modules.
-- **Imports:** platform, IAM, MDM, INV, PAY, DEL (slots), ORD.
+- **Imports:** platform, IAM, AUD (the shop profile), MDM, INV, PAY, DEL (slots), ORD.
 - **Subscribes (A):** `mdm.ProductChanged`, `mdm.PriceListVersionActivated`, `inv.StockMovementPosted` (listing read model); `inv.ReservationExpired` (expire a checkout).
 - **As built (B07 continued 2, A-178):** the listing is rebuilt every minute by the `catalogue-refresh` job instead of by subscription (INV publishes no movement event, and a price list in force changes with time); `inv.ReservationExpired` and `inv.ReservationReleased` are subscribed **in the transaction** that ends the reservation (T), so a checkout never outlives its stock (ADR-0010: a module keeping its own aggregate consistent with a lower module's fact). SHP reads MDM's `Storefront`, `PricingService`, `TaxService` and `MasterDataRefs`, INV's `StockQueries.promisableIn` and `Reservations`, and DEL's `Slots`.
+- **Built in B09x continued (CR-028, A-243):** `getShopProfile` reads AUD's `BusinessProfiles.shopProfile`, the shop's contact fields only. SHP now imports AUD.
 - **Built in B09a continued 2f (A-232, ADR-0070):** `Checkouts.place` (placeOrder) calls down to ORD's `OnlineOrders.placeIn` and `confirmFromCheckoutIn` and PAY's new `ProviderPayments.chargeIn` (a charge written in the caller's transaction) and `sendCharge` (sent after the commit); its in-transaction subscriber on `inv.ReservationReleased` completes the checkout and converts the cart when the release is a hand-over to its own order. Publishes `shp.CheckoutCompleted`. SHP now imports ORD and PAY.
 
 ### QUO: quotations and requests for quote (layer 10)

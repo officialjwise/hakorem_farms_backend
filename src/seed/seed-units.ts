@@ -1,3 +1,4 @@
+import { farmSeedAud } from './farm-aud';
 import { farmSeedBil } from './farm-bil';
 import { farmSeedFin, farmSeedFinAssets } from './farm-fin';
 import { farmSeedIam, seedLocationGrantsIam } from './farm-iam';
@@ -43,12 +44,13 @@ export interface SeedOptions {
  * enters Kpone's transport credit note and the Owner approves it (B07 continued 1b); last, the Manager generates Dodowa's
  * delivery slots through DEL and the storefront's listing is built through SHP (B07 continued 2); last, the trading day's
  * billing documents (an invoice on terms, a walk-in receipt, a credit note approved by the Manager, a debit note and a
- * proforma) are issued through BIL and posted by the ledger (B08 continued 2); last, with `tradingDay`, the seeded cashier posts
+ * proforma) are issued through BIL and posted by the ledger (B08 continued 2); then the seeded Owner sets the business
+ * profile through AUD, the shop's contact details among it (B09x continued, `farm-aud.ts`); last, with `tradingDay`, the seeded cashier posts
  * the trading day's sales through ORD's `SalePosting` (B09a continued 2g, `farm-ord.ts`). Every date the units write comes from one
  * seed calendar per run, built from the application clock (B09t2, `seed-calendar.ts`).
  */
 export function seedUnits(env: SeedEnvironment, options: SeedOptions = {}): readonly SeedUnit[] {
   const calendar = seedRunCalendar();
-  const farm = [farmSeedMdmBootstrap(), farmSeedIam(env.SEED_STAFF_PASSWORD), farmSeedMdm(calendar), seedLocationGrantsIam(), farmSeedInv(calendar), farmSeedLiv(calendar), farmSeedMdmUnits(), farmSeedPrc(), farmSeedFin(), farmSeedFinAssets(), farmSeedPur(), farmSeedPurRegister(), farmSeedPurCredit(), farmSeedShp(), farmSeedBil()];
+  const farm = [farmSeedMdmBootstrap(), farmSeedIam(env.SEED_STAFF_PASSWORD), farmSeedMdm(calendar), seedLocationGrantsIam(), farmSeedInv(calendar), farmSeedLiv(calendar), farmSeedMdmUnits(), farmSeedPrc(), farmSeedFin(), farmSeedFinAssets(), farmSeedPur(), farmSeedPurRegister(), farmSeedPurCredit(), farmSeedShp(), farmSeedBil(), farmSeedAud()];
   return options.tradingDay === true ? [...farm, farmSeedOrd(calendar)] : farm;
 }

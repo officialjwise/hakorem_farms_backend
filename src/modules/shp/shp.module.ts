@@ -9,6 +9,7 @@ import { Cursors } from '../../platform/http/cursor';
 import { Idempotency } from '../../platform/idempotency/idempotency';
 import { CLOCK } from '../../platform/platform.module';
 import { Settings } from '../../platform/settings/settings';
+import { AudModule, BusinessProfiles } from '../aud';
 import { DelModule, Slots } from '../del';
 import { IamModule } from '../iam';
 import { InvModule, Reservations, StockQueries } from '../inv';
@@ -19,6 +20,7 @@ import { Carts } from './application/carts';
 import { Catalogue, CatalogueListing } from './application/catalogue';
 import { Checkouts } from './application/checkouts';
 import { SHP_STORE, type ShpStore } from './application/shp-store';
+import { ShopProfile } from './application/shop-profile';
 import { PgShpStore } from './infrastructure/pg-shp-store';
 import { ShopController } from './interface/shop.controller';
 
@@ -28,10 +30,11 @@ import { ShopController } from './interface/shop.controller';
  * until the reservation lifetime ends. Order placement and payment are B09a; abandoned-cart messages B11.
  */
 @Module({
-  imports: [IamModule, MdmModule, InvModule, DelModule, PayModule, OrdModule],
+  imports: [IamModule, AudModule, MdmModule, InvModule, DelModule, PayModule, OrdModule],
   controllers: [ShopController],
   providers: [
     { provide: SHP_STORE, useClass: PgShpStore },
+    { provide: ShopProfile, useFactory: (profiles: BusinessProfiles) => new ShopProfile(profiles), inject: [BusinessProfiles] },
     {
       provide: CatalogueListing,
       useFactory: (uow: UnitOfWork, store: ShpStore, storefront: Storefront, pricing: PricingService, refs: MasterDataRefs, stock: StockQueries, settings: Settings) =>

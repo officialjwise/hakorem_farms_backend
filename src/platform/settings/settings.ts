@@ -28,6 +28,11 @@ export interface NewSettingRow {
   readonly valueType: string;
   readonly validFrom: Date;
   readonly description: string;
+  /**
+   * The row's version, 1 when left out. A value that replaces an earlier one whole (the business profile, FR-AUD-008)
+   * carries the earlier row's version plus one, so the version a client read stays a lock across rows.
+   */
+  readonly version?: number;
 }
 
 interface SettingDbRow {
@@ -102,9 +107,9 @@ export class Settings {
    */
   async insertIn(tx: Transaction, row: NewSettingRow, actorId: string): Promise<void> {
     await tx.query(
-      `INSERT INTO platform.setting (id, key, branch_id, value, value_type, valid_from, description, created_by, updated_by)
-       VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $8)`,
-      [row.id, row.key, row.branchId, JSON.stringify(row.value), row.valueType, row.validFrom, row.description, actorId],
+      `INSERT INTO platform.setting (id, key, branch_id, value, value_type, valid_from, description, version, created_by, updated_by)
+       VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, $9)`,
+      [row.id, row.key, row.branchId, JSON.stringify(row.value), row.valueType, row.validFrom, row.description, row.version ?? 1, actorId],
     );
     this.cache.clear();
   }

@@ -162,6 +162,7 @@ const VALID_BODY: Readonly<Record<string, object>> = {
   rejectPurchaseRequisition: { reason: 'Bought at the market last week' },
   convertPurchaseRequisition: { supplierId: randomUUID(), deliverToLocationId: randomUUID(), lines: [{ lineId: randomUUID(), unitPricePesewas: 5500 }] },
   updateSetting: { value: 150000, version: 0 },
+  updateBusinessProfile: { version: 0, legalName: 'Refused Ltd', tradingName: 'Refused', address: 'Dodowa', phone: '+233200000909', email: 'refused@test.hakoremfarms.invalid' },
   updateProduct: { version: 1, name: 'Goat' },
   createBranch: { code: 'KSI', name: 'Kumasi' },
   updateBranch: { version: 1, name: 'Kumasi' },
@@ -259,7 +260,7 @@ afterAll(async () => {
 });
 
 describe('deny by default: the handler walk (ADR-0017, security architecture section 14)', () => {
-  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued, B05 continued 3, B05x, B6, B06m, B06 continued, B06 continued 2, B06 continued 3, B06u, B7, B07 continued, B07 continued 1b, B06r, B07 continued 2, B08 continued, B08 continued 1b, B08 continued 1b2, B08 continued 1c, B08 continued 1c2, B08 continued 2, B08 continued 2b, B09a continued, B09a continued 1b, B09a continued 1c, B09a continued 2b, 2c, 2d, 2e and 2f routes, and every one declares its operation', () => {
+  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued, B05 continued 3, B05x, B6, B06m, B06 continued, B06 continued 2, B06 continued 3, B06u, B7, B07 continued, B07 continued 1b, B06r, B07 continued 2, B08 continued, B08 continued 1b, B08 continued 1b2, B08 continued 1c, B08 continued 1c2, B08 continued 2, B08 continued 2b, B09a continued, B09a continued 1b, B09a continued 1c, B09a continued 2b, 2c, 2d, 2e and 2f, and B09x continued routes, and every one declares its operation', () => {
     expect(routes.map((route) => route.spec?.operationId).sort()).toEqual(
       [
         'changePassword', 'confirmTotpEnrolment', 'createProduct', 'getCurrentSession', 'getHealth', 'getProduct', 'listProducts', 'listSessions',
@@ -339,6 +340,7 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'listOrders', 'createOrder', 'getOrder', 'confirmOrder', 'listOrderHistory', 'cancelOrder', 'voidOrder',
         'createReturn', 'getReturn', 'submitReturn', 'issueProforma',
         'placeOrder', 'trackOrder', 'listMyOrders', 'getMyOrder',
+        'getBusinessProfile', 'updateBusinessProfile', 'getShopProfile',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);

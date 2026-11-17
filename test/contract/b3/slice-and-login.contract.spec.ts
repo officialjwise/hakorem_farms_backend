@@ -131,7 +131,7 @@ import {
   SupplierPaymentMarkPaid,
   SupplierProfileUpdate,
 } from '../../../src/modules/pur/interface/schemas';
-import { SettingUpdate as AudSettingUpdate } from '../../../src/modules/aud/interface/schemas';
+import { BusinessProfileUpdate as AudBusinessProfileUpdate, SettingUpdate as AudSettingUpdate } from '../../../src/modules/aud/interface/schemas';
 import { SlotGenerate, SlotUpdate } from '../../../src/modules/del/interface/schemas';
 import { CreditNoteCreate, DebitNoteCreate, ReprintRequest } from '../../../src/modules/bil/interface/schemas';
 import { OrderCreateBody, ReasonCodeBody, ReturnCreateBody } from '../../../src/modules/ord/interface/schemas';
@@ -418,6 +418,7 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     convertPurchaseRequisition: RequisitionConvert,
     requestSupplierInvoiceVariance: SupplierInvoiceVarianceRequest,
     updateSetting: AudSettingUpdate,
+    updateBusinessProfile: AudBusinessProfileUpdate,
     generateDeliverySlots: SlotGenerate,
     updateDeliverySlot: SlotUpdate,
     createAccount: AccountCreate,

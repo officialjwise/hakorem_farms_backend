@@ -1,0 +1,118 @@
+operationId: updateBusinessProfile
+tags:
+  - aud
+summary: "Update the business profile"
+description: "Replaces the whole business profile (FR-AUD-008) with a new version that takes effect now; the version before stays on record for its time. Send `version` 0 while no profile is set, or the `version` read (409 `VERSION_CONFLICT` otherwise, also when two changes cross). An optional field left out is cleared: `tin`, `vatNumber`, `whatsapp`, `logoFileId` and `directions` become null and `openingHours` empty (closed every day). Each phone is E.164 (400 otherwise). `openingHours` is in Africa/Accra time; it is answered in week order, each day by the time it opens. 422 `SETTING_INVALID` names `CLOSES_BEFORE_OPENS` (an interval that does not close after it opens), `HOURS_OVERLAP` (two intervals of one day that overlap; they may meet) or `LOGO_NOT_USABLE` (`logoFileId` is not a scanned, clean public image uploaded as `PRODUCT_IMAGE`). Every change is audited with the profile before and after. The trading name, the phone and WhatsApp numbers, the address, the directions and the opening hours are public: `getShopProfile` shows them to anyone.\n\nPermission: `aud.setting.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+x-permission: aud.setting.manage
+x-requires-step-up: true
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - TOTP_ENROLMENT_REQUIRED
+  - STEP_UP_REQUIRED
+  - VERSION_CONFLICT
+  - SETTING_INVALID
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/BusinessProfileUpdate"
+      example:
+        version: 3
+        legalName: "HaKorem Farms Limited"
+        tradingName: "HaKorem Farms"
+        tin: C0000000001
+        address: "Off the Dodowa-Afienya road, Dodowa, GE-293-0471"
+        phone: "+233200000120"
+        whatsapp: "+233200000121"
+        email: "shop@seed.hakoremfarms.invalid"
+        directions: "From Dodowa lorry station, take the Afienya road for two kilometres; the farm gate is on the left after the Presby church."
+        openingHours:
+          - day: SATURDAY
+            opens: "07:00"
+            closes: "14:00"
+          - day: MONDAY
+            opens: "07:00"
+            closes: "18:00"
+          - day: TUESDAY
+            opens: "07:00"
+            closes: "18:00"
+          - day: WEDNESDAY
+            opens: "07:00"
+            closes: "18:00"
+          - day: THURSDAY
+            opens: "07:00"
+            closes: "18:00"
+          - day: FRIDAY
+            opens: "07:00"
+            closes: "18:00"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/BusinessProfile"
+        example:
+          legalName: "HaKorem Farms Limited"
+          tradingName: "HaKorem Farms"
+          tin: C0000000001
+          vatNumber: null
+          address: "Off the Dodowa-Afienya road, Dodowa, GE-293-0471"
+          phone: "+233200000120"
+          whatsapp: "+233200000121"
+          email: "shop@seed.hakoremfarms.invalid"
+          logoFileId: null
+          directions: "From Dodowa lorry station, take the Afienya road for two kilometres; the farm gate is on the left after the Presby church."
+          openingHours:
+            - day: MONDAY
+              opens: "07:00"
+              closes: "18:00"
+            - day: TUESDAY
+              opens: "07:00"
+              closes: "18:00"
+            - day: WEDNESDAY
+              opens: "07:00"
+              closes: "18:00"
+            - day: THURSDAY
+              opens: "07:00"
+              closes: "18:00"
+            - day: FRIDAY
+              opens: "07:00"
+              closes: "18:00"
+            - day: SATURDAY
+              opens: "07:00"
+              closes: "14:00"
+          version: 4
+          updatedAt: "2026-11-03T10:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

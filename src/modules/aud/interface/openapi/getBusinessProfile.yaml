@@ -1,0 +1,70 @@
+operationId: getBusinessProfile
+tags:
+  - aud
+summary: "Get the business profile printed on documents"
+description: "The business profile in force (FR-AUD-008): the legal and trading names, the tax identification and VAT numbers, the address, the phone and WhatsApp numbers in E.164, the email, the logo, the directions to the farm and the opening hours (Africa/Accra time, in week order; a day with no interval is closed). `version` is what `updateBusinessProfile` sends back; `updatedAt` is when this version took effect. 404 while no profile has been set: nothing is invented in its place. The shop reads only its contact fields, anonymously, through `getShopProfile`.\n\nPermission: `aud.setting.read`."
+x-permission: aud.setting.read
+x-error-codes:
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - TOTP_ENROLMENT_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/BusinessProfile"
+        example:
+          legalName: "HaKorem Farms Limited"
+          tradingName: "HaKorem Farms"
+          tin: C0000000001
+          vatNumber: null
+          address: "Off the Dodowa-Afienya road, Dodowa, GE-293-0471"
+          phone: "+233200000120"
+          whatsapp: "+233200000121"
+          email: "shop@seed.hakoremfarms.invalid"
+          logoFileId: null
+          directions: "From Dodowa lorry station, take the Afienya road for two kilometres; the farm gate is on the left after the Presby church."
+          openingHours:
+            - day: MONDAY
+              opens: "07:00"
+              closes: "18:00"
+            - day: TUESDAY
+              opens: "07:00"
+              closes: "18:00"
+            - day: WEDNESDAY
+              opens: "07:00"
+              closes: "18:00"
+            - day: THURSDAY
+              opens: "07:00"
+              closes: "18:00"
+            - day: FRIDAY
+              opens: "07:00"
+              closes: "18:00"
+            - day: SATURDAY
+              opens: "07:00"
+              closes: "14:00"
+          version: 4
+          updatedAt: "2026-11-03T10:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -3,6 +3,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { SEED_BUSINESS_PROFILE } from '../../../src/seed/farm-aud';
 import { SEED_FEED_PRODUCTS } from '../../../src/seed/farm-liv';
 import { SEED_CUSTOMERS, SEED_PRICE_LISTS, SEED_PRODUCTS, SEED_PROMOTIONS, SEED_SPECIES } from '../../../src/seed/reference-pricing';
 import { SEED_PAYMENT_METHODS_ENABLED } from '../../../src/seed/farm-mdm';
@@ -305,6 +306,38 @@ describe('the staff and their grants through the IAM services (A-085, ADR-0043)'
     for (const file of readdirSync(directory).filter((name) => name.endsWith('.ts'))) {
       expect(readFileSync(join(directory, file), 'utf8'), file).not.toMatch(/(INSERT\s+INTO|UPDATE)\s+(iam|mdm)\./i);
     }
-    expect(seedUnits({ SEED_STAFF_PASSWORD: password }).map((unit) => unit.kind)).toEqual(['SERVICE', 'SERVICE', 'SERVICE', 'SERVICE', 'SERVICE', 'SERVICE', 'SERVICE', 'SERVICE', 'SERVICE', 'SERVICE', 'SERVICE', 'SERVICE', 'SERVICE', 'SERVICE', 'SERVICE']);
+    expect(seedUnits({ SEED_STAFF_PASSWORD: password }).map((unit) => unit.kind)).toEqual(['SERVICE', 'SERVICE', 'SERVICE', 'SERVICE', 'SERVICE', 'SERVICE', 'SERVICE', 'SERVICE', 'SERVICE', 'SERVICE', 'SERVICE', 'SERVICE', 'SERVICE', 'SERVICE', 'SERVICE', 'SERVICE']);
+  });
+});
+
+describe('the business profile through AUD (FR-AUD-008, CR-028)', () => {
+  it('is set once by the seeded Owner through BusinessProfiles, audited by the seed, with invented numbers from the seed block', async () => {
+    const admin = database.pool('admin');
+    const rows = (await admin.query<{ version: number; value: Record<string, unknown> }>("SELECT version, value FROM platform.setting WHERE key = 'aud.business_profile'")).rows;
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.version).toBe(1);
+    expect(rows[0]!.value).toMatchObject({ phone: SEED_BUSINESS_PROFILE.phone, whatsapp: SEED_BUSINESS_PROFILE.whatsapp, tin: 'C0000000001', vatNumber: null });
+    expect(rows[0]!.value['phone']).toMatch(/^\+2332000001\d\d$/);
+    expect(rows[0]!.value['whatsapp']).toMatch(/^\+2332000001\d\d$/);
+    expect(rows[0]!.value['email']).toMatch(/@seed\.hakoremfarms\.invalid$/);
+    for (const text of ['legalName', 'tradingName', 'address', 'directions']) expect(rows[0]!.value[text], text).toMatch(/\(SEED\)/);
+    const audits = await admin.query<{ actor: string; agent: string }>(
+      `SELECT p.display_name AS actor, e.user_agent AS agent FROM platform.audit_event e JOIN iam.principal p ON p.id = e.actor_id
+        WHERE e.entity_type = 'BusinessProfile' AND e.action = 'UPDATE'`,
+    );
+    expect(audits.rows).toEqual([{ actor: 'Kwabena Owusu', agent: 'hakorem-seed' }]);
+  });
+
+  it('answers the shop with the seeded contact details only', async () => {
+    const shop = await request(api.server).get('/v1/shop/profile');
+    expect(shop.status).toBe(200);
+    expect(shop.body).toEqual({
+      tradingName: SEED_BUSINESS_PROFILE.tradingName,
+      phone: '+233200000120',
+      whatsapp: '+233200000121',
+      address: SEED_BUSINESS_PROFILE.address,
+      directions: SEED_BUSINESS_PROFILE.directions,
+      openingHours: SEED_BUSINESS_PROFILE.openingHours,
+    });
   });
 });
