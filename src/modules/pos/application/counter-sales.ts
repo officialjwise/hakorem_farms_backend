@@ -18,6 +18,8 @@ import type { TillStore } from './till-store';
 
 export const TILL_CLOCK_OUT_OF_TOLERANCE = 'pos.TillClockOutOfTolerance';
 const SELL = 'pos.sale.create';
+/** The methods a provider clears: never taken on the cashier's word, only as a payment the provider cleared (abuse case 4). */
+const PROVIDER_KINDS: ReadonlySet<string> = new Set(['MOBILE_MONEY', 'CARD']);
 
 /** A counter sale's line as the contract's `CounterSaleLine` carries it. */
 export interface CounterSaleLineRequest {
@@ -65,8 +67,9 @@ export interface CounterSaleResultView {
  * locked for the sale, from an enrolled device of that till that is not revoked, posted through ORD's one sale path
  * (`SalePosting.postIn`: stock, receipt, payment and ledger in one serializable transaction) with the till's location,
  * channel POS and the shift's remaining per-shift override room. Change is given from cash only (`changeDue`). A mobile
- * money or card tender is refused unless it names a payment the provider cleared, and that is not yet accepted at the
- * counter (A-274): such a sale is taken in cash. A till clock outside tolerance never refuses the sale (the owner on A-273
+ * money or card tender is only a payment the provider already cleared at this shift, named by `paymentId` and taken whole
+ * through PAY's `Payments.takeClearedIn` (ADR-0079): never another customer's or another shift's, never one not yet
+ * cleared, and never twice. A till clock outside tolerance never refuses the sale (the owner on A-273
  * (g)): it posts at the server's time and the difference reaches the daily exception report's source.
  */
 export class CounterSales {
@@ -105,6 +108,7 @@ export class CounterSales {
       if (idempotencyKey !== body.id) broken.push({ field: '/id', rule: 'ID_DIFFERS_FROM_KEY' });
       const methods = await this.refs.paymentMethodsIn(tx, body.tenders.map((t) => t.paymentMethodId));
       const kinds: { readonly kind: TenderKind; readonly amount: Money; readonly tendered: Money | null }[] = [];
+      const named = new Set<string>();
       for (const [i, tender] of body.tenders.entries()) {
         const method = methods.get(tender.paymentMethodId);
         if (method === undefined) {
@@ -112,14 +116,20 @@ export class CounterSales {
           continue;
         }
         if (tender.unverifiedMobileMoney !== undefined) broken.push({ field: `/tenders/${i}/unverifiedMobileMoney`, rule: 'OFFLINE_TENDER_ONLY' });
-        if (tender.paymentId !== undefined) broken.push({ field: `/tenders/${i}/paymentId`, rule: 'PROVIDER_PAYMENT_NOT_AVAILABLE' });
+        if (tender.paymentId !== undefined) {
+          // Only a mobile money or card payment the provider cleared is named by its id (FR-POS-006, ADR-0079).
+          if (!PROVIDER_KINDS.has(method.kind)) broken.push({ field: `/tenders/${i}/paymentId`, rule: 'PAYMENT_ID_NOT_FOR_METHOD' });
+          if (named.has(tender.paymentId)) broken.push({ field: `/tenders/${i}/paymentId`, rule: 'PAYMENT_NAMED_TWICE' });
+          named.add(tender.paymentId);
+        }
         kinds.push({ kind: method.kind as TenderKind, amount: Money.ofPesewas(tender.amountPesewas), tendered: tender.tenderedPesewas === undefined ? null : Money.ofPesewas(tender.tenderedPesewas) });
       }
       const change = changeDue(kinds);
       if (!change.ok) broken.push({ field: '/tenders', rule: change.error });
       if (broken.length > 0) throw new CounterSaleInvalidError(broken);
-      // No screen accepts "paid" on the cashier's word (FR-POS-006, abuse case 4).
-      const unverified = body.tenders.findIndex((t) => ['MOBILE_MONEY', 'CARD'].includes(methods.get(t.paymentMethodId)!.kind));
+      // No screen accepts "paid" on the cashier's word (FR-POS-006, abuse case 4): a mobile money or card tender is only
+      // a payment the provider already cleared, named by its id, which PAY checks under the payment's lock.
+      const unverified = body.tenders.findIndex((t) => PROVIDER_KINDS.has(methods.get(t.paymentMethodId)!.kind) && t.paymentId === undefined);
       if (unverified >= 0) throw new PaymentRequiresVerificationError(`/tenders/${unverified}/paymentMethodId`);
 
       const now = this.clock.now();
@@ -148,7 +158,12 @@ export class CounterSales {
           agreedUnitPricePesewas: l.agreedUnitPricePesewas,
           varianceReasonCode: l.varianceReasonCode ?? null,
         })),
-        tenders: body.tenders.map((t) => ({ methodCode: methods.get(t.paymentMethodId)!.code, amountPesewas: t.amountPesewas, register: { id: register.id, code: register.code } })),
+        tenders: body.tenders.map((t) => ({
+          methodCode: methods.get(t.paymentMethodId)!.code,
+          amountPesewas: t.amountPesewas,
+          register: { id: register.id, code: register.code },
+          ...(t.paymentId === undefined ? {} : { paymentId: t.paymentId }),
+        })),
       };
       const sale = await this.posting.postIn(tx, actor, request);
       if (!withinTolerance(body.occurredAt, now)) {
