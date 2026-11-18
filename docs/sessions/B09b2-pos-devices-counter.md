@@ -156,7 +156,7 @@ The same finding goes into the pull request body.
 
 - **B09b continued 1b:** `forceCloseShift`, held sales, a cleared provider payment as a counter tender (A-274 (f)), the audit anchor at each sign-off, and the force-closed refusal proved with the real operation.
 - **B09b continued 2:** the pack and sync, the settings, CR-031, CR-032 point 6, CR-038, the device credential on queued shift opens and cash movements (BL-078).
-- BL-077 to lane B or the PAY owner. BL-079 (the flaky MDM test) to whoever owns MDM's concurrency.
+- BL-077 to lane B or the PAY owner.
 
 ## Contract requests
 
@@ -170,7 +170,7 @@ The frontend's `main` was read at `41ce67c`; it holds CR-001 to CR-041, none new
 | Layer | Result |
 | --- | --- |
 | Unit | 134 files, 1,589 tests passed. |
-| Integration (full suite) | 132 files, 1,684 of 1,685 tests passed, with the database rule: **one red**, `mdm/public-ids` "gives every customer a different public ID" (one of six concurrent `createCustomer` calls answered 500). It passed alone, was red again once in three parallel runs and green in four more; not re-run to turn it green, not changed, cause not proved; parked as BL-079 and reported to the parent session. The four new POS specs pass (45 tests). |
+| Integration (full suite) | 132 files, 1,684 of 1,685 tests passed, with the database rule: **one red**, `mdm/public-ids` "gives every customer a different public ID" (one of six concurrent `createCustomer` calls answered 500). It passed alone, was red again once in three parallel runs and green in four more; not re-run to turn it green, not changed, cause not proved; reported to the parent session, who is fixing it by its cause on its own branch (it is MDM's and is on `main` already). See CI. The four new POS specs pass (45 tests). |
 | Unit and integration with coverage (`pnpm test:coverage`) | Started locally and stopped when the parent session asked for the database rule; the merged figures are CI's. |
 | Contract | 46 files, 121 tests passed. |
 | Lint (boundaries, fixtures, placement, schema names), typecheck, Redocly, `contract:generate --check`, versioning | Clean. |
@@ -190,7 +190,12 @@ Nothing was re-run to turn red into green.
 
 ## CI
 
-The runs on the pushed heads are named in the closing message to the parent session, because a report cannot name the runs of the commit that adds it. The pull request merges only when every run on its head is green.
+**A red seen locally, outside this phase:** `test/integration/mdm/public-ids.integration.spec.ts` "gives every customer a different public ID" answered statuses [201, 500, 201, 201, 201, 201] for six concurrent `createCustomer` calls, once in the full local integration run (132 files) and once in three parallel runs of the spec under load. It was green alone and in four more parallel runs, during which the 500 did not recur while the server's errors were being logged. Nothing was re-run to turn it green and nothing was changed. The parent session ruled it does not block this merge (the test, the code and the 500 are MDM's customer creation, on `main` already) and is fixing it by its cause on its own branch.
+
+**The one gap in the per-path table, named for the owner:** "another cashier's shift" for an approved reversal or a void cannot be reached through the application, because every permitted approver (`pay.reversal.approve`, `ord.void.approve`: the Owner and the Manager) holds `pos.shift.force_close`. It is refused by the database test "a reversing payment (an approved reversal or a void): ..." (`SHIFT_NOT_OWN`).
+
+- **`9ef3945`** (the code and docs head before the merge slot, pull request #100): run **44207791379 (push)** succeeded and run **44207873048 (pull_request)** succeeded. Nothing was re-run.
+- The runs on the pushed heads are named in the closing message to the parent session, because a report cannot name the runs of the commit that adds it. The pull request merges only when every run on its head is green.
 
 ## Next session
 
