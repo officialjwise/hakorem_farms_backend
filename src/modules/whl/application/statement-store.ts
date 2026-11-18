@@ -25,6 +25,20 @@ export interface StatementRecord {
   readonly closingCreditPesewas: bigint;
   readonly issueDate: string | null;
   readonly archivedDocumentId: string | null;
+  /** The ageing summary as at the period end (FR-WHL-009, B10 continued 2); null on a statement written before 0265. */
+  readonly ageing: StatementAgeingRecord | null;
+}
+
+/** A statement's ageing summary as stored (migration 0265): the buckets and what 1200 holds beyond the open items. */
+export interface StatementAgeingRecord {
+  readonly asOf: string;
+  readonly currentPesewas: bigint;
+  readonly days1To30Pesewas: bigint;
+  readonly days31To60Pesewas: bigint;
+  readonly days61To90Pesewas: bigint;
+  readonly daysOver90Pesewas: bigint;
+  readonly notAgedPesewas: bigint;
+  readonly notAgedCreditPesewas: bigint;
 }
 
 /** A `whl.statement_line` row. */

@@ -5,6 +5,7 @@ Every change to `contract/openapi.yaml`, newest first. A breaking change needs a
 Version numbers follow semantic versioning: a major bump breaks an existing client, a minor bump adds operations or optional fields, a patch fixes descriptions or examples.
 
 **Read first (cold-read summary), rewritten for 2.0.0:** changes that alter an answer or a request a client already handles.
+- **2.16.0:** additive. No existing field, parameter or status of an implemented operation changed. Four planned WHL operations move into code (`getAgeingReport`, `listDunningLevels`, `replaceDunningLevels`, `listDunningNotices`) with planned shapes widened before any client used them; `CustomerStatement.ageing` (new `StatementAgeing`) is new on a response, null on a statement issued before.
 - **2.15.0:** additive, with behaviour a till relies on. No field removed or retyped; no existing status changed. `ShiftOpen.shiftSeq` and `OfflinePack.nextShiftSeq` are new and optional. **Behaviour:** `openShift` sent with a till's device credential keeps an hours-old `openedAt` (a shift opened offline) and flags, never refuses, a till time outside the tolerance; `syncOfflineSales` now applies a batch's cash movements (`APPLIED`, `DUPLICATE`, `REJECTED` with a reason) instead of answering `CASH_MOVEMENT_NOT_TAKEN_AT_SYNC`, and records a mobile money tender carrying `unverifiedMobileMoney` as an `UNVERIFIED` payment while the branch allows it. See its entry.
 - **2.14.0, LOUD for `confirmOrder` on credit terms (CR-046) and for a quote line with no unit (now the sale unit, A-316):** no field removed or retyped. A credit order of a customer with an open business account is now judged instead of always refused with `CREDIT_CHECK_UNAVAILABLE`: it confirms (`creditCheck` `PASSED` or `OVERRIDDEN`), or is refused with the new 422 codes `CREDIT_LIMIT_EXCEEDED`, `CREDIT_TERMS_EXCEEDED` or `ACCOUNT_ON_HOLD`, or, given the new optional body's `creditOverrideReason`, answers the 202 the contract planned, now `CreditOverridePending`. Seven planned WHL operations move into code; `releaseBusinessAccount` answers 202 and takes `whl.account.release`; `createBusinessAccount` may answer 202; the accounts' `priceListId` is deprecated and refused. See its entry.
 - **2.13.0:** additive. No existing field, parameter or status of an implemented operation changed. `syncOfflineSales` moves into code with its planned shapes; `BillingDocument.syncedFromOffline` is new and optional (always sent, false on every document but a synced receipt). The sync's planned examples were corrected to agree with one another. See its entry.
@@ -26,6 +27,17 @@ Version numbers follow semantic versioning: a major bump breaks an existing clie
 - **1.53.0, LOUD for the Farm hand:** `reportCareMortality` and `submitCareMortalityRecord` refuse a report without its `EVIDENCE` photograph from a reporter who cannot see its value (the Farm hand), whatever the value, with 422 `MORTALITY_PHOTO_REQUIRED`. `markSupplierPaymentPaid` and the payment reads answer `paymentNo` (`SPY-…`) where it was null. Every list's single `example` is now an `examples` map (`default` and `empty`).
 - **1.50.0, LOUD:** `createOrder` answers **202 `ApprovalPending`** (kind `PRICE_OVERRIDE`) where it answered 422 `PRICE_OVERRIDE_NEEDS_APPROVAL` for a price outside the band or below list beyond the seller's limit.
 - Earlier LOUD changes, each on an operation that was still planned when it changed, are in their entries below and in "Reading 1.5.0 to 1.37.0 cold".
+
+## 2.16.0 (2026-11-18, B10 continued 2)
+
+Minor, additive. FR-WHL-009 to FR-WHL-011, CR-048 (`whl.ageing.read`), A-317, A-318, ADR-0089.
+
+- **Into code (planned shapes widened before any client used them):** `getAgeingReport`, `listDunningLevels`, `replaceDunningLevels`, `listDunningNotices`.
+  - `AgeingRow` and `AgeingTotals` gain `ledgerPesewas`, `ledgerCreditPesewas`, `notAgedPesewas` and `notAgedCreditPesewas` (1200 as at `asOf` and what it holds beyond the buckets: total plus not aged less not aged credit is the ledger); `AgeingReport` gains `otherPartiesPesewas` and `otherPartiesCreditPesewas` (the till's walk-in customer, in the totals, on no row). `creditLimitPesewas` is null for a customer with no business account.
+  - `DunningNotice` gains `daysPastDue` and `templateCode`; `sentAt` is when the reminder was queued to NTF. The planned level 2 example moves from 21 to 14 days (FR-WHL-011's seed).
+  - `replaceDunningLevels` refuses with the new 422 `DUNNING_POLICY_INVALID`.
+- **`CustomerStatement.ageing`** (implemented operations `listStatements`, `createStatement`, `getStatement`; a new required, nullable response field): FR-WHL-009's ageing summary as at the period end (new schema `StatementAgeing`); null on a statement issued before 2.16.0.
+- The seeded role matrix gains `whl.ageing.read`, `whl.dunning.read` (the Owner, the Manager, Sales, the Accountant) and `whl.dunning.manage` (the Owner, the Manager).
 
 ## 2.15.0 (2026-11-18, B09b continued 2c)
 

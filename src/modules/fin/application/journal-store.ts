@@ -205,6 +205,8 @@ export interface JournalStore {
   receivableBefore(tx: Transaction, filters: ReceivableFilters): Promise<bigint>;
   /** The customer's 1200 lines at the branch from `from` to `to` inclusive, oldest first. */
   receivableLines(tx: Transaction, filters: ReceivableFilters): Promise<ReceivableLineRow[]>;
+  /** Each customer's signed 1200 balance (debits less credits) at the branches given, posted on or before `asOf`; nil balances absent. */
+  receivableBalances(tx: Transaction, filters: { readonly branchIds: readonly string[]; readonly customerId: string | null; readonly asOf: string }): Promise<ReadonlyMap<string, bigint>>;
   accountFacts(tx: Transaction, ids: readonly string[]): Promise<Map<string, AccountFactsRow>>;
   allAccountFacts(tx: Transaction): Promise<Map<string, AccountFactsRow>>;
   accountByCode(tx: Transaction, code: string): Promise<AccountFactsRow | null>;

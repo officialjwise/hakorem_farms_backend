@@ -138,6 +138,7 @@ Standard columns: `DOCUMENT` (`status` in `DRAFT`, `ISSUED`; `posted_at`, `poste
 - Deferred `whl.statement_check` (HK010) at commit, on the header and on every line: the totals are the lines' sums by kind, one brought-forward line comes first, every running balance follows from the opening and the last is the closing (`ck_statement_totals`); an issued statement's number is the one `platform.allocate_number` gave it (`ck_statement_number`).
 - Indexes: (`branch_id`, `id`); (`customer_id`, `period_end`).
 - A customer in credit is shown with a closing balance of zero and the credit beside it (`closing_credit_pesewas`), each line's running balance marked `C` (A-300 (c)).
+- **As built in B10 continued 2 (migration 0265, ADR-0089, A-317):** the ageing summary as at the period end, set when the statement is written and frozen with it: `ageing_as_of` (date), `ageing_current_pesewas`, `ageing_1_30_pesewas`, `ageing_31_60_pesewas`, `ageing_61_90_pesewas`, `ageing_over_90_pesewas`, `ageing_not_aged_pesewas`, `ageing_not_aged_credit_pesewas` (`pesewas`), all null on a statement written before 0265 (`ck_statement_ageing_set`); when set, dated the period end, one of the not-aged pair nil, and the buckets plus not aged less not aged credit equal closing less closing credit (`ck_statement_ageing_ties`). Deposits (2200) and store credit (2210) are not on the statement (A-317 (d)).
 
 ### `whl.statement_line` · LEDGER
 
@@ -172,6 +173,8 @@ The reminder levels and when each fires.
 
 Standard columns: `MASTER`.
 
+**As built in B10 continued 2 (0265, A-318):** `level` 1 to 10, unique among live rows (`uq_dunning_policy_level`, not on the whole table, since a replacement soft-deletes the live rows and writes new ones); `days_overdue` 1 to 365; `channels` one to three of `SMS`, `EMAIL`, `WHATSAPP` in order of preference; `template_code` `^[A-Z][A-Z0-9_]{1,59}$`. Replaced whole by `replaceDunningLevels`.
+
 ### `whl.dunning_notice` · LEDGER
 
 Reminders sent, per invoice and level.
@@ -185,6 +188,8 @@ Reminders sent, per invoice and level.
 | `outstanding_pesewas` | `pesewas` | NOT NULL | At the time of the notice |
 
 Standard columns: `LEDGER`. UNIQUE (`billing_document_id`, `level`): each level is sent once per invoice.
+
+**As built in B10 continued 2 (0265, A-318):** `billing_document_id` references `platform.business_document`; adds `branch_id` (the document's), `days_past_due`, `channels` and `template_code` (the level's, as queued), `notice_date` (business day) and `queued_at` (the application clock: the contract's `sentAt`), `recorded_at` and `actor_id`; `outstanding_pesewas` above nil. `whl.dunning_notice_check` (HK010 `ck_dunning_notice_order`, under an advisory lock on the document) refuses a level as low as or lower than one that has reached the document. Written with `whl.DunningNoticeDue` in the same transaction.
 
 ### `whl.ageing_snapshot` · PROJECTION
 
@@ -202,3 +207,5 @@ Receivables by age bucket per customer, as at a date.
 | `computed_at` | `timestamptz` | NOT NULL | |
 
 - PK (`customer_id`, `as_of_date`). Computed from `pay.pub_open_item`. The live ageing report computes the same buckets for any date on request.
+
+**Not built (B10 continued 2, ADR-0089):** ageing is read live as at any date from BIL's documents, PAY's dated allocations and FIN's 1200 in one snapshot; no projection is kept.

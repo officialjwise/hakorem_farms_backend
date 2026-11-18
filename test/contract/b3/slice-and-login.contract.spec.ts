@@ -147,7 +147,7 @@ import {
   ShiftClose as PosShiftClose,
   ShiftOpen as PosShiftOpen,
 } from '../../../src/modules/pos/interface/schemas';
-import { AccountCreate as WhlAccountCreate, AccountUpdate as WhlAccountUpdate, ReasonBody as WhlReasonBody, StatementCreate as WhlStatementCreate } from '../../../src/modules/whl/interface/schemas';
+import { AccountCreate as WhlAccountCreate, AccountUpdate as WhlAccountUpdate, ReasonBody as WhlReasonBody, StatementCreate as WhlStatementCreate, DunningPolicyReplace as WhlDunningPolicyReplace } from '../../../src/modules/whl/interface/schemas';
 import {
   PublicQuoteRequest as QuoPublicQuoteRequest,
   QuoteAcceptanceRecord as QuoAcceptanceRecord,
@@ -465,6 +465,7 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     holdBusinessAccount: WhlReasonBody,
     releaseBusinessAccount: WhlReasonBody,
     requestCreditOverride: WhlReasonBody,
+    replaceDunningLevels: WhlDunningPolicyReplace,
     confirmOrder: OrderConfirmBody,
     submitQuoteRequest: QuoPublicQuoteRequest,
     acceptQuoteByLink: QuoAcceptByLink,

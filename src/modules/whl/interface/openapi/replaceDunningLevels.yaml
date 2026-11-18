@@ -1,0 +1,82 @@
+operationId: replaceDunningLevels
+tags:
+  - whl
+summary: "Replace the reminder levels"
+description: "Replaces the whole set of reminder levels at once (FR-WHL-011): numbered 1, 2, 3 in turn, each firing at more days overdue than the one before (1 to 365), through one to three channels in the customer's order of preference, none twice, with the NTF template it sends. An empty set turns reminders off. A level already sent to an invoice is never sent again, whatever the levels become. Refusals: 422 `DUNNING_POLICY_INVALID` (`LEVELS_NOT_CONSECUTIVE`, `DAYS_NOT_INCREASING`, `CHANNEL_REPEATED`). Audited with the levels before and after.\n\nPermission: `whl.dunning.manage`."
+x-permission: whl.dunning.manage
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/DunningPolicyReplace"
+      example:
+        levels:
+          - level: 1
+            daysOverdue: 7
+            channels:
+              - SMS
+            templateCode: PAYMENT_REMINDER_1
+          - level: 2
+            daysOverdue: 14
+            channels:
+              - SMS
+            templateCode: PAYMENT_REMINDER_2
+          - level: 3
+            daysOverdue: 30
+            channels:
+              - SMS
+              - EMAIL
+            templateCode: PAYMENT_REMINDER_3
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/DunningLevelPage"
+        example:
+          data:
+            - level: 1
+              daysOverdue: 7
+              channels:
+                - SMS
+              templateCode: PAYMENT_REMINDER_1
+            - level: 2
+              daysOverdue: 14
+              channels:
+                - SMS
+              templateCode: PAYMENT_REMINDER_2
+            - level: 3
+              daysOverdue: 30
+              channels:
+                - SMS
+                - EMAIL
+              templateCode: PAYMENT_REMINDER_3
+          page:
+            nextCursor: null
+            limit: 25
+            hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

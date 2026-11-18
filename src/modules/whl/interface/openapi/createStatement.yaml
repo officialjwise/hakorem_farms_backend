@@ -90,6 +90,16 @@ responses:
               balancePesewas: 1165200
               balanceSide: D
           documentId: "019a7b05-e915-754a-ba83-5d80fdc8d65e"
+          ageing:
+            asOf: "2026-10-31"
+            currentPesewas: 1165200
+            days1To30Pesewas: 0
+            days31To60Pesewas: 0
+            days61To90Pesewas: 0
+            daysOver90Pesewas: 0
+            totalPesewas: 1165200
+            notAgedPesewas: 0
+            notAgedCreditPesewas: 0
           currency: GHS
   "400":
     $ref: "#/components/responses/BadRequest"

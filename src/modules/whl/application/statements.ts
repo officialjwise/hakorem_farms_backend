@@ -15,7 +15,8 @@ import type { MasterDataRefs } from '../../mdm';
 import { pageProbe } from '../domain/paging';
 import { judgePeriod, numberedLines, statementOf, statementRenderData, type Side, type StatementFigures, type StatementLineKind } from '../domain/statement';
 import { StatementInvalidError, type StatementRule } from './errors';
-import type { StatementLineRecord, StatementRecord, StatementStatus, StatementStore } from './statement-store';
+import type { StatementAgeingRecord, StatementLineRecord, StatementRecord, StatementStatus, StatementStore } from './statement-store';
+import type { Ageing } from './ageing';
 
 const READ = 'whl.statement.read';
 const CREATE = 'whl.statement.create';
@@ -53,7 +54,22 @@ export interface StatementView {
   readonly closingCreditPesewas: number;
   readonly lines: readonly StatementLineView[];
   readonly documentId: string | null;
+  /** FR-WHL-009's ageing summary as at the period end, at the statement's branch (B10 continued 2); null on a statement issued before it. */
+  readonly ageing: StatementAgeingView | null;
   readonly currency: 'GHS';
+}
+
+/** The contract's `StatementAgeing`: the buckets of what was owed at the period end and what 1200 held beyond them. */
+export interface StatementAgeingView {
+  readonly asOf: string;
+  readonly currentPesewas: number;
+  readonly days1To30Pesewas: number;
+  readonly days31To60Pesewas: number;
+  readonly days61To90Pesewas: number;
+  readonly daysOver90Pesewas: number;
+  readonly totalPesewas: number;
+  readonly notAgedPesewas: number;
+  readonly notAgedCreditPesewas: number;
 }
 
 export interface Page<T> {
@@ -102,6 +118,7 @@ export class Statements {
     private readonly archive: Documents,
     private readonly cursors: Cursors,
     private readonly clock: Clock,
+    private readonly ageing: Ageing,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -168,12 +185,24 @@ export class Statements {
 
       const receivables = await this.journals.customerReceivablesIn(tx, { customerId: customer!.id, branchId, from: request.periodStart, to: request.periodEnd });
       const figures = statementOf(receivables.openingPesewas, receivables.lines, request.periodStart);
+      // FR-WHL-009's ageing summary as at the period end, read in the same snapshot; the database ties it to the closing.
+      const aged = await this.ageing.customerIn(tx, customer!.id, branchId, request.periodEnd);
+      const ageing: StatementAgeingRecord = {
+        asOf: request.periodEnd,
+        currentPesewas: aged.currentPesewas,
+        days1To30Pesewas: aged.days1To30Pesewas,
+        days31To60Pesewas: aged.days31To60Pesewas,
+        days61To90Pesewas: aged.days61To90Pesewas,
+        daysOver90Pesewas: aged.daysOver90Pesewas,
+        notAgedPesewas: aged.notAgedPesewas,
+        notAgedCreditPesewas: aged.notAgedCreditPesewas,
+      };
       const id = this.nextId();
       await this.registry.register(tx, { id, docType: STATEMENT, ownerModule: 'whl', branchId, actorId: actor!.principalId });
       const statementNo = request.issue
         ? await this.numbers.allocateIn(tx, { docType: STATEMENT, fiscalYear: Number(year), branchId, branchCode: branch.code, documentId: id })
         : null;
-      const record = recordOf(id, statementNo, period, figures, request.issue ? today : null);
+      const record = recordOf(id, statementNo, period, figures, request.issue ? today : null, ageing);
       await this.store.insert(tx, record, linesOf(figures), actor!.principalId, now);
       if (statementNo !== null) {
         await this.archive.requestRenderIn(tx, {
@@ -189,6 +218,7 @@ export class Statements {
             periodStart: request.periodStart,
             periodEnd: request.periodEnd,
             figures,
+            ageing: { ...aged, asOf: request.periodEnd },
           }),
         });
       }
@@ -252,6 +282,7 @@ export class Statements {
           balanceSide: l.balanceSide,
         })),
         documentId: r.archivedDocumentId,
+        ageing: r.ageing === null ? null : ageingView(r.ageing),
         currency: 'GHS',
       };
     });
@@ -264,6 +295,7 @@ function recordOf(
   period: { readonly customerId: string; readonly branchId: string; readonly periodStart: string; readonly periodEnd: string },
   f: StatementFigures,
   issueDate: string | null,
+  ageing: StatementAgeingRecord,
 ): StatementRecord {
   return {
     id,
@@ -281,6 +313,22 @@ function recordOf(
     closingCreditPesewas: f.closingCreditPesewas,
     issueDate,
     archivedDocumentId: null,
+    ageing,
+  };
+}
+
+function ageingView(a: StatementAgeingRecord): StatementAgeingView {
+  const total = a.currentPesewas + a.days1To30Pesewas + a.days31To60Pesewas + a.days61To90Pesewas + a.daysOver90Pesewas;
+  return {
+    asOf: a.asOf,
+    currentPesewas: json(a.currentPesewas),
+    days1To30Pesewas: json(a.days1To30Pesewas),
+    days31To60Pesewas: json(a.days31To60Pesewas),
+    days61To90Pesewas: json(a.days61To90Pesewas),
+    daysOver90Pesewas: json(a.daysOver90Pesewas),
+    totalPesewas: json(total),
+    notAgedPesewas: json(a.notAgedPesewas),
+    notAgedCreditPesewas: json(a.notAgedCreditPesewas),
   };
 }
 

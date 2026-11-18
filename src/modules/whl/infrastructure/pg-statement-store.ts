@@ -6,7 +6,9 @@ const STATEMENT_COLUMNS = `id, statement_no AS "statementNo", status, customer_i
   opening_credit_pesewas::text AS "openingCreditPesewas", invoiced_pesewas::text AS "invoicedPesewas", credited_pesewas::text AS "creditedPesewas",
   paid_pesewas::text AS "paidPesewas", other_charges_pesewas::text AS "otherChargesPesewas", other_credits_pesewas::text AS "otherCreditsPesewas",
   closing_pesewas::text AS "closingPesewas", closing_credit_pesewas::text AS "closingCreditPesewas", issue_date::text AS "issueDate",
-  archived_document_id AS "archivedDocumentId"`;
+  archived_document_id AS "archivedDocumentId", ageing_as_of::text AS "ageingAsOf", ageing_current_pesewas::text AS "ageingCurrent",
+  ageing_1_30_pesewas::text AS "ageing1To30", ageing_31_60_pesewas::text AS "ageing31To60", ageing_61_90_pesewas::text AS "ageing61To90",
+  ageing_over_90_pesewas::text AS "ageingOver90", ageing_not_aged_pesewas::text AS "ageingNotAged", ageing_not_aged_credit_pesewas::text AS "ageingNotAgedCredit"`;
 
 const AMOUNTS = [
   'openingPesewas',
@@ -20,12 +22,27 @@ const AMOUNTS = [
   'closingCreditPesewas',
 ] as const;
 
-type RawStatement = Omit<StatementRecord, (typeof AMOUNTS)[number]> & Record<(typeof AMOUNTS)[number], string>;
+type AgeingColumn = 'ageingAsOf' | 'ageingCurrent' | 'ageing1To30' | 'ageing31To60' | 'ageing61To90' | 'ageingOver90' | 'ageingNotAged' | 'ageingNotAgedCredit';
+type RawStatement = Omit<StatementRecord, (typeof AMOUNTS)[number] | 'ageing'> & Record<(typeof AMOUNTS)[number], string> & Record<AgeingColumn, string | null>;
 type RawLine = Omit<StatementLineRecord, 'debitPesewas' | 'creditPesewas' | 'balancePesewas'> & { debitPesewas: string; creditPesewas: string; balancePesewas: string };
 
-function statement(row: RawStatement): StatementRecord {
+function statement(raw: RawStatement): StatementRecord {
+  const { ageingAsOf, ageingCurrent, ageing1To30, ageing31To60, ageing61To90, ageingOver90, ageingNotAged, ageingNotAgedCredit, ...row } = raw;
   const amounts = Object.fromEntries(AMOUNTS.map((k) => [k, BigInt(row[k])])) as Record<(typeof AMOUNTS)[number], bigint>;
-  return { ...row, ...amounts };
+  const ageing =
+    ageingAsOf === null
+      ? null
+      : {
+          asOf: ageingAsOf,
+          currentPesewas: BigInt(ageingCurrent!),
+          days1To30Pesewas: BigInt(ageing1To30!),
+          days31To60Pesewas: BigInt(ageing31To60!),
+          days61To90Pesewas: BigInt(ageing61To90!),
+          daysOver90Pesewas: BigInt(ageingOver90!),
+          notAgedPesewas: BigInt(ageingNotAged!),
+          notAgedCreditPesewas: BigInt(ageingNotAgedCredit!),
+        };
+  return { ...row, ...amounts, ageing };
 }
 
 /** WHL's statements (migration 0242): written once with their lines; only the archived rendering is set later, once. */
@@ -35,8 +52,9 @@ export class PgStatementStore implements StatementStore {
     await tx.query(
       `INSERT INTO whl.statement (id, statement_no, customer_id, period_start, period_end, opening_pesewas, opening_credit_pesewas, invoiced_pesewas,
          credited_pesewas, paid_pesewas, other_charges_pesewas, other_credits_pesewas, closing_pesewas, closing_credit_pesewas, issue_date, status,
-         branch_id, created_at, created_by, updated_at, updated_by, posted_at, posted_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $18, $19, $20, $21)`,
+         branch_id, created_at, created_by, updated_at, updated_by, posted_at, posted_by, ageing_as_of, ageing_current_pesewas, ageing_1_30_pesewas,
+         ageing_31_60_pesewas, ageing_61_90_pesewas, ageing_over_90_pesewas, ageing_not_aged_pesewas, ageing_not_aged_credit_pesewas)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29)`,
       [
         s.id,
         s.statementNo,
@@ -59,6 +77,10 @@ export class PgStatementStore implements StatementStore {
         actorId,
         issued ? at : null,
         issued ? actorId : null,
+        s.ageing?.asOf ?? null,
+        ...[s.ageing?.currentPesewas, s.ageing?.days1To30Pesewas, s.ageing?.days31To60Pesewas, s.ageing?.days61To90Pesewas, s.ageing?.daysOver90Pesewas, s.ageing?.notAgedPesewas, s.ageing?.notAgedCreditPesewas].map(
+          (v) => v?.toString() ?? null,
+        ),
       ],
     );
     await tx.query(

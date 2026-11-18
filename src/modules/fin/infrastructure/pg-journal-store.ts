@@ -168,6 +168,19 @@ export class PgJournalStore implements JournalStore {
     return rows.map((r) => ({ ...r, amountPesewas: BigInt(r.amountPesewas) }));
   }
 
+  async receivableBalances(tx: Transaction, filters: { readonly branchIds: readonly string[]; readonly customerId: string | null; readonly asOf: string }): Promise<ReadonlyMap<string, bigint>> {
+    const { rows } = await tx.query<{ customer_id: string; total: string }>(
+      `SELECT p.ref_id AS customer_id, sum(CASE WHEN l.side = 'D' THEN l.amount_pesewas ELSE -l.amount_pesewas END)::text AS total
+         FROM fin.journal_line l JOIN fin.subledger_party p ON p.id = l.subledger_party_id AND p.kind = 'CUSTOMER'
+        WHERE l.account_id = (SELECT a.id FROM fin.account a WHERE a.code = '${TRADE_RECEIVABLES}') AND l.branch_id = ANY($1::uuid[])
+          AND ($2::uuid IS NULL OR p.ref_id = $2) AND l.posting_date <= $3::date
+        GROUP BY p.ref_id
+       HAVING sum(CASE WHEN l.side = 'D' THEN l.amount_pesewas ELSE -l.amount_pesewas END) <> 0`,
+      [filters.branchIds, filters.customerId, filters.asOf],
+    );
+    return new Map(rows.map((r) => [r.customer_id, BigInt(r.total)]));
+  }
+
   async accountFacts(tx: Transaction, ids: readonly string[]): Promise<Map<string, AccountFactsRow>> {
     if (ids.length === 0) return new Map();
     const { rows } = await tx.query<AccountFactsRow>(`SELECT ${FACT_COLUMNS} FROM fin.account WHERE id = ANY($1::uuid[])`, [ids]);

@@ -45,3 +45,14 @@ export const AccountUpdate = z.strictObject({
 });
 export const ReasonBody = z.strictObject({ reason: Reason });
 export const CreditOverridePageQuery = z.object({ customerId: z.uuid().optional(), from: z.iso.datetime({ offset: true }).optional(), to: z.iso.datetime({ offset: true }).optional(), cursor: Cursor, limit: Limit });
+
+export const AgeingQuery = z.object({ asOf: BusinessDate.optional(), customerId: z.uuid().optional(), accountManagerId: z.uuid().optional(), cursor: Cursor, limit: Limit });
+export const PageQuery = z.object({ cursor: Cursor, limit: Limit });
+export const DunningNoticeQuery = z.object({ customerId: z.uuid().optional(), from: z.iso.datetime({ offset: true }).optional(), cursor: Cursor, limit: Limit });
+const DunningLevelInput = z.strictObject({
+  level: z.number().int().min(1).max(10),
+  daysOverdue: z.number().int().min(1).max(365),
+  channels: z.array(z.enum(['SMS', 'EMAIL', 'WHATSAPP'])).min(1).max(3),
+  templateCode: z.string().regex(/^[A-Z][A-Z0-9_]{1,59}$/),
+});
+export const DunningPolicyReplace = z.strictObject({ levels: z.array(DunningLevelInput).max(10) });

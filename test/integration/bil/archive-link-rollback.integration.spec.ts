@@ -48,6 +48,11 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0268_doc_statement_template_ageing',
+      '0267_iam_grant_whl_ageing_dunning_permissions',
+      '0266_iam_seed_whl_ageing_dunning_permissions',
+      '0265_whl_ageing_dunning',
+      '0264_pay_allocation_business_date',
       '0263_fin_unverified_mobile_money',
       '0262_pos_cash_movement_sync',
       '0261_iam_grant_whl_credit_permissions',

@@ -23,6 +23,12 @@ import { BusinessAccountsController } from './interface/business-accounts.contro
 import { STATEMENT_STORE, type StatementStore } from './application/statement-store';
 import { Statements } from './application/statements';
 import { PgStatementStore } from './infrastructure/pg-statement-store';
+import { AllocationsAsAt, PayModule } from '../pay';
+import { Ageing } from './application/ageing';
+import { Dunning } from './application/dunning';
+import { DUNNING_STORE, type DunningStore } from './application/dunning-store';
+import { PgDunningStore } from './infrastructure/pg-dunning-store';
+import { ReceivablesController } from './interface/receivables.controller';
 import { StatementsController } from './interface/statements.controller';
 
 /**
@@ -31,13 +37,39 @@ import { StatementsController } from './interface/statements.controller';
  * rendered and archived by DOC after commit (ADR-0085). B10 continued builds business accounts and credit control:
  * `BusinessAccounts` (with the `ACCOUNT_RELEASE` and `CREDIT_LIMIT_CHANGE` approvals and the overdue hold, run by the
  * worker as `AccountHolds`) and `CreditControl`, ORD's `OrderConfirmationPolicy` with the `CREDIT_OVERRIDE` approval.
+ * B10 continued 2 builds `Ageing` (as at a date, from BIL's documents, PAY's dated allocations and FIN's 1200, ADR-0089)
+ * with the statement's ageing summary, and `Dunning` (the levels, the notices and the worker's `dunning` job).
  */
 @Module({
-  imports: [IamModule, MdmModule, DocModule, FinModule, BilModule, OrdModule],
-  controllers: [StatementsController, BusinessAccountsController],
+  imports: [IamModule, MdmModule, DocModule, FinModule, BilModule, PayModule, OrdModule],
+  controllers: [StatementsController, BusinessAccountsController, ReceivablesController],
   providers: [
     { provide: STATEMENT_STORE, useClass: PgStatementStore },
     { provide: ACCOUNT_STORE, useClass: PgAccountStore },
+    { provide: DUNNING_STORE, useClass: PgDunningStore },
+    {
+      provide: Ageing,
+      useFactory: (uow: UnitOfWork, store: DunningStore, billing: Billing, allocations: AllocationsAsAt, journals: Journals, refs: MasterDataRefs, authoriser: Authoriser, cursors: Cursors, clock: Clock) =>
+        new Ageing(uow, store, billing, allocations, journals, refs, authoriser, cursors, clock),
+      inject: [UnitOfWork, DUNNING_STORE, Billing, AllocationsAsAt, Journals, MasterDataRefs, Authoriser, Cursors, CLOCK],
+    },
+    {
+      provide: Dunning,
+      useFactory: (
+        uow: UnitOfWork,
+        store: DunningStore,
+        billing: Billing,
+        refs: MasterDataRefs,
+        registry: DocumentRegistry,
+        authoriser: Authoriser,
+        idempotency: Idempotency,
+        audit: AuditTrail,
+        events: DomainEvents,
+        cursors: Cursors,
+        clock: Clock,
+      ) => new Dunning(uow, store, billing, refs, registry, authoriser, idempotency, audit, events, cursors, clock),
+      inject: [UnitOfWork, DUNNING_STORE, Billing, MasterDataRefs, DocumentRegistry, Authoriser, Idempotency, AuditTrail, DomainEvents, Cursors, CLOCK],
+    },
     {
       provide: CreditControl,
       useFactory: (
@@ -93,11 +125,12 @@ import { StatementsController } from './interface/statements.controller';
         documents: Documents,
         cursors: Cursors,
         clock: Clock,
-      ) => new Statements(uow, store, refs, authoriser, idempotency, audit, registry, numbers, journals, documents, cursors, clock),
-      inject: [UnitOfWork, STATEMENT_STORE, MasterDataRefs, Authoriser, Idempotency, AuditTrail, DocumentRegistry, NumberSeries, Journals, Documents, Cursors, CLOCK],
+        ageing: Ageing,
+      ) => new Statements(uow, store, refs, authoriser, idempotency, audit, registry, numbers, journals, documents, cursors, clock, ageing),
+      inject: [UnitOfWork, STATEMENT_STORE, MasterDataRefs, Authoriser, Idempotency, AuditTrail, DocumentRegistry, NumberSeries, Journals, Documents, Cursors, CLOCK, Ageing],
     },
   ],
-  exports: [Statements, BusinessAccounts, CreditControl, AccountHolds],
+  exports: [Statements, BusinessAccounts, CreditControl, AccountHolds, Ageing, Dunning],
 })
 export class WhlModule implements OnModuleInit {
   constructor(

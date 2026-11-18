@@ -1,0 +1,84 @@
+operationId: listDunningLevels
+tags:
+  - whl
+summary: "List the reminder levels"
+description: "The live reminder levels, lowest first (FR-WHL-011; the seed: 7, 14 and 30 days overdue). The daily `dunning` job sends an invoice or debit note of a business account that is still owed the highest level it has reached, unless a level as high or higher has reached it already.\n\nPermission: `whl.dunning.read`."
+x-permission: whl.dunning.read
+parameters:
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/DunningLevelPage"
+        examples:
+          default:
+            value:
+              data:
+                - level: 1
+                  daysOverdue: 7
+                  channels:
+                    - SMS
+                  templateCode: PAYMENT_REMINDER_1
+                - level: 2
+                  daysOverdue: 14
+                  channels:
+                    - SMS
+                  templateCode: PAYMENT_REMINDER_2
+                - level: 3
+                  daysOverdue: 30
+                  channels:
+                    - SMS
+                    - EMAIL
+                  templateCode: PAYMENT_REMINDER_3
+                - level: 4
+                  daysOverdue: 45
+                  channels:
+                    - SMS
+                    - EMAIL
+                  templateCode: PAYMENT_REMINDER_4
+                - level: 5
+                  daysOverdue: 60
+                  channels:
+                    - SMS
+                    - EMAIL
+                  templateCode: PAYMENT_REMINDER_5
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -43,7 +43,7 @@ const TAKES_NO_IDENTIFIER = [
   'listCustomerTiers', 'createCustomerTier', 'listBranches', 'createBranch', 'listPriceLists', 'listPromotions', 'listTaxLevies', 'createTaxLevy',
   'listTaxCategories', 'createTaxCategory', 'listTaxSchemeVersions', 'listPaymentMethods', 'listReasonCodes', 'listImportJobs', 'createExportJob',
   'listMovementTypes', 'listYieldStandards', 'listAccounts', 'listBankAccounts', 'listAccountingPeriods', 'listManualJournals', 'listPostingEventTypes',
-  'listPostingRules', 'listAccountDeterminations', 'listFixedAssets', 'listDepreciationRuns', 'listDocumentTemplates', 'listUnmatchedPayments',
+  'listPostingRules', 'listAccountDeterminations', 'listFixedAssets', 'listDepreciationRuns', 'listDocumentTemplates', 'listDunningLevels', 'replaceDunningLevels', 'listUnmatchedPayments',
   'listSettlementReports', 'listReconciliationBreaks', 'listShopCategories', 'getShopProfile', 'createCart', 'listMyOrders', 'getMyStoreCredit',
 ];
 

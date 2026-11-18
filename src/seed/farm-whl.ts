@@ -1,7 +1,7 @@
 import type { INestApplicationContext } from '@nestjs/common';
 import type pg from 'pg';
 import { Approvals } from '../modules/iam';
-import { BusinessAccounts, Statements } from '../modules/whl';
+import { BusinessAccounts, Dunning, Statements } from '../modules/whl';
 import { UnitOfWork } from '../platform/database/unit-of-work';
 import { PG_POOL } from '../platform/platform.module';
 import { addDays, type SeedCalendar } from './seed-calendar';
@@ -83,6 +83,31 @@ export function farmSeedWhlAccounts(): ServiceSeedUnit {
         if (hold !== undefined) await staff.as('accountant', (accountant) => accounts.hold(accountant, customerId, { reason: hold }, `seed:whl:hold:${customerId}`));
       }
       return { records: SEED_ACCOUNTS.length };
+    },
+  };
+}
+
+/**
+ * The reminder levels (B10 continued 2, FR-WHL-011), SEED: FR-WHL-011's 7, 14 and 30 days past due, by SMS, the third by
+ * SMS then email, set by the seeded Owner through WHL's `Dunning`. The templates are NTF's (B11). A farm that is not
+ * seeded has no levels and sends no reminder until the Owner or a Manager sets them (A-318 (f)).
+ */
+export const SEED_DUNNING_LEVELS = [
+  { level: 1, daysOverdue: 7, channels: ['SMS'], templateCode: 'PAYMENT_REMINDER_1' },
+  { level: 2, daysOverdue: 14, channels: ['SMS'], templateCode: 'PAYMENT_REMINDER_2' },
+  { level: 3, daysOverdue: 30, channels: ['SMS', 'EMAIL'], templateCode: 'PAYMENT_REMINDER_3' },
+] as const;
+
+export function farmSeedWhlDunning(): ServiceSeedUnit {
+  return {
+    kind: 'SERVICE',
+    name: 'whl-dunning',
+    async run(app: INestApplicationContext) {
+      const pool = app.get<pg.Pool>(PG_POOL);
+      if ((await pool.query('SELECT 1 FROM whl.dunning_policy LIMIT 1')).rows.length > 0) return { records: 0 };
+      const staff = await SeedStaff.load(app);
+      await staff.as('owner', (owner) => app.get(Dunning).replace(owner, SEED_DUNNING_LEVELS, 'seed:whl:dunning-levels'));
+      return { records: SEED_DUNNING_LEVELS.length };
     },
   };
 }

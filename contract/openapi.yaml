@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.15.0"
+  version: "2.16.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -64337,6 +64337,16 @@ paths:
                         closingCreditPesewas: 0
                         lines: []
                         documentId: "019a7b05-e915-754a-ba83-5d80fdc8d65e"
+                        ageing:
+                          asOf: "2026-10-31"
+                          currentPesewas: 1165200
+                          days1To30Pesewas: 0
+                          days31To60Pesewas: 0
+                          days61To90Pesewas: 0
+                          daysOver90Pesewas: 0
+                          totalPesewas: 1165200
+                          notAgedPesewas: 0
+                          notAgedCreditPesewas: 0
                         currency: GHS
                       - id: "019a7b06-0804-7f2e-8466-fbb877797496"
                         statementNo: STM-2026-DDW-000030
@@ -64360,6 +64370,16 @@ paths:
                         closingCreditPesewas: 0
                         lines: []
                         documentId: "019a7b06-26f3-7911-9e4a-99eff12a12cd"
+                        ageing:
+                          asOf: "2026-10-31"
+                          currentPesewas: 397800
+                          days1To30Pesewas: 0
+                          days31To60Pesewas: 0
+                          days61To90Pesewas: 0
+                          daysOver90Pesewas: 0
+                          totalPesewas: 397800
+                          notAgedPesewas: 0
+                          notAgedCreditPesewas: 0
                         currency: GHS
                       - id: "019a7b06-45e2-72f5-a82d-38276adbb105"
                         statementNo: STM-2026-DDW-000029
@@ -64383,6 +64403,16 @@ paths:
                         closingCreditPesewas: 12000
                         lines: []
                         documentId: "019a7b06-64d1-7cd8-b211-d65ee48c4f3c"
+                        ageing:
+                          asOf: "2026-10-31"
+                          currentPesewas: 0
+                          days1To30Pesewas: 0
+                          days31To60Pesewas: 0
+                          days61To90Pesewas: 0
+                          daysOver90Pesewas: 0
+                          totalPesewas: 0
+                          notAgedPesewas: 0
+                          notAgedCreditPesewas: 12000
                         currency: GHS
                       - id: "019a7b06-83c0-76bc-8bf4-74965e3ded74"
                         statementNo: STM-2026-DDW-000028
@@ -64406,6 +64436,16 @@ paths:
                         closingCreditPesewas: 0
                         lines: []
                         documentId: "019a7b06-a2af-709f-95d8-12cdd7ee8bab"
+                        ageing:
+                          asOf: "2026-09-30"
+                          currentPesewas: 850000
+                          days1To30Pesewas: 0
+                          days31To60Pesewas: 0
+                          days61To90Pesewas: 0
+                          daysOver90Pesewas: 0
+                          totalPesewas: 850000
+                          notAgedPesewas: 0
+                          notAgedCreditPesewas: 0
                         currency: GHS
                       - id: "019a7b06-c19e-7a83-afbb-b105519f29e3"
                         statementNo: STM-2026-DDW-000027
@@ -64429,6 +64469,16 @@ paths:
                         closingCreditPesewas: 0
                         lines: []
                         documentId: "019a7b06-e08d-7466-b99e-4f3ccb50c81a"
+                        ageing:
+                          asOf: "2026-09-30"
+                          currentPesewas: 186000
+                          days1To30Pesewas: 0
+                          days31To60Pesewas: 0
+                          days61To90Pesewas: 0
+                          daysOver90Pesewas: 0
+                          totalPesewas: 186000
+                          notAgedPesewas: 0
+                          notAgedCreditPesewas: 0
                         currency: GHS
                     page:
                       nextCursor: eyJpZCI6IjAxOWE3YyJ9
@@ -64545,6 +64595,16 @@ paths:
                     balancePesewas: 1165200
                     balanceSide: D
                 documentId: "019a7b05-e915-754a-ba83-5d80fdc8d65e"
+                ageing:
+                  asOf: "2026-10-31"
+                  currentPesewas: 1165200
+                  days1To30Pesewas: 0
+                  days31To60Pesewas: 0
+                  days61To90Pesewas: 0
+                  daysOver90Pesewas: 0
+                  totalPesewas: 1165200
+                  notAgedPesewas: 0
+                  notAgedCreditPesewas: 0
                 currency: GHS
         "400":
           $ref: "#/components/responses/BadRequest"
@@ -64646,6 +64706,16 @@ paths:
                     balancePesewas: 1165200
                     balanceSide: D
                 documentId: "019a7b05-e915-754a-ba83-5d80fdc8d65e"
+                ageing:
+                  asOf: "2026-10-31"
+                  currentPesewas: 1165200
+                  days1To30Pesewas: 0
+                  days31To60Pesewas: 0
+                  days61To90Pesewas: 0
+                  daysOver90Pesewas: 0
+                  totalPesewas: 1165200
+                  notAgedPesewas: 0
+                  notAgedCreditPesewas: 0
                 currency: GHS
         "400":
           $ref: "#/components/responses/BadRequest"
@@ -64723,7 +64793,7 @@ paths:
       tags:
         - whl
       summary: "Receivables ageing by 30, 60 and 90 days"
-      description: "Permission: `whl.ageing.read`."
+      description: "Receivables ageing as at a date (FR-WHL-010, SA-21, ADR-0089): every invoice, receipt and debit note issued to a customer by `asOf` (today in Africa/Accra when left out; a later date ages what is on the books now), less its credit notes issued and the payments applied to it by then, goes whole into the band of its days past due, counted from its due date, or its issue date when it has none: Current (not yet past due), 1 to 30, 31 to 60, 61 to 90 and over 90. Each row is a customer with an open item or a receivables balance at the branches the reader holds `whl.ageing.read` for as a whole, by name; `ledgerPesewas` and `ledgerCreditPesewas` are its trade receivables (1200) as at the same date, and what 1200 holds that no open item explains is shown as not aged, never put into a bucket, so `totalPesewas` plus `notAgedPesewas` less `notAgedCreditPesewas` is the 1200 balance exactly. `totals` covers every customer the filter matches, not only the page. `accountManagerId` keeps the customers whose business account names that manager. `creditLimitPesewas` is null for a customer with no business account.\n\nPermission: `whl.ageing.read`."
       x-permission: whl.ageing.read
       parameters:
         - name: asOf
@@ -64781,6 +64851,10 @@ paths:
                         days61To90Pesewas: 0
                         daysOver90Pesewas: 0
                         totalPesewas: 522900
+                        ledgerPesewas: 522900
+                        ledgerCreditPesewas: 0
+                        notAgedPesewas: 0
+                        notAgedCreditPesewas: 0
                         creditLimitPesewas: 2000000
                         onHold: false
                       - customer:
@@ -64793,6 +64867,10 @@ paths:
                         days61To90Pesewas: 0
                         daysOver90Pesewas: 0
                         totalPesewas: 397800
+                        ledgerPesewas: 397800
+                        ledgerCreditPesewas: 0
+                        notAgedPesewas: 0
+                        notAgedCreditPesewas: 0
                         creditLimitPesewas: 600000
                         onHold: true
                       - customer:
@@ -64805,6 +64883,10 @@ paths:
                         days61To90Pesewas: 0
                         daysOver90Pesewas: 0
                         totalPesewas: 243700
+                        ledgerPesewas: 243700
+                        ledgerCreditPesewas: 0
+                        notAgedPesewas: 0
+                        notAgedCreditPesewas: 0
                         creditLimitPesewas: 800000
                         onHold: false
                       - customer:
@@ -64817,7 +64899,11 @@ paths:
                         days61To90Pesewas: 0
                         daysOver90Pesewas: 0
                         totalPesewas: 858000
-                        creditLimitPesewas: 900000
+                        ledgerPesewas: 858000
+                        ledgerCreditPesewas: 0
+                        notAgedPesewas: 0
+                        notAgedCreditPesewas: 0
+                        creditLimitPesewas: null
                         onHold: false
                       - customer:
                           id: "019a7b02-2a24-72bf-87f7-34c94159ada7"
@@ -64829,6 +64915,10 @@ paths:
                         days61To90Pesewas: 0
                         daysOver90Pesewas: 41000
                         totalPesewas: 41000
+                        ledgerPesewas: 41000
+                        ledgerCreditPesewas: 0
+                        notAgedPesewas: 0
+                        notAgedCreditPesewas: 0
                         creditLimitPesewas: 300000
                         onHold: false
                     page:
@@ -64843,6 +64933,12 @@ paths:
                       days61To90Pesewas: 0
                       daysOver90Pesewas: 41000
                       totalPesewas: 2063400
+                      ledgerPesewas: 2063400
+                      ledgerCreditPesewas: 0
+                      notAgedPesewas: 0
+                      notAgedCreditPesewas: 0
+                    otherPartiesPesewas: 0
+                    otherPartiesCreditPesewas: 0
                     currency: GHS
                 empty:
                   summary: "Nothing matches: no rows and no next page"
@@ -64860,6 +64956,12 @@ paths:
                       days61To90Pesewas: 0
                       daysOver90Pesewas: 0
                       totalPesewas: 0
+                      ledgerPesewas: 0
+                      ledgerCreditPesewas: 0
+                      notAgedPesewas: 0
+                      notAgedCreditPesewas: 0
+                    otherPartiesPesewas: 0
+                    otherPartiesCreditPesewas: 0
                     currency: GHS
         "400":
           $ref: "#/components/responses/BadRequest"
@@ -64877,7 +64979,7 @@ paths:
       tags:
         - whl
       summary: "List the reminder levels"
-      description: "Permission: `whl.dunning.read`."
+      description: "The live reminder levels, lowest first (FR-WHL-011; the seed: 7, 14 and 30 days overdue). The daily `dunning` job sends an invoice or debit note of a business account that is still owed the highest level it has reached, unless a level as high or higher has reached it already.\n\nPermission: `whl.dunning.read`."
       x-permission: whl.dunning.read
       parameters:
         - name: cursor
@@ -64913,7 +65015,7 @@ paths:
                           - SMS
                         templateCode: PAYMENT_REMINDER_1
                       - level: 2
-                        daysOverdue: 21
+                        daysOverdue: 14
                         channels:
                           - SMS
                         templateCode: PAYMENT_REMINDER_2
@@ -64962,7 +65064,7 @@ paths:
       tags:
         - whl
       summary: "Replace the reminder levels"
-      description: "Permission: `whl.dunning.manage`."
+      description: "Replaces the whole set of reminder levels at once (FR-WHL-011): numbered 1, 2, 3 in turn, each firing at more days overdue than the one before (1 to 365), through one to three channels in the customer's order of preference, none twice, with the NTF template it sends. An empty set turns reminders off. A level already sent to an invoice is never sent again, whatever the levels become. Refusals: 422 `DUNNING_POLICY_INVALID` (`LEVELS_NOT_CONSECUTIVE`, `DAYS_NOT_INCREASING`, `CHANNEL_REPEATED`). Audited with the levels before and after.\n\nPermission: `whl.dunning.manage`."
       x-permission: whl.dunning.manage
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -64984,7 +65086,7 @@ paths:
                     - SMS
                   templateCode: PAYMENT_REMINDER_1
                 - level: 2
-                  daysOverdue: 21
+                  daysOverdue: 14
                   channels:
                     - SMS
                   templateCode: PAYMENT_REMINDER_2
@@ -65012,7 +65114,7 @@ paths:
                       - SMS
                     templateCode: PAYMENT_REMINDER_1
                   - level: 2
-                    daysOverdue: 21
+                    daysOverdue: 14
                     channels:
                       - SMS
                     templateCode: PAYMENT_REMINDER_2
@@ -65046,7 +65148,7 @@ paths:
       tags:
         - whl
       summary: "List reminders sent"
-      description: "Permission: `whl.dunning.read`."
+      description: "The reminders queued to customers at the branches the reader holds `whl.dunning.read` for as a whole, newest first (FR-WHL-011): each level reaches an invoice or debit note at most once, with what was outstanding then, its days past due and the channels and template the level names. A reminder is queued to NTF through the outbox (`whl.DunningNoticeDue`); NTF sends it by the first channel the customer has not opted out of (B11). `from` keeps the reminders queued at or after that instant.\n\nPermission: `whl.dunning.read`."
       x-permission: whl.dunning.read
       parameters:
         - name: customerId
@@ -65098,6 +65200,8 @@ paths:
                           docType: INVOICE
                           number: INV-2026-DDW-001150
                         level: 2
+                        daysPastDue: 7
+                        templateCode: PAYMENT_REMINDER_2
                         outstandingPesewas: 222500
                         channels:
                           - SMS
@@ -65114,6 +65218,8 @@ paths:
                           docType: INVOICE
                           number: INV-2026-DDW-001159
                         level: 3
+                        daysPastDue: 30
+                        templateCode: PAYMENT_REMINDER_3
                         outstandingPesewas: 186000
                         channels:
                           - SMS
@@ -65129,6 +65235,8 @@ paths:
                           docType: INVOICE
                           number: INV-2026-DDW-001168
                         level: 3
+                        daysPastDue: 45
+                        templateCode: PAYMENT_REMINDER_3
                         outstandingPesewas: 186000
                         channels:
                           - SMS
@@ -65145,6 +65253,8 @@ paths:
                           docType: INVOICE
                           number: INV-2026-DDW-001150
                         level: 1
+                        daysPastDue: 7
+                        templateCode: PAYMENT_REMINDER_1
                         outstandingPesewas: 96400
                         channels:
                           - SMS
@@ -65160,6 +65270,8 @@ paths:
                           docType: INVOICE
                           number: INV-2026-DDW-001159
                         level: 2
+                        daysPastDue: 14
+                        templateCode: PAYMENT_REMINDER_2
                         outstandingPesewas: 222500
                         channels:
                           - SMS
@@ -100165,6 +100277,11 @@ components:
             - "null"
           format: uuid
           description: "The archived rendering (`getArchivedDocument`), once DOC has archived it; null for a draft and until then."
+        ageing:
+          anyOf:
+            - $ref: "#/components/schemas/StatementAgeing"
+            - type: "null"
+          description: "FR-WHL-009's ageing summary as at the period end at the statement's branch, frozen with the statement (B10 continued 2); null on a statement produced before 2.16.0."
         currency:
           $ref: "#/components/schemas/Currency"
       required:
@@ -100187,7 +100304,41 @@ components:
         - closingCreditPesewas
         - lines
         - documentId
+        - ageing
         - currency
+    StatementAgeing:
+      type: object
+      description: "What the customer owed at the period end by days past due (SA-21), and what the statement's balance holds that no open invoice explains: `totalPesewas` plus `notAgedPesewas` less `notAgedCreditPesewas` is the closing balance less the closing credit, exactly (held by the database)."
+      properties:
+        asOf:
+          type: string
+          format: date
+        currentPesewas:
+          $ref: "#/components/schemas/Pesewas"
+        days1To30Pesewas:
+          $ref: "#/components/schemas/Pesewas"
+        days31To60Pesewas:
+          $ref: "#/components/schemas/Pesewas"
+        days61To90Pesewas:
+          $ref: "#/components/schemas/Pesewas"
+        daysOver90Pesewas:
+          $ref: "#/components/schemas/Pesewas"
+        totalPesewas:
+          $ref: "#/components/schemas/Pesewas"
+        notAgedPesewas:
+          $ref: "#/components/schemas/Pesewas"
+        notAgedCreditPesewas:
+          $ref: "#/components/schemas/Pesewas"
+      required:
+        - asOf
+        - currentPesewas
+        - days1To30Pesewas
+        - days31To60Pesewas
+        - days61To90Pesewas
+        - daysOver90Pesewas
+        - totalPesewas
+        - notAgedPesewas
+        - notAgedCreditPesewas
     StatementCreate:
       type: object
       properties:
@@ -100243,6 +100394,22 @@ components:
           $ref: "#/components/schemas/Pesewas"
         totalPesewas:
           $ref: "#/components/schemas/Pesewas"
+        ledgerPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "The customer's trade receivables (1200) as at `asOf` at the branches read, when it owes; zero when the balance is in its favour."
+        ledgerCreditPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "The 1200 balance in the customer's favour as at `asOf`; zero when it owes."
+        notAgedPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "What 1200 holds owed beyond the open items in the buckets (an opening balance journal, a refund, an allocation at another branch): `totalPesewas` plus this less `notAgedCreditPesewas` is the 1200 balance exactly (ADR-0089). Never put into a bucket."
+        notAgedCreditPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "What 1200 holds in the customer's favour beyond the open items (a credit note beyond its invoice, an opening credit)."
         creditLimitPesewas:
           anyOf:
             - $ref: "#/components/schemas/Pesewas"
@@ -100257,6 +100424,10 @@ components:
         - days61To90Pesewas
         - daysOver90Pesewas
         - totalPesewas
+        - ledgerPesewas
+        - ledgerCreditPesewas
+        - notAgedPesewas
+        - notAgedCreditPesewas
         - creditLimitPesewas
         - onHold
     AgeingReport:
@@ -100274,6 +100445,14 @@ components:
           format: date
         totals:
           $ref: "#/components/schemas/AgeingTotals"
+        otherPartiesPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "Trade receivables (1200) as at `asOf` held against a party that is no customer (the till's walk-in customer), owed: in `totals` (as ledger and not aged), on no row (ADR-0089)."
+        otherPartiesCreditPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "The same, in that party's favour."
         currency:
           $ref: "#/components/schemas/Currency"
       required:
@@ -100281,6 +100460,8 @@ components:
         - page
         - asOf
         - totals
+        - otherPartiesPesewas
+        - otherPartiesCreditPesewas
         - currency
     AgeingTotals:
       type: object
@@ -100297,6 +100478,22 @@ components:
           $ref: "#/components/schemas/Pesewas"
         totalPesewas:
           $ref: "#/components/schemas/Pesewas"
+        ledgerPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "The customer's trade receivables (1200) as at `asOf` at the branches read, when it owes; zero when the balance is in its favour."
+        ledgerCreditPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "The 1200 balance in the customer's favour as at `asOf`; zero when it owes."
+        notAgedPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "What 1200 holds owed beyond the open items in the buckets (an opening balance journal, a refund, an allocation at another branch): `totalPesewas` plus this less `notAgedCreditPesewas` is the 1200 balance exactly (ADR-0089). Never put into a bucket."
+        notAgedCreditPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "What 1200 holds in the customer's favour beyond the open items (a credit note beyond its invoice, an opening credit)."
       required:
         - currentPesewas
         - days1To30Pesewas
@@ -100304,6 +100501,10 @@ components:
         - days61To90Pesewas
         - daysOver90Pesewas
         - totalPesewas
+        - ledgerPesewas
+        - ledgerCreditPesewas
+        - notAgedPesewas
+        - notAgedCreditPesewas
     DunningLevel:
       type: object
       properties:
@@ -100384,6 +100585,12 @@ components:
           $ref: "#/components/schemas/DocumentRef"
         level:
           type: integer
+        daysPastDue:
+          type: integer
+          description: "Days past its due date (its issue date when it has none) on the day the level reached it."
+        templateCode:
+          type: string
+          description: "The NTF template the level sends."
         outstandingPesewas:
           $ref: "#/components/schemas/Pesewas"
         channels:
@@ -100393,6 +100600,7 @@ components:
         sentAt:
           type: string
           format: date-time
+          description: "When the reminder was queued to NTF through the outbox (B10 continued 2); NTF sends it by the first channel the customer has not opted out of (B11)."
         currency:
           $ref: "#/components/schemas/Currency"
       required:
@@ -100400,6 +100608,8 @@ components:
         - customer
         - billingDocument
         - level
+        - daysPastDue
+        - templateCode
         - outstandingPesewas
         - channels
         - sentAt
@@ -105032,7 +105242,10 @@ components:
         - whl.account.manage
         - whl.account.read
         - whl.account.release
+        - whl.ageing.read
         - whl.credit.override
+        - whl.dunning.manage
+        - whl.dunning.read
         - whl.statement.create
         - whl.statement.read
       limits: []
@@ -105255,7 +105468,10 @@ components:
         - whl.account.manage
         - whl.account.read
         - whl.account.release
+        - whl.ageing.read
         - whl.credit.override
+        - whl.dunning.manage
+        - whl.dunning.read
         - whl.statement.create
         - whl.statement.read
       limits: []
@@ -105372,6 +105588,8 @@ components:
         - rpt.tile.read
         - whl.account.hold
         - whl.account.read
+        - whl.ageing.read
+        - whl.dunning.read
         - whl.statement.create
         - whl.statement.read
       limits: []
@@ -105534,6 +105752,8 @@ components:
         - quo.rfq.read
         - quo.rfq.update
         - whl.account.read
+        - whl.ageing.read
+        - whl.dunning.read
         - whl.statement.create
         - whl.statement.read
       limits: []

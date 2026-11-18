@@ -1,4 +1,5 @@
 import { formatCedis } from '@hakorem/kernel';
+import type { AgeingFigures } from './ageing';
 
 /**
  * A customer statement (FR-WHL-009, ADR-0085): the customer's trade receivables for a period, read from the ledger's
@@ -160,12 +161,28 @@ export interface PrintableStatement {
   readonly periodStart: string;
   readonly periodEnd: string;
   readonly figures: StatementFigures;
+  /** The ageing summary as at the period end (FR-WHL-009, B10 continued 2). */
+  readonly ageing?: (AgeingFigures & { readonly asOf: string }) | null;
 }
 
 const balanceText = (pesewas: bigint, side: Side): string => (side === 'C' && pesewas > 0n ? `${formatCedis(pesewas)} CR` : formatCedis(pesewas));
 const amountText = (pesewas: bigint): string => (pesewas === 0n ? '' : formatCedis(pesewas));
 
 /** The statement's render data (ADR-0061, ADR-0062): every amount formatted from its integer pesewas; the template never computes. */
+function ageingText(a: AgeingFigures & { readonly asOf: string }): Record<string, unknown> {
+  return {
+    asOf: a.asOf,
+    current: formatCedis(a.currentPesewas),
+    days1To30: formatCedis(a.days1To30Pesewas),
+    days31To60: formatCedis(a.days31To60Pesewas),
+    days61To90: formatCedis(a.days61To90Pesewas),
+    daysOver90: formatCedis(a.daysOver90Pesewas),
+    total: formatCedis(a.totalPesewas),
+    hasNotAged: a.notAgedPesewas > 0n || a.notAgedCreditPesewas > 0n,
+    notAged: a.notAgedCreditPesewas > 0n ? balanceText(a.notAgedCreditPesewas, 'C') : formatCedis(a.notAgedPesewas),
+  };
+}
+
 export function statementRenderData(s: PrintableStatement): Record<string, unknown> {
   const f = s.figures;
   const inCredit = f.closingCreditPesewas > 0n;
@@ -185,6 +202,7 @@ export function statementRenderData(s: PrintableStatement): Record<string, unkno
     otherCredits: formatCedis(f.otherCreditsPesewas),
     closing: inCredit ? balanceText(f.closingCreditPesewas, 'C') : formatCedis(f.closingPesewas),
     inCredit,
+    ...(s.ageing === undefined || s.ageing === null ? {} : { ageing: ageingText(s.ageing) }),
     lines: f.lines.map((l) => ({
       date: l.date,
       kind: KIND_LABEL[l.kind],
