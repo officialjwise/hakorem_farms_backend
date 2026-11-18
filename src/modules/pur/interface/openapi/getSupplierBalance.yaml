@@ -1,0 +1,57 @@
+operationId: getSupplierBalance
+tags:
+  - pur
+summary: "Get a supplier's balance"
+description: "What the farm owes the supplier, what is entered and waiting for approval, what is claimed back, what is in payment and what is paid (CR-042, 2.8.0), each summed by the server in integer pesewas, never negative, within the branches the caller holds `pur.supplier_invoice.read` at as a whole (as `listSupplierInvoices` is scoped): a caller sees nothing of another branch's invoices, claims or payments. A supplier with nothing on its account answers zero in every figure; an unknown supplier is 404.\n\nPermission: `pur.supplier_invoice.read`."
+x-permission: pur.supplier_invoice.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: "OK"
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/SupplierBalance"
+        example:
+          supplier:
+            id: "01900000-0000-7000-8300-000000000101"
+            publicId: "sup_7KQ2M9XW4HD3RTNB"
+            name: "Awutu Poultry Farm"
+          asOf: "2026-11-18T09:12:00Z"
+          owedPesewas: 103642
+          awaitingApprovalPesewas: 37345
+          claimedPesewas: 1109
+          inPaymentPesewas: 15000
+          paidPesewas: 30000
+          currency: "GHS"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

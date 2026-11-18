@@ -33469,6 +33469,42 @@ components:
           description: "The approved invoice of the claim's order that left the rejected goods out."
       required:
         - supplierInvoiceId
+    SupplierBalance:
+      type: object
+      description: "A supplier's account (CR-042, 2.8.0): what the farm owes, what is entered and waiting, what is claimed back, what is in payment and what is paid, within the branches the caller reads supplier invoices at as a whole, as `listSupplierInvoices` is scoped. Every figure is integer pesewas summed on the server from PUR's own records, never negative; its direction is in its name. `owedPesewas` and `inPaymentPesewas` overlap: an invoice is still owed until its payment is paid."
+      properties:
+        supplier:
+          $ref: "#/components/schemas/SupplierRef"
+        asOf:
+          type: string
+          format: date-time
+          description: "When the server worked the figures out."
+        owedPesewas:
+          description: "What approved invoices (status `APPROVED`, never cancelled) still owe: their gross less credit notes approved against them and payments paid."
+          $ref: "#/components/schemas/Pesewas"
+        awaitingApprovalPesewas:
+          description: "The gross of invoices entered and not yet approved for payment (`DRAFT`, `MATCHED`, `MISMATCH`). A credit note is never counted here."
+          $ref: "#/components/schemas/Pesewas"
+        claimedPesewas:
+          description: "The claimed value of the supplier's `OPEN` claims (`SupplierClaim.claimedPesewas`), not yet settled by an invoice or a credit note."
+          $ref: "#/components/schemas/Pesewas"
+        inPaymentPesewas:
+          description: "The amount of payments waiting for approval or approved (`PENDING_APPROVAL`, `APPROVED`) and not yet paid."
+          $ref: "#/components/schemas/Pesewas"
+        paidPesewas:
+          description: "The amount of the supplier's `PAID` payments."
+          $ref: "#/components/schemas/Pesewas"
+        currency:
+          $ref: "#/components/schemas/Currency"
+      required:
+        - supplier
+        - asOf
+        - owedPesewas
+        - awaitingApprovalPesewas
+        - claimedPesewas
+        - inPaymentPesewas
+        - paidPesewas
+        - currency
     SupplierInvoiceLine:
       type: object
       properties:
@@ -33511,14 +33547,22 @@ components:
           items:
             $ref: "#/components/schemas/PurchaseLevyAmount"
         qtyVariance:
+          description: "In the product's base unit (`baseUom` of the product, not the line's `uom`): the invoiced quantity converted to the base unit, less what is left to invoice of what was received (received less what other live invoices hold). Positive when the invoice charges more than is left to invoice, negative when less, `0.000` when exactly that; null on a line with no order line or another product (CR-044, 2.8.0)."
           anyOf:
             - $ref: "#/components/schemas/SignedQuantity"
             - type: "null"
         priceVariancePesewas:
+          description: "The absolute difference **per unit** of the line's `uom` (the order line's unit) between the invoiced and the order unit price, which the 1 percent tolerance is judged on; its direction is `priceVarianceDirection`. Not the line's whole difference: that is `priceVarianceLinePesewas`. Null without an order line (CR-044, 2.8.0)."
+          anyOf:
+            - $ref: "#/components/schemas/Pesewas"
+            - type: "null"
+        priceVarianceLinePesewas:
+          description: "The line's whole difference from the order price: `priceVariancePesewas` times the line's `qty`, rounded half-up once (ADR-0001). 500 head at 1,290 against an order at 1,250 is 40 a head and 20,000 for the line. Null exactly when `priceVariancePesewas` is (CR-044, 2.8.0)."
           anyOf:
             - $ref: "#/components/schemas/Pesewas"
             - type: "null"
         priceVarianceDirection:
+          description: "`OVER` when the invoiced unit price is above the order's, `UNDER` when below, null when equal or without an order line (CR-044)."
           type:
             - string
             - "null"
@@ -33571,6 +33615,7 @@ components:
         - levies
         - qtyVariance
         - priceVariancePesewas
+        - priceVarianceLinePesewas
         - priceVarianceDirection
         - matchStatus
         - matchReasons

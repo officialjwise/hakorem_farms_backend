@@ -87,7 +87,7 @@ async function invoiced(order: { order: string; line: string }, crates: string, 
   expect(invoice.status, JSON.stringify(invoice.body)).toBe(201);
   const matched = await post(accountant, `/supplier-invoices/${invoice.body.id}/match`);
   expect(matched.status, JSON.stringify(matched.body)).toBe(200);
-  if (approved && matched.body.matchStatus === 'MATCHED') expect((await post(accountant, `/supplier-invoices/${invoice.body.id}/approve`)).status).toBe(200);
+  if (approved && matched.body.matchStatus === 'MATCHED') expect((await post(secondAccountant, `/supplier-invoices/${invoice.body.id}/approve`)).status).toBe(200);
   return matched.body as { id: string; matchStatus: string; lines: { matchReasons: string[] }[] };
 }
 

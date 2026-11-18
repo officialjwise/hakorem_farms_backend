@@ -257,6 +257,15 @@ export interface ScoreFacts {
 export const PURCHASING_STORE = Symbol('PURCHASING_STORE');
 
 /** PUR's own tables (migration 0094), always in the caller's transaction. */
+/** A supplier's account at a set of branches (CR-042), each figure a sum over PUR's own rows. */
+export interface SupplierBalanceFigures {
+  readonly owed: bigint;
+  readonly awaitingApproval: bigint;
+  readonly claimed: bigint;
+  readonly inPayment: bigint;
+  readonly paid: bigint;
+}
+
 export interface PurchasingStore {
   // Purchase orders.
   insertOrder(tx: Transaction, id: string, header: OrderHeader, lines: readonly OrderLineRecord[], actorId: string): Promise<void>;
@@ -318,6 +327,8 @@ export interface PurchasingStore {
   lastPricesPaid(tx: Transaction, supplierId: string, productIds: readonly string[]): Promise<ReadonlyMap<string, bigint>>;
   /** Per invoice, what live payments (not REJECTED or CANCELLED) allocate to it. */
   promised(tx: Transaction, invoiceIds: readonly string[]): Promise<ReadonlyMap<string, bigint>>;
+  /** The supplier's account at the branches given (CR-042): what each figure of `SupplierBalance` sums. */
+  supplierBalance(tx: Transaction, supplierId: string, branches: readonly string[]): Promise<SupplierBalanceFigures>;
   /** Per invoice, the gross of the credit notes against it that are not CANCELLED (FR-PUR-011). */
   liveCredits(tx: Transaction, invoiceIds: readonly string[]): Promise<ReadonlyMap<string, bigint>>;
   /** A credit note's approval or an invoice's variance asked for: it waits, frozen (A-172). */

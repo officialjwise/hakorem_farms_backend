@@ -120,7 +120,7 @@ async function invoiceFor(maker: TestSession, supplierName: string, order: SentO
   const created = await post(maker, '/supplier-invoices', invoiceBody(supplierName, order, qty, unitPricePesewas));
   expect(created.status).toBe(201);
   await post(maker, `/supplier-invoices/${created.body.id}/match`);
-  if (approveIt) expect((await post(maker, `/supplier-invoices/${created.body.id}/approve`)).status).toBe(200);
+  if (approveIt) expect((await post(maker === owner ? accountant : owner, `/supplier-invoices/${created.body.id}/approve`)).status).toBe(200);
   return created.body.id as string;
 }
 
@@ -194,15 +194,18 @@ afterAll(async () => {
 });
 
 describe('wrong roles are refused on every write and read this phase adds (ADR-0035)', () => {
-  it('refuses credit notes, their submission and variances to the Storekeeper, Manager, Cashier, Sales, Driver, Farm hand and Investor', async () => {
+  it('refuses credit notes and their submission to the Storekeeper, Manager, Cashier, and variances to all but the Manager, Sales, Driver, Farm hand and Investor', async () => {
     const order = await sentOrder('Awutu Poultry Farm', '20.000', 5_500);
     const lot = await receive('Awutu Poultry Farm', order, '20.000');
     const invoice = await invoiceFor(accountant, 'Awutu Poultry Farm', order, '20.000', 5_500);
     for (const session of [pensStorekeeper, manager, cashier, sales, driver, farmHand, investor]) {
       expect((await post(session, '/supplier-invoices', creditBody('Awutu Poultry Farm', invoice, twoBack(order, lot), { returnReasonCode: 'RETURN_QUALITY' }))).status).toBe(403);
       expect((await post(session, `/supplier-invoices/${invoice}/submit`)).status).toBe(403);
-      expect((await post(session, `/supplier-invoices/${invoice}/variance`, { reason: 'Agreed by phone' })).status).toBe(403);
+      if (session !== manager) expect((await post(session, `/supplier-invoices/${invoice}/variance`, { reason: 'Agreed by phone' })).status).toBe(403);
     }
+    // The Manager holds pur.supplier_invoice.approve since B09u (0246, A-301), which asking for a variance takes: an
+    // approved invoice has no mismatch to cover, so the request is refused on its state, never accepted.
+    expect((await post(manager, `/supplier-invoices/${invoice}/variance`, { reason: 'Agreed by phone' })).status).toBe(422);
     expect(await count('SELECT count(*)::int AS n FROM pur.supplier_invoice WHERE original_invoice_id = $1', [invoice])).toBe(0);
   });
 
@@ -358,7 +361,7 @@ describe('a supplier credit note cannot exceed its invoice (FR-PUR-011: the gate
     const draftInvoice = await invoiceFor(accountant, 'Awutu Poultry Farm', order3, '10.000', 5_500, false);
     const notApproved = await post(accountant, '/supplier-invoices', creditBody('Awutu Poultry Farm', draftInvoice, { description: 'Allowance', qty: '1.000', unitPricePesewas: 100 }));
     expect(notApproved.body.error.details).toEqual([expect.objectContaining({ field: '/originalInvoiceId', code: 'ORIGINAL_NOT_APPROVED' })]);
-    expect((await post(accountant, `/supplier-invoices/${draftInvoice}/approve`)).status).toBe(200);
+    expect((await post(owner, `/supplier-invoices/${draftInvoice}/approve`)).status).toBe(200);
     const otherSupplier = await post(accountant, '/supplier-invoices', creditBody('Kpone Livestock Traders', draftInvoice, { description: 'Allowance', qty: '1.000', unitPricePesewas: 100 }));
     expect(otherSupplier.body.error.details).toEqual([expect.objectContaining({ code: 'ORIGINAL_OF_ANOTHER_SUPPLIER' })]);
     const noReason = await post(accountant, '/supplier-invoices', creditBody('Awutu Poultry Farm', draftInvoice, twoBack(order3, lot3)));

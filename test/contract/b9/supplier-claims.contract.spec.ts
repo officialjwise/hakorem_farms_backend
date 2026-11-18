@@ -96,7 +96,7 @@ describe('the claim operations answer in the contract shapes', () => {
       lines: [{ description: 'Big eggs, crate of 30', purchaseOrderLineId: line, qty: '1.000', unitPricePesewas: 4_751, taxCategoryId: id('tax:EGG-0003') }],
     });
     expect((await post(accountant, `/supplier-invoices/${invoice.body.id}/match`)).status).toBe(200);
-    expect((await post(accountant, `/supplier-invoices/${invoice.body.id}/approve`)).status).toBe(200);
+    expect((await post(owner, `/supplier-invoices/${invoice.body.id}/approve`)).status).toBe(200);
     const refused = await post(accountant, `/supplier-claims/${raised.body.id}/settle`, { supplierInvoiceId: invoice.body.id });
     expect(refused.status).toBe(422);
     expectShape('Error', refused.body);

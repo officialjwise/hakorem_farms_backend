@@ -25,6 +25,7 @@ import type {
   PaymentRecord,
   PaymentStatus,
   PurchasingStore,
+  SupplierBalanceFigures,
   ReadScope,
 } from '../application/purchasing-store';
 
@@ -580,6 +581,24 @@ export class PgPurchasingStore implements PurchasingStore {
       [supplierId, [...new Set(productIds)]],
     );
     return new Map(rows.map((r) => [`${r.product_id}/${r.uom}`, BigInt(r.price)] as const));
+  }
+
+  async supplierBalance(tx: Transaction, supplierId: string, branches: readonly string[]): Promise<SupplierBalanceFigures> {
+    const { rows } = await tx.query<{ owed: string; awaiting: string; claimed: string; in_payment: string; paid: string }>(
+      `SELECT (SELECT coalesce(sum(gross_pesewas - credited_pesewas - paid_pesewas), 0) FROM pur.supplier_invoice
+                WHERE supplier_id = $1 AND branch_id = ANY($2::uuid[]) AND kind = 'INVOICE' AND status = 'APPROVED')::text AS owed,
+              (SELECT coalesce(sum(gross_pesewas), 0) FROM pur.supplier_invoice
+                WHERE supplier_id = $1 AND branch_id = ANY($2::uuid[]) AND kind = 'INVOICE' AND status IN ('DRAFT', 'MATCHED', 'MISMATCH'))::text AS awaiting,
+              (SELECT coalesce(sum(claimed_pesewas), 0) FROM pur.supplier_claim
+                WHERE supplier_id = $1 AND branch_id = ANY($2::uuid[]) AND status = 'OPEN')::text AS claimed,
+              (SELECT coalesce(sum(amount_pesewas), 0) FROM pur.supplier_payment
+                WHERE supplier_id = $1 AND branch_id = ANY($2::uuid[]) AND status IN ('PENDING_APPROVAL', 'APPROVED'))::text AS in_payment,
+              (SELECT coalesce(sum(amount_pesewas), 0) FROM pur.supplier_payment
+                WHERE supplier_id = $1 AND branch_id = ANY($2::uuid[]) AND status = 'PAID')::text AS paid`,
+      [supplierId, branches],
+    );
+    const r = rows[0]!;
+    return { owed: BigInt(r.owed), awaitingApproval: BigInt(r.awaiting), claimed: BigInt(r.claimed), inPayment: BigInt(r.in_payment), paid: BigInt(r.paid) };
   }
 
   async promised(tx: Transaction, invoiceIds: readonly string[]): Promise<ReadonlyMap<string, bigint>> {

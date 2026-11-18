@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { judgeVarianceApprover, judgeVarianceLines } from './variance';
+import { judgeInvoiceApprover, judgeVarianceApprover, judgeVarianceLines } from './variance';
 
 describe('what an approved variance may cover (FR-PUR-010)', () => {
   it('covers a price outside the 1 percent tolerance and a levy charged differently', () => {
@@ -27,5 +27,12 @@ describe('who may approve a variance (FR-PUR-010, ADR-0017)', () => {
     expect(judgeVarianceApprover({ invoiceMakerId: 'accountant', requesterId: 'accountant', approverId: 'manager' })).toEqual({ ok: true, value: undefined });
     expect(judgeVarianceApprover({ invoiceMakerId: 'accountant', requesterId: 'owner', approverId: 'accountant' })).toEqual({ ok: false, error: 'INVOICE_MAKER_CANNOT_APPROVE' });
     expect(judgeVarianceApprover({ invoiceMakerId: 'owner', requesterId: 'accountant', approverId: 'accountant' })).toEqual({ ok: false, error: 'MAKER_CANNOT_CHECK' });
+  });
+});
+
+describe('who may approve an invoice for payment (CR-043)', () => {
+  it('is anyone but the person who entered it', () => {
+    expect(judgeInvoiceApprover({ invoiceMakerId: 'accountant', approverId: 'owner' })).toEqual({ ok: true, value: undefined });
+    expect(judgeInvoiceApprover({ invoiceMakerId: 'accountant', approverId: 'accountant' })).toEqual({ ok: false, error: 'INVOICE_MAKER_CANNOT_APPROVE' });
   });
 });

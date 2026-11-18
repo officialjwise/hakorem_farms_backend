@@ -110,7 +110,7 @@ async function approvedInvoice(supplierId: string, order: { id: string; lineId: 
   });
   expect(created.status).toBe(201);
   expect((await post('accountant', `/supplier-invoices/${created.body.id}/match`)).body.matchStatus).toBe('MATCHED');
-  expect((await post('accountant', `/supplier-invoices/${created.body.id}/approve`)).status).toBe(200);
+  expect((await post('owner', `/supplier-invoices/${created.body.id}/approve`)).status).toBe(200);
   return created.body.id as string;
 }
 

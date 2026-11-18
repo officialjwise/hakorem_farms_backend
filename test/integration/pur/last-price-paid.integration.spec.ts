@@ -67,7 +67,7 @@ async function bought(supplier: string, pricePesewas: number, approve = true): P
   });
   expect(invoice.status, JSON.stringify(invoice.body)).toBe(201);
   expect((await post(accountant, `/supplier-invoices/${invoice.body.id}/match`)).status).toBe(200);
-  if (approve) expect((await post(accountant, `/supplier-invoices/${invoice.body.id}/approve`)).status).toBe(200);
+  if (approve) expect((await post(manager, `/supplier-invoices/${invoice.body.id}/approve`)).status).toBe(200);
   clock.advanceBy(60_000);
   return invoice.body.id as string;
 }
