@@ -83,7 +83,7 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B09b continued 1b | `B09b2b-pos-force-close-held.md` | `b09b2b-pos-force-close-held` | B4 to B12 | Split (A-275): a force close by a manager who is not the cashier, posting nothing until a third person counts the drawer, mutation-checked; ADR-0077's force-closed column proved with the real operation; the audit anchor at each sign-off |
 | B09b continued 1c | `B09b2c-pos-held-provider-tender.md` | `b09b2c-pos-held-provider-tender` | B4 to B12 | Held sales re-priced on recall with exact pesewas, recalled once, lapsing at close; a mobile money or card tender at the counter only as a payment the provider cleared, never allocated twice nor another customer's or another shift's |
 | B09b continued 2 | `B09b3-pos-offline-sync.md` | `b09b3-pos-offline-sync` | B4 to B12 | 500 queued offline transactions sync exactly once; ADR-0027's five conflict tests; a crate and a single egg sold at the till at their own prices (CR-038) |
-| B09b continued 3 | `B09b4-pos-till-pin.md` | `b09b4-pos-till-pin` | B4 to B12 | The till PIN's verifier, attempt limit and supervisor sign-out as the owner set them (CR-032) |
+| B09b continued 3 | `B09b4-pos-till-pin.md` | `b09b4-pos-till-pin` | B4 to B12 | The till PIN's verifier, attempt limit and supervisor sign-out as the owner set them (CR-032); a drop witnessed only by a supervisor's PIN, with a read of who is signed in at the branch (owner, 2026-11-18) |
 | B09b continued 4 | `B09b5-pos-receipts.md` | `b09b5-pos-receipts` | B4 to B12 | The receipt link by its token alone (CR-033 points 1 and 2); the business buyer's TIN on the VAT invoice; an invoice paid at the till inside the shift |
 | B09c | `B09c-card-payment.md` | `b09c-card-payment` | B4 to B12 | Card payment online through the provider port with every payment edge case, no card details on our servers, and the card cases run against the real sandbox |
 | B08 continued 2d | `B08c2d-customer-statements.md` | `b08c2d-customer-statements` | B4 to B12 | A customer statement for a period ties to the customer's documents and the ledger's 1200 for that customer and period, opening plus movements equal to closing to the pesewa, and is rendered after commit and archived once; every statement write refuses the wrong role |
@@ -2514,8 +2514,10 @@ at its own price, a crate or a single egg. `OfflineProduct.sellingUnits`: one en
 (on the counter sale B09b continued built and on the offline sale): absent means `saleUom`; convert to the base unit for
 stock through `MasterDataRefs.toBaseIn`, and re-price by that unit's entry at sync. A unit the product is not sold by is
 `VALIDATION_FAILED` on `/lines/{i}/uom`. A return refunds in the unit sold (say so in `createReturn`'s description).
-Test-first with exact pesewas, at a crate and a single egg of the seeded eggs, online and offline. Unit names and CR-040
-are B09c's.
+Test-first with exact pesewas, at a crate and a single egg of the seeded eggs as they now stand, online and offline.
+Unit names and CR-040 are already built: lane B's B09u gave every unit a singular and a plural name, counted the seeded
+eggs in the egg unit `EGG` (A-303) with the crate of 30 converting to it, and built CR-040 (ADR-0026 Amendments,
+2026-11-17), so a crate and a single egg are tested against those seeded units and their own price list entries.
 The clock tolerance (owner, 2026-11-17, A-273 (g)): 300 seconds. A synced sale whose till time is outside it is recorded
 and flagged (the sale and the exception report's source show it), never refused. Test it at 301 seconds either way.
 Stop at the gate and write docs/sessions/B09b3-pos-offline-sync.md.
@@ -2523,7 +2525,7 @@ Stop at the gate and write docs/sessions/B09b3-pos-offline-sync.md.
 
 ## B09b continued 3 — The till PIN
 
-Branch `b09b4-pos-till-pin`. Report `docs/sessions/B09b4-pos-till-pin.md`. Gate: the till PIN's verifier, attempt limit and supervisor sign-out as the owner set them (CR-032), each test-first.
+Branch `b09b4-pos-till-pin`. Report `docs/sessions/B09b4-pos-till-pin.md`. Gate: the till PIN's verifier, attempt limit and supervisor sign-out as the owner set them (CR-032), and a cash drop witnessed only by a supervisor's PIN on the till with a read of the supervisors signed in at the branch (owner, 2026-11-18), each test-first.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9b row).
@@ -2548,6 +2550,17 @@ locked); signing out a locked cashier requires a supervisor's PIN, is audited, a
 source (B12). The PIN never authenticates to the server and is never the only control (CR-032 point 5). An approval made
 offline records which PIN approved it (CR-032 point 4) and is verified at sync. Load hakorem-security-review and write
 its finding into the pull request body.
+The drop witness (owner, 2026-11-18, from the frontend's till shift session; placed here, ADR-0026 Amendments), each
+test-first:
+1. A drop's witness is a supervisor who confirms by entering their PIN on the till, checked with the same rules as the
+   till PIN (PBKDF2-SHA256 with at least 600,000 iterations and a 16-byte salt, five tries). Record the witness as
+   PIN-verified. A named supervisor without a PIN is not a witness.
+2. A read of which supervisors are signed in at the till's branch, so the till can offer them as witnesses. The server
+   already accepts an unwitnessed drop when none is signed in (contract 2.6.0, A-273 (d)); keep that, and make the
+   drop's witness rule use the same "signed in at the branch" source the new read answers from.
+3. The frontend raised this as CR-045 on its main, which clashes with the quote line's unit (lane B's CR-045, B10). The
+   frontend is renumbering its till request: read both from the frontend's main once that lands, identify each request
+   by its content, and name it by the number it carries there.
 Stop at the gate and write docs/sessions/B09b4-pos-till-pin.md.
 ```
 
