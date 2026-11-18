@@ -1,4 +1,4 @@
--- 0247_pos_held_sale
+-- 0250_pos_held_sale
 -- B09b continued 1c (FR-POS-007, A-276): a sale parked on a till's open shift by its cashier and recalled once, on that
 -- shift, by that cashier; re-priced when it is recalled. It reserves nothing. It lapses when its shift closes (the
 -- cashier's declaration or a force close) or twelve hours after it was held, whichever is first.

@@ -1,4 +1,4 @@
--- 0248_pay_payment_order_link
+-- 0251_pay_payment_order_link
 -- B09b continued 1c (FR-POS-006, ADR-0079, A-276): a mobile money or card payment the provider cleared at a till, for no
 -- order (the cashier charged the customer's phone before the sale was rung up), is taken by one counter sale as its
 -- tender. The cleared payment itself is frozen (trg_payment_guard), so the sale is linked to it by an insert-only row

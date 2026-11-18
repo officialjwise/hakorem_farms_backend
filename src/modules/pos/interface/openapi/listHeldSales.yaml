@@ -2,7 +2,7 @@ operationId: listHeldSales
 tags:
   - pos
 summary: "List held sales on a register"
-description: "The sales still held on the till's open shift, newest first (FR-POS-007, 2.9.0): never one recalled, lapsed with its shift or past `expiresAt`. Each carries `heldTotalPesewas`; `pricing` is null here (recall one to see it re-priced). Read at the till's branch and location.\n\nPermission: `pos.sale.create`."
+description: "The sales still held on the till's open shift, newest first (FR-POS-007, 2.10.0): never one recalled, lapsed with its shift or past `expiresAt`. Each carries `heldTotalPesewas`; `pricing` is null here (recall one to see it re-priced). Read at the till's branch and location.\n\nPermission: `pos.sale.create`."
 x-permission: pos.sale.create
 parameters:
   - name: id

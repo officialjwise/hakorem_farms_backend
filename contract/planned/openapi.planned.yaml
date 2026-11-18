@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.9.0"
+  version: "2.10.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -38506,22 +38506,22 @@ components:
         shiftId:
           type: string
           format: uuid
-          description: "The shift it was held on; it lapses when that shift closes or is force-closed (2.9.0, A-276). Always sent."
+          description: "The shift it was held on; it lapses when that shift closes or is force-closed (2.10.0, A-276). Always sent."
         status:
           type: string
           enum:
             - HELD
             - RECALLED
-          description: "HELD on a hold and in the list; RECALLED in the answer to its recall (2.9.0). Always sent."
+          description: "HELD on a hold and in the list; RECALLED in the answer to its recall (2.10.0). Always sent."
         heldTotalPesewas:
           allOf:
             - $ref: "#/components/schemas/Pesewas"
-          description: "What the lines came to at the prices in force when the sale was held (2.9.0). Always sent."
+          description: "What the lines came to at the prices in force when the sale was held (2.10.0). Always sent."
         pricing:
           anyOf:
             - $ref: "#/components/schemas/HeldSalePricing"
             - type: "null"
-          description: "The lines priced by the engine at this moment: the prices then in the answer to `holdSale`, the prices now in the answer to `recallHeldSale` (re-priced on recall, FR-POS-007); null in `listHeldSales` (2.9.0). Always sent."
+          description: "The lines priced by the engine at this moment: the prices then in the answer to `holdSale`, the prices now in the answer to `recallHeldSale` (re-priced on recall, FR-POS-007); null in `listHeldSales` (2.10.0). Always sent."
         currency:
           $ref: "#/components/schemas/Currency"
       required:
@@ -38534,7 +38534,7 @@ components:
         - expiresAt
     HeldSalePricing:
       type: object
-      description: "A held sale's lines as the pricing engine prices them for channel POS at `pricedAt`, each extended and rounded half-up once (2.9.0, FR-POS-007). The counter sale re-resolves every price again when it completes."
+      description: "A held sale's lines as the pricing engine prices them for channel POS at `pricedAt`, each extended and rounded half-up once (2.10.0, FR-POS-007). The counter sale re-resolves every price again when it completes."
       properties:
         pricedAt:
           type: string
