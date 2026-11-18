@@ -108,8 +108,8 @@ describe('the contract is generated from code (FR-API-002, ADR-0030, ADR-0031)',
     expect(() => buildContract(readYaml(PLANNED_PATH), duplicate)).toThrow(ContractMergeError);
   });
 
-  it('keeps all 644 operations in the published contract (the three held sale operations moved into code in 2.10.0), 453 of them now implemented in code', async () => {
+  it('keeps all 644 operations in the published contract (getOfflinePack moved into code in 2.11.0), 454 of them now implemented in code', async () => {
     expect(operationsOf(readYaml(PUBLISHED_PATH))).toHaveLength(644);
-    expect(operationsOf(readYaml(PLANNED_PATH))).toHaveLength(191);
+    expect(operationsOf(readYaml(PLANNED_PATH))).toHaveLength(190);
   });
 });
