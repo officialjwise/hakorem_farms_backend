@@ -74,7 +74,10 @@ export interface StandingOrderStore {
   change(tx: Transaction, id: string, version: number, change: StandingOrderChange, actorId: string, at: Date): Promise<boolean>;
   /** Active orders due on or before a date, by id. */
   due(tx: Transaction, onOrBefore: string, afterId: string | null, limit: number): Promise<string[]>;
-  /** Writes a run once; false when that date has already run. */
+  /**
+   * Writes a run, in the transaction of the order it made: a date that has already run is refused by the key
+   * (`pk_standing_order_run`, 23505) and rolls that order back with it, whatever the caller checked.
+   */
   insertRun(tx: Transaction, run: StandingOrderRunRecord, actorId: string): Promise<boolean>;
   /** Whether a date has run. */
   hasRun(tx: Transaction, standingOrderId: string, runDate: string): Promise<boolean>;

@@ -93,8 +93,7 @@ export class PgStandingOrderStore implements StandingOrderStore {
 
   async insertRun(tx: Transaction, run: StandingOrderRunRecord, actorId: string): Promise<boolean> {
     const { rowCount } = await tx.query(
-      `INSERT INTO whl.standing_order_run (standing_order_id, run_date, outcome, order_id, reason, recorded_at, actor_id) VALUES ($1, $2::date, $3, $4, $5, $6, $7)
-       ON CONFLICT (standing_order_id, run_date) DO NOTHING`,
+      'INSERT INTO whl.standing_order_run (standing_order_id, run_date, outcome, order_id, reason, recorded_at, actor_id) VALUES ($1, $2::date, $3, $4, $5, $6, $7)',
       [run.standingOrderId, run.runDate, run.outcome, run.orderId, run.reason, run.recordedAt, actorId],
     );
     return rowCount === 1;
