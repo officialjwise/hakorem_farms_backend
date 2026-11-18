@@ -1,0 +1,183 @@
+operationId: listStatements
+tags:
+  - whl
+summary: "List customer statements"
+description: "The customer statements of the branches the caller reads them at, newest first, filtered by customer and by the period's last day. Each row carries the statement's figures with `lines` empty: read a statement's lines with `getStatement`, so a page stays light on a slow connection.\n\nPermission: `whl.statement.read`."
+x-permission: whl.statement.read
+parameters:
+  - name: customerId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: periodEnd
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/CustomerStatementPage"
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7b05-ca26-7b67-a09f-bf4984173827"
+                  statementNo: STM-2026-DDW-000031
+                  status: ISSUED
+                  customer:
+                    id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+                    publicId: cus_TWMB751S2DFXTAM8
+                    name: "Royal Palm Hotel Ltd"
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  periodStart: "2026-10-01"
+                  periodEnd: "2026-10-31"
+                  issueDate: "2026-11-02"
+                  openingPesewas: 850000
+                  openingCreditPesewas: 0
+                  invoicedPesewas: 1395200
+                  paidPesewas: 1080000
+                  creditedPesewas: 0
+                  otherChargesPesewas: 0
+                  otherCreditsPesewas: 0
+                  closingPesewas: 1165200
+                  closingCreditPesewas: 0
+                  lines: []
+                  documentId: "019a7b05-e915-754a-ba83-5d80fdc8d65e"
+                  currency: GHS
+                - id: "019a7b06-0804-7f2e-8466-fbb877797496"
+                  statementNo: STM-2026-DDW-000030
+                  status: ISSUED
+                  customer:
+                    id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
+                    publicId: cus_TS4VEDD3ZZNAAQGD
+                    name: "Asantewaa Chop Bar"
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  periodStart: "2026-10-01"
+                  periodEnd: "2026-10-31"
+                  issueDate: "2026-11-02"
+                  openingPesewas: 186000
+                  openingCreditPesewas: 0
+                  invoicedPesewas: 211800
+                  paidPesewas: 0
+                  creditedPesewas: 0
+                  otherChargesPesewas: 0
+                  otherCreditsPesewas: 0
+                  closingPesewas: 397800
+                  closingCreditPesewas: 0
+                  lines: []
+                  documentId: "019a7b06-26f3-7911-9e4a-99eff12a12cd"
+                  currency: GHS
+                - id: "019a7b06-45e2-72f5-a82d-38276adbb105"
+                  statementNo: STM-2026-DDW-000029
+                  status: ISSUED
+                  customer:
+                    id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
+                    publicId: cus_3Q4VCE9ZY779GAT6
+                    name: "Osu Fresh Mart"
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  periodStart: "2026-10-01"
+                  periodEnd: "2026-10-31"
+                  issueDate: "2026-11-02"
+                  openingPesewas: 0
+                  openingCreditPesewas: 0
+                  invoicedPesewas: 243700
+                  paidPesewas: 147300
+                  creditedPesewas: 108400
+                  otherChargesPesewas: 0
+                  otherCreditsPesewas: 0
+                  closingPesewas: 0
+                  closingCreditPesewas: 12000
+                  lines: []
+                  documentId: "019a7b06-64d1-7cd8-b211-d65ee48c4f3c"
+                  currency: GHS
+                - id: "019a7b06-83c0-76bc-8bf4-74965e3ded74"
+                  statementNo: STM-2026-DDW-000028
+                  status: ISSUED
+                  customer:
+                    id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+                    publicId: cus_TWMB751S2DFXTAM8
+                    name: "Royal Palm Hotel Ltd"
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  periodStart: "2026-09-01"
+                  periodEnd: "2026-09-30"
+                  issueDate: "2026-10-01"
+                  openingPesewas: 412000
+                  openingCreditPesewas: 0
+                  invoicedPesewas: 1280000
+                  paidPesewas: 842000
+                  creditedPesewas: 0
+                  otherChargesPesewas: 0
+                  otherCreditsPesewas: 0
+                  closingPesewas: 850000
+                  closingCreditPesewas: 0
+                  lines: []
+                  documentId: "019a7b06-a2af-709f-95d8-12cdd7ee8bab"
+                  currency: GHS
+                - id: "019a7b06-c19e-7a83-afbb-b105519f29e3"
+                  statementNo: STM-2026-DDW-000027
+                  status: ISSUED
+                  customer:
+                    id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
+                    publicId: cus_TS4VEDD3ZZNAAQGD
+                    name: "Asantewaa Chop Bar"
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  periodStart: "2026-09-01"
+                  periodEnd: "2026-09-30"
+                  issueDate: "2026-10-01"
+                  openingPesewas: 64000
+                  openingCreditPesewas: 0
+                  invoicedPesewas: 186000
+                  paidPesewas: 64000
+                  creditedPesewas: 0
+                  otherChargesPesewas: 0
+                  otherCreditsPesewas: 0
+                  closingPesewas: 186000
+                  closingCreditPesewas: 0
+                  lines: []
+                  documentId: "019a7b06-e08d-7466-b99e-4f3ccb50c81a"
+                  currency: GHS
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

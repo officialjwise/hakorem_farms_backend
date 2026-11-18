@@ -203,7 +203,7 @@ import { StatementsController } from './interface/statements.controller';
       inject: [LEDGER_STORE, STATEMENT_STORE, UnitOfWork, Authoriser, Cursors, CLOCK],
     },
   ],
-  exports: [Ledger, LedgerPostings, SubledgerSources, LedgerReconciliation, FinancialStatements, Periods, BankAccounts, FixedAssets],
+  exports: [Ledger, LedgerPostings, SubledgerSources, LedgerReconciliation, FinancialStatements, Periods, BankAccounts, FixedAssets, Journals],
 })
 export class FinModule implements OnModuleInit, OnApplicationBootstrap {
   constructor(

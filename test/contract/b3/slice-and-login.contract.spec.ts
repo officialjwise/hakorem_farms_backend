@@ -144,6 +144,7 @@ import {
   ShiftClose as PosShiftClose,
   ShiftOpen as PosShiftOpen,
 } from '../../../src/modules/pos/interface/schemas';
+import { StatementCreate as WhlStatementCreate } from '../../../src/modules/whl/interface/schemas';
 import { BusinessProfileUpdate as AudBusinessProfileUpdate, SettingUpdate as AudSettingUpdate } from '../../../src/modules/aud/interface/schemas';
 import { SlotGenerate, SlotUpdate } from '../../../src/modules/del/interface/schemas';
 import { CreditNoteCreate, DebitNoteCreate, ReprintRequest } from '../../../src/modules/bil/interface/schemas';
@@ -441,6 +442,7 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     enrolDevice: PosDeviceEnrolmentCreate,
     revokeDevice: PosReasonBody,
     completeCounterSale: PosCounterSale,
+    createStatement: WhlStatementCreate,
     updateSetting: AudSettingUpdate,
     updateBusinessProfile: AudBusinessProfileUpdate,
     generateDeliverySlots: SlotGenerate,

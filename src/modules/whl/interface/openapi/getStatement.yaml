@@ -1,0 +1,97 @@
+operationId: getStatement
+tags:
+  - whl
+summary: "Get a customer statement"
+description: "A statement with every line, the brought-forward line first, as it was produced. `documentId` names its archived rendering once DOC has archived it.\n\nPermission: `whl.statement.read`."
+x-permission: whl.statement.read
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/CustomerStatement"
+        example:
+          id: "019a7b05-ca26-7b67-a09f-bf4984173827"
+          statementNo: STM-2026-DDW-000031
+          status: ISSUED
+          customer:
+            id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+            publicId: cus_TWMB751S2DFXTAM8
+            name: "Royal Palm Hotel Ltd"
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          periodStart: "2026-10-01"
+          periodEnd: "2026-10-31"
+          issueDate: "2026-11-02"
+          openingPesewas: 850000
+          openingCreditPesewas: 0
+          invoicedPesewas: 1395200
+          paidPesewas: 1080000
+          creditedPesewas: 0
+          otherChargesPesewas: 0
+          otherCreditsPesewas: 0
+          closingPesewas: 1165200
+          closingCreditPesewas: 0
+          lines:
+            - date: "2026-10-01"
+              kind: OPENING
+              reference: "Balance brought forward"
+              debitPesewas: 0
+              creditPesewas: 0
+              balancePesewas: 850000
+              balanceSide: D
+            - date: "2026-10-06"
+              kind: INVOICE
+              reference: INV-2026-DDW-001151
+              debitPesewas: 395200
+              creditPesewas: 0
+              balancePesewas: 1245200
+              balanceSide: D
+            - date: "2026-10-14"
+              kind: PAYMENT
+              reference: "Payment JNL-2026-DDW-021240"
+              debitPesewas: 0
+              creditPesewas: 395200
+              balancePesewas: 850000
+              balanceSide: D
+            - date: "2026-10-20"
+              kind: INVOICE
+              reference: INV-2026-DDW-001188
+              debitPesewas: 1000000
+              creditPesewas: 0
+              balancePesewas: 1850000
+              balanceSide: D
+            - date: "2026-10-28"
+              kind: PAYMENT
+              reference: "Payment JNL-2026-DDW-021677"
+              debitPesewas: 0
+              creditPesewas: 684800
+              balancePesewas: 1165200
+              balanceSide: D
+          documentId: "019a7b05-e915-754a-ba83-5d80fdc8d65e"
+          currency: GHS
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

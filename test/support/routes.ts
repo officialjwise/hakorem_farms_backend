@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { toBusinessDate } from '@hakorem/kernel';
 import { RequestMethod, type INestApplication } from '@nestjs/common';
 import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { ModulesContainer } from '@nestjs/core';
@@ -144,6 +145,7 @@ export const VALID_BODY: Readonly<Record<string, object>> = {
   enrolDevice: { deviceLabel: 'Shop till tablet' },
   revokeDevice: { reason: 'Tablet stolen from the stall' },
   completeCounterSale: { id: '019a7aac-216c-721a-8753-2a7ecd11a35c', shiftId: randomUUID(), lines: [{ productId: randomUUID(), quantity: '1.000', agreedUnitPricePesewas: 2_000 }], tenders: [{ paymentMethodId: randomUUID(), amountPesewas: 2_000 }], occurredAt: '2026-11-13T09:11:00Z' },
+  createStatement: { customerId: randomUUID(), periodStart: toBusinessDate(new Date()), periodEnd: toBusinessDate(new Date()), issue: true },
   draftSupplierClaimCreditNote: { originalInvoiceId: randomUUID(), supplierInvoiceNo: 'APF-CN-0701', invoiceDate: '2026-11-17' },
   settleSupplierClaim: { supplierInvoiceId: randomUUID() },
   createSupplierPayment: { supplierId: randomUUID(), method: 'MOBILE_MONEY', allocations: [{ supplierInvoiceId: randomUUID(), amountPesewas: 110000 }] },

@@ -93,6 +93,26 @@ export interface ActivityLine {
   readonly sourceDocumentId: string;
 }
 
+/** A customer's trade receivables line (1200 against the customer's subledger party), oldest first (B08 continued 2d, ADR-0085). */
+export interface ReceivableLineRow {
+  readonly postingDate: string;
+  readonly entryId: string;
+  readonly entryNo: string;
+  readonly lineNo: number;
+  readonly side: Side;
+  readonly amountPesewas: bigint;
+  readonly eventCode: string | null;
+  readonly entryKind: EntryHeader['kind'];
+  readonly sourceDocumentId: string;
+}
+
+export interface ReceivableFilters {
+  readonly customerId: string;
+  readonly branchId: string;
+  readonly from: string;
+  readonly to: string;
+}
+
 export interface ManualJournalRow {
   readonly id: string;
   readonly kind: 'MANUAL' | 'OPENING';
@@ -181,6 +201,10 @@ export interface JournalStore {
   /** Debits less credits from `from` to `to` inclusive, up to and including `upTo` when given. */
   activityTotal(tx: Transaction, filters: ActivityFilters, upTo: ActivityPosition | null): Promise<bigint>;
   activityLines(tx: Transaction, filters: ActivityFilters, after: ActivityPosition | null, limit: number): Promise<ActivityLine[]>;
+  /** Debits less credits of the customer's 1200 lines at the branch before `from`; zero for a customer never posted to. */
+  receivableBefore(tx: Transaction, filters: ReceivableFilters): Promise<bigint>;
+  /** The customer's 1200 lines at the branch from `from` to `to` inclusive, oldest first. */
+  receivableLines(tx: Transaction, filters: ReceivableFilters): Promise<ReceivableLineRow[]>;
   accountFacts(tx: Transaction, ids: readonly string[]): Promise<Map<string, AccountFactsRow>>;
   allAccountFacts(tx: Transaction): Promise<Map<string, AccountFactsRow>>;
   accountByCode(tx: Transaction, code: string): Promise<AccountFactsRow | null>;
