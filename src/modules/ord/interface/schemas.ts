@@ -71,6 +71,8 @@ export const OrderCreateBody = z.strictObject({
 });
 
 /** The contract's `ReasonCodeRequest` (cancelOrder, voidOrder). */
+/** confirmOrder's optional body (CR-046): a written reason asks for a credit override when the order is refused for credit. */
+export const OrderConfirmBody = z.strictObject({ creditOverrideReason: Text(500).optional() }).optional();
 export const ReasonCodeBody = z.strictObject({ reasonCode: ReasonCode, note: Text(500).optional() });
 
 /** The contract's `ReturnCreate` (createReturn): quantities in the sold line's base unit, each above zero. */

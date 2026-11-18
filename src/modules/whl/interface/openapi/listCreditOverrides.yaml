@@ -1,0 +1,199 @@
+operationId: listCreditOverrides
+tags:
+  - whl
+summary: "List approved credit overrides"
+description: "The approved credit overrides at the branches where the caller reads accounts, newest first (FR-WHL-007, abuse case 14): who asked and why, the figures it was asked on, and who approved it. `from` and `to` bound when it was approved.\n\nPermission: `whl.account.read`."
+x-permission: whl.account.read
+parameters:
+  - name: customerId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: from
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date-time
+  - name: to
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date-time
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/CreditOverridePage"
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7b02-4913-7ca2-91db-d300bb0a4bde"
+                  customer:
+                    id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
+                    publicId: cus_GY1HV6CSTTCCM2Y2
+                    name: "Emmanuel Tetteh"
+                  order:
+                    id: "019a7b02-6802-7686-abbe-713834bbea16"
+                    docType: SALES_ORDER
+                    number: SO-2026-DDW-004213
+                  limitPesewas: 900000
+                  exposurePesewas: 1716600
+                  orderPesewas: 120000
+                  overLimitPesewas: 816600
+                  reasons:
+                    - OVER_LIMIT
+                  reason: "Funeral order, paid Friday"
+                  approvalRequestId: "019a7b02-86f1-7069-b5a2-0f6fae6c884d"
+                  requestedBy:
+                    id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                    displayName: "Kojo Antwi"
+                  approvedBy:
+                    id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                    displayName: "Kwabena Owusu"
+                  recordedAt: "2026-11-12T11:00:00Z"
+                  currency: GHS
+                - id: "019a7b02-a5e0-7a4d-8f85-ada7281d2685"
+                  customer:
+                    id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+                    publicId: cus_TWMB751S2DFXTAM8
+                    name: "Royal Palm Hotel Ltd"
+                  order:
+                    id: "019a7b02-c4cf-7430-9969-4bdea1cec4bc"
+                    docType: SALES_ORDER
+                    number: SO-2026-DDW-004202
+                  limitPesewas: 2000000
+                  exposurePesewas: 2140000
+                  orderPesewas: 120000
+                  overLimitPesewas: 140000
+                  reasons:
+                    - OVER_LIMIT
+                  reason: "Funeral order, paid Friday"
+                  approvalRequestId: "019a7b02-e3be-7e14-a34c-ea161b7f62f4"
+                  requestedBy:
+                    id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                    displayName: "Kojo Antwi"
+                  approvedBy:
+                    id: "019a7a86-3046-711a-a652-1a7389f79351"
+                    displayName: "Akua Mensah"
+                  recordedAt: "2026-11-11T11:00:00Z"
+                  currency: GHS
+                - id: "019a7b03-02ad-77f7-bd30-884d9530012b"
+                  customer:
+                    id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
+                    publicId: cus_TS4VEDD3ZZNAAQGD
+                    name: "Asantewaa Chop Bar"
+                  order:
+                    id: "019a7b03-219c-71db-8713-26850ee19f62"
+                    docType: SALES_ORDER
+                    number: SO-2026-DDW-004191
+                  limitPesewas: 600000
+                  exposurePesewas: 640000
+                  orderPesewas: 120000
+                  overLimitPesewas: 40000
+                  reasons:
+                    - OVER_LIMIT
+                  reason: "Funeral order, paid Friday"
+                  approvalRequestId: "019a7b03-408b-7bbe-90f6-c4bc88923d9a"
+                  requestedBy:
+                    id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                    displayName: "Kojo Antwi"
+                  approvedBy:
+                    id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                    displayName: "Kwabena Owusu"
+                  recordedAt: "2026-11-10T11:00:00Z"
+                  currency: GHS
+                - id: "019a7b03-5f7a-75a2-aada-62f40243dbd1"
+                  customer:
+                    id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
+                    publicId: cus_3Q4VCE9ZY779GAT6
+                    name: "Osu Fresh Mart"
+                  order:
+                    id: "019a7b03-7e69-7f85-b4bd-012b7bf47a09"
+                    docType: SALES_ORDER
+                    number: SO-2026-DDW-004180
+                  limitPesewas: 800000
+                  exposurePesewas: 912000
+                  orderPesewas: 120000
+                  overLimitPesewas: 112000
+                  reasons:
+                    - OVER_LIMIT
+                  reason: "Funeral order, paid Friday"
+                  approvalRequestId: "019a7b03-9d58-7969-8ea1-9f62f5a51840"
+                  requestedBy:
+                    id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                    displayName: "Kojo Antwi"
+                  approvedBy:
+                    id: "019a7a86-3046-711a-a652-1a7389f79351"
+                    displayName: "Akua Mensah"
+                  recordedAt: "2026-11-09T11:00:00Z"
+                  currency: GHS
+                - id: "019a7b03-bc47-734c-9884-3d9a6f56b678"
+                  customer:
+                    id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+                    publicId: cus_TWMB751S2DFXTAM8
+                    name: "Royal Palm Hotel Ltd"
+                  order:
+                    id: "019a7b03-db36-7d30-a268-dbd1e90754af"
+                    docType: SALES_ORDER
+                    number: SO-2026-DDW-004169
+                  limitPesewas: 2000000
+                  exposurePesewas: 2088000
+                  orderPesewas: 120000
+                  overLimitPesewas: 88000
+                  reasons:
+                    - OVER_LIMIT
+                  reason: "Funeral order, paid Friday"
+                  approvalRequestId: "019a7b03-fa25-7713-bc4b-7a0962b8f2e7"
+                  requestedBy:
+                    id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                    displayName: "Kojo Antwi"
+                  approvedBy:
+                    id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                    displayName: "Kwabena Owusu"
+                  recordedAt: "2026-11-08T11:00:00Z"
+                  currency: GHS
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -47,7 +47,7 @@ export interface OrderConfirmed {
   readonly orderNo: string;
   readonly branchId: string;
   readonly customerId: string | null;
-  readonly creditCheck: 'PASSED' | 'NOT_REQUIRED';
+  readonly creditCheck: 'PASSED' | 'OVERRIDDEN' | 'NOT_REQUIRED';
   readonly reservationIds: readonly string[];
   readonly confirmedAt: string;
 }

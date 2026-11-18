@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.12.0"
+  version: "2.13.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -51195,7 +51195,7 @@ paths:
       tags:
         - ord
       summary: "Confirm an order: reserve stock and check credit"
-      description: "Runs at serializable isolation. First the payment or credit check: a cash-on-delivery order needs none, a prepaid order needs its estimate received in cleared payments (else 422 ORDER_INVALID `PREPAYMENT_SHORT`), and a credit order needs a credit policy to pass it. Then every open line is reserved for the order from the stock a remote buyer may be promised, oldest first. If any line cannot be covered, nothing is reserved, the order stays `PLACED`, and the answer is 422 STOCK_UNAVAILABLE with one `NOT_ENOUGH_STOCK` detail per short line (`field` `/lines/<lineNo>`, the message saying how much is short). A confirmed order holds its stock until fulfilment, cancellation or void. Only a `PLACED` order is confirmed (else 422 INVALID_STATE_TRANSITION, `details[].code` the status). An order with a price override not yet approved is 422 PRICE_OVERRIDE_NEEDS_APPROVAL, one detail per line (`/lines/<lineNo>/agreedUnitPricePesewas`, `APPROVAL_PENDING` or `APPROVAL_REJECTED`), and nothing is reserved (A-230). For a business account over its credit limit or on hold, returns 202 with an approval for a credit override (credit control, B10; until it is built a credit order is refused with 422 ORDER_INVALID `CREDIT_CHECK_UNAVAILABLE`, A-224).\n\nPermission: `ord.order.confirm`.\n\nMay require approval of kind `CREDIT_OVERRIDE`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+      description: "Runs at serializable isolation. First the payment or credit check: a cash-on-delivery order needs none, a prepaid order needs its estimate received in cleared payments (else 422 ORDER_INVALID `PREPAYMENT_SHORT`), and a credit order needs a credit policy to pass it. Then every open line is reserved for the order from the stock a remote buyer may be promised, oldest first. If any line cannot be covered, nothing is reserved, the order stays `PLACED`, and the answer is 422 STOCK_UNAVAILABLE with one `NOT_ENOUGH_STOCK` detail per short line (`field` `/lines/<lineNo>`, the message saying how much is short). A confirmed order holds its stock until fulfilment, cancellation or void. Only a `PLACED` order is confirmed (else 422 INVALID_STATE_TRANSITION, `details[].code` the status). An order with a price override not yet approved is 422 PRICE_OVERRIDE_NEEDS_APPROVAL, one detail per line (`/lines/<lineNo>/agreedUnitPricePesewas`, `APPROVAL_PENDING` or `APPROVAL_REJECTED`), and nothing is reserved (A-230). A credit order is judged by WHL's credit policy (CR-046, FR-WHL-006): it does not go through when it would take exposure (outstanding invoices plus confirmed credit orders not yet invoiced) over the limit (exactly at the limit passes), when anything is a day or more past its due date, or when the account is on hold, unless an approved override covers this order at this amount; then it is confirmed with `creditCheck` `OVERRIDDEN`. With `creditOverrideReason` and no override waiting, the approval request takes the place of the refusal: 202 `CreditOverridePending` of kind `CREDIT_OVERRIDE`, carrying the amount over the limit and the reasons, the order staying `PLACED` until a holder of `whl.credit.override` who did not ask approves it. Without a reason, or while one waits, it is refused with 422 `CREDIT_LIMIT_EXCEEDED`, `CREDIT_TERMS_EXCEEDED` or `ACCOUNT_ON_HOLD` (by the first reason: the hold, the limit, the terms), one detail per reason (`ON_HOLD`, `OVER_LIMIT`, `PAST_TERMS`) whose message names the amounts, and `OVERRIDE_REASON_REQUIRED` or `APPROVAL_PENDING`. A credit order for a customer with no open business account is 422 ORDER_INVALID `CREDIT_CHECK_UNAVAILABLE` (A-224).\n\nPermission: `ord.order.confirm`.\n\nMay require approval of kind `CREDIT_OVERRIDE`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
       x-permission: ord.order.confirm
       parameters:
         - name: id
@@ -51209,6 +51209,14 @@ paths:
       security:
         - staffSession: []
         - apiKey: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderConfirm"
+            example:
+              creditOverrideReason: "Funeral order, paid Friday"
       responses:
         "200":
           description: OK
@@ -51330,17 +51338,48 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApprovalPending"
+                $ref: "#/components/schemas/CreditOverridePending"
               example:
                 status: PENDING_APPROVAL
                 approvalRequestId: "019a7af2-93b5-7720-bc58-7ad4ef28f3b2"
                 kind: CREDIT_OVERRIDE
                 subject:
-                  id: "019a7af2-b2a4-7103-863b-190c68d991ea"
-                  docType: STOCK_ADJUSTMENT
-                  number: null
-                summary: "Awaiting approval by a different user with the approving permission"
+                  id: "019a7af0-a4c5-78e8-be21-975d5418103b"
+                  docType: SALES_ORDER
+                  number: SO-2026-DDW-004198
+                summary: "Credit override for SO-2026-DDW-004198 of GH₵920.00 to Asantewaa Chop Bar: GH₵420.00 over its GH₵5,000.00 limit. Reason: Funeral order, paid Friday"
                 requestedAt: "2026-11-13T10:12:00Z"
+                creditCheck:
+                  order:
+                    id: "019a7af0-a4c5-78e8-be21-975d5418103b"
+                    docType: SALES_ORDER
+                    number: SO-2026-DDW-004198
+                  customer:
+                    id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
+                    publicId: cus_TS4VEDD3ZZNAAQGD
+                    name: "Asantewaa Chop Bar"
+                  outcome: OVER_LIMIT
+                  reasons:
+                    - OVER_LIMIT
+                  creditLimitPesewas: 500000
+                  exposurePesewas: 450000
+                  orderPesewas: 92000
+                  overLimitPesewas: 42000
+                  overduePesewas: 0
+                  oldestOverdueDays: null
+                  paymentTermsDays: 14
+                  override:
+                    approvalRequestId: "019a7af2-93b5-7720-bc58-7ad4ef28f3b2"
+                    status: PENDING_APPROVAL
+                    reason: "Funeral order, paid Friday"
+                    requestedBy:
+                      id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                      displayName: "Kojo Antwi"
+                    requestedAt: "2026-11-13T10:12:00Z"
+                    decidedBy: null
+                    decidedAt: null
+                  checkedAt: "2026-11-13T10:12:00Z"
+                  currency: GHS
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -62584,7 +62623,7 @@ paths:
       tags:
         - whl
       summary: "List business accounts with credit exposure"
-      description: "Permission: `whl.account.read`."
+      description: "The business accounts at the branches where the caller reads accounts, by customer, each with its figures as at now. `overLimit` keeps those whose exposure is above their limit (true) or not (false).\n\nPermission: `whl.account.read`."
       x-permission: whl.account.read
       parameters:
         - name: status
@@ -62634,6 +62673,10 @@ paths:
                           id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
                           publicId: cus_TWMB751S2DFXTAM8
                           name: "Royal Palm Hotel Ltd"
+                        branch:
+                          id: "019a7a80-1c2d-7e3f-8a4b-5c6d7e8f9a01"
+                          code: DDW
+                          name: Dodowa
                         creditLimitPesewas: 2000000
                         paymentTermsDays: 30
                         accountManager:
@@ -62646,16 +62689,23 @@ paths:
                         exposurePesewas: 1164400
                         availableCreditPesewas: 835600
                         overduePesewas: 222500
+                        oldestOverdueDays: 34
                         priceList:
                           id: "019a7aa2-d389-78af-bde8-93cf32d40cad"
                           code: CUST-ROYALPALM
                           name: "Royal Palm Hotel contract prices"
+                        pendingCreditLimitPesewas: null
+                        pendingRelease: false
                         currency: GHS
                         version: 5
                       - customer:
                           id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
                           publicId: cus_TS4VEDD3ZZNAAQGD
                           name: "Asantewaa Chop Bar"
+                        branch:
+                          id: "019a7a80-1c2d-7e3f-8a4b-5c6d7e8f9a01"
+                          code: DDW
+                          name: Dodowa
                         creditLimitPesewas: 600000
                         paymentTermsDays: 14
                         accountManager:
@@ -62668,13 +62718,20 @@ paths:
                         exposurePesewas: 397800
                         availableCreditPesewas: 202200
                         overduePesewas: 186000
+                        oldestOverdueDays: 34
                         priceList: null
+                        pendingCreditLimitPesewas: null
+                        pendingRelease: false
                         currency: GHS
                         version: 5
                       - customer:
                           id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
                           publicId: cus_3Q4VCE9ZY779GAT6
                           name: "Osu Fresh Mart"
+                        branch:
+                          id: "019a7a80-1c2d-7e3f-8a4b-5c6d7e8f9a01"
+                          code: DDW
+                          name: Dodowa
                         creditLimitPesewas: 800000
                         paymentTermsDays: 30
                         accountManager:
@@ -62687,16 +62744,23 @@ paths:
                         exposurePesewas: 243700
                         availableCreditPesewas: 556300
                         overduePesewas: 96400
+                        oldestOverdueDays: 34
                         priceList:
                           id: "019a7aa5-1f46-7491-a9ca-51ed3af7cacb"
                           code: RESELLER-TIER
                           name: "Reseller prices"
+                        pendingCreditLimitPesewas: null
+                        pendingRelease: false
                         currency: GHS
                         version: 5
                       - customer:
                           id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
                           publicId: cus_GY1HV6CSTTCCM2Y2
                           name: "Emmanuel Tetteh"
+                        branch:
+                          id: "019a7a80-1c2d-7e3f-8a4b-5c6d7e8f9a01"
+                          code: DDW
+                          name: Dodowa
                         creditLimitPesewas: 900000
                         paymentTermsDays: 30
                         accountManager:
@@ -62709,13 +62773,20 @@ paths:
                         exposurePesewas: 858000
                         availableCreditPesewas: 42000
                         overduePesewas: 0
+                        oldestOverdueDays: null
                         priceList: null
+                        pendingCreditLimitPesewas: null
+                        pendingRelease: false
                         currency: GHS
                         version: 5
                       - customer:
                           id: "019a7b02-2a24-72bf-87f7-34c94159ada7"
                           publicId: cus_6GMQA1AJS48Z778Z
                           name: "Christ Apostolic Church, Adenta"
+                        branch:
+                          id: "019a7a80-1c2d-7e3f-8a4b-5c6d7e8f9a01"
+                          code: DDW
+                          name: Dodowa
                         creditLimitPesewas: 300000
                         paymentTermsDays: 7
                         accountManager:
@@ -62728,7 +62799,10 @@ paths:
                         exposurePesewas: 0
                         availableCreditPesewas: 300000
                         overduePesewas: 0
+                        oldestOverdueDays: null
                         priceList: null
+                        pendingCreditLimitPesewas: null
+                        pendingRelease: false
                         currency: GHS
                         version: 5
                     page:
@@ -62758,7 +62832,7 @@ paths:
       tags:
         - whl
       summary: "Open credit terms for a customer"
-      description: "Permission: `whl.account.manage`."
+      description: "Opens credit terms for a live customer at a home branch (FR-WHL-001), with a nil credit limit. A customer has at most one account (409 `ACCOUNT_EXISTS`). A limit asked for is a credit limit change (CR-048): the account opens and the answer is 202 with an approval of kind `CREDIT_LIMIT_CHANGE`, decided by a holder of `whl.account.manage` with step-up who did not ask (`MAKER_CANNOT_CHECK`); the database refuses a limit set without that approval. Refusals: 422 `ACCOUNT_INVALID` (`CUSTOMER_UNKNOWN`, `BRANCH_REQUIRED`, `MANAGER_UNKNOWN`). The price list is set through master data (`assignCustomerPriceList`).\n\nPermission: `whl.account.manage`."
       x-permission: whl.account.manage
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -62777,7 +62851,7 @@ paths:
               creditLimitPesewas: 800000
               paymentTermsDays: 30
               accountManagerId: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
-              priceListId: "019a7aa5-1f46-7491-a9ca-51ed3af7cacb"
+              branchId: "019a7a80-1c2d-7e3f-8a4b-5c6d7e8f9a01"
       responses:
         "201":
           description: OK
@@ -62793,6 +62867,10 @@ paths:
                   id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
                   publicId: cus_3Q4VCE9ZY779GAT6
                   name: "Osu Fresh Mart"
+                branch:
+                  id: "019a7a80-1c2d-7e3f-8a4b-5c6d7e8f9a01"
+                  code: DDW
+                  name: Dodowa
                 creditLimitPesewas: 800000
                 paymentTermsDays: 30
                 accountManager:
@@ -62805,12 +62883,31 @@ paths:
                 exposurePesewas: 243700
                 availableCreditPesewas: 556300
                 overduePesewas: 96400
+                oldestOverdueDays: 34
                 priceList:
                   id: "019a7aa5-1f46-7491-a9ca-51ed3af7cacb"
                   code: RESELLER-TIER
                   name: "Reseller prices"
+                pendingCreditLimitPesewas: null
+                pendingRelease: false
                 currency: GHS
                 version: 5
+        "202":
+          description: "Accepted for approval. Nothing has taken effect yet."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalPending"
+              example:
+                status: PENDING_APPROVAL
+                approvalRequestId: "019a7b10-4c5d-7e6f-8a7b-8c9d0e1f2a3b"
+                kind: CREDIT_LIMIT_CHANGE
+                subject:
+                  id: "019a7b10-2b3c-7d4e-8f50-61728394a5b6"
+                  docType: ACCOUNT_CHANGE
+                  number: null
+                summary: "Change Osu Fresh Mart's credit limit from GH₵0.00 to GH₵8,000.00. Reason: Opening credit limit"
+                requestedAt: "2026-11-13T10:12:00Z"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -62831,7 +62928,7 @@ paths:
       tags:
         - whl
       summary: "Get a business account"
-      description: "Permission: `whl.account.read`."
+      description: "One customer's business account with its figures as at now (FR-WHL-001): limit, exposure, available credit, what is overdue, the price list held and anything waiting for a second person. Authorised at the account's branch.\n\nPermission: `whl.account.read`."
       x-permission: whl.account.read
       parameters:
         - name: customerId
@@ -62858,6 +62955,10 @@ paths:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
                   publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
+                branch:
+                  id: "019a7a80-1c2d-7e3f-8a4b-5c6d7e8f9a01"
+                  code: DDW
+                  name: Dodowa
                 creditLimitPesewas: 2000000
                 paymentTermsDays: 30
                 accountManager:
@@ -62870,10 +62971,13 @@ paths:
                 exposurePesewas: 1164400
                 availableCreditPesewas: 835600
                 overduePesewas: 222500
+                oldestOverdueDays: 34
                 priceList:
                   id: "019a7aa2-d389-78af-bde8-93cf32d40cad"
                   code: CUST-ROYALPALM
                   name: "Royal Palm Hotel contract prices"
+                pendingCreditLimitPesewas: null
+                pendingRelease: false
                 currency: GHS
                 version: 5
         "400":
@@ -62893,7 +62997,7 @@ paths:
       tags:
         - whl
       summary: "Change credit terms"
-      description: "Raising a credit limit above the configured amount needs approval.\n\nPermission: `whl.account.manage`.\n\nMay require approval of kind `CREDIT_OVERRIDE`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+      description: "Changes the terms at once: payment terms, the account manager, the overdue hold threshold, and closing or reopening. Every change to the credit limit, up or down, waits for an Owner or Manager who did not ask (CR-048): 202 with an approval of kind `CREDIT_LIMIT_CHANGE`, the other changes taking effect now; the database refuses a limit set without that approval. An account on hold is released through `releaseBusinessAccount`, never by an edit. Refusals: 409 `VERSION_CONFLICT`; 422 `ACCOUNT_INVALID` (`ACCOUNT_ON_HOLD`, `ACCOUNT_CLOSED`, `MANAGER_UNKNOWN`, `APPROVAL_PENDING`).\n\nPermission: `whl.account.manage`.\n\nMay require approval of kind `CREDIT_LIMIT_CHANGE`. When it does, the response is `202` with an `ApprovalPending` body and nothing of the limit takes effect until a different user approves."
       x-permission: whl.account.manage
       parameters:
         - name: customerId
@@ -62931,6 +63035,10 @@ paths:
                   id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
                   publicId: cus_TWMB751S2DFXTAM8
                   name: "Royal Palm Hotel Ltd"
+                branch:
+                  id: "019a7a80-1c2d-7e3f-8a4b-5c6d7e8f9a01"
+                  code: DDW
+                  name: Dodowa
                 creditLimitPesewas: 2000000
                 paymentTermsDays: 30
                 accountManager:
@@ -62943,10 +63051,13 @@ paths:
                 exposurePesewas: 1164400
                 availableCreditPesewas: 835600
                 overduePesewas: 222500
+                oldestOverdueDays: 34
                 priceList:
                   id: "019a7aa2-d389-78af-bde8-93cf32d40cad"
                   code: CUST-ROYALPALM
                   name: "Royal Palm Hotel contract prices"
+                pendingCreditLimitPesewas: null
+                pendingRelease: false
                 currency: GHS
                 version: 5
         "202":
@@ -62957,13 +63068,13 @@ paths:
                 $ref: "#/components/schemas/ApprovalPending"
               example:
                 status: PENDING_APPROVAL
-                approvalRequestId: "019a7af2-93b5-7720-bc58-7ad4ef28f3b2"
-                kind: CREDIT_OVERRIDE
+                approvalRequestId: "019a7b10-4c5d-7e6f-8a7b-8c9d0e1f2a3b"
+                kind: CREDIT_LIMIT_CHANGE
                 subject:
-                  id: "019a7af2-b2a4-7103-863b-190c68d991ea"
-                  docType: STOCK_ADJUSTMENT
+                  id: "019a7b10-2b3c-7d4e-8f50-61728394a5b6"
+                  docType: ACCOUNT_CHANGE
                   number: null
-                summary: "Awaiting approval by a different user with the approving permission"
+                summary: "Change Royal Palm Hotel Ltd's credit limit from GH₵20,000.00 to GH₵25,000.00. Reason: Contract renewed for 2027"
                 requestedAt: "2026-11-13T10:12:00Z"
         "400":
           $ref: "#/components/responses/BadRequest"
@@ -62987,7 +63098,7 @@ paths:
       tags:
         - whl
       summary: "Put an account on hold"
-      description: "Permission: `whl.account.hold`."
+      description: "Puts an active account on hold with a reason (FR-WHL-008, CR-048): an Owner, a Manager or the Accountant. A held account confirms no credit order; cash and prepaid orders still work. The daily `account-hold` job holds an account the same way when anything is outstanding more than its threshold's days past due. Refusals: 422 `ACCOUNT_INVALID` (`ALREADY_ON_HOLD`, `ACCOUNT_CLOSED`).\n\nPermission: `whl.account.hold`."
       x-permission: whl.account.hold
       parameters:
         - name: customerId
@@ -63024,6 +63135,10 @@ paths:
                   id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
                   publicId: cus_TS4VEDD3ZZNAAQGD
                   name: "Asantewaa Chop Bar"
+                branch:
+                  id: "019a7a80-1c2d-7e3f-8a4b-5c6d7e8f9a01"
+                  code: DDW
+                  name: Dodowa
                 creditLimitPesewas: 600000
                 paymentTermsDays: 14
                 accountManager:
@@ -63036,7 +63151,10 @@ paths:
                 exposurePesewas: 397800
                 availableCreditPesewas: 202200
                 overduePesewas: 186000
+                oldestOverdueDays: 34
                 priceList: null
+                pendingCreditLimitPesewas: null
+                pendingRelease: false
                 currency: GHS
                 version: 5
         "400":
@@ -63061,8 +63179,8 @@ paths:
       tags:
         - whl
       summary: "Release an account from hold"
-      description: "Permission: `whl.account.hold`."
-      x-permission: whl.account.hold
+      description: "Asks for an account on hold to be released, with a reason (CR-048): 202 with an approval of kind `ACCOUNT_RELEASE`, decided by another holder of `whl.account.release` (the Owner or the Manager) with step-up, never the person who asked (`MAKER_CANNOT_CHECK`); the account stays on hold until then, and the database refuses a release without that approval. Paying the overdue invoice does not release it on its own. Refusals: 422 `ACCOUNT_INVALID` (`NOT_ON_HOLD`, `APPROVAL_PENDING`).\n\nPermission: `whl.account.release`."
+      x-permission: whl.account.release
       parameters:
         - name: customerId
           in: path
@@ -63084,38 +63202,22 @@ paths:
             example:
               reason: "Overdue invoice paid in full"
       responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
+        "202":
+          description: "Accepted for approval. Nothing has taken effect yet."
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/BusinessAccount"
+                $ref: "#/components/schemas/ApprovalPending"
               example:
-                customer:
-                  id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  publicId: cus_TWMB751S2DFXTAM8
-                  name: "Royal Palm Hotel Ltd"
-                creditLimitPesewas: 2000000
-                paymentTermsDays: 30
-                accountManager:
-                  id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
-                  displayName: "Kojo Antwi"
-                overdueHoldDays: 30
-                status: ACTIVE
-                holdReason: null
-                heldAt: null
-                exposurePesewas: 1164400
-                availableCreditPesewas: 835600
-                overduePesewas: 222500
-                priceList:
-                  id: "019a7aa2-d389-78af-bde8-93cf32d40cad"
-                  code: CUST-ROYALPALM
-                  name: "Royal Palm Hotel contract prices"
-                currency: GHS
-                version: 5
+                status: PENDING_APPROVAL
+                approvalRequestId: "019a7b10-4c5d-7e6f-8a7b-8c9d0e1f2a3b"
+                kind: ACCOUNT_RELEASE
+                subject:
+                  id: "019a7b10-2b3c-7d4e-8f50-61728394a5b6"
+                  docType: ACCOUNT_CHANGE
+                  number: null
+                summary: "Release Asantewaa Chop Bar from hold (Invoice INV-2026-DDW-001159 more than 30 days overdue). Reason: Paid in full by bank transfer on 12 November"
+                requestedAt: "2026-11-13T10:12:00Z"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -63138,7 +63240,7 @@ paths:
       tags:
         - whl
       summary: "List approved credit overrides"
-      description: "Permission: `whl.account.read`."
+      description: "The approved credit overrides at the branches where the caller reads accounts, newest first (FR-WHL-007, abuse case 14): who asked and why, the figures it was asked on, and who approved it. `from` and `to` bound when it was approved.\n\nPermission: `whl.account.read`."
       x-permission: whl.account.read
       parameters:
         - name: customerId
@@ -63197,7 +63299,15 @@ paths:
                           number: SO-2026-DDW-004213
                         limitPesewas: 900000
                         exposurePesewas: 1716600
+                        orderPesewas: 120000
+                        overLimitPesewas: 816600
+                        reasons:
+                          - OVER_LIMIT
+                        reason: "Funeral order, paid Friday"
                         approvalRequestId: "019a7b02-86f1-7069-b5a2-0f6fae6c884d"
+                        requestedBy:
+                          id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                          displayName: "Kojo Antwi"
                         approvedBy:
                           id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
                           displayName: "Kwabena Owusu"
@@ -63214,7 +63324,15 @@ paths:
                           number: SO-2026-DDW-004202
                         limitPesewas: 2000000
                         exposurePesewas: 2140000
+                        orderPesewas: 120000
+                        overLimitPesewas: 140000
+                        reasons:
+                          - OVER_LIMIT
+                        reason: "Funeral order, paid Friday"
                         approvalRequestId: "019a7b02-e3be-7e14-a34c-ea161b7f62f4"
+                        requestedBy:
+                          id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                          displayName: "Kojo Antwi"
                         approvedBy:
                           id: "019a7a86-3046-711a-a652-1a7389f79351"
                           displayName: "Akua Mensah"
@@ -63231,7 +63349,15 @@ paths:
                           number: SO-2026-DDW-004191
                         limitPesewas: 600000
                         exposurePesewas: 640000
+                        orderPesewas: 120000
+                        overLimitPesewas: 40000
+                        reasons:
+                          - OVER_LIMIT
+                        reason: "Funeral order, paid Friday"
                         approvalRequestId: "019a7b03-408b-7bbe-90f6-c4bc88923d9a"
+                        requestedBy:
+                          id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                          displayName: "Kojo Antwi"
                         approvedBy:
                           id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
                           displayName: "Kwabena Owusu"
@@ -63248,7 +63374,15 @@ paths:
                           number: SO-2026-DDW-004180
                         limitPesewas: 800000
                         exposurePesewas: 912000
+                        orderPesewas: 120000
+                        overLimitPesewas: 112000
+                        reasons:
+                          - OVER_LIMIT
+                        reason: "Funeral order, paid Friday"
                         approvalRequestId: "019a7b03-9d58-7969-8ea1-9f62f5a51840"
+                        requestedBy:
+                          id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                          displayName: "Kojo Antwi"
                         approvedBy:
                           id: "019a7a86-3046-711a-a652-1a7389f79351"
                           displayName: "Akua Mensah"
@@ -63265,7 +63399,15 @@ paths:
                           number: SO-2026-DDW-004169
                         limitPesewas: 2000000
                         exposurePesewas: 2088000
+                        orderPesewas: 120000
+                        overLimitPesewas: 88000
+                        reasons:
+                          - OVER_LIMIT
+                        reason: "Funeral order, paid Friday"
                         approvalRequestId: "019a7b03-fa25-7713-bc4b-7a0962b8f2e7"
+                        requestedBy:
+                          id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                          displayName: "Kojo Antwi"
                         approvedBy:
                           id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
                           displayName: "Kwabena Owusu"
@@ -79784,6 +79926,158 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
+  "/orders/{id}/credit-check":
+    get:
+      operationId: getOrderCreditCheck
+      tags:
+        - whl
+      summary: "An order's credit check, as confirmOrder would judge it now"
+      description: "The credit check of an order (CR-046), worked out by the server as `confirmOrder` would judge it now: the limit, exposure before the order, the order's amount, by how much it would go over (exactly at the limit is within), what is past its terms and the oldest days overdue, every reason that holds (`ON_HOLD`, `OVER_LIMIT`, `PAST_TERMS`) and the latest override asked for it. A bounced cheque has reopened what it paid, so it counts (A-212 (d)). Authorised at the order's branch.\n\nPermission: `ord.order.read`."
+      x-permission: ord.order.read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - staffSession: []
+        - apiKey: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderCreditCheck"
+              example:
+                order:
+                  id: "019a7af0-a4c5-78e8-be21-975d5418103b"
+                  docType: SALES_ORDER
+                  number: SO-2026-DDW-004198
+                customer:
+                  id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
+                  publicId: cus_TS4VEDD3ZZNAAQGD
+                  name: "Asantewaa Chop Bar"
+                outcome: OVER_LIMIT
+                reasons:
+                  - OVER_LIMIT
+                creditLimitPesewas: 500000
+                exposurePesewas: 450000
+                orderPesewas: 92000
+                overLimitPesewas: 42000
+                overduePesewas: 0
+                oldestOverdueDays: null
+                paymentTermsDays: 14
+                override: null
+                checkedAt: "2026-11-13T10:12:00Z"
+                currency: GHS
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/orders/{id}/credit-override":
+    post:
+      operationId: requestCreditOverride
+      tags:
+        - whl
+      summary: "Ask for a credit override of an order, with a written reason"
+      description: "Asks for a credit override of a `PLACED` credit order that the credit check refuses (CR-046, FR-WHL-007, abuse case 14), with a written reason: 202 `CreditOverridePending` with an approval of kind `CREDIT_OVERRIDE` whose subject is the order and the credit check it was asked on. It is approved through `approveRequest` by a holder of `whl.credit.override` (the Owner or the Manager) with step-up who is not the person who asked (422 `MAKER_CANNOT_CHECK`); the database refuses an override approved by its asker. Approved, the order is confirmed by calling `confirmOrder` again, which confirms it with `creditCheck` `OVERRIDDEN` while the override covers the same order at the same amount, no more over the limit, for no new reason. Refusals: 422 `ORDER_INVALID` (`CREDIT_OVERRIDE_NOT_NEEDED`, `APPROVAL_PENDING`, `CREDIT_CHECK_UNAVAILABLE`, `NOT_CREDIT`, `ORDER_NOT_PLACED`). `confirmOrder` with `creditOverrideReason` asks the same way.\n\nMay require approval of kind `CREDIT_OVERRIDE`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves.\n\nPermission: `ord.order.confirm`."
+      x-permission: ord.order.confirm
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CsrfToken"
+      security:
+        - staffSession: []
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReasonRequest"
+            example:
+              reason: "Funeral order, paid Friday"
+      responses:
+        "202":
+          description: "Accepted for approval. Nothing has taken effect yet."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditOverridePending"
+              example:
+                status: PENDING_APPROVAL
+                approvalRequestId: "019a7af2-93b5-7720-bc58-7ad4ef28f3b2"
+                kind: CREDIT_OVERRIDE
+                subject:
+                  id: "019a7af0-a4c5-78e8-be21-975d5418103b"
+                  docType: SALES_ORDER
+                  number: SO-2026-DDW-004198
+                summary: "Credit override for SO-2026-DDW-004198 of GH₵920.00 to Asantewaa Chop Bar: GH₵420.00 over its GH₵5,000.00 limit. Reason: Funeral order, paid Friday"
+                requestedAt: "2026-11-13T10:12:00Z"
+                creditCheck:
+                  order:
+                    id: "019a7af0-a4c5-78e8-be21-975d5418103b"
+                    docType: SALES_ORDER
+                    number: SO-2026-DDW-004198
+                  customer:
+                    id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
+                    publicId: cus_TS4VEDD3ZZNAAQGD
+                    name: "Asantewaa Chop Bar"
+                  outcome: OVER_LIMIT
+                  reasons:
+                    - OVER_LIMIT
+                  creditLimitPesewas: 500000
+                  exposurePesewas: 450000
+                  orderPesewas: 92000
+                  overLimitPesewas: 42000
+                  overduePesewas: 0
+                  oldestOverdueDays: null
+                  paymentTermsDays: 14
+                  override:
+                    approvalRequestId: "019a7af2-93b5-7720-bc58-7ad4ef28f3b2"
+                    status: PENDING_APPROVAL
+                    reason: "Funeral order, paid Friday"
+                    requestedBy:
+                      id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                      displayName: "Kojo Antwi"
+                    requestedAt: "2026-11-13T10:12:00Z"
+                    decidedBy: null
+                    decidedAt: null
+                  checkedAt: "2026-11-13T10:12:00Z"
+                  currency: GHS
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/BusinessRuleViolation"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     staffSession:
@@ -80616,6 +80910,8 @@ components:
         - MORTALITY_WRITE_OFF
         - MORTALITY_CONFIRMATION
         - PROCESSING_REVERSAL
+        - ACCOUNT_RELEASE
+        - CREDIT_LIMIT_CHANGE
     ApprovalPending:
       type: object
       description: "Returned with 202 when an action needs a second person. Nothing has taken effect."
@@ -99041,7 +99337,7 @@ components:
           $ref: "#/components/schemas/Pesewas"
         uom:
           type: string
-          description: "The unit the line is in (CR-045 as the owner worded it, B10): a crate or a single egg, priced by that unit's own price list entry and never derived from another unit's price, converted to the base unit exactly for its reservation. The product's base unit when left out; a free-text line takes HEAD, KG or UNIT from its price basis."
+          description: "The unit the line is in (CR-045 as the owner worded it, B10): a crate or a single egg, priced by that unit's own price list entry and never derived from another unit's price, converted to the base unit exactly for its reservation. Left out, the first unit the product is sold by on quotes, as at the counter: a crate for eggs (owner, 2026-11-18, 2.13.0, LOUD; it was the base unit in 2.12.0); a free-text line takes HEAD, KG or UNIT from its price basis."
       required:
         - description
         - quantity
@@ -99281,6 +99577,8 @@ components:
       properties:
         customer:
           $ref: "#/components/schemas/CustomerRef"
+        branch:
+          $ref: "#/components/schemas/BranchRef"
         creditLimitPesewas:
           $ref: "#/components/schemas/Pesewas"
         paymentTermsDays:
@@ -99311,19 +99609,38 @@ components:
             - $ref: "#/components/schemas/Pesewas"
           description: "Outstanding invoices plus confirmed orders not yet invoiced."
         availableCreditPesewas:
-          $ref: "#/components/schemas/Pesewas"
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "The limit less exposure, never below nil."
         overduePesewas:
-          $ref: "#/components/schemas/Pesewas"
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "What is outstanding a day or more past its due date."
+        oldestOverdueDays:
+          type:
+            - integer
+            - "null"
+          description: "Days the oldest overdue item is past its due date; null when nothing is overdue."
         priceList:
           anyOf:
             - $ref: "#/components/schemas/PriceListRef"
             - type: "null"
+          description: "The price list the customer holds now, set through master data (`assignCustomerPriceList`)."
+        pendingCreditLimitPesewas:
+          anyOf:
+            - $ref: "#/components/schemas/Pesewas"
+            - type: "null"
+          description: "A credit limit asked for and waiting for an Owner or Manager who did not ask (CR-048); null when none waits."
+        pendingRelease:
+          type: boolean
+          description: "A release from hold waits for its approver."
         currency:
           $ref: "#/components/schemas/Currency"
         version:
           type: integer
       required:
         - customer
+        - branch
         - creditLimitPesewas
         - paymentTermsDays
         - accountManager
@@ -99334,27 +99651,41 @@ components:
         - exposurePesewas
         - availableCreditPesewas
         - overduePesewas
+        - oldestOverdueDays
         - priceList
+        - pendingCreditLimitPesewas
+        - pendingRelease
         - currency
         - version
+      description: "A customer's credit terms at its home branch (FR-WHL-001). Every figure is the server's, as at the moment of reading: exposure is the outstanding invoiced balance at every branch plus confirmed credit orders not yet invoiced (SA-21); a bounced cheque has reopened what it paid (A-212 (d))."
     BusinessAccountCreate:
       type: object
+      description: "An account opens with a nil limit; a limit asked for here is a credit limit change like any other (202, CR-048)."
       properties:
         customerId:
           type: string
           format: uuid
+        branchId:
+          type: string
+          format: uuid
+          description: "The home branch; without it the caller must hold `whl.account.manage` at exactly one whole branch."
         creditLimitPesewas:
           $ref: "#/components/schemas/Pesewas"
         paymentTermsDays:
           type: integer
+          minimum: 0
+          maximum: 365
         accountManagerId:
           type: string
           format: uuid
         overdueHoldDays:
           type: integer
-        priceListId:
+          minimum: 1
+          maximum: 365
+        reason:
           type: string
-          format: uuid
+          maxLength: 500
+          description: "Why the limit is asked for, shown to the approver."
       required:
         - customerId
         - creditLimitPesewas
@@ -99366,22 +99697,31 @@ components:
         version:
           type: integer
         creditLimitPesewas:
-          $ref: "#/components/schemas/Pesewas"
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "A new limit, up or down, waits for an Owner or Manager who did not ask (202 `CREDIT_LIMIT_CHANGE`)."
         paymentTermsDays:
           type: integer
+          minimum: 0
+          maximum: 365
         accountManagerId:
-          type: string
+          type:
+            - string
+            - "null"
           format: uuid
         overdueHoldDays:
           type: integer
-        priceListId:
-          type: string
-          format: uuid
+          minimum: 1
+          maximum: 365
         status:
           type: string
           enum:
             - ACTIVE
             - CLOSED
+          description: "Close or reopen; an account on hold is released through `releaseBusinessAccount`."
+        reason:
+          type: string
+          maxLength: 500
       required:
         - version
       additionalProperties: false
@@ -99411,10 +99751,29 @@ components:
         limitPesewas:
           $ref: "#/components/schemas/Pesewas"
         exposurePesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "Exposure including this order."
+        orderPesewas:
           $ref: "#/components/schemas/Pesewas"
+        overLimitPesewas:
+          $ref: "#/components/schemas/Pesewas"
+        reasons:
+          type: array
+          items:
+            type: string
+            enum:
+              - ON_HOLD
+              - OVER_LIMIT
+              - PAST_TERMS
+          description: "Every reason that holds: the hold, then the limit, then the terms."
+        reason:
+          type: string
         approvalRequestId:
           type: string
           format: uuid
+        requestedBy:
+          $ref: "#/components/schemas/PrincipalRef"
         approvedBy:
           $ref: "#/components/schemas/PrincipalRef"
         recordedAt:
@@ -99428,10 +99787,16 @@ components:
         - order
         - limitPesewas
         - exposurePesewas
+        - orderPesewas
+        - overLimitPesewas
+        - reasons
+        - reason
         - approvalRequestId
+        - requestedBy
         - approvedBy
         - recordedAt
         - currency
+      description: "An approved credit override (FR-WHL-007, CR-046): who asked and why, the figures it was asked on, and who approved it."
     CreditOverridePage:
       type: object
       description: "A page of `CreditOverride` results."
@@ -104257,6 +104622,138 @@ components:
         - priceListEntryId
         - priceBand
         - quoteOnly
+    CreditOverrideState:
+      type: object
+      description: "The latest credit override asked for an order (CR-046)."
+      properties:
+        approvalRequestId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - PENDING_APPROVAL
+            - APPROVED
+            - REJECTED
+            - CANCELLED
+            - EXPIRED
+        reason:
+          type: string
+        requestedBy:
+          $ref: "#/components/schemas/PrincipalRef"
+        requestedAt:
+          type: string
+          format: date-time
+        decidedBy:
+          anyOf:
+            - $ref: "#/components/schemas/PrincipalRef"
+            - type: "null"
+        decidedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+      required:
+        - approvalRequestId
+        - status
+        - reason
+        - requestedBy
+        - requestedAt
+        - decidedBy
+        - decidedAt
+    OrderCreditCheck:
+      type: object
+      description: "An order's credit check, worked out by the server as `confirmOrder` would judge it now (CR-046). The screen shows these figures and never computes them."
+      properties:
+        order:
+          $ref: "#/components/schemas/DocumentRef"
+        customer:
+          anyOf:
+            - $ref: "#/components/schemas/CustomerRef"
+            - type: "null"
+        outcome:
+          type: string
+          enum:
+            - PASSES
+            - OVER_LIMIT
+            - PAST_TERMS
+            - ON_HOLD
+            - NOT_REQUIRED
+            - NO_ACCOUNT
+          description: "`NOT_REQUIRED`: not a credit order. `NO_ACCOUNT`: a credit order for a customer with no open business account, which confirmOrder refuses (`CREDIT_CHECK_UNAVAILABLE`). Otherwise the first reason, or `PASSES`."
+        reasons:
+          type: array
+          items:
+            type: string
+            enum:
+              - ON_HOLD
+              - OVER_LIMIT
+              - PAST_TERMS
+          description: "Every reason that holds: the hold, then the limit, then the terms."
+        creditLimitPesewas:
+          $ref: "#/components/schemas/Pesewas"
+        exposurePesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "Outstanding invoices plus confirmed credit orders not yet invoiced, before this order."
+        orderPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "This order's estimated total, as the limit counts it."
+        overLimitPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "By how much exposure plus this order exceeds the limit; nil within it (exactly at the limit is within)."
+        overduePesewas:
+          $ref: "#/components/schemas/Pesewas"
+        oldestOverdueDays:
+          type:
+            - integer
+            - "null"
+        paymentTermsDays:
+          type: integer
+        override:
+          anyOf:
+            - $ref: "#/components/schemas/CreditOverrideState"
+            - type: "null"
+        checkedAt:
+          type: string
+          format: date-time
+        currency:
+          $ref: "#/components/schemas/Currency"
+      required:
+        - order
+        - customer
+        - outcome
+        - reasons
+        - creditLimitPesewas
+        - exposurePesewas
+        - orderPesewas
+        - overLimitPesewas
+        - overduePesewas
+        - oldestOverdueDays
+        - paymentTermsDays
+        - override
+        - checkedAt
+        - currency
+    CreditOverridePending:
+      description: "The 202 of a credit override asked for (CR-046): the approval, with the credit check it was asked on, so the answer carries the amount over the limit and the reasons."
+      allOf:
+        - $ref: "#/components/schemas/ApprovalPending"
+        - type: object
+          properties:
+            creditCheck:
+              $ref: "#/components/schemas/OrderCreditCheck"
+          required:
+            - creditCheck
+    OrderConfirm:
+      type: object
+      description: "Optional (CR-046). A credit order refused for credit is confirmed only under an approved override; with a written reason, and none waiting, the override is asked for instead (202)."
+      properties:
+        creditOverrideReason:
+          type: string
+          maxLength: 500
+      additionalProperties: false
   x-seeded-roles:
     - id: "01900000-0000-7000-8000-000000000101"
       code: OWNER
@@ -104504,6 +105001,11 @@ components:
         - quo.rfq.update
         - rpt.dashboard.owner
         - rpt.tile.read
+        - whl.account.hold
+        - whl.account.manage
+        - whl.account.read
+        - whl.account.release
+        - whl.credit.override
         - whl.statement.create
         - whl.statement.read
       limits: []
@@ -104722,6 +105224,11 @@ components:
         - quo.rfq.read
         - quo.rfq.update
         - rpt.tile.read
+        - whl.account.hold
+        - whl.account.manage
+        - whl.account.read
+        - whl.account.release
+        - whl.credit.override
         - whl.statement.create
         - whl.statement.read
       limits: []
@@ -104836,6 +105343,8 @@ components:
         - pur.supplier_payment.pay
         - pur.supplier_payment.read
         - rpt.tile.read
+        - whl.account.hold
+        - whl.account.read
         - whl.statement.create
         - whl.statement.read
       limits: []
@@ -104997,6 +105506,7 @@ components:
         - quo.rfq.create
         - quo.rfq.read
         - quo.rfq.update
+        - whl.account.read
         - whl.statement.create
         - whl.statement.read
       limits: []

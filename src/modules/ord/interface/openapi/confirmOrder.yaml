@@ -2,7 +2,7 @@ operationId: confirmOrder
 tags:
   - ord
 summary: "Confirm an order: reserve stock and check credit"
-description: "Runs at serializable isolation. First the payment or credit check: a cash-on-delivery order needs none, a prepaid order needs its estimate received in cleared payments (else 422 ORDER_INVALID `PREPAYMENT_SHORT`), and a credit order needs a credit policy to pass it. Then every open line is reserved for the order from the stock a remote buyer may be promised, oldest first. If any line cannot be covered, nothing is reserved, the order stays `PLACED`, and the answer is 422 STOCK_UNAVAILABLE with one `NOT_ENOUGH_STOCK` detail per short line (`field` `/lines/<lineNo>`, the message saying how much is short). A confirmed order holds its stock until fulfilment, cancellation or void. Only a `PLACED` order is confirmed (else 422 INVALID_STATE_TRANSITION, `details[].code` the status). An order with a price override not yet approved is 422 PRICE_OVERRIDE_NEEDS_APPROVAL, one detail per line (`/lines/<lineNo>/agreedUnitPricePesewas`, `APPROVAL_PENDING` or `APPROVAL_REJECTED`), and nothing is reserved (A-230). For a business account over its credit limit or on hold, returns 202 with an approval for a credit override (credit control, B10; until it is built a credit order is refused with 422 ORDER_INVALID `CREDIT_CHECK_UNAVAILABLE`, A-224).\n\nPermission: `ord.order.confirm`.\n\nMay require approval of kind `CREDIT_OVERRIDE`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+description: "Runs at serializable isolation. First the payment or credit check: a cash-on-delivery order needs none, a prepaid order needs its estimate received in cleared payments (else 422 ORDER_INVALID `PREPAYMENT_SHORT`), and a credit order needs a credit policy to pass it. Then every open line is reserved for the order from the stock a remote buyer may be promised, oldest first. If any line cannot be covered, nothing is reserved, the order stays `PLACED`, and the answer is 422 STOCK_UNAVAILABLE with one `NOT_ENOUGH_STOCK` detail per short line (`field` `/lines/<lineNo>`, the message saying how much is short). A confirmed order holds its stock until fulfilment, cancellation or void. Only a `PLACED` order is confirmed (else 422 INVALID_STATE_TRANSITION, `details[].code` the status). An order with a price override not yet approved is 422 PRICE_OVERRIDE_NEEDS_APPROVAL, one detail per line (`/lines/<lineNo>/agreedUnitPricePesewas`, `APPROVAL_PENDING` or `APPROVAL_REJECTED`), and nothing is reserved (A-230). A credit order is judged by WHL's credit policy (CR-046, FR-WHL-006): it does not go through when it would take exposure (outstanding invoices plus confirmed credit orders not yet invoiced) over the limit (exactly at the limit passes), when anything is a day or more past its due date, or when the account is on hold, unless an approved override covers this order at this amount; then it is confirmed with `creditCheck` `OVERRIDDEN`. With `creditOverrideReason` and no override waiting, the approval request takes the place of the refusal: 202 `CreditOverridePending` of kind `CREDIT_OVERRIDE`, carrying the amount over the limit and the reasons, the order staying `PLACED` until a holder of `whl.credit.override` who did not ask approves it. Without a reason, or while one waits, it is refused with 422 `CREDIT_LIMIT_EXCEEDED`, `CREDIT_TERMS_EXCEEDED` or `ACCOUNT_ON_HOLD` (by the first reason: the hold, the limit, the terms), one detail per reason (`ON_HOLD`, `OVER_LIMIT`, `PAST_TERMS`) whose message names the amounts, and `OVERRIDE_REASON_REQUIRED` or `APPROVAL_PENDING`. A credit order for a customer with no open business account is 422 ORDER_INVALID `CREDIT_CHECK_UNAVAILABLE` (A-224).\n\nPermission: `ord.order.confirm`.\n\nMay require approval of kind `CREDIT_OVERRIDE`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
 x-permission: ord.order.confirm
 parameters:
   - name: id
@@ -16,6 +16,14 @@ parameters:
 security:
   - staffSession: []
   - apiKey: []
+requestBody:
+  required: false
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/OrderConfirm"
+      example:
+        creditOverrideReason: "Funeral order, paid Friday"
 responses:
   "200":
     description: OK
@@ -137,17 +145,48 @@ responses:
     content:
       application/json:
         schema:
-          $ref: "#/components/schemas/ApprovalPending"
+          $ref: "#/components/schemas/CreditOverridePending"
         example:
           status: PENDING_APPROVAL
           approvalRequestId: "019a7af2-93b5-7720-bc58-7ad4ef28f3b2"
           kind: CREDIT_OVERRIDE
           subject:
-            id: "019a7af2-b2a4-7103-863b-190c68d991ea"
-            docType: STOCK_ADJUSTMENT
-            number: null
-          summary: "Awaiting approval by a different user with the approving permission"
+            id: "019a7af0-a4c5-78e8-be21-975d5418103b"
+            docType: SALES_ORDER
+            number: SO-2026-DDW-004198
+          summary: "Credit override for SO-2026-DDW-004198 of GH₵920.00 to Asantewaa Chop Bar: GH₵420.00 over its GH₵5,000.00 limit. Reason: Funeral order, paid Friday"
           requestedAt: "2026-11-13T10:12:00Z"
+          creditCheck:
+            order:
+              id: "019a7af0-a4c5-78e8-be21-975d5418103b"
+              docType: SALES_ORDER
+              number: SO-2026-DDW-004198
+            customer:
+              id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
+              publicId: cus_TS4VEDD3ZZNAAQGD
+              name: "Asantewaa Chop Bar"
+            outcome: OVER_LIMIT
+            reasons:
+              - OVER_LIMIT
+            creditLimitPesewas: 500000
+            exposurePesewas: 450000
+            orderPesewas: 92000
+            overLimitPesewas: 42000
+            overduePesewas: 0
+            oldestOverdueDays: null
+            paymentTermsDays: 14
+            override:
+              approvalRequestId: "019a7af2-93b5-7720-bc58-7ad4ef28f3b2"
+              status: PENDING_APPROVAL
+              reason: "Funeral order, paid Friday"
+              requestedBy:
+                id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                displayName: "Kojo Antwi"
+              requestedAt: "2026-11-13T10:12:00Z"
+              decidedBy: null
+              decidedAt: null
+            checkedAt: "2026-11-13T10:12:00Z"
+            currency: GHS
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

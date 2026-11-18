@@ -10,24 +10,74 @@ import { Idempotency } from '../../platform/idempotency/idempotency';
 import { CLOCK } from '../../platform/platform.module';
 import { DocModule, Documents } from '../doc';
 import { FinModule, Journals } from '../fin';
-import { Authoriser, IamModule } from '../iam';
-import { MasterDataRefs, MdmModule } from '../mdm';
+import { BilModule, Billing } from '../bil';
+import { Approvals, Authoriser, IamModule, PRINCIPAL_NAMES, type PrincipalNames } from '../iam';
+import { MasterDataRefs, MdmModule, PartiesAdmin } from '../mdm';
+import { ORDER_CONFIRMATION_POLICIES, OrdModule, Orders, type OrderConfirmationPolicy } from '../ord';
+import { ACCOUNT_STORE, type AccountStore } from './application/account-store';
+import { ACCOUNT_RELEASE_KIND, BusinessAccounts, CREDIT_LIMIT_CHANGE_KIND } from './application/business-accounts';
+import { CREDIT_OVERRIDE_KIND, CreditControl } from './application/credit-control';
+import { AccountHolds } from './application/account-holds';
+import { PgAccountStore } from './infrastructure/pg-account-store';
+import { BusinessAccountsController } from './interface/business-accounts.controller';
 import { STATEMENT_STORE, type StatementStore } from './application/statement-store';
 import { Statements } from './application/statements';
 import { PgStatementStore } from './infrastructure/pg-statement-store';
 import { StatementsController } from './interface/statements.controller';
 
 /**
- * WHL (layer 10): wholesale and business accounts. B08 continued 2d builds customer statements only: the customer's
- * trade receivables at a branch for a period, read from the ledger through FIN's door, numbered from their own series,
- * rendered and archived by DOC after commit (ADR-0085). Business accounts, credit control, standing orders, ageing and
- * dunning are B10's.
+ * WHL (layer 10): wholesale and business accounts. B08 continued 2d builds customer statements: the customer's trade
+ * receivables at a branch for a period, read from the ledger through FIN's door, numbered from their own series,
+ * rendered and archived by DOC after commit (ADR-0085). B10 continued builds business accounts and credit control:
+ * `BusinessAccounts` (with the `ACCOUNT_RELEASE` and `CREDIT_LIMIT_CHANGE` approvals and the overdue hold, run by the
+ * worker as `AccountHolds`) and `CreditControl`, ORD's `OrderConfirmationPolicy` with the `CREDIT_OVERRIDE` approval.
  */
 @Module({
-  imports: [IamModule, MdmModule, DocModule, FinModule],
-  controllers: [StatementsController],
+  imports: [IamModule, MdmModule, DocModule, FinModule, BilModule, OrdModule],
+  controllers: [StatementsController, BusinessAccountsController],
   providers: [
     { provide: STATEMENT_STORE, useClass: PgStatementStore },
+    { provide: ACCOUNT_STORE, useClass: PgAccountStore },
+    {
+      provide: CreditControl,
+      useFactory: (
+        uow: UnitOfWork,
+        store: AccountStore,
+        orders: Orders,
+        billing: Billing,
+        approvals: Approvals,
+        authoriser: Authoriser,
+        idempotency: Idempotency,
+        audit: AuditTrail,
+        events: DomainEvents,
+        refs: MasterDataRefs,
+        principals: PrincipalNames,
+        cursors: Cursors,
+        clock: Clock,
+      ) => new CreditControl(uow, store, orders, billing, approvals, authoriser, idempotency, audit, events, refs, principals, cursors, clock),
+      inject: [UnitOfWork, ACCOUNT_STORE, Orders, Billing, Approvals, Authoriser, Idempotency, AuditTrail, DomainEvents, MasterDataRefs, PRINCIPAL_NAMES, Cursors, CLOCK],
+    },
+    {
+      provide: BusinessAccounts,
+      useFactory: (
+        uow: UnitOfWork,
+        store: AccountStore,
+        credit: CreditControl,
+        refs: MasterDataRefs,
+        parties: PartiesAdmin,
+        approvals: Approvals,
+        authoriser: Authoriser,
+        idempotency: Idempotency,
+        audit: AuditTrail,
+        events: DomainEvents,
+        registry: DocumentRegistry,
+        principals: PrincipalNames,
+        cursors: Cursors,
+        clock: Clock,
+      ) => new BusinessAccounts(uow, store, credit, refs, parties, approvals, authoriser, idempotency, audit, events, registry, principals, cursors, clock),
+      inject: [UnitOfWork, ACCOUNT_STORE, CreditControl, MasterDataRefs, PartiesAdmin, Approvals, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, PRINCIPAL_NAMES, Cursors, CLOCK],
+    },
+    { provide: AccountHolds, useFactory: (accounts: BusinessAccounts) => new AccountHolds(accounts), inject: [BusinessAccounts] },
     {
       provide: Statements,
       useFactory: (
@@ -47,15 +97,24 @@ import { StatementsController } from './interface/statements.controller';
       inject: [UnitOfWork, STATEMENT_STORE, MasterDataRefs, Authoriser, Idempotency, AuditTrail, DocumentRegistry, NumberSeries, Journals, Documents, Cursors, CLOCK],
     },
   ],
-  exports: [Statements],
+  exports: [Statements, BusinessAccounts, CreditControl, AccountHolds],
 })
 export class WhlModule implements OnModuleInit {
   constructor(
     @Inject(DomainEvents) private readonly events: DomainEvents,
     @Inject(Statements) private readonly statements: Statements,
+    @Inject(Approvals) private readonly approvals: Approvals,
+    @Inject(BusinessAccounts) private readonly accounts: BusinessAccounts,
+    @Inject(CreditControl) private readonly credit: CreditControl,
+    @Inject(ORDER_CONFIRMATION_POLICIES) private readonly policies: OrderConfirmationPolicy[],
   ) {}
 
   onModuleInit(): void {
     this.events.registerConsumer(this.statements.archiveLinks);
+    this.approvals.registerHandler(CREDIT_OVERRIDE_KIND, this.credit.approvalHandler);
+    this.approvals.registerHandler(ACCOUNT_RELEASE_KIND, this.accounts.releaseHandler);
+    this.approvals.registerHandler(CREDIT_LIMIT_CHANGE_KIND, this.accounts.limitHandler);
+    // ORD's OrderConfirmationPolicy port (MODULE_BOUNDARIES section 6): WHL answers for credit orders.
+    if (!this.policies.includes(this.credit)) this.policies.push(this.credit);
   }
 }

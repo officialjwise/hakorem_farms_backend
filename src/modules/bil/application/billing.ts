@@ -397,6 +397,15 @@ export class Billing {
     return this.store.openItems(tx, filter, beforeId, limit);
   }
 
+  /**
+   * Everything one customer still owes, at every branch, oldest due first, in the caller's transaction: WHL's credit
+   * exposure and terms (FR-WHL-006, B10 continued). A reversed or bounced payment has already reopened its item. It
+   * authorises nothing.
+   */
+  customerOpenItemsIn(tx: Transaction, customerId: string): Promise<OpenItemRecord[]> {
+    return this.store.customerOpenItems(tx, customerId);
+  }
+
   /** Documents by id as the contract shows them, in the caller's transaction; unknown ids are absent. It authorises nothing (ORD's order view, A-224). */
   async viewsIn(tx: Transaction, ids: readonly string[]): Promise<BillingDocumentView[]> {
     if (ids.length === 0) return [];

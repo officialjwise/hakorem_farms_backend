@@ -272,6 +272,30 @@ export class PgBillingStore implements BillingStore {
     };
   }
 
+  async customerOpenItems(tx: Transaction, customerId: string): Promise<OpenItemRecord[]> {
+    const { rows } = await tx.query<{ id: string; kind: string; document_no: string | null; customer_id: string | null; customer_name: string | null; issue_date: string; due_date: string | null; gross: string; credited: string; allocated: string; outstanding: string }>(
+      `SELECT d.id, d.kind, d.document_no, d.customer_id, d.customer_name, d.issue_date::text, d.due_date::text, d.gross_pesewas::text AS gross,
+              s.credited_pesewas::text AS credited, s.allocated_pesewas::text AS allocated, s.outstanding_pesewas::text AS outstanding
+         FROM bil.billing_document d JOIN bil.document_settlement s ON s.billing_document_id = d.id
+        WHERE d.customer_id = $1 AND d.status = 'ISSUED' AND d.kind IN ('INVOICE', 'RECEIPT', 'DEBIT_NOTE') AND s.outstanding_pesewas > 0
+        ORDER BY COALESCE(d.due_date, d.issue_date), d.id`,
+      [customerId],
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      kind: r.kind,
+      documentNo: r.document_no,
+      customerId: r.customer_id,
+      customerName: r.customer_name,
+      issueDate: r.issue_date,
+      dueDate: r.due_date,
+      grossPesewas: BigInt(r.gross),
+      creditedPesewas: BigInt(r.credited),
+      allocatedPesewas: BigInt(r.allocated),
+      outstandingPesewas: BigInt(r.outstanding),
+    }));
+  }
+
   async settlements(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, SettlementRecord>> {
     if (ids.length === 0) return new Map();
     const { rows } = await tx.query<{

@@ -25,14 +25,14 @@ import {
 } from '../../inv';
 import { extendPrice, type MasterDataRefs, type PriceBasis, type PricingService, type ProductFacts } from '../../mdm';
 import type { Payments, PaymentView } from '../../pay';
-import { judgeConfirmation, planLineReservation, receivedForOrder, type CreditAnswer } from '../domain/confirmation';
+import { judgeConfirmation, planLineReservation, receivedForOrder } from '../domain/confirmation';
 import { judgeOverride } from '../domain/price-override';
 import { lineNumber } from '../domain/line-numbers';
 import { paymentStatusOf, type OrderStatus, type PaymentStatus } from '../domain/order';
 import { pageProbe, windowAfter } from '../domain/paging';
 import type { OrderConfirmed, OrderPlaced } from '../events';
-import { OrderInvalidError, OrderStockShortError, PriceOverrideNeedsApprovalError, QuoteRequiredError, type SaleRule } from './errors';
-import type { OrderConfirmationPolicy } from './order-confirmation-policy';
+import { CreditRefusedError, OrderInvalidError, OrderStockShortError, PriceOverrideNeedsApprovalError, QuoteRequiredError, type SaleRule } from './errors';
+import type { CreditOrder, CreditOverridePending, CreditPolicyAnswer, OrderConfirmationPolicy } from './order-confirmation-policy';
 import type { ApprovalPendingView } from './order-reversals';
 import type { FlaggedLine, PriceOverrides } from './price-overrides';
 import type { NewOrderLine, OrderHeaderRecord, OrderLineRecord, OrderRecord, OrderStore, ShiftSalesSummary } from './order-store';
@@ -198,6 +198,7 @@ export interface OrderStatusChangeView {
 const json = (pesewas: bigint) => Money.ofPesewas(pesewas).toJsonInteger();
 const lineField = (i: number, name: string) => `/lines/${i}/${name}`;
 const isSet = <T>(value: T | null | undefined): value is T => value !== undefined && value !== null;
+const creditOrderOf = (o: OrderHeaderRecord): CreditOrder => ({ id: o.id, orderNo: o.orderNo, customerId: o.customerId, branchId: o.branchId, estimatedTotalPesewas: o.estimatedTotalPesewas });
 
 /**
  * Orders (FR-ORD-001, FR-ORD-002, FR-ORD-003, FR-ORD-005, FR-ORD-016): the one order record of every channel as staff
@@ -391,7 +392,7 @@ export class Orders {
    * names each short line (422 STOCK_UNAVAILABLE). The balances' locks are taken before BEGIN, so two confirmations of
    * the last crate queue and the second is refused, never both held (ADR-0005, A-060).
    */
-  async confirm(actor: Actor | undefined, id: string, key: string): Promise<StoredResponse<SalesOrderView>> {
+  async confirm(actor: Actor | undefined, id: string, key: string, request: { readonly creditOverrideReason?: string | undefined } = {}): Promise<StoredResponse<SalesOrderView | CreditOverridePending>> {
     const locks = await this.uow.run({ isolation: 'read committed' }, async (tx) => {
       await this.authoriser.authorise(tx, actor, CONFIRM);
       const [order] = await this.store.orders(tx, [id]);
@@ -406,8 +407,9 @@ export class Orders {
     });
     return this.uow.run({ isolation: 'serializable', seriesLocks: locks }, async (tx) => {
       await this.authoriser.authorise(tx, actor, CONFIRM);
-      const claim = await this.idempotency.claim(tx, { operationId: 'confirmOrder', principalId: actor!.principalId, key, request: { id } });
-      if (claim.kind === 'REPLAY') return claim.response as StoredResponse<SalesOrderView>;
+      const overrideReason = request.creditOverrideReason ?? null;
+      const claim = await this.idempotency.claim(tx, { operationId: 'confirmOrder', principalId: actor!.principalId, key, request: overrideReason === null ? { id } : { id, creditOverrideReason: overrideReason } });
+      if (claim.kind === 'REPLAY') return claim.response as StoredResponse<SalesOrderView | CreditOverridePending>;
       const header = await this.store.lock(tx, id);
       if (header === null) throw new NotFoundError('no such order');
       await this.authoriser.authorise(tx, actor, CONFIRM, { branchId: header.branchId });
@@ -418,7 +420,18 @@ export class Orders {
       if (waiting.length > 0) throw new PriceOverrideNeedsApprovalError(waiting);
 
       const received = receivedForOrder(await this.payments.ofOrderIn(tx, id));
-      const credit = header.paymentTerms === 'CREDIT' ? await this.creditFor(tx, header) : null;
+      const judged = header.paymentTerms === 'CREDIT' ? await this.creditFor(tx, header) : null;
+      if (judged !== null && judged.answer.verdict === 'REFUSED') {
+        // CR-046: an order over the limit, past the terms or on hold does not go through. With a written reason and none
+        // waiting, the approval is asked for in place of a plain refusal (202) and the order stays PLACED until a
+        // different person approves; without one, or while one waits, it is refused with the amounts in words.
+        if (overrideReason === null || judged.answer.overridePending) throw new CreditRefusedError(judged.answer);
+        const pending = await judged.policy.requestOverrideIn(tx, actor!, creditOrderOf(header), overrideReason);
+        const asked: StoredResponse<CreditOverridePending> = { status: 202, body: pending };
+        await this.idempotency.complete(tx, claim.id, asked);
+        return asked;
+      }
+      const credit = judged === null ? null : judged.answer.verdict;
       const verdict = judgeConfirmation({ paymentTerms: header.paymentTerms, estimated: Money.ofPesewas(header.estimatedTotalPesewas), received, credit });
       if (!verdict.ok) throw new OrderInvalidError([{ field: '/paymentTerms', rule: verdict.rule }]);
 
@@ -719,10 +732,10 @@ export class Orders {
     return [...new Set((await this.authoriser.scopes(tx, actor, permission)).filter((s) => s.locationId === null).map((s) => s.branchId))].sort();
   }
 
-  private async creditFor(tx: Transaction, order: OrderHeaderRecord): Promise<CreditAnswer> {
+  private async creditFor(tx: Transaction, order: OrderHeaderRecord): Promise<{ readonly policy: OrderConfirmationPolicy; readonly answer: CreditPolicyAnswer } | null> {
     for (const policy of this.policies) {
-      const answer = await policy.creditFor(tx, { id: order.id, customerId: order.customerId, branchId: order.branchId, estimatedTotalPesewas: order.estimatedTotalPesewas });
-      if (answer !== null) return answer;
+      const answer = await policy.creditFor(tx, creditOrderOf(order));
+      if (answer !== null) return { policy, answer };
     }
     return null;
   }
@@ -866,6 +879,20 @@ export class Orders {
   }
 
   /** What a till shift sold, voided and gave away below list (FR-POS-017), for POS's X and Z reports. Read-only. */
+  /**
+   * The order as a credit policy judges it, in the caller's transaction, locked when `lock` is set; null when there is
+   * no such order. With its status and terms, for WHL's credit check and override (CR-046). It authorises nothing.
+   */
+  async creditOrderIn(tx: Transaction, id: string, lock: boolean): Promise<(CreditOrder & { readonly status: OrderStatus; readonly paymentTerms: OrderHeaderRecord['paymentTerms'] }) | null> {
+    const header = lock ? await this.store.lock(tx, id) : ((await this.store.orders(tx, [id]))[0] ?? null);
+    return header === null ? null : { ...creditOrderOf(header), status: header.status, paymentTerms: header.paymentTerms };
+  }
+
+  /** The customer's confirmed credit orders not yet invoiced, summed at their estimates (SA-21), in the caller's transaction. */
+  uninvoicedCreditIn(tx: Transaction, customerId: string): Promise<bigint> {
+    return this.store.uninvoicedCreditTotal(tx, customerId);
+  }
+
   async shiftSalesIn(tx: Transaction, shiftDocumentId: string): Promise<ShiftSalesSummary> {
     return this.store.shiftSales(tx, shiftDocumentId);
   }

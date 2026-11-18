@@ -1,7 +1,10 @@
 /**
  * WHL's public door (MODULE_BOUNDARIES, WHL card). No other module imports WHL: it answers HTTP and implements ORD's
- * `OrderConfirmationPolicy` (B10). The module and `Statements` are exported for the application's wiring and the seed
- * (B08 continued 2d: one issued customer statement).
+ * `OrderConfirmationPolicy` (B10 continued). The module, `Statements`, `BusinessAccounts` and `CreditControl` are exported
+ * for the application's wiring and the seed; `AccountHolds` for the worker's `account-hold` job.
  */
 export { WhlModule } from './whl.module';
 export { Statements, STATEMENT, type StatementView } from './application/statements';
+export { BusinessAccounts, ACCOUNT_RELEASE_KIND, CREDIT_LIMIT_CHANGE_KIND, type BusinessAccountView } from './application/business-accounts';
+export { CreditControl, CREDIT_OVERRIDE_KIND } from './application/credit-control';
+export { AccountHolds } from './application/account-holds';

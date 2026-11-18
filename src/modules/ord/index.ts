@@ -13,7 +13,7 @@ export { canMove, paymentStatusOf, ORDER_STATUSES, type OrderStatus, type Paymen
 export { Orders, ORDER_CONFIRMED, ORDER_PLACED, type QuoteOrderLine, type QuoteOrderRequest, type SalesOrderView } from './application/orders';
 export type { ShiftSalesSummary } from './application/order-store';
 export { OnlineOrders, type OnlinePlacement, type OnlinePlacementLine, type PlacedOrder } from './application/online-orders';
-export { ORDER_CONFIRMATION_POLICIES, type OrderConfirmationPolicy } from './application/order-confirmation-policy';
+export { ORDER_CONFIRMATION_POLICIES, type CreditOrder, type CreditOverridePending, type CreditPolicyAnswer, type CreditRefusalReason, type OrderConfirmationPolicy } from './application/order-confirmation-policy';
 export { OrderReversals, ORDER_CANCELLED, ORDER_VOIDED, SALE_VOID_KIND, SALE_VOID_REQUESTED } from './application/order-reversals';
 export type { OrderCancelled, OrderCompleted, OrderConfirmed, OrderPlaced, OrderVoided, SaleVoidRequested } from './events';
 export { Returns, RETURN_COMPLETED, RETURN_KIND, RETURN_SUBMITTED, type OrderReturnView } from './application/returns';

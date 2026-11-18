@@ -44,6 +44,9 @@ export const SEED_STAFF_MEMBERS: readonly StaffMember[] = [
   { name: 'Esi Appiah', email: 'esi.appiah@seed.hakoremfarms.invalid', phone: '+233200000106', role: 'SALES' },
   { name: 'Abdul-Rahman Iddrisu', email: 'abdul.iddrisu@seed.hakoremfarms.invalid', phone: '+233200000107', role: 'FARM_HAND', location: 'PENS' },
   { name: 'Selorm Agbeko', email: 'selorm.agbeko@seed.hakoremfarms.invalid', phone: '+233200000108', role: 'DRIVER' },
+  // B10 continued (CR-048): a second Manager at Dodowa, so a release from hold or a credit limit change asked by one
+  // Owner or Manager always has another to approve it.
+  { name: 'Efua Boakye', email: SEED_STAFF.manager2, phone: '+233200000109', role: 'MANAGER' },
 ];
 
 const key = (...parts: string[]): string => `seed:iam:${parts.join(':')}`;

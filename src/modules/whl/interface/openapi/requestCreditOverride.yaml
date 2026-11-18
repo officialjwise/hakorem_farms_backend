@@ -1,0 +1,88 @@
+operationId: requestCreditOverride
+tags:
+  - whl
+summary: "Ask for a credit override of an order, with a written reason"
+description: "Asks for a credit override of a `PLACED` credit order that the credit check refuses (CR-046, FR-WHL-007, abuse case 14), with a written reason: 202 `CreditOverridePending` with an approval of kind `CREDIT_OVERRIDE` whose subject is the order and the credit check it was asked on. It is approved through `approveRequest` by a holder of `whl.credit.override` (the Owner or the Manager) with step-up who is not the person who asked (422 `MAKER_CANNOT_CHECK`); the database refuses an override approved by its asker. Approved, the order is confirmed by calling `confirmOrder` again, which confirms it with `creditCheck` `OVERRIDDEN` while the override covers the same order at the same amount, no more over the limit, for no new reason. Refusals: 422 `ORDER_INVALID` (`CREDIT_OVERRIDE_NOT_NEEDED`, `APPROVAL_PENDING`, `CREDIT_CHECK_UNAVAILABLE`, `NOT_CREDIT`, `ORDER_NOT_PLACED`). `confirmOrder` with `creditOverrideReason` asks the same way.\n\nMay require approval of kind `CREDIT_OVERRIDE`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves.\n\nPermission: `ord.order.confirm`."
+x-permission: ord.order.confirm
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ReasonRequest"
+      example:
+        reason: "Funeral order, paid Friday"
+responses:
+  "202":
+    description: "Accepted for approval. Nothing has taken effect yet."
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/CreditOverridePending"
+        example:
+          status: PENDING_APPROVAL
+          approvalRequestId: "019a7af2-93b5-7720-bc58-7ad4ef28f3b2"
+          kind: CREDIT_OVERRIDE
+          subject:
+            id: "019a7af0-a4c5-78e8-be21-975d5418103b"
+            docType: SALES_ORDER
+            number: SO-2026-DDW-004198
+          summary: "Credit override for SO-2026-DDW-004198 of GH₵920.00 to Asantewaa Chop Bar: GH₵420.00 over its GH₵5,000.00 limit. Reason: Funeral order, paid Friday"
+          requestedAt: "2026-11-13T10:12:00Z"
+          creditCheck:
+            order:
+              id: "019a7af0-a4c5-78e8-be21-975d5418103b"
+              docType: SALES_ORDER
+              number: SO-2026-DDW-004198
+            customer:
+              id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
+              publicId: cus_TS4VEDD3ZZNAAQGD
+              name: "Asantewaa Chop Bar"
+            outcome: OVER_LIMIT
+            reasons:
+              - OVER_LIMIT
+            creditLimitPesewas: 500000
+            exposurePesewas: 450000
+            orderPesewas: 92000
+            overLimitPesewas: 42000
+            overduePesewas: 0
+            oldestOverdueDays: null
+            paymentTermsDays: 14
+            override:
+              approvalRequestId: "019a7af2-93b5-7720-bc58-7ad4ef28f3b2"
+              status: PENDING_APPROVAL
+              reason: "Funeral order, paid Friday"
+              requestedBy:
+                id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                displayName: "Kojo Antwi"
+              requestedAt: "2026-11-13T10:12:00Z"
+              decidedBy: null
+              decidedAt: null
+            checkedAt: "2026-11-13T10:12:00Z"
+            currency: GHS
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

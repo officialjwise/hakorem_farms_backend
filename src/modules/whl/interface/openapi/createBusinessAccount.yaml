@@ -1,0 +1,94 @@
+operationId: createBusinessAccount
+tags:
+  - whl
+summary: "Open credit terms for a customer"
+description: "Opens credit terms for a live customer at a home branch (FR-WHL-001), with a nil credit limit. A customer has at most one account (409 `ACCOUNT_EXISTS`). A limit asked for is a credit limit change (CR-048): the account opens and the answer is 202 with an approval of kind `CREDIT_LIMIT_CHANGE`, decided by a holder of `whl.account.manage` with step-up who did not ask (`MAKER_CANNOT_CHECK`); the database refuses a limit set without that approval. Refusals: 422 `ACCOUNT_INVALID` (`CUSTOMER_UNKNOWN`, `BRANCH_REQUIRED`, `MANAGER_UNKNOWN`). The price list is set through master data (`assignCustomerPriceList`).\n\nPermission: `whl.account.manage`."
+x-permission: whl.account.manage
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/BusinessAccountCreate"
+      example:
+        customerId: "019a7a88-1f36-7f51-a489-fdeb250776c9"
+        creditLimitPesewas: 800000
+        paymentTermsDays: 30
+        accountManagerId: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+        branchId: "019a7a80-1c2d-7e3f-8a4b-5c6d7e8f9a01"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/BusinessAccount"
+        example:
+          customer:
+            id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
+            publicId: cus_3Q4VCE9ZY779GAT6
+            name: "Osu Fresh Mart"
+          branch:
+            id: "019a7a80-1c2d-7e3f-8a4b-5c6d7e8f9a01"
+            code: DDW
+            name: Dodowa
+          creditLimitPesewas: 800000
+          paymentTermsDays: 30
+          accountManager:
+            id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+            displayName: "Kojo Antwi"
+          overdueHoldDays: 30
+          status: ACTIVE
+          holdReason: null
+          heldAt: null
+          exposurePesewas: 243700
+          availableCreditPesewas: 556300
+          overduePesewas: 96400
+          oldestOverdueDays: 34
+          priceList:
+            id: "019a7aa5-1f46-7491-a9ca-51ed3af7cacb"
+            code: RESELLER-TIER
+            name: "Reseller prices"
+          pendingCreditLimitPesewas: null
+          pendingRelease: false
+          currency: GHS
+          version: 5
+  "202":
+    description: "Accepted for approval. Nothing has taken effect yet."
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ApprovalPending"
+        example:
+          status: PENDING_APPROVAL
+          approvalRequestId: "019a7b10-4c5d-7e6f-8a7b-8c9d0e1f2a3b"
+          kind: CREDIT_LIMIT_CHANGE
+          subject:
+            id: "019a7b10-2b3c-7d4e-8f50-61728394a5b6"
+            docType: ACCOUNT_CHANGE
+            number: null
+          summary: "Change Osu Fresh Mart's credit limit from GH₵0.00 to GH₵8,000.00. Reason: Opening credit limit"
+          requestedAt: "2026-11-13T10:12:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

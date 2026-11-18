@@ -1,0 +1,59 @@
+operationId: releaseBusinessAccount
+tags:
+  - whl
+summary: "Release an account from hold"
+description: "Asks for an account on hold to be released, with a reason (CR-048): 202 with an approval of kind `ACCOUNT_RELEASE`, decided by another holder of `whl.account.release` (the Owner or the Manager) with step-up, never the person who asked (`MAKER_CANNOT_CHECK`); the account stays on hold until then, and the database refuses a release without that approval. Paying the overdue invoice does not release it on its own. Refusals: 422 `ACCOUNT_INVALID` (`NOT_ON_HOLD`, `APPROVAL_PENDING`).\n\nPermission: `whl.account.release`."
+x-permission: whl.account.release
+parameters:
+  - name: customerId
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ReasonRequest"
+      example:
+        reason: "Overdue invoice paid in full"
+responses:
+  "202":
+    description: "Accepted for approval. Nothing has taken effect yet."
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ApprovalPending"
+        example:
+          status: PENDING_APPROVAL
+          approvalRequestId: "019a7b10-4c5d-7e6f-8a7b-8c9d0e1f2a3b"
+          kind: ACCOUNT_RELEASE
+          subject:
+            id: "019a7b10-2b3c-7d4e-8f50-61728394a5b6"
+            docType: ACCOUNT_CHANGE
+            number: null
+          summary: "Release Asantewaa Chop Bar from hold (Invoice INV-2026-DDW-001159 more than 30 days overdue). Reason: Paid in full by bank transfer on 12 November"
+          requestedAt: "2026-11-13T10:12:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

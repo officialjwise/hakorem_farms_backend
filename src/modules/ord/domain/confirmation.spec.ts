@@ -73,6 +73,10 @@ describe('judgeConfirmation (FR-ORD-005, the OrderConfirmationPolicy port)', () 
     expect(judgeConfirmation({ paymentTerms: 'CREDIT', estimated: estimate, received: Money.zero(), credit: 'PASSED' })).toEqual({ ok: true, creditCheck: 'PASSED' });
   });
 
+  it('confirms a credit order a policy passes only under an approved override, and says so', () => {
+    expect(judgeConfirmation({ paymentTerms: 'CREDIT', estimated: estimate, received: Money.zero(), credit: 'OVERRIDDEN' })).toEqual({ ok: true, creditCheck: 'OVERRIDDEN' });
+  });
+
   it('never confirms an order on immediate terms: the sale posting completes it at once', () => {
     expect(judgeConfirmation({ paymentTerms: 'IMMEDIATE', estimated: estimate, received: estimate, credit: null })).toEqual({ ok: false, rule: 'TERMS_NOT_CONFIRMED' });
   });

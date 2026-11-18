@@ -24,6 +24,7 @@ import { LedgerReconciliation } from './modules/fin';
 import { BalanceReconciliation, ReservationExpiry, StockAlertSweep } from './modules/inv';
 import { MortalityEvidenceReturns } from './modules/liv';
 import { QuoteExpiry } from './modules/quo';
+import { AccountHolds } from './modules/whl';
 import { CatalogueListing } from './modules/shp';
 import { ProviderPayments, Refunds } from './modules/pay';
 
@@ -56,6 +57,8 @@ const LEDGER_RECONCILE_CRON = '15 2 * * *';
 const BILLING_NUMBERING_AUDIT_CRON = '20 2 * * *';
 /** Daily at 06:30, before the shop opens: low-stock and expiring-lot alerts (FR-INV-015, FR-INV-016). */
 const STOCK_ALERTS_CRON = '30 6 * * *';
+/** Daily, just after midnight in Accra (UTC): an account with an invoice past its overdue threshold is held (FR-WHL-008). */
+const ACCOUNT_HOLD_CRON = '5 0 * * *';
 
 /**
  * Builds and starts the worker: the application's module graph as a context (no HTTP), its own pools as hk_worker
@@ -117,10 +120,12 @@ export async function startWorker(config: AppConfig, logger: Logger, clock: Cloc
   const providerPayments = app.get(ProviderPayments);
   const refunds = app.get(Refunds);
   const quoteExpiry = app.get(QuoteExpiry);
+  const accountHolds = app.get(AccountHolds);
   // The modules' scheduled jobs (ADR-0049, docs/OPERATIONS.md "Scheduled jobs").
   const jobs: ScheduledJob[] = [
     { name: 'reservation-expiry', when: { everyMs: RESERVATION_EXPIRY_EVERY_MS }, run: async (system) => ({ expired: (await reservationExpiry.run(system)).length }) },
     { name: 'quote-expiry', when: { everyMs: QUOTE_EXPIRY_EVERY_MS }, run: async (system) => ({ expired: (await quoteExpiry.run(system)).length }) },
+    { name: 'account-hold', when: { cron: ACCOUNT_HOLD_CRON }, run: async (system) => ({ held: (await accountHolds.run(system)).length }) },
     { name: 'catalogue-refresh', when: { everyMs: CATALOGUE_REFRESH_EVERY_MS }, run: async () => catalogue.refresh() },
     {
       name: 'provider-sweep',
