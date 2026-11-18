@@ -82,7 +82,7 @@ function tillPayment(customerId: string, invoiceId: string, amount: bigint) {
         amountPesewas: amount,
         customerId,
         orderDocumentId: null,
-        shiftDocumentId: await openTestShift(tx, cashier.principalId, branchId),
+        shiftDocumentId: await openTestShift(tx, cashier.principalId, branchId, till),
         register: till,
         receivedAt: clock.now(),
         allocations: [{ billingDocumentId: invoiceId, amountPesewas: amount }],
