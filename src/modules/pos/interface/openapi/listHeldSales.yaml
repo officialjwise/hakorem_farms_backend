@@ -1,0 +1,124 @@
+operationId: listHeldSales
+tags:
+  - pos
+summary: "List held sales on a register"
+description: "The sales still held on the till's open shift, newest first (FR-POS-007, 2.9.0): never one recalled, lapsed with its shift or past `expiresAt`. Each carries `heldTotalPesewas`; `pricing` is null here (recall one to see it re-priced). Read at the till's branch and location.\n\nPermission: `pos.sale.create`."
+x-permission: pos.sale.create
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/HeldSalePage"
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7afb-090f-7b52-908b-be00358e36de"
+                  registerId: "019a7a94-15a3-7248-9781-2d5f347aa63d"
+                  heldBy:
+                    id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                    displayName: "Adwoa Darko"
+                  label: "Lady in the green dress, back in 10 min"
+                  payload:
+                    lines:
+                      - productId: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                        quantity: "3.000"
+                  heldAt: "2026-11-13T09:00:00Z"
+                  expiresAt: "2026-11-13T21:00:00Z"
+                - id: "019a7afb-27fe-7536-aa6e-5c37af3fd515"
+                  registerId: "019a7a94-15a3-7248-9781-2d5f347aa63d"
+                  heldBy:
+                    id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                    displayName: "Adwoa Darko"
+                  label: "Kofi, getting more cash"
+                  payload:
+                    lines:
+                      - productId: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                        quantity: "3.000"
+                  heldAt: "2026-11-13T10:00:00Z"
+                  expiresAt: "2026-11-13T22:00:00Z"
+                - id: "019a7afb-46ed-7f19-b452-fa6f28f0734d"
+                  registerId: "019a7a94-15a3-7248-9781-2d5f347aa63d"
+                  heldBy:
+                    id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                    displayName: "Adwoa Darko"
+                  label: "Church order, waiting for the treasurer"
+                  payload:
+                    lines:
+                      - productId: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                        quantity: "3.000"
+                  heldAt: "2026-11-13T11:00:00Z"
+                  expiresAt: "2026-11-13T23:00:00Z"
+                - id: "019a7afb-65dc-78fd-8e35-98a6a2a11184"
+                  registerId: "019a7a94-15a3-7248-9781-2d5f347aa63d"
+                  heldBy:
+                    id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                    displayName: "Adwoa Darko"
+                  label: null
+                  payload:
+                    lines:
+                      - productId: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                        quantity: "3.000"
+                  heldAt: "2026-11-13T12:00:00Z"
+                  expiresAt: "2026-11-14T00:00:00Z"
+                - id: "019a7afb-84cb-72e0-9819-36de1c52afbc"
+                  registerId: "019a7a94-15a3-7248-9781-2d5f347aa63d"
+                  heldBy:
+                    id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                    displayName: "Adwoa Darko"
+                  label: "Driver for Royal Palm"
+                  payload:
+                    lines:
+                      - productId: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                        quantity: "3.000"
+                  heldAt: "2026-11-13T13:00:00Z"
+                  expiresAt: "2026-11-14T01:00:00Z"
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -10,6 +10,7 @@ registerMessages({
   'pos.shift_invalid': 'This shift cannot be opened or closed like this.',
   'pos.cash_movement_invalid': 'This cash movement cannot be recorded like this.',
   'pos.counter_sale_invalid': 'This counter sale cannot be taken like this.',
+  'pos.held_sale_invalid': 'This sale cannot be held like this.',
   'pos.rule': 'This value breaks a till rule.',
   'pos.device_invalid': 'This device cannot be enrolled or revoked like this.',
   'pos.device_credential_invalid': 'This device is not enrolled. Ask a manager to enrol it.',
@@ -90,13 +91,22 @@ export class CashMovementInvalidError extends BusinessRuleError {
 
 /**
  * 422 COUNTER_SALE_INVALID: `CHANGE_ONLY_FROM_CASH`, `TENDERED_BELOW_AMOUNT`, `METHOD_UNKNOWN`, `OFFLINE_TENDER_ONLY`,
- * `PROVIDER_PAYMENT_NOT_AVAILABLE`, `OCCURRED_AT_OUT_OF_WINDOW`, `ID_NOT_UUID_V7`, `ID_DIFFERS_FROM_KEY`.
+ * `PAYMENT_ID_NOT_FOR_METHOD`, `PAYMENT_NAMED_TWICE`, `OCCURRED_AT_OUT_OF_WINDOW`, `ID_NOT_UUID_V7`, `ID_DIFFERS_FROM_KEY`.
  */
 export class CounterSaleInvalidError extends BusinessRuleError {
   readonly code = 'COUNTER_SALE_INVALID';
   readonly messageKey = 'pos.counter_sale_invalid';
   constructor(rules: readonly TillRule[]) {
     super('the counter sale breaks a rule', details(rules));
+  }
+}
+
+/** 422 HELD_SALE_INVALID (FR-POS-007, A-276): `ID_NOT_UUID_V7`, `ID_IN_USE`, `WEIGHT_SOURCE_REQUIRED`, `WEIGHT_REQUIRED`, `QUOTE_REQUIRED`. */
+export class HeldSaleInvalidError extends BusinessRuleError {
+  readonly code = 'HELD_SALE_INVALID';
+  readonly messageKey = 'pos.held_sale_invalid';
+  constructor(rules: readonly TillRule[]) {
+    super('the held sale breaks a rule', details(rules));
   }
 }
 
