@@ -20,7 +20,7 @@
  * port (`OrderLineValuationRegistry`, ADR-0086): PUR values a receipt line that names its order line and no value.
  */
 export { InvModule } from './inv.module';
-export { Stock, type MovementRequest, type PostedMovement, type StockPostingPayload } from './application/stock';
+export { SALE_ISSUE_OFFLINE, Stock, type MovementRequest, type OfflineConflictKind, type OfflineException, type OfflineIssueOutcome, type OfflineIssueRequest, type PostedMovement, type StockPostingPayload } from './application/stock';
 export { Lineage, type Trace, type TracedUnit } from './application/lineage';
 export { StockUnits, type LotRegistration, type SerialRegistration, type StockUnitFacts, type UnitOnHand } from './application/stock-units';
 export { BalanceReconciliation, type DriftFound } from './application/reconciliation';

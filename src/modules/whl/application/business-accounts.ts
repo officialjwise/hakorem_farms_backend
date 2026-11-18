@@ -110,7 +110,7 @@ const changeHash = (change: { readonly id: string; readonly customerId: string; 
  * Business accounts (FR-WHL-001, FR-WHL-008, CR-048): a customer's credit terms at a home branch. Terms, the account
  * manager and the hold threshold change at once; every change to a credit limit, up or down, and every release of a
  * hold wait for an Owner or Manager who did not ask (`CREDIT_LIMIT_CHANGE`, `ACCOUNT_RELEASE`), held in the
- * application and by the database (migration 0257). The Accountant may put an account on hold, never release it. The
+ * application and by the database (migration 0259). The Accountant may put an account on hold, never release it. The
  * daily job holds an account with anything more than its threshold's days past due. Every read and write is authorised
  * at the account's branch.
  */

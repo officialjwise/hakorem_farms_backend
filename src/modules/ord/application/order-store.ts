@@ -115,6 +115,8 @@ export type NewOrderLine = Omit<OrderLineRecord, ReadOnlyLine> & {
   /** A catch-weight line's estimate at order time (ADR-0021): packs times the nominal pack, and the product's tolerance. */
   readonly estimatedWeightKg?: string | null;
   readonly tolerancePercent?: string | null;
+  /** An offline sale's line whose stock could not move (ADR-0027 point 3): the stock exception in the movement's place; absent, none. */
+  readonly stockExceptionId?: string | null;
 };
 
 /** One void asked for of a completed sale (`ord.order_void`, migration 0194). */

@@ -97,3 +97,79 @@ export interface TillClockOutOfTolerance {
   readonly toleranceSeconds: number;
   readonly exceptionKind: 'TILL_CLOCK_OUT_OF_TOLERANCE';
 }
+
+/** Where an offline sale was made: the till, the shift, the device and the cashier it is attributed to. */
+interface OfflineSaleSource {
+  readonly saleId: string;
+  readonly shiftId: string;
+  readonly branchId: string;
+  readonly register: { readonly id: string; readonly code: string };
+  readonly deviceId: string;
+  readonly cashierId: string;
+  readonly deviceCounter: number;
+  readonly provisionalRef: string;
+  readonly occurredAt: string;
+  readonly recordedAt: string;
+}
+
+/**
+ * `pos.OfflineSaleFlagged`: something about a synced offline sale a person must look at (ADR-0027 point 10, OFFLINE_SYNC
+ * 8, B09b continued 2b). The sale is recorded whatever it is; this reaches the daily exception report's source with the
+ * cashier, the register, the shift, the amount and the two conflicting facts (`claim`, what the till said; `fact`, what
+ * the server holds), for B12. One event per finding.
+ */
+export interface OfflineSaleFlagged extends OfflineSaleSource {
+  readonly exceptionKind:
+    | 'STOCK_EXCEPTION'
+    | 'PRICE_OVERRIDE'
+    | 'NOT_PRICED_AT_SYNC'
+    | 'UNIT_NOT_SOLD'
+    | 'PROVISIONAL_REF_MISMATCH'
+    | 'TENDERS_DIFFER'
+    | 'UNMATCHED_PAYMENT'
+    | 'OFFLINE_CASH_NOT_TAKEN'
+    | 'OFFLINE_LATE_POSTING'
+    | 'TILL_CLOCK_OUT_OF_TOLERANCE'
+    | 'OFFLINE_SALE_TOO_OLD'
+    | 'AUTHORISATION_FAILURE';
+  readonly severity: 'URGENT' | 'REVIEW';
+  readonly summary: string;
+  readonly amountPesewas: number;
+  readonly claim: Readonly<Record<string, unknown>>;
+  readonly fact: Readonly<Record<string, unknown>>;
+  readonly abuseCases: readonly number[];
+}
+
+/**
+ * `pos.OfflineSaleRejected`: a queued sale refused for integrity (OFFLINE_SYNC 9.8): its content no longer matches the
+ * hash the till printed it with, its id was used before for other content, its counter belongs to another sale, or the
+ * catalogue cannot read it. Nothing is recorded but the log row and this; it carries the submission as received and both
+ * hashes, URGENT, for the daily exception report (`SYNC_REJECTED`, abuse case 10).
+ */
+export interface OfflineSaleRejected extends OfflineSaleSource {
+  readonly exceptionKind: 'SYNC_REJECTED';
+  readonly severity: 'URGENT';
+  readonly rule: string;
+  readonly receivedHash: string;
+  readonly recomputedHash: string;
+  readonly submitted: unknown;
+  readonly amountPesewas: number;
+  readonly abuseCases: readonly number[];
+}
+
+/**
+ * `pos.DeviceCounterGap`: device counter values of a shift that have not arrived while higher ones have (FR-POS-013,
+ * OFFLINE_SYNC 9.5, abuse case 10): raised once for each value newly missing, URGENT, for the daily exception report.
+ */
+export interface DeviceCounterGap {
+  readonly shiftId: string;
+  readonly branchId: string;
+  readonly register: { readonly id: string; readonly code: string };
+  readonly deviceId: string;
+  readonly cashierId: string;
+  readonly missing: readonly number[];
+  readonly highestSynced: number;
+  readonly exceptionKind: 'DEVICE_COUNTER_GAP';
+  readonly severity: 'URGENT';
+  readonly abuseCases: readonly number[];
+}

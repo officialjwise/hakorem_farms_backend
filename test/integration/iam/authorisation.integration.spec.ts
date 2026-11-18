@@ -124,6 +124,7 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'listRegisters', 'createRegister', 'updateRegister', 'listShifts', 'openShift', 'getShift', 'listShiftCashMovements', 'recordCashMovement',
         'getShiftXReport', 'getShiftZReport', 'closeShift', 'approveShiftClose',
         'listRegisterDevices', 'enrolDevice', 'revokeDevice', 'completeCounterSale', 'forceCloseShift', 'countForceClosedShift', 'listHeldSales', 'holdSale', 'recallHeldSale', 'getOfflinePack',
+        'syncOfflineSales',
         'listStatements', 'createStatement', 'getStatement',
         'getSupplierBalance',
         'submitQuoteRequest', 'viewQuoteByLink', 'acceptQuoteByLink', 'declineQuoteByLink', 'listRfqs', 'createRfq', 'getRfq', 'updateRfq',

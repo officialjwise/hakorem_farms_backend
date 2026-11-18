@@ -1,6 +1,6 @@
 # B10 continued: credit control (lane B), split before ageing, dunning and standing orders
 
-Date: 2026-11-18 · Branch `b10c-credit-control`, from `main` at `7ef2851` (B10, #109) · Status: **gate as split passed locally; the phase split at its sub-domain boundary (A-315).**
+Date: 2026-11-18 · Branch `b10c-credit-control`, from `main` at `7ef2851` (B10, #109), rebased holding the merge slot on `main` at `48c9226` (lane A's B09b continued 2b, #110; migrations renumbered 0258 to 0261, contract 2.14.0) · Status: **gate as split passed locally; the phase split at its sub-domain boundary (A-315).**
 
 Run as a fresh agent inside the 2026-11-15 overnight session: the parent session cannot issue /clear or /compact, so each phase starts in a new context that reads only this handoff from disk.
 
@@ -25,7 +25,7 @@ Phase, scope and gate, as confirmed at the start:
 ## The owner's decisions of 2026-11-18, answered
 
 1. **Request numbers by the frontend's `main`:** done; main still at `81525f1`: CR-045 to CR-049 the quote and wholesale requests, CR-050 lane A's drop witness.
-2. **A quote line with no unit is priced per crate:** **built** test-first (seen red: `EGG`, 2.000, 220; then green: `CRATE`, 2.000, base 60.000, 6,000, line 12,000), LOUD in 2.13.0, A-316.
+2. **A quote line with no unit is priced per crate:** **built** test-first (seen red: `EGG`, 2.000, 220; then green: `CRATE`, 2.000, base 60.000, 6,000, line 12,000), LOUD in 2.14.0, A-316.
 3. **Several live links per version on three conditions:** recorded (A-309 (e), ADR-0087 accepted); **not built here:** the per-link revoke and the three mutation-checked tests are B10 continued 2's first QUO item, written into its opener with the owner's words. (B10 already closes every link when a version is replaced or expires and accepts once per version by `uq_quote_acceptance_version`; the revoke does not exist yet.)
 4. **Sales may create requests for quote:** approved; nothing to change (built in B10).
 5. **A-309:** unknown cost and negative margin approvals approved; **subject to stock not built here**: it changes QUO's issue and reservation and needs ADR-0019 read first, so it is in B10 continued 2's opener with the owner's words and the stop condition. A dated amendment to A-309 records the decision.
@@ -33,7 +33,7 @@ Phase, scope and gate, as confirmed at the start:
 
 ## Contract changes
 
-**2.13.0, minor, LOUD for `confirmOrder` on credit terms and for a quote line with no unit** (on top of 2.12.0; `scripts/contract/versioning.ts` against `main`: ok; Redocly clean; `contract:generate` up to date: 484 operations from code, 164 planned, 648 in all).
+**2.14.0, minor, LOUD for `confirmOrder` on credit terms and for a quote line with no unit** (on top of lane A's 2.13.0, renumbered at the merge slot; `scripts/contract/versioning.ts` against `main`: ok; Redocly clean; `contract:generate` up to date: 485 operations from code, 163 planned, 648 in all).
 - **Into code:** `listBusinessAccounts`, `createBusinessAccount`, `getBusinessAccount`, `updateBusinessAccount`, `holdBusinessAccount`, `releaseBusinessAccount`, `listCreditOverrides`. **New:** `getOrderCreditCheck` (`OrderCreditCheck`, `CreditOverrideState`) and `requestCreditOverride` (202 `CreditOverridePending`), on the order's path, served by WHL.
 - **Planned shapes changed before any client used them:** `BusinessAccount` gains `branch`, `oldestOverdueDays`, `pendingCreditLimitPesewas`, `pendingRelease`; `BusinessAccountCreate` gains `branchId`, `reason`; `BusinessAccountUpdate` gains `reason`, nullable `accountManagerId`; **`priceListId` deprecated and refused**; `createBusinessAccount` may answer 202 and `updateBusinessAccount` answers 202 `CREDIT_LIMIT_CHANGE` for every limit change; **`releaseBusinessAccount` takes `whl.account.release` and answers 202 `ACCOUNT_RELEASE`**; `CreditOverride` gains `orderPesewas`, `overLimitPesewas`, `reasons`, `reason`, `requestedBy`.
 - **`confirmOrder` (implemented, LOUD):** optional body `OrderConfirm` (`creditOverrideReason`); 202 `CreditOverridePending`; new 422 `CREDIT_LIMIT_EXCEEDED`, `CREDIT_TERMS_EXCEEDED`, `ACCOUNT_ON_HOLD`. A customer with no account is still `CREDIT_CHECK_UNAVAILABLE`.
@@ -44,7 +44,7 @@ Phase, scope and gate, as confirmed at the start:
 
 | Item | What |
 | --- | --- |
-| Schema | 0256 (document type `ACCOUNT_CHANGE`), 0257 (`whl.account_change`, `whl.business_account` with its guard, `whl.credit_override_request`, `whl.credit_override`; every second-person rule held by the database), 0258 (five permissions, three approval policies with step-up), 0259 (grants as CR-048's table). |
+| Schema | 0258 (document type `ACCOUNT_CHANGE`), 0259 (`whl.account_change`, `whl.business_account` with its guard, `whl.credit_override_request`, `whl.credit_override`; every second-person rule held by the database), 0260 (five permissions, three approval policies with step-up), 0261 (grants as CR-048's table). |
 | Domain | `whl/domain/credit.ts`: `judgeCredit` (exposure, over the limit, past the terms, the hold, every reason), `availableCredit`, `holdTrigger`, `overrideCovers`; `whl/domain/time.ts`: `daysPastDue`. 100 percent under WHL's domain gate. |
 | WHL | `CreditControl` (the port, the credit check, the override, its handler, `listCreditOverrides`, `whl.CreditOverrideApproved` with abuse case 14); `BusinessAccounts` (accounts, terms, hold, release, the two change handlers, the overdue hold); `AccountHolds` (the worker's `account-hold` job, daily 00:05). |
 | ORD | The port's judgement (`CreditPolicyAnswer`, `requestOverrideIn`), `CreditRefusedError`, `confirmOrder`'s optional body and 202, `creditCheck` `OVERRIDDEN`, `Orders.creditOrderIn` and `uninvoicedCreditIn`; the policy list exported for WHL. Lane A's files untouched (`sale-posting.ts`, PAY's till rules). |
@@ -69,7 +69,7 @@ Phase, scope and gate, as confirmed at the start:
 
 **Unit:** `src/modules/whl/domain/credit.spec.ts` (28 tests): exactly at the limit, one pesewa over, FR-WHL-006's 60,000 order over by 10,000, a nil limit, the largest amounts, due today, one day past due, no due date, nil outstanding ignored, both reasons, the hold first, available credit never below nil, FR-WHL-008's 13 and 14 November, the override's cover, days across the year end.
 
-**Walks extended:** `iam/authorisation` (the nine routes and their bodies), `bil/archive-link-rollback` (0256 to 0259 rolled back and applied over the seeded farm), the contract's request schemas and operation count, `platform/seed` (nine staff, twenty seed units), `ord/orders` (its credit refusal now uses a customer with no account).
+**Walks extended:** `iam/authorisation` (the nine routes and their bodies), `bil/archive-link-rollback` (0258 to 0261 rolled back and applied over the seeded farm), the contract's request schemas and operation count, `platform/seed` (nine staff, twenty seed units), `ord/orders` (its credit refusal now uses a customer with no account).
 
 ## Mutation checks (each applied alone, the spec run, the source restored)
 
@@ -119,16 +119,16 @@ Ageing as at a date and FR-WHL-009's ageing summary with A-300 (i) (deposits on 
 
 | Layer | Result |
 | --- | --- |
-| Unit and integration, merged (`pnpm test:coverage`), on `8ae73eb` | **3,528 passed**, 290 files, none skipped. Statements 94.10 percent, branches 83.95 (the gate is 80), functions 97.78, lines 96.96; every 100 percent gate held, WHL's domain (`credit.ts`, `time.ts`, `statement.ts`) included. |
-| Contract (`pnpm test:contract`) | **128 passed**, 48 files, on the code before the `priceListId` fix; the new `test/contract/b10c/credit-control.contract.spec.ts` (1 test) passed on its own after it; CI's contract job on `8ae73eb` green. |
+| Unit and integration, merged (`pnpm test:coverage`), on the code rebased on `48c9226` | **3,572 passed**, 295 files, none skipped. Statements 94.07 percent, branches 83.94 (the gate is 80), functions 97.79, lines 96.94; every 100 percent gate held, WHL's domain (`credit.ts`, `time.ts`, `statement.ts`) included. Before the rebase, on `8ae73eb`: 3,528 passed, 290 files. |
+| Contract (`pnpm test:contract`) | **130 passed**, 49 files, on the rebased code, with the new `test/contract/b10c/credit-control.contract.spec.ts`. |
 | Lint (module boundaries, fixtures, placement, schema names), typecheck, Redocly (no warning), `contract:generate`, versioning against `main` | Clean. |
-| End to end, setup, the image, the scans, the last migration rolled back and applied | Run in CI on `8ae73eb`: green. |
+| End to end, setup, the image, the scans, the last migration rolled back and applied | Run in CI: green on `8ae73eb` before the rebase (runs 44321539115 push, 44321831843 pull_request); the rebased head's runs are named in the closing message. |
 
 **The first full merged run was red on 6 tests in 2 files**, each a consequence of this phase, fixed before the next run and never re-run to green: the order suite's credit refusal used the seeded Tema Cold Store, which now holds an account (it now uses a customer with none), and the seed suite counted eight staff and nineteen units (now nine and twenty). The versioning check against `main` was red on the removed planned `priceListId` (kept, deprecated and refused instead).
 
 ## Notes for the frontend track
 
-- **2.13.0:** the account screens can use the seven WHL operations; show `pendingCreditLimitPesewas` and `pendingRelease` as waiting for an Owner or Manager other than the person who asked; release is 202.
+- **2.14.0:** the account screens can use the seven WHL operations; show `pendingCreditLimitPesewas` and `pendingRelease` as waiting for an Owner or Manager other than the person who asked; release is 202.
 - **The over-limit order:** read `getOrderCreditCheck` for the figures; confirm with `creditOverrideReason` (or `requestCreditOverride`) to ask the override; a 422's `details[].message` names the amounts in words; after approval, confirm again.
 - **Quotes:** a line with no `uom` is now in the sale unit (a crate for eggs).
 

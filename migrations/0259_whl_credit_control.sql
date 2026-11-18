@@ -1,4 +1,4 @@
--- 0257_whl_credit_control
+-- 0259_whl_credit_control
 -- B10 continued (FR-WHL-001, FR-WHL-006 to FR-WHL-008, CR-046, CR-048, ADR-0017, abuse case 14): business accounts and
 -- credit control. Exposure is not stored: it is read in the confirming transaction from the owning modules (A-313).
 --   whl.account_change          DOCUMENT, registered as an ACCOUNT_CHANGE business document: a new credit limit or the

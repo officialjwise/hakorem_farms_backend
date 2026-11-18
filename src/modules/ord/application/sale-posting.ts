@@ -9,7 +9,7 @@ import type { DomainEvents } from '../../../platform/events/domain-events';
 import { IdempotencyKeyReusedError, type Idempotency } from '../../../platform/idempotency/idempotency';
 import type { Billing, BillingDocumentView } from '../../bil';
 import type { ApprovalListing } from '../../iam';
-import type { Reservations, Stock, StockQueries, StockUnits } from '../../inv';
+import type { OfflineIssueOutcome, Reservations, Stock, StockQueries, StockUnits } from '../../inv';
 import { extendPrice, type MasterDataRefs, type PriceBasis, type PricingService, type ProductFacts } from '../../mdm';
 import type { Payments, PaymentView } from '../../pay';
 import { lineNumber } from '../domain/line-numbers';
@@ -146,8 +146,45 @@ export interface SaleView {
   readonly branchId: string;
 }
 
+/**
+ * A sale an offline till made and synced later (ADR-0027, OFFLINE_SYNC 7.1, B09b continued 2b): posted by `postOfflineIn`
+ * in the caller's serializable transaction. `occurredAt` is when it happened at the till.
+ */
+export interface OfflineSaleRequest extends SaleRequest {
+  readonly occurredAt: Date;
+  /** The business date its order number and receipt are dated: its own, or the first open date when that has locked. */
+  readonly issueDate: string;
+  /** The reference the till printed (ADR-0015), stored on the receipt beside the official number; null to store none. */
+  readonly provisionalRef: string | null;
+  /** What the till said was true when it sold, the claim half of every stock exception the sale raises. */
+  readonly claim: Readonly<Record<string, unknown>>;
+}
+
+/** Something about an offline sale a person must look at; the sale is recorded whatever it is (ADR-0027 point 10). */
+export type OfflineSaleFinding =
+  | { readonly kind: 'STOCK_EXCEPTION'; readonly lineNo: number; readonly stockExceptionId: string; readonly stockExceptionKind: string; readonly qty: string | null; readonly moved: boolean; readonly fact: Readonly<Record<string, unknown>> }
+  | {
+      readonly kind: 'PRICE_OVERRIDE';
+      readonly lineNo: number;
+      readonly reason: Exclude<OverrideApproval, null>;
+      readonly variancePesewas: number;
+      /** The band the server holds for the line; an agreed price outside it is recorded with the band stretched to it (A-278 (h)). */
+      readonly band: { readonly listPricePesewas: number; readonly floorPricePesewas: number; readonly ceilingPricePesewas: number };
+    }
+  | { readonly kind: 'NOT_PRICED_AT_SYNC'; readonly lineNo: number; readonly agreedUnitPricePesewas: number };
+
+/** An offline sale as posted, and what it raised. */
+export interface OfflineSaleOutcome {
+  readonly sale: SaleView;
+  readonly findings: readonly OfflineSaleFinding[];
+}
+
 interface PlannedLine {
   readonly index: number;
+  /** An offline line the engine could not price at sync: its agreed price stands, for a person to look at (A-278 (h)). */
+  readonly unpriced?: boolean;
+  /** An offline line's band as the server resolved it, before it was stretched to an agreed price outside it (A-278 (h)). */
+  readonly serverBand?: { readonly listPricePesewas: number; readonly floorPricePesewas: number; readonly ceilingPricePesewas: number };
   /** Why the line's agreed price waits for a different user's approval, or null (A-230). */
   readonly approval: OverrideApproval;
   readonly record: NewOrderLine;
@@ -417,15 +454,202 @@ export class SalePosting {
     return view;
   }
 
+  /**
+   * Posts a sale an offline till made (ADR-0027, OFFLINE_SYNC 7.1, B09b continued 2b) in the caller's serializable
+   * transaction, by the same path as `postIn` with the differences a sale that already happened needs. It is recorded
+   * whatever its stock, its price or its tenders: each line's stock moves as `SALE_ISSUE_OFFLINE` through INV's
+   * `Stock.postOfflineIssueIn` (countable stock may go below zero; an animal sold elsewhere, under a hold or reserved
+   * raises a stock exception in the movement's place, and the line names it); a price beyond the seller's limits or out
+   * of the band, and a line the engine can no longer price, post at the agreed price with a `PRICE_OVERRIDE` approval
+   * asked for after the fact; tenders that do not sum to the receipt are recorded as given. The order is marked
+   * offline, placed and completed at `occurredAt`; its number and receipt are dated `issueDate`, the receipt marked
+   * synced from offline with the reference the till printed. Only a sale the catalogue cannot read at all (an unknown
+   * product, a unit that does not convert, a line the till's own rules forbid) is refused, as before. It authorises
+   * nothing: POS's sync has. The order id is the sale's client id; a second post of it is refused by the registry.
+   */
+  async postOfflineIn(tx: Transaction, actor: Actor | undefined, request: OfflineSaleRequest): Promise<OfflineSaleOutcome> {
+    if (tx.isolation !== 'serializable') throw new IsolationLevelError(tx.isolation);
+    if (actor === undefined) throw new UnauthenticatedError('a sale needs an actor');
+    const now = this.clock.now();
+    const occurredAt = request.occurredAt;
+    const { customerId, branch, customerLocation } = await this.precheck(tx, request, 'OFFLINE');
+    await this.register(tx, actor, request);
+    const orderNo = await this.numbers.allocateIn(tx, {
+      docType: 'SALES_ORDER',
+      fiscalYear: Number(request.issueDate.slice(0, 4)),
+      branchId: request.branchId,
+      branchCode: branch.code,
+      documentId: request.orderId,
+    });
+    const findings: OfflineSaleFinding[] = [];
+    const planned = await this.plan(tx, request, occurredAt, await this.overrides.lineLimitIn(tx, actor, request.branchId), 'OFFLINE');
+
+    // A price the server's limits or band would not allow, or one it can no longer price, is recorded at the agreed
+    // price, its variance posted to 4210, and raised for a person (OFFLINE_SYNC 9.6). A completed order holds no
+    // approval still waiting (ORD's ck_sales_order_settled_lines), so none is asked for here: the exception report is
+    // where a manager reviews it, and an approval after the fact is BL-082 (A-278 (h), LOUD).
+    for (const p of planned.filter((l) => l.approval !== null)) {
+      findings.push(
+        p.unpriced === true
+          ? { kind: 'NOT_PRICED_AT_SYNC', lineNo: p.record.lineNo, agreedUnitPricePesewas: json(p.record.agreedUnitPricePesewas) }
+          : { kind: 'PRICE_OVERRIDE', lineNo: p.record.lineNo, reason: p.approval!, variancePesewas: json(p.record.variancePesewas), band: p.serverBand! },
+      );
+    }
+
+    const movements = new Map<string, string>();
+    const exceptions = new Map<string, string>();
+    for (const line of planned) {
+      const claim = { ...request.claim, lineNo: line.record.lineNo, stockUnit: line.stockUnit?.identifier ?? null, qty: line.baseQty.toDecimalString() };
+      let outcome: OfflineIssueOutcome;
+      if (line.product.tracking === 'LOT' && line.stockUnit === null) {
+        // No lot stands at the till's location to issue from: the stock is not moved, and a person finds out why (A-278 (f)).
+        const fact = { rule: 'NO_LOT_AT_LOCATION', locationId: line.fromLocationId };
+        const id = await this.stock.raiseConflictIn(
+          tx,
+          { kind: 'NEGATIVE_STOCK', branchId: request.branchId, productId: line.product.id, stockUnitId: null, locationId: line.fromLocationId, sourceDocumentId: request.orderId, qty: line.baseQty.toDecimalString(), claim, fact },
+          now,
+        );
+        outcome = { kind: 'NOT_MOVED', exception: { id, kind: 'NEGATIVE_STOCK', qty: line.baseQty.toDecimalString(), fact } };
+      } else {
+        outcome = await this.stock.postOfflineIssueIn(
+          tx,
+          actor.principalId,
+          {
+            productId: line.product.id,
+            stockUnitId: line.stockUnit?.id ?? null,
+            branchId: request.branchId,
+            fromLocationId: line.fromLocationId,
+            toLocationId: customerLocation,
+            qty: line.baseQty,
+            weight: line.weight,
+            sourceDocumentId: request.orderId,
+            sourceLineRef: line.record.id,
+            occurredAt,
+            claim,
+          },
+          now,
+        );
+      }
+      if (outcome.kind === 'MOVED') {
+        movements.set(line.record.id, outcome.movement.id);
+        for (const e of outcome.exceptions) findings.push({ kind: 'STOCK_EXCEPTION', lineNo: line.record.lineNo, stockExceptionId: e.id, stockExceptionKind: e.kind, qty: e.qty, moved: true, fact: e.fact });
+      } else {
+        exceptions.set(line.record.id, outcome.exception.id);
+        findings.push({ kind: 'STOCK_EXCEPTION', lineNo: line.record.lineNo, stockExceptionId: outcome.exception.id, stockExceptionKind: outcome.exception.kind, qty: outcome.exception.qty, moved: false, fact: outcome.exception.fact });
+      }
+    }
+
+    const document = await this.billing.issueIn(tx, actor, {
+      kind: 'RECEIPT',
+      branchId: request.branchId,
+      customerId,
+      orderDocumentId: request.orderId,
+      taxInclusive: request.taxInclusive,
+      occurredAt,
+      provisionalRef: request.provisionalRef,
+      syncedOffline: { issueDate: request.issueDate },
+      lines: planned.map((line) => ({
+        lineKind: 'PRODUCT' as const,
+        productId: line.product.id,
+        stockUnit: line.stockUnit,
+        orderLineRef: line.record.id,
+        quantity: line.record.priceBasis === 'PER_KG' ? line.weight!.kg.toKgString() : line.soldQty.toDecimalString(),
+        uom: line.record.priceBasis === 'PER_KG' ? 'KG' : line.soldUom,
+        weightKg: line.weight?.kg.toKgString() ?? null,
+        unitPricePesewas: line.record.agreedUnitPricePesewas,
+        resolvedUnitPricePesewas: line.record.resolvedUnitPricePesewas,
+      })),
+    });
+    // The tenders are recorded as the caller gives them, whatever they sum to: the caller judges them (never a refusal).
+    const gross = Money.fromJsonInteger(document.grossPesewas);
+
+    await this.store.insertOrder(tx, {
+      id: request.orderId,
+      orderNo,
+      channel: request.channel,
+      customerId,
+      contactName: request.contactName ?? null,
+      contactPhone: request.contactPhone ?? null,
+      paymentTerms: 'IMMEDIATE',
+      fulfilmentMode: request.fulfilmentMode,
+      sourceDocumentId: request.sourceDocumentId ?? null,
+      shiftDocumentId: request.shiftDocumentId ?? null,
+      salespersonId: actor.principalId,
+      taxInclusive: request.taxInclusive,
+      deliveryFeePesewas: 0n,
+      estimatedTotalPesewas: gross.pesewas,
+      maximumTotalPesewas: gross.pesewas,
+      isOffline: true,
+      placedAt: occurredAt,
+      notes: request.notes ?? null,
+      branchId: request.branchId,
+      actorId: actor.principalId,
+    });
+    await this.store.recordStatus(tx, request.orderId, { id: this.nextId(), fromStatus: null, toStatus: 'PLACED', reason: null, occurredAt, actorId: actor.principalId });
+    await this.store.insertLines(
+      tx,
+      planned.map((line) => ({ ...line.record, stockMovementId: movements.get(line.record.id) ?? null, stockExceptionId: exceptions.get(line.record.id) ?? null })),
+    );
+
+    const payments: PaymentView[] = [];
+    let left = gross.pesewas;
+    for (const [i, tender] of request.tenders.entries()) {
+      const applied = tender.amountPesewas < left ? tender.amountPesewas : left;
+      left -= applied;
+      payments.push(
+        await this.payments.recordIn(
+          tx,
+          actor,
+          {
+            branchId: request.branchId,
+            channel: request.channel,
+            methodCode: tender.methodCode,
+            amountPesewas: tender.amountPesewas,
+            customerId,
+            orderDocumentId: request.orderId,
+            shiftDocumentId: request.shiftDocumentId ?? null,
+            register: tender.register,
+            receivedAt: occurredAt,
+            allocations: applied === 0n ? [] : [{ billingDocumentId: document.id, amountPesewas: applied }],
+          },
+          `/tenders/${i}`,
+        ),
+      );
+    }
+
+    await this.store.complete(tx, request.orderId, { billingDocumentId: document.id, finalTotalPesewas: gross.pesewas, completedAt: occurredAt, actorId: actor.principalId });
+    await this.store.recordStatus(tx, request.orderId, { id: this.nextId(), fromStatus: 'PLACED', toStatus: 'COMPLETED', reason: null, occurredAt, actorId: actor.principalId });
+    const [order] = await this.store.orders(tx, [request.orderId]);
+    const view = this.view(order!, document, payments);
+    const completed: OrderCompleted = {
+      orderId: view.id,
+      orderNo,
+      channel: request.channel,
+      branchId: request.branchId,
+      customerId,
+      billingDocumentId: document.id,
+      billingDocumentNo: document.documentNo!,
+      finalTotalPesewas: gross.toJsonInteger(),
+      paymentIds: payments.map((p) => p.id),
+      lines: view.lines.map((l) => ({ lineNo: l.lineNo, productId: l.productId, qty: l.qtyFulfilled, finalLineTotalPesewas: l.finalLineTotalPesewas! })),
+      placedAt: occurredAt.toISOString(),
+      completedAt: occurredAt.toISOString(),
+    };
+    await this.events.publish(tx, { type: ORDER_COMPLETED, subjectType: 'SalesOrder', subjectId: view.id, branchId: request.branchId, payload: completed, occurredAt });
+    await this.audit.record(tx, { module: 'ord', action: 'SALE_OFFLINE', entityType: 'SalesOrder', entityId: view.id, branchId: request.branchId, before: null, after: { ...view, findings } });
+    return { sale: view, findings };
+  }
+
   /** The rules a sale breaks before anything is priced, and where it is sold from and to. */
-  private async precheck(tx: Transaction, request: SaleRequest): Promise<{ readonly customerId: string | null; readonly branch: { readonly code: string }; readonly customerLocation: string }> {
+  private async precheck(tx: Transaction, request: SaleRequest, mode: 'ONLINE' | 'OFFLINE' = 'ONLINE'): Promise<{ readonly customerId: string | null; readonly branch: { readonly code: string }; readonly customerLocation: string }> {
     const customerId = request.customerId ?? null;
     const broken: SaleRule[] = [];
     if (!POSTABLE_CHANNELS.has(request.channel)) broken.push({ field: '/channel', rule: 'CHANNEL_NOT_AVAILABLE' });
     if (request.channel === 'POS' && (request.shiftDocumentId ?? null) === null) broken.push({ field: '/shiftId', rule: 'SHIFT_REQUIRED' });
     if (!POSTABLE_FULFILMENT.has(request.fulfilmentMode)) broken.push({ field: '/fulfilmentMode', rule: 'FULFILMENT_NOT_AVAILABLE' });
     if (request.lines.length === 0) broken.push({ field: '/lines', rule: 'NO_LINES' });
-    if (request.tenders.length === 0) broken.push({ field: '/tenders', rule: 'NO_TENDERS' });
+    // Offline, a sale whose tenders the till may not take (or whose shift has closed) is recorded with none (A-278 (e)).
+    if (request.tenders.length === 0 && mode === 'ONLINE') broken.push({ field: '/tenders', rule: 'NO_TENDERS' });
     if (customerId !== null) {
       const customer = (await this.refs.customersIn(tx, [customerId])).get(customerId);
       if (customer === undefined || !customer.isLive) broken.push({ field: '/customerId', rule: 'CUSTOMER_NOT_ACTIVE' });
@@ -479,7 +703,10 @@ export class SalePosting {
    * variance, extended once (ADR-0001). A line the engine cannot price is QUOTE_REQUIRED; an agreed price outside the
    * band, or below list beyond the seller's per-line limit, is marked with why it needs an approval (A-230).
    */
-  private async plan(tx: Transaction, request: SaleRequest, at: Date, lineLimit: bigint): Promise<PlannedLine[]> {
+  private async plan(tx: Transaction, request: SaleRequest, at: Date, lineLimit: bigint, mode: 'ONLINE' | 'OFFLINE' = 'ONLINE'): Promise<PlannedLine[]> {
+    // Offline (B09b continued 2b): a product withdrawn since, a lot that no longer covers the line, and a line the engine
+    // can no longer price are recorded, never refused; the stock and the price are a person's to look at (ADR-0027).
+    const offline = mode === 'OFFLINE';
     const products = await this.refs.productsIn(tx, request.lines.map((l) => l.productId));
     const locations = await this.refs.locationsIn(tx, request.lines.map((l) => l.fromLocationId));
     const unitIds = request.lines.flatMap((l) => (l.stockUnitId === undefined || l.stockUnitId === null ? [] : [l.stockUnitId]));
@@ -499,7 +726,7 @@ export class SalePosting {
     }[] = [];
     for (const [i, line] of request.lines.entries()) {
       const product = products.get(line.productId);
-      if (product === undefined || !product.isLive) {
+      if (product === undefined || (!product.isLive && !offline)) {
         broken.push({ field: field(i, 'productId'), rule: 'PRODUCT_NOT_ACTIVE' });
         continue;
       }
@@ -519,14 +746,16 @@ export class SalePosting {
       if (unitId === null && product.tracking === 'LOT' && !reserved && inBranch) {
         // A sale that names no lot takes the oldest lot at the location that covers the line, by expiry and then by
         // received date (B09e continued, the owner's decision 4). One line is one lot: none covering it is refused.
-        const picked = (await this.queries.lotsAtIn(tx, request.branchId, product.id, line.fromLocationId)).find((l) => l.availableQty.compareTo(converted.value) >= 0);
+        const lots = await this.queries.lotsAtIn(tx, request.branchId, product.id, line.fromLocationId);
+        // Offline, a sale none covers is issued from the oldest lot there, which may go below zero (ADR-0027 point 4).
+        const picked = lots.find((l) => l.availableQty.compareTo(converted.value) >= 0) ?? (offline ? lots[0] : undefined);
         if (picked !== undefined && picked.stockUnitId !== null) {
           unitId = picked.stockUnitId;
           for (const [pickedId, facts] of await this.units.factsIn(tx, [unitId], at)) units.set(pickedId, facts);
         }
       }
       const unit = unitId === null ? undefined : units.get(unitId);
-      if (product.tracking !== 'NONE' && unitId === null) broken.push({ field: field(i, 'stockUnitId'), rule: 'STOCK_UNIT_REQUIRED' });
+      if (product.tracking !== 'NONE' && unitId === null && !(offline && product.tracking === 'LOT')) broken.push({ field: field(i, 'stockUnitId'), rule: 'STOCK_UNIT_REQUIRED' });
       if (unitId !== null && (unit === undefined || unit.productId !== product.id)) broken.push({ field: field(i, 'stockUnitId'), rule: 'STOCK_UNIT_OTHER_PRODUCT' });
       if (product.tracking === 'SERIAL' && !converted.value.equals(Quantity.ofUnits(1n))) broken.push({ field: field(i, 'quantity'), rule: 'ONE_ANIMAL_PER_LINE' });
       const hasWeight = line.weightKg !== undefined && line.weightKg !== null;
@@ -575,7 +804,7 @@ export class SalePosting {
       })),
     });
     const unpriced = resolved.lines.filter((l) => l.outcome !== 'RESOLVED' || l.resolved === null);
-    if (unpriced.length > 0) throw new QuoteRequiredError(unpriced.map((l) => ({ field: `/lines/${l.lineRef}`, reason: l.quoteRequiredReason ?? 'NO_RULE' })));
+    if (unpriced.length > 0 && !offline) throw new QuoteRequiredError(unpriced.map((l) => ({ field: `/lines/${l.lineRef}`, reason: l.quoteRequiredReason ?? 'NO_RULE' })));
 
     const planned: PlannedLine[] = [];
     // Price given below list on this sale's lines that need no approval otherwise, against the shift's room (FR-POS-004).
@@ -583,7 +812,14 @@ export class SalePosting {
     const shiftRoom = request.shiftOverrideRoomPesewas ?? null;
     for (const c of checked) {
       const line = request.lines[c.index]!;
-      const band = resolved.lines.find((l) => l.lineRef === String(c.index))!.resolved!;
+      const answer = resolved.lines.find((l) => l.lineRef === String(c.index))!;
+      // Offline, a line the engine cannot price at sync keeps the price the till agreed, as its own band, and waits for
+      // a person's approval (A-278 (h)): never a quote, because the customer has paid and gone.
+      const unpricedOffline = offline && (answer.outcome !== 'RESOLVED' || answer.resolved === null);
+      const agreedOffline = line.agreedUnitPricePesewas ?? 0n;
+      const band = unpricedOffline
+        ? { listPricePesewas: Number(agreedOffline), floorPricePesewas: Number(agreedOffline), ceilingPricePesewas: Number(agreedOffline), basis: 'PER_UNIT' as const, priceListEntryId: null }
+        : answer.resolved!;
       const list = BigInt(band.listPricePesewas);
       const agreed = line.agreedUnitPricePesewas ?? list;
       const reasonCode = line.varianceReasonCode ?? null;
@@ -602,13 +838,19 @@ export class SalePosting {
       }
       const variance = resolvedTotal.value > agreedTotal.value ? resolvedTotal.value - agreedTotal.value : agreedTotal.value - resolvedTotal.value;
       const verdict = judgeOverride({ listPricePesewas: list, floorPricePesewas: BigInt(band.floorPricePesewas), ceilingPricePesewas: BigInt(band.ceilingPricePesewas) }, agreed, variance, lineLimit);
-      let approval: OverrideApproval = verdict.kind === 'VARIANCE' ? verdict.approval : null;
+      let approval: OverrideApproval = unpricedOffline ? 'OUTSIDE_BAND' : verdict.kind === 'VARIANCE' ? verdict.approval : null;
       if (verdict.kind === 'VARIANCE' && verdict.direction === 'BELOW' && approval === null && shiftRoom !== null) {
         shiftUsed += variance;
         if (shiftUsed > shiftRoom) approval = 'BEYOND_SHIFT_LIMIT';
       }
+      // Offline, an agreed price outside the band is recorded with the band stretched to it, the server's band kept in the
+      // finding: a completed sale cannot wait for an approval, and its variance still posts to 4210 (A-278 (h)).
+      const floor = BigInt(band.floorPricePesewas);
+      const ceiling = BigInt(band.ceilingPricePesewas);
       planned.push({
         index: c.index,
+        ...(unpricedOffline ? { unpriced: true } : {}),
+        ...(offline ? { serverBand: { listPricePesewas: Number(list), floorPricePesewas: Number(floor), ceilingPricePesewas: Number(ceiling) } } : {}),
         approval,
         product: c.product,
         baseQty: c.baseQty,
@@ -628,12 +870,12 @@ export class SalePosting {
           qtyFulfilled: c.soldQty.toDecimalString(),
           fulfilledWeightKg: c.weight?.kg.toKgString() ?? null,
           weightSource: c.weight?.source ?? null,
-          priceSource: 'ENGINE',
+          priceSource: unpricedOffline ? 'MANUAL_APPROVED' : 'ENGINE',
           priceBasis: band.basis,
           priceListEntryId: band.priceListEntryId,
           resolvedUnitPricePesewas: list,
-          floorUnitPricePesewas: BigInt(band.floorPricePesewas),
-          ceilingUnitPricePesewas: BigInt(band.ceilingPricePesewas),
+          floorUnitPricePesewas: offline && agreed < floor ? agreed : floor,
+          ceilingUnitPricePesewas: offline && agreed > ceiling ? agreed : ceiling,
           agreedUnitPricePesewas: agreed,
           variancePesewas: verdict.kind === 'VARIANCE' ? variance : 0n,
           varianceDirection: verdict.kind === 'VARIANCE' ? verdict.direction : null,

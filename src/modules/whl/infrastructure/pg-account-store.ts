@@ -67,7 +67,7 @@ function figures(r: Record<string, unknown>) {
 
 const override = (r: Record<string, unknown>): OverrideRecord => ({ ...figures(r), requestId: r['request_id'] as string, approvedBy: r['approved_by'] as string });
 
-/** WHL's business account and credit control tables (migration 0257). Parameterised SQL only. */
+/** WHL's business account and credit control tables (migration 0259). Parameterised SQL only. */
 @Injectable()
 export class PgAccountStore implements AccountStore {
   async insertAccount(tx: Transaction, a: NewAccount, actorId: string, at: Date): Promise<void> {

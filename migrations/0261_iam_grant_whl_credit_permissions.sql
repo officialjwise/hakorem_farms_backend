@@ -1,4 +1,4 @@
--- 0259_iam_grant_whl_credit_permissions
+-- 0261_iam_grant_whl_credit_permissions
 -- B10 continued (CR-048 as the owner approved it on 2026-11-18, the owner's item 5): who reads, holds, releases and
 -- approves. The Owner and the Manager hold every credit permission; Sales reads accounts (and asks for an override
 -- through ord.order.confirm, which it holds, never approving one); the Accountant reads accounts and may put one on hold,

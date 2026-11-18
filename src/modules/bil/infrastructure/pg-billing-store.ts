@@ -34,6 +34,7 @@ interface HeaderRow {
   occurred_at: Date | null;
   created_by: string;
   version: number;
+  synced_from_offline: boolean;
 }
 
 interface LineRow {
@@ -79,10 +80,10 @@ export class PgBillingStore implements BillingStore {
     await tx.query(
       `INSERT INTO bil.billing_document (id, kind, status, branch_id, provisional_ref, customer_id, customer_name, customer_tin, billing_address,
                                          order_document_id, original_document_id, issue_date, due_date, tax_inclusive, tax_scheme_version_id,
-                                         reason_code, note, occurred_at, created_by, updated_by)
-       VALUES ($1, $2, 'DRAFT', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $18)`,
+                                         reason_code, note, occurred_at, created_by, updated_by, synced_from_offline)
+       VALUES ($1, $2, 'DRAFT', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $18, $19)`,
       [h.id, h.kind, h.branchId, h.provisionalRef, h.customerId, h.customerName, h.customerTin, h.billingAddress, h.orderDocumentId, h.originalDocumentId,
-        h.issueDate, h.dueDate, h.taxInclusive, h.taxSchemeVersionId, h.reasonCode, h.note, h.occurredAt, h.actorId],
+        h.issueDate, h.dueDate, h.taxInclusive, h.taxSchemeVersionId, h.reasonCode, h.note, h.occurredAt, h.actorId, h.syncedFromOffline ?? false],
     );
     for (const l of lines) {
       await tx.query(
@@ -124,7 +125,8 @@ export class PgBillingStore implements BillingStore {
       `SELECT id, kind, status, branch_id, document_no, provisional_ref, customer_id, customer_name, customer_tin, billing_address, order_document_id,
               original_document_id, issue_date::text AS issue_date, due_date::text AS due_date, tax_inclusive, tax_scheme_version_id,
               net_pesewas::text, tax_pesewas::text, gross_pesewas::text, credited_pesewas::text, certified_tax_pesewas::text, certified_gross_pesewas::text,
-              certification_ref, reason_code, note, approval_request_id, content_hash, archived_document_id, issued_at, occurred_at, created_by, version
+              certification_ref, reason_code, note, approval_request_id, content_hash, archived_document_id, issued_at, occurred_at, created_by, version,
+              synced_from_offline
          FROM bil.billing_document WHERE id = ANY($1::uuid[])${forUpdate ? ' FOR UPDATE' : ''}`,
       [ids],
     );
@@ -206,6 +208,7 @@ export class PgBillingStore implements BillingStore {
           reasonCode: h.reason_code,
           note: h.note,
           occurredAt: h.occurred_at,
+          syncedFromOffline: h.synced_from_offline,
           netPesewas: BigInt(h.net_pesewas),
           taxPesewas: BigInt(h.tax_pesewas),
           grossPesewas: BigInt(h.gross_pesewas),

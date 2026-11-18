@@ -39,3 +39,7 @@ Option 3.
 - B2: kernel tests for generation, monotonic ordering within a millisecond, parsing and version check.
 - B9b: a test that a sale submitted twice with the same client id is stored once.
 - B9b: a test that a client id with a timestamp outside the allowed window is rejected.
+
+## Amendments
+
+- **2026-11-18, B09b continued 2b (A-278 (k)), the owner's decision on A-273 (g) applied at sync.** The owner decided on 2026-11-17 that a till time outside the clock tolerance is recorded and flagged, never refused. At sync this covers the time inside a sale's client id as well as its `occurredAt`: an id whose embedded time is later than the server received it by more than `sync.clock_tolerance_seconds`, or earlier than its shift opened by more than it, is recorded and raises `TILL_CLOCK_OUT_OF_TOLERANCE`, so the second Verification line above ("a client id with a timestamp outside the allowed window is rejected") now reads "is recorded and flagged". An id that is not a version 7 UUID is still refused (`REJECTED_INTEGRITY`). The embedded time is still never business time.

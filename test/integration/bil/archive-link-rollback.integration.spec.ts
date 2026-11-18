@@ -48,10 +48,12 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
-      '0259_iam_grant_whl_credit_permissions',
-      '0258_iam_seed_whl_credit_permissions',
-      '0257_whl_credit_control',
-      '0256_platform_add_account_change_document',
+      '0261_iam_grant_whl_credit_permissions',
+      '0260_iam_seed_whl_credit_permissions',
+      '0259_whl_credit_control',
+      '0258_platform_add_account_change_document',
+      '0257_bil_synced_from_offline',
+      '0256_pos_sale_sync',
       '0255_iam_grant_quo_permissions',
       '0254_iam_seed_quo_permissions',
       '0253_quo_quotations',

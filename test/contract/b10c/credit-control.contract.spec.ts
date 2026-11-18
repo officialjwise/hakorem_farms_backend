@@ -8,7 +8,7 @@ import { consoleGet, consolePost, createUser, enrolAndLogin, login, relaxRateLim
 import { startTestApp, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
 
-/** WHL's business account and credit control operations (B10 continued) answer in the shapes of contract/openapi.yaml 2.13.0. */
+/** WHL's business account and credit control operations (B10 continued) answer in the shapes of contract/openapi.yaml 2.14.0. */
 let database: TestDatabase;
 let api: TestApp;
 let sales: TestSession;

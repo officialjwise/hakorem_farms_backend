@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Headers, Inject, Param, Patch, Post, Query, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, HttpCode, Inject, Param, Patch, Post, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import type { z } from 'zod';
 import type { Actor } from '../../../platform/context/request-context';
@@ -10,9 +10,10 @@ import { CounterSales, type CounterSaleResultView } from '../application/counter
 import { Devices, type DeviceEnrolledView, type DeviceView } from '../application/devices';
 import { HeldSales, type HeldSaleView } from '../application/held-sales';
 import { OfflinePacks, type OfflinePackView } from '../application/offline-packs';
+import { OfflineSync, type OfflineSyncResultView } from '../application/offline-sync';
 import { Registers, type RegisterView } from '../application/registers';
 import { Shifts, type CashMovementView, type Page, type ShiftReportView, type ShiftView } from '../application/shifts';
-import { CashMovementCreate, CounterSale, DeviceEnrolmentCreate, ForceClosedShiftCount, HeldSaleCreate, IdParam, PageQuery, ReasonBody, RegisterCreate, RegisterPageQuery, RegisterUpdate, ShiftClose, ShiftOpen, ShiftPageQuery } from './schemas';
+import { CashMovementCreate, CounterSale, DeviceEnrolmentCreate, ForceClosedShiftCount, HeldSaleCreate, IdParam, OfflineSyncBatch, PageQuery, ReasonBody, RegisterCreate, RegisterPageQuery, RegisterUpdate, ShiftClose, ShiftOpen, ShiftPageQuery } from './schemas';
 
 const READ = { access: 'SESSION', realms: ['STAFF'], idempotent: false, csrf: false, rateLimit: 'console' } as const;
 const WRITE = { access: 'SESSION', realms: ['STAFF'], idempotent: true, csrf: true, rateLimit: 'console' } as const;
@@ -36,7 +37,16 @@ export class PosController {
     @Inject(CounterSales) private readonly sales: CounterSales,
     @Inject(HeldSales) private readonly held: HeldSales,
     @Inject(OfflinePacks) private readonly packs: OfflinePacks,
+    @Inject(OfflineSync) private readonly offline: OfflineSync,
   ) {}
+
+  /** Per-sale exactly-once by the sale's client id, so the batch takes no `Idempotency-Key` (OFFLINE_SYNC 4.1). */
+  @Post('pos/sync')
+  @HttpCode(200)
+  @Operation({ operationId: 'syncOfflineSales', access: 'SESSION', realms: ['STAFF'], idempotent: false, csrf: true, rateLimit: 'console', permission: 'pos.sale.create' })
+  syncOfflineSales(@CurrentActor() actor: Actor | undefined, @Body(zodPipe(OfflineSyncBatch)) body: z.infer<typeof OfflineSyncBatch>, @Headers('x-device-credential') deviceCredential: string | undefined): Promise<OfflineSyncResultView> {
+    return this.offline.sync(actor, body, deviceCredential);
+  }
 
   @Get('registers/:id/offline-pack')
   @Operation({ operationId: 'getOfflinePack', ...READ, permission: 'pos.sale.create' })

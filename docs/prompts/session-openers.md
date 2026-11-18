@@ -83,7 +83,8 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B09b continued 1b | `B09b2b-pos-force-close-held.md` | `b09b2b-pos-force-close-held` | B4 to B12 | Split (A-275): a force close by a manager who is not the cashier, posting nothing until a third person counts the drawer, mutation-checked; ADR-0077's force-closed column proved with the real operation; the audit anchor at each sign-off |
 | B09b continued 1c | `B09b2c-pos-held-provider-tender.md` | `b09b2c-pos-held-provider-tender` | B4 to B12 | Held sales re-priced on recall with exact pesewas, recalled once, lapsing at close; a mobile money or card tender at the counter only as a payment the provider cleared, never allocated twice nor another customer's or another shift's |
 | B09b continued 2 | `B09b3-pos-offline-sync.md` | `b09b3-pos-offline-sync` | B4 to B12 | Split (A-277 (a)): the offline pack with each unit priced by its own entry (CR-031, CR-032 point 6, CR-038), the 5.2 settings seeded, a crate and a single egg sold at the counter at their own prices |
-| B09b continued 2b | `B09b3b-pos-offline-sync.md` | `b09b3b-pos-offline-sync` | B4 to B12 | 500 queued offline transactions sync exactly once; ADR-0027's five conflict tests; nothing in sync refuses a sale; an offline sale issued at its occurred_at; a crate and a single egg synced at their own prices |
+| B09b continued 2b | `B09b3b-pos-offline-sync.md` | `b09b3b-pos-offline-sync` | B4 to B12 | Split after its gate (A-278 (a)): 500 queued offline transactions sync exactly once; ADR-0027's five conflict tests; nothing in sync refuses a sale; an offline sale issued at its occurred_at; a crate and a single egg synced at their own prices |
+| B09b continued 2c | `B09b3c-pos-offline-queue.md` | `b09b3c-pos-offline-queue` | B4 to B12 | A shift opened offline is applied once at sync with its till time; a batch's cash movements applied exactly once on their own open shift, never refused for being late; an unverified mobile money tender recorded UNVERIFIED with its break only while the branch allows it |
 | B09b continued 3 | `B09b4-pos-till-pin.md` | `b09b4-pos-till-pin` | B4 to B12 | The till PIN's verifier, attempt limit and supervisor sign-out as the owner set them (CR-032); a drop witnessed only by a supervisor's PIN, with a read of who is signed in at the branch (owner, 2026-11-18) |
 | B09b continued 4 | `B09b5-pos-receipts.md` | `b09b5-pos-receipts` | B4 to B12 | The receipt link by its token alone (CR-033 points 1 and 2); the business buyer's TIN on the VAT invoice; an invoice paid at the till inside the shift |
 | B09c | `B09c-card-payment.md` | `b09c-card-payment` | B4 to B12 | Card payment online through the provider port with every payment edge case, no card details on our servers, and the card cases run against the real sandbox |
@@ -2528,7 +2529,7 @@ Stop at the gate and write docs/sessions/B09b3-pos-offline-sync.md.
 
 ## B09b continued 2b — Offline sync
 
-Branch `b09b3b-pos-offline-sync`, from `main`. Report `docs/sessions/B09b3b-pos-offline-sync.md`. Inserted by B09b continued 2's split (A-277 (a), ADR-0026 Amendments), before B09b continued 3. Lane A. Gate: 500 queued offline transactions sync exactly once, ADR-0027's five conflict tests pass, and nothing in sync refuses a sale that passes authentication and integrity.
+Branch `b09b3b-pos-offline-sync`, from `main`. Report `docs/sessions/B09b3b-pos-offline-sync.md`. Inserted by B09b continued 2's split (A-277 (a), ADR-0026 Amendments), before B09b continued 3. Lane A. Gate: 500 queued offline transactions sync exactly once, ADR-0027's five conflict tests pass, and nothing in sync refuses a sale that passes authentication and integrity. **Split by the session after its gate (A-278 (a), ADR-0026 Amendments, 2026-11-18):** a shift opened offline, the batch's cash movements and the unverified mobile money tender move to **B09b continued 2c** below.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9b row).
@@ -2577,13 +2578,49 @@ with exact integers derived independently by SQL over journal lines and stock mo
 Stop at the gate and write docs/sessions/B09b3b-pos-offline-sync.md.
 ```
 
+## B09b continued 2c — The queue's shift opens and cash movements, and the unverified tender
+
+Branch `b09b3c-pos-offline-queue`, from `main`. Report `docs/sessions/B09b3c-pos-offline-queue.md`. Inserted by B09b continued 2b's split after its gate (A-278 (a), ADR-0026 Amendments), before B09b continued 3. Lane A. Gate: a shift opened offline is applied once at sync with its till time; a sync batch's cash movements are applied exactly once on their own open shift and answered per movement; an unverified mobile money tender is recorded `UNVERIFIED` with its `UNVERIFIED_PAYMENT` break only while the branch allows it; each test-first, every figure by SQL.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9b row).
+List docs/sessions/ and read only the most recent report (docs/sessions/B09b3b-pos-offline-sync.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the POS requirement block of docs/SRS.md (nothing else from the SRS),
+docs/data-model/pos.md, docs/data-model/pay.md, the POS and PAY cards in docs/MODULE_BOUNDARIES.md, docs/OFFLINE_SYNC.md
+(sections 5.3, 6, 9.9 and 10), ADR-0027, ADR-0077, A-274, A-277 and A-278 in docs/ASSUMPTIONS.md, and the abuse cases 4,
+10 and 17 in docs/security/THREAT_MODEL.md. Read the hakorem-offline skill. Use docs/prompts/module-build-prompt.md as the recipe.
+Do not read any other document unless this phase needs it. Lane A (docs/prompts/session-openers.md, "Two lanes").
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B09b continued 2c only, on branch b09b3c-pos-offline-queue, branched from main, each test-first:
+1. A shift opened offline (OFFLINE_SYNC 10, BL-078): `openShift` from the queue with the client shift id and the
+   till's `openedAt` hours old, from an enrolled device of the till; applied once by its id, its shift sequence
+   confirmed by the server; a till time outside the tolerance recorded and flagged, never refused (the owner on A-273
+   (g)); two devices opening on one till offline: the second refused at sync as OFFLINE_SYNC 10 says.
+2. The cash movements of a sync batch (`cashMovementResults`, OFFLINE_SYNC 10): each applied exactly once by its client
+   id onto its own shift while open (ADR-0077: never onto another shift; a closed or force-closed shift's movement
+   recorded nowhere and raised, as A-278 (e) does for a sale's cash), at the till's `occurredAt` though it is hours old,
+   answered APPLIED, DUPLICATE or REJECTED with its reason; replace B09b continued 2b's interim answer
+   `CASH_MOVEMENT_NOT_TAKEN_AT_SYNC`. A drop's witness offline is B09b continued 3's (the PIN).
+3. The unverified mobile money tender (OFFLINE_SYNC 5.3 and 9.9, abuse case 4): only while
+   `pos.offline.allow_unverified_mobile_money` is on for the branch, a tender with `unverifiedMobileMoney` is recorded as
+   an `UNVERIFIED` payment through PAY (shared, additively) on its own open shift, allocated to the receipt, with an
+   `UNVERIFIED_PAYMENT` reconciliation break (REVIEW; URGENT if the method was not permitted offline) and
+   `pay.unverified_window_days`; with the setting off it stays as B09b continued 2b built it (not recorded,
+   `UNMATCHED_PAYMENT`). The supervisor's PIN approval is B09b continued 3's; record who the till says approved it.
+Load hakorem-security-review and write its finding into the pull request body.
+Stop at the gate and write docs/sessions/B09b3c-pos-offline-queue.md.
+```
+
 ## B09b continued 3 — The till PIN
 
 Branch `b09b4-pos-till-pin`. Report `docs/sessions/B09b4-pos-till-pin.md`. Gate: the till PIN's verifier, attempt limit and supervisor sign-out as the owner set them (CR-032), and a cash drop witnessed only by a supervisor's PIN on the till with a read of the supervisors signed in at the branch (owner, 2026-11-18), each test-first.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9b row).
-List docs/sessions/ and read only the most recent report (docs/sessions/B09b3b-pos-offline-sync.md).
+List docs/sessions/ and read only the most recent report (docs/sessions/B09b3c-pos-offline-queue.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
 reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the POS requirement block of docs/SRS.md (nothing else from the SRS),

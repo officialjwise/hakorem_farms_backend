@@ -1,5 +1,5 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
-import type { CashMovementRecord, DeviceRecord, HeldSaleRecord, LateCountRecord, NewShift, RegisterRecord, ShiftFilter, ShiftRecord, TenderCountRecord, TillStore } from '../application/till-store';
+import type { CashMovementRecord, DeviceRecord, HeldSaleRecord, LateCountRecord, NewShift, RegisterRecord, SaleSyncRecord, ShiftFilter, ShiftRecord, TenderCountRecord, TillStore } from '../application/till-store';
 import type { CashMovementKind, OverShortDirection } from '../domain/till';
 
 interface HeldSaleRow {
@@ -481,4 +481,107 @@ export class PgTillStore implements TillStore {
     );
     return rows.map((r) => r.id).sort();
   }
+
+  async insertSaleSync(tx: Transaction, r: SaleSyncRecord): Promise<void> {
+    await tx.query(
+      `INSERT INTO pos.sale_sync (id, device_id, shift_id, branch_id, client_sale_id, device_counter, provisional_ref, client_occurred_at, payload_hash, outcome,
+                                  order_document_id, order_no, receipt_no, gross_pesewas, exceptions, exception_count, rejection_rule, posted_late_reason,
+                                  posting_date, clock_verdict, too_old, received_at, recorded_at, actor_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $22, $23)`,
+      [
+        r.id, r.deviceId, r.shiftId, r.branchId, r.clientSaleId, r.deviceCounter, r.provisionalRef, r.clientOccurredAt, r.payloadHash, r.outcome,
+        r.orderDocumentId, r.orderNo, r.receiptNo, r.grossPesewas?.toString() ?? null, JSON.stringify(r.exceptions), r.exceptions.length, r.rejectionRule,
+        r.postedLateReason, r.postingDate, r.clockVerdict, r.tooOld, r.receivedAt, r.actorId,
+      ],
+    );
+  }
+
+  async appliedSales(tx: Transaction, clientSaleIds: readonly string[]): Promise<ReadonlyMap<string, SaleSyncRecord>> {
+    if (clientSaleIds.length === 0) return new Map();
+    const { rows } = await tx.query<SaleSyncRow>(
+      `SELECT ${SALE_SYNC_COLUMNS} FROM pos.sale_sync WHERE client_sale_id = ANY($1::uuid[]) AND outcome IN ('APPLIED', 'APPLIED_WITH_EXCEPTION')`,
+      [clientSaleIds],
+    );
+    return new Map(rows.map((r) => [r.client_sale_id, saleSyncOf(r)]));
+  }
+
+  async appliedCounterOwner(tx: Transaction, shiftId: string, deviceCounter: number): Promise<string | null> {
+    const { rows } = await tx.query<{ client_sale_id: string }>(
+      "SELECT client_sale_id FROM pos.sale_sync WHERE shift_id = $1 AND device_counter = $2 AND outcome IN ('APPLIED', 'APPLIED_WITH_EXCEPTION')",
+      [shiftId, deviceCounter],
+    );
+    return rows[0]?.client_sale_id ?? null;
+  }
+
+  async receivedCounters(tx: Transaction, shiftId: string): Promise<number[]> {
+    const { rows } = await tx.query<{ device_counter: number }>('SELECT DISTINCT device_counter FROM pos.sale_sync WHERE shift_id = $1 ORDER BY device_counter', [shiftId]);
+    return rows.map((r) => r.device_counter);
+  }
+
+  async noteDeviceCounter(tx: Transaction, shiftId: string, deviceCounter: number, actorId: string, at: Date): Promise<void> {
+    await tx.query(
+      "UPDATE pos.shift SET version = version + 1, last_device_counter = $2, updated_at = $4, updated_by = $3 WHERE id = $1 AND status <> 'CLOSED' AND last_device_counter < $2",
+      [shiftId, deviceCounter, actorId, at],
+    );
+  }
+
+  async noteDeviceSync(tx: Transaction, deviceId: string, at: Date, actorId: string): Promise<void> {
+    await tx.query('UPDATE pos.device_enrolment SET version = version + 1, last_sync_at = $2, updated_at = $2, updated_by = $3 WHERE id = $1 AND revoked_at IS NULL', [deviceId, at, actorId]);
+  }
+}
+
+interface SaleSyncRow {
+  id: string;
+  device_id: string;
+  shift_id: string;
+  branch_id: string;
+  client_sale_id: string;
+  device_counter: number;
+  provisional_ref: string;
+  client_occurred_at: Date;
+  payload_hash: Buffer;
+  outcome: SaleSyncRecord['outcome'];
+  order_document_id: string | null;
+  order_no: string | null;
+  receipt_no: string | null;
+  gross_pesewas: string | null;
+  exceptions: { kind: string; summary: string }[];
+  rejection_rule: string | null;
+  posted_late_reason: SaleSyncRecord['postedLateReason'];
+  posting_date: string | null;
+  clock_verdict: SaleSyncRecord['clockVerdict'];
+  too_old: boolean;
+  received_at: Date;
+  actor_id: string;
+}
+
+const SALE_SYNC_COLUMNS = `id, device_id, shift_id, branch_id, client_sale_id, device_counter, provisional_ref, client_occurred_at, payload_hash, outcome, order_document_id,
+  order_no, receipt_no, gross_pesewas::text AS gross_pesewas, exceptions, rejection_rule, posted_late_reason, posting_date::text AS posting_date, clock_verdict, too_old,
+  received_at, actor_id`;
+
+function saleSyncOf(r: SaleSyncRow): SaleSyncRecord {
+  return {
+    id: r.id,
+    deviceId: r.device_id,
+    shiftId: r.shift_id,
+    branchId: r.branch_id,
+    clientSaleId: r.client_sale_id,
+    deviceCounter: r.device_counter,
+    provisionalRef: r.provisional_ref,
+    clientOccurredAt: r.client_occurred_at,
+    payloadHash: r.payload_hash,
+    outcome: r.outcome,
+    orderDocumentId: r.order_document_id,
+    orderNo: r.order_no,
+    receiptNo: r.receipt_no,
+    grossPesewas: r.gross_pesewas === null ? null : BigInt(r.gross_pesewas),
+    exceptions: r.exceptions,
+    rejectionRule: r.rejection_rule,
+    postedLateReason: r.posted_late_reason,
+    postingDate: r.posting_date,
+    clockVerdict: r.clock_verdict,
+    tooOld: r.too_old,
+    receivedAt: r.received_at,
+    actorId: r.actor_id,
+  };
 }
