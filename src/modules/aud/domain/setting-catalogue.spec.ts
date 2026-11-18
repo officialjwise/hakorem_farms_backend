@@ -42,4 +42,11 @@ describe('the offline till settings (OFFLINE_SYNC 5.2, B09b continued 2, A-277 (
     expect(judgeSetting('pos.offline.allow_unverified_mobile_money', false).ok).toBe(true);
     expect(judgeSetting('pos.offline.allow_unverified_mobile_money', 1)).toEqual({ ok: false, error: 'WRONG_TYPE' });
   });
+
+  it('bounds how old a synced sale may be before it is flagged: 8 hours by default, 1 to 8 (B09b continued 2b, A-278 (c))', () => {
+    expect(SETTING_CATALOGUE['sync.max_sale_age_hours']).toMatchObject({ valueType: 'INTEGER', defaultValue: 8, min: 1, max: 8, branchScoped: false });
+    expect(judgeSetting('sync.max_sale_age_hours', 1).ok).toBe(true);
+    expect(judgeSetting('sync.max_sale_age_hours', 9)).toEqual({ ok: false, error: 'OUT_OF_RANGE' });
+    expect(judgeSetting('sync.max_sale_age_hours', 0)).toEqual({ ok: false, error: 'OUT_OF_RANGE' });
+  });
 });

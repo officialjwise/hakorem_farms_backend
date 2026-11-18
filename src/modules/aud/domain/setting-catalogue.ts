@@ -103,6 +103,16 @@ export const SETTING_CATALOGUE: Readonly<Record<string, SettingDefinition>> = {
     max: 300,
     branchScoped: false,
   },
+  // B09b continued 2b (A-278 (c)): a synced sale older than this is still recorded, and flagged for the exception report.
+  'sync.max_sale_age_hours': {
+    key: 'sync.max_sale_age_hours',
+    valueType: 'INTEGER',
+    description: 'How many hours after it happened an offline sale may reach the server before it is flagged; it is recorded whatever its age (ADR-0027)',
+    defaultValue: 8,
+    min: 1,
+    max: 8,
+    branchScoped: false,
+  },
   'pay.unverified_window_days': {
     key: 'pay.unverified_window_days',
     valueType: 'INTEGER',
