@@ -22,9 +22,31 @@ Credit terms for a customer whose identity is `mdm.customer`.
 
 Standard columns: `MASTER`. A change to the credit limit is audited and needs approval above a configured amount.
 
+**As built in B10 continued (migration 0257, ADR-0088, A-313, A-314):** `exposure_pesewas` is **not stored**: exposure is read live in the confirming transaction (BIL's open items of the customer at every branch plus ORD's confirmed credit orders not invoiced) under this row's lock. Added: `branch_id` (NOT NULL, FK `mdm.branch`, never changed: the home branch reads and approvals are scoped to), `held_by` (FK `iam.principal`), `hold_document_id` (FK `platform.business_document`: the invoice that put it on hold), `limit_change_id` and `release_change_id` (FK `whl.account_change`), MASTER's `deleted_*`; `payment_terms_days` and `overdue_hold_days` are at most 365. `ck_business_account_hold`: `ON_HOLD` exactly when the reason, time and holder are set. `whl.business_account_guard` (HK010): an account opens with a nil limit; **every limit change, up or down, is written only with an APPLIED `CREDIT_LIMIT` change of this account for exactly that limit** (`ck_business_account_limit_approved`), and an account leaves `ON_HOLD` only with an APPLIED `RELEASE` change not used before (`ck_business_account_release_approved`); the customer and branch never change (HK004). The assigned price list is MDM's `mdm.customer_price_list`, set by `assignCustomerPriceList`.
+
+### `whl.account_change` · DOCUMENT
+
+Built in B10 continued (0257, CR-048). A credit limit or a release from hold asked by one person and decided by another; registered as an `ACCOUNT_CHANGE` business document (0256), the subject of IAM's `CREDIT_LIMIT_CHANGE` or `ACCOUNT_RELEASE` approval.
+
+| Column | Type | Constraints | Why |
+| --- | --- | --- | --- |
+| `id` | `uuid` | PK, FK `platform.business_document` | |
+| `customer_id` | `uuid` | NOT NULL, FK `mdm.customer` | |
+| `kind` | `text` | NOT NULL, CHECK in (`CREDIT_LIMIT`, `RELEASE`) | |
+| `credit_limit_pesewas`, `previous_limit_pesewas` | `pesewas` | NULL; set exactly for `CREDIT_LIMIT` | The limit asked and the one it replaces |
+| `reason` | `text` | NOT NULL, 1 to 500 characters | Shown to the approver |
+| `approval_request_id` | `uuid` | NOT NULL, UNIQUE, FK `iam.approval_request` | |
+| `decision_reason` | `text` | NULL | |
+
+Standard columns: `DOCUMENT` (`status` in `PENDING_APPROVAL`, `APPLIED`, `REJECTED`, `CANCELLED`; `posted_*` is the decision). `ck_account_change_checker`: **an APPLIED change was decided by someone other than its asker** (`posted_by <> created_by`). One pending per customer and kind (`uq_account_change_pending`). `whl.account_change_guard` (HK004): written `PENDING_APPROVAL`, decided once, content frozen.
+
+### `whl.credit_override_request` · LEDGER
+
+Built in B10 continued (0257, CR-046). An override asked for an order, with the asker's written reason (1 to 500 characters), the reasons (`reasons text[]`, a non-empty subset of `ON_HOLD`, `OVER_LIMIT`, `PAST_TERMS`) and the figures then: `limit_pesewas`, `exposure_pesewas` (before the order), `order_pesewas`, `over_limit_pesewas` (`ck_credit_override_request_over`: exposure plus the order less the limit, never below nil), `requested_by`, `approval_request_id` (UNIQUE). Insert-only; `recorded_at` is the application's clock (ADR-0067).
+
 ### `whl.credit_override` · LEDGER
 
-An approved exception to the credit limit or an account hold.
+An approved exception to the credit limit or an account hold. **As built in B10 continued (0257):** adds `request_id` (UNIQUE, FK `whl.credit_override_request`), `branch_id`, `reason`, `reasons`, `order_pesewas`, `over_limit_pesewas`, `requested_by` and `approved_by`; `ck_credit_override_checker` (`approved_by <> requested_by`) and `ck_credit_override_over` (the amount over is the exposure with the order less the limit). Read by `listCreditOverrides`; `whl.CreditOverrideApproved` carries it to the daily exception report (B12).
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |

@@ -90,7 +90,8 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B08 continued 2d | `B08c2d-customer-statements.md` | `b08c2d-customer-statements` | B4 to B12 | A customer statement for a period ties to the customer's documents and the ledger's 1200 for that customer and period, opening plus movements equal to closing to the pesewa, and is rendered after commit and archived once; every statement write refuses the wrong role |
 | B09u | `B09u-units-supplier-account.md` | `b09u-units-supplier-account` | B4 to B12 | Every unit has a singular and a plural name and the seeded eggs are counted in a unit named egg, figures unchanged; a receipt line against an order line is valued by the server unless typed (CR-040); a Manager approves a supplier credit note the Owner raised and the Accountant drafted; the supplier balance (CR-042); invoice approval refuses its maker (CR-043); CR-044's descriptions; every write refuses the wrong role |
 | B10 | `B10-quotations-wholesale.md` | `b10-quotations-wholesale` | B4 to B12 | Built and split (A-311): quote revisions are versioned and an issued version never changes; below the margin floor a different person approves; the quote link opens only its live version and accepts once; an accepted quote converts to exactly one order that keeps every link, through to its proforma |
-| B10 continued | `B10c-credit-control.md` | `b10c-credit-control` | B4 to B12 | A credit limit blocks with an audited override by a different person (exact pesewas at the limit, one over, past terms by one day); ageing from due dates ties to SQL; the overdue hold, dunning and standing orders; every write refuses the wrong role |
+| B10 continued | `B10c-credit-control.md` | `b10c-credit-control` | B4 to B12 | Built and split (A-315): a credit limit blocks with an audited override by a different person, exact at the limit, one pesewa over and past terms by one day, exposure tied to SQL; an account past the overdue threshold is held and released only by an Owner or Manager who did not ask; every write refuses the wrong role |
+| B10 continued 2 | `B10c2-ageing-dunning-standing-orders.md` | `b10c2-ageing-dunning-standing-orders` | B4 to B12 | Ageing as at a date from due dates and allocations ties to SQL and to 1200; the statement's ageing summary; each dunning level once per invoice; one standing order run per date; the quote archived once on issue and the pipeline reconciling to listQuotes; every write refuses the wrong role |
 | B11 | `B11-fulfilment-delivery.md` | `b11-fulfilment-delivery` | B4 to B12 | A catch-weight order re-prices at pick; cash on delivery lands against the driver; the outbox guarantees the customer notification |
 | B12 | `B12-capital-costing-reporting.md` | `b12-capital-costing-reporting` | B4 to B12 | A distribution matches a hand calculation on unit-days and ties exactly to the ledger |
 | B09r | `B09r-reconciliation-real-files.md` | `b09r-reconciliation-real-files` | B4 to B12 | Settlements read from Paystack's Settlements API and the bank parser written against the bank's real export; every matching rule names its source file; no real file committed; runs when both files exist, before B13 at the latest |
@@ -2828,7 +2829,7 @@ Stop at the gate and write docs/sessions/B10-quotations-wholesale.md.
 
 ## B10 continued — Credit control, accounts, dunning, standing orders and the quote pipeline
 
-Branch `b10c-credit-control`. Report `docs/sessions/B10c-credit-control.md`. Gate: a credit limit blocks with an audited override by a different person, exact to the pesewa at the limit, one pesewa over and past terms by one day; ageing from invoice due dates ties to SQL sums from the owning tables; an account past the overdue threshold is held and released only by an Owner or Manager who did not ask; every write refuses the wrong role.
+Branch `b10c-credit-control`. Report `docs/sessions/B10c-credit-control.md`. **Built and split (A-315, ADR-0026 Amendments, ADR-0088): business accounts, exposure, credit control with CR-046's override, the hold and the overdue hold, CR-048's roles with the seed's second Manager, and A-212 (d); the rest is B10 continued 2 below.** Gate as built: a credit limit blocks with an audited override by a different person, exact to the pesewa at the limit, one pesewa over and past terms by one day; exposure ties to SQL sums from the owning tables; an account past the overdue threshold is held and released only by an Owner or Manager who did not ask; every write refuses the wrong role. Planned gate: a credit limit blocks with an audited override by a different person, exact to the pesewa at the limit, one pesewa over and past terms by one day; ageing from invoice due dates ties to SQL sums from the owning tables; an account past the overdue threshold is held and released only by an Owner or Manager who did not ask; every write refuses the wrong role.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md, and "Two lanes" below.
@@ -2876,13 +2877,61 @@ the owner (credit check and delivery fee on a partial dispatch), decided conserv
 Stop at the gate and write docs/sessions/B10c-credit-control.md.
 ```
 
+## B10 continued 2 — Ageing, dunning, standing orders and the quote pipeline
+
+Branch `b10c2-ageing-dunning-standing-orders`. Report `docs/sessions/B10c2-ageing-dunning-standing-orders.md`. Gate: ageing by 30, 60 and 90 days computed from invoice due dates and allocations as at a date ties to SQL sums from the owning tables and to the 1200 account; the customer statement carries its ageing summary; each dunning level reaches an invoice at most once however often the job runs; a standing order makes one order per date and records a skipped run; an issued quote version is rendered and archived once and the pipeline reconciles to listQuotes; every write refuses the wrong role.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md, and "Two lanes" below.
+List docs/sessions/ and read only the most recent report (docs/sessions/B10c-credit-control.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+On the frontend's main at 81525f1 (A-312): CR-047's remaining point 2 (PublicQuote.acceptedName and decidedAt)
+and CR-048's `whl.ageing.read` are this phase's to implement or decline; check the numbers again on main.
+For this phase, read the WHL requirement block of docs/SRS.md and FR-QUO-007 and FR-QUO-013 of the QUO block (nothing
+else from the SRS), docs/data-model/whl.md and quo.md, the WHL and QUO cards in docs/MODULE_BOUNDARIES.md, DOMAIN_MODEL
+section 5.12, ADR-0085, ADR-0087, ADR-0088, and A-300 and A-309 to A-315 in docs/ASSUMPTIONS.md. Use
+docs/prompts/module-build-prompt.md as the recipe. Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B10 continued 2 only, on branch b10c2-ageing-dunning-standing-orders from main, building on WHL and QUO as
+B10 and B10 continued merged them (do not rewrite them): ageing by Current, 1 to 30, 31 to 60, 61 to 90 and over 90
+days computed from invoice due dates and allocations, as at a date taken as input (ADR-0067: no now() in business SQL,
+no fixed dates in tests), by customer with a total over the filter (getAgeingReport, listOpenItems as it stands),
+asserted against SQL sums from BIL's and PAY's own tables and tied to 1200; FR-WHL-009's ageing summary added to
+customer statements additively, and decide A-300 (i), money held on deposit for the customer (2200), the most
+conservative way, recorded and flagged for the owner; dunning levels and notices (FR-WHL-011: each level once per
+invoice, an opted-out channel skipped; sendStatement and the sends stay B11's, so a notice is queued through the outbox
+for NTF); standing orders and their runs (FR-WHL-004, one order per standing order and date, a held account's run
+recorded as skipped); bad-debt write-off (FR-WHL-012) if it fits, else to the backlog with its reason. A bounced cheque
+counts against the customer's standing as B10 continued built it (A-212 (d), A-313 (g)).
+QUO's remainder (FR-QUO-007, FR-QUO-013): the quote rendered and archived as a document when a version is issued
+(DOC's template, `documentId` and `PublicQuote.documentUrl`), getQuotePipeline (win rate by salesperson and product
+line, reconciling to listQuotes) and listMyQuotes (a customer's own quotes only; another customer's quote id opens
+nothing).
+The owner's decisions of 2026-11-18 for QUO (A-309 as amended), each test-first:
+1. Built in B10 continued (A-316): a quote line with no unit is in the sale unit. Nothing to do.
+2. Several live links per quote version are approved provided all three hold, each tested and mutation-checked: (a)
+   each link can be revoked on its own and the others keep working (build a per-link revoke if none exists: authorised,
+   wrong-role tested, joined to the identifier walk); (b) the quote is accepted only once across all its links, a second
+   accept through another link refused; (c) every link of a version stops working when that version is replaced,
+   accepted or expires.
+3. Do not refuse to issue a quote for stock not on hand: issue it marked subject to stock (a field on the version and on
+   the public quote), show the quantity available, and reserve only what is on hand, never more; test fully, partly and
+   not on hand with exact quantities; LOUD on 2.12.0 (a refusal removed), a dated amendment to A-309. Read ADR-0019
+   first; if this would contradict it, stop this item and report the options to the parent session.
+Run scenario 2 of docs/UAT.md as a dry run and record every difference, including the two rules that scenario flags for
+the owner (credit check and delivery fee on a partial dispatch), decided conservatively and put to the owner.
+Stop at the gate and write docs/sessions/B10c2-ageing-dunning-standing-orders.md.
+```
+
 ## B11 — Order fulfilment, delivery and notifications
 
 Branch `b11-fulfilment-delivery`. Report `docs/sessions/B11-fulfilment-delivery.md`. Gate: a catch-weight order re-prices at pick, cash on delivery lands against the driver, and the outbox guarantees the customer notification.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
-List docs/sessions/ and read only the most recent report (docs/sessions/B10c-credit-control.md).
+List docs/sessions/ and read only the most recent report (docs/sessions/B10c2-ageing-dunning-standing-orders.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
 report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the ORD (fulfilment), DEL and NTF requirement blocks of docs/SRS.md (nothing else
@@ -3070,7 +3119,7 @@ Stop at the gate and write docs/sessions/B13-hardening-deploy.md.
 From 2026-11-17 the remaining phases before B12 run in two lanes at once, each in its own worktree and branch.
 
 - **Lane A:** the rest of B9b (B09b continued to B09b continued 4, and any split of them), then B09c.
-- **Lane B:** B08 continued 2d, then B09u, then B10, then B10 continued, then B11 (and any split of them). B08 continued 2d moves into lane B because
+- **Lane B:** B08 continued 2d, then B09u, then B10, then B10 continued, then B10 continued 2, then B11 (and any split of them). B08 continued 2d moves into lane B because
   B10 reads its report and it needs only PAY's payments (B9a) and WHL, which lane B opens.
 - **B12, then B13, start only when both lanes have merged.** B09r still waits for the owner's real files.
 

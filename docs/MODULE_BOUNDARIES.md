@@ -276,7 +276,8 @@ Each card gives: what the module owns, its public interface (the services export
 - **Public interface:** none used by other modules. Implements ORD's `OrderConfirmationPolicy` (credit limit and account hold).
 - **Built in B08 continued 2d (ADR-0085, A-300):** `Statements` (`listStatements`, `createStatement`, `getStatement`; `whl.statement.read`, `whl.statement.create`): a customer's statement at one branch for a period, read from the ledger's 1200 through FIN's `Journals.customerReceivablesIn`, numbered from the `STATEMENT` series, rendered and archived through `Documents.requestRenderIn`; the asynchronous consumer `whl.statement-archive-link` of `doc.DocumentArchived`. Business accounts, credit control, standing orders, ageing and dunning are B10's.
 - **Imports:** platform, IAM, MDM, DOC, FIN (read only: a customer's receivables, ADR-0085), BIL, PAY, ORD.
-- **Subscribes (A):** `doc.DocumentArchived` (B08 continued 2d), to link each issued statement to its archived rendering once; `bil.InvoiceIssued`, `pay.PaymentCleared`, `pay.DepositAllocated`, `bil.CreditNoteIssued`, to maintain credit exposure and ageing (B10).
+- **Built in B10 continued (ADR-0088, A-313, A-314):** `BusinessAccounts` (list, create, get, update, hold, release; the `CREDIT_LIMIT_CHANGE` and `ACCOUNT_RELEASE` handlers; the overdue hold, run by the worker's `account-hold` job as `AccountHolds`) and `CreditControl`, ORD's `OrderConfirmationPolicy` (`creditFor`, `requestOverrideIn`) with the `CREDIT_OVERRIDE` handler, `getOrderCreditCheck`, `requestCreditOverride` and `listCreditOverrides`. WHL now imports ORD (`Orders.creditOrderIn`, `uninvoicedCreditIn`, the policy list) and BIL (`Billing.customerOpenItemsIn`), and MDM's `PartiesAdmin.priceListHeldIn`. Publishes `whl.AccountHeld`, `whl.AccountReleased`, `whl.CreditLimitChanged` and `whl.CreditOverrideApproved`.
+- **Subscribes (A):** `doc.DocumentArchived` (B08 continued 2d), to link each issued statement to its archived rendering once. Exposure is read live, not kept by subscribers (ADR-0088); ageing (B10 continued 2) reads BIL and PAY the same way.
 
 ### CAP: capital, investors and profit sharing (layer 11)
 
@@ -364,7 +365,7 @@ Any other reference upward, from a lower layer to a document in a higher one, us
 | Port | Defined by | Implemented by | Purpose |
 | --- | --- | --- | --- |
 | `ProductUsageCheck` | MDM | INV | MDM asks whether a product has stock history before allowing its stock-keeping policy to change |
-| `OrderConfirmationPolicy` | ORD | WHL | ORD asks registered policies whether an order may be confirmed; WHL answers for credit limit and account hold |
+| `OrderConfirmationPolicy` | ORD | WHL | ORD asks registered policies whether an order may be confirmed; WHL answers for credit limit, terms and account hold with every reason and the figures, and asks the `CREDIT_OVERRIDE` approval with a written reason (built in B10 continued, ADR-0088) |
 | Approval handlers | IAM | Every module with an approval kind | IAM calls the owning module's handler when a request is approved, in the same transaction |
 | Health contributors | platform | Any module | A module reports its own health item, such as last successful reconciliation |
 | `ScopeNames` | IAM | MDM | IAM asks for the codes of the branches and locations a session's grants name (ADR-0033) |
