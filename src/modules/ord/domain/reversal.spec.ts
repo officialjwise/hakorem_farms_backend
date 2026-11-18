@@ -9,6 +9,7 @@ const sale = (over: Partial<VoidFacts> = {}): VoidFacts => ({
   today: '2026-11-17',
   payments: [cash()],
   voidPending: false,
+  reversalPending: false,
   ...over,
 });
 
@@ -81,5 +82,13 @@ describe('a void of a completed sale (FR-ORD-002, abuse case 1)', () => {
     expect(judgeVoidApprover('supervisor', { postedBy: 'cashier', salespersonId: null })).toEqual({ ok: true, value: null });
     expect(judgeVoidApprover('cashier', { postedBy: 'cashier', salespersonId: null })).toEqual({ ok: false, error: 'CASHIER_CANNOT_APPROVE_VOID' });
     expect(judgeVoidApprover('sales', { postedBy: 'cashier', salespersonId: 'sales' })).toEqual({ ok: false, error: 'CASHIER_CANNOT_APPROVE_VOID' });
+  });
+});
+
+describe('a void waits while a reversal of its payment waits (BL-077)', () => {
+  it('refuses REVERSAL_PENDING beside any other refusal, and allows the void once nothing waits', () => {
+    expect(judgeVoid(sale({ reversalPending: true }))).toEqual({ ok: false, error: ['REVERSAL_PENDING'] });
+    expect(judgeVoid(sale({ reversalPending: true, today: '2026-11-18' }))).toEqual({ ok: false, error: ['VOID_DAY_CLOSED', 'REVERSAL_PENDING'] });
+    expect(judgeVoid(sale({ reversalPending: false }))).toEqual({ ok: true, value: null });
   });
 });

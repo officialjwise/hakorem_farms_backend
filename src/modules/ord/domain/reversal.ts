@@ -63,9 +63,14 @@ export interface VoidFacts {
   readonly today: string;
   readonly payments: readonly VoidPayment[];
   readonly voidPending: boolean;
+  /**
+   * A reversal of one of the sale's payments is waiting for approval (BL-077): the void reverses every payment itself,
+   * so it waits until that reversal is decided. Judged at the void's approval.
+   */
+  readonly reversalPending: boolean;
 }
 
-export type VoidRefusal = 'INVALID_STATE_TRANSITION' | 'VOID_DAY_CLOSED' | 'NOT_A_COUNTER_SALE' | 'VOID_PENDING' | 'TENDER_NOT_VOIDABLE';
+export type VoidRefusal = 'INVALID_STATE_TRANSITION' | 'VOID_DAY_CLOSED' | 'NOT_A_COUNTER_SALE' | 'VOID_PENDING' | 'TENDER_NOT_VOIDABLE' | 'REVERSAL_PENDING';
 
 /** The tenders a void gives back by reversing the payment itself: cash into the till, store credit into the balance. */
 const VOIDABLE_KINDS: ReadonlySet<string> = new Set(['CASH', 'STORE_CREDIT']);
@@ -85,6 +90,7 @@ export function judgeVoid(f: VoidFacts): Result<null, VoidRefusal[]> {
   if (f.voidPending) refusals.push('VOID_PENDING');
   const live = f.payments.filter((p) => p.status !== 'FAILED' && p.status !== 'REVERSED');
   if (live.some((p) => !VOIDABLE_KINDS.has(p.methodKind) || p.status !== 'CLEARED' || p.refundedPesewas > 0)) refusals.push('TENDER_NOT_VOIDABLE');
+  if (f.reversalPending) refusals.push('REVERSAL_PENDING');
   return refusals.length === 0 ? ok(null) : err(refusals);
 }
 
