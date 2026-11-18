@@ -8,7 +8,8 @@ import { createBranch, createUser, SYSTEM_PRINCIPAL, testStartTime, type TestBra
 import { startTestApp, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
 
-const KIND = 'QUOTE_BELOW_MARGIN';
+// A contract kind with no policy or handler of its own yet (QUOTE_BELOW_MARGIN has both since B10's migration 0254).
+const KIND = 'DATA_DELETION';
 let database: TestDatabase;
 let api: TestApp;
 let approvals: Approvals;

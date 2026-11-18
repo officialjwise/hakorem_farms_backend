@@ -148,7 +148,8 @@ describe('a quote is made of versions; an issued one never changes (FR-QUO-006, 
   it('refuses, by direct SQL, any change to an issued version or its lines', async () => {
     expect(await sqlStateOf(app().query('UPDATE quo.quote_version SET net_pesewas = 1, gross_pesewas = 1, version = version + 1 WHERE id = $1', [id('v2')]))).toBe(SQLSTATE.documentFrozen);
     expect(await sqlStateOf(app().query('UPDATE quo.quote_line SET unit_price_pesewas = 1 WHERE quote_version_id = $1', [id('v2')]))).toBe(SQLSTATE.documentFrozen);
-    expect(await sqlStateOf(app().query('DELETE FROM quo.quote_line WHERE quote_version_id = $1', [id('v1')]))).toBe(SQLSTATE.documentFrozen);
+    expect(await sqlStateOf(app().query('DELETE FROM quo.quote_line WHERE quote_version_id = $1', [id('v1')]))).toBe(SQLSTATE.insufficientPrivilege);
+    expect(await sqlStateOf(app().query('UPDATE quo.quote_line SET removed = true WHERE quote_version_id = $1', [id('v1')]))).toBe(SQLSTATE.documentFrozen);
     expect(await sqlStateOf(app().query("UPDATE quo.quote_version SET status = 'DRAFT', version = version + 1 WHERE id = $1", [id('v1')]))).toBe(SQLSTATE.documentFrozen);
     const edit = await put('sales', `/quote-versions/${id('v2')}`, { version: 2, lines: [goatLine(1)] });
     expect([edit.status, edit.body.error?.code]).toEqual([422, 'INVALID_STATE_TRANSITION']);
@@ -183,6 +184,17 @@ describe('below the margin floor a version waits for a different person (FR-QUO-
     expect([again.status, again.body.status, again.body.acceptanceLinkToken]).toEqual([200, 'ISSUED', expect.stringMatching(/^quo_/)]);
     const sent = await one("SELECT count(*)::int AS n FROM platform.outbox_message WHERE event_type = 'quo.QuoteIssued' AND subject_id = $1", [made.body.id]);
     expect(sent['n']).toBe(1);
+  });
+
+  it("refuses the version's author as its checker even when someone else asked to issue it (ADR-0017)", async () => {
+    const made = await draft('owner', [goatLine(64_000)]);
+    expect(made.status, JSON.stringify(made.body)).toBe(201);
+    const asked = await issue('manager', made.body.currentVersion.id);
+    expect(asked.status, JSON.stringify(asked.body)).toBe(202);
+    const byAuthor = await approve('owner', asked.body.approvalRequestId);
+    expect([byAuthor.status, byAuthor.body.error?.code]).toEqual([422, 'QUOTE_AUTHOR_CANNOT_APPROVE']);
+    const still = await get('manager', `/quotes/${made.body.id}`);
+    expect([still.body.status, still.body.currentVersion.status]).toEqual(['PENDING_APPROVAL', 'PENDING_APPROVAL']);
   });
 
   it('issues a version at the floor at once and refuses, by direct SQL, to issue one below it without an approval by someone else', async () => {

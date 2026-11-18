@@ -16,7 +16,8 @@ import { createTestDatabase, type TestDatabase } from '../../support/test-databa
  * role in the application layer (ADR-0035), nobody changes a role they hold or beyond what they hold, the maker never
  * checks, an approval binds to the subject's payload, and only the maker withdraws a request.
  */
-const KIND = 'QUOTE_BELOW_MARGIN';
+// A contract kind with no policy or handler of its own yet (QUOTE_BELOW_MARGIN has both since B10's migration 0254).
+const KIND = 'DATA_DELETION';
 const APPROVER = 'iam.probe.approve';
 let database: TestDatabase;
 let api: TestApp;

@@ -13,8 +13,8 @@
 --                             below the margin floor is issued only with its approval request, decided by someone who
 --                             is neither its author nor the person who issued it (ck_quote_version_margin_approved,
 --                             FR-QUO-005, ADR-0017).
---   quo.quote_line            DOCUMENT, frozen with its version: written, changed or removed only while the version is a
---                             draft; its reservation is named once, before the version is issued (ck_quote_line_frozen).
+--   quo.quote_line            DOCUMENT, frozen with its version: written, changed or set aside (`removed`, never
+--                             deleted) only while the version is a draft; its reservation is named once, before the version is issued (ck_quote_line_frozen).
 --                             A product line keeps the quantity in its own unit and in the product's base unit
 --                             (CR-045, ck_quote_line_base).
 --   quo.quote_acceptance      LEDGER, insert-only: a version is accepted once (uq_quote_acceptance_version); an acceptance
@@ -284,12 +284,14 @@ CREATE TABLE quo.quote_line (
   unit_price_pesewas              platform.pesewas NOT NULL,
   line_net_pesewas                platform.pesewas NOT NULL,
   estimated_unit_cost_pesewas     platform.pesewas NULL,
-  CONSTRAINT uq_quote_line UNIQUE (quote_version_id, line_no),
+  -- A draft's line replaced by an edit is set aside, never deleted (DOCUMENT): only lines not removed belong to the version.
+  removed                         boolean NOT NULL DEFAULT false,
   CONSTRAINT ck_quote_line_base CHECK ((product_id IS NULL) = (base_qty IS NULL) AND (stock_unit_id IS NULL OR product_id IS NOT NULL)),
   CONSTRAINT ck_quote_line_resolved CHECK ((resolved_unit_price_pesewas IS NULL) = (resolved_floor_unit_price_pesewas IS NULL)
                                           AND (resolved_unit_price_pesewas IS NULL OR product_id IS NOT NULL))
 );
 COMMENT ON TABLE quo.quote_line IS 'class=DOCUMENT';
+CREATE UNIQUE INDEX uq_quote_line ON quo.quote_line (quote_version_id, line_no) WHERE NOT removed;
 CREATE INDEX ix_quote_line_stock_unit ON quo.quote_line (stock_unit_id) WHERE stock_unit_id IS NOT NULL;
 
 -- Lines are frozen with their version: changed only while it is a draft; the reservation is named once before issue.
@@ -305,6 +307,12 @@ BEGIN
   IF TG_OP = 'UPDATE' AND version_status IN ('DRAFT', 'PENDING_APPROVAL') AND OLD.reservation_id IS NULL AND NEW.reservation_id IS NOT NULL
      AND (to_jsonb(NEW) - 'reservation_id') = (to_jsonb(OLD) - 'reservation_id') THEN
     RETURN NEW;
+  END IF;
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'quo.quote_line % is never deleted; a draft''s line is set aside', OLD.id USING ERRCODE = 'HK004', CONSTRAINT = 'ck_quote_line_frozen';
+  END IF;
+  IF TG_OP = 'UPDATE' AND OLD.removed THEN
+    RAISE EXCEPTION 'quo.quote_line % was set aside and never changes', OLD.id USING ERRCODE = 'HK004', CONSTRAINT = 'ck_quote_line_frozen';
   END IF;
   IF version_status IS DISTINCT FROM 'DRAFT' OR (TG_OP = 'UPDATE' AND NEW.quote_version_id IS DISTINCT FROM OLD.quote_version_id) THEN
     RAISE EXCEPTION 'quo.quote_line: the lines of a version that is % are frozen', version_status USING ERRCODE = 'HK004', CONSTRAINT = 'ck_quote_line_frozen';
@@ -413,8 +421,7 @@ CREATE CONSTRAINT TRIGGER trg_quote_version_accepted_check AFTER UPDATE ON quo.q
   EXECUTE FUNCTION quo.quote_version_accepted_check();
 
 REVOKE ALL ON ALL TABLES IN SCHEMA quo FROM PUBLIC;
-GRANT SELECT, INSERT, UPDATE ON quo.rfq, quo.quote, quo.quote_version TO hk_app, hk_worker;
-GRANT SELECT, INSERT, UPDATE, DELETE ON quo.quote_line TO hk_app, hk_worker;
+GRANT SELECT, INSERT, UPDATE ON quo.rfq, quo.quote, quo.quote_version, quo.quote_line TO hk_app, hk_worker;
 GRANT SELECT, INSERT ON quo.quote_acceptance, quo.quote_link_token TO hk_app, hk_worker;
 
 -- migrate:down

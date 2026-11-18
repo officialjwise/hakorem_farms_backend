@@ -230,7 +230,8 @@ export class PgQuoteStore implements QuoteStore {
   }
 
   async replaceLines(tx: Transaction, versionId: string, lines: readonly LineRecord[]): Promise<void> {
-    await tx.query('DELETE FROM quo.quote_line WHERE quote_version_id = $1', [versionId]);
+    // A draft's lines are set aside, never deleted (DOCUMENT, migration 0253), and the new ones written.
+    await tx.query('UPDATE quo.quote_line SET removed = true WHERE quote_version_id = $1 AND NOT removed', [versionId]);
     for (const l of lines) {
       await tx.query(
         `INSERT INTO quo.quote_line (id, quote_version_id, line_no, product_id, description, grade_id, weight_band_id, stock_unit_id, reservation_id, qty, uom,
@@ -262,7 +263,7 @@ export class PgQuoteStore implements QuoteStore {
 
   async linesOf(tx: Transaction, versionIds: readonly string[]): Promise<LineRecord[]> {
     if (versionIds.length === 0) return [];
-    return (await tx.query(`SELECT ${LINE} FROM quo.quote_line WHERE quote_version_id = ANY($1::uuid[]) ORDER BY quote_version_id, line_no`, [versionIds])).rows.map(line);
+    return (await tx.query(`SELECT ${LINE} FROM quo.quote_line WHERE quote_version_id = ANY($1::uuid[]) AND NOT removed ORDER BY quote_version_id, line_no`, [versionIds])).rows.map(line);
   }
 
   async holdLine(tx: Transaction, lineId: string, reservationId: string): Promise<void> {
