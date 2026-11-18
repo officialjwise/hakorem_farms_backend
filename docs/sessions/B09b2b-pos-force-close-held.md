@@ -140,7 +140,8 @@ Nothing was re-run to turn red into green.
 
 ## CI
 
-The runs on the pushed heads are named in the closing message to the parent session, because a report cannot name the runs of the commit that adds it. The pull request merges only when every run on its head is green.
+- **`43bda41`** (the code and docs head after the rebase on `main` at `25d2844`, pull request #105): run **44238378529 (push)** succeeded and run **44238411587 (pull_request)** succeeded. Nothing was re-run.
+- The runs on the head that adds this line are named in the closing message to the parent session, because a report cannot name the runs of the commit that adds it. The pull request merges only when every run on its head is green.
 
 ## Next session
 
