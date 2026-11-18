@@ -99,6 +99,7 @@ Each card gives: what the module owns, its public interface (the services export
 - **Public interface:** `AuditLog` (authorised query of the platform audit trail), `Administration`, `DataSubjectRequests`, `Retention`. B07 continued builds `SettingsAdmin` (`updateSetting`, FR-AUD-007, A-168) over platform `Settings`, with its own catalogue of keys, types and ranges; the module reading a key keeps its default. B09x continued builds `BusinessProfiles` (FR-AUD-008, A-244): `get` and `update` behind AUD's own controller (and `update` for the seed), and `shopProfile`, the only door another module uses, which hands out the shop's contact fields and nothing else (CR-028); SHP reads it.
 - **Imports:** platform, IAM.
 - **Subscribes:** nothing.
+- **Built in B09b continued 2 (A-277 (b)):** five settings join the catalogue, each bounded at its documented default so the owner can only make a till stricter: `pos.offline.max_hours`, `pos.offline.max_queued_sales`, `pos.offline.allow_unverified_mobile_money` (the first boolean setting), `sync.clock_tolerance_seconds` and `pay.unverified_window_days`, seeded through `SettingsAdmin`.
 
 ### MDM: master data, pricing and tax (layer 3)
 
@@ -110,6 +111,7 @@ Each card gives: what the module owns, its public interface (the services export
 - **Built in B09e continued (A-264):** the published database function `mdm.uom_to_base(product, uom, qty)` (migration 0216, ADR-0047's list), the database's form of `MasterDataRefs.toBaseIn`, which INV's guards call.
 - **Built in B09e (A-261):** `PricingService.resolveIn` prices a line in the unit it is sold in (`ResolveLine.uom`; an entry names its selling unit, `mdm.price_list_entry.uom`, migration 0215), with quantity breaks entered in that unit and compared in the base unit; a selling module passes the line's unit and its quantity in it (ORD's sale posting, online placement and returns, SHP's lines and catalogue). No new port.
 - **Built in B09u (A-303, A-308):** every unit carries a singular and a plural name and a new unit `EGG` (migration 0249); `EntitySheet.createLocks`, the create locks `applyImportJob` takes before its transaction (the customer and supplier sheets). No interface removed.
+- **Built in B09b continued 2 (A-277, CR-038):** `PricingService.sellingUnitsIn` (the units each product is sold by on a channel's walk for a buyer with no account, each priced by its own entry, never derived; the price list versions in force), `TaxService.schemeInForceIn` (the scheme version in force on a date and its cells), `MasterDataRefs.reasonCodesOfDomainsIn` and `livePaymentMethodsOfChannelIn`, each read only in the caller's transaction, authorising nothing. POS reads them for the offline pack and for a counter line's unit.
 
 ### DOC: documents and media (layer 3)
 
@@ -152,6 +154,7 @@ Each card gives: what the module owns, its public interface (the services export
 - **Built in B09e continued 2 (A-269):** `GoodsReceipts` keeps a reason on every rejected quantity (`rejection_reason_code`, `rejection_note`, migration 0221), a `GOODS_RECEIPT_REJECTION` reason read through MDM's `MasterDataRefs.reasonCodesIn` (the domain's `checkRejection`); the database holds that the reason is present exactly when something was rejected. `inv.GoodsReceiptPosted` carries each line's `rejectionReasonCode` (additive). No interface changed.
 - **Built in B09e continued 3 (A-272):** `GoodsReceipts.factsIn`, a receipt's header, poster and lines in the base unit with their order lines and rejections, in the caller's transaction; it authorises nothing (PUR's claim). No table changed.
 - **Built in B09u (ADR-0086, A-302, CR-040):** the `OrderLineValuation` port (`OrderLineValuationRegistry`): `GoodsReceipts` asks it for a line that names its order line and types no value; PUR answers. No table changed.
+- **Built in B09b continued 2:** `StockQueries.unitsStandingAtIn`, read only in the caller's transaction: every animal and lot with stock on hand at a location and whether a sale may take it now, never a cost. POS reads it for the offline pack.
 
 ### LIV: livestock management (layer 6)
 
@@ -246,6 +249,7 @@ Each card gives: what the module owns, its public interface (the services export
 - **Built in B09b continued (A-274, ADR-0077):** `Devices` (enrolment, the list, revocation, and `deviceOfIn`, the device credential's check) and `CounterSales` (`completeCounterSale` through ORD's `SalePosting.postIn`, with the shift's per-shift override room) behind HTTP; `TillCash`, POS's implementation of PAY's `TillShiftCheck` port, registered at start. POS now imports BIL (the receipt's view, `Billing.viewsIn`). Publishes `pos.TillClockOutOfTolerance` (the exception source).
 - **Built in B09b continued 1b (A-275, ADR-0078):** `Shifts.forceClose` and `Shifts.countLate` behind HTTP; publishes `pos.ShiftForceClosed` (the exception source) and, at the later count, ◆ `pos.ShiftClosed` marked `forceClosed`. Asks the platform's `AuditAnchorRequests` for an anchor at each sign-off and each later count (ADR-0006 Amendments).
 - **Built in B09b continued 1c (A-276, ADR-0079):** `HeldSales` (hold, list, recall, and `lapseIn`, called by `Shifts.close` and `Shifts.forceClose`) behind HTTP, pricing through MDM's `PricingService.resolveIn`; `CounterSales` passes a mobile money or card tender's `paymentId` to ORD's `SalePosting.postIn` (`SaleTenderRequest.paymentId`), which takes it through PAY's new `Payments.takeClearedIn`. No new import.
+- **Built in B09b continued 2 (A-277, contract 2.11.0):** `OfflinePacks` (`getOfflinePack`) behind HTTP, reading MDM's `sellingUnitsIn`, `schemeInForceIn` and reference reads, INV's `unitsStandingAtIn` and `StockUnits.factsIn` (POS now imports INV, as the card allows), IAM's role limits and the platform's settings; each issue audited. `CounterSales` takes a line's unit (CR-038), refusing one the product is not sold by and defaulting to the first it is sold by; `HeldSales` prices a held line the same way. `openShift`, `recordCashMovement` and `completeCounterSale` read `sync.clock_tolerance_seconds`. No new table, event or port.
 
 ### SHP: online store (layer 10)
 

@@ -82,7 +82,8 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B09b continued | `B09b2-pos-devices-counter.md` | `b09b2-pos-devices-counter` | B4 to B12 | Split (A-274): a device enrolled and revoked; a counter sale on the cashier's own open shift with change from cash only; no cash into or out of a till but through its open shift, whoever calls PAY (ADR-0077); a cash refund only out of an open shift; the unwitnessed drop |
 | B09b continued 1b | `B09b2b-pos-force-close-held.md` | `b09b2b-pos-force-close-held` | B4 to B12 | Split (A-275): a force close by a manager who is not the cashier, posting nothing until a third person counts the drawer, mutation-checked; ADR-0077's force-closed column proved with the real operation; the audit anchor at each sign-off |
 | B09b continued 1c | `B09b2c-pos-held-provider-tender.md` | `b09b2c-pos-held-provider-tender` | B4 to B12 | Held sales re-priced on recall with exact pesewas, recalled once, lapsing at close; a mobile money or card tender at the counter only as a payment the provider cleared, never allocated twice nor another customer's or another shift's |
-| B09b continued 2 | `B09b3-pos-offline-sync.md` | `b09b3-pos-offline-sync` | B4 to B12 | 500 queued offline transactions sync exactly once; ADR-0027's five conflict tests; a crate and a single egg sold at the till at their own prices (CR-038) |
+| B09b continued 2 | `B09b3-pos-offline-sync.md` | `b09b3-pos-offline-sync` | B4 to B12 | Split (A-277 (a)): the offline pack with each unit priced by its own entry (CR-031, CR-032 point 6, CR-038), the 5.2 settings seeded, a crate and a single egg sold at the counter at their own prices |
+| B09b continued 2b | `B09b3b-pos-offline-sync.md` | `b09b3b-pos-offline-sync` | B4 to B12 | 500 queued offline transactions sync exactly once; ADR-0027's five conflict tests; nothing in sync refuses a sale; an offline sale issued at its occurred_at; a crate and a single egg synced at their own prices |
 | B09b continued 3 | `B09b4-pos-till-pin.md` | `b09b4-pos-till-pin` | B4 to B12 | The till PIN's verifier, attempt limit and supervisor sign-out as the owner set them (CR-032); a drop witnessed only by a supervisor's PIN, with a read of who is signed in at the branch (owner, 2026-11-18) |
 | B09b continued 4 | `B09b5-pos-receipts.md` | `b09b5-pos-receipts` | B4 to B12 | The receipt link by its token alone (CR-033 points 1 and 2); the business buyer's TIN on the VAT invoice; an invoice paid at the till inside the shift |
 | B09c | `B09c-card-payment.md` | `b09c-card-payment` | B4 to B12 | Card payment online through the provider port with every payment edge case, no card details on our servers, and the card cases run against the real sandbox |
@@ -2476,7 +2477,7 @@ Stop at the gate and write docs/sessions/B09b2c-pos-held-provider-tender.md.
 
 ## B09b continued 2 — The offline pack and offline sync
 
-Branch `b09b3-pos-offline-sync`. Report `docs/sessions/B09b3-pos-offline-sync.md`. Gate: 500 queued offline transactions sync exactly once, and ADR-0027's five conflict tests pass.
+Branch `b09b3-pos-offline-sync`. Report `docs/sessions/B09b3-pos-offline-sync.md`. Gate: 500 queued offline transactions sync exactly once, and ADR-0027's five conflict tests pass. **Split by the session (A-277 (a), ADR-0026 Amendments, 2026-11-18):** it built the offline pack, the 5.2 settings and CR-038 at the counter (gate: each unit priced by its own entry in the pack and at the counter, every read and write refusing the wrong role); offline sync and the gate above move to **B09b continued 2b** below.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9b row).
@@ -2523,13 +2524,64 @@ and flagged (the sale and the exception report's source show it), never refused.
 Stop at the gate and write docs/sessions/B09b3-pos-offline-sync.md.
 ```
 
+## B09b continued 2b — Offline sync
+
+Branch `b09b3b-pos-offline-sync`, from `main`. Report `docs/sessions/B09b3b-pos-offline-sync.md`. Inserted by B09b continued 2's split (A-277 (a), ADR-0026 Amendments), before B09b continued 3. Lane A. Gate: 500 queued offline transactions sync exactly once, ADR-0027's five conflict tests pass, and nothing in sync refuses a sale that passes authentication and integrity.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9b row).
+List docs/sessions/ and read only the most recent report (docs/sessions/B09b3-pos-offline-sync.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the POS requirement block of docs/SRS.md (nothing else from the SRS),
+docs/data-model/pos.md, the POS card in docs/MODULE_BOUNDARIES.md, docs/OFFLINE_SYNC.md, and
+ADR-0013, ADR-0015, ADR-0027, ADR-0077, A-273 and A-277 in docs/ASSUMPTIONS.md, and the abuse cases 4, 10 and 11 in
+docs/security/THREAT_MODEL.md. Read the hakorem-offline skill. Use docs/prompts/module-build-prompt.md as the recipe.
+Do not read any other document unless this phase needs it. Lane A (docs/prompts/session-openers.md, "Two lanes").
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B09b continued 2b only, on branch b09b3b-pos-offline-sync, branched from main: offline sync
+(syncOfflineSales, pos.sale_sync): exactly-once by client UUIDv7, the gap-free device counter and its gaps, provisional
+references, occurred-at and recorded-at, cash-only tenders offline (the pack's offlineTenderMethodIds, A-277 (h)), the
+stock exception instead of a refusal, price override bounds re-checked at sync, shift open and cash movements from the
+queue, SyncResultItem.grossPesewas (null when nothing was recorded) and its currency (CR-031). Write the five conflict
+tests ADR-0027 names (animal sold elsewhere, animal on hold, countable stock gone negative, sale in a locked period,
+missing device counter) and the 500-transaction test with the network disabled, each figure derived independently by
+SQL over the journal lines and stock movements, never from the function under test. Run scenario 6 of docs/UAT.md as a
+dry run and record any difference.
+The owner's addition (1) to A-200 (2026-11-16), test-first: an offline sale synced later is issued at its occurred_at,
+the time it happened at the till, not the sync time. Extend Billing.issueIn additively to take that time for a synced
+sale only, mark the document as synced from offline (a field the receipt and the document read show), and bound how old
+an offline sale may be (a setting, conservative default, recorded in ASSUMPTIONS.md): a sale outside the bound is still
+recorded, never refused (a synced sale is always recorded), and reaches the exception report; a sale whose period has
+since locked posts on the first open date, flagged, keeping its occurred_at (ADR-0027 point 6).
+Nothing in sync refuses a sale: a stock conflict, an old sale, a locked period, a till clock outside the tolerance and
+(if that path exists yet) a reused receipt token each records the sale and raises an exception. Test each; a mutation
+that turns a conflict into a refusal must turn a test red.
+ADR-0077 holds offline too: cash from the queue goes only onto the shift it belongs to, on its own till; a queued sale
+for a closed or force-closed shift is recorded and flagged per the existing rules (OFFLINE_SYNC 9.4, FR-POS-014,
+FR-POS-020), never silently moved to another shift. Where the existing rules do not settle a case, take the
+conservative option and record it.
+CR-038 at sync (owner, 2026-11-17): an offline sale's line names its unit (`CounterSaleLine.uom`, built in B09b
+continued 2: absent means the first unit the product is sold by, A-277 (e)); convert to the base unit for stock
+through MasterDataRefs.toBaseIn and re-price by that unit's own entry at sync, test-first with exact pesewas at a crate
+and a single egg of the seeded eggs (EGG-0003, base unit EGG, 30 to the crate, A-303). A unit the product is not sold by
+is recorded and flagged at sync, never refused (a synced sale is always recorded).
+The clock tolerance (owner, 2026-11-17, A-273 (g)): `sync.clock_tolerance_seconds` (seeded at 300 in B09b continued 2,
+A-277 (k)). A synced sale whose till time is outside it is recorded and flagged (the sale and the exception report's
+source show it), never refused. Test it at 301 seconds either way.
+The owner asked for extra care on the till: prove every cash figure, every stock figure and the 500-transaction totals
+with exact integers derived independently by SQL over journal lines and stock movements.
+Stop at the gate and write docs/sessions/B09b3b-pos-offline-sync.md.
+```
+
 ## B09b continued 3 — The till PIN
 
 Branch `b09b4-pos-till-pin`. Report `docs/sessions/B09b4-pos-till-pin.md`. Gate: the till PIN's verifier, attempt limit and supervisor sign-out as the owner set them (CR-032), and a cash drop witnessed only by a supervisor's PIN on the till with a read of the supervisors signed in at the branch (owner, 2026-11-18), each test-first.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9b row).
-List docs/sessions/ and read only the most recent report (docs/sessions/B09b3-pos-offline-sync.md).
+List docs/sessions/ and read only the most recent report (docs/sessions/B09b3b-pos-offline-sync.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
 reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the POS requirement block of docs/SRS.md (nothing else from the SRS),
@@ -2558,9 +2610,11 @@ test-first:
 2. A read of which supervisors are signed in at the till's branch, so the till can offer them as witnesses. The server
    already accepts an unwitnessed drop when none is signed in (contract 2.6.0, A-273 (d)); keep that, and make the
    drop's witness rule use the same "signed in at the branch" source the new read answers from.
-3. This is the frontend's CR-045 (owner, 2026-11-18: the frontend renumbered, and CR-045 on its main is the till's drop
-   witness; CR-046 to CR-050 are lane B's quote and wholesale requests). Answer CR-045 as committed on the frontend's
-   main, going by what the request says there, not by a number from an earlier message.
+3. This is the frontend's request "Who can witness a cash drop now, and a drop with no witness when nobody can". The
+   frontend renumbered it: it was CR-045 at the frontend's main `37e5c98`, and is **CR-050** at `81525f1` (its PR #30,
+   the till's F10j session), where CR-045 is now the quote line's unit and CR-045 to CR-049 are lane B's quote and
+   wholesale requests. Answer it as committed on the frontend's main when you read it, going by what the request
+   says there, not by a number from an earlier message.
 Stop at the gate and write docs/sessions/B09b4-pos-till-pin.md.
 ```
 
