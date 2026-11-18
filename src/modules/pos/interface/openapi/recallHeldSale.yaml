@@ -1,0 +1,75 @@
+operationId: recallHeldSale
+tags:
+  - pos
+summary: "Recall (and remove) a held sale"
+description: "Takes a held sale off the till, once, re-priced (FR-POS-007, 2.10.0, A-276): by the cashier of the shift it was held on (403 for anyone else, a manager included), from a device enrolled on its till. The answer is the held sale with `status` RECALLED and `pricing`, the lines priced now by the engine for channel POS: after a price change between hold and recall it shows the new prices, and `heldTotalPesewas` still shows what they came to when held. A line that no longer resolves has a null price and its `quoteRequiredReason`, and `pricing.totalPesewas` is null. A held sale already recalled, lapsed with its shift, past `expiresAt` or never held is 404, the same for each; the first recall's answer is replayed for its own `Idempotency-Key`. Complete the sale with `completeCounterSale`, which prices every line again.\n\nPermission: `pos.sale.create`."
+x-permission: pos.sale.create
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+    deviceCredential: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/HeldSale"
+        example:
+          id: "019a7afb-090f-7b52-908b-be00358e36de"
+          registerId: "019a7a94-15a3-7248-9781-2d5f347aa63d"
+          heldBy:
+            id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+            displayName: "Adwoa Darko"
+          label: "Lady in the green dress, back in 10 min"
+          payload:
+            lines:
+              - productId: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                quantity: "3.000"
+          heldAt: "2026-11-13T09:00:00Z"
+          expiresAt: "2026-11-13T21:00:00Z"
+          shiftId: "019a7a93-f6b4-7865-8d9d-8f27bac90805"
+          status: RECALLED
+          heldTotalPesewas: 6000
+          pricing:
+            pricedAt: "2026-11-13T09:40:00Z"
+            lines:
+              - lineNo: 1
+                productId: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                quantity: "3.000"
+                weightKg: null
+                priceBasis: PER_UNIT
+                priceListEntryId: "019a7a90-3c1d-7e55-9b0a-1f2e3d4c5b6a"
+                listUnitPricePesewas: 2300
+                lineTotalPesewas: 6900
+                quoteRequiredReason: null
+            totalPesewas: 6900
+            currency: GHS
+          currency: GHS
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

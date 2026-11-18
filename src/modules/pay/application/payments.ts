@@ -11,6 +11,7 @@ import type { Billing } from '../../bil';
 import type { BankAccounts } from '../../fin';
 import type { Authoriser } from '../../iam';
 import type { MasterDataRefs } from '../../mdm';
+import { judgeClearedTender } from '../domain/cleared-tender';
 import { clearingOf, planTender, type MethodKind } from '../domain/tender';
 import { pageProbe } from '../domain/time';
 import type { DepositAllocated, PaymentCleared } from '../events';
@@ -51,6 +52,21 @@ export interface TenderRequest {
   readonly register: { readonly id: string; readonly code: string } | null;
   readonly receivedAt: Date;
   readonly allocations: readonly { readonly billingDocumentId: string; readonly amountPesewas: bigint }[];
+}
+
+/**
+ * A sale's tender taken from a mobile money or card payment the provider already cleared at the till (FR-POS-006,
+ * ADR-0079): the whole payment, applied to the sale's receipt.
+ */
+export interface ClearedTenderRequest {
+  readonly paymentId: string;
+  readonly methodCode: string;
+  readonly amountPesewas: bigint;
+  readonly branchId: string;
+  readonly customerId: string | null;
+  readonly orderDocumentId: string;
+  readonly shiftDocumentId: string;
+  readonly billingDocumentId: string;
 }
 
 /** What one payment method took in a till shift. */
@@ -229,6 +245,51 @@ export class Payments {
     const [view] = await this.viewsIn(tx, [id]);
     await this.audit.record(tx, { module: 'pay', action: 'RECORD', entityType: 'Payment', entityId: id, branchId: request.branchId, before: null, after: { ...view! } });
     return view!;
+  }
+
+  /**
+   * Takes a payment the provider already cleared as a sale's tender, in the caller's serializable transaction (ORD's
+   * sale posting, FR-POS-006, ADR-0079). Under the payment's lock it must be a mobile money or card payment the provider
+   * confirmed, taken at the sale's own till shift (still open, and the seller's: ADR-0077) for the sale's customer or for
+   * nobody on a walk-in sale, never yet taken for an order, allocated or refunded, and the tender must be its whole
+   * amount, so no change is ever given from it (`judgeClearedTender`; a payment of another branch is answered as
+   * unknown). It is then linked to the sale (`pay.payment_order_link`, insert-only, one per payment, the same rules held
+   * by the database) and allocated to the sale's receipt, posted from deposit by ◆ `pay.DepositAllocated` (Dr 2200 Cr
+   * 1200), and audited. Refusals are 422 `PAYMENT_INVALID` on `<field>/paymentId`.
+   */
+  async takeClearedIn(tx: Transaction, actor: Actor | undefined, request: ClearedTenderRequest, field = ''): Promise<PaymentView> {
+    if (tx.isolation !== 'serializable') throw new IsolationLevelError(tx.isolation);
+    if (actor === undefined) throw new UnauthenticatedError('a payment needs an actor');
+    const method = (await this.refs.paymentMethodsByCodeIn(tx, [request.methodCode])).get(request.methodCode);
+    const [payment] = await this.store.payments(tx, [request.paymentId], true);
+    const linked = payment === undefined ? new Map<string, string>() : await this.store.linkedOrders(tx, [payment.id]);
+    const judged = judgeClearedTender(payment === undefined ? null : { ...payment, linkedToOrder: linked.has(payment.id) }, {
+      paymentMethodId: method?.id ?? '',
+      amountPesewas: request.amountPesewas,
+      customerId: request.customerId,
+      branchId: request.branchId,
+      shiftDocumentId: request.shiftDocumentId,
+    });
+    if (!judged.ok) throw new PaymentInvalidError(judged.error.map((rule) => ({ field: `${field}/paymentId`, rule })));
+    // The shift the payment was taken at still takes entries, from this seller (ADR-0077); the database holds it too.
+    await this.tillCashIn(tx, { shiftDocumentId: request.shiftDocumentId, registerId: null, branchId: request.branchId, actorId: actor.principalId, direction: 'IN' }, `${field}/paymentId`);
+    const [before] = await this.documentViews(tx, [payment!]);
+    await this.store.insertOrderLink(tx, {
+      paymentId: payment!.id,
+      orderDocumentId: request.orderDocumentId,
+      shiftDocumentId: request.shiftDocumentId,
+      customerId: request.customerId,
+      branchId: request.branchId,
+      recordedAt: this.clock.now(),
+      actorId: actor.principalId,
+    });
+    const allocationId = this.nextId();
+    await this.capped(`${field}/amountPesewas`, () => this.store.allocate(tx, { id: allocationId, paymentId: payment!.id, billingDocumentId: request.billingDocumentId, amountPesewas: request.amountPesewas, direction: 'APPLY', actorId: actor.principalId }));
+    await this.billing.settleIn(tx, request.billingDocumentId, request.amountPesewas, 'APPLY');
+    await this.publishAllocation(tx, payment!, { allocationId, billingDocumentId: request.billingDocumentId, applied: request.amountPesewas, unapplied: 0n, reverses: null });
+    const [after] = await this.documentViewsIn(tx, [payment!.id]);
+    await this.audit.record(tx, { module: 'pay', action: 'TAKE_AS_TENDER', entityType: 'Payment', entityId: payment!.id, branchId: payment!.branchId, before: { ...before! }, after: { ...after! } });
+    return (await this.viewsIn(tx, [payment!.id]))[0]!;
   }
 
   /**
@@ -479,6 +540,7 @@ export class Payments {
 
   private async views(tx: Transaction, records: readonly PaymentRecord[]): Promise<PaymentView[]> {
     const allocations = await this.allocationsByPayment(tx, records);
+    const linked = await this.store.linkedOrders(tx, records.map((r) => r.id));
     const methods = await this.refs.paymentMethodsIn(tx, records.map((r) => r.paymentMethodId));
     return records.map((r) => ({
       id: r.id,
@@ -492,7 +554,7 @@ export class Payments {
       refundedPesewas: json(r.refundedPesewas),
       currency: 'GHS' as const,
       customerId: r.customerId,
-      orderDocumentId: r.orderDocumentId,
+      orderDocumentId: r.orderDocumentId ?? linked.get(r.id) ?? null,
       register: r.registerRef === null || r.registerCode === null ? null : { id: r.registerRef, code: r.registerCode },
       allocations: (allocations.get(r.id) ?? []).map((a) => ({ id: a.id, billingDocumentId: a.billingDocumentId, amountPesewas: json(a.amountPesewas), direction: a.direction })),
       receivedAt: r.receivedAt.toISOString(),
@@ -506,7 +568,10 @@ export class Payments {
     const methods = await this.refs.paymentMethodsIn(tx, records.map((r) => r.paymentMethodId));
     const customers = await this.refs.customersIn(tx, records.flatMap((r) => (r.customerId === null ? [] : [r.customerId])));
     const billed = await this.billing.settleableIn(tx, [...new Set([...allocations.values()].flat().map((a) => a.billingDocumentId))]);
-    const orders = await this.documents.numberedRefs(tx, records.flatMap((r) => (r.orderDocumentId === null ? [] : [r.orderDocumentId])));
+    // A provider payment a counter sale took as its tender names that sale by its link (ADR-0079).
+    const linked = await this.store.linkedOrders(tx, records.map((r) => r.id));
+    const orderOf = (r: PaymentRecord): string | null => r.orderDocumentId ?? linked.get(r.id) ?? null;
+    const orders = await this.documents.numberedRefs(tx, records.flatMap((r) => (orderOf(r) === null ? [] : [orderOf(r)!])));
     const banks = await this.bankAccounts.payoutAccountsIn(tx, records.flatMap((r) => (r.bankAccountId === null ? [] : [r.bankAccountId])));
     return records.map((r) => {
       const bank = r.bankAccountId === null ? undefined : banks.get(r.bankAccountId);
@@ -520,7 +585,7 @@ export class Payments {
         amountPesewas: json(r.amountPesewas),
         currency: 'GHS' as const,
         customer: customer === undefined ? null : { id: customer.id, publicId: customer.publicId, name: customer.name },
-        order: r.orderDocumentId === null ? null : (orders.get(r.orderDocumentId) ?? null),
+        order: orderOf(r) === null ? null : (orders.get(orderOf(r)!) ?? null),
         shiftId: r.shiftDocumentId,
         driver: null,
         bankAccount: bank === undefined ? null : { id: bank.id, name: bank.name, kind: bank.kind, last4: bank.last4 },

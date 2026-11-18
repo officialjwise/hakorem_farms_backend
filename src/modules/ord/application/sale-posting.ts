@@ -56,6 +56,13 @@ export interface SaleTenderRequest {
   readonly methodCode: string;
   readonly amountPesewas: bigint;
   readonly register: { readonly id: string; readonly code: string } | null;
+  /**
+   * A mobile money or card payment the provider already cleared at the sale's till shift (FR-POS-006, B09b continued
+   * 1c, ADR-0079): taken whole as this tender through PAY's `Payments.takeClearedIn`, linked to the sale and allocated to
+   * its receipt, instead of a new payment being recorded. Requires the sale's `shiftDocumentId`. Left out, the tender is
+   * recorded through `Payments.recordIn` as before.
+   */
+  readonly paymentId?: string | null;
 }
 
 /** A sale fulfilled and paid at once, on any channel B9a posts (FR-ORD-006). */
@@ -342,6 +349,29 @@ export class SalePosting {
     for (const [i, tender] of request.tenders.entries()) {
       const applied = tender.amountPesewas < left ? tender.amountPesewas : left;
       left -= applied;
+      const clearedId = tender.paymentId ?? null;
+      if (clearedId !== null) {
+        // A payment the provider cleared is taken whole: the tenders sum to the receipt exactly, so it applies in full.
+        if ((request.shiftDocumentId ?? null) === null) throw new SaleInvalidError([{ field: `/tenders/${i}/paymentId`, rule: 'SHIFT_REQUIRED' }]);
+        payments.push(
+          await this.payments.takeClearedIn(
+            tx,
+            actor,
+            {
+              paymentId: clearedId,
+              methodCode: tender.methodCode,
+              amountPesewas: tender.amountPesewas,
+              branchId: request.branchId,
+              customerId,
+              orderDocumentId: request.orderId,
+              shiftDocumentId: request.shiftDocumentId!,
+              billingDocumentId: document.id,
+            },
+            `/tenders/${i}`,
+          ),
+        );
+        continue;
+      }
       payments.push(
         await this.payments.recordIn(
           tx,

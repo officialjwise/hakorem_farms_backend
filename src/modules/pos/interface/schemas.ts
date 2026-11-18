@@ -92,3 +92,20 @@ export const CounterSale = z.strictObject({
     .max(10),
   occurredAt: Instant,
 });
+
+/** A held sale's line: what a counter sale's line carries, before its price is agreed (FR-POS-007, A-276). */
+const HeldSaleLine = z.strictObject({
+  productId: z.uuid(),
+  stockUnitId: z.uuid().optional(),
+  quantity: Quantity,
+  weightKg: Kilograms.optional(),
+  weightSource: z.enum(['SCALE', 'MANUAL', 'ESTIMATE']).optional(),
+  gradeId: z.uuid().optional(),
+});
+
+/** The contract's `HeldSaleCreate`: its `payload` is the lines as entered and the customer, if one is named. */
+export const HeldSaleCreate = z.strictObject({
+  id: z.uuid(),
+  label: Text(120).optional(),
+  payload: z.strictObject({ customerId: z.uuid().optional(), lines: z.array(HeldSaleLine).min(1).max(100) }),
+});

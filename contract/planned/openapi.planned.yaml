@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.9.0"
+  version: "2.10.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -4400,263 +4400,8 @@ paths:
   "/shifts/{id}/z-report": {}
   "/shifts/{id}/close": {}
   "/shifts/{id}/approve-close": {}
-  "/registers/{id}/held-sales":
-    get:
-      operationId: listHeldSales
-      tags:
-        - pos
-      summary: "List held sales on a register"
-      description: "Permission: `pos.sale.create`."
-      x-permission: pos.sale.create
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - name: cursor
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: limit
-          in: query
-          required: false
-          schema:
-            $ref: "#/components/schemas/PageLimit"
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/HeldSalePage"
-              examples:
-                default:
-                  value:
-                    data:
-                      - id: "019a7afb-090f-7b52-908b-be00358e36de"
-                        registerId: "019a7a94-15a3-7248-9781-2d5f347aa63d"
-                        heldBy:
-                          id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
-                          displayName: "Adwoa Darko"
-                        label: "Lady in the green dress, back in 10 min"
-                        payload:
-                          lines:
-                            - productId: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                              quantity: "3.000"
-                        heldAt: "2026-11-13T09:00:00Z"
-                        expiresAt: "2026-11-13T19:00:00Z"
-                      - id: "019a7afb-27fe-7536-aa6e-5c37af3fd515"
-                        registerId: "019a7a94-15a3-7248-9781-2d5f347aa63d"
-                        heldBy:
-                          id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
-                          displayName: "Adwoa Darko"
-                        label: "Kofi, getting more cash"
-                        payload:
-                          lines:
-                            - productId: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                              quantity: "3.000"
-                        heldAt: "2026-11-13T10:00:00Z"
-                        expiresAt: "2026-11-13T19:00:00Z"
-                      - id: "019a7afb-46ed-7f19-b452-fa6f28f0734d"
-                        registerId: "019a7a94-15a3-7248-9781-2d5f347aa63d"
-                        heldBy:
-                          id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
-                          displayName: "Adwoa Darko"
-                        label: "Church order, waiting for the treasurer"
-                        payload:
-                          lines:
-                            - productId: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                              quantity: "3.000"
-                        heldAt: "2026-11-13T11:00:00Z"
-                        expiresAt: "2026-11-13T19:00:00Z"
-                      - id: "019a7afb-65dc-78fd-8e35-98a6a2a11184"
-                        registerId: "019a7a94-15a3-7248-9781-2d5f347aa63d"
-                        heldBy:
-                          id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
-                          displayName: "Adwoa Darko"
-                        label: null
-                        payload:
-                          lines:
-                            - productId: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                              quantity: "3.000"
-                        heldAt: "2026-11-13T12:00:00Z"
-                        expiresAt: "2026-11-13T19:00:00Z"
-                      - id: "019a7afb-84cb-72e0-9819-36de1c52afbc"
-                        registerId: "019a7a94-15a3-7248-9781-2d5f347aa63d"
-                        heldBy:
-                          id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
-                          displayName: "Adwoa Darko"
-                        label: "Driver for Royal Palm"
-                        payload:
-                          lines:
-                            - productId: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                              quantity: "3.000"
-                        heldAt: "2026-11-13T13:00:00Z"
-                        expiresAt: "2026-11-13T19:00:00Z"
-                    page:
-                      nextCursor: null
-                      limit: 25
-                      hasMore: false
-                empty:
-                  summary: "Nothing matches: no rows and no next page"
-                  value:
-                    data: []
-                    page:
-                      nextCursor: null
-                      limit: 25
-                      hasMore: false
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-    post:
-      operationId: holdSale
-      tags:
-        - pos
-      summary: "Park a sale to recall later"
-      description: "Permission: `pos.sale.create`."
-      x-permission: pos.sale.create
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-          deviceCredential: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/HeldSaleCreate"
-            example:
-              id: "019a7afb-a3ba-7cc4-a1fc-d51596034df3"
-              label: "Kofi, getting more cash"
-              payload:
-                lines:
-                  - productId: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                    stockUnitId: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
-                    quantity: "1.000"
-      responses:
-        "201":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/HeldSale"
-              example:
-                id: "019a7afb-090f-7b52-908b-be00358e36de"
-                registerId: "019a7a94-15a3-7248-9781-2d5f347aa63d"
-                heldBy:
-                  id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
-                  displayName: "Adwoa Darko"
-                label: "Lady in the green dress, back in 10 min"
-                payload:
-                  lines:
-                    - productId: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                      quantity: "3.000"
-                heldAt: "2026-11-13T09:00:00Z"
-                expiresAt: "2026-11-13T19:00:00Z"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/held-sales/{id}":
-    delete:
-      operationId: recallHeldSale
-      tags:
-        - pos
-      summary: "Recall (and remove) a held sale"
-      description: "Permission: `pos.sale.create`."
-      x-permission: pos.sale.create
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-          deviceCredential: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/HeldSale"
-              example:
-                id: "019a7afb-090f-7b52-908b-be00358e36de"
-                registerId: "019a7a94-15a3-7248-9781-2d5f347aa63d"
-                heldBy:
-                  id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
-                  displayName: "Adwoa Darko"
-                label: "Lady in the green dress, back in 10 min"
-                payload:
-                  lines:
-                    - productId: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                      quantity: "3.000"
-                heldAt: "2026-11-13T09:00:00Z"
-                expiresAt: "2026-11-13T19:00:00Z"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+  "/registers/{id}/held-sales": {}
+  "/held-sales/{id}": {}
   "/registers/{id}/offline-pack":
     get:
       operationId: getOfflinePack
@@ -38758,6 +38503,27 @@ components:
         expiresAt:
           type: string
           format: date-time
+        shiftId:
+          type: string
+          format: uuid
+          description: "The shift it was held on; it lapses when that shift closes or is force-closed (2.10.0, A-276). Always sent."
+        status:
+          type: string
+          enum:
+            - HELD
+            - RECALLED
+          description: "HELD on a hold and in the list; RECALLED in the answer to its recall (2.10.0). Always sent."
+        heldTotalPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "What the lines came to at the prices in force when the sale was held (2.10.0). Always sent."
+        pricing:
+          anyOf:
+            - $ref: "#/components/schemas/HeldSalePricing"
+            - type: "null"
+          description: "The lines priced by the engine at this moment: the prices then in the answer to `holdSale`, the prices now in the answer to `recallHeldSale` (re-priced on recall, FR-POS-007); null in `listHeldSales` (2.10.0). Always sent."
+        currency:
+          $ref: "#/components/schemas/Currency"
       required:
         - id
         - registerId
@@ -38766,17 +38532,90 @@ components:
         - payload
         - heldAt
         - expiresAt
+    HeldSalePricing:
+      type: object
+      description: "A held sale's lines as the pricing engine prices them for channel POS at `pricedAt`, each extended and rounded half-up once (2.10.0, FR-POS-007). The counter sale re-resolves every price again when it completes."
+      properties:
+        pricedAt:
+          type: string
+          format: date-time
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/HeldSalePricedLine"
+        totalPesewas:
+          anyOf:
+            - $ref: "#/components/schemas/Pesewas"
+            - type: "null"
+          description: "The sum of the line totals; null when a line no longer resolves to a price."
+        currency:
+          $ref: "#/components/schemas/Currency"
+      required:
+        - pricedAt
+        - lines
+        - totalPesewas
+        - currency
+    HeldSalePricedLine:
+      type: object
+      properties:
+        lineNo:
+          type: integer
+          minimum: 1
+        productId:
+          type: string
+          format: uuid
+        quantity:
+          type: string
+        weightKg:
+          type:
+            - string
+            - "null"
+        priceBasis:
+          anyOf:
+            - $ref: "#/components/schemas/PriceBasis"
+            - type: "null"
+        priceListEntryId:
+          type:
+            - string
+            - "null"
+          format: uuid
+        listUnitPricePesewas:
+          anyOf:
+            - $ref: "#/components/schemas/Pesewas"
+            - type: "null"
+        lineTotalPesewas:
+          anyOf:
+            - $ref: "#/components/schemas/Pesewas"
+            - type: "null"
+        quoteRequiredReason:
+          type:
+            - string
+            - "null"
+          description: "Why the line no longer resolves to a price at recall (the engine's reason); null when it is priced."
+      required:
+        - lineNo
+        - productId
+        - quantity
+        - weightKg
+        - priceBasis
+        - priceListEntryId
+        - listUnitPricePesewas
+        - lineTotalPesewas
+        - quoteRequiredReason
     HeldSaleCreate:
       type: object
       properties:
         id:
           type: string
           format: uuid
+          description: "The held sale's client-generated UUIDv7."
         label:
           type: string
+          description: "A note for the cashier, 1 to 120 characters: a first name, a description."
         payload:
           type: object
           additionalProperties: true
+          description: "The lines as a counter sale carries them, without prices: `lines` (1 to 100), each with `productId`, `quantity`, and as needed `stockUnitId`, `weightKg` with `weightSource`, `gradeId`; and `customerId` if one is named. Nothing else is accepted (400)."
       required:
         - id
         - payload

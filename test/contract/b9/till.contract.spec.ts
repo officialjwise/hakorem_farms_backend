@@ -1,12 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { createUuidV7Generator, ManualClock } from '@hakorem/kernel';
+import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { totpAt } from '../../../src/modules/iam/domain/totp';
 import { runSeedUnits } from '../../../src/seed/run-seed';
 import { seedUnits } from '../../../src/seed/seed-units';
 import { contractSchema } from '../../support/contract-schemas';
 import { consoleGet, consolePatch, consolePost, createUser, enrolAndLogin, login, relaxRateLimits, testStartTime, type TestSession, type TestUser } from '../../support/iam';
-import { startTestApp, type TestApp } from '../../support/test-app';
+import { startTestApp, TEST_ORIGIN, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
 
 /**
@@ -163,6 +164,50 @@ describe('B09b continued 1b: the force close and the later count answer in the c
     expectShape('Shift', counted.body);
     expectShape('ShiftReport', (await get(owner, `/shifts/${shift}/z-report`)).body);
     const refused = await post(kofi, `/shifts/${shift}/late-count`, { declaredCashPesewas: 9_900, reason: 'Mine' });
+    expect(refused.status).toBe(403);
+    expectShape('Error', refused.body);
+  });
+});
+
+describe('B09b continued 1c: held sales answer in the contract shapes', () => {
+  it('a sale held on the cashier own shift, listed, recalled once re-priced, and the refusals', async () => {
+    const till = await post(manager, '/registers', { branchId: id('branch:DDW'), locationId: id('location:SHOP'), code: 'K1', name: 'Hold till' });
+    expect(till.status).toBe(201);
+    // A TOTP code is used once: the next one, thirty seconds on.
+    clock.advanceBy(30_000);
+    expect((await post(manager, '/auth/step-up', { code: totpAt(manager.secret, Math.floor(clock.now().getTime() / 1000)) })).status).toBe(200);
+    const enrolled = await post(manager, `/registers/${till.body.id as string}/devices`, { deviceLabel: 'Hold tablet' });
+    expect(enrolled.status).toBe(201);
+    const yaa = await login(api.server, await createUser(database, { name: 'Yaa Ofori', grants: [{ role: 'CASHIER', branchId: id('branch:DDW'), locationId: id('location:SHOP') }] }));
+    const nextId = createUuidV7Generator(clock);
+    const shift = nextId();
+    expect((await post(yaa, '/shifts', { id: shift, registerId: till.body.id, openingFloatPesewas: 10_000, openedAt: clock.now().toISOString() }, shift)).status).toBe(201);
+    const yam = (await database.pool('admin').query<{ id: string }>("SELECT id FROM mdm.product WHERE sku = 'PRD-0005'")).rows[0]!.id;
+    const held = await consolePost(api.server, yaa, `/v1/registers/${till.body.id as string}/held-sales`, randomUUID())
+      .set('X-Device-Credential', enrolled.body.deviceCredential as string)
+      .send({ id: nextId(), label: 'Back in ten minutes', payload: { lines: [{ productId: yam, quantity: '2.000' }] } });
+    expect(held.status, JSON.stringify(held.body)).toBe(201);
+    expectShape('HeldSale', held.body);
+    const listed = await get(yaa, `/registers/${till.body.id as string}/held-sales`);
+    expect(listed.status).toBe(200);
+    expectShape('HeldSalePage', listed.body);
+    const recall = () =>
+      request(api.server)
+        .delete(`/v1/held-sales/${held.body.id as string}`)
+        .set('Cookie', yaa.jar.header())
+        .set('X-CSRF-Token', yaa.csrfToken)
+        .set('Origin', TEST_ORIGIN)
+        .set('Idempotency-Key', randomUUID())
+        .set('X-Device-Credential', enrolled.body.deviceCredential as string);
+    const recalled = await recall();
+    expect(recalled.status, JSON.stringify(recalled.body)).toBe(200);
+    expectShape('HeldSale', recalled.body);
+    const again = await recall();
+    expect(again.status).toBe(404);
+    expectShape('Error', again.body);
+    const refused = await consolePost(api.server, cashier, `/v1/registers/${till.body.id as string}/held-sales`, randomUUID())
+      .set('X-Device-Credential', enrolled.body.deviceCredential as string)
+      .send({ id: nextId(), payload: { lines: [{ productId: yam, quantity: '1.000' }] } });
     expect(refused.status).toBe(403);
     expectShape('Error', refused.body);
   });

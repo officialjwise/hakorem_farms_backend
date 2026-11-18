@@ -1,6 +1,47 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
-import type { CashMovementRecord, DeviceRecord, LateCountRecord, NewShift, RegisterRecord, ShiftFilter, ShiftRecord, TenderCountRecord, TillStore } from '../application/till-store';
+import type { CashMovementRecord, DeviceRecord, HeldSaleRecord, LateCountRecord, NewShift, RegisterRecord, ShiftFilter, ShiftRecord, TenderCountRecord, TillStore } from '../application/till-store';
 import type { CashMovementKind, OverShortDirection } from '../domain/till';
+
+interface HeldSaleRow {
+  id: string;
+  register_id: string;
+  shift_id: string;
+  branch_id: string;
+  held_by: string;
+  label: string | null;
+  payload: HeldSaleRecord['payload'];
+  held_gross_pesewas: string;
+  held_at: Date;
+  expires_at: Date;
+  status: HeldSaleRecord['status'];
+  recalled_at: Date | null;
+  recalled_by: string | null;
+  lapsed_at: Date | null;
+  lapse_reason: HeldSaleRecord['lapseReason'];
+}
+
+const HELD_SALE_COLUMNS =
+  'h.id, h.register_id, h.shift_id, h.branch_id, h.held_by, h.label, h.payload, h.held_gross_pesewas::text, h.held_at, h.expires_at, h.status, h.recalled_at, h.recalled_by, h.lapsed_at, h.lapse_reason';
+
+function heldSale(r: HeldSaleRow): HeldSaleRecord {
+  return {
+    id: r.id,
+    registerId: r.register_id,
+    shiftId: r.shift_id,
+    branchId: r.branch_id,
+    heldBy: r.held_by,
+    label: r.label,
+    payload: r.payload,
+    heldGrossPesewas: BigInt(r.held_gross_pesewas),
+    heldAt: r.held_at,
+    expiresAt: r.expires_at,
+    status: r.status,
+    recalledAt: r.recalled_at,
+    recalledBy: r.recalled_by,
+    lapsedAt: r.lapsed_at,
+    lapseReason: r.lapse_reason,
+  };
+}
 
 interface RegisterRow {
   id: string;
@@ -403,5 +444,41 @@ export class PgTillStore implements TillStore {
       [registerIds],
     );
     return new Map(rows.map((r) => [r.register_id, r.n]));
+  }
+
+  async insertHeldSale(tx: Transaction, h: Omit<HeldSaleRecord, 'status' | 'recalledAt' | 'recalledBy' | 'lapsedAt' | 'lapseReason'>): Promise<void> {
+    await tx.query(
+      `INSERT INTO pos.held_sale (id, register_id, shift_id, branch_id, held_by, label, payload, held_gross_pesewas, held_at, expires_at, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'HELD')`,
+      [h.id, h.registerId, h.shiftId, h.branchId, h.heldBy, h.label, JSON.stringify(h.payload), h.heldGrossPesewas.toString(), h.heldAt, h.expiresAt],
+    );
+  }
+
+  async heldSales(tx: Transaction, ids: readonly string[], forUpdate = false): Promise<HeldSaleRecord[]> {
+    if (ids.length === 0) return [];
+    const { rows } = await tx.query<HeldSaleRow>(`SELECT ${HELD_SALE_COLUMNS} FROM pos.held_sale h WHERE h.id = ANY($1::uuid[]) ORDER BY h.id${forUpdate ? ' FOR UPDATE' : ''}`, [ids]);
+    return rows.map(heldSale);
+  }
+
+  async heldSalesOfRegister(tx: Transaction, registerId: string, at: Date, beforeId: string | null, limit: number): Promise<HeldSaleRecord[]> {
+    const { rows } = await tx.query<HeldSaleRow>(
+      `SELECT ${HELD_SALE_COLUMNS} FROM pos.held_sale h JOIN pos.shift s ON s.id = h.shift_id
+        WHERE h.register_id = $1 AND h.status = 'HELD' AND s.status = 'OPEN' AND h.expires_at > $2 AND ($3::uuid IS NULL OR h.id < $3)
+        ORDER BY h.id DESC LIMIT $4`,
+      [registerId, at, beforeId, limit],
+    );
+    return rows.map(heldSale);
+  }
+
+  async recallHeldSale(tx: Transaction, id: string, r: { readonly by: string; readonly at: Date }): Promise<void> {
+    await tx.query("UPDATE pos.held_sale SET status = 'RECALLED', recalled_at = $2, recalled_by = $3 WHERE id = $1", [id, r.at, r.by]);
+  }
+
+  async lapseHeldSales(tx: Transaction, shiftId: string, l: { readonly reason: 'SHIFT_CLOSED' | 'SHIFT_FORCE_CLOSED'; readonly at: Date }): Promise<string[]> {
+    const { rows } = await tx.query<{ id: string }>(
+      "UPDATE pos.held_sale SET status = 'LAPSED', lapsed_at = $2, lapse_reason = $3 WHERE shift_id = $1 AND status = 'HELD' RETURNING id",
+      [shiftId, l.at, l.reason],
+    );
+    return rows.map((r) => r.id).sort();
   }
 }

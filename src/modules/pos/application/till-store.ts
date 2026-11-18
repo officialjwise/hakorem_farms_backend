@@ -1,4 +1,5 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
+import type { HeldSaleStatus } from '../domain/held-sale';
 import type { CashMovementKind, OverShortDirection } from '../domain/till';
 
 export interface RegisterRecord {
@@ -110,6 +111,39 @@ export interface DeviceRecord {
   readonly version: number;
 }
 
+/** A sale parked on a till's open shift (`pos.held_sale`, WORK; FR-POS-007, A-276). */
+export interface HeldSaleRecord {
+  readonly id: string;
+  readonly registerId: string;
+  readonly shiftId: string;
+  readonly branchId: string;
+  readonly heldBy: string;
+  readonly label: string | null;
+  /** The lines as entered: `{ customerId?, lines: [...] }`; prices are re-resolved on recall. */
+  readonly payload: HeldSalePayload;
+  readonly heldGrossPesewas: bigint;
+  readonly heldAt: Date;
+  readonly expiresAt: Date;
+  readonly status: HeldSaleStatus;
+  readonly recalledAt: Date | null;
+  readonly recalledBy: string | null;
+  readonly lapsedAt: Date | null;
+  readonly lapseReason: 'SHIFT_CLOSED' | 'SHIFT_FORCE_CLOSED' | null;
+}
+
+/** A held sale's lines, as a counter sale would carry them, without tenders. */
+export interface HeldSalePayload {
+  readonly customerId?: string | undefined;
+  readonly lines: readonly {
+    readonly productId: string;
+    readonly stockUnitId?: string | undefined;
+    readonly quantity: string;
+    readonly weightKg?: string | undefined;
+    readonly weightSource?: 'SCALE' | 'MANUAL' | 'ESTIMATE' | undefined;
+    readonly gradeId?: string | undefined;
+  }[];
+}
+
 export const TILL_STORE = Symbol('TILL_STORE');
 
 /** POS's tables (`pos.register`, `pos.shift`, `pos.cash_movement`, `pos.shift_tender_count`, `pos.shift_report`, `pos.shift_late_count`). */
@@ -157,5 +191,13 @@ export interface TillStore {
   devicesOfRegister(tx: Transaction, registerId: string, beforeId: string | null, limit: number): Promise<DeviceRecord[]>;
   revokeDevice(tx: Transaction, id: string, reason: string, actorId: string, at: Date): Promise<void>;
   /** Live (not revoked) devices per register. */
+  insertHeldSale(tx: Transaction, h: Omit<HeldSaleRecord, 'status' | 'recalledAt' | 'recalledBy' | 'lapsedAt' | 'lapseReason'>): Promise<void>;
+  /** Held sales by id, locked when asked. */
+  heldSales(tx: Transaction, ids: readonly string[], forUpdate?: boolean): Promise<HeldSaleRecord[]>;
+  /** The sales still HELD on a register, newest first, below `beforeId`, none expired at `at`. */
+  heldSalesOfRegister(tx: Transaction, registerId: string, at: Date, beforeId: string | null, limit: number): Promise<HeldSaleRecord[]>;
+  recallHeldSale(tx: Transaction, id: string, r: { readonly by: string; readonly at: Date }): Promise<void>;
+  /** Every sale still HELD on a shift becomes LAPSED; answers the ids lapsed. */
+  lapseHeldSales(tx: Transaction, shiftId: string, l: { readonly reason: 'SHIFT_CLOSED' | 'SHIFT_FORCE_CLOSED'; readonly at: Date }): Promise<string[]>;
   liveDeviceCounts(tx: Transaction, registerIds: readonly string[]): Promise<ReadonlyMap<string, number>>;
 }

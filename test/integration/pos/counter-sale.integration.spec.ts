@@ -176,7 +176,9 @@ describe('a counter sale on the cashier own open shift (FR-POS-001, FR-POS-005)'
       [[{ paymentMethodId: id('MOMO'), amountPesewas: 2_000, tenderedPesewas: 3_000 }], 422, 'COUNTER_SALE_INVALID', 'CHANGE_ONLY_FROM_CASH'],
       [[cash(2_000, 1_999)], 422, 'COUNTER_SALE_INVALID', 'TENDERED_BELOW_AMOUNT'],
       [[{ paymentMethodId: id('MOMO'), amountPesewas: 2_000 }], 422, 'PAYMENT_METHOD_REQUIRES_VERIFICATION', ''],
-      [[{ paymentMethodId: id('MOMO'), amountPesewas: 2_000, paymentId: randomUUID() }], 422, 'COUNTER_SALE_INVALID', 'PROVIDER_PAYMENT_NOT_AVAILABLE'],
+      // A provider tender names a payment the provider cleared at this shift (B09b continued 1c, ADR-0079): no such payment is refused.
+      [[{ paymentMethodId: id('MOMO'), amountPesewas: 2_000, paymentId: randomUUID() }], 422, 'PAYMENT_INVALID', 'PAYMENT_UNKNOWN'],
+      [[{ ...cash(2_000), paymentId: randomUUID() }], 422, 'COUNTER_SALE_INVALID', 'PAYMENT_ID_NOT_FOR_METHOD'],
       [[cash(1_999)], 422, 'SALE_INVALID', 'TENDER_SHORT'],
       [[cash(2_001)], 422, 'SALE_INVALID', 'TENDER_OVER'],
     ];

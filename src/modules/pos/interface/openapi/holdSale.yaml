@@ -1,0 +1,89 @@
+operationId: holdSale
+tags:
+  - pos
+summary: "Park a sale to recall later"
+description: "Parks a sale in progress on the till's OPEN shift, by that shift's own cashier (403 for anyone else, a manager included: nobody sells on another cashier's shift; 422 `SHIFT_NOT_OPEN` when the till has no open shift), from a device enrolled on this till (`X-Device-Credential`, as `completeCounterSale`), FR-POS-007 (2.10.0, A-276). `payload` is the lines as a counter sale carries them (`productId`, `stockUnitId`, `quantity`, `weightKg` with `weightSource`, `gradeId`) and `customerId` if one is named: no price and no tender is held. The answer's `pricing` is the lines priced now by the engine for channel POS and `heldTotalPesewas` their total; a line with no price to sell at is refused (422 `HELD_SALE_INVALID` with `QUOTE_REQUIRED` or `WEIGHT_REQUIRED` on `/payload/lines/{i}`), as are `ID_NOT_UUID_V7`, `ID_IN_USE` and `WEIGHT_SOURCE_REQUIRED`. A held sale reserves nothing: an animal on it can still be sold, and the counter sale re-checks stock when it completes. It lapses when its shift is declared (`closeShift`) or force-closed, or at `expiresAt`, twelve hours after it was held.\n\nPermission: `pos.sale.create`."
+x-permission: pos.sale.create
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+    deviceCredential: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/HeldSaleCreate"
+      example:
+        id: "019a7afb-a3ba-7cc4-a1fc-d51596034df3"
+        label: "Kofi, getting more cash"
+        payload:
+          lines:
+            - productId: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+              stockUnitId: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
+              quantity: "1.000"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/HeldSale"
+        example:
+          id: "019a7afb-090f-7b52-908b-be00358e36de"
+          registerId: "019a7a94-15a3-7248-9781-2d5f347aa63d"
+          heldBy:
+            id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+            displayName: "Adwoa Darko"
+          label: "Lady in the green dress, back in 10 min"
+          payload:
+            lines:
+              - productId: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                quantity: "3.000"
+          heldAt: "2026-11-13T09:00:00Z"
+          expiresAt: "2026-11-13T21:00:00Z"
+          shiftId: "019a7a93-f6b4-7865-8d9d-8f27bac90805"
+          status: HELD
+          heldTotalPesewas: 6000
+          pricing:
+            pricedAt: "2026-11-13T09:00:00Z"
+            lines:
+              - lineNo: 1
+                productId: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                quantity: "3.000"
+                weightKg: null
+                priceBasis: PER_UNIT
+                priceListEntryId: "019a7a90-3c1d-7e55-9b0a-1f2e3d4c5b6a"
+                listUnitPricePesewas: 2000
+                lineTotalPesewas: 6000
+                quoteRequiredReason: null
+            totalPesewas: 6000
+            currency: GHS
+          currency: GHS
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

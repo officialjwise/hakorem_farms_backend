@@ -48,6 +48,8 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0251_pay_payment_order_link',
+      '0250_pos_held_sale',
       '0249_mdm_uom_names_and_egg',
       '0248_iam_grant_manager_supplier_invoice_approve',
       '0247_pur_invoice_approver_differs',

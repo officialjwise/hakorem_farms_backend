@@ -233,6 +233,17 @@ export interface RefundFilter {
   readonly to: Date | null;
 }
 
+/** A sale's tender taken from a payment the provider cleared (`pay.payment_order_link`, LEDGER). */
+export interface OrderLinkRecord {
+  readonly paymentId: string;
+  readonly orderDocumentId: string;
+  readonly shiftDocumentId: string;
+  readonly customerId: string | null;
+  readonly branchId: string;
+  readonly recordedAt: Date;
+  readonly actorId: string;
+}
+
 /** PAY's own tables (schema `pay`). Ledger rows are inserted only; the database's triggers keep the derived amounts. */
 export interface PaymentStore {
   /** What a till shift took by payment method: its cleared payments, counted and summed, and what was refunded of them. */
@@ -240,7 +251,12 @@ export interface PaymentStore {
   insert(tx: Transaction, payment: NewPayment): Promise<void>;
   allocate(tx: Transaction, allocation: AllocationRecord & { readonly actorId: string; readonly reason?: string | null }): Promise<void>;
   payments(tx: Transaction, ids: readonly string[], forUpdate?: boolean): Promise<PaymentRecord[]>;
+  /** The payments taken for an order: those that name it, and those a sale took as a tender by `pay.payment_order_link`. */
   paymentsOfOrder(tx: Transaction, orderDocumentId: string): Promise<PaymentRecord[]>;
+  /** Links a cleared provider payment to the sale that takes it as a tender (ADR-0079); the database refuses a second. */
+  insertOrderLink(tx: Transaction, link: OrderLinkRecord): Promise<void>;
+  /** The order each of these payments was linked to by a sale, by payment id. */
+  linkedOrders(tx: Transaction, paymentIds: readonly string[]): Promise<ReadonlyMap<string, string>>;
   allocationsOf(tx: Transaction, paymentIds: readonly string[]): Promise<AllocationRecord[]>;
   /** An allocation by id, and whether an unallocation has reversed it. */
   allocation(tx: Transaction, id: string): Promise<(AllocationRecord & { readonly reversed: boolean }) | null>;

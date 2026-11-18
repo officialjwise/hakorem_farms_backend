@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.9.0"
+  version: "2.10.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -55339,7 +55339,7 @@ paths:
       tags:
         - pos
       summary: "List held sales on a register"
-      description: "Permission: `pos.sale.create`."
+      description: "The sales still held on the till's open shift, newest first (FR-POS-007, 2.10.0): never one recalled, lapsed with its shift or past `expiresAt`. Each carries `heldTotalPesewas`; `pricing` is null here (recall one to see it re-priced). Read at the till's branch and location.\n\nPermission: `pos.sale.create`."
       x-permission: pos.sale.create
       parameters:
         - name: id
@@ -55386,7 +55386,7 @@ paths:
                             - productId: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
                               quantity: "3.000"
                         heldAt: "2026-11-13T09:00:00Z"
-                        expiresAt: "2026-11-13T19:00:00Z"
+                        expiresAt: "2026-11-13T21:00:00Z"
                       - id: "019a7afb-27fe-7536-aa6e-5c37af3fd515"
                         registerId: "019a7a94-15a3-7248-9781-2d5f347aa63d"
                         heldBy:
@@ -55398,7 +55398,7 @@ paths:
                             - productId: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
                               quantity: "3.000"
                         heldAt: "2026-11-13T10:00:00Z"
-                        expiresAt: "2026-11-13T19:00:00Z"
+                        expiresAt: "2026-11-13T22:00:00Z"
                       - id: "019a7afb-46ed-7f19-b452-fa6f28f0734d"
                         registerId: "019a7a94-15a3-7248-9781-2d5f347aa63d"
                         heldBy:
@@ -55410,7 +55410,7 @@ paths:
                             - productId: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
                               quantity: "3.000"
                         heldAt: "2026-11-13T11:00:00Z"
-                        expiresAt: "2026-11-13T19:00:00Z"
+                        expiresAt: "2026-11-13T23:00:00Z"
                       - id: "019a7afb-65dc-78fd-8e35-98a6a2a11184"
                         registerId: "019a7a94-15a3-7248-9781-2d5f347aa63d"
                         heldBy:
@@ -55422,7 +55422,7 @@ paths:
                             - productId: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
                               quantity: "3.000"
                         heldAt: "2026-11-13T12:00:00Z"
-                        expiresAt: "2026-11-13T19:00:00Z"
+                        expiresAt: "2026-11-14T00:00:00Z"
                       - id: "019a7afb-84cb-72e0-9819-36de1c52afbc"
                         registerId: "019a7a94-15a3-7248-9781-2d5f347aa63d"
                         heldBy:
@@ -55434,7 +55434,7 @@ paths:
                             - productId: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
                               quantity: "3.000"
                         heldAt: "2026-11-13T13:00:00Z"
-                        expiresAt: "2026-11-13T19:00:00Z"
+                        expiresAt: "2026-11-14T01:00:00Z"
                     page:
                       nextCursor: null
                       limit: 25
@@ -55464,7 +55464,7 @@ paths:
       tags:
         - pos
       summary: "Park a sale to recall later"
-      description: "Permission: `pos.sale.create`."
+      description: "Parks a sale in progress on the till's OPEN shift, by that shift's own cashier (403 for anyone else, a manager included: nobody sells on another cashier's shift; 422 `SHIFT_NOT_OPEN` when the till has no open shift), from a device enrolled on this till (`X-Device-Credential`, as `completeCounterSale`), FR-POS-007 (2.10.0, A-276). `payload` is the lines as a counter sale carries them (`productId`, `stockUnitId`, `quantity`, `weightKg` with `weightSource`, `gradeId`) and `customerId` if one is named: no price and no tender is held. The answer's `pricing` is the lines priced now by the engine for channel POS and `heldTotalPesewas` their total; a line with no price to sell at is refused (422 `HELD_SALE_INVALID` with `QUOTE_REQUIRED` or `WEIGHT_REQUIRED` on `/payload/lines/{i}`), as are `ID_NOT_UUID_V7`, `ID_IN_USE` and `WEIGHT_SOURCE_REQUIRED`. A held sale reserves nothing: an animal on it can still be sold, and the counter sale re-checks stock when it completes. It lapses when its shift is declared (`closeShift`) or force-closed, or at `expiresAt`, twelve hours after it was held.\n\nPermission: `pos.sale.create`."
       x-permission: pos.sale.create
       parameters:
         - name: id
@@ -55514,7 +55514,25 @@ paths:
                     - productId: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
                       quantity: "3.000"
                 heldAt: "2026-11-13T09:00:00Z"
-                expiresAt: "2026-11-13T19:00:00Z"
+                expiresAt: "2026-11-13T21:00:00Z"
+                shiftId: "019a7a93-f6b4-7865-8d9d-8f27bac90805"
+                status: HELD
+                heldTotalPesewas: 6000
+                pricing:
+                  pricedAt: "2026-11-13T09:00:00Z"
+                  lines:
+                    - lineNo: 1
+                      productId: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                      quantity: "3.000"
+                      weightKg: null
+                      priceBasis: PER_UNIT
+                      priceListEntryId: "019a7a90-3c1d-7e55-9b0a-1f2e3d4c5b6a"
+                      listUnitPricePesewas: 2000
+                      lineTotalPesewas: 6000
+                      quoteRequiredReason: null
+                  totalPesewas: 6000
+                  currency: GHS
+                currency: GHS
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -55537,7 +55555,7 @@ paths:
       tags:
         - pos
       summary: "Recall (and remove) a held sale"
-      description: "Permission: `pos.sale.create`."
+      description: "Takes a held sale off the till, once, re-priced (FR-POS-007, 2.10.0, A-276): by the cashier of the shift it was held on (403 for anyone else, a manager included), from a device enrolled on its till. The answer is the held sale with `status` RECALLED and `pricing`, the lines priced now by the engine for channel POS: after a price change between hold and recall it shows the new prices, and `heldTotalPesewas` still shows what they came to when held. A line that no longer resolves has a null price and its `quoteRequiredReason`, and `pricing.totalPesewas` is null. A held sale already recalled, lapsed with its shift, past `expiresAt` or never held is 404, the same for each; the first recall's answer is replayed for its own `Idempotency-Key`. Complete the sale with `completeCounterSale`, which prices every line again.\n\nPermission: `pos.sale.create`."
       x-permission: pos.sale.create
       parameters:
         - name: id
@@ -55573,7 +55591,25 @@ paths:
                     - productId: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
                       quantity: "3.000"
                 heldAt: "2026-11-13T09:00:00Z"
-                expiresAt: "2026-11-13T19:00:00Z"
+                expiresAt: "2026-11-13T21:00:00Z"
+                shiftId: "019a7a93-f6b4-7865-8d9d-8f27bac90805"
+                status: RECALLED
+                heldTotalPesewas: 6000
+                pricing:
+                  pricedAt: "2026-11-13T09:40:00Z"
+                  lines:
+                    - lineNo: 1
+                      productId: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                      quantity: "3.000"
+                      weightKg: null
+                      priceBasis: PER_UNIT
+                      priceListEntryId: "019a7a90-3c1d-7e55-9b0a-1f2e3d4c5b6a"
+                      listUnitPricePesewas: 2300
+                      lineTotalPesewas: 6900
+                      quoteRequiredReason: null
+                  totalPesewas: 6900
+                  currency: GHS
+                currency: GHS
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -55880,7 +55916,7 @@ paths:
       tags:
         - pos
       summary: "Complete a counter sale"
-      description: "Prices are re-resolved on the server. In one serializable transaction, on the caller's own OPEN shift locked for the sale, it issues the stock from the till's location (a goat by tag, eggs by crate, beef by weight), issues the receipt with its gap-free number, records and allocates the tenders into the till and posts the ledger (ORD's one sale path, channel POS), or nothing at all (2.6.0, B09b continued, FR-POS-001 to FR-POS-006, A-274). The device is enrolled on the shift's till and not revoked (`X-Device-Credential`: 401 `DEVICE_CREDENTIAL_INVALID`, 403 `DEVICE_REVOKED`, 403 for another till's device). Each tender's `amountPesewas` is what it applies; the tenders sum to the total exactly. Change comes from cash only: `tenderedPesewas` on a cash tender, at least its amount, and `changeDuePesewas` is the sum of what each cash tender handed over beyond what it applies. A mobile money or card tender is refused with 422 `PAYMENT_METHOD_REQUIRES_VERIFICATION`; a tender naming `paymentId` (a payment the provider cleared) is refused with `PROVIDER_PAYMENT_NOT_AVAILABLE` until it is built (A-274), and `unverifiedMobileMoney` with `OFFLINE_TENDER_ONLY`: take the sale in cash. A price below list within the band and the cashier's per-line limit needs a reason; beyond the per-line limit, or beyond what the shift has left of the per-shift limit (`PRICE_OVERRIDE_PER_SHIFT`, less the price already given below list on the shift), the sale is refused with 422 `PRICE_OVERRIDE_NEEDS_APPROVAL` (`BEYOND_ROLE_LIMIT`, `BEYOND_SHIFT_LIMIT`, `OUTSIDE_BAND`) until a different user approves. The sale is recorded at the server's time; a till time more than 300 seconds away never refuses it and reaches the daily exception report's source (`pos.TillClockOutOfTolerance`). Refusals: 403 for another cashier's shift; 422 `SHIFT_NOT_OPEN`; 422 `COUNTER_SALE_INVALID` with `ID_NOT_UUID_V7`, `ID_DIFFERS_FROM_KEY` (the `Idempotency-Key` is the sale's id), `METHOD_UNKNOWN`, `CHANGE_ONLY_FROM_CASH`, `TENDERED_BELOW_AMOUNT`, `PROVIDER_PAYMENT_NOT_AVAILABLE`, `OFFLINE_TENDER_ONLY`; `SALE_INVALID`, `QUOTE_REQUIRED` and `PAYMENT_INVALID` as the sale path answers them. `escPosBase64` is null until the receipt prints (B09b continued 4). The example's mobile money tender shows the shape the provider path will take.\n\nPermission: `pos.sale.create`. Ownership: the cashier's own open shift.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result."
+      description: "Prices are re-resolved on the server. In one serializable transaction, on the caller's own OPEN shift locked for the sale, it issues the stock from the till's location (a goat by tag, eggs by crate, beef by weight), issues the receipt with its gap-free number, records and allocates the tenders into the till and posts the ledger (ORD's one sale path, channel POS), or nothing at all (2.6.0, B09b continued, FR-POS-001 to FR-POS-006, A-274). The device is enrolled on the shift's till and not revoked (`X-Device-Credential`: 401 `DEVICE_CREDENTIAL_INVALID`, 403 `DEVICE_REVOKED`, 403 for another till's device). Each tender's `amountPesewas` is what it applies; the tenders sum to the total exactly. Change comes from cash only: `tenderedPesewas` on a cash tender, at least its amount, and `changeDuePesewas` is the sum of what each cash tender handed over beyond what it applies. A mobile money or card tender is a payment the provider already cleared, named by `paymentId` (2.10.0, FR-POS-006, ADR-0079): charge the customer's phone first (`initiateMobileMoneyCharge` naming this shift), then complete the sale once it has cleared. The tender takes that payment whole: its `amountPesewas` is the payment's amount exactly, and no change is ever given from it. It is refused with 422 `PAYMENT_INVALID` on `/tenders/{i}/paymentId` with `PAYMENT_UNKNOWN` (no such payment, or another branch's), `NOT_A_PROVIDER_PAYMENT`, `PAYMENT_NOT_CLEARED` (still pending, failed or reversed), `METHOD_DIFFERS`, `PAYMENT_ALREADY_USED` (taken by a sale or for an order already, or allocated or refunded), `OTHER_CUSTOMER` (the payment is another customer's, or a named customer's on a walk-in sale, or the reverse), `OTHER_SHIFT` (taken at another shift, or at none) or `AMOUNT_DIFFERS`; the database refuses a second link of the same payment. The payment is then linked to the sale and allocated to its receipt, so the order's payments, its returns and its void all see it (a void of a sale paid by mobile money or card is refused `TENDER_NOT_VOIDABLE`: refund it through a return). A mobile money or card tender without `paymentId` is refused with 422 `PAYMENT_METHOD_REQUIRES_VERIFICATION`, and `unverifiedMobileMoney` with `OFFLINE_TENDER_ONLY`. A price below list within the band and the cashier's per-line limit needs a reason; beyond the per-line limit, or beyond what the shift has left of the per-shift limit (`PRICE_OVERRIDE_PER_SHIFT`, less the price already given below list on the shift), the sale is refused with 422 `PRICE_OVERRIDE_NEEDS_APPROVAL` (`BEYOND_ROLE_LIMIT`, `BEYOND_SHIFT_LIMIT`, `OUTSIDE_BAND`) until a different user approves. The sale is recorded at the server's time; a till time more than 300 seconds away never refuses it and reaches the daily exception report's source (`pos.TillClockOutOfTolerance`). Refusals: 403 for another cashier's shift; 422 `SHIFT_NOT_OPEN`; 422 `COUNTER_SALE_INVALID` with `ID_NOT_UUID_V7`, `ID_DIFFERS_FROM_KEY` (the `Idempotency-Key` is the sale's id), `METHOD_UNKNOWN`, `CHANGE_ONLY_FROM_CASH`, `TENDERED_BELOW_AMOUNT`, `PAYMENT_ID_NOT_FOR_METHOD` (a `paymentId` on a tender that is not mobile money or card), `PAYMENT_NAMED_TWICE`, `OFFLINE_TENDER_ONLY`; `SALE_INVALID`, `QUOTE_REQUIRED` and `PAYMENT_INVALID` as the sale path answers them. `escPosBase64` is null until the receipt prints (B09b continued 4).\n\nPermission: `pos.sale.create`. Ownership: the cashier's own open shift.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result."
       x-permission: pos.sale.create
       x-owner-module: ord
       parameters:
@@ -96025,6 +96061,27 @@ components:
         expiresAt:
           type: string
           format: date-time
+        shiftId:
+          type: string
+          format: uuid
+          description: "The shift it was held on; it lapses when that shift closes or is force-closed (2.10.0, A-276). Always sent."
+        status:
+          type: string
+          enum:
+            - HELD
+            - RECALLED
+          description: "HELD on a hold and in the list; RECALLED in the answer to its recall (2.10.0). Always sent."
+        heldTotalPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "What the lines came to at the prices in force when the sale was held (2.10.0). Always sent."
+        pricing:
+          anyOf:
+            - $ref: "#/components/schemas/HeldSalePricing"
+            - type: "null"
+          description: "The lines priced by the engine at this moment: the prices then in the answer to `holdSale`, the prices now in the answer to `recallHeldSale` (re-priced on recall, FR-POS-007); null in `listHeldSales` (2.10.0). Always sent."
+        currency:
+          $ref: "#/components/schemas/Currency"
       required:
         - id
         - registerId
@@ -96033,17 +96090,90 @@ components:
         - payload
         - heldAt
         - expiresAt
+    HeldSalePricing:
+      type: object
+      description: "A held sale's lines as the pricing engine prices them for channel POS at `pricedAt`, each extended and rounded half-up once (2.10.0, FR-POS-007). The counter sale re-resolves every price again when it completes."
+      properties:
+        pricedAt:
+          type: string
+          format: date-time
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/HeldSalePricedLine"
+        totalPesewas:
+          anyOf:
+            - $ref: "#/components/schemas/Pesewas"
+            - type: "null"
+          description: "The sum of the line totals; null when a line no longer resolves to a price."
+        currency:
+          $ref: "#/components/schemas/Currency"
+      required:
+        - pricedAt
+        - lines
+        - totalPesewas
+        - currency
+    HeldSalePricedLine:
+      type: object
+      properties:
+        lineNo:
+          type: integer
+          minimum: 1
+        productId:
+          type: string
+          format: uuid
+        quantity:
+          type: string
+        weightKg:
+          type:
+            - string
+            - "null"
+        priceBasis:
+          anyOf:
+            - $ref: "#/components/schemas/PriceBasis"
+            - type: "null"
+        priceListEntryId:
+          type:
+            - string
+            - "null"
+          format: uuid
+        listUnitPricePesewas:
+          anyOf:
+            - $ref: "#/components/schemas/Pesewas"
+            - type: "null"
+        lineTotalPesewas:
+          anyOf:
+            - $ref: "#/components/schemas/Pesewas"
+            - type: "null"
+        quoteRequiredReason:
+          type:
+            - string
+            - "null"
+          description: "Why the line no longer resolves to a price at recall (the engine's reason); null when it is priced."
+      required:
+        - lineNo
+        - productId
+        - quantity
+        - weightKg
+        - priceBasis
+        - priceListEntryId
+        - listUnitPricePesewas
+        - lineTotalPesewas
+        - quoteRequiredReason
     HeldSaleCreate:
       type: object
       properties:
         id:
           type: string
           format: uuid
+          description: "The held sale's client-generated UUIDv7."
         label:
           type: string
+          description: "A note for the cashier, 1 to 120 characters: a first name, a description."
         payload:
           type: object
           additionalProperties: true
+          description: "The lines as a counter sale carries them, without prices: `lines` (1 to 100), each with `productId`, `quantity`, and as needed `stockUnitId`, `weightKg` with `weightSource`, `gradeId`; and `customerId` if one is named. Nothing else is accepted (400)."
       required:
         - id
         - payload

@@ -19,6 +19,7 @@ import { oneMore } from './paging';
 import type { CashMoved, ShiftClosed, ShiftForceClosed, ShiftOpened } from '../events';
 import { CashMovementInvalidError, ShiftAlreadyOpenError, ShiftCloseSamePersonError, ShiftInvalidError, ShiftNotOpenError, type TillRule } from './errors';
 import type { CashMovementRecord, LateCountRecord, ShiftRecord, ShiftStatus, TenderCountRecord, TillStore } from './till-store';
+import type { HeldSales } from './held-sales';
 
 export const SHIFT_OPENED = 'pos.ShiftOpened';
 export const CASH_DROPPED = 'pos.CashDropped';
@@ -204,6 +205,7 @@ export class Shifts {
     private readonly orders: Orders,
     private readonly clock: Clock,
     private readonly anchors: AuditAnchorRequests,
+    private readonly held: HeldSales,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -448,6 +450,8 @@ export class Shifts {
       if ((body.lastDeviceCounter ?? 0) > shift.lastDeviceCounter) broken.push({ field: '/lastDeviceCounter', rule: 'DEVICE_SALES_NOT_SYNCED' });
       if (broken.length > 0) throw new ShiftInvalidError(broken);
       const now = this.clock.now();
+      // Nothing more is sold on a closing shift: the sales still held on it lapse (FR-POS-007, A-276).
+      await this.held.lapseIn(tx, shift, 'SHIFT_CLOSED', now);
       await this.store.declare(tx, id, { declaredCashPesewas: cash[0]!.declaredPesewas, at: now, actorId: actor!.principalId });
       await this.store.insertTenderCounts(
         tx,
@@ -540,6 +544,7 @@ export class Shifts {
       if (!judged.ok) throw new ShiftNotOpenError(shift.status);
       const now = this.clock.now();
       const position = await this.position(tx, shift);
+      await this.held.lapseIn(tx, shift, 'SHIFT_FORCE_CLOSED', now);
       await this.store.forceClose(tx, id, { expectedCashPesewas: position.expected.pesewas, reason: body.reason, closedBy: actor!.principalId, at: now });
       const register = (await this.store.registers(tx, [shift.registerId]))[0]!;
       const payload: ShiftForceClosed = {

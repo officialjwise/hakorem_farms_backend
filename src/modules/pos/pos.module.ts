@@ -10,12 +10,13 @@ import { Cursors } from '../../platform/http/cursor';
 import { Idempotency } from '../../platform/idempotency/idempotency';
 import { CLOCK } from '../../platform/platform.module';
 import { Authoriser, IamModule, PRINCIPAL_NAMES, type PrincipalNames } from '../iam';
-import { MasterDataRefs, MdmModule } from '../mdm';
+import { MasterDataRefs, MdmModule, PricingService } from '../mdm';
 import { BilModule, Billing } from '../bil';
 import { OrdModule, Orders, SalePosting } from '../ord';
 import { PayModule, Payments, TillShiftRegistry } from '../pay';
 import { CounterSales } from './application/counter-sales';
 import { Devices } from './application/devices';
+import { HeldSales } from './application/held-sales';
 import { Registers } from './application/registers';
 import { POS_LEDGER_EVENTS, Shifts } from './application/shifts';
 import { TillCash } from './application/till-cash';
@@ -48,6 +49,12 @@ import { PosController } from './interface/pos.controller';
       inject: [UnitOfWork, TILL_STORE, Authoriser, Idempotency, AuditTrail, PRINCIPAL_NAMES, Cursors, CLOCK],
     },
     {
+      provide: HeldSales,
+      useFactory: (uow: UnitOfWork, store: TillStore, devices: Devices, pricing: PricingService, authoriser: Authoriser, idempotency: Idempotency, audit: AuditTrail, principals: PrincipalNames, cursors: Cursors, clock: Clock) =>
+        new HeldSales(uow, store, devices, pricing, authoriser, idempotency, audit, principals, cursors, clock),
+      inject: [UnitOfWork, TILL_STORE, Devices, PricingService, Authoriser, Idempotency, AuditTrail, PRINCIPAL_NAMES, Cursors, CLOCK],
+    },
+    {
       provide: CounterSales,
       useFactory: (uow: UnitOfWork, store: TillStore, devices: Devices, posting: SalePosting, orders: Orders, billing: Billing, refs: MasterDataRefs, authoriser: Authoriser, idempotency: Idempotency, events: DomainEvents, clock: Clock) =>
         new CounterSales(uow, store, devices, posting, orders, billing, refs, authoriser, idempotency, events, clock),
@@ -71,8 +78,9 @@ import { PosController } from './interface/pos.controller';
         orders: Orders,
         clock: Clock,
         anchors: AuditAnchorRequests,
-      ) => new Shifts(uow, store, refs, authoriser, idempotency, audit, events, documents, numbers, principals, cursors, payments, orders, clock, anchors),
-      inject: [UnitOfWork, TILL_STORE, MasterDataRefs, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, NumberSeries, PRINCIPAL_NAMES, Cursors, Payments, Orders, CLOCK, AuditAnchorRequests],
+        held: HeldSales,
+      ) => new Shifts(uow, store, refs, authoriser, idempotency, audit, events, documents, numbers, principals, cursors, payments, orders, clock, anchors, held),
+      inject: [UnitOfWork, TILL_STORE, MasterDataRefs, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, NumberSeries, PRINCIPAL_NAMES, Cursors, Payments, Orders, CLOCK, AuditAnchorRequests, HeldSales],
     },
   ],
   exports: [Registers, Shifts, Devices],

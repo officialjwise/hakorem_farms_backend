@@ -146,6 +146,7 @@ export const VALID_BODY: Readonly<Record<string, object>> = {
   countForceClosedShift: { declaredCashPesewas: 104_500, reason: 'Counted the next morning' },
   enrolDevice: { deviceLabel: 'Shop till tablet' },
   revokeDevice: { reason: 'Tablet stolen from the stall' },
+  holdSale: { id: '019a7afb-a3ba-7cc4-a1fc-d51596034df3', label: 'Back in ten minutes', payload: { lines: [{ productId: randomUUID(), quantity: '1.000' }] } },
   completeCounterSale: { id: '019a7aac-216c-721a-8753-2a7ecd11a35c', shiftId: randomUUID(), lines: [{ productId: randomUUID(), quantity: '1.000', agreedUnitPricePesewas: 2_000 }], tenders: [{ paymentMethodId: randomUUID(), amountPesewas: 2_000 }], occurredAt: '2026-11-13T09:11:00Z' },
   createStatement: { customerId: randomUUID(), periodStart: toBusinessDate(new Date()), periodEnd: toBusinessDate(new Date()), issue: true },
   draftSupplierClaimCreditNote: { originalInvoiceId: randomUUID(), supplierInvoiceNo: 'APF-CN-0701', invoiceDate: '2026-11-17' },
