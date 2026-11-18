@@ -222,6 +222,15 @@ export class Journals {
   }
 
   /**
+   * The entry an event posted for a subject, in the caller's transaction (WHL's write-off links its journal, FR-WHL-012):
+   * its id and number, or null when nothing was posted. It authorises nothing.
+   */
+  async entryForSubjectIn(tx: Transaction, eventCode: string, subjectId: string): Promise<{ readonly id: string; readonly entryNo: string } | null> {
+    const { rows } = await tx.query<{ id: string; entry_no: string }>("SELECT id, entry_no FROM fin.journal_entry WHERE event_code = $1 AND event_subject_id = $2 AND kind = 'AUTO'", [eventCode, subjectId]);
+    return rows[0] === undefined ? null : { id: rows[0].id, entryNo: rows[0].entry_no };
+  }
+
+  /**
    * Each customer's trade receivables (1200 against its `CUSTOMER` subledger party) at the branches given, as at the end
    * of a business day: the signed balance, debits less credits, of every line posted on or before it, whatever posted
    * it (an opening balance journal included). Customers whose balance is nil are absent. WHL's ageing ties its buckets
