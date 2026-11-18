@@ -37,6 +37,9 @@ export interface PricingCustomer {
 export interface ListInForce {
   readonly list: PriceListRef;
   readonly branchId: string | null;
+  /** The list's version in force, and whether its prices include tax (B09b continued 2: the offline pack names both). */
+  readonly versionId: string;
+  readonly taxInclusive: boolean;
   readonly entries: ReadonlyArray<PriceEntry & { readonly productId: string }>;
 }
 
@@ -45,6 +48,19 @@ export interface WalkSlots {
   readonly branchId: string;
   readonly tierId: string | null;
   readonly customerListId: string | null;
+}
+
+/** A product as a till sells it (B09b continued 2, CR-038): the unit it is sold in, its tile and its tax category. */
+export interface SaleProductRow {
+  readonly id: string;
+  readonly sku: string;
+  readonly name: string;
+  readonly saleUom: string;
+  readonly baseUom: string;
+  readonly taxCategoryId: string;
+  readonly categoryName: string;
+  /** ACTIVE, not archived, and held in stock (not NON_STOCK): what a counter sale may sell. */
+  readonly sellable: boolean;
 }
 
 /** MDM's pricing reads, each in the caller's transaction. */
@@ -56,6 +72,9 @@ export interface PricingStore {
   customer(tx: Transaction, id: string, at: Date): Promise<PricingCustomer | null>;
   /** Every list that fills one of the walk's slots, at this branch or every branch, with an ACTIVE version at `at`. */
   listsInForce(tx: Transaction, slots: WalkSlots, at: Date, productIds: readonly string[]): Promise<readonly ListInForce[]>;
+  /** The products some list filling one of the walk's slots prices at `at`, at this branch or every branch. */
+  pricedProductIds(tx: Transaction, slots: WalkSlots, at: Date): Promise<readonly string[]>;
+  saleProducts(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, SaleProductRow>>;
 }
 
 export const PRICING_STORE = Symbol('PRICING_STORE');

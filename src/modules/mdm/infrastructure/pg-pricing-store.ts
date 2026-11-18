@@ -1,7 +1,7 @@
 import { Quantity, Weight } from '@hakorem/kernel';
 import type { Transaction } from '../../../platform/database/unit-of-work';
 import type { PriceBasis, PriceListKind } from '../domain/pricing/pricing-engine';
-import type { BandRow, GradeRow, ListInForce, PricingCustomer, PricingProduct, PricingStore, WalkSlots } from '../application/pricing-store';
+import type { BandRow, GradeRow, ListInForce, PricingCustomer, PricingProduct, PricingStore, SaleProductRow, WalkSlots } from '../application/pricing-store';
 
 interface ListRow {
   list_id: string;
@@ -9,6 +9,8 @@ interface ListRow {
   name: string;
   kind: PriceListKind;
   branch_id: string | null;
+  version_id: string;
+  tax_inclusive: boolean;
   entry_id: string | null;
   product_id: string | null;
   grade_id: string | null;
@@ -107,7 +109,7 @@ export class PgPricingStore implements PricingStore {
 
   async listsInForce(tx: Transaction, slots: WalkSlots, at: Date, productIds: readonly string[]): Promise<readonly ListInForce[]> {
     const { rows } = await tx.query<ListRow>(
-      `SELECT l.id AS list_id, l.code, l.name, l.kind, l.branch_id,
+      `SELECT l.id AS list_id, l.code, l.name, l.kind, l.branch_id, v.id AS version_id, l.tax_inclusive,
               e.id AS entry_id, e.product_id, e.grade_id, e.weight_band_id, e.basis, e.list_price_pesewas::text AS list_price,
               e.floor_price_pesewas::text AS floor_price, e.ceiling_price_pesewas::text AS ceiling_price, e.quote_only, e.min_qty::text, e.uom
          FROM mdm.price_list l
@@ -123,11 +125,11 @@ export class PgPricingStore implements PricingStore {
         ORDER BY l.id, e.id`,
       [slots.channel, slots.branchId, slots.tierId, slots.customerListId, at, [...new Set(productIds)]],
     );
-    const lists = new Map<string, { list: ListInForce['list']; branchId: string | null; entries: Array<ListInForce['entries'][number]> }>();
+    const lists = new Map<string, { list: ListInForce['list']; branchId: string | null; versionId: string; taxInclusive: boolean; entries: Array<ListInForce['entries'][number]> }>();
     for (const row of rows) {
       let list = lists.get(row.list_id);
       if (list === undefined) {
-        list = { list: { id: row.list_id, code: row.code, name: row.name, kind: row.kind }, branchId: row.branch_id, entries: [] };
+        list = { list: { id: row.list_id, code: row.code, name: row.name, kind: row.kind }, branchId: row.branch_id, versionId: row.version_id, taxInclusive: row.tax_inclusive, entries: [] };
         lists.set(row.list_id, list);
       }
       if (row.entry_id !== null) {
@@ -147,5 +149,40 @@ export class PgPricingStore implements PricingStore {
       }
     }
     return [...lists.values()];
+  }
+
+  async pricedProductIds(tx: Transaction, slots: WalkSlots, at: Date): Promise<readonly string[]> {
+    const { rows } = await tx.query<{ product_id: string }>(
+      `SELECT DISTINCT e.product_id
+         FROM mdm.price_list l
+         JOIN mdm.price_list_version v
+           ON v.price_list_id = l.id AND v.status = 'ACTIVE' AND v.valid_from <= $5 AND (v.valid_to IS NULL OR v.valid_to > $5)
+         JOIN mdm.price_list_entry e ON e.version_id = v.id
+        WHERE l.deleted_at IS NULL
+          AND (l.branch_id IS NULL OR l.branch_id = $2)
+          AND ((l.kind = 'CUSTOMER' AND l.id = $4)
+               OR (l.kind = 'TIER' AND l.channel = $1 AND l.customer_tier_id = $3)
+               OR (l.kind = 'CHANNEL' AND l.channel = $1)
+               OR l.kind = 'BASE')
+        ORDER BY e.product_id`,
+      [slots.channel, slots.branchId, slots.tierId, slots.customerListId, at],
+    );
+    return rows.map((row) => row.product_id);
+  }
+
+  async saleProducts(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, SaleProductRow>> {
+    const { rows } = await tx.query<{ id: string; sku: string; name: string; sale_uom: string; base_uom: string; tax_category_id: string; category_name: string; sellable: boolean }>(
+      `SELECT p.id, p.sku, p.name, p.sale_uom, p.base_uom, p.tax_category_id, c.name AS category_name,
+              (p.status = 'ACTIVE' AND p.deleted_at IS NULL AND p.stock_policy <> 'NON_STOCK') AS sellable
+         FROM mdm.product p JOIN mdm.category c ON c.id = p.category_id
+        WHERE p.id = ANY($1::uuid[])`,
+      [[...new Set(ids)]],
+    );
+    return new Map(
+      rows.map((row) => [
+        row.id,
+        { id: row.id, sku: row.sku, name: row.name, saleUom: row.sale_uom, baseUom: row.base_uom, taxCategoryId: row.tax_category_id, categoryName: row.category_name, sellable: row.sellable },
+      ]),
+    );
   }
 }

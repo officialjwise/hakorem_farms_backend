@@ -14,6 +14,7 @@ import {
   type QuoteRequiredReason,
 } from '../domain/pricing/pricing-engine';
 import { applyLinePromotions, judgeCoupon } from '../domain/pricing/promotions';
+import { sellingUnits } from '../domain/pricing/selling-units';
 import { toBase } from '../domain/unit-conversion';
 import { CouponUnavailableError, referencesNotFound } from './errors';
 import type { CouponRow, PromotionStore } from './promotion-store';
@@ -89,6 +90,37 @@ export interface PriceResolveResultView {
   readonly resolvedAt: string;
   readonly currency: 'GHS';
   readonly lines: readonly PriceResolutionView[];
+}
+
+/** One unit a till sells a product by (CR-038), priced as `resolvePrices` would price one of it, no quantity break. */
+export interface SellingUnitView {
+  readonly uom: string;
+  /** The entry it resolved from, its band and basis; null when one of the unit needs a quote (a grade or a weight). */
+  readonly priceListEntryId: string | null;
+  readonly band: { readonly basis: PriceBasis; readonly listPricePesewas: bigint; readonly floorPricePesewas: bigint; readonly ceilingPricePesewas: bigint } | null;
+  /** The basis of the entries for this unit, resolved or not. */
+  readonly basis: PriceBasis;
+  /** The engine stopped at an entry marked quote only. */
+  readonly quoteOnly: boolean;
+  /** Whether the list it is priced from includes tax (the first list with an entry for it when it does not resolve). */
+  readonly taxInclusive: boolean;
+}
+
+/** A product as a till sells it (B09b continued 2, CR-038), with every unit it is sold by, the first being the default. */
+export interface SellingProductView {
+  readonly product: { readonly id: string; readonly sku: string; readonly name: string };
+  readonly saleUom: string;
+  readonly baseUom: string;
+  readonly taxCategoryId: string;
+  readonly categoryName: string;
+  readonly units: readonly SellingUnitView[];
+}
+
+/** What a channel's lists in force sell at a branch at an instant. */
+export interface SellingUnitsView {
+  /** Every price list version in force that fills one of the walk's slots, by id. */
+  readonly priceListVersionIds: readonly string[];
+  readonly products: readonly SellingProductView[];
 }
 
 /**
@@ -221,6 +253,54 @@ export class PricingService {
       };
     });
     return { channel: request.channel, resolvedAt: at.toISOString(), currency: 'GHS', lines };
+  }
+
+  /**
+   * The units each product is sold by on a channel at a branch for a buyer with no account, and the band of one of each,
+   * in the caller's transaction (B09b continued 2, CR-038): the offline pack's products, and the units a counter sale
+   * line may name. Each unit is priced by its own entry, never derived from another unit's price; a unit no list in
+   * force prices is not sold. With no `productIds`, every product a list in force prices that a counter may sell
+   * (ACTIVE and held in stock); with them, exactly those, whatever their state, for a caller that judges them itself.
+   */
+  async sellingUnitsIn(tx: Transaction, request: { readonly channel: Channel; readonly branchId: string; readonly at: Date; readonly productIds?: readonly string[] }): Promise<SellingUnitsView> {
+    const slots = { channel: request.channel, branchId: request.branchId, tierId: null, customerListId: null };
+    const ids = request.productIds ?? (await this.store.pricedProductIds(tx, slots, request.at));
+    const [facts, pricing, lists] = await Promise.all([this.store.saleProducts(tx, ids), this.store.products(tx, ids), this.store.listsInForce(tx, slots, request.at, ids)]);
+    const ordered = walkOrder(lists);
+    const bands = await this.store.bands(tx, [...new Set([...pricing.values()].flatMap((p) => (p.speciesId === null ? [] : [p.speciesId])))]);
+    const products: SellingProductView[] = [];
+    for (const id of ids) {
+      const fact = facts.get(id);
+      const product = pricing.get(id);
+      if (fact === undefined || product === undefined || (request.productIds === undefined && !fact.sellable)) continue;
+      const candidates: (PriceListCandidate & { readonly source: ListInForce })[] = ordered.map((entry) => ({ list: entry.list, entries: entry.entries.filter((e) => e.productId === id), source: entry }));
+      const uoms = sellingUnits({ saleUom: fact.saleUom, baseUom: fact.baseUom, converts: (uom) => product.factors.has(uom) }, candidates.flatMap((c) => c.entries.map((e) => e.uom)));
+      const units = uoms.map((uom): SellingUnitView => {
+        const query = uom === fact.baseUom ? null : uom;
+        const one = query === null ? { ok: true as const, value: Quantity.ofUnits(1n) } : toBase(Quantity.ofUnits(1n), product.factors.get(query)!);
+        const inUnit = (e: { readonly uom: string | null }) => (e.uom ?? fact.baseUom) === uom;
+        const first = candidates.find((c) => c.entries.some(inUnit))!;
+        const basis = first.entries.find(inUnit)!.basis;
+        const result = one.ok ? resolvePrice({ gradeId: null, weight: null, quantity: one.value, uom: query }, bands.filter((b) => b.speciesId === product.speciesId), candidates) : null;
+        if (result?.kind === 'Resolved') {
+          const source = candidates.find((c) => c.list.id === result.list.id)!.source;
+          const entry = result.entry;
+          return {
+            uom,
+            priceListEntryId: entry.id,
+            band: { basis: entry.basis, listPricePesewas: entry.listPricePesewas, floorPricePesewas: entry.floorPricePesewas, ceilingPricePesewas: entry.ceilingPricePesewas },
+            basis: entry.basis,
+            quoteOnly: false,
+            taxInclusive: source.taxInclusive,
+          };
+        }
+        return { uom, priceListEntryId: null, band: null, basis, quoteOnly: result?.kind === 'QuoteRequired' && result.reason === 'QUOTE_ONLY', taxInclusive: first.source.taxInclusive };
+      });
+      if (units.length === 0 && request.productIds === undefined) continue;
+      products.push({ product: { id: fact.id, sku: fact.sku, name: fact.name }, saleUom: fact.saleUom, baseUom: fact.baseUom, taxCategoryId: fact.taxCategoryId, categoryName: fact.categoryName, units });
+    }
+    products.sort((a, b) => (a.product.sku < b.product.sku ? -1 : a.product.sku > b.product.sku ? 1 : 0));
+    return { priceListVersionIds: [...new Set(lists.map((l) => l.versionId))].sort(), products };
   }
 
   /** The promotion a coupon unlocks, if it may be used now by this customer; a coupon that may not is a 422 that says why. */

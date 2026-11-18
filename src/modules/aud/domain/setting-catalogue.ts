@@ -11,7 +11,8 @@ export interface SettingDefinition {
   readonly key: string;
   readonly valueType: SettingValueType;
   readonly description: string;
-  readonly defaultValue: number;
+  readonly defaultValue: number | boolean;
+  /** The range of an integer setting; a boolean setting has neither and takes true or false. */
   readonly min: number;
   readonly max: number;
   /** Whether a branch may have its own value beside the farm-wide one. */
@@ -64,14 +65,62 @@ export const SETTING_CATALOGUE: Readonly<Record<string, SettingDefinition>> = {
     max: 100,
     branchScoped: false,
   },
+  // The offline till (OFFLINE_SYNC 5.2, B09b continued 2, A-277 (b)): each bound is the documented default, so the
+  // owner may only make a till stricter (fewer hours, a shorter queue, a tighter clock), never looser.
+  'pos.offline.max_hours': {
+    key: 'pos.offline.max_hours',
+    valueType: 'INTEGER',
+    description: 'The most hours a till may sell offline since it last reached the server, and how long its offline pack is valid (OFFLINE_SYNC 5.1)',
+    defaultValue: 8,
+    min: 1,
+    max: 8,
+    branchScoped: true,
+  },
+  'pos.offline.max_queued_sales': {
+    key: 'pos.offline.max_queued_sales',
+    valueType: 'INTEGER',
+    description: 'The most sales a till holds in its offline queue before it refuses another (OFFLINE_SYNC 5.1)',
+    defaultValue: 500,
+    min: 1,
+    max: 500,
+    branchScoped: true,
+  },
+  'pos.offline.allow_unverified_mobile_money': {
+    key: 'pos.offline.allow_unverified_mobile_money',
+    valueType: 'BOOLEAN',
+    description: 'Whether a till at the branch may take a supervisor-approved mobile money tender offline, unverified until matched (OFFLINE_SYNC 5.3)',
+    defaultValue: false,
+    min: 0,
+    max: 0,
+    branchScoped: true,
+  },
+  'sync.clock_tolerance_seconds': {
+    key: 'sync.clock_tolerance_seconds',
+    valueType: 'INTEGER',
+    description: 'How many seconds a time a till sends may be from the server clock (OFFLINE_SYNC 4.1, the owner on A-273 (g))',
+    defaultValue: 300,
+    min: 30,
+    max: 300,
+    branchScoped: false,
+  },
+  'pay.unverified_window_days': {
+    key: 'pay.unverified_window_days',
+    valueType: 'INTEGER',
+    description: 'Days an unverified mobile money payment may stay unmatched before it is raised as urgent (OFFLINE_SYNC 9.9)',
+    defaultValue: 3,
+    min: 1,
+    max: 3,
+    branchScoped: false,
+  },
 };
 
 export type SettingRefusal = 'UNKNOWN_SETTING' | 'WRONG_TYPE' | 'OUT_OF_RANGE';
 
-/** A new value checked against its definition: an integer of pesewas within the range. */
-export function judgeSetting(key: string, value: unknown): Result<{ readonly definition: SettingDefinition; readonly value: number }, SettingRefusal> {
+/** A new value checked against its definition: true or false for a boolean, otherwise an integer within the range. */
+export function judgeSetting(key: string, value: unknown): Result<{ readonly definition: SettingDefinition; readonly value: number | boolean }, SettingRefusal> {
   const definition = SETTING_CATALOGUE[key];
   if (definition === undefined) return err('UNKNOWN_SETTING');
+  if (definition.valueType === 'BOOLEAN') return typeof value === 'boolean' ? ok({ definition, value }) : err('WRONG_TYPE');
   if (typeof value !== 'number' || !Number.isInteger(value)) return err('WRONG_TYPE');
   if (value < definition.min || value > definition.max) return err('OUT_OF_RANGE');
   return ok({ definition, value });

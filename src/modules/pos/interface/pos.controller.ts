@@ -9,6 +9,7 @@ import type { StoredResponse } from '../../../platform/idempotency/idempotency';
 import { CounterSales, type CounterSaleResultView } from '../application/counter-sales';
 import { Devices, type DeviceEnrolledView, type DeviceView } from '../application/devices';
 import { HeldSales, type HeldSaleView } from '../application/held-sales';
+import { OfflinePacks, type OfflinePackView } from '../application/offline-packs';
 import { Registers, type RegisterView } from '../application/registers';
 import { Shifts, type CashMovementView, type Page, type ShiftReportView, type ShiftView } from '../application/shifts';
 import { CashMovementCreate, CounterSale, DeviceEnrolmentCreate, ForceClosedShiftCount, HeldSaleCreate, IdParam, PageQuery, ReasonBody, RegisterCreate, RegisterPageQuery, RegisterUpdate, ShiftClose, ShiftOpen, ShiftPageQuery } from './schemas';
@@ -34,7 +35,14 @@ export class PosController {
     @Inject(Devices) private readonly devices: Devices,
     @Inject(CounterSales) private readonly sales: CounterSales,
     @Inject(HeldSales) private readonly held: HeldSales,
+    @Inject(OfflinePacks) private readonly packs: OfflinePacks,
   ) {}
+
+  @Get('registers/:id/offline-pack')
+  @Operation({ operationId: 'getOfflinePack', ...READ, permission: 'pos.sale.create' })
+  getOfflinePack(@CurrentActor() actor: Actor | undefined, @Param('id', zodPipe(IdParam)) id: string, @Headers('x-device-credential') deviceCredential: string | undefined): Promise<OfflinePackView> {
+    return this.packs.get(actor, id, deviceCredential);
+  }
 
   @Get('registers/:id/held-sales')
   @Operation({ operationId: 'listHeldSales', ...READ, permission: 'pos.sale.create' })

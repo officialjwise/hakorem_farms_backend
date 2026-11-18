@@ -115,7 +115,8 @@ function openVersionExists(id: string | null): InvalidStateTransitionError {
   return new InvalidStateTransitionError(`tax scheme version ${id ?? ''} is still open`, [{ field: null, code: 'OPEN_VERSION_EXISTS', message: translate('error.invalid_state_transition') }]);
 }
 
-function cellView(cell: TaxCellRow): TaxCellView {
+/** A cell as the contract's `TaxCell` shows it; the offline pack carries the cells in force the same way (B09b continued 2). */
+export function cellView(cell: TaxCellRow): TaxCellView {
   return {
     taxCategory: cell.category,
     levy: cell.levy,

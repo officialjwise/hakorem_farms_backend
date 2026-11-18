@@ -9,12 +9,13 @@ import { ForbiddenError, NotFoundError } from '../../../platform/errors/api-erro
 import type { DomainEvents } from '../../../platform/events/domain-events';
 import type { Cursors } from '../../../platform/http/cursor';
 import { IdempotencyKeyReusedError, type Idempotency, type StoredResponse } from '../../../platform/idempotency/idempotency';
+import type { Settings } from '../../../platform/settings/settings';
 import type { Authoriser, PrincipalNames, PrincipalRef } from '../../iam';
 import type { MasterDataRefs } from '../../mdm';
 import type { Orders } from '../../ord';
 import type { Payments, ShiftTenderTotal } from '../../pay';
 import { closeAmounts, expectedCash, isUnwitnessedDrop, judgeCashMovement, judgeCountSignOff, judgeForceClose, judgeLateCount, overShort, type CashMovementKind } from '../domain/till';
-import { isUuidV7, withinTolerance } from '../domain/client-time';
+import { CLOCK_TOLERANCE_SECONDS, CLOCK_TOLERANCE_SETTING, isUuidV7, withinTolerance } from '../domain/client-time';
 import { oneMore } from './paging';
 import type { CashMoved, ShiftClosed, ShiftForceClosed, ShiftOpened } from '../events';
 import { CashMovementInvalidError, ShiftAlreadyOpenError, ShiftCloseSamePersonError, ShiftInvalidError, ShiftNotOpenError, type TillRule } from './errors';
@@ -206,6 +207,7 @@ export class Shifts {
     private readonly clock: Clock,
     private readonly anchors: AuditAnchorRequests,
     private readonly held: HeldSales,
+    private readonly settings: Settings,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -223,7 +225,7 @@ export class Shifts {
       const broken: TillRule[] = [];
       if (!isUuidV7(body.id)) broken.push({ field: '/id', rule: 'ID_NOT_UUID_V7' });
       if (register.status !== 'ACTIVE') broken.push({ field: '/registerId', rule: 'REGISTER_RETIRED' });
-      if (!withinTolerance(body.openedAt, now)) broken.push({ field: '/openedAt', rule: 'OPENED_AT_OUT_OF_WINDOW' });
+      if (!withinTolerance(body.openedAt, now, await this.settings.integer(CLOCK_TOLERANCE_SETTING, CLOCK_TOLERANCE_SECONDS))) broken.push({ field: '/openedAt', rule: 'OPENED_AT_OUT_OF_WINDOW' });
       if (broken.length > 0) throw new ShiftInvalidError(broken);
       if ((await this.store.unclosedShifts(tx, [register.id])).has(register.id)) throw new ShiftAlreadyOpenError('/registerId');
       if ((await this.store.unclosedShiftOfCashier(tx, actor!.principalId)) !== null) throw new ShiftAlreadyOpenError('/cashier');
@@ -359,7 +361,7 @@ export class Shifts {
       });
       const unwitnessed = isUnwitnessedDrop({ kind: body.kind, witnessId, supervisorSignedIn });
       if (!isUuidV7(body.id)) broken.push({ field: '/id', rule: 'ID_NOT_UUID_V7' });
-      if (!withinTolerance(body.occurredAt, now)) broken.push({ field: '/occurredAt', rule: 'OCCURRED_AT_OUT_OF_WINDOW' });
+      if (!withinTolerance(body.occurredAt, now, await this.settings.integer(CLOCK_TOLERANCE_SETTING, CLOCK_TOLERANCE_SECONDS))) broken.push({ field: '/occurredAt', rule: 'OCCURRED_AT_OUT_OF_WINDOW' });
       if (broken.length > 0) throw new CashMovementInvalidError(broken);
       const record: CashMovementRecord = {
         id: body.id,

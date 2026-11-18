@@ -9,14 +9,17 @@ import { DomainEvents } from '../../platform/events/domain-events';
 import { Cursors } from '../../platform/http/cursor';
 import { Idempotency } from '../../platform/idempotency/idempotency';
 import { CLOCK } from '../../platform/platform.module';
+import { Settings } from '../../platform/settings/settings';
 import { Authoriser, IamModule, PRINCIPAL_NAMES, type PrincipalNames } from '../iam';
-import { MasterDataRefs, MdmModule, PricingService } from '../mdm';
+import { InvModule, StockQueries, StockUnits } from '../inv';
+import { MasterDataRefs, MdmModule, PricingService, TaxService } from '../mdm';
 import { BilModule, Billing } from '../bil';
 import { OrdModule, Orders, SalePosting } from '../ord';
 import { PayModule, Payments, TillShiftRegistry } from '../pay';
 import { CounterSales } from './application/counter-sales';
 import { Devices } from './application/devices';
 import { HeldSales } from './application/held-sales';
+import { OfflinePacks } from './application/offline-packs';
 import { Registers } from './application/registers';
 import { POS_LEDGER_EVENTS, Shifts } from './application/shifts';
 import { TillCash } from './application/till-cash';
@@ -29,10 +32,11 @@ import { PosController } from './interface/pos.controller';
  * X and Z reports, and the blind close signed off by a supervisor, which posts the over or short. A sale on the till
  * posts through ORD's one sale path; its cash is PAY's payment against the shift. Device enrolment, the counter sale's
  * endpoint and the offline sync follow (A-273 (a)). B09b continued registers `TillCash`, POS's answer to PAY's
- * `TillShiftCheck` port, so no PAY path takes or pays out a till's cash outside its open shift (ADR-0077).
+ * `TillShiftCheck` port, so no PAY path takes or pays out a till's cash outside its open shift (ADR-0077). B09b
+ * continued 2 adds the offline pack (`OfflinePacks`), reading INV's stock standing at the till.
  */
 @Module({
-  imports: [IamModule, MdmModule, BilModule, PayModule, OrdModule],
+  imports: [IamModule, MdmModule, InvModule, BilModule, PayModule, OrdModule],
   controllers: [PosController],
   providers: [
     { provide: TILL_STORE, useClass: PgTillStore },
@@ -56,9 +60,40 @@ import { PosController } from './interface/pos.controller';
     },
     {
       provide: CounterSales,
-      useFactory: (uow: UnitOfWork, store: TillStore, devices: Devices, posting: SalePosting, orders: Orders, billing: Billing, refs: MasterDataRefs, authoriser: Authoriser, idempotency: Idempotency, events: DomainEvents, clock: Clock) =>
-        new CounterSales(uow, store, devices, posting, orders, billing, refs, authoriser, idempotency, events, clock),
-      inject: [UnitOfWork, TILL_STORE, Devices, SalePosting, Orders, Billing, MasterDataRefs, Authoriser, Idempotency, DomainEvents, CLOCK],
+      useFactory: (
+        uow: UnitOfWork,
+        store: TillStore,
+        devices: Devices,
+        posting: SalePosting,
+        orders: Orders,
+        billing: Billing,
+        refs: MasterDataRefs,
+        authoriser: Authoriser,
+        idempotency: Idempotency,
+        events: DomainEvents,
+        clock: Clock,
+        pricing: PricingService,
+        settings: Settings,
+      ) => new CounterSales(uow, store, devices, posting, orders, billing, refs, authoriser, idempotency, events, clock, pricing, settings),
+      inject: [UnitOfWork, TILL_STORE, Devices, SalePosting, Orders, Billing, MasterDataRefs, Authoriser, Idempotency, DomainEvents, CLOCK, PricingService, Settings],
+    },
+    {
+      provide: OfflinePacks,
+      useFactory: (
+        uow: UnitOfWork,
+        store: TillStore,
+        devices: Devices,
+        pricing: PricingService,
+        tax: TaxService,
+        refs: MasterDataRefs,
+        stock: StockQueries,
+        units: StockUnits,
+        authoriser: Authoriser,
+        settings: Settings,
+        audit: AuditTrail,
+        clock: Clock,
+      ) => new OfflinePacks(uow, store, devices, pricing, tax, refs, stock, units, authoriser, settings, audit, clock),
+      inject: [UnitOfWork, TILL_STORE, Devices, PricingService, TaxService, MasterDataRefs, StockQueries, StockUnits, Authoriser, Settings, AuditTrail, CLOCK],
     },
     {
       provide: Shifts,
@@ -79,8 +114,9 @@ import { PosController } from './interface/pos.controller';
         clock: Clock,
         anchors: AuditAnchorRequests,
         held: HeldSales,
-      ) => new Shifts(uow, store, refs, authoriser, idempotency, audit, events, documents, numbers, principals, cursors, payments, orders, clock, anchors, held),
-      inject: [UnitOfWork, TILL_STORE, MasterDataRefs, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, NumberSeries, PRINCIPAL_NAMES, Cursors, Payments, Orders, CLOCK, AuditAnchorRequests, HeldSales],
+        settings: Settings,
+      ) => new Shifts(uow, store, refs, authoriser, idempotency, audit, events, documents, numbers, principals, cursors, payments, orders, clock, anchors, held, settings),
+      inject: [UnitOfWork, TILL_STORE, MasterDataRefs, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, NumberSeries, PRINCIPAL_NAMES, Cursors, Payments, Orders, CLOCK, AuditAnchorRequests, HeldSales, Settings],
     },
   ],
   exports: [Registers, Shifts, Devices],

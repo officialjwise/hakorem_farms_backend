@@ -97,6 +97,11 @@ export interface ReasonCodeFacts {
   readonly lossAccountGroup: 'MORTALITY' | 'SHRINKAGE' | 'WASTAGE' | null;
 }
 
+/** A reason from the fixed list as the contract's `ReasonCode` shows it (B09b continued 2: the offline pack carries them). */
+export interface ReasonCodeView extends ReasonCodeFacts {
+  readonly description: string;
+}
+
 /** A payment method as a module taking a tender reads it (B9a, FR-PAY-001): its kind decides its clearing behaviour. */
 export interface PaymentMethodFacts {
   readonly id: string;
@@ -126,6 +131,10 @@ export interface MasterDataRefsStore {
   reasonCodes(tx: Transaction, codes: readonly string[]): Promise<ReasonCodeFacts[]>;
   paymentMethodsByCode(tx: Transaction, codes: readonly string[]): Promise<PaymentMethodFacts[]>;
   paymentMethods(tx: Transaction, ids: readonly string[]): Promise<PaymentMethodFacts[]>;
+  /** Every reason of these domains, by domain and code. */
+  reasonCodesOfDomains(tx: Transaction, domains: readonly string[]): Promise<ReasonCodeView[]>;
+  /** Every payment method, live or not, by code. */
+  allPaymentMethods(tx: Transaction): Promise<PaymentMethodFacts[]>;
   physicalLocationOfKind(tx: Transaction, branchId: string, kind: string): Promise<string | null>;
   /** Ids of live records by their codes, for a higher module's import sheet (ADR-0050). */
   /** The first live, non-test branch registered: where farm-wide records are held (the same rule as MDM's imports). */
@@ -221,6 +230,16 @@ export class MasterDataRefs {
   /** Payment methods by id (B9a); an unknown id is simply absent. */
   async paymentMethodsIn(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, PaymentMethodFacts>> {
     return ids.length === 0 ? new Map() : byId(await this.store.paymentMethods(tx, unique(ids)));
+  }
+
+  /** Every reason of these domains from the fixed list, by domain and code, with its description (B09b continued 2). */
+  reasonCodesOfDomainsIn(tx: Transaction, domains: readonly string[]): Promise<ReasonCodeView[]> {
+    return domains.length === 0 ? Promise.resolve([]) : this.store.reasonCodesOfDomains(tx, unique(domains));
+  }
+
+  /** The live payment methods a channel takes, by code (B09b continued 2: the offline pack's methods). */
+  async livePaymentMethodsOfChannelIn(tx: Transaction, channel: 'POS' | 'ONLINE' | 'WHOLESALE' | 'QUOTE'): Promise<PaymentMethodFacts[]> {
+    return (await this.store.allPaymentMethods(tx)).filter((m) => m.isLive && m.channels.includes(channel));
   }
 
   /** The branch's live physical location of a kind (its in-transit location, for a transfer), or null if it has none. */

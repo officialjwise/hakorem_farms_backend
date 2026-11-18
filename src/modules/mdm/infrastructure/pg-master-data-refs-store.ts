@@ -1,6 +1,6 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
 import type { UomFactor } from '../domain/unit-conversion';
-import type { BranchFacts, GradeFacts, ReasonCodeFacts, LocationFacts, MasterDataRefsStore, ProductFacts, SpeciesFacts, SupplierFacts, TaxCategoryFacts, CustomerFacts, PaymentMethodFacts } from '../application/master-data-refs';
+import type { BranchFacts, GradeFacts, ReasonCodeFacts, ReasonCodeView, LocationFacts, MasterDataRefsStore, ProductFacts, SpeciesFacts, SupplierFacts, TaxCategoryFacts, CustomerFacts, PaymentMethodFacts } from '../application/master-data-refs';
 
 /** MDM's own tables, read by primary key for a higher module's transaction (MasterDataRefs). */
 const PAYMENT_METHOD_FACTS = `SELECT id, code, name, kind, requires_provider_verification AS "requiresProviderVerification", allowed_offline AS "allowedOffline", channels,
@@ -148,6 +148,19 @@ export class PgMasterDataRefsStore implements MasterDataRefsStore {
 
   async paymentMethods(tx: Transaction, ids: readonly string[]): Promise<PaymentMethodFacts[]> {
     const { rows } = await tx.query<PaymentMethodFacts>(`${PAYMENT_METHOD_FACTS} WHERE id = ANY($1::uuid[])`, [ids]);
+    return rows;
+  }
+
+  async reasonCodesOfDomains(tx: Transaction, domains: readonly string[]): Promise<ReasonCodeView[]> {
+    const { rows } = await tx.query<ReasonCodeView>(
+      'SELECT code, domain, description, requires_note AS "requiresNote", loss_account_group AS "lossAccountGroup" FROM mdm.reason_code WHERE domain = ANY($1::text[]) ORDER BY domain, code',
+      [domains],
+    );
+    return rows;
+  }
+
+  async allPaymentMethods(tx: Transaction): Promise<PaymentMethodFacts[]> {
+    const { rows } = await tx.query<PaymentMethodFacts>(`${PAYMENT_METHOD_FACTS} ORDER BY code`);
     return rows;
   }
 

@@ -116,7 +116,7 @@ What the hash does and does not prove: it shows that the queued record was not c
 - `policy.maxQueuedSales` (default 500) is the most sales the device will hold. At the limit the device refuses further sales and tells the cashier to restore the connection. The server accepts 500 per batch; larger queues are sent in several batches.
 - `policy.offlineTenderMethodIds` lists the payment methods the device may offer offline. The default is cash only.
 - `policy.priceOverrideLimitPerLinePesewas` and `priceOverrideLimitPerShiftPesewas` are the cashier's role limits, read from the approval policy for `PRICE_OVERRIDE`.
-- Products carry `priceBand` (list, floor, ceiling) and the sale unit; stock units list the animals and lots that were sellable at the register's location when the pack was generated. Stock quantities of countable products are not authoritative: the device does not stop a sale of countable stock because its cached quantity reached zero, but it warns.
+- Products carry `priceBand` (list, floor, ceiling) and the sale unit, and `sellingUnits`: every unit the product is sold by at the register, each priced by its own entry (CR-038, built in B09b continued 2, A-277: an animal priced by grade and weight has no single band, and `validUntil` is `generatedAt` plus `maxOfflineHours`); stock units list the animals and lots that were sellable at the register's location when the pack was generated. Stock quantities of countable products are not authoritative: the device does not stop a sale of countable stock because its cached quantity reached zero, but it warns.
 
 ### 5.2 Settings
 

@@ -212,3 +212,37 @@ describe('B09b continued 1c: held sales answer in the contract shapes', () => {
     expectShape('Error', refused.body);
   });
 });
+
+describe('B09b continued 2: the offline pack and a line in its own unit answer in the contract shapes', () => {
+  it('the pack read from an enrolled device, a crate and a single egg sold, and the refusals', async () => {
+    const till = await post(manager, '/registers', { branchId: id('branch:DDW'), locationId: id('location:SHOP'), code: 'O1', name: 'Pack till' });
+    expect(till.status).toBe(201);
+    clock.advanceBy(30_000);
+    expect((await post(manager, '/auth/step-up', { code: totpAt(manager.secret, Math.floor(clock.now().getTime() / 1000)) })).status).toBe(200);
+    const enrolled = await post(manager, `/registers/${till.body.id as string}/devices`, { deviceLabel: 'Pack tablet' });
+    expect(enrolled.status).toBe(201);
+    const efua = await login(api.server, await createUser(database, { name: 'Efua Mensah', grants: [{ role: 'CASHIER', branchId: id('branch:DDW'), locationId: id('location:SHOP') }] }));
+    const pack = await get(efua, `/registers/${till.body.id as string}/offline-pack`).set('X-Device-Credential', enrolled.body.deviceCredential as string);
+    expect(pack.status, JSON.stringify(pack.body)).toBe(200);
+    expectShape('OfflinePack', pack.body);
+    const noDevice = await get(efua, `/registers/${till.body.id as string}/offline-pack`);
+    expect(noDevice.status).toBe(401);
+    expectShape('Error', noDevice.body);
+    const nextId = createUuidV7Generator(clock);
+    const shift = nextId();
+    expect((await post(efua, '/shifts', { id: shift, registerId: till.body.id, openingFloatPesewas: 0, openedAt: clock.now().toISOString() }, shift)).status).toBe(201);
+    const eggs = (await database.pool('admin').query<{ id: string }>("SELECT id FROM mdm.product WHERE sku = 'EGG-0003'")).rows[0]!.id;
+    const sell = (lines: object[], amount: number) => {
+      const saleId = nextId();
+      return consolePost(api.server, efua, '/v1/pos/sales', saleId)
+        .set('X-Device-Credential', enrolled.body.deviceCredential as string)
+        .send({ id: saleId, shiftId: shift, lines, tenders: [{ paymentMethodId: id('method:CASH'), amountPesewas: amount }], occurredAt: clock.now().toISOString() });
+    };
+    const sold = await sell([{ productId: eggs, quantity: '1.000', uom: 'CRATE', agreedUnitPricePesewas: 6_000 }, { productId: eggs, quantity: '2.000', uom: 'EGG', agreedUnitPricePesewas: 220 }], 6_440);
+    expect(sold.status, JSON.stringify(sold.body)).toBe(201);
+    expectShape('CounterSaleResult', sold.body);
+    const refused = await sell([{ productId: eggs, quantity: '1.000', uom: 'TRAY', agreedUnitPricePesewas: 6_000 }], 6_000);
+    expect(refused.status).toBe(400);
+    expectShape('Error', refused.body);
+  });
+});

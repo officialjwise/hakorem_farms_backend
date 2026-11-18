@@ -1,0 +1,327 @@
+operationId: getOfflinePack
+tags:
+  - pos
+summary: "Download the offline pack for a shift"
+description: "Everything a till needs to sell for a shift with no network (2.11.0, FR-POS-010, OFFLINE_SYNC 5.1, B09b continued 2): a cache with an age, never trusted at sync. Read by a holder of `pos.sale.create` at the till's branch and location from an enrolled device of that till (`X-Device-Credential`: 401 `DEVICE_CREDENTIAL_INVALID`, 403 `DEVICE_REVOKED`, 403 for another till's device). It carries the channel `POS` prices of every product a counter may sell (`ACTIVE`, held in stock, priced by a list in force), each in every unit it is sold by at this register at that unit's own price (`sellingUnits`, CR-038), whether each product's prices include tax (`taxInclusive`, CR-031), the price list versions and the tax scheme version in force with its cells, the animals and lots standing at the till's location with whether a sale may take them now (never a cost), the payment methods the counter takes, the `PRICE_OVERRIDE` reasons and the `CASH_MOVEMENT` reasons `recordCashMovement` takes (CR-032 point 6), and the policy: `maxOfflineHours` and `maxQueuedSales` from the settings `pos.offline.max_hours` (8) and `pos.offline.max_queued_sales` (500) for the branch, `offlineTenderMethodIds` the methods allowed offline (cash only by default; mobile money as well only while `pos.offline.allow_unverified_mobile_money` is on for the branch), and the caller's per-line and per-shift price override limits. `validUntil` is `generatedAt` plus `maxOfflineHours`. A product priced by grade or weight (a live animal) has no single band (`priceBand` null). Each issue is audited with the device and the versions it gave.\n\nPermission: `pos.sale.create`."
+x-permission: pos.sale.create
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+    deviceCredential: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/OfflinePack"
+        example:
+          register:
+            id: "019a7a94-15a3-7248-9781-2d5f347aa63d"
+            code: T1
+            name: "Shop till 1"
+          generatedAt: "2026-11-13T06:55:00Z"
+          validUntil: "2026-11-13T14:55:00Z"
+          priceListVersionIds:
+            - "019a7aa4-46bd-7f59-b491-fe68e7207746"
+            - "019a7afb-c2a9-76a7-bbe0-734d0fb4ec2a"
+          taxSchemeVersionId: "019a7aa9-78e2-788e-adc6-91ba57db0a98"
+          taxCells:
+            - taxCategory:
+                id: "019a7a8a-6af3-7b33-906b-bc092d2a34e7"
+                code: LIVE_ANIMALS
+                name: "Live Animals"
+              levy:
+                id: "019a7a8b-437c-706b-85a4-0f8d8101886b"
+                code: VAT
+                name: "Value Added Tax"
+              treatment: ZERO_RATED
+              ratePercent: "0.00"
+              baseKind: NET
+              baseIncludes: []
+              isReclaimable: true
+              calcOrder: 1
+            - taxCategory:
+                id: "019a7a8a-6af3-7b33-906b-bc092d2a34e7"
+                code: LIVE_ANIMALS
+                name: "Live Animals"
+              levy:
+                id: "019a7a8b-626b-7a4f-9f87-adc4fab226a2"
+                code: NHIL
+                name: "National Health Insurance Levy"
+              treatment: ZERO_RATED
+              ratePercent: "0.00"
+              baseKind: NET
+              baseIncludes: []
+              isReclaimable: true
+              calcOrder: 2
+            - taxCategory:
+                id: "019a7a8a-6af3-7b33-906b-bc092d2a34e7"
+                code: LIVE_ANIMALS
+                name: "Live Animals"
+              levy:
+                id: "019a7a8b-815a-7432-a96a-4bfc7463c4da"
+                code: GETFUND
+                name: "GETFund Levy"
+              treatment: ZERO_RATED
+              ratePercent: "0.00"
+              baseKind: NET
+              baseIncludes: []
+              isReclaimable: true
+              calcOrder: 3
+            - taxCategory:
+                id: "019a7a8a-89e2-7516-aa4f-5a40a6dbd31e"
+                code: RAW_PRODUCE
+                name: "Raw Produce"
+              levy:
+                id: "019a7a8b-437c-706b-85a4-0f8d8101886b"
+                code: VAT
+                name: "Value Added Tax"
+              treatment: ZERO_RATED
+              ratePercent: "0.00"
+              baseKind: NET
+              baseIncludes: []
+              isReclaimable: true
+              calcOrder: 1
+            - taxCategory:
+                id: "019a7a8a-89e2-7516-aa4f-5a40a6dbd31e"
+                code: RAW_PRODUCE
+                name: "Raw Produce"
+              levy:
+                id: "019a7a8b-626b-7a4f-9f87-adc4fab226a2"
+                code: NHIL
+                name: "National Health Insurance Levy"
+              treatment: ZERO_RATED
+              ratePercent: "0.00"
+              baseKind: NET
+              baseIncludes: []
+              isReclaimable: true
+              calcOrder: 2
+            - taxCategory:
+                id: "019a7a8a-89e2-7516-aa4f-5a40a6dbd31e"
+                code: RAW_PRODUCE
+                name: "Raw Produce"
+              levy:
+                id: "019a7a8b-815a-7432-a96a-4bfc7463c4da"
+                code: GETFUND
+                name: "GETFund Levy"
+              treatment: ZERO_RATED
+              ratePercent: "0.00"
+              baseKind: NET
+              baseIncludes: []
+              isReclaimable: true
+              calcOrder: 3
+          products:
+            - product:
+                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                sku: LIV-0004
+                name: Goat
+              saleUom: HEAD
+              taxCategoryId: "019a7a8a-6af3-7b33-906b-bc092d2a34e7"
+              priceBasis: PER_HEAD
+              priceBand: null
+              priceListEntryId: null
+              quoteOnly: false
+              taxInclusive: true
+              tileCategory: "Live animals"
+              sellingUnits:
+                - uom: HEAD
+                  priceListEntryId: null
+                  priceBand: null
+                  quoteOnly: false
+            - product:
+                id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                sku: EGG-0003
+                name: "Eggs, big, crate of 30"
+              saleUom: CRATE
+              taxCategoryId: "019a7a8a-a8d1-7efa-b432-f878208c7156"
+              priceBasis: PER_UNIT
+              priceBand:
+                listPricePesewas: 6000
+                floorPricePesewas: 6000
+                ceilingPricePesewas: 6000
+                basis: PER_UNIT
+              priceListEntryId: "019a7afc-0087-7a6e-9fa6-afbc03162899"
+              quoteOnly: false
+              taxInclusive: true
+              tileCategory: Eggs
+              sellingUnits:
+                - uom: CRATE
+                  priceListEntryId: "019a7afc-0087-7a6e-9fa6-afbc03162899"
+                  priceBand:
+                    listPricePesewas: 6000
+                    floorPricePesewas: 6000
+                    ceilingPricePesewas: 6000
+                    basis: PER_UNIT
+                  quoteOnly: false
+                - uom: EGG
+                  priceListEntryId: "019a7afc-0e41-7c8a-9b5d-0d4a1c6e7f21"
+                  priceBand:
+                    listPricePesewas: 220
+                    floorPricePesewas: 220
+                    ceilingPricePesewas: 220
+                    basis: PER_UNIT
+                  quoteOnly: false
+            - product:
+                id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
+                sku: MEAT-0005
+                name: "Beef, 15 kg pack"
+              saleUom: PACK
+              taxCategoryId: "019a7a8a-c7c0-78dd-8e16-96af9a3d0f8d"
+              priceBasis: PER_KG
+              priceBand:
+                listPricePesewas: 3000
+                floorPricePesewas: 2200
+                ceilingPricePesewas: 4333
+                basis: PER_KG
+              priceListEntryId: "019a7afc-1f76-7452-a98a-4df37cc7c6d1"
+              quoteOnly: false
+              taxInclusive: true
+              tileCategory: Meat
+              sellingUnits:
+                - uom: KG
+                  priceListEntryId: "019a7afc-1f76-7452-a98a-4df37cc7c6d1"
+                  priceBand:
+                    listPricePesewas: 3000
+                    floorPricePesewas: 2200
+                    ceilingPricePesewas: 4333
+                    basis: PER_KG
+                  quoteOnly: false
+            - product:
+                id: "019a7a8e-86b1-7b69-b0a1-bf6756ac3845"
+                sku: PRD-0001
+                name: "Tomatoes, crate"
+              saleUom: CRATE
+              taxCategoryId: "019a7a8a-89e2-7516-aa4f-5a40a6dbd31e"
+              priceBasis: PER_UNIT
+              priceBand:
+                listPricePesewas: 65000
+                floorPricePesewas: 55000
+                ceilingPricePesewas: 75000
+                basis: PER_UNIT
+              priceListEntryId: "019a7afc-3e65-7e35-b36d-ec2af6786508"
+              quoteOnly: false
+              taxInclusive: true
+              tileCategory: "Fresh produce"
+              sellingUnits:
+                - uom: CRATE
+                  priceListEntryId: "019a7afc-3e65-7e35-b36d-ec2af6786508"
+                  priceBand:
+                    listPricePesewas: 65000
+                    floorPricePesewas: 55000
+                    ceilingPricePesewas: 75000
+                    basis: PER_UNIT
+                  quoteOnly: false
+            - product:
+                id: "019a7a8e-a5a0-754c-8a85-5d9ed05dd67c"
+                sku: PRD-0005
+                name: "Yam, tuber"
+              saleUom: TUBER
+              taxCategoryId: "019a7a8a-89e2-7516-aa4f-5a40a6dbd31e"
+              priceBasis: PER_UNIT
+              priceBand:
+                listPricePesewas: 2500
+                floorPricePesewas: 2000
+                ceilingPricePesewas: 3000
+                basis: PER_UNIT
+              priceListEntryId: "019a7afc-5d54-7819-8d51-8a6270290340"
+              quoteOnly: false
+              taxInclusive: true
+              tileCategory: "Fresh produce"
+              sellingUnits:
+                - uom: TUBER
+                  priceListEntryId: "019a7afc-5d54-7819-8d51-8a6270290340"
+                  priceBand:
+                    listPricePesewas: 2500
+                    floorPricePesewas: 2000
+                    ceilingPricePesewas: 3000
+                    basis: PER_UNIT
+                  quoteOnly: false
+          stockUnits:
+            - id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
+              identifier: G-0142
+              productId: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+              locationId: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+              gradeId: null
+              lastWeightKg: "26.400"
+              sellable: true
+            - id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
+              identifier: G-0157
+              productId: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+              locationId: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+              gradeId: null
+              lastWeightKg: "31.800"
+              sellable: true
+            - id: "019a7a8f-9d18-7468-89a0-4f5a9de5c838"
+              identifier: G-0163
+              productId: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+              locationId: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+              gradeId: null
+              lastWeightKg: "22.150"
+              sellable: false
+            - id: "019a7a8f-bc07-7e4c-9384-ed921796666f"
+              identifier: G-0171
+              productId: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+              locationId: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+              gradeId: null
+              lastWeightKg: "24.900"
+              sellable: true
+          paymentMethods:
+            - id: "019a7a92-a26f-7b9f-90d7-c2c5802e3ba3"
+              code: CASH
+              name: Cash
+              kind: CASH
+            - id: "019a7a92-c15e-7582-aabb-60fcf9dfd9da"
+              code: MOMO
+              name: "Mobile money"
+              kind: MOBILE_MONEY
+          reasonCodes:
+            - code: REGULAR_CUSTOMER
+              domain: PRICE_OVERRIDE
+              description: "Regular customer, agreed price"
+              requiresNote: false
+              lossAccountGroup: null
+            - code: FLOAT_TOP_UP
+              domain: CASH_MOVEMENT
+              description: "Float topped up"
+              requiresNote: false
+              lossAccountGroup: null
+            - code: FUEL_PAYOUT
+              domain: CASH_MOVEMENT
+              description: "Fuel paid from the till"
+              requiresNote: true
+              lossAccountGroup: null
+            - code: SAFE_DROP
+              domain: CASH_MOVEMENT
+              description: "Cash taken from the till to the safe"
+              requiresNote: false
+              lossAccountGroup: null
+          policy:
+            maxOfflineHours: 8
+            maxQueuedSales: 500
+            offlineTenderMethodIds:
+              - "019a7a92-a26f-7b9f-90d7-c2c5802e3ba3"
+            priceOverrideLimitPerLinePesewas: 5000
+            priceOverrideLimitPerShiftPesewas: 20000
+          currency: GHS
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

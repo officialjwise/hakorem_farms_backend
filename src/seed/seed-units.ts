@@ -1,4 +1,4 @@
-import { farmSeedAud } from './farm-aud';
+import { farmSeedAud, farmSeedOfflineSettings } from './farm-aud';
 import { farmSeedBil } from './farm-bil';
 import { farmSeedFin, farmSeedFinAssets } from './farm-fin';
 import { farmSeedIam, seedLocationGrantsIam } from './farm-iam';
@@ -53,6 +53,6 @@ export interface SeedOptions {
  */
 export function seedUnits(env: SeedEnvironment, options: SeedOptions = {}): readonly SeedUnit[] {
   const calendar = seedRunCalendar();
-  const farm = [farmSeedMdmBootstrap(), farmSeedIam(env.SEED_STAFF_PASSWORD), farmSeedMdm(calendar), seedLocationGrantsIam(), farmSeedInv(calendar), farmSeedLiv(calendar), farmSeedMdmUnits(), farmSeedPrc(), farmSeedFin(), farmSeedFinAssets(), farmSeedPur(), farmSeedPurRegister(), farmSeedPurCredit(), farmSeedShp(), farmSeedBil(), farmSeedWhl(calendar), farmSeedAud()];
+  const farm = [farmSeedMdmBootstrap(), farmSeedIam(env.SEED_STAFF_PASSWORD), farmSeedMdm(calendar), seedLocationGrantsIam(), farmSeedInv(calendar), farmSeedLiv(calendar), farmSeedMdmUnits(), farmSeedPrc(), farmSeedFin(), farmSeedFinAssets(), farmSeedPur(), farmSeedPurRegister(), farmSeedPurCredit(), farmSeedShp(), farmSeedBil(), farmSeedWhl(calendar), farmSeedAud(), farmSeedOfflineSettings()];
   return options.tradingDay === true ? [...farm, farmSeedOrd(calendar)] : farm;
 }

@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { SEED_BUSINESS_PROFILE } from '../../../src/seed/farm-aud';
+import { SEED_BUSINESS_PROFILE, SEED_OFFLINE_SETTINGS } from '../../../src/seed/farm-aud';
 import { SEED_FEED_PRODUCTS } from '../../../src/seed/farm-liv';
 import { SEED_CUSTOMERS, SEED_PRICE_LISTS, SEED_PRODUCTS, SEED_PROMOTIONS, SEED_SPECIES } from '../../../src/seed/reference-pricing';
 import { SEED_PAYMENT_METHODS_ENABLED } from '../../../src/seed/farm-mdm';
@@ -306,7 +306,27 @@ describe('the staff and their grants through the IAM services (A-085, ADR-0043)'
     for (const file of readdirSync(directory).filter((name) => name.endsWith('.ts'))) {
       expect(readFileSync(join(directory, file), 'utf8'), file).not.toMatch(/(INSERT\s+INTO|UPDATE)\s+(iam|mdm)\./i);
     }
-    expect(seedUnits({ SEED_STAFF_PASSWORD: password }).map((unit) => unit.kind)).toEqual(Array.from({ length: 17 }, () => 'SERVICE'));
+    expect(seedUnits({ SEED_STAFF_PASSWORD: password }).map((unit) => unit.kind)).toEqual(Array.from({ length: 18 }, () => 'SERVICE'));
+  });
+});
+
+describe('the offline till settings through AUD (OFFLINE_SYNC 5.2, B09b continued 2, A-277 (b))', () => {
+  it('sets each once, farm-wide at its documented default, by the seeded Owner through SettingsAdmin, audited by the seed', async () => {
+    const admin = database.pool('admin');
+    const rows = (await admin.query<{ key: string; value: unknown; branch_id: string | null; value_type: string }>('SELECT key, value, branch_id, value_type FROM platform.setting WHERE key = ANY($1::text[]) ORDER BY key', [SEED_OFFLINE_SETTINGS.map((x) => x.key)])).rows;
+    expect(rows).toEqual([
+      { key: 'pay.unverified_window_days', value: 3, branch_id: null, value_type: 'INTEGER' },
+      { key: 'pos.offline.allow_unverified_mobile_money', value: false, branch_id: null, value_type: 'BOOLEAN' },
+      { key: 'pos.offline.max_hours', value: 8, branch_id: null, value_type: 'INTEGER' },
+      { key: 'pos.offline.max_queued_sales', value: 500, branch_id: null, value_type: 'INTEGER' },
+      { key: 'sync.clock_tolerance_seconds', value: 300, branch_id: null, value_type: 'INTEGER' },
+    ]);
+    const audits = await admin.query<{ actor: string; agent: string; n: number }>(
+      `SELECT p.display_name AS actor, e.user_agent AS agent, count(*)::int AS n FROM platform.audit_event e JOIN iam.principal p ON p.id = e.actor_id
+        WHERE e.entity_type = 'Setting' AND e.action = 'UPDATE' AND position(convert_to('pos.offline', 'UTF8') IN e."after") + position(convert_to('sync.clock', 'UTF8') IN e."after") + position(convert_to('pay.unverified', 'UTF8') IN e."after") > 0
+        GROUP BY 1, 2`,
+    );
+    expect(audits.rows).toEqual([{ actor: 'Kwabena Owusu', agent: 'hakorem-seed', n: 5 }]);
   });
 });
 

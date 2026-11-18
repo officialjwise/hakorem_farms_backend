@@ -6,7 +6,7 @@ import type { Authoriser } from '../../iam';
 import { categoryTaxRule, sumTaxedLines, taxExclusive, taxInclusive, type CategoryTaxRule, type TaxBreakdown, type TaxTotals } from '../domain/tax/tax-calculator';
 import { taxSchemeInForce } from '../domain/tax/tax-scheme';
 import { referencesNotFound, TaxSchemeNotInForceError } from './errors';
-import { percentText } from './tax-admin';
+import { cellView, percentText, type TaxCellView } from './tax-admin';
 import type { TaxCellRow, TaxStore } from './tax-store';
 
 /** Whether the business charges levies at all (ADR-0020). An absent setting means it does: the seeded farm is registered. */
@@ -99,6 +99,19 @@ export class TaxService {
       await this.authoriser.authorise(tx, actor, 'mdm.tax.calculate');
       return toView(request.taxInclusive, await this.calculateIn(tx, request));
     });
+  }
+
+  /**
+   * The tax scheme version in force on a business date and its cells, in the caller's transaction (B09b continued 2,
+   * the offline pack: the till taxes a sale with no network by the cells it was given). A date no version covers is the
+   * same 422 a calculation answers, `TAX_SCHEME_NOT_IN_FORCE`.
+   */
+  async schemeInForceIn(tx: Transaction, taxDate: string): Promise<{ readonly versionId: string; readonly cells: readonly TaxCellView[] }> {
+    const versionId = taxSchemeInForce(await this.store.activeWindows(tx, false), taxDate);
+    if (versionId === null) {
+      throw new TaxSchemeNotInForceError(taxDate);
+    }
+    return { versionId, cells: (await this.store.cells(tx, versionId)).map(cellView) };
   }
 
   async calculateIn(tx: Transaction, request: TaxRequest): Promise<TaxCalculation> {

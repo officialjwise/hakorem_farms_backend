@@ -1,6 +1,6 @@
 import type { INestApplicationContext } from '@nestjs/common';
 import type pg from 'pg';
-import { BusinessProfiles, type BusinessProfileUpdate } from '../modules/aud';
+import { BusinessProfiles, SettingsAdmin, type BusinessProfileUpdate } from '../modules/aud';
 import { PG_POOL } from '../platform/platform.module';
 import { SeedStaff } from './seed-staff';
 import type { ServiceSeedUnit } from './seed-unit';
@@ -41,3 +41,37 @@ export function farmSeedAud(): ServiceSeedUnit {
     },
   };
 }
+
+/**
+ * The offline till's settings (OFFLINE_SYNC 5.2, B09b continued 2), each at its documented default, set farm-wide by the
+ * seeded Owner through AUD's audited `SettingsAdmin` with the seed's step-up waiver, so the owner sees them and changes
+ * them without a deployment. A second run writes nothing.
+ */
+export const SEED_OFFLINE_SETTINGS: readonly { readonly key: string; readonly value: number | boolean }[] = [
+  { key: 'pos.offline.max_hours', value: 8 },
+  { key: 'pos.offline.max_queued_sales', value: 500 },
+  { key: 'pos.offline.allow_unverified_mobile_money', value: false },
+  { key: 'sync.clock_tolerance_seconds', value: 300 },
+  { key: 'pay.unverified_window_days', value: 3 },
+];
+
+export function farmSeedOfflineSettings(): ServiceSeedUnit {
+  return {
+    kind: 'SERVICE',
+    name: 'aud-offline-settings',
+    async run(app: INestApplicationContext) {
+      const pool = app.get<pg.Pool>(PG_POOL);
+      const present = new Set(
+        (await pool.query<{ key: string }>('SELECT DISTINCT key FROM platform.setting WHERE key = ANY($1::text[]) AND deleted_at IS NULL', [SEED_OFFLINE_SETTINGS.map((s) => s.key)])).rows.map((r) => r.key),
+      );
+      const missing = SEED_OFFLINE_SETTINGS.filter((s) => !present.has(s.key));
+      if (missing.length === 0) return { records: 0 };
+      const staff = await SeedStaff.load(app);
+      for (const setting of missing) {
+        await staff.as('owner', (owner) => app.get(SettingsAdmin).update(owner, setting.key, { value: setting.value, version: 0 }, `seed:aud:setting:${setting.key}`));
+      }
+      return { records: missing.length };
+    },
+  };
+}
+

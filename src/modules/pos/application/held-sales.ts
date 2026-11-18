@@ -6,7 +6,7 @@ import { ForbiddenError, NotFoundError } from '../../../platform/errors/api-erro
 import type { Cursors } from '../../../platform/http/cursor';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
 import type { Authoriser, PrincipalNames, PrincipalRef } from '../../iam';
-import { extendPrice, type PriceBasis, type PricingService } from '../../mdm';
+import { defaultLineUom, extendPrice, type PriceBasis, type PricingService } from '../../mdm';
 import { isUuidV7 } from '../domain/client-time';
 import { heldSaleExpiry, indexOfLineNo, judgeHold, judgeRecall, lineNoOf } from '../domain/held-sale';
 import { heldTotal } from '../domain/held-sale-total';
@@ -197,6 +197,12 @@ export class HeldSales {
 
   /** The lines priced by the engine for channel POS at `at`, each extended and rounded once; null where none resolves. */
   private async priceIn(tx: Transaction, branchId: string, payload: HeldSalePayload, at: Date): Promise<HeldSalePricingView> {
+    // A held line names no unit, so it is priced in the unit a counter sale sells it by when it names none (CR-038).
+    const selling = new Map((await this.pricing.sellingUnitsIn(tx, { channel: 'POS', branchId, at, productIds: payload.lines.map((l) => l.productId) })).products.map((p) => [p.product.id, p] as const));
+    const unitOf = (productId: string): string | undefined => {
+      const product = selling.get(productId);
+      return product === undefined ? undefined : defaultLineUom(product.baseUom, product.units.map((u) => u.uom));
+    };
     const resolved = await this.pricing.resolveIn(tx, {
       channel: 'POS',
       branchId,
@@ -206,6 +212,7 @@ export class HeldSales {
         lineRef: String(i),
         productId: l.productId,
         quantity: l.quantity,
+        ...(unitOf(l.productId) === undefined ? {} : { uom: unitOf(l.productId)! }),
         ...(l.stockUnitId === undefined ? {} : { stockUnitId: l.stockUnitId }),
         ...(l.gradeId === undefined ? {} : { gradeId: l.gradeId }),
         ...(l.weightKg === undefined ? {} : { weightKg: l.weightKg }),
