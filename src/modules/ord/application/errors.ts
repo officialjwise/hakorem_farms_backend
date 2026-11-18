@@ -1,4 +1,6 @@
+import { formatCedis } from '@hakorem/kernel';
 import { BusinessRuleError } from '../../../platform/errors/api-error';
+import type { CreditPolicyAnswer } from './order-confirmation-policy';
 import { registerMessages, translate } from '../../../platform/i18n/messages';
 
 /** ORD's user-facing messages (docs/API.md section 10). Registered when the module loads. */
@@ -11,6 +13,9 @@ registerMessages({
   'ord.void_cashier_cannot_approve': 'The cashier who made this sale cannot approve its void.',
   'ord.return_maker_cannot_approve': 'The person who made this return cannot approve it.',
   'ord.price_seller_cannot_approve': 'The person who sold at this price cannot approve it.',
+  'ord.credit_limit_exceeded': 'This order would take the customer over their credit limit.',
+  'ord.credit_terms_exceeded': 'This customer is past their payment terms.',
+  'ord.account_on_hold': 'This customer’s account is on hold.',
 });
 
 /** A registered message with its `{name}` placeholders filled (the values are numbers, never user text). */
@@ -120,4 +125,43 @@ export class ReturnApproverIsMakerError extends BusinessRuleError {
 export class PriceApproverIsSellerError extends BusinessRuleError {
   readonly code = 'MAKER_CANNOT_CHECK';
   readonly messageKey = 'ord.price_seller_cannot_approve';
+}
+
+const CREDIT_CODES = { ON_HOLD: ['ACCOUNT_ON_HOLD', 'ord.account_on_hold'], OVER_LIMIT: ['CREDIT_LIMIT_EXCEEDED', 'ord.credit_limit_exceeded'], PAST_TERMS: ['CREDIT_TERMS_EXCEEDED', 'ord.credit_terms_exceeded'] } as const;
+
+/** The words of one credit refusal reason, with the server's own figures (CR-046: the screen never computes money). */
+function creditReasonText(reason: keyof typeof CREDIT_CODES, a: CreditPolicyAnswer): string {
+  switch (reason) {
+    case 'ON_HOLD':
+      return `${a.customerName}'s account is on hold. An Owner or Manager must release it, or approve an override for this order.`;
+    case 'OVER_LIMIT':
+      return `This order would take ${a.customerName} ${formatCedis(a.overLimitPesewas)} over its ${formatCedis(a.limitPesewas)} credit limit.`;
+    case 'PAST_TERMS':
+      return `${a.customerName} has ${formatCedis(a.overduePesewas)} past its payment terms, the oldest ${String(a.oldestOverdueDays ?? 0)} ${a.oldestOverdueDays === 1 ? 'day' : 'days'} overdue.`;
+  }
+}
+
+/**
+ * 422 CREDIT_LIMIT_EXCEEDED, CREDIT_TERMS_EXCEEDED or ACCOUNT_ON_HOLD (CR-046), by the first reason (the hold, then the
+ * limit, then the terms): a credit order the policy refused, with no approved override covering it. Each reason that
+ * holds is a detail (`ON_HOLD`, `OVER_LIMIT`, `PAST_TERMS`) whose message names the amounts; `OVERRIDE_REASON_REQUIRED`
+ * says an override is asked with a written reason, or `APPROVAL_PENDING` that one waits for its approver.
+ */
+export class CreditRefusedError extends BusinessRuleError {
+  readonly code: string;
+  readonly messageKey: string;
+  constructor(answer: CreditPolicyAnswer) {
+    const first = answer.reasons[0] ?? 'OVER_LIMIT';
+    super(
+      `credit order refused: ${answer.reasons.join(', ')}`,
+      [
+        ...answer.reasons.map((r) => ({ field: '/paymentTerms', code: r, message: creditReasonText(r, answer) })),
+        answer.overridePending
+          ? { field: null, code: 'APPROVAL_PENDING', message: 'A credit override for this order is waiting for an Owner or Manager other than the person who asked.' }
+          : { field: '/creditOverrideReason', code: 'OVERRIDE_REASON_REQUIRED', message: 'To ask for a credit override, confirm again with a written reason.' },
+      ],
+    );
+    this.code = CREDIT_CODES[first][0];
+    this.messageKey = CREDIT_CODES[first][1];
+  }
 }

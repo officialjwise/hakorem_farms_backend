@@ -147,7 +147,7 @@ import {
   ShiftClose as PosShiftClose,
   ShiftOpen as PosShiftOpen,
 } from '../../../src/modules/pos/interface/schemas';
-import { StatementCreate as WhlStatementCreate } from '../../../src/modules/whl/interface/schemas';
+import { AccountCreate as WhlAccountCreate, AccountUpdate as WhlAccountUpdate, ReasonBody as WhlReasonBody, StatementCreate as WhlStatementCreate } from '../../../src/modules/whl/interface/schemas';
 import {
   PublicQuoteRequest as QuoPublicQuoteRequest,
   QuoteAcceptanceRecord as QuoAcceptanceRecord,
@@ -165,7 +165,7 @@ import {
 import { BusinessProfileUpdate as AudBusinessProfileUpdate, SettingUpdate as AudSettingUpdate } from '../../../src/modules/aud/interface/schemas';
 import { SlotGenerate, SlotUpdate } from '../../../src/modules/del/interface/schemas';
 import { CreditNoteCreate, DebitNoteCreate, ReprintRequest } from '../../../src/modules/bil/interface/schemas';
-import { OrderCreateBody, ReasonCodeBody, ReturnCreateBody } from '../../../src/modules/ord/interface/schemas';
+import { OrderConfirmBody, OrderCreateBody, ReasonCodeBody, ReturnCreateBody } from '../../../src/modules/ord/interface/schemas';
 import {
   AllocationBody,
   BankLineMatchBody,
@@ -460,6 +460,12 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     revokeDevice: PosReasonBody,
     completeCounterSale: PosCounterSale,
     createStatement: WhlStatementCreate,
+    createBusinessAccount: WhlAccountCreate,
+    updateBusinessAccount: WhlAccountUpdate,
+    holdBusinessAccount: WhlReasonBody,
+    releaseBusinessAccount: WhlReasonBody,
+    requestCreditOverride: WhlReasonBody,
+    confirmOrder: OrderConfirmBody,
     submitQuoteRequest: QuoPublicQuoteRequest,
     acceptQuoteByLink: QuoAcceptByLink,
     declineQuoteByLink: QuoDeclineByLink,

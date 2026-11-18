@@ -19,6 +19,11 @@ export const SEED_STAFF = {
   cashier: 'adwoa.darko@seed.hakoremfarms.invalid',
   /** The salesperson who logs requests for quote and drafts quotes (B10). */
   sales: 'esi.appiah@seed.hakoremfarms.invalid',
+  /**
+   * The branch's second Manager (B10 continued, CR-048): a hold's release and a credit limit change always have an Owner
+   * or Manager other than the person who asked to approve them.
+   */
+  manager2: 'efua.boakye@seed.hakoremfarms.invalid',
 } as const;
 
 export type SeedStaffMember = keyof typeof SEED_STAFF;

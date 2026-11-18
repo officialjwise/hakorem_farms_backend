@@ -48,14 +48,21 @@ export async function balanceOf(database: TestDatabase, code: string, party: str
 }
 
 /** Issues a zero-rated invoice of exactly `grossPesewas` to a customer, as a selling module would (Billing.issueIn). */
-export async function issueInvoice(app: TestApp, actor: Actor, clock: ManualClock, at: { branchId: string; customerId: string; productId: string }, grossPesewas: bigint): Promise<{ id: string; documentNo: string }> {
+export async function issueInvoice(
+  app: TestApp,
+  actor: Actor,
+  clock: ManualClock,
+  at: { branchId: string; customerId: string; productId: string },
+  grossPesewas: bigint,
+  dueDate: string = toBusinessDate(clock.now()),
+): Promise<{ id: string; documentNo: string }> {
   const billing = app.app.get(Billing);
   const uow = app.app.get(UnitOfWork);
   const issue: IssueRequest = {
     kind: 'INVOICE',
     branchId: at.branchId,
     customerId: at.customerId,
-    dueDate: toBusinessDate(clock.now()),
+    dueDate,
     taxInclusive: true,
     lines: [{ lineKind: 'PRODUCT', productId: at.productId, quantity: '1.000', unitPricePesewas: grossPesewas, resolvedUnitPricePesewas: grossPesewas }],
   };

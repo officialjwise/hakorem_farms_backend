@@ -468,6 +468,11 @@ The "Source" column says where the code comes from. **Contract** means the code 
 | `QUOTE_AUTHOR_CANNOT_APPROVE` | 422 | The author of a quote version cannot approve its margin (2.12.0) |
 | `QUOTE_ALREADY_DECIDED` | 409 | The quote version was accepted, or the quote declined, already (2.12.0) |
 | `QUOTE_ALREADY_CONVERTED` | 409 | The quote has its order already (2.12.0) |
+| `CREDIT_LIMIT_EXCEEDED` | 422 | A credit order would take the customer over its credit limit; `details[]` names each reason (`OVER_LIMIT`, `PAST_TERMS`, `ON_HOLD`) with the amounts in words, and `OVERRIDE_REASON_REQUIRED` or `APPROVAL_PENDING` (2.14.0, CR-046) |
+| `CREDIT_TERMS_EXCEEDED` | 422 | A credit order of a customer with something a day or more past its due date, the details as above (2.14.0, CR-046) |
+| `ACCOUNT_ON_HOLD` | 422 | A credit order of a business account on hold, the details as above (2.14.0, CR-046) |
+| `ACCOUNT_INVALID` | 422 | A business account cannot be opened or changed like this: `CUSTOMER_UNKNOWN`, `BRANCH_REQUIRED`, `MANAGER_UNKNOWN`, `ACCOUNT_ON_HOLD`, `ACCOUNT_CLOSED`, `NOT_ON_HOLD`, `ALREADY_ON_HOLD`, `APPROVAL_PENDING`, `PRICE_LIST_THROUGH_MDM` (2.14.0) |
+| `ACCOUNT_EXISTS` | 409 | The customer has a business account already (2.14.0, FR-WHL-001) |
 
 #### Payments, billing and purchasing (Added)
 
@@ -1033,6 +1038,12 @@ Public `submitQuoteRequest` (rate-limited by address and phone), `viewQuoteByLin
 ### Wholesale (`whl`, 24)
 
 Business accounts with credit limits and holds (`updateBusinessAccount` may return 202), credit overrides, standing orders with their runs, statements (`createStatement`, `sendStatement`), ageing, the dunning policy and notices, and bad-debt write-offs (`writeOffBadDebt`, always approval). Totals such as `totalOutstandingPesewas` come from the API.
+
+**As built in B10 continued (2.14.0; A-313, A-314, ADR-0088, CR-046, CR-048).** Nine operations are in code: `listBusinessAccounts`, `getBusinessAccount` (`whl.account.read`: the Owner, the Manager, Sales and the Accountant), `createBusinessAccount`, `updateBusinessAccount` (`whl.account.manage`: the Owner and the Manager), `holdBusinessAccount` (`whl.account.hold`: the Owner, the Manager and the Accountant), `releaseBusinessAccount` (`whl.account.release`: the Owner and the Manager), `listCreditOverrides` (`whl.account.read`), and on the order's path `getOrderCreditCheck` (`ord.order.read`) and `requestCreditOverride` (`ord.order.confirm`), each authorised in the handler at the account's or the order's branch.
+- **A second person on every limit and release:** an account opens with a nil limit; any limit asked, at opening or later, up or down, answers 202 `CREDIT_LIMIT_CHANGE`, and a release answers 202 `ACCOUNT_RELEASE`, each decided with step-up by another Owner or Manager (`MAKER_CANNOT_CHECK` for the asker), held by the database (migration 0259). `pendingCreditLimitPesewas` and `pendingRelease` show what waits.
+- **The figures are live:** exposure is the customer's outstanding invoices at every branch plus its confirmed credit orders not invoiced, read as at the moment of reading (ADR-0088); a bounced cheque has reopened what it paid (A-212 (d)). `overduePesewas` and `oldestOverdueDays` count anything a day or more past its due date.
+- **The credit check:** `confirmOrder` refuses a credit order over the limit (exactly at it passes), past its terms or on hold with `CREDIT_LIMIT_EXCEEDED`, `CREDIT_TERMS_EXCEEDED` or `ACCOUNT_ON_HOLD`; with `creditOverrideReason`, or through `requestCreditOverride`, the `CREDIT_OVERRIDE` approval is asked in place of the refusal (202 `CreditOverridePending`, carrying `creditCheck`); approved by a holder of `whl.credit.override` who did not ask, `confirmOrder` confirms the same order at the same amount with `creditCheck` `OVERRIDDEN`. `getOrderCreditCheck` answers the figures confirmOrder would judge now.
+- **The overdue hold:** the worker's `account-hold` job (daily, 00:05 Accra) holds an active account with anything more than its `overdueHoldDays` past due, naming the invoice; paying does not release it (A-314 (c)).
 
 **As built in B08 continued 2d (2.7.0; A-300, ADR-0085).** Three operations are in code: `listStatements`, `createStatement` and `getStatement` (`whl.statement.read`, `whl.statement.create`).
 - **The figures are the ledger's:** a statement is the customer's trade receivables (1200 against the customer) at one branch for a period, read from the ledger in the producing transaction, so it ties to the books to the pesewa whatever posted to the account: invoices and receipts, debit and credit notes, payments (a till's included), refunds, reversed payments and journals such as an opening balance. Opening less opening credit, plus `invoicedPesewas` and `otherChargesPesewas`, less `creditedPesewas`, `paidPesewas` and `otherCreditsPesewas`, is closing less closing credit, exactly; the client never adds anything up.

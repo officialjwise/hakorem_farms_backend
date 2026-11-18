@@ -40,7 +40,7 @@ import { ReturnsController } from './interface/returns.controller';
   providers: [
     { provide: ORDER_STORE, useClass: PgOrderStore },
     { provide: RETURN_STORE, useClass: PgReturnStore },
-    // The OrderConfirmationPolicy port (MODULE_BOUNDARIES section 6): WHL registers its credit policy in B10; none yet.
+    // The OrderConfirmationPolicy port (MODULE_BOUNDARIES section 6): WHL adds its credit policy to this list when it loads (B10 continued).
     { provide: ORDER_CONFIRMATION_POLICIES, useValue: [] satisfies OrderConfirmationPolicy[] },
     {
       provide: PriceOverrides,
@@ -245,7 +245,7 @@ import { ReturnsController } from './interface/returns.controller';
       inject: [ORDER_STORE, MasterDataRefs, PricingService, Stock, StockUnits, Reservations, Billing, Payments, NumberSeries, DocumentRegistry, DomainEvents, Idempotency, AuditTrail, CLOCK, PriceOverrides, StockQueries],
     },
   ],
-  exports: [SalePosting, Orders, OrderReversals, Returns, OnlineOrders],
+  exports: [SalePosting, Orders, OrderReversals, Returns, OnlineOrders, ORDER_CONFIRMATION_POLICIES],
 })
 export class OrdModule implements OnModuleInit {
   constructor(

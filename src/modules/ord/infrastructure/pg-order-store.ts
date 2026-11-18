@@ -134,6 +134,16 @@ export class PgOrderStore implements OrderStore {
     );
   }
 
+  async uninvoicedCreditTotal(tx: Transaction, customerId: string): Promise<bigint> {
+    const { rows } = await tx.query<{ total: string }>(
+      `SELECT COALESCE(sum(estimated_total_pesewas), 0)::text AS total FROM ord.sales_order
+        WHERE customer_id = $1 AND payment_terms = 'CREDIT' AND billing_document_id IS NULL
+          AND status IN ('CONFIRMED', 'PICKING', 'AWAITING_CUSTOMER', 'PACKED', 'READY_FOR_COLLECTION', 'DISPATCHED', 'DELIVERED', 'DELIVERY_FAILED')`,
+      [customerId],
+    );
+    return BigInt(rows[0]!.total);
+  }
+
   async shiftSales(tx: Transaction, shiftDocumentId: string): Promise<ShiftSalesSummary> {
     const { rows } = await tx.query<{ sales: number; gross: string; voids: number; voided: string; overrides: number; given: string }>(
       `SELECT count(*) FILTER (WHERE o.status = 'COMPLETED')::int AS sales,
@@ -226,7 +236,7 @@ export class PgOrderStore implements OrderStore {
     tx: Transaction,
     orderId: string,
     c: {
-      readonly creditCheck: 'PASSED' | 'NOT_REQUIRED';
+      readonly creditCheck: 'PASSED' | 'OVERRIDDEN' | 'NOT_REQUIRED';
       readonly at: Date;
       readonly actorId: string;
     },

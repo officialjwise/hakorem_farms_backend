@@ -416,6 +416,7 @@ B07 continued 2 settings (defaults in code, each a `platform.setting` row the ow
 | Hourly, at :30 | `abandoned-cart-notice` | Sends abandoned cart notices to customers who agreed | `shp` |
 | Every 15 minutes | `offline-device-watch` | Updates `hk_offline_device_unsynced_seconds` and raises the unsynced-device alert | OFFLINE_SYNC |
 | Daily 00:10 | `quote-expiry` | Marks quote versions past their validity as expired | `quo` |
+| Daily 00:05 | `account-hold` | Holds a business account with anything outstanding more than its threshold's days past due, naming the invoice (FR-WHL-008, A-314); a hold is released only by an approved `ACCOUNT_RELEASE` | `whl` |
 | Daily 00:30 | `balance-snapshot` | On the first day of a month, writes the previous month-end stock balances | `inv.stock_balance_snapshot` |
 | Daily 01:00 | `backup-base` | Base backup with pgBackRest, encrypted, uploaded | ADR-0025 |
 | Daily 01:30 | `backup-dump` | Logical dump (`pg_dump -Fc`), encrypted with the backup key, uploaded, 30 days kept | Shared brief |

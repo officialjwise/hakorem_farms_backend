@@ -216,6 +216,13 @@ describe('below the margin floor a version waits for a different person (FR-QUO-
 });
 
 describe('a line in a crate or a single egg is priced by its own unit and reserved in eggs (CR-045)', () => {
+  it('prices a line that names no unit by the sale unit, the crate, as the counter does (owner, 2026-11-18, LOUD)', async () => {
+    const made = await draft('sales', [{ productId: id('eggs'), description: 'Big eggs', quantity: '2.000', priceBasis: 'PER_UNIT', unitPricePesewas: 6_000 }]);
+    expect(made.status, JSON.stringify(made.body)).toBe(201);
+    const [line] = made.body.currentVersion.lines;
+    expect([line.uom, line.quantity, line.baseQuantity, line.resolvedUnitPricePesewas, line.lineNetPesewas]).toEqual(['CRATE', '2.000', '60.000', 6_000, 12_000]);
+  });
+
   it('prices 3 crates at 6,000 and 7 eggs at 220, holds 97 eggs for the validity, and costs them from the pools', async () => {
     const made = await draft('sales', [
       { productId: id('eggs'), description: 'Big eggs by the crate', quantity: '3.000', uom: 'CRATE', priceBasis: 'PER_UNIT', unitPricePesewas: 6_000 },

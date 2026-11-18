@@ -1,0 +1,60 @@
+operationId: getOrderCreditCheck
+tags:
+  - whl
+summary: "An order's credit check, as confirmOrder would judge it now"
+description: "The credit check of an order (CR-046), worked out by the server as `confirmOrder` would judge it now: the limit, exposure before the order, the order's amount, by how much it would go over (exactly at the limit is within), what is past its terms and the oldest days overdue, every reason that holds (`ON_HOLD`, `OVER_LIMIT`, `PAST_TERMS`) and the latest override asked for it. A bounced cheque has reopened what it paid, so it counts (A-212 (d)). Authorised at the order's branch.\n\nPermission: `ord.order.read`."
+x-permission: ord.order.read
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/OrderCreditCheck"
+        example:
+          order:
+            id: "019a7af0-a4c5-78e8-be21-975d5418103b"
+            docType: SALES_ORDER
+            number: SO-2026-DDW-004198
+          customer:
+            id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
+            publicId: cus_TS4VEDD3ZZNAAQGD
+            name: "Asantewaa Chop Bar"
+          outcome: OVER_LIMIT
+          reasons:
+            - OVER_LIMIT
+          creditLimitPesewas: 500000
+          exposurePesewas: 450000
+          orderPesewas: 92000
+          overLimitPesewas: 42000
+          overduePesewas: 0
+          oldestOverdueDays: null
+          paymentTermsDays: 14
+          override: null
+          checkedAt: "2026-11-13T10:12:00Z"
+          currency: GHS
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

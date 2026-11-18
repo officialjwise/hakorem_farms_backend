@@ -390,7 +390,9 @@ describe('confirmOrder (FR-ORD-005)', () => {
   });
 
   it('refuses a credit order while no credit policy answers for its customer, and reserves nothing', async () => {
-    const placed = (await create(as('sales'), order({ paymentTerms: 'CREDIT', lines: [{ productId: id('yam'), quantity: '2.000' }] }))).body;
+    // A customer with no business account (B10 continued gives the seeded Tema Cold Store one): no policy answers.
+    const walkIn = (await admin().query<{ id: string }>("SELECT id FROM mdm.customer WHERE customer_no = 'C-00001'")).rows[0]!.id;
+    const placed = (await create(as('sales'), order({ customerId: walkIn, paymentTerms: 'CREDIT', lines: [{ productId: id('yam'), quantity: '2.000' }] }))).body;
     const refused = await confirm(as('manager'), placed.id);
     expect(refused.status).toBe(422);
     expect(refused.body.error).toMatchObject({ code: 'ORDER_INVALID', details: [expect.objectContaining({ field: '/paymentTerms', code: 'CREDIT_CHECK_UNAVAILABLE' })] });

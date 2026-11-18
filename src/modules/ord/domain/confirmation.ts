@@ -39,12 +39,15 @@ export function receivedForOrder(payments: readonly ReceivedPayment[]): Money {
   return Money.sum(payments.filter((p) => p.status === 'CLEARED').map((p) => Money.fromJsonInteger(p.amountPesewas).minus(Money.fromJsonInteger(p.refundedPesewas))));
 }
 
-/** A registered `OrderConfirmationPolicy`'s answer for a credit order; null when no policy answers (WHL arrives in B10). */
-export type CreditAnswer = 'PASSED' | 'REFUSED' | null;
+/**
+ * A registered `OrderConfirmationPolicy`'s verdict on a credit order: passed, passed under an approved override (B10
+ * continued, CR-046), or refused; null when no policy answers (a customer with no business account).
+ */
+export type CreditAnswer = 'PASSED' | 'OVERRIDDEN' | 'REFUSED' | null;
 
 export type ConfirmationRefusal = 'PREPAYMENT_SHORT' | 'CREDIT_CHECK_UNAVAILABLE' | 'CREDIT_REFUSED' | 'TERMS_NOT_CONFIRMED';
 
-export type ConfirmationVerdict = { readonly ok: true; readonly creditCheck: 'PASSED' | 'NOT_REQUIRED' } | { readonly ok: false; readonly rule: ConfirmationRefusal };
+export type ConfirmationVerdict = { readonly ok: true; readonly creditCheck: 'PASSED' | 'OVERRIDDEN' | 'NOT_REQUIRED' } | { readonly ok: false; readonly rule: ConfirmationRefusal };
 
 /**
  * The payment or credit check of a confirmation (FR-ORD-005, A-224): cash on delivery needs neither; a prepaid order
@@ -64,7 +67,7 @@ export function judgeConfirmation(input: {
       return input.received.compareTo(input.estimated) >= 0 ? { ok: true, creditCheck: 'NOT_REQUIRED' } : { ok: false, rule: 'PREPAYMENT_SHORT' };
     case 'CREDIT':
       if (input.credit === null) return { ok: false, rule: 'CREDIT_CHECK_UNAVAILABLE' };
-      return input.credit === 'PASSED' ? { ok: true, creditCheck: 'PASSED' } : { ok: false, rule: 'CREDIT_REFUSED' };
+      return input.credit === 'REFUSED' ? { ok: false, rule: 'CREDIT_REFUSED' } : { ok: true, creditCheck: input.credit };
     case 'IMMEDIATE':
       return { ok: false, rule: 'TERMS_NOT_CONFIRMED' };
   }

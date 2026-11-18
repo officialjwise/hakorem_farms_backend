@@ -7,9 +7,10 @@ import { IdempotencyKeyHeader, Operation } from '../../../platform/http/operatio
 import { zodPipe } from '../../../platform/http/validation';
 import type { StoredResponse } from '../../../platform/idempotency/idempotency';
 import type { BillingDocumentView } from '../../bil';
+import type { CreditOverridePending } from '../application/order-confirmation-policy';
 import { OrderReversals, type ApprovalPendingView } from '../application/order-reversals';
 import { Orders, type OrderStatusChangeView, type Page, type SalesOrderView } from '../application/orders';
-import { IdParam, OrderCreateBody, OrderPageQuery, PageQuery, ReasonCodeBody } from './schemas';
+import { IdParam, OrderConfirmBody, OrderCreateBody, OrderPageQuery, PageQuery, ReasonCodeBody } from './schemas';
 
 const READ = { access: 'SESSION', realms: ['STAFF'], idempotent: false, csrf: false, rateLimit: 'console' } as const;
 const WRITE = { access: 'SESSION', realms: ['STAFF'], idempotent: true, csrf: true, rateLimit: 'console' } as const;
@@ -102,10 +103,11 @@ export class OrdersController {
   confirmOrder(
     @CurrentActor() actor: Actor | undefined,
     @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(OrderConfirmBody)) body: z.infer<typeof OrderConfirmBody>,
     @IdempotencyKeyHeader() key: string,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<SalesOrderView> {
-    return reply(res, this.orders.confirm(actor, id, key));
+  ): Promise<SalesOrderView | CreditOverridePending> {
+    return reply(res, this.orders.confirm(actor, id, key, { creditOverrideReason: body?.creditOverrideReason }));
   }
 
   @Post(':id/proforma')

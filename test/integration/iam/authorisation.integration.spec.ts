@@ -39,7 +39,7 @@ afterAll(async () => {
 });
 
 describe('deny by default: the handler walk (ADR-0017, security architecture section 14)', () => {
-  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued, B05 continued 3, B05x, B6, B06m, B06 continued, B06 continued 2, B06 continued 3, B06u, B7, B07 continued, B07 continued 1b, B06r, B07 continued 2, B08 continued, B08 continued 1b, B08 continued 1b2, B08 continued 1c, B08 continued 1c2, B08 continued 2, B08 continued 2b, B09a continued, B09a continued 1b, B09a continued 1c, B09a continued 2b, 2c, 2d, 2e and 2f, B09x continued, B09e continued 3, B9b, B08 continued 2d, B09u and B10 routes, and every one declares its operation', () => {
+  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued, B05 continued 3, B05x, B6, B06m, B06 continued, B06 continued 2, B06 continued 3, B06u, B7, B07 continued, B07 continued 1b, B06r, B07 continued 2, B08 continued, B08 continued 1b, B08 continued 1b2, B08 continued 1c, B08 continued 1c2, B08 continued 2, B08 continued 2b, B09a continued, B09a continued 1b, B09a continued 1c, B09a continued 2b, 2c, 2d, 2e and 2f, B09x continued, B09e continued 3, B9b, B08 continued 2d, B09u, B10 and B10 continued routes, and every one declares its operation', () => {
     expect(routes.map((route) => route.spec?.operationId).sort()).toEqual(
       [
         'changePassword', 'confirmTotpEnrolment', 'createProduct', 'getCurrentSession', 'getHealth', 'getProduct', 'listProducts', 'listSessions',
@@ -130,6 +130,8 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'submitQuoteRequest', 'viewQuoteByLink', 'acceptQuoteByLink', 'declineQuoteByLink', 'listRfqs', 'createRfq', 'getRfq', 'updateRfq',
         'listQuotes', 'createQuote', 'getQuote', 'listQuoteVersions', 'reviseQuote', 'updateQuoteVersion', 'issueQuoteVersion',
         'recordQuoteAcceptance', 'declineQuote', 'cancelQuote', 'convertQuote', 'getCustomerPriceList', 'listPriceListAssignments',
+        'listBusinessAccounts', 'createBusinessAccount', 'getBusinessAccount', 'updateBusinessAccount', 'holdBusinessAccount', 'releaseBusinessAccount',
+        'listCreditOverrides', 'getOrderCreditCheck', 'requestCreditOverride',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);

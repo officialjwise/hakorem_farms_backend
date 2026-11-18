@@ -1,0 +1,68 @@
+operationId: getBusinessAccount
+tags:
+  - whl
+summary: "Get a business account"
+description: "One customer's business account with its figures as at now (FR-WHL-001): limit, exposure, available credit, what is overdue, the price list held and anything waiting for a second person. Authorised at the account's branch.\n\nPermission: `whl.account.read`."
+x-permission: whl.account.read
+parameters:
+  - name: customerId
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/BusinessAccount"
+        example:
+          customer:
+            id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+            publicId: cus_TWMB751S2DFXTAM8
+            name: "Royal Palm Hotel Ltd"
+          branch:
+            id: "019a7a80-1c2d-7e3f-8a4b-5c6d7e8f9a01"
+            code: DDW
+            name: Dodowa
+          creditLimitPesewas: 2000000
+          paymentTermsDays: 30
+          accountManager:
+            id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+            displayName: "Kojo Antwi"
+          overdueHoldDays: 30
+          status: ACTIVE
+          holdReason: null
+          heldAt: null
+          exposurePesewas: 1164400
+          availableCreditPesewas: 835600
+          overduePesewas: 222500
+          oldestOverdueDays: 34
+          priceList:
+            id: "019a7aa2-d389-78af-bde8-93cf32d40cad"
+            code: CUST-ROYALPALM
+            name: "Royal Palm Hotel contract prices"
+          pendingCreditLimitPesewas: null
+          pendingRelease: false
+          currency: GHS
+          version: 5
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

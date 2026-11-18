@@ -237,6 +237,15 @@ export class PartiesAdmin {
     );
   }
 
+  /**
+   * The price list a customer holds at `at`, in the caller's transaction, or null (WHL's business account shows it,
+   * FR-WHL-001: the list is set through master data). It authorises nothing.
+   */
+  async priceListHeldIn(tx: Transaction, customerId: string, at: Date): Promise<{ readonly id: string; readonly code: string; readonly name: string } | null> {
+    const rows = (await this.store.customerAssignments(tx, customerId, at)) ?? [];
+    return rows.find((r) => r.validFrom <= at && (r.validTo === null || r.validTo > at))?.priceList ?? null;
+  }
+
   /** listPriceListAssignments (CR-041): the live buyers who hold a price list now or later, with their windows. */
   priceListHolders(actor: Actor | undefined, priceListId: string, cursor: string | undefined, limit: number): Promise<Page<PriceListHolderView>> {
     return this.kit.page(

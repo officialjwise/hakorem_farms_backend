@@ -24,7 +24,7 @@ import {
   type StockQueries,
   type StockUnits,
 } from '../../inv';
-import type { MasterDataRefs, PricingService, ProductFacts, TaxService } from '../../mdm';
+import { defaultLineUom, type MasterDataRefs, type PricingService, type ProductFacts, type TaxService } from '../../mdm';
 import type { Orders, QuoteOrderLine, SalesOrderView } from '../../ord';
 import { countOf, lineNumber, nextVersionNo } from '../domain/numbering';
 import { pageProbe } from '../domain/paging';
@@ -992,6 +992,11 @@ export class Quotes {
       inputs.flatMap((l) => (isSet(l.stockUnitId) ? [l.stockUnitId] : [])),
       at,
     );
+    // A line that names no unit is in the first unit the product is sold by on quotes, as at the counter (owner,
+    // 2026-11-18; A-277 (e), (l)): a crate for eggs, never the base unit.
+    const unnamed = inputs.flatMap((l) => (isSet(l.productId) && !isSet(l.uom) ? [l.productId] : []));
+    const selling =
+      unnamed.length === 0 ? new Map<string, string>() : new Map((await this.pricing.sellingUnitsIn(tx, { channel: 'QUOTE', branchId, at, productIds: unnamed })).products.map((p) => [p.product.id, defaultLineUom(p.baseUom, p.units.map((u) => u.uom))] as const));
     const broken: QuoteRule[] = [];
     if (inputs.length === 0) broken.push({ field: '/lines', rule: 'NO_LINES' });
     const checked: { i: number; input: QuoteLineInput; product: ProductFacts | null; uom: string; baseQty: Quantity | null }[] = [];
@@ -1007,7 +1012,7 @@ export class Quotes {
         broken.push({ field: lineField(i, 'productId'), rule: 'PRODUCT_NOT_ACTIVE' });
         continue;
       }
-      const uom = l.uom ?? product.baseUom;
+      const uom = l.uom ?? selling.get(product.id) ?? product.baseUom;
       const base = await this.refs.toBaseIn(tx, product.id, uom, qty);
       if (!base.ok) {
         broken.push({ field: lineField(i, 'uom'), rule: base.error === 'INEXACT_QUANTITY' ? 'INEXACT_QUANTITY' : 'NO_CONVERSION' });

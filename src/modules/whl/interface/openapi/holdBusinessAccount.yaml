@@ -1,0 +1,79 @@
+operationId: holdBusinessAccount
+tags:
+  - whl
+summary: "Put an account on hold"
+description: "Puts an active account on hold with a reason (FR-WHL-008, CR-048): an Owner, a Manager or the Accountant. A held account confirms no credit order; cash and prepaid orders still work. The daily `account-hold` job holds an account the same way when anything is outstanding more than its threshold's days past due. Refusals: 422 `ACCOUNT_INVALID` (`ALREADY_ON_HOLD`, `ACCOUNT_CLOSED`).\n\nPermission: `whl.account.hold`."
+x-permission: whl.account.hold
+parameters:
+  - name: customerId
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ReasonRequest"
+      example:
+        reason: "Cheque dishonoured"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/BusinessAccount"
+        example:
+          customer:
+            id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
+            publicId: cus_TS4VEDD3ZZNAAQGD
+            name: "Asantewaa Chop Bar"
+          branch:
+            id: "019a7a80-1c2d-7e3f-8a4b-5c6d7e8f9a01"
+            code: DDW
+            name: Dodowa
+          creditLimitPesewas: 600000
+          paymentTermsDays: 14
+          accountManager:
+            id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+            displayName: "Kojo Antwi"
+          overdueHoldDays: 30
+          status: ON_HOLD
+          holdReason: "Invoice INV-2026-DDW-001159 more than 30 days overdue"
+          heldAt: "2026-11-03T06:00:00Z"
+          exposurePesewas: 397800
+          availableCreditPesewas: 202200
+          overduePesewas: 186000
+          oldestOverdueDays: 34
+          priceList: null
+          pendingCreditLimitPesewas: null
+          pendingRelease: false
+          currency: GHS
+          version: 5
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

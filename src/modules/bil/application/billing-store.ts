@@ -115,6 +115,8 @@ export interface BillingStore {
   settlements(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, SettlementRecord>>;
   /** Issued invoices, receipts and debit notes with something outstanding, newest first below `beforeId`, and their total. */
   openItems(tx: Transaction, filter: OpenItemFilter, beforeId: string | null, limit: number): Promise<{ readonly rows: OpenItemRecord[]; readonly totalOutstandingPesewas: bigint }>;
+  /** Every open item of one customer at every branch, oldest due first. */
+  customerOpenItems(tx: Transaction, customerId: string): Promise<OpenItemRecord[]>;
   /** Ids of matching documents, newest first, after the given id. */
   list(tx: Transaction, filter: DocumentFilter, afterId: string | null, limit: number): Promise<string[]>;
   /** Sets the archived rendering and its content hash once, after DOC has archived it (B08 continued 2b). */

@@ -1,0 +1,208 @@
+operationId: listBusinessAccounts
+tags:
+  - whl
+summary: "List business accounts with credit exposure"
+description: "The business accounts at the branches where the caller reads accounts, by customer, each with its figures as at now. `overLimit` keeps those whose exposure is above their limit (true) or not (false).\n\nPermission: `whl.account.read`."
+x-permission: whl.account.read
+parameters:
+  - name: status
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: accountManagerId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: overLimit
+    in: query
+    required: false
+    schema:
+      type: boolean
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/BusinessAccountPage"
+        examples:
+          default:
+            value:
+              data:
+                - customer:
+                    id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+                    publicId: cus_TWMB751S2DFXTAM8
+                    name: "Royal Palm Hotel Ltd"
+                  branch:
+                    id: "019a7a80-1c2d-7e3f-8a4b-5c6d7e8f9a01"
+                    code: DDW
+                    name: Dodowa
+                  creditLimitPesewas: 2000000
+                  paymentTermsDays: 30
+                  accountManager:
+                    id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                    displayName: "Kojo Antwi"
+                  overdueHoldDays: 30
+                  status: ACTIVE
+                  holdReason: null
+                  heldAt: null
+                  exposurePesewas: 1164400
+                  availableCreditPesewas: 835600
+                  overduePesewas: 222500
+                  oldestOverdueDays: 34
+                  priceList:
+                    id: "019a7aa2-d389-78af-bde8-93cf32d40cad"
+                    code: CUST-ROYALPALM
+                    name: "Royal Palm Hotel contract prices"
+                  pendingCreditLimitPesewas: null
+                  pendingRelease: false
+                  currency: GHS
+                  version: 5
+                - customer:
+                    id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
+                    publicId: cus_TS4VEDD3ZZNAAQGD
+                    name: "Asantewaa Chop Bar"
+                  branch:
+                    id: "019a7a80-1c2d-7e3f-8a4b-5c6d7e8f9a01"
+                    code: DDW
+                    name: Dodowa
+                  creditLimitPesewas: 600000
+                  paymentTermsDays: 14
+                  accountManager:
+                    id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                    displayName: "Kojo Antwi"
+                  overdueHoldDays: 30
+                  status: ON_HOLD
+                  holdReason: "Invoice INV-2026-DDW-001159 more than 30 days overdue"
+                  heldAt: "2026-11-03T06:00:00Z"
+                  exposurePesewas: 397800
+                  availableCreditPesewas: 202200
+                  overduePesewas: 186000
+                  oldestOverdueDays: 34
+                  priceList: null
+                  pendingCreditLimitPesewas: null
+                  pendingRelease: false
+                  currency: GHS
+                  version: 5
+                - customer:
+                    id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
+                    publicId: cus_3Q4VCE9ZY779GAT6
+                    name: "Osu Fresh Mart"
+                  branch:
+                    id: "019a7a80-1c2d-7e3f-8a4b-5c6d7e8f9a01"
+                    code: DDW
+                    name: Dodowa
+                  creditLimitPesewas: 800000
+                  paymentTermsDays: 30
+                  accountManager:
+                    id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                    displayName: "Kojo Antwi"
+                  overdueHoldDays: 30
+                  status: ACTIVE
+                  holdReason: null
+                  heldAt: null
+                  exposurePesewas: 243700
+                  availableCreditPesewas: 556300
+                  overduePesewas: 96400
+                  oldestOverdueDays: 34
+                  priceList:
+                    id: "019a7aa5-1f46-7491-a9ca-51ed3af7cacb"
+                    code: RESELLER-TIER
+                    name: "Reseller prices"
+                  pendingCreditLimitPesewas: null
+                  pendingRelease: false
+                  currency: GHS
+                  version: 5
+                - customer:
+                    id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
+                    publicId: cus_GY1HV6CSTTCCM2Y2
+                    name: "Emmanuel Tetteh"
+                  branch:
+                    id: "019a7a80-1c2d-7e3f-8a4b-5c6d7e8f9a01"
+                    code: DDW
+                    name: Dodowa
+                  creditLimitPesewas: 900000
+                  paymentTermsDays: 30
+                  accountManager:
+                    id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                    displayName: "Kojo Antwi"
+                  overdueHoldDays: 30
+                  status: ACTIVE
+                  holdReason: null
+                  heldAt: null
+                  exposurePesewas: 858000
+                  availableCreditPesewas: 42000
+                  overduePesewas: 0
+                  oldestOverdueDays: null
+                  priceList: null
+                  pendingCreditLimitPesewas: null
+                  pendingRelease: false
+                  currency: GHS
+                  version: 5
+                - customer:
+                    id: "019a7b02-2a24-72bf-87f7-34c94159ada7"
+                    publicId: cus_6GMQA1AJS48Z778Z
+                    name: "Christ Apostolic Church, Adenta"
+                  branch:
+                    id: "019a7a80-1c2d-7e3f-8a4b-5c6d7e8f9a01"
+                    code: DDW
+                    name: Dodowa
+                  creditLimitPesewas: 300000
+                  paymentTermsDays: 7
+                  accountManager:
+                    id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                    displayName: "Kojo Antwi"
+                  overdueHoldDays: 30
+                  status: ACTIVE
+                  holdReason: null
+                  heldAt: null
+                  exposurePesewas: 0
+                  availableCreditPesewas: 300000
+                  overduePesewas: 0
+                  oldestOverdueDays: null
+                  priceList: null
+                  pendingCreditLimitPesewas: null
+                  pendingRelease: false
+                  currency: GHS
+                  version: 5
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
