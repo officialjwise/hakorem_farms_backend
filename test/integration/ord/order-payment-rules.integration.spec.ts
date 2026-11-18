@@ -254,7 +254,7 @@ describe('the database holds the payment record (FR-PAY-001, FR-PAY-002, FR-PAY-
       await refusedBy(
         `INSERT INTO pay.payment (id, payment_method_id, method_kind, amount_pesewas, verification, register_ref, register_code, shift_document_id, received_at, cleared_at, status, branch_id, created_by, updated_by, posted_at, posted_by)
          VALUES ($1, '01900000-0000-7000-8001-000000000001', 'CASH', 6000, 'UNVERIFIED', $4, 'T1', $5, now(), now(), 'CLEARED', $2, $3, $3, now(), $3)`,
-        [cashId, branchId, cashier.principalId, randomUUID(), await openTestShift(admin(), cashier.principalId, branchId)],
+        [cashId, branchId, cashier.principalId, till.id, await openTestShift(admin(), cashier.principalId, branchId, till)],
       ),
     ).toBe('23514:ck_payment_verified');
   });

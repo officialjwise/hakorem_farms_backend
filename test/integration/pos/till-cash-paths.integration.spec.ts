@@ -249,11 +249,12 @@ describe('a mobile money charge taken at the till (initiateMobileMoneyCharge wit
     expect(await counts()).toEqual(before);
   });
 
-  it('refuses the same in a charge another module writes in its own transaction (ProviderPayments.chargeIn)', async () => {
+  it('refuses the same in a charge another module writes in its own transaction (ProviderPayments.chargeIn): a closed, a force-closed and another cashier shift', async () => {
     const order = (await one<{ id: string }>('SELECT id FROM ord.sales_order WHERE shift_document_id = $1 LIMIT 1', [shifts.get('efua')])).id;
     const before = await counts();
     for (const [who, shift, rule] of [
       ['efua', shifts.get('efua')!, 'SHIFT_NOT_OPEN'],
+      ['kofi', shifts.get('kofi')!, 'SHIFT_NOT_OPEN'],
       ['adwoa', shifts.get('nana')!, 'SHIFT_NOT_OWN'],
     ] as const) {
       await expect(
@@ -386,10 +387,114 @@ describe('a cash movement (recordCashMovement)', () => {
   });
 });
 
+describe('the database refuses it too, by direct SQL that bypasses the application (ADR-0077 Amendments)', () => {
+  const CASH_METHOD = '01900000-0000-7000-8001-000000000001';
+  /** Runs one statement as the application role inside a transaction that is rolled back, so a statement the database accepts changes nothing; answers the refusal as code:constraint:detail, or 'ACCEPTED'. */
+  async function attempt(statements: (client: { query: (sql: string, values?: unknown[]) => Promise<unknown> }) => Promise<void>): Promise<string> {
+    const client = await database.pool('app').connect();
+    try {
+      await client.query('BEGIN');
+      await statements(client);
+      return 'ACCEPTED';
+    } catch (error) {
+      const e = error as { code?: string; constraint?: string; detail?: string };
+      return `${e.code}:${e.constraint ?? ''}:${e.detail ?? ''}`;
+    } finally {
+      await client.query('ROLLBACK');
+      client.release();
+    }
+  }
+  /** A payment written straight into pay.payment, as a tender, a charge or a reversing payment would be. */
+  const payment = (who: string, shift: string, till: string | null, extra: { kind?: 'CASH' | 'MOBILE_MONEY'; status?: string; reverses?: string } = {}) =>
+    attempt(async (c) => {
+      const id = nextId();
+      const methodId = extra.kind === 'MOBILE_MONEY' ? (await one<{ id: string }>("SELECT id FROM mdm.payment_method WHERE code = 'MOMO'", [])).id : CASH_METHOD;
+      await c.query("INSERT INTO platform.business_document (id, doc_type, owner_module, branch_id, actor_id) VALUES ($1, 'PAYMENT', 'pay', $2, $3)", [id, branchId, users.get(who)!.principalId]);
+      await c.query(
+        `INSERT INTO pay.payment (id, payment_method_id, method_kind, amount_pesewas, verification, register_ref, register_code, shift_document_id, received_at, cleared_at, status, branch_id, created_by, updated_by, posted_at, posted_by, reverses_payment_id)
+         VALUES ($1, $2, $3, 1000, 'NOT_REQUIRED', $4, $5, $6, $7, $7, $8, $9, $10, $10, $7, $10, $11)`,
+        [id, methodId, extra.kind ?? 'CASH', till, till === null ? null : 'TX', shift, clock.now(), extra.status ?? 'CLEARED', branchId, users.get(who)!.principalId, extra.reverses ?? null],
+      );
+    });
+  const refusedFor = (rule: string) => `HK010:ck_payment_till_shift:${rule}`;
+
+  it('a cash tender (a sale through ORD, recordIn, writeIn): another cashier, another till, a closed and a force-closed shift', async () => {
+    expect(await payment('adwoa', shifts.get('adwoa')!, tills.get('T1')!.id)).toBe('ACCEPTED');
+    expect(await payment('adwoa', shifts.get('nana')!, tills.get('T2')!.id)).toBe(refusedFor('SHIFT_NOT_OWN'));
+    expect(await payment('adwoa', shifts.get('adwoa')!, tills.get('T2')!.id)).toBe(refusedFor('SHIFT_OTHER_REGISTER'));
+    expect(await payment('efua', shifts.get('efua')!, tills.get('T3')!.id)).toBe(refusedFor('SHIFT_NOT_OPEN'));
+    expect(await payment('kofi', shifts.get('kofi')!, tills.get('T4')!.id)).toBe(refusedFor('SHIFT_NOT_OPEN'));
+    expect(await payment('manager', shifts.get('adwoa')!, tills.get('T1')!.id)).toBe('ACCEPTED');
+    const order = (await one<{ id: string }>('SELECT id FROM ord.sales_order LIMIT 1', [])).id;
+    expect(await payment('adwoa', order, tills.get('T1')!.id)).toBe(refusedFor('SHIFT_UNKNOWN'));
+  });
+
+  it('a mobile money charge naming a shift (by HTTP or chargeIn): another cashier, a closed and a force-closed shift', async () => {
+    const charge = (who: string, shift: string) => payment(who, shift, null, { kind: 'MOBILE_MONEY', status: 'PENDING' });
+    const own = await charge('adwoa', shifts.get('adwoa')!);
+    expect(own.startsWith('HK010:ck_payment_till_shift'), own).toBe(false);
+    expect(await charge('adwoa', shifts.get('nana')!)).toBe(refusedFor('SHIFT_NOT_OWN'));
+    expect(await charge('efua', shifts.get('efua')!)).toBe(refusedFor('SHIFT_NOT_OPEN'));
+    expect(await charge('kofi', shifts.get('kofi')!)).toBe(refusedFor('SHIFT_NOT_OPEN'));
+  });
+
+  it('a reversing payment (an approved reversal or a void): a closed or force-closed shift, and a decider who cannot reach the shift', async () => {
+    for (const who of ['efua', 'kofi']) {
+      const original = (await one<{ id: string }>("SELECT id FROM pay.payment WHERE shift_document_id = $1 AND status = 'CLEARED' ORDER BY id LIMIT 1", [shifts.get(who)])).id;
+      expect(await payment('manager', shifts.get(who)!, tills.get(who === 'efua' ? 'T3' : 'T4')!.id, { status: 'REVERSED', reverses: original }), who).toBe(refusedFor('SHIFT_NOT_OPEN'));
+    }
+    const open = (await one<{ id: string }>("SELECT id FROM pay.payment WHERE shift_document_id = $1 AND status = 'CLEARED' ORDER BY id LIMIT 1", [shifts.get('adwoa')])).id;
+    expect(await payment('accountant', shifts.get('adwoa')!, tills.get('T1')!.id, { status: 'REVERSED', reverses: open })).toBe(refusedFor('SHIFT_NOT_OWN'));
+  });
+
+  it('a cash refund paid out of a till: another till, a closed and a force-closed shift, and a payer who cannot reach the shift', async () => {
+    const deposit = (await payDirect('adwoa', shifts.get('adwoa')!, tills.get('T1')!, 900n)).id;
+    const asked = await post('manager', '/refunds', { originalPaymentId: deposit, amountPesewas: 900, destination: 'ORIGINAL_METHOD', reasonCode: 'WRONG_ITEM', note: 'Paid twice' });
+    expect(asked.status, JSON.stringify(asked.body)).toBe(202);
+    await step('owner');
+    expect((await post('owner', `/iam/approvals/${asked.body.approvalRequestId as string}/approve`, { reason: 'Seen it' })).status).toBe(200);
+    const pay = (who: string, shift: string) =>
+      attempt(async (c) => {
+        await c.query("UPDATE pay.refund SET status = 'PAID', paid_at = $2, paid_by = $3, posted_at = $2, posted_by = $3, paid_from_shift_id = $4, updated_by = $3, version = version + 1 WHERE id = $1", [
+          asked.body.subject.id,
+          clock.now(),
+          users.get(who)!.principalId,
+          shift,
+        ]);
+      });
+    const refused = (rule: string) => `HK010:ck_refund_till_shift:${rule}`;
+    expect(await pay('owner', shifts.get('adwoa')!)).toBe('ACCEPTED');
+    expect(await pay('owner', shifts.get('nana')!)).toBe(refused('SHIFT_OTHER_REGISTER'));
+    expect(await pay('owner', shifts.get('efua')!)).toBe(refused('SHIFT_NOT_OPEN'));
+    expect(await pay('owner', shifts.get('kofi')!)).toBe(refused('SHIFT_NOT_OPEN'));
+    expect(await pay('accountant', shifts.get('adwoa')!)).toBe(refused('SHIFT_NOT_OWN'));
+  });
+
+  it('a cash movement: another cashier, a closed and a force-closed shift', async () => {
+    const move = (who: string, shift: string) =>
+      attempt(async (c) => {
+        await c.query(
+          "INSERT INTO pos.cash_movement (id, shift_id, kind, amount_pesewas, reason_code, occurred_at, recorded_at, actor_id) VALUES ($1, $2, 'PAY_IN', 100, 'FLOAT_TOP_UP', $3, $3, $4)",
+          [nextId(), shift, clock.now(), users.get(who)!.principalId],
+        );
+      });
+    expect(await move('adwoa', shifts.get('adwoa')!)).toBe('ACCEPTED');
+    expect(await move('nana', shifts.get('adwoa')!)).toBe('HK010:ck_cash_movement_own_shift:');
+    expect(await move('efua', shifts.get('efua')!)).toBe('HK010:ck_cash_movement_open_shift:');
+    expect(await move('kofi', shifts.get('kofi')!)).toBe('HK010:ck_cash_movement_open_shift:');
+  });
+
+  it('the shift state PAY reads is the platform published fact, which the application cannot write and which never reopens', async () => {
+    expect(await one('SELECT accepts_entries, holder_id, container_id FROM platform.document_entry_state WHERE document_id = $1', [shifts.get('kofi')])).toEqual({ accepts_entries: false, holder_id: users.get('kofi')!.principalId, container_id: tills.get('T4')!.id });
+    expect(await attempt(async (c) => void (await c.query('SELECT platform.set_document_entry_state($1, true, $2, $3)', [shifts.get('kofi'), users.get('kofi')!.principalId, tills.get('T4')!.id])))).toMatch(/^42501:/);
+    await expect(admin().query('SELECT platform.set_document_entry_state($1, true, $2, $3)', [shifts.get('kofi'), users.get('kofi')!.principalId, tills.get('T4')!.id])).rejects.toMatchObject({ code: 'HK004' });
+  });
+});
+
 describe('the cashier counts exactly what the records say the till holds', () => {
   it('signs off EXACT at the figure derived by SQL, and the till account returns to 0', async () => {
     const expected = await cashBySql(shifts.get('adwoa')!);
-    expect(expected).toBe(6_000 + 1_000 + 4_000 - 1_500 + 2_000 - 2_000);
+    expect(expected).toBe(6_000 + 1_000 + 4_000 - 1_500 + 2_000 - 2_000 + 900);
     const cash = (await one<{ id: string }>("SELECT id FROM mdm.payment_method WHERE code = 'CASH'", [])).id;
     const mobile = (await one<{ id: string }>("SELECT id FROM mdm.payment_method WHERE code = 'MOMO'", [])).id;
     expect((await post('adwoa', `/shifts/${shifts.get('adwoa')!}/close`, { declared: [{ paymentMethodId: cash, declaredPesewas: expected }, { paymentMethodId: mobile, declaredPesewas: 0 }] })).status).toBe(200);

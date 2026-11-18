@@ -48,6 +48,10 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0239_pay_till_cash_in_open_shift',
+      '0238_pos_shift_entry_state',
+      '0237_iam_publish_holds_permission',
+      '0236_platform_document_entry_state',
       '0235_pos_device_enrolment',
       '0234_iam_grant_pos_device_permissions',
       '0233_iam_seed_pos_device_permissions',
