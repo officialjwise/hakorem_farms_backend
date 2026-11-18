@@ -206,15 +206,17 @@ export class MdmImports {
 
   /** applyImportJob: every row, through the entity's own service, in one serializable transaction, or none. */
   async apply(actor: Actor | undefined, id: string, idempotencyKey: string): Promise<StoredResponse<ImportJobView>> {
-    const file = await this.uow.run({ isolation: 'read committed' }, async (tx) => {
+    const { file, entity } = await this.uow.run({ isolation: 'read committed' }, async (tx) => {
       await this.authoriser.authorise(tx, actor, APPLY);
       const job = await this.store.job(tx, id);
       if (job === null) throw new NotFoundError('no such import job');
-      return this.files.find(tx, job.fileId);
+      return { file: await this.files.find(tx, job.fileId), entity: job.entity };
     });
     const content = file === null || file.scanStatus !== 'CLEAN' ? null : await this.files.content(file);
+    // The entity's own create lock, taken before the transaction begins, so the import queues with single creates.
+    const seriesLocks = [...(this.sheets.get(entity)?.createLocks ?? [])];
     try {
-      return await this.uow.run({ isolation: 'serializable' }, async (tx) => {
+      return await this.uow.run({ isolation: 'serializable', seriesLocks }, async (tx) => {
         await this.authoriser.authorise(tx, actor, APPLY);
         const claim = await this.idempotency.claim(tx, { operationId: APPLY_IMPORT_JOB, principalId: actor!.principalId, key: idempotencyKey, request: { id } });
         if (claim.kind === 'REPLAY') return claim.response as StoredResponse<ImportJobView>;

@@ -2,7 +2,7 @@ import type { Clock } from '@hakorem/kernel';
 import type { Actor } from '../../../platform/context/request-context';
 import type { Transaction } from '../../../platform/database/unit-of-work';
 import { CUSTOMER_COLUMNS, duplicateErrors, readCustomerRow, type CustomerRow, type ImportEntity, type RowError, type SheetColumns } from '../domain/imports';
-import type { PartiesAdmin } from './parties-admin';
+import { CUSTOMER_CREATE_LOCK, type PartiesAdmin } from './parties-admin';
 import type { PartiesStore } from './parties-store';
 
 /** What a dry run found: the row errors, how many rows would create and update a record, and the plan to apply. */
@@ -25,6 +25,11 @@ export interface EntitySheet<P = unknown> {
   readonly fileStem: string;
   readonly columns: SheetColumns;
   readonly permissions: { readonly read: string; readonly create: string; readonly update: string };
+  /**
+   * The advisory locks the entity's own create takes before its transaction begins (`seriesLocks`, ADR-0005), which
+   * applying a sheet of it takes too, so an import and single creates queue rather than abort one another (B09u).
+   */
+  readonly createLocks?: readonly string[];
   check(tx: Transaction, records: readonly { readonly rowNo: number; readonly cells: ReadonlyMap<string, string> }[]): Promise<SheetCheck<P>>;
   /** Applies a plan with no errors; any refusal throws and the caller's transaction writes nothing. Returns rows applied. */
   apply(tx: Transaction, actor: Actor, plan: P): Promise<number>;
@@ -74,6 +79,7 @@ export class CustomerSheet implements EntitySheet<readonly CustomerPlanRow[]> {
   readonly fileStem = 'customers';
   readonly columns = CUSTOMER_COLUMNS;
   readonly permissions = { read: 'mdm.customer.read', create: 'mdm.customer.create', update: 'mdm.customer.update' };
+  readonly createLocks = [CUSTOMER_CREATE_LOCK];
 
   constructor(
     private readonly parties: PartiesAdmin,
