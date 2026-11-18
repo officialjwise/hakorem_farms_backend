@@ -75,7 +75,8 @@ describe('B08 continued 2b operations answer in the contract shapes', () => {
     const page = await consoleGet(api.server, owner, '/v1/documents?limit=10');
     expect(page.status).toBe(200);
     expectShape('ArchivedDocumentPage', page.body);
-    expect(page.body.data).toHaveLength(5);
+    // The seed's five billing documents and its customer statement (B08 continued 2d).
+    expect(page.body.data).toHaveLength(6);
     const one = await consoleGet(api.server, owner, `/v1/documents/${page.body.data[0].id}`);
     expectShape('ArchivedDocument', one.body);
     const link = await consolePost(api.server, owner, `/v1/documents/${page.body.data[0].id}/download`).send({});
