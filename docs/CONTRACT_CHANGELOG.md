@@ -5,6 +5,7 @@ Every change to `contract/openapi.yaml`, newest first. A breaking change needs a
 Version numbers follow semantic versioning: a major bump breaks an existing client, a minor bump adds operations or optional fields, a patch fixes descriptions or examples.
 
 **Read first (cold-read summary), rewritten for 2.0.0:** changes that alter an answer or a request a client already handles.
+- **2.7.0:** additive. No existing field, parameter or status of an implemented operation changed. Three planned customer statement operations move into code (`listStatements`, `createStatement`, `getStatement`). `CustomerStatement` gains `branchId`, `issueDate`, `openingCreditPesewas`, `closingCreditPesewas`, `otherChargesPesewas` and `otherCreditsPesewas`, `StatementLine` gains `balanceSide` and three `kind` values (`REFUND`, `PAYMENT_REVERSAL`, `ADJUSTMENT`), and `StatementCreate` takes an optional `branchId`. Behaviour a client of the planned shapes should read: a balance in the customer's favour is a credit beside a balance of zero, a list row's `lines` is empty, and asking for an issued period again answers the first statement.
 - **2.6.0, LOUD for PAY's till cash (ADR-0077):** no field removed or retyped; four operations move into code (the till's devices and the counter sale). Four PAY behaviours change, because cash now moves into or out of a till only through its open shift whoever calls PAY: `markRefundPaid` needs `shiftId` for a cash refund of a till payment; `initiateMobileMoneyCharge` takes `shiftId` (was refused); a cash reversal or void needs the payment's shift still open; a shift's refunds count against the shift they were paid out of. A cash drop may be `unwitnessed`. See its entry.
 - **2.5.0:** additive. No existing field, parameter or status of an implemented operation changed. Twelve planned till operations move into code with the shapes 1.0.0 planned (registers, shifts, cash movements, the X and Z reports, the blind close and its sign-off). Behaviour a client of the planned shapes should read: a cash movement needs a reason for every kind, a drop's witness is a supervisor, and an online shift's `openedAt` and a movement's `occurredAt` are within 300 seconds of the server's clock.
 - **2.4.0:** additive. No existing field, parameter or status changed. Six new operations raise, list, read and settle a claim from a goods receipt's rejected lines; `SupplierInvoice.supplierClaimId` and `SupplierInvoiceLine.supplierClaimLineId` are new, null for every invoice and credit note entered by hand. **Behaviour:** an invoice line may now carry, beyond what was received, exactly the rejected quantity of the order line's open claims and still match (ADR-0076). The role examples name `ord.void.approve` (CR-037). See its entry.
@@ -18,6 +19,22 @@ Version numbers follow semantic versioning: a major bump breaks an existing clie
 - **1.50.0, LOUD:** `createOrder` answers **202 `ApprovalPending`** (kind `PRICE_OVERRIDE`) where it answered 422 `PRICE_OVERRIDE_NEEDS_APPROVAL` for a price outside the band or below list beyond the seller's limit.
 - Earlier LOUD changes, each on an operation that was still planned when it changed, are in their entries below and in "Reading 1.5.0 to 1.37.0 cold".
 
+## 2.7.0 (2026-11-18, B08 continued 2d)
+
+Minor, additive: planned operations move into code, new response fields, new enumeration values on a response, a new optional request field and a new error code. FR-WHL-009, ADR-0085 (proposed), A-300.
+
+- **Into code:** `listStatements` (`GET /statements`, filters `customerId` and `periodEnd`), `createStatement` (`POST /statements`) and `getStatement` (`GET /statements/{id}`), under `whl.statement.read` and `whl.statement.create` (seeded for the Owner, the Manager, the Accountant and Sales).
+- **Still planned:** `sendStatement` (B11, ADR-0062).
+- **New response fields (`CustomerStatement`, each required in the answer):** `branchId`; `issueDate` (date or null); `openingCreditPesewas` and `closingCreditPesewas` (a balance in the customer's favour, beside `openingPesewas` or `closingPesewas` of zero); `otherChargesPesewas` (refunds paid, payments reversed, journals debited) and `otherCreditsPesewas` (journals credited). Opening less opening credit, plus invoiced and other charges, less credited, paid and other credits, is closing less closing credit, exactly.
+- **`StatementLine`:** `balanceSide` (`D` or `C`, required in the answer); `kind` gains `REFUND`, `PAYMENT_REVERSAL` and `ADJUSTMENT` (a new value on a response).
+- **`StatementCreate.branchId`** (optional): the branch whose account it is; without it the caller must produce statements at exactly one branch.
+- **New error code:** `STATEMENT_INVALID` (422), with details `BRANCH_REQUIRED`, `CUSTOMER_UNKNOWN`, `PERIOD_REVERSED`, `PERIOD_NOT_ENDED`, `PERIOD_TOO_LONG`.
+- **Behaviour as built, recorded loudly for the statement screens:**
+  - The figures are the ledger's 1200 against the customer at the branch, so an opening balance entered by journal, a till payment and a refund are on it.
+  - A `listStatements` row carries every figure and `lines: []`; read the lines with `getStatement`.
+  - An issued statement is numbered (`STM-…`) and then rendered and archived after commit: `documentId` is null until DOC archives it. One issued statement exists per customer, branch and period; asking again answers the first as it stands. `issue: false` stores a draft with no number.
+- **Examples:** every example's figures add up, and the list example has a customer in credit.
+- **Checks:** `contract:generate --check` is up to date (447 operations from code, 195 planned). Redocly is clean. `scripts/contract/versioning.ts` against `main`: ok.
 ## 2.6.0 (2026-11-17, B09b continued)
 
 Minor: four planned operations move into code, new optional request and response fields, new error codes and details, and **four changed PAY behaviours, recorded LOUD** because closing the cash-path gap the owner ordered (A-212 (a), A-273 (i) and (k)) cannot be done additively (ADR-0077, proposed; approved for lane A by the parent session, 2026-11-17). FR-POS-001 to FR-POS-006, FR-POS-010, FR-POS-016, A-274.

@@ -2620,7 +2620,7 @@ source document, which also brings in B9a's payments without a change. Write the
 including FR-WHL-009's case (opening 100,000, invoices 250,000, credit note 20,000, payment 150,000, closing 180,000)
 and a customer in credit. sendStatement stays planned for B11 (ADR-0062). Extend the seed with one statement.
 Stop at the gate, write docs/sessions/B08c2d-customer-statements.md, and merge into main when every run on the pull
-request is green. End the report with B09a's opening message (ADR-0026 verification).
+request is green. End the report with B09u's opening message (lane B, owner 2026-11-17).
 ```
 
 ## B09u — Unit names, the egg base unit and the supplier account
@@ -2683,11 +2683,11 @@ Branch `b10-quotations-wholesale`. Report `docs/sessions/B10-quotations-wholesal
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
 List docs/sessions/ and read only the most recent report (docs/sessions/B09u-units-supplier-account.md).
-Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
-report what you declined and why, never edit that file and never open frontend source.
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the QUO and WHL requirement blocks of docs/SRS.md (nothing else from the SRS),
 docs/data-model/quo.md and whl.md, the QUO and WHL cards in docs/MODULE_BOUNDARIES.md, DOMAIN_MODEL
-section 5.12, and ADR-0004, ADR-0017 and ADR-0019 (quote reservations), and the abuse case 14 in
+section 5.12, and ADR-0004, ADR-0017, ADR-0019 (quote reservations) and ADR-0085 (statements), and the abuse case 14 in
 docs/security/THREAT_MODEL.md. Use docs/prompts/module-build-prompt.md as the recipe.
 Do not read any other document unless this phase needs it.
 
@@ -2696,7 +2696,9 @@ Then execute B10 only, on branch b10-quotations-wholesale: requests for quote, q
 versions with the margin floor and its approval, reservations for the validity period, acceptance once
 through the signed expiring link, conversion to exactly one order with every link kept, business
 accounts with credit limit, terms and exposure, the credit override with a different approver, ageing
-computed from invoice due dates, statements, dunning, standing orders, overdue hold. Run scenario 2
+computed from invoice due dates, dunning, standing orders, overdue hold. Customer statements are built (B08 continued
+2d, ADR-0085, A-300): add FR-WHL-009's ageing summary to them additively, and decide whether money held on deposit for
+the customer (2200) belongs on them (A-300 (i)); sendStatement stays B11's. Run scenario 2
 of docs/UAT.md as a dry run and record any difference, including the two rules that scenario flags
 for the owner (credit check and delivery fee on a partial dispatch).
 The owner, 2026-11-16 (A-212 (d)): a bounced cheque (a reversal with CHEQUE_DISHONOURED) counts against the customer's

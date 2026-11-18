@@ -34,7 +34,7 @@ afterAll(async () => {
 });
 
 describe('the seeded trading day is archived, every document once (FR-DOC-002)', () => {
-  it('archives each issued billing document of the seed exactly once, its hash the SHA-256 of its stored bytes', async () => {
+  it('archives each issued billing document and statement of the seed exactly once, its hash the SHA-256 of its stored bytes', async () => {
     const { rows } = await admin().query<{ id: string; kind: string; document_no: string; content_hash: Buffer | null; archives: string; sha256: Buffer | null; bucket: string | null; object_key: string | null; scan_status: string | null }>(
       `SELECT d.id, d.kind, d.document_no, d.content_hash, count(a.id)::text AS archives, (array_agg(a.sha256))[1] AS sha256,
               max(f.bucket) AS bucket, max(f.object_key) AS object_key, max(f.scan_status) AS scan_status
@@ -56,12 +56,27 @@ describe('the seeded trading day is archived, every document once (FR-DOC-002)',
       expect(row.content_hash?.equals(row.sha256!), row.document_no).toBe(true);
       expect(bytes.toString('latin1'), row.document_no).toContain(row.document_no);
     }
-    // No archive belongs to anything that is not an issued document, and every render job is done.
+    // The seed's statement (B08 continued 2d) is archived once too, its link set, its hash the stored bytes'.
+    const { rows: statements } = await admin().query<{ statement_no: string; archives: string; linked: boolean; sha256: Buffer; bucket: string; object_key: string }>(
+      `SELECT s.statement_no, count(a.id)::text AS archives, bool_and(s.archived_document_id = a.id) AS linked, (array_agg(a.sha256))[1] AS sha256,
+              max(f.bucket) AS bucket, max(f.object_key) AS object_key
+         FROM whl.statement s LEFT JOIN doc.archived_document a ON a.business_document_id = s.id LEFT JOIN platform.stored_file f ON f.id = a.file_id
+        WHERE s.status = 'ISSUED' GROUP BY s.id, s.statement_no`,
+    );
+    expect(statements).toHaveLength(1);
+    expect([statements[0]!.archives, statements[0]!.linked]).toEqual(['1', true]);
+    const statementBytes = await storage.get(statements[0]!.bucket, statements[0]!.object_key);
+    expect(createHash('sha256').update(statementBytes).digest().equals(statements[0]!.sha256)).toBe(true);
+    expect(statementBytes.toString('latin1')).toContain(statements[0]!.statement_no);
+    // No archive belongs to anything that is not an issued document or statement, and every render job is done.
     const { rows: stray } = await admin().query(
-      `SELECT a.id FROM doc.archived_document a LEFT JOIN bil.billing_document d ON d.id = a.business_document_id AND d.status = 'ISSUED' WHERE d.id IS NULL`,
+      `SELECT a.id FROM doc.archived_document a
+         LEFT JOIN bil.billing_document d ON d.id = a.business_document_id AND d.status = 'ISSUED'
+         LEFT JOIN whl.statement s ON s.id = a.business_document_id AND s.status = 'ISSUED'
+        WHERE d.id IS NULL AND s.id IS NULL`,
     );
     expect(stray).toEqual([]);
     const { rows: jobs } = await admin().query<{ status: string; n: string }>('SELECT status, count(*)::text AS n FROM doc.render_job GROUP BY status');
-    expect(jobs).toEqual([{ status: 'DONE', n: String(rows.length) }]);
+    expect(jobs).toEqual([{ status: 'DONE', n: String(rows.length + statements.length) }]);
   });
 });

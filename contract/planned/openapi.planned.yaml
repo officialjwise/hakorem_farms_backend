@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.6.0"
+  version: "2.7.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -10110,339 +10110,8 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
-  "/statements":
-    get:
-      operationId: listStatements
-      tags:
-        - whl
-      summary: "List customer statements"
-      description: "Permission: `whl.statement.read`."
-      x-permission: whl.statement.read
-      parameters:
-        - name: customerId
-          in: query
-          required: false
-          schema:
-            type: string
-            format: uuid
-        - name: periodEnd
-          in: query
-          required: false
-          schema:
-            type: string
-            format: date
-        - name: cursor
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: limit
-          in: query
-          required: false
-          schema:
-            $ref: "#/components/schemas/PageLimit"
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CustomerStatementPage"
-              examples:
-                default:
-                  value:
-                    data:
-                      - id: "019a7b05-ca26-7b67-a09f-bf4984173827"
-                        statementNo: STM-2026-DDW-000031
-                        status: ISSUED
-                        customer:
-                          id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          publicId: cus_TWMB751S2DFXTAM8
-                          name: "Royal Palm Hotel Ltd"
-                        periodStart: "2026-10-01"
-                        periodEnd: "2026-10-31"
-                        openingPesewas: 850000
-                        invoicedPesewas: 1395200
-                        paidPesewas: 1080000
-                        creditedPesewas: 0
-                        closingPesewas: 1165200
-                        lines:
-                          - date: "2026-10-01"
-                            kind: OPENING
-                            reference: "Balance brought forward"
-                            debitPesewas: 0
-                            creditPesewas: 0
-                            balancePesewas: 850000
-                          - date: "2026-10-06"
-                            kind: INVOICE
-                            reference: INV-2026-DDW-001151
-                            debitPesewas: 395200
-                            creditPesewas: 0
-                            balancePesewas: 1245200
-                          - date: "2026-10-14"
-                            kind: PAYMENT
-                            reference: "PAY-2026-DDW-021240 GCB transfer"
-                            debitPesewas: 0
-                            creditPesewas: 395200
-                            balancePesewas: 850000
-                        documentId: "019a7b05-e915-754a-ba83-5d80fdc8d65e"
-                        currency: GHS
-                      - id: "019a7b06-0804-7f2e-8466-fbb877797496"
-                        statementNo: STM-2026-DDW-000030
-                        status: ISSUED
-                        customer:
-                          id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          publicId: cus_TS4VEDD3ZZNAAQGD
-                          name: "Asantewaa Chop Bar"
-                        periodStart: "2026-10-01"
-                        periodEnd: "2026-10-31"
-                        openingPesewas: 186000
-                        invoicedPesewas: 211800
-                        paidPesewas: 0
-                        creditedPesewas: 0
-                        closingPesewas: 397800
-                        lines: []
-                        documentId: "019a7b06-26f3-7911-9e4a-99eff12a12cd"
-                        currency: GHS
-                      - id: "019a7b06-45e2-72f5-a82d-38276adbb105"
-                        statementNo: STM-2026-DDW-000029
-                        status: ISSUED
-                        customer:
-                          id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
-                          publicId: cus_3Q4VCE9ZY779GAT6
-                          name: "Osu Fresh Mart"
-                        periodStart: "2026-10-01"
-                        periodEnd: "2026-10-31"
-                        openingPesewas: 0
-                        invoicedPesewas: 243700
-                        paidPesewas: 147300
-                        creditedPesewas: 0
-                        closingPesewas: 96400
-                        lines: []
-                        documentId: "019a7b06-64d1-7cd8-b211-d65ee48c4f3c"
-                        currency: GHS
-                      - id: "019a7b06-83c0-76bc-8bf4-74965e3ded74"
-                        statementNo: STM-2026-DDW-000028
-                        status: ISSUED
-                        customer:
-                          id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          publicId: cus_TWMB751S2DFXTAM8
-                          name: "Royal Palm Hotel Ltd"
-                        periodStart: "2026-09-01"
-                        periodEnd: "2026-09-30"
-                        openingPesewas: 412000
-                        invoicedPesewas: 1280000
-                        paidPesewas: 842000
-                        creditedPesewas: 0
-                        closingPesewas: 850000
-                        lines: []
-                        documentId: "019a7b06-a2af-709f-95d8-12cdd7ee8bab"
-                        currency: GHS
-                      - id: "019a7b06-c19e-7a83-afbb-b105519f29e3"
-                        statementNo: STM-2026-DDW-000027
-                        status: ISSUED
-                        customer:
-                          id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          publicId: cus_TS4VEDD3ZZNAAQGD
-                          name: "Asantewaa Chop Bar"
-                        periodStart: "2026-09-01"
-                        periodEnd: "2026-09-30"
-                        openingPesewas: 64000
-                        invoicedPesewas: 186000
-                        paidPesewas: 64000
-                        creditedPesewas: 0
-                        closingPesewas: 186000
-                        lines: []
-                        documentId: "019a7b06-e08d-7466-b99e-4f3ccb50c81a"
-                        currency: GHS
-                    page:
-                      nextCursor: eyJpZCI6IjAxOWE3YyJ9
-                      limit: 25
-                      hasMore: true
-                empty:
-                  summary: "Nothing matches: no rows and no next page"
-                  value:
-                    data: []
-                    page:
-                      nextCursor: null
-                      limit: 25
-                      hasMore: false
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-    post:
-      operationId: createStatement
-      tags:
-        - whl
-      summary: "Produce a customer statement"
-      description: "Permission: `whl.statement.create`."
-      x-permission: whl.statement.create
-      parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/StatementCreate"
-            example:
-              customerId: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-              periodStart: "2026-10-01"
-              periodEnd: "2026-10-31"
-              issue: true
-      responses:
-        "201":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CustomerStatement"
-              example:
-                id: "019a7b05-ca26-7b67-a09f-bf4984173827"
-                statementNo: STM-2026-DDW-000031
-                status: ISSUED
-                customer:
-                  id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  publicId: cus_TWMB751S2DFXTAM8
-                  name: "Royal Palm Hotel Ltd"
-                periodStart: "2026-10-01"
-                periodEnd: "2026-10-31"
-                openingPesewas: 850000
-                invoicedPesewas: 1395200
-                paidPesewas: 1080000
-                creditedPesewas: 0
-                closingPesewas: 1165200
-                lines:
-                  - date: "2026-10-01"
-                    kind: OPENING
-                    reference: "Balance brought forward"
-                    debitPesewas: 0
-                    creditPesewas: 0
-                    balancePesewas: 850000
-                  - date: "2026-10-06"
-                    kind: INVOICE
-                    reference: INV-2026-DDW-001151
-                    debitPesewas: 395200
-                    creditPesewas: 0
-                    balancePesewas: 1245200
-                  - date: "2026-10-14"
-                    kind: PAYMENT
-                    reference: "PAY-2026-DDW-021240 GCB transfer"
-                    debitPesewas: 0
-                    creditPesewas: 395200
-                    balancePesewas: 850000
-                documentId: "019a7b05-e915-754a-ba83-5d80fdc8d65e"
-                currency: GHS
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/statements/{id}":
-    get:
-      operationId: getStatement
-      tags:
-        - whl
-      summary: "Get a customer statement"
-      description: "Permission: `whl.statement.read`."
-      x-permission: whl.statement.read
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CustomerStatement"
-              example:
-                id: "019a7b05-ca26-7b67-a09f-bf4984173827"
-                statementNo: STM-2026-DDW-000031
-                status: ISSUED
-                customer:
-                  id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  publicId: cus_TWMB751S2DFXTAM8
-                  name: "Royal Palm Hotel Ltd"
-                periodStart: "2026-10-01"
-                periodEnd: "2026-10-31"
-                openingPesewas: 850000
-                invoicedPesewas: 1395200
-                paidPesewas: 1080000
-                creditedPesewas: 0
-                closingPesewas: 1165200
-                lines:
-                  - date: "2026-10-01"
-                    kind: OPENING
-                    reference: "Balance brought forward"
-                    debitPesewas: 0
-                    creditPesewas: 0
-                    balancePesewas: 850000
-                  - date: "2026-10-06"
-                    kind: INVOICE
-                    reference: INV-2026-DDW-001151
-                    debitPesewas: 395200
-                    creditPesewas: 0
-                    balancePesewas: 1245200
-                  - date: "2026-10-14"
-                    kind: PAYMENT
-                    reference: "PAY-2026-DDW-021240 GCB transfer"
-                    debitPesewas: 0
-                    creditPesewas: 395200
-                    balancePesewas: 850000
-                documentId: "019a7b05-e915-754a-ba83-5d80fdc8d65e"
-                currency: GHS
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+  "/statements": {}
+  "/statements/{id}": {}
   "/statements/{id}/send":
     post:
       operationId: sendStatement
@@ -41908,26 +41577,38 @@ components:
         - page
     StatementLine:
       type: object
+      description: "One line of a customer statement: the brought-forward line first, then each line of the customer's trade receivables in ledger order with the running balance after it."
       properties:
         date:
           type: string
           format: date
         kind:
           type: string
+          description: "`OPENING` brings the opening balance forward and moves nothing. `INVOICE` is an invoice or a receipt to the customer; `REFUND` a refund paid out; `PAYMENT_REVERSAL` a payment reversed or an allocation taken off; `ADJUSTMENT` a journal (an opening balance entered by the accountant included) or anything else posted to the account."
           enum:
             - OPENING
             - INVOICE
             - PAYMENT
             - CREDIT_NOTE
             - DEBIT_NOTE
+            - REFUND
+            - PAYMENT_REVERSAL
+            - ADJUSTMENT
         reference:
           type: string
+          description: "The source document's number, or `Payment` or `Journal` and the journal's number where the source has none."
         debitPesewas:
           $ref: "#/components/schemas/Pesewas"
         creditPesewas:
           $ref: "#/components/schemas/Pesewas"
         balancePesewas:
           $ref: "#/components/schemas/Pesewas"
+        balanceSide:
+          type: string
+          description: "`D` when the customer owes the balance, `C` when it is in the customer's favour. A balance of zero is `D`."
+          enum:
+            - D
+            - C
       required:
         - date
         - kind
@@ -41935,6 +41616,7 @@ components:
         - debitPesewas
         - creditPesewas
         - balancePesewas
+        - balanceSide
     CustomerStatement:
       type: object
       properties:
@@ -41952,24 +41634,57 @@ components:
             - ISSUED
         customer:
           $ref: "#/components/schemas/CustomerRef"
+        branchId:
+          type: string
+          format: uuid
+          description: "The branch whose ledger lines the statement reads and whose series numbers it."
         periodStart:
           type: string
           format: date
         periodEnd:
           type: string
           format: date
+        issueDate:
+          type:
+            - string
+            - "null"
+          format: date
+          description: "The business day it was issued (Africa/Accra); null for a draft."
         openingPesewas:
-          $ref: "#/components/schemas/Pesewas"
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "What the customer owed before the period; zero when the opening balance is in the customer's favour."
+        openingCreditPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "The opening balance in the customer's favour; zero when the customer owed."
         invoicedPesewas:
-          $ref: "#/components/schemas/Pesewas"
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "Invoices, receipts to the customer and debit notes."
         paidPesewas:
           $ref: "#/components/schemas/Pesewas"
         creditedPesewas:
           $ref: "#/components/schemas/Pesewas"
+        otherChargesPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "Refunds paid, payments reversed or allocations taken off, and journals debited to the customer."
+        otherCreditsPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "Journals credited to the customer."
         closingPesewas:
-          $ref: "#/components/schemas/Pesewas"
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "What the customer owes at the end. Opening less opening credit, plus invoiced and other charges, less credited, paid and other credits, is closing less closing credit, exactly."
+        closingCreditPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "The closing balance in the customer's favour, shown beside a closing balance of zero."
         lines:
           type: array
+          description: "Every line, the brought-forward line first, from `getStatement` and `createStatement`; empty on a `listStatements` page."
           items:
             $ref: "#/components/schemas/StatementLine"
         documentId:
@@ -41977,6 +41692,7 @@ components:
             - string
             - "null"
           format: uuid
+          description: "The archived rendering (`getArchivedDocument`), once DOC has archived it; null for a draft and until then."
         currency:
           $ref: "#/components/schemas/Currency"
       required:
@@ -41984,13 +41700,19 @@ components:
         - statementNo
         - status
         - customer
+        - branchId
         - periodStart
         - periodEnd
+        - issueDate
         - openingPesewas
+        - openingCreditPesewas
         - invoicedPesewas
         - paidPesewas
         - creditedPesewas
+        - otherChargesPesewas
+        - otherCreditsPesewas
         - closingPesewas
+        - closingCreditPesewas
         - lines
         - documentId
         - currency
@@ -42000,6 +41722,10 @@ components:
         customerId:
           type: string
           format: uuid
+        branchId:
+          type: string
+          format: uuid
+          description: "The branch whose account it is. Optional when the caller produces statements at exactly one branch."
         periodStart:
           type: string
           format: date

@@ -1,0 +1,107 @@
+operationId: createStatement
+tags:
+  - whl
+summary: "Produce a customer statement"
+description: "The statement of a customer's account at one branch for a period (FR-WHL-009, ADR-0085): the customer's trade receivables (ledger account 1200 against the customer) read from the ledger, so it ties to the books to the pesewa, whatever posted to the account: invoices and receipts, debit and credit notes, payments (a till's included), refunds, reversed payments and journals such as an opening balance. Each line is named by its source document's number, or by its journal's number when the source has none (a payment). Opening plus invoices and debit notes plus other charges, less credit notes, payments and other credits, equals closing, exactly. A balance in the customer's favour is shown as `openingCreditPesewas` or `closingCreditPesewas` beside a balance of zero, and each line's `balanceSide` is `C`.\n\n`branchId` names the branch; without it the caller must produce statements at exactly one branch (422 `STATEMENT_INVALID`, `BRANCH_REQUIRED`). The period ends today at the latest and spans at most 366 days (`PERIOD_REVERSED`, `PERIOD_NOT_ENDED`, `PERIOD_TOO_LONG`); an unknown customer is `CUSTOMER_UNKNOWN`.\n\nWith `issue: true` the statement is numbered from its branch's STATEMENT series (`STM-2026-DDW-000031`), then rendered and archived after commit: `documentId` is null until it is archived. One issued statement exists per customer, branch and period: asking again answers the first as it stands, so the same period gives the same document. With `issue: false` it is a stored draft with no number and no rendering.\n\nPermission: `whl.statement.create`."
+x-permission: whl.statement.create
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/StatementCreate"
+      example:
+        customerId: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+        branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+        periodStart: "2026-10-01"
+        periodEnd: "2026-10-31"
+        issue: true
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/CustomerStatement"
+        example:
+          id: "019a7b05-ca26-7b67-a09f-bf4984173827"
+          statementNo: STM-2026-DDW-000031
+          status: ISSUED
+          customer:
+            id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+            publicId: cus_TWMB751S2DFXTAM8
+            name: "Royal Palm Hotel Ltd"
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          periodStart: "2026-10-01"
+          periodEnd: "2026-10-31"
+          issueDate: "2026-11-02"
+          openingPesewas: 850000
+          openingCreditPesewas: 0
+          invoicedPesewas: 1395200
+          paidPesewas: 1080000
+          creditedPesewas: 0
+          otherChargesPesewas: 0
+          otherCreditsPesewas: 0
+          closingPesewas: 1165200
+          closingCreditPesewas: 0
+          lines:
+            - date: "2026-10-01"
+              kind: OPENING
+              reference: "Balance brought forward"
+              debitPesewas: 0
+              creditPesewas: 0
+              balancePesewas: 850000
+              balanceSide: D
+            - date: "2026-10-06"
+              kind: INVOICE
+              reference: INV-2026-DDW-001151
+              debitPesewas: 395200
+              creditPesewas: 0
+              balancePesewas: 1245200
+              balanceSide: D
+            - date: "2026-10-14"
+              kind: PAYMENT
+              reference: "Payment JNL-2026-DDW-021240"
+              debitPesewas: 0
+              creditPesewas: 395200
+              balancePesewas: 850000
+              balanceSide: D
+            - date: "2026-10-20"
+              kind: INVOICE
+              reference: INV-2026-DDW-001188
+              debitPesewas: 1000000
+              creditPesewas: 0
+              balancePesewas: 1850000
+              balanceSide: D
+            - date: "2026-10-28"
+              kind: PAYMENT
+              reference: "Payment JNL-2026-DDW-021677"
+              debitPesewas: 0
+              creditPesewas: 684800
+              balancePesewas: 1165200
+              balanceSide: D
+          documentId: "019a7b05-e915-754a-ba83-5d80fdc8d65e"
+          currency: GHS
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

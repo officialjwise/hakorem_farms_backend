@@ -12,7 +12,7 @@ export { LedgerReconciliation, SubledgerSources, type ReconciliationReport } fro
 export { FinancialStatements } from './application/statements';
 export { ChartOfAccounts } from './application/chart';
 export { Periods } from './application/periods';
-export { Journals } from './application/journals';
+export { Journals, type CustomerReceivableLine, type CustomerReceivables } from './application/journals';
 export { ManualJournals } from './application/manual-journals';
 export { PostingRules } from './application/posting-rules';
 export { BankAccounts, type PayoutAccountFacts } from './application/bank-accounts';

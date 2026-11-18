@@ -16,7 +16,7 @@ A branded template per document type, editable by an administrator without a dep
 | `name` | `text` | NOT NULL | |
 | `active_version_id` | `uuid` | NULL, FK `doc.template_version` | |
 
-Standard columns: `MASTER`. UNIQUE (`doc_type`, `output`) among live rows (`uq_template_type_output`). The active version is an ACTIVE version of this template (`ck_template_active_version`, deferred). Seeded: version 1 of the A4 template of each billing document type and the counter receipt's 80 mm thermal template, written and activated by the SYSTEM principal; from 0157 also the supplier remittance advice's A4 template (`REMITTANCE_ADVICE`), with sample data for the preview.
+Standard columns: `MASTER`. UNIQUE (`doc_type`, `output`) among live rows (`uq_template_type_output`). The active version is an ACTIVE version of this template (`ck_template_active_version`, deferred). Seeded: version 1 of the A4 template of each billing document type and the counter receipt's 80 mm thermal template, written and activated by the SYSTEM principal; from 0157 also the supplier remittance advice's A4 template (`REMITTANCE_ADVICE`), with sample data for the preview; from 0241 the customer statement's A4 template (`STATEMENT`, B08 continued 2d), with sample data.
 
 ### `doc.template_version` · DOCUMENT
 

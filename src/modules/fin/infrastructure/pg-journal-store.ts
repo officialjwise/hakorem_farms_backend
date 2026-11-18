@@ -15,6 +15,8 @@ import type {
   PartyRow,
   PostingRuleRow,
   DeterminationRow,
+  ReceivableFilters,
+  ReceivableLineRow,
   RuleChangeRow,
 } from '../application/journal-store';
 import type { DeterminantType, RuleDeterminant, Side } from '../domain/posting';
@@ -37,6 +39,13 @@ type Raw<T, K extends keyof T> = Omit<T, K> & { [P in K]: string };
 function party(row: { party_id: string | null; party_kind: PartyRow['kind'] | null; party_ref: string | null; party_name: string | null }): PartyRow | null {
   return row.party_id === null ? null : { id: row.party_id, kind: row.party_kind!, refId: row.party_ref!, displayName: row.party_name! };
 }
+
+/** Trade receivables (ADR-0003): the control account a customer's statement reads (B08 continued 2d, ADR-0085). */
+const TRADE_RECEIVABLES = '1200';
+
+/** The customer's 1200 lines at a branch: point reads on `ix_journal_line_subledger`, so a serializable reader locks only them. */
+const RECEIVABLE_WHERE = `l.subledger_party_id = (SELECT p.id FROM fin.subledger_party p WHERE p.kind = 'CUSTOMER' AND p.ref_id = $1)
+  AND l.account_id = (SELECT a.id FROM fin.account a WHERE a.code = '${TRADE_RECEIVABLES}') AND l.branch_id = $2`;
 
 function activityWhere(first: number): string {
   return `l.account_id = $${first} AND ($${first + 1}::uuid IS NULL OR l.subledger_party_id = $${first + 1}) AND ($${first + 2}::uuid IS NULL OR l.branch_id = $${first + 2})`;
@@ -134,6 +143,27 @@ export class PgJournalStore implements JournalStore {
           AND ($6::date IS NULL OR (l.posting_date, l.journal_entry_id, l.line_no) > ($6::date, $7::uuid, $8::integer))
         ORDER BY l.posting_date, l.journal_entry_id, l.line_no LIMIT $9`,
       [filters.accountId, filters.partyId, filters.branchId, filters.from, filters.to, after?.postingDate ?? null, after?.entryId ?? null, after?.lineNo ?? null, limit],
+    );
+    return rows.map((r) => ({ ...r, amountPesewas: BigInt(r.amountPesewas) }));
+  }
+
+  async receivableBefore(tx: Transaction, filters: ReceivableFilters): Promise<bigint> {
+    const { rows } = await tx.query<{ total: string }>(
+      `SELECT COALESCE(sum(CASE WHEN l.side = 'D' THEN l.amount_pesewas ELSE -l.amount_pesewas END), 0)::text AS total
+         FROM fin.journal_line l WHERE ${RECEIVABLE_WHERE} AND l.posting_date < $3::date`,
+      [filters.customerId, filters.branchId, filters.from],
+    );
+    return BigInt(rows[0]!.total);
+  }
+
+  async receivableLines(tx: Transaction, filters: ReceivableFilters): Promise<ReceivableLineRow[]> {
+    const { rows } = await tx.query<Raw<ReceivableLineRow, 'amountPesewas'>>(
+      `SELECT l.posting_date::text AS "postingDate", l.journal_entry_id AS "entryId", e.entry_no AS "entryNo", l.line_no AS "lineNo", l.side,
+              l.amount_pesewas::text AS "amountPesewas", e.event_code AS "eventCode", e.kind AS "entryKind", e.source_document_id AS "sourceDocumentId"
+         FROM fin.journal_line l JOIN fin.journal_entry e ON e.id = l.journal_entry_id
+        WHERE ${RECEIVABLE_WHERE} AND l.posting_date BETWEEN $3::date AND $4::date
+        ORDER BY l.posting_date, e.entry_no, l.line_no`,
+      [filters.customerId, filters.branchId, filters.from, filters.to],
     );
     return rows.map((r) => ({ ...r, amountPesewas: BigInt(r.amountPesewas) }));
   }

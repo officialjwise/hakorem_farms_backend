@@ -7,7 +7,7 @@ import type { Authoriser, PrincipalNames, PrincipalRef } from '../../iam';
 import { jsonPesewas, sidedBalance, signedLine } from '../domain/balance';
 import type { Side } from '../domain/posting';
 import { JOURNAL_DOCUMENT_TYPE } from './ledger';
-import type { AccountRefRow, ActivityFilters, ActivityPosition, EntryFilters, EntryHeader, EntryLine, JournalStore, PartyRow } from './journal-store';
+import type { AccountRefRow, ActivityFilters, ActivityPosition, EntryFilters, EntryHeader, EntryLine, JournalStore, PartyRow, ReceivableLineRow } from './journal-store';
 import type { Page } from './periods';
 import { readableBranches } from './read-scope';
 
@@ -89,6 +89,17 @@ export interface ActivityQuery {
   readonly to: string;
   readonly subledgerPartyId?: string | undefined;
   readonly branchId?: string | undefined;
+}
+
+/** A customer's 1200 line, named by its source document: its own number where it has one (an invoice's), else null (a payment). */
+export interface CustomerReceivableLine extends ReceivableLineRow {
+  readonly sourceNumber: string | null;
+}
+
+/** A customer's trade receivables at one branch for a range: the signed balance before it (debits less credits) and its lines. */
+export interface CustomerReceivables {
+  readonly openingPesewas: bigint;
+  readonly lines: readonly CustomerReceivableLine[];
 }
 
 const json = jsonPesewas;
@@ -194,6 +205,20 @@ export class Journals {
         currency: 'GHS',
       };
     });
+  }
+
+  /**
+   * A customer's trade receivables (1200 against the customer's subledger party) at one branch from `from` to `to`
+   * inclusive, oldest first, with the balance before the range (B08 continued 2d, ADR-0085): every invoice, receipt,
+   * credit and debit note, payment, refund, reversal and journal that touched the customer's account, whatever posted it,
+   * so an opening balance entered by manual journal is in it too. Read in the caller's transaction; it authorises nothing
+   * (WHL's statement command has). A customer never posted to reads zero and no lines.
+   */
+  async customerReceivablesIn(tx: Transaction, query: { readonly customerId: string; readonly branchId: string; readonly from: string; readonly to: string }): Promise<CustomerReceivables> {
+    const openingPesewas = await this.store.receivableBefore(tx, query);
+    const rows = await this.store.receivableLines(tx, query);
+    const numbers = await this.documents.numberedRefs(tx, [...new Set(rows.map((r) => r.sourceDocumentId))]);
+    return { openingPesewas, lines: rows.map((r) => ({ ...r, sourceNumber: numbers.get(r.sourceDocumentId)?.number ?? null })) };
   }
 
   /** Entries as the contract shows them, with their lines, actors and source documents. */

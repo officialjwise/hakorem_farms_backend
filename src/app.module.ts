@@ -18,6 +18,7 @@ import { PayModule } from './modules/pay';
 import { DelModule } from './modules/del';
 import { ShpModule } from './modules/shp';
 import { RptModule } from './modules/rpt';
+import { WhlModule } from './modules/whl';
 import { PlatformModule } from './platform/platform.module';
 
 /**
@@ -34,7 +35,7 @@ export class AppModule {
   ): DynamicModule {
     return {
       module: AppModule,
-      imports: [PlatformModule.forRoot(config, logger, clock), IamModule, AudModule, MdmModule, DocModule, FinModule, InvModule, LivModule, PrcModule, BilModule, PayModule, PurModule, DelModule, OrdModule, PosModule, ShpModule, RptModule, ...extra],
+      imports: [PlatformModule.forRoot(config, logger, clock), IamModule, AudModule, MdmModule, DocModule, FinModule, InvModule, LivModule, PrcModule, BilModule, PayModule, PurModule, DelModule, OrdModule, PosModule, ShpModule, WhlModule, RptModule, ...extra],
     };
   }
 }
