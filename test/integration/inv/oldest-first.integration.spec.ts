@@ -210,8 +210,8 @@ describe('oldest first, wherever the server picks a lot (decision 4)', () => {
   });
 
   it('sells single eggs that name no lot from OLD, the only lot left unheld, and refuses a crate no single lot can cover', async () => {
-    const sale = await sellWithNoLot('3.000', 'UNIT', 510n);
-    expect(sale.lines[0]).toMatchObject({ stockUnitId: lot('OLD'), qtyOrdered: '3.000', uom: 'UNIT' });
+    const sale = await sellWithNoLot('3.000', 'EGG', 510n);
+    expect(sale.lines[0]).toMatchObject({ stockUnitId: lot('OLD'), qtyOrdered: '3.000', uom: 'EGG' });
     await expect(sellWithNoLot('1.000', 'CRATE', 4_500n)).rejects.toMatchObject({ code: 'SALE_INVALID' });
   });
 });

@@ -184,7 +184,7 @@ describe('a blind count posts its variances (FR-INV-013)', () => {
     expect(review.status).toBe(200);
     expect(review.body).toMatchObject({ status: 'REVIEW', gainValuePesewas: 0, lossValuePesewas: 3_500 });
     const line = (await get(manager, `/stock-takes/${takeId}/lines`)).body.data[0];
-    expect(line).toMatchObject({ expectedQty: '900.000', countedQty: '870.000', recountQty: null, varianceQty: '-30.000', varianceValuePesewas: 3_500, varianceDirection: 'LOSS', needsRecount: true, uom: 'UNIT' });
+    expect(line).toMatchObject({ expectedQty: '900.000', countedQty: '870.000', recountQty: null, varianceQty: '-30.000', varianceValuePesewas: 3_500, varianceDirection: 'LOSS', needsRecount: true, uom: 'EGG' });
   });
 
   it('refuses to submit before the recount; the recount confirms 870 and the manager posts one STOCKTAKE_LOSS of 3,500', async () => {

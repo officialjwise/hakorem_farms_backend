@@ -166,7 +166,7 @@ describe('a claim raised from a crate at 4,751 with 7 of 30 eggs cracked, the in
         lineNo: 1,
         purchaseOrderLineId: order.line,
         rejectionReasonCode: 'CRACKED',
-        baseUom: 'UNIT',
+        baseUom: 'EGG',
         qtyDeliveredBase: '30.000',
         qtyAcceptedBase: '23.000',
         qtyRejectedBase: '7.000',
@@ -217,7 +217,7 @@ describe('a claim raised from a crate at 4,751 with 7 of 30 eggs cracked, the in
     expect(drafted.status, JSON.stringify(drafted.body)).toBe(201);
     credit = drafted.body.id as string;
     expect(drafted.body).toMatchObject({ kind: 'CREDIT_NOTE', status: 'DRAFT', originalInvoiceId: invoice, supplierClaimId: claim, netPesewas: 1_109, grossPesewas: 1_109 });
-    expect(drafted.body.lines).toEqual([expect.objectContaining({ qty: '7.000', uom: 'UNIT', unitPricePesewas: 0, lineNetPesewas: 1_109, purchaseOrderLineId: order.line })]);
+    expect(drafted.body.lines).toEqual([expect.objectContaining({ qty: '7.000', uom: 'EGG', unitPricePesewas: 0, lineNetPesewas: 1_109, purchaseOrderLineId: order.line })]);
     expect(drafted.body.lines[0].supplierClaimLineId).toEqual(expect.any(String));
     expect((await get(accountant, `/supplier-claims/${claim}`)).body).toMatchObject({ status: 'OPEN', creditNote: { id: credit, supplierInvoiceNo: 'APF-CN-0701', status: 'DRAFT' } });
     const again = await post(accountant, `/supplier-claims/${claim}/credit-note`, { originalInvoiceId: invoice, supplierInvoiceNo: 'APF-CN-0702', invoiceDate: today() });

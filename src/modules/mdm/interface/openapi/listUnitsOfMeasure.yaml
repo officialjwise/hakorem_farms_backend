@@ -2,7 +2,7 @@ operationId: listUnitsOfMeasure
 tags:
   - mdm
 summary: "List units of measure"
-description: "A fixed list, changed only by migration. `displayDecimals` is how many decimal places a quantity in the unit is shown with: 0 for counted units, 3 for weight and volume (CR-003); quantities on the wire keep three places.\n\nPermission: `mdm.product.read`."
+description: "A fixed list, changed only by migration. `displayDecimals` is how many decimal places a quantity in the unit is shown with: 0 for counted units, 3 for weight and volume (CR-003); quantities on the wire keep three places. Each unit has a lowercase `singularName` and `pluralName` for a sentence (\"1 egg\", \"540 eggs\", \"from 10 crates\"; B09u, 2.9.0); eggs are counted in `EGG`.\n\nPermission: `mdm.product.read`."
 x-permission: mdm.product.read
 x-error-codes:
   - VALIDATION_FAILED
@@ -38,32 +38,64 @@ responses:
           default:
             value:
               data:
+                - code: BAG
+                  name: Bag
+                  singularName: bag
+                  pluralName: bags
+                  kind: COUNT
+                  displayDecimals: 0
+                - code: BUNCH
+                  name: Bunch
+                  singularName: bunch
+                  pluralName: bunches
+                  kind: COUNT
+                  displayDecimals: 0
+                - code: CRATE
+                  name: Crate
+                  singularName: crate
+                  pluralName: crates
+                  kind: COUNT
+                  displayDecimals: 0
+                - code: EGG
+                  name: Egg
+                  singularName: egg
+                  pluralName: eggs
+                  kind: COUNT
+                  displayDecimals: 0
                 - code: HEAD
                   name: Head
+                  singularName: head
+                  pluralName: head
                   kind: COUNT
                   displayDecimals: 0
                 - code: KG
                   name: Kilogram
+                  singularName: kilogram
+                  pluralName: kilograms
                   kind: WEIGHT
                   displayDecimals: 3
-                - code: CRATE
-                  name: Crate
-                  kind: COUNT
-                  displayDecimals: 0
+                - code: LITRE
+                  name: Litre
+                  singularName: litre
+                  pluralName: litres
+                  kind: VOLUME
+                  displayDecimals: 3
                 - code: PACK
                   name: Pack
+                  singularName: pack
+                  pluralName: packs
                   kind: COUNT
                   displayDecimals: 0
                 - code: TUBER
                   name: Tuber
-                  kind: COUNT
-                  displayDecimals: 0
-                - code: BAG
-                  name: Bag
+                  singularName: tuber
+                  pluralName: tubers
                   kind: COUNT
                   displayDecimals: 0
                 - code: UNIT
                   name: Unit
+                  singularName: unit
+                  pluralName: units
                   kind: COUNT
                   displayDecimals: 0
               page:

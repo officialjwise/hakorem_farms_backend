@@ -145,7 +145,7 @@ describe('a purchase order line defaults to the last price paid (decision 7, A-2
 
   it('refuses a line with no price when nothing was paid for it: another unit, or a product never bought from the supplier', async () => {
     const before = (await admin().query<{ n: number }>('SELECT count(*)::int AS n FROM pur.purchase_order')).rows[0]!.n;
-    const inEggs = await post(storekeeper, '/purchase-orders', orderBody(AWUTU, { uom: 'UNIT', qtyOrdered: '60.000' }));
+    const inEggs = await post(storekeeper, '/purchase-orders', orderBody(AWUTU, { uom: 'EGG', qtyOrdered: '60.000' }));
     expect(inEggs.status).toBe(422);
     expect(inEggs.body.error).toMatchObject({ code: 'PURCHASE_ORDER_INVALID', details: [{ field: '/lines/0/unitPricePesewas', code: 'PRICE_REQUIRED' }] });
     const neverBought = await post(storekeeper, '/purchase-orders', { ...orderBody(KPONE, {}), lines: [{ productId: id('product:EGG-0001'), uom: 'CRATE', qtyOrdered: '1.000' }] });

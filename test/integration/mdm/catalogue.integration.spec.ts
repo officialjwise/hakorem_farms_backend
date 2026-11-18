@@ -191,14 +191,14 @@ describe('units of measure (FR-MDM-003, CR-003)', () => {
     const units = await get(cashier, '/units-of-measure?limit=100');
     expect(units.status).toBe(200);
     const decimals = Object.fromEntries(units.body.data.map((unit: { code: string; displayDecimals: number }) => [unit.code, unit.displayDecimals]));
-    expect(decimals).toEqual({ BAG: 0, BUNCH: 0, CRATE: 0, HEAD: 0, KG: 3, LITRE: 3, PACK: 0, TUBER: 0, UNIT: 0 });
+    expect(decimals).toEqual({ BAG: 0, BUNCH: 0, CRATE: 0, EGG: 0, HEAD: 0, KG: 3, LITRE: 3, PACK: 0, TUBER: 0, UNIT: 0 });
   });
 
   it('pages by code', async () => {
     const first = await get(cashier, '/units-of-measure?limit=4');
-    expect(first.body.data.map((unit: { code: string }) => unit.code)).toEqual(['BAG', 'BUNCH', 'CRATE', 'HEAD']);
+    expect(first.body.data.map((unit: { code: string }) => unit.code)).toEqual(['BAG', 'BUNCH', 'CRATE', 'EGG']);
     const second = await get(cashier, `/units-of-measure?limit=4&cursor=${encodeURIComponent(first.body.page.nextCursor)}`);
-    expect(second.body.data.map((unit: { code: string }) => unit.code)).toEqual(['KG', 'LITRE', 'PACK', 'TUBER']);
+    expect(second.body.data.map((unit: { code: string }) => unit.code)).toEqual(['HEAD', 'KG', 'LITRE', 'PACK']);
   });
 
   it('the database refuses a precision outside 0 to 3', async () => {

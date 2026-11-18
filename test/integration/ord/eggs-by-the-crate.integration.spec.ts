@@ -88,7 +88,7 @@ afterAll(async () => {
 describe('the seeded eggs are held in eggs and sold by the crate (A-261)', () => {
   it('holds the 30 crates bought as 900 eggs at 105,000, the lot anchored at its delivery, with a crate of 30 as the selling unit', async () => {
     const product = (await admin().query<{ base_uom: string; sale_uom: string }>('SELECT base_uom, sale_uom FROM mdm.product WHERE id = $1', [eggs])).rows[0]!;
-    expect(product).toEqual({ base_uom: 'UNIT', sale_uom: 'CRATE' });
+    expect(product).toEqual({ base_uom: 'EGG', sale_uom: 'CRATE' });
     const conversion = (await admin().query('SELECT numerator::int, denominator::int FROM mdm.product_uom_conversion WHERE product_id = $1 AND from_uom = $2 AND deleted_at IS NULL', [eggs, 'CRATE'])).rows;
     expect(conversion).toEqual([{ numerator: 30, denominator: 1 }]);
     expect(await lotPool()).toEqual({ qty: '900.000', value: '105000', anchorQty: '900.000', anchorValue: '105000' });
@@ -109,7 +109,7 @@ describe('a crate and a single egg each at its own price, cost by place in the d
 
   it('sells 3 single eggs at 220 each, 660, costing 350, never a crate price divided by 30', async () => {
     const sale = await sell([{ quantity: '3.000' }], 660n);
-    expect(sale.lines[0]).toMatchObject({ qtyOrdered: '3.000', uom: 'UNIT', resolvedUnitPricePesewas: 220, finalLineTotalPesewas: 660 });
+    expect(sale.lines[0]).toMatchObject({ qtyOrdered: '3.000', uom: 'EGG', resolvedUnitPricePesewas: 220, finalLineTotalPesewas: 660 });
     // Eggs 31 to 33 of the delivery: half_up(105,000 x 33 / 900) - half_up(105,000 x 30 / 900) = 3,850 - 3,500.
     expect(await issueOf(sale)).toEqual({ qty: '3.000', value: 350 });
   });

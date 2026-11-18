@@ -90,7 +90,7 @@ describe('B05x gate: lot and animal label data answers from the real API', () =>
     const weight = await database.pool('admin').query<{ kg: string | null }>('SELECT last_weight_kg::text AS kg FROM inv.stock_unit WHERE id = $1', [id('unit:G-0143')]);
     expect(goat.body.weightKg).toBe(weight.rows[0]!.kg);
     const eggs = await get(manager, `/stock-units/${id('unit:EGG-BIG-2026-1110')}/label`);
-    expect(eggs.body).toMatchObject({ kind: 'LOT', lotNo: 'EGG-BIG-2026-1110', weightKg: null, onHandQty: '900.000', uom: 'UNIT', expiresOn: seeded.eggsExpireOn });
+    expect(eggs.body).toMatchObject({ kind: 'LOT', lotNo: 'EGG-BIG-2026-1110', weightKg: null, onHandQty: '900.000', uom: 'EGG', expiresOn: seeded.eggsExpireOn });
   });
 
   it('refuses a stock unit label to the Cashier, Sales, Driver and Farm hand, and to a Storekeeper at another location', async () => {

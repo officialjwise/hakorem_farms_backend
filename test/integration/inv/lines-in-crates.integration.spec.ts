@@ -142,9 +142,9 @@ afterAll(async () => {
 describe('a goods receipt line in crates (decision 3)', () => {
   it('keeps 10 crates as entered and moves 300 eggs: the same stock, cost pool and journal as 300 eggs entered in eggs', async () => {
     const inCrates = await postedReceipt({ uom: 'CRATE', qtyReceived: '10.000', valuePesewas: 47_500 });
-    expect(inCrates.lines[0]).toMatchObject({ uom: 'CRATE', qtyReceived: '10.000', qtyRejected: '0.000', baseUom: 'UNIT', qtyReceivedBase: '300.000', qtyRejectedBase: '0.000', valuePesewas: 47_500 });
+    expect(inCrates.lines[0]).toMatchObject({ uom: 'CRATE', qtyReceived: '10.000', qtyRejected: '0.000', baseUom: 'EGG', qtyReceivedBase: '300.000', qtyRejectedBase: '0.000', valuePesewas: 47_500 });
     const inEggs = await postedReceipt({ qtyReceived: '300.000', valuePesewas: 47_500 });
-    expect(inEggs.lines[0]).toMatchObject({ uom: 'UNIT', qtyReceived: '300.000', baseUom: 'UNIT', qtyReceivedBase: '300.000', valuePesewas: 47_500 });
+    expect(inEggs.lines[0]).toMatchObject({ uom: 'EGG', qtyReceived: '300.000', baseUom: 'EGG', qtyReceivedBase: '300.000', valuePesewas: 47_500 });
 
     const crates = await effectOf(inCrates.id as string);
     const eggs = await effectOf(inEggs.id as string);
@@ -194,7 +194,7 @@ describe('a goods receipt line in crates (decision 3)', () => {
       lines: [{ productId: id('product:EGG-0003'), uom: 'CRATE', qtyOrdered: '10.000', unitPricePesewas: 4_750 }],
     });
     expect(order.status, JSON.stringify(order.body)).toBe(201);
-    expect(order.body.lines[0]).toMatchObject({ uom: 'CRATE', qtyOrdered: '10.000', baseUom: 'UNIT', qtyOrderedBase: '300.000' });
+    expect(order.body.lines[0]).toMatchObject({ uom: 'CRATE', qtyOrdered: '10.000', baseUom: 'EGG', qtyOrderedBase: '300.000' });
     expect((await post(storekeeper, `/purchase-orders/${order.body.id as string}/submit`)).status).toBe(200);
     expect((await post(manager, `/purchase-orders/${order.body.id as string}/send`, { channels: ['WHATSAPP'] })).status).toBe(200);
     await postedReceipt({ uom: 'CRATE', qtyReceived: '10.000', valuePesewas: 47_500, purchaseOrderLineId: order.body.lines[0].id }, { purchaseOrderId: order.body.id });
@@ -214,11 +214,11 @@ describe('a stock transfer line in crates (decision 3)', () => {
   it('keeps 2 crates as entered, dispatches 60 eggs, and takes the count on arrival in eggs: 58 received and 2 held as the variance', async () => {
     const draft = await post(manager, '/stock-transfers', { fromLocationId: id('location:SHOP'), toLocationId: id('location:VAN1'), lines: [{ productId: id('product:EGG-0003'), stockUnitId: lot, uom: 'CRATE', qty: '2.000' }] });
     expect(draft.status, JSON.stringify(draft.body)).toBe(201);
-    expect(draft.body.lines[0]).toMatchObject({ uom: 'CRATE', qtyDispatched: '2.000', baseUom: 'UNIT', qtyDispatchedBase: '60.000', qtyReceived: null, varianceQty: null });
+    expect(draft.body.lines[0]).toMatchObject({ uom: 'CRATE', qtyDispatched: '2.000', baseUom: 'EGG', qtyDispatchedBase: '60.000', qtyReceived: null, varianceQty: null });
     expect((await post(manager, `/stock-transfers/${draft.body.id as string}/dispatch`)).status).toBe(200);
     const dispatched = (await admin().query<{ qty: string }>("SELECT qty_base::text AS qty FROM inv.stock_movement WHERE source_document_id = $1 AND movement_type = 'TRANSFER_DISPATCH'", [draft.body.id])).rows;
     expect(dispatched).toEqual([{ qty: '60.000' }]);
-    const received = await post(manager, `/stock-transfers/${draft.body.id as string}/receive`, { lines: [{ lineId: draft.body.lines[0].id, uom: 'UNIT', qtyReceived: '58.000', varianceReasonCode: 'DAMAGED' }] });
+    const received = await post(manager, `/stock-transfers/${draft.body.id as string}/receive`, { lines: [{ lineId: draft.body.lines[0].id, uom: 'EGG', qtyReceived: '58.000', varianceReasonCode: 'DAMAGED' }] });
     expect(received.status, JSON.stringify(received.body)).toBe(200);
     expect(received.body.lines[0]).toMatchObject({ uom: 'CRATE', qtyDispatched: '2.000', qtyDispatchedBase: '60.000', qtyReceived: '58.000', varianceQty: '2.000', varianceReasonCode: 'DAMAGED' });
     const arrived = (await admin().query<{ qty: string }>("SELECT qty_base::text AS qty FROM inv.stock_movement WHERE source_document_id = $1 AND movement_type = 'TRANSFER_RECEIPT'", [draft.body.id])).rows;

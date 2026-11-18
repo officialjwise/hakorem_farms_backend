@@ -27,6 +27,9 @@ export interface CategoryView {
 export interface UomView {
   readonly code: string;
   readonly name: string;
+  /** B09u: the unit's name for one ("egg", "crate") and for many ("eggs", "crates"), lowercase, for a sentence. */
+  readonly singularName: string;
+  readonly pluralName: string;
   readonly kind: UomKind;
   readonly displayDecimals: number;
 }

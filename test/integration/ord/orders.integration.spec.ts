@@ -281,7 +281,7 @@ describe('createOrder (FR-ORD-001, FR-ORD-003, FR-ORD-004)', () => {
     expect(mixed.status).toBe(201);
     expect(mixed.body.lines[0]).toMatchObject({ qtyOrdered: '2.000', uom: 'CRATE', resolvedUnitPricePesewas: 6_000, estimatedLineTotalPesewas: 12_000 });
     const singles = await create(as('sales'), order({ lines: [{ productId: id('eggs'), quantity: '12.000' }] }));
-    expect(singles.body.lines[0]).toMatchObject({ qtyOrdered: '12.000', uom: 'UNIT', resolvedUnitPricePesewas: 220, estimatedLineTotalPesewas: 2_640 });
+    expect(singles.body.lines[0]).toMatchObject({ qtyOrdered: '12.000', uom: 'EGG', resolvedUnitPricePesewas: 220, estimatedLineTotalPesewas: 2_640 });
     const bag = await create(as('sales'), order({ lines: [{ productId: id('eggs'), quantity: '1.000', uom: 'BAG' }] }));
     expect(bag.status).toBe(422);
     expect(bag.body.error).toMatchObject({ code: 'ORDER_INVALID', details: [expect.objectContaining({ field: '/lines/0/uom', code: 'NO_CONVERSION' })] });
