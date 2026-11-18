@@ -91,6 +91,7 @@ describe('staff login (ADR-0016, docs/API.md section 3.1)', () => {
       'pay.refund.read',
       'pay.store_credit.read',
       'pos.cash.move',
+      'pos.pin.set',
       'pos.register.read',
       'pos.sale.create',
       'pos.shift.close',
