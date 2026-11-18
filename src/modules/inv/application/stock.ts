@@ -1,9 +1,9 @@
 import { Money, createUuidV7Generator, type Clock, type Quantity, type Weight } from '@hakorem/kernel';
-import { IsolationLevelError, type Transaction } from '../../../platform/database/unit-of-work';
+import { databaseErrorOf, IsolationLevelError, type Transaction } from '../../../platform/database/unit-of-work';
 import type { DomainEvents } from '../../../platform/events/domain-events';
 import type { UpkeepExpensed } from '../events';
 import { translateStockRefusal } from './errors';
-import type { CostElement, StockStore, WeightSource } from './stock-store';
+import type { ConflictRow, CostElement, MovementRow, PostedRow, StockStore, WeightSource } from './stock-store';
 
 /** A movement a command posts. The value of anything leaving a physical location is the database's, from the pool. */
 export interface MovementRequest {
@@ -85,6 +85,44 @@ export const INV_LEDGER_EVENTS = [
   'inv.SupplierReturnIssued',
 ] as const;
 
+/** The kinds of stock exception an offline sale's stock may raise (ADR-0027 points 3 and 4, OFFLINE_SYNC 8). */
+export type OfflineConflictKind = ConflictRow['kind'];
+
+/** The movement an offline sale asks for, with what the till said was true when it sold (an exception's claim). */
+export interface OfflineIssueRequest extends Omit<MovementRequest, 'movementType' | 'value' | 'costElement' | 'reasonCode' | 'reservationId' | 'reversesMovementId' | 'returnsMovementId'> {
+  readonly claim: unknown;
+}
+
+/** An exception an offline sale's stock raised, with what the server holds (the other half of its `{claim, fact}`). */
+export interface OfflineException {
+  readonly id: string;
+  readonly kind: string;
+  readonly qty: string | null;
+  readonly fact: Readonly<Record<string, unknown>>;
+}
+
+/** What became of an offline sale's stock: it moved (perhaps with exceptions the trigger raised), or an exception stands in its place. */
+export type OfflineIssueOutcome =
+  | { readonly kind: 'MOVED'; readonly movement: PostedMovement; readonly exceptions: readonly OfflineException[] }
+  | { readonly kind: 'NOT_MOVED'; readonly exception: OfflineException };
+
+/** The offline sale's movement type: it may take countable stock below zero, raising an exception (migration 0044). */
+export const SALE_ISSUE_OFFLINE = 'SALE_ISSUE_OFFLINE';
+
+/** A refusal of the trigger, by the rule it names, as the conflict an offline sale records in the movement's place. */
+const CONFLICT_BY_RULE: Readonly<Record<string, OfflineConflictKind>> = {
+  ck_stock_serial_location: 'SERIAL_CONFLICT',
+  ck_stock_unit_inactive: 'SERIAL_CONFLICT',
+  ck_stock_in_transit: 'SERIAL_CONFLICT',
+  ck_stock_on_hold: 'HOLD_CONFLICT',
+  // A lot past its expiry is withheld from sale as a hold withholds it (A-278 (g)).
+  ck_stock_expired: 'HOLD_CONFLICT',
+  ck_stock_reserved: 'RESERVATION_CONFLICT',
+  ck_stock_reservation_use: 'RESERVATION_CONFLICT',
+  ck_stock_negative: 'NEGATIVE_STOCK',
+  ck_stock_held: 'NEGATIVE_STOCK',
+};
+
 export class Stock {
   private readonly nextId: () => string;
 
@@ -101,9 +139,62 @@ export class Stock {
     if (tx.isolation !== 'serializable') {
       throw new IsolationLevelError(tx.isolation);
     }
-    const id = this.nextId();
-    const row = {
-      id,
+    const row = this.rowOf(actorId, request);
+    const posted = await this.store.insertMovement(tx, row).catch(translateStockRefusal);
+    return { id: row.id, value: await this.afterPosting(tx, actorId, row, posted) };
+  }
+
+  /**
+   * An offline sale's stock (ADR-0027 points 3 and 4, OFFLINE_SYNC 7.1 step 5, B09b continued 2b): a `SALE_ISSUE_OFFLINE`
+   * movement posted inside a savepoint. Countable and lot stock may go below zero, and the trigger raises its
+   * NEGATIVE_STOCK (or RESERVATION_CONFLICT) exception beside the movement. A movement the trigger refuses (an animal
+   * sold elsewhere or no longer where the sale says, under a hold or past its expiry, reserved for another order) is
+   * rolled back to the savepoint and an exception is raised in its place, naming the till's claim and the server's
+   * fact: the sale is never refused for its stock. Any other failure is the caller's. It authorises nothing.
+   */
+  async postOfflineIssueIn(tx: Transaction, actorId: string, request: OfflineIssueRequest, raisedAt: Date): Promise<OfflineIssueOutcome> {
+    if (tx.isolation !== 'serializable') throw new IsolationLevelError(tx.isolation);
+    const row = this.rowOf(actorId, { ...request, movementType: SALE_ISSUE_OFFLINE });
+    await tx.query('SAVEPOINT offline_issue');
+    let posted: PostedRow;
+    try {
+      posted = await this.store.insertMovement(tx, row);
+    } catch (error) {
+      const failure = databaseErrorOf(error);
+      const kind = failure?.code === 'HK010' && failure.constraint !== undefined ? CONFLICT_BY_RULE[failure.constraint] : undefined;
+      if (kind === undefined) throw error;
+      await tx.query('ROLLBACK TO SAVEPOINT offline_issue');
+      const standing = row.stockUnitId === null ? null : await this.store.unitStanding(tx, row.stockUnitId, row.occurredAt);
+      const fact = {
+        rule: failure!.constraint!,
+        refusal: failure!.message ?? failure!.constraint!,
+        ...(standing === null ? {} : { stockUnit: standing.identifier, status: standing.status, currentLocationId: standing.currentLocationId, holds: standing.holds }),
+      };
+      const id = await this.raiseConflictIn(
+        tx,
+        { kind, branchId: row.branchId, productId: row.productId, stockUnitId: row.stockUnitId, locationId: row.fromLocationId, sourceDocumentId: row.sourceDocumentId, qty: row.qtyBase, claim: request.claim, fact },
+        raisedAt,
+      );
+      return { kind: 'NOT_MOVED', exception: { id, kind, qty: row.qtyBase, fact } };
+    }
+    await tx.query('RELEASE SAVEPOINT offline_issue');
+    const value = await this.afterPosting(tx, actorId, row, posted);
+    const raised = await this.store.exceptionsOfMovement(tx, row.id);
+    return { kind: 'MOVED', movement: { id: row.id, value }, exceptions: raised.map((e) => ({ ...e, fact: { movementId: row.id } })) };
+  }
+
+  /**
+   * An exception raised in the place of an offline sale's movement that could not even be attempted (a lot-tracked line
+   * with no lot at the till's location to issue from, A-278 (f)): the sale is recorded, the stock is not moved.
+   */
+  async raiseConflictIn(tx: Transaction, c: Omit<ConflictRow, 'details' | 'raisedAt'> & { readonly claim: unknown; readonly fact: unknown }, raisedAt: Date): Promise<string> {
+    const { claim, fact, ...row } = c;
+    return this.store.raiseConflict(tx, { ...row, details: { claim, fact }, raisedAt });
+  }
+
+  private rowOf(actorId: string, request: MovementRequest): MovementRow {
+    return {
+      id: this.nextId(),
       movementType: request.movementType,
       productId: request.productId,
       stockUnitId: request.stockUnitId ?? null,
@@ -125,17 +216,20 @@ export class Stock {
       occurredAt: request.occurredAt,
       actorId,
     };
-    const posted = await this.store.insertMovement(tx, row).catch(translateStockRefusal);
+  }
+
+  /** The movement's ledger event with the value the database decided, then the reorder rules judged (FR-INV-015). */
+  private async afterPosting(tx: Transaction, actorId: string, row: MovementRow, posted: PostedRow): Promise<Money> {
     const value = Money.ofPesewas(posted.valuePesewas);
     if (posted.postingEvent !== null) {
       await this.events.publish<StockPostingPayload>(tx, {
         type: posted.postingEvent,
         subjectType: 'StockMovement',
-        subjectId: id,
-        branchId: request.branchId,
-        occurredAt: request.occurredAt,
+        subjectId: row.id,
+        branchId: row.branchId,
+        occurredAt: row.occurredAt,
         payload: {
-          movementId: id,
+          movementId: row.id,
           movementType: row.movementType,
           productId: row.productId,
           stockUnitId: row.stockUnitId,
@@ -150,8 +244,8 @@ export class Stock {
         },
       });
     }
-    await this.watch.evaluateIn(tx, actorId, [request.productId]);
-    return { id, value };
+    await this.watch.evaluateIn(tx, actorId, [row.productId]);
+    return value;
   }
 
   /**

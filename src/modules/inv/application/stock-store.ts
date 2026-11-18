@@ -90,4 +90,31 @@ export interface StockStore {
   /** The value of every cost pool summed per product, for the ledger's nightly reconciliation (ADR-0056). */
   poolValueByProduct(tx: Transaction): Promise<{ readonly productId: string; readonly valuePesewas: bigint }[]>;
   raiseDrift(tx: Transaction, row: DriftRow): Promise<string>;
+  /** An offline sale's stock that could not move, or could only move with a conflict (ADR-0027 point 3, B09b continued 2b). */
+  raiseConflict(tx: Transaction, row: ConflictRow): Promise<string>;
+  /** The exceptions the movement trigger raised for one movement (negative stock, a reservation run over). */
+  exceptionsOfMovement(tx: Transaction, movementId: string): Promise<{ readonly id: string; readonly kind: string; readonly qty: string | null }[]>;
+  /** Where a unit stands now and what it is, for an exception's facts. */
+  unitStanding(tx: Transaction, unitId: string, at: Date): Promise<UnitStanding | null>;
+}
+
+/** Where a unit stands, what it is, and the holds covering an instant: an offline exception's fact. */
+export interface UnitStanding {
+  readonly identifier: string;
+  readonly status: string;
+  readonly currentLocationId: string | null;
+  readonly holds: readonly { readonly kind: string; readonly startsAt: string; readonly endsAt: string | null; readonly sourceDocumentId: string }[];
+}
+
+/** A stock exception raised in a movement's place (`inv.stock_exception`, no movement). */
+export interface ConflictRow {
+  readonly kind: 'NEGATIVE_STOCK' | 'SERIAL_CONFLICT' | 'HOLD_CONFLICT' | 'RESERVATION_CONFLICT';
+  readonly branchId: string;
+  readonly productId: string;
+  readonly stockUnitId: string | null;
+  readonly locationId: string;
+  readonly sourceDocumentId: string;
+  readonly qty: string;
+  readonly details: { readonly claim: unknown; readonly fact: unknown };
+  readonly raisedAt: Date;
 }
