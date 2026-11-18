@@ -5,8 +5,9 @@
 -- no open invoice explains. Every amount arrives formatted; the template never computes. It is activated, and version 1
 -- retired, only while version 1 is still the active one: a replacement an administrator activated is left alone.
 -- Data category: none (a lookup row; the sample data is invented and marked SAMPLE).
--- Rollback: tested (`pnpm db:rollback`) before a statement is rendered with version 2: version 1 is active again.
--- Afterwards the archive and its render job name version 2, so the down step keeps it and says so.
+-- Rollback: tested (`pnpm db:rollback`): the down step keeps version 2 and says so, since a retired version cannot be
+-- made active again (doc.template_version_guard) and the archive and render jobs may name version 2; a forward fix
+-- (a new version) replaces it.
 
 -- migrate:up
 INSERT INTO doc.template_version (id, template_id, version_no, body, sample_data, status, created_by, updated_by)
@@ -34,15 +35,11 @@ UPDATE doc.template SET active_version_id = '01900000-0000-7000-8000-00000000052
    AND EXISTS (SELECT 1 FROM doc.template_version n WHERE n.id = '01900000-0000-7000-8000-000000000528' AND n.status = 'ACTIVE');
 
 -- migrate:down
+-- Version 2 is kept: a retired version cannot be made active again (doc.template_version_guard), and version 2 renders
+-- a statement without an ageing summary as before (the section prints blank). Applying again finds it (ON CONFLICT DO
+-- NOTHING) and changes nothing. An administrator replaces it with a new version if wanted.
 DO $$
 BEGIN
-  UPDATE doc.template SET active_version_id = '01900000-0000-7000-8000-000000000518', version = version + 1
-   WHERE id = '01900000-0000-7000-8000-000000000508' AND active_version_id = '01900000-0000-7000-8000-000000000528';
-  DELETE FROM doc.template_version WHERE id = '01900000-0000-7000-8000-000000000528';
-  UPDATE doc.template_version SET status = 'ACTIVE', version = version + 1
-   WHERE id = '01900000-0000-7000-8000-000000000518' AND status = 'RETIRED'
-     AND EXISTS (SELECT 1 FROM doc.template t WHERE t.id = '01900000-0000-7000-8000-000000000508' AND t.active_version_id = '01900000-0000-7000-8000-000000000518');
-EXCEPTION WHEN foreign_key_violation THEN
-  RAISE NOTICE 'doc.template_version 2 of STATEMENT is kept: a statement was rendered or archived with it';
+  RAISE NOTICE 'doc.template_version 2 of STATEMENT is kept: version 1 is retired and cannot be reactivated';
 END
 $$;
