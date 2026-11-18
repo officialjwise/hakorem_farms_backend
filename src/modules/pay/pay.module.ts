@@ -1,5 +1,5 @@
 import { Inject, Module, type OnModuleInit } from '@nestjs/common';
-import type { Clock } from '@hakorem/kernel';
+import { createUuidV7Generator, type Clock } from '@hakorem/kernel';
 import type { Logger } from 'pino';
 import { AuditTrail } from '../../platform/audit/audit-trail';
 import { APP_CONFIG, type AppConfig } from '../../platform/config/app-config';
@@ -17,6 +17,7 @@ import { BankAccounts, FinModule } from '../fin';
 import { Approvals, Authoriser, IamModule, PRINCIPAL_NAMES, type PrincipalNames } from '../iam';
 import { MasterDataRefs, MdmModule } from '../mdm';
 import { Breaks } from './application/breaks';
+import { UnverifiedTenders } from './application/unverified-tenders';
 import { PAYMENT_STORE, type PaymentStore } from './application/payment-store';
 import { PAY_LEDGER_EVENTS, Payments } from './application/payments';
 import { ProviderPayments } from './application/provider-payments';
@@ -191,8 +192,14 @@ import { MyStoreCreditController, PaymentsController, ReceivablesController, Ref
       ) => new Refunds(store, payments, refs, documents, events, audit, breaks, uow, authoriser, idempotency, approvals, principals, cursors, provider, clock, logger, storeCredit, billing),
       inject: [PAYMENT_STORE, Payments, MasterDataRefs, DocumentRegistry, DomainEvents, AuditTrail, Breaks, UnitOfWork, Authoriser, Idempotency, Approvals, PRINCIPAL_NAMES, Cursors, PAYMENT_PROVIDER, CLOCK, LOGGER, StoreCredit, Billing],
     },
+    {
+      provide: UnverifiedTenders,
+      useFactory: (payments: Payments, breaks: Breaks, refs: MasterDataRefs, bankAccounts: BankAccounts, settings: Settings, audit: AuditTrail, clock: Clock) =>
+        new UnverifiedTenders(payments, breaks, refs, bankAccounts, settings, audit, clock, createUuidV7Generator(clock)),
+      inject: [Payments, Breaks, MasterDataRefs, BankAccounts, Settings, AuditTrail, CLOCK],
+    },
   ],
-  exports: [Payments, ProviderPayments, Refunds, Receipts, StoreCredit, TillShiftRegistry],
+  exports: [Payments, ProviderPayments, Refunds, Receipts, StoreCredit, TillShiftRegistry, UnverifiedTenders],
 })
 export class PayModule implements OnModuleInit {
   constructor(
