@@ -1,5 +1,5 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
-import type { BillingStore, DocumentFilter, DocumentRecord, DraftHeader, LevyRecord, LineRecord, OpenItemFilter, OpenItemRecord, ReprintRecord, SettlementRecord } from '../application/billing-store';
+import type { BillingStore, DocumentFilter, DocumentRecord, DraftHeader, LevyRecord, LineRecord, OpenItemFilter, OpenItemRecord, ReceivableAsAtFilter, ReceivableAsAtRecord, ReprintRecord, SettlementRecord } from '../application/billing-store';
 
 interface HeaderRow {
   id: string;
@@ -273,6 +273,30 @@ export class PgBillingStore implements BillingStore {
       })),
       totalOutstandingPesewas: BigInt(total.rows[0]!.total),
     };
+  }
+
+  async receivablesAsAt(tx: Transaction, f: ReceivableAsAtFilter): Promise<ReceivableAsAtRecord[]> {
+    const { rows } = await tx.query<{ id: string; kind: string; document_no: string | null; customer_id: string; branch_id: string; issue_date: string; due_date: string | null; gross: string; credited: string }>(
+      `SELECT d.id, d.kind, d.document_no, d.customer_id, d.branch_id, d.issue_date::text, d.due_date::text, d.gross_pesewas::text AS gross,
+              COALESCE((SELECT sum(c.gross_pesewas) FROM bil.billing_document c
+                         WHERE c.original_document_id = d.id AND c.kind = 'CREDIT_NOTE' AND c.status = 'ISSUED' AND c.issue_date <= $3::date), 0)::text AS credited
+         FROM bil.billing_document d
+        WHERE d.status = 'ISSUED' AND d.kind IN ('INVOICE', 'RECEIPT', 'DEBIT_NOTE') AND d.customer_id IS NOT NULL
+          AND d.branch_id = ANY($1::uuid[]) AND ($2::uuid IS NULL OR d.customer_id = $2) AND d.issue_date <= $3::date
+        ORDER BY d.customer_id, d.id`,
+      [f.branchIds, f.customerId, f.asOf],
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      kind: r.kind,
+      documentNo: r.document_no,
+      customerId: r.customer_id,
+      branchId: r.branch_id,
+      issueDate: r.issue_date,
+      dueDate: r.due_date,
+      grossPesewas: BigInt(r.gross),
+      creditedPesewas: BigInt(r.credited),
+    }));
   }
 
   async customerOpenItems(tx: Transaction, customerId: string): Promise<OpenItemRecord[]> {

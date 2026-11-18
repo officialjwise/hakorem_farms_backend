@@ -24,6 +24,8 @@ import { ProviderPayments } from './application/provider-payments';
 import { TillShiftRegistry } from './application/till-shifts';
 import { PAYMENT_REVERSAL_KIND, Receipts } from './application/receipts';
 import { Receivables } from './application/receivables';
+import { ALLOCATIONS_AS_AT_STORE, AllocationsAsAt, type AllocationsAsAtStore } from './application/allocations-as-at';
+import { PgAllocationsAsAtStore } from './infrastructure/pg-allocations-as-at-store';
 import { StoreCredit } from './application/store-credit';
 import { REFUND_KIND, Refunds } from './application/refunds';
 import { PaymentWebhooks } from './application/webhooks';
@@ -49,6 +51,8 @@ import { MyStoreCreditController, PaymentsController, ReceivablesController, Ref
   controllers: [PaymentsController, RefundsController, WebhooksController, StoreCreditController, MyStoreCreditController, ReceivablesController, ReconciliationController, BankStatementLinesController],
   providers: [
     { provide: PAYMENT_STORE, useClass: PgPaymentStore },
+    { provide: ALLOCATIONS_AS_AT_STORE, useClass: PgAllocationsAsAtStore },
+    { provide: AllocationsAsAt, useFactory: (store: AllocationsAsAtStore) => new AllocationsAsAt(store), inject: [ALLOCATIONS_AS_AT_STORE] },
     { provide: RECONCILIATION_STORE, useClass: PgReconciliationStore },
     {
       provide: Reconciliation,
@@ -199,7 +203,7 @@ import { MyStoreCreditController, PaymentsController, ReceivablesController, Ref
       inject: [Payments, Breaks, MasterDataRefs, BankAccounts, Settings, AuditTrail, CLOCK],
     },
   ],
-  exports: [Payments, ProviderPayments, Refunds, Receipts, StoreCredit, TillShiftRegistry, UnverifiedTenders],
+  exports: [Payments, ProviderPayments, Refunds, Receipts, StoreCredit, TillShiftRegistry, UnverifiedTenders, AllocationsAsAt],
 })
 export class PayModule implements OnModuleInit {
   constructor(

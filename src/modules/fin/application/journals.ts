@@ -221,6 +221,17 @@ export class Journals {
     return { openingPesewas, lines: rows.map((r) => ({ ...r, sourceNumber: numbers.get(r.sourceDocumentId)?.number ?? null })) };
   }
 
+  /**
+   * Each customer's trade receivables (1200 against its `CUSTOMER` subledger party) at the branches given, as at the end
+   * of a business day: the signed balance, debits less credits, of every line posted on or before it, whatever posted
+   * it (an opening balance journal included). Customers whose balance is nil are absent. WHL's ageing ties its buckets
+   * to it (FR-WHL-010, ADR-0089). Read in the caller's transaction; it authorises nothing.
+   */
+  async customerReceivableBalancesIn(tx: Transaction, query: { readonly branchIds: readonly string[]; readonly customerId: string | null; readonly asOf: string }): Promise<ReadonlyMap<string, bigint>> {
+    if (query.branchIds.length === 0) return new Map();
+    return this.store.receivableBalances(tx, query);
+  }
+
   /** Entries as the contract shows them, with their lines, actors and source documents. */
   async views(tx: Transaction, entries: readonly EntryHeader[]): Promise<JournalEntryView[]> {
     const lines = await this.store.linesOf(tx, entries.map((e) => e.id));

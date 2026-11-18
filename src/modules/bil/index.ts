@@ -6,6 +6,6 @@
 export { BilModule } from './bil.module';
 export { BillingNumberingAudit, type NumberingAuditReport } from './application/numbering-audit';
 export { Billing, type BillingDocumentView, type CreditPreview, type IssueLineRequest, type IssueRequest, type SettleableDocument } from './application/billing';
-export type { OpenItemRecord } from './application/billing-store';
+export type { OpenItemRecord, ReceivableAsAtRecord } from './application/billing-store';
 export { AllocationExceedsOutstandingError } from './application/errors';
 export type { BillingLinePayload, BillingDocumentPayload, CreditNoteIssued, DebitNoteIssued, InvoiceIssued, ProformaIssued } from './events';

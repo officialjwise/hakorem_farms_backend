@@ -4,6 +4,7 @@
  * `ProviderPayments.releaseChargeIn`: the port an order calls when it stops waiting for a provider payment (A-210).
  * `UnverifiedTenders.recordIn`: an offline mobile money tender recorded `UNVERIFIED` with its break (B09b continued 2c).
  * `TillShiftRegistry`: the `TillShiftCheck` port POS implements, asked before any cash moves into or out of a till (ADR-0077).
+ * `AllocationsAsAt`: what each billing document had applied to it by a business day, for WHL's ageing (ADR-0089).
  * Events are in `events.ts`.
  */
 export { PayModule } from './pay.module';
@@ -13,5 +14,6 @@ export { Refunds } from './application/refunds';
 export { TillShiftRegistry, type TillCashAnswer, type TillCashDirection, type TillCashRefusal, type TillCashRequest, type TillShiftCheck } from './application/till-shifts';
 export { Receipts } from './application/receipts';
 export { UnverifiedTenders, type UnverifiedTenderRequest } from './application/unverified-tenders';
+export { AllocationsAsAt } from './application/allocations-as-at';
 export { PaymentInvalidError, PaymentRequiresVerificationError } from './application/errors';
 export type { DepositAllocated, PaymentCleared, PaymentFailed, RefundPaid, RegisterRefPayload } from './events';

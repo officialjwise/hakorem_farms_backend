@@ -117,6 +117,8 @@ export interface BillingStore {
   openItems(tx: Transaction, filter: OpenItemFilter, beforeId: string | null, limit: number): Promise<{ readonly rows: OpenItemRecord[]; readonly totalOutstandingPesewas: bigint }>;
   /** Every open item of one customer at every branch, oldest due first. */
   customerOpenItems(tx: Transaction, customerId: string): Promise<OpenItemRecord[]>;
+  /** Every issued invoice, receipt and debit note to a named customer issued by `asOf`, with its credit notes issued by then (B10 continued 2). */
+  receivablesAsAt(tx: Transaction, filter: ReceivableAsAtFilter): Promise<ReceivableAsAtRecord[]>;
   /** Ids of matching documents, newest first, after the given id. */
   list(tx: Transaction, filter: DocumentFilter, afterId: string | null, limit: number): Promise<string[]>;
   /** Sets the archived rendering and its content hash once, after DOC has archived it (B08 continued 2b). */
@@ -141,6 +143,27 @@ export interface OpenItemFilter {
   readonly customerId: string | null;
   /** Only documents due before this business date. */
   readonly overdueBefore: string | null;
+}
+
+export interface ReceivableAsAtFilter {
+  readonly branchIds: readonly string[];
+  readonly customerId: string | null;
+  /** The business date (Africa/Accra), inclusive. */
+  readonly asOf: string;
+}
+
+/** An invoice, receipt or debit note as it stood at the end of a business day, before any payment (WHL's ageing). */
+export interface ReceivableAsAtRecord {
+  readonly id: string;
+  readonly kind: string;
+  readonly documentNo: string | null;
+  readonly customerId: string;
+  readonly branchId: string;
+  readonly issueDate: string;
+  readonly dueDate: string | null;
+  readonly grossPesewas: bigint;
+  /** Its issued credit notes dated on or before the day. */
+  readonly creditedPesewas: bigint;
 }
 
 export interface OpenItemRecord {

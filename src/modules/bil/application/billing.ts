@@ -34,7 +34,7 @@ import {
 import { lineNumber, pageProbe } from '../domain/line-numbers';
 import { renderDataOf } from '../domain/render-data';
 import type { BillingDocumentPayload, CreditNoteIssued, DebitNoteIssued } from '../events';
-import type { BillingStore, DocumentFilter, DocumentRecord, DraftHeader, LevyRecord, LineRecord, OpenItemFilter, OpenItemRecord, ReprintRecord, SettlementRecord } from './billing-store';
+import type { BillingStore, DocumentFilter, DocumentRecord, DraftHeader, LevyRecord, LineRecord, OpenItemFilter, OpenItemRecord, ReceivableAsAtFilter, ReceivableAsAtRecord, ReprintRecord, SettlementRecord } from './billing-store';
 import { AllocationExceedsOutstandingError, BilReferenceNotFoundError, BillingDocumentInvalidError, CreditNoteExceedsOriginalError } from './errors';
 
 export const CREDIT_NOTE_KIND = 'CREDIT_NOTE';
@@ -420,6 +420,16 @@ export class Billing {
    */
   customerOpenItemsIn(tx: Transaction, customerId: string): Promise<OpenItemRecord[]> {
     return this.store.customerOpenItems(tx, customerId);
+  }
+
+  /**
+   * Every invoice, receipt and debit note issued to a named customer at the branches given on or before a business day,
+   * with what its credit notes issued by then took off (WHL's ageing as at a date, FR-WHL-010, ADR-0089). Payments are
+   * PAY's (`AllocationsAsAt`). Read in the caller's transaction; it authorises nothing.
+   */
+  receivablesAsAtIn(tx: Transaction, filter: ReceivableAsAtFilter): Promise<ReceivableAsAtRecord[]> {
+    if (filter.branchIds.length === 0) return Promise.resolve([]);
+    return this.store.receivablesAsAt(tx, filter);
   }
 
   /** Documents by id as the contract shows them, in the caller's transaction; unknown ids are absent. It authorises nothing (ORD's order view, A-224). */
