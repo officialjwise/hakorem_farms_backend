@@ -1,5 +1,7 @@
 # Table dictionary: `iam`
 
+**Published in B09b continued (migration 0237, ADR-0047, ADR-0077 Amendments):** `iam.holds_permission_at(principal, permission, branch)`, STABLE, SECURITY DEFINER: whether an active principal holds the permission now (`platform.app_now()`) through a live grant at the branch. Read by PAY's till cash triggers and POS's cash movement guard.
+
 Owner: IAM module. Identity, sessions, roles, grants and maker-checker approvals (ADR-0016, ADR-0017). Conventions are in `docs/DATA_MODEL.md`.
 
 ---
