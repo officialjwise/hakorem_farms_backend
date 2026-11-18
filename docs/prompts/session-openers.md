@@ -2620,7 +2620,7 @@ source document, which also brings in B9a's payments without a change. Write the
 including FR-WHL-009's case (opening 100,000, invoices 250,000, credit note 20,000, payment 150,000, closing 180,000)
 and a customer in credit. sendStatement stays planned for B11 (ADR-0062). Extend the seed with one statement.
 Stop at the gate, write docs/sessions/B08c2d-customer-statements.md, and merge into main when every run on the pull
-request is green. End the report with B10's opening message (lane B, owner 2026-11-17).
+request is green. End the report with B09u's opening message (lane B, owner 2026-11-17).
 ```
 
 ## B09u — Unit names, the egg base unit and the supplier account
