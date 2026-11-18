@@ -461,6 +461,7 @@ The "Source" column says where the code comes from. **Contract** means the code 
 | `SHIFT_INVALID` | 422 | A shift cannot be opened or closed like this, every one in `details[].code`: `ID_NOT_UUID_V7`, `REGISTER_RETIRED`, `OPENED_AT_OUT_OF_WINDOW`, `CASH_NOT_DECLARED`, `METHOD_DECLARED_TWICE`, `METHOD_UNKNOWN`, `DEVICE_SALES_NOT_SYNCED`, `SHIFT_NOT_CLOSING` (2.5.0) |
 | `CASH_MOVEMENT_INVALID` | 422 | A cash movement breaks a till rule, every one in `details[].code`: `AMOUNT_NOT_POSITIVE`, `REASON_REQUIRED`, `REASON_NOT_FOR_KIND`, `NOTE_REQUIRED`, `WITNESS_REQUIRED`, `WITNESS_IS_MAKER`, `WITNESS_NOT_SUPERVISOR`, `WITNESS_ONLY_ON_DROP`, `TILL_OVERDRAWN`, `ID_NOT_UUID_V7`, `OCCURRED_AT_OUT_OF_WINDOW` (2.5.0) |
 | `REGISTER_INVALID` | 422 | A till cannot be set up or changed like this: `LOCATION_NOT_IN_BRANCH`, `LOCATION_NOT_SELLABLE`, `REGISTER_CODE_TAKEN`, `SHIFT_OPEN` (2.5.0) |
+| `STATEMENT_INVALID` | 422 | A customer statement cannot be produced like this, every one in `details[].code`: `BRANCH_REQUIRED`, `CUSTOMER_UNKNOWN`, `PERIOD_REVERSED`, `PERIOD_NOT_ENDED`, `PERIOD_TOO_LONG` (2.7.0) |
 
 #### Payments, billing and purchasing (Added)
 
@@ -990,6 +991,14 @@ Public `submitQuoteRequest` (rate-limited by address and phone), `viewQuoteByLin
 ### Wholesale (`whl`, 24)
 
 Business accounts with credit limits and holds (`updateBusinessAccount` may return 202), credit overrides, standing orders with their runs, statements (`createStatement`, `sendStatement`), ageing, the dunning policy and notices, and bad-debt write-offs (`writeOffBadDebt`, always approval). Totals such as `totalOutstandingPesewas` come from the API.
+
+**As built in B08 continued 2d (2.7.0; A-300, ADR-0085).** Three operations are in code: `listStatements`, `createStatement` and `getStatement` (`whl.statement.read`, `whl.statement.create`).
+- **The figures are the ledger's:** a statement is the customer's trade receivables (1200 against the customer) at one branch for a period, read from the ledger in the producing transaction, so it ties to the books to the pesewa whatever posted to the account: invoices and receipts, debit and credit notes, payments (a till's included), refunds, reversed payments and journals such as an opening balance. Opening less opening credit, plus `invoicedPesewas` and `otherChargesPesewas`, less `creditedPesewas`, `paidPesewas` and `otherCreditsPesewas`, is closing less closing credit, exactly; the client never adds anything up.
+- **In credit:** a balance in the customer's favour is `openingCreditPesewas` or `closingCreditPesewas` beside a balance of zero; each line's running balance carries `balanceSide` (`D` owed by the customer, `C` in their favour).
+- **Lines** start with the brought-forward line and follow the ledger; each is named by its source document's number, or `Payment` or `Journal` and its journal's number. A `listStatements` row has no lines; `getStatement` has them all.
+- **Issue once:** `issue: true` numbers it from its branch's `STATEMENT` series (`STM-2026-DDW-000031`), then DOC renders and archives it after commit; `documentId` is null until then. One issued statement exists per customer, branch and period: asking again answers it as it stands. `issue: false` stores a draft with no number and no rendering.
+- **Branch:** `branchId` is optional when the caller produces statements at one branch only (`STATEMENT_INVALID`, `BRANCH_REQUIRED`). The period ends today at the latest and spans at most 366 days.
+- **Not yet:** the ageing summary (B10), `sendStatement` (B11, ADR-0062).
 
 ### Delivery (`del`, 25)
 

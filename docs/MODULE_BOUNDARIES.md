@@ -134,6 +134,7 @@ Each card gives: what the module owns, its public interface (the services export
 - **Built in B08 continued 1c2 (ADR-0059, A-199):** `FixedAssets` (the register, disposal and depreciation runs; `fin.fixed_asset.read`, `fin.fixed_asset.manage`). A run's post publishes FIN's own ◆ `fin.DepreciationRun` per branch, a disposal ◆ `fin.FixedAssetDisposed`, both declared with `DomainEvents.declareLedgerEvents` and posted through `Ledger.postIn` on a date that is never moved. FIN registers two subledger sources of its own with `SubledgerSources`, `fin.fixed-asset-cost` and `fin.fixed-asset-depreciation`, so the nightly job compares the register with 1510 to 1540 and 1590. No other module reads the register.
 - **Built in B09a continued 1c (ADR-0065):** the posting handlers for PAY's ◆ `pay.ProviderSettled` (1100, 6910, 1120) and `pay.UnidentifiedReceiptHeld` (1100, 6910, 2290), and the bank transfer's tender on `pay.PaymentCleared` against the bank account's party; `BankAccounts.bankLegIn` and `entryOfIn`, the read-only facts PAY's bank reconciliation matches against.
 - **Built in B09a continued 1d (ADR-0066):** `pay.RefundPaid`'s `creditRefund` (Dr 1200 against the customer, a refund against a credit note) and a bank payout's tender (`BANK_TRANSFER`, 1100 against the bank account the event names).
+- **Built in B08 continued 2d (ADR-0085):** `Journals.customerReceivablesIn`, read only in the caller's transaction, authorising nothing: a customer's 1200 lines at a branch for a range with the balance before it, each with its event, entry kind and source document's number, for WHL's statements.
 
 ### INV: inventory and stock control (layer 5)
 
@@ -259,8 +260,9 @@ Each card gives: what the module owns, its public interface (the services export
 
 - **Owns:** schema `whl`. Business accounts, credit overrides, standing orders, statements, dunning policies and notices, ageing snapshots.
 - **Public interface:** none used by other modules. Implements ORD's `OrderConfirmationPolicy` (credit limit and account hold).
-- **Imports:** platform, IAM, MDM, DOC, BIL, PAY, ORD.
-- **Subscribes (A):** `bil.InvoiceIssued`, `pay.PaymentCleared`, `pay.DepositAllocated`, `bil.CreditNoteIssued`, to maintain credit exposure and ageing.
+- **Built in B08 continued 2d (ADR-0085, A-300):** `Statements` (`listStatements`, `createStatement`, `getStatement`; `whl.statement.read`, `whl.statement.create`): a customer's statement at one branch for a period, read from the ledger's 1200 through FIN's `Journals.customerReceivablesIn`, numbered from the `STATEMENT` series, rendered and archived through `Documents.requestRenderIn`; the asynchronous consumer `whl.statement-archive-link` of `doc.DocumentArchived`. Business accounts, credit control, standing orders, ageing and dunning are B10's.
+- **Imports:** platform, IAM, MDM, DOC, FIN (read only: a customer's receivables, ADR-0085), BIL, PAY, ORD.
+- **Subscribes (A):** `doc.DocumentArchived` (B08 continued 2d), to link each issued statement to its archived rendering once; `bil.InvoiceIssued`, `pay.PaymentCleared`, `pay.DepositAllocated`, `bil.CreditNoteIssued`, to maintain credit exposure and ageing (B10).
 
 ### CAP: capital, investors and profit sharing (layer 11)
 
