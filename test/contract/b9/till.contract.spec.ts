@@ -8,6 +8,7 @@ import { seedUnits } from '../../../src/seed/seed-units';
 import { contractSchema } from '../../support/contract-schemas';
 import { syncBatch, tillSale } from '../../support/offline';
 import { consoleGet, consolePatch, consolePost, createUser, enrolAndLogin, login, relaxRateLimits, testStartTime, type TestSession, type TestUser } from '../../support/iam';
+import { setTillPin, tillVerifier } from '../../support/till-pin';
 import { startTestApp, TEST_ORIGIN, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
 
@@ -50,6 +51,8 @@ beforeAll(async () => {
   const branchId = id('branch:DDW');
   managerUser = await createUser(database, { name: 'Kwabena Owusu', grants: [{ role: 'MANAGER', branchId }] });
   manager = await enrolAndLogin(api.server, managerUser, () => clock.now());
+  // A drop's witness confirms it with their till PIN (B09b continued 3): the manager's PIN is version 1.
+  expect((await setTillPin(api.server, manager, await tillVerifier('554031'))).status).toBe(200);
   cashier = await login(api.server, await createUser(database, { name: 'Adwoa Darko', grants: [{ role: 'CASHIER', branchId, locationId: id('location:SHOP') }] }));
   owner = await enrolAndLogin(api.server, await createUser(database, { name: 'Esi Mensah', grants: [{ role: 'OWNER', branchId }] }), () => clock.now());
 });
@@ -79,7 +82,7 @@ describe('B9b till operations answer in the contract shapes', () => {
     expectShape('Error', twice.body);
 
     const movementId = nextId();
-    const dropped = await post(cashier, `/shifts/${shiftId}/cash-movements`, { id: movementId, kind: 'CASH_DROP', amountPesewas: 5_000, reasonCode: 'SAFE_DROP', witnessId: managerUser.principalId, occurredAt: clock.now().toISOString() }, movementId);
+    const dropped = await post(cashier, `/shifts/${shiftId}/cash-movements`, { id: movementId, kind: 'CASH_DROP', amountPesewas: 5_000, reasonCode: 'SAFE_DROP', witnessId: managerUser.principalId, witnessPinVersion: 1, occurredAt: clock.now().toISOString() }, movementId);
     expect(dropped.status).toBe(201);
     expectShape('CashMovement', dropped.body);
     const refused = await post(cashier, `/shifts/${shiftId}/cash-movements`, { id: nextId(), kind: 'CASH_DROP', amountPesewas: 5_000, occurredAt: clock.now().toISOString() });
@@ -129,6 +132,24 @@ describe('B09b continued device operations answer in the contract shapes', () =>
     expectShape('CounterSaleResult', sold.body);
     const refusedSale = await consolePost(api.server, cashier, '/v1/pos/sales', saleId).send({ id: saleId, shiftId: shift, lines: [], tenders: [], occurredAt: clock.now().toISOString() });
     expectShape('Error', refusedSale.body);
+    // The till PIN (2.16.0): the cashier's status, the verifiers the enrolled till holds, a reported try, the witnesses.
+    const pin = await setTillPin(api.server, cashier, await tillVerifier('730164'));
+    expect(pin.status, JSON.stringify(pin.body)).toBe(200);
+    expectShape('TillPinStatus', pin.body);
+    const weak = await setTillPin(api.server, cashier, await tillVerifier('730164', { iterations: 599_999 }));
+    expect(weak.status).toBe(422);
+    expectShape('Error', weak.body);
+    const issued = await consoleGet(api.server, cashier, `/v1/registers/${till.body.id as string}/pin-verifiers`).set('X-Device-Credential', enrolled.body.deviceCredential as string);
+    expect(issued.status, JSON.stringify(issued.body)).toBe(200);
+    expectShape('TillPinVerifierList', issued.body);
+    const reported = await consolePost(api.server, cashier, `/v1/registers/${till.body.id as string}/pin-events`)
+      .set('X-Device-Credential', enrolled.body.deviceCredential as string)
+      .send({ events: [{ id: createUuidV7Generator(clock)(), principalId: pin.body.principal.id as string, pinVersion: 1, outcome: 'FAILED', purpose: 'UNLOCK', occurredAt: clock.now().toISOString() }] });
+    expect(reported.status, JSON.stringify(reported.body)).toBe(200);
+    expectShape('TillPinReportResult', reported.body);
+    const witnesses = await get(cashier, `/shifts/${shift}/witnesses`);
+    expect(witnesses.status, JSON.stringify(witnesses.body)).toBe(200);
+    expectShape('ShiftWitnessList', witnesses.body);
     const revoked = await post(manager, `/devices/${enrolled.body.device.id as string}/revoke`, { reason: 'Screen broken' });
     expect(revoked.status).toBe(200);
     expectShape('DeviceEnrolment', revoked.body);

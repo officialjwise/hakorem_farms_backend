@@ -1,6 +1,6 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
 import type { UomFactor } from '../domain/unit-conversion';
-import type { BranchFacts, GradeFacts, ReasonCodeFacts, ReasonCodeView, LocationFacts, MasterDataRefsStore, ProductFacts, SpeciesFacts, SupplierFacts, TaxCategoryFacts, CustomerFacts, PaymentMethodFacts, WeightBandFacts } from '../application/master-data-refs';
+import type { BranchFacts, GradeFacts, ReasonCodeFacts, UomFacts, ReasonCodeView, LocationFacts, MasterDataRefsStore, ProductFacts, SpeciesFacts, SupplierFacts, TaxCategoryFacts, CustomerFacts, PaymentMethodFacts, WeightBandFacts } from '../application/master-data-refs';
 
 /** MDM's own tables, read by primary key for a higher module's transaction (MasterDataRefs). */
 const PAYMENT_METHOD_FACTS = `SELECT id, code, name, kind, requires_provider_verification AS "requiresProviderVerification", allowed_offline AS "allowedOffline", channels,
@@ -143,6 +143,14 @@ export class PgMasterDataRefsStore implements MasterDataRefsStore {
 
   async reasonCodes(tx: Transaction, codes: readonly string[]): Promise<ReasonCodeFacts[]> {
     const { rows } = await tx.query<ReasonCodeFacts>('SELECT code, domain, requires_note AS "requiresNote", loss_account_group AS "lossAccountGroup" FROM mdm.reason_code WHERE code = ANY($1::text[])', [codes]);
+    return rows;
+  }
+
+  async units(tx: Transaction, codes: readonly string[]): Promise<UomFacts[]> {
+    const { rows } = await tx.query<UomFacts>(
+      'SELECT code, name, singular_name AS "singularName", plural_name AS "pluralName", display_decimals AS "displayDecimals" FROM mdm.uom WHERE code = ANY($1::text[]) ORDER BY code',
+      [codes],
+    );
     return rows;
   }
 

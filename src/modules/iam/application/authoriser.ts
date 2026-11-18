@@ -111,6 +111,14 @@ export class Authoriser {
     return this.store.signedInHolders(tx, permission, branchId, this.clock.now());
   }
 
+  /**
+   * Who holds the permission at the branch now, signed in or not, for what a till must hold before it goes offline: the
+   * supervisors whose till PIN verifiers it is issued (CR-032 point 1, ADR-0080). Not audited: it refuses nothing.
+   */
+  async holdersIn(tx: Transaction, permission: string, branchId: string): Promise<readonly string[]> {
+    return this.store.holders(tx, permission, branchId, this.clock.now());
+  }
+
   private async refuse(actor: Actor, permission: string, reason: string, scope: AuthoriseScope): Promise<void> {
     const fields = { principalId: actor.principalId, realm: actor.realm, permission, reason };
     if (actor.realm === 'INVESTOR') {

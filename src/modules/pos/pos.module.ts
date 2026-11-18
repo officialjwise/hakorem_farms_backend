@@ -27,6 +27,9 @@ import { POS_LEDGER_EVENTS, Shifts } from './application/shifts';
 import { TillCash } from './application/till-cash';
 import { TILL_STORE, type TillStore } from './application/till-store';
 import { PgTillStore } from './infrastructure/pg-till-store';
+import { PIN_STORE, type PinStore } from './application/pin-store';
+import { TillPins } from './application/till-pins';
+import { PgPinStore } from './infrastructure/pg-pin-store';
 import { PosController } from './interface/pos.controller';
 
 /**
@@ -42,6 +45,24 @@ import { PosController } from './interface/pos.controller';
   controllers: [PosController],
   providers: [
     { provide: TILL_STORE, useClass: PgTillStore },
+    { provide: PIN_STORE, useClass: PgPinStore },
+    {
+      provide: TillPins,
+      useFactory: (
+        uow: UnitOfWork,
+        pins: PinStore,
+        store: TillStore,
+        devices: Devices,
+        authoriser: Authoriser,
+        principals: PrincipalNames,
+        idempotency: Idempotency,
+        settings: Settings,
+        events: DomainEvents,
+        audit: AuditTrail,
+        clock: Clock,
+      ) => new TillPins(uow, pins, store, devices, authoriser, principals, idempotency, settings, events, audit, clock),
+      inject: [UnitOfWork, PIN_STORE, TILL_STORE, Devices, Authoriser, PRINCIPAL_NAMES, Idempotency, Settings, DomainEvents, AuditTrail, CLOCK],
+    },
     {
       provide: Registers,
       useFactory: (uow: UnitOfWork, store: TillStore, refs: MasterDataRefs, authoriser: Authoriser, idempotency: Idempotency, audit: AuditTrail, principals: PrincipalNames, cursors: Cursors, clock: Clock) =>
@@ -115,8 +136,9 @@ import { PosController } from './interface/pos.controller';
         clock: Clock,
         payments: Payments,
         unverified: UnverifiedTenders,
-      ) => new OfflineSync(uow, store, devices, posting, orders, refs, pricing, authoriser, ledger, settings, events, audit, clock, payments, unverified),
-      inject: [UnitOfWork, TILL_STORE, Devices, SalePosting, Orders, MasterDataRefs, PricingService, Authoriser, Ledger, Settings, DomainEvents, AuditTrail, CLOCK, Payments, UnverifiedTenders],
+        pins: TillPins,
+      ) => new OfflineSync(uow, store, devices, posting, orders, refs, pricing, authoriser, ledger, settings, events, audit, clock, payments, unverified, pins),
+      inject: [UnitOfWork, TILL_STORE, Devices, SalePosting, Orders, MasterDataRefs, PricingService, Authoriser, Ledger, Settings, DomainEvents, AuditTrail, CLOCK, Payments, UnverifiedTenders, TillPins],
     },
     {
       provide: Shifts,
@@ -139,11 +161,12 @@ import { PosController } from './interface/pos.controller';
         held: HeldSales,
         settings: Settings,
         devices: Devices,
-      ) => new Shifts(uow, store, refs, authoriser, idempotency, audit, events, documents, numbers, principals, cursors, payments, orders, clock, anchors, held, settings, devices),
-      inject: [UnitOfWork, TILL_STORE, MasterDataRefs, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, NumberSeries, PRINCIPAL_NAMES, Cursors, Payments, Orders, CLOCK, AuditAnchorRequests, HeldSales, Settings, Devices],
+        pins: TillPins,
+      ) => new Shifts(uow, store, refs, authoriser, idempotency, audit, events, documents, numbers, principals, cursors, payments, orders, clock, anchors, held, settings, devices, pins),
+      inject: [UnitOfWork, TILL_STORE, MasterDataRefs, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, NumberSeries, PRINCIPAL_NAMES, Cursors, Payments, Orders, CLOCK, AuditAnchorRequests, HeldSales, Settings, Devices, TillPins],
     },
   ],
-  exports: [Registers, Shifts, Devices],
+  exports: [Registers, Shifts, Devices, TillPins],
 })
 export class PosModule implements OnModuleInit {
   constructor(

@@ -1,0 +1,49 @@
+operationId: listShiftWitnesses
+tags:
+  - pos
+summary: "Who can witness a cash drop on the shift now"
+description: "The supervisors who may witness a cash drop on the shift now (2.16.0, CR-050 part 1): holders of `pos.shift.close.approve` at the shift's branch with a live staff session, never the shift's cashier nor the caller. It is the same source `recordCashMovement` judges a drop by: anyone listed means a drop needs a witness, who confirms it with their till PIN on the till (`witnessPinVersion`); an empty list means nobody is signed in and a drop may go unwitnessed (A-273 (d)). A shift that is not OPEN lists nobody. It names people only, never a PIN, a verifier or a session.\n\nPermission: `pos.cash.move` at the shift's branch. Ownership: the shift's own cashier, or a holder of `pos.shift.force_close` recovering the till."
+x-permission: pos.cash.move
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ShiftWitnessList"
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                  displayName: "Kwabena Owusu"
+              asOf: "2026-11-13T12:00:00Z"
+          empty:
+            summary: "No supervisor is signed in at the branch: a drop may go unwitnessed"
+            value:
+              data: []
+              asOf: "2026-11-13T12:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

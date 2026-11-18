@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runSeedUnits } from '../../../src/seed/run-seed';
 import { seedUnits } from '../../../src/seed/seed-units';
 import { consoleGet, consolePost, createUser, enrolAndLogin, login, relaxRateLimits, testStartTime, type TestSession, type TestUser } from '../../support/iam';
+import { setTillPin, tillVerifier } from '../../support/till-pin';
 import { startTestApp, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
 
@@ -28,9 +29,11 @@ const admin = () => database.pool('admin');
 const post = (session: TestSession, path: string, body: object = {}, key: string = randomUUID()) => consolePost(api.server, session, `/v1${path}`, key).send(body);
 const get = (session: TestSession, path: string) => consoleGet(api.server, session, `/v1${path}`);
 const one = async <T>(sql: string, values: unknown[]): Promise<T> => (await admin().query(sql, values)).rows[0] as T;
-const drop = (amount: number, witnessId?: string) => {
+/** A drop; a witness confirms it with their till PIN on the till, so the till sends their PIN version too (B09b continued 3). */
+const drop = (amount: number, witnessId?: string, witnessPinVersion?: number) => {
   const movementId = nextId();
-  return { movementId, send: () => post(cashier, `/shifts/${shiftId}/cash-movements`, { id: movementId, kind: 'CASH_DROP', amountPesewas: amount, reasonCode: 'SAFE_DROP', ...(witnessId === undefined ? {} : { witnessId }), occurredAt: clock.now().toISOString() }, movementId) };
+  const witness = witnessId === undefined ? {} : { witnessId, ...(witnessPinVersion === undefined ? {} : { witnessPinVersion }) };
+  return { movementId, send: () => post(cashier, `/shifts/${shiftId}/cash-movements`, { id: movementId, kind: 'CASH_DROP', amountPesewas: amount, reasonCode: 'SAFE_DROP', ...witness, occurredAt: clock.now().toISOString() }, movementId) };
 };
 /** Signs out every live session of the branch's supervisors: what "no supervisor is signed in" means. */
 const signOutSupervisors = () =>
@@ -135,7 +138,8 @@ describe('a drop while a supervisor is signed in at the branch', () => {
 
   beforeAll(async () => {
     manager = await enrolAndLogin(api.server, managerUser, () => clock.now());
-    expect(manager).toBeDefined();
+    const pin = await setTillPin(api.server, manager, await tillVerifier('554031'));
+    expect(pin.status, JSON.stringify(pin.body)).toBe(200);
   });
 
   it('still needs the witness: no witness is WITNESS_REQUIRED and nothing is recorded', async () => {
@@ -148,10 +152,10 @@ describe('a drop while a supervisor is signed in at the branch', () => {
   });
 
   it('is taken with the signed-in supervisor as witness, not marked unwitnessed', async () => {
-    const { movementId, send } = drop(2_000, managerUser.principalId);
+    const { movementId, send } = drop(2_000, managerUser.principalId, 1);
     const response = await send();
     expect(response.status, JSON.stringify(response.body)).toBe(201);
-    expect(response.body).toMatchObject({ witness: { id: managerUser.principalId }, unwitnessed: false });
+    expect(response.body).toMatchObject({ witness: { id: managerUser.principalId }, witnessPinVersion: 1, unwitnessed: false });
     const event = await one<{ payload: Record<string, unknown> }>("SELECT payload FROM platform.outbox_message WHERE event_type = 'pos.CashDropped' AND subject_id = $1", [movementId]);
     expect(event.payload['unwitnessed']).toBeUndefined();
     expect(event.payload['abuseCases']).toBeUndefined();

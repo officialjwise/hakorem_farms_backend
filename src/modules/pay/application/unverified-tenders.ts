@@ -39,8 +39,10 @@ export interface UnverifiedTenderRequest {
   readonly network: 'MTN' | 'TELECEL' | 'AIRTELTIGO';
   /** The transaction id the customer showed, if any. */
   readonly providerReference: string | null;
-  /** Who the till says approved it; their PIN on the device is B09b continued 3's, so this is the till's word. */
+  /** Who the till says approved it. */
   readonly approvedById: string;
+  /** Whether the seller checked the approval against the approver's till PIN version (B09b continued 3, CR-032 point 4). */
+  readonly approvalVerified?: boolean | undefined;
   /** REVIEW, or URGENT when the pack did not offer the method or the approver is no supervisor (the caller judges it). */
   readonly severity: 'REVIEW' | 'URGENT';
   /** The selling module's facts for the break: the cashier, the till, the shift, the sale, what it found. */
@@ -128,7 +130,7 @@ export class UnverifiedTenders {
       payerPhoneMasked,
       reference: request.providerReference,
       approvedById: request.approvedById,
-      approvalVerified: false,
+      approvalVerified: request.approvalVerified ?? false,
       receivedAt: request.receivedAt.toISOString(),
       unverifiedWindowDays: windowDays,
       urgentFrom: urgentFrom.toISOString(),

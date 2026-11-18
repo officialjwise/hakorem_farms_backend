@@ -388,6 +388,18 @@ export class PgIamStore implements IamStore {
     return rows.map((row) => row.principal_id);
   }
 
+  async holders(tx: Transaction, permission: string, branchId: string, now: Date): Promise<string[]> {
+    const { rows } = await tx.query<{ principal_id: string }>(
+      `SELECT DISTINCT g.principal_id
+         FROM iam.role_grant g JOIN iam.role r ON r.id = g.role_id JOIN iam.role_permission rp ON rp.role_id = r.id AND rp.deleted_at IS NULL
+         JOIN iam.principal p ON p.id = g.principal_id
+        WHERE ${CURRENT_GRANT} AND rp.permission_code = $1 AND g.branch_id = $3 AND p.status = 'ACTIVE' AND p.deleted_at IS NULL
+        ORDER BY 1`,
+      [permission, now, branchId],
+    );
+    return rows.map((row) => row.principal_id);
+  }
+
   async permissionRequiresStepUp(tx: Transaction, permission: string): Promise<boolean | null> {
     const { rows } = await tx.query<{ requires_step_up: boolean }>('SELECT requires_step_up FROM iam.permission WHERE code = $1', [permission]);
     return rows[0]?.requires_step_up ?? null;

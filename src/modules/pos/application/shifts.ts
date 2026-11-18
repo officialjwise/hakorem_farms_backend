@@ -24,6 +24,8 @@ import type { Devices } from './devices';
 import { CashMovementInvalidError, ShiftAlreadyOpenError, ShiftCloseSamePersonError, ShiftInvalidError, ShiftNotOpenError, type TillRule } from './errors';
 import type { CashMovementRecord, LateCountRecord, ShiftRecord, ShiftStatus, TenderCountRecord, TillStore } from './till-store';
 import type { HeldSales } from './held-sales';
+import type { TillPins } from './till-pins';
+import { witnessPinRule } from '../domain/till-pin';
 
 export const SHIFT_OPENED = 'pos.ShiftOpened';
 export const CASH_DROPPED = 'pos.CashDropped';
@@ -111,6 +113,8 @@ export interface CashMovementView {
   readonly reasonCode: string | null;
   readonly note: string | null;
   readonly witness: PrincipalRef | null;
+  /** The witness's till PIN version the drop was confirmed with (the owner on 2026-11-18); null before B09b continued 3. */
+  readonly witnessPinVersion: number | null;
   /** A drop taken while no supervisor was signed in at the branch (A-273 (d)). */
   readonly unwitnessed: boolean;
   readonly actor: PrincipalRef;
@@ -154,6 +158,12 @@ export interface ShiftOpenRequest {
   readonly shiftSeq?: number | undefined;
 }
 
+/** `ShiftWitnessList` (CR-050 part 1). */
+export interface ShiftWitnessListView {
+  readonly data: readonly PrincipalRef[];
+  readonly asOf: string;
+}
+
 export interface CashMovementRequest {
   readonly id: string;
   readonly kind: 'CASH_DROP' | 'PAY_OUT' | 'PAY_IN';
@@ -161,6 +171,8 @@ export interface CashMovementRequest {
   readonly reasonCode?: string | undefined;
   readonly note?: string | undefined;
   readonly witnessId?: string | undefined;
+  /** The witness's till PIN version, which their PIN was checked against on the till (the owner on 2026-11-18). */
+  readonly witnessPinVersion?: number | undefined;
   readonly occurredAt: Date;
 }
 
@@ -215,6 +227,7 @@ export class Shifts {
     private readonly held: HeldSales,
     private readonly settings: Settings,
     private readonly devices: Devices,
+    private readonly pins: TillPins,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -292,6 +305,7 @@ export class Shifts {
             reasonCode: null,
             note: null,
             witnessId: null,
+            witnessPinVersion: null,
             unwitnessed: false,
             occurredAt: openedAt,
             recordedAt: now,
@@ -430,8 +444,9 @@ export class Shifts {
       const reason = body.reasonCode === undefined ? undefined : (await this.refs.reasonCodesIn(tx, [body.reasonCode])).get(body.reasonCode);
       const witnessId = body.witnessId ?? null;
       const witnessIsSupervisor = witnessId !== null && (await this.holdsAt(tx, witnessId, APPROVE, shift.branchId));
-      // A supervisor present at the branch witnesses a drop; with none signed in it goes unwitnessed (A-273 (d)).
-      const supervisorSignedIn = body.kind === 'CASH_DROP' && (await this.authoriser.signedInHoldersIn(tx, APPROVE, shift.branchId)).some((p) => p !== shift.cashierId && p !== actor!.principalId);
+      // A supervisor present at the branch witnesses a drop; with none signed in it goes unwitnessed (A-273 (d)). The
+      // same source answers listShiftWitnesses (CR-050 part 1).
+      const supervisorSignedIn = body.kind === 'CASH_DROP' && (await this.witnessesIn(tx, shift, actor!.principalId)).length > 0;
       const position = await this.position(tx, shift);
       const broken: TillRule[] = judgeCashMovement({
         kind: body.kind,
@@ -448,6 +463,12 @@ export class Shifts {
         tillHolds: position.expected,
       });
       const unwitnessed = isUnwitnessedDrop({ kind: body.kind, witnessId, supervisorSignedIn });
+      // A witness confirms the drop with their PIN on the till; a name alone is no witness (the owner on 2026-11-18).
+      if (broken.length === 0 && body.kind === 'CASH_DROP' && witnessId !== null) {
+        const verdict = await this.pins.approvalIn(tx, { approverId: witnessId, pinVersion: body.witnessPinVersion ?? null, cashierId: shift.cashierId, actorId: actor!.principalId, branchId: shift.branchId, at: now });
+        const rule = witnessPinRule(verdict);
+        if (rule !== null) broken.push({ field: '/witnessPinVersion', rule });
+      }
       if (!isUuidV7(body.id)) broken.push({ field: '/id', rule: 'ID_NOT_UUID_V7' });
       if (!withinTolerance(body.occurredAt, now, await this.settings.integer(CLOCK_TOLERANCE_SETTING, CLOCK_TOLERANCE_SECONDS))) broken.push({ field: '/occurredAt', rule: 'OCCURRED_AT_OUT_OF_WINDOW' });
       if (broken.length > 0) throw new CashMovementInvalidError(broken);
@@ -459,6 +480,7 @@ export class Shifts {
         reasonCode: body.reasonCode!,
         note: body.note ?? null,
         witnessId,
+        witnessPinVersion: witnessId === null ? null : (body.witnessPinVersion ?? null),
         unwitnessed,
         occurredAt: now,
         recordedAt: now,
@@ -747,6 +769,28 @@ export class Shifts {
     return shift;
   }
 
+  /**
+   * `listShiftWitnesses` (CR-050 part 1): the supervisors signed in at the shift's branch now who may witness its drop,
+   * never its cashier nor the caller. The cashier reads their own shift's; a manager recovering a till any. It names
+   * people only: no PIN, verifier or session detail.
+   */
+  listWitnesses(actor: Actor | undefined, shiftId: string): Promise<ShiftWitnessListView> {
+    return this.uow.run({ isolation: 'read committed' }, async (tx) => {
+      const [shift] = await this.store.shifts(tx, [shiftId]);
+      await this.authoriser.authorise(tx, actor, MOVE, shift === undefined ? {} : { ...(await this.scopeOf(tx, shift)), owner: { principalId: shift.cashierId, anyPermission: MOVE_ANY } });
+      if (shift === undefined) throw new NotFoundError(`no shift ${shiftId}`);
+      const now = this.clock.now();
+      const ids = shift.status === 'OPEN' ? await this.witnessesIn(tx, shift, actor!.principalId) : [];
+      const names = await this.principals.refs(tx, ids);
+      return { data: ids.map((id) => names.get(id) ?? { id, displayName: 'Unknown' }), asOf: now.toISOString() };
+    });
+  }
+
+  /** Who may witness a drop on the shift now: supervisors signed in at its branch, never its cashier nor the caller (A-273 (d)). */
+  private async witnessesIn(tx: Transaction, shift: ShiftRecord, callerId: string): Promise<readonly string[]> {
+    return (await this.authoriser.signedInHoldersIn(tx, APPROVE, shift.branchId)).filter((p) => p !== shift.cashierId && p !== callerId);
+  }
+
   /** Whether a principal holds a permission at the branch now, for a drop's witness (A-273 (d)). */
   private async holdsAt(tx: Transaction, principalId: string, permission: string, branchId: string): Promise<boolean> {
     // The witness is not the caller: their grants are read by id, as the caller's would be, and nothing is refused.
@@ -873,6 +917,7 @@ export class Shifts {
       reasonCode: m.reasonCode,
       note: m.note,
       witness: m.witnessId === null ? null : ref(m.witnessId),
+      witnessPinVersion: m.witnessPinVersion,
       unwitnessed: m.unwitnessed,
       actor: ref(m.actorId),
       occurredAt: m.occurredAt.toISOString(),

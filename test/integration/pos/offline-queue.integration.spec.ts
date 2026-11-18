@@ -6,6 +6,7 @@ import { seedUnits } from '../../../src/seed/seed-units';
 import { stepUp, type TotpSession } from '../../support/fin';
 import { consoleGet, consolePost, consolePut, createUser, enrolAndLogin, login, relaxRateLimits, testStartTime, type TestSession, type TestUser } from '../../support/iam';
 import { syncBatch, tillSale, type TillLine, type TillSale } from '../../support/offline';
+import { setTillPin, tillVerifier } from '../../support/till-pin';
 import { startTestApp, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
 
@@ -129,6 +130,8 @@ beforeAll(async () => {
     users.set(who, user);
     sessions.set(who, totp ? await enrolAndLogin(api.server, user, () => clock.now()) : await login(api.server, user));
   }
+  // The manager approves and witnesses on the till with their till PIN, version 1 (B09b continued 3, ADR-0080).
+  expect((await setTillPin(api.server, as('manager'), await tillVerifier('554031'))).status).toBe(200);
   for (const code of ['Q1', 'Q2', 'Q3', 'Q4', 'Q5']) {
     const till = await post('manager', '/registers', { branchId: id('branch'), locationId: id('shop'), code, name: `Shop till ${code}` });
     expect(till.status, JSON.stringify(till.body)).toBe(201);
@@ -259,7 +262,7 @@ describe('the cash movements of a sync batch: applied exactly once on their own 
     moves = [
       movement('PAY_OUT', 1_500, 'FUEL_PAYOUT', ago(3.5 * HOUR), { note: 'Fuel for the generator' }),
       movement('CASH_DROP', 25_000, 'SAFE_DROP', ago(2.5 * HOUR)),
-      movement('CASH_DROP', 2_000, 'SAFE_DROP', ago(2 * HOUR), { witnessId: users.get('manager')!.principalId }),
+      movement('CASH_DROP', 2_000, 'SAFE_DROP', ago(2 * HOUR), { witnessId: users.get('manager')!.principalId, witnessPinVersion: 1 }),
       movement('PAY_IN', 5_000, 'FLOAT_TOP_UP', ago(1 * HOUR)),
     ];
     const synced = await sync('kofi', 'Q1', sales, moves);
@@ -273,7 +276,7 @@ describe('the cash movements of a sync batch: applied exactly once on their own 
       expect(row).toMatchObject({ shift_id: q1.id, kind: m.kind, amount: String(m.amountPesewas), actor_id: users.get('kofi')!.principalId });
       expect(row.occurred_at.toISOString()).toBe(m.occurredAt);
     }
-    // The drop with no witness is marked unwitnessed (its PIN is B09b continued 3's); the witnessed one names the manager.
+    // The drop with no witness is marked unwitnessed; the witnessed one names the manager and the PIN version it was confirmed with.
     expect(await rows('SELECT witness_id, unwitnessed FROM pos.cash_movement WHERE id = ANY($1::uuid[]) ORDER BY occurred_at', [[moves[1]!.id, moves[2]!.id]])).toEqual([
       { witness_id: null, unwitnessed: true },
       { witness_id: users.get('manager')!.principalId, unwitnessed: false },
@@ -341,6 +344,22 @@ describe('the cash movements of a sync batch: applied exactly once on their own 
     expect(raised.map((r) => [r.payload['exceptionKind'], r.payload['severity'], r.payload['amountPesewas'], r.payload['cashierId'], r.payload['abuseCases']])).toEqual([['CASH_MOVEMENT_REJECTED', 'URGENT', holds + 1, users.get('kofi')!.principalId, [17]]]);
   });
 
+  it('refuses a queued drop whose named witness sent no PIN version, or a version not in force: a name alone is no witness (CR-032 point 4)', async () => {
+    const q1 = shifts.get('Q1')!;
+    const nameOnly = movement('CASH_DROP', 100, 'SAFE_DROP', ago(12 * MINUTE), { witnessId: users.get('manager')!.principalId });
+    const unknown = movement('CASH_DROP', 100, 'SAFE_DROP', ago(11 * MINUTE), { witnessId: users.get('manager')!.principalId, witnessPinVersion: 3 });
+    const synced = await sync('kofi', 'Q1', [], [nameOnly, unknown]);
+    expect(synced.body.cashMovementResults).toEqual([
+      { clientId: nameOnly.id, outcome: 'REJECTED', reason: 'WITNESS_PIN_REQUIRED' },
+      { clientId: unknown.id, outcome: 'REJECTED', reason: 'WITNESS_PIN_UNKNOWN' },
+    ]);
+    expect(await num('SELECT count(*)::text AS n FROM pos.cash_movement WHERE id = ANY($1::uuid[])', [[nameOnly.id, unknown.id]])).toBe(0);
+    for (const m of [nameOnly, unknown]) {
+      expect((await outbox('pos.OfflineCashMovementFlagged', m.id)).map((r) => [r.payload['exceptionKind'], r.payload['severity']])).toEqual([['CASH_MOVEMENT_REJECTED', 'URGENT']]);
+    }
+    expect(q1.id).toBeDefined();
+  });
+
   it('records a movement whose till clock is 301 seconds ahead at the server time, flagged; 300 seconds is kept', async () => {
     const ahead = movement('PAY_OUT', 300, 'FUEL_PAYOUT', new Date(clock.now().getTime() + 301_000), { note: 'Fuel for the generator' });
     const edge = movement('PAY_OUT', 200, 'FUEL_PAYOUT', new Date(clock.now().getTime() + 300_000), { note: 'Fuel for the generator' });
@@ -406,10 +425,10 @@ describe('the cash movements of a sync batch: applied exactly once on their own 
 
 describe('the unverified mobile money tender (OFFLINE_SYNC 5.3 and 9.9, abuse case 4)', () => {
   let reviewed: TillSale;
-  const momo = (amount: number, approvedById: string, providerReference = 'MP261113.1149.C41872') => ({
+  const momo = (amount: number, approvedById: string, providerReference = 'MP261113.1149.C41872', approvedByPinVersion?: number) => ({
     paymentMethodId: id('MOMO'),
     amountPesewas: amount,
-    unverifiedMobileMoney: { payerPhone: '+233245550142', network: 'MTN', providerReference, approvedById },
+    unverifiedMobileMoney: { payerPhone: '+233245550142', network: 'MTN', providerReference, approvedById, ...(approvedByPinVersion === undefined ? {} : { approvedByPinVersion }) },
   });
 
   it('with the branch setting off, stays as B09b continued 2b built it: not recorded, raised', async () => {
@@ -427,7 +446,7 @@ describe('the unverified mobile money tender (OFFLINE_SYNC 5.3 and 9.9, abuse ca
     await setSetting('pos.offline.allow_unverified_mobile_money', true, id('branch'));
     const q5 = shifts.get('Q5')!;
     // 5 crates at 6,000 = 30,000: mobile money 20,000 approved by the shop's manager, cash 10,000 (OFFLINE_SYNC 9.9).
-    const s = tillSale({ till: 'Q5', shiftSeq: q5.seq, counter: 2, at: ago(20 * MINUTE), lines: [crateLine(5)], tenders: [momo(20_000, users.get('manager')!.principalId), cash(10_000)] });
+    const s = tillSale({ till: 'Q5', shiftSeq: q5.seq, counter: 2, at: ago(20 * MINUTE), lines: [crateLine(5)], tenders: [momo(20_000, users.get('manager')!.principalId, 'MP261113.1149.C41872', 1), cash(10_000)] });
     reviewed = s;
     const synced = await sync('abena', 'Q5', [s]);
     expect(synced.status, JSON.stringify(synced.body)).toBe(200);
@@ -462,7 +481,9 @@ describe('the unverified mobile money tender (OFFLINE_SYNC 5.3 and 9.9, abuse ca
     expect(brk.details).toMatchObject({
       severity: 'REVIEW',
       approvedById: users.get('manager')!.principalId,
-      approvalVerified: false,
+      // Checked against the manager's till PIN version 1 (B09b continued 3, CR-032 point 4).
+      approvalVerified: true,
+      approvalCheck: { pinVersion: 1, verdict: 'VERIFIED' },
       approverIsSupervisor: true,
       cashierId: users.get('abena')!.principalId,
       shiftId: q5.id,
@@ -488,6 +509,16 @@ describe('the unverified mobile money tender (OFFLINE_SYNC 5.3 and 9.9, abuse ca
     expect(brk.details).toMatchObject({ severity: 'URGENT', approverIsSupervisor: false, approvedById: users.get('abena')!.principalId });
   });
 
+  it('raises the break as urgent when the supervisor the till names sent no PIN version: a name alone is no approval (CR-032 point 4)', async () => {
+    const q5 = shifts.get('Q5')!;
+    const s = tillSale({ till: 'Q5', shiftSeq: q5.seq, counter: 4, at: ago(8 * MINUTE), lines: [crateLine(1)], tenders: [momo(6_000, users.get('manager')!.principalId, 'MP261113.1203.C42001')] });
+    const synced = await sync('abena', 'Q5', [s]);
+    expect((synced.body.results as Record<string, unknown>[])[0]).toMatchObject({ outcome: 'APPLIED', grossPesewas: 6_000 });
+    const brk = await one<{ details: Record<string, unknown> }>("SELECT b.details FROM pay.reconciliation_break b JOIN pay.payment p ON p.id = b.payment_id WHERE p.order_document_id = $1", [s.id]);
+    expect(brk.details).toMatchObject({ severity: 'URGENT', approvalVerified: false, approverIsSupervisor: false, approvalCheck: { pinVersion: null, verdict: 'PIN_NOT_SENT' }, approvedById: users.get('manager')!.principalId });
+    expect(await num("SELECT count(*)::text AS n FROM pay.payment WHERE order_document_id = $1 AND verification = 'UNVERIFIED'", [s.id])).toBe(1);
+  });
+
   it('takes no unverified tender onto a shift no longer open: not recorded, raised URGENT (ADR-0077)', async () => {
     const q2 = shifts.get('Q2')!;
     const s = tillSale({ till: 'Q2', shiftSeq: q2.seq, counter: 1, at: ago(5 * MINUTE), lines: [crateLine(1)], tenders: [momo(6_000, users.get('manager')!.principalId, 'MP261113.1300.C42000')] });
@@ -501,10 +532,11 @@ describe('the unverified mobile money tender (OFFLINE_SYNC 5.3 and 9.9, abuse ca
   it('records it once: the sale sent again is a DUPLICATE with one payment and one break', async () => {
     const q5 = shifts.get('Q5')!;
     const counts = async () => [await num("SELECT count(*)::text AS n FROM pay.payment WHERE shift_document_id = $1 AND verification = 'UNVERIFIED'", [q5.id]), await num("SELECT count(*)::text AS n FROM pay.reconciliation_break WHERE kind = 'UNVERIFIED_PAYMENT'")];
-    expect(await counts()).toEqual([2, 2]);
+    // The reviewed tender, the one approved by a cashier and the one approved by a name with no PIN version.
+    expect(await counts()).toEqual([3, 3]);
     const again = await sync('abena', 'Q5', [reviewed]);
     expect((again.body.results as Record<string, unknown>[])[0]).toMatchObject({ outcome: 'DUPLICATE', grossPesewas: 30_000 });
-    expect(await counts()).toEqual([2, 2]);
-    expect(await num("SELECT count(*)::text AS n FROM platform.outbox_message WHERE event_type = 'pay.ReconciliationBreakRaised' AND payload->>'kind' = 'UNVERIFIED_PAYMENT'")).toBe(2);
+    expect(await counts()).toEqual([3, 3]);
+    expect(await num("SELECT count(*)::text AS n FROM platform.outbox_message WHERE event_type = 'pay.ReconciliationBreakRaised' AND payload->>'kind' = 'UNVERIFIED_PAYMENT'")).toBe(3);
   });
 });

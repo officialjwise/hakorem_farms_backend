@@ -210,9 +210,26 @@ describe('the offline pack a cashier reads from the till (FR-POS-010, OFFLINE_SY
     expect(reasons.find((r) => r.code === 'SAFE_DROP')).toMatchObject({ description: drop.description, requiresNote: false });
     // Cash only offline by default: the methods allowed offline, without mobile money while the setting is off.
     const offline = await rows<{ id: string }>("SELECT id FROM mdm.payment_method WHERE is_enabled AND deleted_at IS NULL AND allowed_offline AND 'POS' = ANY(channels) ORDER BY code");
-    expect(read.body.policy).toEqual({ maxOfflineHours: 8, maxQueuedSales: 500, offlineTenderMethodIds: offline.map((m) => m.id), priceOverrideLimitPerLinePesewas: 0, priceOverrideLimitPerShiftPesewas: 0 });
+    expect(read.body.policy).toEqual({ maxOfflineHours: 8, maxQueuedSales: 500, offlineTenderMethodIds: offline.map((m) => m.id), priceOverrideLimitPerLinePesewas: 0, priceOverrideLimitPerShiftPesewas: 0, pinMaxWrongTries: 5 });
     expect(read.body.policy.offlineTenderMethodIds).toEqual([id('CASH')]);
     expect(await one('SELECT count(*)::int AS n FROM iam.role_limit', [])).toEqual({ n: 0 });
+  });
+
+  it('names every unit the pack sells or counts in, singular and plural, as MDM holds them (CR-051)', async () => {
+    const read = await pack('ama', 'P1');
+    expect(read.status, JSON.stringify(read.body)).toBe(200);
+    const products = read.body.products as { product: { id: string }; saleUom: string; sellingUnits: { uom: string }[] }[];
+    const named = await rows<{ code: string }>('SELECT DISTINCT base_uom AS code FROM mdm.product WHERE id = ANY($1::uuid[])', [products.map((p) => p.product.id)]);
+    const codes = [...new Set([...products.flatMap((p) => [p.saleUom, ...p.sellingUnits.map((u) => u.uom)]), ...named.map((r) => r.code)])].sort();
+    const expected = await rows<{ code: string; name: string; singularName: string; pluralName: string; displayDecimals: number }>(
+      'SELECT code, name, singular_name AS "singularName", plural_name AS "pluralName", display_decimals AS "displayDecimals" FROM mdm.uom WHERE code = ANY($1::text[]) ORDER BY code',
+      [codes],
+    );
+    expect(read.body.uoms).toEqual(expected);
+    expect((read.body.uoms as { code: string }[]).map((u) => u.code)).toEqual(codes);
+    const byCode = new Map((read.body.uoms as { code: string; singularName: string; pluralName: string }[]).map((u) => [u.code, u] as const));
+    expect(byCode.get('EGG')).toMatchObject({ singularName: 'egg', pluralName: 'eggs' });
+    expect(byCode.get('CRATE')).toMatchObject({ singularName: 'crate', pluralName: 'crates' });
   });
 
   it('audits each issue with the device and the versions it was given', async () => {

@@ -4,7 +4,7 @@
  * the last three digits.
  * A new sensitive field is added here and to log-scrubber.spec.ts in the same change.
  */
-const SENSITIVE_KEY = /pass(word)?|secret|token|authori[sz]ation|cookie|otp|totp|api[-_]?key|private[-_]?key|signature|card|cvv|pin$|account[-_]?(no|number)$/i;
+const SENSITIVE_KEY = /pass(word)?|secret|token|pin[-_]?(salt|hash)$|authori[sz]ation|cookie|otp|totp|api[-_]?key|private[-_]?key|signature|card|cvv|pin$|account[-_]?(no|number)$/i;
 
 /** Ghana numbers in E.164 (+233 and nine digits) or national form (0 and nine digits), with optional spaces or dashes. */
 const PHONE_NUMBER = /(?:\+233|\b0)(?:[\s-]?\d){9}\b/g;

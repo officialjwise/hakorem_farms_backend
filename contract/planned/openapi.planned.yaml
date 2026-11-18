@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.16.1"
+  version: "2.17.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -34470,6 +34470,11 @@ components:
         unwitnessed:
           type: boolean
           description: "True on a CASH_DROP taken while no supervisor was signed in at the branch (A-273 (d), 2.6.0): it reaches the daily exception report's source. False on every other movement."
+        witnessPinVersion:
+          type:
+            - integer
+            - "null"
+          description: "The witness's till PIN version the drop was confirmed with (2.16.0, ADR-0080): a witness whose PIN the till checked. Null with no witness, and on a drop recorded before 2.16.0."
         actor:
           $ref: "#/components/schemas/PrincipalRef"
         occurredAt:
@@ -34507,7 +34512,12 @@ components:
         witnessId:
           type: string
           format: uuid
-          description: "Who received a cash drop: a holder of pos.shift.close.approve at the branch who is neither the cashier nor the caller. Required while such a supervisor is signed in at the branch; with none signed in a drop may leave it out and is recorded unwitnessed (A-273 (d), 2.6.0)."
+          description: "Who received a cash drop: a holder of pos.shift.close.approve at the branch who is neither the cashier nor the caller. Required while such a supervisor is signed in at the branch; with none signed in a drop may leave it out and is recorded unwitnessed (A-273 (d), 2.6.0). From 2.16.0 the witness confirms the drop with their till PIN on the till and the till sends `witnessPinVersion`: a named supervisor without it is no witness (the owner on 2026-11-18)."
+        witnessPinVersion:
+          type: integer
+          minimum: 1
+          maximum: 1000000
+          description: "The witness's till PIN version, which the till checked their PIN against (2.16.0, CR-050, ADR-0080). Required with `witnessId`: the server checks that it is the witness's version in force, not replaced and not locked (`WITNESS_PIN_REQUIRED`, `WITNESS_PIN_UNKNOWN`, `WITNESS_PIN_SUPERSEDED`, `WITNESS_PIN_LOCKED`), and the database holds it again."
         occurredAt:
           type: string
           format: date-time
@@ -34517,6 +34527,296 @@ components:
         - amountPesewas
         - occurredAt
       additionalProperties: false
+    OfflineUom:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        singularName:
+          type: string
+        pluralName:
+          type: string
+        displayDecimals:
+          type: integer
+      required:
+        - code
+        - name
+        - singularName
+        - pluralName
+        - displayDecimals
+    TillPinSet:
+      type: object
+      description: "A till PIN as the verifier the till derived from it (2.16.0, CR-032, ADR-0080): PBKDF2 with HMAC-SHA256 over the PIN's UTF-8 bytes, with a salt from the device's secure generator. Never the PIN: no operation takes one."
+      properties:
+        algorithm:
+          type: string
+          description: "`PBKDF2-SHA256`, the only one taken."
+        iterations:
+          type: integer
+          description: "600,000 to 10,000,000."
+        pinSalt:
+          type: string
+          format: byte
+          description: "Base64 of 16 to 64 random bytes, never used by anyone before."
+        pinHash:
+          type: string
+          format: byte
+          description: "Base64 of the 32-byte derived key."
+      required:
+        - algorithm
+        - iterations
+        - pinSalt
+        - pinHash
+      additionalProperties: false
+    TillPinStatus:
+      type: object
+      description: "A person's till PIN as the server holds it: its version and cost, never its salt or hash."
+      properties:
+        principal:
+          $ref: "#/components/schemas/PrincipalRef"
+        version:
+          type: integer
+        algorithm:
+          type: string
+        iterations:
+          type: integer
+        setAt:
+          type: string
+          format: date-time
+        wrongTries:
+          type: integer
+        locked:
+          type: boolean
+      required:
+        - principal
+        - version
+        - algorithm
+        - iterations
+        - setAt
+        - wrongTries
+        - locked
+    TillPinVerifier:
+      type: object
+      description: "What an enrolled till holds to check a PIN with no network (CR-032 point 1). A locked PIN carries no salt or hash."
+      properties:
+        principal:
+          $ref: "#/components/schemas/PrincipalRef"
+        role:
+          type: string
+          enum:
+            - OPERATOR
+            - SUPERVISOR
+          description: "SUPERVISOR: holds `pos.shift.close.approve` at the till's branch, so may approve, witness a drop and sign out a locked cashier on it."
+        version:
+          type: integer
+        algorithm:
+          type: string
+        iterations:
+          type: integer
+        pinSalt:
+          type:
+            - string
+            - "null"
+          format: byte
+        pinHash:
+          type:
+            - string
+            - "null"
+          format: byte
+        wrongTries:
+          type: integer
+        locked:
+          type: boolean
+        priceOverrideLimitPerLinePesewas:
+          $ref: "#/components/schemas/Pesewas"
+          description: "The person's own price override limit per line at the branch: what their PIN may approve beyond a cashier's limit offline, never more (the owner on 2026-11-18)."
+      required:
+        - principal
+        - role
+        - version
+        - algorithm
+        - iterations
+        - pinSalt
+        - pinHash
+        - wrongTries
+        - locked
+        - priceOverrideLimitPerLinePesewas
+    TillPinVerifierList:
+      type: object
+      properties:
+        registerId:
+          type: string
+          format: uuid
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/TillPinVerifier"
+        policy:
+          type: object
+          properties:
+            maxWrongTries:
+              type: integer
+            lockedUntil:
+              type: string
+              enum:
+                - NEW_PIN_SET
+          required:
+            - maxWrongTries
+            - lockedUntil
+        asOf:
+          type: string
+          format: date-time
+      required:
+        - registerId
+        - data
+        - policy
+        - asOf
+    TillPinEvent:
+      type: object
+      description: "One PIN try on the till, once by its client id."
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: "The try's client UUIDv7."
+        principalId:
+          type: string
+          format: uuid
+          description: "Whose PIN was tried."
+        pinVersion:
+          type: integer
+          minimum: 1
+          maximum: 1000000
+        outcome:
+          type: string
+          enum:
+            - FAILED
+            - SUCCEEDED
+        purpose:
+          type: string
+          enum:
+            - UNLOCK
+            - APPROVAL
+            - WITNESS
+            - SIGN_OUT
+        occurredAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - principalId
+        - pinVersion
+        - outcome
+        - purpose
+        - occurredAt
+      additionalProperties: false
+    TillSignOut:
+      type: object
+      description: "A cashier locked out of the till by five wrong PIN tries, signed out by a supervisor's PIN, once by its client id."
+      properties:
+        id:
+          type: string
+          format: uuid
+        cashierId:
+          type: string
+          format: uuid
+        shiftId:
+          type: string
+          format: uuid
+          description: "The cashier's shift on this till, if one is open."
+        supervisorId:
+          type: string
+          format: uuid
+        supervisorPinVersion:
+          type: integer
+          minimum: 1
+          maximum: 1000000
+        occurredAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - cashierId
+        - supervisorId
+        - supervisorPinVersion
+        - occurredAt
+      additionalProperties: false
+    TillPinReport:
+      type: object
+      properties:
+        events:
+          type: array
+          maxItems: 500
+          items:
+            $ref: "#/components/schemas/TillPinEvent"
+        signOuts:
+          type: array
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/TillSignOut"
+      required:
+        - events
+      additionalProperties: false
+    TillPinReportItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        outcome:
+          type: string
+          enum:
+            - APPLIED
+            - DUPLICATE
+            - REJECTED
+        reason:
+          type:
+            - string
+            - "null"
+      required:
+        - id
+        - outcome
+        - reason
+    TillPinReportResult:
+      type: object
+      properties:
+        eventResults:
+          type: array
+          items:
+            $ref: "#/components/schemas/TillPinReportItem"
+        signOutResults:
+          type: array
+          items:
+            $ref: "#/components/schemas/TillPinReportItem"
+        locked:
+          type: array
+          description: "Whose PIN is locked now, of the people the report named."
+          items:
+            $ref: "#/components/schemas/PrincipalRef"
+        serverTime:
+          type: string
+          format: date-time
+      required:
+        - eventResults
+        - signOutResults
+        - locked
+        - serverTime
+    ShiftWitnessList:
+      type: object
+      description: "Who may witness a cash drop on the shift now (CR-050 part 1): holders of `pos.shift.close.approve` at the shift's branch with a live staff session, never the shift's cashier nor the caller. Empty: nobody is signed in, and a drop may go unwitnessed."
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/PrincipalRef"
+        asOf:
+          type: string
+          format: date-time
+      required:
+        - data
+        - asOf
     CashMovementPage:
       type: object
       description: "A page of `CashMovement` results."
@@ -34896,12 +35196,16 @@ components:
           $ref: "#/components/schemas/Pesewas"
         priceOverrideLimitPerShiftPesewas:
           $ref: "#/components/schemas/Pesewas"
+        pinMaxWrongTries:
+          type: integer
+          description: "Wrong till PIN tries before a PIN is locked until its owner sets a new one (2.16.0, CR-032 point 3, ADR-0080): 5. The server counts every try the tills report (`reportTillPinEvents`) and locks it too."
       required:
         - maxOfflineHours
         - maxQueuedSales
         - offlineTenderMethodIds
         - priceOverrideLimitPerLinePesewas
         - priceOverrideLimitPerShiftPesewas
+        - pinMaxWrongTries
     OfflinePack:
       type: object
       description: "Everything a till needs to sell for a shift with no network. A cache with an age: the server re-prices and re-authorises every synced sale."
@@ -34947,6 +35251,11 @@ components:
             $ref: "#/components/schemas/ReasonCode"
         policy:
           $ref: "#/components/schemas/OfflinePolicy"
+        uoms:
+          type: array
+          description: "The units the pack's products are sold or counted in, with the names `Uom` gives them (2.16.0, CR-051), so the till says \"6 eggs\" and \"1 crate\" offline. In code order."
+          items:
+            $ref: "#/components/schemas/OfflineUom"
         currency:
           $ref: "#/components/schemas/Currency"
       required:
@@ -34961,6 +35270,7 @@ components:
         - paymentMethods
         - reasonCodes
         - policy
+        - uoms
         - currency
     CounterSaleLine:
       type: object
@@ -34988,6 +35298,52 @@ components:
           $ref: "#/components/schemas/Pesewas"
         varianceReasonCode:
           type: string
+      required:
+        - productId
+        - quantity
+        - agreedUnitPricePesewas
+      additionalProperties: false
+    OfflineSaleLine:
+      type: object
+      properties:
+        productId:
+          type: string
+          format: uuid
+        stockUnitId:
+          type: string
+          format: uuid
+        quantity:
+          $ref: "#/components/schemas/Quantity"
+        uom:
+          type: string
+          pattern: "^[A-Z]{2,10}$"
+          description: "The unit the line is sold in (CR-038, 2.11.0): one of the product's `OfflineProduct.sellingUnits` at this register; `quantity` and `agreedUnitPricePesewas` are in it. Absent, the first unit the product is sold by (its `saleUom` when it is priced in it, a crate of eggs). The server issues the stock in the base unit (30 eggs a crate) and prices the line by that unit's own entry. A unit the product is not sold by at the register is 400 `VALIDATION_FAILED` on `/lines/{i}/uom` (`UNIT_NOT_SOLD`)."
+        weightKg:
+          $ref: "#/components/schemas/Kilograms"
+        weightSource:
+          $ref: "#/components/schemas/WeightSource"
+        gradeId:
+          type: string
+          format: uuid
+        agreedUnitPricePesewas:
+          $ref: "#/components/schemas/Pesewas"
+        varianceReasonCode:
+          type: string
+        overrideApproval:
+          type: object
+          description: "A price beyond the cashier's own override limit approved on the till by a supervisor's PIN (2.16.0, the owner on 2026-11-18, ADR-0080). Checked at sync like every PIN approval: a supervisor of the branch, not the cashier, with that PIN version in force and not locked when the sale was made, and a variance within the supervisor's own line limit. The price charged always stands; every difference from the server's price is raised (`PRICE_OVERRIDE`, REVIEW within the cashier's limit, URGENT beyond it)."
+          properties:
+            approvedById:
+              type: string
+              format: uuid
+            approvedByPinVersion:
+              type: integer
+              minimum: 1
+              maximum: 1000000
+          required:
+            - approvedById
+            - approvedByPinVersion
+          additionalProperties: false
       required:
         - productId
         - quantity
@@ -35033,6 +35389,11 @@ components:
         providerReference:
           type: string
           description: "The transaction id the customer showed, if any."
+        approvedByPinVersion:
+          type: integer
+          minimum: 1
+          maximum: 1000000
+          description: "The approver's till PIN version, which the till checked their PIN against (2.16.0, CR-032 point 4, ADR-0080). The server checks it at sync: a supervisor of the branch, not the cashier, with that version in force and not locked when the sale was made, is a verified approval (`approvalVerified: true` on the break, REVIEW); anything else is still recorded and its break is URGENT."
         approvedById:
           type: string
           format: uuid
@@ -35118,7 +35479,7 @@ components:
         lines:
           type: array
           items:
-            $ref: "#/components/schemas/CounterSaleLine"
+            $ref: "#/components/schemas/OfflineSaleLine"
         tenders:
           type: array
           items:

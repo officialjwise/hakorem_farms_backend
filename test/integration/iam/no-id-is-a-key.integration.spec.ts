@@ -45,6 +45,8 @@ const TAKES_NO_IDENTIFIER = [
   'listMovementTypes', 'listYieldStandards', 'listAccounts', 'listBankAccounts', 'listAccountingPeriods', 'listManualJournals', 'listPostingEventTypes',
   'listPostingRules', 'listAccountDeterminations', 'listFixedAssets', 'listDepreciationRuns', 'listDocumentTemplates', 'listDunningLevels', 'replaceDunningLevels', 'listUnmatchedPayments',
   'listSettlementReports', 'listReconciliationBreaks', 'listShopCategories', 'getShopProfile', 'createCart', 'listMyOrders', 'getMyStoreCredit',
+  // B09b continued 3: one's own till PIN takes no identifier.
+  'setTillPin',
 ];
 
 /** Public by design, each proved in its own block below or in its module's tests (named here). */

@@ -1,0 +1,56 @@
+operationId: setTillPin
+tags:
+  - pos
+summary: "Set one's own till PIN, as the verifier the till derived"
+description: "The caller's own till PIN (2.16.0, CR-032 points 1 to 3, ADR-0080). The till derives the verifier from the PIN typed into it and sends only that: PBKDF2 with HMAC-SHA256 over the PIN's UTF-8 bytes, at least 600,000 and at most 10,000,000 iterations, a salt of 16 to 64 bytes from the device's secure generator, a 32-byte derived key. No operation takes a PIN, and a PIN authenticates nothing on the server: the staff session and the device credential stay the server's controls (CR-032 points 2 and 5). Each set is the next version, which replaces the last and clears its lock; a till holding an older version is refused it at sync. Refusals: 422 `TILL_PIN_INVALID` with `PIN_ALGORITHM_NOT_ALLOWED`, `PIN_ITERATIONS_TOO_FEW`, `PIN_ITERATIONS_TOO_MANY`, `PIN_SALT_TOO_SHORT`, `PIN_SALT_TOO_LONG`, `PIN_SALT_NOT_RANDOM`, `PIN_SALT_REUSED` or `PIN_HASH_NOT_32_BYTES`; the database refuses a weaker verifier too. Audited with the version and its cost, never the salt or the hash. A resubmission with the same key returns the first result.\n\nPermission: `pos.pin.set`. Ownership: one's own PIN only."
+x-permission: pos.pin.set
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/TillPinSet"
+      example:
+        algorithm: PBKDF2-SHA256
+        iterations: 600000
+        pinSalt: "q3H0n6m1bWJ8yYc2b0qJXg=="
+        pinHash: "3p0cOq8gL3m0E8m6c1Jtq0vXbS0y1o9uQ4m2l1e0Vxk="
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/TillPinStatus"
+        example:
+          principal:
+            id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+            displayName: "Adwoa Darko"
+          version: 2
+          algorithm: PBKDF2-SHA256
+          iterations: 600000
+          setAt: "2026-11-13T06:40:00Z"
+          wrongTries: 0
+          locked: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

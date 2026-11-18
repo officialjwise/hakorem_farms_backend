@@ -35,6 +35,8 @@ import {
 } from '../domain/offline-sync';
 import { cashMovementTimeAtSync, inMovementOrder, priorMovementAnswer, unverifiedTenderVerdict, type MovementContent } from '../domain/offline-queue';
 import { expectedCash, isUnwitnessedDrop, judgeCashMovement, shiftOverrideRoom, type CashMovementKind } from '../domain/till';
+import type { TillPins } from './till-pins';
+import { offlineOverrideVerdict, witnessPinRule, type OfflineOverrideVerdict, type PinApprovalVerdict } from '../domain/till-pin';
 import type { CashMoved, DeviceCounterGap, OfflineCashMovementFlagged, OfflineSaleFlagged, OfflineSaleRejected } from '../events';
 import type { Devices } from './devices';
 import { SyncBatchTooLargeError } from './errors';
@@ -70,6 +72,8 @@ export interface OfflineSaleLineInput {
   readonly gradeId?: string | undefined;
   readonly agreedUnitPricePesewas: number;
   readonly varianceReasonCode?: string | undefined;
+  /** A price beyond the cashier's own limit approved on the till by a supervisor's PIN (the owner on 2026-11-18). */
+  readonly overrideApproval?: { readonly approvedById: string; readonly approvedByPinVersion: number } | undefined;
 }
 
 /** A tender of a queued sale as the device sent it (the contract's `TenderInput`). */
@@ -78,7 +82,7 @@ export interface OfflineTenderInput {
   readonly amountPesewas: number;
   readonly paymentId?: string | undefined;
   readonly tenderedPesewas?: number | undefined;
-  readonly unverifiedMobileMoney?: { readonly payerPhone: string; readonly network: 'MTN' | 'TELECEL' | 'AIRTELTIGO'; readonly providerReference?: string | undefined; readonly approvedById: string } | undefined;
+  readonly unverifiedMobileMoney?: { readonly payerPhone: string; readonly network: 'MTN' | 'TELECEL' | 'AIRTELTIGO'; readonly providerReference?: string | undefined; readonly approvedById: string; readonly approvedByPinVersion?: number | undefined } | undefined;
 }
 
 /** A queued sale as the device sent it (the contract's `OfflineSale`), exactly as received, so its hash can be recomputed. */
@@ -109,6 +113,7 @@ export interface OfflineCashMovementInput {
   readonly reasonCode?: string | undefined;
   readonly note?: string | undefined;
   readonly witnessId?: string | undefined;
+  readonly witnessPinVersion?: number | undefined;
   readonly occurredAt: Date;
 }
 
@@ -194,6 +199,7 @@ export class OfflineSync {
     private readonly clock: Clock,
     private readonly payments: Payments,
     private readonly unverified: UnverifiedTenders,
+    private readonly pins: TillPins,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -354,7 +360,7 @@ export class OfflineSync {
     const unverifiedAllowed = await this.settings.boolean(OFFLINE_UNVERIFIED_MOBILE_MONEY.key, OFFLINE_UNVERIFIED_MOBILE_MONEY.fallback, register.branchId);
     const takesCash = tillTakesCash(shift);
     const tenders: SaleTenderRequest[] = [];
-    const unverified: { readonly tender: OfflineTenderInput; readonly severity: 'REVIEW' | 'URGENT'; readonly approverIsSupervisor: boolean; readonly offeredOffline: boolean }[] = [];
+    const unverified: { readonly tender: OfflineTenderInput; readonly severity: 'REVIEW' | 'URGENT'; readonly approverIsSupervisor: boolean; readonly approval: PinApprovalVerdict | null; readonly offeredOffline: boolean }[] = [];
     for (const tender of sale.tenders) {
       const method = methods.get(tender.paymentMethodId)!;
       if (takesCash && takenAtSync(method)) {
@@ -367,12 +373,18 @@ export class OfflineSync {
       }
       // Mobile money taken unverified, approved on the device, is recorded only while the branch allows it (OFFLINE_SYNC 9.9).
       const details = tender.unverifiedMobileMoney;
-      const approverIsSupervisor = details !== undefined && details.approvedById !== shift.cashierId && (await this.holdsAt(tx, details.approvedById, SUPERVISE, register.branchId));
+      // The approval is checked against the supervisor's PIN version the till used (CR-032 point 4): only a verified one is
+      // a supervisor's approval; anything else is still recorded, and its break is URGENT.
+      const approval =
+        details === undefined
+          ? null
+          : await this.pins.approvalIn(tx, { approverId: details.approvedById, pinVersion: details.approvedByPinVersion ?? null, cashierId: shift.cashierId, actorId: null, branchId: register.branchId, at: occurredAt });
+      const approverIsSupervisor = approval === 'VERIFIED';
       const offeredOffline = method.kind === 'MOBILE_MONEY' && method.isLive && method.channels.includes('POS');
       const walletKnown = method.kind === 'MOBILE_MONEY' && (await this.unverified.walletIn(tx, register.branchId)) !== null;
       const verdict = unverifiedTenderVerdict({ methodKind: method.kind, branchAllows: unverifiedAllowed, carriesDetails: details !== undefined, offeredOffline, shiftTakesMoney: takesCash, approverIsSupervisor, walletKnown });
       if (verdict.take) {
-        unverified.push({ tender, severity: verdict.severity, approverIsSupervisor, offeredOffline });
+        unverified.push({ tender, severity: verdict.severity, approverIsSupervisor, approval, offeredOffline });
         continue;
       }
       flags.push({
@@ -451,7 +463,17 @@ export class OfflineSync {
       flags.push({ kind: 'PROVISIONAL_REF_MISMATCH', severity: 'REVIEW', summary: `The till printed ${sale.provisionalRef}; this shift and counter make ${expected}, so the receipt carries no provisional reference`, amountPesewas: null, fact: { printed: sale.provisionalRef, expected }, abuseCases: [], toTill: true });
     }
     const grossPesewas = posted.sale.billingDocument!.grossPesewas;
-    for (const finding of posted.findings) flags.push(flagOf(finding, grossPesewas));
+    for (const finding of posted.findings) if (finding.kind !== 'PRICE_OVERRIDE') flags.push(flagOf(finding, grossPesewas));
+    // Every offline override reaches the exception report's source; one beyond the cashier's own limit stands only with a
+    // supervisor's PIN verified here and within that supervisor's own line limit (the owner on 2026-11-18, A-278 (h)).
+    for (const line of posted.sale.lines) {
+      if (line.variancePesewas === 0) continue;
+      const finding = posted.findings.find((f): f is Extract<OfflineSaleFinding, { kind: 'PRICE_OVERRIDE' }> => f.kind === 'PRICE_OVERRIDE' && f.lineNo === line.lineNo);
+      const sent = sale.lines.find((_, i) => lineNoOf(i) === line.lineNo)?.overrideApproval;
+      const approval = sent === undefined ? null : await this.pins.approvalIn(tx, { approverId: sent.approvedById, pinVersion: sent.approvedByPinVersion, cashierId: shift.cashierId, actorId: null, branchId: register.branchId, at: occurredAt });
+      const supervisorLimit = sent === undefined ? 0n : await this.authoriser.limitIn(tx, staffActor(sent.approvedById), 'PRICE_OVERRIDE_PER_LINE', register.branchId);
+      flags.push(overrideFlag(line, finding ?? null, sent ?? null, approval, offlineOverrideVerdict({ beyondCashier: finding?.reason ?? null, approval, variancePesewas: BigInt(line.variancePesewas), supervisorLineLimitPesewas: supervisorLimit })));
+    }
     // The unverified tenders, after the cash ORD applied first, each allocated to what the receipt still owes (OFFLINE_SYNC 9.9).
     const receiptGross = Money.fromJsonInteger(grossPesewas);
     let owed = receiptGross.minus(lesser(receiptGross, Money.sum(tenders.map((t) => Money.ofPesewas(t.amountPesewas)))));
@@ -474,6 +496,7 @@ export class OfflineSync {
         network: details.network,
         providerReference: details.providerReference ?? null,
         approvedById: details.approvedById,
+        approvalVerified: u.approval === 'VERIFIED',
         severity: u.severity,
         facts: {
           saleId: sale.id,
@@ -485,6 +508,7 @@ export class OfflineSync {
           provisionalRef: sale.provisionalRef,
           occurredAt: sale.occurredAt,
           approverIsSupervisor: u.approverIsSupervisor,
+          approvalCheck: { pinVersion: details.approvedByPinVersion ?? null, verdict: u.approval },
           permittedOffline: u.offeredOffline,
         },
       });
@@ -621,12 +645,19 @@ export class OfflineSync {
       tillHolds: await this.tillHolds(tx, shift.id),
     });
     if (broken.length > 0) return refuse(broken[0]!.rule, { rules: broken.map((b) => b.rule) });
+    // A queued drop's witness confirmed it with their PIN on the till; the version is checked as at the till's time (the
+    // owner on 2026-11-18, CR-032 point 4). A named supervisor without a PIN in force is no witness: recorded nowhere.
+    if (m.kind === 'CASH_DROP' && witnessId !== null) {
+      const verdict = await this.pins.approvalIn(tx, { approverId: witnessId, pinVersion: m.witnessPinVersion ?? null, cashierId: shift.cashierId, actorId: null, branchId: register.branchId, at: tillTime });
+      const rule = witnessPinRule(verdict);
+      if (rule !== null) return refuse(rule, { witnessId, witnessPinVersion: m.witnessPinVersion ?? null, verdict });
+    }
 
     const tolerance = await this.settings.integer(CLOCK_TOLERANCE_SETTING, CLOCK_TOLERANCE_SECONDS);
     const timed = cashMovementTimeAtSync(tillTime, now, shift.openedAt, tolerance);
     const unwitnessed = isUnwitnessedDrop({ kind: m.kind, witnessId, supervisorSignedIn: false });
     // Attributed to the shift's cashier, who made it on the till; the session that synced it is the audit's actor.
-    await this.store.insertCashMovement(tx, { id: m.id, shiftId: shift.id, kind: m.kind, amountPesewas: amount, reasonCode: m.reasonCode!, note: m.note ?? null, witnessId, unwitnessed, occurredAt: timed.occurredAt, recordedAt: now, actorId: shift.cashierId });
+    await this.store.insertCashMovement(tx, { id: m.id, shiftId: shift.id, kind: m.kind, amountPesewas: amount, reasonCode: m.reasonCode!, note: m.note ?? null, witnessId, witnessPinVersion: witnessId === null ? null : (m.witnessPinVersion ?? null), unwitnessed, occurredAt: timed.occurredAt, recordedAt: now, actorId: shift.cashierId });
     const event = MOVEMENT_EVENTS[m.kind];
     const posting: CashMoved = {
       shiftId: shift.id,
@@ -748,7 +779,7 @@ function takenAtSync(method: PaymentMethodFacts): boolean {
   return method.kind === 'CASH' && method.isLive && method.allowedOffline;
 }
 
-function flagOf(finding: OfflineSaleFinding, grossPesewas: number): Flag {
+function flagOf(finding: Exclude<OfflineSaleFinding, { kind: 'PRICE_OVERRIDE' }>, grossPesewas: number): Flag {
   switch (finding.kind) {
     case 'STOCK_EXCEPTION': {
       // An animal sold twice, or one under a veterinary withdrawal, is URGENT; the rest are for review (OFFLINE_SYNC 8).
@@ -767,19 +798,53 @@ function flagOf(finding: OfflineSaleFinding, grossPesewas: number): Flag {
               : `Line ${finding.lineNo}: ${unit}was already sold or is not at this till; no stock moved`;
       return { kind: 'STOCK_EXCEPTION', severity: urgent ? 'URGENT' : 'REVIEW', summary, amountPesewas: grossPesewas, fact: { ...finding.fact, stockExceptionId: finding.stockExceptionId, stockExceptionKind: finding.stockExceptionKind, lineNo: finding.lineNo, moved: finding.moved }, abuseCases: [ABUSE_STOCK], toTill: true };
     }
-    case 'PRICE_OVERRIDE':
-      return {
-        kind: 'PRICE_OVERRIDE',
-        severity: 'REVIEW',
-        summary: `Line ${finding.lineNo}: the price given (${finding.variancePesewas} pesewas from list) is beyond what the cashier may give now (${finding.reason}); a manager reviews it`,
-        amountPesewas: finding.variancePesewas,
-        fact: { ...finding },
-        abuseCases: [ABUSE_OVERRIDE],
-        toTill: true,
-      };
     case 'NOT_PRICED_AT_SYNC':
       return { kind: 'NOT_PRICED_AT_SYNC', severity: 'REVIEW', summary: `Line ${finding.lineNo}: no price list prices this line now; the price the till agreed stands and a manager reviews it`, amountPesewas: finding.agreedUnitPricePesewas, fact: { ...finding }, abuseCases: [ABUSE_OVERRIDE], toTill: true };
   }
+}
+
+/** An offline override as raised (the owner on 2026-11-18): the cashier's own, a supervisor's by PIN, or outside the rules. */
+function overrideFlag(
+  line: { readonly lineNo: number; readonly variancePesewas: number; readonly varianceDirection: 'BELOW' | 'ABOVE' | null; readonly resolvedUnitPricePesewas: number; readonly agreedUnitPricePesewas: number; readonly varianceReasonCode: string | null },
+  finding: Extract<OfflineSaleFinding, { kind: 'PRICE_OVERRIDE' }> | null,
+  sent: { readonly approvedById: string; readonly approvedByPinVersion: number } | null,
+  approval: PinApprovalVerdict | null,
+  verdict: OfflineOverrideVerdict,
+): Flag {
+  const why =
+    verdict.basis === 'WITHIN_CASHIER_LIMIT'
+      ? "within the cashier's own limit"
+      : verdict.basis === 'SUPERVISOR_PIN'
+        ? "beyond the cashier's limit, approved on the till by a supervisor's PIN"
+        : `outside the rules (${verdict.reason ?? ''}); a manager reviews it`;
+  return {
+    kind: 'PRICE_OVERRIDE',
+    severity: verdict.severity,
+    summary: `Line ${line.lineNo}: a price ${line.variancePesewas} pesewas from list was given offline, ${why}`,
+    amountPesewas: line.variancePesewas,
+    fact: {
+      lineNo: line.lineNo,
+      variancePesewas: line.variancePesewas,
+      direction: line.varianceDirection,
+      listUnitPricePesewas: line.resolvedUnitPricePesewas,
+      agreedUnitPricePesewas: line.agreedUnitPricePesewas,
+      varianceReasonCode: line.varianceReasonCode,
+      beyondCashier: finding?.reason ?? null,
+      ...(finding === null ? {} : { band: finding.band }),
+      basis: verdict.basis,
+      reason: verdict.reason,
+      approvedById: sent?.approvedById ?? null,
+      approvalCheck: { pinVersion: sent?.approvedByPinVersion ?? null, verdict: approval },
+    },
+    abuseCases: [ABUSE_OVERRIDE],
+    // The till is told of an override beyond the cashier's own limit; one within it reaches the source only.
+    toTill: verdict.basis !== 'WITHIN_CASHIER_LIMIT',
+  };
+}
+
+/** A principal read by id for their grants and limits, as the caller's would be; it is not the caller. */
+function staffActor(principalId: string): Actor {
+  return { principalId, kind: 'USER', displayName: '', realm: 'STAFF', sessionId: null, steppedUpAt: null };
 }
 
 /** The kind the till is told for a stock exception: the exception's own kind (`SERIAL_CONFLICT`, `NEGATIVE_STOCK`, ...). */

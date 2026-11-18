@@ -336,7 +336,7 @@ describe('ADR-0077 offline: cash from the queue goes only onto its own open shif
   });
 });
 
-describe('a price beyond the cashier limit or out of the band is re-checked at sync, posted and raised, never refused (OFFLINE_SYNC 9.6, A-278 (h))', () => {
+describe('a price beyond the cashier limit or out of the band is re-checked at sync, posted and raised URGENT, never refused (OFFLINE_SYNC 9.6, A-278 (h) as amended 2026-11-18)', () => {
   it('posts two cabbages at 900 against the list 1,000 (within the band, beyond a limit of 0) and a crate at 5,800 against a fixed 6,000, each variance on 4210', async () => {
     const list = await cabbagePrice();
     expect(list).toBe(1_000);
@@ -368,10 +368,11 @@ describe('a price beyond the cashier limit or out of the band is re-checked at s
     const documents = await documentsOf(offline.id);
     expect(await balance('4210', documents)).toBe(400);
     expect(await balance('1000', documents)).toBe(7_600);
-    const flags = (await outbox('pos.OfflineSaleFlagged', offline.id)).map((r) => [r.payload['exceptionKind'], r.payload['amountPesewas'], (r.payload['fact'] as Record<string, unknown>)['reason'], (r.payload['fact'] as Record<string, unknown>)['band']]);
+    // Beyond the cashier's limit with no supervisor's PIN, and outside the band: each URGENT, outside the rules (the owner, 2026-11-18).
+    const flags = (await outbox('pos.OfflineSaleFlagged', offline.id)).map((r) => [r.payload['exceptionKind'], r.payload['severity'], r.payload['amountPesewas'], (r.payload['fact'] as Record<string, unknown>)['beyondCashier'], (r.payload['fact'] as Record<string, unknown>)['reason'], (r.payload['fact'] as Record<string, unknown>)['band']]);
     expect(flags).toEqual([
-      ['PRICE_OVERRIDE', 200, 'BEYOND_ROLE_LIMIT', { listPricePesewas: 1_000, floorPricePesewas: 800, ceilingPricePesewas: 1_200 }],
-      ['PRICE_OVERRIDE', 200, 'OUTSIDE_BAND', { listPricePesewas: 6_000, floorPricePesewas: 6_000, ceilingPricePesewas: 6_000 }],
+      ['PRICE_OVERRIDE', 'URGENT', 200, 'BEYOND_ROLE_LIMIT', 'NO_SUPERVISOR_PIN', { listPricePesewas: 1_000, floorPricePesewas: 800, ceilingPricePesewas: 1_200 }],
+      ['PRICE_OVERRIDE', 'URGENT', 200, 'OUTSIDE_BAND', 'OUTSIDE_BAND', { listPricePesewas: 6_000, floorPricePesewas: 6_000, ceilingPricePesewas: 6_000 }],
     ]);
   });
 });

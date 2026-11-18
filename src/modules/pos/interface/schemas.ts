@@ -7,6 +7,13 @@ const Instant = z.iso.datetime().transform((t) => new Date(t));
 const Text = (max: number) => z.string().trim().min(1).max(max);
 const Limit = z.coerce.number().int().min(1).max(100).default(25);
 const Cursor = z.string().min(1).max(512).optional();
+/** A till PIN verifier's version (ADR-0080). */
+const PinVersion = z.number().int().min(1).max(1_000_000);
+/** Base64 of the bytes a till derived (`format: byte`). */
+const Base64 = (maxBytes: number) => z.string().max(Math.ceil(maxBytes / 3) * 4).regex(/^[A-Za-z0-9+/]+={0,2}$/);
+/** The most PIN tries and sign-outs one report carries. */
+export const MAX_PIN_EVENTS = 500;
+export const MAX_SIGN_OUTS = 50;
 /** The most payment methods one close declares. */
 export const MAX_DECLARED_METHODS = 10;
 
@@ -35,6 +42,7 @@ export const CashMovementCreate = z.strictObject({
   reasonCode: ReasonCode.optional(),
   note: Text(500).optional(),
   witnessId: z.uuid().optional(),
+  witnessPinVersion: PinVersion.optional(),
   occurredAt: Instant,
 });
 
@@ -86,7 +94,7 @@ export const CounterSale = z.strictObject({
         paymentId: z.uuid().optional(),
         tenderedPesewas: Pesewas.optional(),
         unverifiedMobileMoney: z
-          .strictObject({ payerPhone: PhoneNumber, network: z.enum(['MTN', 'TELECEL', 'AIRTELTIGO']), providerReference: Text(100).optional(), approvedById: z.uuid() })
+          .strictObject({ payerPhone: PhoneNumber, network: z.enum(['MTN', 'TELECEL', 'AIRTELTIGO']), providerReference: Text(100).optional(), approvedById: z.uuid(), approvedByPinVersion: PinVersion.optional() })
           .optional(),
       }),
     )
@@ -138,6 +146,7 @@ const OfflineSale = z.strictObject({
         gradeId: z.uuid().optional(),
         agreedUnitPricePesewas: JsonPesewas,
         varianceReasonCode: ReasonCode.optional(),
+        overrideApproval: z.strictObject({ approvedById: z.uuid(), approvedByPinVersion: PinVersion }).optional(),
       }),
     )
     .min(1)
@@ -150,7 +159,7 @@ const OfflineSale = z.strictObject({
         paymentId: z.uuid().optional(),
         tenderedPesewas: JsonPesewas.optional(),
         unverifiedMobileMoney: z
-          .strictObject({ payerPhone: PhoneNumber, network: z.enum(['MTN', 'TELECEL', 'AIRTELTIGO']), providerReference: Text(100).optional(), approvedById: z.uuid() })
+          .strictObject({ payerPhone: PhoneNumber, network: z.enum(['MTN', 'TELECEL', 'AIRTELTIGO']), providerReference: Text(100).optional(), approvedById: z.uuid(), approvedByPinVersion: PinVersion.optional() })
           .optional(),
       }),
     )
@@ -163,4 +172,27 @@ export const OfflineSyncBatch = z.strictObject({
   shiftId: z.uuid(),
   sales: z.array(OfflineSale).max(MAX_PARSED_SALES),
   cashMovements: z.array(CashMovementCreate).max(500).optional(),
+});
+
+/** `TillPinSet` (CR-032, ADR-0080): the verifier the till derived from the PIN; never the PIN. */
+export const TillPinSet = z.strictObject({ algorithm: z.string().min(1).max(40), iterations: z.number().int().min(1).max(100_000_000), pinSalt: Base64(256), pinHash: Base64(256) });
+
+/** `TillPinReport` (CR-032 point 3): every PIN try a till made, and the locked cashiers it signed out. */
+export const TillPinReport = z.strictObject({
+  events: z
+    .array(
+      z.strictObject({
+        id: z.uuid(),
+        principalId: z.uuid(),
+        pinVersion: PinVersion,
+        outcome: z.enum(['FAILED', 'SUCCEEDED']),
+        purpose: z.enum(['UNLOCK', 'APPROVAL', 'WITNESS', 'SIGN_OUT']),
+        occurredAt: Instant,
+      }),
+    )
+    .max(MAX_PIN_EVENTS),
+  signOuts: z
+    .array(z.strictObject({ id: z.uuid(), cashierId: z.uuid(), shiftId: z.uuid().optional(), supervisorId: z.uuid(), supervisorPinVersion: PinVersion, occurredAt: Instant }))
+    .max(MAX_SIGN_OUTS)
+    .optional(),
 });

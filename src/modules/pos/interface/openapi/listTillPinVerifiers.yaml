@@ -1,0 +1,80 @@
+operationId: listTillPinVerifiers
+tags:
+  - pos
+summary: "The till PIN verifiers an enrolled till checks offline"
+description: "For an enrolled till of the branch (2.16.0, CR-032 point 1, ADR-0080): the caller's own verifier and that of every holder of `pos.shift.close.approve` at the till's branch, signed in or not, so the till can unlock and take a supervisor's approval, a drop's witness and a locked cashier's sign-out with no network. Each carries its version, its parameters, the person's own price override limit per line at the branch (what their PIN may approve offline, never unlimited), the wrong tries the server has counted against it and whether it is locked; a locked PIN carries no salt or hash, and the till refuses it until its owner sets a new one (`policy.lockedUntil`). A person with no PIN is not listed. Fetched at an online sign-in on the till and whenever the pack is fetched. Each issue is audited with whose versions it gave, never their material. Device: `X-Device-Credential` of this till (401 `DEVICE_CREDENTIAL_INVALID`, 403 `DEVICE_REVOKED`, 403 for another till's device).\n\nPermission: `pos.sale.create` at the till's branch."
+x-permission: pos.sale.create
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+    deviceCredential: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/TillPinVerifierList"
+        examples:
+          default:
+            value:
+              registerId: "019a7a91-1f33-7a5e-8c2b-3d4f5a6b7c8d"
+              data:
+                - principal:
+                    id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                    displayName: "Adwoa Darko"
+                  role: OPERATOR
+                  version: 2
+                  algorithm: PBKDF2-SHA256
+                  iterations: 600000
+                  pinSalt: "q3H0n6m1bWJ8yYc2b0qJXg=="
+                  pinHash: "3p0cOq8gL3m0E8m6c1Jtq0vXbS0y1o9uQ4m2l1e0Vxk="
+                  wrongTries: 1
+                  locked: false
+                  priceOverrideLimitPerLinePesewas: 5000
+                - principal:
+                    id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                    displayName: "Kwabena Owusu"
+                  role: SUPERVISOR
+                  version: 1
+                  algorithm: PBKDF2-SHA256
+                  iterations: 600000
+                  pinSalt: null
+                  pinHash: null
+                  wrongTries: 5
+                  locked: true
+                  priceOverrideLimitPerLinePesewas: 20000
+              policy:
+                maxWrongTries: 5
+                lockedUntil: NEW_PIN_SET
+              asOf: "2026-11-13T06:45:00Z"
+          empty:
+            summary: "Nobody at the branch has set a till PIN yet"
+            value:
+              registerId: "019a7a91-1f33-7a5e-8c2b-3d4f5a6b7c8d"
+              data: []
+              policy:
+                maxWrongTries: 5
+                lockedUntil: NEW_PIN_SET
+              asOf: "2026-11-13T06:45:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -212,6 +212,8 @@ export interface IamStore {
    * included) and have a live session: not revoked, and neither idle nor absolutely expired.
    */
   signedInHolders(tx: Transaction, permission: string, branchId: string, now: Date): Promise<string[]>;
+  /** The active staff principals who hold the permission now through a grant at the branch, signed in or not. */
+  holders(tx: Transaction, permission: string, branchId: string, now: Date): Promise<string[]>;
 }
 
 /**
