@@ -80,7 +80,8 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B09e continued 3 | `B09e4-eggs-claim.md` | `b09e4-eggs-claim` | B4 to B12 | A claim raised from a posted receipt drafts the supplier credit note from the rejected lines and their cost, never keyed by hand, linked both ways, moving no stock, on the supplier's account until settled, maker and checker apart (CR-036); every write refuses the wrong role |
 | B9b | `B09b-pos-shifts-offline.md` | `b09b-pos-shifts-offline` | B4 to B12 | Split (A-273 (a)): registers, shifts, cash movements, X and Z, blind close; a shift close reconciles to the pesewa |
 | B09b continued | `B09b2-pos-devices-counter.md` | `b09b2-pos-devices-counter` | B4 to B12 | Split (A-274): a device enrolled and revoked; a counter sale on the cashier's own open shift with change from cash only; no cash into or out of a till but through its open shift, whoever calls PAY (ADR-0077); a cash refund only out of an open shift; the unwitnessed drop |
-| B09b continued 1b | `B09b2b-pos-force-close-held.md` | `b09b2b-pos-force-close-held` | B4 to B12 | A force close signed by a manager who is not the cashier, its variance posted when the drawer is counted; held sales re-priced on recall and lapsing at close; a mobile money or card tender at the counter as a cleared payment; the audit anchor at each sign-off |
+| B09b continued 1b | `B09b2b-pos-force-close-held.md` | `b09b2b-pos-force-close-held` | B4 to B12 | Split (A-275): a force close by a manager who is not the cashier, posting nothing until a third person counts the drawer, mutation-checked; ADR-0077's force-closed column proved with the real operation; the audit anchor at each sign-off |
+| B09b continued 1c | `B09b2c-pos-held-provider-tender.md` | `b09b2c-pos-held-provider-tender` | B4 to B12 | Held sales re-priced on recall with exact pesewas, recalled once, lapsing at close; a mobile money or card tender at the counter only as a payment the provider cleared, never allocated twice nor another customer's or another shift's |
 | B09b continued 2 | `B09b3-pos-offline-sync.md` | `b09b3-pos-offline-sync` | B4 to B12 | 500 queued offline transactions sync exactly once; ADR-0027's five conflict tests; a crate and a single egg sold at the till at their own prices (CR-038) |
 | B09b continued 3 | `B09b4-pos-till-pin.md` | `b09b4-pos-till-pin` | B4 to B12 | The till PIN's verifier, attempt limit and supervisor sign-out as the owner set them (CR-032) |
 | B09b continued 4 | `B09b5-pos-receipts.md` | `b09b5-pos-receipts` | B4 to B12 | The receipt link by its token alone (CR-033 points 1 and 2); the business buyer's TIN on the VAT invoice; an invoice paid at the till inside the shift |
@@ -2412,7 +2413,7 @@ Stop at the gate and write docs/sessions/B09b2-pos-devices-counter.md.
 
 ## B09b continued 1b — The force close, held sales, the counter's provider tender and the audit anchor
 
-Branch `b09b2b-pos-force-close-held`. Report `docs/sessions/B09b2b-pos-force-close-held.md`. Gate: a force close by a manager who is not the cashier, closed at its expected cash and its variance posted when the drawer is counted, mutation-checked; held sales re-priced on recall with exact pesewas, lapsing at close; a mobile money or card tender at the counter only as a payment the provider cleared, never allocated twice nor another customer's.
+Branch `b09b2b-pos-force-close-held`. Report `docs/sessions/B09b2b-pos-force-close-held.md`. Gate: a force close by a manager who is not the cashier, closed at its expected cash and its variance posted when the drawer is counted, mutation-checked; held sales re-priced on recall with exact pesewas, lapsing at close; a mobile money or card tender at the counter only as a payment the provider cleared, never allocated twice nor another customer's. **Split (A-275, ADR-0026 Amendments):** held sales and the counter's provider tender moved to B09b continued 1c; this part built the force close, its later count, ADR-0077's force-closed column with the real operation and the audit anchor at each sign-off.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9b row).
@@ -2445,13 +2446,41 @@ any path accepts cash on a force-closed shift, stop and report: the ADR returns 
 Stop at the gate and write docs/sessions/B09b2b-pos-force-close-held.md.
 ```
 
+## B09b continued 1c — Held sales and the counter's provider tender
+
+Branch `b09b2c-pos-held-provider-tender`. Report `docs/sessions/B09b2c-pos-held-provider-tender.md`. Gate: held sales re-priced on recall with exact pesewas after a price change between hold and recall, recalled once, lapsing at the shift's close (a force close included); a mobile money or card tender at the counter only as a payment the provider cleared, allocated once, never another customer's or another shift's.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9b row).
+List docs/sessions/ and read only the most recent report (docs/sessions/B09b2b-pos-force-close-held.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the POS requirement block of docs/SRS.md (nothing else from the SRS),
+docs/data-model/pos.md, the POS card in docs/MODULE_BOUNDARIES.md, docs/OFFLINE_SYNC.md (sections 2 and 11),
+ADR-0027, ADR-0077, ADR-0078, A-274 and A-275 in docs/ASSUMPTIONS.md, and the abuse cases 3 and 4 in
+docs/security/THREAT_MODEL.md. Read the hakorem-offline skill. Use docs/prompts/module-build-prompt.md as the recipe.
+Do not read any other document unless this phase needs it. Lane A (docs/prompts/session-openers.md, "Two lanes").
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B09b continued 1c only, on branch b09b2c-pos-held-provider-tender, branched from main: held sales
+(holdSale, listHeldSales, recallHeldSale on the till's open shift, pos.held_sale, re-priced on recall with exact pesewas
+after a price change between hold and recall, recalled once (404 the second time), lapsing at the shift's close and at
+its force close); a mobile money or card tender at the counter as a payment the provider already cleared
+(TenderInput.paymentId, FR-POS-006): the payment must be linked to its sale so ORD's reads and a void see it (A-274 (f):
+the cleared payment is frozen, so decide the link with an ADR and ask the parent session before changing an existing PAY
+or ORD shape; the additive ORD change is in src/modules/ord/application/sale-posting.ts only), allocated once by
+paymentId through SalePosting.postIn, never another customer's or another shift's nor one not yet cleared, test-first
+with exact pesewas. Every write gets its wrong-role refusal test; every new read joins the identifier walk.
+Stop at the gate and write docs/sessions/B09b2c-pos-held-provider-tender.md.
+```
+
 ## B09b continued 2 — The offline pack and offline sync
 
 Branch `b09b3-pos-offline-sync`. Report `docs/sessions/B09b3-pos-offline-sync.md`. Gate: 500 queued offline transactions sync exactly once, and ADR-0027's five conflict tests pass.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9b row).
-List docs/sessions/ and read only the most recent report (docs/sessions/B09b2b-pos-force-close-held.md).
+List docs/sessions/ and read only the most recent report (docs/sessions/B09b2c-pos-held-provider-tender.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
 reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the POS requirement block of docs/SRS.md (nothing else from the SRS),
