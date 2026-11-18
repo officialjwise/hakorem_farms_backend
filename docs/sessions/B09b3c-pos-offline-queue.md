@@ -120,6 +120,8 @@ The same finding is in the pull request body.
 
 ## CI
 
+- **Main before the rebase:** `97e562f` (lane B's B10 continued, contract 2.14.0), taken at the merge slot: migrations renumbered 0262 and 0263, the contract bumped to 2.15.0 above 2.14.0, its changelog entry above lane B's; the one conflict, the rollback order in `archive-link-rollback`, keeps both lanes' migrations. Tests rerun on the rebase (above).
+- **The first head, `c602cf9` (pull request #112): red, not caused by this phase.** Pull request run **44366167193** (`pull_request`) failed only in the dependency audit: `GHSA-fc5q-39xc-vjpf: waived but no longer found; remove the waiver` (the advisory database no longer reports the picomatch advisory, so the owner's waiver matched nothing; every other job, lint, image, unit and integration with coverage, contract and setup, was green). Push run **44366108295** (`push`) on the same head failed in the same job for the same reason, every other job green. Nothing was re-run. With the parent session's agreement (removing a waiver narrows the exception), the waiver was removed in its own commit, `docs(security): remove the picomatch waiver, the advisory no longer reported`; locally `node scripts/check/audit-waivers.ts` passes (\"no high or critical advisory outside a live waiver\") and `scripts/check/audit-waivers.spec.ts` passes (10 tests). Main needs this commit: every branch fails the audit until it lands.
 The runs on the head that adds this report are named in the closing message to the parent session, because a report cannot name the runs of the commit that adds it. The pull request merges only when every run on its head is green.
 
 ## Next session
