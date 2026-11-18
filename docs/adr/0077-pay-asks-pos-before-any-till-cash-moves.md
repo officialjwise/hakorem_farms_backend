@@ -1,6 +1,6 @@
 # ADR-0077: PAY asks POS, through the TillShiftCheck port, before any cash moves into or out of a till
 
-- **Status:** Proposed (2026-11-17)
+- **Status:** Accepted (owner, 2026-11-18), on the owner's three conditions: every way cash can be recorded refuses another cashier's shift, a closed shift and a force-closed shift, through PAY directly as well as through the till; the rule is enforced in the database too (migrations 0236 to 0239); and each path has its own test, with a deliberate breakage that turns at least one red (the table under Verification). Two notes stand with it: "another cashier's shift" for an approved reversal or a void is unreachable through the application (every permitted approver holds `pos.shift.force_close`) and is proved by the database test alone; and the force-closed column was proved against the state `forceCloseShift` leaves, so B09b continued 1b re-proves every row of it against a shift force-closed through the operation itself, and if any path then accepts cash this ADR returns to Proposed. Proposed in B09b continued (2026-11-17).
 - **Date:** 2026-11-17
 - **Session:** B09b continued
 - **Deciders:** backend track; owner approves

@@ -2439,6 +2439,9 @@ see it (A-274 (f): the cleared payment is frozen, so decide the link with an ADR
 changing an existing PAY or ORD shape), allocated once, never another customer's or another shift's, test-first with
 exact pesewas; the audit chain anchored at each sign-off through the worker (approveShiftClose's description promises
 it). Every write gets its wrong-role refusal test; every new read joins the identifier walk.
+ADR-0077 (accepted by the owner, 2026-11-18, on condition): re-prove every row of its Verification table's force-closed
+column against a shift force-closed through forceCloseShift itself, test-first, and name each test in the table. If
+any path accepts cash on a force-closed shift, stop and report: the ADR returns to Proposed.
 Stop at the gate and write docs/sessions/B09b2b-pos-force-close-held.md.
 ```
 
@@ -2662,6 +2665,13 @@ Also in this phase (owner, 2026-11-17, F10f), each test-first, additive contract
 6. CR-044: descriptions only. Say which unit SupplierInvoiceLine.qtyVariance is in and its sign, and that
    priceVariancePesewas is the line's whole difference from the order price, with priceVarianceDirection over or
    under. Check the listSupplierInvoices example against the arithmetic.
+7. BL-077 (a defect, not parked work): approving the void of a sale whose payment already has a reversal waiting
+   answers 500, because Receipts.reverseApprovedIn writes a second open reversal for the payment. Refuse the approval
+   with a stated 422 code while a reversal is pending (and a reversal while a void is pending), in the domain and the
+   database, test-first with the exact case B09b continued found (test/integration/pos/till-cash-paths), mutation-checked.
+   ORD's void is lane B's; PAY's reversal is shared, so the change there is additive or recorded loudly.
+8. The sheet import creates customers and suppliers without the advisory lock createCustomer and createSupplier now
+   take (PR #102); take the same lock there, and test a concurrent import beside a create.
 Stop at the gate, write docs/sessions/B09u-units-supplier-account.md, and merge into main through the merge slot when
 every run on the pull request is green. End the report with B10's opening message.
 ```
