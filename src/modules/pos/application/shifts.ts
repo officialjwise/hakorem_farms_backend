@@ -1,4 +1,5 @@
 import { createUuidV7Generator, Money, toBusinessDate, type Clock } from '@hakorem/kernel';
+import type { AuditAnchorRequests } from '../../../platform/audit/audit-anchor-requests';
 import type { AuditTrail } from '../../../platform/audit/audit-trail';
 import type { Actor } from '../../../platform/context/request-context';
 import { sqlStateOf, type Transaction, type UnitOfWork } from '../../../platform/database/unit-of-work';
@@ -12,18 +13,19 @@ import type { Authoriser, PrincipalNames, PrincipalRef } from '../../iam';
 import type { MasterDataRefs } from '../../mdm';
 import type { Orders } from '../../ord';
 import type { Payments, ShiftTenderTotal } from '../../pay';
-import { closeAmounts, expectedCash, isUnwitnessedDrop, judgeCashMovement, judgeCountSignOff, overShort, type CashMovementKind } from '../domain/till';
+import { closeAmounts, expectedCash, isUnwitnessedDrop, judgeCashMovement, judgeCountSignOff, judgeForceClose, judgeLateCount, overShort, type CashMovementKind } from '../domain/till';
 import { isUuidV7, withinTolerance } from '../domain/client-time';
 import { oneMore } from './paging';
-import type { CashMoved, ShiftClosed, ShiftOpened } from '../events';
+import type { CashMoved, ShiftClosed, ShiftForceClosed, ShiftOpened } from '../events';
 import { CashMovementInvalidError, ShiftAlreadyOpenError, ShiftCloseSamePersonError, ShiftInvalidError, ShiftNotOpenError, type TillRule } from './errors';
-import type { CashMovementRecord, ShiftRecord, ShiftStatus, TenderCountRecord, TillStore } from './till-store';
+import type { CashMovementRecord, LateCountRecord, ShiftRecord, ShiftStatus, TenderCountRecord, TillStore } from './till-store';
 
 export const SHIFT_OPENED = 'pos.ShiftOpened';
 export const CASH_DROPPED = 'pos.CashDropped';
 export const CASH_PAID_IN = 'pos.CashPaidIn';
 export const CASH_PAID_OUT = 'pos.CashPaidOut';
 export const SHIFT_CLOSED = 'pos.ShiftClosed';
+export const SHIFT_FORCE_CLOSED = 'pos.ShiftForceClosed';
 export const POS_LEDGER_EVENTS = [SHIFT_OPENED, CASH_DROPPED, CASH_PAID_IN, CASH_PAID_OUT, SHIFT_CLOSED] as const;
 
 const READ = 'pos.shift.read';
@@ -36,6 +38,8 @@ const APPROVE = 'pos.shift.close.approve';
 const READ_ANY = APPROVE;
 /** Who may record cash on another cashier's shift: the manager recovering a till (OFFLINE_SYNC 6.5), seeded with the force close. */
 const MOVE_ANY = 'pos.shift.force_close';
+/** A manager closing an abandoned shift (FR-POS-020), seeded with step-up to the Owner and the Manager (A-274 (d)). */
+const FORCE_CLOSE = 'pos.shift.force_close';
 const UNIQUE_VIOLATION = '23505';
 /** Abuse case 17, a shift closed short (THREAT_MODEL section 4): every sign-off reaches the daily exception report's source. */
 const SHIFT_OVER_SHORT_ABUSE = 17;
@@ -74,6 +78,11 @@ export interface ShiftView {
   readonly overShortDirection: 'OVER' | 'SHORT' | 'EXACT' | null;
   readonly closeApprovedBy: PrincipalRef | null;
   readonly forceClosed: boolean;
+  /** Why it was force-closed (FR-POS-020); null on every other shift. */
+  readonly forceCloseReason: string | null;
+  /** Who counted a force-closed shift's drawer, and when (A-275); null until then and on every other shift. */
+  readonly countedBy: PrincipalRef | null;
+  readonly countedAt: string | null;
   readonly lastDeviceCounter: number;
   readonly salesCount: number;
   readonly tenders: readonly {
@@ -119,8 +128,15 @@ export interface ShiftReportView {
   /** Drops taken unwitnessed because no supervisor was signed in at the branch (A-273 (d)). */
   readonly unwitnessedDropsCount: number;
   readonly unwitnessedDropsPesewas: number;
+  /** The shift was force-closed by a manager (FR-POS-020: flagged on every report). */
+  readonly forceClosed: boolean;
   readonly currency: 'GHS';
   readonly documentId: string | null;
+}
+
+export interface LateCountRequest {
+  readonly declaredCashPesewas: bigint;
+  readonly reason: string;
 }
 
 export interface ShiftOpenRequest {
@@ -187,6 +203,7 @@ export class Shifts {
     private readonly payments: Payments,
     private readonly orders: Orders,
     private readonly clock: Clock,
+    private readonly anchors: AuditAnchorRequests,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -497,6 +514,123 @@ export class Shifts {
       await this.store.insertReport(tx, { id: this.nextId(), shiftId: id, kind: 'Z', totals: await this.report(tx, closed!, 'Z', now), actorId: actor!.principalId, at: now });
       const [view] = await this.views(tx, [closed!]);
       await this.audit.record(tx, { module: 'pos', action: 'APPROVE_CLOSE', entityType: 'Shift', entityId: id, branchId: shift.branchId, before: { status: shift.status }, after: { ...view!, reason: body.reason } });
+      // The worker anchors the audit chain once this sign-off is sealed into it (ADR-0006, A-275).
+      await this.anchors.requestIn(tx, { reason: 'SHIFT_CLOSE', subjectType: 'Shift', subjectId: id, actorId: actor!.principalId });
+      const response: StoredResponse<ShiftView> = { status: 200, body: view! };
+      await this.idempotency.complete(tx, claim.id, response);
+      return response;
+    });
+  }
+
+  /**
+   * `forceCloseShift` (FR-POS-020, OFFLINE_SYNC 11): a manager who is not the cashier, with a fresh step-up and a reason,
+   * closes an abandoned OPEN shift at the cash its records say it holds, flagged force-closed. Nothing is declared and
+   * nothing posts: the drawer has not been counted. From now on no cash moves through it (ADR-0077). The expected cash
+   * stays hidden, as for any close, until the drawer is counted (`countForceClosedShift`).
+   */
+  forceClose(actor: Actor | undefined, id: string, body: { readonly reason: string }, idempotencyKey: string): Promise<StoredResponse<ShiftView>> {
+    return this.uow.run({ isolation: 'serializable' }, async (tx) => {
+      const shift = await this.store.lockShift(tx, id);
+      await this.authoriser.authorise(tx, actor, FORCE_CLOSE, await this.scopeOf(tx, shift));
+      if (shift === null) throw new NotFoundError(`no shift ${id}`);
+      const claim = await this.idempotency.claim(tx, { operationId: 'forceCloseShift', principalId: actor!.principalId, key: idempotencyKey, request: { id, ...body } });
+      if (claim.kind === 'REPLAY') return claim.response as StoredResponse<ShiftView>;
+      const judged = judgeForceClose(shift, actor!.principalId);
+      if (!judged.ok && judged.error === 'FORCE_CLOSER_IS_CASHIER') throw new ShiftCloseSamePersonError({ field: '/cashier', rule: 'FORCE_CLOSER_IS_CASHIER' });
+      if (!judged.ok) throw new ShiftNotOpenError(shift.status);
+      const now = this.clock.now();
+      const position = await this.position(tx, shift);
+      await this.store.forceClose(tx, id, { expectedCashPesewas: position.expected.pesewas, reason: body.reason, closedBy: actor!.principalId, at: now });
+      const register = (await this.store.registers(tx, [shift.registerId]))[0]!;
+      const payload: ShiftForceClosed = {
+        shiftId: id,
+        branchId: shift.branchId,
+        register: { id: register.id, code: register.code },
+        cashierId: shift.cashierId,
+        shiftNo: shift.shiftNo,
+        forceClosedBy: actor!.principalId,
+        reason: body.reason,
+        expectedCashPesewas: position.expected.toJsonInteger(),
+        closedAt: now.toISOString(),
+        abuseCases: [SHIFT_OVER_SHORT_ABUSE],
+        exceptionKind: 'SHIFT_FORCE_CLOSED',
+      };
+      await this.events.publish(tx, { type: SHIFT_FORCE_CLOSED, subjectType: 'Shift', subjectId: id, branchId: shift.branchId, payload, occurredAt: now });
+      const [view] = await this.views(tx, await this.store.shifts(tx, [id]));
+      await this.audit.record(tx, {
+        module: 'pos',
+        action: 'FORCE_CLOSE',
+        entityType: 'Shift',
+        entityId: id,
+        branchId: shift.branchId,
+        before: { status: shift.status, forceClosed: false },
+        after: { status: 'CLOSED', forceClosed: true, reason: body.reason, expectedCashPesewas: position.expected.toJsonInteger(), forceClosedBy: actor!.principalId },
+      });
+      const response: StoredResponse<ShiftView> = { status: 200, body: view! };
+      await this.idempotency.complete(tx, claim.id, response);
+      return response;
+    });
+  }
+
+  /**
+   * `countForceClosedShift` (FR-POS-020, A-275): a supervisor who neither ran the shift nor force-closed it, with a
+   * fresh step-up, counts its drawer. The over or short is the count less the cash the shift was closed at and posts as
+   * a sign-off does (◆ `pos.ShiftClosed`: Cr 1000 expected, Dr 1010 counted, 6900 the difference); the Z report is
+   * stored and the audit chain anchored. Once only.
+   */
+  countLate(actor: Actor | undefined, id: string, body: LateCountRequest, idempotencyKey: string): Promise<StoredResponse<ShiftView>> {
+    return this.uow.run({ isolation: 'serializable' }, async (tx) => {
+      const shift = await this.store.lockShift(tx, id);
+      await this.authoriser.authorise(tx, actor, APPROVE, await this.scopeOf(tx, shift));
+      if (shift === null) throw new NotFoundError(`no shift ${id}`);
+      const claim = await this.idempotency.claim(tx, { operationId: 'countForceClosedShift', principalId: actor!.principalId, key: idempotencyKey, request: { id, declaredCashPesewas: body.declaredCashPesewas.toString(), reason: body.reason } });
+      if (claim.kind === 'REPLAY') return claim.response as StoredResponse<ShiftView>;
+      const counted = (await this.store.lateCounts(tx, [id])).has(id);
+      const judged = judgeLateCount({ status: shift.status, forceClosed: shift.forceClosed, cashierId: shift.cashierId, forceClosedBy: shift.forceClosed ? shift.closeApprovedBy : null, counted }, actor!.principalId);
+      if (!judged.ok && (judged.error === 'COUNTER_IS_CASHIER' || judged.error === 'COUNTER_IS_FORCE_CLOSER')) throw new ShiftCloseSamePersonError({ field: '/countedBy', rule: judged.error });
+      if (!judged.ok) throw new ShiftInvalidError([{ field: '/status', rule: judged.error }]);
+      const now = this.clock.now();
+      const expected = Money.ofPesewas(shift.expectedCashPesewas!);
+      const declared = Money.ofPesewas(body.declaredCashPesewas);
+      const difference = overShort(declared, expected);
+      const count: LateCountRecord = {
+        shiftId: id,
+        declaredCashPesewas: declared.pesewas,
+        expectedCashPesewas: expected.pesewas,
+        overShortPesewas: difference.amount.pesewas,
+        overShortDirection: difference.direction,
+        reason: body.reason,
+        countedAt: now,
+        actorId: actor!.principalId,
+      };
+      await this.store.insertLateCount(tx, count);
+      const register = (await this.store.registers(tx, [shift.registerId]))[0]!;
+      const amounts = closeAmounts(declared, expected);
+      const payload: ShiftClosed = {
+        shiftId: id,
+        subjectId: id,
+        branchId: shift.branchId,
+        register: { id: register.id, code: register.code },
+        cashierId: shift.cashierId,
+        reasonCode: null,
+        shiftNo: shift.shiftNo,
+        approvedBy: actor!.principalId,
+        reason: body.reason,
+        declaredCashPesewas: declared.toJsonInteger(),
+        expectedCashPesewas: expected.toJsonInteger(),
+        overShortPesewas: difference.amount.toJsonInteger(),
+        overShortDirection: difference.direction,
+        closedAt: now.toISOString(),
+        abuseCases: [SHIFT_OVER_SHORT_ABUSE],
+        forceClosed: true,
+        forceClosedBy: shift.closeApprovedBy!,
+        amountsPesewas: { expected: amounts.expected.toJsonInteger(), returnedToSafe: amounts.returnedToSafe.toJsonInteger(), short: amounts.short.toJsonInteger(), over: amounts.over.toJsonInteger() },
+      };
+      await this.events.publish(tx, { type: SHIFT_CLOSED, subjectType: 'Shift', subjectId: id, branchId: shift.branchId, payload, occurredAt: now });
+      await this.store.insertReport(tx, { id: this.nextId(), shiftId: id, kind: 'Z', totals: await this.report(tx, shift, 'Z', now), actorId: actor!.principalId, at: now });
+      const [view] = await this.views(tx, [shift]);
+      await this.audit.record(tx, { module: 'pos', action: 'COUNT_FORCE_CLOSED', entityType: 'Shift', entityId: id, branchId: shift.branchId, before: { status: shift.status, counted: false }, after: { ...view!, reason: body.reason } });
+      await this.anchors.requestIn(tx, { reason: 'SHIFT_CLOSE', subjectType: 'Shift', subjectId: id, actorId: actor!.principalId });
       const response: StoredResponse<ShiftView> = { status: 200, body: view! };
       await this.idempotency.complete(tx, claim.id, response);
       return response;
@@ -559,6 +693,7 @@ export class Shifts {
       cashMovements: order.filter((k) => position.movements.has(k)).map((k) => ({ kind: k, amountPesewas: pesewas(position.movements.get(k)!) })),
       unwitnessedDropsCount: unwitnessedDrops.count,
       unwitnessedDropsPesewas: pesewas(unwitnessedDrops.amountPesewas),
+      forceClosed: shift.forceClosed,
       currency: 'GHS',
       documentId: null,
     };
@@ -567,7 +702,10 @@ export class Shifts {
   private async views(tx: Transaction, shifts: readonly ShiftRecord[]): Promise<ShiftView[]> {
     if (shifts.length === 0) return [];
     const registers = new Map((await this.store.registers(tx, [...new Set(shifts.map((s) => s.registerId))])).map((r) => [r.id, r]));
-    const names = await this.principals.refs(tx, [...new Set(shifts.flatMap((s) => [s.cashierId, ...(s.closeApprovedBy === null ? [] : [s.closeApprovedBy])]))]);
+    const late = await this.store.lateCounts(tx, shifts.filter((s) => s.forceClosed).map((s) => s.id));
+    const names = await this.principals.refs(tx, [
+      ...new Set(shifts.flatMap((s) => [s.cashierId, ...(s.closeApprovedBy === null ? [] : [s.closeApprovedBy]), ...(late.has(s.id) ? [late.get(s.id)!.actorId] : [])])),
+    ]);
     const counts = await this.store.tenderCounts(tx, shifts.map((s) => s.id));
     const methods = await this.refs.paymentMethodsIn(tx, [...new Set(counts.map((c) => c.paymentMethodId))]);
     const views: ShiftView[] = [];
@@ -576,9 +714,12 @@ export class Shifts {
       const sales = await this.orders.shiftSalesIn(tx, s.id);
       // Blind: nothing expected is shown before the count is declared; once declared it is the records' figure now,
       // and once signed off it is what was frozen.
+      // A force-closed shift is blind too: what it was closed at shows only once its drawer is counted (A-275).
+      const count = late.get(s.id) ?? null;
       const live = s.status === 'CLOSING' ? (await this.position(tx, s)).expected : null;
-      const expected = s.status === 'CLOSED' ? s.expectedCashPesewas : (live?.pesewas ?? null);
-      const difference = expected === null || s.declaredCashPesewas === null ? null : overShort(Money.ofPesewas(s.declaredCashPesewas), Money.ofPesewas(expected));
+      const declaredCash = s.forceClosed ? (count?.declaredCashPesewas ?? null) : s.declaredCashPesewas;
+      const expected = s.forceClosed ? (count?.expectedCashPesewas ?? null) : s.status === 'CLOSED' ? s.expectedCashPesewas : (live?.pesewas ?? null);
+      const difference = expected === null || declaredCash === null ? null : overShort(Money.ofPesewas(declaredCash), Money.ofPesewas(expected));
       const shiftCounts = counts.filter((c) => c.shiftId === s.id);
       const tenders = await Promise.all(shiftCounts.map(async (c) => this.countView(tx, s, c, methods, live)));
       views.push({
@@ -591,12 +732,15 @@ export class Shifts {
         openedAt: s.openedAt.toISOString(),
         openingFloatPesewas: pesewas(s.openingFloatPesewas),
         closedAt: s.closedAt?.toISOString() ?? null,
-        declaredCashPesewas: nullable(s.declaredCashPesewas),
+        declaredCashPesewas: nullable(declaredCash),
         expectedCashPesewas: nullable(expected),
         overShortPesewas: difference === null ? null : pesewas(difference.amount.pesewas),
         overShortDirection: difference?.direction ?? null,
         closeApprovedBy: s.closeApprovedBy === null ? null : (names.get(s.closeApprovedBy) ?? { id: s.closeApprovedBy, displayName: 'Unknown' }),
         forceClosed: s.forceClosed,
+        forceCloseReason: s.forceCloseReason,
+        countedBy: count === null ? null : (names.get(count.actorId) ?? { id: count.actorId, displayName: 'Unknown' }),
+        countedAt: count?.countedAt.toISOString() ?? null,
         lastDeviceCounter: s.lastDeviceCounter,
         salesCount: sales.salesCount,
         tenders,

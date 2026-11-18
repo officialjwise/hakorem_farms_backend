@@ -45,6 +45,9 @@ export const ShiftClose = z.strictObject({
 
 export const ReasonBody = z.strictObject({ reason: Text(500) });
 
+/** The contract's `ForceClosedShiftCount`: the cash counted in a force-closed shift's drawer, and why (A-275). */
+export const ForceClosedShiftCount = z.strictObject({ declaredCashPesewas: Pesewas, reason: Text(500) });
+
 export const DeviceEnrolmentCreate = z.strictObject({ deviceLabel: Text(80) });
 
 /** The contract's `Quantity` and `Kilograms`: decimal strings with exactly three places. */

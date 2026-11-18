@@ -4,6 +4,6 @@
  * Events are in `events.ts`.
  */
 export { PosModule } from './pos.module';
-export { Shifts, SHIFT_CLOSED, SHIFT_OPENED, CASH_DROPPED, CASH_PAID_IN, CASH_PAID_OUT, type ShiftView } from './application/shifts';
+export { Shifts, SHIFT_CLOSED, SHIFT_FORCE_CLOSED, SHIFT_OPENED, CASH_DROPPED, CASH_PAID_IN, CASH_PAID_OUT, type ShiftView } from './application/shifts';
 export { Registers } from './application/registers';
-export type { CashMoved, ShiftClosed, ShiftOpened } from './events';
+export type { CashMoved, ShiftClosed, ShiftForceClosed, ShiftOpened } from './events';

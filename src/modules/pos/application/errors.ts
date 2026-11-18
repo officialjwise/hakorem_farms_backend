@@ -57,8 +57,9 @@ export class ShiftAlreadyOpenError extends BusinessRuleError {
 export class ShiftCloseSamePersonError extends BusinessRuleError {
   readonly code = 'SHIFT_CLOSE_SAME_PERSON';
   readonly messageKey = 'pos.shift_close_same_person';
-  constructor() {
-    super('the cashier cannot sign off their own count');
+  /** With a rule when a force close or its later count names the person (`FORCE_CLOSER_IS_CASHIER`, `COUNTER_IS_CASHIER`, `COUNTER_IS_FORCE_CLOSER`). */
+  constructor(rule?: TillRule) {
+    super('the cashier cannot sign off their own count', rule === undefined ? undefined : details([rule]));
   }
 }
 

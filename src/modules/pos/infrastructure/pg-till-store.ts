@@ -1,5 +1,5 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
-import type { CashMovementRecord, DeviceRecord, NewShift, RegisterRecord, ShiftFilter, ShiftRecord, TenderCountRecord, TillStore } from '../application/till-store';
+import type { CashMovementRecord, DeviceRecord, LateCountRecord, NewShift, RegisterRecord, ShiftFilter, ShiftRecord, TenderCountRecord, TillStore } from '../application/till-store';
 import type { CashMovementKind, OverShortDirection } from '../domain/till';
 
 interface RegisterRow {
@@ -29,6 +29,7 @@ interface ShiftRow {
   closed_at: Date | null;
   last_device_counter: number;
   force_closed: boolean;
+  force_close_reason: string | null;
   status: ShiftRecord['status'];
   branch_id: string;
   version: number;
@@ -89,8 +90,8 @@ interface CountRow {
 
 const REGISTER_COLUMNS = 'id, branch_id, location_id, code, name, status, version';
 const SHIFT_COLUMNS = `id, shift_no, register_id, cashier_id, shift_seq, opened_at, opening_float_pesewas::text, declared_at, declared_cash_pesewas::text,
-  expected_cash_pesewas::text, over_short_pesewas::text, over_short_direction, close_approved_by, closed_at, last_device_counter, force_closed, status,
-  branch_id, version`;
+  expected_cash_pesewas::text, over_short_pesewas::text, over_short_direction, close_approved_by, closed_at, last_device_counter, force_closed, force_close_reason,
+  status, branch_id, version`;
 const MOVEMENT_COLUMNS = 'id, shift_id, kind, amount_pesewas::text, reason_code, note, witness_id, unwitnessed, occurred_at, recorded_at, actor_id';
 const DEVICE_COLUMNS = 'id, register_id, device_label, enrolled_by, enrolled_at, last_sync_at, revoked_at, revoked_by, revoke_reason, branch_id, version';
 const COUNT_COLUMNS = 'shift_id, payment_method_id, declared_pesewas::text, expected_pesewas::text, variance_pesewas::text, variance_direction';
@@ -119,6 +120,7 @@ function shift(r: ShiftRow): ShiftRecord {
     closedAt: r.closed_at,
     lastDeviceCounter: r.last_device_counter,
     forceClosed: r.force_closed,
+    forceCloseReason: r.force_close_reason,
     status: r.status,
     branchId: r.branch_id,
     version: r.version,
@@ -253,6 +255,39 @@ export class PgTillStore implements TillStore {
               closed_at = $6, posted_at = $6, posted_by = $5, updated_at = $6, updated_by = $5
         WHERE id = $1`,
       [id, c.expectedCashPesewas.toString(), c.overShortPesewas.toString(), c.overShortDirection, c.approvedBy, c.at],
+    );
+  }
+
+  async forceClose(tx: Transaction, id: string, c: { readonly expectedCashPesewas: bigint; readonly reason: string; readonly closedBy: string; readonly at: Date }): Promise<void> {
+    await tx.query(
+      `UPDATE pos.shift SET version = version + 1, status = 'CLOSED', force_closed = true, force_close_reason = $2, expected_cash_pesewas = $3, close_approved_by = $4,
+              closed_at = $5, posted_at = $5, posted_by = $4, updated_at = $5, updated_by = $4
+        WHERE id = $1`,
+      [id, c.reason, c.expectedCashPesewas.toString(), c.closedBy, c.at],
+    );
+  }
+
+  async insertLateCount(tx: Transaction, c: LateCountRecord): Promise<void> {
+    await tx.query(
+      `INSERT INTO pos.shift_late_count (shift_id, declared_cash_pesewas, expected_cash_pesewas, over_short_pesewas, over_short_direction, reason, counted_at, recorded_at, actor_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $7, $8)`,
+      [c.shiftId, c.declaredCashPesewas.toString(), c.expectedCashPesewas.toString(), c.overShortPesewas.toString(), c.overShortDirection, c.reason, c.countedAt, c.actorId],
+    );
+  }
+
+  async lateCounts(tx: Transaction, shiftIds: readonly string[]): Promise<ReadonlyMap<string, LateCountRecord>> {
+    if (shiftIds.length === 0) return new Map();
+    const { rows } = await tx.query<{ shift_id: string; declared: string; expected: string; over_short: string; direction: OverShortDirection; reason: string; counted_at: Date; actor_id: string }>(
+      `SELECT shift_id, declared_cash_pesewas::text AS declared, expected_cash_pesewas::text AS expected, over_short_pesewas::text AS over_short,
+              over_short_direction AS direction, reason, counted_at, actor_id
+         FROM pos.shift_late_count WHERE shift_id = ANY($1::uuid[])`,
+      [shiftIds],
+    );
+    return new Map(
+      rows.map((r) => [
+        r.shift_id,
+        { shiftId: r.shift_id, declaredCashPesewas: BigInt(r.declared), expectedCashPesewas: BigInt(r.expected), overShortPesewas: BigInt(r.over_short), overShortDirection: r.direction, reason: r.reason, countedAt: r.counted_at, actorId: r.actor_id },
+      ]),
     );
   }
 

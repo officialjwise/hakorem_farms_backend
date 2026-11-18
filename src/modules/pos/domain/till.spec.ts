@@ -1,6 +1,6 @@
 import { Money } from '@hakorem/kernel';
 import { describe, expect, it } from 'vitest';
-import { changeDue, closeAmounts, expectedCash, judgeCashMovement, isUnwitnessedDrop, judgeCountSignOff, judgeTillCash, overShort, shiftOverrideRoom, type CashMovementFacts } from './till';
+import { changeDue, closeAmounts, expectedCash, judgeCashMovement, isUnwitnessedDrop, judgeCountSignOff, judgeForceClose, judgeLateCount, judgeTillCash, overShort, shiftOverrideRoom, type CashMovementFacts } from './till';
 
 const p = (n: bigint) => Money.ofPesewas(n);
 const MAX = 9_007_199_254_740_991n;
@@ -208,5 +208,47 @@ describe('what a shift has left of its override limit (FR-POS-004)', () => {
     expect(shiftOverrideRoom(p(10_000n), p(10_000n)).pesewas).toBe(0n);
     expect(shiftOverrideRoom(p(10_000n), p(10_001n)).pesewas).toBe(0n);
     expect(shiftOverrideRoom(p(0n), p(0n)).pesewas).toBe(0n);
+  });
+});
+
+describe('the force close (FR-POS-020): a manager who is not the cashier closes an open shift', () => {
+  const open = { status: 'OPEN' as const, cashierId: 'kofi' };
+
+  it('closes the cashier open shift for a manager who is not its cashier', () => {
+    expect(judgeForceClose(open, 'kwabena')).toEqual({ ok: true, value: null });
+  });
+
+  it('refuses the cashier force-closing their own shift, before anything else', () => {
+    expect(judgeForceClose(open, 'kofi')).toEqual({ ok: false, error: 'FORCE_CLOSER_IS_CASHIER' });
+    expect(judgeForceClose({ ...open, status: 'CLOSED' }, 'kofi')).toEqual({ ok: false, error: 'FORCE_CLOSER_IS_CASHIER' });
+  });
+
+  it('refuses a shift that is closing or closed: a declared count is signed off, not forced', () => {
+    expect(judgeForceClose({ ...open, status: 'CLOSING' }, 'kwabena')).toEqual({ ok: false, error: 'SHIFT_NOT_OPEN' });
+    expect(judgeForceClose({ ...open, status: 'CLOSED' }, 'kwabena')).toEqual({ ok: false, error: 'SHIFT_NOT_OPEN' });
+  });
+});
+
+describe('the drawer of a force-closed shift counted later (FR-POS-020): by neither its cashier nor its force-closer', () => {
+  const forced = { status: 'CLOSED' as const, forceClosed: true, cashierId: 'kofi', forceClosedBy: 'kwabena', counted: false };
+
+  it('takes the count of a third person', () => {
+    expect(judgeLateCount(forced, 'esi')).toEqual({ ok: true, value: null });
+  });
+
+  it('refuses the cashier and the manager who force-closed it', () => {
+    expect(judgeLateCount(forced, 'kofi')).toEqual({ ok: false, error: 'COUNTER_IS_CASHIER' });
+    expect(judgeLateCount(forced, 'kwabena')).toEqual({ ok: false, error: 'COUNTER_IS_FORCE_CLOSER' });
+  });
+
+  it('refuses a shift that was not force-closed, and a drawer already counted', () => {
+    expect(judgeLateCount({ ...forced, status: 'OPEN', forceClosed: false, forceClosedBy: null }, 'esi')).toEqual({ ok: false, error: 'SHIFT_NOT_FORCE_CLOSED' });
+    expect(judgeLateCount({ ...forced, forceClosed: false }, 'esi')).toEqual({ ok: false, error: 'SHIFT_NOT_FORCE_CLOSED' });
+    expect(judgeLateCount({ ...forced, counted: true }, 'esi')).toEqual({ ok: false, error: 'SHIFT_ALREADY_COUNTED' });
+  });
+
+  it('posts the count against what the shift was closed at: 4,000 expected, 3,750 counted is 250 short to the pesewa', () => {
+    expect(closeAmounts(p(3_750n), p(4_000n))).toEqual({ expected: p(4_000n), returnedToSafe: p(3_750n), short: p(250n), over: p(0n) });
+    expect(closeAmounts(p(4_001n), p(4_000n))).toEqual({ expected: p(4_000n), returnedToSafe: p(4_001n), short: p(0n), over: p(1n) });
   });
 });

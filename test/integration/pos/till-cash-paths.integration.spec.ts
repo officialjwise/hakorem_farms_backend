@@ -19,7 +19,7 @@ import { createTestDatabase, type TestDatabase } from '../../support/test-databa
  * A-212 (a), A-273 (i) and (k)). For each path (a sale's tender through ORD, a direct PAY tender, a direct PAY write,
  * a mobile money charge taken at the till, a cash refund paid by hand, a payment reversed, a sale voided, a cash
  * movement) cash naming another cashier's shift, another till, a closed shift or a force-closed shift is refused and
- * nothing is recorded. The figures are read back by SQL over `pay.payment`, `pay.refund`, `pos.cash_movement` and the
+ * nothing is recorded. The force-closed shift is closed by the real `forceCloseShift` (B09b continued 1b). The figures are read back by SQL over `pay.payment`, `pay.refund`, `pos.cash_movement` and the
  * journal lines, never from the code under test.
  */
 let database: TestDatabase;
@@ -171,17 +171,20 @@ beforeAll(async () => {
   expect((await post('efua', `/shifts/${shifts.get('efua')!}/close`, { declared: [{ paymentMethodId: (await one<{ id: string }>("SELECT id FROM mdm.payment_method WHERE code = 'CASH'", [])).id, declaredPesewas: 4_000 }] })).status).toBe(200);
   await step('manager');
   expect((await post('manager', `/shifts/${shifts.get('efua')!}/approve-close`, { reason: 'Counted with Efua' })).status).toBe(200);
-  // Kofi's shift on T4 takes a sale, then is closed as the force close leaves it (forceCloseShift is the next part's):
-  // CLOSED at its expected cash, flagged force-closed.
+  // Kofi's shift on T4 takes two sales, then a manager force-closes it through the real operation (forceCloseShift,
+  // B09b continued 1b): CLOSED at its expected cash of 4,000, flagged force-closed, its drawer not yet counted.
   shifts.set('kofi', await openShift('kofi', 'T4'));
   await sell('kofi', shifts.get('kofi')!, tills.get('T4')!, 1);
   await sell('kofi', shifts.get('kofi')!, tills.get('T4')!, 1);
-  await admin().query("UPDATE pos.shift SET status = 'CLOSING', declared_at = $2, declared_cash_pesewas = 4000, updated_by = cashier_id, version = version + 1 WHERE id = $1", [shifts.get('kofi')!, clock.now()]);
-  await admin().query(
-    `UPDATE pos.shift SET status = 'CLOSED', expected_cash_pesewas = 4000, over_short_pesewas = 0, over_short_direction = 'EXACT', closed_at = $2, close_approved_by = $3,
-            force_closed = true, posted_at = $2, posted_by = $3, updated_by = $3, version = version + 1 WHERE id = $1`,
-    [shifts.get('kofi')!, clock.now(), users.get('manager')!.principalId],
-  );
+  await step('manager');
+  const forced = await post('manager', `/shifts/${shifts.get('kofi')!}/force-close`, { reason: 'Till 4 tablet died; Kofi has gone home' });
+  expect(forced.status, JSON.stringify(forced.body)).toBe(200);
+  expect(await one('SELECT status, force_closed, expected_cash_pesewas::int AS expected, declared_cash_pesewas AS declared FROM pos.shift WHERE id = $1', [shifts.get('kofi')!])).toEqual({
+    status: 'CLOSED',
+    force_closed: true,
+    expected: 4_000,
+    declared: null,
+  });
 });
 
 afterAll(async () => {

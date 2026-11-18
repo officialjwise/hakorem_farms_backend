@@ -1,0 +1,88 @@
+operationId: countForceClosedShift
+tags:
+  - pos
+summary: "Count the drawer of a force-closed shift and post its over or short"
+description: "A supervisor who is neither the shift's cashier nor the manager who force-closed it (422 `SHIFT_CLOSE_SAME_PERSON` with `COUNTER_IS_CASHIER` or `COUNTER_IS_FORCE_CLOSER`, held again by the database) counts the drawer of a force-closed shift once (422 `SHIFT_INVALID` with `SHIFT_NOT_FORCE_CLOSED` or `SHIFT_ALREADY_COUNTED`), with a reason (FR-POS-020). The over or short is the cash counted less the cash the shift was closed at. ◆ `pos.ShiftClosed`, marked `forceClosed`, posts it as a sign-off does: Cr 1000 the cash it was closed at against the register, Dr 1010 what was counted, Dr 6900 when short, Cr 6900 when over, so the till's account returns to zero; the event names the cashier, the manager who force-closed it, the counter and the over or short for the daily exception report (abuse case 17). The Z report is stored and the worker anchors the audit chain once the count is sealed into it.\n\nPermission: `pos.shift.close.approve`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+x-permission: pos.shift.close.approve
+x-requires-step-up: true
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ForceClosedShiftCount"
+      example:
+        declaredCashPesewas: 124500
+        reason: "Counted the drawer with Kwabena the next morning"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Shift"
+        example:
+          id: "019a7a93-f6b4-7865-8d9d-8f27bac90805"
+          shiftNo: SHF-2026-DDW-000312
+          status: CLOSED
+          register:
+            id: "019a7a94-15a3-7248-9781-2d5f347aa63d"
+            code: T1
+            name: "Shop till 1"
+          cashier:
+            id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+            displayName: "Adwoa Darko"
+          shiftSeq: 312
+          openedAt: "2026-11-12T06:00:00Z"
+          openingFloatPesewas: 20000
+          closedAt: "2026-11-12T18:00:00Z"
+          declaredCashPesewas: 124500
+          expectedCashPesewas: 104500
+          overShortPesewas: 20000
+          overShortDirection: OVER
+          closeApprovedBy:
+            id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+            displayName: "Kwabena Owusu"
+          forceClosed: true
+          forceCloseReason: "Tablet will not power on, cashier gone home"
+          countedBy: 
+            id: "019a7a86-3c84-7d4e-9a2b-5f6e1d7c8b90"
+            displayName: "Esi Mensah"
+          countedAt: "2026-11-13T07:15:00Z"
+          lastDeviceCounter: 16
+          salesCount: 41
+          tenders: []
+          currency: GHS
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 3
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
