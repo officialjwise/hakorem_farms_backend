@@ -1,0 +1,198 @@
+import { Money, toBusinessDate, type Clock } from '@hakorem/kernel';
+import type { AuditTrail } from '../../../platform/audit/audit-trail';
+import type { Actor } from '../../../platform/context/request-context';
+import type { UnitOfWork } from '../../../platform/database/unit-of-work';
+import { NotFoundError } from '../../../platform/errors/api-error';
+import type { Settings } from '../../../platform/settings/settings';
+import type { Authoriser } from '../../iam';
+import type { StockQueries, StockUnits } from '../../inv';
+import type { MasterDataRefs, PricingService, SellingUnitView, TaxCellView, TaxService } from '../../mdm';
+import { packValidUntil } from '../domain/client-time';
+import { REASONS_BY_KIND } from '../domain/till';
+import type { Devices } from './devices';
+import type { TillStore } from './till-store';
+
+const SELL = 'pos.sale.create';
+/** OFFLINE_SYNC 5.2: the settings the policy is read from, with their documented defaults. */
+export const OFFLINE_MAX_HOURS = { key: 'pos.offline.max_hours', fallback: 8 } as const;
+export const OFFLINE_MAX_QUEUED_SALES = { key: 'pos.offline.max_queued_sales', fallback: 500 } as const;
+export const OFFLINE_UNVERIFIED_MOBILE_MONEY = { key: 'pos.offline.allow_unverified_mobile_money', fallback: false } as const;
+/** The reasons a till takes offline: a price agreed below list, and the cash movements its kinds take (A-273 (c)). */
+const OVERRIDE_DOMAIN = 'PRICE_OVERRIDE';
+const CASH_DOMAIN = 'CASH_MOVEMENT';
+const CASH_REASONS: ReadonlySet<string> = new Set(Object.values(REASONS_BY_KIND).flat());
+
+/** The contract's `PriceBand`. */
+interface PriceBandView {
+  readonly listPricePesewas: number;
+  readonly floorPricePesewas: number;
+  readonly ceilingPricePesewas: number;
+  readonly basis: string;
+}
+
+/** The contract's `OfflineSellingUnit` (CR-038). */
+export interface OfflineSellingUnitView {
+  readonly uom: string;
+  readonly priceListEntryId: string | null;
+  readonly priceBand: PriceBandView | null;
+  readonly quoteOnly: boolean;
+}
+
+/** The contract's `OfflineProduct`. */
+export interface OfflineProductView {
+  readonly product: { readonly id: string; readonly sku: string; readonly name: string };
+  readonly saleUom: string;
+  readonly taxCategoryId: string;
+  readonly priceBasis: string;
+  readonly priceBand: PriceBandView | null;
+  readonly priceListEntryId: string | null;
+  readonly quoteOnly: boolean;
+  readonly taxInclusive: boolean;
+  readonly tileCategory: string | null;
+  readonly sellingUnits: readonly OfflineSellingUnitView[];
+}
+
+/** The contract's `OfflineStockUnit`: never a cost. */
+export interface OfflineStockUnitView {
+  readonly id: string;
+  readonly identifier: string;
+  readonly productId: string;
+  readonly locationId: string;
+  readonly gradeId: string | null;
+  readonly lastWeightKg: string | null;
+  readonly sellable: boolean;
+}
+
+/** The contract's `OfflinePack`. */
+export interface OfflinePackView {
+  readonly register: { readonly id: string; readonly code: string; readonly name: string };
+  readonly generatedAt: string;
+  readonly validUntil: string;
+  readonly priceListVersionIds: readonly string[];
+  readonly taxSchemeVersionId: string;
+  readonly taxCells: readonly TaxCellView[];
+  readonly products: readonly OfflineProductView[];
+  readonly stockUnits: readonly OfflineStockUnitView[];
+  readonly paymentMethods: readonly { readonly id: string; readonly code: string; readonly name: string; readonly kind: string }[];
+  readonly reasonCodes: readonly { readonly code: string; readonly domain: string; readonly description: string; readonly requiresNote: boolean; readonly lossAccountGroup: string | null }[];
+  readonly policy: {
+    readonly maxOfflineHours: number;
+    readonly maxQueuedSales: number;
+    readonly offlineTenderMethodIds: readonly string[];
+    readonly priceOverrideLimitPerLinePesewas: number;
+    readonly priceOverrideLimitPerShiftPesewas: number;
+  };
+  readonly currency: 'GHS';
+}
+
+/**
+ * `getOfflinePack` (FR-POS-010, OFFLINE_SYNC 5.1, B09b continued 2, A-277): everything a till needs to sell for a shift
+ * with no network, a cache with an age the server never trusts at sync. Read by a holder of `pos.sale.create` at the
+ * till's branch and location from an enrolled device of that till that is not revoked. It carries the channel POS
+ * prices of every product a counter may sell, each unit priced by its own entry (CR-038), whether its list includes tax
+ * (CR-031), the tax cells in force today, the animals and lots standing at the till, the payment methods, the price
+ * override and cash movement reasons (CR-032 point 6), and the policy read from the settings of OFFLINE_SYNC 5.2 and
+ * the caller's role limits. It is valid for `pos.offline.max_hours`. Each issue is audited with the device and the
+ * versions it gave, so the server can tell what a synced sale was priced from. No cost reaches the device.
+ */
+export class OfflinePacks {
+  constructor(
+    private readonly uow: UnitOfWork,
+    private readonly store: TillStore,
+    private readonly devices: Devices,
+    private readonly pricing: PricingService,
+    private readonly tax: TaxService,
+    private readonly refs: MasterDataRefs,
+    private readonly stock: StockQueries,
+    private readonly units: StockUnits,
+    private readonly authoriser: Authoriser,
+    private readonly settings: Settings,
+    private readonly audit: AuditTrail,
+    private readonly clock: Clock,
+  ) {}
+
+  get(actor: Actor | undefined, registerId: string, deviceCredential: string | undefined): Promise<OfflinePackView> {
+    return this.uow.run({ isolation: 'read committed' }, async (tx) => {
+      const [register] = await this.store.registers(tx, [registerId]);
+      await this.authoriser.authorise(tx, actor, SELL, register === undefined ? {} : { branchId: register.branchId, locationId: register.locationId });
+      if (register === undefined) throw new NotFoundError(`no register ${registerId}`);
+      const device = await this.devices.deviceOfIn(tx, deviceCredential, register.id);
+      const now = this.clock.now();
+      const branchId = register.branchId;
+      const [maxHours, maxQueued, unverifiedMobileMoney] = await Promise.all([
+        this.settings.integer(OFFLINE_MAX_HOURS.key, OFFLINE_MAX_HOURS.fallback, branchId),
+        this.settings.integer(OFFLINE_MAX_QUEUED_SALES.key, OFFLINE_MAX_QUEUED_SALES.fallback, branchId),
+        this.settings.boolean(OFFLINE_UNVERIFIED_MOBILE_MONEY.key, OFFLINE_UNVERIFIED_MOBILE_MONEY.fallback, branchId),
+      ]);
+      const selling = await this.pricing.sellingUnitsIn(tx, { channel: 'POS', branchId, at: now });
+      const scheme = await this.tax.schemeInForceIn(tx, toBusinessDate(now));
+      const standing = await this.stock.unitsStandingAtIn(tx, branchId, register.locationId);
+      const facts = await this.units.factsIn(tx, standing.map((u) => u.stockUnitId), now);
+      const methods = await this.refs.livePaymentMethodsOfChannelIn(tx, 'POS');
+      const reasons = (await this.refs.reasonCodesOfDomainsIn(tx, [OVERRIDE_DOMAIN, CASH_DOMAIN])).filter((r) => r.domain !== CASH_DOMAIN || CASH_REASONS.has(r.code));
+      const [perLine, perShift] = await Promise.all([this.authoriser.limitIn(tx, actor!, 'PRICE_OVERRIDE_PER_LINE', branchId), this.authoriser.limitIn(tx, actor!, 'PRICE_OVERRIDE_PER_SHIFT', branchId)]);
+      // Cash only offline by default: the methods allowed offline, and mobile money too only when the branch allows a
+      // supervisor-approved unverified tender (OFFLINE_SYNC 5.2: both must be on for mobile money).
+      const offlineMethods = methods.filter((m) => (m.allowedOffline && m.kind !== 'MOBILE_MONEY') || (m.kind === 'MOBILE_MONEY' && unverifiedMobileMoney));
+
+      const view: OfflinePackView = {
+        register: { id: register.id, code: register.code, name: register.name },
+        generatedAt: now.toISOString(),
+        validUntil: packValidUntil(now, maxHours).toISOString(),
+        priceListVersionIds: selling.priceListVersionIds,
+        taxSchemeVersionId: scheme.versionId,
+        taxCells: scheme.cells,
+        products: selling.products.map((p) => {
+          const first = p.units[0]!;
+          return {
+            product: p.product,
+            saleUom: p.saleUom,
+            taxCategoryId: p.taxCategoryId,
+            priceBasis: first.basis,
+            priceBand: bandOf(first),
+            priceListEntryId: first.priceListEntryId,
+            quoteOnly: first.quoteOnly,
+            taxInclusive: first.taxInclusive,
+            tileCategory: p.categoryName,
+            sellingUnits: p.units.map((u) => ({ uom: u.uom, priceListEntryId: u.priceListEntryId, priceBand: bandOf(u), quoteOnly: u.quoteOnly })),
+          };
+        }),
+        stockUnits: standing.map((u) => {
+          const fact = facts.get(u.stockUnitId);
+          return { id: u.stockUnitId, identifier: u.identifier, productId: u.productId, locationId: u.locationId, gradeId: fact?.gradeId ?? null, lastWeightKg: fact?.lastWeightKg ?? null, sellable: u.sellable };
+        }),
+        paymentMethods: methods.map((m) => ({ id: m.id, code: m.code, name: m.name, kind: m.kind })),
+        reasonCodes: reasons.map((r) => ({ code: r.code, domain: r.domain, description: r.description, requiresNote: r.requiresNote, lossAccountGroup: r.lossAccountGroup })),
+        policy: {
+          maxOfflineHours: maxHours,
+          maxQueuedSales: maxQueued,
+          offlineTenderMethodIds: offlineMethods.map((m) => m.id),
+          priceOverrideLimitPerLinePesewas: Money.ofPesewas(perLine).toJsonInteger(),
+          priceOverrideLimitPerShiftPesewas: Money.ofPesewas(perShift).toJsonInteger(),
+        },
+        currency: 'GHS',
+      };
+      await this.audit.record(tx, {
+        module: 'pos',
+        action: 'ISSUE_OFFLINE_PACK',
+        entityType: 'Register',
+        entityId: register.id,
+        branchId,
+        before: null,
+        after: { deviceId: device.id, generatedAt: view.generatedAt, validUntil: view.validUntil, priceListVersionIds: [...view.priceListVersionIds], taxSchemeVersionId: view.taxSchemeVersionId, products: view.products.length, stockUnits: view.stockUnits.length },
+      });
+      return view;
+    });
+  }
+}
+
+function bandOf(unit: SellingUnitView): PriceBandView | null {
+  return unit.band === null
+    ? null
+    : {
+        listPricePesewas: Money.ofPesewas(unit.band.listPricePesewas).toJsonInteger(),
+        floorPricePesewas: Money.ofPesewas(unit.band.floorPricePesewas).toJsonInteger(),
+        ceilingPricePesewas: Money.ofPesewas(unit.band.ceilingPricePesewas).toJsonInteger(),
+        basis: unit.band.basis,
+      };
+}

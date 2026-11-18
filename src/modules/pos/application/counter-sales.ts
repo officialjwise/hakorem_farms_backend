@@ -1,20 +1,24 @@
 import { Money, type Clock } from '@hakorem/kernel';
 import type { Actor } from '../../../platform/context/request-context';
 import type { UnitOfWork } from '../../../platform/database/unit-of-work';
-import { ForbiddenError, NotFoundError } from '../../../platform/errors/api-error';
+import { ForbiddenError, NotFoundError, ValidationFailedError } from '../../../platform/errors/api-error';
 import type { DomainEvents } from '../../../platform/events/domain-events';
+import { registerMessages, translate } from '../../../platform/i18n/messages';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
 import type { Billing, BillingDocumentView } from '../../bil';
 import type { Authoriser } from '../../iam';
-import type { MasterDataRefs } from '../../mdm';
+import { defaultLineUom, type MasterDataRefs, type PricingService } from '../../mdm';
+import type { Settings } from '../../../platform/settings/settings';
 import type { Orders, SalePosting, SaleRequest, SalesOrderView } from '../../ord';
 import { PaymentRequiresVerificationError } from '../../pay';
-import { CLOCK_TOLERANCE_SECONDS, isUuidV7, secondsAhead, withinTolerance } from '../domain/client-time';
+import { CLOCK_TOLERANCE_SECONDS, CLOCK_TOLERANCE_SETTING, isUuidV7, secondsAhead, withinTolerance } from '../domain/client-time';
 import { changeDue, shiftOverrideRoom, type TenderKind } from '../domain/till';
 import type { TillClockOutOfTolerance } from '../events';
 import type { Devices } from './devices';
 import { CounterSaleInvalidError, ShiftNotOpenError, type TillRule } from './errors';
 import type { TillStore } from './till-store';
+
+registerMessages({ 'pos.unit_not_sold': 'This product is not sold in this unit at the till.' });
 
 export const TILL_CLOCK_OUT_OF_TOLERANCE = 'pos.TillClockOutOfTolerance';
 const SELL = 'pos.sale.create';
@@ -26,6 +30,8 @@ export interface CounterSaleLineRequest {
   readonly productId: string;
   readonly stockUnitId?: string | undefined;
   readonly quantity: string;
+  /** The unit the line is sold in (CR-038): one of the units the product is sold by at the till; absent, the first. */
+  readonly uom?: string | undefined;
   readonly weightKg?: string | undefined;
   readonly weightSource?: 'SCALE' | 'MANUAL' | 'ESTIMATE' | undefined;
   readonly gradeId?: string | undefined;
@@ -85,6 +91,8 @@ export class CounterSales {
     private readonly idempotency: Idempotency,
     private readonly events: DomainEvents,
     private readonly clock: Clock,
+    private readonly pricing: PricingService,
+    private readonly settings: Settings,
   ) {}
 
   async complete(actor: Actor | undefined, body: CounterSaleRequest, idempotencyKey: string, deviceCredential: string | undefined): Promise<StoredResponse<CounterSaleResultView>> {
@@ -133,6 +141,17 @@ export class CounterSales {
       if (unverified >= 0) throw new PaymentRequiresVerificationError(`/tenders/${unverified}/paymentMethodId`);
 
       const now = this.clock.now();
+      // A line is sold in a unit the product is sold by at this till, each priced by its own entry (CR-038): a unit no
+      // list in force prices is refused, never priced from another unit's price. Absent, the first unit it is sold by.
+      const selling = new Map((await this.pricing.sellingUnitsIn(tx, { channel: 'POS', branchId: register.branchId, at: now, productIds: body.lines.map((l) => l.productId) })).products.map((p) => [p.product.id, p] as const));
+      const unitOf = (l: CounterSaleLineRequest): string | undefined => {
+        const product = selling.get(l.productId);
+        return l.uom ?? (product === undefined ? undefined : defaultLineUom(product.baseUom, product.units.map((u) => u.uom)));
+      };
+      const unsold = body.lines.flatMap((l, i) => (l.uom !== undefined && !(selling.get(l.productId)?.units.some((u) => u.uom === l.uom) ?? false) ? [i] : []));
+      if (unsold.length > 0) {
+        throw new ValidationFailedError('a line names a unit the product is not sold by at the till', unsold.map((i) => ({ field: `/lines/${i}/uom`, code: 'UNIT_NOT_SOLD', message: translate('pos.unit_not_sold') })));
+      }
       const limit = await this.authoriser.limitIn(tx, actor!, 'PRICE_OVERRIDE_PER_SHIFT', register.branchId);
       const used = (await this.orders.shiftSalesIn(tx, shift.id)).overridesPesewas;
       const request: SaleRequest = {
@@ -152,6 +171,7 @@ export class CounterSales {
           stockUnitId: l.stockUnitId ?? null,
           fromLocationId: register.locationId,
           quantity: l.quantity,
+          ...(unitOf(l) === undefined ? {} : { uom: unitOf(l)! }),
           weightKg: l.weightKg ?? null,
           weightSource: l.weightSource ?? null,
           gradeId: l.gradeId ?? null,
@@ -166,7 +186,8 @@ export class CounterSales {
         })),
       };
       const sale = await this.posting.postIn(tx, actor, request);
-      if (!withinTolerance(body.occurredAt, now)) {
+      const tolerance = await this.settings.integer(CLOCK_TOLERANCE_SETTING, CLOCK_TOLERANCE_SECONDS);
+      if (!withinTolerance(body.occurredAt, now, tolerance)) {
         const skew: TillClockOutOfTolerance = {
           saleId: sale.id,
           shiftId: shift.id,
@@ -177,7 +198,7 @@ export class CounterSales {
           tillTime: body.occurredAt.toISOString(),
           serverTime: now.toISOString(),
           differenceSeconds: secondsAhead(body.occurredAt, now),
-          toleranceSeconds: CLOCK_TOLERANCE_SECONDS,
+          toleranceSeconds: tolerance,
           exceptionKind: 'TILL_CLOCK_OUT_OF_TOLERANCE',
         };
         await this.events.publish(tx, { type: TILL_CLOCK_OUT_OF_TOLERANCE, subjectType: 'SalesOrder', subjectId: sale.id, branchId: register.branchId, payload: skew, occurredAt: now });

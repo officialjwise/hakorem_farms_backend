@@ -67,6 +67,8 @@ export const CounterSale = z.strictObject({
         productId: z.uuid(),
         stockUnitId: z.uuid().optional(),
         quantity: Quantity,
+        /** The unit the line is sold in (CR-038); absent, the unit the product is sold by first. */
+        uom: z.string().regex(/^[A-Z]{2,10}$/).optional(),
         weightKg: Kilograms.optional(),
         weightSource: z.enum(['SCALE', 'MANUAL', 'ESTIMATE']).optional(),
         gradeId: z.uuid().optional(),
