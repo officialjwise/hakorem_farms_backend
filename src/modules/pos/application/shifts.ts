@@ -17,7 +17,10 @@ import type { Payments, ShiftTenderTotal } from '../../pay';
 import { closeAmounts, expectedCash, isUnwitnessedDrop, judgeCashMovement, judgeCountSignOff, judgeForceClose, judgeLateCount, overShort, type CashMovementKind } from '../domain/till';
 import { CLOCK_TOLERANCE_SECONDS, CLOCK_TOLERANCE_SETTING, isUuidV7, withinTolerance } from '../domain/client-time';
 import { oneMore } from './paging';
-import type { CashMoved, ShiftClosed, ShiftForceClosed, ShiftOpened } from '../events';
+import type { CashMoved, OfflineShiftFlagged, ShiftClosed, ShiftForceClosed, ShiftOpened } from '../events';
+import { offlineShiftOpenTime, type ShiftOpenClockVerdict } from '../domain/offline-queue';
+import { MAX_SALE_AGE_HOURS, MAX_SALE_AGE_SETTING } from '../domain/offline-sync';
+import type { Devices } from './devices';
 import { CashMovementInvalidError, ShiftAlreadyOpenError, ShiftCloseSamePersonError, ShiftInvalidError, ShiftNotOpenError, type TillRule } from './errors';
 import type { CashMovementRecord, LateCountRecord, ShiftRecord, ShiftStatus, TenderCountRecord, TillStore } from './till-store';
 import type { HeldSales } from './held-sales';
@@ -28,6 +31,7 @@ export const CASH_PAID_IN = 'pos.CashPaidIn';
 export const CASH_PAID_OUT = 'pos.CashPaidOut';
 export const SHIFT_CLOSED = 'pos.ShiftClosed';
 export const SHIFT_FORCE_CLOSED = 'pos.ShiftForceClosed';
+export const OFFLINE_SHIFT_FLAGGED = 'pos.OfflineShiftFlagged';
 export const POS_LEDGER_EVENTS = [SHIFT_OPENED, CASH_DROPPED, CASH_PAID_IN, CASH_PAID_OUT, SHIFT_CLOSED] as const;
 
 const READ = 'pos.shift.read';
@@ -45,7 +49,7 @@ const FORCE_CLOSE = 'pos.shift.force_close';
 const UNIQUE_VIOLATION = '23505';
 /** Abuse case 17, a shift closed short (THREAT_MODEL section 4): every sign-off reaches the daily exception report's source. */
 const SHIFT_OVER_SHORT_ABUSE = 17;
-const MOVEMENT_EVENTS: Readonly<Record<'CASH_DROP' | 'PAY_IN' | 'PAY_OUT', { readonly type: string; readonly key: 'drop' | 'payIn' | 'payOut' }>> = {
+export const MOVEMENT_EVENTS: Readonly<Record<'CASH_DROP' | 'PAY_IN' | 'PAY_OUT', { readonly type: string; readonly key: 'drop' | 'payIn' | 'payOut' }>> = {
   CASH_DROP: { type: CASH_DROPPED, key: 'drop' },
   PAY_IN: { type: CASH_PAID_IN, key: 'payIn' },
   PAY_OUT: { type: CASH_PAID_OUT, key: 'payOut' },
@@ -146,6 +150,8 @@ export interface ShiftOpenRequest {
   readonly registerId: string;
   readonly openingFloatPesewas: bigint;
   readonly openedAt: Date;
+  /** The sequence the till printed in its references offline, from its last pack (OFFLINE_SYNC 10); the server's stands. */
+  readonly shiftSeq?: number | undefined;
 }
 
 export interface CashMovementRequest {
@@ -208,82 +214,164 @@ export class Shifts {
     private readonly anchors: AuditAnchorRequests,
     private readonly held: HeldSales,
     private readonly settings: Settings,
+    private readonly devices: Devices,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
 
-  /** `openShift`: one open shift per register and per cashier; the float moves from the safe to the till (FR-POS-015). */
-  open(actor: Actor | undefined, body: ShiftOpenRequest, idempotencyKey: string): Promise<StoredResponse<ShiftView>> {
-    const year = toBusinessDate(this.clock.now()).slice(0, 4);
-    return this.uow.run({ isolation: 'serializable' }, async (tx) => {
-      const register = await this.store.lockRegister(tx, body.registerId);
-      await this.authoriser.authorise(tx, actor, OPEN, register === null ? {} : { branchId: register.branchId, locationId: register.locationId });
-      if (register === null) throw new NotFoundError(`no register ${body.registerId}`);
-      const claim = await this.idempotency.claim(tx, { operationId: 'openShift', principalId: actor!.principalId, key: idempotencyKey, request: { ...body, openingFloatPesewas: body.openingFloatPesewas.toString() } });
-      if (claim.kind === 'REPLAY') return claim.response as StoredResponse<ShiftView>;
-      const now = this.clock.now();
-      const broken: TillRule[] = [];
-      if (!isUuidV7(body.id)) broken.push({ field: '/id', rule: 'ID_NOT_UUID_V7' });
-      if (register.status !== 'ACTIVE') broken.push({ field: '/registerId', rule: 'REGISTER_RETIRED' });
-      if (!withinTolerance(body.openedAt, now, await this.settings.integer(CLOCK_TOLERANCE_SETTING, CLOCK_TOLERANCE_SECONDS))) broken.push({ field: '/openedAt', rule: 'OPENED_AT_OUT_OF_WINDOW' });
-      if (broken.length > 0) throw new ShiftInvalidError(broken);
-      if ((await this.store.unclosedShifts(tx, [register.id])).has(register.id)) throw new ShiftAlreadyOpenError('/registerId');
-      if ((await this.store.unclosedShiftOfCashier(tx, actor!.principalId)) !== null) throw new ShiftAlreadyOpenError('/cashier');
-      const branch = (await this.refs.branchesIn(tx, [register.branchId])).get(register.branchId)!;
+  /**
+   * `openShift`: one open shift per register and per cashier; the float moves from the safe to the till (FR-POS-015).
+   * Sent by an enrolled device of the till (`X-Device-Credential`), it may be a shift the till opened offline and kept
+   * in its queue (OFFLINE_SYNC 10, B09b continued 2c, A-279 (a) to (c)): applied once by its id at the till's
+   * `openedAt` though hours old, its sequence the server's, a till time outside the tolerance recorded at the server's
+   * time and flagged, never refused; a second shift opened offline on a till that already has one is refused as
+   * online (422 `SHIFT_ALREADY_OPEN`) and raised. Without a device credential it is an online open, as B9b built it.
+   */
+  async open(actor: Actor | undefined, body: ShiftOpenRequest, idempotencyKey: string, deviceCredential?: string): Promise<StoredResponse<ShiftView>> {
+    const refusal: { value: RefusedOpen | null } = { value: null };
+    try {
+      return await this.uow.run({ isolation: 'serializable' }, async (tx) => {
+        refusal.value = null;
+        const register = await this.store.lockRegister(tx, body.registerId);
+        await this.authoriser.authorise(tx, actor, OPEN, register === null ? {} : { branchId: register.branchId, locationId: register.locationId });
+        if (register === null) throw new NotFoundError(`no register ${body.registerId}`);
+        const claim = await this.idempotency.claim(tx, { operationId: 'openShift', principalId: actor!.principalId, key: idempotencyKey, request: { ...body, openingFloatPesewas: body.openingFloatPesewas.toString() } });
+        if (claim.kind === 'REPLAY') return claim.response as StoredResponse<ShiftView>;
+        const now = this.clock.now();
+        // A till's own device may send a shift it opened offline; the credential is checked before anything is judged.
+        const device = deviceCredential === undefined ? null : await this.devices.deviceOfIn(tx, deviceCredential, register.id);
+        const tolerance = await this.settings.integer(CLOCK_TOLERANCE_SETTING, CLOCK_TOLERANCE_SECONDS);
+        const broken: TillRule[] = [];
+        if (!isUuidV7(body.id)) broken.push({ field: '/id', rule: 'ID_NOT_UUID_V7' });
+        if (register.status !== 'ACTIVE') broken.push({ field: '/registerId', rule: 'REGISTER_RETIRED' });
+        const timed =
+          device === null
+            ? { openedAt: now, verdict: null, tooOld: false }
+            : offlineShiftOpenTime({ tillOpenedAt: body.openedAt, receivedAt: now, previousClosedAt: await this.store.lastClosedAt(tx, register.id), toleranceSeconds: tolerance, maxAgeHours: await this.settings.integer(MAX_SALE_AGE_SETTING, MAX_SALE_AGE_HOURS) });
+        if (device === null && !withinTolerance(body.openedAt, now, tolerance)) broken.push({ field: '/openedAt', rule: 'OPENED_AT_OUT_OF_WINDOW' });
+        if (broken.length > 0) throw new ShiftInvalidError(broken);
+        const holder = (await this.store.unclosedShifts(tx, [register.id])).get(register.id) ?? null;
+        if (holder !== null) {
+          if (device !== null) refusal.value = { register, deviceId: device.id, cashierId: actor!.principalId, at: now, holder };
+          throw new ShiftAlreadyOpenError('/registerId');
+        }
+        if ((await this.store.unclosedShiftOfCashier(tx, actor!.principalId)) !== null) {
+          if (device !== null) refusal.value = { register, deviceId: device.id, cashierId: actor!.principalId, at: now, holder: null };
+          throw new ShiftAlreadyOpenError('/cashier');
+        }
+        const openedAt = timed.openedAt;
+        const year = toBusinessDate(openedAt).slice(0, 4);
+        const branch = (await this.refs.branchesIn(tx, [register.branchId])).get(register.branchId)!;
 
-      try {
-        await this.documents.register(tx, { id: body.id, docType: 'SHIFT', ownerModule: 'pos', branchId: register.branchId, actorId: actor!.principalId });
-      } catch (error) {
-        if (sqlStateOf(error) === UNIQUE_VIOLATION) throw new IdempotencyKeyReusedError('the shift id is already a registered document');
-        throw error;
-      }
-      const shiftNo = await this.numbers.allocateIn(tx, { docType: 'SHIFT', fiscalYear: Number(year), branchId: register.branchId, branchCode: branch.code, documentId: body.id });
-      const shiftSeq = await this.store.nextShiftSeq(tx, register.id);
-      await this.store.insertShift(tx, {
-        id: body.id,
-        shiftNo,
-        registerId: register.id,
-        cashierId: actor!.principalId,
-        shiftSeq,
-        openedAt: now,
-        openingFloatPesewas: body.openingFloatPesewas,
-        branchId: register.branchId,
-        actorId: actor!.principalId,
-        at: now,
-      });
-      if (body.openingFloatPesewas > 0n) {
-        await this.store.insertCashMovement(tx, {
-          id: this.nextId(),
-          shiftId: body.id,
-          kind: 'FLOAT_IN',
-          amountPesewas: body.openingFloatPesewas,
-          reasonCode: null,
-          note: null,
-          witnessId: null,
-          unwitnessed: false,
-          occurredAt: now,
-          recordedAt: now,
-          actorId: actor!.principalId,
-        });
-        const payload: ShiftOpened = {
-          shiftId: body.id,
-          subjectId: body.id,
-          branchId: register.branchId,
-          register: { id: register.id, code: register.code },
-          cashierId: actor!.principalId,
-          reasonCode: null,
+        try {
+          await this.documents.register(tx, { id: body.id, docType: 'SHIFT', ownerModule: 'pos', branchId: register.branchId, actorId: actor!.principalId });
+        } catch (error) {
+          if (sqlStateOf(error) === UNIQUE_VIOLATION) throw new IdempotencyKeyReusedError('the shift id is already a registered document');
+          throw error;
+        }
+        const shiftNo = await this.numbers.allocateIn(tx, { docType: 'SHIFT', fiscalYear: Number(year), branchId: register.branchId, branchCode: branch.code, documentId: body.id });
+        const shiftSeq = await this.store.nextShiftSeq(tx, register.id);
+        await this.store.insertShift(tx, {
+          id: body.id,
           shiftNo,
+          registerId: register.id,
+          cashierId: actor!.principalId,
           shiftSeq,
-          openedAt: now.toISOString(),
-          amountsPesewas: { float: pesewas(body.openingFloatPesewas) },
-        };
-        await this.events.publish(tx, { type: SHIFT_OPENED, subjectType: 'Shift', subjectId: body.id, branchId: register.branchId, payload, occurredAt: now });
-      }
-      const [view] = await this.views(tx, await this.store.shifts(tx, [body.id]));
-      await this.audit.record(tx, { module: 'pos', action: 'OPEN', entityType: 'Shift', entityId: body.id, branchId: register.branchId, before: null, after: { ...view! } });
-      const response: StoredResponse<ShiftView> = { status: 201, body: view! };
-      await this.idempotency.complete(tx, claim.id, response);
-      return response;
+          openedAt,
+          openingFloatPesewas: body.openingFloatPesewas,
+          branchId: register.branchId,
+          actorId: actor!.principalId,
+          at: now,
+        });
+        if (body.openingFloatPesewas > 0n) {
+          await this.store.insertCashMovement(tx, {
+            id: this.nextId(),
+            shiftId: body.id,
+            kind: 'FLOAT_IN',
+            amountPesewas: body.openingFloatPesewas,
+            reasonCode: null,
+            note: null,
+            witnessId: null,
+            unwitnessed: false,
+            occurredAt: openedAt,
+            recordedAt: now,
+            actorId: actor!.principalId,
+          });
+          const payload: ShiftOpened = {
+            shiftId: body.id,
+            subjectId: body.id,
+            branchId: register.branchId,
+            register: { id: register.id, code: register.code },
+            cashierId: actor!.principalId,
+            reasonCode: null,
+            shiftNo,
+            shiftSeq,
+            openedAt: openedAt.toISOString(),
+            amountsPesewas: { float: pesewas(body.openingFloatPesewas) },
+          };
+          await this.events.publish(tx, { type: SHIFT_OPENED, subjectType: 'Shift', subjectId: body.id, branchId: register.branchId, payload, occurredAt: openedAt });
+        }
+        if (device !== null) {
+          const flags = offlineShiftFlags({ tillOpenedAt: body.openedAt, recordedOpenedAt: openedAt, receivedAt: now, verdict: timed.verdict, tooOld: timed.tooOld, tillSeq: body.shiftSeq ?? null, serverSeq: shiftSeq, toleranceSeconds: tolerance });
+          for (const flag of flags) {
+            const payload: OfflineShiftFlagged = {
+              shiftId: body.id,
+              branchId: register.branchId,
+              register: { id: register.id, code: register.code },
+              deviceId: device.id,
+              cashierId: actor!.principalId,
+              ...flag,
+              amountPesewas: pesewas(body.openingFloatPesewas),
+              claim: { source: 'POS_OFFLINE', openedAt: body.openedAt.toISOString(), shiftSeq: body.shiftSeq ?? null, openingFloatPesewas: pesewas(body.openingFloatPesewas) },
+            };
+            await this.events.publish(tx, { type: OFFLINE_SHIFT_FLAGGED, subjectType: 'Shift', subjectId: body.id, branchId: register.branchId, payload, occurredAt: now });
+          }
+        }
+        const [view] = await this.views(tx, await this.store.shifts(tx, [body.id]));
+        await this.audit.record(tx, {
+          module: 'pos',
+          action: 'OPEN',
+          entityType: 'Shift',
+          entityId: body.id,
+          branchId: register.branchId,
+          before: null,
+          after: { ...view!, ...(device === null ? {} : { deviceId: device.id, tillOpenedAt: body.openedAt.toISOString(), tillShiftSeq: body.shiftSeq ?? null }) },
+        });
+        const response: StoredResponse<ShiftView> = { status: 201, body: view! };
+        await this.idempotency.complete(tx, claim.id, response);
+        return response;
+      });
+    } catch (error) {
+      // A second shift opened offline on one till is refused as online, and raised for the manager who closes one
+      // (OFFLINE_SYNC 10): the refusal rolled back, so it is recorded in a transaction of its own.
+      if (error instanceof ShiftAlreadyOpenError && refusal.value !== null) await this.raiseRefusedOpen(actor!, body, refusal.value);
+      throw error;
+    }
+  }
+
+  private async raiseRefusedOpen(
+    actor: Actor,
+    body: ShiftOpenRequest,
+    r: RefusedOpen,
+  ): Promise<void> {
+    await this.uow.run({ isolation: 'serializable' }, async (tx) => {
+      const fact = r.holder === null ? { rule: 'CASHIER_HAS_OPEN_SHIFT' } : { rule: 'REGISTER_HAS_OPEN_SHIFT', openShiftId: r.holder.id, openShiftNo: r.holder.shiftNo, openShiftCashierId: r.holder.cashierId, openShiftOpenedAt: r.holder.openedAt.toISOString() };
+      const payload: OfflineShiftFlagged = {
+        shiftId: body.id,
+        branchId: r.register.branchId,
+        register: { id: r.register.id, code: r.register.code },
+        deviceId: r.deviceId,
+        cashierId: r.cashierId,
+        exceptionKind: 'OFFLINE_SHIFT_REFUSED',
+        severity: 'URGENT',
+        summary: r.holder === null ? 'A shift the till opened offline was refused: its cashier already has a shift open' : `A shift the till opened offline was refused: the till already has shift ${r.holder.shiftNo} open; a manager closes one`,
+        amountPesewas: pesewas(body.openingFloatPesewas),
+        claim: { source: 'POS_OFFLINE', openedAt: body.openedAt.toISOString(), shiftSeq: body.shiftSeq ?? null, openingFloatPesewas: pesewas(body.openingFloatPesewas) },
+        fact,
+        abuseCases: [SHIFT_OVER_SHORT_ABUSE],
+      };
+      await this.events.publish(tx, { type: OFFLINE_SHIFT_FLAGGED, subjectType: 'Register', subjectId: r.register.id, branchId: r.register.branchId, payload, occurredAt: r.at });
+      await this.audit.record(tx, { module: 'pos', action: 'OPEN_REFUSED', entityType: 'Register', entityId: r.register.id, branchId: r.register.branchId, before: null, after: { shiftId: body.id, deviceId: r.deviceId, cashierId: actor.principalId, ...fact } });
     });
   }
 
@@ -799,4 +887,42 @@ function takenBy(totals: readonly ShiftTenderTotal[], methodId: string): Money {
 
 function methodRef(method: { readonly id: string; readonly code: string; readonly name: string; readonly kind: string } | undefined, total: ShiftTenderTotal): MethodRef {
   return method === undefined ? { id: total.paymentMethodId, code: total.methodCode, name: total.methodName, kind: total.methodKind } : { id: method.id, code: method.code, name: method.name, kind: method.kind };
+}
+
+/** A second shift its till opened offline, refused, with what the report's source needs (OFFLINE_SYNC 10). */
+interface RefusedOpen {
+  readonly register: { readonly id: string; readonly code: string; readonly branchId: string };
+  readonly deviceId: string;
+  readonly cashierId: string;
+  readonly at: Date;
+  readonly holder: ShiftRecord | null;
+}
+
+/** What a shift its till sent is flagged for (A-279 (b), (c)): each finding with its severity, for the report's source. */
+function offlineShiftFlags(f: {
+  readonly tillOpenedAt: Date;
+  readonly recordedOpenedAt: Date;
+  readonly receivedAt: Date;
+  readonly verdict: ShiftOpenClockVerdict | null;
+  readonly tooOld: boolean;
+  readonly tillSeq: number | null;
+  readonly serverSeq: number;
+  readonly toleranceSeconds: number;
+}): Pick<OfflineShiftFlagged, 'exceptionKind' | 'severity' | 'summary' | 'fact' | 'abuseCases'>[] {
+  const flags: Pick<OfflineShiftFlagged, 'exceptionKind' | 'severity' | 'summary' | 'fact' | 'abuseCases'>[] = [];
+  const times = { tillOpenedAt: f.tillOpenedAt.toISOString(), recordedOpenedAt: f.recordedOpenedAt.toISOString(), serverTime: f.receivedAt.toISOString(), toleranceSeconds: f.toleranceSeconds };
+  if (f.verdict !== null) {
+    flags.push({
+      exceptionKind: 'TILL_CLOCK_OUT_OF_TOLERANCE',
+      severity: 'REVIEW',
+      summary: f.verdict === 'AHEAD_OF_SERVER' ? `The till's clock was ahead of the server by more than ${f.toleranceSeconds} seconds when it opened the shift; the server's time is recorded` : `The till's time is more than ${f.toleranceSeconds} seconds before the till's previous shift closed; the server's time is recorded`,
+      fact: { verdict: f.verdict, ...times },
+      abuseCases: [],
+    });
+  }
+  if (f.tooOld) flags.push({ exceptionKind: 'OFFLINE_SHIFT_TOO_OLD', severity: 'REVIEW', summary: 'The shift reached the server longer after it was opened than an offline till may work', fact: times, abuseCases: [] });
+  if (f.tillSeq !== null && f.tillSeq !== f.serverSeq) {
+    flags.push({ exceptionKind: 'SHIFT_SEQ_DIFFERS', severity: 'REVIEW', summary: `The till printed shift sequence ${f.tillSeq} in its references; the server gave ${f.serverSeq}`, fact: { tillShiftSeq: f.tillSeq, serverShiftSeq: f.serverSeq }, abuseCases: [] });
+  }
+  return flags;
 }

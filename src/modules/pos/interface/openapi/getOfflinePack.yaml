@@ -29,6 +29,7 @@ responses:
             id: "019a7a94-15a3-7248-9781-2d5f347aa63d"
             code: T1
             name: "Shop till 1"
+          nextShiftSeq: 313
           generatedAt: "2026-11-13T06:55:00Z"
           validUntil: "2026-11-13T14:55:00Z"
           priceListVersionIds:

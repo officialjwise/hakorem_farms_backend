@@ -436,11 +436,13 @@ describe('who may sync, and the batch refused whole (OFFLINE_SYNC 6.3 and 7 step
     expect(await num('SELECT count(*)::text AS n FROM pos.sale_sync WHERE shift_id = $1', [shifts.get('S2')!.id])).toBe(0);
   });
 
-  it('answers a cash movement in the batch as not taken at sync, so the till keeps it to record online (A-278 (a))', async () => {
+  it('answers a cash movement in the batch that breaks a till rule REJECTED with that rule, recording nothing and raising it (B09b continued 2c replaces A-278 (a)\'s interim answer)', async () => {
+    // A fuel pay-out needs its note (the reason's rule, as recordCashMovement holds); the rest of the batch is unaffected.
     const movement = { id: nextId(), kind: 'PAY_OUT', amountPesewas: 1_000, reasonCode: 'FUEL_PAYOUT', occurredAt: clock.now().toISOString() };
     const answer = await sync('ama', 'S2', [], 'S2', { cashMovements: [movement] });
     expect(answer.status, JSON.stringify(answer.body)).toBe(200);
-    expect(answer.body.cashMovementResults).toEqual([{ clientId: movement.id, outcome: 'REJECTED', reason: 'CASH_MOVEMENT_NOT_TAKEN_AT_SYNC' }]);
+    expect(answer.body.cashMovementResults).toEqual([{ clientId: movement.id, outcome: 'REJECTED', reason: 'NOTE_REQUIRED' }]);
     expect(await num('SELECT count(*)::text AS n FROM pos.cash_movement WHERE id = $1', [movement.id])).toBe(0);
+    expect((await outbox('pos.OfflineCashMovementFlagged', movement.id)).map((r) => [r.payload['exceptionKind'], r.payload['severity']])).toEqual([['CASH_MOVEMENT_REJECTED', 'URGENT']]);
   });
 });

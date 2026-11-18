@@ -170,6 +170,28 @@ export interface SaleSyncRecord {
   readonly actorId: string;
 }
 
+/**
+ * One submission of a cash movement in a sync batch (`pos.cash_movement_sync`, B09b continued 2c, A-279 (d)): the
+ * first `APPLIED` or `REJECTED` decides the client id; a later one answers it (`answersId`).
+ */
+export interface CashMovementSyncRecord {
+  readonly id: string;
+  readonly deviceId: string;
+  readonly shiftId: string;
+  readonly branchId: string;
+  readonly clientMovementId: string;
+  readonly kind: 'CASH_DROP' | 'PAY_OUT' | 'PAY_IN';
+  readonly amountPesewas: bigint;
+  readonly clientOccurredAt: Date;
+  readonly outcome: 'APPLIED' | 'DUPLICATE' | 'REJECTED';
+  readonly reason: string | null;
+  readonly cashMovementId: string | null;
+  readonly answersId: string | null;
+  readonly clockVerdict: 'AHEAD_OF_SERVER' | 'BEFORE_SHIFT_OPENED' | null;
+  readonly receivedAt: Date;
+  readonly actorId: string;
+}
+
 export const TILL_STORE = Symbol('TILL_STORE');
 
 /** POS's tables (`pos.register`, `pos.shift`, `pos.cash_movement`, `pos.shift_tender_count`, `pos.shift_report`, `pos.shift_late_count`). */
@@ -237,4 +259,9 @@ export interface TillStore {
   noteDeviceCounter(tx: Transaction, shiftId: string, deviceCounter: number, actorId: string, at: Date): Promise<void>;
   /** When a device last synced (`pos.device_enrolment.last_sync_at`). */
   noteDeviceSync(tx: Transaction, deviceId: string, at: Date, actorId: string): Promise<void>;
+  /** When the till's latest CLOSED shift closed, or null when none has (a shift opened offline is judged by it). */
+  lastClosedAt(tx: Transaction, registerId: string): Promise<Date | null>;
+  insertCashMovementSync(tx: Transaction, row: CashMovementSyncRecord): Promise<void>;
+  /** The submission that decided each client movement id (its first APPLIED or REJECTED), by client id. */
+  decidedCashMovements(tx: Transaction, clientIds: readonly string[]): Promise<ReadonlyMap<string, CashMovementSyncRecord>>;
 }

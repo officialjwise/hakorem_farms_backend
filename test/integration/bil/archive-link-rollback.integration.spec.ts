@@ -48,6 +48,8 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0263_fin_unverified_mobile_money',
+      '0262_pos_cash_movement_sync',
       '0261_iam_grant_whl_credit_permissions',
       '0260_iam_seed_whl_credit_permissions',
       '0259_whl_credit_control',

@@ -173,9 +173,10 @@ export class PosController {
     @CurrentActor() actor: Actor | undefined,
     @Body(zodPipe(ShiftOpen)) body: z.infer<typeof ShiftOpen>,
     @IdempotencyKeyHeader() key: string,
+    @Headers('x-device-credential') deviceCredential: string | undefined,
     @Res({ passthrough: true }) res: Response,
   ): Promise<ShiftView> {
-    return reply(res, this.shifts.open(actor, body, key));
+    return reply(res, this.shifts.open(actor, body, key, deviceCredential));
   }
 
   @Get('shifts/:id')

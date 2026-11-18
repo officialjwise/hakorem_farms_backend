@@ -12,6 +12,7 @@ import type { Ledger } from '../../fin';
 import type { Authoriser } from '../../iam';
 import { defaultLineUom, type MasterDataRefs, type PaymentMethodFacts, type PricingService } from '../../mdm';
 import { SaleInvalidError, type OfflineSaleFinding, type Orders, type SalePosting, type SaleTenderRequest } from '../../ord';
+import type { Payments, UnverifiedTenders } from '../../pay';
 import { CLOCK_TOLERANCE_SECONDS, CLOCK_TOLERANCE_SETTING, isUuidV7 } from '../domain/client-time';
 import {
   counterGaps,
@@ -32,17 +33,23 @@ import {
   type LatePostingReason,
   type Severity,
 } from '../domain/offline-sync';
-import { shiftOverrideRoom } from '../domain/till';
-import type { DeviceCounterGap, OfflineSaleFlagged, OfflineSaleRejected } from '../events';
+import { cashMovementTimeAtSync, inMovementOrder, priorMovementAnswer, unverifiedTenderVerdict, type MovementContent } from '../domain/offline-queue';
+import { expectedCash, isUnwitnessedDrop, judgeCashMovement, shiftOverrideRoom, type CashMovementKind } from '../domain/till';
+import type { CashMoved, DeviceCounterGap, OfflineCashMovementFlagged, OfflineSaleFlagged, OfflineSaleRejected } from '../events';
 import type { Devices } from './devices';
 import { SyncBatchTooLargeError } from './errors';
 import { OFFLINE_UNVERIFIED_MOBILE_MONEY } from './offline-packs';
+import { MOVEMENT_EVENTS } from './shifts';
 import type { RegisterRecord, SaleSyncRecord, ShiftRecord, TillStore } from './till-store';
 
 export const OFFLINE_SALE_FLAGGED = 'pos.OfflineSaleFlagged';
 export const OFFLINE_SALE_REJECTED = 'pos.OfflineSaleRejected';
 export const DEVICE_COUNTER_GAP = 'pos.DeviceCounterGap';
+export const OFFLINE_CASH_MOVEMENT_FLAGGED = 'pos.OfflineCashMovementFlagged';
 const SELL = 'pos.sale.create';
+const MOVE = 'pos.cash.move';
+/** The supervisor's permission: who may approve an unverified tender on the device (OFFLINE_SYNC 5.3) or witness a drop. */
+const SUPERVISE = 'pos.shift.close.approve';
 /** The manager recovering a till syncs its queue under their own session (OFFLINE_SYNC 6.5, 11). */
 const RECOVER = 'pos.shift.force_close';
 /** Abuse cases the offline findings carry (THREAT_MODEL section 4). */
@@ -71,7 +78,7 @@ export interface OfflineTenderInput {
   readonly amountPesewas: number;
   readonly paymentId?: string | undefined;
   readonly tenderedPesewas?: number | undefined;
-  readonly unverifiedMobileMoney?: object | undefined;
+  readonly unverifiedMobileMoney?: { readonly payerPhone: string; readonly network: 'MTN' | 'TELECEL' | 'AIRTELTIGO'; readonly providerReference?: string | undefined; readonly approvedById: string } | undefined;
 }
 
 /** A queued sale as the device sent it (the contract's `OfflineSale`), exactly as received, so its hash can be recomputed. */
@@ -91,8 +98,21 @@ export interface OfflineSyncBatchInput {
   readonly deviceId: string;
   readonly shiftId: string;
   readonly sales: readonly OfflineSaleInput[];
-  readonly cashMovements?: readonly { readonly id: string }[] | undefined;
+  readonly cashMovements?: readonly OfflineCashMovementInput[] | undefined;
 }
+
+/** A cash movement of a batch as the device sent it (the contract's `CashMovementCreate`). */
+export interface OfflineCashMovementInput {
+  readonly id: string;
+  readonly kind: 'CASH_DROP' | 'PAY_OUT' | 'PAY_IN';
+  readonly amountPesewas: bigint;
+  readonly reasonCode?: string | undefined;
+  readonly note?: string | undefined;
+  readonly witnessId?: string | undefined;
+  readonly occurredAt: Date;
+}
+
+type MovementAnswer = OfflineSyncResultView['cashMovementResults'][number];
 
 export interface SyncExceptionView {
   readonly kind: string;
@@ -137,8 +157,6 @@ interface Flag {
 /** Why a sale must be tried again in a fresh transaction: another request posted it, or claimed its id, meanwhile. */
 class SyncRace extends Error {}
 
-/** The cash movements of a batch are not taken at sync yet (B09b continued 2c, A-278 (a)): each is answered so. */
-const CASH_MOVEMENT_NOT_TAKEN = 'CASH_MOVEMENT_NOT_TAKEN_AT_SYNC';
 
 const pesewas = (n: bigint) => Money.ofPesewas(n).toJsonInteger();
 const hex = (b: Buffer) => b.toString('hex');
@@ -174,6 +192,8 @@ export class OfflineSync {
     private readonly events: DomainEvents,
     private readonly audit: AuditTrail,
     private readonly clock: Clock,
+    private readonly payments: Payments,
+    private readonly unverified: UnverifiedTenders,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -196,6 +216,9 @@ export class OfflineSync {
     const ordered = inCounterOrder(body.sales);
     const results: SyncResultItemView[] = [];
     for (const sale of ordered) results.push(await this.syncSale(actor!, register, shift, deviceId, sale));
+    // The batch's cash movements after its sales, in the till's order (OFFLINE_SYNC 10, A-279 (d)), each on its own.
+    const movements: MovementAnswer[] = [];
+    for (const m of inMovementOrder(body.cashMovements ?? [])) movements.push(await this.syncMovement(actor!, register, shift.id, deviceId, m));
 
     const now = this.clock.now();
     const gaps = await this.uow.run({ isolation: 'serializable' }, async (tx) => {
@@ -225,14 +248,14 @@ export class OfflineSync {
         entityId: shift.id,
         branchId: register.branchId,
         before: null,
-        after: { deviceId, cashierId: shift.cashierId, sales: results.length, outcomes: countOutcomes(results), counterGaps: after, newlyMissing: fresh },
+        after: { deviceId, cashierId: shift.cashierId, sales: results.length, outcomes: countOutcomes(results), cashMovements: movements.length, movementOutcomes: tally(movements.map((m) => m.outcome)), counterGaps: after, newlyMissing: fresh },
       });
       return after;
     });
     return {
       shiftId: shift.id,
       results,
-      cashMovementResults: (body.cashMovements ?? []).map((m) => ({ clientId: m.id, outcome: 'REJECTED' as const, reason: CASH_MOVEMENT_NOT_TAKEN })),
+      cashMovementResults: (body.cashMovements ?? []).map((m) => movements.find((a) => a.clientId === m.id)!),
       counterGaps: gaps,
       serverTime: now.toISOString(),
     };
@@ -331,6 +354,7 @@ export class OfflineSync {
     const unverifiedAllowed = await this.settings.boolean(OFFLINE_UNVERIFIED_MOBILE_MONEY.key, OFFLINE_UNVERIFIED_MOBILE_MONEY.fallback, register.branchId);
     const takesCash = tillTakesCash(shift);
     const tenders: SaleTenderRequest[] = [];
+    const unverified: { readonly tender: OfflineTenderInput; readonly severity: 'REVIEW' | 'URGENT'; readonly approverIsSupervisor: boolean; readonly offeredOffline: boolean }[] = [];
     for (const tender of sale.tenders) {
       const method = methods.get(tender.paymentMethodId)!;
       if (takesCash && takenAtSync(method)) {
@@ -341,13 +365,22 @@ export class OfflineSync {
         flags.push({ kind: 'OFFLINE_CASH_NOT_TAKEN', severity: 'URGENT', summary: `Cash of ${tender.amountPesewas} pesewas was not put on the shift, because the shift is ${shift.forceClosed ? 'force-closed' : shift.status.toLowerCase()}; the receipt stays outstanding`, amountPesewas: tender.amountPesewas, fact: { method: method.code, shiftStatus: shift.status, forceClosed: shift.forceClosed }, abuseCases: [ABUSE_SHORT], toTill: true });
         continue;
       }
-      const permitted = method.kind === 'MOBILE_MONEY' && unverifiedAllowed;
+      // Mobile money taken unverified, approved on the device, is recorded only while the branch allows it (OFFLINE_SYNC 9.9).
+      const details = tender.unverifiedMobileMoney;
+      const approverIsSupervisor = details !== undefined && details.approvedById !== shift.cashierId && (await this.holdsAt(tx, details.approvedById, SUPERVISE, register.branchId));
+      const offeredOffline = method.kind === 'MOBILE_MONEY' && method.isLive && method.channels.includes('POS');
+      const walletKnown = method.kind === 'MOBILE_MONEY' && (await this.unverified.walletIn(tx, register.branchId)) !== null;
+      const verdict = unverifiedTenderVerdict({ methodKind: method.kind, branchAllows: unverifiedAllowed, carriesDetails: details !== undefined, offeredOffline, shiftTakesMoney: takesCash, approverIsSupervisor, walletKnown });
+      if (verdict.take) {
+        unverified.push({ tender, severity: verdict.severity, approverIsSupervisor, offeredOffline });
+        continue;
+      }
       flags.push({
         kind: 'UNMATCHED_PAYMENT',
-        severity: permitted ? 'REVIEW' : 'URGENT',
-        summary: permitted ? `A mobile money tender of ${tender.amountPesewas} pesewas was taken unverified; it is not recorded until it is matched` : `A ${method.code} tender of ${tender.amountPesewas} pesewas is not taken offline; it is not recorded`,
+        severity: 'URGENT',
+        summary: verdict.reason === 'SHIFT_NOT_OPEN' ? `A mobile money tender of ${tender.amountPesewas} pesewas was not recorded, because the shift is no longer open` : `A ${method.code} tender of ${tender.amountPesewas} pesewas is not taken offline; it is not recorded`,
         amountPesewas: tender.amountPesewas,
-        fact: { method: method.code, kind: method.kind, permittedOffline: permitted, ...(tender.unverifiedMobileMoney === undefined ? {} : { unverifiedMobileMoney: tender.unverifiedMobileMoney }) },
+        fact: { method: method.code, kind: method.kind, permittedOffline: unverifiedAllowed && method.kind === 'MOBILE_MONEY', notTaken: verdict.reason, shiftStatus: shift.status, ...(details === undefined ? {} : { unverifiedMobileMoney: { ...details, payerPhone: undefined } }) },
         abuseCases: [ABUSE_TENDER],
         toTill: true,
       });
@@ -419,6 +452,43 @@ export class OfflineSync {
     }
     const grossPesewas = posted.sale.billingDocument!.grossPesewas;
     for (const finding of posted.findings) flags.push(flagOf(finding, grossPesewas));
+    // The unverified tenders, after the cash ORD applied first, each allocated to what the receipt still owes (OFFLINE_SYNC 9.9).
+    const receiptGross = Money.fromJsonInteger(grossPesewas);
+    let owed = receiptGross.minus(lesser(receiptGross, Money.sum(tenders.map((t) => Money.ofPesewas(t.amountPesewas)))));
+    for (const u of unverified) {
+      const amount = Money.fromJsonInteger(u.tender.amountPesewas);
+      const applied = lesser(amount, owed);
+      owed = owed.minus(applied);
+      const details = u.tender.unverifiedMobileMoney!;
+      await this.unverified.recordIn(tx, cashier, {
+        branchId: register.branchId,
+        paymentMethodId: u.tender.paymentMethodId,
+        amountPesewas: amount.pesewas,
+        customerId: null,
+        orderDocumentId: sale.id,
+        shiftDocumentId: shift.id,
+        register: { id: register.id, code: register.code },
+        receivedAt: occurredAt,
+        allocations: applied.isZero() ? [] : [{ billingDocumentId: posted.sale.billingDocument!.id, amountPesewas: applied.pesewas }],
+        payerPhone: details.payerPhone,
+        network: details.network,
+        providerReference: details.providerReference ?? null,
+        approvedById: details.approvedById,
+        severity: u.severity,
+        facts: {
+          saleId: sale.id,
+          shiftId: shift.id,
+          register: { id: register.id, code: register.code },
+          deviceId,
+          cashierId: shift.cashierId,
+          deviceCounter: sale.deviceCounter,
+          provisionalRef: sale.provisionalRef,
+          occurredAt: sale.occurredAt,
+          approverIsSupervisor: u.approverIsSupervisor,
+          permittedOffline: u.offeredOffline,
+        },
+      });
+    }
     // Tenders the till took that do not sum to the receipt the server issued: recorded as taken, and a person looks.
     const claimed = Money.sum(sale.tenders.map((t) => Money.fromJsonInteger(t.amountPesewas)));
     if (claimed.compareTo(Money.fromJsonInteger(grossPesewas)) !== 0) {
@@ -457,6 +527,152 @@ export class OfflineSync {
       await this.events.publish(tx, { type: OFFLINE_SALE_FLAGGED, subjectType: 'SalesOrder', subjectId: sale.id, branchId: register.branchId, payload, occurredAt: now });
     }
     return resultOf(record);
+  }
+
+  /** Whether someone other than the caller holds a permission at the branch: their grants are read by id, nothing is refused. */
+  private async holdsAt(tx: Transaction, principalId: string, permission: string, branchId: string): Promise<boolean> {
+    const someone: Actor = { principalId, kind: 'USER', displayName: '', realm: 'STAFF', sessionId: null, steppedUpAt: null };
+    return (await this.authoriser.scopes(tx, someone, permission)).some((g) => g.branchId === branchId);
+  }
+
+  /** One cash movement of the batch in its own transaction; tried once more if another request decided it meanwhile. */
+  private async syncMovement(actor: Actor, register: RegisterRecord, shiftId: string, deviceId: string, m: OfflineCashMovementInput): Promise<MovementAnswer> {
+    const once = () => this.uow.run({ isolation: 'serializable' }, async (tx) => this.syncMovementIn(tx, actor, register, shiftId, deviceId, m));
+    try {
+      return await once();
+    } catch (error) {
+      if (sqlStateOf(error) === '23505') return once();
+      throw error;
+    }
+  }
+
+  /**
+   * A cash movement from the queue (OFFLINE_SYNC 10, ADR-0077, A-279 (d) to (f)): decided once by its client id and
+   * answered the same on every later sync; put only on the batch's own shift while it is OPEN (the same deciding
+   * function as a sale's cash, `tillTakesCash`), at the till's time though hours old, by the rules `recordCashMovement`
+   * holds; a drop with no witness is recorded unwitnessed and marked, because the till cannot know who was signed in
+   * (the witness's PIN is B09b continued 3's). Anything refused is recorded nowhere, answered with its reason and raised.
+   */
+  private async syncMovementIn(tx: Transaction, actor: Actor, register: RegisterRecord, shiftId: string, deviceId: string, m: OfflineCashMovementInput): Promise<MovementAnswer> {
+    const shift = (await this.store.lockShift(tx, shiftId))!;
+    const now = this.clock.now();
+    const amount = m.amountPesewas;
+    const amountJson = pesewas(amount);
+    const content: MovementContent = { shiftId: shift.id, kind: m.kind, amountPesewas: amount };
+    const tillTime = m.occurredAt;
+    const base = { deviceId, shiftId: shift.id, branchId: register.branchId, clientMovementId: m.id, kind: m.kind, amountPesewas: amount, clientOccurredAt: tillTime, receivedAt: now, actorId: actor.principalId };
+    const claim = { source: 'POS_OFFLINE', shiftId: shift.id, kind: m.kind, amountPesewas: amountJson, reasonCode: m.reasonCode ?? null, witnessId: m.witnessId ?? null, occurredAt: m.occurredAt.toISOString() };
+    const raise = (flag: Pick<OfflineCashMovementFlagged, 'exceptionKind' | 'severity' | 'summary' | 'fact' | 'abuseCases'>, occurredAt: Date) => {
+      const payload: OfflineCashMovementFlagged = { movementId: m.id, shiftId: shift.id, branchId: register.branchId, register: { id: register.id, code: register.code }, deviceId, cashierId: shift.cashierId, kind: m.kind, occurredAt: occurredAt.toISOString(), recordedAt: now.toISOString(), amountPesewas: amountJson, claim, ...flag };
+      return this.events.publish(tx, { type: OFFLINE_CASH_MOVEMENT_FLAGGED, subjectType: 'CashMovement', subjectId: m.id, branchId: register.branchId, payload, occurredAt: now });
+    };
+    const refuse = async (reason: string, fact: Readonly<Record<string, unknown>>, answersId: string | null = null): Promise<MovementAnswer> => {
+      await this.store.insertCashMovementSync(tx, { ...base, id: this.nextId(), outcome: 'REJECTED', reason, cashMovementId: null, answersId, clockVerdict: null });
+      await raise({ exceptionKind: 'CASH_MOVEMENT_REJECTED', severity: 'URGENT', summary: `A ${m.kind.toLowerCase().replace('_', ' ')} of ${amountJson} pesewas from the till was not recorded (${reason}); the drawer may differ from the records by it`, fact: { reason, ...fact }, abuseCases: [ABUSE_SHORT] }, tillTime);
+      await this.audit.record(tx, { module: 'pos', action: 'SYNC_CASH_MOVEMENT_REJECTED', entityType: 'Shift', entityId: shift.id, branchId: register.branchId, before: null, after: { movementId: m.id, reason, deviceId, submitted: claim } });
+      return { clientId: m.id, outcome: 'REJECTED', reason };
+    };
+
+    // Exactly once by the client id: a movement decided before is answered as it was decided.
+    const decided = (await this.store.decidedCashMovements(tx, [m.id])).get(m.id) ?? null;
+    const prior = decided === null ? null : { shiftId: decided.shiftId, kind: decided.kind, amountPesewas: decided.amountPesewas, outcome: decided.outcome as 'APPLIED' | 'REJECTED', reason: decided.reason };
+    const answer = priorMovementAnswer(prior, content);
+    if (decided !== null && answer !== null) {
+      if (answer.outcome === 'DUPLICATE') {
+        await this.store.insertCashMovementSync(tx, { ...base, id: this.nextId(), outcome: 'DUPLICATE', reason: null, cashMovementId: decided.cashMovementId, answersId: decided.id, clockVerdict: null });
+        return { clientId: m.id, outcome: 'DUPLICATE', reason: null };
+      }
+      // The same refusal again is answered, not raised again; other content under a decided id is a new finding.
+      if (answer.reason === decided.reason && prior!.shiftId === content.shiftId && prior!.kind === content.kind && prior!.amountPesewas === content.amountPesewas) {
+        await this.store.insertCashMovementSync(tx, { ...base, id: this.nextId(), outcome: 'REJECTED', reason: answer.reason, cashMovementId: null, answersId: decided.id, clockVerdict: null });
+        return { clientId: m.id, outcome: 'REJECTED', reason: answer.reason };
+      }
+      return refuse(answer.reason!, { decidedAs: decided.outcome, decidedShiftId: decided.shiftId, decidedKind: decided.kind, decidedAmountPesewas: Number(decided.amountPesewas) }, decided.id);
+    }
+    // A movement the till recorded online before it lost the network is already on a shift.
+    const [online] = await this.store.cashMovements(tx, [m.id]);
+    if (online !== undefined) {
+      if (online.shiftId === shift.id && online.kind === m.kind && online.amountPesewas === amount) {
+        await this.store.insertCashMovementSync(tx, { ...base, id: this.nextId(), outcome: 'DUPLICATE', reason: null, cashMovementId: online.id, answersId: null, clockVerdict: null });
+        return { clientId: m.id, outcome: 'DUPLICATE', reason: null };
+      }
+      return refuse('ID_REUSED_WITH_OTHER_CONTENT', { recordedShiftId: online.shiftId, recordedKind: online.kind, recordedAmountPesewas: Number(online.amountPesewas) });
+    }
+    if (!isUuidV7(m.id)) return refuse('ID_NOT_UUID_V7', {});
+    // ADR-0077 offline: onto its own shift only while that shift is OPEN, decided where a sale's cash is decided.
+    if (!tillTakesCash(shift)) return refuse('SHIFT_NOT_OPEN', { shiftStatus: shift.status, forceClosed: shift.forceClosed, closedAt: shift.closedAt?.toISOString() ?? null });
+
+    const reason = m.reasonCode === undefined ? undefined : (await this.refs.reasonCodesIn(tx, [m.reasonCode])).get(m.reasonCode);
+    const witnessId = m.witnessId ?? null;
+    const witnessIsSupervisor = witnessId !== null && (await this.holdsAt(tx, witnessId, SUPERVISE, register.branchId));
+    const broken = judgeCashMovement({
+      kind: m.kind,
+      amount: Money.ofPesewas(amount),
+      reasonCode: m.reasonCode ?? null,
+      reasonDomain: reason?.domain ?? null,
+      reasonNeedsNote: reason?.requiresNote ?? false,
+      note: m.note ?? null,
+      witnessId,
+      cashierId: shift.cashierId,
+      actorId: shift.cashierId,
+      witnessIsSupervisor,
+      // Offline the till cannot know who was signed in at the branch: a drop with no witness is taken unwitnessed and marked.
+      supervisorSignedIn: false,
+      tillHolds: await this.tillHolds(tx, shift.id),
+    });
+    if (broken.length > 0) return refuse(broken[0]!.rule, { rules: broken.map((b) => b.rule) });
+
+    const tolerance = await this.settings.integer(CLOCK_TOLERANCE_SETTING, CLOCK_TOLERANCE_SECONDS);
+    const timed = cashMovementTimeAtSync(tillTime, now, shift.openedAt, tolerance);
+    const unwitnessed = isUnwitnessedDrop({ kind: m.kind, witnessId, supervisorSignedIn: false });
+    // Attributed to the shift's cashier, who made it on the till; the session that synced it is the audit's actor.
+    await this.store.insertCashMovement(tx, { id: m.id, shiftId: shift.id, kind: m.kind, amountPesewas: amount, reasonCode: m.reasonCode!, note: m.note ?? null, witnessId, unwitnessed, occurredAt: timed.occurredAt, recordedAt: now, actorId: shift.cashierId });
+    const event = MOVEMENT_EVENTS[m.kind];
+    const posting: CashMoved = {
+      shiftId: shift.id,
+      subjectId: m.id,
+      branchId: register.branchId,
+      register: { id: register.id, code: register.code },
+      cashierId: shift.cashierId,
+      reasonCode: m.reasonCode!,
+      movementId: m.id,
+      kind: m.kind,
+      witnessId,
+      actorId: shift.cashierId,
+      occurredAt: timed.occurredAt.toISOString(),
+      ...(unwitnessed ? { unwitnessed: true, abuseCases: [ABUSE_SHORT] } : {}),
+      amountsPesewas: { [event.key]: amountJson } as CashMoved['amountsPesewas'],
+    };
+    await this.events.publish(tx, { type: event.type, subjectType: 'CashMovement', subjectId: m.id, branchId: register.branchId, payload: posting, occurredAt: timed.occurredAt });
+    await this.store.insertCashMovementSync(tx, { ...base, id: this.nextId(), outcome: 'APPLIED', reason: null, cashMovementId: m.id, answersId: null, clockVerdict: timed.verdict });
+    if (timed.verdict !== null) {
+      await raise(
+        {
+          exceptionKind: 'TILL_CLOCK_OUT_OF_TOLERANCE',
+          severity: 'REVIEW',
+          summary: timed.verdict === 'AHEAD_OF_SERVER' ? `The till's clock was ahead of the server by more than ${tolerance} seconds; the server's time is recorded` : `The till's time is more than ${tolerance} seconds before the shift opened; the shift's opening is recorded`,
+          fact: { verdict: timed.verdict, tillTime: m.occurredAt.toISOString(), recordedAt: timed.occurredAt.toISOString(), serverTime: now.toISOString(), shiftOpenedAt: shift.openedAt.toISOString(), toleranceSeconds: tolerance },
+          abuseCases: [],
+        },
+        timed.occurredAt,
+      );
+    }
+    if (!(await this.holdsAt(tx, shift.cashierId, MOVE, register.branchId))) {
+      await raise({ exceptionKind: 'AUTHORISATION_FAILURE', severity: 'URGENT', summary: 'The cashier no longer holds pos.cash.move at this till: the grant was revoked while the device was offline', fact: { permission: MOVE, branchId: register.branchId }, abuseCases: [] }, timed.occurredAt);
+    }
+    await this.audit.record(tx, { module: 'pos', action: `SYNC_${m.kind}`, entityType: 'CashMovement', entityId: m.id, branchId: register.branchId, before: null, after: { ...posting, unwitnessed, deviceId, syncedBy: actor.principalId, clockVerdict: timed.verdict } });
+    return { clientId: m.id, outcome: 'APPLIED', reason: null };
+  }
+
+  /** What the till holds by its records now (FR-POS-019), for a movement's limit: the float, its cash less refunds, its movements. */
+  private async tillHolds(tx: Transaction, shiftId: string): Promise<Money> {
+    const totals = await this.payments.shiftTotalsIn(tx, shiftId);
+    const movements = await this.store.cashMovementTotals(tx, shiftId);
+    const cash = totals.filter((t) => t.methodKind === 'CASH').reduce((sum, t) => sum.plus(Money.ofPesewas(t.amountPesewas)).minus(Money.ofPesewas(t.refundedPesewas)), Money.zero());
+    const of = (kind: CashMovementKind) => Money.ofPesewas(movements.get(kind) ?? 0n);
+    const expected = expectedCash({ float: of('FLOAT_IN'), cashTaken: cash, payIns: of('PAY_IN'), drops: of('CASH_DROP'), payOuts: of('PAY_OUT') });
+    if (!expected.ok) throw new Error(`shift ${shiftId}: its records take out more cash than came in`);
+    return expected.value;
   }
 
   /** A sale refused for integrity (OFFLINE_SYNC 9.8): logged, kept as evidence in the audit and the event, nothing posted. */
@@ -584,6 +800,8 @@ function resultOf(r: SaleSyncRecord): SyncResultItemView {
     exceptions: r.exceptions,
   };
 }
+
+const lesser = (a: Money, b: Money): Money => (a.compareTo(b) <= 0 ? a : b);
 
 function countOutcomes(results: readonly SyncResultItemView[]): Record<string, number> {
   return tally(results.map((r) => r.outcome));
