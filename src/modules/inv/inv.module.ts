@@ -14,6 +14,7 @@ import { INVENTORY_USAGE_STORE, InventoryLocationUsage, type InventoryUsageStore
 import { PgInventoryUsageStore } from './infrastructure/pg-inventory-usage-store';
 import { GOODS_RECEIPT_STORE, type GoodsReceiptStore } from './application/goods-receipt-store';
 import { GoodsReceipts } from './application/goods-receipts';
+import { OrderLineValuationRegistry } from './application/order-line-valuation';
 import { Lineage } from './application/lineage';
 import { BalanceReconciliation } from './application/reconciliation';
 import { StockValueSource } from './application/stock-value-source';
@@ -204,9 +205,13 @@ import { StockAlertsController } from './interface/stock-alerts.controller';
         principals: PrincipalNames,
         cursors: Cursors,
         clock: Clock,
-      ) => new GoodsReceipts(uow, store, refs, stock, authoriser, idempotency, audit, events, documents, principals, cursors, clock),
-      inject: [UnitOfWork, GOODS_RECEIPT_STORE, MasterDataRefs, Stock, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, PRINCIPAL_NAMES, Cursors, CLOCK],
+        orderLines: OrderLineValuationRegistry,
+      ) => new GoodsReceipts(uow, store, refs, stock, authoriser, idempotency, audit, events, documents, principals, cursors, clock, orderLines),
+      inject: [UnitOfWork, GOODS_RECEIPT_STORE, MasterDataRefs, Stock, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, PRINCIPAL_NAMES, Cursors, CLOCK, OrderLineValuationRegistry],
     },
+    // The OrderLineValuation port (ADR-0086): PUR registers its valuation here; with none, a line naming its order line
+    // and no value is refused.
+    { provide: OrderLineValuationRegistry, useValue: new OrderLineValuationRegistry() },
     {
       provide: StockQueries,
       useFactory: (uow: UnitOfWork, store: StockReadStore, refs: MasterDataRefs, lineage: Lineage, authoriser: Authoriser, documents: DocumentRegistry, cursors: Cursors, clock: Clock) =>
@@ -323,7 +328,7 @@ import { StockAlertsController } from './interface/stock-alerts.controller';
       inject: [UnitOfWork, STOCK_EXCEPTION_STORE, STOCK_DOCUMENTS_STORE, MasterDataRefs, StockAdjustments, Stock, Authoriser, Idempotency, AuditTrail, DocumentRegistry, PRINCIPAL_NAMES, Cursors, CLOCK],
     },
   ],
-  exports: [Stock, StockUnits, Lineage, BalanceReconciliation, GoodsReceipts, StockQueries, StockMovements, StockTransfers, StockAdjustments, StockTakes, StockHolds, StockExceptions, Reservations, ReservationExpiry, StockAlerts, StockAlertSweep, ColdChain],
+  exports: [OrderLineValuationRegistry, Stock, StockUnits, Lineage, BalanceReconciliation, GoodsReceipts, StockQueries, StockMovements, StockTransfers, StockAdjustments, StockTakes, StockHolds, StockExceptions, Reservations, ReservationExpiry, StockAlerts, StockAlertSweep, ColdChain],
 })
 export class InvModule implements OnModuleInit {
   constructor(

@@ -29081,7 +29081,7 @@ components:
         valuePesewas:
           allOf:
             - $ref: "#/components/schemas/Pesewas"
-          description: "Cost of the accepted quantity: order net plus non-reclaimable levies. Defaults from the purchase order line."
+          description: "The cost of the accepted quantity, typed from the supplier's paper; a typed value always wins. **Optional on a line that names `purchaseOrderLineId`** (CR-040, 2.8.0): left out, the server values the line from its order line for the accepted quantity, `half_up(unitPricePesewas x qtyOrdered x qtyReceived in the base unit / qtyOrdered in the base unit)`, rounded half-up once (ADR-0001), and the receipt's answer shows it on the line and in `totalValuePesewas`; 23 eggs of a 30-egg crate ordered at 4,751 are 3,642. That value is the order price only: a levy the farm cannot reclaim reaches purchase price variance through the supplier's invoice, never the receipt. An order line the server cannot use is 422 `GOODS_RECEIPT_INVALID` on `/lines/{i}/purchaseOrderLineId` with `ORDER_LINE_UNKNOWN` (not a line of the receipt's `purchaseOrderId`, or the receipt names no order) or `ORDER_LINE_OTHER_PRODUCT`. **Required on a line that names no order line**: left out, it is 400 `VALIDATION_FAILED` on `/lines/{i}/valuePesewas`, as before."
         batchNo:
           type: string
         expiresOn:
@@ -29094,7 +29094,6 @@ components:
       required:
         - productId
         - qtyReceived
-        - valuePesewas
       additionalProperties: false
     GoodsReceiptCreate:
       type: object

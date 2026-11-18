@@ -14,8 +14,9 @@ import { FileStore } from '../../platform/storage/file-store';
 import { DocModule, Documents } from '../doc';
 import { BankAccounts, FinModule } from '../fin';
 import { Approvals, Authoriser, IamModule, PRINCIPAL_NAMES, type PrincipalNames } from '../iam';
-import { GoodsReceipts, InvModule, Stock } from '../inv';
+import { GoodsReceipts, InvModule, OrderLineValuationRegistry, Stock } from '../inv';
 import { MasterDataRefs, MdmModule, TaxService } from '../mdm';
+import { PurchaseOrderLineValues } from './application/order-line-values';
 import { PURCHASE_ORDER_KIND, PurchaseOrders } from './application/purchase-orders';
 import { PURCHASING_STORE, type PurchasingStore } from './application/purchasing-store';
 import { Requisitions } from './application/requisitions';
@@ -184,6 +185,8 @@ export class PurModule implements OnModuleInit {
     @Inject(SupplierInvoices) private readonly invoices: SupplierInvoices,
     @Inject(SupplierPayments) private readonly payments: SupplierPayments,
     @Inject(Suppliers) private readonly suppliers: Suppliers,
+    @Inject(OrderLineValuationRegistry) private readonly orderLineValuations: OrderLineValuationRegistry,
+    @Inject(PURCHASING_STORE) private readonly purchasing: PurchasingStore,
   ) {}
 
   /**
@@ -201,5 +204,7 @@ export class PurModule implements OnModuleInit {
     this.events.subscribeInTransaction('mdm.SupplierRegistered', this.suppliers.registered);
     this.events.declareLedgerEvents(PUR_LEDGER_EVENTS);
     this.events.registerConsumer(this.payments.remittanceLinks);
+    // INV asks PUR what a receipt line naming its order line and no value is worth (CR-040, ADR-0086).
+    this.orderLineValuations.register(new PurchaseOrderLineValues(this.purchasing));
   }
 }

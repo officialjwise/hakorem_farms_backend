@@ -1,4 +1,5 @@
 import { createUuidV7Generator, Money, Quantity, toBusinessDate, Weight, type Clock } from '@hakorem/kernel';
+import type { OrderLineValuationRegistry } from './order-line-valuation';
 import type { AuditTrail } from '../../../platform/audit/audit-trail';
 import type { Actor } from '../../../platform/context/request-context';
 import type { Transaction, UnitOfWork } from '../../../platform/database/unit-of-work';
@@ -50,7 +51,11 @@ export interface ReceiptLineInput {
   readonly rejectionNote?: string | undefined;
   readonly weightKg?: string | undefined;
   readonly weightSource?: WeightSource | undefined;
-  readonly valuePesewas: bigint;
+  /**
+   * The cost of what was accepted. A line that names its order line may leave it out, and is then valued from the order
+   * line for the accepted quantity (CR-040, ADR-0086); a typed value always wins.
+   */
+  readonly valuePesewas?: bigint | undefined;
   readonly batchNo?: string | undefined;
   readonly expiresOn?: string | undefined;
   readonly animals?: readonly AnimalArrivalInput[] | undefined;
@@ -62,6 +67,8 @@ interface BaseLine {
   readonly uom: { readonly code: string; readonly received: Quantity; readonly rejected: Quantity } | null;
   readonly received: Quantity;
   readonly rejected: Quantity;
+  /** The value typed, or the order line's for the accepted quantity (CR-040). */
+  readonly value: bigint;
 }
 
 export interface GoodsReceiptCreateRequest {
@@ -227,6 +234,7 @@ export class GoodsReceipts {
     private readonly principals: PrincipalNames,
     private readonly cursors: Cursors,
     private readonly clock: Clock,
+    private readonly orderLines: OrderLineValuationRegistry,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -308,7 +316,7 @@ export class GoodsReceipts {
   async createIn(tx: Transaction, actor: Actor, body: GoodsReceiptCreateRequest, options: ReceiptOptions = {}): Promise<GoodsReceiptView> {
     const location = await this.receivingLocation(tx, body.locationId);
     await this.checkHeader(tx, body, false, options);
-    const lines = await this.checkLines(tx, body.kind, body.receivedAt, body.lines);
+    const lines = await this.checkLines(tx, body.kind, body.receivedAt, body.lines, body.purchaseOrderId ?? null);
     const id = this.nextId();
     await this.documents.register(tx, { id, docType: 'GOODS_RECEIPT', ownerModule: 'inv', branchId: location.branchId, actorId: actor.principalId });
     await this.store.insertHeader(
@@ -345,9 +353,9 @@ export class GoodsReceipts {
         const receivedAt = body.receivedAt ?? before.receivedAt;
         let lines: BaseLine[] | null = null;
         if (body.lines !== undefined) {
-          lines = await this.checkLines(tx, before.kind, receivedAt, body.lines);
+          lines = await this.checkLines(tx, before.kind, receivedAt, body.lines, before.orderDocumentId);
         } else if (body.receivedAt !== undefined) {
-          await this.checkLines(tx, before.kind, receivedAt, before.lines.map(lineInputOf));
+          await this.checkLines(tx, before.kind, receivedAt, before.lines.map(lineInputOf), before.orderDocumentId);
         }
         const set: Record<string, unknown> = {};
         if (body.deliveryNoteRef !== undefined) set['delivery_note_ref'] = body.deliveryNoteRef;
@@ -408,7 +416,7 @@ export class GoodsReceipts {
     const receipt = await this.lockedDraft(tx, id, null);
     const location = await this.receivingLocation(tx, receipt.locationId);
     await this.checkHeader(tx, { kind: receipt.kind, supplierId: receipt.supplierId ?? undefined, purchaseOrderId: receipt.orderDocumentId ?? undefined }, true, options);
-    await this.checkLines(tx, receipt.kind, receipt.receivedAt, receipt.lines.map(lineInputOf));
+    await this.checkLines(tx, receipt.kind, receipt.receivedAt, receipt.lines.map(lineInputOf), receipt.orderDocumentId);
     const source = RECEIPT_SOURCE[receipt.kind];
     const from = await this.refs.virtualLocationIn(tx, location.branchId, source.virtualKind);
     if (from === null) {
@@ -573,7 +581,7 @@ export class GoodsReceipts {
    * entered in another unit (a crate) is converted through `MasterDataRefs.toBaseIn`, never by a factor of its own, and
    * a unit the product does not convert from, or a quantity that would need a fourth decimal place, is refused.
    */
-  private async checkLines(tx: Transaction, kind: ReceiptKind, receivedAt: Date, lines: readonly ReceiptLineInput[]): Promise<BaseLine[]> {
+  private async checkLines(tx: Transaction, kind: ReceiptKind, receivedAt: Date, lines: readonly ReceiptLineInput[], orderId: string | null): Promise<BaseLine[]> {
     if (isInTheFuture(receivedAt, this.clock.now())) throw new GoodsReceiptInvalidError([{ field: '/receivedAt', rule: 'IN_THE_FUTURE' }]);
     if (lines.length === 0) throw new GoodsReceiptInvalidError([{ field: '/lines', rule: 'NO_LINES' }]);
     const products = await this.refs.productsIn(tx, lines.map((l) => l.productId));
@@ -587,7 +595,7 @@ export class GoodsReceipts {
       const received = Quantity.parse(l.qtyReceived);
       const rejected = Quantity.parse(l.qtyRejected ?? '0.000');
       if (uom === null) {
-        converted.push({ input: l, uom: null, received, rejected });
+        converted.push({ input: l, uom: null, received, rejected, value: l.valuePesewas ?? 0n });
         continue;
       }
       const receivedBase = await this.refs.toBaseIn(tx, product.id, uom, received);
@@ -598,7 +606,18 @@ export class GoodsReceipts {
         broken.push(inexact === null ? { field: `/lines/${index}/uom`, rule: 'NO_CONVERSION' } : { field: `/lines/${index}/${inexact}`, rule: 'INEXACT_QUANTITY' });
         continue;
       }
-      converted.push({ input: l, uom: { code: uom, received, rejected }, received: receivedBase.value, rejected: rejectedBase.value });
+      converted.push({ input: l, uom: { code: uom, received, rejected }, received: receivedBase.value, rejected: rejectedBase.value, value: l.valuePesewas ?? 0n });
+    }
+    if (broken.length > 0) throw new GoodsReceiptInvalidError(broken);
+    // A line that names its order line and types no value is valued from the order line for what was accepted (CR-040):
+    // PUR's answer to the OrderLineValuation port, never a figure of INV's own. A typed value always wins.
+    for (const [index, line] of converted.entries()) {
+      if (line.input.valuePesewas !== undefined) continue;
+      const orderLineId = line.input.purchaseOrderLineId;
+      if (orderLineId === undefined) throw new GoodsReceiptInvalidError([{ field: `/lines/${index}/valuePesewas`, rule: 'VALUE_REQUIRED' }]);
+      const answer = orderId === null ? null : await this.orderLines.valueIn(tx, { purchaseOrderId: orderId, purchaseOrderLineId: orderLineId, productId: line.input.productId, qtyAcceptedBase: line.received });
+      if (answer === null || !answer.ok) broken.push({ field: `/lines/${index}/purchaseOrderLineId`, rule: answer === null ? 'ORDER_LINE_UNKNOWN' : answer.refusal });
+      else converted[index] = { ...line, value: answer.value.pesewas };
     }
     if (broken.length > 0) throw new GoodsReceiptInvalidError(broken);
     const reasonCodes = [...new Set(lines.flatMap((l) => (l.rejectionReasonCode === undefined ? [] : [l.rejectionReasonCode])))];
@@ -616,12 +635,12 @@ export class GoodsReceipts {
       ...checkReceiptLines({
         kind,
         receivedOn: toBusinessDate(receivedAt),
-        lines: converted.map(({ input: l, received }) => ({
+        lines: converted.map(({ input: l, received, value }) => ({
           productId: l.productId,
           product: products.get(l.productId)!,
           draft: {
             qtyReceived: received,
-            value: Money.ofPesewas(l.valuePesewas),
+            value: Money.ofPesewas(value),
             batchNo: l.batchNo ?? null,
             expiresOn: l.expiresOn ?? null,
             animalTags: (l.animals ?? []).map((a) => a.tagNo),
@@ -634,7 +653,7 @@ export class GoodsReceipts {
   }
 
   private async insertLines(tx: Transaction, receiptId: string, lines: readonly BaseLine[]): Promise<void> {
-    for (const [index, { input: line, uom, received, rejected }] of lines.entries()) {
+    for (const [index, { input: line, uom, received, rejected, value }] of lines.entries()) {
       const lineId = this.nextId();
       await this.store.insertLine(tx, receiptId, {
         id: lineId,
@@ -650,7 +669,7 @@ export class GoodsReceipts {
         rejectionNote: line.rejectionNote ?? null,
         weightKg: line.weightKg === undefined ? null : Weight.parseKg(line.weightKg).toKgString(),
         weightSource: line.weightSource ?? null,
-        valuePesewas: line.valuePesewas,
+        valuePesewas: value,
         batchNo: line.batchNo ?? null,
         expiresOn: line.expiresOn ?? null,
       });
