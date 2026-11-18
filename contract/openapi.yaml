@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.11.0"
+  version: "2.12.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -9803,7 +9803,7 @@ paths:
       tags:
         - mdm
       summary: "The price lists a buyer holds, now and later"
-      description: "The buyer's price list assignments in force now or starting later, oldest first (CR-041, 2.11.0): what `assignCustomerPriceList` wrote, each with its window `[validFrom, validTo)`. An ended or replaced assignment is not listed. A customer that is not live is 404.\n\nPermission: `mdm.customer.read`."
+      description: "The buyer's price list assignments in force now or starting later, oldest first (CR-041, 2.12.0): what `assignCustomerPriceList` wrote, each with its window `[validFrom, validTo)`. An ended or replaced assignment is not listed. A customer that is not live is 404.\n\nPermission: `mdm.customer.read`."
       x-permission: mdm.customer.read
       x-error-codes:
         - VALIDATION_FAILED
@@ -77804,7 +77804,7 @@ paths:
       tags:
         - mdm
       summary: "The buyers who hold a price list"
-      description: "The live buyers who hold this price list now or from a later date, by assignment, each with its window (CR-041, 2.11.0). An ended or replaced assignment is not listed. An unknown price list is 404.\n\nPermission: `mdm.price_list.read`."
+      description: "The live buyers who hold this price list now or from a later date, by assignment, each with its window (CR-041, 2.12.0). An ended or replaced assignment is not listed. An unknown price list is 404.\n\nPermission: `mdm.price_list.read`."
       x-permission: mdm.price_list.read
       x-error-codes:
         - VALIDATION_FAILED

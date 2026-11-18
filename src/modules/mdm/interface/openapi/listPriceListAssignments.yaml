@@ -2,7 +2,7 @@ operationId: listPriceListAssignments
 tags:
   - mdm
 summary: "The buyers who hold a price list"
-description: "The live buyers who hold this price list now or from a later date, by assignment, each with its window (CR-041, 2.11.0). An ended or replaced assignment is not listed. An unknown price list is 404.\n\nPermission: `mdm.price_list.read`."
+description: "The live buyers who hold this price list now or from a later date, by assignment, each with its window (CR-041, 2.12.0). An ended or replaced assignment is not listed. An unknown price list is 404.\n\nPermission: `mdm.price_list.read`."
 x-permission: mdm.price_list.read
 x-error-codes:
   - VALIDATION_FAILED

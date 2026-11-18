@@ -1,6 +1,6 @@
 # B10: quotations (lane B), split before credit control
 
-Date: 2026-11-18 · Branch `b10-quotations-wholesale`, from `main` (`39c6198`), rebased on `main` at `5815c06` (lane A's B09b continued 1c, #107) · Status: **gate as split passed; the phase split at its sub-domain boundary (A-311).**
+Date: 2026-11-18 · Branch `b10-quotations-wholesale`, from `main` (`39c6198`), rebased on `main` at `5815c06` (lane A's B09b continued 1c, #107) and again, holding the merge slot, at `5dd1b52` (lane A's B09b continued 2, #108) · Status: **gate as split passed; the phase split at its sub-domain boundary (A-311).**
 
 Run as a fresh agent inside the 2026-11-15 overnight session: the parent session cannot issue /clear or /compact, so each phase starts in a new context that reads only this handoff from disk.
 
@@ -17,6 +17,8 @@ Run as a fresh agent inside the 2026-11-15 overnight session: the parent session
 
 **For the parent session (owner's returns note):** returns today refund through a credit note on the original billing document's lines, priced and taxed by that document's terms (`Billing.creditPreviewIn`, `planCreditIn`), so **at the price paid, not the current list: no defect found.** The pro-rata crate-per-egg refund with ADR-0075's running-total rounding is not built anywhere yet; it is written into B11's opener with the owner's tests.
 
+**For lane A (ORD's `NewOrderLine` and `insertLines`):** B10 adds an optional `quoteLineRef` to `NewOrderLine` and writes `quote_line_ref` as `$33` in `PgOrderStore.insertLines`; lane A's optional `stockExceptionId` goes beside it, both kept. No conflict on `main` at `5dd1b52`.
+
 Phase, scope and gate, as confirmed at the start:
 1. **Phase:** B10, lane B (`b10-quotations-wholesale`, from `main`).
 2. **Scope:** QUO (FR-QUO-001 to FR-QUO-012), CR-041, the owner's items 1 (a quote line's unit), 3 (the quote link) and 4 (the form's quantity and unit) and the quote roles of item 5; split early, as the parent session advised, before credit control.
@@ -24,7 +26,7 @@ Phase, scope and gate, as confirmed at the start:
 
 ## Contract changes
 
-**2.11.0, minor, additive** (on top of lane A's 2.10.0); `scripts/contract/versioning.ts` against `main`: ok. Redocly clean. `contract:generate --check` up to date (474 operations from code, 172 planned).
+**2.12.0, minor, additive** (on top of lane A's 2.11.0, renumbered at the merge slot; no migration needed renumbering, since lane A's 2.11.0 added none); `scripts/contract/versioning.ts` against `main`: ok. Redocly clean. `contract:generate` up to date (475 operations from code, 171 planned, 646 in all).
 - **Into code:** the nineteen QUO operations (`getQuotePipeline` and `listMyQuotes` stay planned). `submitQuoteRequest` is public: its planned `customerSession` and optional CSRF header are gone.
 - **New:** `getCustomerPriceList`, `listPriceListAssignments` (CR-041) with `PriceListAssignmentList`, `PriceListHolder`, `PriceListHolderPage`; `PriceListEntry.baseUom`.
 - **Planned QUO shapes extended:** `PublicQuoteRequest`, `RfqCreate` and `Rfq` take `quantity` and `uom`; `QuoteLineInput.uom`; `QuoteLine.baseQuantity`; `QuoteVersion.createdBy`, `createdAt`, `version`, `acceptanceLinkToken`; `QuoteAcceptanceRecord.note` (optional, required by the rule). **`QuoteVersion.marginPercent` is a signed decimal string**, no longer a `Percent` (a margin over cost may be negative or above 100). `viewQuoteByLink` gains 422.
@@ -108,8 +110,8 @@ The frontend's `main` was read at `37e5c98`, `b537827` and last at **`81525f1`**
 
 | Layer | Result |
 | --- | --- |
-| Unit and integration, merged (`pnpm test:coverage`), on the rebased code | **3,464 passed**, 285 files, none skipped. Statements 94.14 percent, branches 84.32 (the gate is 80), functions 97.79, lines 96.94; every 100 percent gate held. QUO's domain: 96.82 statements, 95.91 branches, 100 functions and lines. |
-| Contract (`pnpm test:contract`) | **127**: the first full run was red on 3 files, each a list this phase had to extend (the operation count, the request schemas walk, a test borrowing `QUOTE_BELOW_MARGIN`), fixed; the four files rerun green (17 tests), with the new `test/contract/b10/quotes.contract.spec.ts`. |
+| Unit and integration, merged (`pnpm test:coverage`), on the code rebased on `5dd1b52` | **3,485 passed**, 288 files, none skipped. Statements 94.16 percent, branches 84.33 (the gate is 80), functions 97.79, lines 96.95; every 100 percent gate held. QUO's domain: 96.82 statements, 95.91 branches, 100 functions and lines. |
+| Contract (`pnpm test:contract`) | **128 passed**, 48 files, on the rebased code. The first full run was red on 3 files, each a list this phase had to extend (the operation count, the request schemas walk, a test borrowing `QUOTE_BELOW_MARGIN`), fixed; the four files rerun green (17 tests), with the new `test/contract/b10/quotes.contract.spec.ts`. |
 | Lint (module boundaries, fixtures, placement, schema names), typecheck, Redocly (no warning), `contract:generate`, versioning against `main` | Clean. |
 | End to end, setup, the image, the scans, the last migration rolled back and applied | Run in CI; 0252 to 0255's down steps are also walked over the seeded farm by `bil/archive-link-rollback`. |
 
@@ -121,7 +123,7 @@ The first full merged run was red on 6 tests in 4 files, each fixed before the c
 
 ## Notes for the frontend track
 
-- **2.11.0:** the quote screens can use the QUO operations; `marginPercent` is signed and may exceed 100; show `QUOTE_LINK_CLOSED`'s `details[0].code` (`EXPIRED`, `REPLACED`, `WITHDRAWN`) in words; `acceptanceLinkToken` is answered only by the issue call (`/shop/quotes/{token}`).
+- **2.12.0:** the quote screens can use the QUO operations; `marginPercent` is signed and may exceed 100; show `QUOTE_LINK_CLOSED`'s `details[0].code` (`EXPIRED`, `REPLACED`, `WITHDRAWN`) in words; `acceptanceLinkToken` is answered only by the issue call (`/shop/quotes/{token}`).
 - **Units:** send `uom` on a quote line and on the request form (a crate or `EGG`); the answer's `baseQuantity` is what is held.
 - **CR-041:** `getCustomerPriceList` and `listPriceListAssignments`; `PriceListEntry.baseUom` names the unit of `minQtyBase`.
 

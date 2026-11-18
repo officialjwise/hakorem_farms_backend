@@ -2,7 +2,7 @@ operationId: getCustomerPriceList
 tags:
   - mdm
 summary: "The price lists a buyer holds, now and later"
-description: "The buyer's price list assignments in force now or starting later, oldest first (CR-041, 2.11.0): what `assignCustomerPriceList` wrote, each with its window `[validFrom, validTo)`. An ended or replaced assignment is not listed. A customer that is not live is 404.\n\nPermission: `mdm.customer.read`."
+description: "The buyer's price list assignments in force now or starting later, oldest first (CR-041, 2.12.0): what `assignCustomerPriceList` wrote, each with its window `[validFrom, validTo)`. An ended or replaced assignment is not listed. A customer that is not live is 404.\n\nPermission: `mdm.customer.read`."
 x-permission: mdm.customer.read
 x-error-codes:
   - VALIDATION_FAILED

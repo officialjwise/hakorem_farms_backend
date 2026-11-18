@@ -9,7 +9,7 @@ import { consoleGet, consolePost, createUser, login, relaxRateLimits, testStartT
 import { startTestApp, TEST_ORIGIN, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
 
-/** QUO's operations and CR-041's reads (B10) answer in the shapes of contract/openapi.yaml 2.11.0. */
+/** QUO's operations and CR-041's reads (B10) answer in the shapes of contract/openapi.yaml 2.12.0. */
 let database: TestDatabase;
 let api: TestApp;
 let clock: ManualClock;
