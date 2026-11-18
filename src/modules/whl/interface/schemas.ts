@@ -56,3 +56,31 @@ const DunningLevelInput = z.strictObject({
   templateCode: z.string().regex(/^[A-Z][A-Z0-9_]{1,59}$/),
 });
 export const DunningPolicyReplace = z.strictObject({ levels: z.array(DunningLevelInput).max(10) });
+
+const Weekday = z.number().int().min(1).max(7);
+const QuantityText = z.string().regex(/^\d{1,9}(\.\d{1,3})?$/);
+const StandingOrderLineInput = z.strictObject({ productId: z.uuid(), quantity: QuantityText, uom: z.string().min(1).max(20).optional() });
+export const StandingOrderPageQuery = z.object({ customerId: z.uuid().optional(), status: z.enum(['ACTIVE', 'PAUSED', 'ENDED', 'CANCELLED']).optional(), cursor: Cursor, limit: Limit });
+export const StandingOrderCreate = z.strictObject({
+  customerId: z.uuid(),
+  frequency: z.enum(['WEEKLY', 'FORTNIGHTLY', 'MONTHLY', 'EVERY_N_DAYS']),
+  weekday: Weekday.optional(),
+  weekdays: z.array(z.number().int()).max(7).optional(),
+  dayOfMonth: z.number().int().optional(),
+  intervalDays: z.number().int().optional(),
+  startsOn: BusinessDate,
+  endsOn: BusinessDate.optional(),
+  deliveryAddressId: z.uuid().optional(),
+  lines: z.array(StandingOrderLineInput).max(50),
+});
+export const StandingOrderUpdate = z.strictObject({
+  version: z.number().int().min(1),
+  weekday: Weekday.optional(),
+  weekdays: z.array(z.number().int()).max(7).optional(),
+  dayOfMonth: z.number().int().optional(),
+  intervalDays: z.number().int().optional(),
+  endsOn: BusinessDate.optional(),
+  deliveryAddressId: z.uuid().optional(),
+  lines: z.array(StandingOrderLineInput).max(50).optional(),
+});
+export const BadDebtWriteOff = z.strictObject({ billingDocumentId: z.uuid(), amountPesewas: PesewasNumber, reason: Reason });

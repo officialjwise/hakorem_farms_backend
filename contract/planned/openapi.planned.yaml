@@ -5518,833 +5518,12 @@ paths:
   "/business-accounts/{customerId}/hold": {}
   "/business-accounts/{customerId}/release": {}
   "/credit-overrides": {}
-  "/standing-orders":
-    get:
-      operationId: listStandingOrders
-      tags:
-        - whl
-      summary: "List standing and recurring orders"
-      description: "Permission: `whl.standing_order.read`."
-      x-permission: whl.standing_order.read
-      parameters:
-        - name: customerId
-          in: query
-          required: false
-          schema:
-            type: string
-            format: uuid
-        - name: status
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: cursor
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: limit
-          in: query
-          required: false
-          schema:
-            $ref: "#/components/schemas/PageLimit"
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StandingOrderPage"
-              examples:
-                default:
-                  value:
-                    data:
-                      - id: "019a7b04-1914-70f6-862f-1840dc69911e"
-                        customer:
-                          id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          publicId: cus_TWMB751S2DFXTAM8
-                          name: "Royal Palm Hotel Ltd"
-                        status: ACTIVE
-                        frequency: WEEKLY
-                        weekday: 2
-                        dayOfMonth: null
-                        startsOn: "2026-10-06"
-                        endsOn: null
-                        nextRunOn: "2026-11-17"
-                        deliveryAddress:
-                          recipientName: "Royal Palm Hotel, kitchen"
-                          recipientPhone: "+233302765410"
-                          line1: "7 Liberation Road"
-                          area: "Airport Residential"
-                          city: Accra
-                          region: "Greater Accra"
-                          digitalAddress: GA-145-2208
-                          directions: "Deliveries through the back gate, ask for the head chef"
-                        lines:
-                          - id: "019a7b04-3803-7ada-9012-b678561a2f56"
-                            lineNo: 1
-                            product:
-                              id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                              sku: MEAT-0001
-                              name: "Full chicken, 15 kg pack"
-                            quantity: "2.000"
-                            uom: PACK
-                        branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                        version: 3
-                      - id: "019a7b04-56f2-74bd-a9f6-54afcfcbcd8d"
-                        customer:
-                          id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          publicId: cus_TS4VEDD3ZZNAAQGD
-                          name: "Asantewaa Chop Bar"
-                        status: ACTIVE
-                        frequency: WEEKLY
-                        weekday: 5
-                        dayOfMonth: null
-                        startsOn: "2026-10-06"
-                        endsOn: null
-                        nextRunOn: "2026-11-14"
-                        deliveryAddress:
-                          recipientName: "Asantewaa Chop Bar"
-                          recipientPhone: "+233557018924"
-                          line1: "Adenta Barrier, beside Total filling station"
-                          area: Adenta
-                          city: Accra
-                          region: "Greater Accra"
-                          digitalAddress: GD-021-7731
-                          directions: "Yellow kiosk behind the station"
-                        lines:
-                          - id: "019a7b04-75e1-7ea1-b3d9-f2e7497c6bc5"
-                            lineNo: 1
-                            product:
-                              id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
-                              sku: MEAT-0007
-                              name: "Goat meat, 15 kg pack"
-                            quantity: "1.000"
-                            uom: PACK
-                        branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                        version: 3
-                      - id: "019a7b04-94d0-7884-8dbd-911ec32d09fc"
-                        customer:
-                          id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
-                          publicId: cus_3Q4VCE9ZY779GAT6
-                          name: "Osu Fresh Mart"
-                        status: PAUSED
-                        frequency: FORTNIGHTLY
-                        weekday: 1
-                        dayOfMonth: null
-                        startsOn: "2026-10-06"
-                        endsOn: null
-                        nextRunOn: null
-                        deliveryAddress: null
-                        lines:
-                          - id: "019a7b04-b3bf-7268-97a0-2f563cdea834"
-                            lineNo: 1
-                            product:
-                              id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                              sku: EGG-0003
-                              name: "Eggs, big, crate of 30"
-                            quantity: "20.000"
-                            uom: CRATE
-                        branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                        version: 3
-                      - id: "019a7b04-d2ae-7c4b-a184-cd8db68f466b"
-                        customer:
-                          id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          publicId: cus_TWMB751S2DFXTAM8
-                          name: "Royal Palm Hotel Ltd"
-                        status: ACTIVE
-                        frequency: MONTHLY
-                        weekday: null
-                        dayOfMonth: 1
-                        startsOn: "2026-10-06"
-                        endsOn: null
-                        nextRunOn: "2026-12-01"
-                        deliveryAddress:
-                          recipientName: "Royal Palm Hotel, kitchen"
-                          recipientPhone: "+233302765410"
-                          line1: "7 Liberation Road"
-                          area: "Airport Residential"
-                          city: Accra
-                          region: "Greater Accra"
-                          digitalAddress: GA-145-2208
-                          directions: "Deliveries through the back gate, ask for the head chef"
-                        lines:
-                          - id: "019a7b04-f19d-762f-bb67-6bc53040e4a3"
-                            lineNo: 1
-                            product:
-                              id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                              sku: MEAT-0005
-                              name: "Beef, 15 kg pack"
-                            quantity: "4.000"
-                            uom: PACK
-                        branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                        version: 3
-                      - id: "019a7b05-108c-7012-854a-09fca9f182da"
-                        customer:
-                          id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          publicId: cus_TS4VEDD3ZZNAAQGD
-                          name: "Asantewaa Chop Bar"
-                        status: ENDED
-                        frequency: WEEKLY
-                        weekday: 3
-                        dayOfMonth: null
-                        startsOn: "2026-10-06"
-                        endsOn: "2026-11-04"
-                        nextRunOn: null
-                        deliveryAddress:
-                          recipientName: "Asantewaa Chop Bar"
-                          recipientPhone: "+233557018924"
-                          line1: "Adenta Barrier, beside Total filling station"
-                          area: Adenta
-                          city: Accra
-                          region: "Greater Accra"
-                          digitalAddress: GD-021-7731
-                          directions: "Yellow kiosk behind the station"
-                        lines:
-                          - id: "019a7b05-2f7b-79f6-9f2e-a83423a22112"
-                            lineNo: 1
-                            product:
-                              id: "019a7a8e-a5a0-754c-8a85-5d9ed05dd67c"
-                              sku: PRD-0005
-                              name: "Yam, tuber"
-                            quantity: "30.000"
-                            uom: TUBER
-                        branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                        version: 3
-                    page:
-                      nextCursor: eyJpZCI6IjAxOWE3YyJ9
-                      limit: 25
-                      hasMore: true
-                empty:
-                  summary: "Nothing matches: no rows and no next page"
-                  value:
-                    data: []
-                    page:
-                      nextCursor: null
-                      limit: 25
-                      hasMore: false
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-    post:
-      operationId: createStandingOrder
-      tags:
-        - whl
-      summary: "Set up a recurring order"
-      description: "Each run creates an order priced by the engine on the run date; a run for an account on hold is skipped and recorded.\n\nPermission: `whl.standing_order.manage`."
-      x-permission: whl.standing_order.manage
-      parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/StandingOrderCreate"
-            example:
-              customerId: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-              frequency: WEEKLY
-              weekday: 2
-              startsOn: "2026-11-17"
-              deliveryAddressId: "019a7aa3-3056-765a-ab92-6e759fe7e753"
-              lines:
-                - productId: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                  quantity: "2.000"
-      responses:
-        "201":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StandingOrder"
-              example:
-                id: "019a7b04-1914-70f6-862f-1840dc69911e"
-                customer:
-                  id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  publicId: cus_TWMB751S2DFXTAM8
-                  name: "Royal Palm Hotel Ltd"
-                status: ACTIVE
-                frequency: WEEKLY
-                weekday: 2
-                dayOfMonth: null
-                startsOn: "2026-10-06"
-                endsOn: null
-                nextRunOn: "2026-11-17"
-                deliveryAddress:
-                  recipientName: "Royal Palm Hotel, kitchen"
-                  recipientPhone: "+233302765410"
-                  line1: "7 Liberation Road"
-                  area: "Airport Residential"
-                  city: Accra
-                  region: "Greater Accra"
-                  digitalAddress: GA-145-2208
-                  directions: "Deliveries through the back gate, ask for the head chef"
-                lines:
-                  - id: "019a7b04-3803-7ada-9012-b678561a2f56"
-                    lineNo: 1
-                    product:
-                      id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-0001
-                      name: "Full chicken, 15 kg pack"
-                    quantity: "2.000"
-                    uom: PACK
-                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                version: 3
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/standing-orders/{id}":
-    get:
-      operationId: getStandingOrder
-      tags:
-        - whl
-      summary: "Get a standing order"
-      description: "Permission: `whl.standing_order.read`."
-      x-permission: whl.standing_order.read
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StandingOrder"
-              example:
-                id: "019a7b04-1914-70f6-862f-1840dc69911e"
-                customer:
-                  id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  publicId: cus_TWMB751S2DFXTAM8
-                  name: "Royal Palm Hotel Ltd"
-                status: ACTIVE
-                frequency: WEEKLY
-                weekday: 2
-                dayOfMonth: null
-                startsOn: "2026-10-06"
-                endsOn: null
-                nextRunOn: "2026-11-17"
-                deliveryAddress:
-                  recipientName: "Royal Palm Hotel, kitchen"
-                  recipientPhone: "+233302765410"
-                  line1: "7 Liberation Road"
-                  area: "Airport Residential"
-                  city: Accra
-                  region: "Greater Accra"
-                  digitalAddress: GA-145-2208
-                  directions: "Deliveries through the back gate, ask for the head chef"
-                lines:
-                  - id: "019a7b04-3803-7ada-9012-b678561a2f56"
-                    lineNo: 1
-                    product:
-                      id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-0001
-                      name: "Full chicken, 15 kg pack"
-                    quantity: "2.000"
-                    uom: PACK
-                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                version: 3
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-    patch:
-      operationId: updateStandingOrder
-      tags:
-        - whl
-      summary: "Change a standing order"
-      description: "Permission: `whl.standing_order.manage`."
-      x-permission: whl.standing_order.manage
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/StandingOrderUpdate"
-            example:
-              version: 3
-              lines:
-                - productId: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                  quantity: "3.000"
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StandingOrder"
-              example:
-                id: "019a7b04-1914-70f6-862f-1840dc69911e"
-                customer:
-                  id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  publicId: cus_TWMB751S2DFXTAM8
-                  name: "Royal Palm Hotel Ltd"
-                status: ACTIVE
-                frequency: WEEKLY
-                weekday: 2
-                dayOfMonth: null
-                startsOn: "2026-10-06"
-                endsOn: null
-                nextRunOn: "2026-11-17"
-                deliveryAddress:
-                  recipientName: "Royal Palm Hotel, kitchen"
-                  recipientPhone: "+233302765410"
-                  line1: "7 Liberation Road"
-                  area: "Airport Residential"
-                  city: Accra
-                  region: "Greater Accra"
-                  digitalAddress: GA-145-2208
-                  directions: "Deliveries through the back gate, ask for the head chef"
-                lines:
-                  - id: "019a7b04-3803-7ada-9012-b678561a2f56"
-                    lineNo: 1
-                    product:
-                      id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-0001
-                      name: "Full chicken, 15 kg pack"
-                    quantity: "2.000"
-                    uom: PACK
-                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                version: 3
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/standing-orders/{id}/pause":
-    post:
-      operationId: pauseStandingOrder
-      tags:
-        - whl
-      summary: "Pause a standing order"
-      description: "Permission: `whl.standing_order.manage`."
-      x-permission: whl.standing_order.manage
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ReasonRequest"
-            example:
-              reason: "Hotel closed for renovation until January"
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StandingOrder"
-              example:
-                id: "019a7b04-1914-70f6-862f-1840dc69911e"
-                customer:
-                  id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  publicId: cus_TWMB751S2DFXTAM8
-                  name: "Royal Palm Hotel Ltd"
-                status: ACTIVE
-                frequency: WEEKLY
-                weekday: 2
-                dayOfMonth: null
-                startsOn: "2026-10-06"
-                endsOn: null
-                nextRunOn: "2026-11-17"
-                deliveryAddress:
-                  recipientName: "Royal Palm Hotel, kitchen"
-                  recipientPhone: "+233302765410"
-                  line1: "7 Liberation Road"
-                  area: "Airport Residential"
-                  city: Accra
-                  region: "Greater Accra"
-                  digitalAddress: GA-145-2208
-                  directions: "Deliveries through the back gate, ask for the head chef"
-                lines:
-                  - id: "019a7b04-3803-7ada-9012-b678561a2f56"
-                    lineNo: 1
-                    product:
-                      id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-0001
-                      name: "Full chicken, 15 kg pack"
-                    quantity: "2.000"
-                    uom: PACK
-                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                version: 3
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/standing-orders/{id}/resume":
-    post:
-      operationId: resumeStandingOrder
-      tags:
-        - whl
-      summary: "Resume a paused standing order"
-      description: "Permission: `whl.standing_order.manage`."
-      x-permission: whl.standing_order.manage
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ReasonRequest"
-            example:
-              reason: "Hotel reopened"
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StandingOrder"
-              example:
-                id: "019a7b04-1914-70f6-862f-1840dc69911e"
-                customer:
-                  id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  publicId: cus_TWMB751S2DFXTAM8
-                  name: "Royal Palm Hotel Ltd"
-                status: ACTIVE
-                frequency: WEEKLY
-                weekday: 2
-                dayOfMonth: null
-                startsOn: "2026-10-06"
-                endsOn: null
-                nextRunOn: "2026-11-17"
-                deliveryAddress:
-                  recipientName: "Royal Palm Hotel, kitchen"
-                  recipientPhone: "+233302765410"
-                  line1: "7 Liberation Road"
-                  area: "Airport Residential"
-                  city: Accra
-                  region: "Greater Accra"
-                  digitalAddress: GA-145-2208
-                  directions: "Deliveries through the back gate, ask for the head chef"
-                lines:
-                  - id: "019a7b04-3803-7ada-9012-b678561a2f56"
-                    lineNo: 1
-                    product:
-                      id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-0001
-                      name: "Full chicken, 15 kg pack"
-                    quantity: "2.000"
-                    uom: PACK
-                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                version: 3
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/standing-orders/{id}/end":
-    post:
-      operationId: endStandingOrder
-      tags:
-        - whl
-      summary: "End a standing order"
-      description: "Permission: `whl.standing_order.manage`."
-      x-permission: whl.standing_order.manage
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ReasonRequest"
-            example:
-              reason: "Contract ended"
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StandingOrder"
-              example:
-                id: "019a7b04-1914-70f6-862f-1840dc69911e"
-                customer:
-                  id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                  publicId: cus_TWMB751S2DFXTAM8
-                  name: "Royal Palm Hotel Ltd"
-                status: ACTIVE
-                frequency: WEEKLY
-                weekday: 2
-                dayOfMonth: null
-                startsOn: "2026-10-06"
-                endsOn: null
-                nextRunOn: "2026-11-17"
-                deliveryAddress:
-                  recipientName: "Royal Palm Hotel, kitchen"
-                  recipientPhone: "+233302765410"
-                  line1: "7 Liberation Road"
-                  area: "Airport Residential"
-                  city: Accra
-                  region: "Greater Accra"
-                  digitalAddress: GA-145-2208
-                  directions: "Deliveries through the back gate, ask for the head chef"
-                lines:
-                  - id: "019a7b04-3803-7ada-9012-b678561a2f56"
-                    lineNo: 1
-                    product:
-                      id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-0001
-                      name: "Full chicken, 15 kg pack"
-                    quantity: "2.000"
-                    uom: PACK
-                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                version: 3
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/standing-orders/{id}/runs":
-    get:
-      operationId: listStandingOrderRuns
-      tags:
-        - whl
-      summary: "List the runs of a standing order"
-      description: "Permission: `whl.standing_order.read`."
-      x-permission: whl.standing_order.read
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - name: cursor
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: limit
-          in: query
-          required: false
-          schema:
-            $ref: "#/components/schemas/PageLimit"
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StandingOrderRunPage"
-              examples:
-                default:
-                  value:
-                    data:
-                      - runDate: "2026-11-10"
-                        outcome: CREATED
-                        order:
-                          id: "019a7b05-4e6a-73d9-a911-466b9d53bf49"
-                          docType: SALES_ORDER
-                          number: SO-2026-DDW-004190
-                        recordedAt: "2026-11-10T05:00:00Z"
-                      - runDate: "2026-11-03"
-                        outcome: CREATED
-                        order:
-                          id: "019a7b05-6d59-7dbd-b2f5-e4a317045d80"
-                          docType: SALES_ORDER
-                          number: SO-2026-DDW-004165
-                        recordedAt: "2026-11-03T05:00:00Z"
-                      - runDate: "2026-10-27"
-                        outcome: SKIPPED_ON_HOLD
-                        order: null
-                        recordedAt: "2026-10-27T05:00:00Z"
-                      - runDate: "2026-10-20"
-                        outcome: CREATED
-                        order:
-                          id: "019a7b05-8c48-77a0-8cd8-82da90b5fbb8"
-                          docType: SALES_ORDER
-                          number: SO-2026-DDW-004115
-                        recordedAt: "2026-10-20T05:00:00Z"
-                      - runDate: "2026-10-13"
-                        outcome: CREATED
-                        order:
-                          id: "019a7b05-ab37-7184-96bc-21120a6699ef"
-                          docType: SALES_ORDER
-                          number: SO-2026-DDW-004090
-                        recordedAt: "2026-10-13T05:00:00Z"
-                    page:
-                      nextCursor: eyJpZCI6IjAxOWE3YyJ9
-                      limit: 25
-                      hasMore: true
-                empty:
-                  summary: "Nothing matches: no rows and no next page"
-                  value:
-                    data: []
-                    page:
-                      nextCursor: null
-                      limit: 25
-                      hasMore: false
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+  "/standing-orders": {}
+  "/standing-orders/{id}": {}
+  "/standing-orders/{id}/pause": {}
+  "/standing-orders/{id}/resume": {}
+  "/standing-orders/{id}/end": {}
+  "/standing-orders/{id}/runs": {}
   "/statements": {}
   "/statements/{id}": {}
   "/statements/{id}/send":
@@ -6408,73 +5587,7 @@ paths:
   "/receivables/ageing": {}
   "/dunning-policy": {}
   "/dunning-notices": {}
-  "/receivables/write-offs":
-    post:
-      operationId: writeOffBadDebt
-      tags:
-        - whl
-      summary: "Write off an uncollectable invoice"
-      description: "Permission: `whl.bad_debt.write_off`.\n\nMay require approval of kind `BAD_DEBT_WRITE_OFF`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
-      x-permission: whl.bad_debt.write_off
-      parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/BadDebtWriteOff"
-            example:
-              billingDocumentId: "019a7b07-9a27-7fbb-94f3-0489a5767d67"
-              amountPesewas: 41000
-              reason: "Church treasurer relocated; two years overdue"
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Accepted"
-              example:
-                status: ACCEPTED
-                message: "Written off and posted."
-        "202":
-          description: "Accepted for approval. Nothing has taken effect yet."
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApprovalPending"
-              example:
-                status: PENDING_APPROVAL
-                approvalRequestId: "019a7b07-b916-799e-aed7-a2c11f271b9f"
-                kind: BAD_DEBT_WRITE_OFF
-                subject:
-                  id: "019a7b07-d805-7382-b8ba-40f898d8b9d6"
-                  docType: STOCK_ADJUSTMENT
-                  number: null
-                summary: "Awaiting approval by a different user with the approving permission"
-                requestedAt: "2026-11-13T10:12:00Z"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+  "/receivables/write-offs": {}
   "/delivery-slots": {}
   "/delivery-slots/generate": {}
   "/delivery-slots/{id}": {}
@@ -37909,6 +37022,7 @@ components:
         - uom
     StandingOrder:
       type: object
+      description: "A business customer's recurring order (FR-WHL-004). `nextRunOn` is the next date the hourly job makes an order on; null while paused or once ended."
       properties:
         id:
           type: string
@@ -37924,19 +37038,34 @@ components:
             - CANCELLED
         frequency:
           type: string
+          description: "`WEEKLY` or `FORTNIGHTLY` on the named `weekdays` (fortnightly counted from the week `startsOn` falls in), `MONTHLY` on `dayOfMonth`, `EVERY_N_DAYS` every `intervalDays` from `startsOn`."
           enum:
             - WEEKLY
             - FORTNIGHTLY
             - MONTHLY
+            - EVERY_N_DAYS
         weekday:
           type:
             - integer
             - "null"
-          description: "1 is Monday."
+          description: "1 is Monday. The first of `weekdays`, kept from the planned shape; null for `MONTHLY` and `EVERY_N_DAYS`."
+          deprecated: true
+        weekdays:
+          type: array
+          description: "The named days, 1 (Monday) to 7 (Sunday), for `WEEKLY` and `FORTNIGHTLY`; empty otherwise."
+          items:
+            type: integer
+            minimum: 1
+            maximum: 7
         dayOfMonth:
           type:
             - integer
             - "null"
+        intervalDays:
+          type:
+            - integer
+            - "null"
+          description: "For `EVERY_N_DAYS`, 1 to 365; null otherwise."
         startsOn:
           type: string
           format: date
@@ -37951,6 +37080,7 @@ components:
             - "null"
           format: date
         deliveryAddress:
+          description: "Always null until delivery is built (B11): a standing order's orders are collected."
           anyOf:
             - $ref: "#/components/schemas/AddressSnapshot"
             - type: "null"
@@ -37969,7 +37099,9 @@ components:
         - status
         - frequency
         - weekday
+        - weekdays
         - dayOfMonth
+        - intervalDays
         - startsOn
         - endsOn
         - nextRunOn
@@ -37985,6 +37117,9 @@ components:
           format: uuid
         quantity:
           $ref: "#/components/schemas/Quantity"
+        uom:
+          type: string
+          description: "The unit the quantity is in; the product's base unit when left out, as an order line's."
       required:
         - productId
         - quantity
@@ -38001,9 +37136,19 @@ components:
             - WEEKLY
             - FORTNIGHTLY
             - MONTHLY
+            - EVERY_N_DAYS
         weekday:
           type: integer
+          description: "One named day, kept from the planned shape; `weekdays` names several."
+          deprecated: true
+        weekdays:
+          type: array
+          items:
+            type: integer
+          maxItems: 7
         dayOfMonth:
+          type: integer
+        intervalDays:
           type: integer
         startsOn:
           type: string
@@ -38014,8 +37159,10 @@ components:
         deliveryAddressId:
           type: string
           format: uuid
+          description: "Refused (`FULFILMENT_NOT_AVAILABLE`) until delivery is built (B11)."
         lines:
           type: array
+          maxItems: 50
           items:
             $ref: "#/components/schemas/StandingOrderLineInput"
       required:
@@ -38031,7 +37178,15 @@ components:
           type: integer
         weekday:
           type: integer
+          deprecated: true
+        weekdays:
+          type: array
+          items:
+            type: integer
+          maxItems: 7
         dayOfMonth:
+          type: integer
+        intervalDays:
           type: integer
         endsOn:
           type: string
@@ -38041,6 +37196,7 @@ components:
           format: uuid
         lines:
           type: array
+          maxItems: 50
           items:
             $ref: "#/components/schemas/StandingOrderLineInput"
       required:
@@ -38061,6 +37217,7 @@ components:
         - page
     StandingOrderRun:
       type: object
+      description: "One run date of a standing order, written once. `CREATED`: the order made, PLACED. `HELD_FOR_CREDIT`: the order made and left PLACED because the credit check refused it (over the limit or past the terms); it needs a credit override to be confirmed. `SKIPPED_ON_HOLD`, `SKIPPED_NO_PRICE` (a line needs a quote), `MISSED` (the job did not run that day) and `FAILED` made no order; `reason` says why."
       properties:
         runDate:
           type: string
@@ -38069,9 +37226,16 @@ components:
           type: string
           enum:
             - CREATED
+            - HELD_FOR_CREDIT
             - SKIPPED_ON_HOLD
             - SKIPPED_NO_PRICE
+            - MISSED
             - FAILED
+        reason:
+          type:
+            - string
+            - "null"
+          description: "Null for `CREATED`."
         order:
           anyOf:
             - $ref: "#/components/schemas/DocumentRef"
@@ -38082,6 +37246,7 @@ components:
       required:
         - runDate
         - outcome
+        - reason
         - order
         - recordedAt
     StandingOrderRunPage:

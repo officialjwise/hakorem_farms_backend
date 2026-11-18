@@ -1,0 +1,79 @@
+operationId: createStandingOrder
+tags:
+  - whl
+summary: "Set up a recurring order"
+description: "A business customer's recurring order at the one branch the caller keeps standing orders for (FR-WHL-004): `WEEKLY` or `FORTNIGHTLY` on the named `weekdays` (or the one `weekday`), `MONTHLY` on `dayOfMonth` (1 to 28), or `EVERY_N_DAYS` (`intervalDays`, 1 to 365), from `startsOn` (today or later) to an optional `endsOn`, with up to 50 lines. The hourly job makes one order per run date however often it runs: a credit order, collected, PLACED, priced by the engine at the list price on that date, the standing order its source; it is confirmed by staff like any other order, the credit check included (CR-046). A run for an account on hold is skipped and recorded; a run the credit check would refuse makes the order and records `HELD_FOR_CREDIT`; a line with no price records `SKIPPED_NO_PRICE`. Refusals: 422 `STANDING_ORDER_INVALID` with each rule in `details[].code` (the schedule's `WEEKDAYS_REQUIRED`, `WEEKDAY_OUT_OF_RANGE`, `WEEKDAY_REPEATED`, `DAY_OF_MONTH_REQUIRED`, `DAY_OF_MONTH_OUT_OF_RANGE`, `INTERVAL_REQUIRED`, `INTERVAL_OUT_OF_RANGE`, `NOT_FOR_FREQUENCY`, `ENDS_BEFORE_START`, `STARTS_IN_PAST`; `CUSTOMER_NOT_ACTIVE`, `NO_BUSINESS_ACCOUNT`, `ACCOUNT_CLOSED`; `NO_LINES`, `TOO_MANY_LINES`, `PRODUCT_NOT_ACTIVE`, `PRODUCT_NOT_STOCKED`, `PRODUCT_SERIAL`, `PRODUCT_REPEATED`, `NO_CONVERSION`, `INEXACT_QUANTITY`; `FULFILMENT_NOT_AVAILABLE` for a delivery address until B11; `BRANCH_REQUIRED`).\n\nPermission: `whl.standing_order.manage`."
+x-permission: whl.standing_order.manage
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/StandingOrderCreate"
+      example:
+        customerId: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+        frequency: WEEKLY
+        weekdays:
+          - 2
+        startsOn: "2026-11-17"
+        lines:
+          - productId: "019a7a8d-ec06-79f8-af30-a851f637212f"
+            quantity: "2.000"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/StandingOrder"
+        example:
+          id: "019a7b04-1914-70f6-862f-1840dc69911e"
+          customer:
+            id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+            publicId: cus_TWMB751S2DFXTAM8
+            name: "Royal Palm Hotel Ltd"
+          status: ACTIVE
+          frequency: WEEKLY
+          weekday: 2
+          weekdays:
+            - 2
+          dayOfMonth: null
+          intervalDays: null
+          startsOn: "2026-10-06"
+          endsOn: null
+          nextRunOn: "2026-11-17"
+          deliveryAddress: null
+          lines:
+            - id: "019a7b04-3803-7ada-9012-b678561a2f56"
+              lineNo: 1
+              product:
+                id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                sku: MEAT-0001
+                name: "Full chicken, 15 kg pack"
+              quantity: "2.000"
+              uom: PACK
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 3
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

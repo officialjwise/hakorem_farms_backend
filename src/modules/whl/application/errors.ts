@@ -91,3 +91,37 @@ export class DunningPolicyInvalidError extends BusinessRuleError {
     super('the reminder levels break a rule', accountDetails(rules));
   }
 }
+
+registerMessages({
+  'whl.standing_order_invalid': 'This standing order cannot be kept like this.',
+  'whl.bad_debt_invalid': 'This amount cannot be written off like this.',
+});
+
+/**
+ * 422 STANDING_ORDER_INVALID, each broken rule in `details[].code` (FR-WHL-004): the schedule's (`WEEKDAYS_REQUIRED`,
+ * `WEEKDAY_OUT_OF_RANGE`, `WEEKDAY_REPEATED`, `DAY_OF_MONTH_REQUIRED`, `DAY_OF_MONTH_OUT_OF_RANGE`, `INTERVAL_REQUIRED`,
+ * `INTERVAL_OUT_OF_RANGE`, `NOT_FOR_FREQUENCY`, `ENDS_BEFORE_START`, `STARTS_IN_PAST`, `ENDS_IN_PAST`), the
+ * customer's (`NO_BUSINESS_ACCOUNT`, `ACCOUNT_CLOSED`, `CUSTOMER_NOT_ACTIVE`), the lines' (`NO_LINES`, `TOO_MANY_LINES`,
+ * `PRODUCT_NOT_ACTIVE`, `PRODUCT_NOT_STOCKED`, `PRODUCT_SERIAL`, `PRODUCT_REPEATED`, `NO_CONVERSION`,
+ * `INEXACT_QUANTITY`), `FULFILMENT_NOT_AVAILABLE` (a delivery address, until B11), `BRANCH_REQUIRED`, and the state's
+ * (`NOT_ACTIVE`, `NOT_PAUSED`, `ENDED`).
+ */
+export class StandingOrderInvalidError extends BusinessRuleError {
+  readonly code = 'STANDING_ORDER_INVALID';
+  readonly messageKey = 'whl.standing_order_invalid';
+  constructor(rules: readonly StatementRule[]) {
+    super('the standing order breaks a rule', accountDetails(rules));
+  }
+}
+
+/**
+ * 422 BAD_DEBT_WRITE_OFF_INVALID, each broken rule in `details[].code` (FR-WHL-012): `NOT_AN_OPEN_ITEM`, `NO_CUSTOMER`,
+ * `NOTHING_OUTSTANDING`, `NOT_POSITIVE`, `MORE_THAN_OUTSTANDING`, `APPROVAL_PENDING` (a write-off of the document waits).
+ */
+export class BadDebtWriteOffInvalidError extends BusinessRuleError {
+  readonly code = 'BAD_DEBT_WRITE_OFF_INVALID';
+  readonly messageKey = 'whl.bad_debt_invalid';
+  constructor(rules: readonly StatementRule[]) {
+    super('the write-off breaks a rule', accountDetails(rules));
+  }
+}

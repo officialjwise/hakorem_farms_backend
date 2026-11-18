@@ -1,0 +1,201 @@
+operationId: listStandingOrders
+tags:
+  - whl
+summary: "List standing and recurring orders"
+description: "The standing orders at the branches the caller reads them for, newest first, filtered by customer and status (FR-WHL-004).\n\nPermission: `whl.standing_order.read`."
+x-permission: whl.standing_order.read
+parameters:
+  - name: customerId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: status
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/StandingOrderPage"
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7b04-1914-70f6-862f-1840dc69911e"
+                  customer:
+                    id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+                    publicId: cus_TWMB751S2DFXTAM8
+                    name: "Royal Palm Hotel Ltd"
+                  status: ACTIVE
+                  frequency: WEEKLY
+                  weekday: 2
+                  weekdays:
+                    - 2
+                  dayOfMonth: null
+                  intervalDays: null
+                  startsOn: "2026-10-06"
+                  endsOn: null
+                  nextRunOn: "2026-11-17"
+                  deliveryAddress: null
+                  lines:
+                    - id: "019a7b04-3803-7ada-9012-b678561a2f56"
+                      lineNo: 1
+                      product:
+                        id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                        sku: MEAT-0001
+                        name: "Full chicken, 15 kg pack"
+                      quantity: "2.000"
+                      uom: PACK
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 3
+                - id: "019a7b04-56f2-74bd-a9f6-54afcfcbcd8d"
+                  customer:
+                    id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
+                    publicId: cus_TS4VEDD3ZZNAAQGD
+                    name: "Asantewaa Chop Bar"
+                  status: ACTIVE
+                  frequency: WEEKLY
+                  weekday: 5
+                  weekdays:
+                    - 5
+                  dayOfMonth: null
+                  intervalDays: null
+                  startsOn: "2026-10-06"
+                  endsOn: null
+                  nextRunOn: "2026-11-14"
+                  deliveryAddress: null
+                  lines:
+                    - id: "019a7b04-75e1-7ea1-b3d9-f2e7497c6bc5"
+                      lineNo: 1
+                      product:
+                        id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
+                        sku: MEAT-0007
+                        name: "Goat meat, 15 kg pack"
+                      quantity: "1.000"
+                      uom: PACK
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 3
+                - id: "019a7b04-94d0-7884-8dbd-911ec32d09fc"
+                  customer:
+                    id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
+                    publicId: cus_3Q4VCE9ZY779GAT6
+                    name: "Osu Fresh Mart"
+                  status: PAUSED
+                  frequency: FORTNIGHTLY
+                  weekday: 1
+                  weekdays:
+                    - 1
+                  dayOfMonth: null
+                  intervalDays: null
+                  startsOn: "2026-10-06"
+                  endsOn: null
+                  nextRunOn: null
+                  deliveryAddress: null
+                  lines:
+                    - id: "019a7b04-b3bf-7268-97a0-2f563cdea834"
+                      lineNo: 1
+                      product:
+                        id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                        sku: EGG-0003
+                        name: "Eggs, big, crate of 30"
+                      quantity: "20.000"
+                      uom: CRATE
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 3
+                - id: "019a7b04-d2ae-7c4b-a184-cd8db68f466b"
+                  customer:
+                    id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+                    publicId: cus_TWMB751S2DFXTAM8
+                    name: "Royal Palm Hotel Ltd"
+                  status: ACTIVE
+                  frequency: MONTHLY
+                  weekday: null
+                  weekdays: []
+                  dayOfMonth: 1
+                  intervalDays: null
+                  startsOn: "2026-10-06"
+                  endsOn: null
+                  nextRunOn: "2026-12-01"
+                  deliveryAddress: null
+                  lines:
+                    - id: "019a7b04-f19d-762f-bb67-6bc53040e4a3"
+                      lineNo: 1
+                      product:
+                        id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
+                        sku: MEAT-0005
+                        name: "Beef, 15 kg pack"
+                      quantity: "4.000"
+                      uom: PACK
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 3
+                - id: "019a7b05-108c-7012-854a-09fca9f182da"
+                  customer:
+                    id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
+                    publicId: cus_TS4VEDD3ZZNAAQGD
+                    name: "Asantewaa Chop Bar"
+                  status: ENDED
+                  frequency: WEEKLY
+                  weekday: 3
+                  weekdays:
+                    - 3
+                  dayOfMonth: null
+                  intervalDays: null
+                  startsOn: "2026-10-06"
+                  endsOn: "2026-11-04"
+                  nextRunOn: null
+                  deliveryAddress: null
+                  lines:
+                    - id: "019a7b05-2f7b-79f6-9f2e-a83423a22112"
+                      lineNo: 1
+                      product:
+                        id: "019a7a8e-a5a0-754c-8a85-5d9ed05dd67c"
+                        sku: PRD-0005
+                        name: "Yam, tuber"
+                      quantity: "30.000"
+                      uom: TUBER
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 3
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

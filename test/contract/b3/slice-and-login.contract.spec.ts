@@ -149,7 +149,7 @@ import {
   ShiftClose as PosShiftClose,
   ShiftOpen as PosShiftOpen,
 } from '../../../src/modules/pos/interface/schemas';
-import { AccountCreate as WhlAccountCreate, AccountUpdate as WhlAccountUpdate, ReasonBody as WhlReasonBody, StatementCreate as WhlStatementCreate, DunningPolicyReplace as WhlDunningPolicyReplace } from '../../../src/modules/whl/interface/schemas';
+import { AccountCreate as WhlAccountCreate, AccountUpdate as WhlAccountUpdate, ReasonBody as WhlReasonBody, StatementCreate as WhlStatementCreate, DunningPolicyReplace as WhlDunningPolicyReplace, StandingOrderCreate as WhlStandingOrderCreate, StandingOrderUpdate as WhlStandingOrderUpdate, BadDebtWriteOff as WhlBadDebtWriteOff } from '../../../src/modules/whl/interface/schemas';
 import {
   PublicQuoteRequest as QuoPublicQuoteRequest,
   QuoteAcceptanceRecord as QuoAcceptanceRecord,
@@ -468,6 +468,12 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     releaseBusinessAccount: WhlReasonBody,
     requestCreditOverride: WhlReasonBody,
     replaceDunningLevels: WhlDunningPolicyReplace,
+    createStandingOrder: WhlStandingOrderCreate,
+    updateStandingOrder: WhlStandingOrderUpdate,
+    pauseStandingOrder: WhlReasonBody,
+    resumeStandingOrder: WhlReasonBody,
+    endStandingOrder: WhlReasonBody,
+    writeOffBadDebt: WhlBadDebtWriteOff,
     confirmOrder: OrderConfirmBody,
     submitQuoteRequest: QuoPublicQuoteRequest,
     acceptQuoteByLink: QuoAcceptByLink,

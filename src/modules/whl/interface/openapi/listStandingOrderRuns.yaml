@@ -1,0 +1,101 @@
+operationId: listStandingOrderRuns
+tags:
+  - whl
+summary: "List the runs of a standing order"
+description: "One standing order's runs, newest date first: each run date once, with the order it made or the reason none was (`StandingOrderRun`).\n\nPermission: `whl.standing_order.read`."
+x-permission: whl.standing_order.read
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/StandingOrderRunPage"
+        examples:
+          default:
+            value:
+              data:
+                - runDate: "2026-11-10"
+                  outcome: CREATED
+                  reason: null
+                  order:
+                    id: "019a7b05-4e6a-73d9-a911-466b9d53bf49"
+                    docType: SALES_ORDER
+                    number: SO-2026-DDW-004190
+                  recordedAt: "2026-11-10T05:00:00Z"
+                - runDate: "2026-11-03"
+                  outcome: CREATED
+                  reason: null
+                  order:
+                    id: "019a7b05-6d59-7dbd-b2f5-e4a317045d80"
+                    docType: SALES_ORDER
+                    number: SO-2026-DDW-004165
+                  recordedAt: "2026-11-03T05:00:00Z"
+                - runDate: "2026-10-27"
+                  outcome: SKIPPED_ON_HOLD
+                  reason: "The account is on hold: Invoice INV-2026-DDW-001159 more than 30 days overdue (31 days)"
+                  order: null
+                  recordedAt: "2026-10-27T05:00:00Z"
+                - runDate: "2026-10-20"
+                  outcome: CREATED
+                  reason: null
+                  order:
+                    id: "019a7b05-8c48-77a0-8cd8-82da90b5fbb8"
+                    docType: SALES_ORDER
+                    number: SO-2026-DDW-004115
+                  recordedAt: "2026-10-20T05:00:00Z"
+                - runDate: "2026-10-13"
+                  outcome: CREATED
+                  reason: null
+                  order:
+                    id: "019a7b05-ab37-7184-96bc-21120a6699ef"
+                    docType: SALES_ORDER
+                    number: SO-2026-DDW-004090
+                  recordedAt: "2026-10-13T05:00:00Z"
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

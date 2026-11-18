@@ -63480,7 +63480,7 @@ paths:
       tags:
         - whl
       summary: "List standing and recurring orders"
-      description: "Permission: `whl.standing_order.read`."
+      description: "The standing orders at the branches the caller reads them for, newest first, filtered by customer and status (FR-WHL-004).\n\nPermission: `whl.standing_order.read`."
       x-permission: whl.standing_order.read
       parameters:
         - name: customerId
@@ -63529,19 +63529,14 @@ paths:
                         status: ACTIVE
                         frequency: WEEKLY
                         weekday: 2
+                        weekdays:
+                          - 2
                         dayOfMonth: null
+                        intervalDays: null
                         startsOn: "2026-10-06"
                         endsOn: null
                         nextRunOn: "2026-11-17"
-                        deliveryAddress:
-                          recipientName: "Royal Palm Hotel, kitchen"
-                          recipientPhone: "+233302765410"
-                          line1: "7 Liberation Road"
-                          area: "Airport Residential"
-                          city: Accra
-                          region: "Greater Accra"
-                          digitalAddress: GA-145-2208
-                          directions: "Deliveries through the back gate, ask for the head chef"
+                        deliveryAddress: null
                         lines:
                           - id: "019a7b04-3803-7ada-9012-b678561a2f56"
                             lineNo: 1
@@ -63561,19 +63556,14 @@ paths:
                         status: ACTIVE
                         frequency: WEEKLY
                         weekday: 5
+                        weekdays:
+                          - 5
                         dayOfMonth: null
+                        intervalDays: null
                         startsOn: "2026-10-06"
                         endsOn: null
                         nextRunOn: "2026-11-14"
-                        deliveryAddress:
-                          recipientName: "Asantewaa Chop Bar"
-                          recipientPhone: "+233557018924"
-                          line1: "Adenta Barrier, beside Total filling station"
-                          area: Adenta
-                          city: Accra
-                          region: "Greater Accra"
-                          digitalAddress: GD-021-7731
-                          directions: "Yellow kiosk behind the station"
+                        deliveryAddress: null
                         lines:
                           - id: "019a7b04-75e1-7ea1-b3d9-f2e7497c6bc5"
                             lineNo: 1
@@ -63593,7 +63583,10 @@ paths:
                         status: PAUSED
                         frequency: FORTNIGHTLY
                         weekday: 1
+                        weekdays:
+                          - 1
                         dayOfMonth: null
+                        intervalDays: null
                         startsOn: "2026-10-06"
                         endsOn: null
                         nextRunOn: null
@@ -63617,19 +63610,13 @@ paths:
                         status: ACTIVE
                         frequency: MONTHLY
                         weekday: null
+                        weekdays: []
                         dayOfMonth: 1
+                        intervalDays: null
                         startsOn: "2026-10-06"
                         endsOn: null
                         nextRunOn: "2026-12-01"
-                        deliveryAddress:
-                          recipientName: "Royal Palm Hotel, kitchen"
-                          recipientPhone: "+233302765410"
-                          line1: "7 Liberation Road"
-                          area: "Airport Residential"
-                          city: Accra
-                          region: "Greater Accra"
-                          digitalAddress: GA-145-2208
-                          directions: "Deliveries through the back gate, ask for the head chef"
+                        deliveryAddress: null
                         lines:
                           - id: "019a7b04-f19d-762f-bb67-6bc53040e4a3"
                             lineNo: 1
@@ -63649,19 +63636,14 @@ paths:
                         status: ENDED
                         frequency: WEEKLY
                         weekday: 3
+                        weekdays:
+                          - 3
                         dayOfMonth: null
+                        intervalDays: null
                         startsOn: "2026-10-06"
                         endsOn: "2026-11-04"
                         nextRunOn: null
-                        deliveryAddress:
-                          recipientName: "Asantewaa Chop Bar"
-                          recipientPhone: "+233557018924"
-                          line1: "Adenta Barrier, beside Total filling station"
-                          area: Adenta
-                          city: Accra
-                          region: "Greater Accra"
-                          digitalAddress: GD-021-7731
-                          directions: "Yellow kiosk behind the station"
+                        deliveryAddress: null
                         lines:
                           - id: "019a7b05-2f7b-79f6-9f2e-a83423a22112"
                             lineNo: 1
@@ -63700,7 +63682,7 @@ paths:
       tags:
         - whl
       summary: "Set up a recurring order"
-      description: "Each run creates an order priced by the engine on the run date; a run for an account on hold is skipped and recorded.\n\nPermission: `whl.standing_order.manage`."
+      description: "A business customer's recurring order at the one branch the caller keeps standing orders for (FR-WHL-004): `WEEKLY` or `FORTNIGHTLY` on the named `weekdays` (or the one `weekday`), `MONTHLY` on `dayOfMonth` (1 to 28), or `EVERY_N_DAYS` (`intervalDays`, 1 to 365), from `startsOn` (today or later) to an optional `endsOn`, with up to 50 lines. The hourly job makes one order per run date however often it runs: a credit order, collected, PLACED, priced by the engine at the list price on that date, the standing order its source; it is confirmed by staff like any other order, the credit check included (CR-046). A run for an account on hold is skipped and recorded; a run the credit check would refuse makes the order and records `HELD_FOR_CREDIT`; a line with no price records `SKIPPED_NO_PRICE`. Refusals: 422 `STANDING_ORDER_INVALID` with each rule in `details[].code` (the schedule's `WEEKDAYS_REQUIRED`, `WEEKDAY_OUT_OF_RANGE`, `WEEKDAY_REPEATED`, `DAY_OF_MONTH_REQUIRED`, `DAY_OF_MONTH_OUT_OF_RANGE`, `INTERVAL_REQUIRED`, `INTERVAL_OUT_OF_RANGE`, `NOT_FOR_FREQUENCY`, `ENDS_BEFORE_START`, `STARTS_IN_PAST`; `CUSTOMER_NOT_ACTIVE`, `NO_BUSINESS_ACCOUNT`, `ACCOUNT_CLOSED`; `NO_LINES`, `TOO_MANY_LINES`, `PRODUCT_NOT_ACTIVE`, `PRODUCT_NOT_STOCKED`, `PRODUCT_SERIAL`, `PRODUCT_REPEATED`, `NO_CONVERSION`, `INEXACT_QUANTITY`; `FULFILMENT_NOT_AVAILABLE` for a delivery address until B11; `BRANCH_REQUIRED`).\n\nPermission: `whl.standing_order.manage`."
       x-permission: whl.standing_order.manage
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -63717,9 +63699,9 @@ paths:
             example:
               customerId: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
               frequency: WEEKLY
-              weekday: 2
+              weekdays:
+                - 2
               startsOn: "2026-11-17"
-              deliveryAddressId: "019a7aa3-3056-765a-ab92-6e759fe7e753"
               lines:
                 - productId: "019a7a8d-ec06-79f8-af30-a851f637212f"
                   quantity: "2.000"
@@ -63742,19 +63724,14 @@ paths:
                 status: ACTIVE
                 frequency: WEEKLY
                 weekday: 2
+                weekdays:
+                  - 2
                 dayOfMonth: null
+                intervalDays: null
                 startsOn: "2026-10-06"
                 endsOn: null
                 nextRunOn: "2026-11-17"
-                deliveryAddress:
-                  recipientName: "Royal Palm Hotel, kitchen"
-                  recipientPhone: "+233302765410"
-                  line1: "7 Liberation Road"
-                  area: "Airport Residential"
-                  city: Accra
-                  region: "Greater Accra"
-                  digitalAddress: GA-145-2208
-                  directions: "Deliveries through the back gate, ask for the head chef"
+                deliveryAddress: null
                 lines:
                   - id: "019a7b04-3803-7ada-9012-b678561a2f56"
                     lineNo: 1
@@ -63786,7 +63763,7 @@ paths:
       tags:
         - whl
       summary: "Get a standing order"
-      description: "Permission: `whl.standing_order.read`."
+      description: "One standing order at a branch the caller reads them for; any other id, real or not, is 404.\n\nPermission: `whl.standing_order.read`."
       x-permission: whl.standing_order.read
       parameters:
         - name: id
@@ -63817,19 +63794,14 @@ paths:
                 status: ACTIVE
                 frequency: WEEKLY
                 weekday: 2
+                weekdays:
+                  - 2
                 dayOfMonth: null
+                intervalDays: null
                 startsOn: "2026-10-06"
                 endsOn: null
                 nextRunOn: "2026-11-17"
-                deliveryAddress:
-                  recipientName: "Royal Palm Hotel, kitchen"
-                  recipientPhone: "+233302765410"
-                  line1: "7 Liberation Road"
-                  area: "Airport Residential"
-                  city: Accra
-                  region: "Greater Accra"
-                  digitalAddress: GA-145-2208
-                  directions: "Deliveries through the back gate, ask for the head chef"
+                deliveryAddress: null
                 lines:
                   - id: "019a7b04-3803-7ada-9012-b678561a2f56"
                     lineNo: 1
@@ -63858,7 +63830,7 @@ paths:
       tags:
         - whl
       summary: "Change a standing order"
-      description: "Permission: `whl.standing_order.manage`."
+      description: "Changes an active or paused standing order's days, end and lines at the version read (a stale version is 409); the frequency and start never change. Lines given replace the lines in force. The next run date is worked out again, never a date already run. Refusals: 422 `STANDING_ORDER_INVALID` with each rule in `details[].code` (the schedule's, the lines', `ENDS_IN_PAST`, `ENDED`).\n\nPermission: `whl.standing_order.manage`."
       x-permission: whl.standing_order.manage
       parameters:
         - name: id
@@ -63902,19 +63874,14 @@ paths:
                 status: ACTIVE
                 frequency: WEEKLY
                 weekday: 2
+                weekdays:
+                  - 2
                 dayOfMonth: null
+                intervalDays: null
                 startsOn: "2026-10-06"
                 endsOn: null
                 nextRunOn: "2026-11-17"
-                deliveryAddress:
-                  recipientName: "Royal Palm Hotel, kitchen"
-                  recipientPhone: "+233302765410"
-                  line1: "7 Liberation Road"
-                  area: "Airport Residential"
-                  city: Accra
-                  region: "Greater Accra"
-                  digitalAddress: GA-145-2208
-                  directions: "Deliveries through the back gate, ask for the head chef"
+                deliveryAddress: null
                 lines:
                   - id: "019a7b04-3803-7ada-9012-b678561a2f56"
                     lineNo: 1
@@ -63948,7 +63915,7 @@ paths:
       tags:
         - whl
       summary: "Pause a standing order"
-      description: "Permission: `whl.standing_order.manage`."
+      description: "An active standing order makes nothing until it is resumed; audited with the reason. Refusals: 422 `STANDING_ORDER_INVALID` with each rule in `details[].code` (`NOT_ACTIVE`).\n\nPermission: `whl.standing_order.manage`."
       x-permission: whl.standing_order.manage
       parameters:
         - name: id
@@ -63989,19 +63956,14 @@ paths:
                 status: ACTIVE
                 frequency: WEEKLY
                 weekday: 2
+                weekdays:
+                  - 2
                 dayOfMonth: null
+                intervalDays: null
                 startsOn: "2026-10-06"
                 endsOn: null
                 nextRunOn: "2026-11-17"
-                deliveryAddress:
-                  recipientName: "Royal Palm Hotel, kitchen"
-                  recipientPhone: "+233302765410"
-                  line1: "7 Liberation Road"
-                  area: "Airport Residential"
-                  city: Accra
-                  region: "Greater Accra"
-                  digitalAddress: GA-145-2208
-                  directions: "Deliveries through the back gate, ask for the head chef"
+                deliveryAddress: null
                 lines:
                   - id: "019a7b04-3803-7ada-9012-b678561a2f56"
                     lineNo: 1
@@ -64035,7 +63997,7 @@ paths:
       tags:
         - whl
       summary: "Resume a paused standing order"
-      description: "Permission: `whl.standing_order.manage`."
+      description: "A paused standing order runs again from its next date on or after today; the dates it was paused are not made up. Refusals: 422 `STANDING_ORDER_INVALID` with each rule in `details[].code` (`NOT_PAUSED`).\n\nPermission: `whl.standing_order.manage`."
       x-permission: whl.standing_order.manage
       parameters:
         - name: id
@@ -64076,19 +64038,14 @@ paths:
                 status: ACTIVE
                 frequency: WEEKLY
                 weekday: 2
+                weekdays:
+                  - 2
                 dayOfMonth: null
+                intervalDays: null
                 startsOn: "2026-10-06"
                 endsOn: null
                 nextRunOn: "2026-11-17"
-                deliveryAddress:
-                  recipientName: "Royal Palm Hotel, kitchen"
-                  recipientPhone: "+233302765410"
-                  line1: "7 Liberation Road"
-                  area: "Airport Residential"
-                  city: Accra
-                  region: "Greater Accra"
-                  digitalAddress: GA-145-2208
-                  directions: "Deliveries through the back gate, ask for the head chef"
+                deliveryAddress: null
                 lines:
                   - id: "019a7b04-3803-7ada-9012-b678561a2f56"
                     lineNo: 1
@@ -64122,7 +64079,7 @@ paths:
       tags:
         - whl
       summary: "End a standing order"
-      description: "Permission: `whl.standing_order.manage`."
+      description: "An active or paused standing order ends for good; audited with the reason. Refusals: 422 `STANDING_ORDER_INVALID` with each rule in `details[].code` (`ENDED`).\n\nPermission: `whl.standing_order.manage`."
       x-permission: whl.standing_order.manage
       parameters:
         - name: id
@@ -64163,19 +64120,14 @@ paths:
                 status: ACTIVE
                 frequency: WEEKLY
                 weekday: 2
+                weekdays:
+                  - 2
                 dayOfMonth: null
+                intervalDays: null
                 startsOn: "2026-10-06"
                 endsOn: null
                 nextRunOn: "2026-11-17"
-                deliveryAddress:
-                  recipientName: "Royal Palm Hotel, kitchen"
-                  recipientPhone: "+233302765410"
-                  line1: "7 Liberation Road"
-                  area: "Airport Residential"
-                  city: Accra
-                  region: "Greater Accra"
-                  digitalAddress: GA-145-2208
-                  directions: "Deliveries through the back gate, ask for the head chef"
+                deliveryAddress: null
                 lines:
                   - id: "019a7b04-3803-7ada-9012-b678561a2f56"
                     lineNo: 1
@@ -64209,7 +64161,7 @@ paths:
       tags:
         - whl
       summary: "List the runs of a standing order"
-      description: "Permission: `whl.standing_order.read`."
+      description: "One standing order's runs, newest date first: each run date once, with the order it made or the reason none was (`StandingOrderRun`).\n\nPermission: `whl.standing_order.read`."
       x-permission: whl.standing_order.read
       parameters:
         - name: id
@@ -64247,6 +64199,7 @@ paths:
                     data:
                       - runDate: "2026-11-10"
                         outcome: CREATED
+                        reason: null
                         order:
                           id: "019a7b05-4e6a-73d9-a911-466b9d53bf49"
                           docType: SALES_ORDER
@@ -64254,6 +64207,7 @@ paths:
                         recordedAt: "2026-11-10T05:00:00Z"
                       - runDate: "2026-11-03"
                         outcome: CREATED
+                        reason: null
                         order:
                           id: "019a7b05-6d59-7dbd-b2f5-e4a317045d80"
                           docType: SALES_ORDER
@@ -64261,10 +64215,12 @@ paths:
                         recordedAt: "2026-11-03T05:00:00Z"
                       - runDate: "2026-10-27"
                         outcome: SKIPPED_ON_HOLD
+                        reason: "The account is on hold: Invoice INV-2026-DDW-001159 more than 30 days overdue (31 days)"
                         order: null
                         recordedAt: "2026-10-27T05:00:00Z"
                       - runDate: "2026-10-20"
                         outcome: CREATED
+                        reason: null
                         order:
                           id: "019a7b05-8c48-77a0-8cd8-82da90b5fbb8"
                           docType: SALES_ORDER
@@ -64272,6 +64228,7 @@ paths:
                         recordedAt: "2026-10-20T05:00:00Z"
                       - runDate: "2026-10-13"
                         outcome: CREATED
+                        reason: null
                         order:
                           id: "019a7b05-ab37-7184-96bc-21120a6699ef"
                           docType: SALES_ORDER
@@ -65339,7 +65296,7 @@ paths:
       tags:
         - whl
       summary: "Write off an uncollectable invoice"
-      description: "Permission: `whl.bad_debt.write_off`.\n\nMay require approval of kind `BAD_DEBT_WRITE_OFF`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+      description: "Asks for an unrecoverable open item (an issued invoice, receipt or debit note of a named customer), all of it or part, to be written off as bad debt with a reason (FR-WHL-012): always 202 with an approval of kind `BAD_DEBT_WRITE_OFF`, decided with step-up by a holder of `whl.bad_debt.approve` (the Owner) who did not ask (`MAKER_CANNOT_CHECK`); the database refuses it otherwise. On approval, in one transaction: the document's outstanding amount drops by the amount (the invoice itself is never edited), Dr 6940 Bad debts Cr 1200 against the customer is posted, and the write-off records that journal. No payment or credit note can then be put onto the amount written off. A document the caller cannot write off at its branch, real or not, is 404. Refusals: 422 `BAD_DEBT_WRITE_OFF_INVALID` (`NOT_AN_OPEN_ITEM`, `NO_CUSTOMER`, `NOTHING_OUTSTANDING`, `NOT_POSITIVE`, `MORE_THAN_OUTSTANDING`, `APPROVAL_PENDING`).\n\nPermission: `whl.bad_debt.write_off`."
       x-permission: whl.bad_debt.write_off
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -65358,18 +65315,6 @@ paths:
               amountPesewas: 41000
               reason: "Church treasurer relocated; two years overdue"
       responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Accepted"
-              example:
-                status: ACCEPTED
-                message: "Written off and posted."
         "202":
           description: "Accepted for approval. Nothing has taken effect yet."
           content:
@@ -65382,9 +65327,9 @@ paths:
                 kind: BAD_DEBT_WRITE_OFF
                 subject:
                   id: "019a7b07-d805-7382-b8ba-40f898d8b9d6"
-                  docType: STOCK_ADJUSTMENT
+                  docType: BAD_DEBT_WRITE_OFF
                   number: null
-                summary: "Awaiting approval by a different user with the approving permission"
+                summary: "Write off GHS 410.00 of INV-2026-DDW-000871 owed by Bethel Assembly Youth Wing as bad debt. Reason: Church treasurer relocated; two years overdue"
                 requestedAt: "2026-11-13T10:12:00Z"
         "400":
           $ref: "#/components/responses/BadRequest"
@@ -65392,6 +65337,8 @@ paths:
           $ref: "#/components/responses/Unauthenticated"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
         "422":
@@ -100641,6 +100588,7 @@ components:
         - uom
     StandingOrder:
       type: object
+      description: "A business customer's recurring order (FR-WHL-004). `nextRunOn` is the next date the hourly job makes an order on; null while paused or once ended."
       properties:
         id:
           type: string
@@ -100656,19 +100604,34 @@ components:
             - CANCELLED
         frequency:
           type: string
+          description: "`WEEKLY` or `FORTNIGHTLY` on the named `weekdays` (fortnightly counted from the week `startsOn` falls in), `MONTHLY` on `dayOfMonth`, `EVERY_N_DAYS` every `intervalDays` from `startsOn`."
           enum:
             - WEEKLY
             - FORTNIGHTLY
             - MONTHLY
+            - EVERY_N_DAYS
         weekday:
           type:
             - integer
             - "null"
-          description: "1 is Monday."
+          description: "1 is Monday. The first of `weekdays`, kept from the planned shape; null for `MONTHLY` and `EVERY_N_DAYS`."
+          deprecated: true
+        weekdays:
+          type: array
+          description: "The named days, 1 (Monday) to 7 (Sunday), for `WEEKLY` and `FORTNIGHTLY`; empty otherwise."
+          items:
+            type: integer
+            minimum: 1
+            maximum: 7
         dayOfMonth:
           type:
             - integer
             - "null"
+        intervalDays:
+          type:
+            - integer
+            - "null"
+          description: "For `EVERY_N_DAYS`, 1 to 365; null otherwise."
         startsOn:
           type: string
           format: date
@@ -100683,6 +100646,7 @@ components:
             - "null"
           format: date
         deliveryAddress:
+          description: "Always null until delivery is built (B11): a standing order's orders are collected."
           anyOf:
             - $ref: "#/components/schemas/AddressSnapshot"
             - type: "null"
@@ -100701,7 +100665,9 @@ components:
         - status
         - frequency
         - weekday
+        - weekdays
         - dayOfMonth
+        - intervalDays
         - startsOn
         - endsOn
         - nextRunOn
@@ -100717,6 +100683,9 @@ components:
           format: uuid
         quantity:
           $ref: "#/components/schemas/Quantity"
+        uom:
+          type: string
+          description: "The unit the quantity is in; the product's base unit when left out, as an order line's."
       required:
         - productId
         - quantity
@@ -100733,9 +100702,19 @@ components:
             - WEEKLY
             - FORTNIGHTLY
             - MONTHLY
+            - EVERY_N_DAYS
         weekday:
           type: integer
+          description: "One named day, kept from the planned shape; `weekdays` names several."
+          deprecated: true
+        weekdays:
+          type: array
+          items:
+            type: integer
+          maxItems: 7
         dayOfMonth:
+          type: integer
+        intervalDays:
           type: integer
         startsOn:
           type: string
@@ -100746,8 +100725,10 @@ components:
         deliveryAddressId:
           type: string
           format: uuid
+          description: "Refused (`FULFILMENT_NOT_AVAILABLE`) until delivery is built (B11)."
         lines:
           type: array
+          maxItems: 50
           items:
             $ref: "#/components/schemas/StandingOrderLineInput"
       required:
@@ -100763,7 +100744,15 @@ components:
           type: integer
         weekday:
           type: integer
+          deprecated: true
+        weekdays:
+          type: array
+          items:
+            type: integer
+          maxItems: 7
         dayOfMonth:
+          type: integer
+        intervalDays:
           type: integer
         endsOn:
           type: string
@@ -100773,6 +100762,7 @@ components:
           format: uuid
         lines:
           type: array
+          maxItems: 50
           items:
             $ref: "#/components/schemas/StandingOrderLineInput"
       required:
@@ -100793,6 +100783,7 @@ components:
         - page
     StandingOrderRun:
       type: object
+      description: "One run date of a standing order, written once. `CREATED`: the order made, PLACED. `HELD_FOR_CREDIT`: the order made and left PLACED because the credit check refused it (over the limit or past the terms); it needs a credit override to be confirmed. `SKIPPED_ON_HOLD`, `SKIPPED_NO_PRICE` (a line needs a quote), `MISSED` (the job did not run that day) and `FAILED` made no order; `reason` says why."
       properties:
         runDate:
           type: string
@@ -100801,9 +100792,16 @@ components:
           type: string
           enum:
             - CREATED
+            - HELD_FOR_CREDIT
             - SKIPPED_ON_HOLD
             - SKIPPED_NO_PRICE
+            - MISSED
             - FAILED
+        reason:
+          type:
+            - string
+            - "null"
+          description: "Null for `CREATED`."
         order:
           anyOf:
             - $ref: "#/components/schemas/DocumentRef"
@@ -100814,6 +100812,7 @@ components:
       required:
         - runDate
         - outcome
+        - reason
         - order
         - recordedAt
     StandingOrderRunPage:
@@ -105914,9 +105913,13 @@ components:
         - whl.account.read
         - whl.account.release
         - whl.ageing.read
+        - whl.bad_debt.approve
+        - whl.bad_debt.write_off
         - whl.credit.override
         - whl.dunning.manage
         - whl.dunning.read
+        - whl.standing_order.manage
+        - whl.standing_order.read
         - whl.statement.create
         - whl.statement.read
       limits: []
@@ -106144,6 +106147,8 @@ components:
         - whl.credit.override
         - whl.dunning.manage
         - whl.dunning.read
+        - whl.standing_order.manage
+        - whl.standing_order.read
         - whl.statement.create
         - whl.statement.read
       limits: []
@@ -106261,7 +106266,9 @@ components:
         - whl.account.hold
         - whl.account.read
         - whl.ageing.read
+        - whl.bad_debt.write_off
         - whl.dunning.read
+        - whl.standing_order.read
         - whl.statement.create
         - whl.statement.read
       limits: []
@@ -106427,6 +106434,8 @@ components:
         - whl.account.read
         - whl.ageing.read
         - whl.dunning.read
+        - whl.standing_order.manage
+        - whl.standing_order.read
         - whl.statement.create
         - whl.statement.read
       limits: []
