@@ -1,0 +1,216 @@
+operationId: listRfqs
+tags:
+  - quo
+summary: "List requests for quote"
+description: "The requests for quote at the branches the caller reads whole, newest first.\n\nPermission: `quo.rfq.read`."
+x-permission: quo.rfq.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: status
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: source
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: assignedToId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/RfqPage"
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7aff-24cd-7b88-b0c1-c15e5f103a3c"
+                  rfqNo: RFQ-2026-DDW-000154
+                  source: PUBLIC_FORM
+                  status: QUOTED
+                  customer:
+                    id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
+                    publicId: cus_GY1HV6CSTTCCM2Y2
+                    name: "Emmanuel Tetteh"
+                  contactName: "Emmanuel Tetteh"
+                  contactPhone: "+233268114590"
+                  contactEmail: null
+                  requirements: "Twenty goats of about 25 kg each for a funeral on 12 December in Prampram"
+                  product: null
+                  stockUnit: null
+                  neededBy: "2026-12-11"
+                  deliveryArea: Prampram
+                  assignedTo:
+                    id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                    displayName: "Kojo Antwi"
+                  quoteIds:
+                    - "019a7a95-a7c6-72d5-a80e-36306277af0e"
+                  createdAt: "2026-11-13T08:00:00Z"
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  quantity: null
+                  uom: null
+                - id: "019a7a95-c6b5-7cb9-b1f1-d467dc284d45"
+                  rfqNo: RFQ-2026-DDW-000153
+                  source: REQUEST_TO_BUY
+                  status: NEW
+                  customer: null
+                  contactName: "Yaa Asantewaa Boakye"
+                  contactPhone: "+233244983107"
+                  contactEmail: null
+                  requirements: "Interested in goat G-0157 on the website, can I see it?"
+                  product:
+                    id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                    sku: LIV-0004
+                    name: Goat
+                  stockUnit:
+                    id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
+                    identifier: G-0157
+                    tracking: SERIAL
+                  neededBy: null
+                  deliveryArea: null
+                  assignedTo:
+                    id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                    displayName: "Kojo Antwi"
+                  quoteIds: []
+                  createdAt: "2026-11-12T08:00:00Z"
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  quantity: null
+                  uom: null
+                - id: "019a7aff-43bc-756c-8aa4-5f95d8c1d873"
+                  rfqNo: RFQ-2026-DDW-000152
+                  source: WHATSAPP
+                  status: IN_PROGRESS
+                  customer: null
+                  contactName: "Pastor Daniel Owusu"
+                  contactPhone: "+233208114457"
+                  contactEmail: null
+                  requirements: "Church harvest: 40 crates of eggs and 10 goats, delivery to Adenta"
+                  product: null
+                  stockUnit: null
+                  neededBy: "2026-11-29"
+                  deliveryArea: Adenta
+                  assignedTo:
+                    id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                    displayName: "Kojo Antwi"
+                  quoteIds: []
+                  createdAt: "2026-11-11T08:00:00Z"
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  quantity: null
+                  uom: null
+                - id: "019a7aff-62ab-7f4f-9488-fdcd527276ab"
+                  rfqNo: RFQ-2026-DDW-000151
+                  source: PHONE
+                  status: QUOTED
+                  customer:
+                    id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+                    publicId: cus_TWMB751S2DFXTAM8
+                    name: "Royal Palm Hotel Ltd"
+                  contactName: "Royal Palm Hotel, head chef"
+                  contactPhone: "+233302765410"
+                  contactEmail: null
+                  requirements: "Christmas menu: 80 kg goat meat and 60 kg beef weekly through December"
+                  product: null
+                  stockUnit: null
+                  neededBy: "2026-12-01"
+                  deliveryArea: "Airport Residential"
+                  assignedTo:
+                    id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                    displayName: "Kojo Antwi"
+                  quoteIds:
+                    - "019a7aff-819a-7933-ae6b-9c04cc2314e2"
+                  createdAt: "2026-11-10T08:00:00Z"
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  quantity: null
+                  uom: null
+                - id: "019a7aff-a089-7316-b84e-3a3c45d4b31a"
+                  rfqNo: RFQ-2026-DDW-000150
+                  source: COUNTER
+                  status: CLOSED
+                  customer: null
+                  contactName: "Hajia Mariama Issah"
+                  contactPhone: "+233541208876"
+                  contactEmail: null
+                  requirements: "Two rams for Eid, 40 kg or more"
+                  product: null
+                  stockUnit: null
+                  neededBy: "2026-11-20"
+                  deliveryArea: Nima
+                  assignedTo:
+                    id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                    displayName: "Kojo Antwi"
+                  quoteIds: []
+                  createdAt: "2026-11-09T08:00:00Z"
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  quantity: null
+                  uom: null
+                - id: "019a7aff-bf78-7cfa-8232-d873bf855151"
+                  rfqNo: RFQ-2026-DDW-000149
+                  source: PUBLIC_FORM
+                  status: SPAM
+                  customer: null
+                  contactName: "Win a free phone"
+                  contactPhone: "+233200000001"
+                  contactEmail: null
+                  requirements: "Click here"
+                  product: null
+                  stockUnit: null
+                  neededBy: null
+                  deliveryArea: null
+                  assignedTo: null
+                  quoteIds: []
+                  createdAt: "2026-11-08T08:00:00Z"
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  quantity: null
+                  uom: null
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

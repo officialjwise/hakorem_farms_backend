@@ -1,0 +1,57 @@
+operationId: declineQuoteByLink
+tags:
+  - quo
+summary: "Decline a quote by its signed link"
+description: "Declines the live version by its token (FR-QUO-009), with a reason or none; the quote's hold on stock is released. A second use is 409 `QUOTE_ALREADY_DECIDED`; a closed link 422 `QUOTE_LINK_CLOSED`; anything else 404."
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - ORIGIN_NOT_ALLOWED
+  - RATE_LIMITED
+  - NOT_FOUND
+  - QUOTE_ALREADY_DECIDED
+  - QUOTE_LINK_CLOSED
+parameters:
+  - name: token
+    in: path
+    required: true
+    schema:
+      type: string
+  - $ref: "#/components/parameters/IdempotencyKey"
+security: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/QuoteDeclineByLink"
+      example:
+        reason: "Found goats closer to Prampram"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/QuoteDecision"
+        example:
+          quoteNo: QUO-2026-DDW-000088
+          versionNo: 2
+          status: DECLINED
+          message: "Thank you for letting us know."
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

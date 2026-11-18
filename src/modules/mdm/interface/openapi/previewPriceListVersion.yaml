@@ -77,6 +77,7 @@ responses:
                     quoteOnly: false
                     minQty: "0.000"
                     minQtyBase: "0.000"
+                    baseUom: HEAD
                     uom: HEAD
                     currency: GHS
                   proposed:
@@ -98,6 +99,7 @@ responses:
                     quoteOnly: false
                     minQty: "0.000"
                     minQtyBase: "0.000"
+                    baseUom: HEAD
                     uom: HEAD
                     currency: GHS
                 - kind: CHANGED
@@ -120,6 +122,7 @@ responses:
                     quoteOnly: false
                     minQty: "0.000"
                     minQtyBase: "0.000"
+                    baseUom: HEAD
                     uom: HEAD
                     currency: GHS
                   proposed:
@@ -141,6 +144,7 @@ responses:
                     quoteOnly: false
                     minQty: "0.000"
                     minQtyBase: "0.000"
+                    baseUom: HEAD
                     uom: HEAD
                     currency: GHS
                 - kind: CHANGED
@@ -166,6 +170,7 @@ responses:
                     quoteOnly: false
                     minQty: "0.000"
                     minQtyBase: "0.000"
+                    baseUom: HEAD
                     uom: HEAD
                     currency: GHS
                   proposed:
@@ -190,6 +195,7 @@ responses:
                     quoteOnly: false
                     minQty: "0.000"
                     minQtyBase: "0.000"
+                    baseUom: HEAD
                     uom: HEAD
                     currency: GHS
                 - kind: ADDED
@@ -216,6 +222,7 @@ responses:
                     quoteOnly: false
                     minQty: "0.000"
                     minQtyBase: "0.000"
+                    baseUom: HEAD
                     uom: HEAD
                     currency: GHS
                 - kind: UNCHANGED
@@ -238,6 +245,7 @@ responses:
                     quoteOnly: false
                     minQty: "0.000"
                     minQtyBase: "0.000"
+                    baseUom: HEAD
                     uom: HEAD
                     currency: GHS
                   proposed:
@@ -259,6 +267,7 @@ responses:
                     quoteOnly: false
                     minQty: "0.000"
                     minQtyBase: "0.000"
+                    baseUom: HEAD
                     uom: HEAD
                     currency: GHS
                 - kind: REMOVED
@@ -277,6 +286,7 @@ responses:
                     quoteOnly: true
                     minQty: "0.000"
                     minQtyBase: "0.000"
+                    baseUom: HEAD
                     uom: HEAD
                     currency: GHS
                   proposed: null

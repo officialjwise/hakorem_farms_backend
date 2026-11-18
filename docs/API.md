@@ -462,6 +462,12 @@ The "Source" column says where the code comes from. **Contract** means the code 
 | `CASH_MOVEMENT_INVALID` | 422 | A cash movement breaks a till rule, every one in `details[].code`: `AMOUNT_NOT_POSITIVE`, `REASON_REQUIRED`, `REASON_NOT_FOR_KIND`, `NOTE_REQUIRED`, `WITNESS_REQUIRED`, `WITNESS_IS_MAKER`, `WITNESS_NOT_SUPERVISOR`, `WITNESS_ONLY_ON_DROP`, `TILL_OVERDRAWN`, `ID_NOT_UUID_V7`, `OCCURRED_AT_OUT_OF_WINDOW` (2.5.0) |
 | `REGISTER_INVALID` | 422 | A till cannot be set up or changed like this: `LOCATION_NOT_IN_BRANCH`, `LOCATION_NOT_SELLABLE`, `REGISTER_CODE_TAKEN`, `SHIFT_OPEN` (2.5.0) |
 | `STATEMENT_INVALID` | 422 | A customer statement cannot be produced like this, every one in `details[].code`: `BRANCH_REQUIRED`, `CUSTOMER_UNKNOWN`, `PERIOD_REVERSED`, `PERIOD_NOT_ENDED`, `PERIOD_TOO_LONG` (2.7.0) |
+| `QUOTE_INVALID` | 422 | A quote cannot be written, issued or converted like this, every rule in `details[].code` (2.12.0) |
+| `RFQ_INVALID` | 422 | A request for quote cannot be taken like this: `PRODUCT_NOT_ACTIVE`, `UOM_NOT_SOLD`, `INEXACT_QUANTITY`, `STOCK_UNIT_OTHER_PRODUCT`, `CUSTOMER_NOT_ACTIVE`, `ASSIGNEE_UNKNOWN`, `BRANCH_REQUIRED` (2.12.0) |
+| `QUOTE_LINK_CLOSED` | 422 | A real quote link that no longer opens the quote: `EXPIRED`, `REPLACED`, `WITHDRAWN` (2.12.0, ADR-0087) |
+| `QUOTE_AUTHOR_CANNOT_APPROVE` | 422 | The author of a quote version cannot approve its margin (2.12.0) |
+| `QUOTE_ALREADY_DECIDED` | 409 | The quote version was accepted, or the quote declined, already (2.12.0) |
+| `QUOTE_ALREADY_CONVERTED` | 409 | The quote has its order already (2.12.0) |
 
 #### Payments, billing and purchasing (Added)
 
@@ -1008,6 +1014,15 @@ Public catalogue (`listCatalogue`, `getCatalogueProduct`, categories), carts (a 
 ### Quotations (`quo`, 21)
 
 Public `submitQuoteRequest` (rate-limited by address and phone), `viewQuoteByLink`, `acceptQuoteByLink` and `declineQuoteByLink` (single use; an expired or superseded version cannot be accepted), staff RFQs, versioned quotes (`reviseQuote`, `issueQuoteVersion` may return 202 for a quote below the margin floor), `recordQuoteAcceptance` (phone or WhatsApp), `convertQuote` into an order, the pipeline. A price that does not resolve is a quote required, not an error.
+
+**As built in B10 (2.12.0; A-309, A-310, ADR-0087).** Nineteen operations are in code; `getQuotePipeline`, `listMyQuotes` and the quote's rendered document are B10 continued's.
+- **Requests:** the storefront form needs no session, five an hour by address and by phone (429 after); a quantity comes with its unit, one the product is sold by (`RFQ_INVALID`, `UOM_NOT_SOLD`); the text is stored as given and shown escaped. Staff requests link to the live customer holding the number.
+- **Versions:** a quote keeps one number; a draft is edited at its `version`; issued, a version never changes, and a change is `reviseQuote`, which the next issue supersedes. Each version answers its author and time.
+- **Lines and figures:** each line is in its own unit (a crate or a single egg, never priced from another unit's entry), extended once half-up; the engine's price for that unit is kept beside the quoted one. Margin over cost is (net less cost) over cost, signed, two places; cost is the average of the product's live cost pools at the branch.
+- **Margin floor:** below 10 percent over cost (compared exactly), below the engine's floor, or with a cost unknown, `issueQuoteVersion` answers 202 `QUOTE_BELOW_MARGIN`; a holder of `quo.quote_margin.approve` (step-up) who neither drafted nor asked approves it, and the version is issued then. The database refuses it otherwise.
+- **Issue:** reserves every product line for the validity in the base unit (`STOCK_SHORT` when it cannot), supersedes the live version, queues `quo.QuoteIssued` once, and answers `acceptanceLinkToken` once.
+- **The link:** `quo_` and 256 random bits, kept as its hash; it opens the live version, accepts once (then 409 `QUOTE_ALREADY_DECIDED`), and when closed answers 422 `QUOTE_LINK_CLOSED` (`EXPIRED`, `REPLACED`, `WITHDRAWN`) with nothing of the quote; anything else is 404.
+- **Conversion:** an accepted quote converts once (then 409 `QUOTE_ALREADY_CONVERTED`) to an order on channel `QUOTE` whose `source` is the quote and whose lines name their quote line at the quoted price; animals not named on the quote are given as `stockUnitIds`; the quote's hold passes to the order.
 
 ### Wholesale (`whl`, 24)
 

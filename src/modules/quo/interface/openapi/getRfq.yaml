@@ -1,0 +1,71 @@
+operationId: getRfq
+tags:
+  - quo
+summary: "Get a request for quote"
+description: "A request for quote at the caller's branch, with the quotes made from it.\n\nPermission: `quo.rfq.read`."
+x-permission: quo.rfq.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+  - NOT_FOUND
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Rfq"
+        example:
+          id: "019a7aff-24cd-7b88-b0c1-c15e5f103a3c"
+          rfqNo: RFQ-2026-DDW-000154
+          source: PUBLIC_FORM
+          status: QUOTED
+          customer:
+            id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
+            publicId: cus_GY1HV6CSTTCCM2Y2
+            name: "Emmanuel Tetteh"
+          contactName: "Emmanuel Tetteh"
+          contactPhone: "+233268114590"
+          contactEmail: null
+          requirements: "Twenty goats of about 25 kg each for a funeral on 12 December in Prampram"
+          product: null
+          stockUnit: null
+          neededBy: "2026-12-11"
+          deliveryArea: Prampram
+          assignedTo:
+            id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+            displayName: "Kojo Antwi"
+          quoteIds:
+            - "019a7a95-a7c6-72d5-a80e-36306277af0e"
+          createdAt: "2026-11-13T08:00:00Z"
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          quantity: null
+          uom: null
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

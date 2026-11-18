@@ -1,0 +1,137 @@
+operationId: issueQuoteVersion
+tags:
+  - quo
+summary: "Issue a quote version and send the acceptance link"
+description: "Issues a draft (FR-QUO-004, FR-QUO-005, FR-QUO-007, FR-QUO-012), priced and judged again as things are now. Below the margin floor over cost (seed 10 percent, compared exactly: 264,000 over a cost of 240,000 is at the floor; 263,996 is below it), with any line below the engine's floor, or with a cost unknown, it waits: 202 `ApprovalPending` of kind `QUOTE_BELOW_MARGIN`, decided by a holder of `quo.quote_margin.approve` with step-up who is neither the version's author (`QUOTE_AUTHOR_CANNOT_APPROVE`) nor the person who asked (`MAKER_CANNOT_CHECK`); approved, the version is issued as below, and the database refuses an issued version below the floor without that approval. Otherwise every product line is reserved for the validity in the base unit, a named animal itself, lots oldest first (an unnamed animal is chosen at conversion); stock not there is 422 `QUOTE_INVALID` `STOCK_SHORT` and nothing is held. The live version, if any, is superseded and its hold released, and `quo.QuoteIssued` is queued once for the link to be sent (B11). The answer carries `acceptanceLinkToken`, made now; asking again for an issued version answers a fresh token and sends nothing again. Other refusals: `NO_LINES`, `LINE_NOT_PRICED`, `VALIDITY_PASSED`.\n\nPermission: `quo.quote.issue`."
+x-permission: quo.quote.issue
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - NOT_FOUND
+  - INVALID_STATE_TRANSITION
+  - QUOTE_INVALID
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/QuoteIssue"
+      example:
+        channels:
+          - WHATSAPP
+          - SMS
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/QuoteVersion"
+        example:
+          id: "019a7aff-de67-76dd-9c15-76ab3936ef89"
+          versionNo: 2
+          status: ISSUED
+          validUntil: "2026-11-20T18:00:00Z"
+          terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
+          deliveryEstimate: "Delivered to Prampram on 11 December, morning"
+          deliveryFeePesewas: 6000
+          taxInclusive: false
+          netPesewas: 1716000
+          taxPesewas: 1200
+          grossPesewas: 1717200
+          estimatedCostPesewas: 1188000
+          marginPercent: "30.77"
+          belowMarginFloor: false
+          approvalRequestId: null
+          changeNote: "Reduced to eighteen goats and added delivery"
+          issuedAt: "2026-11-13T15:00:00Z"
+          issuedBy:
+            id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+            displayName: "Kojo Antwi"
+          lines:
+            - id: "019a7aff-fd56-70c1-a5f9-14e2b2e78dc0"
+              lineNo: 1
+              product:
+                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                sku: LIV-0004
+                name: Goat
+              description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
+              grade: null
+              weightBand:
+                id: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
+                code: GOAT-M
+                minKg: "18.000"
+                maxKg: "28.000"
+              stockUnit: null
+              reservationId: null
+              quantity: "18.000"
+              uom: HEAD
+              priceBasis: PER_HEAD
+              resolvedUnitPricePesewas: 85000
+              unitPricePesewas: 95000
+              lineNetPesewas: 1710000
+              estimatedUnitCostPesewas: 66000
+              baseQuantity: "18.000"
+          acceptance: null
+          documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
+          currency: GHS
+          createdBy:
+            id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+            displayName: "Esi Appiah"
+          createdAt: "2026-11-13T15:00:00Z"
+          version: 1
+          acceptanceLinkToken: null
+  "202":
+    description: "Accepted for approval. Nothing has taken effect yet."
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ApprovalPending"
+        example:
+          status: PENDING_APPROVAL
+          approvalRequestId: "019a7b01-ec46-7ef8-a430-f85a4df77138"
+          kind: QUOTE_BELOW_MARGIN
+          subject:
+            id: "019a7b02-0b35-78dc-be14-9691c7a80f6f"
+            docType: STOCK_ADJUSTMENT
+            number: null
+          summary: "Awaiting approval by a different user with the approving permission"
+          requestedAt: "2026-11-13T10:12:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

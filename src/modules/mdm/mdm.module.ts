@@ -296,7 +296,7 @@ import { ImportsController } from './interface/imports.controller';
     { provide: STOREFRONT_STORE, useFactory: (files: FileStore) => new PgStorefrontStore(files), inject: [FileStore] },
     { provide: Storefront, useFactory: (store: StorefrontStore) => new Storefront(store), inject: [STOREFRONT_STORE] },
   ],
-  exports: [PricingService, Promotions, TaxService, MasterDataRefs, MdmImports, LocationUsageRegistry, Storefront],
+  exports: [PricingService, Promotions, TaxService, MasterDataRefs, MdmImports, LocationUsageRegistry, Storefront, PartiesAdmin],
 })
 export class MdmModule implements OnModuleInit {
   constructor(

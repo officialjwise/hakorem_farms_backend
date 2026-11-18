@@ -66,6 +66,10 @@ const PUBLIC_WITH_IDENTIFIER: Readonly<Record<string, string>> = {
   receivePaymentWebhook: 'pay/webhooks: refused without the provider’s signature over the raw body (abuse case 5)',
   validateCoupon: 'this file: whether a code is usable now; a cart or customer id names nothing (mdm/promotions)',
   quoteDelivery: 'public by design: a zone’s fee for an area, nothing about any customer (mdm/reference-data tests)',
+  submitQuoteRequest: 'quo/quotes: a product or animal id is only checked, never answered; the reply is the request number (B10)',
+  viewQuoteByLink: 'quo/quotes: a replaced, expired or guessed token, the quote id and its number open nothing (CR-047, ADR-0074)',
+  acceptQuoteByLink: 'quo/quotes: a replaced, expired or guessed token, the quote id and its number accept nothing (CR-047)',
+  declineQuoteByLink: 'quo/quotes: only the live version’s own token declines it (CR-047)',
 };
 
 /**

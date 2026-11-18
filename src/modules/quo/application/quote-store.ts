@@ -1,0 +1,192 @@
+import type { Transaction } from '../../../platform/database/unit-of-work';
+import type { PriceBasis, QuoteStatus, VersionStatus } from '../domain/quote';
+
+export const QUOTE_STORE = Symbol('QUOTE_STORE');
+
+export type RfqSource = 'PUBLIC_FORM' | 'REQUEST_TO_BUY' | 'PHONE' | 'WHATSAPP' | 'COUNTER' | 'WHOLESALE_ORDER';
+export type RfqStatus = 'NEW' | 'IN_PROGRESS' | 'QUOTED' | 'CLOSED' | 'SPAM';
+
+export interface RfqRecord {
+  readonly id: string;
+  readonly rfqNo: string;
+  readonly source: RfqSource;
+  readonly customerId: string | null;
+  readonly contactName: string;
+  readonly contactPhone: string;
+  readonly contactEmail: string | null;
+  readonly requirements: string;
+  readonly productId: string | null;
+  readonly stockUnitId: string | null;
+  readonly qty: string | null;
+  readonly uom: string | null;
+  readonly neededBy: string | null;
+  readonly deliveryArea: string | null;
+  readonly assignedTo: string | null;
+  readonly submittedIp: string | null;
+  readonly consentToContact: boolean;
+  readonly status: RfqStatus;
+  readonly branchId: string;
+  readonly version: number;
+  readonly createdAt: Date;
+}
+
+export interface QuoteRecord {
+  readonly id: string;
+  readonly quoteNo: string;
+  readonly rfqId: string | null;
+  readonly customerId: string | null;
+  readonly contactName: string;
+  readonly contactPhone: string;
+  readonly salespersonId: string;
+  readonly productLine: string | null;
+  readonly currentVersionNo: number;
+  readonly acceptedVersionId: string | null;
+  readonly convertedOrderId: string | null;
+  readonly declineReason: string | null;
+  readonly cancelReason: string | null;
+  readonly status: QuoteStatus;
+  readonly branchId: string;
+  readonly version: number;
+  readonly createdAt: Date;
+  readonly createdBy: string;
+}
+
+export interface VersionRecord {
+  readonly id: string;
+  readonly quoteId: string;
+  readonly versionNo: number;
+  readonly status: VersionStatus;
+  readonly validUntil: Date;
+  readonly terms: string | null;
+  readonly deliveryEstimate: string | null;
+  readonly deliveryFeePesewas: bigint;
+  readonly taxInclusive: boolean;
+  readonly netPesewas: bigint;
+  readonly taxPesewas: bigint;
+  readonly grossPesewas: bigint;
+  readonly estimatedCostPesewas: bigint | null;
+  readonly marginPercent: string | null;
+  readonly belowMarginFloor: boolean;
+  readonly approvalRequestId: string | null;
+  readonly approvedBy: string | null;
+  readonly changeNote: string | null;
+  readonly issuedAt: Date | null;
+  readonly issuedBy: string | null;
+  readonly archivedDocumentId: string | null;
+  readonly version: number;
+  readonly createdAt: Date;
+  readonly createdBy: string;
+}
+
+export interface LineRecord {
+  readonly id: string;
+  readonly quoteVersionId: string;
+  readonly lineNo: number;
+  readonly productId: string | null;
+  readonly description: string;
+  readonly gradeId: string | null;
+  readonly weightBandId: string | null;
+  readonly stockUnitId: string | null;
+  readonly reservationId: string | null;
+  readonly qty: string;
+  readonly uom: string;
+  readonly baseQty: string | null;
+  readonly priceBasis: PriceBasis;
+  readonly resolvedUnitPricePesewas: bigint | null;
+  readonly resolvedFloorUnitPricePesewas: bigint | null;
+  readonly unitPricePesewas: bigint;
+  readonly lineNetPesewas: bigint;
+  readonly estimatedUnitCostPesewas: bigint | null;
+}
+
+export interface AcceptanceRecord {
+  readonly id: string;
+  readonly quoteVersionId: string;
+  readonly method: 'SIGNED_LINK' | 'IN_PERSON' | 'PHONE_CONFIRMED';
+  readonly acceptedName: string;
+  readonly note: string | null;
+  readonly ip: string | null;
+  readonly userAgent: string | null;
+  readonly acceptedAt: Date;
+}
+
+export interface VersionFiguresPatch {
+  readonly validUntil: Date;
+  readonly terms: string | null;
+  readonly deliveryEstimate: string | null;
+  readonly deliveryFeePesewas: bigint;
+  readonly netPesewas: bigint;
+  readonly taxPesewas: bigint;
+  readonly grossPesewas: bigint;
+  readonly estimatedCostPesewas: bigint | null;
+  readonly marginPercent: string | null;
+  readonly belowMarginFloor: boolean;
+}
+
+export interface RfqFilter {
+  readonly branchIds: readonly string[];
+  readonly status: RfqStatus | null;
+  readonly source: RfqSource | null;
+  readonly assignedToId: string | null;
+}
+
+export interface QuoteFilter {
+  readonly branchIds: readonly string[];
+  readonly status: QuoteStatus | null;
+  readonly customerId: string | null;
+  readonly salespersonId: string | null;
+  readonly from: Date | null;
+  readonly to: Date | null;
+}
+
+/** QUO's tables (migration 0251). Every write is in the caller's transaction; the database holds the rules. */
+export interface QuoteStore {
+  insertRfq(tx: Transaction, rfq: Omit<RfqRecord, 'version' | 'status'>, actorId: string): Promise<void>;
+  rfqs(tx: Transaction, ids: readonly string[]): Promise<RfqRecord[]>;
+  lockRfq(tx: Transaction, id: string): Promise<RfqRecord | null>;
+  listRfqs(tx: Transaction, filter: RfqFilter, beforeId: string | null, limit: number): Promise<RfqRecord[]>;
+  updateRfq(tx: Transaction, id: string, patch: { readonly status: RfqStatus; readonly customerId: string | null; readonly assignedTo: string | null }, actorId: string, at: Date): Promise<void>;
+  quoteIdsOfRfqs(tx: Transaction, rfqIds: readonly string[]): Promise<ReadonlyMap<string, string[]>>;
+
+  insertQuote(tx: Transaction, quote: Omit<QuoteRecord, 'version' | 'status' | 'currentVersionNo' | 'acceptedVersionId' | 'convertedOrderId' | 'declineReason' | 'cancelReason'>): Promise<void>;
+  quotes(tx: Transaction, ids: readonly string[]): Promise<QuoteRecord[]>;
+  lockQuote(tx: Transaction, id: string): Promise<QuoteRecord | null>;
+  listQuotes(tx: Transaction, filter: QuoteFilter, beforeId: string | null, limit: number): Promise<QuoteRecord[]>;
+  updateQuote(
+    tx: Transaction,
+    id: string,
+    patch: Partial<Pick<QuoteRecord, 'status' | 'currentVersionNo' | 'acceptedVersionId' | 'convertedOrderId' | 'declineReason' | 'cancelReason'>>,
+    actorId: string,
+    at: Date,
+  ): Promise<void>;
+  /** Issued quotes whose live version's validity ended before `now`, locked, oldest first. */
+  lockLapsed(tx: Transaction, now: Date, limit: number): Promise<QuoteRecord[]>;
+
+  insertVersion(tx: Transaction, version: Omit<VersionRecord, 'version' | 'status' | 'approvalRequestId' | 'approvedBy' | 'issuedAt' | 'issuedBy' | 'archivedDocumentId'>): Promise<void>;
+  versionsOf(tx: Transaction, quoteIds: readonly string[]): Promise<VersionRecord[]>;
+  version(tx: Transaction, id: string): Promise<VersionRecord | null>;
+  setFigures(tx: Transaction, id: string, figures: VersionFiguresPatch, actorId: string, at: Date): Promise<void>;
+  setVersionStatus(
+    tx: Transaction,
+    id: string,
+    patch: {
+      readonly status: VersionStatus;
+      readonly approvalRequestId?: string | null;
+      readonly approvedBy?: string | null;
+      readonly approvedAt?: Date | null;
+      readonly issuedAt?: Date | null;
+      readonly issuedBy?: string | null;
+    },
+    actorId: string,
+    at: Date,
+  ): Promise<void>;
+  replaceLines(tx: Transaction, versionId: string, lines: readonly LineRecord[]): Promise<void>;
+  linesOf(tx: Transaction, versionIds: readonly string[]): Promise<LineRecord[]>;
+  holdLine(tx: Transaction, lineId: string, reservationId: string): Promise<void>;
+
+  insertAcceptance(tx: Transaction, acceptance: AcceptanceRecord, actorId: string, at: Date): Promise<void>;
+  acceptancesOf(tx: Transaction, versionIds: readonly string[]): Promise<AcceptanceRecord[]>;
+
+  insertLinkToken(tx: Transaction, token: { readonly id: string; readonly quoteVersionId: string; readonly tokenHash: Buffer; readonly expiresAt: Date }, actorId: string, at: Date): Promise<void>;
+  linkToken(tx: Transaction, tokenHash: Buffer): Promise<{ readonly quoteVersionId: string; readonly tokenHash: Buffer; readonly expiresAt: Date } | null>;
+}

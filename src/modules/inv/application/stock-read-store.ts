@@ -92,7 +92,17 @@ export interface OnHandNarrowing {
   readonly expiresBy: string | null;
 }
 
+/** A cost pool with stock in it (B10: what a quote line is costed from). */
+export interface CostPoolRecord {
+  readonly productId: string;
+  readonly stockUnitId: string | null;
+  readonly qty: string;
+  readonly valuePesewas: bigint;
+}
+
 export interface StockReadStore {
+  /** The pools with stock of these products at a branch: an untracked product's own, or its live units'. */
+  costPools(tx: Transaction, branchId: string, productIds: readonly string[]): Promise<CostPoolRecord[]>;
   /**
    * Balances at physical locations within the scopes, in a stable order (location, product, unit). Holds, and so what
    * is available, are read at `at`, the application clock's now (ADR-0067); so are a unit's holds below.

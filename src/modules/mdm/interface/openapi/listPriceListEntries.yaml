@@ -70,6 +70,7 @@ responses:
                   quoteOnly: false
                   minQty: "0.000"
                   minQtyBase: "0.000"
+                  baseUom: HEAD
                   uom: HEAD
                   currency: GHS
                 - id: "019a7aa6-16be-73ad-a8e5-43a9087fbc86"
@@ -93,6 +94,7 @@ responses:
                   quoteOnly: false
                   minQty: "0.000"
                   minQtyBase: "0.000"
+                  baseUom: HEAD
                   uom: HEAD
                   currency: GHS
                 - id: "019a7aa6-35ad-7d90-b2c9-e1e082305abe"
@@ -113,6 +115,7 @@ responses:
                   quoteOnly: false
                   minQty: "0.000"
                   minQtyBase: "0.000"
+                  baseUom: HEAD
                   uom: HEAD
                   currency: GHS
                 - id: "019a7aa6-549c-7774-8cac-8017fbe1f8f5"
@@ -133,6 +136,7 @@ responses:
                   quoteOnly: false
                   minQty: "0.000"
                   minQtyBase: "0.000"
+                  baseUom: HEAD
                   uom: HEAD
                   currency: GHS
                 - id: "019a7aa6-738b-7157-9690-1e4f7592972d"
@@ -149,6 +153,7 @@ responses:
                   quoteOnly: false
                   minQty: "0.000"
                   minQtyBase: "0.000"
+                  baseUom: KG
                   uom: KG
                   currency: GHS
                 - id: "019a7aa6-927a-7b3b-a073-bc86ef433564"
@@ -165,6 +170,7 @@ responses:
                   quoteOnly: false
                   minQty: "0.000"
                   minQtyBase: "0.000"
+                  baseUom: EGG
                   uom: CRATE
                   currency: GHS
                 - id: "019a7aa6-b169-751e-ba57-5abe68f4d39c"
@@ -181,6 +187,7 @@ responses:
                   quoteOnly: false
                   minQty: "0.000"
                   minQtyBase: "0.000"
+                  baseUom: KG
                   uom: KG
                   currency: GHS
                 - id: "019a7aa6-d058-7f02-843a-f8f5e2a571d3"
@@ -197,6 +204,7 @@ responses:
                   quoteOnly: true
                   minQty: "0.000"
                   minQtyBase: "0.000"
+                  baseUom: HEAD
                   uom: HEAD
                   currency: GHS
               page:
@@ -225,6 +233,7 @@ responses:
                   quoteOnly: false
                   minQty: "0.000"
                   minQtyBase: "0.000"
+                  baseUom: HEAD
                   uom: HEAD
                   currency: GHS
                 - id: "019a7ab0-1a02-7c3e-9d11-4b2f6e8a1002"
@@ -248,6 +257,7 @@ responses:
                   quoteOnly: false
                   minQty: "0.000"
                   minQtyBase: "0.000"
+                  baseUom: HEAD
                   uom: HEAD
                   currency: GHS
                 - id: "019a7ab0-1a03-7c3e-9d11-4b2f6e8a1003"
@@ -268,6 +278,7 @@ responses:
                   quoteOnly: false
                   minQty: "0.000"
                   minQtyBase: "0.000"
+                  baseUom: HEAD
                   uom: HEAD
                   currency: GHS
                 - id: "019a7ab0-1a04-7c3e-9d11-4b2f6e8a1004"
@@ -291,6 +302,7 @@ responses:
                   quoteOnly: false
                   minQty: "0.000"
                   minQtyBase: "0.000"
+                  baseUom: HEAD
                   uom: HEAD
                   currency: GHS
                 - id: "019a7ab0-1a05-7c3e-9d11-4b2f6e8a1005"
@@ -311,6 +323,7 @@ responses:
                   quoteOnly: false
                   minQty: "0.000"
                   minQtyBase: "0.000"
+                  baseUom: HEAD
                   uom: HEAD
                   currency: GHS
                 - id: "019a7ab0-1a06-7c3e-9d11-4b2f6e8a1006"
@@ -327,6 +340,7 @@ responses:
                   quoteOnly: false
                   minQty: "0.000"
                   minQtyBase: "0.000"
+                  baseUom: KG
                   uom: KG
                   currency: GHS
                 - id: "019a7ab0-1a07-7c3e-9d11-4b2f6e8a1007"
@@ -343,6 +357,7 @@ responses:
                   quoteOnly: false
                   minQty: "0.000"
                   minQtyBase: "0.000"
+                  baseUom: EGG
                   uom: CRATE
                   currency: GHS
                 - id: "019a7ab0-1a08-7c3e-9d11-4b2f6e8a1008"
@@ -359,6 +374,7 @@ responses:
                   quoteOnly: false
                   minQty: "0.000"
                   minQtyBase: "0.000"
+                  baseUom: KG
                   uom: KG
                   currency: GHS
               page:

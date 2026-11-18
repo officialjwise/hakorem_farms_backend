@@ -23,6 +23,7 @@ import { BillingNumberingAudit } from './modules/bil';
 import { LedgerReconciliation } from './modules/fin';
 import { BalanceReconciliation, ReservationExpiry, StockAlertSweep } from './modules/inv';
 import { MortalityEvidenceReturns } from './modules/liv';
+import { QuoteExpiry } from './modules/quo';
 import { CatalogueListing } from './modules/shp';
 import { ProviderPayments, Refunds } from './modules/pay';
 
@@ -42,6 +43,8 @@ const RESERVATION_EXPIRY_EVERY_MS = 60_000;
 const MORTALITY_EVIDENCE_RETURNS_EVERY_MS = 60_000;
 /** The storefront's listing is at most a minute behind prices and stock (A-178); carts and checkouts price live. */
 const CATALOGUE_REFRESH_EVERY_MS = 60_000;
+/** Every fifteen minutes: an issued quote past its validity is expired and its stock given back (FR-QUO-009, A-309). */
+const QUOTE_EXPIRY_EVERY_MS = 900_000;
 /** Daily at 02:00 Africa/Accra (UTC), in the heavy-work window: the stock recompute (FR-INV-003, docs/OPERATIONS.md). */
 const STOCK_BALANCE_RECOMPUTE_CRON = '0 2 * * *';
 /**
@@ -113,9 +116,11 @@ export async function startWorker(config: AppConfig, logger: Logger, clock: Cloc
   const numberingAudit = app.get(BillingNumberingAudit);
   const providerPayments = app.get(ProviderPayments);
   const refunds = app.get(Refunds);
+  const quoteExpiry = app.get(QuoteExpiry);
   // The modules' scheduled jobs (ADR-0049, docs/OPERATIONS.md "Scheduled jobs").
   const jobs: ScheduledJob[] = [
     { name: 'reservation-expiry', when: { everyMs: RESERVATION_EXPIRY_EVERY_MS }, run: async (system) => ({ expired: (await reservationExpiry.run(system)).length }) },
+    { name: 'quote-expiry', when: { everyMs: QUOTE_EXPIRY_EVERY_MS }, run: async (system) => ({ expired: (await quoteExpiry.run(system)).length }) },
     { name: 'catalogue-refresh', when: { everyMs: CATALOGUE_REFRESH_EVERY_MS }, run: async () => catalogue.refresh() },
     {
       name: 'provider-sweep',

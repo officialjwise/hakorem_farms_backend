@@ -238,6 +238,7 @@ Each card gives: what the module owns, its public interface (the services export
 - **Built in B09e continued (A-266):** `SalePosting` takes, for a lot-tracked line that names no lot and no reservation, the oldest lot at its location that covers the line, through INV's new `StockQueries.lotsAtIn` (ORD already imported INV); none covering it is still `STOCK_UNIT_REQUIRED`.
 - **Built in B09q continued (A-256, ADR-0074):** `ord.order_tracking_token` (tracking links' token hashes); `OnlineOrders.placeIn` issues the link's random token through platform's `link-tokens`, `OnlineOrders.reissueTrackingIn` answers SHP's replay of a placement with a fresh one, and `track` reads by the token's hash. No new import or event.
 - **Built in B09u (A-307, BL-077):** a void's approval is refused (`REVERSAL_PENDING`) while a reversal of one of the sale's payments waits, asked of PAY's `Receipts.pendingReversalsIn`.
+- **Built in B10 (A-310):** `Orders.createFromQuoteIn` (an accepted quote's one order, channel `QUOTE`, lines priced `QUOTE` naming their quote line), `locksFor` and `holdLineIn`; `confirmOrder` counts the stock the order already holds (a quote's hold handed over, read through INV's new `Reservations.activeOfHolderIn`) before reserving the rest.
 
 ### POS: retail point of sale (layer 10)
 
@@ -267,6 +268,7 @@ Each card gives: what the module owns, its public interface (the services export
 - **Public interface:** none used by other modules.
 - **Imports:** platform, IAM, MDM, DOC, INV (reserve an animal), ORD (convert).
 - **Subscribes (A):** `ord.OrderCompleted`, `ord.OrderCancelled`, for pipeline status.
+- **Built in B10 (A-309, A-310, ADR-0087):** `Rfqs` and `Quotes` behind HTTP, and the `quote-expiry` job (`QuoteExpiry`). QUO calls down to MDM (`PricingService.resolveIn` per line in its own unit, `TaxService.calculateIn`, `MasterDataRefs` with the new `weightBandsIn`, `PartiesAdmin.phoneHolder`, now exported), INV (`StockUnits.factsIn`, `StockQueries.promisableIn`, new `StockQueries.costPoolsIn`, `Reservations.reserveIn`, `releaseHeldByIn`, `transferHeldByIn`), ORD (new `Orders.createFromQuoteIn`, `locksFor`, `holdLineIn`, `viewOf`) and IAM (`Authoriser`, `Approvals` with the `QUOTE_BELOW_MARGIN` handler, `PrincipalNames`). It does not render or archive the quote yet (B10 continued) and subscribes to nothing yet. Publishes `quo.RfqReceived`, `quo.QuoteIssued`, `quo.QuoteAccepted`, `quo.QuoteDeclined`, `quo.QuoteExpired` and `quo.QuoteConverted`; none carries a link token. `index.ts` exports `QuoModule`, `Quotes` (with `linkTokenIn` for B11's sender), `Rfqs` and `QuoteExpiry` for the wiring, the worker and the seed.
 
 ### WHL: wholesale and business accounts (layer 10)
 

@@ -1,0 +1,82 @@
+operationId: createRfq
+tags:
+  - quo
+summary: "Log a request taken by phone, WhatsApp or at the counter"
+description: "A request taken by phone, WhatsApp, at the counter or with a wholesale order (FR-QUO-002), at the one branch the caller logs requests for (else 422 `RFQ_INVALID` `BRANCH_REQUIRED`), linked to the customer named or, without one, to the live customer who holds the number. A quantity names its unit, as `submitQuoteRequest` checks it.\n\nPermission: `quo.rfq.create`."
+x-permission: quo.rfq.create
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - RFQ_INVALID
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/RfqCreate"
+      example:
+        source: WHATSAPP
+        contactName: "Pastor Daniel Owusu"
+        contactPhone: "+233208114457"
+        requirements: "Church harvest: 40 crates of eggs and 10 goats, delivery to Adenta"
+        neededBy: "2026-11-29"
+        deliveryArea: Adenta
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Rfq"
+        example:
+          id: "019a7aff-43bc-756c-8aa4-5f95d8c1d873"
+          rfqNo: RFQ-2026-DDW-000152
+          source: WHATSAPP
+          status: IN_PROGRESS
+          customer: null
+          contactName: "Pastor Daniel Owusu"
+          contactPhone: "+233208114457"
+          contactEmail: null
+          requirements: "Church harvest: 40 crates of eggs and 10 goats, delivery to Adenta"
+          product: null
+          stockUnit: null
+          neededBy: "2026-11-29"
+          deliveryArea: Adenta
+          assignedTo:
+            id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+            displayName: "Kojo Antwi"
+          quoteIds: []
+          createdAt: "2026-11-11T08:00:00Z"
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          quantity: null
+          uom: null
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

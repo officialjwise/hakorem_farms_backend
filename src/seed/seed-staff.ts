@@ -17,6 +17,8 @@ export const SEED_STAFF = {
   accountant: 'yaw.agyeman@seed.hakoremfarms.invalid',
   /** The counter's cashier, who posts the seeded trading day's sales (B09a continued 2g). */
   cashier: 'adwoa.darko@seed.hakoremfarms.invalid',
+  /** The salesperson who logs requests for quote and drafts quotes (B10). */
+  sales: 'esi.appiah@seed.hakoremfarms.invalid',
 } as const;
 
 export type SeedStaffMember = keyof typeof SEED_STAFF;

@@ -46,8 +46,8 @@ export class PgOrderStore implements OrderStore {
                                            variance_pesewas, variance_direction, variance_reason_code, variance_requires_approval, discount_pesewas,
                                            estimated_line_total_pesewas, reservation_id, qty_fulfilled, fulfilled_weight_kg, weight_source,
                                            final_line_total_pesewas, stock_movement_id, line_status, variance_approval_request_id, variance_approved_by,
-                                           variance_approved_at, estimated_weight_kg, tolerance_percent)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32)`,
+                                           variance_approved_at, estimated_weight_kg, tolerance_percent, quote_line_ref)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33)`,
         [
           l.id,
           l.salesOrderId,
@@ -81,6 +81,7 @@ export class PgOrderStore implements OrderStore {
           l.varianceApprovedAt,
           l.estimatedWeightKg ?? null,
           l.tolerancePercent ?? null,
+          l.quoteLineRef ?? null,
         ],
       );
     }

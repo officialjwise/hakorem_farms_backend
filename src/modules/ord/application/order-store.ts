@@ -110,6 +110,8 @@ export interface NewOrder extends Omit<OrderHeaderRecord, 'status' | 'finalTotal
 
 /** A line as written: open, or (a sale fulfilled at once) fulfilled with its movement. */
 export type NewOrderLine = Omit<OrderLineRecord, ReadOnlyLine> & {
+  /** The quote line a QUOTE line is priced by (B10, FR-QUO-011); null on every other line. */
+  readonly quoteLineRef?: string | null;
   /** A catch-weight line's estimate at order time (ADR-0021): packs times the nominal pack, and the product's tolerance. */
   readonly estimatedWeightKg?: string | null;
   readonly tolerancePercent?: string | null;

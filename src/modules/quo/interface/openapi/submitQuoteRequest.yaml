@@ -1,0 +1,55 @@
+operationId: submitQuoteRequest
+tags:
+  - quo
+summary: "Ask for a quote from the storefront"
+description: "The storefront's request for a quote (FR-QUO-001): no session; answered 202 with the request's number only. Rate limited to five an hour from one address and five from one phone number, failing closed (the sixth is 429). A quantity is given with its unit, both or neither, and only with `productId`; the unit must be one the product is sold by (its base unit, or a unit with an exact conversion: a crate or a single egg), else 422 `RFQ_INVALID` `UOM_NOT_SOLD` or `INEXACT_QUANTITY`; an inactive product is `PRODUCT_NOT_ACTIVE` (B10, item 4). The text is stored as given and every screen shows it escaped. A request naming a product is `REQUEST_TO_BUY`, any other `PUBLIC_FORM`; it is linked to the live customer who holds the number, and belongs to the head office branch (A-309)."
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - ORIGIN_NOT_ALLOWED
+  - RATE_LIMITED
+  - RFQ_INVALID
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+security: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/PublicQuoteRequest"
+      example:
+        contactName: "Emmanuel Tetteh"
+        contactPhone: "+233268114590"
+        requirements: "Twenty goats of about 25 kg each for a funeral on 12 December in Prampram. Delivery needed on the 11th."
+        neededBy: "2026-12-11"
+        deliveryArea: Prampram
+        consentToContact: true
+responses:
+  "202":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/QuoteRequestReceived"
+        example:
+          rfqNo: RFQ-2026-DDW-000154
+          message: "Thank you. Kojo from our sales team will call you within one working day."
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

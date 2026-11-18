@@ -1,0 +1,336 @@
+operationId: listQuoteVersions
+tags:
+  - quo
+summary: "List every version of a quote"
+description: "Every version of a quote, newest first, each with its author (`createdBy`), time and totals (FR-QUO-006). An issued version never changes; the database refuses it.\n\nPermission: `quo.quote.read`."
+x-permission: quo.quote.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+  - NOT_FOUND
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/QuoteVersionPage"
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7b01-32ac-73a3-88dc-430d73d1bbeb"
+                  versionNo: 5
+                  status: ISSUED
+                  validUntil: "2026-11-20T18:00:00Z"
+                  terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
+                  deliveryEstimate: "Delivered to Prampram on 11 December, morning"
+                  deliveryFeePesewas: 6000
+                  taxInclusive: false
+                  netPesewas: 1716000
+                  taxPesewas: 1200
+                  grossPesewas: 1717200
+                  estimatedCostPesewas: 1188000
+                  marginPercent: "30.77"
+                  belowMarginFloor: false
+                  approvalRequestId: null
+                  changeNote: "Reduced to eighteen goats and added delivery"
+                  issuedAt: "2026-11-13T15:00:00Z"
+                  issuedBy:
+                    id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                    displayName: "Kojo Antwi"
+                  lines:
+                    - id: "019a7aff-fd56-70c1-a5f9-14e2b2e78dc0"
+                      lineNo: 1
+                      product:
+                        id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                        sku: LIV-0004
+                        name: Goat
+                      description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
+                      grade: null
+                      weightBand:
+                        id: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
+                        code: GOAT-M
+                        minKg: "18.000"
+                        maxKg: "28.000"
+                      stockUnit: null
+                      reservationId: null
+                      quantity: "18.000"
+                      uom: HEAD
+                      priceBasis: PER_HEAD
+                      resolvedUnitPricePesewas: 85000
+                      unitPricePesewas: 95000
+                      lineNetPesewas: 1710000
+                      estimatedUnitCostPesewas: 66000
+                      baseQuantity: "18.000"
+                  acceptance: null
+                  documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
+                  currency: GHS
+                  createdBy:
+                    id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+                    displayName: "Esi Appiah"
+                  createdAt: "2026-11-13T15:00:00Z"
+                  version: 1
+                  acceptanceLinkToken: null
+                - id: "019a7b01-708a-776a-aca2-7f7c6733f85a"
+                  versionNo: 4
+                  status: SUPERSEDED
+                  validUntil: "2026-11-17T18:00:00Z"
+                  terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
+                  deliveryEstimate: "Delivered to Prampram on 11 December, morning"
+                  deliveryFeePesewas: 6000
+                  taxInclusive: false
+                  netPesewas: 1906000
+                  taxPesewas: 1200
+                  grossPesewas: 1907200
+                  estimatedCostPesewas: 1320000
+                  marginPercent: "30.75"
+                  belowMarginFloor: false
+                  approvalRequestId: null
+                  changeNote: null
+                  issuedAt: "2026-11-11T15:00:00Z"
+                  issuedBy:
+                    id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                    displayName: "Kojo Antwi"
+                  lines:
+                    - id: "019a7af1-5e5f-743d-9975-4caa2e3ec588"
+                      lineNo: 1
+                      product:
+                        id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                        sku: LIV-0004
+                        name: Goat
+                      description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
+                      grade: null
+                      weightBand:
+                        id: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
+                        code: GOAT-M
+                        minKg: "18.000"
+                        maxKg: "28.000"
+                      stockUnit: null
+                      reservationId: null
+                      quantity: "20.000"
+                      uom: HEAD
+                      priceBasis: PER_HEAD
+                      resolvedUnitPricePesewas: 85000
+                      unitPricePesewas: 95000
+                      lineNetPesewas: 1900000
+                      estimatedUnitCostPesewas: 66000
+                      baseQuantity: "20.000"
+                  acceptance: null
+                  documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
+                  currency: GHS
+                  createdBy:
+                    id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+                    displayName: "Esi Appiah"
+                  createdAt: "2026-11-11T15:00:00Z"
+                  version: 1
+                  acceptanceLinkToken: null
+                - id: "019a7b01-8f79-714e-b686-1db3e0e49691"
+                  versionNo: 3
+                  status: SUPERSEDED
+                  validUntil: "2026-11-20T18:00:00Z"
+                  terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
+                  deliveryEstimate: "Delivered to Prampram on 11 December, morning"
+                  deliveryFeePesewas: 6000
+                  taxInclusive: false
+                  netPesewas: 1716000
+                  taxPesewas: 1200
+                  grossPesewas: 1717200
+                  estimatedCostPesewas: 1188000
+                  marginPercent: "30.77"
+                  belowMarginFloor: false
+                  approvalRequestId: null
+                  changeNote: "Reduced to eighteen goats and added delivery"
+                  issuedAt: "2026-11-13T15:00:00Z"
+                  issuedBy:
+                    id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                    displayName: "Kojo Antwi"
+                  lines:
+                    - id: "019a7aff-fd56-70c1-a5f9-14e2b2e78dc0"
+                      lineNo: 1
+                      product:
+                        id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                        sku: LIV-0004
+                        name: Goat
+                      description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
+                      grade: null
+                      weightBand:
+                        id: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
+                        code: GOAT-M
+                        minKg: "18.000"
+                        maxKg: "28.000"
+                      stockUnit: null
+                      reservationId: null
+                      quantity: "18.000"
+                      uom: HEAD
+                      priceBasis: PER_HEAD
+                      resolvedUnitPricePesewas: 85000
+                      unitPricePesewas: 95000
+                      lineNetPesewas: 1710000
+                      estimatedUnitCostPesewas: 66000
+                      baseQuantity: "18.000"
+                  acceptance: null
+                  documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
+                  currency: GHS
+                  createdBy:
+                    id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+                    displayName: "Esi Appiah"
+                  createdAt: "2026-11-13T15:00:00Z"
+                  version: 1
+                  acceptanceLinkToken: null
+                - id: "019a7b01-ae68-7b31-8069-bbeb5a9534c9"
+                  versionNo: 2
+                  status: SUPERSEDED
+                  validUntil: "2026-11-17T18:00:00Z"
+                  terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
+                  deliveryEstimate: "Delivered to Prampram on 11 December, morning"
+                  deliveryFeePesewas: 6000
+                  taxInclusive: false
+                  netPesewas: 1906000
+                  taxPesewas: 1200
+                  grossPesewas: 1907200
+                  estimatedCostPesewas: 1320000
+                  marginPercent: "30.75"
+                  belowMarginFloor: false
+                  approvalRequestId: null
+                  changeNote: null
+                  issuedAt: "2026-11-11T15:00:00Z"
+                  issuedBy:
+                    id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                    displayName: "Kojo Antwi"
+                  lines:
+                    - id: "019a7af1-5e5f-743d-9975-4caa2e3ec588"
+                      lineNo: 1
+                      product:
+                        id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                        sku: LIV-0004
+                        name: Goat
+                      description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
+                      grade: null
+                      weightBand:
+                        id: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
+                        code: GOAT-M
+                        minKg: "18.000"
+                        maxKg: "28.000"
+                      stockUnit: null
+                      reservationId: null
+                      quantity: "20.000"
+                      uom: HEAD
+                      priceBasis: PER_HEAD
+                      resolvedUnitPricePesewas: 85000
+                      unitPricePesewas: 95000
+                      lineNetPesewas: 1900000
+                      estimatedUnitCostPesewas: 66000
+                      baseQuantity: "20.000"
+                  acceptance: null
+                  documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
+                  currency: GHS
+                  createdBy:
+                    id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+                    displayName: "Esi Appiah"
+                  createdAt: "2026-11-11T15:00:00Z"
+                  version: 1
+                  acceptanceLinkToken: null
+                - id: "019a7b01-cd57-7515-9a4d-5a22d446d300"
+                  versionNo: 1
+                  status: SUPERSEDED
+                  validUntil: "2026-11-20T18:00:00Z"
+                  terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
+                  deliveryEstimate: "Delivered to Prampram on 11 December, morning"
+                  deliveryFeePesewas: 6000
+                  taxInclusive: false
+                  netPesewas: 1716000
+                  taxPesewas: 1200
+                  grossPesewas: 1717200
+                  estimatedCostPesewas: 1188000
+                  marginPercent: "30.77"
+                  belowMarginFloor: false
+                  approvalRequestId: null
+                  changeNote: "Reduced to eighteen goats and added delivery"
+                  issuedAt: "2026-11-13T15:00:00Z"
+                  issuedBy:
+                    id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                    displayName: "Kojo Antwi"
+                  lines:
+                    - id: "019a7aff-fd56-70c1-a5f9-14e2b2e78dc0"
+                      lineNo: 1
+                      product:
+                        id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                        sku: LIV-0004
+                        name: Goat
+                      description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
+                      grade: null
+                      weightBand:
+                        id: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
+                        code: GOAT-M
+                        minKg: "18.000"
+                        maxKg: "28.000"
+                      stockUnit: null
+                      reservationId: null
+                      quantity: "18.000"
+                      uom: HEAD
+                      priceBasis: PER_HEAD
+                      resolvedUnitPricePesewas: 85000
+                      unitPricePesewas: 95000
+                      lineNetPesewas: 1710000
+                      estimatedUnitCostPesewas: 66000
+                      baseQuantity: "18.000"
+                  acceptance: null
+                  documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
+                  currency: GHS
+                  createdBy:
+                    id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+                    displayName: "Esi Appiah"
+                  createdAt: "2026-11-13T15:00:00Z"
+                  version: 1
+                  acceptanceLinkToken: null
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

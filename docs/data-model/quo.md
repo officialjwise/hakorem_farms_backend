@@ -20,10 +20,13 @@ A request for quote. Posted statuses: `QUOTED`, `CLOSED`, `SPAM`.
 | `requirements` | `text` | NOT NULL | Free text: "twenty goats, about 25 kg each, for a funeral on the 14th" |
 | `product_id` | `uuid` | NULL, FK `mdm.product` | Set for a request to buy a listed product |
 | `stock_unit_id` | `uuid` | NULL, FK `inv.stock_unit` | A particular animal the buyer asked about |
+| `qty` | `qty` | NULL, CHECK `> 0`; with `uom`, and only with `product_id` (`ck_rfq_qty`) | B10, item 4: how many |
+| `uom` | `text` | NULL, FK `mdm.uom` | A unit the product is sold by, checked by the application (an exact conversion, B06u) |
 | `needed_by` | `date` | NULL | |
 | `delivery_area` | `text` | NULL | |
 | `assigned_to` | `uuid` | NULL, FK `iam.principal` | Salesperson |
 | `submitted_ip` | `inet` | NULL | Rate limiting and abuse review for the public form |
+| `consent_to_contact` | `boolean` | NOT NULL; true on a storefront request (`ck_rfq_public`) | |
 
 Standard columns: `DOCUMENT` (`status` in `NEW`, `IN_PROGRESS`, `QUOTED`, `CLOSED`, `SPAM`).
 
@@ -44,7 +47,8 @@ The quote as a whole. Its content is in versions. Posted statuses: `ACCEPTED`, `
 | `current_version_no` | `integer` | NOT NULL DEFAULT 1 | |
 | `accepted_version_id` | `uuid` | NULL, FK `quo.quote_version` | |
 | `converted_order_id` | `uuid` | NULL, UNIQUE, FK `ord.sales_order` | A quote converts to exactly one order |
-| `decline_reason` | `text` | NULL | |
+| `decline_reason` | `text` | NULL; set exactly when `DECLINED` | |
+| `cancel_reason` | `text` | NULL; set exactly when `CANCELLED` | B10 |
 
 Standard columns: `DOCUMENT` (`status` in `DRAFT`, `PENDING_APPROVAL`, `ISSUED`, `ACCEPTED`, `DECLINED`, `EXPIRED`, `CONVERTED`, `CANCELLED`).
 
@@ -67,18 +71,18 @@ One revision. Immutable once issued; a change is a new version. Posted statuses:
 | `tax_pesewas` | `pesewas` | NOT NULL DEFAULT 0 | Estimate from the tax calculator |
 | `gross_pesewas` | `pesewas` | NOT NULL DEFAULT 0 | |
 | `estimated_cost_pesewas` | `pesewas` | NULL | For margin |
-| `margin_percent` | `percent` | NULL | |
+| `margin_percent` | `numeric(9,2)` | NULL | Margin over cost; may be negative or above 100, so not `percent` (A-309 (c)) |
 | `below_margin_floor` | `boolean` | NOT NULL DEFAULT `false` | |
 | `approval_request_id` | `uuid` | NULL, FK `iam.approval_request`; required to issue when `below_margin_floor` | |
+| `approved_by`, `approved_at` | `uuid`, `timestamptz` | NULL, together; never the author nor the issuer (`ck_quote_version_margin_approved`) | B10, FR-QUO-005 |
 | `change_note` | `text` | NULL | What changed from the previous version |
-| `acceptance_token_hash` | `bytea` | NULL | Hash of the token in the signed acceptance link |
 | `issued_at` | `timestamptz` | NULL | |
 | `issued_by` | `uuid` | NULL, FK `iam.principal` | |
 | `archived_document_id` | `uuid` | NULL, FK `doc.archived_document` | The PDF sent |
 | `created_at` | `timestamptz` | NOT NULL DEFAULT `now()` | |
 | `created_by` | `uuid` | NOT NULL, FK `iam.principal` | |
 
-- UNIQUE (`quote_id`, `version_no`). Issuing a version sets earlier issued versions to `SUPERSEDED`.
+- UNIQUE (`quote_id`, `version_no`); at most one `ISSUED` and one open (`DRAFT`, `PENDING_APPROVAL`) version per quote. Issuing a version sets the issued one to `SUPERSEDED`. Issued, a version is frozen but for its status (`ck_quote_version_frozen`, HK004). The acceptance link's token hash is in `quo.quote_link_token` (ADR-0087).
 
 ### `quo.quote_line` · DOCUMENT
 
@@ -96,14 +100,16 @@ Frozen with its version.
 | `stock_unit_id` | `uuid` | NULL, FK `inv.stock_unit` | A particular animal offered |
 | `reservation_id` | `uuid` | NULL, FK `inv.stock_reservation` | Held for the quote's validity |
 | `qty` | `qty` | NOT NULL, CHECK `> 0` | |
-| `uom` | `text` | NOT NULL, FK `mdm.uom` | |
+| `uom` | `text` | NOT NULL, FK `mdm.uom` | The line's own unit: a crate or a single egg (CR-045) |
+| `base_qty` | `qty` | NULL exactly on a free-text line | The quantity in the product's base unit, what is reserved |
 | `price_basis` | `text` | NOT NULL, CHECK in (`PER_HEAD`, `PER_KG`, `PER_UNIT`) | |
-| `resolved_unit_price_pesewas` | `pesewas` | NULL | What the engine offered, if it resolved |
+| `resolved_unit_price_pesewas` | `pesewas` | NULL | What the engine offered for the line's unit, if it resolved |
+| `resolved_floor_unit_price_pesewas` | `pesewas` | NULL, with the price | The engine's floor: a quoted price below it needs the approval |
 | `unit_price_pesewas` | `pesewas` | NOT NULL | The quoted price |
 | `line_net_pesewas` | `pesewas` | NOT NULL | |
 | `estimated_unit_cost_pesewas` | `pesewas` | NULL | |
 
-- UNIQUE (`quote_version_id`, `line_no`).
+- UNIQUE (`quote_version_id`, `line_no`). Written, changed or removed only while the version is a `DRAFT`; the reservation is named once before issue (`ck_quote_line_frozen`).
 
 ### `quo.quote_acceptance` · LEDGER
 
@@ -117,6 +123,21 @@ The customer’s acceptance of a quote version.
 | `accepted_name` | `text` | NOT NULL | Who accepted |
 | `ip` | `inet` | NULL | For a link acceptance |
 | `user_agent` | `text` | NULL | |
+| `note` | `text` | NULL; required unless `SIGNED_LINK` (`ck_quote_acceptance_note`) | FR-QUO-010's evidence |
 | `accepted_at` | `timestamptz` | NOT NULL | |
+| `recorded_at`, `actor_id` | | NOT NULL | |
 
 Standard columns: `LEDGER`. For a link acceptance the actor is the system principal for public endpoints.
+
+### `quo.quote_link_token` · LEDGER
+
+The acceptance links of a version (B10, CR-047, ADR-0074, ADR-0087): one row per token made, by an issue call or a send.
+
+| Column | Type | Constraints | Why |
+| --- | --- | --- | --- |
+| `id` | `uuid` | PK | |
+| `quote_version_id` | `uuid` | NOT NULL, FK `quo.quote_version`; an `ISSUED` version only | |
+| `token_hash` | `bytea` | NOT NULL, UNIQUE, 32 bytes | SHA-256 of the token; the token itself is never stored |
+| `recorded_at` | `timestamptz` | NOT NULL | |
+| `expires_at` | `timestamptz` | NOT NULL, after `recorded_at`, no later than the version's `valid_until` | |
+| `actor_id` | `uuid` | NOT NULL, FK `iam.principal` | |

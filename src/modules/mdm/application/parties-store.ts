@@ -136,9 +136,23 @@ export interface PartiesStore {
 
   livePriceList(tx: Transaction, id: string): Promise<PriceListFacts | null>;
   liveAssignments(tx: Transaction, customerId: string): Promise<AssignmentWindow[]>;
+  /** A customer's price list assignments in force at `at` or starting later, oldest first (CR-041); null for no live customer. */
+  customerAssignments(tx: Transaction, customerId: string, at: Date): Promise<AssignmentRecord[] | null>;
+  /** The live customers who hold a price list at `at` or later, by assignment id (CR-041). */
+  priceListHolders(tx: Transaction, priceListId: string, at: Date, afterId: string | null, limit: number): Promise<AssignmentRecord[]>;
+  priceListExists(tx: Transaction, priceListId: string): Promise<boolean>;
   endAssignment(tx: Transaction, id: string, validTo: Date, actorId: string): Promise<void>;
   archiveAssignment(tx: Transaction, id: string, reason: string, actorId: string, now: Date): Promise<void>;
   insertAssignment(tx: Transaction, id: string, write: { readonly customerId: string; readonly priceListId: string; readonly validFrom: Date; readonly validTo: Date | null }, actorId: string): Promise<void>;
 }
 
 export const PARTIES_STORE = Symbol('PARTIES_STORE');
+
+/** One price list assignment as CR-041's reads answer it. */
+export interface AssignmentRecord {
+  readonly id: string;
+  readonly customer: { readonly id: string; readonly publicId: string; readonly name: string };
+  readonly priceList: { readonly id: string; readonly code: string; readonly name: string };
+  readonly validFrom: Date;
+  readonly validTo: Date | null;
+}

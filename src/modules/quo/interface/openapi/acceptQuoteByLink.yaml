@@ -1,0 +1,57 @@
+operationId: acceptQuoteByLink
+tags:
+  - quo
+summary: "Accept a quote by its signed link"
+description: "Accepts the live version by its token, once (FR-QUO-008, CR-047): records the name given, the time and the address and user agent of the request. A second use is 409 `QUOTE_ALREADY_DECIDED` (also after a decline); a token whose version was replaced, has expired or was withdrawn is 422 `QUOTE_LINK_CLOSED` with its state; anything else 404. Accepted, the quote's hold on stock lasts until it is converted or withdrawn (A-310)."
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - ORIGIN_NOT_ALLOWED
+  - RATE_LIMITED
+  - NOT_FOUND
+  - QUOTE_ALREADY_DECIDED
+  - QUOTE_LINK_CLOSED
+parameters:
+  - name: token
+    in: path
+    required: true
+    schema:
+      type: string
+  - $ref: "#/components/parameters/IdempotencyKey"
+security: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/QuoteAcceptByLink"
+      example:
+        acceptedName: "Emmanuel Tetteh"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/QuoteDecision"
+        example:
+          quoteNo: QUO-2026-DDW-000088
+          versionNo: 2
+          status: ACCEPTED
+          message: "Thank you. We will call you to arrange the deposit and delivery."
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

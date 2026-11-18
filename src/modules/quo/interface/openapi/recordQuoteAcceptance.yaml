@@ -1,0 +1,121 @@
+operationId: recordQuoteAcceptance
+tags:
+  - quo
+summary: "Record an acceptance given in person or by phone"
+description: "An acceptance given in person or by phone (FR-QUO-010), with the buyer's name and a note of the evidence, identical in effect to a link acceptance. Without a `note` it is 422 `QUOTE_INVALID` `NOTE_REQUIRED`. Refused as a link would be: 409 `QUOTE_ALREADY_DECIDED`, 422 `QUOTE_LINK_CLOSED` (`EXPIRED`, `REPLACED`, `WITHDRAWN`).\n\nPermission: `quo.quote.issue`."
+x-permission: quo.quote.issue
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - NOT_FOUND
+  - INVALID_STATE_TRANSITION
+  - QUOTE_ALREADY_DECIDED
+  - QUOTE_LINK_CLOSED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/QuoteAcceptanceRecord"
+      example:
+        method: PHONE_CONFIRMED
+        acceptedName: "Emmanuel Tetteh"
+        note: "Confirmed by phone at 10:40; asked for delivery on the 11th"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Quote"
+        example:
+          id: "019a7b00-5a23-7e6b-93a3-ef891ffa6867"
+          quoteNo: QUO-2026-DDW-000086
+          status: ACCEPTED
+          rfqId: null
+          customer:
+            id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
+            publicId: cus_TS4VEDD3ZZNAAQGD
+            name: "Asantewaa Chop Bar"
+          contactName: "Asantewaa Chop Bar"
+          contactPhone: "+233557018924"
+          salesperson:
+            id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+            displayName: "Kojo Antwi"
+          productLine: MEAT
+          currentVersion:
+            id: "019a7b00-7912-784e-ad87-8dc099ab069e"
+            versionNo: 1
+            status: ACCEPTED
+            validUntil: "2026-11-20T18:00:00Z"
+            terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
+            deliveryEstimate: "Delivered to Prampram on 11 December, morning"
+            deliveryFeePesewas: 0
+            taxInclusive: false
+            netPesewas: 642000
+            taxPesewas: 84800
+            grossPesewas: 726800
+            estimatedCostPesewas: null
+            marginPercent: null
+            belowMarginFloor: false
+            approvalRequestId: null
+            changeNote: null
+            issuedAt: "2026-11-13T15:00:00Z"
+            issuedBy:
+              id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+              displayName: "Kojo Antwi"
+            lines: []
+            acceptance: null
+            documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
+            currency: GHS
+            createdBy:
+              id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+              displayName: "Esi Appiah"
+            createdAt: "2026-11-13T15:00:00Z"
+            version: 1
+            acceptanceLinkToken: null
+          versionCount: 1
+          acceptedVersionId: "019a7b00-7912-784e-ad87-8dc099ab069e"
+          convertedOrder: null
+          declineReason: null
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 4
+          createdAt: "2026-11-09T10:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
