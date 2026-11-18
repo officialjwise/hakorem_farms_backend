@@ -1,6 +1,6 @@
--- 0264_iam_seed_whl_ageing_dunning_permissions
+-- 0266_iam_seed_whl_ageing_dunning_permissions
 -- B10 continued 2 (FR-WHL-010, FR-WHL-011, CR-048, ADR-0035): the permissions of the ageing report and the dunning
--- operations, as contract/openapi.yaml names them. Granted to no role here; 0265 grants them.
+-- operations, as contract/openapi.yaml names them. Granted to no role here; 0267 grants them.
 -- Data category: none (lookup rows).
 -- Rollback: tested (`pnpm db:rollback`).
 

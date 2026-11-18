@@ -72,7 +72,7 @@ export function figuresView(f: AgeingFigures): AgeingFiguresView {
 /**
  * Receivables ageing as at a date (FR-WHL-010, SA-21, ADR-0089). Each invoice, receipt and debit note issued to a
  * customer by the date (BIL's, with its credit notes issued by then) less what payments had applied to it by then
- * (PAY's allocations, each dated by its business day, migration 0262) goes whole into the band of its days past due,
+ * (PAY's allocations, each dated by its business day, migration 0264) goes whole into the band of its days past due,
  * counted from its due date (or its issue date when it has none). Beside the buckets, each customer's 1200 balance as at
  * the same date (FIN's), and what 1200 holds that no open item explains, so the report ties to the receivables control
  * account exactly and a difference is never hidden in a bucket. Read only, at the branches the reader holds

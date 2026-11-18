@@ -8,7 +8,7 @@ import { consoleGet, consolePut, createUser, enrolAndLogin, relaxRateLimits, tes
 import { startTestApp, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
 
-/** WHL's ageing and dunning operations and the statement with its ageing summary (B10 continued 2) answer in the shapes of contract/openapi.yaml 2.15.0. */
+/** WHL's ageing and dunning operations and the statement with its ageing summary (B10 continued 2) answer in the shapes of contract/openapi.yaml 2.16.0. */
 let database: TestDatabase;
 let api: TestApp;
 let accountant: TestSession;

@@ -473,7 +473,7 @@ The "Source" column says where the code comes from. **Contract** means the code 
 | `ACCOUNT_ON_HOLD` | 422 | A credit order of a business account on hold, the details as above (2.14.0, CR-046) |
 | `ACCOUNT_INVALID` | 422 | A business account cannot be opened or changed like this: `CUSTOMER_UNKNOWN`, `BRANCH_REQUIRED`, `MANAGER_UNKNOWN`, `ACCOUNT_ON_HOLD`, `ACCOUNT_CLOSED`, `NOT_ON_HOLD`, `ALREADY_ON_HOLD`, `APPROVAL_PENDING`, `PRICE_LIST_THROUGH_MDM` (2.14.0) |
 | `ACCOUNT_EXISTS` | 409 | The customer has a business account already (2.14.0, FR-WHL-001) |
-| `DUNNING_POLICY_INVALID` | 422 | Reminder levels that cannot be used: `LEVELS_NOT_CONSECUTIVE`, `DAYS_NOT_INCREASING`, `CHANNEL_REPEATED` (2.15.0, FR-WHL-011) |
+| `DUNNING_POLICY_INVALID` | 422 | Reminder levels that cannot be used: `LEVELS_NOT_CONSECUTIVE`, `DAYS_NOT_INCREASING`, `CHANNEL_REPEATED` (2.16.0, FR-WHL-011) |
 
 #### Payments, billing and purchasing (Added)
 
@@ -1045,9 +1045,9 @@ Public `submitQuoteRequest` (rate-limited by address and phone), `viewQuoteByLin
 
 Business accounts with credit limits and holds (`updateBusinessAccount` may return 202), credit overrides, standing orders with their runs, statements (`createStatement`, `sendStatement`), ageing, the dunning policy and notices, and bad-debt write-offs (`writeOffBadDebt`, always approval). Totals such as `totalOutstandingPesewas` come from the API.
 
-**As built in B10 continued 2 (2.15.0; A-317, A-318, ADR-0089, CR-048).** Four operations move into code: `getAgeingReport` (`whl.ageing.read`: the Owner, the Manager, Sales and the Accountant), `listDunningLevels` and `listDunningNotices` (`whl.dunning.read`, the same four) and `replaceDunningLevels` (`whl.dunning.manage`: the Owner and the Manager).
+**As built in B10 continued 2 (2.16.0; A-317, A-318, ADR-0089, CR-048).** Four operations move into code: `getAgeingReport` (`whl.ageing.read`: the Owner, the Manager, Sales and the Accountant), `listDunningLevels` and `listDunningNotices` (`whl.dunning.read`, the same four) and `replaceDunningLevels` (`whl.dunning.manage`: the Owner and the Manager).
 - **Ageing as at a date:** `asOf` (today when left out) ages each invoice, receipt and debit note issued by then, less its credit notes and the payments applied by then, whole into Current, 1 to 30, 31 to 60, 61 to 90 or over 90 days past its due date (its issue date when it has none). Each row carries the customer's 1200 as at the date (`ledgerPesewas` or `ledgerCreditPesewas`) and what 1200 holds beyond the open items (`notAgedPesewas`, `notAgedCreditPesewas`, never in a bucket): `totalPesewas` plus not aged less not aged credit is the ledger exactly. `totals` covers every customer the filter matches, the till's walk-in customer included as `otherPartiesPesewas` (no row). Rows are by customer name.
-- **The statement's summary:** `CustomerStatement.ageing` (new, `StatementAgeing`) is the ageing at the statement's branch as at its period end, frozen with it and tied by the database to its closing; null on a statement issued before 2.15.0. Template version 2 prints it. Deposits (2200) are not on the statement (A-317 (d)).
+- **The statement's summary:** `CustomerStatement.ageing` (new, `StatementAgeing`) is the ageing at the statement's branch as at its period end, frozen with it and tied by the database to its closing; null on a statement issued before 2.16.0. Template version 2 prints it. Deposits (2200) are not on the statement (A-317 (d)).
 - **Dunning:** the levels are replaced whole (422 `DUNNING_POLICY_INVALID`: `LEVELS_NOT_CONSECUTIVE`, `DAYS_NOT_INCREASING`, `CHANNEL_REPEATED`); the worker's `dunning` job (daily, 08:00 Accra) queues to each invoice or debit note of a business account still owed the highest level it has reached, once per level, never below one already sent (`DunningNotice` gains `daysPastDue` and `templateCode`; `sentAt` is when it was queued). NTF sends it in B11, skipping an opted-out channel.
 
 **As built in B10 continued (2.14.0; A-313, A-314, ADR-0088, CR-046, CR-048).** Nine operations are in code: `listBusinessAccounts`, `getBusinessAccount` (`whl.account.read`: the Owner, the Manager, Sales and the Accountant), `createBusinessAccount`, `updateBusinessAccount` (`whl.account.manage`: the Owner and the Manager), `holdBusinessAccount` (`whl.account.hold`: the Owner, the Manager and the Accountant), `releaseBusinessAccount` (`whl.account.release`: the Owner and the Manager), `listCreditOverrides` (`whl.account.read`), and on the order's path `getOrderCreditCheck` (`ord.order.read`) and `requestCreditOverride` (`ord.order.confirm`), each authorised in the handler at the account's or the order's branch.
@@ -1062,7 +1062,7 @@ Business accounts with credit limits and holds (`updateBusinessAccount` may retu
 - **Lines** start with the brought-forward line and follow the ledger; each is named by its source document's number, or `Payment` or `Journal` and its journal's number. A `listStatements` row has no lines; `getStatement` has them all.
 - **Issue once:** `issue: true` numbers it from its branch's `STATEMENT` series (`STM-2026-DDW-000031`), then DOC renders and archives it after commit; `documentId` is null until then. One issued statement exists per customer, branch and period: asking again answers it as it stands. `issue: false` stores a draft with no number and no rendering.
 - **Branch:** `branchId` is optional when the caller produces statements at one branch only (`STATEMENT_INVALID`, `BRANCH_REQUIRED`). The period ends today at the latest and spans at most 366 days.
-- **Not yet:** `sendStatement` (B11, ADR-0062). The ageing summary arrived in 2.15.0 (above).
+- **Not yet:** `sendStatement` (B11, ADR-0062). The ageing summary arrived in 2.16.0 (above).
 
 ### Delivery (`del`, 25)
 

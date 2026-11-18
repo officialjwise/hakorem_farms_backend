@@ -1,6 +1,6 @@
 # B10 continued 2: ageing, the statement's ageing summary and dunning (lane B), split before standing orders and the quote pipeline
 
-Date: 2026-11-18 · Branch `b10c2-ageing-dunning-standing-orders`, from `main` at `97e562f` (B10 continued, #111) · Status: **gate as split passed locally; the phase split at its sub-domain boundary (A-319).**
+Date: 2026-11-18 · Branch `b10c2-ageing-dunning-standing-orders`, from `main` at `97e562f` (B10 continued, #111), rebased at the merge slot on `main` at `c3c115a` (lane A's B09b continued 2c, #112: migrations renumbered 0264 to 0268 above lane A's 0262 and 0263, contract 2.16.0 above lane A's 2.15.0) · Status: **gate as split passed locally; the phase split at its sub-domain boundary (A-319).**
 
 Run as a fresh agent inside the 2026-11-15 overnight session: the parent session cannot issue /clear or /compact, so each phase starts in a new context that reads only this handoff from disk.
 
@@ -8,7 +8,7 @@ Run as a fresh agent inside the 2026-11-15 overnight session: the parent session
 
 | ID | What | Who confirms |
 | --- | --- | --- |
-| A-317 | **Ageing and the statement's summary (ADR-0089):** (a) as at a date, from BIL's documents with their credit notes by then and PAY's allocations dated by the application clock's business day (`allocated_on`, 0262; older rows by `recorded_at`'s day), each balance whole in its band of days past due from the due date (issue date when none); (b) **SA-21's day counts win over FR-WHL-010's example**: an invoice due 14 October is 61 days past due on 14 December, so it is in **61 to 90**, not 31 to 60 (31 to 60 runs to 13 December); (c) what 1200 holds beyond the open items (an opening balance journal, a refund, an allocation at another branch) is shown as **not aged**, never put into a bucket, so the report ties to 1200 exactly; the till's walk-in customer is in the totals as `otherPartiesPesewas`; (d) **A-300 (i) decided the conservative way: the statement stays 1200 only, no deposit (2200) or store credit (2210) figure, nothing on it changes; flagged for the owner** (whether to show money on deposit as a figure apart); the summary is stored with the statement, tied by the database to its closing; (e) read by the Owner, the Manager, Sales and the Accountant (CR-048). | Accountant (a, b, c), **Owner (d)**, Owner (e) |
+| A-317 | **Ageing and the statement's summary (ADR-0089):** (a) as at a date, from BIL's documents with their credit notes by then and PAY's allocations dated by the application clock's business day (`allocated_on`, 0264; older rows by `recorded_at`'s day), each balance whole in its band of days past due from the due date (issue date when none); (b) **SA-21's day counts win over FR-WHL-010's example**: an invoice due 14 October is 61 days past due on 14 December, so it is in **61 to 90**, not 31 to 60 (31 to 60 runs to 13 December); (c) what 1200 holds beyond the open items (an opening balance journal, a refund, an allocation at another branch) is shown as **not aged**, never put into a bucket, so the report ties to 1200 exactly; the till's walk-in customer is in the totals as `otherPartiesPesewas`; (d) **A-300 (i) decided the conservative way: the statement stays 1200 only, no deposit (2200) or store credit (2210) figure, nothing on it changes; flagged for the owner** (whether to show money on deposit as a figure apart); the summary is stored with the statement, tied by the database to its closing; (e) read by the Owner, the Manager, Sales and the Accountant (CR-048). | Accountant (a, b, c), **Owner (d)**, Owner (e) |
 | A-318 | **Dunning:** (a) only invoices and debit notes of customers with a business account (held or not, never closed); (b) the highest level reached, once per level per document, never a lower one after a higher, held by the database; (c) queued through the outbox (`whl.DunningNoticeDue`) in one transaction per account; **NTF (B11) sends it and skips an opted-out channel for the next** (NTF's opt-outs do not exist yet); (d) daily at 08:00 Accra; (e) read by the four roles, levels replaced by the Owner and the Manager only, no step-up; (f) the seed sets 7, 14 and 30 days; an unseeded farm sends nothing until levels are set. | Owner, Accountant (a) |
 | A-319 | **The split:** ageing, the statement's summary with A-300 (i) and dunning built; standing orders (FR-WHL-004), the bad-debt write-off (FR-WHL-012), QUO's remainder (document, pipeline, `listMyQuotes`, CR-047 point 2), the owner's QUO decisions of 2026-11-18 (several live links; subject to stock after ADR-0019) and UAT scenario 2's dry run move to **B10 continued 3** (`b10c3-standing-orders-quote-pipeline`), before B11. | Owner |
 
@@ -21,7 +21,7 @@ Phase, scope and gate, as confirmed at the start:
 
 ## Contract changes
 
-**2.15.0, minor, additive** (on top of 2.14.0; `scripts/contract/versioning.ts` against `main`: ok; Redocly clean, no warning; `contract:generate` up to date: 489 operations from code, 159 planned, 648 in all).
+**2.16.0, minor, additive** (on top of lane A's 2.15.0, renumbered at the merge slot; `scripts/contract/versioning.ts` against `main`: ok; Redocly clean, no warning; `contract:generate` up to date: 489 operations from code, 159 planned, 648 in all).
 - **Into code:** `getAgeingReport`, `listDunningLevels`, `replaceDunningLevels`, `listDunningNotices`.
 - **Planned shapes widened before any client used them:** `AgeingRow` and `AgeingTotals` gain `ledgerPesewas`, `ledgerCreditPesewas`, `notAgedPesewas`, `notAgedCreditPesewas`; `AgeingReport` gains `otherPartiesPesewas`, `otherPartiesCreditPesewas`; `DunningNotice` gains `daysPastDue`, `templateCode`; the level 2 example is 14 days.
 - **Implemented operations:** `CustomerStatement.ageing` (new `StatementAgeing`), a new required, nullable response field on `listStatements`, `createStatement`, `getStatement`; null on a statement issued before.
@@ -31,7 +31,7 @@ Phase, scope and gate, as confirmed at the start:
 
 | Item | What |
 | --- | --- |
-| Schema | 0262 (`pay.payment_allocation.allocated_on`, defaulted from the application clock), 0263 (the statement's eight ageing columns with `ck_statement_ageing_set` and `ck_statement_ageing_ties`; `whl.dunning_policy` MASTER; `whl.dunning_notice` LEDGER with `uq_dunning_notice_level` and `whl.dunning_notice_check`, HK010 `ck_dunning_notice_order`), 0264 (three permissions), 0265 (grants per CR-048), 0266 (statement template version 2 with the ageing section; version 1 retired only if still active). |
+| Schema | 0264 (`pay.payment_allocation.allocated_on`, defaulted from the application clock), 0265 (the statement's eight ageing columns with `ck_statement_ageing_set` and `ck_statement_ageing_ties`; `whl.dunning_policy` MASTER; `whl.dunning_notice` LEDGER with `uq_dunning_notice_level` and `whl.dunning_notice_check`, HK010 `ck_dunning_notice_order`), 0266 (three permissions), 0267 (grants per CR-048), 0268 (statement template version 2 with the ageing section; version 1 retired only if still active). |
 | Domain | `whl/domain/ageing.ts` (`bucketOf`, `ageCustomer`, `sumAgeing`), `whl/domain/dunning.ts` (`levelDue`, `judgeLevels`, `byLevel`), `statementRenderData`'s ageing, `pageFrom`. Under WHL's 100 percent domain gate. |
 | WHL | `Ageing` (the report; `customerIn` for the statement), `Dunning` (levels, replace, notices, the job), `ReceivablesController`, `PgDunningStore`; `Statements` stores and answers the summary. The worker's `dunning` job, daily 08:00. |
 | PAY, BIL, FIN (additive) | `AllocationsAsAt.netAppliedIn` (new class), `Billing.receivablesAsAtIn`, `Journals.customerReceivableBalancesIn`. Lane A's files untouched (`sale-posting.ts`, PAY's till rules). |
@@ -55,7 +55,7 @@ Phase, scope and gate, as confirmed at the start:
 
 **Unit:** `ageing.spec.ts` (11), `dunning.spec.ts` (9), the statement's printed summary (3), `pageFrom` (1).
 
-**Walks extended:** `iam/authorisation` (the four routes and the PUT body), `bil/archive-link-rollback` (0262 to 0266 rolled back and applied), `platform/seed` (21 units), the contract's request schemas and operation count; new `test/contract/b10c2/ageing-dunning.contract.spec.ts`.
+**Walks extended:** `iam/authorisation` (the four routes and the PUT body), `bil/archive-link-rollback` (0264 to 0268 rolled back and applied), `platform/seed` (21 units), the contract's request schemas and operation count; new `test/contract/b10c2/ageing-dunning.contract.spec.ts`.
 
 ## Mutation checks (each applied alone, the gate spec run, the source restored)
 
@@ -99,14 +99,15 @@ To **B10 continued 3**: standing orders, the bad-debt write-off, QUO's document,
 
 | Layer | Result |
 | --- | --- |
-| Unit and integration, merged (`pnpm test:coverage`) | **3,608 passed**, 298 files, none skipped, on `64c3893`. Statements 94.10 percent, branches 83.91 (the gate is 80), functions 97.81, lines 96.95; every 100 percent gate held, WHL's domain (`ageing.ts`, `dunning.ts`, `paging.ts`, `credit.ts`, `time.ts`, `statement.ts`) included. **The first full run was red on 5 tests in 2 files**, each a consequence of this phase, fixed in `64c3893` before the next run and never re-run to green: 0266's down step tried to make retired template version 1 active again, which DOC's guard refuses (HK004), breaking the migration runner's full rollback (4 tests); and the identifier walk did not yet list the two dunning level operations as taking no identifier. |
+| Unit and integration, merged (`pnpm test:coverage`) | **3,608 passed**, 298 files, none skipped, on `64c3893`. Statements 94.10 percent, branches 83.91 (the gate is 80), functions 97.81, lines 96.95; every 100 percent gate held, WHL's domain (`ageing.ts`, `dunning.ts`, `paging.ts`, `credit.ts`, `time.ts`, `statement.ts`) included. **The first full run was red on 5 tests in 2 files**, each a consequence of this phase, fixed in `64c3893` before the next run and never re-run to green: 0268's down step tried to make retired template version 1 active again, which DOC's guard refuses (HK004), breaking the migration runner's full rollback (4 tests); and the identifier walk did not yet list the two dunning level operations as taking no identifier. |
+| After the rebase on `c3c115a`, at the merge slot | Unit **1,766 passed** (149 files); the affected integration suites (WHL, PAY, POS, BIL, platform, the authorisation and identifier walks) **471 passed** (48 files); contract **131 passed** (50 files); typecheck, `contract:generate`, Redocly and versioning against `main` clean. |
 | Contract (`pnpm test:contract`) | **131 passed**, 50 files, with the new `test/contract/b10c2/ageing-dunning.contract.spec.ts`. The first contract run was red on 2 tests in 3 files, each this phase's: the operation count (now 489 in code, 159 planned), the request schema of `replaceDunningLevels` not yet in the walk, and the new spec signing in the Accountant without TOTP enrolment; fixed before the next run. |
 | Lint (module boundaries, fixtures, placement, schema names), typecheck, Redocly (no warning), `contract:generate`, versioning against `main` | Clean. |
 | End to end, setup, the image, the scans, the last migration rolled back and applied | Run in CI; the runs are named in the closing message. |
 
 ## Notes for the frontend track
 
-- **2.15.0:** the ageing screen can use `getAgeingReport`: show the five buckets and the total from the server, and `notAgedPesewas` (or its credit) as "not on any open invoice" when not nil; `totals` is over the whole filter.
+- **2.16.0:** the ageing screen can use `getAgeingReport`: show the five buckets and the total from the server, and `notAgedPesewas` (or its credit) as "not on any open invoice" when not nil; `totals` is over the whole filter.
 - **Statements:** `ageing` is the summary as at the period end; null on older statements.
 - **Dunning:** levels are replaced whole by the Owner or a Manager; notices show level, days past due and the channels; they are queued, and sent by NTF from B11.
 

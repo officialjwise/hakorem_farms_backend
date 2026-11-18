@@ -33,7 +33,7 @@ export interface DunningNoticeFilter {
   readonly from: Date | null;
 }
 
-/** WHL's ageing and dunning reads and writes (migration 0263); the guard of `whl.dunning_notice` decides too. */
+/** WHL's ageing and dunning reads and writes (migration 0265); the guard of `whl.dunning_notice` decides too. */
 export interface DunningStore {
   accountsOf(tx: Transaction, customerIds: readonly string[]): Promise<ReadonlyMap<string, AccountFacts>>;
   /** Customers whose account names this account manager. */

@@ -34,9 +34,9 @@ facts shaped the choice:
 
 Option 3.
 
-- **PAY dates each allocation** (`pay.payment_allocation.allocated_on`, migration 0262): the Africa/Accra day of
+- **PAY dates each allocation** (`pay.payment_allocation.allocated_on`, migration 0264): the Africa/Accra day of
   `platform.app_now()`, the application clock the unit of work sets, written as a column default so no writer changes;
-  the same instant the allocation's journal (`pay.DepositAllocated`) is dated from. Rows written before 0262 are read as
+  the same instant the allocation's journal (`pay.DepositAllocated`) is dated from. Rows written before 0264 are read as
   the Accra day of their `recorded_at`. PAY's new `AllocationsAsAt.netAppliedIn` sums applied less taken off, by document.
 - **BIL** adds `Billing.receivablesAsAtIn` (issued invoices, receipts and debit notes to a named customer by the date,
   with their credit notes issued by then); **FIN** adds `Journals.customerReceivableBalancesIn` (each customer's signed
@@ -50,7 +50,7 @@ Option 3.
   reader holds the permission for as a whole, by customer name, with totals over the whole filter; 1200 against a party
   MDM holds no customer for is in the totals and named apart (`otherPartiesPesewas`), on no row.
 - **The statement** stores its summary as at its period end at its branch, frozen with it; the database holds that it
-  ties to the statement's closing (`ck_statement_ageing_ties`, migration 0263). Template version 2 prints it (0266).
+  ties to the statement's closing (`ck_statement_ageing_ties`, migration 0265). Template version 2 prints it (0268).
 - **No `whl.ageing_snapshot`.** The table is not built; the data model says so.
 
 ## Consequences

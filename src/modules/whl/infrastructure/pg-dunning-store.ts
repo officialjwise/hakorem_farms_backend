@@ -27,7 +27,7 @@ const noticeOf = (r: RawNotice): DunningNoticeRecord => ({
   queuedAt: r.queued_at,
 });
 
-/** WHL's ageing and dunning tables (migration 0263). Parameterised SQL only. */
+/** WHL's ageing and dunning tables (migration 0265). Parameterised SQL only. */
 export class PgDunningStore implements DunningStore {
   async accountsOf(tx: Transaction, customerIds: readonly string[]): Promise<ReadonlyMap<string, AccountFacts>> {
     if (customerIds.length === 0) return new Map();
