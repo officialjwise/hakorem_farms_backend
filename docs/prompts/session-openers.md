@@ -2662,6 +2662,25 @@ CR-041 (owner, 2026-11-17, F10f): who holds a buyer's price list. getCustomerPri
 /customers/{id}/price-list, mdm.customer.read): the buyer's assignments, current and future; listPriceListAssignments
 (GET /price-lists/{id}/assignments): the buyers who hold a list, with their windows; and PriceListEntry.baseUom, the
 unit minQtyBase is in. Both reads are authorised and join the contract-generated identifier walk (B09q continued).
+The owner, 2026-11-17, from the frontend's F10i (answer CR-045 to CR-047 in the report as committed on the frontend's
+main; if one is not there yet, build from these words and say so), each test-first:
+1. CR-045: a quote line names its unit (a crate or a single egg), priced by that unit's own entry, never derived from
+   another unit's price; converted to the base unit through MasterDataRefs.toBaseIn for the reservation.
+2. CR-046: an order over the customer's credit limit or past their terms does not go through. An approval request in
+   place of a plain refusal is kept, but the response carries the amount over the limit and the reason (over limit,
+   past terms, or both), the order stays blocked until approved, the override needs a written reason, and the
+   approver is never the person who asked (mutation-checked). Exact pesewas at the limit, one pesewa over, and past
+   terms by one day.
+3. CR-047: the quote link carries its own long random token (ADR-0074: at least 128 bits, stored only as its hash,
+   with an expiry), never the quote's id or number, with clear states the public read answers: expired, replaced (a
+   newer version), accepted and declined. Accepted once only, by the token of the live version; test that a replaced
+   version's token, an expired one, a guessed one and the quote id each open nothing.
+4. The public request-for-quote form takes a quantity and its unit (crate or single egg), validated against the
+   units the product is sold by.
+5. Roles, in the role matrix and the seed: Sales builds, sends and converts quotes; the Accountant may put an account
+   on hold; releasing a hold, approving a credit override and changing a credit limit are Owner or Manager only, and
+   never by the person who asked. A wrong-role refusal test for each, and a maker-is-checker refusal for each of the
+   three, mutation-checked.
 Stop at the gate and write docs/sessions/B10-quotations-wholesale.md.
 ```
 
