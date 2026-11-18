@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.7.0"
+  version: "2.8.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -4400,88 +4400,6 @@ paths:
   "/shifts/{id}/z-report": {}
   "/shifts/{id}/close": {}
   "/shifts/{id}/approve-close": {}
-  "/shifts/{id}/force-close":
-    post:
-      operationId: forceCloseShift
-      tags:
-        - pos
-      summary: "Force-close a shift whose device is offline"
-      description: "Sales still queued on the device sync later and post on the next open date, flagged.\n\nPermission: `pos.shift.force_close`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
-      x-permission: pos.shift.force_close
-      x-requires-step-up: true
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ReasonRequest"
-            example:
-              reason: "Till 2 tablet battery died at 18:40; cashier counted by hand"
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Shift"
-              example:
-                id: "019a7a93-f6b4-7865-8d9d-8f27bac90805"
-                shiftNo: SHF-2026-DDW-000312
-                status: OPEN
-                register:
-                  id: "019a7a94-15a3-7248-9781-2d5f347aa63d"
-                  code: T1
-                  name: "Shop till 1"
-                cashier:
-                  id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
-                  displayName: "Adwoa Darko"
-                shiftSeq: 312
-                openedAt: "2026-11-13T06:55:00Z"
-                openingFloatPesewas: 20000
-                closedAt: null
-                declaredCashPesewas: null
-                expectedCashPesewas: null
-                overShortPesewas: null
-                overShortDirection: null
-                closeApprovedBy: null
-                forceClosed: false
-                lastDeviceCounter: 0
-                salesCount: 17
-                tenders: []
-                currency: GHS
-                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                version: 4
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
   "/registers/{id}/held-sales":
     get:
       operationId: listHeldSales
@@ -22758,6 +22676,19 @@ components:
         - version
         - reason
       additionalProperties: false
+    ForceClosedShiftCount:
+      type: object
+      additionalProperties: false
+      properties:
+        declaredCashPesewas:
+          $ref: "#/components/schemas/Pesewas"
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+      required:
+        - declaredCashPesewas
+        - reason
     ReasonRequest:
       type: object
       properties:
@@ -38442,6 +38373,22 @@ components:
             - type: "null"
         forceClosed:
           type: boolean
+        forceCloseReason:
+          type:
+            - string
+            - "null"
+          description: "Why a manager force-closed the shift (FR-POS-020); null on every other shift."
+        countedBy:
+          anyOf:
+            - allOf:
+                - $ref: "#/components/schemas/PrincipalRef"
+              description: "Who counted a force-closed shift's drawer (`countForceClosedShift`); null until then and on every other shift. `closeApprovedBy` is the manager who force-closed it."
+            - type: "null"
+        countedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
         lastDeviceCounter:
           type: integer
         salesCount:
@@ -38655,6 +38602,9 @@ components:
         unwitnessedDropsCount:
           type: integer
           description: "Drops taken while no supervisor was signed in at the branch (A-273 (d), 2.6.0)."
+        forceClosed:
+          type: boolean
+          description: "The shift was force-closed by a manager (FR-POS-020)."
         unwitnessedDropsPesewas:
           $ref: "#/components/schemas/Pesewas"
         currency:

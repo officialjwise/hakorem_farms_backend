@@ -78,6 +78,45 @@ describe('the worker process (ADR-0006, ADR-0010)', () => {
     }
   });
 
+  it('anchors the chain for a sign-off that asked for it, once its audit events are sealed: reason SHIFT_CLOSE, covering them (A-275)', async () => {
+    const event = randomUUID();
+    const subject = randomUUID();
+    const client = await database.pool('app').connect();
+    try {
+      // One business transaction: the sign-off's audit event and its anchor request, as Shifts.approveClose writes them.
+      await client.query('BEGIN');
+      await client.query(
+        `INSERT INTO platform.audit_event (id, occurred_at, actor_id, correlation_id, module, action, entity_type, entity_id, txid, content_hash)
+         VALUES ($1, now(), '01900000-0000-7000-8000-000000000001', $2, 'pos', 'APPROVE_CLOSE', 'Shift', $3, '0', '\\x')`,
+        [event, randomUUID(), subject],
+      );
+      await client.query(
+        `INSERT INTO platform.audit_anchor_request (id, reason, subject_type, subject_id, recorded_at, actor_id)
+         VALUES ($1, 'SHIFT_CLOSE', 'Shift', $2, now(), '01900000-0000-7000-8000-000000000001')`,
+        [randomUUID(), subject],
+      );
+      await client.query('COMMIT');
+    } finally {
+      client.release();
+    }
+    const answered = async () =>
+      (
+        await database.pool('admin').query<{ reason: string; anchored: string; sealed: string }>(
+          `SELECT a.reason, a.seq::text AS anchored, c.seq::text AS sealed
+             FROM platform.audit_anchor_request r JOIN platform.audit_anchor_fulfilment f ON f.request_id = r.id
+             JOIN platform.audit_anchor a ON a.id = f.anchor_id JOIN platform.audit_chain c ON c.audit_event_id = $2
+            WHERE r.subject_id = $1`,
+          [subject, event],
+        )
+      ).rows[0];
+    await waitFor(async () => (await answered()) !== undefined);
+    const row = (await answered())!;
+    expect(row.reason).toBe('SHIFT_CLOSE');
+    expect(BigInt(row.anchored) >= BigInt(row.sealed)).toBe(true);
+    // Answered once: the fulfilment is insert-only and one per request.
+    expect((await database.pool('admin').query('SELECT count(*)::int AS n FROM platform.audit_anchor_fulfilment f JOIN platform.audit_anchor_request r ON r.id = f.request_id WHERE r.subject_id = $1', [subject])).rows[0]).toEqual({ n: 1 });
+  });
+
   it('purges expired idempotency keys and records the run', async () => {
     const admin = database.pool('admin');
     await admin.query(

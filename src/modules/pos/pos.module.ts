@@ -1,5 +1,6 @@
 import { Inject, Module, type OnModuleInit } from '@nestjs/common';
 import { createUuidV7Generator, type Clock } from '@hakorem/kernel';
+import { AuditAnchorRequests } from '../../platform/audit/audit-anchor-requests';
 import { AuditTrail } from '../../platform/audit/audit-trail';
 import { UnitOfWork } from '../../platform/database/unit-of-work';
 import { DocumentRegistry } from '../../platform/documents/document-registry';
@@ -69,8 +70,9 @@ import { PosController } from './interface/pos.controller';
         payments: Payments,
         orders: Orders,
         clock: Clock,
-      ) => new Shifts(uow, store, refs, authoriser, idempotency, audit, events, documents, numbers, principals, cursors, payments, orders, clock),
-      inject: [UnitOfWork, TILL_STORE, MasterDataRefs, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, NumberSeries, PRINCIPAL_NAMES, Cursors, Payments, Orders, CLOCK],
+        anchors: AuditAnchorRequests,
+      ) => new Shifts(uow, store, refs, authoriser, idempotency, audit, events, documents, numbers, principals, cursors, payments, orders, clock, anchors),
+      inject: [UnitOfWork, TILL_STORE, MasterDataRefs, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, NumberSeries, PRINCIPAL_NAMES, Cursors, Payments, Orders, CLOCK, AuditAnchorRequests],
     },
   ],
   exports: [Registers, Shifts, Devices],

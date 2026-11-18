@@ -10,7 +10,7 @@ import { CounterSales, type CounterSaleResultView } from '../application/counter
 import { Devices, type DeviceEnrolledView, type DeviceView } from '../application/devices';
 import { Registers, type RegisterView } from '../application/registers';
 import { Shifts, type CashMovementView, type Page, type ShiftReportView, type ShiftView } from '../application/shifts';
-import { CashMovementCreate, CounterSale, DeviceEnrolmentCreate, IdParam, PageQuery, ReasonBody, RegisterCreate, RegisterPageQuery, RegisterUpdate, ShiftClose, ShiftOpen, ShiftPageQuery } from './schemas';
+import { CashMovementCreate, CounterSale, DeviceEnrolmentCreate, ForceClosedShiftCount, IdParam, PageQuery, ReasonBody, RegisterCreate, RegisterPageQuery, RegisterUpdate, ShiftClose, ShiftOpen, ShiftPageQuery } from './schemas';
 
 const READ = { access: 'SESSION', realms: ['STAFF'], idempotent: false, csrf: false, rateLimit: 'console' } as const;
 const WRITE = { access: 'SESSION', realms: ['STAFF'], idempotent: true, csrf: true, rateLimit: 'console' } as const;
@@ -189,5 +189,29 @@ export class PosController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<ShiftView> {
     return reply(res, this.shifts.approveClose(actor, id, body, key));
+  }
+
+  @Post('shifts/:id/force-close')
+  @Operation({ operationId: 'forceCloseShift', ...WRITE, permission: 'pos.shift.force_close' })
+  forceCloseShift(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(ReasonBody)) body: z.infer<typeof ReasonBody>,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<ShiftView> {
+    return reply(res, this.shifts.forceClose(actor, id, body, key));
+  }
+
+  @Post('shifts/:id/late-count')
+  @Operation({ operationId: 'countForceClosedShift', ...WRITE, permission: 'pos.shift.close.approve' })
+  countForceClosedShift(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(ForceClosedShiftCount)) body: z.infer<typeof ForceClosedShiftCount>,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<ShiftView> {
+    return reply(res, this.shifts.countLate(actor, id, body, key));
   }
 }

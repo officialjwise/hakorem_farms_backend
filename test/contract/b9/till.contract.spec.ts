@@ -19,6 +19,7 @@ let clock: ManualClock;
 let manager: TestSession & { readonly secret: Buffer };
 let managerUser: TestUser;
 let cashier: TestSession;
+let owner: TestSession & { readonly secret: Buffer };
 const ids = new Map<string, string>();
 const id = (code: string) => ids.get(code)!;
 const post = (session: TestSession, path: string, body: object = {}, key: string = randomUUID()) => consolePost(api.server, session, `/v1${path}`, key).send(body);
@@ -48,6 +49,7 @@ beforeAll(async () => {
   managerUser = await createUser(database, { name: 'Kwabena Owusu', grants: [{ role: 'MANAGER', branchId }] });
   manager = await enrolAndLogin(api.server, managerUser, () => clock.now());
   cashier = await login(api.server, await createUser(database, { name: 'Adwoa Darko', grants: [{ role: 'CASHIER', branchId, locationId: id('location:SHOP') }] }));
+  owner = await enrolAndLogin(api.server, await createUser(database, { name: 'Esi Mensah', grants: [{ role: 'OWNER', branchId }] }), () => clock.now());
 });
 
 afterAll(async () => {
@@ -132,6 +134,35 @@ describe('B09b continued device operations answer in the contract shapes', () =>
     expect(again.status).toBe(422);
     expectShape('Error', again.body);
     const refused = await post(cashier, `/registers/${till.body.id as string}/devices`, { deviceLabel: 'Mine' });
+    expect(refused.status).toBe(403);
+    expectShape('Error', refused.body);
+  });
+});
+
+describe('B09b continued 1b: the force close and the later count answer in the contract shapes', () => {
+  it('a shift force-closed by the manager, its drawer counted by the owner, and the refusals', async () => {
+    const till = await post(manager, '/registers', { branchId: id('branch:DDW'), locationId: id('location:SHOP'), code: 'F1', name: 'Force close till' });
+    expect(till.status).toBe(201);
+    const kofi = await login(api.server, await createUser(database, { name: 'Kofi Boadu', grants: [{ role: 'CASHIER', branchId: id('branch:DDW'), locationId: id('location:SHOP') }] }));
+    const shift = createUuidV7Generator(clock)();
+    expect((await post(kofi, '/shifts', { id: shift, registerId: till.body.id, openingFloatPesewas: 10_000, openedAt: clock.now().toISOString() }, shift)).status).toBe(201);
+    clock.advanceBy(30_000);
+    expect((await post(manager, '/auth/step-up', { code: totpAt(manager.secret, Math.floor(clock.now().getTime() / 1000)) })).status).toBe(200);
+    const forced = await post(manager, `/shifts/${shift}/force-close`, { reason: 'Tablet will not power on' });
+    expect(forced.status, JSON.stringify(forced.body)).toBe(200);
+    expectShape('Shift', forced.body);
+    const twice = await post(manager, `/shifts/${shift}/force-close`, { reason: 'Again' });
+    expect(twice.status).toBe(422);
+    expectShape('Error', twice.body);
+    const own = await post(manager, `/shifts/${shift}/late-count`, { declaredCashPesewas: 10_000, reason: 'Counted' });
+    expect(own.status).toBe(422);
+    expectShape('Error', own.body);
+    expect((await post(owner, '/auth/step-up', { code: totpAt(owner.secret, Math.floor(clock.now().getTime() / 1000)) })).status).toBe(200);
+    const counted = await post(owner, `/shifts/${shift}/late-count`, { declaredCashPesewas: 9_900, reason: 'Counted the next morning' });
+    expect(counted.status, JSON.stringify(counted.body)).toBe(200);
+    expectShape('Shift', counted.body);
+    expectShape('ShiftReport', (await get(owner, `/shifts/${shift}/z-report`)).body);
+    const refused = await post(kofi, `/shifts/${shift}/late-count`, { declaredCashPesewas: 9_900, reason: 'Mine' });
     expect(refused.status).toBe(403);
     expectShape('Error', refused.body);
   });

@@ -136,6 +136,38 @@ export function judgeCountSignOff(cashierId: string, approverId: string): Result
   return approverId === cashierId ? err('CLOSE_APPROVER_IS_CASHIER') : ok(approverId);
 }
 
+/** Why a shift may not be force-closed (FR-POS-020). */
+export type ForceCloseRefusal = 'FORCE_CLOSER_IS_CASHIER' | 'SHIFT_NOT_OPEN';
+
+/**
+ * Whether a manager may force-close a shift (FR-POS-020, OFFLINE_SYNC 11): never its own cashier (held again by
+ * `ck_shift_close_checker`), and only while it is OPEN. A CLOSING shift has a declared count, which is signed off.
+ */
+export function judgeForceClose(shift: { readonly status: 'OPEN' | 'CLOSING' | 'CLOSED'; readonly cashierId: string }, actorId: string): Result<null, ForceCloseRefusal> {
+  if (actorId === shift.cashierId) return err('FORCE_CLOSER_IS_CASHIER');
+  if (shift.status !== 'OPEN') return err('SHIFT_NOT_OPEN');
+  return ok(null);
+}
+
+/** Why the drawer of a force-closed shift may not be counted by this person, or now (FR-POS-020). */
+export type LateCountRefusal = 'COUNTER_IS_CASHIER' | 'COUNTER_IS_FORCE_CLOSER' | 'SHIFT_NOT_FORCE_CLOSED' | 'SHIFT_ALREADY_COUNTED';
+
+/**
+ * Whether this person may count the drawer of a force-closed shift, which posts its over or short (FR-POS-020, A-275):
+ * neither its cashier nor the manager who force-closed it (the force close is checked by a second person, as a
+ * sign-off is), only a force-closed shift, and once. Held again by `pos.shift_late_count_guard`.
+ */
+export function judgeLateCount(
+  shift: { readonly status: 'OPEN' | 'CLOSING' | 'CLOSED'; readonly forceClosed: boolean; readonly cashierId: string; readonly forceClosedBy: string | null; readonly counted: boolean },
+  counterId: string,
+): Result<null, LateCountRefusal> {
+  if (counterId === shift.cashierId) return err('COUNTER_IS_CASHIER');
+  if (counterId === shift.forceClosedBy) return err('COUNTER_IS_FORCE_CLOSER');
+  if (shift.status !== 'CLOSED' || !shift.forceClosed) return err('SHIFT_NOT_FORCE_CLOSED');
+  if (shift.counted) return err('SHIFT_ALREADY_COUNTED');
+  return ok(null);
+}
+
 /** Why cash may not move through a till shift (ADR-0077). */
 export type TillCashRefusal = 'SHIFT_NOT_OPEN' | 'SHIFT_OTHER_BRANCH' | 'SHIFT_OTHER_REGISTER' | 'SHIFT_NOT_OWN';
 

@@ -3,6 +3,7 @@ import { systemClock, type Clock } from '@hakorem/kernel';
 import type { Redis } from 'ioredis';
 import type pg from 'pg';
 import type { Logger } from 'pino';
+import { AuditAnchorRequests } from './audit/audit-anchor-requests';
 import { AuditTrail } from './audit/audit-trail';
 import { APP_CONFIG, databaseUrlOf, publicMediaBaseUrl, type AppConfig } from './config/app-config';
 import { keyRingFromEnvironment, type KeyRing } from './crypto/key-ring';
@@ -95,6 +96,7 @@ export class PlatformModule {
         { provide: UnitOfWork, useFactory: (pool: pg.Pool) => new UnitOfWork(pool, logger, undefined, clock), inject: [PG_POOL] },
         { provide: KEY_RING, useFactory: () => keyRingFromEnvironment(config.env, config.KEK_ACTIVE_VERSION) },
         { provide: SubjectKeys, useFactory: (keyRing: KeyRing) => new SubjectKeys(keyRing, clock), inject: [KEY_RING] },
+        { provide: AuditAnchorRequests, useFactory: () => new AuditAnchorRequests(clock) },
         { provide: AuditTrail, useFactory: (keys: SubjectKeys, pool: pg.Pool) => new AuditTrail(keys, clock, pool), inject: [SubjectKeys, PG_POOL] },
         { provide: DomainEvents, useFactory: () => new DomainEvents(clock) },
         { provide: Idempotency, useFactory: () => new Idempotency(clock) },
@@ -148,6 +150,7 @@ export class PlatformModule {
         ConnectionCloser,
       ],
       exports: [
+        AuditAnchorRequests,
         APP_CONFIG,
         LOGGER,
         CLOCK,

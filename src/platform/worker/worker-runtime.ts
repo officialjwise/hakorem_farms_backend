@@ -119,6 +119,10 @@ export class WorkerRuntime {
 
     const anchor = new AuditAnchor(this.sealerPool, this.storage, anchorKey, this.clock, { keyId, bucket, retentionDays: ANCHOR_RETENTION_DAYS });
     const verifier = new AuditVerifier(this.workerPool, new Map([[keyId, createPublicKey(anchorKey)]]), this.clock);
+    // A sign-off asks for its own anchor (ADR-0006, A-275): answered here, as the sealer, once its events are chained.
+    this.loop('audit-anchor-requests', this.config.AUDIT_SEAL_INTERVAL_MS, async () => {
+      await runAsSystem(SEALER, randomUUID(), () => anchor.answerRequests());
+    });
     this.queue.process('audit-anchor', async () => {
       await runAsSystem(SEALER, randomUUID(), () => anchor.anchor('DAILY'));
     });

@@ -51,7 +51,32 @@ export interface ShiftClosed extends TillPosting {
   readonly overShortDirection: 'OVER' | 'SHORT' | 'EXACT';
   readonly closedAt: string;
   readonly abuseCases: readonly number[];
+  /**
+   * Present when the count is of a force-closed shift's drawer (FR-POS-020, A-275): `approvedBy` counted it, and
+   * `forceClosedBy` is the manager who force-closed it, for the daily exception report (B12).
+   */
+  readonly forceClosed?: true;
+  readonly forceClosedBy?: string;
   readonly amountsPesewas: { readonly expected: number; readonly returnedToSafe: number; readonly short: number; readonly over: number };
+}
+
+/**
+ * `pos.ShiftForceClosed`: a manager closed an abandoned shift without its count (FR-POS-020). Nothing posts until the
+ * drawer is counted (`pos.ShiftClosed` with `forceClosed`). It reaches the daily exception report's source with the
+ * cashier, the manager, the reason and the cash the shift was closed at (abuse case 17, B12).
+ */
+export interface ShiftForceClosed {
+  readonly shiftId: string;
+  readonly branchId: string;
+  readonly register: { readonly id: string; readonly code: string };
+  readonly cashierId: string;
+  readonly shiftNo: string;
+  readonly forceClosedBy: string;
+  readonly reason: string;
+  readonly expectedCashPesewas: number;
+  readonly closedAt: string;
+  readonly abuseCases: readonly number[];
+  readonly exceptionKind: 'SHIFT_FORCE_CLOSED';
 }
 
 /**

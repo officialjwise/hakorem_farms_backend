@@ -30,6 +30,8 @@ export interface ShiftRecord {
   readonly closedAt: Date | null;
   readonly lastDeviceCounter: number;
   readonly forceClosed: boolean;
+  /** Why a manager force-closed it (FR-POS-020); null on every other shift. */
+  readonly forceCloseReason: string | null;
   readonly status: ShiftStatus;
   readonly branchId: string;
   readonly version: number;
@@ -72,6 +74,18 @@ export interface TenderCountRecord {
   readonly varianceDirection: OverShortDirection | null;
 }
 
+/** The drawer of a force-closed shift, counted later by a supervisor who neither ran it nor force-closed it (A-275). */
+export interface LateCountRecord {
+  readonly shiftId: string;
+  readonly declaredCashPesewas: bigint;
+  readonly expectedCashPesewas: bigint;
+  readonly overShortPesewas: bigint;
+  readonly overShortDirection: OverShortDirection;
+  readonly reason: string;
+  readonly countedAt: Date;
+  readonly actorId: string;
+}
+
 export interface ShiftFilter {
   readonly branchIds: readonly string[];
   readonly registerId: string | null;
@@ -98,7 +112,7 @@ export interface DeviceRecord {
 
 export const TILL_STORE = Symbol('TILL_STORE');
 
-/** POS's tables (`pos.register`, `pos.shift`, `pos.cash_movement`, `pos.shift_tender_count`, `pos.shift_report`). */
+/** POS's tables (`pos.register`, `pos.shift`, `pos.cash_movement`, `pos.shift_tender_count`, `pos.shift_report`, `pos.shift_late_count`). */
 export interface TillStore {
   registers(tx: Transaction, ids: readonly string[]): Promise<RegisterRecord[]>;
   lockRegister(tx: Transaction, id: string): Promise<RegisterRecord | null>;
@@ -119,6 +133,10 @@ export interface TillStore {
     id: string,
     c: { readonly expectedCashPesewas: bigint; readonly overShortPesewas: bigint; readonly overShortDirection: OverShortDirection; readonly approvedBy: string; readonly at: Date },
   ): Promise<void>;
+  /** OPEN to CLOSED by a manager (FR-POS-020): at its expected cash, flagged force-closed, nothing declared. */
+  forceClose(tx: Transaction, id: string, c: { readonly expectedCashPesewas: bigint; readonly reason: string; readonly closedBy: string; readonly at: Date }): Promise<void>;
+  insertLateCount(tx: Transaction, c: LateCountRecord): Promise<void>;
+  lateCounts(tx: Transaction, shiftIds: readonly string[]): Promise<ReadonlyMap<string, LateCountRecord>>;
   insertCashMovement(tx: Transaction, m: CashMovementRecord): Promise<void>;
   cashMovements(tx: Transaction, ids: readonly string[]): Promise<CashMovementRecord[]>;
   cashMovementsOf(tx: Transaction, shiftId: string, beforeId: string | null, limit: number): Promise<CashMovementRecord[]>;

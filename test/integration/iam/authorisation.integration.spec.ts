@@ -123,7 +123,7 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'raiseSupplierClaim', 'listGoodsReceiptClaims', 'listSupplierClaims', 'getSupplierClaim', 'draftSupplierClaimCreditNote', 'settleSupplierClaim',
         'listRegisters', 'createRegister', 'updateRegister', 'listShifts', 'openShift', 'getShift', 'listShiftCashMovements', 'recordCashMovement',
         'getShiftXReport', 'getShiftZReport', 'closeShift', 'approveShiftClose',
-        'listRegisterDevices', 'enrolDevice', 'revokeDevice', 'completeCounterSale',
+        'listRegisterDevices', 'enrolDevice', 'revokeDevice', 'completeCounterSale', 'forceCloseShift', 'countForceClosedShift',
         'listStatements', 'createStatement', 'getStatement',
       ].sort(),
     );

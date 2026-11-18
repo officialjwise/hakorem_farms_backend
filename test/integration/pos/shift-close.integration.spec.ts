@@ -260,6 +260,7 @@ describe('a short shift on T1: float 50,000, cash sales 44,000, a drop of 30,000
       cashMovements: [{ kind: 'FLOAT_IN', amountPesewas: 50_000 }, { kind: 'CASH_DROP', amountPesewas: 30_000 }],
       unwitnessedDropsCount: 0,
       unwitnessedDropsPesewas: 0,
+      forceClosed: false,
       currency: 'GHS',
       documentId: null,
     });
@@ -339,6 +340,8 @@ describe('a short shift on T1: float 50,000, cash sales 44,000, a drop of 30,000
     expect(await one<{ n: string }>("SELECT COALESCE(sum(CASE side WHEN 'D' THEN amount_pesewas ELSE -amount_pesewas END), 0)::text AS n FROM fin.journal_line", [])).toEqual({ n: '0' });
     const event = await one<{ payload: Record<string, unknown> }>("SELECT payload FROM platform.outbox_message WHERE event_type = 'pos.ShiftClosed' AND subject_id = $1", [shiftId]);
     expect(event.payload).toMatchObject({ cashierId: cashierUser.principalId, approvedBy: managerUser.principalId, overShortPesewas: 500, overShortDirection: 'SHORT', abuseCases: [17] });
+    // The sign-off asks the worker to anchor the audit chain once it is sealed (ADR-0006, A-275), in its own transaction.
+    expect(await one("SELECT reason, subject_type AS type, actor_id AS actor FROM platform.audit_anchor_request WHERE subject_id = $1", [shiftId])).toEqual({ reason: 'SHIFT_CLOSE', type: 'Shift', actor: managerUser.principalId });
   });
 
   it('freezes the Z report and the closed shift, and replays the sign-off without posting twice', async () => {
