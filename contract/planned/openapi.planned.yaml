@@ -37944,6 +37944,11 @@ components:
           type: string
           maxLength: 500
           description: "Why the limit is asked for, shown to the approver."
+        priceListId:
+          type: string
+          format: uuid
+          deprecated: true
+          description: "Not taken (2.13.0, A-314 (b)): a customer's price list is set through master data with `assignCustomerPriceList`. A request carrying it is refused with 422 `ACCOUNT_INVALID` `PRICE_LIST_THROUGH_MDM`."
       required:
         - customerId
         - creditLimitPesewas
@@ -37980,6 +37985,11 @@ components:
         reason:
           type: string
           maxLength: 500
+        priceListId:
+          type: string
+          format: uuid
+          deprecated: true
+          description: "Not taken (2.13.0, A-314 (b)): a customer's price list is set through master data with `assignCustomerPriceList`. A request carrying it is refused with 422 `ACCOUNT_INVALID` `PRICE_LIST_THROUGH_MDM`."
       required:
         - version
       additionalProperties: false

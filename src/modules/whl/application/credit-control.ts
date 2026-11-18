@@ -325,7 +325,7 @@ export class CreditControl implements OrderConfirmationPolicy {
         subjectType: 'SalesOrder',
         subjectId: request.orderId,
         branchId: request.branchId,
-        payload: { creditOverrideId: override.id, orderId: request.orderId, customerId: request.customerId, limitPesewas: json(request.limitPesewas), exposurePesewas: json(exposure), overLimitPesewas: json(request.overLimitPesewas), reasons: [...request.reasons], requestedBy: request.requestedBy, approvedBy: approval.decidedBy },
+        payload: { abuseCases: [14], exceptionKind: 'CREDIT_OVERRIDE', creditOverrideId: override.id, orderId: request.orderId, customerId: request.customerId, limitPesewas: json(request.limitPesewas), exposurePesewas: json(exposure), overLimitPesewas: json(request.overLimitPesewas), reasons: [...request.reasons], requestedBy: request.requestedBy, approvedBy: approval.decidedBy },
       });
     },
   };

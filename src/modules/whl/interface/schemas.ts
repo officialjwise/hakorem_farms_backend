@@ -31,6 +31,7 @@ export const AccountCreate = z.strictObject({
   accountManagerId: z.uuid().optional(),
   overdueHoldDays: Days.min(1).optional(),
   reason: Reason.optional(),
+  priceListId: z.uuid().optional(),
 });
 export const AccountUpdate = z.strictObject({
   version: z.number().int().min(1),
@@ -40,6 +41,7 @@ export const AccountUpdate = z.strictObject({
   overdueHoldDays: Days.min(1).optional(),
   status: z.enum(['ACTIVE', 'CLOSED']).optional(),
   reason: Reason.optional(),
+  priceListId: z.uuid().optional(),
 });
 export const ReasonBody = z.strictObject({ reason: Reason });
 export const CreditOverridePageQuery = z.object({ customerId: z.uuid().optional(), from: z.iso.datetime({ offset: true }).optional(), to: z.iso.datetime({ offset: true }).optional(), cursor: Cursor, limit: Limit });

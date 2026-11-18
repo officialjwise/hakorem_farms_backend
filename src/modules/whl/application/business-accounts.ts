@@ -78,6 +78,8 @@ export interface AccountCreateRequest {
   readonly accountManagerId?: string | undefined;
   readonly overdueHoldDays?: number | undefined;
   readonly reason?: string | undefined;
+  /** Not taken: the list is set through MDM (A-314 (b)). */
+  readonly priceListId?: string | undefined;
 }
 
 export interface AccountUpdateRequest {
@@ -88,6 +90,8 @@ export interface AccountUpdateRequest {
   readonly overdueHoldDays?: number | undefined;
   readonly status?: 'ACTIVE' | 'CLOSED' | undefined;
   readonly reason?: string | undefined;
+  /** Not taken: the list is set through MDM (A-314 (b)). */
+  readonly priceListId?: string | undefined;
 }
 
 export interface AccountQuery {
@@ -178,6 +182,7 @@ export class BusinessAccounts {
         branchId = branches[0]!;
       }
       await this.authoriser.authorise(tx, actor, MANAGE, { branchId });
+      if (request.priceListId !== undefined) throw new AccountInvalidError([{ field: '/priceListId', rule: 'PRICE_LIST_THROUGH_MDM' }]);
       const claim = await this.idempotency.claim(tx, { operationId: 'createBusinessAccount', principalId: actor!.principalId, key, request: { ...request, branchId, creditLimitPesewas: request.creditLimitPesewas.toString() } });
       if (claim.kind === 'REPLAY') return claim.response as StoredResponse<BusinessAccountView | ApprovalPendingView>;
       const customer = (await this.refs.customersIn(tx, [request.customerId])).get(request.customerId);
@@ -216,6 +221,7 @@ export class BusinessAccounts {
       await this.authoriser.authorise(tx, actor, MANAGE, { branchId: account.branchId });
       const claim = await this.idempotency.claim(tx, { operationId: 'updateBusinessAccount', principalId: actor!.principalId, key, request: { customerId, ...request, creditLimitPesewas: request.creditLimitPesewas?.toString() ?? null } });
       if (claim.kind === 'REPLAY') return claim.response as StoredResponse<BusinessAccountView | ApprovalPendingView>;
+      if (request.priceListId !== undefined) throw new AccountInvalidError([{ field: '/priceListId', rule: 'PRICE_LIST_THROUGH_MDM' }]);
       if (account.version !== request.version) throw new VersionConflictError(`business account ${customerId} is at version ${String(account.version)}`);
       if (request.status !== undefined && request.status !== account.status && account.status === 'ON_HOLD') throw new AccountInvalidError([{ field: '/status', rule: 'ACCOUNT_ON_HOLD' }]);
       if (request.accountManagerId !== undefined && request.accountManagerId !== null && !(await this.principals.refs(tx, [request.accountManagerId])).has(request.accountManagerId))

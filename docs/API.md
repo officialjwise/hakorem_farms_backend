@@ -471,7 +471,7 @@ The "Source" column says where the code comes from. **Contract** means the code 
 | `CREDIT_LIMIT_EXCEEDED` | 422 | A credit order would take the customer over its credit limit; `details[]` names each reason (`OVER_LIMIT`, `PAST_TERMS`, `ON_HOLD`) with the amounts in words, and `OVERRIDE_REASON_REQUIRED` or `APPROVAL_PENDING` (2.13.0, CR-046) |
 | `CREDIT_TERMS_EXCEEDED` | 422 | A credit order of a customer with something a day or more past its due date, the details as above (2.13.0, CR-046) |
 | `ACCOUNT_ON_HOLD` | 422 | A credit order of a business account on hold, the details as above (2.13.0, CR-046) |
-| `ACCOUNT_INVALID` | 422 | A business account cannot be opened or changed like this: `CUSTOMER_UNKNOWN`, `BRANCH_REQUIRED`, `MANAGER_UNKNOWN`, `ACCOUNT_ON_HOLD`, `ACCOUNT_CLOSED`, `NOT_ON_HOLD`, `ALREADY_ON_HOLD`, `APPROVAL_PENDING` (2.13.0) |
+| `ACCOUNT_INVALID` | 422 | A business account cannot be opened or changed like this: `CUSTOMER_UNKNOWN`, `BRANCH_REQUIRED`, `MANAGER_UNKNOWN`, `ACCOUNT_ON_HOLD`, `ACCOUNT_CLOSED`, `NOT_ON_HOLD`, `ALREADY_ON_HOLD`, `APPROVAL_PENDING`, `PRICE_LIST_THROUGH_MDM` (2.13.0) |
 | `ACCOUNT_EXISTS` | 409 | The customer has a business account already (2.13.0, FR-WHL-001) |
 
 #### Payments, billing and purchasing (Added)

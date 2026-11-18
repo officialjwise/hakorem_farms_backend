@@ -41,7 +41,8 @@ function accountDetails(rules: readonly StatementRule[]): ErrorDetail[] {
 /**
  * 422 ACCOUNT_INVALID, each broken rule in `details[].code`: `CUSTOMER_UNKNOWN`, `BRANCH_REQUIRED`, `MANAGER_UNKNOWN`,
  * `ACCOUNT_ON_HOLD` (a held account is released, never reopened or closed by an edit), `ACCOUNT_CLOSED`, `NOT_ON_HOLD`,
- * `ALREADY_ON_HOLD`, `APPROVAL_PENDING` (a change of that kind already waits for its approver), `LIMIT_UNCHANGED`.
+ * `ALREADY_ON_HOLD`, `APPROVAL_PENDING` (a change of that kind already waits for its approver), `PRICE_LIST_THROUGH_MDM` (the
+ * price list is set with assignCustomerPriceList).
  */
 export class AccountInvalidError extends BusinessRuleError {
   readonly code = 'ACCOUNT_INVALID';

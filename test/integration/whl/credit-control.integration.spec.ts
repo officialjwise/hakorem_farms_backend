@@ -155,6 +155,8 @@ describe('a business account (FR-WHL-001, CR-048)', () => {
     expect(read.body).toMatchObject({ creditLimitPesewas: 500_000, availableCreditPesewas: 500_000, exposurePesewas: 0, paymentTermsDays: 30, overdueHoldDays: 30, pendingCreditLimitPesewas: null, branch: { code: 'DDW' } });
     const change = (await admin().query<{ status: string; created_by: string; posted_by: string }>('SELECT status, created_by, posted_by FROM whl.account_change WHERE customer_id = $1', [customerId])).rows;
     expect(change).toEqual([{ status: 'APPLIED', created_by: users.get('owner')!.principalId, posted_by: users.get('manager')!.principalId }]);
+    const listed = await post('manager', '/business-accounts', { customerId: randomUUID(), branchId, creditLimitPesewas: 0, paymentTermsDays: 30, priceListId: randomUUID() });
+    expect([listed.status, listed.body.error.details[0].code]).toEqual([422, 'PRICE_LIST_THROUGH_MDM']);
     const twice = await post('manager', '/business-accounts', { customerId, branchId, creditLimitPesewas: 0, paymentTermsDays: 30 });
     expect([twice.status, twice.body.error.code]).toEqual([409, 'ACCOUNT_EXISTS']);
     ids.set('adenta', customerId);
@@ -249,8 +251,10 @@ describe('the credit limit at confirmation (FR-WHL-006, CR-046: exact pesewas)',
     });
     const audit = await admin().query<{ action: string }>("SELECT action FROM platform.audit_event WHERE entity_id = $1 AND module = 'whl' ORDER BY occurred_at, id", [orderId]);
     expect(audit.rows.map((r) => r.action)).toEqual(['CREDIT_OVERRIDE_REQUESTED', 'CREDIT_OVERRIDE_APPROVED']);
-    const event = await admin().query("SELECT 1 FROM platform.outbox_message WHERE event_type = 'whl.CreditOverrideApproved' AND subject_id = $1", [orderId]);
-    expect(event.rowCount).toBe(1);
+    const event = await admin().query<{ payload: Record<string, unknown> }>("SELECT payload FROM platform.outbox_message WHERE event_type = 'whl.CreditOverrideApproved' AND subject_id = $1", [orderId]);
+    expect(event.rows).toHaveLength(1);
+    // For the daily exception report (B12): abuse case 14, with who asked, who approved and the two figures.
+    expect(event.rows[0]!.payload).toMatchObject({ abuseCases: [14], exceptionKind: 'CREDIT_OVERRIDE', limitPesewas: 500_000, exposurePesewas: 500_001, overLimitPesewas: 1, requestedBy: users.get('sales')!.principalId, approvedBy: users.get('manager')!.principalId });
   });
 
   it('covers only what was approved: once the customer is one pesewa further over, the order needs a new override', async () => {
