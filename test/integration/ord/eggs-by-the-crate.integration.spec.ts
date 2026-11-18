@@ -10,7 +10,7 @@ import { seedUnits } from '../../../src/seed/seed-units';
 import { createUser, relaxRateLimits, SYSTEM_PRINCIPAL, testStartTime } from '../../support/iam';
 import { startTestApp, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
-import { openTestShift } from '../../support/till';
+import { openTestShift, tillOf } from '../../support/till';
 
 /**
  * B09e's gate on the seeded farm (the owner's decisions 1 and 2, A-259, A-261): the big eggs are held in eggs and sold
@@ -44,7 +44,7 @@ function sell(lines: readonly Omit<SaleLineRequest, 'productId' | 'stockUnitId' 
     tenders: [{ methodCode: 'CASH', amountPesewas: cashPesewas, register: till }],
   };
   return runWithRequestContext({ correlationId: randomUUID(), ip: null, userAgent: 'eggs test', actor: cashier }, () =>
-    uow.run({ isolation: 'serializable', seriesLocks: sales.locksFor(branchId) }, async (tx) => sales.postIn(tx, cashier, { shiftDocumentId: await openTestShift(tx, cashier.principalId, request.branchId), ...request })),
+    uow.run({ isolation: 'serializable', seriesLocks: sales.locksFor(branchId) }, async (tx) => sales.postIn(tx, cashier, { shiftDocumentId: await openTestShift(tx, cashier.principalId, request.branchId, tillOf(request)), ...request })),
   );
 }
 

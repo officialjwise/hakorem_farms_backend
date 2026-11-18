@@ -258,6 +258,8 @@ describe('a short shift on T1: float 50,000, cash sales 44,000, a drop of 30,000
       refundsPesewas: 0,
       byMethod: [{ paymentMethod: { id: id('method:CASH'), code: 'CASH', name: 'Cash', kind: 'CASH' }, count: 1, amountPesewas: 44_000 }],
       cashMovements: [{ kind: 'FLOAT_IN', amountPesewas: 50_000 }, { kind: 'CASH_DROP', amountPesewas: 30_000 }],
+      unwitnessedDropsCount: 0,
+      unwitnessedDropsPesewas: 0,
       currency: 'GHS',
       documentId: null,
     });

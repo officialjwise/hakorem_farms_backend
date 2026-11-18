@@ -137,6 +137,8 @@ import {
 import {
   CashMovementCreate as PosCashMovementCreate,
   ReasonBody as PosReasonBody,
+  DeviceEnrolmentCreate as PosDeviceEnrolmentCreate,
+  CounterSale as PosCounterSale,
   RegisterCreate as PosRegisterCreate,
   RegisterUpdate as PosRegisterUpdate,
   ShiftClose as PosShiftClose,
@@ -436,6 +438,9 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     recordCashMovement: PosCashMovementCreate,
     closeShift: PosShiftClose,
     approveShiftClose: PosReasonBody,
+    enrolDevice: PosDeviceEnrolmentCreate,
+    revokeDevice: PosReasonBody,
+    completeCounterSale: PosCounterSale,
     updateSetting: AudSettingUpdate,
     updateBusinessProfile: AudBusinessProfileUpdate,
     generateDeliverySlots: SlotGenerate,

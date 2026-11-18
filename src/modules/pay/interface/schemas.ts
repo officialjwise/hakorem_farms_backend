@@ -85,7 +85,7 @@ export const RefundBody = z.strictObject({
   note: Text(500).optional(),
 });
 
-export const RefundMarkPaidBody = z.strictObject({ paidAt: z.iso.datetime(), externalReference: Text(100).optional() });
+export const RefundMarkPaidBody = z.strictObject({ paidAt: z.iso.datetime(), externalReference: Text(100).optional(), shiftId: z.uuid().optional() });
 
 /**
  * A provider's webhook body: the route takes it as it came, because the signature is over the raw bytes and every

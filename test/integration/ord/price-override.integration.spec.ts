@@ -35,11 +35,8 @@ const get = (who: string, path: string) => consoleGet(api.server, as(who), `/v1$
 const step = (who: string) => stepUp(api.server, as(who) as TotpSession, clock);
 const decide = (who: string, approvalId: string, verb: 'approve' | 'reject') => post(who, `/iam/approvals/${approvalId}/${verb}`, { reason: 'Agreed with the buyer on the phone' });
 const actorOf = (who: string): Actor => ({ principalId: id(`user:${who}`), kind: 'USER', displayName: who, realm: 'STAFF', sessionId: null, steppedUpAt: null });
-let till = 0;
-const nextTill = () => {
-  till += 1;
-  return { id: `019a8000-0000-7000-8000-0000000e${String(till).padStart(4, '0')}`, code: `P${till}` };
-};
+/** One till for the spec's cash: cash goes into a till only through its cashier's one open shift (ADR-0077). */
+const nextTill = () => ({ id: '019a8000-0000-7000-8000-0000000e0001', code: 'P1' });
 
 // Cabbage on the base list: floor 800, list 1,000, ceiling 1,200 a head.
 const cabbage = (agreed: number | null, quantity = '2.000') => ({
@@ -115,7 +112,13 @@ const inUnit = <T>(who: string, work: (sales: SalePosting, tx: Parameters<Parame
     uow.run({ isolation: 'serializable', seriesLocks: sales.locksFor(branchId) }, (tx) => work(sales, tx)),
   );
 };
-const postSale = (who: string, request: SaleRequest) => inUnit(who, async (sales, tx) => sales.postIn(tx, actorOf(who), { shiftDocumentId: await openTestShift(tx, actorOf(who).principalId, request.branchId), ...request }));
+/** Each seller's cash goes into their own till, through their one open shift (ADR-0077). */
+const tillFor = (who: string) => ({ id: `019a8000-0000-7000-8000-0000000e${who === 'cashier' ? '0001' : '0002'}`, code: who === 'cashier' ? 'P1' : 'P2' });
+const postSale = (who: string, request: SaleRequest) =>
+  inUnit(who, async (sales, tx) => {
+    const till = tillFor(who);
+    return sales.postIn(tx, actorOf(who), { ...request, shiftDocumentId: await openTestShift(tx, actorOf(who).principalId, request.branchId, till), tenders: request.tenders.map((t) => ({ ...t, register: till })) });
+  });
 const askOverride = (who: string, request: SaleRequest) => inUnit(who, (sales, tx) => sales.requestOverrideIn(tx, actorOf(who), request));
 
 beforeAll(async () => {

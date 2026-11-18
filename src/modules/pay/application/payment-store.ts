@@ -172,6 +172,8 @@ export interface RefundRecord {
   readonly nextAttemptAt: Date | null;
   readonly paidAt: Date | null;
   readonly paidBy: string | null;
+  /** The open till shift a cash refund was paid out of (ADR-0077); null for every other payout. */
+  readonly paidFromShiftId: string | null;
   readonly failureReason: string | null;
   readonly status: RefundStatus;
   readonly branchId: string;
@@ -187,7 +189,7 @@ export interface RefundChange {
   readonly externalReference?: string;
   readonly attempts?: number;
   readonly nextAttemptAt?: Date | null;
-  readonly paid?: { readonly at: Date; readonly by: string };
+  readonly paid?: { readonly at: Date; readonly by: string; readonly fromShiftId?: string | null };
   readonly failureReason?: string;
 }
 
@@ -275,7 +277,7 @@ export interface PaymentStore {
   webhookSeen(tx: Transaction, provider: string, eventId: string): Promise<boolean>;
   insertWebhook(tx: Transaction, row: WebhookRow): Promise<void>;
 
-  insertRefund(tx: Transaction, refund: Omit<RefundRecord, 'approvalRequestId' | 'providerReference' | 'externalReference' | 'attempts' | 'nextAttemptAt' | 'paidAt' | 'paidBy' | 'failureReason'>): Promise<void>;
+  insertRefund(tx: Transaction, refund: Omit<RefundRecord, 'approvalRequestId' | 'providerReference' | 'externalReference' | 'attempts' | 'nextAttemptAt' | 'paidAt' | 'paidBy' | 'paidFromShiftId' | 'failureReason'>): Promise<void>;
   refunds(tx: Transaction, ids: readonly string[], forUpdate?: boolean): Promise<RefundRecord[]>;
   refundsOfPayment(tx: Transaction, paymentId: string): Promise<RefundRecord[]>;
   listRefunds(tx: Transaction, filter: RefundFilter, beforeId: string | null, limit: number): Promise<string[]>;

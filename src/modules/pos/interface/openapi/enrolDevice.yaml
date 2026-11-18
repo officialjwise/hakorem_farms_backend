@@ -1,0 +1,65 @@
+operationId: enrolDevice
+tags:
+  - pos
+summary: "Enrol a device to run a register, including offline"
+description: "A manager enrols a device on an active till (2.6.0, B09b continued, ADR-0016, A-274). The answer carries `deviceCredential` (`hkdev_<till code>.` and 256 random bits, base64url) this once: the server keeps only its SHA-256 hash, so a replay of the same key cannot show it again and answers 409 `DEVICE_CREDENTIAL_SHOWN_ONCE` (revoke the device and enrol it again). The device sends it as `X-Device-Credential` beside the cashier's staff session. Refusals: 422 `DEVICE_INVALID` with `REGISTER_RETIRED`; 404 for a till the caller cannot see. Audited without the credential.\n\nPermission: `pos.device.enrol`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+x-permission: pos.device.enrol
+x-requires-step-up: true
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/DeviceEnrolmentCreate"
+      example:
+        deviceLabel: "Samsung Tab A7 Lite, till 1"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/DeviceEnrolled"
+        example:
+          device:
+            id: "019a7af9-1a1f-7d1b-9253-da889a7e5366"
+            registerId: "019a7a94-15a3-7248-9781-2d5f347aa63d"
+            deviceLabel: "Samsung Tab A7 Lite, till 1"
+            enrolledBy:
+              id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+              displayName: "Kwabena Owusu"
+            enrolledAt: "2026-11-02T09:00:00Z"
+            lastSyncAt: null
+            revokedAt: null
+          deviceCredential: hkdev_T1.EXAMPLE-NOT-A-REAL-CREDENTIAL
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

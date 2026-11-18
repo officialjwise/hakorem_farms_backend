@@ -11,7 +11,8 @@ export interface OverrideBand {
 }
 
 /** Why a line's agreed price waits for a second person; null when its reason alone is enough. */
-export type OverrideApproval = 'OUTSIDE_BAND' | 'BEYOND_ROLE_LIMIT' | null;
+/** `BEYOND_SHIFT_LIMIT`: within the line's limit, but past what the seller's till shift has left of its own (FR-POS-004, B09b continued). */
+export type OverrideApproval = 'OUTSIDE_BAND' | 'BEYOND_ROLE_LIMIT' | 'BEYOND_SHIFT_LIMIT' | null;
 
 export type OverrideVerdict = { readonly kind: 'AT_LIST' } | { readonly kind: 'VARIANCE'; readonly direction: 'BELOW' | 'ABOVE'; readonly approval: OverrideApproval };
 

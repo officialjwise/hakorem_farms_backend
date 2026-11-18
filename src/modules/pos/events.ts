@@ -28,6 +28,12 @@ export interface CashMoved extends TillPosting {
   readonly witnessId: string | null;
   readonly actorId: string;
   readonly occurredAt: string;
+  /**
+   * Present on a drop taken while no supervisor was signed in at the branch (the owner on A-273 (d)): it reaches the
+   * daily exception report's source as `UNWITNESSED_CASH_DROP` with abuse case 17, the cashier and the amount (B12).
+   */
+  readonly unwitnessed?: true;
+  readonly abuseCases?: readonly number[];
   readonly amountsPesewas: { readonly drop: number } | { readonly payIn: number } | { readonly payOut: number };
 }
 
@@ -46,4 +52,23 @@ export interface ShiftClosed extends TillPosting {
   readonly closedAt: string;
   readonly abuseCases: readonly number[];
   readonly amountsPesewas: { readonly expected: number; readonly returnedToSafe: number; readonly short: number; readonly over: number };
+}
+
+/**
+ * `pos.TillClockOutOfTolerance`: a counter sale whose till time was further from the server's than the tolerance. The
+ * sale is recorded at the server's time, never refused (the owner on A-273 (g)); this reaches the daily exception
+ * report's source with the device, the cashier and both times (B12).
+ */
+export interface TillClockOutOfTolerance {
+  readonly saleId: string;
+  readonly shiftId: string;
+  readonly branchId: string;
+  readonly register: { readonly id: string; readonly code: string };
+  readonly deviceId: string;
+  readonly cashierId: string;
+  readonly tillTime: string;
+  readonly serverTime: string;
+  readonly differenceSeconds: number;
+  readonly toleranceSeconds: number;
+  readonly exceptionKind: 'TILL_CLOCK_OUT_OF_TOLERANCE';
 }

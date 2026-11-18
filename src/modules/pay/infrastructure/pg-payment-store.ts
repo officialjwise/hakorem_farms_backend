@@ -138,6 +138,7 @@ interface RefundRow {
   next_attempt_at: Date | null;
   paid_at: Date | null;
   paid_by: string | null;
+  paid_from_shift_id: string | null;
   failure_reason: string | null;
   status: RefundStatus;
   branch_id: string;
@@ -146,7 +147,7 @@ interface RefundRow {
 }
 
 const REFUND_COLUMNS = `id, original_payment_id, amount_pesewas::text, destination, reason_code, note, credit_note_id, is_automatic, approval_request_id,
-  provider_reference, external_reference, attempts, next_attempt_at, paid_at, paid_by, failure_reason, status, branch_id, created_at, created_by`;
+  provider_reference, external_reference, attempts, next_attempt_at, paid_at, paid_by, paid_from_shift_id, failure_reason, status, branch_id, created_at, created_by`;
 
 function toRefund(row: RefundRow): RefundRecord {
   return {
@@ -165,6 +166,7 @@ function toRefund(row: RefundRow): RefundRecord {
     nextAttemptAt: row.next_attempt_at,
     paidAt: row.paid_at,
     paidBy: row.paid_by,
+    paidFromShiftId: row.paid_from_shift_id,
     failureReason: row.failure_reason,
     status: row.status,
     branchId: row.branch_id,
@@ -274,9 +276,22 @@ export class PgPaymentStore implements PaymentStore {
 
   async shiftTotals(tx: Transaction, shiftDocumentId: string): Promise<ShiftTenderRow[]> {
     const { rows } = await tx.query<{ payment_method_id: string; method_kind: MethodKind; n: number; amount: string; refunded: string }>(
-      `SELECT payment_method_id, method_kind, count(*)::int AS n, sum(amount_pesewas)::text AS amount, sum(refunded_pesewas)::text AS refunded
-         FROM pay.payment WHERE shift_document_id = $1 AND status = 'CLEARED'
-        GROUP BY payment_method_id, method_kind ORDER BY payment_method_id`,
+      // Cash refunded counts against the shift it was paid out of (A-273 (i), ADR-0077), whichever shift took the
+      // payment; another method's refunds go back through its provider and count against the payments of the shift.
+      `WITH taken AS (
+         SELECT payment_method_id, method_kind, count(*)::int AS n, sum(amount_pesewas) AS amount, sum(refunded_pesewas) AS refunded
+           FROM pay.payment WHERE shift_document_id = $1 AND status = 'CLEARED'
+          GROUP BY payment_method_id, method_kind),
+       paid_out AS (
+         SELECT p.payment_method_id, p.method_kind, sum(r.amount_pesewas) AS amount
+           FROM pay.refund r JOIN pay.payment p ON p.id = r.original_payment_id
+          WHERE r.paid_from_shift_id = $1 AND r.status = 'PAID'
+          GROUP BY p.payment_method_id, p.method_kind)
+       SELECT COALESCE(t.payment_method_id, o.payment_method_id) AS payment_method_id, COALESCE(t.method_kind, o.method_kind) AS method_kind,
+              COALESCE(t.n, 0) AS n, COALESCE(t.amount, 0)::text AS amount,
+              (CASE WHEN COALESCE(t.method_kind, o.method_kind) = 'CASH' THEN COALESCE(o.amount, 0) ELSE COALESCE(t.refunded, 0) END)::text AS refunded
+         FROM taken t FULL JOIN paid_out o ON o.payment_method_id = t.payment_method_id
+        ORDER BY 1`,
       [shiftDocumentId],
     );
     return rows.map((r) => ({ paymentMethodId: r.payment_method_id, methodKind: r.method_kind, count: r.n, amountPesewas: BigInt(r.amount), refundedPesewas: BigInt(r.refunded) }));
@@ -446,7 +461,7 @@ export class PgPaymentStore implements PaymentStore {
     );
   }
 
-  async insertRefund(tx: Transaction, r: Omit<RefundRecord, 'approvalRequestId' | 'providerReference' | 'externalReference' | 'attempts' | 'nextAttemptAt' | 'paidAt' | 'paidBy' | 'failureReason'>): Promise<void> {
+  async insertRefund(tx: Transaction, r: Omit<RefundRecord, 'approvalRequestId' | 'providerReference' | 'externalReference' | 'attempts' | 'nextAttemptAt' | 'paidAt' | 'paidBy' | 'paidFromShiftId' | 'failureReason'>): Promise<void> {
     await tx.query(
       `INSERT INTO pay.refund (id, original_payment_id, amount_pesewas, destination, reason_code, note, credit_note_id, is_automatic, status, branch_id, created_by, updated_by, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11, $12)`,
@@ -482,7 +497,7 @@ export class PgPaymentStore implements PaymentStore {
               provider_status = COALESCE($5, provider_status), external_reference = COALESCE($6, external_reference), attempts = COALESCE($7, attempts),
               next_attempt_at = CASE WHEN $8 THEN $9::timestamptz ELSE next_attempt_at END,
               paid_at = COALESCE($10, paid_at), paid_by = COALESCE($11, paid_by), posted_at = COALESCE($10, posted_at), posted_by = COALESCE($11, posted_by),
-              failure_reason = COALESCE($12, failure_reason), updated_by = $13, version = version + 1
+              failure_reason = COALESCE($12, failure_reason), paid_from_shift_id = COALESCE($14, paid_from_shift_id), updated_by = $13, version = version + 1
         WHERE id = $1`,
       [
         id,
@@ -498,6 +513,7 @@ export class PgPaymentStore implements PaymentStore {
         c.paid?.by ?? null,
         c.failureReason ?? null,
         actorId,
+        c.paid?.fromShiftId ?? null,
       ],
     );
   }

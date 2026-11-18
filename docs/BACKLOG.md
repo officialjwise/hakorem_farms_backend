@@ -101,6 +101,13 @@ Each item says why it is parked and what would bring it back.
 | --- | --- | --- | --- | --- |
 | BL-076 | A receipt claim settled by a replacement delivery named on the claim, written off with approval, or cancelled as raised in error | The owner's decision 5 settles a claim by the supplier's credit note or by the invoice that left the rejected goods out (ADR-0076); a replacement delivery is already covered by its receipt raising the received quantity, after which the invoice that charged the whole delivery settles the claim | The owner asks for a write-off of an unrecoverable claim, or a claim raised in error is found open | ADR-0076, CR-036 point 3, A-272 |
 
+## Parked in B09b continued
+
+| ID | Item | Why it is not in version one yet | What would bring it back | Related |
+| --- | --- | --- | --- | --- |
+| BL-077 | Approving the void of a sale whose payment already has a reversal waiting answers 500 instead of a refusal | Found by `test/integration/pos/till-cash-paths.integration.spec.ts` while building B09b continued: `Receipts.reverseApprovedIn` writes a second open reversal for the payment. ORD's void and PAY's reversal are lane B's and shared, and the till's own paths are not affected | Lane B (ORD) or the PAY owner refuses the void's approval with a stated code while a reversal is pending | ADR-0077, A-226 |
+| BL-078 | `openShift` and `recordCashMovement` check the device credential the contract names | B9b built them on the staff session alone, and a manager recording a drop at the back-office console has no till device; the counter sale and the sync are where a revoked device must be stopped (A-274 (c)) | The offline sync (B09b continued 2) sends shift opens and cash movements from the queue under the device credential | ADR-0016, OFFLINE_SYNC 6.5 |
+
 ## Explicitly outside the brief
 
 These are not mentioned in the shared brief, or are mentioned only conditionally. They are listed so that nobody builds them by accident.

@@ -192,6 +192,7 @@ Each card gives: what the module owns, its public interface (the services export
 - **Built in B09a continued 2c (A-226):** `Refunds.requestIn` (a refund asked for in the caller's transaction, the same rules and approval as `requestRefund`; ORD's cancellation) and `Receipts.reverseApprovedIn` (a payment reversed in the caller's transaction under the caller's own approval, reason `SALE_VOIDED`; ORD's void). Neither authorises; the caller's command has.
 - **Built in B09a continued 2d (A-228):** read-only `Refunds.summariesIn` (id, status, amount), for ORD's return view.
 - **Built in B09a continued 2f (A-232):** `ProviderPayments.chargeIn` (a mobile money charge for an order written PENDING in the caller's serializable transaction, exactly as `initiateMobileMoneyCharge` writes one; it authorises nothing) and `sendCharge` (the charge sent after that transaction commits).
+- **Built in B09b continued (ADR-0077):** the `TillShiftCheck` port and `TillShiftRegistry` (deny by default), asked through `Payments.tillCashIn` or `tillCashAnswerIn` before any cash moves into or out of a till: in `Payments.writeIn`, a mobile money charge naming a shift, `Refunds.markPaid` (a till cash refund names the open shift it is paid out of, `pay.refund.paid_from_shift_id`) and `Receipts.reverseIn`. A shift's refunds count against the shift they were paid out of.
 
 ### PUR: procurement and suppliers (layer 7)
 
@@ -235,6 +236,7 @@ Each card gives: what the module owns, its public interface (the services export
 - **Imports:** platform, IAM, MDM, INV (availability), PAY, ORD.
 - **Subscribes (T):** `pay.PaymentCleared`, to add a tender to the shift's expected totals.
 - **Built in B9b (A-273):** `Registers` and `Shifts` (HTTP only): registers, shifts with the float, cash drops, pay-outs and pay-ins, the X and Z reports, and the blind close signed off by a supervisor. The shift's expected figures are read when needed rather than kept by a subscription: PAY's new read-only `Payments.shiftTotalsIn` (a shift's cleared payments by method, and what was refunded of them) and ORD's new read-only `Orders.shiftSalesIn` (its completed sales, voids and price given below list). Publishes the ◆ events `pos.ShiftOpened`, `pos.CashDropped`, `pos.CashPaidIn`, `pos.CashPaidOut` and `pos.ShiftClosed` (FIN posts them, migration 0228). No module imports POS; `index.ts` exports `Registers` and `Shifts` for the seed. ORD's `SalePosting` takes the sale's `shiftDocumentId` (channel POS needs one), and PAY refuses cash into a till with no shift (A-212 (a)).
+- **Built in B09b continued (A-274, ADR-0077):** `Devices` (enrolment, the list, revocation, and `deviceOfIn`, the device credential's check) and `CounterSales` (`completeCounterSale` through ORD's `SalePosting.postIn`, with the shift's per-shift override room) behind HTTP; `TillCash`, POS's implementation of PAY's `TillShiftCheck` port, registered at start. POS now imports BIL (the receipt's view, `Billing.viewsIn`). Publishes `pos.TillClockOutOfTolerance` (the exception source).
 
 ### SHP: online store (layer 10)
 
@@ -353,6 +355,7 @@ Any other reference upward, from a lower layer to a document in a higher one, us
 | `ScheduledJob` | platform | Any module, wired in `src/worker-app.ts` | The worker runs a module's scheduled job as the Scheduler and records the run (ADR-0049, proposed); first INV's `reservation-expiry`, then its `stock-balance-recompute` and `stock-alerts` |
 | `LocationUsageCheck` (`LocationUsageRegistry.register`) | MDM | INV (later PUR, ORD, DEL) | MDM asks whether stock stands at a branch or location, or open documents name it, before closing the branch or archiving the location (ADR-0051, proposed) |
 | `EntitySheet` (`MdmImports.registerSheet`) | MDM | INV | MDM's imports run the dry run and the all-or-none apply of a sheet whose rows a higher module owns (ADR-0050, proposed); first INV's `OPENING_STOCK` |
+| `TillShiftCheck` (`TillShiftRegistry.register`) | PAY | POS | PAY asks, in the caller's transaction and under the shift's lock, whether cash may move into or out of a till through a shift: OPEN, of that till and branch, and the actor's own or recoverable by them; deny by default (ADR-0077, proposed) |
 
 Adding a port needs an ADR. Ports are the exception, not a way round the layer rule.
 
@@ -401,7 +404,7 @@ The rule runs in `pnpm lint`. CI runs `pnpm lint` on every pull request and a fa
 ### Data: two CI checks
 
 1. **Foreign keys.** A query over `pg_constraint` and `pg_namespace` lists every foreign key whose referencing and referenced tables are in different schemas. Each must match the allow-list in section 5 and point from a higher layer to a lower one. Anything else fails the build.
-2. **Schema names in code.** A scan of each module's `infrastructure/` folder and migrations fails if it names a schema other than its own, the published `pub_` views it is allowed to read (CST and RPT only), a published key in a foreign key clause, or a read-only function a lower layer publishes for it (`publishedFunctions` in `tooling/architecture.json`, ADR-0047: MDM's `location_stock_facts` and `product_tracking`, called by INV's stock triggers; DOC's `archived_rendering`, called by BIL's migration 0155; MDM's `customer_has_phone`, called by PAY's store credit trigger, migration 0176).
+2. **Schema names in code.** A scan of each module's `infrastructure/` folder and migrations fails if it names a schema other than its own, the published `pub_` views it is allowed to read (CST and RPT only), a published key in a foreign key clause, or a read-only function a lower layer publishes for it (`publishedFunctions` in `tooling/architecture.json`, ADR-0047: MDM's `location_stock_facts` and `product_tracking`, called by INV's stock triggers; DOC's `archived_rendering`, called by BIL's migration 0155; MDM's `customer_has_phone`, called by PAY's store credit trigger, migration 0176; IAM's `holds_permission_at`, called by PAY's till cash triggers and POS's cash movement guard, migrations 0237 to 0239). The platform's shared objects include `document_entry_state` and its owner-only setter (migration 0236, ADR-0077 Amendments).
 
 ### Review
 

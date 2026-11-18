@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Param, Patch, Post, Query, Res } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Inject, Param, Patch, Post, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import type { z } from 'zod';
 import type { Actor } from '../../../platform/context/request-context';
@@ -6,9 +6,11 @@ import { CurrentActor } from '../../../platform/http/actor-param';
 import { IdempotencyKeyHeader, Operation } from '../../../platform/http/operation';
 import { zodPipe } from '../../../platform/http/validation';
 import type { StoredResponse } from '../../../platform/idempotency/idempotency';
+import { CounterSales, type CounterSaleResultView } from '../application/counter-sales';
+import { Devices, type DeviceEnrolledView, type DeviceView } from '../application/devices';
 import { Registers, type RegisterView } from '../application/registers';
 import { Shifts, type CashMovementView, type Page, type ShiftReportView, type ShiftView } from '../application/shifts';
-import { CashMovementCreate, IdParam, PageQuery, ReasonBody, RegisterCreate, RegisterPageQuery, RegisterUpdate, ShiftClose, ShiftOpen, ShiftPageQuery } from './schemas';
+import { CashMovementCreate, CounterSale, DeviceEnrolmentCreate, IdParam, PageQuery, ReasonBody, RegisterCreate, RegisterPageQuery, RegisterUpdate, ShiftClose, ShiftOpen, ShiftPageQuery } from './schemas';
 
 const READ = { access: 'SESSION', realms: ['STAFF'], idempotent: false, csrf: false, rateLimit: 'console' } as const;
 const WRITE = { access: 'SESSION', realms: ['STAFF'], idempotent: true, csrf: true, rateLimit: 'console' } as const;
@@ -28,7 +30,51 @@ export class PosController {
   constructor(
     @Inject(Registers) private readonly registers: Registers,
     @Inject(Shifts) private readonly shifts: Shifts,
+    @Inject(Devices) private readonly devices: Devices,
+    @Inject(CounterSales) private readonly sales: CounterSales,
   ) {}
+
+  @Post('pos/sales')
+  @Operation({ operationId: 'completeCounterSale', ...WRITE, permission: 'pos.sale.create' })
+  completeCounterSale(
+    @CurrentActor() actor: Actor | undefined,
+    @Body(zodPipe(CounterSale)) body: z.infer<typeof CounterSale>,
+    @IdempotencyKeyHeader() key: string,
+    @Headers('x-device-credential') deviceCredential: string | undefined,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<CounterSaleResultView> {
+    return reply(res, this.sales.complete(actor, body, key, deviceCredential));
+  }
+
+  @Get('registers/:id/devices')
+  @Operation({ operationId: 'listRegisterDevices', ...READ, permission: 'pos.device.read' })
+  listRegisterDevices(@CurrentActor() actor: Actor | undefined, @Param('id', zodPipe(IdParam)) id: string, @Query(zodPipe(PageQuery)) query: z.infer<typeof PageQuery>): Promise<Page<DeviceView>> {
+    return this.devices.list(actor, id, query.cursor, query.limit);
+  }
+
+  @Post('registers/:id/devices')
+  @Operation({ operationId: 'enrolDevice', ...WRITE, permission: 'pos.device.enrol' })
+  enrolDevice(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(DeviceEnrolmentCreate)) body: z.infer<typeof DeviceEnrolmentCreate>,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<DeviceEnrolledView> {
+    return reply(res, this.devices.enrol(actor, id, body, key));
+  }
+
+  @Post('devices/:id/revoke')
+  @Operation({ operationId: 'revokeDevice', ...WRITE, permission: 'pos.device.enrol' })
+  revokeDevice(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(ReasonBody)) body: z.infer<typeof ReasonBody>,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<DeviceView> {
+    return reply(res, this.devices.revoke(actor, id, body, key));
+  }
 
   @Get('registers')
   @Operation({ operationId: 'listRegisters', ...READ, permission: 'pos.register.read' })

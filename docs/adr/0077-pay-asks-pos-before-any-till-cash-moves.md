@@ -1,0 +1,66 @@
+# ADR-0077: PAY asks POS, through the TillShiftCheck port, before any cash moves into or out of a till
+
+- **Status:** Proposed (2026-11-17)
+- **Date:** 2026-11-17
+- **Session:** B09b continued
+- **Deciders:** backend track; owner approves
+
+## Context
+
+The owner's decision on A-212 (a) (2026-11-16) is that cash enters only through a till shift and is counted at its close; A-273 (i) adds that a cash refund is paid only out of an open shift of the till that took the payment. B9b left one gap open, recorded as A-273 (k): PAY refuses cash into a till with no shift named (`SHIFT_REQUIRED`, `ck_payment_cash_shift`), but whether the named document is a till shift, OPEN and the seller's own was POS's to check, and only POS's own commands checked it. Any caller of PAY's ports (`Payments.recordIn`, `Payments.writeIn`, `ProviderPayments.chargeIn`), and PAY's own commands that move a till's cash out (`markRefundPaid`, an approved `reversePayment`, the void ORD approves through `Receipts.reverseApprovedIn`), could name another cashier's shift, another till's shift, or a shift that was closed or force-closed. Cash recorded so is either counted at nobody's close or makes a closed shift's frozen figure wrong: the gap a cashier would use to take cash off the books (abuse case 17).
+
+PAY is layer 7 and POS layer 10 (MODULE_BOUNDARIES section 2): PAY may not import POS nor read `pos.shift`, and the schema-names check refuses a PAY migration that reads another schema or the platform's registry.
+
+## Options considered
+
+1. **Leave the check to each selling command.** POS's counter sale and cash movements check under the shift's lock; every other path is trusted. Costs nothing, and leaves every PAY port and PAY's refunds and reversals open: the gap stays.
+2. **A PAY trigger that reads `pos.shift`.** Enforced in the database, but a lower schema reading a higher one's table breaks ADR-0008's boundary and the schema-names check refuses it.
+3. **A port: PAY defines `TillShiftCheck` and a `TillShiftRegistry`; POS registers its implementation.** PAY asks, in the caller's transaction, before any cash moves through a till; POS answers under the shift's row lock. One more port to keep, and the rule is held in the application, with the database holding that a till's cash names a shift (`ck_payment_cash_shift`) and that a cash refund paid from a till names the shift it was paid out of (`ck_refund_till_shift`).
+
+## Decision
+
+Option 3.
+
+- `src/modules/pay/application/till-shifts.ts` defines `TillCashRequest` (`shiftDocumentId`, `registerId` or null, `branchId`, `actorId`, `direction` IN or OUT), `TillCashAnswer` (the shift's till with its location, or a refusal `SHIFT_UNKNOWN`, `SHIFT_NOT_OPEN`, `SHIFT_NOT_OWN`, `SHIFT_OTHER_REGISTER`, `SHIFT_OTHER_BRANCH`), the port `TillShiftCheck` and `TillShiftRegistry`, exported from PAY's `index.ts`. **Deny by default:** with no check registered, or none that knows the document, the answer is `SHIFT_UNKNOWN`.
+- POS's `TillCash` (`src/modules/pos/application/till-cash.ts`) implements it and `PosModule.onModuleInit` registers it. It locks the shift (`SELECT ... FOR UPDATE`) and judges with the pure `judgeTillCash` (`src/modules/pos/domain/till.ts`): the shift is OPEN (a CLOSING, CLOSED or force-closed shift takes and pays out nothing); of the payment's branch; of the till named, when one is; and the actor is its cashier, or holds `pos.shift.force_close` at its branch (the manager recovering a till, OFFLINE_SYNC 6.5, A-273 (f); migrations 0233 and 0234 seed it to the Owner and the Manager).
+- PAY asks through `Payments.tillCashIn` (throws 422 `PAYMENT_INVALID`) or `Payments.tillCashAnswerIn` (for a command that words its own refusal):
+  - `Payments.writeIn`, the one door every PAY payment is written through (so `recordIn`, and any module's sale tender, cannot go round it), for every cash payment into a till;
+  - `ProviderPayments.initiate` and `writeChargeIn` (and so `chargeIn`) for a mobile money charge that names a shift: such a charge is counted in the shift's tenders, and is authorised at the till's location;
+  - `Refunds.markPaid` for a refund of a cash payment held by a till, other than to store credit: the body's new optional `shiftId` is required (422 `REFUND_INVALID` `SHIFT_REQUIRED`) and must be an open shift of the till that took the payment (`SHIFT_OTHER_REGISTER` otherwise); `pay.refund.paid_from_shift_id` (migration 0232) records it, and `ck_refund_till_shift` refuses a till cash refund PAID without one, or a shift on any other refund;
+  - `Receipts.reverseIn`, for an approved `reversePayment` and the void ORD approves: cash goes back out only through the shift it was taken in, which must still be open, and the decider must reach it.
+- A shift's expected cash counts cash refunds against the shift they were paid out of (`PgPaymentStore.shiftTotals`), not the shift that took the payment, and only once paid.
+
+## Consequences
+
+- No path in PAY takes or pays out a till's cash that POS has not seen under the shift's lock: the gap A-273 (k) recorded is closed for every caller. A direct PAY call cannot bypass it, and each path's refusal is tested.
+- A cash refund needs an open shift on the till that took the payment; a payment taken in a shift that has closed is refunded or reversed only by a manual journal under approval (the accountant), or after a new shift opens on that till (a refund). A void of a cash sale after its shift closed is refused at the approval, as FR-POS-009 ("only within the same shift") intends.
+- Only the Owner and the Manager may record cash, pay a refund out of, or reverse a payment on another cashier's shift. The Accountant may request a reversal and pay a non-till refund, but not take cash out of a cashier's drawer.
+- The driver's cash on delivery (B11) is cash held by a driver, not a till (`ck_payment_cash_holder`), and is outside this port; B11 must hold its own rule for the driver's reconciliation.
+- Binds `docs/MODULE_BOUNDARIES.md` section 6 and the PAY and POS cards, `docs/data-model/pay.md`, `docs/API.md` (`markRefundPaid`, `initiateMobileMoneyCharge`), THREAT_MODEL abuse case 17, A-273 (i) and (k) and A-274.
+
+## Amendments
+
+- **2026-11-17, before acceptance: the rule is held by the database too** (the parent session for the owner: ADR-0077 is accepted only if the open, own-shift rule is enforced in the database, as the shift and ledger rules are). Without a lower schema reading a higher one's tables (ADR-0008):
+  - **Platform publishes a document's entry state** (migration 0236): `platform.document_entry_state` (PROJECTION), one row per document that takes entries, with `accepts_entries`, `holder_id` and `container_id`, read through `platform.document_entry_state(id)` and written only through `platform.set_document_entry_state`, executable by the owner role alone (so no application code can write it). Once a document stops taking entries it never takes them again; its holder and container never change. Both functions join `platformSharedObjects` in `tooling/architecture.json`; the schema-names check itself is unchanged.
+  - **IAM publishes** `iam.holds_permission_at(principal, permission, branch)` (migration 0237, ADR-0047's pattern), read-only, at the application clock's instant.
+  - **POS keeps its shifts' state** (migration 0238): `pos.shift_entry_state`, a SECURITY DEFINER trigger on `pos.shift`, publishes OPEN, the cashier and the register, and every existing shift is published once. `pos.cash_movement_guard` now also refuses a movement recorded by someone who neither runs the shift nor holds `pos.shift.force_close` (`ck_cash_movement_own_shift`).
+  - **PAY refuses in the database** (migration 0239): `trg_payment_a_till_shift` (named to fire before PAY's other insert triggers) refuses any payment that names a shift (a cash tender, a mobile money charge at a till, a reversing payment) unless the shift takes entries, is of the payment's branch and of the till it names, and its writer is the holder or holds `pos.shift.force_close` (`ck_payment_till_shift`, with the refusal in the error's detail); `pay.refund_till_shift` refuses the same for a refund paid out of a till (`ck_refund_till_shift`).
+
+## Verification
+
+- `src/modules/pos/domain/till.spec.ts` (`judgeTillCash`): each refusal and the order in which they apply, written before the code and seen red.
+- `test/integration/pos/till-cash-paths.integration.spec.ts` (B09b continued, 20 tests): for a sale's tender through ORD, `recordIn` and `writeIn` called directly, a mobile money charge by HTTP and through `chargeIn`, a cash refund paid by hand, an approved reversal and a void, and a cash movement, cash naming another cashier's shift, another till, a closed shift and a force-closed shift is refused and nothing is recorded (counts and ledger by SQL); the database refuses a till cash refund paid with no shift. A cashier who counts the figure derived by SQL signs off EXACT and the till's 1000 returns to 0. Six mutations, each removing one check, turn the spec red (the report lists them).
+- **One row per cash path** (every test in `test/integration/pos/till-cash-paths.integration.spec.ts` unless named otherwise; the force-closed shift is written as `forceCloseShift` will leave it, the operation being B09b continued 1b's):
+
+| Cash path | Another cashier's shift | A closed shift | A force-closed shift | Database-level refusal (direct SQL) | Mutation turned red |
+| --- | --- | --- | --- | --- | --- |
+| A sale's tender through ORD | "refuses another cashier shift, another till, a closed shift and a force-closed shift, recording nothing" (`SHIFT_NOT_OWN`) | same test (`SHIFT_NOT_OPEN`) | same test (`SHIFT_NOT_OPEN`) | "a cash tender (a sale through ORD, recordIn, writeIn): ..." | `judgeTillCash` open check removed (6 red), own check removed (5 red); DB: open check removed (4 red), own check removed (4 red) |
+| `Payments.recordIn` directly | "refuses another cashier shift, a closed shift, a force-closed shift and a document that is no shift" | same test | same test | "a cash tender (...)" | `writeIn`'s till check removed (2 red); DB as above |
+| `Payments.writeIn` directly | same test (`writeDirect`) | same test | same test | "a cash tender (...)" | `writeIn`'s till check removed (2 red); DB as above |
+| A mobile money charge by HTTP | "names the cashier own open shift, and refuses another cashier shift, a closed or a force-closed shift" | same test | same test | "a mobile money charge naming a shift (...)" | `initiate`'s check is masked by `writeChargeIn`'s; DB open and own checks removed (4 red each, this test among them) |
+| A mobile money charge through `chargeIn` | "refuses the same in a charge another module writes in its own transaction (ProviderPayments.chargeIn): a closed, a force-closed and another cashier shift" (`SHIFT_NOT_OWN`) | same test (`SHIFT_NOT_OPEN`) | same test (`SHIFT_NOT_OPEN`) | "a mobile money charge naming a shift (...)" | `writeChargeIn`'s check removed (1 red) |
+| A cash refund paid by hand | "refuses a payout ... by someone who may not reach the cashier shift, and out of a closed or force-closed shift" | same test | same test | "a cash refund paid out of a till: ..." | `markPaid` ignores the refusal (3 red); DB refund check removed (1 red) |
+| An approved reversal | not reachable through the application, because every permitted approver (Owner, Manager, `pay.reversal.approve`) holds `pos.shift.force_close`; the decider who cannot reach the shift is refused by the database test "a reversing payment (...)" (`SHIFT_NOT_OWN`) | "refuses to reverse cash taken in a closed or a force-closed shift" | same test | "a reversing payment (an approved reversal or a void): ..." | `reverseIn`'s till check removed (2 red); DB open check removed (4 red) |
+| A void | not reachable through the application, for the same reason (`ord.void.approve` is the Owner's and the Manager's); the database test "a reversing payment (...)" refuses a decider who cannot reach the shift | "refuses to void a cash sale whose shift has closed or was force-closed" | same test | "a reversing payment (...)" | `reverseIn`'s till check removed (2 red) |
+| A cash movement | "refuses another cashier, a closed shift and a force-closed shift" (403) | same test (`SHIFT_NOT_OPEN`) | same test | "a cash movement: ..." (`ck_cash_movement_own_shift`, `ck_cash_movement_open_shift`) | DB own check removed (1 red); a shift published as always open (5 red) |
+

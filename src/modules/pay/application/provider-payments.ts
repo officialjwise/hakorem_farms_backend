@@ -98,7 +98,9 @@ export class ProviderPayments {
       if (claim.kind === 'REPLAY') return { replay: true as const, response: claim.response as StoredResponse<PaymentDocumentView> };
       if (!this.provider.available() || this.payerEmail === null) throw new PaymentProviderUnavailableError('the payment provider cannot take a charge now');
       const branchId = await this.branchOf(tx, actor!, body);
-      await this.authoriser.authorise(tx, actor, INITIATE, { branchId });
+      // A charge at a till is authorised where the till sells, which a cashier's grant to the shop floor reaches.
+      const till = body.shiftId === null ? null : await this.payments.tillCashIn(tx, { shiftDocumentId: body.shiftId, registerId: null, branchId, actorId: actor!.principalId, direction: 'IN' }, '/shiftId');
+      await this.authoriser.authorise(tx, actor, INITIATE, till === null ? { branchId } : { branchId, locationId: till.locationId });
       const view = await this.writeChargeIn(tx, actor!.principalId, branchId, body);
       const response = { status: 201, body: view };
       await this.idempotency.complete(tx, claim.id, response);
@@ -135,10 +137,11 @@ export class ProviderPayments {
     const broken: PaymentRule[] = [];
     if (method === undefined || !method.isLive) broken.push({ field: '', rule: 'METHOD_DISABLED' });
     if (body.amountPesewas <= 0n) broken.push({ field: '/amountPesewas', rule: 'AMOUNT_NOT_POSITIVE' });
-    if (body.shiftId !== null) broken.push({ field: '/shiftId', rule: 'SHIFT_NOT_AVAILABLE' });
     if (body.customerId !== null && (await this.refs.customersIn(tx, [body.customerId])).get(body.customerId)?.isLive !== true) broken.push({ field: '/customerId', rule: 'CUSTOMER_UNKNOWN' });
     if ((await this.store.payments(tx, [body.id])).length > 0 || (await this.documents.branchOf(tx, body.id)) !== null) broken.push({ field: '/id', rule: 'ID_IN_USE' });
     if (broken.length > 0) throw new PaymentInvalidError(broken);
+    // A charge taken at a till is counted in its shift, which must be open and the caller's own (ADR-0077).
+    if (body.shiftId !== null) await this.payments.tillCashIn(tx, { shiftDocumentId: body.shiftId, registerId: null, branchId, actorId, direction: 'IN' }, '/shiftId');
     const now = this.clock.now();
     const reference = referenceOf(body.id);
     await this.documents.register(tx, { id: body.id, docType: 'PAYMENT', ownerModule: 'pay', branchId, actorId });
@@ -149,7 +152,7 @@ export class ProviderPayments {
       amountPesewas: body.amountPesewas,
       customerId: body.customerId,
       orderDocumentId: body.orderId,
-      shiftDocumentId: null,
+      shiftDocumentId: body.shiftId,
       register: null,
       provider: PROVIDER,
       providerReference: reference,
@@ -407,6 +410,12 @@ export class ProviderPayments {
   }
 
   private async branchOf(tx: Transaction, actor: Actor, body: MobileMoneyRequest): Promise<string> {
+    if (body.orderId === null && body.shiftId !== null) {
+      // Taken at a till: the shift's branch, which the till check holds to again under the shift's lock.
+      const branchId = await this.documents.branchOf(tx, body.shiftId);
+      if (branchId === null) throw new PaymentInvalidError([{ field: '/shiftId', rule: 'SHIFT_UNKNOWN' }]);
+      return branchId;
+    }
     if (body.orderId !== null) {
       const order = (await this.documents.refs(tx, [body.orderId])).get(body.orderId);
       if (order?.docType !== 'SALES_ORDER') throw new PaymentInvalidError([{ field: '/orderId', rule: 'ORDER_UNKNOWN' }]);

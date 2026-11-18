@@ -20,3 +20,8 @@ export function withinTolerance(at: Date, now: Date): boolean {
   return Math.abs(at.getTime() - now.getTime()) <= CLOCK_TOLERANCE_SECONDS * MILLISECONDS_PER_SECOND;
 }
 
+
+/** How many whole seconds the till's time is ahead of the application clock (behind is negative), rounded. */
+export function secondsAhead(at: Date, now: Date): number {
+  return Math.round((at.getTime() - now.getTime()) / MILLISECONDS_PER_SECOND);
+}

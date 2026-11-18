@@ -113,6 +113,8 @@ Every webhook received, accepted or not. The rejection log.
 - UNIQUE (`provider`, `event_id`) where `signature_valid`: a replayed event collides and is acknowledged without effect. Rows with an invalid signature are kept without the uniqueness guarantee, so a forger cannot block a genuine event id.
 - `actor_id` is the system principal for the webhook endpoint.
 
+**As built in B09b continued (migration 0232, ADR-0077, A-274 (e)):** `pay.refund.paid_from_shift_id` (uuid NULL, FK `platform.business_document`): the open till shift a refund of a cash payment held by a till was paid out of; `trg_refund_till_shift` (`ck_refund_till_shift`, HK010) refuses such a refund PAID without one, and a shift on any refund that pays nothing out of a till. That the shift is OPEN, of that till and reachable by the payer is POS's check through the `TillShiftCheck` port.
+
 ### `pay.refund` · DOCUMENT
 
 Posted statuses: `PAID`, `FAILED`, `REJECTED`. Published key.

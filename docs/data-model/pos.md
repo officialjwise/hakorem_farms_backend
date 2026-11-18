@@ -8,7 +8,10 @@ Owner: POS module. Registers, device enrolment, shifts, cash movements, held sal
 - **`pos.cash_movement`:** `recorded_at` and `actor_id` (LEDGER); `reason_code` is required for every kind but `FLOAT_IN` (`ck_cash_movement_reason`); a witness exactly on a drop and never its recorder (`ck_cash_movement_witness`); one `FLOAT_IN` per shift (`uq_cash_movement_float`); `pos.cash_movement_guard` (HK010) refuses a movement on a shift that is not OPEN and a drop witnessed by the shift's cashier.
 - **`pos.shift_tender_count`:** `created_at`/`created_by`; `ck_shift_tender_count_variance` as for the shift; `pos.shift_tender_count_guard` (HK004, HK010): inserted blind while the shift is CLOSING, its expected figure set once at the sign-off, the declared figure never changed.
 - **`pos.shift_report`:** `recorded_at` and `actor_id`; only the Z report is stored (an X report is a reading, A-273 (j)).
-- **Not yet built:** `pos.device_enrolment` (B09b continued), `pos.held_sale` (B09b continued), `pos.sale_sync` (B09b continued 2).
+**Built in B09b continued (migrations 0231 and 0235, A-274):**
+- **`pos.cash_movement.unwitnessed`** (boolean, default false): a drop taken while no supervisor was signed in at the branch (the owner on A-273 (d)). `ck_cash_movement_witness` now holds a drop witnessed or unwitnessed, never both nor neither, and nothing but a drop either.
+- **`pos.device_enrolment`** as below, with `revoked_by`, `revoke_reason`, `branch_id` and the MASTER standard columns; `credential_hash` is the SHA-256 of the credential (`ck_device_enrolment_hash`, 32 bytes), unique (`uq_device_enrolment_credential`); `ck_device_enrolment_revoked`; `pos.device_enrolment_guard` (HK004, HK010): a device is enrolled live and never synced, what it was enrolled as never changes, and a revoked device stays revoked and syncs nothing.
+- **Not yet built:** `pos.held_sale` (B09b continued 1b), `pos.sale_sync` (B09b continued 2).
 
 ---
 

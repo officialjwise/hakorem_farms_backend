@@ -2,7 +2,7 @@ operationId: createRegister
 tags:
   - pos
 summary: "Create a register"
-description: "A till selling from a live, physical location of its branch (422 `REGISTER_INVALID` with `LOCATION_NOT_IN_BRANCH` or `LOCATION_NOT_SELLABLE`), with a code of one to four capitals or digits unique among the branch's tills (`REGISTER_CODE_TAKEN`). `deviceCount` is 0 until device enrolment is built (B09b continued).\n\nPermission: `pos.register.manage`."
+description: "A till selling from a live, physical location of its branch (422 `REGISTER_INVALID` with `LOCATION_NOT_IN_BRANCH` or `LOCATION_NOT_SELLABLE`), with a code of one to four capitals or digits unique among the branch's tills (`REGISTER_CODE_TAKEN`). `deviceCount` counts the till's devices not revoked (2.6.0); a new till has none.\n\nPermission: `pos.register.manage`."
 x-permission: pos.register.manage
 parameters:
   - $ref: "#/components/parameters/IdempotencyKey"
@@ -51,7 +51,7 @@ responses:
               id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
               displayName: "Adwoa Darko"
             openedAt: "2026-11-13T06:55:00Z"
-          deviceCount: 1
+          deviceCount: 0
           version: 2
   "400":
     $ref: "#/components/responses/BadRequest"

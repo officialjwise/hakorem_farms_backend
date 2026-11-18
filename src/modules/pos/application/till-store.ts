@@ -56,6 +56,8 @@ export interface CashMovementRecord {
   readonly reasonCode: string | null;
   readonly note: string | null;
   readonly witnessId: string | null;
+  /** A drop taken while no supervisor was signed in at the branch (A-273 (d)). */
+  readonly unwitnessed: boolean;
   readonly occurredAt: Date;
   readonly recordedAt: Date;
   readonly actorId: string;
@@ -77,6 +79,21 @@ export interface ShiftFilter {
   readonly status: ShiftStatus | null;
   readonly from: Date | null;
   readonly to: Date | null;
+}
+
+/** A device enrolled to run a till (ADR-0016); its credential is held only as its SHA-256 hash. */
+export interface DeviceRecord {
+  readonly id: string;
+  readonly registerId: string;
+  readonly deviceLabel: string;
+  readonly enrolledBy: string;
+  readonly enrolledAt: Date;
+  readonly lastSyncAt: Date | null;
+  readonly revokedAt: Date | null;
+  readonly revokedBy: string | null;
+  readonly revokeReason: string | null;
+  readonly branchId: string;
+  readonly version: number;
 }
 
 export const TILL_STORE = Symbol('TILL_STORE');
@@ -107,9 +124,20 @@ export interface TillStore {
   cashMovementsOf(tx: Transaction, shiftId: string, beforeId: string | null, limit: number): Promise<CashMovementRecord[]>;
   /** Each kind's total over the shift's movements. */
   cashMovementTotals(tx: Transaction, shiftId: string): Promise<ReadonlyMap<CashMovementKind, bigint>>;
+  /** The shift's drops taken unwitnessed (A-273 (d)): how many and how much. */
+  unwitnessedDrops(tx: Transaction, shiftId: string): Promise<{ readonly count: number; readonly amountPesewas: bigint }>;
   insertTenderCounts(tx: Transaction, counts: readonly TenderCountRecord[], actorId: string, at: Date): Promise<void>;
   completeTenderCount(tx: Transaction, count: TenderCountRecord): Promise<void>;
   tenderCounts(tx: Transaction, shiftIds: readonly string[]): Promise<TenderCountRecord[]>;
   insertReport(tx: Transaction, r: { readonly id: string; readonly shiftId: string; readonly kind: 'Z'; readonly totals: object; readonly actorId: string; readonly at: Date }): Promise<void>;
   zReport(tx: Transaction, shiftId: string): Promise<{ readonly totals: Record<string, unknown>; readonly recordedAt: Date } | null>;
+  insertDevice(tx: Transaction, d: { readonly id: string; readonly registerId: string; readonly deviceLabel: string; readonly credentialHash: Buffer; readonly branchId: string }, actorId: string, at: Date): Promise<void>;
+  devices(tx: Transaction, ids: readonly string[]): Promise<DeviceRecord[]>;
+  lockDevice(tx: Transaction, id: string): Promise<DeviceRecord | null>;
+  /** The device whose credential hashes to this, revoked or not. */
+  deviceByCredential(tx: Transaction, credentialHash: Buffer): Promise<DeviceRecord | null>;
+  devicesOfRegister(tx: Transaction, registerId: string, beforeId: string | null, limit: number): Promise<DeviceRecord[]>;
+  revokeDevice(tx: Transaction, id: string, reason: string, actorId: string, at: Date): Promise<void>;
+  /** Live (not revoked) devices per register. */
+  liveDeviceCounts(tx: Transaction, registerIds: readonly string[]): Promise<ReadonlyMap<string, number>>;
 }

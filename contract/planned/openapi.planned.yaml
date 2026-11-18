@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.5.0"
+  version: "2.6.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -4391,246 +4391,8 @@ paths:
   "/returns/{id}/submit": {}
   "/registers": {}
   "/registers/{id}": {}
-  "/registers/{id}/devices":
-    get:
-      operationId: listRegisterDevices
-      tags:
-        - pos
-      summary: "List devices enrolled on a register"
-      description: "Permission: `pos.device.read`."
-      x-permission: pos.device.read
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - name: cursor
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: limit
-          in: query
-          required: false
-          schema:
-            $ref: "#/components/schemas/PageLimit"
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/DeviceEnrolmentPage"
-              examples:
-                default:
-                  value:
-                    data:
-                      - id: "019a7af9-1a1f-7d1b-9253-da889a7e5366"
-                        registerId: "019a7a94-15a3-7248-9781-2d5f347aa63d"
-                        deviceLabel: "Samsung Tab A7 Lite, till 1"
-                        enrolledBy:
-                          id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
-                          displayName: "Kwabena Owusu"
-                        enrolledAt: "2026-11-02T09:00:00Z"
-                        lastSyncAt: "2026-11-13T09:10:00Z"
-                        revokedAt: null
-                      - id: "019a7af9-390e-76fe-ac37-78c0142ff19d"
-                        registerId: "019a7af8-9e63-758d-9ac5-61aab3bada88"
-                        deviceLabel: "Lenovo M8, till 2"
-                        enrolledBy:
-                          id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
-                          displayName: "Kwabena Owusu"
-                        enrolledAt: "2026-11-03T09:00:00Z"
-                        lastSyncAt: "2026-11-13T09:09:00Z"
-                        revokedAt: null
-                      - id: "019a7af9-57fd-70e2-b61a-16f78de08fd5"
-                        registerId: "019a7af8-dc41-7954-be8c-9e19a71c16f7"
-                        deviceLabel: "Tecno phone, yard"
-                        enrolledBy:
-                          id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
-                          displayName: "Kwabena Owusu"
-                        enrolledAt: "2026-11-04T09:00:00Z"
-                        lastSyncAt: "2026-11-13T09:08:00Z"
-                        revokedAt: null
-                      - id: "019a7af9-76ec-7ac5-8ffe-b52f07912e0c"
-                        registerId: "019a7af8-fb30-7337-8870-3c5120cdb52f"
-                        deviceLabel: "Itel tablet, market"
-                        enrolledBy:
-                          id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
-                          displayName: "Kwabena Owusu"
-                        enrolledAt: "2026-11-05T09:00:00Z"
-                        lastSyncAt: "2026-11-13T09:07:00Z"
-                        revokedAt: null
-                      - id: "019a7af9-95db-74a9-99e1-53668142cc44"
-                        registerId: "019a7a94-15a3-7248-9781-2d5f347aa63d"
-                        deviceLabel: "Old till 1 tablet"
-                        enrolledBy:
-                          id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
-                          displayName: "Kwabena Owusu"
-                        enrolledAt: "2026-11-06T09:00:00Z"
-                        lastSyncAt: "2026-11-13T09:06:00Z"
-                        revokedAt: "2026-11-05T16:00:00Z"
-                    page:
-                      nextCursor: null
-                      limit: 25
-                      hasMore: false
-                empty:
-                  summary: "Nothing matches: no rows and no next page"
-                  value:
-                    data: []
-                    page:
-                      nextCursor: null
-                      limit: 25
-                      hasMore: false
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-    post:
-      operationId: enrolDevice
-      tags:
-        - pos
-      summary: "Enrol a device to run a register, including offline"
-      description: "Permission: `pos.device.enrol`."
-      x-permission: pos.device.enrol
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/DeviceEnrolmentCreate"
-            example:
-              deviceLabel: "Samsung Tab A7 Lite, till 1"
-      responses:
-        "201":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/DeviceEnrolled"
-              example:
-                device:
-                  id: "019a7af9-1a1f-7d1b-9253-da889a7e5366"
-                  registerId: "019a7a94-15a3-7248-9781-2d5f347aa63d"
-                  deviceLabel: "Samsung Tab A7 Lite, till 1"
-                  enrolledBy:
-                    id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
-                    displayName: "Kwabena Owusu"
-                  enrolledAt: "2026-11-02T09:00:00Z"
-                  lastSyncAt: "2026-11-13T09:10:00Z"
-                  revokedAt: null
-                deviceCredential: hkdev_T1.EXAMPLE-NOT-A-REAL-CREDENTIAL
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/devices/{id}/revoke":
-    post:
-      operationId: revokeDevice
-      tags:
-        - pos
-      summary: "Revoke a lost or retired device"
-      description: "Permission: `pos.device.enrol`."
-      x-permission: pos.device.enrol
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ReasonRequest"
-            example:
-              reason: "Tablet stolen from the market stall"
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/DeviceEnrolment"
-              example:
-                id: "019a7af9-1a1f-7d1b-9253-da889a7e5366"
-                registerId: "019a7a94-15a3-7248-9781-2d5f347aa63d"
-                deviceLabel: "Samsung Tab A7 Lite, till 1"
-                enrolledBy:
-                  id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
-                  displayName: "Kwabena Owusu"
-                enrolledAt: "2026-11-02T09:00:00Z"
-                lastSyncAt: "2026-11-13T09:10:00Z"
-                revokedAt: null
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+  "/registers/{id}/devices": {}
+  "/devices/{id}/revoke": {}
   "/shifts": {}
   "/shifts/{id}": {}
   "/shifts/{id}/cash-movements": {}
@@ -4644,8 +4406,9 @@ paths:
       tags:
         - pos
       summary: "Force-close a shift whose device is offline"
-      description: "Sales still queued on the device sync later and post on the next open date, flagged.\n\nPermission: `pos.shift.force_close`."
+      description: "Sales still queued on the device sync later and post on the next open date, flagged.\n\nPermission: `pos.shift.force_close`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: pos.shift.force_close
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -5260,413 +5023,7 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
-  "/pos/sales":
-    post:
-      operationId: completeCounterSale
-      tags:
-        - pos
-      summary: "Complete a counter sale"
-      description: "Prices are re-resolved on the server. In one serializable transaction it issues the stock (a goat by tag, eggs by crate, beef by weight), issues the receipt with its gap-free number, records and allocates the tenders, and posts the ledger. The example is a split tender: GHS 500.00 by verified mobile money and the rest in cash. A variance within the band and the cashier's limit needs a reason only; beyond it, the sale is refused with 422 PRICE_OVERRIDE_NEEDS_APPROVAL.\n\nPermission: `pos.sale.create`. Ownership: the cashier's own open shift.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result."
-      x-permission: pos.sale.create
-      x-owner-module: ord
-      parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-          deviceCredential: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CounterSale"
-            example:
-              id: "019a7aac-216c-721a-8753-2a7ecd11a35c"
-              shiftId: "019a7a93-f6b4-7865-8d9d-8f27bac90805"
-              lines:
-                - productId: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                  stockUnitId: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
-                  quantity: "1.000"
-                  weightKg: "26.400"
-                  weightSource: SCALE
-                  agreedUnitPricePesewas: 80000
-                  varianceReasonCode: REGULAR_CUSTOMER
-                - productId: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                  quantity: "2.000"
-                  agreedUnitPricePesewas: 6000
-                - productId: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                  stockUnitId: "019a7a91-2f3b-74f5-9a2d-582bcbe2d109"
-                  quantity: "15.300"
-                  weightKg: "15.300"
-                  weightSource: SCALE
-                  agreedUnitPricePesewas: 3000
-              tenders:
-                - paymentMethodId: "019a7a92-c15e-7582-aabb-60fcf9dfd9da"
-                  amountPesewas: 50000
-                  paymentId: "019a7ae6-5f6a-7062-a59a-0ef1ec5387cf"
-                - paymentMethodId: "019a7a92-a26f-7b9f-90d7-c2c5802e3ba3"
-                  amountPesewas: 87900
-                  tenderedPesewas: 100000
-              occurredAt: "2026-11-13T09:11:00Z"
-      responses:
-        "201":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CounterSaleResult"
-              example:
-                order:
-                  id: "019a7aac-216c-721a-8753-2a7ecd11a35c"
-                  customer: null
-                  contactName: null
-                  contactPhone: null
-                  source: null
-                  parentOrderId: null
-                  shiftId: "019a7a93-f6b4-7865-8d9d-8f27bac90805"
-                  salesperson:
-                    id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
-                    displayName: "Adwoa Darko"
-                  deliveryAddress: null
-                  deliveryZone: null
-                  deliveryFeePesewas: 0
-                  delivery: null
-                  taxInclusive: true
-                  finalTotalPesewas: 137900
-                  billingDocument:
-                    id: "019a7ae2-fd46-7b80-a0b9-c0e09cf739be"
-                    docType: RECEIPT
-                    number: RCP-2026-DDW-T1-018834
-                  creditCheck: NOT_REQUIRED
-                  isOffline: false
-                  completedAt: "2026-11-13T09:12:00Z"
-                  adjustments: []
-                  notes: null
-                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                  version: 3
-                  orderNo: SO-2026-DDW-004211
-                  channel: POS
-                  status: COMPLETED
-                  paymentStatus: PAID
-                  paymentTerms: IMMEDIATE
-                  fulfilmentMode: COUNTER
-                  estimatedTotalPesewas: 137900
-                  maximumTotalPesewas: 137900
-                  paidPesewas: 137900
-                  outstandingPesewas: 0
-                  currency: GHS
-                  placedAt: "2026-11-13T09:04:00Z"
-                  recordedAt: "2026-11-13T09:12:00Z"
-                  lines:
-                    - id: "019a7aef-cc3c-73b0-88e8-43d90041bcb6"
-                      lineNo: 1
-                      product:
-                        id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                        sku: LIV-0004
-                        name: Goat
-                      stockUnit:
-                        id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
-                        identifier: G-0142
-                        tracking: SERIAL
-                      qtyOrdered: "1.000"
-                      uom: HEAD
-                      estimatedWeightKg: null
-                      tolerancePercent: null
-                      qtyFulfilled: "1.000"
-                      fulfilledWeightKg: "26.400"
-                      weightSource: SCALE
-                      qtyBackordered: "0.000"
-                      priceSource: ENGINE
-                      priceBasis: PER_HEAD
-                      priceListEntryId: "019a7aa6-16be-73ad-a8e5-43a9087fbc86"
-                      quoteLineId: null
-                      resolvedUnitPricePesewas: 85000
-                      floorUnitPricePesewas: 70000
-                      ceilingUnitPricePesewas: 98000
-                      agreedUnitPricePesewas: 80000
-                      variancePesewas: 5000
-                      varianceDirection: BELOW
-                      varianceReasonCode: REGULAR_CUSTOMER
-                      varianceApprovalRequestId: null
-                      discountPesewas: 0
-                      estimatedLineTotalPesewas: 80000
-                      finalLineTotalPesewas: 80000
-                      lineStatus: FULFILLED
-                      stockException: null
-                    - id: "019a7aef-eb2b-7d93-92cc-e21079f25aee"
-                      lineNo: 2
-                      product:
-                        id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                        sku: EGG-0003
-                        name: "Eggs, big, crate of 30"
-                      stockUnit:
-                        id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
-                        identifier: EGG-261112-L1
-                        tracking: LOT
-                      qtyOrdered: "2.000"
-                      uom: CRATE
-                      estimatedWeightKg: null
-                      tolerancePercent: null
-                      qtyFulfilled: "2.000"
-                      fulfilledWeightKg: null
-                      weightSource: null
-                      qtyBackordered: "0.000"
-                      priceSource: ENGINE
-                      priceBasis: PER_UNIT
-                      priceListEntryId: "019a7aa6-927a-7b3b-a073-bc86ef433564"
-                      quoteLineId: null
-                      resolvedUnitPricePesewas: 6000
-                      floorUnitPricePesewas: 6000
-                      ceilingUnitPricePesewas: 6000
-                      agreedUnitPricePesewas: 6000
-                      variancePesewas: 0
-                      varianceDirection: null
-                      varianceReasonCode: null
-                      varianceApprovalRequestId: null
-                      discountPesewas: 0
-                      estimatedLineTotalPesewas: 12000
-                      finalLineTotalPesewas: 12000
-                      lineStatus: FULFILLED
-                      stockException: null
-                    - id: "019a7af0-0a1a-7777-acaf-8047f3a3f925"
-                      lineNo: 3
-                      product:
-                        id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                        sku: MEAT-0005
-                        name: "Beef, 15 kg pack"
-                      stockUnit:
-                        id: "019a7a91-2f3b-74f5-9a2d-582bcbe2d109"
-                        identifier: MEAT-BEEF-261104-01
-                        tracking: LOT
-                      qtyOrdered: "15.300"
-                      uom: KG
-                      estimatedWeightKg: "15.300"
-                      tolerancePercent: "10.00"
-                      qtyFulfilled: "15.300"
-                      fulfilledWeightKg: "15.300"
-                      weightSource: SCALE
-                      qtyBackordered: "0.000"
-                      priceSource: ENGINE
-                      priceBasis: PER_KG
-                      priceListEntryId: "019a7aa6-b169-751e-ba57-5abe68f4d39c"
-                      quoteLineId: null
-                      resolvedUnitPricePesewas: 3000
-                      floorUnitPricePesewas: 2200
-                      ceilingUnitPricePesewas: 4333
-                      agreedUnitPricePesewas: 3000
-                      variancePesewas: 0
-                      varianceDirection: null
-                      varianceReasonCode: null
-                      varianceApprovalRequestId: null
-                      discountPesewas: 0
-                      estimatedLineTotalPesewas: 45900
-                      finalLineTotalPesewas: 45900
-                      lineStatus: FULFILLED
-                      stockException: null
-                receipt:
-                  id: "019a7ae2-fd46-7b80-a0b9-c0e09cf739be"
-                  kind: RECEIPT
-                  status: ISSUED
-                  documentNo: RCP-2026-DDW-T1-018834
-                  provisionalRef: null
-                  customer: null
-                  customerName: null
-                  customerTin: null
-                  billingAddress: null
-                  order:
-                    id: "019a7aac-216c-721a-8753-2a7ecd11a35c"
-                    docType: SALES_ORDER
-                    number: SO-2026-DDW-004211
-                  originalDocument: null
-                  issueDate: "2026-11-13"
-                  dueDate: null
-                  taxInclusive: true
-                  taxSchemeVersionId: "019a7aa9-78e2-788e-adc6-91ba57db0a98"
-                  netPesewas: 130250
-                  taxPesewas: 7650
-                  grossPesewas: 137900
-                  currency: GHS
-                  levyTotals:
-                    - levyCode: VAT
-                      levyName: "Value Added Tax"
-                      amountPesewas: 5738
-                    - levyCode: NHIL
-                      levyName: "National Health Insurance Levy"
-                      amountPesewas: 956
-                    - levyCode: GETFUND
-                      levyName: "GETFund Levy"
-                      amountPesewas: 956
-                  lines:
-                    - id: "019a7ae3-1c35-7564-ba9c-5f1816a8d7f5"
-                      lineNo: 1
-                      lineKind: PRODUCT
-                      product:
-                        id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                        sku: LIV-0004
-                        name: Goat
-                      description: Goat
-                      stockUnit:
-                        id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
-                        identifier: G-0142
-                        tracking: SERIAL
-                      quantity: "1.000"
-                      uom: HEAD
-                      weightKg: "26.400"
-                      unitPricePesewas: 80000
-                      resolvedUnitPricePesewas: 85000
-                      discountPesewas: 0
-                      taxCategory:
-                        id: "019a7a8a-6af3-7b33-906b-bc092d2a34e7"
-                        code: LIVE_ANIMALS
-                        name: "Live Animals"
-                      lineNetPesewas: 80000
-                      lineTaxPesewas: 0
-                      lineGrossPesewas: 80000
-                      levies:
-                        - levyCode: VAT
-                          levyName: "Value Added Tax"
-                          treatment: ZERO_RATED
-                          ratePercent: "0.00"
-                          basePesewas: 80000
-                          amountPesewas: 0
-                        - levyCode: NHIL
-                          levyName: "National Health Insurance Levy"
-                          treatment: ZERO_RATED
-                          ratePercent: "0.00"
-                          basePesewas: 80000
-                          amountPesewas: 0
-                        - levyCode: GETFUND
-                          levyName: "GETFund Levy"
-                          treatment: ZERO_RATED
-                          ratePercent: "0.00"
-                          basePesewas: 80000
-                          amountPesewas: 0
-                    - id: "019a7ae3-3b24-7f47-8480-fd4f9059762d"
-                      lineNo: 2
-                      lineKind: PRODUCT
-                      product:
-                        id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                        sku: EGG-0003
-                        name: "Eggs, big, crate of 30"
-                      description: "Eggs, big, crate of 30"
-                      stockUnit:
-                        id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
-                        identifier: EGG-261112-L1
-                        tracking: LOT
-                      quantity: "2.000"
-                      uom: CRATE
-                      weightKg: null
-                      unitPricePesewas: 6000
-                      resolvedUnitPricePesewas: 6000
-                      discountPesewas: 0
-                      taxCategory:
-                        id: "019a7a8a-a8d1-7efa-b432-f878208c7156"
-                        code: EGGS
-                        name: Eggs
-                      lineNetPesewas: 12000
-                      lineTaxPesewas: 0
-                      lineGrossPesewas: 12000
-                      levies:
-                        - levyCode: VAT
-                          levyName: "Value Added Tax"
-                          treatment: ZERO_RATED
-                          ratePercent: "0.00"
-                          basePesewas: 12000
-                          amountPesewas: 0
-                        - levyCode: NHIL
-                          levyName: "National Health Insurance Levy"
-                          treatment: ZERO_RATED
-                          ratePercent: "0.00"
-                          basePesewas: 12000
-                          amountPesewas: 0
-                        - levyCode: GETFUND
-                          levyName: "GETFund Levy"
-                          treatment: ZERO_RATED
-                          ratePercent: "0.00"
-                          basePesewas: 12000
-                          amountPesewas: 0
-                    - id: "019a7ae3-5a13-792b-9e63-9b870a0a1464"
-                      lineNo: 3
-                      lineKind: PRODUCT
-                      product:
-                        id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                        sku: MEAT-0005
-                        name: "Beef, 15 kg pack"
-                      description: "Beef, 15 kg pack"
-                      stockUnit:
-                        id: "019a7a91-2f3b-74f5-9a2d-582bcbe2d109"
-                        identifier: MEAT-BEEF-261104-01
-                        tracking: LOT
-                      quantity: "15.300"
-                      uom: KG
-                      weightKg: "15.300"
-                      unitPricePesewas: 3000
-                      resolvedUnitPricePesewas: 3000
-                      discountPesewas: 0
-                      taxCategory:
-                        id: "019a7a8a-c7c0-78dd-8e16-96af9a3d0f8d"
-                        code: PROCESSED_MEAT
-                        name: "Processed Meat"
-                      lineNetPesewas: 38250
-                      lineTaxPesewas: 7650
-                      lineGrossPesewas: 45900
-                      levies:
-                        - levyCode: VAT
-                          levyName: "Value Added Tax"
-                          treatment: STANDARD
-                          ratePercent: "15.00"
-                          basePesewas: 38250
-                          amountPesewas: 5738
-                        - levyCode: NHIL
-                          levyName: "National Health Insurance Levy"
-                          treatment: STANDARD
-                          ratePercent: "2.50"
-                          basePesewas: 38250
-                          amountPesewas: 956
-                        - levyCode: GETFUND
-                          levyName: "GETFund Levy"
-                          treatment: STANDARD
-                          ratePercent: "2.50"
-                          basePesewas: 38250
-                          amountPesewas: 956
-                  settlement:
-                    allocatedPesewas: 137900
-                    creditedPesewas: 0
-                    outstandingPesewas: 0
-                    refundedPesewas: 0
-                    refundablePesewas: 0
-                    paymentStatus: PAID
-                    settledAt: "2026-11-13T09:12:00Z"
-                    asOf: "2026-11-13T09:30:00Z"
-                  certification: null
-                  reasonCode: null
-                  archivedDocumentId: "019a7ae3-97f1-7cf2-b22a-d7f5fd6c50d3"
-                  contentHash: "sha256:4f2ac1d27b94f03a6c58e2b17d40f9a3c6e1b2d5f8a7c4e9b0d3f6a1c2e5b8d7f0"
-                  issuedAt: "2026-11-13T09:12:00Z"
-                  occurredAt: "2026-11-13T09:12:00Z"
-                  reprintCount: 1
-                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                changeDuePesewas: 12100
-                currency: GHS
-                escPosBase64: "G0AbYQEdIREISGFLb3JlbSBGYXJtcwpSQ1AtMjAyNi1ERFctVDEtMDE4ODM0Cg=="
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+  "/pos/sales": {}
   "/pos/sync":
     post:
       operationId: syncOfflineSales
@@ -37678,6 +37035,10 @@ components:
           format: date-time
         externalReference:
           type: string
+        shiftId:
+          type: string
+          format: uuid
+          description: "Required for a refund of a cash payment taken at a till, unless it goes to store credit, and refused on any other (2.6.0, A-273 (i), ADR-0077): the open shift of the till that took the payment it is paid out of, run by the caller or recoverable by them (`pos.shift.force_close`). It is counted against that shift's expected cash."
       required:
         - paidAt
       additionalProperties: false
@@ -39524,6 +38885,9 @@ components:
           anyOf:
             - $ref: "#/components/schemas/PrincipalRef"
             - type: "null"
+        unwitnessed:
+          type: boolean
+          description: "True on a CASH_DROP taken while no supervisor was signed in at the branch (A-273 (d), 2.6.0): it reaches the daily exception report's source. False on every other movement."
         actor:
           $ref: "#/components/schemas/PrincipalRef"
         occurredAt:
@@ -39536,6 +38900,7 @@ components:
         - reasonCode
         - note
         - witness
+        - unwitnessed
         - actor
         - occurredAt
     CashMovementCreate:
@@ -39560,7 +38925,7 @@ components:
         witnessId:
           type: string
           format: uuid
-          description: "Who received a cash drop."
+          description: "Who received a cash drop: a holder of pos.shift.close.approve at the branch who is neither the cashier nor the caller. Required while such a supervisor is signed in at the branch; with none signed in a drop may leave it out and is recorded unwitnessed (A-273 (d), 2.6.0)."
         occurredAt:
           type: string
           format: date-time
@@ -39618,6 +38983,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/CashMovementTotal"
+        unwitnessedDropsCount:
+          type: integer
+          description: "Drops taken while no supervisor was signed in at the branch (A-273 (d), 2.6.0)."
+        unwitnessedDropsPesewas:
+          $ref: "#/components/schemas/Pesewas"
         currency:
           $ref: "#/components/schemas/Currency"
         documentId:
@@ -39638,6 +39008,8 @@ components:
         - refundsPesewas
         - byMethod
         - cashMovements
+        - unwitnessedDropsCount
+        - unwitnessedDropsPesewas
         - currency
         - documentId
     ShiftMethodTotal:

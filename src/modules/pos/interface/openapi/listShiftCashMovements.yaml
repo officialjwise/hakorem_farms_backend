@@ -44,6 +44,7 @@ responses:
                   reasonCode: null
                   note: null
                   witness: null
+                  unwitnessed: false
                   actor:
                     id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
                     displayName: "Adwoa Darko"
@@ -51,11 +52,12 @@ responses:
                 - id: "019a7afa-4f75-7ffe-b536-08b35b688191"
                   kind: CASH_DROP
                   amountPesewas: 500000
-                  reasonCode: null
+                  reasonCode: SAFE_DROP
                   note: null
                   witness:
                     id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
                     displayName: "Kwabena Owusu"
+                  unwitnessed: false
                   actor:
                     id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
                     displayName: "Adwoa Darko"
@@ -63,9 +65,10 @@ responses:
                 - id: "019a7afa-6e64-79e1-8f19-a6ead5191fc8"
                   kind: PAY_OUT
                   amountPesewas: 4500
-                  reasonCode: TRANSPORT
+                  reasonCode: OTHER_PAYOUT
                   note: "Trotro fare to the market for supplies"
                   witness: null
+                  unwitnessed: false
                   actor:
                     id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
                     displayName: "Adwoa Darko"
@@ -73,11 +76,10 @@ responses:
                 - id: "019a7afa-8d53-73c5-98fd-45224ecabe00"
                   kind: CASH_DROP
                   amountPesewas: 400000
-                  reasonCode: null
+                  reasonCode: SAFE_DROP
                   note: null
-                  witness:
-                    id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
-                    displayName: "Kwabena Owusu"
+                  witness: null
+                  unwitnessed: true
                   actor:
                     id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
                     displayName: "Adwoa Darko"
@@ -85,9 +87,10 @@ responses:
                 - id: "019a7afa-ac42-7da8-a2e0-e359c87b5c37"
                   kind: PAY_IN
                   amountPesewas: 2000
-                  reasonCode: CHANGE_FROM_SAFE
+                  reasonCode: FLOAT_TOP_UP
                   note: null
                   witness: null
+                  unwitnessed: false
                   actor:
                     id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
                     displayName: "Adwoa Darko"

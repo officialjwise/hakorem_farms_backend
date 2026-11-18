@@ -1,5 +1,7 @@
 # Table dictionary: `platform`
 
+**Built in B09b continued (migration 0236, ADR-0077 Amendments):** `platform.document_entry_state` (PROJECTION): `document_id` (PK, FK `platform.business_document`), `accepts_entries`, `holder_id`, `container_id`, `changed_at`. A published fact about a document that takes entries (first, POS's till shift: OPEN, its cashier, its till), read by any module through `platform.document_entry_state(id)` and written only through `platform.set_document_entry_state`, executable by the owner role alone, from the owning module's SECURITY DEFINER trigger. A document that stops taking entries never takes them again (HK004); its holder and container never change.
+
 Owner: `src/platform`. Mechanisms only, no business rules (ADR-0009). Conventions, type shorthand and the standard columns for each table class are defined in `docs/DATA_MODEL.md`; a line reading "Standard columns: `LEDGER`" means those columns are present in addition to the ones listed.
 
 ## Domains

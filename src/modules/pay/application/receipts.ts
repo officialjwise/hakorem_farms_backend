@@ -273,6 +273,12 @@ export class Receipts {
     const reason = (await this.refs.reasonCodesIn(tx, [reversal.reasonCode])).get(reversal.reasonCode);
     const judged = judgeReversal(payment!, reason === undefined ? null : { domain: reason.domain, code: reversal.reasonCode });
     if (!judged.ok) throw new PaymentReversalInvalidError(judged.error.map((rule) => ({ field: '', rule })));
+    // Cash given back out of a till leaves it through the shift it was taken in, which must still be open (ADR-0077): a
+    // reversal never takes cash out of a closed, closing or force-closed shift, nor by someone who may not reach it.
+    if (payment!.methodKind === 'CASH' && payment!.registerRef !== null) {
+      if (payment!.shiftDocumentId === null) throw new PaymentInvalidError([{ field: '/shiftId', rule: 'SHIFT_REQUIRED' }]);
+      await this.payments.tillCashIn(tx, { shiftDocumentId: payment!.shiftDocumentId, registerId: payment!.registerRef, branchId: payment!.branchId, actorId, direction: 'OUT' }, '/shiftId');
+    }
     const [before] = await this.payments.documentViewsIn(tx, [payment!.id]);
     const note = `Reversal: ${reversal.reasonCode}`;
     for (const allocation of await this.store.activeAllocations(tx, payment!.id)) {

@@ -11,7 +11,7 @@ import { seedUnits } from '../../../src/seed/seed-units';
 import { createUser, relaxRateLimits, testStartTime } from '../../support/iam';
 import { startTestApp, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
-import { openTestShift } from '../../support/till';
+import { openTestShift, tillOf } from '../../support/till';
 
 /**
  * The order and payment rules a sale relies on, each refused by the service and, where the data model puts it there, by
@@ -37,7 +37,7 @@ const app = () => database.pool('app');
 const till = { id: '019a8000-0000-7000-8000-00000000a7a2', code: 'T2' };
 
 const asCashier = <T>(work: () => Promise<T>) => runWithRequestContext({ correlationId: randomUUID(), ip: null, userAgent: 'order rules test', actor: cashier }, work);
-const post = (request: SaleRequest) => asCashier(() => uow.run({ isolation: 'serializable', seriesLocks: sales.locksFor(request.branchId) }, async (tx) => sales.postIn(tx, cashier, { shiftDocumentId: await openTestShift(tx, cashier.principalId, request.branchId), ...request })));
+const post = (request: SaleRequest) => asCashier(() => uow.run({ isolation: 'serializable', seriesLocks: sales.locksFor(request.branchId) }, async (tx) => sales.postIn(tx, cashier, { shiftDocumentId: await openTestShift(tx, cashier.principalId, request.branchId, tillOf(request)), ...request })));
 const eggs = (overrides: Partial<SaleRequest> = {}): SaleRequest => ({
   orderId: nextOrderId(),
   channel: 'WHOLESALE',
@@ -254,7 +254,7 @@ describe('the database holds the payment record (FR-PAY-001, FR-PAY-002, FR-PAY-
       await refusedBy(
         `INSERT INTO pay.payment (id, payment_method_id, method_kind, amount_pesewas, verification, register_ref, register_code, shift_document_id, received_at, cleared_at, status, branch_id, created_by, updated_by, posted_at, posted_by)
          VALUES ($1, '01900000-0000-7000-8001-000000000001', 'CASH', 6000, 'UNVERIFIED', $4, 'T1', $5, now(), now(), 'CLEARED', $2, $3, $3, now(), $3)`,
-        [cashId, branchId, cashier.principalId, randomUUID(), await openTestShift(admin(), cashier.principalId, branchId)],
+        [cashId, branchId, cashier.principalId, till.id, await openTestShift(admin(), cashier.principalId, branchId, till)],
       ),
     ).toBe('23514:ck_payment_verified');
   });
@@ -278,7 +278,7 @@ describe('pay.PaymentCleared posts its exact amounts (ADR-0003, ADR-0056)', () =
   it('holds the part of a cash payment not allocated as the customer’s deposit in 2200', async () => {
     const payment = await asCashier(() =>
       uow.run({ isolation: 'serializable', seriesLocks: [`JOURNAL:${clock.now().getUTCFullYear()}:${branchId}`] }, async (tx) =>
-        api.app.get(Payments).recordIn(tx, cashier, { branchId, channel: 'WHOLESALE', methodCode: 'CASH', amountPesewas: 120_000n, customerId: id('tema'), orderDocumentId: null, shiftDocumentId: await openTestShift(tx, cashier.principalId, branchId), register: till, receivedAt: clock.now(), allocations: [] }),
+        api.app.get(Payments).recordIn(tx, cashier, { branchId, channel: 'WHOLESALE', methodCode: 'CASH', amountPesewas: 120_000n, customerId: id('tema'), orderDocumentId: null, shiftDocumentId: await openTestShift(tx, cashier.principalId, branchId, till), register: till, receivedAt: clock.now(), allocations: [] }),
       ),
     );
     expect([payment.status, payment.amountPesewas, payment.allocatedPesewas, payment.unallocatedPesewas]).toEqual(['CLEARED', 120_000, 0, 120_000]);

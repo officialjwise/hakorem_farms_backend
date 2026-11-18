@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.5.0"
+  version: "2.6.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -47037,7 +47037,7 @@ paths:
       tags:
         - pay
       summary: "Ask a customer to approve a mobile money payment on their phone"
-      description: "Creates a PENDING payment with our reference first, then sends the charge through the provider port outside any transaction, with a timeout, a bounded retry with jitter and a circuit breaker: a retry reuses the reference, so the customer is never charged twice, and the same key answers the same payment without a second charge. It clears only on the provider's own answer (the signed webhook's lookup, `checkPaymentStatus` or the provider sweep), as a customer deposit (2200) to be allocated to the order's document. With the provider down the answer is 503 `PAYMENT_PROVIDER_UNAVAILABLE` and cash still works. Without `orderId`, the payment is taken at the caller's one branch; `shiftId` is refused until point of sale (B9b, `SHIFT_NOT_AVAILABLE`). The phone is used for the charge request only and stored masked (B09a continued, 1.42.0).\n\nPermission: `pay.payment.initiate`."
+      description: "Creates a PENDING payment with our reference first, then sends the charge through the provider port outside any transaction, with a timeout, a bounded retry with jitter and a circuit breaker: a retry reuses the reference, so the customer is never charged twice, and the same key answers the same payment without a second charge. It clears only on the provider's own answer (the signed webhook's lookup, `checkPaymentStatus` or the provider sweep), as a customer deposit (2200) to be allocated to the order's document. With the provider down the answer is 503 `PAYMENT_PROVIDER_UNAVAILABLE` and cash still works. Without `orderId`, the payment is taken at the caller's one branch, or at the till's branch when `shiftId` names one. A charge taken at a till names the caller's own open shift (2.6.0, ADR-0077), is counted in that shift's tenders and is authorised at the till's location: 422 `PAYMENT_INVALID` on `/shiftId` with `SHIFT_NOT_OPEN` (closing, closed or force-closed), `SHIFT_NOT_OWN`, `SHIFT_OTHER_BRANCH` or `SHIFT_UNKNOWN`. The phone is used for the charge request only and stored masked (B09a continued, 1.42.0).\n\nPermission: `pay.payment.initiate`."
       x-permission: pay.payment.initiate
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -48361,7 +48361,7 @@ paths:
       tags:
         - pay
       summary: "Record a cash refund handed over"
-      description: "An approved refund paid by hand (a cash or bank transfer original, a cheque paid back through a bank payout from the bank account it was paid into (1.45.0), or a provider refund that failed three times), recorded with the payout's `externalReference`, which is required (422 `REFUND_INVALID`, `REFERENCE_REQUIRED`), and a `paidAt` no later than now. Never by the refund's maker (403 `MAKER_CANNOT_CHECK`; the database refuses it too). Posts the refund once (Cr the original's tender; Cr 1100 against the cheque's bank account for a bank payout; Dr 2200 out of deposit, or Dr 1200 for a refund against a credit note) and closes its `REFUND_FAILED` break (B09a continued, 1.42.0).\n\nPermission: `pay.refund.pay`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      description: "An approved refund paid by hand (a cash or bank transfer original, a cheque paid back through a bank payout from the bank account it was paid into (1.45.0), or a provider refund that failed three times), recorded with the payout's `externalReference`, which is required (422 `REFUND_INVALID`, `REFERENCE_REQUIRED`), and a `paidAt` no later than now. Never by the refund's maker (403 `MAKER_CANNOT_CHECK`; the database refuses it too). Posts the refund once (Cr the original's tender; Cr 1100 against the cheque's bank account for a bank payout; Dr 2200 out of deposit, or Dr 1200 for a refund against a credit note) and closes its `REFUND_FAILED` break (B09a continued, 1.42.0). A refund of cash taken at a till is paid only out of an open shift of that till (`shiftId`, 2.6.0, A-273 (i), ADR-0077): 422 `REFUND_INVALID` with `SHIFT_REQUIRED`, `SHIFT_NOT_FOR_PAYOUT`, `SHIFT_NOT_OPEN` (a closing, closed or force-closed shift), `SHIFT_OTHER_REGISTER`, `SHIFT_OTHER_BRANCH`, `SHIFT_NOT_OWN` (the caller neither runs the shift nor holds `pos.shift.force_close`) or `SHIFT_UNKNOWN`; it counts against that shift's expected cash.\n\nPermission: `pay.refund.pay`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: pay.refund.pay
       x-requires-step-up: true
       parameters:
@@ -53935,7 +53935,7 @@ paths:
       tags:
         - pos
       summary: "Create a register"
-      description: "A till selling from a live, physical location of its branch (422 `REGISTER_INVALID` with `LOCATION_NOT_IN_BRANCH` or `LOCATION_NOT_SELLABLE`), with a code of one to four capitals or digits unique among the branch's tills (`REGISTER_CODE_TAKEN`). `deviceCount` is 0 until device enrolment is built (B09b continued).\n\nPermission: `pos.register.manage`."
+      description: "A till selling from a live, physical location of its branch (422 `REGISTER_INVALID` with `LOCATION_NOT_IN_BRANCH` or `LOCATION_NOT_SELLABLE`), with a code of one to four capitals or digits unique among the branch's tills (`REGISTER_CODE_TAKEN`). `deviceCount` counts the till's devices not revoked (2.6.0); a new till has none.\n\nPermission: `pos.register.manage`."
       x-permission: pos.register.manage
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -53984,7 +53984,7 @@ paths:
                     id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
                     displayName: "Adwoa Darko"
                   openedAt: "2026-11-13T06:55:00Z"
-                deviceCount: 1
+                deviceCount: 0
                 version: 2
         "400":
           $ref: "#/components/responses/BadRequest"
@@ -54083,7 +54083,7 @@ paths:
       tags:
         - pos
       summary: "List devices enrolled on a register"
-      description: "Permission: `pos.device.read`."
+      description: "Every device enrolled on the till, revoked ones included, newest first (2.6.0, B09b continued). The credential and its hash are never shown. `Register.deviceCount` counts the ones not revoked.\n\nPermission: `pos.device.read`."
       x-permission: pos.device.read
       parameters:
         - name: id
@@ -54162,8 +54162,8 @@ paths:
                           id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
                           displayName: "Kwabena Owusu"
                         enrolledAt: "2026-11-06T09:00:00Z"
-                        lastSyncAt: "2026-11-13T09:06:00Z"
-                        revokedAt: "2026-11-05T16:00:00Z"
+                        lastSyncAt: "2026-11-12T15:00:00Z"
+                        revokedAt: "2026-11-12T16:00:00Z"
                     page:
                       nextCursor: null
                       limit: 25
@@ -54193,8 +54193,9 @@ paths:
       tags:
         - pos
       summary: "Enrol a device to run a register, including offline"
-      description: "Permission: `pos.device.enrol`."
+      description: "A manager enrols a device on an active till (2.6.0, B09b continued, ADR-0016, A-274). The answer carries `deviceCredential` (`hkdev_<till code>.` and 256 random bits, base64url) this once: the server keeps only its SHA-256 hash, so a replay of the same key cannot show it again and answers 409 `DEVICE_CREDENTIAL_SHOWN_ONCE` (revoke the device and enrol it again). The device sends it as `X-Device-Credential` beside the cashier's staff session. Refusals: 422 `DEVICE_INVALID` with `REGISTER_RETIRED`; 404 for a till the caller cannot see. Audited without the credential.\n\nPermission: `pos.device.enrol`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: pos.device.enrol
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -54234,7 +54235,7 @@ paths:
                     id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
                     displayName: "Kwabena Owusu"
                   enrolledAt: "2026-11-02T09:00:00Z"
-                  lastSyncAt: "2026-11-13T09:10:00Z"
+                  lastSyncAt: null
                   revokedAt: null
                 deviceCredential: hkdev_T1.EXAMPLE-NOT-A-REAL-CREDENTIAL
         "400":
@@ -54259,8 +54260,9 @@ paths:
       tags:
         - pos
       summary: "Revoke a lost or retired device"
-      description: "Permission: `pos.device.enrol`."
+      description: "A lost, stolen or retired device stops at once, with a reason (2.6.0, B09b continued): from then on a counter sale or a sync naming it is refused 403 `DEVICE_REVOKED`. A revoked device never comes back: if it is found it is enrolled again as a new device. Refusals: 422 `DEVICE_INVALID` with `DEVICE_ALREADY_REVOKED`. Audited with the reason.\n\nPermission: `pos.device.enrol`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: pos.device.enrol
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -54300,7 +54302,7 @@ paths:
                   displayName: "Kwabena Owusu"
                 enrolledAt: "2026-11-02T09:00:00Z"
                 lastSyncAt: "2026-11-13T09:10:00Z"
-                revokedAt: null
+                revokedAt: "2026-11-13T16:20:00Z"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -54774,6 +54776,7 @@ paths:
                         reasonCode: null
                         note: null
                         witness: null
+                        unwitnessed: false
                         actor:
                           id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
                           displayName: "Adwoa Darko"
@@ -54781,11 +54784,12 @@ paths:
                       - id: "019a7afa-4f75-7ffe-b536-08b35b688191"
                         kind: CASH_DROP
                         amountPesewas: 500000
-                        reasonCode: null
+                        reasonCode: SAFE_DROP
                         note: null
                         witness:
                           id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
                           displayName: "Kwabena Owusu"
+                        unwitnessed: false
                         actor:
                           id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
                           displayName: "Adwoa Darko"
@@ -54793,9 +54797,10 @@ paths:
                       - id: "019a7afa-6e64-79e1-8f19-a6ead5191fc8"
                         kind: PAY_OUT
                         amountPesewas: 4500
-                        reasonCode: TRANSPORT
+                        reasonCode: OTHER_PAYOUT
                         note: "Trotro fare to the market for supplies"
                         witness: null
+                        unwitnessed: false
                         actor:
                           id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
                           displayName: "Adwoa Darko"
@@ -54803,11 +54808,10 @@ paths:
                       - id: "019a7afa-8d53-73c5-98fd-45224ecabe00"
                         kind: CASH_DROP
                         amountPesewas: 400000
-                        reasonCode: null
+                        reasonCode: SAFE_DROP
                         note: null
-                        witness:
-                          id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
-                          displayName: "Kwabena Owusu"
+                        witness: null
+                        unwitnessed: true
                         actor:
                           id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
                           displayName: "Adwoa Darko"
@@ -54815,9 +54819,10 @@ paths:
                       - id: "019a7afa-ac42-7da8-a2e0-e359c87b5c37"
                         kind: PAY_IN
                         amountPesewas: 2000
-                        reasonCode: CHANGE_FROM_SAFE
+                        reasonCode: FLOAT_TOP_UP
                         note: null
                         witness: null
+                        unwitnessed: false
                         actor:
                           id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
                           displayName: "Adwoa Darko"
@@ -54851,7 +54856,7 @@ paths:
       tags:
         - pos
       summary: "Record a cash drop, pay-out or pay-in"
-      description: "Cash moved on the caller's own OPEN shift (2.5.0, FR-POS-016, A-273): `CASH_DROP` to the safe (reason `SAFE_DROP`, and a `witnessId`: a holder of `pos.shift.close.approve` at the branch who is neither the cashier nor the caller, held again by the database), `PAY_OUT` for an expense (`FUEL_PAYOUT`, `SUPPLIER_PAYOUT` or `OTHER_PAYOUT`, with the note each requires) or `PAY_IN` of float from the safe (`FLOAT_TOP_UP`). A reason from the `CASH_MOVEMENT` list is required for every kind. Nothing is taken out beyond what the till should hold. Each posts once (◆ `pos.CashDropped` Dr 1010 Cr 1000, `pos.CashPaidOut` Dr the expense Cr 1000, `pos.CashPaidIn` Dr 1000 Cr 1010, against the register). Refusals: 422 `SHIFT_NOT_OPEN`; 422 `CASH_MOVEMENT_INVALID` with `AMOUNT_NOT_POSITIVE`, `REASON_REQUIRED`, `REASON_NOT_FOR_KIND`, `NOTE_REQUIRED`, `WITNESS_REQUIRED`, `WITNESS_IS_MAKER`, `WITNESS_NOT_SUPERVISOR`, `WITNESS_ONLY_ON_DROP`, `TILL_OVERDRAWN`, `ID_NOT_UUID_V7` or `OCCURRED_AT_OUT_OF_WINDOW` (within 300 seconds of the server's clock, which sets `occurredAt`). The id is the client's UUIDv7; a resubmission with the same key returns the first result.\n\nPermission: `pos.cash.move`. Ownership: the shift's own cashier."
+      description: "Cash moved on the caller's own OPEN shift (2.5.0, FR-POS-016, A-273): `CASH_DROP` to the safe (reason `SAFE_DROP`, and a `witnessId`: a holder of `pos.shift.close.approve` at the branch who is neither the cashier nor the caller, held again by the database; while no such supervisor is signed in at the branch the drop may leave `witnessId` out and is recorded `unwitnessed`, shown on the X and Z reports and sent to the daily exception report's source with abuse case 17, so a one-person shop is never forced to keep cash in the drawer (A-273 (d), 2.6.0)), `PAY_OUT` for an expense (`FUEL_PAYOUT`, `SUPPLIER_PAYOUT` or `OTHER_PAYOUT`, with the note each requires) or `PAY_IN` of float from the safe (`FLOAT_TOP_UP`). A reason from the `CASH_MOVEMENT` list is required for every kind. Nothing is taken out beyond what the till should hold. Each posts once (◆ `pos.CashDropped` Dr 1010 Cr 1000, `pos.CashPaidOut` Dr the expense Cr 1000, `pos.CashPaidIn` Dr 1000 Cr 1010, against the register). Refusals: 422 `SHIFT_NOT_OPEN`; 422 `CASH_MOVEMENT_INVALID` with `AMOUNT_NOT_POSITIVE`, `REASON_REQUIRED`, `REASON_NOT_FOR_KIND`, `NOTE_REQUIRED`, `WITNESS_REQUIRED`, `WITNESS_IS_MAKER`, `WITNESS_NOT_SUPERVISOR`, `WITNESS_ONLY_ON_DROP`, `TILL_OVERDRAWN`, `ID_NOT_UUID_V7` or `OCCURRED_AT_OUT_OF_WINDOW` (within 300 seconds of the server's clock, which sets `occurredAt`). The id is the client's UUIDv7; a resubmission with the same key returns the first result.\n\nPermission: `pos.cash.move`. Ownership: the shift's own cashier."
       x-permission: pos.cash.move
       parameters:
         - name: id
@@ -54875,6 +54880,7 @@ paths:
               id: "019a7afa-cb31-778c-bcc4-8191422cfa6f"
               kind: CASH_DROP
               amountPesewas: 500000
+              reasonCode: SAFE_DROP
               witnessId: "019a7a86-4f35-7afd-b035-b8ab03a83188"
               occurredAt: "2026-11-13T12:00:00Z"
       responses:
@@ -54891,11 +54897,12 @@ paths:
                 id: "019a7afa-4f75-7ffe-b536-08b35b688191"
                 kind: CASH_DROP
                 amountPesewas: 500000
-                reasonCode: null
+                reasonCode: SAFE_DROP
                 note: null
                 witness:
                   id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
                   displayName: "Kwabena Owusu"
+                unwitnessed: false
                 actor:
                   id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
                   displayName: "Adwoa Darko"
@@ -54980,6 +54987,8 @@ paths:
                     amountPesewas: 500000
                   - kind: PAY_OUT
                     amountPesewas: 4500
+                unwitnessedDropsCount: 0
+                unwitnessedDropsPesewas: 0
                 currency: GHS
                 documentId: null
         "400":
@@ -55058,6 +55067,8 @@ paths:
                     amountPesewas: 500000
                   - kind: PAY_OUT
                     amountPesewas: 4500
+                unwitnessedDropsCount: 0
+                unwitnessedDropsPesewas: 0
                 currency: GHS
                 documentId: "019a7afa-ea20-716f-86a7-1fc8bbdd98a6"
         "400":
@@ -55181,7 +55192,7 @@ paths:
       tags:
         - pos
       summary: "Sign off a shift close and post over or short"
-      description: "A supervisor who is not the cashier (422 `SHIFT_CLOSE_SAME_PERSON`, held again by the database) signs off a CLOSING shift (422 `SHIFT_INVALID` with `SHIFT_NOT_CLOSING` otherwise), with a reason. Expected cash is the float plus the shift's cash payments less their refunds, plus pay-ins, less drops and pay-outs; each declared method's expected figure and variance is frozen. ◆ `pos.ShiftClosed` posts the count: Cr 1000 the expected cash against the register, Dr 1010 what was counted, Dr 6900 when short, Cr 6900 when over, so the till's account returns to zero. The Z report is stored. The event names the cashier, the supervisor and the over or short for the daily exception report (abuse case 17). The audit chain is anchored by the worker's daily anchor; an anchor at each sign-off follows in B09b continued.\n\nPermission: `pos.shift.close.approve`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      description: "A supervisor who is not the cashier (422 `SHIFT_CLOSE_SAME_PERSON`, held again by the database) signs off a CLOSING shift (422 `SHIFT_INVALID` with `SHIFT_NOT_CLOSING` otherwise), with a reason. Expected cash is the float plus the shift's cash payments less their refunds, plus pay-ins, less drops and pay-outs; each declared method's expected figure and variance is frozen. ◆ `pos.ShiftClosed` posts the count: Cr 1000 the expected cash against the register, Dr 1010 what was counted, Dr 6900 when short, Cr 6900 when over, so the till's account returns to zero. The Z report is stored. The event names the cashier, the supervisor and the over or short for the daily exception report (abuse case 17). The audit chain is anchored by the worker's daily anchor; an anchor at each sign-off follows in B09b continued 1b.\n\nPermission: `pos.shift.close.approve`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: pos.shift.close.approve
       x-requires-step-up: true
       parameters:
@@ -55283,8 +55294,9 @@ paths:
       tags:
         - pos
       summary: "Force-close a shift whose device is offline"
-      description: "Sales still queued on the device sync later and post on the next open date, flagged.\n\nPermission: `pos.shift.force_close`."
+      description: "Sales still queued on the device sync later and post on the next open date, flagged.\n\nPermission: `pos.shift.force_close`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: pos.shift.force_close
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -55905,7 +55917,7 @@ paths:
       tags:
         - pos
       summary: "Complete a counter sale"
-      description: "Prices are re-resolved on the server. In one serializable transaction it issues the stock (a goat by tag, eggs by crate, beef by weight), issues the receipt with its gap-free number, records and allocates the tenders, and posts the ledger. The example is a split tender: GHS 500.00 by verified mobile money and the rest in cash. A variance within the band and the cashier's limit needs a reason only; beyond it, the sale is refused with 422 PRICE_OVERRIDE_NEEDS_APPROVAL.\n\nPermission: `pos.sale.create`. Ownership: the cashier's own open shift.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result."
+      description: "Prices are re-resolved on the server. In one serializable transaction, on the caller's own OPEN shift locked for the sale, it issues the stock from the till's location (a goat by tag, eggs by crate, beef by weight), issues the receipt with its gap-free number, records and allocates the tenders into the till and posts the ledger (ORD's one sale path, channel POS), or nothing at all (2.6.0, B09b continued, FR-POS-001 to FR-POS-006, A-274). The device is enrolled on the shift's till and not revoked (`X-Device-Credential`: 401 `DEVICE_CREDENTIAL_INVALID`, 403 `DEVICE_REVOKED`, 403 for another till's device). Each tender's `amountPesewas` is what it applies; the tenders sum to the total exactly. Change comes from cash only: `tenderedPesewas` on a cash tender, at least its amount, and `changeDuePesewas` is the sum of what each cash tender handed over beyond what it applies. A mobile money or card tender is refused with 422 `PAYMENT_METHOD_REQUIRES_VERIFICATION`; a tender naming `paymentId` (a payment the provider cleared) is refused with `PROVIDER_PAYMENT_NOT_AVAILABLE` until it is built (A-274), and `unverifiedMobileMoney` with `OFFLINE_TENDER_ONLY`: take the sale in cash. A price below list within the band and the cashier's per-line limit needs a reason; beyond the per-line limit, or beyond what the shift has left of the per-shift limit (`PRICE_OVERRIDE_PER_SHIFT`, less the price already given below list on the shift), the sale is refused with 422 `PRICE_OVERRIDE_NEEDS_APPROVAL` (`BEYOND_ROLE_LIMIT`, `BEYOND_SHIFT_LIMIT`, `OUTSIDE_BAND`) until a different user approves. The sale is recorded at the server's time; a till time more than 300 seconds away never refuses it and reaches the daily exception report's source (`pos.TillClockOutOfTolerance`). Refusals: 403 for another cashier's shift; 422 `SHIFT_NOT_OPEN`; 422 `COUNTER_SALE_INVALID` with `ID_NOT_UUID_V7`, `ID_DIFFERS_FROM_KEY` (the `Idempotency-Key` is the sale's id), `METHOD_UNKNOWN`, `CHANGE_ONLY_FROM_CASH`, `TENDERED_BELOW_AMOUNT`, `PROVIDER_PAYMENT_NOT_AVAILABLE`, `OFFLINE_TENDER_ONLY`; `SALE_INVALID`, `QUOTE_REQUIRED` and `PAYMENT_INVALID` as the sale path answers them. `escPosBase64` is null until the receipt prints (B09b continued 4). The example's mobile money tender shows the shape the provider path will take.\n\nPermission: `pos.sale.create`. Ownership: the cashier's own open shift.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result."
       x-permission: pos.sale.create
       x-owner-module: ord
       parameters:
@@ -93618,6 +93630,10 @@ components:
           format: date-time
         externalReference:
           type: string
+        shiftId:
+          type: string
+          format: uuid
+          description: "Required for a refund of a cash payment taken at a till, unless it goes to store credit, and refused on any other (2.6.0, A-273 (i), ADR-0077): the open shift of the till that took the payment it is paid out of, run by the caller or recoverable by them (`pos.shift.force_close`). It is counted against that shift's expected cash."
       required:
         - paidAt
       additionalProperties: false
@@ -95464,6 +95480,9 @@ components:
           anyOf:
             - $ref: "#/components/schemas/PrincipalRef"
             - type: "null"
+        unwitnessed:
+          type: boolean
+          description: "True on a CASH_DROP taken while no supervisor was signed in at the branch (A-273 (d), 2.6.0): it reaches the daily exception report's source. False on every other movement."
         actor:
           $ref: "#/components/schemas/PrincipalRef"
         occurredAt:
@@ -95476,6 +95495,7 @@ components:
         - reasonCode
         - note
         - witness
+        - unwitnessed
         - actor
         - occurredAt
     CashMovementCreate:
@@ -95500,7 +95520,7 @@ components:
         witnessId:
           type: string
           format: uuid
-          description: "Who received a cash drop."
+          description: "Who received a cash drop: a holder of pos.shift.close.approve at the branch who is neither the cashier nor the caller. Required while such a supervisor is signed in at the branch; with none signed in a drop may leave it out and is recorded unwitnessed (A-273 (d), 2.6.0)."
         occurredAt:
           type: string
           format: date-time
@@ -95558,6 +95578,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/CashMovementTotal"
+        unwitnessedDropsCount:
+          type: integer
+          description: "Drops taken while no supervisor was signed in at the branch (A-273 (d), 2.6.0)."
+        unwitnessedDropsPesewas:
+          $ref: "#/components/schemas/Pesewas"
         currency:
           $ref: "#/components/schemas/Currency"
         documentId:
@@ -95578,6 +95603,8 @@ components:
         - refundsPesewas
         - byMethod
         - cashMovements
+        - unwitnessedDropsCount
+        - unwitnessedDropsPesewas
         - currency
         - documentId
     ShiftMethodTotal:
@@ -103194,11 +103221,14 @@ components:
         - platform.file.upload
         - platform.file.upload.evidence
         - pos.cash.move
+        - pos.device.enrol
+        - pos.device.read
         - pos.register.manage
         - pos.register.read
         - pos.sale.create
         - pos.shift.close
         - pos.shift.close.approve
+        - pos.shift.force_close
         - pos.shift.open
         - pos.shift.read
         - pos.shift.report
@@ -103403,11 +103433,14 @@ components:
         - platform.file.upload
         - platform.file.upload.evidence
         - pos.cash.move
+        - pos.device.enrol
+        - pos.device.read
         - pos.register.manage
         - pos.register.read
         - pos.sale.create
         - pos.shift.close
         - pos.shift.close.approve
+        - pos.shift.force_close
         - pos.shift.open
         - pos.shift.read
         - pos.shift.report

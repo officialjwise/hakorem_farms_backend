@@ -12,7 +12,7 @@ import type { Authoriser, PrincipalNames, PrincipalRef } from '../../iam';
 import type { MasterDataRefs } from '../../mdm';
 import type { Orders } from '../../ord';
 import type { Payments, ShiftTenderTotal } from '../../pay';
-import { closeAmounts, expectedCash, judgeCashMovement, judgeCountSignOff, overShort, type CashMovementKind } from '../domain/till';
+import { closeAmounts, expectedCash, isUnwitnessedDrop, judgeCashMovement, judgeCountSignOff, overShort, type CashMovementKind } from '../domain/till';
 import { isUuidV7, withinTolerance } from '../domain/client-time';
 import { oneMore } from './paging';
 import type { CashMoved, ShiftClosed, ShiftOpened } from '../events';
@@ -96,6 +96,8 @@ export interface CashMovementView {
   readonly reasonCode: string | null;
   readonly note: string | null;
   readonly witness: PrincipalRef | null;
+  /** A drop taken while no supervisor was signed in at the branch (A-273 (d)). */
+  readonly unwitnessed: boolean;
   readonly actor: PrincipalRef;
   readonly occurredAt: string;
 }
@@ -114,6 +116,9 @@ export interface ShiftReportView {
   readonly refundsPesewas: number;
   readonly byMethod: readonly { readonly paymentMethod: MethodRef; readonly count: number; readonly amountPesewas: number }[];
   readonly cashMovements: readonly { readonly kind: string; readonly amountPesewas: number }[];
+  /** Drops taken unwitnessed because no supervisor was signed in at the branch (A-273 (d)). */
+  readonly unwitnessedDropsCount: number;
+  readonly unwitnessedDropsPesewas: number;
   readonly currency: 'GHS';
   readonly documentId: string | null;
 }
@@ -234,6 +239,7 @@ export class Shifts {
           reasonCode: null,
           note: null,
           witnessId: null,
+          unwitnessed: false,
           occurredAt: now,
           recordedAt: now,
           actorId: actor!.principalId,
@@ -315,6 +321,8 @@ export class Shifts {
       const reason = body.reasonCode === undefined ? undefined : (await this.refs.reasonCodesIn(tx, [body.reasonCode])).get(body.reasonCode);
       const witnessId = body.witnessId ?? null;
       const witnessIsSupervisor = witnessId !== null && (await this.holdsAt(tx, witnessId, APPROVE, shift.branchId));
+      // A supervisor present at the branch witnesses a drop; with none signed in it goes unwitnessed (A-273 (d)).
+      const supervisorSignedIn = body.kind === 'CASH_DROP' && (await this.authoriser.signedInHoldersIn(tx, APPROVE, shift.branchId)).some((p) => p !== shift.cashierId && p !== actor!.principalId);
       const position = await this.position(tx, shift);
       const broken: TillRule[] = judgeCashMovement({
         kind: body.kind,
@@ -327,8 +335,10 @@ export class Shifts {
         cashierId: shift.cashierId,
         actorId: actor!.principalId,
         witnessIsSupervisor,
+        supervisorSignedIn,
         tillHolds: position.expected,
       });
+      const unwitnessed = isUnwitnessedDrop({ kind: body.kind, witnessId, supervisorSignedIn });
       if (!isUuidV7(body.id)) broken.push({ field: '/id', rule: 'ID_NOT_UUID_V7' });
       if (!withinTolerance(body.occurredAt, now)) broken.push({ field: '/occurredAt', rule: 'OCCURRED_AT_OUT_OF_WINDOW' });
       if (broken.length > 0) throw new CashMovementInvalidError(broken);
@@ -340,6 +350,7 @@ export class Shifts {
         reasonCode: body.reasonCode!,
         note: body.note ?? null,
         witnessId,
+        unwitnessed,
         occurredAt: now,
         recordedAt: now,
         actorId: actor!.principalId,
@@ -364,6 +375,7 @@ export class Shifts {
         witnessId,
         actorId: actor!.principalId,
         occurredAt: now.toISOString(),
+        ...(unwitnessed ? { unwitnessed: true, abuseCases: [SHIFT_OVER_SHORT_ABUSE] } : {}),
         amountsPesewas: { [event.key]: pesewas(body.amountPesewas) } as CashMoved['amountsPesewas'],
       };
       await this.events.publish(tx, { type: event.type, subjectType: 'CashMovement', subjectId: body.id, branchId: shift.branchId, payload, occurredAt: now });
@@ -531,6 +543,7 @@ export class Shifts {
     const names = await this.principals.refs(tx, [shift.cashierId]);
     const methods = await this.refs.paymentMethodsIn(tx, position.totals.map((t) => t.paymentMethodId));
     const order: readonly CashMovementKind[] = ['FLOAT_IN', 'CASH_DROP', 'PAY_OUT', 'PAY_IN'];
+    const unwitnessedDrops = await this.store.unwitnessedDrops(tx, shift.id);
     return {
       kind,
       shift: { id: shift.id, code: shift.shiftNo, name: `${register.name}, ${names.get(shift.cashierId)?.displayName ?? 'Unknown'}` },
@@ -544,6 +557,8 @@ export class Shifts {
       refundsPesewas: pesewas(position.totals.reduce((sum, t) => sum + t.refundedPesewas, 0n)),
       byMethod: position.totals.map((t) => ({ paymentMethod: methodRef(methods.get(t.paymentMethodId), t), count: t.count, amountPesewas: pesewas(t.amountPesewas) })),
       cashMovements: order.filter((k) => position.movements.has(k)).map((k) => ({ kind: k, amountPesewas: pesewas(position.movements.get(k)!) })),
+      unwitnessedDropsCount: unwitnessedDrops.count,
+      unwitnessedDropsPesewas: pesewas(unwitnessedDrops.amountPesewas),
       currency: 'GHS',
       documentId: null,
     };
@@ -619,6 +634,7 @@ export class Shifts {
       reasonCode: m.reasonCode,
       note: m.note,
       witness: m.witnessId === null ? null : ref(m.witnessId),
+      unwitnessed: m.unwitnessed,
       actor: ref(m.actorId),
       occurredAt: m.occurredAt.toISOString(),
     }));

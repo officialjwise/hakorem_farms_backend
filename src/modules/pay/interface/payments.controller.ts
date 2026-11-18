@@ -221,7 +221,7 @@ export class RefundsController {
     @IdempotencyKeyHeader() key: string,
     @Res({ passthrough: true }) res: Response,
   ): Promise<RefundView> {
-    return reply(res, this.refunds.markPaid(actor, id, { paidAt: new Date(body.paidAt), externalReference: body.externalReference ?? null }, key));
+    return reply(res, this.refunds.markPaid(actor, id, { paidAt: new Date(body.paidAt), externalReference: body.externalReference ?? null, shiftId: body.shiftId ?? null }, key));
   }
 }
 

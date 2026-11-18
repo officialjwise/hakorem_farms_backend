@@ -12,7 +12,7 @@ import { consoleGet, consolePost, createBranch, createUser, enrolAndLogin, login
 import { approveAndDeliver, balanceOf, initiateCharge, journalOf, referenceFor, trialBalanceSum } from '../../support/pay';
 import { startTestApp, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
-import { openTestShift } from '../../support/till';
+import { openTestShift, tillOf } from '../../support/till';
 
 /**
  * The order's reversals (FR-ORD-002, FR-ORD-014, ADR-0010, ADR-0035, abuse case 1, A-226). A cancellation releases the
@@ -86,6 +86,10 @@ async function receiveCabbage(qty: string): Promise<void> {
 }
 
 /** A counter sale of yams for cash, posted through `SalePosting.postIn` as the person named (the cashier). */
+/** The cashier's till and the manager's own: one cashier runs one till at a time (ADR-0077). */
+const TILL = { id: '019a8000-0000-7000-8000-00000000c003', code: 'C3' };
+const MANAGER_TILL = { id: '019a8000-0000-7000-8000-00000000c004', code: 'C4' };
+
 async function counterSale(who: string, yams: number, till: { id: string; code: string }): Promise<{ id: string; receiptId: string }> {
   const uow = api.app.get(UnitOfWork);
   const sales = api.app.get(SalePosting);
@@ -100,7 +104,7 @@ async function counterSale(who: string, yams: number, till: { id: string; code: 
     tenders: [{ methodCode: 'CASH', amountPesewas: BigInt(yams * 2_000), register: till }],
   };
   const sold = await runWithRequestContext({ correlationId: randomUUID(), ip: null, userAgent: 'reversals test', actor }, () =>
-    uow.run({ isolation: 'serializable', seriesLocks: sales.locksFor(branchId) }, async (tx) => sales.postIn(tx, actor, { shiftDocumentId: await openTestShift(tx, actor.principalId, request.branchId), ...request })),
+    uow.run({ isolation: 'serializable', seriesLocks: sales.locksFor(branchId) }, async (tx) => sales.postIn(tx, actor, { shiftDocumentId: await openTestShift(tx, actor.principalId, request.branchId, tillOf(request)), ...request })),
   );
   const { rows } = await admin().query<{ billing_document_id: string }>('SELECT billing_document_id FROM ord.sales_order WHERE id = $1', [sold.id]);
   return { id: sold.id, receiptId: rows[0]!.billing_document_id };
@@ -270,7 +274,7 @@ describe('cancelOrder (FR-ORD-014)', () => {
   });
 
   it('refuses to cancel a completed sale: it is voided or returned instead', async () => {
-    const sale = await counterSale('cashier', 1, { id: '019a8000-0000-7000-8000-00000000c001', code: 'C1' });
+    const sale = await counterSale('sales', 1, { id: '019a8000-0000-7000-8000-00000000c001', code: 'C1' });
     const refused = await cancel('manager', sale.id);
     expect(refused.status).toBe(422);
     expect(refused.body.error).toMatchObject({ code: 'INVALID_STATE_TRANSITION', details: [expect.objectContaining({ code: 'COMPLETED' })] });
@@ -278,7 +282,6 @@ describe('cancelOrder (FR-ORD-014)', () => {
 });
 
 describe('voidOrder under SALE_VOID (FR-ORD-002, abuse case 1)', () => {
-  const TILL = { id: '019a8000-0000-7000-8000-00000000c003', code: 'C3' };
   let sale: { id: string; receiptId: string };
   let yamsBefore: string;
   let approvalId: string;
@@ -382,7 +385,7 @@ describe('voidOrder under SALE_VOID (FR-ORD-002, abuse case 1)', () => {
   });
 
   it('refuses a supervisor approving the void of a sale they made, keeps it waiting, and lets a rejection leave the sale as it was', async () => {
-    const own = await counterSale('manager', 1, { id: '019a8000-0000-7000-8000-00000000c004', code: 'C4' });
+    const own = await counterSale('manager', 1, MANAGER_TILL);
     const asked = await askVoid('sales', own.id, { reasonCode: 'KEYING_ERROR' });
     expect(asked.status, JSON.stringify(asked.body)).toBe(202);
     await step('manager');
@@ -400,7 +403,7 @@ describe('voidOrder under SALE_VOID (FR-ORD-002, abuse case 1)', () => {
   });
 
   it('refuses in the database a sale voided by the cashier who made it, and a void written other than waiting', async () => {
-    const own = await counterSale('cashier', 1, { id: '019a8000-0000-7000-8000-00000000c005', code: 'C5' });
+    const own = await counterSale('cashier', 1, TILL);
     const app = database.pool('app');
     const approval = (await admin().query<{ id: string }>('SELECT id FROM iam.approval_request LIMIT 1')).rows[0]!.id;
     await expect(
@@ -421,10 +424,10 @@ describe('voidOrder under SALE_VOID (FR-ORD-002, abuse case 1)', () => {
   });
 
   it('refuses a void once the sale’s business day has ended, at the request and at the approval alike', async () => {
-    const late = await counterSale('cashier', 1, { id: '019a8000-0000-7000-8000-00000000c006', code: 'C6' });
+    const late = await counterSale('cashier', 1, TILL);
     const asked = await askVoid('cashier', late.id, { reasonCode: 'KEYING_ERROR' });
     expect(asked.status).toBe(202);
-    const next = await counterSale('cashier', 1, { id: '019a8000-0000-7000-8000-00000000c007', code: 'C7' });
+    const next = await counterSale('cashier', 1, TILL);
     // Just past midnight in Accra (UTC all year): the next business day.
     const now = clock.now();
     clock.advanceBy(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 1) - now.getTime());
@@ -457,7 +460,7 @@ describe('voidOrder under SALE_VOID (FR-ORD-002, abuse case 1)', () => {
   }
 
   it('refuses the supervisor who asked for a void approving it, in the application and in the database', async () => {
-    const sale = await counterSale('cashier', 1, { id: '019a8000-0000-7000-8000-00000000c008', code: 'C8' });
+    const sale = await counterSale('cashier', 1, TILL);
     const asked = await askVoid('manager', sale.id, { reasonCode: 'KEYING_ERROR' });
     expect(asked.status, JSON.stringify(asked.body)).toBe(202);
     await step('manager');
@@ -477,7 +480,7 @@ describe('voidOrder under SALE_VOID (FR-ORD-002, abuse case 1)', () => {
 
   it('refuses the sale’s salesperson and its poster each on their own, in the application and in the database', async () => {
     // Posted by the cashier, credited to the Manager: the Manager is refused as its salesperson.
-    const bySalesperson = await counterSale('cashier', 1, { id: '019a8000-0000-7000-8000-00000000c009', code: 'C9' });
+    const bySalesperson = await counterSale('cashier', 1, TILL);
     await creditedTo(bySalesperson.id, 'manager');
     const first = await askVoid('cashier', bySalesperson.id, { reasonCode: 'KEYING_ERROR' });
     expect(first.status, JSON.stringify(first.body)).toBe(202);
@@ -488,7 +491,7 @@ describe('voidOrder under SALE_VOID (FR-ORD-002, abuse case 1)', () => {
     expect(await statusOf(bySalesperson.id)).toBe('COMPLETED');
 
     // Posted by the Manager, credited to Sales: the Manager is refused as its poster.
-    const byPoster = await counterSale('manager', 1, { id: '019a8000-0000-7000-8000-00000000c00a', code: 'CA' });
+    const byPoster = await counterSale('manager', 1, MANAGER_TILL);
     await creditedTo(byPoster.id, 'sales');
     const second = await askVoid('cashier', byPoster.id, { reasonCode: 'KEYING_ERROR' });
     expect(second.status, JSON.stringify(second.body)).toBe(202);
@@ -524,7 +527,7 @@ describe('voidOrder under SALE_VOID (FR-ORD-002, abuse case 1)', () => {
   });
 
   it('refuses a void of a sale that also holds a mobile money payment: that money goes back through a return', async () => {
-    const sale = await counterSale('cashier', 1, { id: '019a8000-0000-7000-8000-00000000c00b', code: 'CB' });
+    const sale = await counterSale('cashier', 1, TILL);
     const charge = await initiateCharge(api.server, as('sales'), { amountPesewas: 500, orderId: sale.id, customerId: id('tema') });
     expect(charge.status, JSON.stringify(charge.body)).toBe(201);
     const asked = await askVoid('cashier', sale.id, { reasonCode: 'KEYING_ERROR' });

@@ -97,3 +97,42 @@ describe('B9b till operations answer in the contract shapes', () => {
     expectShape('ShiftReport', (await get(manager, `/shifts/${shiftId}/z-report`)).body);
   });
 });
+
+describe('B09b continued device operations answer in the contract shapes', () => {
+  it('a device enrolled, listed and revoked, and the refusals', async () => {
+    const till = await post(manager, '/registers', { branchId: id('branch:DDW'), locationId: id('location:SHOP'), code: 'D1', name: 'Device till' });
+    expect(till.status).toBe(201);
+    clock.advanceBy(30_000);
+    expect((await post(manager, '/auth/step-up', { code: totpAt(manager.secret, Math.floor(clock.now().getTime() / 1000)) })).status).toBe(200);
+    const key = randomUUID();
+    const enrolled = await post(manager, `/registers/${till.body.id as string}/devices`, { deviceLabel: 'Itel tablet, market' }, key);
+    expect(enrolled.status).toBe(201);
+    expectShape('DeviceEnrolled', enrolled.body);
+    const replay = await post(manager, `/registers/${till.body.id as string}/devices`, { deviceLabel: 'Itel tablet, market' }, key);
+    expect(replay.status).toBe(409);
+    expectShape('Error', replay.body);
+    expectShape('DeviceEnrolmentPage', (await get(manager, `/registers/${till.body.id as string}/devices`)).body);
+    expectShape('Register', (await get(manager, `/registers?branchId=${id('branch:DDW')}`)).body.data[0]);
+    // A counter sale from the enrolled device on the cashier's own open shift.
+    const shift = createUuidV7Generator(clock)();
+    expect((await post(cashier, '/shifts', { id: shift, registerId: till.body.id, openingFloatPesewas: 0, openedAt: clock.now().toISOString() }, shift)).status).toBe(201);
+    const yam = (await database.pool('admin').query<{ id: string }>("SELECT id FROM mdm.product WHERE sku = 'PRD-0005'")).rows[0]!.id;
+    const saleId = createUuidV7Generator(clock)();
+    const sold = await consolePost(api.server, cashier, '/v1/pos/sales', saleId)
+      .set('X-Device-Credential', enrolled.body.deviceCredential as string)
+      .send({ id: saleId, shiftId: shift, lines: [{ productId: yam, quantity: '1.000', agreedUnitPricePesewas: 2_000 }], tenders: [{ paymentMethodId: id('method:CASH'), amountPesewas: 2_000, tenderedPesewas: 5_000 }], occurredAt: clock.now().toISOString() });
+    expect(sold.status, JSON.stringify(sold.body)).toBe(201);
+    expectShape('CounterSaleResult', sold.body);
+    const refusedSale = await consolePost(api.server, cashier, '/v1/pos/sales', saleId).send({ id: saleId, shiftId: shift, lines: [], tenders: [], occurredAt: clock.now().toISOString() });
+    expectShape('Error', refusedSale.body);
+    const revoked = await post(manager, `/devices/${enrolled.body.device.id as string}/revoke`, { reason: 'Screen broken' });
+    expect(revoked.status).toBe(200);
+    expectShape('DeviceEnrolment', revoked.body);
+    const again = await post(manager, `/devices/${enrolled.body.device.id as string}/revoke`, { reason: 'Screen broken' });
+    expect(again.status).toBe(422);
+    expectShape('Error', again.body);
+    const refused = await post(cashier, `/registers/${till.body.id as string}/devices`, { deviceLabel: 'Mine' });
+    expect(refused.status).toBe(403);
+    expectShape('Error', refused.body);
+  });
+});

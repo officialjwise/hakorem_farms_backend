@@ -1,0 +1,63 @@
+operationId: revokeDevice
+tags:
+  - pos
+summary: "Revoke a lost or retired device"
+description: "A lost, stolen or retired device stops at once, with a reason (2.6.0, B09b continued): from then on a counter sale or a sync naming it is refused 403 `DEVICE_REVOKED`. A revoked device never comes back: if it is found it is enrolled again as a new device. Refusals: 422 `DEVICE_INVALID` with `DEVICE_ALREADY_REVOKED`. Audited with the reason.\n\nPermission: `pos.device.enrol`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+x-permission: pos.device.enrol
+x-requires-step-up: true
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ReasonRequest"
+      example:
+        reason: "Tablet stolen from the market stall"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/DeviceEnrolment"
+        example:
+          id: "019a7af9-1a1f-7d1b-9253-da889a7e5366"
+          registerId: "019a7a94-15a3-7248-9781-2d5f347aa63d"
+          deviceLabel: "Samsung Tab A7 Lite, till 1"
+          enrolledBy:
+            id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+            displayName: "Kwabena Owusu"
+          enrolledAt: "2026-11-02T09:00:00Z"
+          lastSyncAt: "2026-11-13T09:10:00Z"
+          revokedAt: "2026-11-13T16:20:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

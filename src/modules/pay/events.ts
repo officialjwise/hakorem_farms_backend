@@ -158,6 +158,8 @@ export interface RefundPaid {
   readonly creditNoteId: string | null;
   /** A cheque's bank payout (tender `BANK_TRANSFER`): the bank account it leaves from, the cheque's own. */
   readonly bankAccountId: string | null;
+  /** A cash refund's open till shift it was paid out of (ADR-0077, A-273 (i)); null for every other payout. */
+  readonly shiftId?: string | null;
 }
 
 /** `pay.RefundFailed` v1: a provider refund attempt failed; `exhausted` when it now waits for a person. */

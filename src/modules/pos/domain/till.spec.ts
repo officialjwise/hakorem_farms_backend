@@ -1,6 +1,6 @@
 import { Money } from '@hakorem/kernel';
 import { describe, expect, it } from 'vitest';
-import { changeDue, closeAmounts, expectedCash, judgeCashMovement, judgeCountSignOff, overShort, type CashMovementFacts } from './till';
+import { changeDue, closeAmounts, expectedCash, judgeCashMovement, isUnwitnessedDrop, judgeCountSignOff, judgeTillCash, overShort, shiftOverrideRoom, type CashMovementFacts } from './till';
 
 const p = (n: bigint) => Money.ofPesewas(n);
 const MAX = 9_007_199_254_740_991n;
@@ -99,6 +99,7 @@ const movement = (over: Partial<CashMovementFacts> = {}): CashMovementFacts => (
   cashierId: 'cashier',
   actorId: 'cashier',
   witnessIsSupervisor: true,
+  supervisorSignedIn: true,
   tillHolds: p(64_000n),
   ...over,
 });
@@ -119,6 +120,22 @@ describe('a cash movement (FR-POS-016)', () => {
     expect(judgeCashMovement(movement({ witnessId: 'cashier' }))).toEqual([{ field: '/witnessId', rule: 'WITNESS_IS_MAKER' }]);
     expect(judgeCashMovement(movement({ actorId: 'manager', witnessId: 'manager' }))).toEqual([{ field: '/witnessId', rule: 'WITNESS_IS_MAKER' }]);
     expect(judgeCashMovement(movement({ witnessIsSupervisor: false }))).toEqual([{ field: '/witnessId', rule: 'WITNESS_NOT_SUPERVISOR' }]);
+  });
+
+  it('a drop with no witness while a supervisor is signed in at the branch still needs the witness (the owner on A-273 (d))', () => {
+    expect(judgeCashMovement(movement({ witnessId: null, supervisorSignedIn: true }))).toEqual([{ field: '/witnessId', rule: 'WITNESS_REQUIRED' }]);
+  });
+
+  it('takes a drop with no witness when no supervisor is signed in at the branch, so a one-person shop is never forced to keep cash in the drawer', () => {
+    expect(judgeCashMovement(movement({ witnessId: null, witnessIsSupervisor: false, supervisorSignedIn: false }))).toEqual([]);
+    expect(isUnwitnessedDrop(movement({ witnessId: null, witnessIsSupervisor: false, supervisorSignedIn: false }))).toBe(true);
+    expect(isUnwitnessedDrop(movement())).toBe(false);
+    expect(isUnwitnessedDrop(movement({ kind: 'PAY_OUT', reasonCode: 'OTHER_PAYOUT', witnessId: null, supervisorSignedIn: false }))).toBe(false);
+  });
+
+  it('still refuses a named witness who is the maker or not a supervisor when no supervisor is signed in', () => {
+    expect(judgeCashMovement(movement({ witnessId: 'cashier', supervisorSignedIn: false }))).toEqual([{ field: '/witnessId', rule: 'WITNESS_IS_MAKER' }]);
+    expect(judgeCashMovement(movement({ witnessIsSupervisor: false, supervisorSignedIn: false }))).toEqual([{ field: '/witnessId', rule: 'WITNESS_NOT_SUPERVISOR' }]);
   });
 
   it('takes a pay-out for fuel with its note and no witness, and refuses one that needs a note without it', () => {
@@ -153,5 +170,43 @@ describe('the sign-off of a count (FR-POS-018): never the cashier', () => {
 
   it('accepts a different supervisor', () => {
     expect(judgeCountSignOff('cashier', 'supervisor')).toEqual({ ok: true, value: 'supervisor' });
+  });
+});
+
+describe('cash through a till shift (ADR-0077, A-212 (a), A-273 (i) and (k))', () => {
+  const shift = { status: 'OPEN' as const, registerId: 'T1', branchId: 'DDW', cashierId: 'adwoa' };
+  const cash = { registerId: 'T1', branchId: 'DDW', actorId: 'adwoa', actorRecoversAnyShift: false };
+
+  it('takes cash into or out of the cashier own open shift on its till', () => {
+    expect(judgeTillCash(shift, cash)).toEqual({ ok: true, value: null });
+    expect(judgeTillCash(shift, { ...cash, registerId: null })).toEqual({ ok: true, value: null });
+  });
+
+  it('refuses a shift that is closing, closed or force-closed', () => {
+    expect(judgeTillCash({ ...shift, status: 'CLOSING' }, cash)).toEqual({ ok: false, error: 'SHIFT_NOT_OPEN' });
+    expect(judgeTillCash({ ...shift, status: 'CLOSED' }, cash)).toEqual({ ok: false, error: 'SHIFT_NOT_OPEN' });
+  });
+
+  it('refuses another cashier, unless they may recover any shift of the branch', () => {
+    expect(judgeTillCash(shift, { ...cash, actorId: 'nana' })).toEqual({ ok: false, error: 'SHIFT_NOT_OWN' });
+    expect(judgeTillCash(shift, { ...cash, actorId: 'kwabena', actorRecoversAnyShift: true })).toEqual({ ok: true, value: null });
+  });
+
+  it('refuses another till or another branch than the shift is on', () => {
+    expect(judgeTillCash(shift, { ...cash, registerId: 'T2' })).toEqual({ ok: false, error: 'SHIFT_OTHER_REGISTER' });
+    expect(judgeTillCash(shift, { ...cash, branchId: 'KMS' })).toEqual({ ok: false, error: 'SHIFT_OTHER_BRANCH' });
+  });
+
+  it('refuses a closed shift before anything else, even to the shift own cashier on its own till', () => {
+    expect(judgeTillCash({ ...shift, status: 'CLOSED' }, { ...cash, actorId: 'nana', registerId: 'T2' })).toEqual({ ok: false, error: 'SHIFT_NOT_OPEN' });
+  });
+});
+
+describe('what a shift has left of its override limit (FR-POS-004)', () => {
+  it('is the limit less what the shift already gave below list, never below zero', () => {
+    expect(shiftOverrideRoom(p(10_000n), p(4_000n)).pesewas).toBe(6_000n);
+    expect(shiftOverrideRoom(p(10_000n), p(10_000n)).pesewas).toBe(0n);
+    expect(shiftOverrideRoom(p(10_000n), p(10_001n)).pesewas).toBe(0n);
+    expect(shiftOverrideRoom(p(0n), p(0n)).pesewas).toBe(0n);
   });
 });
