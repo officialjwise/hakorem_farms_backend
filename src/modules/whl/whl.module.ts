@@ -144,6 +144,7 @@ export class WhlModule implements OnModuleInit {
 
   onModuleInit(): void {
     this.events.registerConsumer(this.statements.archiveLinks);
+    this.events.registerConsumer(this.accounts.paymentReleases);
     this.approvals.registerHandler(CREDIT_OVERRIDE_KIND, this.credit.approvalHandler);
     this.approvals.registerHandler(ACCOUNT_RELEASE_KIND, this.accounts.releaseHandler);
     this.approvals.registerHandler(CREDIT_LIMIT_CHANGE_KIND, this.accounts.limitHandler);

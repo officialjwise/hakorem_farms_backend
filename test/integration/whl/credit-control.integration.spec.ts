@@ -10,6 +10,7 @@ import { stepUp, type TotpSession } from '../../support/fin';
 import { consoleGet, consolePatch, consolePost, createBranch, createUser, enrolAndLogin, login, relaxRateLimits, SYSTEM_PRINCIPAL, testStartTime, type TestSession, type TestUser } from '../../support/iam';
 import { issueInvoice } from '../../support/pay';
 import { sqlStateOf } from '../../support/sql-state';
+import { documentWorker } from '../../support/documents';
 import { startTestApp, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
 
@@ -473,3 +474,70 @@ describe('past the terms by one day, and the overdue hold (CR-046, FR-WHL-008)',
     expect(await run()).not.toContain(customerId);
   });
 });
+
+describe('the automatic release of a system overdue hold (the owner, 2026-11-18, decision 4 on A-314)', () => {
+  const runRelease = () => runAsSystem({ principalId: SYSTEM_PRINCIPAL, displayName: 'Scheduler' }, randomUUID(), () => api.app.get(AccountHolds).releasePaid({ kind: 'SYSTEM', principalId: SYSTEM_PRINCIPAL }));
+  const cheque = (customerId: string, documentId: string, amount: number) =>
+    post('accountant', '/payments', { id: randomUUID(), paymentMethodId: id('CHEQUE'), amountPesewas: amount, customerId, bankAccountId: id('gcb'), externalReference: `CHQ-${String(amount).padStart(6, '0')}`, receivedAt: clock.now().toISOString(), allocations: [{ billingDocumentId: documentId, amountPesewas: amount }] });
+  const overdueTruth = async (customerId: string) =>
+    Number(
+      (
+        await admin().query<{ n: string }>(
+          `SELECT COALESCE(sum(s.outstanding_pesewas), 0)::text AS n FROM bil.billing_document d JOIN bil.document_settlement s ON s.billing_document_id = d.id
+            WHERE d.customer_id = $1 AND d.status = 'ISSUED' AND d.kind IN ('INVOICE', 'RECEIPT', 'DEBIT_NOTE') AND COALESCE(d.due_date, d.issue_date) < $2::date`,
+          [customerId, today()],
+        )
+      ).rows[0]!.n,
+    );
+  const released = async (customerId: string) =>
+    (await admin().query<{ actor_kind: string }>(
+      "SELECT p.kind AS actor_kind FROM platform.audit_event a JOIN iam.principal p ON p.id = a.actor_id WHERE a.entity_id = $1 AND a.module = 'whl' AND a.action = 'RELEASE_PAID'",
+      [customerId],
+    )).rows;
+
+  it('releases a hold the system placed when the overdue balance reaches nil, not one pesewa before, once, as the system', async () => {
+    const customerId = id('dueToday');
+    const held = await admin().query<{ status: string; hold_automatic: boolean }>('SELECT status, hold_automatic FROM whl.business_account WHERE customer_id = $1', [customerId]);
+    expect(held.rows).toEqual([{ status: 'ON_HOLD', hold_automatic: true }]);
+    const owed = (await admin().query<{ id: string; outstanding: string }>(
+      "SELECT d.id, s.outstanding_pesewas::text AS outstanding FROM bil.billing_document d JOIN bil.document_settlement s ON s.billing_document_id = d.id WHERE d.customer_id = $1 AND d.kind = 'INVOICE' AND s.outstanding_pesewas > 0",
+      [customerId],
+    )).rows;
+    expect(owed.map((o) => o.outstanding)).toEqual(['1000']);
+    const worker = documentWorker(api, database, clock);
+    // A partial payment releases nothing: 999 of 1,000 paid leaves one pesewa overdue.
+    expect((await cheque(customerId, owed[0]!.id, 999)).status).toBe(201);
+    await worker.settle();
+    expect(await runRelease()).not.toContain(customerId);
+    expect(await overdueTruth(customerId)).toBe(1);
+    expect((await get('accountant', `/business-accounts/${customerId}`)).body.status).toBe('ON_HOLD');
+    expect(await released(customerId)).toEqual([]);
+    // The last pesewa: the payment's own event releases it, as the system, audited once.
+    expect((await cheque(customerId, owed[0]!.id, 1)).status).toBe(201);
+    expect(await overdueTruth(customerId)).toBe(0);
+    await worker.settle();
+    const read = (await get('accountant', `/business-accounts/${customerId}`)).body;
+    expect([read.status, read.holdReason]).toEqual(['ACTIVE', null]);
+    expect(await runRelease()).not.toContain(customerId);
+    await worker.settle();
+    expect(await released(customerId)).toEqual([{ actor_kind: 'SYSTEM' }]);
+    const events = await admin().query<{ payload: Record<string, unknown> }>("SELECT payload FROM platform.outbox_message WHERE event_type = 'whl.AccountReleased' AND subject_id = $1", [customerId]);
+    expect(events.rows.map((e) => e.payload)).toEqual([expect.objectContaining({ customerId, automatic: true, requestedBy: null, approvedBy: null })]);
+  });
+
+  it('never releases a hold a person placed, however much is paid; nor does the daily pass', async () => {
+    const customerId = await account('Held By Hand Traders (TEST)', 0);
+    const owed = await invoice(customerId, 5_000, today());
+    expect((await post('accountant', `/business-accounts/${customerId}/hold`, { reason: 'Disputed delivery, held by the Accountant' })).status).toBe(200);
+    expect((await admin().query<{ hold_automatic: boolean }>('SELECT hold_automatic FROM whl.business_account WHERE customer_id = $1', [customerId])).rows).toEqual([{ hold_automatic: false }]);
+    expect((await cheque(customerId, owed.id, 5_000)).status).toBe(201);
+    await documentWorker(api, database, clock).settle();
+    expect(await runRelease()).not.toContain(customerId);
+    expect((await get('accountant', `/business-accounts/${customerId}`)).body.status).toBe('ON_HOLD');
+    expect(await released(customerId)).toEqual([]);
+    // The database holds it: a person's hold leaves only with an approved release, and is never made automatic later.
+    expect(await sqlStateOf(app().query("UPDATE whl.business_account SET hold_automatic = true, version = version + 1 WHERE customer_id = $1", [customerId]))).toBe('HK010');
+    expect(await sqlStateOf(app().query("UPDATE whl.business_account SET status = 'ACTIVE', hold_reason = NULL, held_at = NULL, held_by = NULL, version = version + 1 WHERE customer_id = $1", [customerId]))).toBe('HK010');
+  });
+});
+

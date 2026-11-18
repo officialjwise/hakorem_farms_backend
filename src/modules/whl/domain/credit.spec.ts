@@ -1,6 +1,6 @@
 import { Money } from '@hakorem/kernel';
 import { describe, expect, it } from 'vitest';
-import { availableCredit, holdTrigger, judgeCredit, overrideCovers, type CreditFacts, type OpenItem } from './credit';
+import { availableCredit, holdTrigger, judgeCredit, overrideCovers, releasesOnPayment, type CreditFacts, type OpenItem } from './credit';
 import { daysPastDue } from './time';
 
 const TODAY = '2026-11-14';
@@ -141,5 +141,22 @@ describe('days past due', () => {
   });
   it('counts across the year end', () => {
     expect(daysPastDue('2026-12-31', '2027-01-01')).toBe(1);
+  });
+});
+
+describe('the automatic release of a system overdue hold (owner, 2026-11-18, decision 4 on A-314)', () => {
+  it('releases a hold the system placed once nothing is past due, and not while one pesewa is', () => {
+    expect(releasesOnPayment(true, [item(1n, '2026-10-14')], TODAY)).toBe(false);
+    expect(releasesOnPayment(true, [item(0n, '2026-10-14')], TODAY)).toBe(true);
+    expect(releasesOnPayment(true, [], TODAY)).toBe(true);
+  });
+
+  it('releases while something not yet due is still owed: only the overdue balance must reach nil', () => {
+    expect(releasesOnPayment(true, [item(50_000n, TODAY), item(0n, '2026-10-14')], TODAY)).toBe(true);
+  });
+
+  it('never releases a hold a person placed, whatever is paid', () => {
+    expect(releasesOnPayment(false, [], TODAY)).toBe(false);
+    expect(releasesOnPayment(false, [item(0n, '2026-10-14')], TODAY)).toBe(false);
   });
 });

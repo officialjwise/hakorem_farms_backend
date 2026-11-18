@@ -2,7 +2,7 @@ operationId: holdBusinessAccount
 tags:
   - whl
 summary: "Put an account on hold"
-description: "Puts an active account on hold with a reason (FR-WHL-008, CR-048): an Owner, a Manager or the Accountant. A held account confirms no credit order; cash and prepaid orders still work. The daily `account-hold` job holds an account the same way when anything is outstanding more than its threshold's days past due. Refusals: 422 `ACCOUNT_INVALID` (`ALREADY_ON_HOLD`, `ACCOUNT_CLOSED`).\n\nPermission: `whl.account.hold`."
+description: "Puts an active account on hold with a reason (FR-WHL-008, CR-048): an Owner, a Manager or the Accountant. A held account confirms no credit order; cash and prepaid orders still work. The daily `account-hold` job holds an account the same way when anything is outstanding more than its threshold's days past due; only a hold the job placed is released by itself, once nothing the customer owes is past due (the owner, 2026-11-18; audited `RELEASE_PAID` by the system). A hold placed here stays until released through `releaseBusinessAccount`. Refusals: 422 `ACCOUNT_INVALID` (`ALREADY_ON_HOLD`, `ACCOUNT_CLOSED`).\n\nPermission: `whl.account.hold`."
 x-permission: whl.account.hold
 parameters:
   - name: customerId

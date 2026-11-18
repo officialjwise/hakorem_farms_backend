@@ -128,7 +128,7 @@ export async function startWorker(config: AppConfig, logger: Logger, clock: Cloc
   const jobs: ScheduledJob[] = [
     { name: 'reservation-expiry', when: { everyMs: RESERVATION_EXPIRY_EVERY_MS }, run: async (system) => ({ expired: (await reservationExpiry.run(system)).length }) },
     { name: 'quote-expiry', when: { everyMs: QUOTE_EXPIRY_EVERY_MS }, run: async (system) => ({ expired: (await quoteExpiry.run(system)).length }) },
-    { name: 'account-hold', when: { cron: ACCOUNT_HOLD_CRON }, run: async (system) => ({ held: (await accountHolds.run(system)).length }) },
+    { name: 'account-hold', when: { cron: ACCOUNT_HOLD_CRON }, run: async (system) => ({ released: (await accountHolds.releasePaid(system)).length, held: (await accountHolds.run(system)).length }) },
     { name: 'dunning', when: { cron: DUNNING_CRON }, run: async (system) => ({ queued: (await dunning.run(system)).length }) },
     { name: 'catalogue-refresh', when: { everyMs: CATALOGUE_REFRESH_EVERY_MS }, run: async () => catalogue.refresh() },
     {

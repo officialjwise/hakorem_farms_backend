@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.16.0"
+  version: "2.16.1"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -63103,7 +63103,7 @@ paths:
       tags:
         - whl
       summary: "Put an account on hold"
-      description: "Puts an active account on hold with a reason (FR-WHL-008, CR-048): an Owner, a Manager or the Accountant. A held account confirms no credit order; cash and prepaid orders still work. The daily `account-hold` job holds an account the same way when anything is outstanding more than its threshold's days past due. Refusals: 422 `ACCOUNT_INVALID` (`ALREADY_ON_HOLD`, `ACCOUNT_CLOSED`).\n\nPermission: `whl.account.hold`."
+      description: "Puts an active account on hold with a reason (FR-WHL-008, CR-048): an Owner, a Manager or the Accountant. A held account confirms no credit order; cash and prepaid orders still work. The daily `account-hold` job holds an account the same way when anything is outstanding more than its threshold's days past due; only a hold the job placed is released by itself, once nothing the customer owes is past due (the owner, 2026-11-18; audited `RELEASE_PAID` by the system). A hold placed here stays until released through `releaseBusinessAccount`. Refusals: 422 `ACCOUNT_INVALID` (`ALREADY_ON_HOLD`, `ACCOUNT_CLOSED`).\n\nPermission: `whl.account.hold`."
       x-permission: whl.account.hold
       parameters:
         - name: customerId

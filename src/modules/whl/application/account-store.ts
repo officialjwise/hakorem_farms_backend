@@ -14,6 +14,8 @@ export interface AccountRecord {
   readonly heldAt: Date | null;
   readonly heldBy: string | null;
   readonly holdDocumentId: string | null;
+  /** The overdue job placed the hold (0269): paying off what is overdue releases it (decision 4 on A-314). */
+  readonly holdAutomatic: boolean;
   readonly version: number;
 }
 
@@ -94,7 +96,11 @@ export interface AccountStore {
   activeAccounts(tx: Transaction, afterId: string | null, limit: number): Promise<AccountRecord[]>;
   updateTerms(tx: Transaction, customerId: string, terms: { readonly paymentTermsDays: number; readonly accountManagerId: string | null; readonly overdueHoldDays: number; readonly status: AccountRecord['status'] }, actorId: string, at: Date): Promise<void>;
   setLimit(tx: Transaction, customerId: string, limitPesewas: bigint, changeId: string, actorId: string, at: Date): Promise<void>;
-  hold(tx: Transaction, customerId: string, hold: { readonly reason: string; readonly documentId: string | null; readonly by: string; readonly at: Date }): Promise<void>;
+  hold(tx: Transaction, customerId: string, hold: { readonly reason: string; readonly documentId: string | null; readonly by: string; readonly at: Date; readonly automatic: boolean }): Promise<void>;
+  /** Releases a hold the system placed, without a release change (0269's guard allows only that). */
+  releaseAutomatic(tx: Transaction, customerId: string, actorId: string, at: Date): Promise<void>;
+  /** Accounts on a hold the system placed, after `afterId`. */
+  heldAutomatically(tx: Transaction, afterId: string | null, limit: number): Promise<AccountRecord[]>;
   release(tx: Transaction, customerId: string, changeId: string, actorId: string, at: Date): Promise<void>;
   insertChange(tx: Transaction, change: AccountChangeRecord): Promise<void>;
   change(tx: Transaction, id: string): Promise<AccountChangeRecord | null>;
