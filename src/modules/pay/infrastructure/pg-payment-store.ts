@@ -7,6 +7,7 @@ import type {
   ChargeRecord,
   NewBreak,
   NewPayment,
+  OrderLinkRecord,
   PaymentFilter,
   ReversalRecord,
   StoreCreditEntryRecord,
@@ -227,8 +228,27 @@ export class PgPaymentStore implements PaymentStore {
   }
 
   async paymentsOfOrder(tx: Transaction, orderDocumentId: string): Promise<PaymentRecord[]> {
-    const { rows } = await tx.query<PaymentRow>(`SELECT ${PAYMENT_COLUMNS} FROM pay.payment WHERE order_document_id = $1 ORDER BY id`, [orderDocumentId]);
+    const { rows } = await tx.query<PaymentRow>(
+      `SELECT ${PAYMENT_COLUMNS} FROM pay.payment
+        WHERE order_document_id = $1 OR id IN (SELECT l.payment_id FROM pay.payment_order_link l WHERE l.order_document_id = $1)
+        ORDER BY id`,
+      [orderDocumentId],
+    );
     return rows.map(toRecord);
+  }
+
+  async insertOrderLink(tx: Transaction, l: OrderLinkRecord): Promise<void> {
+    await tx.query(
+      `INSERT INTO pay.payment_order_link (payment_id, order_document_id, shift_document_id, customer_id, branch_id, recorded_at, actor_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [l.paymentId, l.orderDocumentId, l.shiftDocumentId, l.customerId, l.branchId, l.recordedAt, l.actorId],
+    );
+  }
+
+  async linkedOrders(tx: Transaction, paymentIds: readonly string[]): Promise<ReadonlyMap<string, string>> {
+    if (paymentIds.length === 0) return new Map();
+    const { rows } = await tx.query<{ payment_id: string; order_document_id: string }>('SELECT payment_id, order_document_id FROM pay.payment_order_link WHERE payment_id = ANY($1::uuid[])', [paymentIds]);
+    return new Map(rows.map((r) => [r.payment_id, r.order_document_id]));
   }
 
   async allocationsOf(tx: Transaction, paymentIds: readonly string[]): Promise<AllocationRecord[]> {
