@@ -1,6 +1,6 @@
 # B09b continued 1b: the force close, its drawer counted by a third person, and the anchor at each sign-off (split; continued in B09b continued 1c)
 
-Date: 2026-11-17 · Branch `b09b2b-pos-force-close-held`, from `main` (`b8c4db0`) · Lane A · Status: **phase split (A-275 (a)); this part's gate passed.**
+Date: 2026-11-17 · Branch `b09b2b-pos-force-close-held`, from `main` (`b8c4db0`), rebased in the merge slot on `main` at `25d2844` (lane B's statements: migrations 0240 to 0244 and contract 2.7.0, so this phase's migrations are renumbered 0245 and 0246 and its contract is 2.8.0) · Lane A · Status: **phase split (A-275 (a)); this part's gate passed.**
 
 Run as a fresh agent inside the 2026-11-15 overnight session: the parent session cannot issue /clear or /compact, so each phase starts in a new context that reads only this handoff from disk.
 
@@ -15,7 +15,7 @@ Run as a fresh agent inside the 2026-11-15 overnight session: the parent session
 | A-275 (e) | The anchor at each sign-off is asked for in the sign-off's transaction and answered by the worker once that transaction's audit events are chained; one anchor may answer several requests. The later count asks too; the force close itself does not (it moves no money). | Owner |
 | A-275 (f) | The new `Shift` fields (`forceCloseReason`, `countedBy`, `countedAt`) and `ShiftReport.forceClosed` are optional in the contract and always sent; on a force-closed shift `closeApprovedBy` is the force-closer. | Owner |
 
-**No existing shape changed.** Contract **2.7.0**, additive: `forceCloseShift` moves into code (its planned example answered an OPEN shift; it now answers CLOSED and `forceClosed`), `countForceClosedShift` is new, four optional response fields are new.
+**No existing shape changed.** Contract **2.8.0** (on top of lane B's 2.7.0), additive: `forceCloseShift` moves into code (its planned example answered an OPEN shift; it now answers CLOSED and `forceClosed`), `countForceClosedShift` is new, four optional response fields are new.
 
 **No ADR conflict.** ADR-0078 (proposed) is new; ADR-0006 gains an amendment (the anchor at every shift close, which it already promised); ADR-0077's Verification table now names, in every cell of its force-closed column, the test that refuses cash on a shift closed by the real `forceCloseShift`. **No path accepts cash on a force-closed shift**, so ADR-0077, accepted by the owner on 2026-11-18 on condition of this re-proof (PR #103, merged into `main` while this phase ran), stays Accepted. Nothing outside lane A was changed: POS and the platform (shared, additively: two new tables, one new service, one new worker loop). The ORD exception (`sale-posting.ts`) was not needed this part.
 
@@ -26,8 +26,8 @@ Phase, scope and gate, as confirmed at the start:
 
 ## Contract changes
 
-**2.7.0, minor, additive** (changelog entry and cold-read line written).
-- `forceCloseShift` into code (444 code operations before, 446 now; 198 planned before, 197 now; 643 in all).
+**2.8.0, minor, additive** (changelog entry and cold-read line written, above lane B's 2.7.0).
+- `forceCloseShift` into code (447 code operations on `main` before, 449 now; 195 planned before, 194 now; 643 in all).
 - `countForceClosedShift` (`POST /shifts/{id}/late-count`, `pos.shift.close.approve`, step-up), body `ForceClosedShiftCount`, answer `Shift`.
 - `Shift.forceCloseReason`, `countedBy`, `countedAt`; `ShiftReport.forceClosed` (optional, always sent).
 - New details on existing codes: `SHIFT_CLOSE_SAME_PERSON` with `FORCE_CLOSER_IS_CASHIER`, `COUNTER_IS_CASHIER`, `COUNTER_IS_FORCE_CLOSER`; `SHIFT_INVALID` with `SHIFT_NOT_FORCE_CLOSED`, `SHIFT_ALREADY_COUNTED`.
@@ -38,7 +38,7 @@ Phase, scope and gate, as confirmed at the start:
 
 | Area | What |
 | --- | --- |
-| Migrations | 0240 (pos): `pos.shift.force_close_reason`, `ck_shift_force_close_reason`, `ck_shift_steps` with the force-closed CLOSED step, `ck_shift_over_short` rewritten, `pos.shift_guard` (OPEN to CLOSED only by a force close), `pos.shift_late_count` (LEDGER) and `pos.shift_late_count_guard`. 0241 (platform): `platform.audit_anchor_request` and `platform.audit_anchor_fulfilment` (LEDGER, the second written by `hk_sealer` only). Both rollbacks are in the rollback walk. |
+| Migrations | 0245 (pos): `pos.shift.force_close_reason`, `ck_shift_force_close_reason`, `ck_shift_steps` with the force-closed CLOSED step, `ck_shift_over_short` rewritten, `pos.shift_guard` (OPEN to CLOSED only by a force close), `pos.shift_late_count` (LEDGER) and `pos.shift_late_count_guard`. 0246 (platform): `platform.audit_anchor_request` and `platform.audit_anchor_fulfilment` (LEDGER, the second written by `hk_sealer` only). Both rollbacks are in the rollback walk. |
 | POS | `judgeForceClose`, `judgeLateCount` (domain); `Shifts.forceClose`, `Shifts.countLate`; `approveClose` asks for the anchor; views hide a force-closed shift's expected cash until counted; `pos.ShiftForceClosed` (abuse case 17, `SHIFT_FORCE_CLOSED`); `pos.ShiftClosed` gains `forceClosed` and `forceClosedBy` at the later count. |
 | Platform | `AuditAnchorRequests.requestIn`; `AuditAnchor.answerRequests`; the worker's `audit-anchor-requests` loop as the sealer. |
 | Docs | ADR-0078 and its index row, ADR-0006 Amendments, ADR-0077 Verification, ADR-0026 Amendments, the B09b continued 1c opener, A-275, API.md, the changelog, `data-model/pos.md` and `platform.md`, the POS card, THREAT_MODEL abuse case 17. |
@@ -136,7 +136,7 @@ Nothing was re-run to turn red into green.
 
 ## Notes for the frontend track
 
-- **2.7.0.** The back office can force-close an abandoned shift (`forceCloseShift`, step-up, a reason) and later count its drawer (`countForceClosedShift`, by someone who neither ran nor force-closed it). Show `forceClosed`, `forceCloseReason`, `countedBy` and `countedAt`; expected cash stays null until the count.
+- **2.8.0.** The back office can force-close an abandoned shift (`forceCloseShift`, step-up, a reason) and later count its drawer (`countForceClosedShift`, by someone who neither ran nor force-closed it). Show `forceClosed`, `forceCloseReason`, `countedBy` and `countedAt`; expected cash stays null until the count.
 
 ## CI
 
