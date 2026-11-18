@@ -73,7 +73,7 @@ export function availableCredit(limit: Money, exposure: Money): Money {
  * November, held.
  */
 export function holdTrigger(items: readonly OpenItem[], today: string, thresholdDays: number): { readonly documentId: string; readonly documentNo: string | null; readonly daysPastDue: number } | null {
-  const late = items.filter((i) => !i.outstanding.isZero() && daysPastDue(dueOf(i), today) > thresholdDays).sort((a, b) => (dueOf(a) < dueOf(b) ? -1 : dueOf(a) > dueOf(b) ? 1 : 0));
+  const late = items.filter((i) => !i.outstanding.isZero() && daysPastDue(dueOf(i), today) > thresholdDays).sort((a, b) => dueOf(a).localeCompare(dueOf(b)));
   const first = late[0];
   return first === undefined ? null : { documentId: first.documentId, documentNo: first.documentNo, daysPastDue: daysPastDue(dueOf(first), today) };
 }

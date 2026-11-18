@@ -57,6 +57,11 @@ describe('the terms (CR-046: past terms by one day)', () => {
     expect([j.outcome, j.overdue.pesewas, j.oldestOverdueDays]).toEqual(['PAST_TERMS', 5_000n, 2]);
   });
 
+  it('ignores an item with nothing left outstanding, however late, and names the oldest whatever the order', () => {
+    const j = judgeCredit(facts({ openItems: [item(0n, '2026-09-01'), item(10_000n, '2026-10-01'), item(20_000n, '2026-11-01')] }));
+    expect([j.reasons, j.overdue.pesewas, j.oldestOverdueDays]).toEqual([['PAST_TERMS'], 30_000n, 44]);
+  });
+
   it('sums every overdue item and names the oldest', () => {
     const j = judgeCredit(facts({ openItems: [item(20_000n, '2026-11-01'), item(30_000n, '2026-10-14'), item(40_000n, '2026-11-20')] }));
     expect([j.overdue.pesewas, j.oldestOverdueDays, j.exposure.pesewas]).toEqual([50_000n, 31, 90_000n]);
@@ -96,6 +101,12 @@ describe('the automatic hold (FR-WHL-008)', () => {
     const due = item(80_000n, '2026-10-14');
     expect(holdTrigger([item(1_000n, '2026-11-01'), due], '2026-11-14', 30)).toEqual({ documentId: due.documentId, documentNo: due.documentNo, daysPastDue: 31 });
   });
+  it('never holds for an item with nothing left outstanding, and names the first of two due the same day', () => {
+    expect(holdTrigger([item(0n, '2026-09-01')], '2026-11-14', 30)).toBeNull();
+    const first = item(1n, '2026-09-01');
+    expect(holdTrigger([item(80_000n, '2026-10-01'), first, item(2n, '2026-09-01')], '2026-11-14', 30)?.documentId).toBe(first.documentId);
+  });
+
   it('names the oldest of several past the threshold', () => {
     const older = item(1n, '2026-09-01');
     expect(holdTrigger([item(80_000n, '2026-10-01'), older], '2026-11-14', 30)?.documentId).toBe(older.documentId);
