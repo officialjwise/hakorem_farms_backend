@@ -86,6 +86,8 @@ export interface EntryRow {
   readonly uom: string;
   /** The unit as stored: null for the base unit. Not answered; it keeps an entry's identity (`entryIdentity`). */
   readonly storedUom: string | null;
+  /** The product's base unit, the unit `minQtyBase` is in (CR-041, B10). */
+  readonly baseUom: string;
 }
 
 /** What still prices with a list or is assigned it, now or later (archivePriceList, updatePriceList). */

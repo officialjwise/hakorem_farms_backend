@@ -1,0 +1,82 @@
+operationId: listPriceListAssignments
+tags:
+  - mdm
+summary: "The buyers who hold a price list"
+description: "The live buyers who hold this price list now or from a later date, by assignment, each with its window (CR-041, 2.11.0). An ended or replaced assignment is not listed. An unknown price list is 404.\n\nPermission: `mdm.price_list.read`."
+x-permission: mdm.price_list.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/PriceListHolderPage"
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7a8e-0c13-7a44-9d55-6e7f8a9b0c1d"
+                  customer:
+                    id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+                    publicId: cus_TWMB751S2DFXTAM8
+                    name: "Royal Palm Hotel Ltd"
+                  priceList:
+                    id: "019a7a8d-2a51-7c10-b1f2-0c5a3e9d7e41"
+                    code: ROYAL-PALM-2026
+                    name: "Royal Palm Hotel, 2026"
+                  validFrom: "2026-11-01T00:00:00Z"
+                  validTo: null
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

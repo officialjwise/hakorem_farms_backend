@@ -1,0 +1,67 @@
+operationId: getCustomerPriceList
+tags:
+  - mdm
+summary: "The price lists a buyer holds, now and later"
+description: "The buyer's price list assignments in force now or starting later, oldest first (CR-041, 2.11.0): what `assignCustomerPriceList` wrote, each with its window `[validFrom, validTo)`. An ended or replaced assignment is not listed. A customer that is not live is 404.\n\nPermission: `mdm.customer.read`."
+x-permission: mdm.customer.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/PriceListAssignmentList"
+        examples:
+          default:
+            value:
+              data:
+                - customerId: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+                  priceList:
+                    id: "019a7a8d-2a51-7c10-b1f2-0c5a3e9d7e41"
+                    code: ROYAL-PALM-2026
+                    name: "Royal Palm Hotel, 2026"
+                  validFrom: "2026-11-01T00:00:00Z"
+                  validTo: "2026-12-01T00:00:00Z"
+                - customerId: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+                  priceList:
+                    id: "019a7a8d-4b62-7d21-82a3-1d6b4f0e8f52"
+                    code: ROYAL-PALM-2027
+                    name: "Royal Palm Hotel, from December"
+                  validFrom: "2026-12-01T00:00:00Z"
+                  validTo: null
+          empty:
+            summary: "The buyer holds no price list of its own"
+            value:
+              data: []
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

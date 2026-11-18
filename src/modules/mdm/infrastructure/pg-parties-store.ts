@@ -3,7 +3,7 @@ import type { AssignmentWindow } from '../domain/parties';
 import type { RowState } from '../application/admin-kit';
 import type { ZoneForMatch } from '../domain/reference-data';
 import { deliverableZones } from './pg-reference-data-store';
-import type { AddressView, AddressWrite, CustomerFilters, CustomerKind, CustomerStatus, CustomerRecord, CustomerWrite, PartiesStore, PriceListFacts, TierView } from '../application/parties-store';
+import type { AddressView, AddressWrite, AssignmentRecord, CustomerFilters, CustomerKind, CustomerStatus, CustomerRecord, CustomerWrite, PartiesStore, PriceListFacts, TierView } from '../application/parties-store';
 
 const CUSTOMER_UPDATABLE: ReadonlySet<string> = new Set(['name', 'phone_e164', 'phone_hash', 'email', 'tier_id', 'tin_enc', 'status']);
 const ADDRESS_UPDATABLE: ReadonlySet<string> = new Set([
@@ -289,6 +289,31 @@ export class PgPartiesStore implements PartiesStore {
       [customerId],
     );
     return rows.map((row) => ({ id: row.id, validFrom: row.valid_from, validTo: row.valid_to }));
+  }
+
+  async customerAssignments(tx: Transaction, customerId: string, at: Date): Promise<AssignmentRecord[] | null> {
+    const live = await tx.query('SELECT 1 FROM mdm.customer WHERE id = $1 AND deleted_at IS NULL', [customerId]);
+    if (live.rows.length === 0) return null;
+    return this.assignments(tx, 'a.customer_id = $1', [customerId, at], 'a.valid_from, a.id');
+  }
+
+  async priceListHolders(tx: Transaction, priceListId: string, at: Date, afterId: string | null, limit: number): Promise<AssignmentRecord[]> {
+    return this.assignments(tx, 'a.price_list_id = $1 AND ($3::uuid IS NULL OR a.id > $3)', [priceListId, at, afterId, limit], 'a.id', 'LIMIT $4');
+  }
+
+  async priceListExists(tx: Transaction, priceListId: string): Promise<boolean> {
+    return (await tx.query('SELECT 1 FROM mdm.price_list WHERE id = $1 AND deleted_at IS NULL', [priceListId])).rows.length > 0;
+  }
+
+  private async assignments(tx: Transaction, where: string, values: unknown[], order: string, limit = ''): Promise<AssignmentRecord[]> {
+    const { rows } = await tx.query<{ id: string; customer_id: string; public_id: string; customer_name: string; list_id: string; code: string; list_name: string; valid_from: Date; valid_to: Date | null }>(
+      `SELECT a.id, c.id AS customer_id, c.public_id, c.name AS customer_name, l.id AS list_id, l.code, l.name AS list_name, a.valid_from, a.valid_to
+         FROM mdm.customer_price_list a JOIN mdm.customer c ON c.id = a.customer_id JOIN mdm.price_list l ON l.id = a.price_list_id
+        WHERE ${where} AND a.deleted_at IS NULL AND c.deleted_at IS NULL AND (a.valid_to IS NULL OR a.valid_to > $2)
+        ORDER BY ${order} ${limit}`,
+      values,
+    );
+    return rows.map((r) => ({ id: r.id, customer: { id: r.customer_id, publicId: r.public_id, name: r.customer_name }, priceList: { id: r.list_id, code: r.code, name: r.list_name }, validFrom: r.valid_from, validTo: r.valid_to }));
   }
 
   async endAssignment(tx: Transaction, id: string, validTo: Date, actorId: string): Promise<void> {

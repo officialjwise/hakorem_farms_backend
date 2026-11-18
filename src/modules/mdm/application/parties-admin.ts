@@ -47,6 +47,15 @@ export interface AssignmentView {
   readonly validTo: string | null;
 }
 
+/** The contract's `PriceListHolder` (CR-041): a buyer who holds a price list, with the window. */
+export interface PriceListHolderView {
+  readonly id: string;
+  readonly customer: { readonly id: string; readonly publicId: string; readonly name: string };
+  readonly priceList: { readonly id: string; readonly code: string; readonly name: string };
+  readonly validFrom: string;
+  readonly validTo: string | null;
+}
+
 export interface CustomerCreateRequest {
   readonly kind: CustomerKind;
   readonly name: string;
@@ -209,6 +218,45 @@ export class PartiesAdmin {
         return record === null ? null : this.view(tx, record, actor!);
       },
       'no such customer',
+    );
+  }
+
+  /**
+   * getCustomerPriceList (CR-041): the buyer's price list assignments in force now or starting later, oldest first,
+   * each as `assignCustomerPriceList` answers it. A customer not live is 404. Authorised by `mdm.customer.read`.
+   */
+  customerPriceList(actor: Actor | undefined, customerId: string): Promise<{ readonly data: readonly AssignmentView[] }> {
+    return this.kit.read(
+      actor,
+      'mdm.customer.read',
+      async (tx) => {
+        const rows = await this.store.customerAssignments(tx, customerId, this.clock.now());
+        return rows === null ? null : { data: rows.map((r) => ({ customerId: r.customer.id, priceList: r.priceList, validFrom: r.validFrom.toISOString(), validTo: r.validTo?.toISOString() ?? null })) };
+      },
+      'no such customer',
+    );
+  }
+
+  /** listPriceListAssignments (CR-041): the live buyers who hold a price list now or later, with their windows. */
+  priceListHolders(actor: Actor | undefined, priceListId: string, cursor: string | undefined, limit: number): Promise<Page<PriceListHolderView>> {
+    return this.kit.page(
+      actor,
+      'mdm.price_list.read',
+      'listPriceListAssignments',
+      { priceListId },
+      cursor,
+      limit,
+      async (tx, afterId) =>
+        (await this.store.priceListHolders(tx, priceListId, this.clock.now(), afterId, limit + 1)).map((r) => ({
+          id: r.id,
+          customer: r.customer,
+          priceList: r.priceList,
+          validFrom: r.validFrom.toISOString(),
+          validTo: r.validTo?.toISOString() ?? null,
+        })),
+      async (tx) => {
+        if (!(await this.store.priceListExists(tx, priceListId))) throw new NotFoundError('no such price list');
+      },
     );
   }
 

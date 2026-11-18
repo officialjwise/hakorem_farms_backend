@@ -110,6 +110,7 @@ interface EntryRecord {
   quote_only: boolean;
   min_qty: string;
   min_qty_in_uom: string;
+  base_uom: string;
   uom: string;
   stored_uom: string | null;
 }
@@ -119,7 +120,7 @@ const ENTRY_SELECT = `
          w.id AS band_id, w.code AS band_code, w.min_kg::text AS min_kg, w.max_kg::text AS max_kg, e.basis,
          e.list_price_pesewas::text AS list_price, e.floor_price_pesewas::text AS floor_price, e.ceiling_price_pesewas::text AS ceiling_price,
          e.quote_only, e.min_qty::text AS min_qty, COALESCE(e.min_qty_uom, e.min_qty)::text AS min_qty_in_uom,
-         COALESCE(e.uom, p.base_uom) AS uom, e.uom AS stored_uom
+         COALESCE(e.uom, p.base_uom) AS uom, e.uom AS stored_uom, p.base_uom
     FROM mdm.price_list_entry e
     JOIN mdm.product p ON p.id = e.product_id
     LEFT JOIN mdm.grade g ON g.id = e.grade_id
@@ -140,6 +141,7 @@ function toEntry(row: EntryRecord): EntryRow {
     minQtyBase: row.min_qty,
     uom: row.uom,
     storedUom: row.stored_uom,
+    baseUom: row.base_uom,
   };
 }
 

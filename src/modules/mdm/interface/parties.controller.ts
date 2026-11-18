@@ -6,7 +6,7 @@ import { CurrentActor } from '../../../platform/http/actor-param';
 import { IdempotencyKeyHeader, Operation } from '../../../platform/http/operation';
 import { zodPipe } from '../../../platform/http/validation';
 import type { StoredResponse } from '../../../platform/idempotency/idempotency';
-import { PartiesAdmin, type AssignmentView, type CustomerView } from '../application/parties-admin';
+import { PartiesAdmin, type AssignmentView, type CustomerView, type PriceListHolderView } from '../application/parties-admin';
 import type { AddressView, TierView } from '../application/parties-store';
 import type { Page } from '../application/product-catalogue';
 import {
@@ -144,6 +144,18 @@ export class PartiesController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<AddressView> {
     return reply(res, this.admin.archiveAddress(actor, id, body, key));
+  }
+
+  @Get('customers/:id/price-list')
+  @Operation({ operationId: 'getCustomerPriceList', ...READ, permission: 'mdm.customer.read' })
+  getCustomerPriceList(@CurrentActor() actor: Actor | undefined, @Param('id', zodPipe(IdParam)) id: string): Promise<{ readonly data: readonly AssignmentView[] }> {
+    return this.admin.customerPriceList(actor, id);
+  }
+
+  @Get('price-lists/:id/assignments')
+  @Operation({ operationId: 'listPriceListAssignments', ...READ, permission: 'mdm.price_list.read' })
+  listPriceListAssignments(@CurrentActor() actor: Actor | undefined, @Param('id', zodPipe(IdParam)) id: string, @Query(zodPipe(PageQuery)) q: z.infer<typeof PageQuery>): Promise<Page<PriceListHolderView>> {
+    return this.admin.priceListHolders(actor, id, q.cursor, q.limit);
   }
 
   @Put('customers/:id/price-list')
