@@ -11,7 +11,10 @@ import type { Cursors } from '../../../platform/http/cursor';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
 import type { ApprovalHandler, ApprovalRecord, Approvals, Authoriser, PrincipalNames } from '../../iam';
 import type { MasterDataRefs, PartiesAdmin } from '../../mdm';
-import { availableCredit, holdTrigger } from '../domain/credit';
+import { availableCredit, holdTrigger, releasesOnPayment } from '../domain/credit';
+import { DEPOSIT_ALLOCATED, PAYMENT_CLEARED } from '../../pay';
+import type { AsyncConsumer } from '../../../platform/events/domain-events';
+import { DISPATCHER_PRINCIPAL } from '../../../platform/events/outbox-dispatcher';
 import { pageProbe } from '../domain/paging';
 import type { AccountChangeRecord, AccountRecord, AccountStore } from './account-store';
 import type { CreditControl } from './credit-control';
@@ -294,9 +297,58 @@ export class BusinessAccounts {
   }
 
   /**
+   * The automatic release (the owner, 2026-11-18, decision 4 on A-314), in the caller's transaction under the account's
+   * lock: a hold the overdue job placed is released once nothing the customer owes is past its due date, as the system
+   * (`actorId`), audited `RELEASE_PAID` and published as `whl.AccountReleased` with `automatic`. A hold a person placed
+   * is never released here. Releasing twice is nothing the second time.
+   */
+  async releasePaidIn(tx: Transaction, customerId: string, actorId: string): Promise<boolean> {
+    const account = await this.store.account(tx, customerId, true);
+    if (account?.status !== 'ON_HOLD') return false;
+    if (!releasesOnPayment(account.holdAutomatic, await this.credit.openItemsIn(tx, customerId), toBusinessDate(this.clock.now()))) return false;
+    await this.store.releaseAutomatic(tx, customerId, actorId, this.clock.now());
+    const after = (await this.store.account(tx, customerId, true))!;
+    await this.audit.record(tx, { module: 'whl', action: 'RELEASE_PAID', entityType: 'BusinessAccount', entityId: customerId, branchId: account.branchId, before: { ...this.auditOf(account) }, after: { ...this.auditOf(after) } });
+    await this.events.publish(tx, {
+      type: ACCOUNT_RELEASED,
+      subjectType: 'BusinessAccount',
+      subjectId: customerId,
+      branchId: account.branchId,
+      payload: { customerId, reason: 'The overdue balance was paid', requestedBy: null, approvedBy: null, automatic: true },
+    });
+    return true;
+  }
+
+  /** The daily pass of the automatic release, run by the worker as the Scheduler before the overdue hold. */
+  async releasePaid(system: { readonly kind: 'SYSTEM'; readonly principalId: string }): Promise<string[]> {
+    if (system.kind !== 'SYSTEM') throw new Error('the automatic release runs as a SYSTEM principal only');
+    const released: string[] = [];
+    let after: string | null = null;
+    for (;;) {
+      const batch: AccountRecord[] = await this.uow.run({ isolation: 'read committed' }, (tx) => this.store.heldAutomatically(tx, after, HOLD_BATCH));
+      for (const candidate of batch) {
+        if (await this.uow.run({ isolation: 'serializable' }, (tx) => this.releasePaidIn(tx, candidate.customerId, system.principalId))) released.push(candidate.customerId);
+      }
+      if (batch.length < HOLD_BATCH) return released;
+      after = batch.at(-1)!.customerId;
+    }
+  }
+
+  /** WHL's consumer of PAY's payments and allocations: a customer's payment may have paid off what kept a system hold. */
+  readonly paymentReleases: AsyncConsumer = {
+    name: 'whl.hold-release-on-payment',
+    eventTypes: [PAYMENT_CLEARED, DEPOSIT_ALLOCATED],
+    isolation: 'serializable',
+    handle: async (tx, event) => {
+      const customerId = (event.payload as { readonly customerId?: string | null }).customerId ?? null;
+      if (customerId !== null) await this.releasePaidIn(tx, customerId, DISPATCHER_PRINCIPAL.principalId);
+    },
+  };
+
+  /**
    * The overdue hold (FR-WHL-008), run daily by the worker as the Scheduler: every active account with anything
-   * outstanding more than its threshold's days past due is held, naming the invoice. Released only by an approved
-   * release (A-313): paying the invoice does not release it on its own.
+   * outstanding more than its threshold's days past due is held, naming the invoice. A hold placed here is released
+   * when the overdue balance is paid (decision 4 on A-314); any other hold only by an approved release.
    */
   async holdOverdue(system: { readonly kind: 'SYSTEM'; readonly principalId: string }): Promise<string[]> {
     if (system.kind !== 'SYSTEM') throw new Error('the overdue hold runs as a SYSTEM principal only');
@@ -448,7 +500,7 @@ export class BusinessAccounts {
 
   private async holdIn(tx: Transaction, account: AccountRecord, h: { readonly reason: string; readonly documentId: string | null; readonly by: string; readonly automatic: boolean }): Promise<AccountRecord> {
     const at = this.clock.now();
-    await this.store.hold(tx, account.customerId, { reason: h.reason, documentId: h.documentId, by: h.by, at });
+    await this.store.hold(tx, account.customerId, { reason: h.reason, documentId: h.documentId, by: h.by, at, automatic: h.automatic });
     const held = (await this.store.account(tx, account.customerId, true))!;
     await this.audit.record(tx, { module: 'whl', action: h.automatic ? 'HOLD_OVERDUE' : 'HOLD', entityType: 'BusinessAccount', entityId: account.customerId, branchId: account.branchId, before: { ...this.auditOf(account) }, after: { ...this.auditOf(held) } });
     await this.events.publish(tx, {

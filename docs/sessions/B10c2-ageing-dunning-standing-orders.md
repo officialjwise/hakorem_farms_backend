@@ -11,6 +11,7 @@ Run as a fresh agent inside the 2026-11-15 overnight session: the parent session
 | A-317 | **Ageing and the statement's summary (ADR-0089):** (a) as at a date, from BIL's documents with their credit notes by then and PAY's allocations dated by the application clock's business day (`allocated_on`, 0264; older rows by `recorded_at`'s day), each balance whole in its band of days past due from the due date (issue date when none); (b) **SA-21's day counts win over FR-WHL-010's example**: an invoice due 14 October is 61 days past due on 14 December, so it is in **61 to 90**, not 31 to 60 (31 to 60 runs to 13 December); (c) what 1200 holds beyond the open items (an opening balance journal, a refund, an allocation at another branch) is shown as **not aged**, never put into a bucket, so the report ties to 1200 exactly; the till's walk-in customer is in the totals as `otherPartiesPesewas`; (d) **A-300 (i) decided the conservative way: the statement stays 1200 only, no deposit (2200) or store credit (2210) figure, nothing on it changes; flagged for the owner** (whether to show money on deposit as a figure apart); the summary is stored with the statement, tied by the database to its closing; (e) read by the Owner, the Manager, Sales and the Accountant (CR-048). | Accountant (a, b, c), **Owner (d)**, Owner (e) |
 | A-318 | **Dunning:** (a) only invoices and debit notes of customers with a business account (held or not, never closed); (b) the highest level reached, once per level per document, never a lower one after a higher, held by the database; (c) queued through the outbox (`whl.DunningNoticeDue`) in one transaction per account; **NTF (B11) sends it and skips an opted-out channel for the next** (NTF's opt-outs do not exist yet); (d) daily at 08:00 Accra; (e) read by the four roles, levels replaced by the Owner and the Manager only, no step-up; (f) the seed sets 7, 14 and 30 days; an unseeded farm sends nothing until levels are set. | Owner, Accountant (a) |
 | A-319 | **The split:** ageing, the statement's summary with A-300 (i) and dunning built; standing orders (FR-WHL-004), the bad-debt write-off (FR-WHL-012), QUO's remainder (document, pipeline, `listMyQuotes`, CR-047 point 2), the owner's QUO decisions of 2026-11-18 (several live links; subject to stock after ADR-0019) and UAT scenario 2's dry run move to **B10 continued 3** (`b10c3-standing-orders-quote-pipeline`), before B11. | Owner |
+| A-314 (amended) | **The owner's decision 4 of 2026-11-18, approved and built after the first merge (B10 continued 2b, below):** paying off an overdue account releases the hold automatically only if the system placed it; a person's hold stays until an Owner or Manager who did not ask releases it. | **Approved by the owner, 2026-11-18** |
 
 **No ADR conflict.** ADR-0089 is new (proposed). ADR-0067 is followed (the new column's default reads `platform.app_now()`, no `now()` in business SQL, the tests take their dates from `testStartTime` and the clock); ADR-0085 is followed (the statement's figures are unchanged; the summary is added beside them); ADR-0017 and ADR-0088 are untouched. ADR-0019 was not read: the subject-to-stock decision moved with QUO's remainder to B10 continued 3, untouched here.
 
@@ -84,6 +85,19 @@ Phase, scope and gate, as confirmed at the start:
 - **Authorisation:** every handler authorises first, deny by default; reads at whole-branch scopes; the four routes are on the identifier walk; wrong roles refused and mutation-checked. **Input:** strict zod (levels 1 to 10, days 1 to 365, one to three channels, the template's pattern). SQL parameterised only. **Money:** integer pesewas (bigint), sums only, exact against SQL. **Side effects:** through the outbox, in the notice's transaction. **Logging:** no personal data in the event beyond ids and amounts.
 - **Abuse:** a reminder flood is bounded by the database (each level once per document); levels are changed only by the Owner or a Manager and audited. No new abuse case.
 
+## Added after the first merge: B10 continued 2b (branch `b10c2b-automatic-hold-release`, contract 2.16.1)
+
+The owner's decisions relayed by the parent session after #113 merged, answered here.
+
+**Decision 4 on A-314 (built, test-first in the domain, a dated amendment to A-314):**
+- Migration 0269: `whl.business_account.hold_automatic`, true exactly while the account is on a hold the overdue job placed, set only as it goes on hold and cleared as it leaves (HK010 `ck_business_account_hold_automatic`); the guard lets only such a hold leave without an approved release. Holds placed before 0269 count as a person's (the conservative reading).
+- `whl/domain/credit.ts` `releasesOnPayment` (red first: 3 of 3): only a system hold, only when nothing owed is one day or more past due; what is owed but not yet due does not keep the hold.
+- `BusinessAccounts.releasePaidIn`, run by WHL's new consumer `whl.hold-release-on-payment` of `pay.PaymentCleared` and `pay.DepositAllocated` (as the Outbox dispatcher, a SYSTEM principal) and by the `account-hold` job's daily pass (as the Scheduler) before it holds; audited `RELEASE_PAID`, `whl.AccountReleased` with `automatic: true`.
+- **Tests** (`test/integration/whl/credit-control.integration.spec.ts`, two added, 17 in all): the seeded-in-test system hold on an invoice of 1,000: a cheque of 999 releases nothing (one pesewa overdue in SQL, still `ON_HOLD`, the daily pass releases nothing, no audit); the last pesewa releases it on the payment's own event; the daily pass and a second dispatch change nothing; exactly one `RELEASE_PAID` audit row, its actor a SYSTEM principal, and one `whl.AccountReleased` with `automatic: true`. A hold placed by the Accountant is not released by paying its invoice in full, by the event or the daily pass; the database refuses it made automatic afterwards and released without an approved change (HK010).
+- **Mutation checks:** a person's hold released on payment in the application only: red 1 (the database refuses it, the release fails); in the application and the database: red 2; released whatever is still overdue: red 1; the overdue job marking no hold as the system's: red 1.
+
+**F10l's quote link (the console shows a link once; a staff session behind an acceptance flagged):** QUO's work is B10 continued 3's (A-319), so this is **written into B10 continued 3's opener** as the owner's item 4, in the owner's words, with abuse case 40 reserved for it. **No CR number for it on the frontend's main at `aad2c91`** (the newest there are CR-051 and CR-052, both POS, lane A's).
+
 ## Deferred
 
 To **B10 continued 3**: standing orders, the bad-debt write-off, QUO's document, pipeline and `listMyQuotes`, CR-047 point 2, the owner's QUO decisions (several live links on three conditions; subject to stock, after reading ADR-0019) and UAT scenario 2's dry run with its two owner questions (credit check and delivery fee on a partial dispatch). To **B11**: dunning's sends and the opted-out channel skipped (NTF), `sendStatement`.
@@ -126,7 +140,7 @@ List docs/sessions/ and read only the most recent report (docs/sessions/B10c2-ag
 Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
 reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
 CR-047's remaining point 2 (PublicQuote.acceptedName and decidedAt) is this phase's to implement or decline; check the
-numbers again on main (CR-051 is lane A's offline pack).
+numbers again on main (CR-051 and CR-052 are lane A's POS).
 For this phase, read FR-WHL-004 and FR-WHL-012 of the WHL block of docs/SRS.md and FR-QUO-007, FR-QUO-008 and
 FR-QUO-013 of the QUO block (nothing else from the SRS), docs/data-model/whl.md and quo.md, the WHL and QUO cards in
 docs/MODULE_BOUNDARIES.md, DOMAIN_MODEL section 5.12, ADR-0017, ADR-0019, ADR-0087, ADR-0088, ADR-0089, and A-309 to
@@ -158,6 +172,17 @@ The owner's decisions of 2026-11-18 for QUO (A-309 as amended), each test-first:
    the public quote), show the quantity available, and reserve only what is on hand, never more; test fully, partly and
    not on hand with exact quantities; LOUD on 2.12.0 (a refusal removed), a dated amendment to A-309. Read ADR-0019
    first; if this would contradict it, stop this item and report the options to the parent session.
+4. The owner, 2026-11-18, from the frontend's F10l (no CR number on the frontend's main at aad2c91): the console shows a
+   quote link once, right after sending, so staff can send it by WhatsApp. Load hakorem-security-review. (a) Record the
+   device and session behind every acceptance and decline through the link: the user agent, the IP (as the platform
+   records it for public calls, per the data classification) and whether a staff session cookie was present and whose.
+   (b) Flag, on the exception report's source, any acceptance or decline made from a browser with a signed-in staff
+   session, as a new source kind naming the staff member (B12 builds the report); the flag never blocks, it is raised
+   for review. Add the abuse path to docs/security/THREAT_MODEL.md as abuse case 40 (lane B's block). (c) The link
+   token is shown once: returned only in the send's response, never readable again since only its hash is stored
+   (ADR-0074, ADR-0087); test that no read returns it. Tests: an acceptance with no staff session is not flagged; one
+   with a staff session is flagged with that staff member; a decline with a staff session is flagged too; a mutation
+   that skips the flag turns a test red.
 Run scenario 2 of docs/UAT.md as a dry run and record every difference, including the two rules that scenario flags for
 the owner (credit check and delivery fee on a partial dispatch), decided conservatively and put to the owner.
 Stop at the gate and write docs/sessions/B10c3-standing-orders-quote-pipeline.md.

@@ -8,7 +8,7 @@
  * Events are in `events.ts`.
  */
 export { PayModule } from './pay.module';
-export { Payments, PAYMENT_CLEARED, type ClearedTenderRequest, type PaymentView, type SalesChannel, type ShiftTenderTotal, type TenderRequest } from './application/payments';
+export { Payments, PAYMENT_CLEARED, DEPOSIT_ALLOCATED, type ClearedTenderRequest, type PaymentView, type SalesChannel, type ShiftTenderTotal, type TenderRequest } from './application/payments';
 export { ProviderPayments } from './application/provider-payments';
 export { Refunds } from './application/refunds';
 export { TillShiftRegistry, type TillCashAnswer, type TillCashDirection, type TillCashRefusal, type TillCashRequest, type TillShiftCheck } from './application/till-shifts';

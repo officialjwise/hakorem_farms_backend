@@ -89,3 +89,13 @@ export function overrideCovers(approved: { readonly orderPesewas: bigint; readon
     now.reasons.every((r) => approved.reasons.includes(r))
   );
 }
+
+/**
+ * Whether paying releases a hold (the owner, 2026-11-18, decision 4 on A-314): only a hold the system placed for being
+ * overdue, and only once nothing is past its due date any more (the overdue balance is nil; what is owed but not yet
+ * due does not keep the hold). A hold a person placed stays until an Owner or Manager who did not ask releases it.
+ */
+export function releasesOnPayment(placedBySystem: boolean, items: readonly OpenItem[], today: string): boolean {
+  if (!placedBySystem) return false;
+  return items.every((i) => i.outstanding.isZero() || daysPastDue(dueOf(i), today) === 0);
+}

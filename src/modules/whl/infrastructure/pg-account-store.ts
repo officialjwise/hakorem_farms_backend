@@ -4,7 +4,7 @@ import type { CreditReason } from '../domain/credit';
 import type { AccountChangeRecord, AccountFilter, AccountRecord, AccountStore, NewAccount, OverrideFilter, OverrideRecord, OverrideRequestRecord } from '../application/account-store';
 
 const ACCOUNT_COLUMNS = `customer_id, branch_id, credit_limit_pesewas::text AS credit_limit, payment_terms_days, account_manager_id, overdue_hold_days, status,
-  hold_reason, held_at, held_by, hold_document_id, version`;
+  hold_reason, held_at, held_by, hold_document_id, hold_automatic, version`;
 
 function account(r: Record<string, unknown>): AccountRecord {
   return {
@@ -19,6 +19,7 @@ function account(r: Record<string, unknown>): AccountRecord {
     heldAt: r['held_at'] as Date | null,
     heldBy: r['held_by'] as string | null,
     holdDocumentId: r['hold_document_id'] as string | null,
+    holdAutomatic: r['hold_automatic'] as boolean,
     version: r['version'] as number,
   };
 }
@@ -112,16 +113,32 @@ export class PgAccountStore implements AccountStore {
     await tx.query('UPDATE whl.business_account SET credit_limit_pesewas = $2, limit_change_id = $3, updated_at = $4, updated_by = $5, version = version + 1 WHERE customer_id = $1', [customerId, limitPesewas.toString(), changeId, at, actorId]);
   }
 
-  async hold(tx: Transaction, customerId: string, h: { readonly reason: string; readonly documentId: string | null; readonly by: string; readonly at: Date }): Promise<void> {
+  async hold(tx: Transaction, customerId: string, h: { readonly reason: string; readonly documentId: string | null; readonly by: string; readonly at: Date; readonly automatic: boolean }): Promise<void> {
     await tx.query(
-      "UPDATE whl.business_account SET status = 'ON_HOLD', hold_reason = $2, hold_document_id = $3, held_at = $4, held_by = $5, updated_at = $4, updated_by = $5, version = version + 1 WHERE customer_id = $1",
-      [customerId, h.reason, h.documentId, h.at, h.by],
+      "UPDATE whl.business_account SET status = 'ON_HOLD', hold_reason = $2, hold_document_id = $3, held_at = $4, held_by = $5, hold_automatic = $6, updated_at = $4, updated_by = $5, version = version + 1 WHERE customer_id = $1",
+      [customerId, h.reason, h.documentId, h.at, h.by, h.automatic],
     );
+  }
+
+  async releaseAutomatic(tx: Transaction, customerId: string, actorId: string, at: Date): Promise<void> {
+    await tx.query(
+      `UPDATE whl.business_account SET status = 'ACTIVE', hold_reason = NULL, hold_document_id = NULL, held_at = NULL, held_by = NULL, hold_automatic = false,
+              updated_at = $2, updated_by = $3, version = version + 1 WHERE customer_id = $1 AND status = 'ON_HOLD' AND hold_automatic`,
+      [customerId, at, actorId],
+    );
+  }
+
+  async heldAutomatically(tx: Transaction, afterId: string | null, limit: number): Promise<AccountRecord[]> {
+    const { rows } = await tx.query<Record<string, unknown>>(
+      `SELECT ${ACCOUNT_COLUMNS} FROM whl.business_account WHERE deleted_at IS NULL AND status = 'ON_HOLD' AND hold_automatic AND ($1::uuid IS NULL OR customer_id > $1) ORDER BY customer_id LIMIT $2`,
+      [afterId, limit],
+    );
+    return rows.map(account);
   }
 
   async release(tx: Transaction, customerId: string, changeId: string, actorId: string, at: Date): Promise<void> {
     await tx.query(
-      `UPDATE whl.business_account SET status = 'ACTIVE', hold_reason = NULL, hold_document_id = NULL, held_at = NULL, held_by = NULL, release_change_id = $2,
+      `UPDATE whl.business_account SET status = 'ACTIVE', hold_reason = NULL, hold_document_id = NULL, held_at = NULL, held_by = NULL, hold_automatic = false, release_change_id = $2,
               updated_at = $3, updated_by = $4, version = version + 1 WHERE customer_id = $1`,
       [customerId, changeId, at, actorId],
     );
