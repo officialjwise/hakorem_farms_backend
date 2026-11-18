@@ -58,6 +58,8 @@ export interface DraftHeader {
   readonly reasonCode: string | null;
   readonly note: string | null;
   readonly occurredAt: Date | null;
+  /** A receipt for a sale an offline till synced later, issued at the till's time (A-278 (d)); false when absent. */
+  readonly syncedFromOffline?: boolean;
   readonly actorId: string;
 }
 

@@ -69,6 +69,19 @@ export class Ledger {
     this.nextId = createUuidV7Generator(clock);
   }
 
+  /**
+   * The date an entry for something that happened at `occurredAt` and is recorded at `recordedAt` posts on, exactly as
+   * `postIn` would choose it (ADR-0027 point 6): its own business date while that period is open, otherwise the
+   * recorded date's (`late`); null when neither is open. Read only, in the caller's transaction; it authorises nothing
+   * (POS dates a synced offline sale's receipt with it, B09b continued 2b).
+   */
+  async postingDateIn(tx: Transaction, occurredAt: Date, recordedAt: Date): Promise<{ readonly postingDate: string; readonly late: boolean } | null> {
+    const occurredDate = toBusinessDate(occurredAt);
+    const recordedDate = toBusinessDate(recordedAt);
+    const dated = choosePostingDate(occurredDate, recordedDate, await this.store.periodsOn(tx, [occurredDate, recordedDate]));
+    return dated.ok ? { postingDate: dated.value.postingDate, late: dated.value.late } : null;
+  }
+
   async postIn(tx: Transaction, request: PostingRequest): Promise<PostedEntry | null> {
     if (tx.isolation !== 'serializable') {
       throw new IsolationLevelError(tx.isolation);

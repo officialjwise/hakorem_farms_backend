@@ -9,6 +9,9 @@ import { toErrorEnvelope } from '../errors/error-envelope';
 export const CORRELATION_ID_HEADER = 'X-Correlation-Id';
 /** Largest JSON body the API reads; endpoints that need more (sync batches, imports) raise it per route. */
 export const JSON_BODY_LIMIT = '256kb';
+/** The till's offline sync carries up to 500 sales with their lines and tenders (OFFLINE_SYNC 6.3, B09b continued 2b). */
+export const SYNC_BODY_LIMIT = '5mb';
+const SYNC_PATHS: readonly string[] = ['/v1/pos/sync'];
 const ANY_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const NANOSECONDS_PER_MILLISECOND = 1_000_000n;
 /** Routes whose raw request body is kept for a signature check (docs/API.md section 13). */
@@ -75,14 +78,14 @@ function bodyParserError(error: unknown): ApiError | undefined {
  */
 export function jsonBody(logger: Logger): RequestHandler {
   // A webhook's signature is over the bytes the provider sent, so its raw body is kept beside the parsed one.
-  const parse = express.json({
-    limit: JSON_BODY_LIMIT,
-    verify: (req: Request, _res: Response, buffer: Buffer) => {
-      if (req.url.startsWith(WEBHOOK_PATH_PREFIX)) (req as Request & { rawBody?: Buffer }).rawBody = Buffer.from(buffer);
-    },
-  });
+  const verify = (req: Request, _res: Response, buffer: Buffer) => {
+    if (req.url.startsWith(WEBHOOK_PATH_PREFIX)) (req as Request & { rawBody?: Buffer }).rawBody = Buffer.from(buffer);
+  };
+  const parse = express.json({ limit: JSON_BODY_LIMIT, verify });
+  const parseSync = express.json({ limit: SYNC_BODY_LIMIT, verify });
   return (req: Request, res: Response, next: NextFunction) => {
-    parse(req, res, (error?: unknown) => {
+    const parser = SYNC_PATHS.includes(req.path) ? parseSync : parse;
+    parser(req, res, (error?: unknown) => {
       if (error === undefined || error === null) {
         next();
         return;

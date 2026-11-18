@@ -111,3 +111,56 @@ export const HeldSaleCreate = z.strictObject({
   label: Text(120).optional(),
   payload: z.strictObject({ customerId: z.uuid().optional(), lines: z.array(HeldSaleLine).min(1).max(100) }),
 });
+
+/**
+ * The contract's `OfflineSyncBatch` (B09b continued 2b). A queued sale is kept exactly as the till sent it, amounts as
+ * JSON integers and its time as the string it sent, because its hash is recomputed over it (OFFLINE_SYNC 4.4). Up to
+ * 500 sales a batch: more is refused by the handler as `SYNC_BATCH_TOO_LARGE`, after the caller is authorised.
+ */
+const JsonPesewas = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
+/** The most sales parsed from one body; the handler answers more than 500 with `SYNC_BATCH_TOO_LARGE`. */
+const MAX_PARSED_SALES = 2_000;
+const OfflineSale = z.strictObject({
+  id: z.uuid(),
+  deviceCounter: z.number().int().min(1).max(1_000_000),
+  provisionalRef: z.string().min(1).max(40),
+  occurredAt: z.iso.datetime(),
+  customerPhone: PhoneNumber.optional(),
+  lines: z
+    .array(
+      z.strictObject({
+        productId: z.uuid(),
+        stockUnitId: z.uuid().optional(),
+        quantity: Quantity,
+        uom: z.string().regex(/^[A-Z]{2,10}$/).optional(),
+        weightKg: Kilograms.optional(),
+        weightSource: z.enum(['SCALE', 'MANUAL', 'ESTIMATE']).optional(),
+        gradeId: z.uuid().optional(),
+        agreedUnitPricePesewas: JsonPesewas,
+        varianceReasonCode: ReasonCode.optional(),
+      }),
+    )
+    .min(1)
+    .max(100),
+  tenders: z
+    .array(
+      z.strictObject({
+        paymentMethodId: z.uuid(),
+        amountPesewas: JsonPesewas,
+        paymentId: z.uuid().optional(),
+        tenderedPesewas: JsonPesewas.optional(),
+        unverifiedMobileMoney: z
+          .strictObject({ payerPhone: PhoneNumber, network: z.enum(['MTN', 'TELECEL', 'AIRTELTIGO']), providerReference: Text(100).optional(), approvedById: z.uuid() })
+          .optional(),
+      }),
+    )
+    .min(1)
+    .max(10),
+  payloadHash: z.string().regex(/^[0-9a-f]{64}$/),
+});
+export const OfflineSyncBatch = z.strictObject({
+  deviceId: z.uuid(),
+  shiftId: z.uuid(),
+  sales: z.array(OfflineSale).max(MAX_PARSED_SALES),
+  cashMovements: z.array(CashMovementCreate).max(500).optional(),
+});

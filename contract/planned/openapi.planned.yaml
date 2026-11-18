@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.12.0"
+  version: "2.13.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -4404,104 +4404,7 @@ paths:
   "/held-sales/{id}": {}
   "/registers/{id}/offline-pack": {}
   "/pos/sales": {}
-  "/pos/sync":
-    post:
-      operationId: syncOfflineSales
-      tags:
-        - pos
-      summary: "Sync sales and cash movements queued while offline"
-      description: "Applies each sale exactly once, identified by its client id. A sale is always recorded with its money; where its stock leg would break an invariant (an animal sold elsewhere, under a hold, or stock gone negative), the line is recorded with a stock exception instead and the outcome says so. Official receipt numbers are allocated here. Up to 500 sales per batch. See docs/OFFLINE_SYNC.md.\n\nPermission: `pos.sale.create`."
-      x-permission: pos.sale.create
-      parameters:
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-          deviceCredential: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/OfflineSyncBatch"
-            example:
-              deviceId: "019a7af9-390e-76fe-ac37-78c0142ff19d"
-              shiftId: "019a7af1-da1b-7bcb-9103-c58815023e65"
-              sales:
-                - id: "019a7afc-7c43-71fc-9734-2899e9daa177"
-                  deviceCounter: 42
-                  provisionalRef: P-T2-311-0042
-                  occurredAt: "2026-11-13T08:02:00Z"
-                  lines:
-                    - productId: "019a7a8e-a5a0-754c-8a85-5d9ed05dd67c"
-                      quantity: "6.000"
-                      agreedUnitPricePesewas: 2500
-                  tenders:
-                    - paymentMethodId: "019a7a92-a26f-7b9f-90d7-c2c5802e3ba3"
-                      amountPesewas: 15000
-                      tenderedPesewas: 20000
-                  payloadHash: "9f1c2a7e4b0d83f65c2e1a9d7b3f0c4e8a6d2b1f5e9c7a3d0b4f8e2c6a1d5b9f"
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/OfflineSyncResult"
-              example:
-                shiftId: "019a7af1-da1b-7bcb-9103-c58815023e65"
-                results:
-                  - clientSaleId: "019a7af1-bb2c-71e7-8720-27509b51a02e"
-                    deviceCounter: 41
-                    outcome: APPLIED_WITH_EXCEPTION
-                    orderId: "019a7af1-bb2c-71e7-8720-27509b51a02e"
-                    orderNo: SO-2026-DDW-004207
-                    receiptNo: RCP-2026-DDW-T2-006101
-                    grossPesewas: 87500
-                    currency: GHS
-                    exceptions:
-                      - kind: NEGATIVE_STOCK
-                        summary: "Yam on the shop floor went to -6 after this sale"
-                  - clientSaleId: "019a7afc-7c43-71fc-9734-2899e9daa177"
-                    deviceCounter: 42
-                    outcome: APPLIED
-                    orderId: "019a7afc-7c43-71fc-9734-2899e9daa177"
-                    orderNo: SO-2026-DDW-004208
-                    receiptNo: RCP-2026-DDW-T2-006102
-                    grossPesewas: 4200
-                    currency: GHS
-                    exceptions: []
-                  - clientSaleId: "019a7afc-9b32-7be0-a118-c6d1638b3faf"
-                    deviceCounter: 40
-                    outcome: DUPLICATE
-                    orderId: "019a7afc-9b32-7be0-a118-c6d1638b3faf"
-                    orderNo: SO-2026-DDW-004205
-                    receiptNo: RCP-2026-DDW-T2-006100
-                    grossPesewas: 18500
-                    currency: GHS
-                    exceptions: []
-                cashMovementResults:
-                  - clientId: "019a7afc-ba21-75c3-bafb-6508dd3cdde6"
-                    outcome: APPLIED
-                    reason: null
-                counterGaps: []
-                serverTime: "2026-11-13T08:47:00Z"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+  "/pos/sync": {}
   "/shop/catalogue": {}
   "/shop/products/{slug}": {}
   "/shop/categories": {}
@@ -33196,6 +33099,9 @@ components:
             - string
             - "null"
           format: date-time
+        syncedFromOffline:
+          type: boolean
+          description: "True on a receipt for a sale an offline till synced later: it is issued at the time the sale happened at the till (`issuedAt` and `occurredAt`), dated that day or, when that day's period has since locked, the first open date (`issueDate`), and carries the reference the till printed (`provisionalRef`). False for every other document (2.13.0, A-278 (d))."
         reprintCount:
           type: integer
         branchId:

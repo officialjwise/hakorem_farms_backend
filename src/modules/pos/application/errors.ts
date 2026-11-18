@@ -16,6 +16,7 @@ registerMessages({
   'pos.device_credential_invalid': 'This device is not enrolled. Ask a manager to enrol it.',
   'pos.device_revoked': 'This device was revoked by a manager. Ask a manager to enrol it again.',
   'pos.device_credential_shown_once': 'This device was enrolled and its credential was shown once. Revoke it and enrol it again.',
+  'pos.sync_batch_too_large': 'A sync sends at most 500 sales. Send the rest in another batch.',
 });
 
 export interface TillRule {
@@ -141,4 +142,14 @@ export class DeviceCredentialShownOnceError extends ApiError {
   readonly status = 409;
   readonly code = 'DEVICE_CREDENTIAL_SHOWN_ONCE';
   readonly messageKey = 'pos.device_credential_shown_once';
+}
+
+/** 400 SYNC_BATCH_TOO_LARGE: a sync batch carries more than 500 sales (OFFLINE_SYNC 6.3); nothing in it is applied. */
+export class SyncBatchTooLargeError extends ApiError {
+  readonly status = 400;
+  readonly code = 'SYNC_BATCH_TOO_LARGE';
+  readonly messageKey = 'pos.sync_batch_too_large';
+  constructor(count: number, limit: number) {
+    super(`a sync batch of ${count} sales; at most ${limit}`, [{ field: '/sales', code: 'SYNC_BATCH_TOO_LARGE', message: translate('pos.sync_batch_too_large') }]);
+  }
 }

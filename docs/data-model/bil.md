@@ -8,6 +8,8 @@ Owner: BIL module. Invoices, receipts, proformas, credit notes and debit notes, 
 
 Posted statuses: `ISSUED`. An issued document is immutable; it is corrected by a credit or debit note. Published key.
 
+**Built in B09b continued 2b (migration 0257, A-278 (d)):** `synced_from_offline` (boolean, NOT NULL, default false): a receipt for a sale an offline till synced later, issued at the till's time (`issued_at` is its `occurred_at`), dated the day it happened or the first open date (`issue_date`). `ck_billing_document_offline`: only a RECEIPT with its `occurred_at`. Frozen with the rest of an issued document.
+
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `id` | `uuid` | PK, FK `platform.business_document` | |

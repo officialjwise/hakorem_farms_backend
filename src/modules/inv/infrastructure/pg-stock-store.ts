@@ -1,5 +1,5 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
-import type { DriftRow, LinkType, MovementRow, PostedRow, StockStore, UnitLink, UnitMovement } from '../application/stock-store';
+import type { ConflictRow, DriftRow, UnitStanding, LinkType, MovementRow, PostedRow, StockStore, UnitLink, UnitMovement } from '../application/stock-store';
 
 const LINEAGE_COLUMNS = `u.id AS unit_id, u.branch_id, u.identifier, u.product_id, u.tracking, u.status, u.supplier_id, u.source_document_id`;
 
@@ -155,5 +155,35 @@ export class PgStockStore implements StockStore {
       ],
     );
     return rows[0]!.id;
+  }
+
+  async raiseConflict(tx: Transaction, c: ConflictRow): Promise<string> {
+    const { rows } = await tx.query<{ id: string }>(
+      `INSERT INTO inv.stock_exception (kind, branch_id, product_id, stock_unit_id, location_id, source_document_id, qty, details, raised_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+      [c.kind, c.branchId, c.productId, c.stockUnitId, c.locationId, c.sourceDocumentId, c.qty, JSON.stringify(c.details), c.raisedAt],
+    );
+    return rows[0]!.id;
+  }
+
+  async exceptionsOfMovement(tx: Transaction, movementId: string): Promise<{ readonly id: string; readonly kind: string; readonly qty: string | null }[]> {
+    const { rows } = await tx.query<{ id: string; kind: string; qty: string | null }>('SELECT id, kind, qty::text AS qty FROM inv.stock_exception WHERE movement_id = $1 ORDER BY kind', [movementId]);
+    return rows;
+  }
+
+  async unitStanding(tx: Transaction, unitId: string, at: Date): Promise<UnitStanding | null> {
+    const { rows } = await tx.query<{ identifier: string; status: string; current_location_id: string | null }>('SELECT identifier, status, current_location_id FROM inv.stock_unit WHERE id = $1', [unitId]);
+    const r = rows[0];
+    if (r === undefined) return null;
+    const holds = await tx.query<{ kind: string; starts_at: Date; ends_at: Date | null; source_document_id: string }>(
+      'SELECT kind, starts_at, ends_at, source_document_id FROM inv.stock_hold WHERE stock_unit_id = $1 AND released_at IS NULL AND starts_at <= $2 AND (ends_at IS NULL OR ends_at > $2) ORDER BY starts_at',
+      [unitId, at],
+    );
+    return {
+      identifier: r.identifier,
+      status: r.status,
+      currentLocationId: r.current_location_id,
+      holds: holds.rows.map((h) => ({ kind: h.kind, startsAt: h.starts_at.toISOString(), endsAt: h.ends_at?.toISOString() ?? null, sourceDocumentId: h.source_document_id })),
+    };
   }
 }
