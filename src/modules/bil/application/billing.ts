@@ -404,6 +404,25 @@ export class Billing {
   }
 
   /**
+   * A bad-debt write-off applied to an issued invoice, receipt or debit note's settlement summary, in WHL's approving
+   * transaction (FR-WHL-012, ADR-0090): BIL alone writes `bil.document_settlement`. The database refuses more than the
+   * document has outstanding, or nothing (`ck_document_settlement_written_off`), which arrives as
+   * `AllocationExceedsOutstandingError`; from then on no allocation and no credit note can reach the amount written off.
+   * Answers what is left outstanding. It authorises nothing; the summary is as of this clock's instant (ADR-0067).
+   */
+  async writeOffIn(tx: Transaction, documentId: string, amountPesewas: bigint): Promise<bigint> {
+    if (tx.isolation !== 'serializable') throw new IsolationLevelError(tx.isolation);
+    try {
+      const { rows } = await tx.query<{ outstanding: string }>('SELECT bil.apply_write_off($1, $2, $3)::text AS outstanding', [documentId, amountPesewas.toString(), this.clock.now()]);
+      return BigInt(rows[0]!.outstanding);
+    } catch (error) {
+      const failure = databaseErrorOf(error);
+      if (failure?.code === 'HK010' && failure.constraint === 'ck_document_settlement_written_off') throw new AllocationExceedsOutstandingError(documentId);
+      throw error;
+    }
+  }
+
+  /**
    * The open items PAY's `listOpenItems` shows (FR-PAY-009): issued invoices, receipts and debit notes with something
    * outstanding at the branches given, newest first, with the total outstanding over everything the filter matches.
    * Read in the caller's transaction; it authorises nothing.
