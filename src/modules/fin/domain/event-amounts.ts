@@ -213,7 +213,7 @@ export interface PaymentClearedFields {
   readonly unverified?: boolean;
 }
 
-/** The determinant an unverified offline mobile money tender is posted by (1110 Mobile money wallets, migration 0259). */
+/** The determinant an unverified offline mobile money tender is posted by (1110 Mobile money wallets, migration 0263). */
 export const UNVERIFIED_MOBILE_MONEY_DETERMINANT = 'UNVERIFIED_MOBILE_MONEY';
 
 /**

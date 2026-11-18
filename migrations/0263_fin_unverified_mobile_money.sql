@@ -1,4 +1,4 @@
--- 0259_fin_unverified_mobile_money
+-- 0263_fin_unverified_mobile_money
 -- B09b continued 2c (OFFLINE_SYNC 9.9, ADR-0003, ADR-0027 principle 8, A-279 (h)): where an unverified offline mobile
 -- money tender is held until it is matched. pay.PaymentCleared marked `unverified` debits its tender by the determinant
 -- UNVERIFIED_MOBILE_MONEY, which takes 1110 Mobile money wallets against the farm's wallet (a BANK_ACCOUNT party), as
