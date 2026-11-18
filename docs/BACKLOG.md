@@ -125,6 +125,15 @@ Each item says why it is parked and what would bring it back.
 | --- | --- | --- | --- | --- |
 | BL-090 | The product sheet's import takes createProduct's `SKU_SERIES_LOCK`, as the customer and supplier sheets now take their create locks | The owner's B09u item 8 names customers and suppliers; products allocate their SKU from one counter row, so an import beside single creates retries rather than fails | A product import beside a create retried or failed in a test or in use | A-308, PR #102 |
 
+## Parked in B10 continued 3
+
+| ID | Item | Why it is not in version one yet | What would bring it back | Related |
+| --- | --- | --- | --- | --- |
+| BL-091 | The recovery of a debt written off: money a customer pays after a write-off posted back against 6940 (or a recovery income account) and the write-off partly reversed | The rule is the owner's and the accountant's (which account, whether the hold lifts, whether the customer's credit returns); until then the database refuses any allocation onto the amount written off and each such payment is raised as `whl.WrittenOffCustomerPaid` for the exception report | The owner's answer to the report's question | A-321 (f), ADR-0090 |
+| BL-092 | Reversing a write-off made in error: a reversing `whl.bad_debt_write_off` row under a second approval, its journal the mirror of the original, BIL's summary restored | No correction path was asked for in FR-WHL-012; the write-off is insert-only, so a mistake waits for this | The first write-off made in error | A-321 (g), ADR-0090 |
+| BL-093 | BIL's credit note approval translates a database refusal of the credit cap into 422 (`CREDIT_NOTE_EXCEEDS_ORIGINAL`) as the direct path does | The approval handler issues the draft without `translateRefusal`, so a credit note refused at approval (two approved at once, or one reaching an amount written off) answers 500; the parent session's leave did not reach other BIL code | The next session with leave to change BIL's approval handler | ADR-0090 |
+| BL-094 | A `WRITTEN_OFF` payment status on a billing document | Adding a value to a published enum changes what every client of `BillingDocument.settlement` handles; until then a written-off document reads UNPAID or PART_PAID with nil outstanding | A contract version that can take a LOUD enum value | A-321 (d) |
+
 ## Explicitly outside the brief
 
 These are not mentioned in the shared brief, or are mentioned only conditionally. They are listed so that nobody builds them by accident.
