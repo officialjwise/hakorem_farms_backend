@@ -2558,9 +2558,9 @@ test-first:
 2. A read of which supervisors are signed in at the till's branch, so the till can offer them as witnesses. The server
    already accepts an unwitnessed drop when none is signed in (contract 2.6.0, A-273 (d)); keep that, and make the
    drop's witness rule use the same "signed in at the branch" source the new read answers from.
-3. The frontend raised this as CR-045 on its main, which clashes with the quote line's unit (lane B's CR-045, B10). The
-   frontend is renumbering its till request: read both from the frontend's main once that lands, identify each request
-   by its content, and name it by the number it carries there.
+3. This is the frontend's CR-045 (owner, 2026-11-18: the frontend renumbered, and CR-045 on its main is the till's drop
+   witness; CR-046 to CR-050 are lane B's quote and wholesale requests). Answer CR-045 as committed on the frontend's
+   main, going by what the request says there, not by a number from an earlier message.
 Stop at the gate and write docs/sessions/B09b4-pos-till-pin.md.
 ```
 
