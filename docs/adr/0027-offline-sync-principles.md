@@ -56,3 +56,11 @@ The driver's device follows the same principles for proof of delivery and cash o
 - B1: `docs/OFFLINE_SYNC.md` contains worked examples for each principle.
 - B9b gate: 500 queued offline transactions sync exactly once.
 - B9b: tests for an offline sale of an animal sold elsewhere, of an animal placed on hold, of countable stock that went negative, of a sale dated in a locked period, and of a missing device counter.
+
+## Amendments
+
+- **2026-11-18, B09b continued 2b: as built (A-278), three readings recorded for the owner.**
+  - **Principle 2 and ADR-0077 (A-278 (e), LOUD).** A queued sale whose shift has closed, is closing or was force-closed is recorded with its receipt, but its cash is not recorded on any shift: ADR-0077 holds offline too, as the session's opener directs. The receipt stays outstanding and `OFFLINE_CASH_NOT_TAKEN` (URGENT) carries the cash the till claimed. One function decides it (`tillTakesCash`).
+  - **Principle 4 (A-278 (f), LOUD).** Countable stock goes below zero only at a location that allows it; at the seeded shop floor, which does not, the line is recorded with no movement and a `NEGATIVE_STOCK` exception for its whole quantity (BL-083, BL-084).
+  - **Principle 9 (A-278 (h), LOUD).** A price beyond the server's limit posts with its variance on 4210 and is raised on the exception report, but no approval is asked for after the fact: ORD's rule holds that a completed order has no line waiting for an approval (BL-082, lane B).
+- **Verification (B09b continued 2b):** `test/integration/pos/offline-conflicts.integration.spec.ts` (an animal sold elsewhere, an animal on hold, countable stock gone negative at a location that allows it and at one that does not, a missing device counter, a force-closed shift, a price beyond the limit), `offline-late-sale.integration.spec.ts` (a sale in a locked period) and `offline-sync-500.integration.spec.ts` (500 sales exactly once, the B9b gate).

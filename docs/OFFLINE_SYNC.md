@@ -597,6 +597,8 @@ These are not in the committed contract or data model. They are the smallest cha
 | A flag on `ord.sales_order` for a sale posted on a later date: `posted_late` (boolean) and `posted_late_reason` (`PERIOD_LOCKED`, `SHIFT_CLOSED`, `AFTER_FORCE_CLOSE`) | `docs/data-model/ord.md` | Principle 6 says the sale is flagged, and the table has no column for it |
 | Settings keys in 5.2 | Seed | Defined here |
 
+**As built in B09b continued 2b (A-278).** Where the build reads this document differently, the assumption says so and why: the posted-late flag is on `pos.sale_sync`, not `ord.sales_order` (b); cash for a shift no longer open is not recorded on any shift (e, ADR-0077); stock goes below zero only where the location allows it (f); a price beyond the limit asks for no approval after the fact (h); a till time outside the tolerance, a sale's or its id's, is flagged, never refused (k, the owner on A-273 (g)); the shift opened offline, the batch's cash movements and the unverified tender of 9.9 are B09b continued 2c (a).
+
 ## 14. Verification
 
 | Claim | Proved by | Session |
