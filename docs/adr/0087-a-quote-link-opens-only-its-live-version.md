@@ -1,6 +1,6 @@
 # ADR-0087: A quote link opens only its live version, and a closed one answers its state
 
-- **Status:** Proposed
+- **Status:** Accepted (owner, 2026-11-18: several live links per version, on the conditions recorded in A-309 (e))
 - **Date:** 2026-11-18
 - **Session:** B10 (lane B)
 - **Deciders:** backend track; the owner to accept (CR-047 is the owner's item 3 of 2026-11-17)
