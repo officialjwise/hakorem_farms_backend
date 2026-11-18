@@ -2,7 +2,7 @@ operationId: matchSupplierInvoice
 tags:
   - pur
 summary: "Run the three-way match"
-description: "Compares each line with its purchase order line and what was received (FR-PUR-009, SA-08). A line matches when its quantity in the base unit is no more than received less what other live invoices hold, its unit price is within 1 percent of the order price either way, and its levies are as calculated; 20 at 5,550 against an order at 5,500 matches (0.91 percent), 20 at 5,600 does not (1.82 percent), and 22 against 20 received does not. Each line carries `matchReasons`; the invoice is `MATCHED` only if every payable line matches, `NOT_REQUIRED` when no line needs a match (expenses). A MISMATCH blocks payment and publishes `pur.SupplierInvoiceMismatched`; the database refuses a payment allocation to an unmatched invoice. A credit note is never matched (422 `SUPPLIER_INVOICE_INVALID`, `CREDIT_NOTE_NEEDS_APPROVAL`); an invoice whose variance waits is not matched again (422 `APPROVAL_PENDING`) (1.30.0).\n\nPermission: `pur.supplier_invoice.match`."
+description: "Compares each line with its purchase order line and what was received (FR-PUR-009, SA-08). A line matches when its quantity in the base unit is no more than received less what other live invoices hold, its unit price is within 1 percent of the order price either way, and its levies are as calculated; 20 at 5,550 against an order at 5,500 matches (0.91 percent), 20 at 5,600 does not (1.82 percent), and 22 against 20 received does not. Each line's `qtyVariance` is in the product's base unit, positive when the invoice charges more than is left to invoice of what was received; `priceVariancePesewas` is the difference per unit of the line's `uom` and `priceVarianceLinePesewas` the line's whole difference (CR-044, 2.9.0): 500 head at 1,290 against an order at 1,250 is 40 a head and 20,000 for the line. Each line carries `matchReasons`; the invoice is `MATCHED` only if every payable line matches, `NOT_REQUIRED` when no line needs a match (expenses). A MISMATCH blocks payment and publishes `pur.SupplierInvoiceMismatched`; the database refuses a payment allocation to an unmatched invoice. A credit note is never matched (422 `SUPPLIER_INVOICE_INVALID`, `CREDIT_NOTE_NEEDS_APPROVAL`); an invoice whose variance waits is not matched again (422 `APPROVAL_PENDING`) (1.30.0).\n\nPermission: `pur.supplier_invoice.match`."
 x-permission: pur.supplier_invoice.match
 x-error-codes:
   - VALIDATION_FAILED
@@ -92,7 +92,8 @@ responses:
                 name: "Farm Inputs"
               levies: []
               qtyVariance: "0.000"
-              priceVariancePesewas: 20000
+              priceVariancePesewas: 40
+              priceVarianceLinePesewas: 20000
               priceVarianceDirection: OVER
               matchStatus: MISMATCH
               matchReasons:

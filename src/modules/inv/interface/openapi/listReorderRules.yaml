@@ -78,7 +78,7 @@ responses:
                   minQty: "20.000"
                   reorderPointQty: "30.000"
                   maxQty: "80.000"
-                  baseUom: UNIT
+                  baseUom: EGG
                   minQtyBase: "600.000"
                   reorderPointQtyBase: "900.000"
                   maxQtyBase: "2400.000"

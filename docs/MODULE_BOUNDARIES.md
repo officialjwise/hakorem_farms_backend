@@ -109,6 +109,7 @@ Each card gives: what the module owns, its public interface (the services export
 - **Built in B09q (ADR-0072, A-248 to A-252):** a product's SKU is the server's: `ProductCatalogue.createIn` allocates it through `ProductStore.allocateSku` (`mdm.allocate_sku`, the category's `sku_prefix` and its own counter in `mdm.sku_counter`), and every create, update and import refuses an input carrying one (`serverAssignedFieldsIn`, 422 `FIELD_SERVER_ASSIGNED`); `createProduct` queues on the advisory lock `SKU_SERIES_LOCK`. No product barcode: the product views, `ProductCatalogue.getLabel` (built by the domain's `productLabel`) and the product sheet carry none, and `mdm.product.barcode` is unused until it is dropped (BL-075). Categories carry `skuPrefix`. Customers and suppliers carry a public ID (ADR-0073, A-253): `PublicIds` (a provider) draws it and `insertWithFresh` retries a collision; `MasterDataRefs` gives `publicId` in `CustomerFacts` and `SupplierFacts` in place of the sequential numbers, which every higher module's `CustomerRef` and `SupplierRef` now show; search and the customer and supplier sheets take it.
 - **Built in B09e continued (A-264):** the published database function `mdm.uom_to_base(product, uom, qty)` (migration 0216, ADR-0047's list), the database's form of `MasterDataRefs.toBaseIn`, which INV's guards call.
 - **Built in B09e (A-261):** `PricingService.resolveIn` prices a line in the unit it is sold in (`ResolveLine.uom`; an entry names its selling unit, `mdm.price_list_entry.uom`, migration 0215), with quantity breaks entered in that unit and compared in the base unit; a selling module passes the line's unit and its quantity in it (ORD's sale posting, online placement and returns, SHP's lines and catalogue). No new port.
+- **Built in B09u (A-303, A-308):** every unit carries a singular and a plural name and a new unit `EGG` (migration 0249); `EntitySheet.createLocks`, the create locks `applyImportJob` takes before its transaction (the customer and supplier sheets). No interface removed.
 
 ### DOC: documents and media (layer 3)
 
@@ -195,6 +196,7 @@ Each card gives: what the module owns, its public interface (the services export
 - **Built in B09a continued 2d (A-228):** read-only `Refunds.summariesIn` (id, status, amount), for ORD's return view.
 - **Built in B09a continued 2f (A-232):** `ProviderPayments.chargeIn` (a mobile money charge for an order written PENDING in the caller's serializable transaction, exactly as `initiateMobileMoneyCharge` writes one; it authorises nothing) and `sendCharge` (the charge sent after that transaction commits).
 - **Built in B09b continued (ADR-0077):** the `TillShiftCheck` port and `TillShiftRegistry` (deny by default), asked through `Payments.tillCashIn` or `tillCashAnswerIn` before any cash moves into or out of a till: in `Payments.writeIn`, a mobile money charge naming a shift, `Refunds.markPaid` (a till cash refund names the open shift it is paid out of, `pay.refund.paid_from_shift_id`) and `Receipts.reverseIn`. A shift's refunds count against the shift they were paid out of.
+- **Built in B09u (A-307, BL-077):** `Receipts.pendingReversalsIn` (the payments whose reversal waits, in the caller's transaction; authorises nothing); `reversePayment` refuses a payment whose sale has a `SALE_VOID` request waiting (read through IAM's `Approvals.ofSubjectIn`), and `reverseApprovedIn` a second open reversal. The till-cash checks are unchanged.
 
 ### PUR: procurement and suppliers (layer 7)
 
@@ -231,6 +233,7 @@ Each card gives: what the module owns, its public interface (the services export
 - **Published in B09a continued 2g (A-234):** the views `ord.pub_completed_sale` and `ord.pub_completed_sale_line` (completed orders and their lines, by the Africa/Accra business date they completed on), RPT's only door to ORD's sales.
 - **Built in B09e continued (A-266):** `SalePosting` takes, for a lot-tracked line that names no lot and no reservation, the oldest lot at its location that covers the line, through INV's new `StockQueries.lotsAtIn` (ORD already imported INV); none covering it is still `STOCK_UNIT_REQUIRED`.
 - **Built in B09q continued (A-256, ADR-0074):** `ord.order_tracking_token` (tracking links' token hashes); `OnlineOrders.placeIn` issues the link's random token through platform's `link-tokens`, `OnlineOrders.reissueTrackingIn` answers SHP's replay of a placement with a fresh one, and `track` reads by the token's hash. No new import or event.
+- **Built in B09u (A-307, BL-077):** a void's approval is refused (`REVERSAL_PENDING`) while a reversal of one of the sale's payments waits, asked of PAY's `Receipts.pendingReversalsIn`.
 
 ### POS: retail point of sale (layer 10)
 

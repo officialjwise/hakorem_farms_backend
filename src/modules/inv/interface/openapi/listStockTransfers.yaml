@@ -131,7 +131,7 @@ responses:
                         tracking: LOT
                       uom: CRATE
                       qtyDispatched: "10.000"
-                      baseUom: UNIT
+                      baseUom: EGG
                       qtyDispatchedBase: "300.000"
                       qtyReceived: null
                       varianceQty: null

@@ -105,8 +105,14 @@ Each item says why it is parked and what would bring it back.
 
 | ID | Item | Why it is not in version one yet | What would bring it back | Related |
 | --- | --- | --- | --- | --- |
-| BL-077 | Approving the void of a sale whose payment already has a reversal waiting answers 500 instead of a refusal | Found by `test/integration/pos/till-cash-paths.integration.spec.ts` while building B09b continued: `Receipts.reverseApprovedIn` writes a second open reversal for the payment. ORD's void and PAY's reversal are lane B's and shared, and the till's own paths are not affected | Lane B (ORD) or the PAY owner refuses the void's approval with a stated code while a reversal is pending **Scheduled into B09u (parent session, 2026-11-18): a 500 is a defect, not parked work.** | ADR-0077, A-226 |
+| BL-077 | Approving the void of a sale whose payment already has a reversal waiting answers 500 instead of a refusal | Found by `test/integration/pos/till-cash-paths.integration.spec.ts` while building B09b continued: `Receipts.reverseApprovedIn` writes a second open reversal for the payment. ORD's void and PAY's reversal are lane B's and shared, and the till's own paths are not affected | Lane B (ORD) or the PAY owner refuses the void's approval with a stated code while a reversal is pending **Scheduled into B09u (parent session, 2026-11-18): a 500 is a defect, not parked work.** **Done in B09u (A-307):** the void's approval is refused with `REVERSAL_PENDING` and a reversal asked for beside a waiting void with `VOID_PENDING`, tested by `test/integration/ord/void-pending-reversal.integration.spec.ts`. | ADR-0077, A-226 |
 | BL-078 | `openShift` and `recordCashMovement` check the device credential the contract names | B9b built them on the staff session alone, and a manager recording a drop at the back-office console has no till device; the counter sale and the sync are where a revoked device must be stopped (A-274 (c)) | The offline sync (B09b continued 2) sends shift opens and cash movements from the queue under the device credential | ADR-0016, OFFLINE_SYNC 6.5 |
+
+## Parked in B09u
+
+| ID | Item | Why it is not in version one yet | What would bring it back | Related |
+| --- | --- | --- | --- | --- |
+| BL-090 | The product sheet's import takes createProduct's `SKU_SERIES_LOCK`, as the customer and supplier sheets now take their create locks | The owner's B09u item 8 names customers and suppliers; products allocate their SKU from one counter row, so an import beside single creates retries rather than fails | A product import beside a create retried or failed in a test or in use | A-308, PR #102 |
 
 ## Explicitly outside the brief
 

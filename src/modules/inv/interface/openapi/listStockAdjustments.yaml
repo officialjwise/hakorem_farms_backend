@@ -164,7 +164,7 @@ responses:
                         tracking: LOT
                       direction: LOSS
                       qty: "60.000"
-                      uom: UNIT
+                      uom: EGG
                       weightKg: null
                       valuePesewas: 8000
                       movementId: "019a7ab8-d173-7066-959f-0f3fb6aa881d"

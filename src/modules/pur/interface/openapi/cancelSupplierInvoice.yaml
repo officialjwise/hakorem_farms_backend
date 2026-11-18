@@ -102,6 +102,7 @@ responses:
               levies: []
               qtyVariance: "0.000"
               priceVariancePesewas: null
+              priceVarianceLinePesewas: null
               priceVarianceDirection: null
               matchStatus: MATCHED
               matchReasons: []

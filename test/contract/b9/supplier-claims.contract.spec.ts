@@ -113,3 +113,49 @@ describe('the claim operations answer in the contract shapes', () => {
     expectShape('SupplierInvoice', (await get(accountant, `/supplier-invoices/${invoice.body.id}`)).body);
   });
 });
+
+describe('the supplier account answers in the contract shapes (B09u, 2.9.0)', () => {
+  it('getSupplierBalance, a matched line with its whole-line variance, a receipt valued from its order line, the unit list and the maker refused', async () => {
+    const supplierId = id('supplier:Awutu Poultry Farm (SEED)');
+    const balance = await get(accountant, `/suppliers/${supplierId}/balance`);
+    expect(balance.status).toBe(200);
+    expectShape('SupplierBalance', balance.body);
+    const units = await get(storekeeper, '/units-of-measure?limit=100');
+    expectShape('UomPage', units.body);
+    const order = await post(storekeeper, '/purchase-orders', {
+      supplierId,
+      deliverToLocationId: id('location:SHOP'),
+      orderDate: today(),
+      lines: [{ productId: id('product:EGG-0003'), uom: 'CRATE', qtyOrdered: '2.000', unitPricePesewas: 4_751 }],
+    });
+    expect((await post(storekeeper, `/purchase-orders/${order.body.id}/submit`)).status).toBe(200);
+    expect((await post(owner, `/purchase-orders/${order.body.id}/send`, { channels: ['WHATSAPP'] })).status).toBe(200);
+    const receipt = await post(storekeeper, '/goods-receipts', {
+      kind: 'PURCHASE',
+      supplierId,
+      locationId: id('location:SHOP'),
+      purchaseOrderId: order.body.id,
+      receivedAt: new Date(clock.now().getTime() - 60_000).toISOString(),
+      lines: [{ productId: id('product:EGG-0003'), purchaseOrderLineId: order.body.lines[0].id, uom: 'CRATE', qtyReceived: '2.000', batchNo: 'EGG-CONTRACT-B09U', expiresOn: toBusinessDate(new Date(clock.now().getTime() + 14 * 86_400_000)) }],
+    });
+    expect(receipt.status).toBe(201);
+    expectShape('GoodsReceipt', receipt.body);
+    expect(receipt.body.lines[0].valuePesewas).toBe(9_502);
+    expect((await post(storekeeper, `/goods-receipts/${receipt.body.id}/post`)).status).toBe(200);
+    const invoice = await post(accountant, '/supplier-invoices', {
+      kind: 'INVOICE',
+      supplierId,
+      supplierInvoiceNo: 'APF-INV-C002',
+      invoiceDate: today(),
+      purchaseOrderId: order.body.id,
+      lines: [{ description: 'Big eggs, 2 crates', purchaseOrderLineId: order.body.lines[0].id, qty: '2.000', unitPricePesewas: 4_790, taxCategoryId: id('tax:EGG-0003') }],
+    });
+    const matched = await post(accountant, `/supplier-invoices/${invoice.body.id}/match`);
+    expectShape('SupplierInvoice', matched.body);
+    expect(matched.body.lines[0]).toMatchObject({ priceVariancePesewas: 39, priceVarianceLinePesewas: 78 });
+    const byMaker = await post(accountant, `/supplier-invoices/${invoice.body.id}/approve`);
+    expect(byMaker.status).toBe(422);
+    expectShape('Error', byMaker.body);
+    expect(byMaker.body.error.code).toBe('INVOICE_MAKER_CANNOT_APPROVE');
+  });
+});
