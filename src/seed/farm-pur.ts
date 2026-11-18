@@ -10,7 +10,7 @@ import type { ServiceSeedUnit } from './seed-unit';
  * The seeded farm's purchase to pay (B7, A-164), SEED: four 50 kg bags of broiler grower pellets ordered from Awutu
  * Poultry Farm at GHS 450.00 a bag (180,000 pesewas, within the 200,000 limit, so approved on submit) and sent, still
  * awaiting delivery; and Kpone Livestock Traders' transport invoice for the goats, GHS 150.00, an expense with no order
- * that needs no match, approved for payment. No stock moves, so the B5 hand count is unchanged.
+ * that needs no match, entered by the Accountant and approved for payment by the Owner (CR-043). No stock moves, so the B5 hand count is unchanged.
  */
 export const SEED_FEED_ORDER = { sku: 'FEED-0001', uom: 'BAG', qtyOrdered: '4.000', unitPricePesewas: 45_000, supplier: 'Awutu Poultry Farm (SEED)', location: 'STORE' } as const;
 export const SEED_TRANSPORT_INVOICE = { supplier: 'Kpone Livestock Traders (SEED)', supplierInvoiceNo: 'KLT-T-0457', amountPesewas: 15_000, taxCategory: 'LIVE_ANIMALS' } as const;
@@ -59,7 +59,7 @@ export function farmSeedPur(): ServiceSeedUnit {
         await orders.submit(manager, order.body.id, key('feed-order', 'submit'));
         await orders.send(manager, order.body.id, { channels: ['WHATSAPP'] }, key('feed-order', 'send'));
       });
-      await staff.as('accountant', async (accountant) => {
+      const entered = await staff.as('accountant', async (accountant) => {
         const invoice = await invoices.create(
           accountant,
           {
@@ -73,8 +73,10 @@ export function farmSeedPur(): ServiceSeedUnit {
           key('transport-invoice'),
         );
         await invoices.match(accountant, invoice.body.id, key('transport-invoice', 'match'));
-        await invoices.approve(accountant, invoice.body.id, key('transport-invoice', 'approve'));
+        return invoice.body.id;
       });
+      // Approved for payment by the Owner, never by the Accountant who entered it (CR-043).
+      await staff.as('owner', (owner) => invoices.approve(owner, entered, key('transport-invoice', 'approve')));
       return { records: 2 };
     },
   };

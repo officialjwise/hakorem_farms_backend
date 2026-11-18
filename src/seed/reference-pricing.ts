@@ -138,8 +138,8 @@ const countable = (sku: string, name: string, category: 'EGGS' | 'PRODUCE', uom:
   onlineMode: 'LISTED',
   fromB3,
 });
-/** Eggs counted one by one (`UNIT`) and sold by the crate of 30 (A-261). */
-const eggs = (sku: string, name: string, fromB3 = false): SeedProduct => ({ ...countable(sku, name, 'EGGS', 'UNIT', fromB3), saleUom: 'CRATE' });
+/** Eggs counted one by one in the egg unit (`EGG`, B09u, A-303; `UNIT` until then, A-261) and sold by the crate of 30. */
+const eggs = (sku: string, name: string, fromB3 = false): SeedProduct => ({ ...countable(sku, name, 'EGGS', 'EGG', fromB3), saleUom: 'CRATE' });
 
 /** The whole reference catalogue: six products B3 seeded, and the rest. */
 export const SEED_PRODUCTS: readonly SeedProduct[] = [

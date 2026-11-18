@@ -66,14 +66,14 @@ describe('the seeded big eggs reorder in crates (A-261)', () => {
   it('holds the rule as 20, 30 and 80 crates, stored as 600, 900 and 2,400 eggs', async () => {
     const rules = (await get(storekeeper, `/reorder-rules?productId=${id('product:EGG-0003')}`)).body.data;
     expect(rules).toHaveLength(1);
-    expect(rules[0]).toMatchObject({ uom: 'CRATE', minQty: '20.000', reorderPointQty: '30.000', maxQty: '80.000', baseUom: 'UNIT', minQtyBase: '600.000', reorderPointQtyBase: '900.000', maxQtyBase: '2400.000' });
+    expect(rules[0]).toMatchObject({ uom: 'CRATE', minQty: '20.000', reorderPointQty: '30.000', maxQty: '80.000', baseUom: 'EGG', minQtyBase: '600.000', reorderPointQtyBase: '900.000', maxQtyBase: '2400.000' });
   });
 
   it('opens the farm with one low-stock alert at 30 crates, suggesting 50 crates (1,500 eggs) to reach the maximum', async () => {
     const [low] = await alertsOf('EGG-0003');
     expect(low).toMatchObject({
       kind: 'LOW_STOCK',
-      uom: 'UNIT',
+      uom: 'EGG',
       onHandQty: '900.000',
       thresholdQty: '900.000',
       suggestedQty: '1500.000',
@@ -89,7 +89,7 @@ describe('a reorder rule entered in crates (decision 6)', () => {
     const created = await post(storekeeper, '/reorder-rules', { productId: id('product:EGG-0002'), branchId: id('branch:DDW'), uom: 'CRATE', minQty: '20.000', reorderPointQty: '30.000', maxQty: '80.000' });
     expect(created.status, JSON.stringify(created.body)).toBe(201);
     ruleId = created.body.id as string;
-    expect(created.body).toMatchObject({ uom: 'CRATE', minQty: '20.000', reorderPointQty: '30.000', maxQty: '80.000', baseUom: 'UNIT', minQtyBase: '600.000', reorderPointQtyBase: '900.000', maxQtyBase: '2400.000' });
+    expect(created.body).toMatchObject({ uom: 'CRATE', minQty: '20.000', reorderPointQty: '30.000', maxQty: '80.000', baseUom: 'EGG', minQtyBase: '600.000', reorderPointQtyBase: '900.000', maxQtyBase: '2400.000' });
     const stored = (await admin().query('SELECT min_qty::text, reorder_point_qty::text, max_qty::text, uom, min_qty_uom::text, reorder_point_qty_uom::text, max_qty_uom::text FROM inv.reorder_rule WHERE id = $1', [ruleId])).rows;
     expect(stored).toEqual([{ min_qty: '600.000', reorder_point_qty: '900.000', max_qty: '2400.000', uom: 'CRATE', min_qty_uom: '20.000', reorder_point_qty_uom: '30.000', max_qty_uom: '80.000' }]);
     const [below, low] = await alertsOf('EGG-0002');

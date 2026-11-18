@@ -126,6 +126,7 @@ responses:
                       levies: []
                       qtyVariance: "0.000"
                       priceVariancePesewas: null
+                      priceVarianceLinePesewas: null
                       priceVarianceDirection: null
                       matchStatus: MATCHED
                       matchReasons: []
@@ -190,6 +191,7 @@ responses:
                       levies: []
                       qtyVariance: "0.000"
                       priceVariancePesewas: null
+                      priceVarianceLinePesewas: null
                       priceVarianceDirection: null
                       matchStatus: MATCHED
                       matchReasons: []
@@ -253,7 +255,8 @@ responses:
                         name: "Farm Inputs"
                       levies: []
                       qtyVariance: "0.000"
-                      priceVariancePesewas: 20000
+                      priceVariancePesewas: 40
+                      priceVarianceLinePesewas: 20000
                       priceVarianceDirection: OVER
                       matchStatus: MISMATCH
                       matchReasons:
@@ -319,6 +322,7 @@ responses:
                       levies: []
                       qtyVariance: "0.000"
                       priceVariancePesewas: null
+                      priceVarianceLinePesewas: null
                       priceVarianceDirection: null
                       matchStatus: MATCHED
                       matchReasons: []
@@ -383,6 +387,7 @@ responses:
                       levies: []
                       qtyVariance: "0.000"
                       priceVariancePesewas: null
+                      priceVarianceLinePesewas: null
                       priceVarianceDirection: null
                       matchStatus: UNMATCHED
                       matchReasons: []
@@ -465,6 +470,7 @@ responses:
                           isReclaimable: true
                       qtyVariance: null
                       priceVariancePesewas: null
+                      priceVarianceLinePesewas: null
                       priceVarianceDirection: null
                       matchStatus: NOT_REQUIRED
                       matchReasons: []

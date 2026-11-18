@@ -85,7 +85,7 @@ responses:
                     id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
                     identifier: EGG-261112-L1
                     tracking: LOT
-                  uom: UNIT
+                  uom: EGG
                   expectedQty: null
                   countedQty: "1380.000"
                   recountQty: null
@@ -195,7 +195,7 @@ responses:
                     id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
                     identifier: EGG-261112-L1
                     tracking: LOT
-                  uom: UNIT
+                  uom: EGG
                   expectedQty: "1350.000"
                   countedQty: "1380.000"
                   recountQty: "1380.000"

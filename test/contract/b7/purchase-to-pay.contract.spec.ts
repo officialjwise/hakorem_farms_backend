@@ -91,7 +91,7 @@ describe('B7 operations answer in the contract shapes', () => {
     expectShape('SupplierInvoice', invoice.body);
     const matched = await post(accountant, `/supplier-invoices/${invoice.body.id}/match`);
     expectShape('SupplierInvoice', matched.body);
-    expectShape('SupplierInvoice', (await post(accountant, `/supplier-invoices/${invoice.body.id}/approve`)).body);
+    expectShape('SupplierInvoice', (await post(manager, `/supplier-invoices/${invoice.body.id}/approve`)).body);
     const payment = await post(accountant, '/supplier-payments', {
       supplierId: ids.get('supplier:Kpone Livestock Traders (SEED)'),
       method: 'CASH',
@@ -120,7 +120,7 @@ describe('B7 operations answer in the contract shapes', () => {
       lines: [{ productId: ids.get('product:LIV-0001'), description: 'Broilers with no order', qty: '5.000', unitPricePesewas: 5_500, taxCategoryId: ids.get('tax:LIVE_ANIMALS') }],
     });
     await post(accountant, `/supplier-invoices/${invoice.body.id}/match`);
-    const refused = await post(accountant, `/supplier-invoices/${invoice.body.id}/approve`);
+    const refused = await post(manager, `/supplier-invoices/${invoice.body.id}/approve`);
     expect(refused.status).toBe(422);
     expectShape('Error', refused.body);
     expect(refused.body.error).toMatchObject({ code: 'THREE_WAY_MATCH_FAILED', details: [{ field: '/lines/0', code: 'NO_ORDER_LINE' }] });

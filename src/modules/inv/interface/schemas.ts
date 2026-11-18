@@ -48,10 +48,13 @@ const GoodsReceiptLineInput = z.strictObject({
   rejectionNote: z.string().trim().min(1).max(500).optional(),
   weightKg: Kilograms.optional(),
   weightSource: WeightSource.optional(),
-  valuePesewas: Pesewas,
+  valuePesewas: Pesewas.optional(),
   batchNo: Identifier.optional(),
   expiresOn: CalendarDate.optional(),
   animals: z.array(AnimalArrivalInput).max(MAX_LINE_ANIMALS).optional(),
+}).superRefine((line, ctx) => {
+  // CR-040: only a line that names its order line may leave its value to the server.
+  if (line.valuePesewas === undefined && line.purchaseOrderLineId === undefined) ctx.addIssue({ code: 'invalid_type', expected: 'number', path: ['valuePesewas'], message: 'Required' });
 });
 
 /** The contract's `GoodsReceiptCreate`, strict. */

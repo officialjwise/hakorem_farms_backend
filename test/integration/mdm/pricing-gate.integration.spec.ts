@@ -233,10 +233,10 @@ describe('B4 gate: pinned exact prices, so the oracle itself is checked', () => 
     const crate: Case = { sku: 'EGG-0003', band: null, grade: null, weightKg: null, quantity: '1.000', uom: 'CRATE' };
     const single: Case = { ...crate, uom: null };
     expect((await one('POS', null, crate)).resolved).toMatchObject({ priceList: { code: 'BASE' }, uom: 'CRATE', listPricePesewas: 6_000 });
-    expect((await one('POS', null, single)).resolved).toMatchObject({ priceList: { code: 'BASE' }, uom: 'UNIT', listPricePesewas: 220 });
+    expect((await one('POS', null, single)).resolved).toMatchObject({ priceList: { code: 'BASE' }, uom: 'EGG', listPricePesewas: 220 });
     // 6,000 x 0.92 = 5,520 and 220 x 0.92 = 202.4, rounded half-up once when the list was set: 202.
     expect((await one('POS', 'C-00003', crate)).resolved).toMatchObject({ priceList: { code: 'POS-RESELLER-TIER' }, uom: 'CRATE', listPricePesewas: 5_520 });
-    expect((await one('POS', 'C-00003', single)).resolved).toMatchObject({ priceList: { code: 'POS-RESELLER-TIER' }, uom: 'UNIT', listPricePesewas: 202 });
+    expect((await one('POS', 'C-00003', single)).resolved).toMatchObject({ priceList: { code: 'POS-RESELLER-TIER' }, uom: 'EGG', listPricePesewas: 202 });
   });
 
   it('derived prices were rounded half-up once when the list was set: 1,067 x 0.85 = 906.95 is 907, 733 x 0.85 = 623.05 is 623', async () => {

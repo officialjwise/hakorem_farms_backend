@@ -91,7 +91,7 @@ responses:
               purchaseOrderLineId: "019a7ad5-0002-7a00-8b00-00000001f002"
               goodsReceiptLineId: "019a7ad9-0002-7b00-8c00-00000001e002"
               qty: "30.000"
-              uom: "UNIT"
+              uom: "EGG"
               unitPricePesewas: 0
               lineNetPesewas: 4751
               taxCategory:
@@ -101,6 +101,7 @@ responses:
               levies: []
               qtyVariance: null
               priceVariancePesewas: null
+              priceVarianceLinePesewas: null
               priceVarianceDirection: null
               matchStatus: "UNMATCHED"
               matchReasons: []

@@ -4,7 +4,7 @@ import { readSupplierRow, SUPPLIER_COLUMNS, type SupplierRow } from '../domain/i
 import { duplicateErrors, type RowError } from '../domain/imports';
 import { cached, EXPORT_PAGE, readRows, type EntitySheet, type SheetCheck, type SheetRecords } from './import-sheets';
 import type { SheetLookups } from './import-store';
-import type { ReferenceDataAdmin } from './reference-data-admin';
+import { SUPPLIER_CREATE_LOCK, type ReferenceDataAdmin } from './reference-data-admin';
 import type { ReferenceDataStore } from './reference-data-store';
 
 interface SupplierPlanRow {
@@ -26,6 +26,7 @@ export class SupplierSheet implements EntitySheet<readonly SupplierPlanRow[]> {
   readonly fileStem = 'suppliers';
   readonly columns = SUPPLIER_COLUMNS;
   readonly permissions = { read: 'mdm.supplier.read', create: 'mdm.supplier.create', update: 'mdm.supplier.update' };
+  readonly createLocks = [SUPPLIER_CREATE_LOCK];
 
   constructor(
     private readonly admin: ReferenceDataAdmin,

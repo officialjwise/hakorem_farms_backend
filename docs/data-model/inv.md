@@ -267,7 +267,7 @@ Frozen with its header. Published key (three-way match).
 | `rejection_note` | `text` | NULL; 1 to 500 characters, only beside a reason (`ck_goods_receipt_line_rejection_note`) | Required by the handler when the reason has `requires_note` |
 | `weight_kg` | `kg` | NULL | |
 | `weight_source` | `text` | NULL | |
-| `value_pesewas` | `pesewas` | NOT NULL | Cost of the accepted quantity |
+| `value_pesewas` | `pesewas` | NOT NULL | Cost of the accepted quantity: as typed, or, for a line naming its order line with no value typed, PUR's value at the order price for the accepted base quantity through the `OrderLineValuation` port, rounded half-up once (B09u, CR-040, ADR-0086, A-302) |
 | `stock_unit_id` | `uuid` | NULL, FK `inv.stock_unit` | The lot created or the animal registered |
 | `batch_no` | `text` | NULL | Supplier batch |
 | `expires_on` | `date` | NULL | |

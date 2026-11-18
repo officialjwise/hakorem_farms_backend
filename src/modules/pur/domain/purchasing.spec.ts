@@ -1,6 +1,6 @@
 import { Money, Quantity, Rate } from '@hakorem/kernel';
 import { describe, expect, it } from 'vitest';
-import { judgeAllocations, judgeFirstPaymentApprover, judgeOrderAction, judgeReceipt, orderLimitJudgement, orderLineNet, outstanding, paymentApprovalReason, receivedStatus, type AllocationFacts } from './purchasing';
+import { acceptedValueAtOrder, judgeAllocations, judgeFirstPaymentApprover, judgeOrderAction, judgeReceipt, orderLimitJudgement, orderLineNet, outstanding, paymentApprovalReason, receivedStatus, type AllocationFacts } from './purchasing';
 
 describe('a purchase order line (FR-PUR-005)', () => {
   it('prices 20 broilers at 5,500 as exactly 110,000', () => {
@@ -171,5 +171,33 @@ describe('who may approve the first payment after a payout change (owner, 2026-1
 
   it('places no bar on a payment that is not the first after a change', () => {
     expect(judgeFirstPaymentApprover({ changeMakerId: null, approverId: 'kwabena' })).toEqual({ ok: true, value: undefined });
+  });
+});
+
+describe('a goods receipt line valued from its order line (CR-040)', () => {
+  const crate = { unitPrice: Money.ofPesewas(4_751n), qtyOrdered: Quantity.parse('1.000'), qtyOrderedBase: Quantity.parse('30.000') };
+  it('values 23 of the 30 eggs of a crate at 4,751 at 3,642 (3,642.43 rounded half-up once)', () => {
+    expect(acceptedValueAtOrder({ ...crate, qtyAcceptedBase: Quantity.parse('23.000') })).toEqual(Money.ofPesewas(3_642n));
+  });
+  it('rounds an exact half up: 15 eggs are 2,375.5, valued 2,376', () => {
+    expect(acceptedValueAtOrder({ ...crate, qtyAcceptedBase: Quantity.parse('15.000') })).toEqual(Money.ofPesewas(2_376n));
+  });
+  it('rounds just above half up and just below down: 4,751 x 15.001 / 30 is 2,375.66, 4,751 x 14.999 / 30 is 2,375.34', () => {
+    expect(acceptedValueAtOrder({ ...crate, qtyAcceptedBase: Quantity.parse('15.001') })).toEqual(Money.ofPesewas(2_376n));
+    expect(acceptedValueAtOrder({ ...crate, qtyAcceptedBase: Quantity.parse('14.999') })).toEqual(Money.ofPesewas(2_375n));
+  });
+  it('values the whole order at its line net and nothing at zero', () => {
+    const three = { unitPrice: Money.ofPesewas(4_751n), qtyOrdered: Quantity.parse('3.000'), qtyOrderedBase: Quantity.parse('90.000') };
+    expect(acceptedValueAtOrder({ ...three, qtyAcceptedBase: Quantity.parse('90.000') })).toEqual(Money.ofPesewas(14_253n));
+    expect(acceptedValueAtOrder({ ...three, qtyAcceptedBase: Quantity.parse('60.000') })).toEqual(Money.ofPesewas(9_502n));
+    expect(acceptedValueAtOrder({ ...three, qtyAcceptedBase: Quantity.zero() })).toEqual(Money.zero());
+  });
+  it('carries the largest order line exactly', () => {
+    expect(acceptedValueAtOrder({ unitPrice: Money.ofPesewas(9_007_199_254_740_991n), qtyOrdered: Quantity.parse('1.000'), qtyOrderedBase: Quantity.parse('1.000'), qtyAcceptedBase: Quantity.parse('1.000') })).toEqual(
+      Money.ofPesewas(9_007_199_254_740_991n),
+    );
+  });
+  it('refuses an order line with no base quantity', () => {
+    expect(() => acceptedValueAtOrder({ ...crate, qtyOrderedBase: Quantity.zero(), qtyAcceptedBase: Quantity.parse('1.000') })).toThrow();
   });
 });

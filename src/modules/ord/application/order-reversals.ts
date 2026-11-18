@@ -323,16 +323,21 @@ export class OrderReversals {
   /** The void's rules for this sale now; `deciding` names the void being approved, which does not count as pending. */
   private async judgeVoidIn(tx: Transaction, header: OrderHeaderRecord, deciding?: string, reasonRules: readonly SaleRule[] = []): Promise<void> {
     const open = await this.store.openVoidOf(tx, header.id);
+    const payments = await this.payments.ofOrderIn(tx, header.id);
+    // At the approval, a reversal of a payment still waiting blocks the void (BL-077): the void would write a second
+    // open reversal of the payment, which the database refuses (uq_payment_reversal_open).
+    const reversalPending = deciding !== undefined && (await this.receipts.pendingReversalsIn(tx, payments.map((p) => p.id))).size > 0;
     const verdict = judgeVoid({
       status: header.status,
       fulfilmentMode: header.fulfilmentMode,
       completedOn: header.completedAt === null ? null : toBusinessDate(header.completedAt),
       today: toBusinessDate(this.clock.now()),
-      payments: (await this.payments.ofOrderIn(tx, header.id)).map((p) => ({ id: p.id, methodKind: p.methodKind, status: p.status, refundedPesewas: p.refundedPesewas })),
+      payments: payments.map((p) => ({ id: p.id, methodKind: p.methodKind, status: p.status, refundedPesewas: p.refundedPesewas })),
       voidPending: open !== null && open.id !== deciding,
+      reversalPending,
     });
     if (!verdict.ok && verdict.error.includes('INVALID_STATE_TRANSITION')) throw invalidState(header.id, header.status);
-    const broken: SaleRule[] = [...(verdict.ok ? [] : verdict.error.map((rule) => ({ field: rule === 'TENDER_NOT_VOIDABLE' ? '/payments' : '', rule }))), ...reasonRules];
+    const broken: SaleRule[] = [...(verdict.ok ? [] : verdict.error.map((rule) => ({ field: rule === 'TENDER_NOT_VOIDABLE' || rule === 'REVERSAL_PENDING' ? '/payments' : '', rule }))), ...reasonRules];
     if (broken.length > 0) throw new OrderInvalidError(broken);
   }
 

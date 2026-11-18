@@ -14,9 +14,9 @@ import type { Stock } from '../../inv';
 import type { MasterDataRefs, ProductFacts, TaxService } from '../../mdm';
 import { invoicePayable, judgeCreditNote, judgeCreditTarget } from '../domain/credit-note';
 import { orderLineNet } from '../domain/purchasing';
-import { judgeVarianceApprover, judgeVarianceLines } from '../domain/variance';
+import { judgeInvoiceApprover, judgeVarianceApprover, judgeVarianceLines } from '../domain/variance';
 import { claimedPart, judgeClaimCredit, judgeClaimCreditApprover, receivedPartValue } from '../domain/claim';
-import { matchInvoice, matchLine, type MatchReason, type MatchStatus } from '../domain/three-way-match';
+import { lineVariance, matchInvoice, matchLine, type MatchReason, type MatchStatus } from '../domain/three-way-match';
 import { dueDateFrom } from '../domain/terms';
 import type { SupplierCreditNoteApproved, SupplierInvoiceApproved, SupplierInvoiceMismatched } from '../events';
 import {
@@ -95,6 +95,18 @@ export interface SupplierInvoiceUpdate {
   readonly lines?: readonly InvoiceLineInput[] | undefined;
 }
 
+/** The contract's `SupplierBalance` (CR-042). */
+export interface SupplierBalanceView {
+  readonly supplier: { readonly id: string; readonly publicId: string; readonly name: string };
+  readonly asOf: string;
+  readonly owedPesewas: number;
+  readonly awaitingApprovalPesewas: number;
+  readonly claimedPesewas: number;
+  readonly inPaymentPesewas: number;
+  readonly paidPesewas: number;
+  readonly currency: 'GHS';
+}
+
 /** The contract's `SupplierInvoiceLine`. */
 export interface SupplierInvoiceLineView {
   readonly id: string;
@@ -120,6 +132,8 @@ export interface SupplierInvoiceLineView {
   }[];
   readonly qtyVariance: string | null;
   readonly priceVariancePesewas: number | null;
+  /** CR-044: the per-unit difference times the line's quantity, rounded half-up once. */
+  readonly priceVarianceLinePesewas: number | null;
   readonly priceVarianceDirection: 'OVER' | 'UNDER' | null;
   readonly matchStatus: MatchStatus;
   readonly matchReasons: readonly MatchReason[];
@@ -252,6 +266,32 @@ export class SupplierInvoices {
     );
   }
 
+  /**
+   * `getSupplierBalance` (CR-042): the supplier's account within the branches the caller reads invoices at as a whole,
+   * as `listSupplierInvoices` is scoped. Each figure is a sum of integers PUR stores, never below zero: what approved
+   * invoices still owe after credits and payments, the gross of invoices entered and not yet approved, open claims,
+   * payments waiting for or past approval and not yet paid, and payments made.
+   */
+  balance(actor: Actor | undefined, supplierId: string): Promise<SupplierBalanceView> {
+    return this.uow.run({ isolation: 'read committed' }, async (tx) => {
+      await this.authoriser.authorise(tx, actor, READ);
+      const supplier = (await this.refs.suppliersIn(tx, [supplierId])).get(supplierId);
+      if (supplier === undefined) throw new NotFoundError(`no supplier ${supplierId}`);
+      const branches = wholeBranches(await this.authoriser.scopes(tx, actor!, READ));
+      const figures = await this.store.supplierBalance(tx, supplierId, branches);
+      return {
+        supplier: supplierRef(supplier),
+        asOf: this.clock.now().toISOString(),
+        owedPesewas: pesewas(figures.owed),
+        awaitingApprovalPesewas: pesewas(figures.awaitingApproval),
+        claimedPesewas: pesewas(figures.claimed),
+        inPaymentPesewas: pesewas(figures.inPayment),
+        paidPesewas: pesewas(figures.paid),
+        currency: 'GHS' as const,
+      };
+    });
+  }
+
   get(actor: Actor | undefined, id: string): Promise<SupplierInvoiceView> {
     return this.uow.run({ isolation: 'read committed' }, async (tx) => {
       const record = await this.store.invoice(tx, id);
@@ -362,6 +402,7 @@ export class SupplierInvoices {
       const before = await this.locked(tx, id, new Set(['DRAFT', 'MATCHED', 'MISMATCH']), null);
       if (before.kind === 'CREDIT_NOTE') throw new SupplierInvoiceInvalidError([{ field: '/kind', rule: 'CREDIT_NOTE_NEEDS_APPROVAL' }]);
       if (before.status === 'DRAFT') throw new ThreeWayMatchFailedError([{ field: '/matchStatus', rule: 'UNMATCHED' }]);
+      if (!judgeInvoiceApprover({ invoiceMakerId: before.createdBy, approverId: actor!.principalId }).ok) throw new InvoiceMakerCannotApproveError('/id');
       // The match again, as things are now: a mismatch recorded earlier, or one that appeared since, blocks approval.
       const results = await this.matched(tx, before);
       const failing = results.flatMap((r, i) => r.reasons.map((reason) => ({ field: `/lines/${i}`, rule: reason })));
@@ -684,6 +725,7 @@ export class SupplierInvoices {
         })),
         qtyVariance: l.qtyVariance === null ? null : Quantity.parse(l.qtyVariance).toDecimalString(),
         priceVariancePesewas: l.priceVariancePesewas === null ? null : pesewas(l.priceVariancePesewas),
+        priceVarianceLinePesewas: l.priceVariancePesewas === null ? null : pesewas(lineVariance(Money.ofPesewas(l.priceVariancePesewas), Quantity.parse(l.qty)).pesewas),
         priceVarianceDirection: l.priceVarianceDirection,
         matchStatus: l.matchStatus,
         matchReasons: l.matchReasons,

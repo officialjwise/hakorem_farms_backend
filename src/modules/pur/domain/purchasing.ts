@@ -1,4 +1,4 @@
-import { err, Money, ok, Quantity, type Rate, type Result } from '@hakorem/kernel';
+import { err, halfUpDivide, Money, ok, Quantity, type Rate, type Result } from '@hakorem/kernel';
 
 /**
  * Purchase orders and supplier payments (FR-PUR-005 to FR-PUR-007, FR-PUR-010, FR-PUR-012). Pure: amounts are integer
@@ -7,6 +7,17 @@ import { err, Money, ok, Quantity, type Rate, type Result } from '@hakorem/kerne
 export type OrderStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'SENT' | 'PARTIALLY_RECEIVED' | 'RECEIVED' | 'CLOSED' | 'CANCELLED';
 export type OrderAction = 'UPDATE' | 'SUBMIT' | 'SEND' | 'CLOSE' | 'CANCEL';
 export type OrderRefusal = 'WRONG_STATUS' | 'RECEIVED_ALREADY' | 'NOTHING_RECEIVED';
+
+/**
+ * What a goods receipt line's accepted quantity is worth at its order line's price (CR-040): the accepted base
+ * quantity converted back to the order's unit by the order line's own stored conversion (`qtyOrdered / qtyOrderedBase`,
+ * as ADR-0076's claim does), times the unit price, rounded half-up once (ADR-0001):
+ * `half_up(price x qtyOrdered x accepted / qtyOrderedBase)`. 23 eggs of a 30-egg crate at 4,751 are 3,642.
+ */
+export function acceptedValueAtOrder(facts: { readonly unitPrice: Money; readonly qtyOrdered: Quantity; readonly qtyOrderedBase: Quantity; readonly qtyAcceptedBase: Quantity }): Money {
+  if (facts.qtyOrderedBase.compareTo(Quantity.zero()) <= 0) throw new Error('an order line carries a base quantity');
+  return Money.ofPesewas(halfUpDivide(facts.unitPrice.pesewas * facts.qtyOrdered.thousandths * facts.qtyAcceptedBase.thousandths, facts.qtyOrderedBase.thousandths * 1000n));
+}
 
 /** A purchase line's anchor (ADR-0001): the unit price times the quantity, rounded half-up once. */
 export function orderLineNet(unitPrice: Money, qty: Quantity): Money {

@@ -200,11 +200,11 @@ export class PgCatalogueStore implements CatalogueStore {
   }
 
   async units(tx: Transaction, afterCode: string | null, limit: number): Promise<UomView[]> {
-    const { rows } = await tx.query<{ code: string; name: string; kind: UomView['kind']; display_decimals: number }>(
-      'SELECT code, name, kind, display_decimals FROM mdm.uom WHERE $1::text IS NULL OR code > $1 ORDER BY code LIMIT $2',
+    const { rows } = await tx.query<{ code: string; name: string; singular_name: string; plural_name: string; kind: UomView['kind']; display_decimals: number }>(
+      'SELECT code, name, singular_name, plural_name, kind, display_decimals FROM mdm.uom WHERE $1::text IS NULL OR code > $1 ORDER BY code LIMIT $2',
       [afterCode, limit],
     );
-    return rows.map((row) => ({ code: row.code, name: row.name, kind: row.kind, displayDecimals: row.display_decimals }));
+    return rows.map((row) => ({ code: row.code, name: row.name, singularName: row.singular_name, pluralName: row.plural_name, kind: row.kind, displayDecimals: row.display_decimals }));
   }
 
   async species(tx: Transaction, id: string): Promise<SpeciesView | null> {

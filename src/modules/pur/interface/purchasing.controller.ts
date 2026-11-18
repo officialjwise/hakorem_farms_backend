@@ -9,7 +9,7 @@ import type { StoredResponse } from '../../../platform/idempotency/idempotency';
 import type { ApprovalPendingView, Page } from '../application/purchase-command';
 import { PurchaseOrders, type PurchaseOrderView } from '../application/purchase-orders';
 import { SupplierClaims, type SupplierClaimView } from '../application/supplier-claims';
-import { SupplierInvoices, type SupplierInvoiceView } from '../application/supplier-invoices';
+import { SupplierInvoices, type SupplierBalanceView, type SupplierInvoiceView } from '../application/supplier-invoices';
 import { SupplierPayments, type SupplierPaymentView, type SupplierRemittanceView } from '../application/supplier-payments';
 import { SupplierScores, type SupplierScoreView } from '../application/supplier-scores';
 import {
@@ -197,6 +197,12 @@ export class PurchasingController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<PurchaseOrderView> {
     return reply(res, this.orders.cancel(actor, id, body.reason, key));
+  }
+
+  @Get('suppliers/:id/balance')
+  @Operation({ operationId: 'getSupplierBalance', ...READ, permission: 'pur.supplier_invoice.read' })
+  getSupplierBalance(@CurrentActor() actor: Actor | undefined, @Param('id', zodPipe(IdParam)) id: string): Promise<SupplierBalanceView> {
+    return this.invoices.balance(actor, id);
   }
 
   @Get('supplier-invoices')

@@ -296,7 +296,7 @@ responses:
                       qtyReceived: "48.000"
                       qtyRejected: "2.000"
                       uom: CRATE
-                      baseUom: UNIT
+                      baseUom: EGG
                       qtyReceivedBase: "1440.000"
                       qtyRejectedBase: "60.000"
                       rejectionReasonCode: CRACKED

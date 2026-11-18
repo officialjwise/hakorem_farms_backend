@@ -1,6 +1,6 @@
 import { Money, Quantity } from '@hakorem/kernel';
 import { describe, expect, it } from 'vitest';
-import { matchInvoice, matchLine, type InvoiceLineFacts } from './three-way-match';
+import { lineVariance, matchInvoice, matchLine, type InvoiceLineFacts } from './three-way-match';
 
 const broilers = 'product-broiler';
 const order = (over: Partial<NonNullable<InvoiceLineFacts['order']>> = {}): NonNullable<InvoiceLineFacts['order']> => ({
@@ -123,5 +123,27 @@ describe('the match allows exactly the open claims of an order line (ADR-0076)',
 
   it('matches as before without a claim', () => {
     expect(matchLine(line({ qtyBase: Quantity.parse('20.001') })).reasons).toEqual(['QTY_EXCEEDS_RECEIVED']);
+  });
+});
+
+describe('the whole-line price variance (CR-044): the per-unit difference times the line quantity, rounded half-up once', () => {
+  it('is 20,000 for 500 head at 1,290 against an order at 1,250 (40 a head)', () => {
+    const matched = matchLine(line({ qtyBase: Quantity.parse('500.000'), unitPrice: Money.ofPesewas(1_290n), order: order({ unitPrice: Money.ofPesewas(1_250n), qtyReceived: Quantity.parse('500.000') }) }));
+    expect(matched.priceVariance!.pesewas).toBe(40n);
+    expect(lineVariance(matched.priceVariance!, Quantity.parse('500.000')).pesewas).toBe(20_000n);
+  });
+
+  it('rounds an exact half pesewa up: 2.500 kg at 3 a kilogram over is 8', () => {
+    expect(lineVariance(Money.ofPesewas(3n), Quantity.parse('2.500')).pesewas).toBe(8n);
+  });
+
+  it('rounds one below half down and one above half up: 2.499 kg at 3 is 7, 2.501 kg at 3 is 8', () => {
+    expect(lineVariance(Money.ofPesewas(3n), Quantity.parse('2.499')).pesewas).toBe(7n);
+    expect(lineVariance(Money.ofPesewas(3n), Quantity.parse('2.501')).pesewas).toBe(8n);
+  });
+
+  it('is zero when the price is the order price, and the largest amount at one unit of the largest difference', () => {
+    expect(lineVariance(Money.zero(), Quantity.parse('500.000')).pesewas).toBe(0n);
+    expect(lineVariance(Money.ofPesewas(9_007_199_254_740_991n), Quantity.parse('1.000')).pesewas).toBe(9_007_199_254_740_991n);
   });
 });

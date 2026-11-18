@@ -78,7 +78,7 @@ responses:
                 sku: "EGG-0003"
                 name: "Eggs, big, crate of 30"
               rejectionReasonCode: "BROKEN"
-              baseUom: "UNIT"
+              baseUom: "EGG"
               qtyDeliveredBase: "90.000"
               qtyAcceptedBase: "60.000"
               qtyRejectedBase: "30.000"

@@ -29,8 +29,10 @@ Units of measure. A fixed list seeded by migration (0009, 0019); no operation cr
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
-| `code` | `text` | PK | `HEAD`, `KG`, `CRATE`, `BUNCH`, `TUBER`, `PACK`, `UNIT`, `BAG`, `LITRE` |
-| `name` | `text` | NOT NULL | |
+| `code` | `text` | PK | `HEAD`, `KG`, `CRATE`, `BUNCH`, `TUBER`, `PACK`, `UNIT`, `BAG`, `LITRE`, `EGG` (B09u, migration 0249: the seeded eggs' base unit, A-303) |
+| `name` | `text` | NOT NULL | The unit's title (`Egg`, `Crate`) |
+| `singular_name` | `text` | NOT NULL, CHECK trimmed and non-empty (`ck_uom_singular_name`) | Lowercase, for one: `egg`, `crate`, `head` (B09u, migration 0249) |
+| `plural_name` | `text` | NOT NULL, CHECK trimmed and non-empty (`ck_uom_plural_name`) | Lowercase, for many: `eggs`, `crates`, `head` (B09u, migration 0249) |
 | `kind` | `text` | NOT NULL, CHECK in (`COUNT`, `WEIGHT`, `VOLUME`) | Whether fractions are allowed |
 | `display_decimals` | `smallint` | NOT NULL, CHECK `BETWEEN 0 AND 3` | Decimal places a quantity in the unit is shown with: 0 for counted units, 3 for weight and volume (CR-003, migration 0019) |
 

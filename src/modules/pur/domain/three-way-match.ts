@@ -41,9 +41,12 @@ export interface InvoiceLineFacts {
 export interface LineMatch {
   readonly status: Exclude<MatchStatus, 'UNMATCHED'>;
   readonly reasons: readonly MatchReason[];
-  /** Invoiced minus what is left to invoice of the receipt; positive is more than was received. */
+  /**
+   * In the product's base unit: the invoiced quantity minus what is left to invoice of what was received; positive is
+   * more than is left to invoice, negative less (CR-044).
+   */
   readonly qtyVariance: Quantity | null;
-  /** The absolute difference per unit from the order price. */
+  /** The absolute difference per unit of the line's unit (the order line's) from the order price; see lineVariance. */
   readonly priceVariance: Money | null;
   readonly priceVarianceDirection: 'OVER' | 'UNDER' | null;
 }
@@ -86,6 +89,14 @@ export function matchLine(line: InvoiceLineFacts): LineMatch {
     priceVariance,
     priceVarianceDirection: over > 0 ? 'OVER' : over < 0 ? 'UNDER' : null,
   };
+}
+
+/**
+ * The line's whole price difference from the order (CR-044): the per-unit difference times the line's quantity in the
+ * line's unit, rounded half-up once (ADR-0001). 500 head at 1,290 against 1,250 is 40 a head and 20,000 for the line.
+ */
+export function lineVariance(perUnit: Money, qty: Quantity): Money {
+  return perUnit.timesQuantity(qty);
 }
 
 /** The invoice is MATCHED only if every payable line matches; NOT_REQUIRED when no line needs a match. */

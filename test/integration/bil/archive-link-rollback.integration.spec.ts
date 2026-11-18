@@ -48,6 +48,9 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0249_mdm_uom_names_and_egg',
+      '0248_iam_grant_manager_supplier_invoice_approve',
+      '0247_pur_invoice_approver_differs',
       '0246_platform_audit_anchor_request',
       '0245_pos_force_close',
       '0244_iam_grant_whl_permissions',

@@ -117,7 +117,7 @@ async function approvedExpenseInvoice(amount: number): Promise<string> {
   });
   expect(created.status).toBe(201);
   expect((await post(accountant, `/supplier-invoices/${created.body.id}/match`)).body.matchStatus).toBe('NOT_REQUIRED');
-  expect((await post(accountant, `/supplier-invoices/${created.body.id}/approve`)).status).toBe(200);
+  expect((await post(owner, `/supplier-invoices/${created.body.id}/approve`)).status).toBe(200);
   return created.body.id as string;
 }
 
@@ -165,7 +165,7 @@ describe('wrong roles are refused on every purchase-to-pay write (ADR-0035)', ()
     expect((await get(investor, '/purchase-orders')).status).toBe(403);
   });
 
-  it('refuses supplier invoices and payments to the Storekeeper, Manager (invoice writes and paying), Cashier, Sales, Driver, Farm hand and Investor', async () => {
+  it('refuses supplier invoices and payments to the Storekeeper, Manager (entering, matching and paying), Cashier, Sales, Driver, Farm hand and Investor', async () => {
     const order = await sentOrder();
     for (const session of [pensStorekeeper, cashier, sales, driver, farmHand, investor]) {
       expect((await post(session, '/supplier-invoices', invoiceAgainst(order))).status).toBe(403);
@@ -177,7 +177,8 @@ describe('wrong roles are refused on every purchase-to-pay write (ADR-0035)', ()
     // The Manager may prepare a payment since the owner's cross-approval (A-171); an unknown invoice is refused, not the role.
     expect((await post(manager, '/supplier-payments', { supplierId: supplier('Awutu Poultry Farm'), method: 'CASH', allocations: [{ supplierInvoiceId: randomUUID(), amountPesewas: 1 }] })).status).toBe(422);
     expect((await post(manager, `/supplier-invoices/${randomUUID()}/match`)).status).toBe(403);
-    expect((await post(manager, `/supplier-invoices/${randomUUID()}/approve`)).status).toBe(403);
+    // The Manager approves invoices for payment since B09u (0248, A-301), never one they entered; an unknown one is 404.
+    expect((await post(manager, `/supplier-invoices/${randomUUID()}/approve`)).status).toBe(404);
     expect((await post(manager, `/supplier-payments/${randomUUID()}/mark-paid`, { paidAt: clock.now().toISOString(), externalReference: 'MOMO-1' })).status).toBe(403);
     const { rows } = await admin().query<{ n: number }>('SELECT count(*)::int AS n FROM pur.supplier_invoice WHERE supplier_id = $1', [supplier('Awutu Poultry Farm')]);
     expect(rows[0]!.n).toBe(0);
@@ -349,7 +350,7 @@ describe('the three-way match blocks payment on disagreement (FR-PUR-009, FR-PUR
     // That invoice now holds the 20 received: a second one for the same birds would be invoicing them twice.
     const twice = await post(accountant, '/supplier-invoices', invoiceAgainst(order));
     expect((await post(accountant, `/supplier-invoices/${twice.body.id}/match`)).body.lines[0].matchReasons).toEqual(['QTY_EXCEEDS_RECEIVED']);
-    const approved = await post(accountant, `/supplier-invoices/${created.body.id}/approve`);
+    const approved = await post(owner, `/supplier-invoices/${created.body.id}/approve`);
     expect(approved.body.status).toBe('APPROVED');
     const { rows } = await admin().query<{ payload: { lines: { netPesewas: number; orderValuePesewas: number }[] } }>(
       `SELECT payload FROM platform.outbox_message WHERE event_type = 'pur.SupplierInvoiceMatched' AND subject_id = $1`,
@@ -365,7 +366,7 @@ describe('the three-way match blocks payment on disagreement (FR-PUR-009, FR-PUR
     const matched = await post(accountant, `/supplier-invoices/${created.body.id}/match`);
     expect(matched.body).toMatchObject({ status: 'MISMATCH', matchStatus: 'MISMATCH' });
     expect(matched.body.lines[0]).toMatchObject({ matchReasons: ['PRICE_OUTSIDE_TOLERANCE'], priceVariancePesewas: 100, priceVarianceDirection: 'OVER' });
-    const approval = await post(accountant, `/supplier-invoices/${created.body.id}/approve`);
+    const approval = await post(owner, `/supplier-invoices/${created.body.id}/approve`);
     expect([approval.status, approval.body.error.code]).toEqual([422, 'THREE_WAY_MATCH_FAILED']);
     const payment = await post(accountant, '/supplier-payments', {
       supplierId: supplier('Awutu Poultry Farm'),
@@ -398,7 +399,7 @@ describe('the three-way match blocks payment on disagreement (FR-PUR-009, FR-PUR
     const corrected = await patch(accountant, `/supplier-invoices/${created.body.id}`, { version: matched.body.version, lines: invoiceAgainst(second).lines });
     expect(corrected.body).toMatchObject({ status: 'DRAFT', matchStatus: 'UNMATCHED' });
     expect((await post(accountant, `/supplier-invoices/${created.body.id}/match`)).body.matchStatus).toBe('MATCHED');
-    expect((await post(accountant, `/supplier-invoices/${created.body.id}/approve`)).body.status).toBe('APPROVED');
+    expect((await post(owner, `/supplier-invoices/${created.body.id}/approve`)).body.status).toBe('APPROVED');
   });
 
   it('mismatches 22 invoiced against 20 received on quantity', async () => {

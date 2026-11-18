@@ -88,7 +88,7 @@ async function approvedExpenseInvoice(supplierId: string, amount: number): Promi
   });
   expect(created.status).toBe(201);
   expect((await post(accountant, `/supplier-invoices/${created.body.id}/match`)).body.matchStatus).toBe('NOT_REQUIRED');
-  expect((await post(accountant, `/supplier-invoices/${created.body.id}/approve`)).status).toBe(200);
+  expect((await post(owner, `/supplier-invoices/${created.body.id}/approve`)).status).toBe(200);
   return created.body.id as string;
 }
 
@@ -513,7 +513,7 @@ describe('cross-approval of payout changes and the person-level bar on the first
     });
     expect(created.status).toBe(201);
     await post(accountant, `/supplier-invoices/${created.body.id}/match`);
-    expect((await post(accountant, `/supplier-invoices/${created.body.id}/approve`)).status).toBe(200);
+    expect((await post(owner, `/supplier-invoices/${created.body.id}/approve`)).status).toBe(200);
     return created.body.id as string;
   }
 

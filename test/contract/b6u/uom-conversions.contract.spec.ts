@@ -43,9 +43,9 @@ describe('B06u operations answer in the contract shapes', () => {
     expect(listed.status).toBe(200);
     expectShape('UomConversionPage', listed.body);
     expect(listed.body.data.map((row: { product: { sku: string }; fromUom: string; toUom: string; factor: string }) => `${row.product.sku} ${row.fromUom}=${row.factor} ${row.toUom}`)).toEqual([
-      'EGG-0001 CRATE=30.000 UNIT',
-      'EGG-0002 CRATE=30.000 UNIT',
-      'EGG-0003 CRATE=30.000 UNIT',
+      'EGG-0001 CRATE=30.000 EGG',
+      'EGG-0002 CRATE=30.000 EGG',
+      'EGG-0003 CRATE=30.000 EGG',
       'FEED-0001 BAG=50.000 KG',
       'FEED-0002 BAG=25.000 KG',
       'PRD-0002 CRATE=24.000 UNIT',

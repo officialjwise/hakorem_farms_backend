@@ -30,6 +30,8 @@ const CLEAR_CHEQUE = 'pay.payment.clear_cheque';
 const REVERSE = 'pay.payment.reverse';
 /** The reversal reason of a payment whose sale was voided (migration 0192). */
 const SALE_VOIDED_REASON = 'SALE_VOIDED';
+/** IAM's approval kind for a sale's void (ORD's), whose waiting request blocks a reversal of the sale's payment (BL-077). */
+const SALE_VOID_APPROVAL_KIND = 'SALE_VOID';
 /** The System principal, for the rows an approval writes when the decider is not named. */
 const SYSTEM_ACTOR_ID = '01900000-0000-7000-8000-000000000001';
 
@@ -193,6 +195,10 @@ export class Receipts {
       const broken: PaymentRule[] = judged.ok ? [] : judged.error.map((rule) => ({ field: rule.startsWith('REASON') ? '/reasonCode' : '', rule }));
       if (body.note === null) broken.push({ field: '/note', rule: 'NOTE_REQUIRED' });
       if ((await this.store.openReversalOf(tx, id))?.status === 'PENDING_APPROVAL') broken.push({ field: '', rule: 'REVERSAL_PENDING' });
+      // A void of the payment's sale waiting for approval reverses the payment itself (BL-077): no reversal beside it.
+      if (payment.orderDocumentId !== null && (await this.approvals.ofSubjectIn(tx, payment.orderDocumentId, SALE_VOID_APPROVAL_KIND)).some((a) => a.status === 'PENDING')) {
+        broken.push({ field: '', rule: 'VOID_PENDING' });
+      }
       if (broken.length > 0) throw new PaymentReversalInvalidError(broken);
 
       const reversalId = this.nextId();
@@ -255,11 +261,25 @@ export class Receipts {
   async reverseApprovedIn(tx: Transaction, paymentId: string, request: { readonly note: string; readonly actorId: string; readonly approvalRequestId: string }): Promise<string> {
     const [payment] = await this.store.payments(tx, [paymentId], true);
     if (payment === undefined) throw new NotFoundError('no such payment');
+    // Never a second open reversal beside one waiting for approval (BL-077; uq_payment_reversal_open holds it too).
+    if ((await this.store.openReversalOf(tx, paymentId))?.status === 'PENDING_APPROVAL') throw new PaymentReversalInvalidError([{ field: '', rule: 'REVERSAL_PENDING' }]);
     const reversalId = this.nextId();
     await this.store.insertReversal(tx, { id: reversalId, paymentId, reasonCode: SALE_VOIDED_REASON, note: request.note, branchId: payment.branchId, createdBy: request.actorId });
     await this.store.updateReversal(tx, reversalId, { approvalRequestId: request.approvalRequestId }, request.actorId);
     await this.reverseIn(tx, (await this.store.openReversalOf(tx, paymentId))!, request.actorId, request.approvalRequestId);
     return (await this.store.openReversalOf(tx, paymentId))!.reversingPaymentId!;
+  }
+
+  /**
+   * The payments among those given whose reversal is waiting for approval (BL-077), in the caller's transaction; it
+   * authorises nothing. ORD's void asks it at the approval, so it never writes a second open reversal of a payment.
+   */
+  async pendingReversalsIn(tx: Transaction, paymentIds: readonly string[]): Promise<ReadonlySet<string>> {
+    const pending = new Set<string>();
+    for (const id of paymentIds) {
+      if ((await this.store.openReversalOf(tx, id))?.status === 'PENDING_APPROVAL') pending.add(id);
+    }
+    return pending;
   }
 
   /**

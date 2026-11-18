@@ -24,6 +24,7 @@ registerMessages({
   'pur.credit_note_exceeds_invoice': 'This credit is more than the invoice has left uncredited and unpaid.',
   'pur.variance_not_allowed': 'An approved variance covers a price or levy difference only; receive the goods or correct the invoice instead.',
   'pur.invoice_maker_cannot_approve': 'You entered this invoice, so someone else must approve its variance.',
+  'pur.invoice_maker_cannot_approve_invoice': 'You entered this invoice, so someone else must approve it for payment.',
   'pur.approval_pending': 'This document is waiting for approval and cannot change until it is decided or withdrawn.',
   'pur.supplier_claim_invalid': 'This claim cannot be raised or settled like this.',
   'pur.supplier_claim_rule': 'This breaks a rule of the claim.',
@@ -248,10 +249,13 @@ export class VarianceNotAllowedError extends BusinessRuleError {
 /** 422 INVOICE_MAKER_CANNOT_APPROVE (FR-PUR-010, A-172): the person who entered an invoice approving its variance. */
 export class InvoiceMakerCannotApproveError extends BusinessRuleError {
   readonly code = 'INVOICE_MAKER_CANNOT_APPROVE';
-  readonly messageKey = 'pur.invoice_maker_cannot_approve';
+  readonly messageKey: string;
 
-  constructor() {
-    super('the person who entered the invoice may not approve its variance', [{ field: '/approvalRequestId', code: 'INVOICE_MAKER_CANNOT_APPROVE', message: translate('pur.invoice_maker_cannot_approve') }]);
+  /** `/approvalRequestId` for a variance or a credit note decided through IAM; `/id` for approveSupplierInvoice (CR-043). */
+  constructor(field: '/approvalRequestId' | '/id' = '/approvalRequestId') {
+    const key = field === '/id' ? 'pur.invoice_maker_cannot_approve_invoice' : 'pur.invoice_maker_cannot_approve';
+    super('the person who entered the invoice may not approve it, its variance or its credit', [{ field, code: 'INVOICE_MAKER_CANNOT_APPROVE', message: translate(key) }]);
+    this.messageKey = key;
   }
 }
 
@@ -302,6 +306,7 @@ export function translatePurRefusal(error: unknown): never {
   if (failure?.code === 'HK004' && failure.constraint === 'ck_supplier_invoice_cancel_credited') throw new SupplierInvoiceInvalidError([{ field: '/status', rule: 'CREDIT_NOTE_ENTERED' }]);
   if (failure?.code === 'HK010' && failure.constraint === 'ck_supplier_invoice_variance_cover') throw new VarianceNotAllowedError([{ field: '/lines', rule: 'VARIANCE_NOT_ALLOWED' }]);
   if (failure?.code === '23514' && failure.constraint === 'ck_supplier_invoice_variance') throw new InvoiceMakerCannotApproveError();
+  if (failure?.code === '23514' && failure.constraint === 'ck_supplier_invoice_approver') throw new InvoiceMakerCannotApproveError('/id');
   if (failure?.code === '23505' && failure.constraint === 'uq_supplier_claim_receipt') throw new SupplierClaimInvalidError([{ field: '/goodsReceiptId', rule: 'CLAIM_EXISTS' }]);
   if (failure?.code === '23505' && failure.constraint === 'uq_supplier_invoice_claim') throw new SupplierClaimInvalidError([{ field: '/status', rule: 'CREDIT_NOTE_EXISTS' }]);
   throw error;
