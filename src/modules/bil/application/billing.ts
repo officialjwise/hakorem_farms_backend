@@ -96,6 +96,13 @@ export interface IssueRequest {
   /** The reference an offline device printed (ADR-0015), stored beside the official number. */
   readonly provisionalRef?: string | null;
   readonly occurredAt?: Date | null;
+  /**
+   * A receipt for a sale an offline till synced later (the owner's addition (1) to A-200, B09b continued 2b, A-278 (d)):
+   * issued at `occurredAt`, the time it happened at the till, on `issueDate` (the business date it happened on, or the
+   * first open date when that date's period has since locked, ADR-0027 point 6), its levies by the tax scheme in force
+   * when it happened, and marked synced from offline. Only a synced sale names it; left out, a document is issued now.
+   */
+  readonly syncedOffline?: { readonly issueDate: string } | null;
   readonly lines: readonly IssueLineRequest[];
 }
 
@@ -152,6 +159,8 @@ export interface BillingDocumentView {
   readonly contentHash: string | null;
   readonly issuedAt: string | null;
   readonly occurredAt: string | null;
+  /** A receipt for a sale an offline till synced later, issued at the till's time (A-278 (d)). */
+  readonly syncedFromOffline: boolean;
   readonly reprintCount: number;
   readonly branchId: string;
 }
@@ -277,7 +286,13 @@ export class Billing {
   async issueIn(tx: Transaction, actor: Actor | undefined, request: IssueRequest): Promise<BillingDocumentView> {
     if (tx.isolation !== 'serializable') throw new IsolationLevelError(tx.isolation);
     if (actor === undefined) throw new UnauthenticatedError('a billing document needs an actor');
-    const issueDate = toBusinessDate(this.clock.now());
+    const synced = request.syncedOffline ?? null;
+    if (synced !== null && (request.kind !== 'RECEIPT' || (request.occurredAt ?? null) === null)) {
+      throw new BillingDocumentInvalidError([{ field: '/syncedOffline', rule: 'OFFLINE_RECEIPT_NEEDS_ITS_TIME' }]);
+    }
+    const issueDate = synced?.issueDate ?? toBusinessDate(this.clock.now());
+    // A synced sale's levies are those of the tax scheme in force when it happened (OFFLINE_SYNC 7.1 step 3).
+    const taxDate = synced === null ? issueDate : toBusinessDate(request.occurredAt!);
     const customerId = request.customerId ?? null;
     const broken = checkIssue({ kind: request.kind, customerId, issueDate, dueDate: request.dueDate ?? null, lineCount: request.lines.length });
     const customer = customerId === null ? undefined : (await this.refs.customersIn(tx, [customerId])).get(customerId);
@@ -343,7 +358,7 @@ export class Billing {
     });
     if (missing.length > 0) throw new BilReferenceNotFoundError(missing);
     if (broken.length > 0) throw new BillingDocumentInvalidError(broken);
-    const { versionId, lines } = await this.taxed(tx, request.taxInclusive, issueDate, priced);
+    const { versionId, lines } = await this.taxed(tx, request.taxInclusive, taxDate, priced);
     const header: DraftHeader = {
       id: this.nextId(),
       kind: request.kind,
@@ -362,6 +377,7 @@ export class Billing {
       reasonCode: null,
       note: null,
       occurredAt: request.occurredAt ?? null,
+      syncedFromOffline: synced !== null,
       actorId: actor.principalId,
     };
     await this.writeDraft(tx, header, lines);
@@ -897,7 +913,10 @@ export class Billing {
    */
   private async issueDraft(tx: Transaction, id: string, actorId: string, approvalRequestId: string | null, variances: ReadonlyMap<string, bigint> = new Map()): Promise<BillingDocumentView> {
     const draft = await this.documentOf(tx, id, true);
-    const issueDate = toBusinessDate(this.clock.now());
+    // A receipt synced from an offline till is issued at the till's time, on the date its draft was given (A-278 (d)).
+    const synced = draft.syncedFromOffline === true;
+    const issueDate = synced ? draft.issueDate : toBusinessDate(this.clock.now());
+    const issuedAt = synced ? draft.occurredAt! : this.clock.now();
     const branch = (await this.refs.branchesIn(tx, [draft.branchId])).get(draft.branchId)!;
     const documentNo = await this.numbers.allocateIn(tx, { docType: draft.kind, fiscalYear: fiscalYearOf(issueDate), branchId: draft.branchId, branchCode: branch.code, documentId: id });
     const totals = documentTotals(draft.lines.map(figures));
@@ -910,7 +929,7 @@ export class Billing {
       grossPesewas: totals.gross.pesewas,
       issueDate,
       dueDate,
-      issuedAt: this.clock.now(),
+      issuedAt,
       actorId,
     });
     const payload: BillingDocumentPayload = {
@@ -949,7 +968,8 @@ export class Billing {
         : draft.kind === 'DEBIT_NOTE'
           ? ({ reasonCode: draft.reasonCode! } satisfies Pick<DebitNoteIssued, 'reasonCode'>)
           : {};
-    await this.events.publish(tx, { type, subjectType: 'BillingDocument', subjectId: id, branchId: draft.branchId, payload: { ...payload, ...extra } });
+    // A synced receipt posts as of the time it happened: the ledger dates it then, or on the first open date (ADR-0027 point 6).
+    await this.events.publish(tx, { type, subjectType: 'BillingDocument', subjectId: id, branchId: draft.branchId, payload: { ...payload, ...extra }, ...(synced ? { occurredAt: issuedAt } : {}) });
     const [issued] = await this.store.documents(tx, [id]);
     const [view] = await this.views(tx, [issued!]);
     // Rendered and archived by DOC's worker after this transaction commits (FR-DOC-003): never inside it.
@@ -1077,6 +1097,7 @@ export class Billing {
         contentHash: r.contentHash === null ? null : r.contentHash.toString('hex'),
         issuedAt: r.issuedAt?.toISOString() ?? null,
         occurredAt: r.occurredAt?.toISOString() ?? null,
+        syncedFromOffline: r.syncedFromOffline ?? false,
         reprintCount: reprints.get(r.id) ?? 0,
         branchId: r.branchId,
       };
