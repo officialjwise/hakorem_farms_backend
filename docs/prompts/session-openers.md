@@ -89,7 +89,8 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B09c | `B09c-card-payment.md` | `b09c-card-payment` | B4 to B12 | Card payment online through the provider port with every payment edge case, no card details on our servers, and the card cases run against the real sandbox |
 | B08 continued 2d | `B08c2d-customer-statements.md` | `b08c2d-customer-statements` | B4 to B12 | A customer statement for a period ties to the customer's documents and the ledger's 1200 for that customer and period, opening plus movements equal to closing to the pesewa, and is rendered after commit and archived once; every statement write refuses the wrong role |
 | B09u | `B09u-units-supplier-account.md` | `b09u-units-supplier-account` | B4 to B12 | Every unit has a singular and a plural name and the seeded eggs are counted in a unit named egg, figures unchanged; a receipt line against an order line is valued by the server unless typed (CR-040); a Manager approves a supplier credit note the Owner raised and the Accountant drafted; the supplier balance (CR-042); invoice approval refuses its maker (CR-043); CR-044's descriptions; every write refuses the wrong role |
-| B10 | `B10-quotations-wholesale.md` | `b10-quotations-wholesale` | B4 to B12 | Quote revisions are versioned; conversion to invoice preserves every link; a credit limit blocks with an audited override |
+| B10 | `B10-quotations-wholesale.md` | `b10-quotations-wholesale` | B4 to B12 | Built and split (A-311): quote revisions are versioned and an issued version never changes; below the margin floor a different person approves; the quote link opens only its live version and accepts once; an accepted quote converts to exactly one order that keeps every link, through to its proforma |
+| B10 continued | `B10c-credit-control.md` | `b10c-credit-control` | B4 to B12 | A credit limit blocks with an audited override by a different person (exact pesewas at the limit, one over, past terms by one day); ageing from due dates ties to SQL; the overdue hold, dunning and standing orders; every write refuses the wrong role |
 | B11 | `B11-fulfilment-delivery.md` | `b11-fulfilment-delivery` | B4 to B12 | A catch-weight order re-prices at pick; cash on delivery lands against the driver; the outbox guarantees the customer notification |
 | B12 | `B12-capital-costing-reporting.md` | `b12-capital-costing-reporting` | B4 to B12 | A distribution matches a hand calculation on unit-days and ties exactly to the ledger |
 | B09r | `B09r-reconciliation-real-files.md` | `b09r-reconciliation-real-files` | B4 to B12 | Settlements read from Paystack's Settlements API and the bank parser written against the bank's real export; every matching rule names its source file; no real file committed; runs when both files exist, before B13 at the latest |
@@ -2774,7 +2775,7 @@ every run on the pull request is green. End the report with B10's opening messag
 
 ## B10 — Quotations, wholesale and credit control
 
-Branch `b10-quotations-wholesale`. Report `docs/sessions/B10-quotations-wholesale.md`. Gate: quote revisions are versioned, conversion to invoice preserves every link, and a credit limit blocks with an audited override.
+Branch `b10-quotations-wholesale`. Report `docs/sessions/B10-quotations-wholesale.md`. **Built and split (A-311, ADR-0026 Amendments): QUO, CR-041, the quote line's unit, the quote link and item 4; the rest is B10 continued below.** Gate as built: quote revisions are versioned and an issued version never changes; below the margin floor a different person approves; the quote link opens only its live version and accepts once; an accepted quote converts to exactly one order that keeps every link, through to its proforma. (Planned gate: quote revisions are versioned, conversion to invoice preserves every link, and a credit limit blocks with an audited override.) **On the frontend's `main` at `81525f1` the numbers here hold (CR-045 a quote line's unit, CR-046 the over-limit order, CR-047 the quote link), and two more were added: CR-048 (who quotes, holds, releases and approves, with a second person on a release and a limit change) and CR-049 (the request-for-quote form's quantity and unit); CR-050 is lane A's till drop witness (A-312).**
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
@@ -2825,13 +2826,63 @@ main; if one is not there yet, build from these words and say so), each test-fir
 Stop at the gate and write docs/sessions/B10-quotations-wholesale.md.
 ```
 
+## B10 continued — Credit control, accounts, dunning, standing orders and the quote pipeline
+
+Branch `b10c-credit-control`. Report `docs/sessions/B10c-credit-control.md`. Gate: a credit limit blocks with an audited override by a different person, exact to the pesewa at the limit, one pesewa over and past terms by one day; ageing from invoice due dates ties to SQL sums from the owning tables; an account past the overdue threshold is held and released only by an Owner or Manager who did not ask; every write refuses the wrong role.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md, and "Two lanes" below.
+List docs/sessions/ and read only the most recent report (docs/sessions/B10-quotations-wholesale.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+On the frontend's main at 81525f1 (A-312): CR-046 (an order past the limit or the terms), CR-047's remaining point 2
+(PublicQuote.acceptedName and decidedAt), CR-048 (the role matrix and seed for quotes and wholesale, a second person on
+a release and a limit change) and CR-045's unit left out meaning the sale unit (B10 answered: the base unit) are this
+phase's to implement or decline; check the numbers again on main, the owner's rule.
+For this phase, read the WHL requirement block of docs/SRS.md and FR-QUO-007 and FR-QUO-013 of the QUO block (nothing
+else from the SRS), docs/data-model/whl.md and quo.md, the WHL and QUO cards in docs/MODULE_BOUNDARIES.md, DOMAIN_MODEL
+section 5.12, ADR-0017, ADR-0085, ADR-0087, the abuse case 14 in docs/security/THREAT_MODEL.md, and A-300 and A-309 to
+A-312 in docs/ASSUMPTIONS.md. Use docs/prompts/module-build-prompt.md as the recipe.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B10 continued only, on branch b10c-credit-control from main, building on QUO as B10 merged it (do not
+rewrite it): business accounts with credit limit, terms, the assigned price list and account manager, and exposure
+(SRS SA-21: outstanding invoiced balance plus confirmed uninvoiced orders); WHL's implementation of ORD's
+OrderConfirmationPolicy port; the credit override with a different approver (CREDIT_OVERRIDE, abuse case 14); ageing
+by 30, 60 and 90 days computed from invoice due dates and allocations, as at a date; FR-WHL-009's ageing summary added
+to customer statements additively, and decide A-300 (i), money held on deposit for the customer (2200), the most
+conservative way, recorded and flagged for the owner; dunning levels and notices (sendStatement and the sends stay
+B11's); standing orders and their runs; the automatic hold past the overdue threshold. The owner, 2026-11-16 (A-212 (d)):
+a bounced cheque (a reversal with CHEQUE_DISHONOURED) counts against the customer's credit standing.
+The over-limit order (CR-046, the owner's words for B10): an order over the customer's credit limit or
+past their terms does not go through. An approval request in place of a plain refusal is kept, but the response carries
+the amount over the limit and the reason (over limit, past terms, or both), the order stays blocked until approved, the
+override needs a written reason, and the approver is never the person who asked (mutation-checked). Exact pesewas at
+the limit, one pesewa over, and past terms by one day; exposure and ageing asserted against SQL sums straight from the
+owning tables, never from the function under test.
+Roles (the owner's item 5, the rest of it, and CR-048): the Accountant may put an account on hold;
+releasing a hold, approving a credit override and changing a credit limit are Owner or Manager only, never by the person
+who asked; a wrong-role refusal test and a maker-is-checker refusal test for each of the three, mutation-checked and held
+by the database the way the supplier invoice approval of CR-043 is. The seed has a second Owner or Manager at the branch,
+so a hold's release and a credit-limit change always have someone other than the requester to approve them: test that
+with the seeded people (invented names only, hakorem-seed). IAM is lane A's: additive role-matrix and seed grant rows
+only, with the parent session's leave.
+QUO's remainder (FR-QUO-007, FR-QUO-013): the quote rendered and archived as a document when a version is issued
+(DOC's template, `documentId` and `PublicQuote.documentUrl`), getQuotePipeline (win rate by salesperson and product
+line, reconciling to listQuotes) and listMyQuotes (a customer's own quotes only).
+Run scenario 2 of docs/UAT.md as a dry run and record every difference, including the two rules that scenario flags for
+the owner (credit check and delivery fee on a partial dispatch), decided conservatively and put to the owner.
+Stop at the gate and write docs/sessions/B10c-credit-control.md.
+```
+
 ## B11 — Order fulfilment, delivery and notifications
 
 Branch `b11-fulfilment-delivery`. Report `docs/sessions/B11-fulfilment-delivery.md`. Gate: a catch-weight order re-prices at pick, cash on delivery lands against the driver, and the outbox guarantees the customer notification.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
-List docs/sessions/ and read only the most recent report (docs/sessions/B10-quotations-wholesale.md).
+List docs/sessions/ and read only the most recent report (docs/sessions/B10c-credit-control.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
 report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the ORD (fulfilment), DEL and NTF requirement blocks of docs/SRS.md (nothing else
@@ -2873,6 +2924,15 @@ price (the crate and the single egg). ProductDetail.sellingUnits and CatalogueIt
 priced by its own entry and never derived; CartLineAdd.uom (absent means saleUom), kept on the cart line, priced by it
 at checkout and placement, with stock reserved in the base unit; a crate and a single egg of one product are two cart
 lines. Test-first with exact pesewas.
+Returns of eggs (owner, 2026-11-18, ORD, test-first with exact pesewas): a return is refunded at the price actually
+paid on that sale line, never the current price list. Part of a crate returned as single eggs (five cracked eggs) is
+refunded pro rata at the crate's price per egg, never at the single-egg price, with the running-total rounding of the egg
+cost rule (ADR-0075, half-up, never half-to-even): each return's refund is round(paid x cumulative returned / per crate)
+less round(paid x previously returned / per crate), so the pieces always add up. Tests: a GH₵55.00 crate (5,500 pesewas)
+with five eggs returned refunds exactly 917 (5,500 x 5 / 30 = 916.67, half-up); a crate returned one egg at a time, all 30,
+refunds exactly 5,500 in total, never more; a mutation using the single-egg price, or rounding each egg on its own, turns a
+test red. Lane A's B09b continued 2 adds to createReturn's description that a line is returned in its sold unit; B11
+extends it to a part of a crate returned as single eggs.
 Stop at the gate and write docs/sessions/B11-fulfilment-delivery.md.
 ```
 
@@ -3010,7 +3070,7 @@ Stop at the gate and write docs/sessions/B13-hardening-deploy.md.
 From 2026-11-17 the remaining phases before B12 run in two lanes at once, each in its own worktree and branch.
 
 - **Lane A:** the rest of B9b (B09b continued to B09b continued 4, and any split of them), then B09c.
-- **Lane B:** B08 continued 2d, then B09u, then B10, then B11 (and any split of them). B08 continued 2d moves into lane B because
+- **Lane B:** B08 continued 2d, then B09u, then B10, then B10 continued, then B11 (and any split of them). B08 continued 2d moves into lane B because
   B10 reads its report and it needs only PAY's payments (B9a) and WHL, which lane B opens.
 - **B12, then B13, start only when both lanes have merged.** B09r still waits for the owner's real files.
 
