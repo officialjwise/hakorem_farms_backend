@@ -31,6 +31,16 @@ export class PgBankAccountStore implements BankAccountStore {
     return rows;
   }
 
+  async walletOf(tx: Transaction, branchId: string): Promise<BankAccountRow | null> {
+    const { rows } = await tx.query<BankAccountRow>(
+      `SELECT ${COLUMNS} FROM fin.bank_account b JOIN fin.account a ON a.id = b.gl_account_id
+        WHERE b.kind = 'MOBILE_MONEY' AND b.is_active AND b.deleted_at IS NULL AND (b.branch_id = $1 OR b.branch_id IS NULL)
+        ORDER BY (b.branch_id IS NULL), b.created_at, b.id LIMIT 1`,
+      [branchId],
+    );
+    return rows[0] ?? null;
+  }
+
   async nameTaken(tx: Transaction, name: string, exceptId: string | null): Promise<boolean> {
     const { rows } = await tx.query('SELECT 1 FROM fin.bank_account WHERE lower(btrim(name)) = lower(btrim($1)) AND deleted_at IS NULL AND id IS DISTINCT FROM $2', [name, exceptId]);
     return rows.length > 0;
