@@ -9798,6 +9798,74 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
   "/customers/{id}/price-list":
+    get:
+      operationId: getCustomerPriceList
+      tags:
+        - mdm
+      summary: "The price lists a buyer holds, now and later"
+      description: "The buyer's price list assignments in force now or starting later, oldest first (CR-041, 2.11.0): what `assignCustomerPriceList` wrote, each with its window `[validFrom, validTo)`. An ended or replaced assignment is not listed. A customer that is not live is 404.\n\nPermission: `mdm.customer.read`."
+      x-permission: mdm.customer.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - staffSession: []
+        - apiKey: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriceListAssignmentList"
+              examples:
+                default:
+                  value:
+                    data:
+                      - customerId: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+                        priceList:
+                          id: "019a7a8d-2a51-7c10-b1f2-0c5a3e9d7e41"
+                          code: ROYAL-PALM-2026
+                          name: "Royal Palm Hotel, 2026"
+                        validFrom: "2026-11-01T00:00:00Z"
+                        validTo: "2026-12-01T00:00:00Z"
+                      - customerId: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+                        priceList:
+                          id: "019a7a8d-4b62-7d21-82a3-1d6b4f0e8f52"
+                          code: ROYAL-PALM-2027
+                          name: "Royal Palm Hotel, from December"
+                        validFrom: "2026-12-01T00:00:00Z"
+                        validTo: null
+                empty:
+                  summary: "The buyer holds no price list of its own"
+                  value:
+                    data: []
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
     put:
       operationId: assignCustomerPriceList
       tags:
@@ -12242,6 +12310,7 @@ paths:
                         quoteOnly: false
                         minQty: "0.000"
                         minQtyBase: "0.000"
+                        baseUom: HEAD
                         uom: HEAD
                         currency: GHS
                       - id: "019a7aa6-16be-73ad-a8e5-43a9087fbc86"
@@ -12265,6 +12334,7 @@ paths:
                         quoteOnly: false
                         minQty: "0.000"
                         minQtyBase: "0.000"
+                        baseUom: HEAD
                         uom: HEAD
                         currency: GHS
                       - id: "019a7aa6-35ad-7d90-b2c9-e1e082305abe"
@@ -12285,6 +12355,7 @@ paths:
                         quoteOnly: false
                         minQty: "0.000"
                         minQtyBase: "0.000"
+                        baseUom: HEAD
                         uom: HEAD
                         currency: GHS
                       - id: "019a7aa6-549c-7774-8cac-8017fbe1f8f5"
@@ -12305,6 +12376,7 @@ paths:
                         quoteOnly: false
                         minQty: "0.000"
                         minQtyBase: "0.000"
+                        baseUom: HEAD
                         uom: HEAD
                         currency: GHS
                       - id: "019a7aa6-738b-7157-9690-1e4f7592972d"
@@ -12321,6 +12393,7 @@ paths:
                         quoteOnly: false
                         minQty: "0.000"
                         minQtyBase: "0.000"
+                        baseUom: KG
                         uom: KG
                         currency: GHS
                       - id: "019a7aa6-927a-7b3b-a073-bc86ef433564"
@@ -12337,6 +12410,7 @@ paths:
                         quoteOnly: false
                         minQty: "0.000"
                         minQtyBase: "0.000"
+                        baseUom: EGG
                         uom: CRATE
                         currency: GHS
                       - id: "019a7aa6-b169-751e-ba57-5abe68f4d39c"
@@ -12353,6 +12427,7 @@ paths:
                         quoteOnly: false
                         minQty: "0.000"
                         minQtyBase: "0.000"
+                        baseUom: KG
                         uom: KG
                         currency: GHS
                       - id: "019a7aa6-d058-7f02-843a-f8f5e2a571d3"
@@ -12369,6 +12444,7 @@ paths:
                         quoteOnly: true
                         minQty: "0.000"
                         minQtyBase: "0.000"
+                        baseUom: HEAD
                         uom: HEAD
                         currency: GHS
                     page:
@@ -12397,6 +12473,7 @@ paths:
                         quoteOnly: false
                         minQty: "0.000"
                         minQtyBase: "0.000"
+                        baseUom: HEAD
                         uom: HEAD
                         currency: GHS
                       - id: "019a7ab0-1a02-7c3e-9d11-4b2f6e8a1002"
@@ -12420,6 +12497,7 @@ paths:
                         quoteOnly: false
                         minQty: "0.000"
                         minQtyBase: "0.000"
+                        baseUom: HEAD
                         uom: HEAD
                         currency: GHS
                       - id: "019a7ab0-1a03-7c3e-9d11-4b2f6e8a1003"
@@ -12440,6 +12518,7 @@ paths:
                         quoteOnly: false
                         minQty: "0.000"
                         minQtyBase: "0.000"
+                        baseUom: HEAD
                         uom: HEAD
                         currency: GHS
                       - id: "019a7ab0-1a04-7c3e-9d11-4b2f6e8a1004"
@@ -12463,6 +12542,7 @@ paths:
                         quoteOnly: false
                         minQty: "0.000"
                         minQtyBase: "0.000"
+                        baseUom: HEAD
                         uom: HEAD
                         currency: GHS
                       - id: "019a7ab0-1a05-7c3e-9d11-4b2f6e8a1005"
@@ -12483,6 +12563,7 @@ paths:
                         quoteOnly: false
                         minQty: "0.000"
                         minQtyBase: "0.000"
+                        baseUom: HEAD
                         uom: HEAD
                         currency: GHS
                       - id: "019a7ab0-1a06-7c3e-9d11-4b2f6e8a1006"
@@ -12499,6 +12580,7 @@ paths:
                         quoteOnly: false
                         minQty: "0.000"
                         minQtyBase: "0.000"
+                        baseUom: KG
                         uom: KG
                         currency: GHS
                       - id: "019a7ab0-1a07-7c3e-9d11-4b2f6e8a1007"
@@ -12515,6 +12597,7 @@ paths:
                         quoteOnly: false
                         minQty: "0.000"
                         minQtyBase: "0.000"
+                        baseUom: EGG
                         uom: CRATE
                         currency: GHS
                       - id: "019a7ab0-1a08-7c3e-9d11-4b2f6e8a1008"
@@ -12531,6 +12614,7 @@ paths:
                         quoteOnly: false
                         minQty: "0.000"
                         minQtyBase: "0.000"
+                        baseUom: KG
                         uom: KG
                         currency: GHS
                     page:
@@ -59521,13 +59605,17 @@ paths:
       tags:
         - quo
       summary: "Ask for a quote from the storefront"
-      description: "Rate-limited by address and phone number."
+      description: "The storefront's request for a quote (FR-QUO-001): no session; answered 202 with the request's number only. Rate limited to five an hour from one address and five from one phone number, failing closed (the sixth is 429). A quantity is given with its unit, both or neither, and only with `productId`; the unit must be one the product is sold by (its base unit, or a unit with an exact conversion: a crate or a single egg), else 422 `RFQ_INVALID` `UOM_NOT_SOLD` or `INEXACT_QUANTITY`; an inactive product is `PRODUCT_NOT_ACTIVE` (B10, item 4). The text is stored as given and every screen shows it escaped. A request naming a product is `REQUEST_TO_BUY`, any other `PUBLIC_FORM`; it is linked to the live customer who holds the number, and belongs to the head office branch (A-309)."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - ORIGIN_NOT_ALLOWED
+        - RATE_LIMITED
+        - RFQ_INVALID
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfTokenOptional"
-      security:
-        - {}
-        - customerSession: []
+      security: []
       requestBody:
         required: true
         content:
@@ -59537,9 +59625,9 @@ paths:
             example:
               contactName: "Emmanuel Tetteh"
               contactPhone: "+233268114590"
-              requirements: "Twenty goats of about 25 kg each for a funeral on 12 December in Kasoa. Delivery needed on the 11th."
+              requirements: "Twenty goats of about 25 kg each for a funeral on 12 December in Prampram. Delivery needed on the 11th."
               neededBy: "2026-12-11"
-              deliveryArea: Kasoa
+              deliveryArea: Prampram
               consentToContact: true
       responses:
         "202":
@@ -59574,6 +59662,12 @@ paths:
       tags:
         - quo
       summary: "View a quote by its signed link"
+      description: "The quote by its acceptance link (FR-QUO-008, CR-047): the token is the only key, `quo_` and 256 random bits, stored only as its SHA-256 (ADR-0074). The live version's token answers it with `status` `ISSUED`; once accepted or declined the same token answers `ACCEPTED` or `DECLINED`. A link that no longer opens the quote answers its state only, with nothing of the quote: 422 `QUOTE_LINK_CLOSED`, `details[0].code` `EXPIRED` (past the validity), `REPLACED` (a newer version was issued) or `WITHDRAWN` (the farm withdrew the quote). Anything else, a guessed or altered token, the quote's id or number, is 404. Never a cost, a floor or a margin."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - NOT_FOUND
+        - QUOTE_LINK_CLOSED
+        - RATE_LIMITED
       parameters:
         - name: token
           in: path
@@ -59610,12 +59704,14 @@ paths:
                 grossPesewas: 1717200
                 currency: GHS
                 terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
-                deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
+                deliveryEstimate: "Delivered to Prampram on 11 December, morning"
                 documentUrl: "https://files.hakoremfarms.com/private/quote-88-v2.pdf?X-Amz-Expires=300"
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/BusinessRuleViolation"
         "429":
           $ref: "#/components/responses/RateLimited"
         "500":
@@ -59626,7 +59722,16 @@ paths:
       tags:
         - quo
       summary: "Accept a quote by its signed link"
-      description: "Single use. An expired or superseded version cannot be accepted."
+      description: "Accepts the live version by its token, once (FR-QUO-008, CR-047): records the name given, the time and the address and user agent of the request. A second use is 409 `QUOTE_ALREADY_DECIDED` (also after a decline); a token whose version was replaced, has expired or was withdrawn is 422 `QUOTE_LINK_CLOSED` with its state; anything else 404. Accepted, the quote's hold on stock lasts until it is converted or withdrawn (A-310)."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - ORIGIN_NOT_ALLOWED
+        - RATE_LIMITED
+        - NOT_FOUND
+        - QUOTE_ALREADY_DECIDED
+        - QUOTE_LINK_CLOSED
       parameters:
         - name: token
           in: path
@@ -59676,6 +59781,16 @@ paths:
       tags:
         - quo
       summary: "Decline a quote by its signed link"
+      description: "Declines the live version by its token (FR-QUO-009), with a reason or none; the quote's hold on stock is released. A second use is 409 `QUOTE_ALREADY_DECIDED`; a closed link 422 `QUOTE_LINK_CLOSED`; anything else 404."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - ORIGIN_NOT_ALLOWED
+        - RATE_LIMITED
+        - NOT_FOUND
+        - QUOTE_ALREADY_DECIDED
+        - QUOTE_LINK_CLOSED
       parameters:
         - name: token
           in: path
@@ -59691,7 +59806,7 @@ paths:
             schema:
               $ref: "#/components/schemas/QuoteDeclineByLink"
             example:
-              reason: "Found goats closer to Kasoa"
+              reason: "Found goats closer to Prampram"
       responses:
         "200":
           description: OK
@@ -59725,8 +59840,14 @@ paths:
       tags:
         - quo
       summary: "List requests for quote"
-      description: "Permission: `quo.rfq.read`."
+      description: "The requests for quote at the branches the caller reads whole, newest first.\n\nPermission: `quo.rfq.read`."
       x-permission: quo.rfq.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: status
           in: query
@@ -59782,11 +59903,11 @@ paths:
                         contactName: "Emmanuel Tetteh"
                         contactPhone: "+233268114590"
                         contactEmail: null
-                        requirements: "Twenty goats of about 25 kg each for a funeral on 12 December in Kasoa"
+                        requirements: "Twenty goats of about 25 kg each for a funeral on 12 December in Prampram"
                         product: null
                         stockUnit: null
                         neededBy: "2026-12-11"
-                        deliveryArea: Kasoa
+                        deliveryArea: Prampram
                         assignedTo:
                           id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
                           displayName: "Kojo Antwi"
@@ -59794,6 +59915,8 @@ paths:
                           - "019a7a95-a7c6-72d5-a80e-36306277af0e"
                         createdAt: "2026-11-13T08:00:00Z"
                         branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                        quantity: null
+                        uom: null
                       - id: "019a7a95-c6b5-7cb9-b1f1-d467dc284d45"
                         rfqNo: RFQ-2026-DDW-000153
                         source: REQUEST_TO_BUY
@@ -59819,6 +59942,8 @@ paths:
                         quoteIds: []
                         createdAt: "2026-11-12T08:00:00Z"
                         branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                        quantity: null
+                        uom: null
                       - id: "019a7aff-43bc-756c-8aa4-5f95d8c1d873"
                         rfqNo: RFQ-2026-DDW-000152
                         source: WHATSAPP
@@ -59838,6 +59963,8 @@ paths:
                         quoteIds: []
                         createdAt: "2026-11-11T08:00:00Z"
                         branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                        quantity: null
+                        uom: null
                       - id: "019a7aff-62ab-7f4f-9488-fdcd527276ab"
                         rfqNo: RFQ-2026-DDW-000151
                         source: PHONE
@@ -59861,6 +59988,8 @@ paths:
                           - "019a7aff-819a-7933-ae6b-9c04cc2314e2"
                         createdAt: "2026-11-10T08:00:00Z"
                         branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                        quantity: null
+                        uom: null
                       - id: "019a7aff-a089-7316-b84e-3a3c45d4b31a"
                         rfqNo: RFQ-2026-DDW-000150
                         source: COUNTER
@@ -59880,6 +60009,8 @@ paths:
                         quoteIds: []
                         createdAt: "2026-11-09T08:00:00Z"
                         branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                        quantity: null
+                        uom: null
                       - id: "019a7aff-bf78-7cfa-8232-d873bf855151"
                         rfqNo: RFQ-2026-DDW-000149
                         source: PUBLIC_FORM
@@ -59897,6 +60028,8 @@ paths:
                         quoteIds: []
                         createdAt: "2026-11-08T08:00:00Z"
                         branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                        quantity: null
+                        uom: null
                     page:
                       nextCursor: eyJpZCI6IjAxOWE3YyJ9
                       limit: 25
@@ -59924,8 +60057,19 @@ paths:
       tags:
         - quo
       summary: "Log a request taken by phone, WhatsApp or at the counter"
-      description: "Permission: `quo.rfq.create`."
+      description: "A request taken by phone, WhatsApp, at the counter or with a wholesale order (FR-QUO-002), at the one branch the caller logs requests for (else 422 `RFQ_INVALID` `BRANCH_REQUIRED`), linked to the customer named or, without one, to the live customer who holds the number. A quantity names its unit, as `submitQuoteRequest` checks it.\n\nPermission: `quo.rfq.create`."
       x-permission: quo.rfq.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - RFQ_INVALID
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -59975,6 +60119,8 @@ paths:
                 quoteIds: []
                 createdAt: "2026-11-11T08:00:00Z"
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                quantity: null
+                uom: null
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -59995,8 +60141,15 @@ paths:
       tags:
         - quo
       summary: "Get a request for quote"
-      description: "Permission: `quo.rfq.read`."
+      description: "A request for quote at the caller's branch, with the quotes made from it.\n\nPermission: `quo.rfq.read`."
       x-permission: quo.rfq.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
+        - NOT_FOUND
       parameters:
         - name: id
           in: path
@@ -60029,11 +60182,11 @@ paths:
                 contactName: "Emmanuel Tetteh"
                 contactPhone: "+233268114590"
                 contactEmail: null
-                requirements: "Twenty goats of about 25 kg each for a funeral on 12 December in Kasoa"
+                requirements: "Twenty goats of about 25 kg each for a funeral on 12 December in Prampram"
                 product: null
                 stockUnit: null
                 neededBy: "2026-12-11"
-                deliveryArea: Kasoa
+                deliveryArea: Prampram
                 assignedTo:
                   id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
                   displayName: "Kojo Antwi"
@@ -60041,6 +60194,8 @@ paths:
                   - "019a7a95-a7c6-72d5-a80e-36306277af0e"
                 createdAt: "2026-11-13T08:00:00Z"
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                quantity: null
+                uom: null
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -60058,8 +60213,21 @@ paths:
       tags:
         - quo
       summary: "Assign, link to a customer, close or mark as spam"
-      description: "Permission: `quo.rfq.update`."
+      description: "Assigns a request, links it to a customer (422 `RFQ_INVALID` `CUSTOMER_NOT_ACTIVE`, `ASSIGNEE_UNKNOWN`) or moves it on: `NEW` to `IN_PROGRESS`, `QUOTED`, `CLOSED` or `SPAM`; `IN_PROGRESS` to `QUOTED`, `CLOSED` or `SPAM`; `QUOTED` to `CLOSED` (the database holds the edges).\n\nPermission: `quo.rfq.update`."
       x-permission: quo.rfq.update
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - NOT_FOUND
+        - RFQ_INVALID
+        - INVALID_STATE_TRANSITION
       parameters:
         - name: id
           in: path
@@ -60102,11 +60270,11 @@ paths:
                 contactName: "Emmanuel Tetteh"
                 contactPhone: "+233268114590"
                 contactEmail: null
-                requirements: "Twenty goats of about 25 kg each for a funeral on 12 December in Kasoa"
+                requirements: "Twenty goats of about 25 kg each for a funeral on 12 December in Prampram"
                 product: null
                 stockUnit: null
                 neededBy: "2026-12-11"
-                deliveryArea: Kasoa
+                deliveryArea: Prampram
                 assignedTo:
                   id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
                   displayName: "Kojo Antwi"
@@ -60114,6 +60282,8 @@ paths:
                   - "019a7a95-a7c6-72d5-a80e-36306277af0e"
                 createdAt: "2026-11-13T08:00:00Z"
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                quantity: null
+                uom: null
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -60136,8 +60306,14 @@ paths:
       tags:
         - quo
       summary: "List quotes"
-      description: "Permission: `quo.quote.read`."
+      description: "The quotes at the branches the caller reads whole, newest first, each with its newest version.\n\nPermission: `quo.quote.read`."
       x-permission: quo.quote.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: status
           in: query
@@ -60215,7 +60391,7 @@ paths:
                           status: ISSUED
                           validUntil: "2026-11-20T18:00:00Z"
                           terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
-                          deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
+                          deliveryEstimate: "Delivered to Prampram on 11 December, morning"
                           deliveryFeePesewas: 6000
                           taxInclusive: false
                           netPesewas: 1716000
@@ -60253,9 +60429,16 @@ paths:
                               unitPricePesewas: 95000
                               lineNetPesewas: 1710000
                               estimatedUnitCostPesewas: 66000
+                              baseQuantity: "18.000"
                           acceptance: null
                           documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
                           currency: GHS
+                          createdBy:
+                            id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+                            displayName: "Esi Appiah"
+                          createdAt: "2026-11-13T15:00:00Z"
+                          version: 1
+                          acceptanceLinkToken: null
                         versionCount: 2
                         acceptedVersionId: null
                         convertedOrder: null
@@ -60283,7 +60466,7 @@ paths:
                           status: ACCEPTED
                           validUntil: "2026-11-20T18:00:00Z"
                           terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
-                          deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
+                          deliveryEstimate: "Delivered to Prampram on 11 December, morning"
                           deliveryFeePesewas: 0
                           taxInclusive: false
                           netPesewas: 1185000
@@ -60302,6 +60485,12 @@ paths:
                           acceptance: null
                           documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
                           currency: GHS
+                          createdBy:
+                            id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+                            displayName: "Esi Appiah"
+                          createdAt: "2026-11-13T15:00:00Z"
+                          version: 1
+                          acceptanceLinkToken: null
                         versionCount: 1
                         acceptedVersionId: "019a7b00-3b34-7488-89c0-5151a649ca2f"
                         convertedOrder:
@@ -60332,7 +60521,7 @@ paths:
                           status: ACCEPTED
                           validUntil: "2026-11-20T18:00:00Z"
                           terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
-                          deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
+                          deliveryEstimate: "Delivered to Prampram on 11 December, morning"
                           deliveryFeePesewas: 0
                           taxInclusive: false
                           netPesewas: 642000
@@ -60351,6 +60540,12 @@ paths:
                           acceptance: null
                           documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
                           currency: GHS
+                          createdBy:
+                            id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+                            displayName: "Esi Appiah"
+                          createdAt: "2026-11-13T15:00:00Z"
+                          version: 1
+                          acceptanceLinkToken: null
                         versionCount: 1
                         acceptedVersionId: "019a7b00-7912-784e-ad87-8dc099ab069e"
                         convertedOrder: null
@@ -60378,7 +60573,7 @@ paths:
                           status: ISSUED
                           validUntil: "2026-11-20T18:00:00Z"
                           terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
-                          deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
+                          deliveryEstimate: "Delivered to Prampram on 11 December, morning"
                           deliveryFeePesewas: 0
                           taxInclusive: false
                           netPesewas: 285000
@@ -60397,10 +60592,16 @@ paths:
                           acceptance: null
                           documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
                           currency: GHS
+                          createdBy:
+                            id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+                            displayName: "Esi Appiah"
+                          createdAt: "2026-11-13T15:00:00Z"
+                          version: 1
+                          acceptanceLinkToken: null
                         versionCount: 1
                         acceptedVersionId: null
                         convertedOrder: null
-                        declineReason: "Found goats closer to Kasoa"
+                        declineReason: "Found goats closer to Prampram"
                         branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                         version: 4
                         createdAt: "2026-11-08T10:00:00Z"
@@ -60424,7 +60625,7 @@ paths:
                           status: ISSUED
                           validUntil: "2026-11-20T18:00:00Z"
                           terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
-                          deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
+                          deliveryEstimate: "Delivered to Prampram on 11 December, morning"
                           deliveryFeePesewas: 0
                           taxInclusive: false
                           netPesewas: 228000
@@ -60443,6 +60644,12 @@ paths:
                           acceptance: null
                           documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
                           currency: GHS
+                          createdBy:
+                            id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+                            displayName: "Esi Appiah"
+                          createdAt: "2026-11-13T15:00:00Z"
+                          version: 1
+                          acceptanceLinkToken: null
                         versionCount: 1
                         acceptedVersionId: null
                         convertedOrder: null
@@ -60470,7 +60677,7 @@ paths:
                           status: DRAFT
                           validUntil: "2026-11-20T18:00:00Z"
                           terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
-                          deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
+                          deliveryEstimate: "Delivered to Prampram on 11 December, morning"
                           deliveryFeePesewas: 0
                           taxInclusive: false
                           netPesewas: 380000
@@ -60489,6 +60696,12 @@ paths:
                           acceptance: null
                           documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
                           currency: GHS
+                          createdBy:
+                            id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+                            displayName: "Esi Appiah"
+                          createdAt: "2026-11-13T15:00:00Z"
+                          version: 1
+                          acceptanceLinkToken: null
                         versionCount: 1
                         acceptedVersionId: null
                         convertedOrder: null
@@ -60523,8 +60736,19 @@ paths:
       tags:
         - quo
       summary: "Draft a quote"
-      description: "Permission: `quo.quote.create`."
+      description: "Drafts a quote (FR-QUO-003) at the one branch the caller drafts quotes for, or its request's branch (422 `QUOTE_INVALID` `BRANCH_REQUIRED`), numbered now (`QUO-2026-DDW-000088`, kept by every version); version 1 is a `DRAFT`. Each line is priced by the salesperson (`unitPricePesewas`) and extended once, half-up; a product line is in its own unit (CR-045 as the owner worded it: a crate or a single egg, `uom`, never derived from another unit's price), converted to the base unit exactly (`NO_CONVERSION`, `INEXACT_QUANTITY`), and the engine's price for that unit is kept beside it (`resolvedUnitPricePesewas`). The cost is estimated from the cost pools of the named animal or of the product's live stock at the branch, and the margin over cost is (net less cost) over cost. A free-text line (no product) has no cost. Other refusals: `CUSTOMER_NOT_ACTIVE`, `RFQ_UNKNOWN`, `RFQ_CLOSED`, `PRODUCT_NOT_ACTIVE`, `STOCK_UNIT_OTHER_PRODUCT`, `STOCK_UNIT_NOT_AVAILABLE`, `ONE_ANIMAL_PER_LINE`, `PRICE_BASIS_MISMATCH`, `VALIDITY_PASSED`. A request it is made from becomes `QUOTED`.\n\nPermission: `quo.quote.create`."
       x-permission: quo.quote.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - QUOTE_INVALID
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -60544,7 +60768,7 @@ paths:
               contactPhone: "+233268114590"
               validUntil: "2026-11-17T18:00:00Z"
               terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
-              deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
+              deliveryEstimate: "Delivered to Prampram on 11 December, morning"
               deliveryFeePesewas: 6000
               taxInclusive: false
               lines:
@@ -60585,7 +60809,7 @@ paths:
                   status: DRAFT
                   validUntil: "2026-11-20T18:00:00Z"
                   terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
-                  deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
+                  deliveryEstimate: "Delivered to Prampram on 11 December, morning"
                   deliveryFeePesewas: 0
                   taxInclusive: false
                   netPesewas: 380000
@@ -60604,6 +60828,12 @@ paths:
                   acceptance: null
                   documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
                   currency: GHS
+                  createdBy:
+                    id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+                    displayName: "Esi Appiah"
+                  createdAt: "2026-11-13T15:00:00Z"
+                  version: 1
+                  acceptanceLinkToken: null
                 versionCount: 1
                 acceptedVersionId: null
                 convertedOrder: null
@@ -60631,8 +60861,15 @@ paths:
       tags:
         - quo
       summary: "Get a quote with its current version"
-      description: "Permission: `quo.quote.read`."
+      description: "A quote with its newest version (`currentVersion`), at the quote's branch.\n\nPermission: `quo.quote.read`."
       x-permission: quo.quote.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
+        - NOT_FOUND
       parameters:
         - name: id
           in: path
@@ -60674,7 +60911,7 @@ paths:
                   status: ISSUED
                   validUntil: "2026-11-20T18:00:00Z"
                   terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
-                  deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
+                  deliveryEstimate: "Delivered to Prampram on 11 December, morning"
                   deliveryFeePesewas: 6000
                   taxInclusive: false
                   netPesewas: 1716000
@@ -60712,9 +60949,16 @@ paths:
                       unitPricePesewas: 95000
                       lineNetPesewas: 1710000
                       estimatedUnitCostPesewas: 66000
+                      baseQuantity: "18.000"
                   acceptance: null
                   documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
                   currency: GHS
+                  createdBy:
+                    id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+                    displayName: "Esi Appiah"
+                  createdAt: "2026-11-13T15:00:00Z"
+                  version: 1
+                  acceptanceLinkToken: null
                 versionCount: 2
                 acceptedVersionId: null
                 convertedOrder: null
@@ -60740,8 +60984,15 @@ paths:
       tags:
         - quo
       summary: "List every version of a quote"
-      description: "Issued versions are immutable: the full revision history.\n\nPermission: `quo.quote.read`."
+      description: "Every version of a quote, newest first, each with its author (`createdBy`), time and totals (FR-QUO-006). An issued version never changes; the database refuses it.\n\nPermission: `quo.quote.read`."
       x-permission: quo.quote.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
+        - NOT_FOUND
       parameters:
         - name: id
           in: path
@@ -60781,7 +61032,7 @@ paths:
                         status: ISSUED
                         validUntil: "2026-11-20T18:00:00Z"
                         terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
-                        deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
+                        deliveryEstimate: "Delivered to Prampram on 11 December, morning"
                         deliveryFeePesewas: 6000
                         taxInclusive: false
                         netPesewas: 1716000
@@ -60819,15 +61070,22 @@ paths:
                             unitPricePesewas: 95000
                             lineNetPesewas: 1710000
                             estimatedUnitCostPesewas: 66000
+                            baseQuantity: "18.000"
                         acceptance: null
                         documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
                         currency: GHS
+                        createdBy:
+                          id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+                          displayName: "Esi Appiah"
+                        createdAt: "2026-11-13T15:00:00Z"
+                        version: 1
+                        acceptanceLinkToken: null
                       - id: "019a7b01-708a-776a-aca2-7f7c6733f85a"
                         versionNo: 4
                         status: SUPERSEDED
                         validUntil: "2026-11-17T18:00:00Z"
                         terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
-                        deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
+                        deliveryEstimate: "Delivered to Prampram on 11 December, morning"
                         deliveryFeePesewas: 6000
                         taxInclusive: false
                         netPesewas: 1906000
@@ -60865,15 +61123,22 @@ paths:
                             unitPricePesewas: 95000
                             lineNetPesewas: 1900000
                             estimatedUnitCostPesewas: 66000
+                            baseQuantity: "20.000"
                         acceptance: null
                         documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
                         currency: GHS
+                        createdBy:
+                          id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+                          displayName: "Esi Appiah"
+                        createdAt: "2026-11-11T15:00:00Z"
+                        version: 1
+                        acceptanceLinkToken: null
                       - id: "019a7b01-8f79-714e-b686-1db3e0e49691"
                         versionNo: 3
                         status: SUPERSEDED
                         validUntil: "2026-11-20T18:00:00Z"
                         terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
-                        deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
+                        deliveryEstimate: "Delivered to Prampram on 11 December, morning"
                         deliveryFeePesewas: 6000
                         taxInclusive: false
                         netPesewas: 1716000
@@ -60911,15 +61176,22 @@ paths:
                             unitPricePesewas: 95000
                             lineNetPesewas: 1710000
                             estimatedUnitCostPesewas: 66000
+                            baseQuantity: "18.000"
                         acceptance: null
                         documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
                         currency: GHS
+                        createdBy:
+                          id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+                          displayName: "Esi Appiah"
+                        createdAt: "2026-11-13T15:00:00Z"
+                        version: 1
+                        acceptanceLinkToken: null
                       - id: "019a7b01-ae68-7b31-8069-bbeb5a9534c9"
                         versionNo: 2
                         status: SUPERSEDED
                         validUntil: "2026-11-17T18:00:00Z"
                         terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
-                        deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
+                        deliveryEstimate: "Delivered to Prampram on 11 December, morning"
                         deliveryFeePesewas: 6000
                         taxInclusive: false
                         netPesewas: 1906000
@@ -60957,15 +61229,22 @@ paths:
                             unitPricePesewas: 95000
                             lineNetPesewas: 1900000
                             estimatedUnitCostPesewas: 66000
+                            baseQuantity: "20.000"
                         acceptance: null
                         documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
                         currency: GHS
+                        createdBy:
+                          id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+                          displayName: "Esi Appiah"
+                        createdAt: "2026-11-11T15:00:00Z"
+                        version: 1
+                        acceptanceLinkToken: null
                       - id: "019a7b01-cd57-7515-9a4d-5a22d446d300"
                         versionNo: 1
                         status: SUPERSEDED
                         validUntil: "2026-11-20T18:00:00Z"
                         terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
-                        deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
+                        deliveryEstimate: "Delivered to Prampram on 11 December, morning"
                         deliveryFeePesewas: 6000
                         taxInclusive: false
                         netPesewas: 1716000
@@ -61003,9 +61282,16 @@ paths:
                             unitPricePesewas: 95000
                             lineNetPesewas: 1710000
                             estimatedUnitCostPesewas: 66000
+                            baseQuantity: "18.000"
                         acceptance: null
                         documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
                         currency: GHS
+                        createdBy:
+                          id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+                          displayName: "Esi Appiah"
+                        createdAt: "2026-11-13T15:00:00Z"
+                        version: 1
+                        acceptanceLinkToken: null
                     page:
                       nextCursor: null
                       limit: 25
@@ -61035,8 +61321,21 @@ paths:
       tags:
         - quo
       summary: "Start a new version of a quote"
-      description: "Permission: `quo.quote.create`."
+      description: "Starts a new `DRAFT` version of an issued quote (FR-QUO-006), copied from the live version or `copyFromVersionId` and priced again, with its change note. The live version stays live until the new one is issued. Only an `ISSUED` quote (else 422 `INVALID_STATE_TRANSITION`), and not while a draft or a version waiting for approval exists (`QUOTE_INVALID` `VERSION_OPEN`).\n\nPermission: `quo.quote.create`."
       x-permission: quo.quote.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - QUOTE_INVALID
       parameters:
         - name: id
           in: path
@@ -61074,7 +61373,7 @@ paths:
                 status: DRAFT
                 validUntil: "2026-11-20T18:00:00Z"
                 terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
-                deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
+                deliveryEstimate: "Delivered to Prampram on 11 December, morning"
                 deliveryFeePesewas: 6000
                 taxInclusive: false
                 netPesewas: 1716000
@@ -61110,9 +61409,16 @@ paths:
                     unitPricePesewas: 95000
                     lineNetPesewas: 1710000
                     estimatedUnitCostPesewas: 66000
+                    baseQuantity: "18.000"
                 acceptance: null
                 documentId: null
                 currency: GHS
+                createdBy:
+                  id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+                  displayName: "Esi Appiah"
+                createdAt: "2026-11-13T09:10:00Z"
+                version: 1
+                acceptanceLinkToken: null
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -61135,8 +61441,22 @@ paths:
       tags:
         - quo
       summary: "Edit a draft quote version"
-      description: "Permission: `quo.quote.create`."
+      description: "Edits a `DRAFT` version at its `version` (else 409 `VERSION_CONFLICT`): validity, terms, delivery estimate and fee, and its lines, priced as `createQuote` prices them. Any other version is 422 `INVALID_STATE_TRANSITION`: an issued version never changes, a change is a new version.\n\nPermission: `quo.quote.create`."
       x-permission: quo.quote.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - INVALID_STATE_TRANSITION
+        - QUOTE_INVALID
       parameters:
         - name: id
           in: path
@@ -61180,7 +61500,7 @@ paths:
                 status: ISSUED
                 validUntil: "2026-11-20T18:00:00Z"
                 terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
-                deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
+                deliveryEstimate: "Delivered to Prampram on 11 December, morning"
                 deliveryFeePesewas: 6000
                 taxInclusive: false
                 netPesewas: 1716000
@@ -61218,9 +61538,16 @@ paths:
                     unitPricePesewas: 95000
                     lineNetPesewas: 1710000
                     estimatedUnitCostPesewas: 66000
+                    baseQuantity: "18.000"
                 acceptance: null
                 documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
                 currency: GHS
+                createdBy:
+                  id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+                  displayName: "Esi Appiah"
+                createdAt: "2026-11-13T15:00:00Z"
+                version: 1
+                acceptanceLinkToken: null
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -61243,8 +61570,21 @@ paths:
       tags:
         - quo
       summary: "Issue a quote version and send the acceptance link"
-      description: "A version below the margin floor needs approval by a different user first. Issuing supersedes earlier versions and archives the PDF.\n\nPermission: `quo.quote.issue`.\n\nMay require approval of kind `QUOTE_BELOW_MARGIN`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+      description: "Issues a draft (FR-QUO-004, FR-QUO-005, FR-QUO-007, FR-QUO-012), priced and judged again as things are now. Below the margin floor over cost (seed 10 percent, compared exactly: 264,000 over a cost of 240,000 is at the floor; 263,996 is below it), with any line below the engine's floor, or with a cost unknown, it waits: 202 `ApprovalPending` of kind `QUOTE_BELOW_MARGIN`, decided by a holder of `quo.quote_margin.approve` with step-up who is neither the version's author (`QUOTE_AUTHOR_CANNOT_APPROVE`) nor the person who asked (`MAKER_CANNOT_CHECK`); approved, the version is issued as below, and the database refuses an issued version below the floor without that approval. Otherwise every product line is reserved for the validity in the base unit, a named animal itself, lots oldest first (an unnamed animal is chosen at conversion); stock not there is 422 `QUOTE_INVALID` `STOCK_SHORT` and nothing is held. The live version, if any, is superseded and its hold released, and `quo.QuoteIssued` is queued once for the link to be sent (B11). The answer carries `acceptanceLinkToken`, made now; asking again for an issued version answers a fresh token and sends nothing again. Other refusals: `NO_LINES`, `LINE_NOT_PRICED`, `VALIDITY_PASSED`.\n\nPermission: `quo.quote.issue`."
       x-permission: quo.quote.issue
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - QUOTE_INVALID
       parameters:
         - name: id
           in: path
@@ -61283,7 +61623,7 @@ paths:
                 status: ISSUED
                 validUntil: "2026-11-20T18:00:00Z"
                 terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
-                deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
+                deliveryEstimate: "Delivered to Prampram on 11 December, morning"
                 deliveryFeePesewas: 6000
                 taxInclusive: false
                 netPesewas: 1716000
@@ -61321,9 +61661,16 @@ paths:
                     unitPricePesewas: 95000
                     lineNetPesewas: 1710000
                     estimatedUnitCostPesewas: 66000
+                    baseQuantity: "18.000"
                 acceptance: null
                 documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
                 currency: GHS
+                createdBy:
+                  id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+                  displayName: "Esi Appiah"
+                createdAt: "2026-11-13T15:00:00Z"
+                version: 1
+                acceptanceLinkToken: null
         "202":
           description: "Accepted for approval. Nothing has taken effect yet."
           content:
@@ -61362,8 +61709,22 @@ paths:
       tags:
         - quo
       summary: "Record an acceptance given in person or by phone"
-      description: "Permission: `quo.quote.issue`."
+      description: "An acceptance given in person or by phone (FR-QUO-010), with the buyer's name and a note of the evidence, identical in effect to a link acceptance. Without a `note` it is 422 `QUOTE_INVALID` `NOTE_REQUIRED`. Refused as a link would be: 409 `QUOTE_ALREADY_DECIDED`, 422 `QUOTE_LINK_CLOSED` (`EXPIRED`, `REPLACED`, `WITHDRAWN`).\n\nPermission: `quo.quote.issue`."
       x-permission: quo.quote.issue
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - QUOTE_ALREADY_DECIDED
+        - QUOTE_LINK_CLOSED
       parameters:
         - name: id
           in: path
@@ -61385,6 +61746,7 @@ paths:
             example:
               method: PHONE_CONFIRMED
               acceptedName: "Emmanuel Tetteh"
+              note: "Confirmed by phone at 10:40; asked for delivery on the 11th"
       responses:
         "200":
           description: OK
@@ -61416,7 +61778,7 @@ paths:
                   status: ACCEPTED
                   validUntil: "2026-11-20T18:00:00Z"
                   terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
-                  deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
+                  deliveryEstimate: "Delivered to Prampram on 11 December, morning"
                   deliveryFeePesewas: 0
                   taxInclusive: false
                   netPesewas: 642000
@@ -61435,6 +61797,12 @@ paths:
                   acceptance: null
                   documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
                   currency: GHS
+                  createdBy:
+                    id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+                    displayName: "Esi Appiah"
+                  createdAt: "2026-11-13T15:00:00Z"
+                  version: 1
+                  acceptanceLinkToken: null
                 versionCount: 1
                 acceptedVersionId: "019a7b00-7912-784e-ad87-8dc099ab069e"
                 convertedOrder: null
@@ -61464,8 +61832,20 @@ paths:
       tags:
         - quo
       summary: "Record that the customer declined"
-      description: "Permission: `quo.quote.issue`."
+      description: "Records that the buyer declined an issued quote, with the reason; its hold on stock is released.\n\nPermission: `quo.quote.issue`."
       x-permission: quo.quote.issue
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
       parameters:
         - name: id
           in: path
@@ -61485,7 +61865,7 @@ paths:
             schema:
               $ref: "#/components/schemas/ReasonRequest"
             example:
-              reason: "Found goats closer to Kasoa"
+              reason: "Found goats closer to Prampram"
       responses:
         "200":
           description: OK
@@ -61517,7 +61897,7 @@ paths:
                   status: ISSUED
                   validUntil: "2026-11-20T18:00:00Z"
                   terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
-                  deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
+                  deliveryEstimate: "Delivered to Prampram on 11 December, morning"
                   deliveryFeePesewas: 0
                   taxInclusive: false
                   netPesewas: 285000
@@ -61536,10 +61916,16 @@ paths:
                   acceptance: null
                   documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
                   currency: GHS
+                  createdBy:
+                    id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+                    displayName: "Esi Appiah"
+                  createdAt: "2026-11-13T15:00:00Z"
+                  version: 1
+                  acceptanceLinkToken: null
                 versionCount: 1
                 acceptedVersionId: null
                 convertedOrder: null
-                declineReason: "Found goats closer to Kasoa"
+                declineReason: "Found goats closer to Prampram"
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                 version: 4
                 createdAt: "2026-11-08T10:00:00Z"
@@ -61565,8 +61951,20 @@ paths:
       tags:
         - quo
       summary: "Withdraw a quote"
-      description: "Permission: `quo.quote.issue`."
+      description: "Withdraws a quote not yet converted, with the reason: a version waiting for approval is withdrawn and the hold on stock released. Its links then answer `WITHDRAWN`.\n\nPermission: `quo.quote.issue`."
       x-permission: quo.quote.issue
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
       parameters:
         - name: id
           in: path
@@ -61618,7 +62016,7 @@ paths:
                   status: ISSUED
                   validUntil: "2026-11-20T18:00:00Z"
                   terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
-                  deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
+                  deliveryEstimate: "Delivered to Prampram on 11 December, morning"
                   deliveryFeePesewas: 6000
                   taxInclusive: false
                   netPesewas: 1716000
@@ -61656,9 +62054,16 @@ paths:
                       unitPricePesewas: 95000
                       lineNetPesewas: 1710000
                       estimatedUnitCostPesewas: 66000
+                      baseQuantity: "18.000"
                   acceptance: null
                   documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
                   currency: GHS
+                  createdBy:
+                    id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+                    displayName: "Esi Appiah"
+                  createdAt: "2026-11-13T15:00:00Z"
+                  version: 1
+                  acceptanceLinkToken: null
                 versionCount: 2
                 acceptedVersionId: null
                 convertedOrder: null
@@ -61688,8 +62093,23 @@ paths:
       tags:
         - quo
       summary: "Convert an accepted quote into an order"
-      description: "Exactly one order per quote. The order lines carry the quote line as their price source, and the invoice later carries the order, so every link is preserved.\n\nPermission: `quo.quote.convert`."
+      description: "Converts an accepted quote into exactly one order (FR-QUO-011): channel `QUOTE`, `PLACED`, the quote as its `source`, each line priced `QUOTE` at the quoted price with `quoteLineId` naming its quote line, nothing re-priced (A-310). A line of animals that names none takes `stockUnitIds`, one order line per head (`ANIMALS_REQUIRED`, `ANIMALS_NOT_ON_QUOTE`); a line with no product cannot be ordered (`LINE_WITHOUT_PRODUCT`). The quote's hold on stock passes to the order, and its confirmation counts it as promised. Converting again is 409 `QUOTE_ALREADY_CONVERTED`; a quote not accepted is 422 `INVALID_STATE_TRANSITION`. Delivery is B11's: `DELIVERY`, an address or a slot are refused (`NOT_FOR_COLLECTION`, ORD's `FULFILMENT_NOT_AVAILABLE`). The order's proforma, and later its invoice, carry the order lines and so the quote lines.\n\nPermission: `quo.quote.convert`."
       x-permission: quo.quote.convert
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+        - QUOTE_ALREADY_CONVERTED
+        - QUOTE_INVALID
+        - ORDER_INVALID
       x-owner-module: ord
       parameters:
         - name: id
@@ -61746,16 +62166,16 @@ paths:
                 deliveryAddress:
                   recipientName: "Emmanuel Tetteh"
                   recipientPhone: "+233268114590"
-                  line1: "Funeral grounds, Kasoa Old Town park"
-                  area: Kasoa
-                  city: Kasoa
+                  line1: "Funeral grounds, Prampram Old Town park"
+                  area: Prampram
+                  city: Prampram
                   region: Central
                   digitalAddress: CX-004-5528
                   directions: "Call on arrival"
                 deliveryZone:
                   id: "019a7a93-b8d6-749e-a9d6-52b8c767cb96"
                   code: KASOA
-                  name: "Kasoa and Weija"
+                  name: "Prampram and Weija"
                 deliveryFeePesewas: 6000
                 delivery: null
                 taxInclusive: false
@@ -61765,7 +62185,7 @@ paths:
                 isOffline: false
                 completedAt: null
                 adjustments: []
-                notes: "Funeral at Kasoa on 12 December; deliver on the 11th, morning"
+                notes: "Funeral at Prampram on 12 December; deliver on the 11th, morning"
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                 version: 3
                 orderNo: SO-2026-DDW-004213
@@ -77378,6 +77798,90 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
+  "/price-lists/{id}/assignments":
+    get:
+      operationId: listPriceListAssignments
+      tags:
+        - mdm
+      summary: "The buyers who hold a price list"
+      description: "The live buyers who hold this price list now or from a later date, by assignment, each with its window (CR-041, 2.11.0). An ended or replaced assignment is not listed. An unknown price list is 404.\n\nPermission: `mdm.price_list.read`."
+      x-permission: mdm.price_list.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RATE_LIMITED
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/PageLimit"
+      security:
+        - staffSession: []
+        - apiKey: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriceListHolderPage"
+              examples:
+                default:
+                  value:
+                    data:
+                      - id: "019a7a8e-0c13-7a44-9d55-6e7f8a9b0c1d"
+                        customer:
+                          id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+                          publicId: cus_TWMB751S2DFXTAM8
+                          name: "Royal Palm Hotel Ltd"
+                        priceList:
+                          id: "019a7a8d-2a51-7c10-b1f2-0c5a3e9d7e41"
+                          code: ROYAL-PALM-2026
+                          name: "Royal Palm Hotel, 2026"
+                        validFrom: "2026-11-01T00:00:00Z"
+                        validTo: null
+                    page:
+                      nextCursor: null
+                      limit: 25
+                      hasMore: false
+                empty:
+                  summary: "Nothing matches: no rows and no next page"
+                  value:
+                    data: []
+                    page:
+                      nextCursor: null
+                      limit: 25
+                      hasMore: false
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
   "/price-list-versions/{id}/preview":
     get:
       operationId: previewPriceListVersion
@@ -77459,6 +77963,7 @@ paths:
                           quoteOnly: false
                           minQty: "0.000"
                           minQtyBase: "0.000"
+                          baseUom: HEAD
                           uom: HEAD
                           currency: GHS
                         proposed:
@@ -77480,6 +77985,7 @@ paths:
                           quoteOnly: false
                           minQty: "0.000"
                           minQtyBase: "0.000"
+                          baseUom: HEAD
                           uom: HEAD
                           currency: GHS
                       - kind: CHANGED
@@ -77502,6 +78008,7 @@ paths:
                           quoteOnly: false
                           minQty: "0.000"
                           minQtyBase: "0.000"
+                          baseUom: HEAD
                           uom: HEAD
                           currency: GHS
                         proposed:
@@ -77523,6 +78030,7 @@ paths:
                           quoteOnly: false
                           minQty: "0.000"
                           minQtyBase: "0.000"
+                          baseUom: HEAD
                           uom: HEAD
                           currency: GHS
                       - kind: CHANGED
@@ -77548,6 +78056,7 @@ paths:
                           quoteOnly: false
                           minQty: "0.000"
                           minQtyBase: "0.000"
+                          baseUom: HEAD
                           uom: HEAD
                           currency: GHS
                         proposed:
@@ -77572,6 +78081,7 @@ paths:
                           quoteOnly: false
                           minQty: "0.000"
                           minQtyBase: "0.000"
+                          baseUom: HEAD
                           uom: HEAD
                           currency: GHS
                       - kind: ADDED
@@ -77598,6 +78108,7 @@ paths:
                           quoteOnly: false
                           minQty: "0.000"
                           minQtyBase: "0.000"
+                          baseUom: HEAD
                           uom: HEAD
                           currency: GHS
                       - kind: UNCHANGED
@@ -77620,6 +78131,7 @@ paths:
                           quoteOnly: false
                           minQty: "0.000"
                           minQtyBase: "0.000"
+                          baseUom: HEAD
                           uom: HEAD
                           currency: GHS
                         proposed:
@@ -77641,6 +78153,7 @@ paths:
                           quoteOnly: false
                           minQty: "0.000"
                           minQtyBase: "0.000"
+                          baseUom: HEAD
                           uom: HEAD
                           currency: GHS
                       - kind: REMOVED
@@ -77659,6 +78172,7 @@ paths:
                           quoteOnly: true
                           minQty: "0.000"
                           minQtyBase: "0.000"
+                          baseUom: HEAD
                           uom: HEAD
                           currency: GHS
                         proposed: null
@@ -82810,6 +83324,55 @@ components:
         - priceListId
         - validFrom
       additionalProperties: false
+    PriceListAssignmentList:
+      type: object
+      description: "A buyer's price list assignments, now and later (CR-041)."
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/PriceListAssignment"
+      required:
+        - data
+    PriceListHolder:
+      type: object
+      description: "A buyer who holds a price list, with the window (CR-041)."
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: "The assignment."
+        customer:
+          $ref: "#/components/schemas/CustomerRef"
+        priceList:
+          $ref: "#/components/schemas/PriceListRef"
+        validFrom:
+          type: string
+          format: date-time
+        validTo:
+          type:
+            - string
+            - "null"
+          format: date-time
+      required:
+        - id
+        - customer
+        - priceList
+        - validFrom
+        - validTo
+    PriceListHolderPage:
+      type: object
+      description: "A page of `PriceListHolder` results."
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/PriceListHolder"
+        page:
+          $ref: "#/components/schemas/PageInfo"
+      required:
+        - data
+        - page
     Customer:
       type: object
       properties:
@@ -83782,6 +84345,9 @@ components:
         minQtyBase:
           $ref: "#/components/schemas/Quantity"
           description: "The same break in the product's base unit, which the engine compares (300 eggs; B09e)."
+        baseUom:
+          type: string
+          description: "The product's base unit, the unit `minQtyBase` is in (CR-041): EGG for a break of 10 crates, 300 eggs."
         uom:
           type: string
           pattern: "^[A-Z]{2,10}$"
@@ -83802,6 +84368,7 @@ components:
         - minQtyBase
         - uom
         - currency
+        - baseUom
     PriceListEntryPage:
       type: object
       description: "A page of `PriceListEntry` results."
@@ -97841,6 +98408,13 @@ components:
           type: string
         consentToContact:
           type: boolean
+          description: "Must be true: the farm calls back only a buyer who agreed to it (400 otherwise)."
+        quantity:
+          $ref: "#/components/schemas/Quantity"
+          description: "How many, in `uom` (B10, item 4). Given only with `uom` and `productId`."
+        uom:
+          type: string
+          description: "The unit the quantity is in: one the product is sold by, its base unit or a unit with an exact conversion (a crate, a single egg); any other is 422 `RFQ_INVALID` `UOM_NOT_SOLD` (B10, item 4)."
       required:
         - contactName
         - contactPhone
@@ -98048,6 +98622,16 @@ components:
         branchId:
           type: string
           format: uuid
+        quantity:
+          anyOf:
+            - $ref: "#/components/schemas/Quantity"
+            - type: "null"
+          description: "How many the buyer asked for, in `uom` (B10, item 4); null when the request names none."
+        uom:
+          type:
+            - string
+            - "null"
+          description: "The unit of `quantity`."
       required:
         - id
         - rfqNo
@@ -98066,6 +98650,8 @@ components:
         - quoteIds
         - createdAt
         - branchId
+        - quantity
+        - uom
     RfqCreate:
       type: object
       properties:
@@ -98093,6 +98679,12 @@ components:
           format: date
         deliveryArea:
           type: string
+        quantity:
+          $ref: "#/components/schemas/Quantity"
+          description: "How many, in `uom`; given only with `uom` and `productId`."
+        uom:
+          type: string
+          description: "The unit the quantity is in, one the product is sold by."
       required:
         - source
         - contactName
@@ -98177,6 +98769,11 @@ components:
           anyOf:
             - $ref: "#/components/schemas/Pesewas"
             - type: "null"
+        baseQuantity:
+          anyOf:
+            - $ref: "#/components/schemas/Quantity"
+            - type: "null"
+          description: "The line's quantity in the product's base unit (90.000 eggs for 3 crates), what is reserved; null on a free-text line."
       required:
         - id
         - lineNo
@@ -98193,6 +98790,7 @@ components:
         - unitPricePesewas
         - lineNetPesewas
         - estimatedUnitCostPesewas
+        - baseQuantity
     QuoteAcceptance:
       type: object
       properties:
@@ -98254,8 +98852,10 @@ components:
             - type: "null"
         marginPercent:
           anyOf:
-            - $ref: "#/components/schemas/Percent"
+            - type: string
+              pattern: "^-?[0-9]{1,7}\\.[0-9]{2}$"
             - type: "null"
+          description: "Margin over cost, (net less cost) over cost, as a percentage to two places rounded half away from zero (FR-QUO-003): 19.05 for 1,700,000 over 1,428,000. It may be negative (sold below cost) or above 100, so it is not a `Percent`. Null when the cost is unknown or nil. The floor is judged exactly on the amounts, never on this rounded figure."
         belowMarginFloor:
           type: boolean
         approvalRequestId:
@@ -98291,6 +98891,20 @@ components:
           format: uuid
         currency:
           $ref: "#/components/schemas/Currency"
+        createdBy:
+          $ref: "#/components/schemas/PrincipalRef"
+          description: "The version's author (FR-QUO-006: each version with its author, time and totals)."
+        createdAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          description: "Optimistic lock: `updateQuoteVersion` names it."
+        acceptanceLinkToken:
+          type:
+            - string
+            - "null"
+          description: "The acceptance link's token (CR-047, ADR-0074): `quo_` and 256 random bits, answered only by the `issueQuoteVersion` call that made it and null everywhere else; the server keeps only its SHA-256. The link is `/shop/quotes/{token}`. Each call answers a fresh token for the same version; every token of a version opens it until the version is replaced or its validity ends."
       required:
         - id
         - versionNo
@@ -98314,6 +98928,10 @@ components:
         - acceptance
         - documentId
         - currency
+        - createdBy
+        - createdAt
+        - version
+        - acceptanceLinkToken
     Quote:
       type: object
       properties:
@@ -98421,6 +99039,9 @@ components:
           $ref: "#/components/schemas/PriceBasis"
         unitPricePesewas:
           $ref: "#/components/schemas/Pesewas"
+        uom:
+          type: string
+          description: "The unit the line is in (CR-045 as the owner worded it, B10): a crate or a single egg, priced by that unit's own price list entry and never derived from another unit's price, converted to the base unit exactly for its reservation. The product's base unit when left out; a free-text line takes HEAD, KG or UNIT from its price basis."
       required:
         - description
         - quantity
@@ -98544,6 +99165,10 @@ components:
             - PHONE_CONFIRMED
         acceptedName:
           type: string
+        note:
+          type: string
+          maxLength: 1000
+          description: "What the buyer said and where (FR-QUO-010): the evidence of an acceptance in person or by phone. Required by the rule: left out, the call is 422 `QUOTE_INVALID` `NOTE_REQUIRED`."
       required:
         - method
         - acceptedName
@@ -103869,6 +104494,14 @@ components:
         - pur.supplier_payment.create
         - pur.supplier_payment.pay
         - pur.supplier_payment.read
+        - quo.quote.convert
+        - quo.quote.create
+        - quo.quote.issue
+        - quo.quote.read
+        - quo.quote_margin.approve
+        - quo.rfq.create
+        - quo.rfq.read
+        - quo.rfq.update
         - rpt.dashboard.owner
         - rpt.tile.read
         - whl.statement.create
@@ -104080,6 +104713,14 @@ components:
         - pur.supplier_payment.approve
         - pur.supplier_payment.create
         - pur.supplier_payment.read
+        - quo.quote.convert
+        - quo.quote.create
+        - quo.quote.issue
+        - quo.quote.read
+        - quo.quote_margin.approve
+        - quo.rfq.create
+        - quo.rfq.read
+        - quo.rfq.update
         - rpt.tile.read
         - whl.statement.create
         - whl.statement.read
@@ -104349,6 +104990,13 @@ components:
         - pay.refund.create
         - pay.refund.read
         - pay.store_credit.read
+        - quo.quote.convert
+        - quo.quote.create
+        - quo.quote.issue
+        - quo.quote.read
+        - quo.rfq.create
+        - quo.rfq.read
+        - quo.rfq.update
         - whl.statement.create
         - whl.statement.read
       limits: []
