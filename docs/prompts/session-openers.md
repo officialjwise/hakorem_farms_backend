@@ -2975,7 +2975,7 @@ List docs/sessions/ and read only the most recent report (docs/sessions/B10c2-ag
 Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
 reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
 CR-047's remaining point 2 (PublicQuote.acceptedName and decidedAt) is this phase's to implement or decline; check the
-numbers again on main (CR-051 is lane A's offline pack).
+numbers again on main (CR-051 and CR-052 are lane A's POS).
 For this phase, read FR-WHL-004 and FR-WHL-012 of the WHL block of docs/SRS.md and FR-QUO-007, FR-QUO-008 and
 FR-QUO-013 of the QUO block (nothing else from the SRS), docs/data-model/whl.md and quo.md, the WHL and QUO cards in
 docs/MODULE_BOUNDARIES.md, DOMAIN_MODEL section 5.12, ADR-0017, ADR-0019, ADR-0087, ADR-0088, ADR-0089, and A-309 to
@@ -3007,6 +3007,17 @@ The owner's decisions of 2026-11-18 for QUO (A-309 as amended), each test-first:
    the public quote), show the quantity available, and reserve only what is on hand, never more; test fully, partly and
    not on hand with exact quantities; LOUD on 2.12.0 (a refusal removed), a dated amendment to A-309. Read ADR-0019
    first; if this would contradict it, stop this item and report the options to the parent session.
+4. The owner, 2026-11-18, from the frontend's F10l (no CR number on the frontend's main at aad2c91): the console shows a
+   quote link once, right after sending, so staff can send it by WhatsApp. Load hakorem-security-review. (a) Record the
+   device and session behind every acceptance and decline through the link: the user agent, the IP (as the platform
+   records it for public calls, per the data classification) and whether a staff session cookie was present and whose.
+   (b) Flag, on the exception report's source, any acceptance or decline made from a browser with a signed-in staff
+   session, as a new source kind naming the staff member (B12 builds the report); the flag never blocks, it is raised
+   for review. Add the abuse path to docs/security/THREAT_MODEL.md as abuse case 40 (lane B's block). (c) The link
+   token is shown once: returned only in the send's response, never readable again since only its hash is stored
+   (ADR-0074, ADR-0087); test that no read returns it. Tests: an acceptance with no staff session is not flagged; one
+   with a staff session is flagged with that staff member; a decline with a staff session is flagged too; a mutation
+   that skips the flag turns a test red.
 Run scenario 2 of docs/UAT.md as a dry run and record every difference, including the two rules that scenario flags for
 the owner (credit check and delivery fee on a partial dispatch), decided conservatively and put to the owner.
 Stop at the gate and write docs/sessions/B10c3-standing-orders-quote-pipeline.md.
