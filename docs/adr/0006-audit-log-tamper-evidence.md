@@ -55,6 +55,10 @@ A nightly job recomputes every content hash and chain hash, compares the head wi
 - Schema changes made by migrations are outside this log. They are recorded by the migration history table and the pipeline's approval record.
 - Binds: `docs/data-model/platform.md`, `docs/security/SECURITY_ARCHITECTURE.md`, the audit interceptor built in B3.
 
+## Amendments
+
+- **2026-11-17, the anchor at every shift close (B09b continued 1b, A-275 (e)).** A module asks for an anchor in its own business transaction (`AuditAnchorRequests.requestIn`, `platform.audit_anchor_request`, LEDGER, one per reason and subject, carrying the transaction's id). The worker, as `hk_sealer`, answers every request whose transaction's audit events are all in the chain with one anchor (reason `SHIFT_CLOSE`, signed and stored off the server as the daily one) and records it in `platform.audit_anchor_fulfilment` (LEDGER, written by `hk_sealer` alone, one per request). POS asks at each count sign-off (`approveShiftClose`) and at each count of a force-closed shift's drawer (ADR-0078). Tested in `test/integration/platform/worker.integration.spec.ts` (the anchor's sequence covers the sign-off's sealed event) and the POS specs (the request is written in the sign-off's transaction).
+
 ## Verification
 
 - B3: integration tests that the application role cannot update, delete or truncate `platform.audit_event` or `platform.audit_chain`.

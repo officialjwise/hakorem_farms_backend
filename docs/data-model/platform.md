@@ -297,6 +297,24 @@ Signed copies of the chain head, also stored off the server.
 
 Standard columns: `LEDGER`, as `platform.audit_chain`, and written by `hk_sealer` only. The copy is a JSON document under `anchors/YYYY/MM/DD/` in the anchor bucket, with seven years of object lock.
 
+### `platform.audit_anchor_request` · LEDGER
+
+Built in B09b continued 1b (migration 0246, ADR-0006 Amendments, A-275 (e)). A module's request, in its own business transaction, for the chain to be anchored once that transaction's audit events are sealed.
+
+| Column | Type | Constraints | Why |
+| --- | --- | --- | --- |
+| `id` | `uuid` | PK | |
+| `reason` | `text` | NOT NULL, CHECK in (`SHIFT_CLOSE`) | |
+| `subject_type` | `text` | NOT NULL | What was signed off, `Shift` |
+| `subject_id` | `uuid` | NOT NULL, UNIQUE with `reason` | One request per sign-off |
+| `txid` | `xid8` | NOT NULL DEFAULT `pg_current_xact_id()` | The worker anchors once every audit event of this transaction is chained |
+
+Standard columns: `LEDGER` (`recorded_at`, `actor_id`). Written by `hk_app`; read by `hk_sealer`.
+
+### `platform.audit_anchor_fulfilment` · LEDGER
+
+The anchor that answered a request, once (PK `request_id`, FK `platform.audit_anchor_request`; `anchor_id` FK `platform.audit_anchor`). Standard columns: `LEDGER`, written by `hk_sealer` only.
+
 ### `platform.subject_key` · MASTER
 
 One wrapped encryption key per data subject (ADR-0022). Destroying it erases the subject's personal data from immutable records.

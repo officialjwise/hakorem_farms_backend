@@ -78,4 +78,33 @@ export class AuditAnchor {
     );
     return { id, seq, chainHash: head.chain_hash, signature, storageUri, anchoredAt };
   }
+
+  /**
+   * Answers the anchors modules asked for (`AuditAnchorRequests`, A-275): once every audit event written in a
+   * request's transaction is in the chain, the head is signed once for all such requests (reason `SHIFT_CLOSE`), and
+   * each request records the anchor that covers it. Returns how many requests were answered; a request whose events
+   * are still waiting for the sealer is answered on a later round.
+   */
+  async answerRequests(): Promise<number> {
+    const { rows } = await this.sealerPool.query<{ id: string }>(
+      `SELECT r.id FROM platform.audit_anchor_request r
+        WHERE NOT EXISTS (SELECT 1 FROM platform.audit_anchor_fulfilment f WHERE f.request_id = r.id)
+          AND NOT EXISTS (SELECT 1 FROM platform.audit_event e
+                           WHERE e.txid = r.txid AND NOT EXISTS (SELECT 1 FROM platform.audit_chain c WHERE c.audit_event_id = e.id))
+        ORDER BY r.id`,
+    );
+    if (rows.length === 0) {
+      return 0;
+    }
+    const anchor = await this.anchor('SHIFT_CLOSE');
+    if (anchor === null) {
+      return 0;
+    }
+    await this.sealerPool.query(
+      `INSERT INTO platform.audit_anchor_fulfilment (request_id, anchor_id, recorded_at)
+       SELECT unnest($1::uuid[]), $2, $3 ON CONFLICT (request_id) DO NOTHING`,
+      [rows.map((r) => r.id), anchor.id, this.clock.now()],
+    );
+    return rows.length;
+  }
 }
