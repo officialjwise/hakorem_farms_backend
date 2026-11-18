@@ -45,6 +45,7 @@ export { ReservationExpiry, Reservations, reservationLockKey, type ConsumeReques
 export type { ReservationEnded, StockUnitRegistered, UpkeepExpensed } from './events';
 export type { CostElement, LinkType, WeightSource } from './application/stock-store';
 export type { StockReservationRecord } from './application/stock-reservation-store';
+export type { CostPoolRecord } from './application/stock-read-store';
 export {
   InsufficientStockError,
   StockMovementAlreadyReversedError,

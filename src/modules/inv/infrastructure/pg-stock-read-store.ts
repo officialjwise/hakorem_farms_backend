@@ -1,7 +1,7 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
 import { keysetClause, positionOf, sortKeySelect, type SortOrder } from '../../../platform/http/keyset-sort';
 import type { ReadScope } from '../application/goods-receipt-store';
-import type { HoldKind, OnHandFilters, OnHandNarrowing, OnHandRow, PoolRow, StockReadStore, StockUnitFilters, StockUnitRow } from '../application/stock-read-store';
+import type { CostPoolRecord, HoldKind, OnHandFilters, OnHandNarrowing, OnHandRow, PoolRow, StockReadStore, StockUnitFilters, StockUnitRow } from '../application/stock-read-store';
 
 /**
  * The holds covering a unit at the instant bound to `at` (the application clock's now, ADR-0067): unreleased, started,
@@ -108,6 +108,18 @@ function stockUnitValues(filters: StockUnitFilters, scopes: readonly ReadScope[]
 
 /** Stock reads over INV's own tables and published views (migration 0044). */
 export class PgStockReadStore implements StockReadStore {
+  async costPools(tx: Transaction, branchId: string, productIds: readonly string[]): Promise<CostPoolRecord[]> {
+    if (productIds.length === 0) return [];
+    const { rows } = await tx.query<{ productId: string; stockUnitId: string | null; qty: string; value: string }>(
+      `SELECT c.product_id AS "productId", c.stock_unit_id AS "stockUnitId", c.qty::text AS qty, c.value_pesewas::text AS value
+         FROM inv.cost_pool c LEFT JOIN inv.stock_unit u ON u.id = c.stock_unit_id
+        WHERE c.branch_id = $1 AND c.product_id = ANY($2::uuid[]) AND c.qty > 0 AND (c.stock_unit_id IS NULL OR u.status = 'ACTIVE')
+        ORDER BY c.product_id, c.stock_unit_id NULLS FIRST`,
+      [branchId, productIds],
+    );
+    return rows.map((r) => ({ productId: r.productId, stockUnitId: r.stockUnitId, qty: r.qty, valuePesewas: BigInt(r.value) }));
+  }
+
   async onHand(tx: Transaction, filters: OnHandFilters, scopes: readonly ReadScope[], includeZero: boolean, at: Date): Promise<OnHandRow[]> {
     const { rows } = await tx.query<OnHandSqlRow>(
       `${onHandSelect('$8')}

@@ -156,6 +156,14 @@ export class Reservations {
   }
 
   /**
+   * The active reservations a document holds, in the caller's transaction (B10: a quote's hold handed to its order, which
+   * its confirmation then counts as already promised). Read-only; it authorises nothing.
+   */
+  async activeOfHolderIn(tx: Transaction, holderDocumentId: string): Promise<StockReservationRecord[]> {
+    return this.store.activeOfHolder(tx, holderDocumentId);
+  }
+
+  /**
    * Releases every active reservation a document holds in the caller's transaction (ORD's cancellation of an order,
    * FR-ORD-014), each ended once as `releaseIn` ends it; answers the reservations released. It authorises nothing.
    */

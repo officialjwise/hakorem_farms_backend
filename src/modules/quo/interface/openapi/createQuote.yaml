@@ -1,0 +1,123 @@
+operationId: createQuote
+tags:
+  - quo
+summary: "Draft a quote"
+description: "Drafts a quote (FR-QUO-003) at the one branch the caller drafts quotes for, or its request's branch (422 `QUOTE_INVALID` `BRANCH_REQUIRED`), numbered now (`QUO-2026-DDW-000088`, kept by every version); version 1 is a `DRAFT`. Each line is priced by the salesperson (`unitPricePesewas`) and extended once, half-up; a product line is in its own unit (CR-045 as the owner worded it: a crate or a single egg, `uom`, never derived from another unit's price), converted to the base unit exactly (`NO_CONVERSION`, `INEXACT_QUANTITY`), and the engine's price for that unit is kept beside it (`resolvedUnitPricePesewas`). The cost is estimated from the cost pools of the named animal or of the product's live stock at the branch, and the margin over cost is (net less cost) over cost. A free-text line (no product) has no cost. Other refusals: `CUSTOMER_NOT_ACTIVE`, `RFQ_UNKNOWN`, `RFQ_CLOSED`, `PRODUCT_NOT_ACTIVE`, `STOCK_UNIT_OTHER_PRODUCT`, `STOCK_UNIT_NOT_AVAILABLE`, `ONE_ANIMAL_PER_LINE`, `PRICE_BASIS_MISMATCH`, `VALIDITY_PASSED`. A request it is made from becomes `QUOTED`.\n\nPermission: `quo.quote.create`."
+x-permission: quo.quote.create
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - QUOTE_INVALID
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/QuoteCreate"
+      example:
+        rfqId: "019a7aff-24cd-7b88-b0c1-c15e5f103a3c"
+        customerId: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
+        contactName: "Emmanuel Tetteh"
+        contactPhone: "+233268114590"
+        validUntil: "2026-11-17T18:00:00Z"
+        terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
+        deliveryEstimate: "Delivered to Prampram on 11 December, morning"
+        deliveryFeePesewas: 6000
+        taxInclusive: false
+        lines:
+          - productId: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+            description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
+            weightBandId: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
+            quantity: "20.000"
+            priceBasis: PER_HEAD
+            unitPricePesewas: 95000
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Quote"
+        example:
+          id: "019a7b00-f4ce-7fdc-a515-069e806f7f7c"
+          quoteNo: QUO-2026-DDW-000083
+          status: DRAFT
+          rfqId: null
+          customer:
+            id: "019a7a88-3e25-7935-be6d-9c229eb81500"
+            publicId: cus_R66TY3MQB6K08YV5
+            name: "Salomey Adjei"
+          contactName: "Salomey Adjei"
+          contactPhone: "+233540672231"
+          salesperson:
+            id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+            displayName: "Kojo Antwi"
+          productLine: LIVE
+          currentVersion:
+            id: "019a7b01-13bd-79c0-bef8-a4d5fa201db3"
+            versionNo: 1
+            status: DRAFT
+            validUntil: "2026-11-20T18:00:00Z"
+            terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
+            deliveryEstimate: "Delivered to Prampram on 11 December, morning"
+            deliveryFeePesewas: 0
+            taxInclusive: false
+            netPesewas: 380000
+            taxPesewas: 0
+            grossPesewas: 380000
+            estimatedCostPesewas: null
+            marginPercent: null
+            belowMarginFloor: false
+            approvalRequestId: null
+            changeNote: null
+            issuedAt: "2026-11-13T15:00:00Z"
+            issuedBy:
+              id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+              displayName: "Kojo Antwi"
+            lines: []
+            acceptance: null
+            documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
+            currency: GHS
+            createdBy:
+              id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+              displayName: "Esi Appiah"
+            createdAt: "2026-11-13T15:00:00Z"
+            version: 1
+            acceptanceLinkToken: null
+          versionCount: 1
+          acceptedVersionId: null
+          convertedOrder: null
+          declineReason: null
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 4
+          createdAt: "2026-11-06T10:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

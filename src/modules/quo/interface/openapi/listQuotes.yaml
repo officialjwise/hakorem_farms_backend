@@ -1,0 +1,429 @@
+operationId: listQuotes
+tags:
+  - quo
+summary: "List quotes"
+description: "The quotes at the branches the caller reads whole, newest first, each with its newest version.\n\nPermission: `quo.quote.read`."
+x-permission: quo.quote.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: status
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: customerId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: salespersonId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: from
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date
+  - name: to
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/QuotePage"
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7a95-a7c6-72d5-a80e-36306277af0e"
+                  quoteNo: QUO-2026-DDW-000088
+                  status: ISSUED
+                  rfqId: "019a7aff-24cd-7b88-b0c1-c15e5f103a3c"
+                  customer:
+                    id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
+                    publicId: cus_GY1HV6CSTTCCM2Y2
+                    name: "Emmanuel Tetteh"
+                  contactName: "Emmanuel Tetteh"
+                  contactPhone: "+233268114590"
+                  salesperson:
+                    id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                    displayName: "Kojo Antwi"
+                  productLine: LIVE
+                  currentVersion:
+                    id: "019a7aff-de67-76dd-9c15-76ab3936ef89"
+                    versionNo: 2
+                    status: ISSUED
+                    validUntil: "2026-11-20T18:00:00Z"
+                    terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
+                    deliveryEstimate: "Delivered to Prampram on 11 December, morning"
+                    deliveryFeePesewas: 6000
+                    taxInclusive: false
+                    netPesewas: 1716000
+                    taxPesewas: 1200
+                    grossPesewas: 1717200
+                    estimatedCostPesewas: 1188000
+                    marginPercent: "30.77"
+                    belowMarginFloor: false
+                    approvalRequestId: null
+                    changeNote: "Reduced to eighteen goats and added delivery"
+                    issuedAt: "2026-11-13T15:00:00Z"
+                    issuedBy:
+                      id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                      displayName: "Kojo Antwi"
+                    lines:
+                      - id: "019a7aff-fd56-70c1-a5f9-14e2b2e78dc0"
+                        lineNo: 1
+                        product:
+                          id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                          sku: LIV-0004
+                          name: Goat
+                        description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
+                        grade: null
+                        weightBand:
+                          id: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
+                          code: GOAT-M
+                          minKg: "18.000"
+                          maxKg: "28.000"
+                        stockUnit: null
+                        reservationId: null
+                        quantity: "18.000"
+                        uom: HEAD
+                        priceBasis: PER_HEAD
+                        resolvedUnitPricePesewas: 85000
+                        unitPricePesewas: 95000
+                        lineNetPesewas: 1710000
+                        estimatedUnitCostPesewas: 66000
+                        baseQuantity: "18.000"
+                    acceptance: null
+                    documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
+                    currency: GHS
+                    createdBy:
+                      id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+                      displayName: "Esi Appiah"
+                    createdAt: "2026-11-13T15:00:00Z"
+                    version: 1
+                    acceptanceLinkToken: null
+                  versionCount: 2
+                  acceptedVersionId: null
+                  convertedOrder: null
+                  declineReason: null
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 4
+                  createdAt: "2026-11-11T10:00:00Z"
+                - id: "019a7b00-1c45-7aa4-bfdc-b31a2c982bf8"
+                  quoteNo: QUO-2026-DDW-000087
+                  status: CONVERTED
+                  rfqId: null
+                  customer:
+                    id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+                    publicId: cus_TWMB751S2DFXTAM8
+                    name: "Royal Palm Hotel Ltd"
+                  contactName: "Royal Palm Hotel, head chef"
+                  contactPhone: "+233302765410"
+                  salesperson:
+                    id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                    displayName: "Kojo Antwi"
+                  productLine: MEAT
+                  currentVersion:
+                    id: "019a7b00-3b34-7488-89c0-5151a649ca2f"
+                    versionNo: 1
+                    status: ACCEPTED
+                    validUntil: "2026-11-20T18:00:00Z"
+                    terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
+                    deliveryEstimate: "Delivered to Prampram on 11 December, morning"
+                    deliveryFeePesewas: 0
+                    taxInclusive: false
+                    netPesewas: 1185000
+                    taxPesewas: 0
+                    grossPesewas: 1185000
+                    estimatedCostPesewas: null
+                    marginPercent: null
+                    belowMarginFloor: false
+                    approvalRequestId: null
+                    changeNote: null
+                    issuedAt: "2026-11-13T15:00:00Z"
+                    issuedBy:
+                      id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                      displayName: "Kojo Antwi"
+                    lines: []
+                    acceptance: null
+                    documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
+                    currency: GHS
+                    createdBy:
+                      id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+                      displayName: "Esi Appiah"
+                    createdAt: "2026-11-13T15:00:00Z"
+                    version: 1
+                    acceptanceLinkToken: null
+                  versionCount: 1
+                  acceptedVersionId: "019a7b00-3b34-7488-89c0-5151a649ca2f"
+                  convertedOrder:
+                    id: "019a7af0-a4c5-78e8-be21-975d5418103b"
+                    docType: SALES_ORDER
+                    number: SO-2026-DDW-004198
+                  declineReason: null
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 4
+                  createdAt: "2026-11-10T10:00:00Z"
+                - id: "019a7b00-5a23-7e6b-93a3-ef891ffa6867"
+                  quoteNo: QUO-2026-DDW-000086
+                  status: ACCEPTED
+                  rfqId: null
+                  customer:
+                    id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
+                    publicId: cus_TS4VEDD3ZZNAAQGD
+                    name: "Asantewaa Chop Bar"
+                  contactName: "Asantewaa Chop Bar"
+                  contactPhone: "+233557018924"
+                  salesperson:
+                    id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                    displayName: "Kojo Antwi"
+                  productLine: MEAT
+                  currentVersion:
+                    id: "019a7b00-7912-784e-ad87-8dc099ab069e"
+                    versionNo: 1
+                    status: ACCEPTED
+                    validUntil: "2026-11-20T18:00:00Z"
+                    terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
+                    deliveryEstimate: "Delivered to Prampram on 11 December, morning"
+                    deliveryFeePesewas: 0
+                    taxInclusive: false
+                    netPesewas: 642000
+                    taxPesewas: 84800
+                    grossPesewas: 726800
+                    estimatedCostPesewas: null
+                    marginPercent: null
+                    belowMarginFloor: false
+                    approvalRequestId: null
+                    changeNote: null
+                    issuedAt: "2026-11-13T15:00:00Z"
+                    issuedBy:
+                      id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                      displayName: "Kojo Antwi"
+                    lines: []
+                    acceptance: null
+                    documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
+                    currency: GHS
+                    createdBy:
+                      id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+                      displayName: "Esi Appiah"
+                    createdAt: "2026-11-13T15:00:00Z"
+                    version: 1
+                    acceptanceLinkToken: null
+                  versionCount: 1
+                  acceptedVersionId: "019a7b00-7912-784e-ad87-8dc099ab069e"
+                  convertedOrder: null
+                  declineReason: null
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 4
+                  createdAt: "2026-11-09T10:00:00Z"
+                - id: "019a7aff-819a-7933-ae6b-9c04cc2314e2"
+                  quoteNo: QUO-2026-DDW-000085
+                  status: DECLINED
+                  rfqId: null
+                  customer:
+                    id: "019a7a87-a37a-77c3-acfc-850d3e43fdeb"
+                    publicId: cus_3QC5Q34ZGBQK2SC8
+                    name: "Kofi Agyeman"
+                  contactName: "Kofi Agyeman"
+                  contactPhone: "+233201447302"
+                  salesperson:
+                    id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                    displayName: "Kojo Antwi"
+                  productLine: LIVE
+                  currentVersion:
+                    id: "019a7b00-9801-7232-b76a-2bf8135ca4d5"
+                    versionNo: 1
+                    status: ISSUED
+                    validUntil: "2026-11-20T18:00:00Z"
+                    terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
+                    deliveryEstimate: "Delivered to Prampram on 11 December, morning"
+                    deliveryFeePesewas: 0
+                    taxInclusive: false
+                    netPesewas: 285000
+                    taxPesewas: 0
+                    grossPesewas: 285000
+                    estimatedCostPesewas: null
+                    marginPercent: null
+                    belowMarginFloor: false
+                    approvalRequestId: null
+                    changeNote: null
+                    issuedAt: "2026-11-13T15:00:00Z"
+                    issuedBy:
+                      id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                      displayName: "Kojo Antwi"
+                    lines: []
+                    acceptance: null
+                    documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
+                    currency: GHS
+                    createdBy:
+                      id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+                      displayName: "Esi Appiah"
+                    createdAt: "2026-11-13T15:00:00Z"
+                    version: 1
+                    acceptanceLinkToken: null
+                  versionCount: 1
+                  acceptedVersionId: null
+                  convertedOrder: null
+                  declineReason: "Found goats closer to Prampram"
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 4
+                  createdAt: "2026-11-08T10:00:00Z"
+                - id: "019a7b00-b6f0-7c15-814e-ca2f8d0d430d"
+                  quoteNo: QUO-2026-DDW-000084
+                  status: EXPIRED
+                  rfqId: null
+                  customer:
+                    id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
+                    publicId: cus_3Q4VCE9ZY779GAT6
+                    name: "Osu Fresh Mart"
+                  contactName: "Osu Fresh Mart"
+                  contactPhone: "+233302228813"
+                  salesperson:
+                    id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                    displayName: "Kojo Antwi"
+                  productLine: PRODUCE
+                  currentVersion:
+                    id: "019a7b00-d5df-75f9-9b31-686706bee144"
+                    versionNo: 1
+                    status: ISSUED
+                    validUntil: "2026-11-20T18:00:00Z"
+                    terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
+                    deliveryEstimate: "Delivered to Prampram on 11 December, morning"
+                    deliveryFeePesewas: 0
+                    taxInclusive: false
+                    netPesewas: 228000
+                    taxPesewas: 0
+                    grossPesewas: 228000
+                    estimatedCostPesewas: null
+                    marginPercent: null
+                    belowMarginFloor: false
+                    approvalRequestId: null
+                    changeNote: null
+                    issuedAt: "2026-11-13T15:00:00Z"
+                    issuedBy:
+                      id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                      displayName: "Kojo Antwi"
+                    lines: []
+                    acceptance: null
+                    documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
+                    currency: GHS
+                    createdBy:
+                      id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+                      displayName: "Esi Appiah"
+                    createdAt: "2026-11-13T15:00:00Z"
+                    version: 1
+                    acceptanceLinkToken: null
+                  versionCount: 1
+                  acceptedVersionId: null
+                  convertedOrder: null
+                  declineReason: null
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 4
+                  createdAt: "2026-11-07T10:00:00Z"
+                - id: "019a7b00-f4ce-7fdc-a515-069e806f7f7c"
+                  quoteNo: QUO-2026-DDW-000083
+                  status: DRAFT
+                  rfqId: null
+                  customer:
+                    id: "019a7a88-3e25-7935-be6d-9c229eb81500"
+                    publicId: cus_R66TY3MQB6K08YV5
+                    name: "Salomey Adjei"
+                  contactName: "Salomey Adjei"
+                  contactPhone: "+233540672231"
+                  salesperson:
+                    id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                    displayName: "Kojo Antwi"
+                  productLine: LIVE
+                  currentVersion:
+                    id: "019a7b01-13bd-79c0-bef8-a4d5fa201db3"
+                    versionNo: 1
+                    status: DRAFT
+                    validUntil: "2026-11-20T18:00:00Z"
+                    terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
+                    deliveryEstimate: "Delivered to Prampram on 11 December, morning"
+                    deliveryFeePesewas: 0
+                    taxInclusive: false
+                    netPesewas: 380000
+                    taxPesewas: 0
+                    grossPesewas: 380000
+                    estimatedCostPesewas: null
+                    marginPercent: null
+                    belowMarginFloor: false
+                    approvalRequestId: null
+                    changeNote: null
+                    issuedAt: "2026-11-13T15:00:00Z"
+                    issuedBy:
+                      id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                      displayName: "Kojo Antwi"
+                    lines: []
+                    acceptance: null
+                    documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
+                    currency: GHS
+                    createdBy:
+                      id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+                      displayName: "Esi Appiah"
+                    createdAt: "2026-11-13T15:00:00Z"
+                    version: 1
+                    acceptanceLinkToken: null
+                  versionCount: 1
+                  acceptedVersionId: null
+                  convertedOrder: null
+                  declineReason: null
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 4
+                  createdAt: "2026-11-06T10:00:00Z"
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

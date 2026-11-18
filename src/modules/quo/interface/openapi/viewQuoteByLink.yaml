@@ -1,0 +1,58 @@
+operationId: viewQuoteByLink
+tags:
+  - quo
+summary: "View a quote by its signed link"
+description: "The quote by its acceptance link (FR-QUO-008, CR-047): the token is the only key, `quo_` and 256 random bits, stored only as its SHA-256 (ADR-0074). The live version's token answers it with `status` `ISSUED`; once accepted or declined the same token answers `ACCEPTED` or `DECLINED`. A link that no longer opens the quote answers its state only, with nothing of the quote: 422 `QUOTE_LINK_CLOSED`, `details[0].code` `EXPIRED` (past the validity), `REPLACED` (a newer version was issued) or `WITHDRAWN` (the farm withdrew the quote). Anything else, a guessed or altered token, the quote's id or number, is 404. Never a cost, a floor or a margin."
+x-error-codes:
+  - VALIDATION_FAILED
+  - NOT_FOUND
+  - QUOTE_LINK_CLOSED
+  - RATE_LIMITED
+parameters:
+  - name: token
+    in: path
+    required: true
+    schema:
+      type: string
+security: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/PublicQuote"
+        example:
+          quoteNo: QUO-2026-DDW-000088
+          versionNo: 2
+          status: ISSUED
+          validUntil: "2026-11-20T18:00:00Z"
+          customerName: "Emmanuel Tetteh"
+          lines:
+            - description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
+              quantity: "18.000"
+              uom: HEAD
+              priceBasis: PER_HEAD
+              unitPricePesewas: 95000
+              lineNetPesewas: 1710000
+          deliveryFeePesewas: 6000
+          netPesewas: 1716000
+          taxPesewas: 1200
+          grossPesewas: 1717200
+          currency: GHS
+          terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
+          deliveryEstimate: "Delivered to Prampram on 11 December, morning"
+          documentUrl: "https://files.hakoremfarms.com/private/quote-88-v2.pdf?X-Amz-Expires=300"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

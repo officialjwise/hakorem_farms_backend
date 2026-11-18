@@ -15,7 +15,7 @@ import { addDays, daysBetween, pageProbe } from './counting';
 import type { ReadScope } from './goods-receipt-store';
 import type { Lineage, TracedUnit } from './lineage';
 import type { CostElement, LinkType } from './stock-store';
-import type { HoldKind, OnHandFilters, OnHandRow, StockReadStore, StockUnitFilters, StockUnitRow } from './stock-read-store';
+import type { CostPoolRecord, HoldKind, OnHandFilters, OnHandRow, StockReadStore, StockUnitFilters, StockUnitRow } from './stock-read-store';
 
 const COST_ELEMENTS: readonly CostElement[] = ['PURCHASE', 'FEED', 'VETERINARY', 'LABOUR', 'OVERHEAD', 'PROCESSING'];
 
@@ -244,6 +244,15 @@ export class StockQueries {
     private readonly cursors: Cursors,
     private readonly clock: Clock,
   ) {}
+
+  /**
+   * The cost pools holding stock of these products at a branch, in the caller's transaction (B10, FR-QUO-003): an
+   * untracked product's pool and every live unit's, each with its quantity and value, for a quote's estimated cost. It
+   * authorises nothing; the caller shows cost only to those who may read the quote's margin.
+   */
+  costPoolsIn(tx: Transaction, branchId: string, productIds: readonly string[]): Promise<CostPoolRecord[]> {
+    return this.store.costPools(tx, branchId, [...new Set(productIds)]);
+  }
 
   /**
    * The balances of these products at a branch that a remote buyer may be promised (FR-SHP-002, FR-SHP-005, A-178),

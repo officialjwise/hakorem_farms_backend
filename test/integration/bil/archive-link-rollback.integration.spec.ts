@@ -44,10 +44,14 @@ describe('0155 rolls back and applies again over archived documents', () => {
     const rolledBack: string[] = [];
     while (rolledBack.at(-1) !== '0155_bil_archive_and_reprints') {
       const step = await rollback(database.url('admin'), migrations);
-      if (step.kind !== 'ROLLED_BACK' || rolledBack.length >= 100) throw new Error(`rollback stopped before 0155: ${JSON.stringify(step)} after ${rolledBack.join(', ')}`);
+      if (step.kind !== 'ROLLED_BACK' || rolledBack.length >= 200) throw new Error(`rollback stopped before 0155: ${JSON.stringify(step)} after ${rolledBack.join(', ')}`);
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0255_iam_grant_quo_permissions',
+      '0254_iam_seed_quo_permissions',
+      '0253_quo_quotations',
+      '0252_platform_add_quotation_documents',
       '0251_pay_payment_order_link',
       '0250_pos_held_sale',
       '0249_mdm_uom_names_and_egg',

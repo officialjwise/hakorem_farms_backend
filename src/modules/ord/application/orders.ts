@@ -70,6 +70,33 @@ export interface OrderCreateRequest {
   readonly notes?: string | null;
 }
 
+/** A line of an accepted quote, as QUO converts it (FR-QUO-011): priced by the quote line it names. */
+export interface QuoteOrderLine {
+  readonly quoteLineId: string;
+  readonly productId: string;
+  readonly stockUnitId: string | null;
+  /** In `uom`: a crate, a single egg or the base unit (CR-045). */
+  readonly quantity: string;
+  readonly uom: string;
+  readonly priceBasis: PriceBasis;
+  readonly unitPricePesewas: bigint;
+}
+
+/** An accepted quote converted to its one order (FR-QUO-011): the quote is the order's source document. */
+export interface QuoteOrderRequest {
+  readonly quoteId: string;
+  readonly branchId: string;
+  readonly customerId: string | null;
+  readonly contactName: string;
+  readonly contactPhone: string;
+  readonly salespersonId: string;
+  readonly fulfilmentMode: 'COLLECTION' | 'DELIVERY';
+  readonly paymentTerms: 'PREPAID' | 'COD' | 'CREDIT';
+  readonly deliveryFeePesewas: bigint;
+  readonly taxInclusive: boolean;
+  readonly lines: readonly QuoteOrderLine[];
+}
+
 export interface OrderQuery {
   readonly channel: OrderHeaderRecord['channel'] | null;
   readonly status: OrderStatus | null;
@@ -405,13 +432,25 @@ export class Orders {
       const left = new Map<number, Quantity>(balances.map((b, i) => [i, b.availableQty]));
       const short: { lineNo: number; wanted: string; short: string }[] = [];
       const planned: { line: OrderLineRecord; wanted: string; pieces: { balance: PromisableStock; qty: Quantity; index: number }[] }[] = [];
+      // Stock the order already holds (a quote's hold handed to its order at conversion, B10) is promised already: each
+      // line takes what is held of its product (and animal) first and reserves only the rest.
+      const alreadyHeld = await this.reservations.activeOfHolderIn(tx, id);
+      const heldLeft = alreadyHeld.map((r) => ({ productId: r.productId, stockUnitId: r.stockUnitId, qty: Quantity.parse(r.qty) }));
       for (const line of open) {
         const offered = balances.map((b, index) => ({ b, index })).filter(({ b }) => b.productId === line.productId && (line.stockUnitId === null || b.stockUnitId === line.stockUnitId));
         // Stock is reserved in the base unit: a line of 4 crates holds 120 eggs (B09e). The shortfall is in the base unit too.
         const base = await this.refs.toBaseIn(tx, line.productId, line.uom, Quantity.parse(line.qtyOrdered));
         if (!base.ok) throw new Error(`order line ${line.id} in ${line.uom} has no exact base quantity (${base.error})`);
+        let wantedBase = base.value;
+        for (const h of heldLeft) {
+          if (wantedBase.isZero() || h.productId !== line.productId || (line.stockUnitId !== null && h.stockUnitId !== line.stockUnitId)) continue;
+          const take = h.qty.compareTo(wantedBase) >= 0 ? wantedBase : h.qty;
+          h.qty = h.qty.minus(take);
+          wantedBase = wantedBase.minus(take);
+        }
+        if (wantedBase.isZero()) continue;
         const plan = planLineReservation(
-          base.value,
+          wantedBase,
           offered.map(({ index }) => ({ availableQty: left.get(index)! })),
         );
         if (plan.kind === 'SHORT') {
@@ -424,7 +463,7 @@ export class Orders {
       }
       if (short.length > 0) throw new OrderStockShortError(short);
 
-      const reservationIds: string[] = [];
+      const reservationIds: string[] = alreadyHeld.map((r) => r.id);
       for (const { line, wanted, pieces } of planned) {
         const held: string[] = [];
         for (const piece of pieces) {
@@ -540,6 +579,139 @@ export class Orders {
       await this.idempotency.complete(tx, claim.id, response);
       return response;
     });
+  }
+
+  /** The series lock an order entered at a branch takes before BEGIN (A-186): QUO's conversion holds it. */
+  locksFor(branchId: string): string[] {
+    return [`SALES_ORDER:${toBusinessDate(this.clock.now()).slice(0, 4)}:${branchId}`];
+  }
+
+  /**
+   * An accepted quote's one order (FR-QUO-011, A-310), in QUO's serializable transaction, which holds `locksFor`: entered
+   * PLACED on channel QUOTE with the quote as its source document, each line priced `QUOTE` at the quoted price and
+   * naming its quote line, nothing re-priced by the engine (the quote's price was the one agreed, approved below the
+   * margin floor where it had to be): the list, floor, ceiling and agreed prices are the quoted price and no variance is
+   * recorded. The quote's hold on its stock is handed to the order by QUO; the confirmation counts it as promised. The
+   * caller has authorised the conversion; this checks the order's own rules as createOrder does.
+   */
+  async createFromQuoteIn(tx: Transaction, actor: Actor, request: QuoteOrderRequest): Promise<SalesOrderView> {
+    const broken: SaleRule[] = [];
+    if (request.fulfilmentMode === 'DELIVERY') broken.push({ field: '/fulfilmentMode', rule: 'FULFILMENT_NOT_AVAILABLE' });
+    if (request.paymentTerms === 'CREDIT' && request.customerId === null) broken.push({ field: '/paymentTerms', rule: 'CUSTOMER_REQUIRED' });
+    if (request.lines.length === 0) broken.push({ field: '/lines', rule: 'NO_LINES' });
+    if (request.customerId !== null) {
+      const customer = (await this.refs.customersIn(tx, [request.customerId])).get(request.customerId);
+      if (customer === undefined || !customer.isLive) broken.push({ field: '/customerId', rule: 'CUSTOMER_NOT_ACTIVE' });
+    }
+    const products = await this.refs.productsIn(
+      tx,
+      request.lines.map((l) => l.productId),
+    );
+    const units = await this.units.factsIn(
+      tx,
+      request.lines.flatMap((l) => (l.stockUnitId === null ? [] : [l.stockUnitId])),
+      this.clock.now(),
+    );
+    for (const [i, line] of request.lines.entries()) {
+      const product = products.get(line.productId);
+      if (product === undefined || !product.isLive) {
+        broken.push({ field: lineField(i, 'productId'), rule: 'PRODUCT_NOT_ACTIVE' });
+        continue;
+      }
+      if (line.priceBasis === 'PER_KG') broken.push({ field: lineField(i, 'productId'), rule: 'CATCH_WEIGHT_NOT_AVAILABLE' });
+      if (product.tracking === 'SERIAL' && line.stockUnitId === null) broken.push({ field: lineField(i, 'stockUnitId'), rule: 'STOCK_UNIT_REQUIRED' });
+      if (product.tracking === 'SERIAL' && !Quantity.parse(line.quantity).equals(Quantity.ofUnits(1n))) broken.push({ field: lineField(i, 'quantity'), rule: 'ONE_ANIMAL_PER_LINE' });
+      const unit = line.stockUnitId === null ? undefined : units.get(line.stockUnitId);
+      if (line.stockUnitId !== null && (unit === undefined || unit.productId !== product.id)) broken.push({ field: lineField(i, 'stockUnitId'), rule: 'STOCK_UNIT_OTHER_PRODUCT' });
+      else if (unit !== undefined && (unit.status !== 'ACTIVE' || unit.branchId !== request.branchId)) broken.push({ field: lineField(i, 'stockUnitId'), rule: 'STOCK_UNIT_NOT_AVAILABLE' });
+    }
+    if (broken.length > 0) throw new OrderInvalidError(broken);
+
+    const at = this.clock.now();
+    const branch = (await this.refs.branchesIn(tx, [request.branchId])).get(request.branchId)!;
+    const orderId = this.nextId();
+    const lines: NewOrderLine[] = request.lines.map((l, i) => {
+      const total = Money.ofPesewas(l.unitPricePesewas).timesQuantity(Quantity.parse(l.quantity)).pesewas;
+      return {
+        id: this.nextId(),
+        salesOrderId: orderId,
+        lineNo: lineNumber(i),
+        productId: l.productId,
+        stockUnitId: l.stockUnitId,
+        qtyOrdered: Quantity.parse(l.quantity).toDecimalString(),
+        uom: l.uom,
+        qtyFulfilled: '0.000',
+        fulfilledWeightKg: null,
+        weightSource: null,
+        priceSource: 'QUOTE',
+        priceBasis: l.priceBasis,
+        priceListEntryId: null,
+        quoteLineRef: l.quoteLineId,
+        resolvedUnitPricePesewas: l.unitPricePesewas,
+        floorUnitPricePesewas: l.unitPricePesewas,
+        ceilingUnitPricePesewas: l.unitPricePesewas,
+        agreedUnitPricePesewas: l.unitPricePesewas,
+        variancePesewas: 0n,
+        varianceDirection: null,
+        varianceReasonCode: null,
+        varianceRequiresApproval: false,
+        varianceApprovalRequestId: null,
+        varianceApprovedBy: null,
+        varianceApprovedAt: null,
+        discountPesewas: 0n,
+        estimatedLineTotalPesewas: total,
+        finalLineTotalPesewas: null,
+        reservationId: null,
+        stockMovementId: null,
+        lineStatus: 'OPEN',
+      };
+    });
+    await this.documents.register(tx, { id: orderId, docType: 'SALES_ORDER', ownerModule: 'ord', branchId: request.branchId, actorId: actor.principalId });
+    const orderNo = await this.numbers.allocateIn(tx, { docType: 'SALES_ORDER', fiscalYear: Number(toBusinessDate(at).slice(0, 4)), branchId: request.branchId, branchCode: branch.code, documentId: orderId });
+    const estimated = Money.sum(lines.map((l) => Money.ofPesewas(l.estimatedLineTotalPesewas))).plus(Money.ofPesewas(request.deliveryFeePesewas));
+    await this.store.insertOrder(tx, {
+      id: orderId,
+      orderNo,
+      channel: 'QUOTE',
+      customerId: request.customerId,
+      contactName: request.contactName,
+      contactPhone: request.contactPhone,
+      paymentTerms: request.paymentTerms,
+      fulfilmentMode: request.fulfilmentMode,
+      sourceDocumentId: request.quoteId,
+      shiftDocumentId: null,
+      salespersonId: request.salespersonId,
+      taxInclusive: request.taxInclusive,
+      deliveryFeePesewas: request.deliveryFeePesewas,
+      estimatedTotalPesewas: estimated.pesewas,
+      maximumTotalPesewas: estimated.pesewas,
+      isOffline: false,
+      placedAt: at,
+      notes: null,
+      branchId: request.branchId,
+      actorId: actor.principalId,
+    });
+    await this.store.recordStatus(tx, orderId, { id: this.nextId(), fromStatus: null, toStatus: 'PLACED', reason: null, occurredAt: at, actorId: actor.principalId });
+    await this.store.insertLines(tx, lines);
+    const view = await this.viewOf(tx, orderId);
+    const placed: OrderPlaced = {
+      orderId,
+      orderNo,
+      channel: 'QUOTE',
+      branchId: request.branchId,
+      customerId: request.customerId,
+      paymentTerms: request.paymentTerms,
+      estimatedTotalPesewas: estimated.toJsonInteger(),
+      placedAt: at.toISOString(),
+    };
+    await this.events.publish(tx, { type: ORDER_PLACED, subjectType: 'SalesOrder', subjectId: orderId, branchId: request.branchId, payload: placed, occurredAt: at });
+    await this.audit.record(tx, { module: 'ord', action: 'CREATE_FROM_QUOTE', entityType: 'SalesOrder', entityId: orderId, branchId: request.branchId, before: null, after: { ...view } });
+    return view;
+  }
+
+  /** Holds an order line on a reservation handed to the order (a quote's hold at conversion, B10). */
+  holdLineIn(tx: Transaction, lineId: string, reservationId: string): Promise<void> {
+    return this.store.holdLine(tx, lineId, reservationId);
   }
 
   /** The branches where the caller holds the permission for the whole branch; a grant at one location adds none. */

@@ -56,6 +56,14 @@ export interface SpeciesFacts {
   readonly name: string;
 }
 
+/** A weight band as the contract's `WeightBandRef` shows it (B10: a quote line's band). */
+export interface WeightBandFacts {
+  readonly id: string;
+  readonly code: string;
+  readonly minKg: string;
+  readonly maxKg: string;
+}
+
 export interface GradeFacts {
   readonly id: string;
   readonly code: string;
@@ -123,6 +131,7 @@ export interface MasterDataRefsStore {
   virtualLocation(tx: Transaction, branchId: string, kind: string): Promise<string | null>;
   suppliers(tx: Transaction, ids: readonly string[]): Promise<SupplierFacts[]>;
   grades(tx: Transaction, ids: readonly string[]): Promise<GradeFacts[]>;
+  weightBands(tx: Transaction, ids: readonly string[]): Promise<WeightBandFacts[]>;
   species(tx: Transaction, ids: readonly string[]): Promise<SpeciesFacts[]>;
   branches(tx: Transaction, ids: readonly string[]): Promise<BranchFacts[]>;
   taxCategories(tx: Transaction, ids: readonly string[]): Promise<TaxCategoryFacts[]>;
@@ -189,6 +198,11 @@ export class MasterDataRefs {
 
   async gradesIn(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, GradeFacts>> {
     return ids.length === 0 ? new Map() : byId(await this.store.grades(tx, unique(ids)));
+  }
+
+  /** Weight bands by id, as the contract's `WeightBandRef` (B10). */
+  async weightBandsIn(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, WeightBandFacts>> {
+    return ids.length === 0 ? new Map() : byId(await this.store.weightBands(tx, unique(ids)));
   }
 
   /** Species by id, as the contract's `SpeciesRef` (B06 continued). */

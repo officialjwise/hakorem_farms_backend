@@ -1,6 +1,6 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
 import type { UomFactor } from '../domain/unit-conversion';
-import type { BranchFacts, GradeFacts, ReasonCodeFacts, ReasonCodeView, LocationFacts, MasterDataRefsStore, ProductFacts, SpeciesFacts, SupplierFacts, TaxCategoryFacts, CustomerFacts, PaymentMethodFacts } from '../application/master-data-refs';
+import type { BranchFacts, GradeFacts, ReasonCodeFacts, ReasonCodeView, LocationFacts, MasterDataRefsStore, ProductFacts, SpeciesFacts, SupplierFacts, TaxCategoryFacts, CustomerFacts, PaymentMethodFacts, WeightBandFacts } from '../application/master-data-refs';
 
 /** MDM's own tables, read by primary key for a higher module's transaction (MasterDataRefs). */
 const PAYMENT_METHOD_FACTS = `SELECT id, code, name, kind, requires_provider_verification AS "requiresProviderVerification", allowed_offline AS "allowedOffline", channels,
@@ -107,6 +107,11 @@ export class PgMasterDataRefsStore implements MasterDataRefsStore {
 
   async grades(tx: Transaction, ids: readonly string[]): Promise<GradeFacts[]> {
     const { rows } = await tx.query<{ id: string; code: string; name: string }>('SELECT id, code, name FROM mdm.grade WHERE id = ANY($1::uuid[])', [ids]);
+    return rows;
+  }
+
+  async weightBands(tx: Transaction, ids: readonly string[]): Promise<WeightBandFacts[]> {
+    const { rows } = await tx.query<WeightBandFacts>('SELECT id, code, min_kg::text AS "minKg", max_kg::text AS "maxKg" FROM mdm.weight_band WHERE id = ANY($1::uuid[])', [ids]);
     return rows;
   }
 
