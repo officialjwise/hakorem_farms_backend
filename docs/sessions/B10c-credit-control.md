@@ -1,6 +1,6 @@
 # B10 continued: credit control (lane B), split before ageing, dunning and standing orders
 
-Date: 2026-11-18 · Branch `b10c-credit-control`, from `main` at `7ef2851` (B10, #109), rebased holding the merge slot on `main` at `48c9226` (lane A's B09b continued 2b, #110; migrations renumbered 0258 to 0261, contract 2.14.0) · Status: **gate as split passed locally; the phase split at its sub-domain boundary (A-315).**
+Date: 2026-11-18 · Branch `b10c-credit-control`, from `main` at `7ef2851` (B10, #109), with `main` at `48c9226` (lane A's B09b continued 2b, #110) merged in holding the merge slot (migrations renumbered 0258 to 0261, contract 2.14.0; **the force push of the rebased branch was refused by permissions, so main was merged into the branch instead**, as the brief allows) · Status: **gate as split passed locally; the phase split at its sub-domain boundary (A-315).**
 
 Run as a fresh agent inside the 2026-11-15 overnight session: the parent session cannot issue /clear or /compact, so each phase starts in a new context that reads only this handoff from disk.
 
@@ -119,10 +119,10 @@ Ageing as at a date and FR-WHL-009's ageing summary with A-300 (i) (deposits on 
 
 | Layer | Result |
 | --- | --- |
-| Unit and integration, merged (`pnpm test:coverage`), on the code rebased on `48c9226` | **3,572 passed**, 295 files, none skipped. Statements 94.07 percent, branches 83.94 (the gate is 80), functions 97.79, lines 96.94; every 100 percent gate held, WHL's domain (`credit.ts`, `time.ts`, `statement.ts`) included. Before the rebase, on `8ae73eb`: 3,528 passed, 290 files. |
-| Contract (`pnpm test:contract`) | **130 passed**, 49 files, on the rebased code, with the new `test/contract/b10c/credit-control.contract.spec.ts`. |
+| Unit and integration, merged (`pnpm test:coverage`), on the code with `48c9226` merged in (the same tree as the rebase) | **3,572 passed**, 295 files, none skipped. Statements 94.07 percent, branches 83.94 (the gate is 80), functions 97.79, lines 96.94; every 100 percent gate held, WHL's domain (`credit.ts`, `time.ts`, `statement.ts`) included. Before it, on `8ae73eb`: 3,528 passed, 290 files. |
+| Contract (`pnpm test:contract`) | **130 passed**, 49 files, on the same code, with the new `test/contract/b10c/credit-control.contract.spec.ts`. |
 | Lint (module boundaries, fixtures, placement, schema names), typecheck, Redocly (no warning), `contract:generate`, versioning against `main` | Clean. |
-| End to end, setup, the image, the scans, the last migration rolled back and applied | Run in CI: green on `8ae73eb` before the rebase (runs 44321539115 push, 44321831843 pull_request); the rebased head's runs are named in the closing message. |
+| End to end, setup, the image, the scans, the last migration rolled back and applied | Run in CI: green on `8ae73eb` before main was merged in (runs 44321539115 push, 44321831843 pull_request); the final head's runs are named in the closing message. |
 
 **The first full merged run was red on 6 tests in 2 files**, each a consequence of this phase, fixed before the next run and never re-run to green: the order suite's credit refusal used the seeded Tema Cold Store, which now holds an account (it now uses a customer with none), and the seed suite counted eight staff and nineteen units (now nine and twenty). The versioning check against `main` was red on the removed planned `priceListId` (kept, deprecated and refused instead).
 
