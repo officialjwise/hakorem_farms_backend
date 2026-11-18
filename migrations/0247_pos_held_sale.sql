@@ -7,7 +7,8 @@
 --                        and why). pos.held_sale_guard (HK010, HK004): held only on an OPEN shift of its till by that
 --                        shift's cashier (ck_held_sale_open_shift); what was held never changes; HELD becomes RECALLED,
 --                        on its shift while OPEN, by its cashier, before it expires (ck_held_sale_recall), or LAPSED;
---                        a recalled or lapsed hold never changes again.
+--                        a recalled or lapsed hold never changes again, and may be purged; a HELD one is never
+--                        deleted (HK004).
 --   pos.shift            trg_shift_held_sales_lapsed (HK010, ck_shift_held_sales_lapsed): a shift leaves OPEN only once
 --                        none of its sales is still held, so a close or a force close always lapses them.
 -- Every time is written by the application from its clock (ADR-0067); nothing here reads now().
@@ -49,6 +50,12 @@ AS $$
 DECLARE
   s record;
 BEGIN
+  IF TG_OP = 'DELETE' THEN
+    IF OLD.status = 'HELD' THEN
+      RAISE EXCEPTION 'pos.held_sale %: a sale still held is recalled or lapses, never deleted', OLD.id USING ERRCODE = 'HK004';
+    END IF;
+    RETURN OLD;
+  END IF;
   SELECT x.status, x.register_id, x.cashier_id, x.branch_id INTO s FROM pos.shift x WHERE x.id = NEW.shift_id;
   IF TG_OP = 'INSERT' THEN
     IF NEW.status <> 'HELD' OR s.status IS DISTINCT FROM 'OPEN' OR s.register_id <> NEW.register_id OR s.cashier_id <> NEW.held_by OR s.branch_id <> NEW.branch_id THEN
@@ -70,7 +77,7 @@ BEGIN
 END
 $$;
 REVOKE ALL ON FUNCTION pos.held_sale_guard() FROM PUBLIC;
-CREATE TRIGGER trg_held_sale_guard BEFORE INSERT OR UPDATE ON pos.held_sale
+CREATE TRIGGER trg_held_sale_guard BEFORE INSERT OR UPDATE OR DELETE ON pos.held_sale
   FOR EACH ROW EXECUTE FUNCTION pos.held_sale_guard();
 
 -- A shift leaves OPEN (declared, or force-closed) only once none of its sales is still held.
@@ -90,7 +97,8 @@ CREATE TRIGGER trg_shift_held_sales_lapsed BEFORE UPDATE ON pos.shift
   FOR EACH ROW EXECUTE FUNCTION pos.shift_held_sales_lapsed();
 
 REVOKE ALL ON pos.held_sale FROM PUBLIC;
-GRANT SELECT, INSERT, UPDATE ON pos.held_sale TO hk_app, hk_worker;
+-- WORK: purged once recalled or lapsed (DATA_MODEL: DELETE on WORK tables); a live hold is never deleted.
+GRANT SELECT, INSERT, UPDATE, DELETE ON pos.held_sale TO hk_app, hk_worker;
 
 -- migrate:down
 DROP TRIGGER trg_shift_held_sales_lapsed ON pos.shift;

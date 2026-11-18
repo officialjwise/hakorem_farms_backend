@@ -383,12 +383,14 @@ describe('the database holds the held sale rules (pos.held_sale_guard, trg_shift
     expect(await insert(shift, id('till:H3'), idOf('kofi'))).toBe('ck_held_sale_open_shift');
   });
 
-  it('refuses a change to what was held, a recall by another, and any change to a recalled or lapsed hold', async () => {
+  it('refuses a change to what was held, a recall by another, any change to a recalled or lapsed hold, and deleting a live one', async () => {
     expect(await refusedAs(`UPDATE pos.held_sale SET payload = '{"lines": [1]}' WHERE id = $1`, [live])).toBe('HK004');
     expect(await refusedAs("UPDATE pos.held_sale SET status = 'RECALLED', recalled_at = $2, recalled_by = $3 WHERE id = $1", [live, clock.now(), idOf('kofi')])).toBe('ck_held_sale_recall');
     expect(await refusedAs("UPDATE pos.held_sale SET status = 'HELD', recalled_at = NULL, recalled_by = NULL WHERE id = $1", [id('held:first')])).toBe('HK004');
     expect(await refusedAs("UPDATE pos.held_sale SET status = 'HELD', lapsed_at = NULL, lapse_reason = NULL WHERE id = $1", [id('held:cabbage')])).toBe('HK004');
-    expect(await refusedAs('DELETE FROM pos.held_sale WHERE id = $1', [live])).toBe('42501');
+    // Work that may be purged once recalled or lapsed; a live hold is never deleted.
+    expect(await refusedAs('DELETE FROM pos.held_sale WHERE id = $1', [live])).toBe('HK004');
+    expect(await refusedAs('DELETE FROM pos.held_sale WHERE id = $1', [id('held:first')])).toBeUndefined();
   });
 
   it('refuses a shift leaving OPEN while a sale is still held on it', async () => {
