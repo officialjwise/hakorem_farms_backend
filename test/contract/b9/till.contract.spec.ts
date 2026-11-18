@@ -132,7 +132,7 @@ describe('B09b continued device operations answer in the contract shapes', () =>
     expectShape('CounterSaleResult', sold.body);
     const refusedSale = await consolePost(api.server, cashier, '/v1/pos/sales', saleId).send({ id: saleId, shiftId: shift, lines: [], tenders: [], occurredAt: clock.now().toISOString() });
     expectShape('Error', refusedSale.body);
-    // The till PIN (2.16.0): the cashier's status, the verifiers the enrolled till holds, a reported try, the witnesses.
+    // The till PIN (2.17.0): the cashier's status, the verifiers the enrolled till holds, a reported try, the witnesses.
     const pin = await setTillPin(api.server, cashier, await tillVerifier('730164'));
     expect(pin.status, JSON.stringify(pin.body)).toBe(200);
     expectShape('TillPinStatus', pin.body);

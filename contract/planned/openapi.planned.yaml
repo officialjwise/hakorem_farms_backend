@@ -34474,7 +34474,7 @@ components:
           type:
             - integer
             - "null"
-          description: "The witness's till PIN version the drop was confirmed with (2.16.0, ADR-0080): a witness whose PIN the till checked. Null with no witness, and on a drop recorded before 2.16.0."
+          description: "The witness's till PIN version the drop was confirmed with (2.17.0, ADR-0080): a witness whose PIN the till checked. Null with no witness, and on a drop recorded before 2.17.0."
         actor:
           $ref: "#/components/schemas/PrincipalRef"
         occurredAt:
@@ -34512,12 +34512,12 @@ components:
         witnessId:
           type: string
           format: uuid
-          description: "Who received a cash drop: a holder of pos.shift.close.approve at the branch who is neither the cashier nor the caller. Required while such a supervisor is signed in at the branch; with none signed in a drop may leave it out and is recorded unwitnessed (A-273 (d), 2.6.0). From 2.16.0 the witness confirms the drop with their till PIN on the till and the till sends `witnessPinVersion`: a named supervisor without it is no witness (the owner on 2026-11-18)."
+          description: "Who received a cash drop: a holder of pos.shift.close.approve at the branch who is neither the cashier nor the caller. Required while such a supervisor is signed in at the branch; with none signed in a drop may leave it out and is recorded unwitnessed (A-273 (d), 2.6.0). From 2.17.0 the witness confirms the drop with their till PIN on the till and the till sends `witnessPinVersion`: a named supervisor without it is no witness (the owner on 2026-11-18)."
         witnessPinVersion:
           type: integer
           minimum: 1
           maximum: 1000000
-          description: "The witness's till PIN version, which the till checked their PIN against (2.16.0, CR-050, ADR-0080). Required with `witnessId`: the server checks that it is the witness's version in force, not replaced and not locked (`WITNESS_PIN_REQUIRED`, `WITNESS_PIN_UNKNOWN`, `WITNESS_PIN_SUPERSEDED`, `WITNESS_PIN_LOCKED`), and the database holds it again."
+          description: "The witness's till PIN version, which the till checked their PIN against (2.17.0, CR-050, ADR-0080). Required with `witnessId`: the server checks that it is the witness's version in force, not replaced and not locked (`WITNESS_PIN_REQUIRED`, `WITNESS_PIN_UNKNOWN`, `WITNESS_PIN_SUPERSEDED`, `WITNESS_PIN_LOCKED`), and the database holds it again."
         occurredAt:
           type: string
           format: date-time
@@ -34548,7 +34548,7 @@ components:
         - displayDecimals
     TillPinSet:
       type: object
-      description: "A till PIN as the verifier the till derived from it (2.16.0, CR-032, ADR-0080): PBKDF2 with HMAC-SHA256 over the PIN's UTF-8 bytes, with a salt from the device's secure generator. Never the PIN: no operation takes one."
+      description: "A till PIN as the verifier the till derived from it (2.17.0, CR-032, ADR-0080): PBKDF2 with HMAC-SHA256 over the PIN's UTF-8 bytes, with a salt from the device's secure generator. Never the PIN: no operation takes one."
       properties:
         algorithm:
           type: string
@@ -35198,7 +35198,7 @@ components:
           $ref: "#/components/schemas/Pesewas"
         pinMaxWrongTries:
           type: integer
-          description: "Wrong till PIN tries before a PIN is locked until its owner sets a new one (2.16.0, CR-032 point 3, ADR-0080): 5. The server counts every try the tills report (`reportTillPinEvents`) and locks it too."
+          description: "Wrong till PIN tries before a PIN is locked until its owner sets a new one (2.17.0, CR-032 point 3, ADR-0080): 5. The server counts every try the tills report (`reportTillPinEvents`) and locks it too."
       required:
         - maxOfflineHours
         - maxQueuedSales
@@ -35253,7 +35253,7 @@ components:
           $ref: "#/components/schemas/OfflinePolicy"
         uoms:
           type: array
-          description: "The units the pack's products are sold or counted in, with the names `Uom` gives them (2.16.0, CR-051), so the till says \"6 eggs\" and \"1 crate\" offline. In code order."
+          description: "The units the pack's products are sold or counted in, with the names `Uom` gives them (2.17.0, CR-051), so the till says \"6 eggs\" and \"1 crate\" offline. In code order."
           items:
             $ref: "#/components/schemas/OfflineUom"
         currency:
@@ -35331,7 +35331,7 @@ components:
           type: string
         overrideApproval:
           type: object
-          description: "A price beyond the cashier's own override limit approved on the till by a supervisor's PIN (2.16.0, the owner on 2026-11-18, ADR-0080). Checked at sync like every PIN approval: a supervisor of the branch, not the cashier, with that PIN version in force and not locked when the sale was made, and a variance within the supervisor's own line limit. The price charged always stands; every difference from the server's price is raised (`PRICE_OVERRIDE`, REVIEW within the cashier's limit, URGENT beyond it)."
+          description: "A price beyond the cashier's own override limit approved on the till by a supervisor's PIN (2.17.0, the owner on 2026-11-18, ADR-0080). Checked at sync like every PIN approval: a supervisor of the branch, not the cashier, with that PIN version in force and not locked when the sale was made, and a variance within the supervisor's own line limit. The price charged always stands; every difference from the server's price is raised (`PRICE_OVERRIDE`, REVIEW within the cashier's limit, URGENT beyond it)."
           properties:
             approvedById:
               type: string
@@ -35393,7 +35393,7 @@ components:
           type: integer
           minimum: 1
           maximum: 1000000
-          description: "The approver's till PIN version, which the till checked their PIN against (2.16.0, CR-032 point 4, ADR-0080). The server checks it at sync: a supervisor of the branch, not the cashier, with that version in force and not locked when the sale was made, is a verified approval (`approvalVerified: true` on the break, REVIEW); anything else is still recorded and its break is URGENT."
+          description: "The approver's till PIN version, which the till checked their PIN against (2.17.0, CR-032 point 4, ADR-0080). The server checks it at sync: a supervisor of the branch, not the cashier, with that version in force and not locked when the sale was made, is a verified approval (`approvalVerified: true` on the break, REVIEW); anything else is still recorded and its break is URGENT."
         approvedById:
           type: string
           format: uuid
