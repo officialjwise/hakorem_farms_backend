@@ -203,7 +203,7 @@ describe('wrong roles are refused on every write and read this phase adds (ADR-0
       expect((await post(session, `/supplier-invoices/${invoice}/submit`)).status).toBe(403);
       if (session !== manager) expect((await post(session, `/supplier-invoices/${invoice}/variance`, { reason: 'Agreed by phone' })).status).toBe(403);
     }
-    // The Manager holds pur.supplier_invoice.approve since B09u (0246, A-301), which asking for a variance takes: an
+    // The Manager holds pur.supplier_invoice.approve since B09u (0248, A-301), which asking for a variance takes: an
     // approved invoice has no mismatch to cover, so the request is refused on its state, never accepted.
     expect((await post(manager, `/supplier-invoices/${invoice}/variance`, { reason: 'Agreed by phone' })).status).toBe(422);
     expect(await count('SELECT count(*)::int AS n FROM pur.supplier_invoice WHERE original_invoice_id = $1', [invoice])).toBe(0);

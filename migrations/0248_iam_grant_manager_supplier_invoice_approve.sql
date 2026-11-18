@@ -1,10 +1,10 @@
--- 0246_iam_grant_manager_supplier_invoice_approve
+-- 0248_iam_grant_manager_supplier_invoice_approve
 -- B09u, F10g (the owner, 2026-11-17; this grant is the parent session's leave in lane A's IAM): an Owner or a Manager
 -- approves a supplier credit note, as with a customer's (`bil.credit_note.approve`, 0174), never the person who raised
 -- the claim or drafted it. Before this grant only the Owner and the Accountant held `pur.supplier_invoice.approve`, the
 -- SUPPLIER_CREDIT_NOTE approver permission (0109), so nobody could approve a credit note the Owner's claim raised and
 -- the Accountant drafted. The one additive grant: the Manager holds `pur.supplier_invoice.approve`, which also lets a
--- Manager approve an invoice for payment, never one they entered (0245) (A-301).
+-- Manager approve an invoice for payment, never one they entered (0247) (A-301).
 -- Data category: none (a lookup row).
 -- Rollback: tested (`pnpm db:rollback`).
 

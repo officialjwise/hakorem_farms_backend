@@ -32,7 +32,7 @@ export function judgeVarianceApprover(facts: { readonly invoiceMakerId: string; 
 /**
  * Who may approve an invoice for payment (CR-043, owner 2026-11-17): never the person who entered it, as with a credit
  * note or a variance, so one person cannot key an invoice and send it for payment alone. The database holds the same
- * rule (`ck_supplier_invoice_approver`, migration 0245).
+ * rule (`ck_supplier_invoice_approver`, migration 0247).
  */
 export function judgeInvoiceApprover(facts: { readonly invoiceMakerId: string; readonly approverId: string }): Result<void, 'INVOICE_MAKER_CANNOT_APPROVE'> {
   return facts.approverId === facts.invoiceMakerId ? err('INVOICE_MAKER_CANNOT_APPROVE') : ok(undefined);

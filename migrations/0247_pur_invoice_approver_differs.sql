@@ -1,4 +1,4 @@
--- 0245_pur_invoice_approver_differs
+-- 0247_pur_invoice_approver_differs
 -- B09u, CR-043 (the owner, 2026-11-17): an invoice is approved for payment by someone other than the person who entered
 -- it, as a credit note and a variance already are (0107):
 --   ck_supplier_invoice_approver  an APPROVED or PAID invoice (kind INVOICE) was approved (`posted_by`) by someone other

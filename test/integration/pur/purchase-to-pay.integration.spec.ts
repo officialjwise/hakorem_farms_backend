@@ -177,7 +177,7 @@ describe('wrong roles are refused on every purchase-to-pay write (ADR-0035)', ()
     // The Manager may prepare a payment since the owner's cross-approval (A-171); an unknown invoice is refused, not the role.
     expect((await post(manager, '/supplier-payments', { supplierId: supplier('Awutu Poultry Farm'), method: 'CASH', allocations: [{ supplierInvoiceId: randomUUID(), amountPesewas: 1 }] })).status).toBe(422);
     expect((await post(manager, `/supplier-invoices/${randomUUID()}/match`)).status).toBe(403);
-    // The Manager approves invoices for payment since B09u (0246, A-301), never one they entered; an unknown one is 404.
+    // The Manager approves invoices for payment since B09u (0248, A-301), never one they entered; an unknown one is 404.
     expect((await post(manager, `/supplier-invoices/${randomUUID()}/approve`)).status).toBe(404);
     expect((await post(manager, `/supplier-payments/${randomUUID()}/mark-paid`, { paidAt: clock.now().toISOString(), externalReference: 'MOMO-1' })).status).toBe(403);
     const { rows } = await admin().query<{ n: number }>('SELECT count(*)::int AS n FROM pur.supplier_invoice WHERE supplier_id = $1', [supplier('Awutu Poultry Farm')]);
